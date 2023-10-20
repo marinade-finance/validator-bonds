@@ -1,0 +1,37 @@
+{
+  "name": "@marinade.finance/validator-bonds-cli",
+  "version": "1.0.0",
+  "description": "CLI of the validator bonds contract",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:marinade-finance/validator-bonds.git"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "files": [
+    "src"
+  ],
+  "main": "src/index",
+  "dependencies": {
+    "@marinade.finance/validator-bonds-sdk": "workspace:*",
+    "@coral-xyz/anchor": "^0.28.0",
+    "@solana/web3.js": "^1.87.3",
+    "@marinade.finance/cli-common": "^2.0.17",
+    "@marinade.finance/anchor-common": "^2.0.17",
+    "@marinade.finance/web3js-common": "^2.0.17",
+    "bn.js": "^5.2.1",
+    "jsbi": "^4.3.0",
+    "commander": "^9.5.0",
+    "pino": "^8.16.1",
+    "pino-pretty": "^10.2.3",
+    "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.8",
+    "yaml": "^2.3.3"
+  },
+  "devDependencies": {
+    "@marinade.finance/jest-utils": "^2.0.17"
+  }
+}

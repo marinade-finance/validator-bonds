@@ -1,0 +1,12 @@
+{
+  "extends": "./node_modules/gts/",
+  "rules": {
+    "semi": ["error", "never"]
+  },
+  "settings": {
+    "node": {
+      // Modules are used by jest dev
+      "allowModules": ["@jest/globals"]
+    }
+  }
+}

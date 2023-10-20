@@ -1,0 +1,46 @@
+{
+  "name": "@marinade.finance/validator-bonds-sdk",
+  "version": "1.0.0",
+  "description": "SDK of the validator bonds contract",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:marinade-finance/validator-bonds.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified, go to project root\" && exit 1"
+  },
+  "keywords": [
+    "solana",
+    "marinade.finance",
+    "liquid staking",
+    "DeFi"
+  ],
+  "author": "Marinade Finance",
+  "license": "ISC",
+  "main": "src/index",
+  "files": [
+    "src",
+    "generated"
+  ],
+  "devDependencies": {
+    "@solana/web3.js": "^1.87.3",
+    "@coral-xyz/anchor": "^0.28.0",
+    "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.8",
+    "@marinade.finance/web3js-common": "^2.0.17",
+    "@marinade.finance/ts-common": "^2.0.17",
+    "@marinade.finance/anchor-common": "^2.0.17",
+    "solana-bankrun": "^0.2.0",
+    "anchor-bankrun": "^0.2.0",
+    "bn.js": "^5.2.1",
+    "jsbi": "^4.3.0"
+  },
+  "peerDependencies": {
+    "@solana/web3.js": "^1.87.3",
+    "@coral-xyz/anchor": "^0.28.0",
+    "bn.js": "^5.2.1",
+    "jsbi": "^4.3.0"
+  }
+}
