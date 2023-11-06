@@ -44,19 +44,19 @@ export function installShowConfig(program: Command) {
       async (
         address: Promise<PublicKey | undefined>,
         {
-          adminAuthority,
-          operatorAuthority,
+          admin,
+          operator,
           format,
         }: {
-          adminAuthority?: Promise<PublicKey>
-          operatorAuthority?: Promise<PublicKey>
+          admin?: Promise<PublicKey>
+          operator?: Promise<PublicKey>
           format: FormatType
         }
       ) => {
         await showConfig({
           address: await address,
-          adminAuthority: await adminAuthority,
-          operatorAuthority: await operatorAuthority,
+          adminAuthority: await admin,
+          operatorAuthority: await operator,
           format,
         })
       }
@@ -128,7 +128,7 @@ async function showConfig({
       }))
     } catch (err) {
       throw new CliCommandError({
-        valueName: '--admin-authority|--operator-authority',
+        valueName: '--admin|--operator',
         value: `${adminAuthority?.toBase58()}}|${operatorAuthority?.toBase58()}}`,
         msg: 'Error while fetching config account based on filter parameters',
         cause: err as Error,

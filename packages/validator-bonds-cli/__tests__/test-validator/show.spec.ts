@@ -120,6 +120,32 @@ describe('Show command using CLI', () => {
           '--program-id',
           program.programId.toBase58(),
           'show-config',
+          '--admin',
+          Keypair.generate().publicKey,
+          '-f',
+          'yaml',
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+      signal: '',
+      // stderr: '',
+      // nothing to be found, not-defined admin taken
+      stdout: YAML.stringify([]),
+    })
+
+    await (
+      expect([
+        'pnpm',
+        [
+          '--silent',
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          'show-config',
           '--operator',
           operatorAuthority.toBase58(),
           '-f',
