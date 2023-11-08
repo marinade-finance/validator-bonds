@@ -38,13 +38,13 @@ export function installInitConfig(program: Command) {
       '--claim-settlement-after-epochs <number>',
       'number of epochs after which claim can be settled',
       parseFloat,
-      0
+      3
     )
     .option(
       '--withdraw-lockup-epochs <number>',
       'number of epochs after which withdraw can be executed',
       parseFloat,
-      0
+      3
     )
     .action(
       async ({
