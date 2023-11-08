@@ -24,5 +24,3 @@ pnpm build
 # testing the SDK+CLI against the local validator running the program
 pnpm test
 ```
-
-_ 
