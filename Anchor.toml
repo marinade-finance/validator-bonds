@@ -1,6 +1,6 @@
 [toolchain]
 anchor_version = "0.29.0"
-solana_version = "1.16.17"
+solana_version = "1.16.18"
 
 [workspace]
 types = "packages/validator-bonds-sdk/generated/"

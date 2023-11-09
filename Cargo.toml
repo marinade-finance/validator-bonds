@@ -19,6 +19,9 @@ codegen-units = 1
 
 [workspace.dependencies]
 anchor-lang = "0.29.0"
+anchor-spl = {version = "0.29.0", default-features = false, features = ["stake"]}
+solana-security-txt = "1.1.1"
+default-env = "0.1.1"
 anyhow = "1.0.40"
 bincode = "1.3.3"
 clap = { version = "4.1.11", features = ["derive", "env"] }
@@ -35,5 +38,5 @@ solana-ledger = "=1.16.18"
 solana-program = "=1.16.18"
 solana-runtime = "=1.16.18"
 solana-sdk = "=1.16.18"
-solana-security-txt = "1.1.1"
 tokio = { version = "1", features = ["full"] }
+

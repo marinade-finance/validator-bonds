@@ -1,8 +1,10 @@
 [package]
 name = "validator-bonds"
 version = "0.1.0"
-description = "Created with Anchor"
+description = "Marinade validator bonds program to insure validator behavior"
 edition = "2021"
+license = "Apache-2.0"
+authors = ["Marinade.Finance"]
 
 [lib]
 crate-type = ["cdylib", "lib"]
@@ -15,6 +17,12 @@ no-log-ix-name = []
 cpi = ["no-entrypoint"]
 default = []
 
+[dev-dependencies]
+bincode = {workspace = true}
+
 [dependencies]
 anchor-lang = { workspace = true }
+anchor-spl = { workspace = true }
 solana-security-txt = { workspace = true }
+default-env = { workspace = true }
+

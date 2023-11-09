@@ -31,7 +31,7 @@ describe('Validator Bonds config account tests', () => {
       program,
       adminAuthority,
       operatorAuthority,
-      claimSettlementAfterEpochs: 1,
+      epochsToClaimSettlement: 1,
       withdrawLockupEpochs: 2,
     })
     tx.add(instruction)
@@ -43,7 +43,7 @@ describe('Validator Bonds config account tests', () => {
 
     expect(configData.adminAuthority).toEqual(adminAuthority)
     expect(configData.operatorAuthority).toEqual(operatorAuthority)
-    expect(configData.claimSettlementAfterEpochs).toEqual(1)
+    expect(configData.epochsToClaimSettlement).toEqual(1)
     expect(configData.withdrawLockupEpochs).toEqual(2)
   })
 })

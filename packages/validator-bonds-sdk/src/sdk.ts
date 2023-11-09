@@ -23,7 +23,7 @@ import { ConfirmOptions, Connection, Keypair, PublicKey } from '@solana/web3.js'
 
 // TODO: randomly generated, need to grind a better name
 // [31,4,248,145,147,37,94,44,125,60,3,95,42,22,31,88,208,50,111,112,185,74,80,202,199,99,65,61,75,177,127,57,38,144,218,174,173,95,124,225,178,105,31,9,171,187,49,43,254,39,37,196,22,237,49,171,154,108,218,48,77,202,198,127]
-export const MARINADE_CONFIG_ADDRESS = new PublicKey(
+export const CONFIG_ADDRESS = new PublicKey(
   '3bYbwEVbfXbmM9evW5bRbFPS9usdp6dtYCYsYtq6NLcE'
 )
 
@@ -38,6 +38,19 @@ export type ValidatorBondsProgram = AnchorProgram<ValidatorBonds>
 
 // --- ACCOUNTS ---
 export type Config = IdlAccounts<ValidatorBonds>['config']
+
+// --- CONSTANTS ---
+export const BONDS_AUTHORITY_SEED = new Uint8Array(
+  JSON.parse(
+    generated.IDL.constants.find(x => x.name === 'BONDS_AUTHORITY_SEED')!.value
+  )
+)
+export const SETTLEMENT_AUTHORITY_SEED = new Uint8Array(
+  JSON.parse(
+    generated.IDL.constants.find(x => x.name === 'SETTLEMENT_AUTHORITY_SEED')!
+      .value
+  )
+)
 
 // --- EVENTS ---
 export const INIT_CONFIG_EVENT = 'InitConfigEvent'
@@ -90,4 +103,14 @@ export function getProgram({
     provider = connection
   }
   return new Program<ValidatorBonds>(generated.IDL, programId, provider)
+}
+
+export function findBondsWithdrawerAuthority(
+  config: PublicKey,
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [BONDS_AUTHORITY_SEED, config.toBytes()],
+    validatorBondsProgramId
+  )
 }

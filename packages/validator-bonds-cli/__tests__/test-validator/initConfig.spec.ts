@@ -82,7 +82,7 @@ describe('Init config account using CLI', () => {
             operator.toBase58(),
             '--rent-payer',
             rentPayerPath,
-            '--claim-settlement-after-epochs',
+            '--epochs-to-claim-settlement',
             42,
             '--withdraw-lockup-epochs',
             43,
@@ -102,7 +102,7 @@ describe('Init config account using CLI', () => {
     const configData = await getConfig(program, configKeypair.publicKey)
     expect(configData.adminAuthority).toEqual(admin)
     expect(configData.operatorAuthority).toEqual(operator)
-    expect(configData.claimSettlementAfterEpochs).toEqual(42)
+    expect(configData.epochsToClaimSettlement).toEqual(42)
     expect(configData.withdrawLockupEpochs).toEqual(43)
     await expect(
       provider.connection.getBalance(rentPayerKeypair.publicKey)

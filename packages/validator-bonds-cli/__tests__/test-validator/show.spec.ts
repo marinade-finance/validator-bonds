@@ -5,6 +5,7 @@ import {
   getProgram,
   initConfigInstruction,
   VALIDATOR_BONDS_PROGRAM_ID,
+  findBondsWithdrawerAuthority,
 } from '@marinade.finance/validator-bonds-sdk'
 import { executeTxSimple } from '@marinade.finance/web3js-common'
 import { transaction } from '@marinade.finance/anchor-common'
@@ -33,13 +34,17 @@ describe('Show command using CLI', () => {
       program,
       adminAuthority,
       operatorAuthority,
-      claimSettlementAfterEpochs: 101,
+      epochsToClaimSettlement: 101,
       withdrawLockupEpochs: 102,
     })
     tx.add(initConfigIx)
     await executeTxSimple(provider.connection, tx, [provider.wallet, keypair!])
 
     const configAccountAddress = keypair!.publicKey
+    const [, bondsWithdrawerAuthorityBump] = findBondsWithdrawerAuthority(
+      configAccountAddress,
+      program.programId
+    )
     await (
       expect([
         'pnpm',
@@ -67,8 +72,10 @@ describe('Show command using CLI', () => {
         account: {
           adminAuthority: adminAuthority.toBase58(),
           operatorAuthority: operatorAuthority.toBase58(),
-          claimSettlementAfterEpochs: 101,
+          epochsToClaimSettlement: 101,
           withdrawLockupEpochs: 102,
+          bondsWithdrawerAuthorityBump,
+          reserved: [512],
         },
       }),
     })
@@ -102,8 +109,10 @@ describe('Show command using CLI', () => {
           account: {
             adminAuthority: adminAuthority.toBase58(),
             operatorAuthority: operatorAuthority.toBase58(),
-            claimSettlementAfterEpochs: 101,
+            epochsToClaimSettlement: 101,
             withdrawLockupEpochs: 102,
+            bondsWithdrawerAuthorityBump,
+            reserved: [512],
           },
         },
       ]),
@@ -164,8 +173,10 @@ describe('Show command using CLI', () => {
           account: {
             adminAuthority: adminAuthority.toBase58(),
             operatorAuthority: operatorAuthority.toBase58(),
-            claimSettlementAfterEpochs: 101,
+            epochsToClaimSettlement: 101,
             withdrawLockupEpochs: 102,
+            bondsWithdrawerAuthorityBump,
+            reserved: [512],
           },
         },
       ]),

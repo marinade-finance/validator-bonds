@@ -57,7 +57,7 @@ describe('Validator Bonds config account tests', () => {
       program,
       adminAuthority,
       operatorAuthority,
-      claimSettlementAfterEpochs: 1,
+      epochsToClaimSettlement: 1,
       withdrawLockupEpochs: 2,
     })
     tx.add(instruction)
@@ -72,14 +72,14 @@ describe('Validator Bonds config account tests', () => {
 
     expect(configData.adminAuthority).toEqual(adminAuthority)
     expect(configData.operatorAuthority).toEqual(operatorAuthority)
-    expect(configData.claimSettlementAfterEpochs).toEqual(1)
+    expect(configData.epochsToClaimSettlement).toEqual(1)
     expect(configData.withdrawLockupEpochs).toEqual(2)
 
     // Ensure the event listener was called
     await event.then(e => {
       expect(e.adminAuthority).toEqual(adminAuthority)
       expect(e.operatorAuthority).toEqual(operatorAuthority)
-      expect(e.claimSettlementAfterEpochs).toEqual(1)
+      expect(e.epochsToClaimSettlement).toEqual(1)
       expect(e.withdrawLockupEpochs).toEqual(2)
     })
   })
@@ -97,7 +97,7 @@ describe('Validator Bonds config account tests', () => {
         program,
         adminAuthority,
         operatorAuthority,
-        claimSettlementAfterEpochs: i,
+        epochsToClaimSettlement: i,
         withdrawLockupEpochs: i + 1,
       })
       tx.add(instruction)

@@ -28,7 +28,7 @@ export async function initConfigInstruction({
   adminAuthority = program.provider.publicKey!,
   operatorAuthority = adminAuthority,
   rentPayer = program.provider.publicKey!,
-  claimSettlementAfterEpochs = 0,
+  epochsToClaimSettlement = 0,
   withdrawLockupEpochs = 0,
 }: {
   program: ValidatorBondsProgram
@@ -36,7 +36,7 @@ export async function initConfigInstruction({
   adminAuthority?: PublicKey
   operatorAuthority?: PublicKey
   rentPayer?: PublicKey // signer
-  claimSettlementAfterEpochs?: BN | number
+  epochsToClaimSettlement?: BN | number
   withdrawLockupEpochs?: BN | number
 }): Promise<{
   keypair: Keypair | undefined
@@ -49,7 +49,7 @@ export async function initConfigInstruction({
     .initConfig({
       adminAuthority,
       operatorAuthority,
-      claimSettlementAfterEpochs: new BN(claimSettlementAfterEpochs),
+      epochsToClaimSettlement: new BN(epochsToClaimSettlement),
       withdrawLockupEpochs: new BN(withdrawLockupEpochs),
     })
     .accountsStrict({

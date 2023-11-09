@@ -5,6 +5,7 @@ import {
   print_data,
   FormatType,
   reformat,
+  reformatReserved,
 } from '@marinade.finance/cli-common'
 import { PublicKey } from '@solana/web3.js'
 import { Command } from 'commander'
@@ -136,7 +137,7 @@ async function showConfig({
     }
   }
 
-  const reformatted = reformat(data)
+  const reformatted = reformat(data, reformatReserved)
   print_data(reformatted, format)
 }
 
