@@ -10,26 +10,21 @@ steps:
     - 'PATH="/var/lib/buildkite-agent/.local/share/solana/install/active_release/bin:$PATH"'
     - 'epoch=$(solana epoch || exit 1)'
     - 'previous_epoch=$((epoch - 1))'
+
     - 'snapshot_dir=$(mktemp --directory -p "$$target_dir" "snapshot-$$previous_epoch-XXXXXX")'
+
     - 'buildkite-agent meta-data set snapshot_dir "$$snapshot_dir"'
+    - 'buildkite-agent meta-data set epoch "$$epoch"'
+
   - wait: ~
+
   - label: ":cloud: :arrow_right: :floppy_disk: Fetch genesis"
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - './scripts/fetch-genesis.bash "$$snapshot_dir"'
-  # - label: ":file_folder: Prepare workspace"
-  #   command: "echo Build"
-  # - label: ":cloud: :arrow_right: :floppy_disk: Fetch snapshot and genesis"
-  #   command: "echo Build"
-  # - label: ":cloud: :arrow_right: :floppy_disk: Fetch snapshot"
-  #   command: "echo Build"
-  # - label: ":gear: Parse snapshot"
-  #   command: "echo Build"
-  # - label: ":scales: Find & evaluate insured events"
-  #   command: "echo Build"
-  # - label: ":package: Build merkle tree"
-  #   command: "echo Build"
-  # - label: ":gcp: Upload artifacts"
-  #   command: "echo Build"
-  # - label: ":zap: Create claims on-chain"
-  #   command: "echo Build"
+
+  - label: ":cloud: :arrow_right: :floppy_disk: Fetch snapshot"
+    commands:
+    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
+    - 'epoch=$(buildkite-agent meta-data get epoch)'
+    - './scripts/fetch-jito-snapshot.bash "$$epoch" "$$snapshot_dir"'
