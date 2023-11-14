@@ -14,7 +14,7 @@ steps:
     - 'snapshot_dir=$(mktemp --directory -p "$$target_dir" "snapshot-$$previous_epoch-XXXXXX")'
 
     - 'buildkite-agent meta-data set snapshot_dir "$$snapshot_dir"'
-    - 'buildkite-agent meta-data set epoch "$$epoch"'
+    - 'buildkite-agent meta-data set previous_epoch "$$previous_epoch"'
 
   - wait: ~
 
@@ -26,5 +26,5 @@ steps:
   - label: ":cloud: :arrow_right: :floppy_disk: Fetch snapshot"
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
-    - 'epoch=$(buildkite-agent meta-data get epoch)'
-    - './scripts/fetch-jito-snapshot.bash "$$epoch" "$$snapshot_dir"'
+    - 'previous_epoch=$(buildkite-agent meta-data get previous_epoch)'
+    - './scripts/fetch-jito-snapshot.bash "$$previous_epoch" "$$snapshot_dir"'
