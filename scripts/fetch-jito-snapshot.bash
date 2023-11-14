@@ -35,12 +35,9 @@ echo "Available objects:" >&2
 echo "$gs_files" >&2
 
 gs_path_snapshot=$(<<<"$gs_files" grep snapshot)
-gs_path_stake_meta=$(<<<"$gs_files" grep stake-meta)
 
 echo "Snapshot path: $gs_path_snapshot" >&2
-echo "Stake meta path: $gs_path_stake_meta" >&2
 
-gcloud storage cp "$gs_path_stake_meta" "$target_dir_absolute"
 gcloud storage cp "$gs_path_snapshot" "$target_dir_absolute"
 
 pv "$target_dir_absolute"/snapshot-*.tar.zst | tar --use-compress-program=unzstd -xf - -C "$target_dir_absolute"
