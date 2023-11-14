@@ -57,7 +57,6 @@ pub fn generate_stake_meta_collection(bank: &Arc<Bank>) -> anyhow::Result<StakeM
         bank.get_account(&solana_program::sysvar::stake_history::ID)
             .expect("Failed to fetch the stake history"),
     );
-    println!("history {:?}", history_account);
     let history: StakeHistory = bincode::deserialize(&history_account.data)?;
     info!("Stake history loaded.");
 
@@ -76,7 +75,6 @@ pub fn generate_stake_meta_collection(bank: &Arc<Bank>) -> anyhow::Result<StakeM
                 continue;
             }
         };
-        info!("Parsed the stake account: {} {:?}", pubkey, account);
 
         let (
             validator,
