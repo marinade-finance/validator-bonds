@@ -9,10 +9,12 @@ steps:
     - 'mkdir -p /mnt/storage-1/snapshots'
     - 'PATH="/var/lib/buildkite-agent/.local/share/solana/install/active_release/bin:$PATH"'
     - 'epoch=$(solana epoch || exit 1)'
-    - 'export previous_epoch=$((epoch - 1))'
-    - 'export snapshot_dir=$(mktemp --directory -p "$$target_dir" "snapshot-$$previous_epoch-XXXXXX")'
+    - 'previous_epoch=$((epoch - 1))'
+    - 'snapshot_dir=$(mktemp --directory -p "$$target_dir" "snapshot-$$previous_epoch-XXXXXX")'
+    - 'buildkite-agent meta-data set snapshot_dir "$$snapshot_dir"'
   - label: ":cloud: :arrow_right: :floppy_disk: Fetch genesis"
     commands:
+    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - './scripts/fetch-genesis.bash "$$snapshot_dir"'
   # - label: ":file_folder: Prepare workspace"
   #   command: "echo Build"
