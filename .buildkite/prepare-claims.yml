@@ -6,6 +6,7 @@ steps:
     env:
       snapshots_dir: /mnt/storage-1/snapshots
     commands:
+    - 'ulimit -n 1000000'
     - 'ulimit -a'
     - '. "$HOME/.cargo/env"'
     - 'snapshot_dir=$(ls -td -- $$snapshots_dir/*/ | head -n 1 || exit 1)'
