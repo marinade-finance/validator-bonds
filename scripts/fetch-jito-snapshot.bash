@@ -40,4 +40,4 @@ echo "Snapshot path: $gs_path_snapshot" >&2
 
 gcloud storage cp "$gs_path_snapshot" "$target_dir_absolute"
 
-pv "$target_dir_absolute"/snapshot-*.tar.zst | tar --use-compress-program=unzstd -xf - -C "$target_dir_absolute"
+pv -t -e -r -b -n -f -i 10 "$target_dir_absolute"/snapshot-*.tar.zst | tar --use-compress-program=unzstd -xf - -C "$target_dir_absolute"
