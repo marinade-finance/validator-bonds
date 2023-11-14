@@ -5,6 +5,7 @@ steps:
   - label: ":file_folder: Prepare workspace"
     commands:
     - 'mkdir -p /mnt/storage-1/snapshots'
+    - 'PATH="/var/lib/buildkite-agent/.local/share/solana/install/active_release/bin:$PATH"'
     - 'epoch=$(solana epoch || exit 1)'
     - 'export previous_epoch=$((epoch - 1))'
     - 'export snapshot_dir=$(mktemp --directory -p "$target_dir" "snapshot-$previous_epoch-XXXXXX")'
