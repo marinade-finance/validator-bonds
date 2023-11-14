@@ -7,7 +7,7 @@ steps:
       snapshots_dir: /mnt/storage-1/snapshots
     commands:
     - '. "$HOME/.cargo/env"'
-    - 'snapshot_dir=$(ls -td -- "$$snapshots_dir/*/" | head -n 1')
+    - 'snapshot_dir=$(ls -td -- "$$snapshots_dir/*/" | head -n 1)'
     - 'echo "Snapshot dir: $$snapshot_dir"'
     - 'cargo build --release'
     - './target/release/snapshot-parser-cli --ledger-path "$$snapshot_dir" --output-validator-meta-collection "$$snapshot_dir/validators.json" --output-stake-meta-collection "$$snapshot_dir/stakes.json"'
