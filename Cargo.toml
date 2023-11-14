@@ -1,6 +1,8 @@
 [workspace]
 members = [
-    "programs/*"
+    "programs/*",
+    "insurance-engine",
+    "snapshot-parser"
 ]
 resolver = "1"
 

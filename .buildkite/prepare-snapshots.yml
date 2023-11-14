@@ -1,0 +1,22 @@
+agents:
+  queue: "snapshots"
+
+steps:
+  - label: ":hammer_and_pick: :rust: Build"
+    command: "echo Build"
+  - label: ":file_folder: Prepare workspace"
+    command: "echo Build"
+  - label: ":cloud: :arrow_right: :floppy_disk: Fetch genesis"
+    command: "echo Build"
+  - label: ":cloud: :arrow_right: :floppy_disk: Fetch snapshot"
+    command: "echo Build"
+  - label: ":gear: Parse snapshot"
+    command: "echo Build"
+  - label: ":scales: Find & evaluate insured events"
+    command: "echo Build"
+  - label: ":package: Build merkle tree"
+    command: "echo Build"
+  - label: ":gcp: Upload artifacts"
+    command: "echo Build"
+  - label: ":zap: Create claims on-chain"
+    command: "echo Build"

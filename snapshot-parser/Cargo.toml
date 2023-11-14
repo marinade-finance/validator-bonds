@@ -1,0 +1,25 @@
+[[bin]]
+name = "snapshot-parser-cli"
+path = "src/bin/cli.rs"
+
+[package]
+name = "snapshot-parser"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.40"
+# solana-accounts-db = "=1.16.18"
+solana-client = "=1.16.18"
+solana-ledger = "=1.16.18"
+solana-program = "=1.16.18"
+solana-runtime = "=1.16.18"
+solana-sdk = "=1.16.18"
+# solana-vote = "=1.16.18"
+log = "0.4.14"
+clap = { version = "4.1.11", features = ["derive", "env"] }
+env_logger = "0.10.0"
+tokio = { version = "1", features = ["full"] }
+serde = "1.0.190"
+serde_json = "1.0.108"
+bincode = "1.3.3"
