@@ -3,15 +3,17 @@ agents:
 
 steps:
   - label: ":file_folder: Prepare workspace"
+    env:
+      target_dir: /mnt/storage-1/snapshots
     commands:
     - 'mkdir -p /mnt/storage-1/snapshots'
     - 'PATH="/var/lib/buildkite-agent/.local/share/solana/install/active_release/bin:$PATH"'
     - 'epoch=$(solana epoch || exit 1)'
     - 'export previous_epoch=$((epoch - 1))'
-    - 'export snapshot_dir=$(mktemp --directory -p "$target_dir" "snapshot-$previous_epoch-XXXXXX")'
+    - 'export snapshot_dir=$(mktemp --directory -p "$$target_dir" "snapshot-$$previous_epoch-XXXXXX")'
   - label: ":cloud: :arrow_right: :floppy_disk: Fetch genesis"
     commands:
-    - './scripts/fetch-genesis.bash "$snapshot_dir"'
+    - './scripts/fetch-genesis.bash "$$snapshot_dir"'
   # - label: ":file_folder: Prepare workspace"
   #   command: "echo Build"
   # - label: ":cloud: :arrow_right: :floppy_disk: Fetch snapshot and genesis"
