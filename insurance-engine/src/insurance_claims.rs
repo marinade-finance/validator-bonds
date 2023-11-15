@@ -54,6 +54,9 @@ pub fn generate_insurance_claim_collection(
     let mut grouped_stake_meta: HashMap<(String, String, String), Vec<StakeMeta>> =
         Default::default();
     for stake_meta in filtered_stake_meta_iter {
+        if stake_meta.active_delegation_lamports == 0 {
+          continue
+        }
         if let Some(validator) = &stake_meta.validator {
             grouped_stake_meta
                 .entry((
@@ -72,12 +75,12 @@ pub fn generate_insurance_claim_collection(
             |((vote_account, withdraw_authority, stake_authority), stake_metas)| {
                 let stake_accounts = stake_metas
                     .iter()
-                    .map(|s| (s.pubkey.clone(), s.activating_delegation_lamports))
+                    .map(|s| (s.pubkey.clone(), s.active_delegation_lamports))
                     .collect();
 
                 let stake: u64 = stake_metas
                     .iter()
-                    .map(|s| s.activating_delegation_lamports)
+                    .map(|s| s.active_delegation_lamports)
                     .sum();
 
                 let claim: Option<u64> =
