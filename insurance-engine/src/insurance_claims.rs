@@ -11,24 +11,22 @@ use {
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct InsuranceClaim {
-    withdraw_authority: String,
-    stake_authority: String,
-    vote_account: String,
-    stake_accounts: HashMap<String, u64>,
-    stake: u64,
-    claim: u64,
+    pub withdraw_authority: String,
+    pub stake_authority: String,
+    pub vote_account: String,
+    pub stake_accounts: HashMap<String, u64>,
+    pub stake: u64,
+    pub claim: u64,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct InsuranceClaimCollection {
-    epoch: u64,
-    slot: u64,
-    claims: Vec<InsuranceClaim>,
+    pub epoch: u64,
+    pub slot: u64,
+    pub claims: Vec<InsuranceClaim>,
 }
 
-pub fn stake_authorities_filter(
-    whitelist: HashSet<String>,
-) -> Box<dyn Fn(&StakeMeta) -> bool> {
+pub fn stake_authorities_filter(whitelist: HashSet<String>) -> Box<dyn Fn(&StakeMeta) -> bool> {
     Box::new(move |s| whitelist.contains(&s.stake_authority))
 }
 
@@ -55,7 +53,7 @@ pub fn generate_insurance_claim_collection(
         Default::default();
     for stake_meta in filtered_stake_meta_iter {
         if stake_meta.active_delegation_lamports == 0 {
-          continue
+            continue;
         }
         if let Some(validator) = &stake_meta.validator {
             grouped_stake_meta

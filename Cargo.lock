@@ -2054,6 +2054,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d77f7ec81a6d05a3abb01ab6eb7590f6083d08449fe5a1c8b1e620283546ccb7"
 
 [[package]]
+name = "hex"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+
+[[package]]
 name = "histogram"
 version = "0.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2337,9 +2343,11 @@ dependencies = [
  "clap 4.4.8",
  "env_logger 0.10.1",
  "log",
+ "merkle-tree",
  "serde",
  "serde_json",
  "snapshot-parser",
+ "solana-sdk",
  "tokio",
 ]
 
@@ -2619,6 +2627,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a634b1c61a95585bd15607c6ab0c4e5b226e695ff2800ba0cdccddf208c406c"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "merkle-tree"
+version = "0.0.0"
+dependencies = [
+ "fast-math",
+ "hex",
+ "solana-sdk",
 ]
 
 [[package]]
