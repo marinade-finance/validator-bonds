@@ -17,7 +17,7 @@ steps:
   - label: ":hammer_and_wrench: :rust: Build"
     commands:
     - '. "$HOME/.cargo/env"'
-    - 'cargo build --release'
+    - 'cargo build --release --bin snapshot-parser-cli --bin insurance-engine-cli'
     artifact_paths:
       - target/release/snapshot-parser-cli
       - target/release/insurance-engine-cli
