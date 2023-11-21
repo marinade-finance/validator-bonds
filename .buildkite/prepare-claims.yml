@@ -32,7 +32,7 @@ steps:
 
   - wait: ~
 
-  - label: ":scales: Evaluate Insured Events"
+  - label: ":scales: Evaluate Marinade Insured Events"
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - |
@@ -44,6 +44,10 @@ steps:
         --output-merkle-tree-collection "$$snapshot_dir/claims_merkle.json" \
         --whitelist-stake-authority stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N \
         --low-rewards-threshold-pct 0.9
+
+  - label: ":scales: Evaluate All Insured Events"
+    commands:
+    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - |
       ./target/release/insurance-engine-cli \
         --validator-meta-collection "$$snapshot_dir/validators.json" \
@@ -70,6 +74,3 @@ steps:
     - 'gcloud storage cp "$$snapshot_dir/claims_all.json" "$$gs_bucket/$$previous_epoch/"'
     - 'gcloud storage cp "$$snapshot_dir/claims_merkle_all.json" "$$gs_bucket/$$previous_epoch/"'
 
-  - label: ":zap: Execute on-chain"
-    commands:
-    - 'echo TODO'
