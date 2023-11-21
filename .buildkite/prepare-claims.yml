@@ -16,7 +16,7 @@ steps:
         --output-validator-meta-collection "$$snapshot_dir/validators.json" \
         --output-stake-meta-collection "$$snapshot_dir/stakes.json"
     - |
-      ./target/release/insurance-engie-cli \
+      ./target/release/insurance-engine-cli \
         --validator-meta-collection "$$snapshot_dir/validators.json" \
         --stake-meta-collection "$$snapshot_dir/stakes.json" \
         --output-insured-event-collection "$$snapshot_dir/events.json" \
