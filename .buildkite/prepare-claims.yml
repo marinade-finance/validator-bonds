@@ -28,6 +28,7 @@ steps:
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - 'buildkite-agent artifact download target/release/snapshot-parser-cli .'
+    - 'chmod +x target/release/snapshot-parser-cli'
     - |
       ./target/release/snapshot-parser-cli \
         --ledger-path "$$snapshot_dir" \
@@ -40,6 +41,7 @@ steps:
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - 'buildkite-agent artifact download target/release/insurance-engine-cli .'
+    - 'chmod +x target/release/insurance-engine-cli'
     - |
       ./target/release/insurance-engine-cli \
         --validator-meta-collection "$$snapshot_dir/validators.json" \
@@ -54,6 +56,7 @@ steps:
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - 'buildkite-agent artifact download target/release/insurance-engine-cli .'
+    - 'chmod +x target/release/insurance-engine-cli'
     - |
       ./target/release/insurance-engine-cli \
         --validator-meta-collection "$$snapshot_dir/validators.json" \
