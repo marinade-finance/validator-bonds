@@ -27,7 +27,7 @@ steps:
   - label: ":microscope: Parse Snapshot"
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
-    - 'buildkite-agent artifact download target/release/snapshot-parser-cli .'
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/snapshot-parser-cli .'
     - 'chmod +x target/release/snapshot-parser-cli'
     - |
       ./target/release/snapshot-parser-cli \
@@ -40,7 +40,7 @@ steps:
   - label: ":scales: Evaluate Marinade Insured Events"
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
-    - 'buildkite-agent artifact download target/release/insurance-engine-cli .'
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/insurance-engine-cli .'
     - 'chmod +x target/release/insurance-engine-cli'
     - |
       ./target/release/insurance-engine-cli \
@@ -55,7 +55,7 @@ steps:
   - label: ":scales: Evaluate All Insured Events"
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
-    - 'buildkite-agent artifact download target/release/insurance-engine-cli .'
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/insurance-engine-cli .'
     - 'chmod +x target/release/insurance-engine-cli'
     - |
       ./target/release/insurance-engine-cli \
