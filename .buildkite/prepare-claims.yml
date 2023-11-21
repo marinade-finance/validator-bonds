@@ -29,7 +29,7 @@ steps:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - 'buildkite-agent artifact download target/release/snapshot-parser-cli .'
     - |
-      ./snapshot-parser-cli \
+      ./target/release/snapshot-parser-cli \
         --ledger-path "$$snapshot_dir" \
         --output-validator-meta-collection "$$snapshot_dir/validators.json" \
         --output-stake-meta-collection "$$snapshot_dir/stakes.json"
@@ -41,7 +41,7 @@ steps:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - 'buildkite-agent artifact download target/release/insurance-engine-cli .'
     - |
-      ./insurance-engine-cli \
+      ./target/release/insurance-engine-cli \
         --validator-meta-collection "$$snapshot_dir/validators.json" \
         --stake-meta-collection "$$snapshot_dir/stakes.json" \
         --output-insured-event-collection "$$snapshot_dir/events.json" \
@@ -55,7 +55,7 @@ steps:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - 'buildkite-agent artifact download target/release/insurance-engine-cli .'
     - |
-      ./insurance-engine-cli \
+      ./target/release/insurance-engine-cli \
         --validator-meta-collection "$$snapshot_dir/validators.json" \
         --stake-meta-collection "$$snapshot_dir/stakes.json" \
         --output-insured-event-collection "$$snapshot_dir/events_all.json" \
