@@ -10,11 +10,28 @@ steps:
     - 'snapshot_dir=$(ls -td -- $$snapshots_dir/*/ | head -n 1 || exit 1)'
     - 'echo "Snapshot dir: $$snapshot_dir"'
     - 'cargo build --release'
+
+  - wait: ~
+
+  - label: ":gear: Parse Snapshot"
+    env:
+      snapshots_dir: /mnt/storage-1/snapshots
+    commands:
+    - 'snapshot_dir=$(ls -td -- $$snapshots_dir/*/ | head -n 1 || exit 1)'
     - |
       ./target/release/snapshot-parser-cli \
         --ledger-path "$$snapshot_dir" \
         --output-validator-meta-collection "$$snapshot_dir/validators.json" \
         --output-stake-meta-collection "$$snapshot_dir/stakes.json"
+
+  - wait: ~
+
+  - label: ":scales: Evaluate Insured Events"
+    env:
+      snapshots_dir: /mnt/storage-1/snapshots
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'snapshot_dir=$(ls -td -- $$snapshots_dir/*/ | head -n 1 || exit 1)'
     - |
       ./target/release/insurance-engine-cli \
         --validator-meta-collection "$$snapshot_dir/validators.json" \
@@ -32,3 +49,15 @@ steps:
         --output-insurance-claim-collection "$$snapshot_dir/claims2.json" \
         --output-merkle-tree-collection "$$snapshot_dir/claims_merkle2.json" \
         --low-rewards-threshold-pct 0.9
+
+  - block: ":rocket: Continue?"
+
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
+    commands:
+    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
+    - 'previous_epoch=$(buildkite-agent meta-data get previous_epoch)'
+    - './scripts/fetch-jito-snapshot.bash "$$previous_epoch" "$$snapshot_dir"'
+
+  - label: ":zap: Execute on-chain"
+    commands:
+    - 'echo TODO'
