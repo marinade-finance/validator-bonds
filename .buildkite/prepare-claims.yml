@@ -9,7 +9,7 @@ steps:
     - '. "$HOME/.cargo/env"'
     - 'snapshot_dir=$(ls -td -- $$snapshots_dir/*/ | head -n 1 || exit 1)'
     - 'echo "Snapshot dir: $$snapshot_dir"'
-    - 'previous_epoch=$(<<<"$$snapshot_dir" grep -oP '(?<=snapshot-)\d+' || exit 1)'
+    - 'previous_epoch=$(<<<"$$snapshot_dir" grep -oP "(?<=snapshot-)\d+" || exit 1)'
     - 'echo "Previous epoch: $$previous_epoch"'
     - 'buildkite-agent meta-data set snapshot_dir "$$snapshot_dir"'
     - 'buildkite-agent meta-data set previous_epoch "$$previous_epoch"'
