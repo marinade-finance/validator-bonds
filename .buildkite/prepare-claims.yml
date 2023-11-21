@@ -18,12 +18,16 @@ steps:
     commands:
     - '. "$HOME/.cargo/env"'
     - 'cargo build --release'
+    artifact_paths:
+      - target/release/snapshot-parser-cli
+      - target/release/insurance-engine-cli
 
   - wait: ~
 
   - label: ":microscope: Parse Snapshot"
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
+    - 'buildkite-agent artifact download target/release/snapshot-parser-cli target/release'
     - |
       ./target/release/snapshot-parser-cli \
         --ledger-path "$$snapshot_dir" \
@@ -35,6 +39,7 @@ steps:
   - label: ":scales: Evaluate Marinade Insured Events"
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
+    - 'buildkite-agent artifact download target/release/insurance-engine-cli target/release'
     - |
       ./target/release/insurance-engine-cli \
         --validator-meta-collection "$$snapshot_dir/validators.json" \
@@ -48,6 +53,7 @@ steps:
   - label: ":scales: Evaluate All Insured Events"
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
+    - 'buildkite-agent artifact download target/release/insurance-engine-cli target/release'
     - |
       ./target/release/insurance-engine-cli \
         --validator-meta-collection "$$snapshot_dir/validators.json" \
