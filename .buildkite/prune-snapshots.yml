@@ -6,4 +6,4 @@ steps:
     env:
       snapshots_dir: /mnt/storage-1/snapshots
     commands:
-    - 'ls -td -- /mnt/storage-1/snapshots/*/ | awk 'NR>2' | tee /dev/stderr | xargs rm -r'
+    - 'ls -td -- /mnt/storage-1/snapshots/*/ | awk "NR>2" | tee /dev/stderr | xargs rm -r'
