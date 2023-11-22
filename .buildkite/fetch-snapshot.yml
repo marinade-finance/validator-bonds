@@ -13,7 +13,7 @@ steps:
     commands:
     - >
       epoch=$(gcloud storage ls "gs://jito-mainnet/**/*.tar.zst" | awk -F / '{print $$4}' | sort -nr | head -n 1)
-      buildkite-agent meta-data set epoch "$$epoch"
+    - 'buildkite-agent meta-data set epoch "$$epoch"'
     if: "build.env('LATEST') != null"
 
   - wait: ~
