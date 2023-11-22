@@ -15,17 +15,17 @@ steps:
       max_available_epoch=$(gcloud storage ls "gs://jito-mainnet/**/*.tar.zst" | awk -F / '{print $$4}' | sort -nr | head -n 1)
       echo max_processed_epoch: $$max_processed_epoch
       echo max_available_epoch: $$max_available_epoch
-      (( $$max_processed_epoch < $$max_available_epoch )) && buildkite-agent env set "EPOCH=$$max_available_epoch"
+      (( $$max_processed_epoch < $$max_available_epoch )) && export EPOCH="$$max_available_epoch"
 
   - wait: ~
 
   - trigger: "fetch-solana-snapshot"
     label: ":rocket: Trigger: Fetch Solana snapshot"
     async: true
-    # build:
-    #   env:
-    #     EPOCH: ${EPOCH}
-    # if: ${EPOCH}
+    build:
+      env:
+        EPOCH: build.env("EPOCH")
+    if: build.env("EPOCH")
 
 
   # - label: ":recycle: Pruning old snapshot directories"
