@@ -22,19 +22,17 @@ echo "Target path: $target_dir_absolute" >&2
 
 jito_gs_bucket="gs://jito-mainnet"
 
-gs_dirs=$(gcloud storage ls "$jito_gs_bucket/$epoch" || exit 1)
-
-echo "Available locations:" >&2
-<<<"$gs_dirs" cat >&2
-
-gs_dir=$(<<<"$gs_dirs" head -1)
-echo "Fetching from location: $gs_dir" >&2
-
-gs_files=$(gcloud storage ls $gs_dir || exit 1)
+gs_files=$(gcloud storage ls "$jito_gs_bucket/$epoch/**/*.tar.zst" || exit 1)
 echo "Available objects:" >&2
 echo "$gs_files" >&2
 
-gs_path_snapshot=$(<<<"$gs_files" grep snapshot)
+gs_path_snapshot=$(<<<"$gs_files" head -1)
+
+if [[ -z $gs_path_snapshot ]]
+then
+    echo "No snapshot found for the specified epoch." >&2
+    exit 1
+fi
 
 echo "Snapshot path: $gs_path_snapshot" >&2
 

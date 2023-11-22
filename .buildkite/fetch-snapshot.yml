@@ -2,19 +2,36 @@ agents:
   queue: "snapshots"
 
 steps:
-  - label: ":file_folder: Prepare workspace"
+  - input: "Which epoch to fetch?"
+    fields:
+      - text: "Epoch"
+        key: "epoch"
+        format: "[0-9]+"
+    if: "build.env('EPOCH') == null"
+
+  # - label: ":calendar: Get epoch"
+  #   env:
+  #     target_dir: /mnt/storage-1/snapshots
+  #   commands:
+  #   - 'mkdir -p /mnt/storage-1/snapshots'
+  #   - 'PATH="/var/lib/buildkite-agent/.local/share/solana/install/active_release/bin:$PATH"'
+  #   - 'current_epoch=$(solana epoch || exit 1)'
+  #   - 'epoch=$((current_epoch - 1))'
+
+
+  #   - 'buildkite-agent meta-data set epoch "$$epoch"'
+  #   if: "build.env('EPOCH') != null"
+
+  - wait: ~
+
+  - label: ":file_folder: Prepare snapshot directory"
     env:
       target_dir: /mnt/storage-1/snapshots
     commands:
     - 'mkdir -p /mnt/storage-1/snapshots'
-    - 'PATH="/var/lib/buildkite-agent/.local/share/solana/install/active_release/bin:$PATH"'
-    - 'epoch=$(solana epoch || exit 1)'
-    - 'previous_epoch=$((epoch - 1))'
-
-    - 'snapshot_dir=$(mktemp --directory -p "$$target_dir" "snapshot-$$previous_epoch-XXXXXX")'
-
+    - 'epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}'
+    - 'snapshot_dir=$(mktemp --directory -p "$$target_dir" "snapshot-$$epoch-$(date +%s)-XXXXXX")'
     - 'buildkite-agent meta-data set snapshot_dir "$$snapshot_dir"'
-    - 'buildkite-agent meta-data set previous_epoch "$$previous_epoch"'
 
   - wait: ~
 
@@ -26,5 +43,5 @@ steps:
   - label: ":cloud: :arrow_right: :floppy_disk: Fetch snapshot"
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
-    - 'previous_epoch=$(buildkite-agent meta-data get previous_epoch)'
-    - './scripts/fetch-jito-snapshot.bash "$$previous_epoch" "$$snapshot_dir"'
+    - 'epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}'
+    - './scripts/fetch-jito-snapshot.bash "$$epoch" "$$snapshot_dir"'
