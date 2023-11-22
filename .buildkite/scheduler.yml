@@ -25,7 +25,7 @@ steps:
     async: true
     build:
       env:
-        EPOCH: build.env("EPOCH")
+        EPOCH: ${EPOCH}
     if: "build.env('EPOCH') != '0'"
 
 
