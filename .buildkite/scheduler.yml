@@ -21,11 +21,11 @@ steps:
 
   - trigger: "fetch-solana-snapshot"
     label: ":rocket: Trigger: Fetch Solana snapshot"
-    async: false
-    build:
-      env:
-        EPOCH: ${EPOCH}
-    if: ${EPOCH}
+    async: true
+    # build:
+    #   env:
+    #     EPOCH: ${EPOCH}
+    # if: ${EPOCH}
 
 
   # - label: ":recycle: Pruning old snapshot directories"
