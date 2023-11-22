@@ -22,15 +22,8 @@ steps:
 
   - trigger: "fetch-solana-snapshot"
     label: ":rocket: Trigger: Fetch Solana snapshot"
-    async: true
+    async: false
     build:
       env:
-        EPOCH: ${EPOCH}
+        LATEST: true
     if: "build.env('EPOCH') != '0'"
-
-
-  # - label: ":recycle: Pruning old snapshot directories"
-  #   env:
-  #     snapshots_dir: /mnt/storage-1/snapshots
-  #   commands:
-  #   - 'ls -td -- /mnt/storage-1/snapshots/*/ | awk "NR>1" | tee /dev/stderr | xargs rm -r'

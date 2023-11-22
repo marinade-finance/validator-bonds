@@ -7,20 +7,14 @@ steps:
       - text: "Epoch"
         key: "epoch"
         format: "[0-9]+"
-    if: "build.env('EPOCH') == null"
+    if: "build.env('LATEST') == null"
 
-  # - label: ":calendar: Get epoch"
-  #   env:
-  #     target_dir: /mnt/storage-1/snapshots
-  #   commands:
-  #   - 'mkdir -p /mnt/storage-1/snapshots'
-  #   - 'PATH="/var/lib/buildkite-agent/.local/share/solana/install/active_release/bin:$PATH"'
-  #   - 'current_epoch=$(solana epoch || exit 1)'
-  #   - 'epoch=$((current_epoch - 1))'
-
-
-  #   - 'buildkite-agent meta-data set epoch "$$epoch"'
-  #   if: "build.env('EPOCH') != null"
+  - label: ":calendar: Get latest available epoch"
+    commands:
+    - >
+      epoch=$(gcloud storage ls "gs://jito-mainnet/**/*.tar.zst" | awk -F / '{print $$4}' | sort -nr | head -n 1)
+      buildkite-agent meta-data set epoch "$$epoch"
+    if: "build.env('LATEST') != null"
 
   - wait: ~
 
