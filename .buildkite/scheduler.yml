@@ -25,7 +25,7 @@ steps:
     build:
       env:
         EPOCH: build.env("EPOCH")
-    if: build.env("EPOCH")
+    if: "build.env('EPOCH') != null"
 
 
   # - label: ":recycle: Pruning old snapshot directories"
