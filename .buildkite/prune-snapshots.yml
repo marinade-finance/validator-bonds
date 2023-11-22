@@ -1,0 +1,9 @@
+agents:
+  queue: "snapshots"
+
+steps:
+  - label: ":recycle: Pruning old snapshot directories"
+    env:
+      snapshots_dir: /mnt/storage-1/snapshots
+    commands:
+    - 'ls -td -- /mnt/storage-1/snapshots/*/ | awk 'NR>2' | tee /dev/stderr | xargs rm -r'
