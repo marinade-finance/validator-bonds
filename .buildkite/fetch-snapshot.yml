@@ -45,7 +45,7 @@ steps:
     - |
       steps:
         - trigger: "prepare-claims"
-          label: ":rocket: Trigger: Prepare claims"
+          label: ":rocket: Trigger: Prepare claims ($$snapshot_dir)"
           async: false
           build:
             env:
