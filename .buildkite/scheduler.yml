@@ -21,7 +21,6 @@ steps:
       max_available_epoch=$(gcloud storage ls "gs://jito-mainnet/**/*.tar.zst" | awk -F / '{print $$4}' | sort -nr | head -n 1)
       echo max_processed_epoch: $$max_processed_epoch
       echo max_available_epoch: $$max_available_epoch
-      export EPOCH=0
       (( $$max_processed_epoch < $$max_available_epoch )) && cat <<EOF | buildkite-agent pipeline upload
       steps:
         - trigger: "fetch-solana-snapshot"
@@ -31,6 +30,8 @@ steps:
             env:
               EPOCH: $$max_available_epoch
       EOF
+
+      echo Scheduling complete
 
   - wait: ~
 
