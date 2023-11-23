@@ -9,6 +9,8 @@ steps:
   - wait: ~
 
   - label: ":recycle: Pruning old snapshot directories"
+    concurrency_group: 'validator-bonds/fetch'
+    concurrency: 1
     env:
       snapshots_dir: /mnt/storage-1/snapshots
     commands:
