@@ -2,17 +2,22 @@ agents:
   queue: "snapshots"
 
 steps:
-  - label: ":gear: :rust: Setup"
-    env:
-      snapshots_dir: /mnt/storage-1/snapshots
+  - input: "What is the snapshot directory?"
+    fields:
+      - text: "Snapshot directory"
+        key: "snapshot_dir"
+        format: "[0-9]+"
+    if: "build.env('SNAPSHOT_DIR') == null"
+
+  - label: ":gear: Setup"
     commands:
     - '. "$HOME/.cargo/env"'
-    - 'snapshot_dir=$(ls -td -- $$snapshots_dir/*/ | head -n 1 || exit 1)'
+    - 'snapshot_dir=${SNAPSHOT_DIR:-$(buildkite-agent meta-data get snapshot_dir)}'
     - 'echo "Snapshot dir: $$snapshot_dir"'
-    - 'previous_epoch=$(<<<"$$snapshot_dir" grep -oP "(?<=snapshot-)\d+" || exit 1)'
-    - 'echo "Previous epoch: $$previous_epoch"'
+    - 'epoch=$(<<<"$$snapshot_dir" grep -oP "(?<=snapshot-)\d+" || exit 1)'
+    - 'echo "Epoch: $$epoch"'
     - 'buildkite-agent meta-data set snapshot_dir "$$snapshot_dir"'
-    - 'buildkite-agent meta-data set previous_epoch "$$previous_epoch"'
+    - 'buildkite-agent meta-data set epoch "$$epoch"'
 
   - label: ":hammer_and_wrench: :rust: Build"
     commands:
@@ -21,6 +26,12 @@ steps:
     artifact_paths:
       - target/release/snapshot-parser-cli
       - target/release/insurance-engine-cli
+
+  - wait: ~
+
+  - command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/prepare-claims'
+    concurrency: 1
 
   - wait: ~
 
@@ -73,13 +84,18 @@ steps:
       gs_bucket: gs://marinade-validator-bonds-mainnet
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
-    - 'previous_epoch=$(buildkite-agent meta-data get previous_epoch)'
-    - 'gcloud storage cp "$$snapshot_dir/validators.json" "$$gs_bucket/$$previous_epoch/"'
-    - 'gcloud storage cp "$$snapshot_dir/stakes.json" "$$gs_bucket/$$previous_epoch/"'
-    - 'gcloud storage cp "$$snapshot_dir/events.json" "$$gs_bucket/$$previous_epoch/"'
-    - 'gcloud storage cp "$$snapshot_dir/claims.json" "$$gs_bucket/$$previous_epoch/"'
-    - 'gcloud storage cp "$$snapshot_dir/claims_merkle.json" "$$gs_bucket/$$previous_epoch/"'
-    - 'gcloud storage cp "$$snapshot_dir/events_all.json" "$$gs_bucket/$$previous_epoch/"'
-    - 'gcloud storage cp "$$snapshot_dir/claims_all.json" "$$gs_bucket/$$previous_epoch/"'
-    - 'gcloud storage cp "$$snapshot_dir/claims_merkle_all.json" "$$gs_bucket/$$previous_epoch/"'
+    - 'epoch=$(buildkite-agent meta-data get epoch)'
+    - 'gcloud storage cp "$$snapshot_dir/validators.json" "$$gs_bucket/$$epoch/"'
+    - 'gcloud storage cp "$$snapshot_dir/stakes.json" "$$gs_bucket/$$epoch/"'
+    - 'gcloud storage cp "$$snapshot_dir/events.json" "$$gs_bucket/$$epoch/"'
+    - 'gcloud storage cp "$$snapshot_dir/claims.json" "$$gs_bucket/$$epoch/"'
+    - 'gcloud storage cp "$$snapshot_dir/claims_merkle.json" "$$gs_bucket/$$epoch/"'
+    - 'gcloud storage cp "$$snapshot_dir/events_all.json" "$$gs_bucket/$$epoch/"'
+    - 'gcloud storage cp "$$snapshot_dir/claims_all.json" "$$gs_bucket/$$epoch/"'
+    - 'gcloud storage cp "$$snapshot_dir/claims_merkle_all.json" "$$gs_bucket/$$epoch/"'
 
+  - wait: ~
+
+  - command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/prepare-claims'
+    concurrency: 1

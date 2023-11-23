@@ -2,19 +2,16 @@ agents:
   queue: "snapshots"
 
 steps:
+  - command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/fetch'
+    concurrency: 1
+
   - input: "Which epoch to fetch?"
     fields:
       - text: "Epoch"
         key: "epoch"
         format: "[0-9]+"
-    if: "build.env('LATEST') == null"
-
-  - label: ":calendar: Get latest available epoch"
-    commands:
-    - >
-      epoch=$(gcloud storage ls "gs://jito-mainnet/**/*.tar.zst" | awk -F / '{print $$4}' | sort -nr | head -n 1)
-    - 'buildkite-agent meta-data set epoch "$$epoch"'
-    if: "build.env('LATEST') != null"
+    if: "build.env('EPOCH') == null"
 
   - wait: ~
 
@@ -39,3 +36,24 @@ steps:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - 'epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}'
     - './scripts/fetch-jito-snapshot.bash "$$epoch" "$$snapshot_dir"'
+
+  - wait: ~
+
+  - label: ":gear: Setup trigger"
+    commands:
+    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
+    - |
+      steps:
+        - trigger: "prepare-claims"
+          label: ":rocket: Trigger: Prepare claims"
+          async: false
+          build:
+            env:
+              SNAPSHOT_DIR: $$snapshot_dir
+      EOF
+
+  - wait: ~
+
+  - command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/fetch'
+    concurrency: 1

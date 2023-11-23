@@ -2,6 +2,12 @@ agents:
   queue: "snapshots"
 
 steps:
+  - command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/scheduler'
+    concurrency: 1
+
+  - wait: ~
+
   - label: ":recycle: Pruning old snapshot directories"
     env:
       snapshots_dir: /mnt/storage-1/snapshots
@@ -16,14 +22,18 @@ steps:
       echo max_processed_epoch: $$max_processed_epoch
       echo max_available_epoch: $$max_available_epoch
       export EPOCH=0
-      (( $$max_processed_epoch < $$max_available_epoch )) && export EPOCH="$$max_available_epoch"
+      (( $$max_processed_epoch < $$max_available_epoch )) && cat <<EOF | buildkite-agent pipeline upload
+      steps:
+        - trigger: "fetch-solana-snapshot"
+          label: ":rocket: Trigger: Fetch Solana snapshot"
+          async: false
+          build:
+            env:
+              EPOCH: $$max_available_epoch
+      EOF
 
   - wait: ~
 
-  - trigger: "fetch-solana-snapshot"
-    label: ":rocket: Trigger: Fetch Solana snapshot"
-    async: false
-    build:
-      env:
-        LATEST: true
-    if: "build.env('EPOCH') != '0'"
+  - command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/scheduler'
+    concurrency: 1
