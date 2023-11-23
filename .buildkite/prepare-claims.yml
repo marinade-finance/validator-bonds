@@ -2,6 +2,14 @@ agents:
   queue: "snapshots"
 
 steps:
+  - label: ":hammer_and_wrench: :rust: Build"
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'cargo build --release --bin snapshot-parser-cli --bin insurance-engine-cli'
+    artifact_paths:
+      - target/release/snapshot-parser-cli
+      - target/release/insurance-engine-cli
+
   - input: "What is the snapshot directory?"
     fields:
       - text: "Snapshot directory"
@@ -19,14 +27,6 @@ steps:
     - 'echo "Epoch: $$epoch"'
     - 'buildkite-agent meta-data set snapshot_dir "$$snapshot_dir"'
     - 'buildkite-agent meta-data set epoch "$$epoch"'
-
-  - label: ":hammer_and_wrench: :rust: Build"
-    commands:
-    - '. "$HOME/.cargo/env"'
-    - 'cargo build --release --bin snapshot-parser-cli --bin insurance-engine-cli'
-    artifact_paths:
-      - target/release/snapshot-parser-cli
-      - target/release/insurance-engine-cli
 
   - wait: ~
 
