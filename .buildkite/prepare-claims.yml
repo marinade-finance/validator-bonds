@@ -6,8 +6,9 @@ steps:
     fields:
       - text: "Snapshot directory"
         key: "snapshot_dir"
-        format: "[0-9]+"
     if: "build.env('SNAPSHOT_DIR') == null"
+
+  - wait: ~
 
   - label: ":gear: Setup"
     commands:
