@@ -43,6 +43,7 @@ steps:
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - |
+      cat <<EOF | buildkite-agent pipeline upload
       steps:
         - trigger: "prepare-claims"
           label: ":rocket: Trigger: Prepare claims ($$snapshot_dir)"
