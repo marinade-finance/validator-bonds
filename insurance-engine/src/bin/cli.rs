@@ -60,6 +60,10 @@ fn main() -> anyhow::Result<()> {
         &args.output_insured_event_collection,
     )?;
 
+    if let Some(whitelisted_stake_authorities) = &args.whitelist_stake_authority {
+      info!("Using whitelist on stake authorities: {:?}", whitelisted_stake_authorities);
+    }
+
     let stake_meta_filter = match args.whitelist_stake_authority {
         Some(whitelisted_stake_authorities) => Some(stake_authorities_filter(HashSet::from_iter(
             whitelisted_stake_authorities,
