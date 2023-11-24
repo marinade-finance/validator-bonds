@@ -88,7 +88,6 @@ steps:
     - 'epoch=$(buildkite-agent meta-data get epoch)'
     - 'gcloud storage cp "$$snapshot_dir/validators.json" "$$gs_bucket/$$epoch/"'
     - 'gcloud storage cp "$$snapshot_dir/stakes.json" "$$gs_bucket/$$epoch/"'
-    - 'gcloud storage cp "$$snapshot_dir/events.json" "$$gs_bucket/$$epoch/"'
     - 'gcloud storage cp "$$snapshot_dir/claims.json" "$$gs_bucket/$$epoch/"'
     - 'gcloud storage cp "$$snapshot_dir/claims_merkle.json" "$$gs_bucket/$$epoch/"'
     - 'gcloud storage cp "$$snapshot_dir/events_all.json" "$$gs_bucket/$$epoch/"'

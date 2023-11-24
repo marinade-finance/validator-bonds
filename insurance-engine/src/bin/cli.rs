@@ -28,7 +28,7 @@ struct Args {
     #[arg(long, env)]
     output_merkle_tree_collection: String,
 
-    #[arg(long, env)]
+    #[arg(long, env, value_delimiter = ',')]
     whitelist_stake_authority: Option<Vec<String>>,
 
     #[arg(long, env)]
@@ -39,8 +39,15 @@ fn main() -> anyhow::Result<()> {
     let mut builder = Builder::from_env(Env::default().default_filter_or("info"));
     builder.init();
 
-    info!("Starting insurance enging...");
+    info!("Starting insurance engine...");
     let args: Args = Args::parse();
+
+    if let Some(whitelisted_stake_authorities) = &args.whitelist_stake_authority {
+        info!(
+            "Using whitelist on stake authorities: {:?}",
+            whitelisted_stake_authorities
+        );
+    }
 
     info!("Loading validator meta collection...");
     let validator_meta_collection: ValidatorMetaCollection =
@@ -59,10 +66,6 @@ fn main() -> anyhow::Result<()> {
         &insured_event_collection,
         &args.output_insured_event_collection,
     )?;
-
-    if let Some(whitelisted_stake_authorities) = &args.whitelist_stake_authority {
-      info!("Using whitelist on stake authorities: {:?}", whitelisted_stake_authorities);
-    }
 
     let stake_meta_filter = match args.whitelist_stake_authority {
         Some(whitelisted_stake_authorities) => Some(stake_authorities_filter(HashSet::from_iter(
