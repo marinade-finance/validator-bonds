@@ -50,6 +50,8 @@ steps:
   - wait: ~
 
   - label: ":scales: Evaluate Marinade Insured Events"
+    env:
+      WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - 'buildkite-agent artifact download --include-retried-jobs target/release/insurance-engine-cli .'
@@ -61,7 +63,6 @@ steps:
         --output-insured-event-collection "$$snapshot_dir/events.json" \
         --output-insurance-claim-collection "$$snapshot_dir/claims.json" \
         --output-merkle-tree-collection "$$snapshot_dir/claims_merkle.json" \
-        --whitelist-stake-authority stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N \
         --low-rewards-threshold-pct 0.9
 
   - label: ":scales: Evaluate All Insured Events"
