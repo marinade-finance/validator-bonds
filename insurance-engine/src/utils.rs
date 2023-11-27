@@ -1,9 +1,9 @@
 use std::{
     fs::File,
-    io::{BufWriter, BufReader, Write},
+    io::{BufReader, BufWriter, Write},
 };
 
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Serialize};
 
 pub fn write_to_json_file<T: Serialize>(data: &T, out_path: &str) -> anyhow::Result<()> {
     let file = File::create(out_path)?;
@@ -19,6 +19,6 @@ pub fn read_from_json_file<T: DeserializeOwned>(in_path: &str) -> anyhow::Result
     let file = File::open(in_path)?;
     let reader = BufReader::new(file);
     let result: T = serde_json::from_reader(reader)?;
-    
+
     Ok(result)
 }
