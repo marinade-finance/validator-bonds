@@ -9,13 +9,11 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
-# solana-accounts-db = { workspace = true }
 solana-client = { workspace = true }
 solana-ledger = { workspace = true }
 solana-program = { workspace = true }
 solana-runtime = { workspace = true }
 solana-sdk = { workspace = true }
-# solana-vote = { workspace = true }
 log = { workspace = true }
 clap = { workspace = true }
 env_logger = { workspace = true }
