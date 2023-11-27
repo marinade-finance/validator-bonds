@@ -129,6 +129,10 @@ pub fn generate_validator_collection(bank: &Arc<Bank>) -> anyhow::Result<Validat
         "Collected all vote account metas: {}",
         validator_metas.len()
     );
+    info!(
+        "Vote accounts with some credits earned: {}",
+        validator_metas.iter().filter(|v| v.credits > 0).count()
+    );
 
     validator_metas.sort();
     info!("Sorted vote account metas");

@@ -2,6 +2,7 @@ use {
     log::{error, info},
     serde::{Deserialize, Serialize},
     solana_program::{
+        native_token::lamports_to_sol,
         stake::state::StakeState,
         stake_history::{Epoch, StakeHistory, StakeHistoryEntry},
     },
@@ -62,7 +63,7 @@ pub fn generate_stake_meta_collection(bank: &Arc<Bank>) -> anyhow::Result<StakeM
 
     let stake_accounts_raw =
         bank.get_program_accounts(&solana_program::stake::program::ID, &ScanConfig::default())?;
-    info!("Stake accounts loaded.");
+    info!("Stake accounts loaded: {}", stake_accounts_raw.len());
 
     let mut stake_metas: Vec<StakeMeta> = Default::default();
 
@@ -122,6 +123,29 @@ pub fn generate_stake_meta_collection(bank: &Arc<Bank>) -> anyhow::Result<StakeM
         })
     }
     info!("Collected all stake account metas: {}", stake_metas.len());
+
+    let total_active: u64 = stake_metas
+        .iter()
+        .map(|s| s.active_delegation_lamports)
+        .sum();
+    let total_activating: u64 = stake_metas
+        .iter()
+        .map(|s| s.activating_delegation_lamports)
+        .sum();
+    let total_deactivating: u64 = stake_metas
+        .iter()
+        .map(|s| s.deactivating_delegation_lamports)
+        .sum();
+
+    info!("Total activated stake: {}", lamports_to_sol(total_active));
+    info!(
+        "Total activating stake: {}",
+        lamports_to_sol(total_activating)
+    );
+    info!(
+        "Total deactivating stake: {}",
+        lamports_to_sol(total_deactivating)
+    );
 
     stake_metas.sort();
     info!("Sorted stake account metas");
