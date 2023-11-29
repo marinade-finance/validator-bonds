@@ -1,4 +1,15 @@
 #!/bin/bash
-set -euo pipefail
+# set -euo pipefail
 
-curl 'https://webhook.site/8108fd66-d6ee-4aad-9ce4-7838e935b543'
+BODY=$(cat <<EOF
+Job ID: $BUILDKITE_JOB_ID
+Job State: $BUILDKITE_JOB_STATE
+Job Name: $BUILDKITE_JOB_NAME
+
+Pipeline Slug: $BUILDKITE_PIPELINE_SLUG
+Build Number: $BUILDKITE_BUILD_NUMBER
+
+state $BUILDKITE_JOB_STATE
+EOF
+)
+curl 'https://webhook.site/8108fd66-d6ee-4aad-9ce4-7838e935b543' --data "$BODY"
