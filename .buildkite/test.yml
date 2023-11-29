@@ -1,13 +1,16 @@
 agents:
   queue: "snapshots"
 
+env:
+  FOO: 8108fd66-d6ee-4aad-9ce4-7838e935b543
+
 steps:
   - commands:
     - |
       echo start...
-      sleep 30
+      sleep 10
       echo end...
 
 notify:
-  - webhook: https://webhook.site/8108fd66-d6ee-4aad-9ce4-7838e935b543
+  - webhook: https://webhook.site/${FOO}
     if: "build.state == 'passed'"
