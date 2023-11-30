@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 use std::collections::HashSet;
 
 use snapshot_parser::stake_meta::StakeMeta;
@@ -81,21 +82,17 @@ pub fn generate_insurance_claim_collection(
                     .map(|s| s.active_delegation_lamports)
                     .sum();
 
-                let claim: Option<u64> =
-                    match insured_event_collection.events_by_validator(&vote_account) {
-                        Some(events) => Some(events.iter().map(|e| e.claim_amount(stake)).sum()),
-                        _ => None,
-                    };
+                let claim: Option<u64> = insured_event_collection
+                    .events_by_validator(&vote_account)
+                    .map(|events| events.iter().map(|e| e.claim_amount(stake)).sum());
 
-                claim.and_then(|claim| {
-                    Some(InsuranceClaim {
-                        withdraw_authority,
-                        stake_authority,
-                        vote_account,
-                        stake_accounts,
-                        stake,
-                        claim,
-                    })
+                claim.map(|claim| InsuranceClaim {
+                    withdraw_authority,
+                    stake_authority,
+                    vote_account,
+                    stake_accounts,
+                    stake,
+                    claim,
                 })
             },
         )

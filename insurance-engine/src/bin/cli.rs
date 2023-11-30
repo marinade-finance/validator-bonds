@@ -67,12 +67,11 @@ fn main() -> anyhow::Result<()> {
         &args.output_insured_event_collection,
     )?;
 
-    let stake_meta_filter = match args.whitelist_stake_authority {
-        Some(whitelisted_stake_authorities) => Some(stake_authorities_filter(HashSet::from_iter(
-            whitelisted_stake_authorities,
-        ))),
-        _ => None,
-    };
+    let stake_meta_filter = args
+        .whitelist_stake_authority
+        .map(|whitelisted_stake_authorities| {
+            stake_authorities_filter(HashSet::from_iter(whitelisted_stake_authorities))
+        });
 
     info!("Generating insurance claim collection...");
     let insurance_claim_collection = generate_insurance_claim_collection(

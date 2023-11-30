@@ -84,7 +84,7 @@ pub fn generate_insured_event_collection(
             .flatten()
             .collect();
 
-            if events.len() > 0 {
+            if !events.is_empty() {
                 Some((v.vote_account.clone(), events))
             } else {
                 None
