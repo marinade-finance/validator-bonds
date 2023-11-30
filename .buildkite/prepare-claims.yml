@@ -97,6 +97,20 @@ steps:
 
   - wait: ~
 
+  - label: ":mega: Notification"
+    commands:
+    - |
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" -H "Content-Type: application/json" -d '{
+        "embeds": [
+          {
+            "title": "Claims for Validator Bonds prepared ('"$$epoch"').",
+            "url": "'"$$BUILDKITE_BUILD_URL"'",
+            "color": "5661687"
+          }
+        ]
+      }'
+
   - command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/prepare-claims'
     concurrency: 1

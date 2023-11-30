@@ -15,6 +15,20 @@ steps:
 
   - wait: ~
 
+  - label: ":mega: Notification"
+    commands:
+    - |
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" -H "Content-Type: application/json" -d '{
+        "embeds": [
+          {
+            "title": "Preparing claims for Validator Bonds ('"$$epoch"').",
+            "url": "'"$$BUILDKITE_BUILD_URL"'",
+            "color": "8388863"
+          }
+        ]
+      }'
+
   - label: ":file_folder: Prepare snapshot directory"
     env:
       target_dir: /mnt/storage-1/snapshots
