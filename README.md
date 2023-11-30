@@ -24,3 +24,6 @@ pnpm build
 # testing the SDK+CLI against the local validator running the program
 pnpm test
 ```
+
+// add table of authorities - what state means what authority
+// add flow diagram how calls will be done

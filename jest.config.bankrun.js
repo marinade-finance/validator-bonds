@@ -4,11 +4,10 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   modulePathIgnorePatterns: ['<rootDir>/build/'],
+  testRegex: ['__tests__/bankrun/.*.spec.ts'],
   testPathIgnorePatterns: ['.*utils.*'],
-  testRegex: ['__tests__/bankrun/.*'],
-  // globalSetup: // TODO: uncomment or remove
-  // '<rootDir>/packages/validator-bonds-sdk/__tests__/setup/globalSetup.ts'
   setupFilesAfterEnv: [
+    // https://github.com/marinade-finance/marinade-ts-cli/blob/main/packages/lib/jest-utils/src/equalityTesters.ts
     '<rootDir>/node_modules/@marinade.finance/jest-utils/src/equalityTesters',
   ],
 }

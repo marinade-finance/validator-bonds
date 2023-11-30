@@ -3,13 +3,14 @@ import { shellMatchers } from '@marinade.finance/jest-utils'
 import YAML from 'yaml'
 import {
   initConfigInstruction,
-  findBondsWithdrawerAuthority,
   ValidatorBondsProgram,
+  withdrawerAuthority,
 } from '@marinade.finance/validator-bonds-sdk'
 import { executeTxSimple } from '@marinade.finance/web3js-common'
 import { transaction } from '@marinade.finance/anchor-common'
-import { Keypair } from '@solana/web3.js'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { initTest } from './utils'
+import { signerWithPubkey } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/helpers'
 
 beforeAll(() => {
   shellMatchers()
@@ -21,6 +22,7 @@ describe('Show command using CLI', () => {
 
   beforeAll(async () => {
     shellMatchers()
+    // eslint-disable-next-line @typescript-eslint/no-extra-semi
     ;({ provider, program } = await initTest())
   })
 
@@ -28,19 +30,23 @@ describe('Show command using CLI', () => {
     const tx = await transaction(provider)
     const adminAuthority = Keypair.generate().publicKey
     const operatorAuthority = Keypair.generate().publicKey
-    const { instruction: initConfigIx, keypair } = await initConfigInstruction({
-      program,
-      adminAuthority,
-      operatorAuthority,
-      epochsToClaimSettlement: 101,
-      withdrawLockupEpochs: 102,
-    })
+    const { instruction: initConfigIx, configAccount } =
+      await initConfigInstruction({
+        program,
+        adminAuthority,
+        operatorAuthority,
+        epochsToClaimSettlement: 101,
+        withdrawLockupEpochs: 102,
+      })
     tx.add(initConfigIx)
-    await executeTxSimple(provider.connection, tx, [provider.wallet, keypair!])
+    const [configKeypair, configPubkey] = signerWithPubkey(configAccount)
+    await executeTxSimple(provider.connection, tx, [
+      provider.wallet,
+      configKeypair,
+    ])
 
-    const configAccountAddress = keypair!.publicKey
-    const [, bondsWithdrawerAuthorityBump] = findBondsWithdrawerAuthority(
-      configAccountAddress,
+    const [, bondsWithdrawerAuthorityBump] = withdrawerAuthority(
+      configPubkey,
       program.programId
     )
     await (
@@ -54,7 +60,7 @@ describe('Show command using CLI', () => {
           '--program-id',
           program.programId.toBase58(),
           'show-config',
-          configAccountAddress.toBase58(),
+          configPubkey.toBase58(),
           '-f',
           'yaml',
         ],
@@ -66,13 +72,13 @@ describe('Show command using CLI', () => {
       // stderr: '',
       stdout: YAML.stringify({
         programId: program.programId,
-        publicKey: configAccountAddress.toBase58(),
+        publicKey: configPubkey.toBase58(),
         account: {
           adminAuthority: adminAuthority.toBase58(),
           operatorAuthority: operatorAuthority.toBase58(),
           epochsToClaimSettlement: 101,
           withdrawLockupEpochs: 102,
-          minimumStakeLamports: 1000000000,
+          minimumStakeLamports: LAMPORTS_PER_SOL,
           bondsWithdrawerAuthorityBump,
           reserved: [512],
         },
@@ -104,13 +110,13 @@ describe('Show command using CLI', () => {
       stdout: YAML.stringify([
         {
           programId: program.programId,
-          publicKey: configAccountAddress.toBase58(),
+          publicKey: configPubkey.toBase58(),
           account: {
             adminAuthority: adminAuthority.toBase58(),
             operatorAuthority: operatorAuthority.toBase58(),
             epochsToClaimSettlement: 101,
             withdrawLockupEpochs: 102,
-            minimumStakeLamports: 1000000000,
+            minimumStakeLamports: LAMPORTS_PER_SOL,
             bondsWithdrawerAuthorityBump,
             reserved: [512],
           },
@@ -169,13 +175,13 @@ describe('Show command using CLI', () => {
       stdout: YAML.stringify([
         {
           programId: program.programId,
-          publicKey: configAccountAddress.toBase58(),
+          publicKey: configPubkey.toBase58(),
           account: {
             adminAuthority: adminAuthority.toBase58(),
             operatorAuthority: operatorAuthority.toBase58(),
             epochsToClaimSettlement: 101,
             withdrawLockupEpochs: 102,
-            minimumStakeLamports: 1000000000,
+            minimumStakeLamports: LAMPORTS_PER_SOL,
             bondsWithdrawerAuthorityBump,
             reserved: [512],
           },

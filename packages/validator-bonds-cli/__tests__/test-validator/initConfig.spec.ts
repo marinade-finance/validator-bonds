@@ -13,14 +13,9 @@ import {
 } from '@marinade.finance/validator-bonds-sdk'
 import { initTest } from './utils'
 
-beforeAll(() => {
-  shellMatchers()
-})
-
 describe('Init config account using CLI', () => {
   let provider: AnchorProvider
   let program: ValidatorBondsProgram
-
   let configPath: string
   let configKeypair: Keypair
   let configCleanup: () => Promise<void>

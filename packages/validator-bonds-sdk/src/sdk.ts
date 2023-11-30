@@ -8,9 +8,18 @@ import {
   parseIdlErrors,
   Provider,
   Wallet,
+  IdlTypes,
 } from '@coral-xyz/anchor'
 import { Wallet as AnchorWalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { ConfirmOptions, Connection, Keypair, PublicKey } from '@solana/web3.js'
+import {
+  AccountInfo,
+  ConfirmOptions,
+  Connection,
+  Keypair,
+  ParsedAccountData,
+  PublicKey,
+} from '@solana/web3.js'
+import BN from 'bn.js'
 
 /**
  * Validator Bonds contract Anchor IDL wrapper.
@@ -21,10 +30,8 @@ import { ConfirmOptions, Connection, Keypair, PublicKey } from '@solana/web3.js'
  * To execute contract operations see ./with*.ts
  */
 
-// TODO: randomly generated, need to grind a better name
-// [31,4,248,145,147,37,94,44,125,60,3,95,42,22,31,88,208,50,111,112,185,74,80,202,199,99,65,61,75,177,127,57,38,144,218,174,173,95,124,225,178,105,31,9,171,187,49,43,254,39,37,196,22,237,49,171,154,108,218,48,77,202,198,127]
 export const CONFIG_ADDRESS = new PublicKey(
-  '3bYbwEVbfXbmM9evW5bRbFPS9usdp6dtYCYsYtq6NLcE'
+  'vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU'
 )
 
 export const ValidatorBondsIDL = generated.IDL
@@ -38,18 +45,37 @@ export type ValidatorBondsProgram = AnchorProgram<ValidatorBonds>
 
 // --- ACCOUNTS ---
 export type Config = IdlAccounts<ValidatorBonds>['config']
+export type Bond = IdlAccounts<ValidatorBonds>['bond']
+export type SettlementClaim = IdlAccounts<ValidatorBonds>['settlementClaim']
+export type Settlement = IdlAccounts<ValidatorBonds>['settlement']
+export type WithdrawRequest = IdlAccounts<ValidatorBonds>['withdrawRequest']
+
+// --- TYPES ---
+export type InitConfigArgs = IdlTypes<ValidatorBonds>['InitConfigArgs']
+export type ConfigureConfigArgs =
+  IdlTypes<ValidatorBonds>['ConfigureConfigArgs']
+export type InitBondArgs = IdlTypes<ValidatorBonds>['InitBondArgs']
+export type HundredthBasisPoint =
+  IdlTypes<ValidatorBonds>['HundredthBasisPoint']
 
 // --- CONSTANTS ---
-export const BONDS_AUTHORITY_SEED = new Uint8Array(
-  JSON.parse(
-    generated.IDL.constants.find(x => x.name === 'BONDS_AUTHORITY_SEED')!.value
-  )
-)
-export const SETTLEMENT_AUTHORITY_SEED = new Uint8Array(
-  JSON.parse(
-    generated.IDL.constants.find(x => x.name === 'SETTLEMENT_AUTHORITY_SEED')!
-      .value
-  )
+function seedFromConstants(seedName: string): Uint8Array {
+  const constant = generated.IDL.constants.find(x => x.name === seedName)
+  if (constant === undefined) {
+    throw new Error(
+      'SDK initialization failure. Validator bonds IDL does not define constant ' +
+        constant
+    )
+  }
+  return new Uint8Array(JSON.parse(constant.value))
+}
+export const BOND_SEED = seedFromConstants('BOND_SEED')
+export const SETTLEMENT_SEED = seedFromConstants('SETTLEMENT_SEED')
+export const WITHDRAW_REQUEST_SEED = seedFromConstants('WITHDRAW_REQUEST_SEED')
+export const SETTLEMENT_CLAIM_SEED = seedFromConstants('SETTLEMENT_CLAIM_SEED')
+export const BONDS_AUTHORITY_SEED = seedFromConstants('BONDS_AUTHORITY_SEED')
+export const SETTLEMENT_AUTHORITY_SEED = seedFromConstants(
+  'SETTLEMENT_AUTHORITY_SEED'
 )
 
 // --- EVENTS ---
@@ -57,7 +83,67 @@ export const INIT_CONFIG_EVENT = 'InitConfigEvent'
 export type InitConfigEvent =
   IdlEvents<ValidatorBonds>[typeof INIT_CONFIG_EVENT]
 
+export const INIT_BOND_EVENT = 'InitBondEvent'
+export type InitBondEvent = IdlEvents<ValidatorBonds>[typeof INIT_BOND_EVENT]
+
+export const CONFIGURE_BOND_EVENT = 'ConfigureBondEvent'
+export type ConfigureBondEvent =
+  IdlEvents<ValidatorBonds>[typeof CONFIGURE_BOND_EVENT]
+
+export const CLOSE_BOND_EVENT = 'CloseBondEvent'
+export type CloseBondEvent = IdlEvents<ValidatorBonds>[typeof CLOSE_BOND_EVENT]
+
+export const DEPOSIT_BOND_EVENT = 'DepositBondEvent'
+export type DepositBondEvent =
+  IdlEvents<ValidatorBonds>[typeof DEPOSIT_BOND_EVENT]
+
+export const CONFIGURE_CONFIG_EVENT = 'ConfigureConfigEvent'
+export type ConfigureConfigEvent =
+  IdlEvents<ValidatorBonds>[typeof CONFIGURE_CONFIG_EVENT]
+
+export const CLAIM_SETTLEMENT_EVENT = 'ClaimSettlementEvent'
+export type ClaimSettlementEvent =
+  IdlEvents<ValidatorBonds>[typeof CLAIM_SETTLEMENT_EVENT]
+
+export const CLOSE_SETTLEMENT_CLAIM_EVENT = 'CloseSettlementClaimEvent'
+export type CloseSettlementClaimEvent =
+  IdlEvents<ValidatorBonds>[typeof CLOSE_SETTLEMENT_CLAIM_EVENT]
+
+export const INIT_SETTLEMENT_EVENT = 'InitSettlementEvent'
+export type InitSettlementEvent =
+  IdlEvents<ValidatorBonds>[typeof INIT_SETTLEMENT_EVENT]
+
+export const CLOSE_SETTLEMENT_EVENT = 'CloseSettlementEvent'
+export type CloseSettlementEvent =
+  IdlEvents<ValidatorBonds>[typeof CLOSE_SETTLEMENT_EVENT]
+
+export const MERGE_EVENT = 'MergeEvent'
+export type MergeEvent = IdlEvents<ValidatorBonds>[typeof MERGE_EVENT]
+
+export const RESET_EVENT = 'ResetEvent'
+export type ResetEvent = IdlEvents<ValidatorBonds>[typeof RESET_EVENT]
+
+export const CANCEL_WITHDRAW_REQUEST_EVENT = 'CancelWithdrawRequestEvent'
+export type CancelWithdrawRequestEvent =
+  IdlEvents<ValidatorBonds>[typeof CANCEL_WITHDRAW_REQUEST_EVENT]
+
+export const WITHDRAW_EVENT = 'WithdrawEvent'
+export type WithdrawEvent = IdlEvents<ValidatorBonds>[typeof WITHDRAW_EVENT]
+
 export const Errors = parseIdlErrors(generated.IDL)
+
+export type ProgramAccountInfo<T> = {
+  publicKey: PublicKey
+  account: AccountInfo<T>
+}
+
+export function programAccountInfo<T>(
+  publicKey: PublicKey,
+  account: AccountInfo<Buffer | ParsedAccountData>,
+  data: T
+): ProgramAccountInfo<T> {
+  return { publicKey, account: { ...account, data } }
+}
 
 /**
  * Creating Anchor program instance of the Validator Bonds contract.
@@ -105,12 +191,75 @@ export function getProgram({
   return new Program<ValidatorBonds>(generated.IDL, programId, provider)
 }
 
-export function findBondsWithdrawerAuthority(
+export function bondAddress(
+  config: PublicKey,
+  voteAccount: PublicKey,
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [BOND_SEED, config.toBytes(), voteAccount.toBytes()],
+    validatorBondsProgramId
+  )
+}
+
+export function withdrawerAuthority(
   config: PublicKey,
   validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [BONDS_AUTHORITY_SEED, config.toBytes()],
+    validatorBondsProgramId
+  )
+}
+
+export function settlementAddress(
+  bond: PublicKey,
+  merkleRoot: Uint8Array,
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [SETTLEMENT_SEED, bond.toBytes(), merkleRoot],
+    validatorBondsProgramId
+  )
+}
+
+export function settlementAuthority(
+  settlement: PublicKey,
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [SETTLEMENT_AUTHORITY_SEED, settlement.toBytes()],
+    validatorBondsProgramId
+  )
+}
+
+export function settlementClaimAddress(
+  settlement: PublicKey,
+  stakeAuthority: PublicKey,
+  withdrawAuthority: PublicKey,
+  voteAccount: PublicKey,
+  claim: BN,
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [
+      SETTLEMENT_CLAIM_SEED,
+      settlement.toBytes(),
+      stakeAuthority.toBytes(),
+      withdrawAuthority.toBytes(),
+      voteAccount.toBytes(),
+      claim.toArrayLike(Buffer, 'le', 8),
+    ],
+    validatorBondsProgramId
+  )
+}
+
+export function withdrawRequestAddress(
+  bond: PublicKey,
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [WITHDRAW_REQUEST_SEED, bond.toBytes()],
     validatorBondsProgramId
   )
 }

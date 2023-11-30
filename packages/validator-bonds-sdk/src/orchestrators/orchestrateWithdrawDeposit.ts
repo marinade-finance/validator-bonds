@@ -1,0 +1,156 @@
+import {
+  Keypair,
+  PublicKey,
+  Signer,
+  TransactionInstruction,
+} from '@solana/web3.js'
+import {
+  ProgramAccountInfo,
+  ValidatorBondsProgram,
+  WithdrawRequest,
+  withdrawRequestAddress,
+} from '../sdk'
+import { getBond, getWithdrawRequest } from '../api'
+import assert from 'assert'
+import {
+  StakeAccountParsed,
+  findStakeAccountAccount,
+  getVoteAccount,
+} from '../stakeAccount'
+import BN from 'bn.js'
+import { mergeInstruction } from '../instructions/merge'
+import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRequest'
+import { walletPubkey } from '../utils'
+
+/**
+ * Returning the instructions for withdrawing the deposit (on top of the withdraw request)
+ * while trying to find right accounts when available and merge them together.
+ */
+export async function orchestrateWithdrawDeposit({
+  program,
+  withdrawRequestAccount,
+  bondAccount,
+  splitStakeRentPayer = walletPubkey(program),
+}: {
+  program: ValidatorBondsProgram
+  withdrawRequestAccount?: PublicKey
+  bondAccount?: PublicKey
+  splitStakeRentPayer?: PublicKey | Keypair | Signer // signer
+}): Promise<{
+  instructions: TransactionInstruction[]
+  splitStakeAccount: Keypair | undefined // signer
+}> {
+  let withdrawRequestData: WithdrawRequest | undefined
+  if (bondAccount === undefined && withdrawRequestAccount === undefined) {
+    throw new Error(
+      'bondAccount and withdrawRequestAccount not provided, at least one has to be provided'
+    )
+  } else if (
+    bondAccount === undefined &&
+    withdrawRequestAccount !== undefined
+  ) {
+    withdrawRequestData = await getWithdrawRequest(
+      program,
+      withdrawRequestAccount
+    )
+    bondAccount = withdrawRequestData.bond
+  } else if (
+    bondAccount !== undefined &&
+    withdrawRequestAccount === undefined
+  ) {
+    withdrawRequestAccount = withdrawRequestAddress(
+      bondAccount,
+      program.programId
+    )[0]
+  }
+  assert(
+    withdrawRequestAccount !== undefined,
+    'this should not happen; withdrawRequestAccount is undefined'
+  )
+  assert(
+    bondAccount !== undefined,
+    'this should not happen; bondAccount is undefined'
+  )
+
+  withdrawRequestData =
+    withdrawRequestData ||
+    (await getWithdrawRequest(program, withdrawRequestAccount))
+  const bondData = await getBond(program, bondAccount)
+  const voteAccountData = await getVoteAccount(
+    program,
+    withdrawRequestData.validatorVoteAccount
+  )
+  const withdrawer = voteAccountData.account.data.authorizedWithdrawer
+  const configAccount = bondData.config
+
+  let amountToWithdraw = withdrawRequestData.requestedAmount.sub(
+    withdrawRequestData.withdrawnAmount
+  )
+  amountToWithdraw =
+    amountToWithdraw <= new BN(0) ? new BN(0) : amountToWithdraw
+  const stakeAccountsToWithdraw = (
+    await findStakeAccountAccount({
+      connection: program,
+      staker: withdrawer,
+      withdrawer,
+    })
+  )
+    .sort((x, y) =>
+      x.account.lamports > y.account.lamports
+        ? 1
+        : x.account.lamports < y.account.lamports
+        ? -1
+        : 0
+    )
+    .reduce<[BN, ProgramAccountInfo<StakeAccountParsed>[]]>(
+      (acc, accountInfo) => {
+        if (acc[0] < amountToWithdraw) {
+          acc[0].add(new BN(accountInfo.account.lamports))
+          acc[1].push(accountInfo)
+        }
+        return acc
+      },
+      [new BN(0), []]
+    )
+
+  const instructions: TransactionInstruction[] = []
+  let splitStakeAccount: Keypair | undefined = undefined
+
+  // there are some stake accounts to withdraw from
+  if (stakeAccountsToWithdraw[1].length > 0) {
+    const destinationStakeAccount = stakeAccountsToWithdraw[1][0].publicKey
+    // going through from the second item that we want to merge all to the first one
+    for (
+      let mergeIndex = 1;
+      mergeIndex < stakeAccountsToWithdraw.length;
+      mergeIndex++
+    ) {
+      const sourceStakeAccount =
+        stakeAccountsToWithdraw[1][mergeIndex].publicKey
+      const mergeIx = await mergeInstruction({
+        program,
+        configAccount,
+        sourceStakeAccount,
+        destinationStakeAccount,
+      })
+      instructions.push(mergeIx.instruction)
+    }
+    const withdrawDeposit = await claimWithdrawRequestInstruction({
+      program,
+      configAccount,
+      withdrawRequestAccount,
+      bondAccount,
+      stakeAccount: destinationStakeAccount,
+      validatorVoteAccount: withdrawRequestData.validatorVoteAccount,
+      splitStakeRentPayer,
+      withdrawer,
+    })
+    instructions.push(withdrawDeposit.instruction)
+    splitStakeAccount = withdrawDeposit.splitStakeAccount
+  }
+
+  return {
+    instructions,
+    splitStakeAccount, // needed as a signer for the transaction
+  }
+}

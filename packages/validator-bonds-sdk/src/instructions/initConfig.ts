@@ -1,11 +1,12 @@
 import {
   Keypair,
   PublicKey,
-  SystemProgram,
+  Signer,
   TransactionInstruction,
 } from '@solana/web3.js'
-import { ValidatorBondsProgram } from './sdk'
+import { ValidatorBondsProgram } from '../sdk'
 import BN from 'bn.js'
+import { walletPubkey } from '../utils'
 
 /**
  * Generate instruction to init config root account.
@@ -25,25 +26,25 @@ import BN from 'bn.js'
 export async function initConfigInstruction({
   program,
   configAccount = Keypair.generate(),
-  adminAuthority = program.provider.publicKey!,
+  adminAuthority = walletPubkey(program),
   operatorAuthority = adminAuthority,
-  rentPayer = program.provider.publicKey!,
+  rentPayer = walletPubkey(program),
   epochsToClaimSettlement = 0,
   withdrawLockupEpochs = 0,
 }: {
   program: ValidatorBondsProgram
-  configAccount?: PublicKey | Keypair // signer
+  configAccount?: PublicKey | Keypair | Signer // signer
   adminAuthority?: PublicKey
   operatorAuthority?: PublicKey
-  rentPayer?: PublicKey // signer
+  rentPayer?: PublicKey | Keypair | Signer // signer
   epochsToClaimSettlement?: BN | number
   withdrawLockupEpochs?: BN | number
 }): Promise<{
-  keypair: Keypair | undefined
+  configAccount: PublicKey | Keypair | Signer
   instruction: TransactionInstruction
 }> {
-  const configAccountAddress =
-    configAccount instanceof Keypair ? configAccount.publicKey : configAccount
+  const configAccountPubkey =
+    configAccount instanceof PublicKey ? configAccount : configAccount.publicKey
 
   const instruction = await program.methods
     .initConfig({
@@ -52,14 +53,14 @@ export async function initConfigInstruction({
       epochsToClaimSettlement: new BN(epochsToClaimSettlement),
       withdrawLockupEpochs: new BN(withdrawLockupEpochs),
     })
-    .accountsStrict({
-      config: configAccountAddress,
-      rentPayer,
-      systemProgram: SystemProgram.programId,
+    .accounts({
+      config: configAccountPubkey,
+      rentPayer:
+        rentPayer instanceof PublicKey ? rentPayer : rentPayer.publicKey,
     })
     .instruction()
   return {
-    keypair: configAccount instanceof Keypair ? configAccount : undefined,
+    configAccount,
     instruction,
   }
 }
