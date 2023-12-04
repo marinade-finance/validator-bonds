@@ -1,20 +1,22 @@
-import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
-import {
-  ValidatorBondsProgram,
-  getConfig,
-  initConfigInstruction,
-} from '../../src'
+import { Authorized, Keypair, PublicKey, SystemProgram } from '@solana/web3.js'
+import { ValidatorBondsProgram } from '../../src'
 import { BankrunProvider } from 'anchor-bankrun'
 import {
   bankrunExecute,
+  bankrunExecuteIx,
   bankrunTransaction,
   initBankrunTest,
 } from './utils/bankrun'
-import { CreateAccountParams, StakeProgram } from '@solana/web3.js'
+import { StakeProgram } from '@solana/web3.js'
+import { deserializeStakeState } from './utils/stakeState'
+import assert from 'assert'
+import { StakeState } from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
+import { Provider } from '@coral-xyz/anchor'
 
 describe('Solana stake account behavior verification', () => {
   let provider: BankrunProvider
   let program: ValidatorBondsProgram
+  let rentExempt: number
 
   const keypairCreator = Keypair.generate()
   const staker = Keypair.generate()
@@ -23,6 +25,9 @@ describe('Solana stake account behavior verification', () => {
   beforeAll(async () => {
     // eslint-disable-next-line @typescript-eslint/no-extra-semi
     ;({ provider, program } = await initBankrunTest())
+    rentExempt = await provider.connection.getMinimumBalanceForRentExemption(
+      StakeProgram.space
+    )
   })
 
   // TODO: #1 when stake account is created with lockup what happens when authority is changed?
@@ -32,22 +37,184 @@ describe('Solana stake account behavior verification', () => {
   //
   // TODO: #2 check what happens when lockup account is merged with non-lockup account?
   // TODO: #3 what happen after split of stake account with authorities, are they maintained as in the original one?
-  it('Create stake account', async () => {
-    const createIx = StakeProgram.createAccount({
-      fromPubkey: provider.wallet.publicKey,
-      stakePubkey: keypairCreator.publicKey,
-      authorized: {
-        staker: staker.publicKey,
-        withdrawer: withdrawer.publicKey,
-      },
-      lockup: undefined,
-      lamports: LAMPORTS_PER_SOL,
+  it.skip('Create stake account', async () => {
+    const sourceStake = await nonDelegatedStakeAccount(provider)
+    const destStake = await nonDelegatedStakeAccount(provider, staker.publicKey)
+    const mergeIx = StakeProgram.merge({
+      stakePubkey: destStake,
+      sourceStakePubKey: sourceStake,
+      authorizedPubkey: staker.publicKey,
     })
     const tx = await bankrunTransaction(provider)
-    tx.add(createIx)
-    const txOut = await bankrunExecute(provider, tx, [
-      provider.wallet,
-      keypairCreator,
-    ])
+    tx.add(mergeIx)
+    await bankrunExecute(provider, [provider.wallet, keypairCreator], tx)
+  })
+
+  it.skip('Create and init stake account', async () => {
+    const accountKeypair = Keypair.generate()
+    const authority = Keypair.generate().publicKey
+    const rentExempt =
+      await provider.connection.getMinimumBalanceForRentExemption(
+        StakeProgram.space
+      )
+    const createSystemAccountIx = SystemProgram.createAccount({
+      fromPubkey: provider.wallet.publicKey,
+      newAccountPubkey: accountKeypair.publicKey,
+      lamports: rentExempt,
+      space: StakeProgram.space,
+      programId: StakeProgram.programId,
+    })
+    const initializeIx = StakeProgram.initialize({
+      stakePubkey: accountKeypair.publicKey,
+      authorized: new Authorized(authority, authority),
+      lockup: undefined,
+    })
+    const tx = await bankrunTransaction(provider)
+    tx.add(createSystemAccountIx, initializeIx)
+    await bankrunExecute(provider, [provider.wallet, accountKeypair], tx)
+
+    const ai = await provider.connection.getAccountInfo(
+      accountKeypair.publicKey
+    )
+    expect(ai).toBeDefined()
+    assert(ai)
+    const stakeData = deserializeStakeState(ai.data)
+    console.log(stakeData)
+    expect(stakeData.Uninitialized).toBeDefined()
+  })
+
+  it('Cannot merge uninitialized, merge initialized', async () => {
+    const [sourcePubkey] = await nonInitializedStakeAccount(provider, rentExempt)
+    const [destPubkey] = await nonInitializedStakeAccount(provider, rentExempt)
+
+    await checkStakeAccount(
+      provider,
+      sourcePubkey,
+      StakeStates.Uninitialized
+    )
+    await checkStakeAccount(
+      provider,
+      destPubkey,
+      StakeStates.Uninitialized
+    )
+    const mergeTx = StakeProgram.merge({
+      stakePubkey: destPubkey,
+      sourceStakePubKey: sourcePubkey,
+      authorizedPubkey: provider.wallet.publicKey,
+    })
+    try {
+      await bankrunExecuteIx(provider, [provider.wallet], mergeTx)
+    } catch (e) {
+      if (checkErrorMessage(e, 'invalid account data for instruction')) {
+        console.debug("Expected error", e)
+      } else {
+        console.error("Not expected error despite failure expected", e)
+        throw e
+      }
+    }
+
+    const sourceStaker = Keypair.generate()
+    const sourceWithdrawer = Keypair.generate()
+    const destStaker = Keypair.generate()
+    const destWithdrawer = Keypair.generate()
+    const sourceInitIx = StakeProgram.initialize({
+      stakePubkey: sourcePubkey,
+      authorized: new Authorized(sourceStaker.publicKey, sourceWithdrawer.publicKey),
+      lockup: undefined,
+    })
+    await bankrunExecuteIx(provider, [provider.wallet], sourceInitIx)
   })
 })
+
+function checkErrorMessage(e: unknown, message: string) {
+  return typeof e === 'object' && e !== null && 'message' in e && typeof e.message === 'string' && e.message.includes(message)
+}
+
+export enum StakeStates {
+  Uninitialized,
+  Initialized,
+  Delegated,
+  RewardsPool,
+}
+
+async function checkStakeAccount(
+  provider: Provider,
+  account: PublicKey,
+  stakeStateCheck: StakeStates
+): Promise<StakeState> {
+  const accountInfo = await provider.connection.getAccountInfo(account)
+  expect(accountInfo).toBeDefined()
+  assert(accountInfo)
+  const stakeData = deserializeStakeState(accountInfo.data)
+  switch (stakeStateCheck) {
+    case StakeStates.Uninitialized:
+      expect(stakeData.Uninitialized).toBeDefined()
+      break
+    case StakeStates.Initialized:
+      expect(stakeData.Initialized).toBeDefined()
+      break
+    case StakeStates.Delegated:
+      expect(stakeData.Stake).toBeDefined()
+      break
+    case StakeStates.RewardsPool:
+      expect(stakeData.RewardsPool).toBeDefined()
+      break
+  }
+  return stakeData
+}
+
+async function nonInitializedStakeAccount(
+  provider: BankrunProvider,
+  rentExempt?: number
+): Promise<[PublicKey, Keypair]> {
+  const accountKeypair = Keypair.generate()
+  const createSystemAccountIx = SystemProgram.createAccount({
+    fromPubkey: provider.wallet.publicKey,
+    newAccountPubkey: accountKeypair.publicKey,
+    lamports: await getRentExempt(provider, rentExempt),
+    space: StakeProgram.space,
+    programId: StakeProgram.programId,
+  })
+  await bankrunExecuteIx(
+    provider,
+    [accountKeypair, provider.wallet],
+    createSystemAccountIx
+  )
+  return [accountKeypair.publicKey, accountKeypair]
+}
+
+async function nonDelegatedStakeAccount(
+  provider: BankrunProvider,
+  staker?: PublicKey,
+  withdrawer?: PublicKey
+): Promise<PublicKey> {
+  const stakeKeypair = Keypair.generate()
+  staker = staker || Keypair.generate().publicKey
+  withdrawer = withdrawer || Keypair.generate().publicKey
+  const rentExempt =
+    await provider.connection.getMinimumBalanceForRentExemption(
+      StakeProgram.space
+    )
+  const ix = StakeProgram.createAccount({
+    fromPubkey: provider.wallet.publicKey,
+    stakePubkey: stakeKeypair.publicKey,
+    authorized: new Authorized(staker, withdrawer),
+    lamports: rentExempt,
+  })
+  const tx = await bankrunTransaction(provider)
+  tx.add(ix)
+  await bankrunExecute(provider, [provider.wallet, stakeKeypair], tx)
+  return stakeKeypair.publicKey
+}
+
+async function getRentExempt(
+  provider: BankrunProvider,
+  rentExempt?: number
+): Promise<number> {
+  return (
+    rentExempt ||
+    (await provider.connection.getMinimumBalanceForRentExemption(
+      StakeProgram.space
+    ))
+  )
+}

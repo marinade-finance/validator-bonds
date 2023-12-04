@@ -35,7 +35,7 @@ describe('Validator Bonds config account tests', () => {
       withdrawLockupEpochs: 2,
     })
     tx.add(instruction)
-    await bankrunExecute(provider, tx, [provider.wallet, keypair!])
+    await bankrunExecute(provider, [provider.wallet, keypair!], tx)
 
     // Ensure the account was created
     const configAccountAddress = keypair!.publicKey

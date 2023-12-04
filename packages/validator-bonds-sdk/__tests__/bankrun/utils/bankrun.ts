@@ -2,7 +2,13 @@ import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import { ValidatorBondsProgram, getProgram } from '../../../src'
 import { BanksTransactionMeta, startAnchor } from 'solana-bankrun'
 import { BankrunProvider } from 'anchor-bankrun'
-import { PublicKey, Signer, Transaction } from '@solana/web3.js'
+import {
+  PublicKey,
+  Signer,
+  Transaction,
+  TransactionInstruction,
+  TransactionInstructionCtorFields,
+} from '@solana/web3.js'
 import { instanceOfWallet } from '@marinade.finance/web3js-common'
 
 export async function initBankrunTest(programId?: PublicKey): Promise<{
@@ -11,7 +17,6 @@ export async function initBankrunTest(programId?: PublicKey): Promise<{
 }> {
   const context = await startAnchor('./', [], [])
   const provider = new BankrunProvider(context)
-  console.dir(provider.context.banksClient)
   return {
     program: getProgram({ connection: provider, programId }),
     provider,
@@ -32,10 +37,20 @@ export async function bankrunTransaction(
   })
 }
 
+export async function bankrunExecuteIx(
+  provider: BankrunProvider,
+  signers: (WalletInterface | Signer)[],
+  ...ixes: (Transaction | TransactionInstruction | TransactionInstructionCtorFields)[]
+): Promise<BanksTransactionMeta> {
+  const tx = await bankrunTransaction(provider)
+  tx.add(...ixes)
+  return await bankrunExecute(provider, signers, tx)
+}
+
 export async function bankrunExecute(
   provider: BankrunProvider,
-  tx: Transaction,
-  signers: (WalletInterface | Signer)[]
+  signers: (WalletInterface | Signer)[],
+  tx: Transaction
 ): Promise<BanksTransactionMeta> {
   for (const signer of signers) {
     if (instanceOfWallet(signer)) {

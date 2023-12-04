@@ -113,7 +113,6 @@ async function manageInitConfig({
     withdrawLockupEpochs,
     rentPayer,
   })
-  console.dir(instruction)
   tx.add(instruction)
 
   await executeTx({
