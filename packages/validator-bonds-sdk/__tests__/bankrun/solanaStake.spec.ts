@@ -1,5 +1,12 @@
-import { Authorized, Keypair, PublicKey, SystemProgram } from '@solana/web3.js'
+import {
+  Authorized,
+  Keypair,
+  PublicKey,
+  StakeAuthorizationLayout,
+  SystemProgram,
+} from '@solana/web3.js'
 import { ValidatorBondsProgram } from '../../src'
+import { Clock } from 'solana-bankrun'
 import { BankrunProvider } from 'anchor-bankrun'
 import {
   bankrunExecute,
@@ -84,31 +91,32 @@ describe('Solana stake account behavior verification', () => {
   })
 
   it('Cannot merge uninitialized, merge initialized', async () => {
-    const [sourcePubkey] = await nonInitializedStakeAccount(provider, rentExempt)
+    const [sourcePubkey] = await nonInitializedStakeAccount(
+      provider,
+      rentExempt
+    )
     const [destPubkey] = await nonInitializedStakeAccount(provider, rentExempt)
 
-    await checkStakeAccount(
-      provider,
-      sourcePubkey,
-      StakeStates.Uninitialized
-    )
-    await checkStakeAccount(
-      provider,
-      destPubkey,
-      StakeStates.Uninitialized
-    )
-    const mergeTx = StakeProgram.merge({
+    await checkStakeAccount(provider, sourcePubkey, StakeStates.Uninitialized)
+    await checkStakeAccount(provider, destPubkey, StakeStates.Uninitialized)
+    const mergeUninitializedTx = StakeProgram.merge({
       stakePubkey: destPubkey,
       sourceStakePubKey: sourcePubkey,
       authorizedPubkey: provider.wallet.publicKey,
     })
+    // 1. CANNOT MERGE WHEN UNINITIALIZED
     try {
-      await bankrunExecuteIx(provider, [provider.wallet], mergeTx)
+      await bankrunExecuteIx(
+        provider,
+        [provider.wallet],
+        [mergeUninitializedTx]
+      )
+      throw new Error('Expected failure 1.')
     } catch (e) {
       if (checkErrorMessage(e, 'invalid account data for instruction')) {
-        console.debug("Expected error", e)
+        console.debug('1. expected error', e)
       } else {
-        console.error("Not expected error despite failure expected", e)
+        console.error('Not expected error despite a failure expected', e)
         throw e
       }
     }
@@ -119,15 +127,102 @@ describe('Solana stake account behavior verification', () => {
     const destWithdrawer = Keypair.generate()
     const sourceInitIx = StakeProgram.initialize({
       stakePubkey: sourcePubkey,
-      authorized: new Authorized(sourceStaker.publicKey, sourceWithdrawer.publicKey),
+      authorized: new Authorized(
+        sourceStaker.publicKey,
+        sourceWithdrawer.publicKey
+      ),
       lockup: undefined,
     })
-    await bankrunExecuteIx(provider, [provider.wallet], sourceInitIx)
+    const destInitIx = StakeProgram.initialize({
+      stakePubkey: destPubkey,
+      authorized: new Authorized(
+        destStaker.publicKey,
+        destWithdrawer.publicKey
+      ),
+      lockup: undefined,
+    })
+    await bankrunExecuteIx(
+      provider,
+      [provider.wallet],
+      [sourceInitIx, destInitIx]
+    )
+
+    await checkStakeAccount(provider, sourcePubkey, StakeStates.Initialized)
+    await checkStakeAccount(provider, destPubkey, StakeStates.Initialized)
+
+    const mergeInitializedWrongAuthorityTx = StakeProgram.merge({
+      stakePubkey: destPubkey,
+      sourceStakePubKey: sourcePubkey,
+      authorizedPubkey: sourceStaker.publicKey,
+    })
+    // 2. CANNOT MERGE WHEN HAVING DIFFERENT STAKER AUTHORITIES
+    try {
+      await bankrunExecuteIx(
+        provider,
+        [provider.wallet, sourceStaker],
+        [mergeInitializedWrongAuthorityTx]
+      )
+      throw new Error('Expected failure 2.')
+    } catch (e) {
+      if (checkErrorMessage(e, 'missing required signature for instruction')) {
+        console.debug('2. expected error', e)
+      } else {
+        console.error('Not expected error despite a failure expected', e)
+        throw e
+      }
+    }
+
+    const changeStakerAuthIx = StakeProgram.authorize({
+      stakePubkey: destPubkey,
+      authorizedPubkey: destStaker.publicKey,
+      newAuthorizedPubkey: sourceStaker.publicKey,
+      stakeAuthorizationType: StakeAuthorizationLayout.Staker,
+      custodianPubkey: undefined,
+    })
+    await bankrunExecuteIx(
+      provider,
+      [provider.wallet, destStaker],
+      [changeStakerAuthIx]
+    )
+
+    // pushing clock forward to get new latest blockhash from the client
+    provider.context.warpToSlot(
+      (await provider.context.banksClient.getClock()).slot + BigInt(1)
+    )
+
+    const mergeInitializedWrongWithdrawAuthorityTx = StakeProgram.merge({
+      stakePubkey: destPubkey,
+      sourceStakePubKey: sourcePubkey,
+      authorizedPubkey: sourceStaker.publicKey,
+    })
+    // 3. CANNOT MERGE WHEN HAVING DIFFERENT WITHDRAWER AUTHORITIES
+    // https://github.com/solana-labs/solana/blob/v1.17.7/programs/stake/src/stake_state.rs#L1392
+    try {
+      await bankrunExecuteIx(
+        provider,
+        [provider.wallet, sourceStaker],
+        [mergeInitializedWrongWithdrawAuthorityTx]
+      )
+      throw new Error('Expected failure 3.')
+    } catch (e) {
+      if (checkErrorMessage(e, 'custom program error: 0x6')) {
+        console.debug('3. expected error', e)
+      } else {
+        console.error('Not expected error despite a failure expected', e)
+        throw e
+      }
+    }
   })
 })
 
 function checkErrorMessage(e: unknown, message: string) {
-  return typeof e === 'object' && e !== null && 'message' in e && typeof e.message === 'string' && e.message.includes(message)
+  return (
+    typeof e === 'object' &&
+    e !== null &&
+    'message' in e &&
+    typeof e.message === 'string' &&
+    e.message.includes(message)
+  )
 }
 
 export enum StakeStates {
@@ -178,7 +273,7 @@ async function nonInitializedStakeAccount(
   await bankrunExecuteIx(
     provider,
     [accountKeypair, provider.wallet],
-    createSystemAccountIx
+    [createSystemAccountIx]
   )
   return [accountKeypair.publicKey, accountKeypair]
 }

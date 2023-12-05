@@ -4,6 +4,7 @@ import { BanksTransactionMeta, startAnchor } from 'solana-bankrun'
 import { BankrunProvider } from 'anchor-bankrun'
 import {
   PublicKey,
+  SerializeConfig,
   Signer,
   Transaction,
   TransactionInstruction,
@@ -31,7 +32,7 @@ export async function bankrunTransaction(
     bh === null ? Number.MAX_VALUE : bh[1]
   ) as number
   return new Transaction({
-    feePayer: provider.publicKey,
+    feePayer: provider.wallet.publicKey,
     blockhash: provider.context.lastBlockhash,
     lastValidBlockHeight,
   })
@@ -40,17 +41,23 @@ export async function bankrunTransaction(
 export async function bankrunExecuteIx(
   provider: BankrunProvider,
   signers: (WalletInterface | Signer)[],
-  ...ixes: (Transaction | TransactionInstruction | TransactionInstructionCtorFields)[]
+  ixes: (
+    | Transaction
+    | TransactionInstruction
+    | TransactionInstructionCtorFields
+  )[],
+  serializeConfig?: SerializeConfig
 ): Promise<BanksTransactionMeta> {
   const tx = await bankrunTransaction(provider)
   tx.add(...ixes)
-  return await bankrunExecute(provider, signers, tx)
+  return await bankrunExecute(provider, signers, tx, serializeConfig)
 }
 
 export async function bankrunExecute(
   provider: BankrunProvider,
   signers: (WalletInterface | Signer)[],
-  tx: Transaction
+  tx: Transaction,
+  serializeConfig?: SerializeConfig
 ): Promise<BanksTransactionMeta> {
   for (const signer of signers) {
     if (instanceOfWallet(signer)) {
@@ -59,5 +66,8 @@ export async function bankrunExecute(
       tx.partialSign(signer)
     }
   }
-  return await provider.context.banksClient.processTransaction(tx)
+  return await provider.context.banksClient.processTransaction(
+    tx,
+    serializeConfig
+  )
 }
