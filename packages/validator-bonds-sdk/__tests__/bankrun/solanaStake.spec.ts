@@ -106,11 +106,7 @@ describe('Solana stake account behavior verification', () => {
     })
     // 1. CANNOT MERGE WHEN UNINITIALIZED
     try {
-      await bankrunExecuteIx(
-        provider,
-        [provider.wallet],
-        [mergeUninitializedTx]
-      )
+      await bankrunExecuteIx(provider, [provider.wallet], mergeUninitializedTx)
       throw new Error('Expected failure 1.')
     } catch (e) {
       if (checkErrorMessage(e, 'invalid account data for instruction')) {
@@ -144,7 +140,8 @@ describe('Solana stake account behavior verification', () => {
     await bankrunExecuteIx(
       provider,
       [provider.wallet],
-      [sourceInitIx, destInitIx]
+      sourceInitIx,
+      destInitIx
     )
 
     await checkStakeAccount(provider, sourcePubkey, StakeStates.Initialized)
@@ -160,7 +157,7 @@ describe('Solana stake account behavior verification', () => {
       await bankrunExecuteIx(
         provider,
         [provider.wallet, sourceStaker],
-        [mergeInitializedWrongAuthorityTx]
+        mergeInitializedWrongAuthorityTx
       )
       throw new Error('Expected failure 2.')
     } catch (e) {
@@ -172,6 +169,7 @@ describe('Solana stake account behavior verification', () => {
       }
     }
 
+    // staker authority change is ok to be signed by staker
     const changeStakerAuthIx = StakeProgram.authorize({
       stakePubkey: destPubkey,
       authorizedPubkey: destStaker.publicKey,
@@ -182,7 +180,7 @@ describe('Solana stake account behavior verification', () => {
     await bankrunExecuteIx(
       provider,
       [provider.wallet, destStaker],
-      [changeStakerAuthIx]
+      changeStakerAuthIx
     )
 
     // pushing clock forward to get new latest blockhash from the client
@@ -201,7 +199,7 @@ describe('Solana stake account behavior verification', () => {
       await bankrunExecuteIx(
         provider,
         [provider.wallet, sourceStaker],
-        [mergeInitializedWrongWithdrawAuthorityTx]
+        mergeInitializedWrongWithdrawAuthorityTx
       )
       throw new Error('Expected failure 3.')
     } catch (e) {
@@ -212,6 +210,32 @@ describe('Solana stake account behavior verification', () => {
         throw e
       }
     }
+
+    const changeWithdrawerAuthIx = StakeProgram.authorize({
+      stakePubkey: destPubkey,
+      authorizedPubkey: destWithdrawer.publicKey,
+      newAuthorizedPubkey: sourceWithdrawer.publicKey,
+      stakeAuthorizationType: StakeAuthorizationLayout.Withdrawer,
+      custodianPubkey: undefined,
+    })
+    await bankrunExecuteIx(
+      provider,
+      [provider.wallet, destWithdrawer],
+      changeWithdrawerAuthIx
+    )
+
+    // pushing clock forward to get new latest blockhash from the client
+    provider.context.warpToSlot(
+      (await provider.context.banksClient.getClock()).slot + BigInt(1)
+    )
+
+    // 4. FINAL SUCCESSFUL MERGE
+    const mergeTx = StakeProgram.merge({
+      stakePubkey: destPubkey,
+      sourceStakePubKey: sourcePubkey,
+      authorizedPubkey: sourceStaker.publicKey,
+    })
+    await bankrunExecuteIx(provider, [provider.wallet, sourceStaker], mergeTx)
   })
 })
 
@@ -273,7 +297,7 @@ async function nonInitializedStakeAccount(
   await bankrunExecuteIx(
     provider,
     [accountKeypair, provider.wallet],
-    [createSystemAccountIx]
+    createSystemAccountIx
   )
   return [accountKeypair.publicKey, accountKeypair]
 }

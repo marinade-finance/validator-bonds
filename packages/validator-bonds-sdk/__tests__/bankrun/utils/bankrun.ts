@@ -4,7 +4,6 @@ import { BanksTransactionMeta, startAnchor } from 'solana-bankrun'
 import { BankrunProvider } from 'anchor-bankrun'
 import {
   PublicKey,
-  SerializeConfig,
   Signer,
   Transaction,
   TransactionInstruction,
@@ -41,23 +40,21 @@ export async function bankrunTransaction(
 export async function bankrunExecuteIx(
   provider: BankrunProvider,
   signers: (WalletInterface | Signer)[],
-  ixes: (
+  ...ixes: (
     | Transaction
     | TransactionInstruction
     | TransactionInstructionCtorFields
-  )[],
-  serializeConfig?: SerializeConfig
+  )[]
 ): Promise<BanksTransactionMeta> {
   const tx = await bankrunTransaction(provider)
   tx.add(...ixes)
-  return await bankrunExecute(provider, signers, tx, serializeConfig)
+  return await bankrunExecute(provider, signers, tx)
 }
 
 export async function bankrunExecute(
   provider: BankrunProvider,
   signers: (WalletInterface | Signer)[],
-  tx: Transaction,
-  serializeConfig?: SerializeConfig
+  tx: Transaction
 ): Promise<BanksTransactionMeta> {
   for (const signer of signers) {
     if (instanceOfWallet(signer)) {
@@ -66,8 +63,5 @@ export async function bankrunExecute(
       tx.partialSign(signer)
     }
   }
-  return await provider.context.banksClient.processTransaction(
-    tx,
-    serializeConfig
-  )
+  return await provider.context.banksClient.processTransaction(tx)
 }
