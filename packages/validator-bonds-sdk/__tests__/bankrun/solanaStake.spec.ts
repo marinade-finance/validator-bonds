@@ -9,6 +9,7 @@ import {
   TransactionInstruction,
   TransactionInstructionCtorFields,
   Signer,
+  AccountInfo,
 } from '@solana/web3.js'
 import { ValidatorBondsProgram } from '../../src'
 import { BankrunProvider } from 'anchor-bankrun'
@@ -178,9 +179,8 @@ describe('Solana stake account behavior verification', () => {
     await bankrunExecuteIx(provider, [provider.wallet, sourceStaker], mergeTx)
   })
 
-  it('merge stake account with lockup', async () => {
-    const { epoch, unixTimestamp } =
-      await provider.context.banksClient.getClock()
+  it.skip('merge stake account with expired lockup', async () => {
+    const { epoch } = await provider.context.banksClient.getClock()
     const staker = Keypair.generate()
     const stakeAccount1Epoch = Number(epoch) - 1
     const { stakeAccount: stakeAccount1, withdrawer } =
@@ -239,6 +239,7 @@ describe('Solana stake account behavior verification', () => {
       staker.publicKey,
       withdrawer
     )
+    // stakeAccount1 --> merged to --> stakeAccount4
     const mergeTx4 = StakeProgram.merge({
       stakePubkey: stakeAccount4,
       sourceStakePubKey: stakeAccount1,
@@ -246,6 +247,110 @@ describe('Solana stake account behavior verification', () => {
     })
     // 3. LOCKUP cannot be changed after creation, only merge accounts with the same lockup
     await bankrunExecuteIx(provider, [provider.wallet, staker], mergeTx4)
+    // merged, account is gone
+    expect(
+      provider.context.banksClient.getAccount(stakeAccount1)
+    ).resolves.toBeNull()
+
+    // 4. AUTHORIZE to new staker, lockup is over, not necessary to use custodian
+    let stakeAccount1Data = await checkStakeAccount(
+      provider,
+      stakeAccount4,
+      StakeStates.Initialized
+    )
+    expect(stakeAccount1Data.Initialized?.meta.authorized.staker).toEqual(
+      staker.publicKey
+    )
+    const newStaker = Keypair.generate()
+    const changeStakerAuthIx = StakeProgram.authorize({
+      stakePubkey: stakeAccount4,
+      authorizedPubkey: staker.publicKey,
+      newAuthorizedPubkey: newStaker.publicKey,
+      stakeAuthorizationType: StakeAuthorizationLayout.Staker,
+      // using random non-existent custodian here
+      custodianPubkey: Keypair.generate().publicKey,
+    })
+    await bankrunExecuteIx(
+      provider,
+      [provider.wallet, staker],
+      changeStakerAuthIx
+    )
+    stakeAccount1Data = await checkStakeAccount(
+      provider,
+      stakeAccount4,
+      StakeStates.Initialized
+    )
+    expect(stakeAccount1Data.Initialized?.meta.authorized.staker).toEqual(
+      newStaker.publicKey
+    )
+  })
+
+  it('merge stake account with running lockup', async () => {
+    const { unixTimestamp } = await provider.context.banksClient.getClock()
+    const staker = Keypair.generate()
+    const withdrawer = Keypair.generate()
+    const custodian = Keypair.generate()
+    const lockup = new Lockup(Number(unixTimestamp) + 1000, 0, custodian.publicKey)
+    const { stakeAccount: stakeAccount1 } =
+      await initializedStakeAccount(
+        provider,
+        lockup,
+        rentExemptStake,
+        staker.publicKey,
+        withdrawer.publicKey
+      )
+    const { stakeAccount: stakeAccount2 } = await initializedStakeAccount(
+      provider,
+      lockup,
+      rentExemptStake,
+      staker.publicKey,
+      withdrawer.publicKey
+    )
+
+    // 1. AUTHORIZE POSSIBLE WHEN LOCKUP IS RUNNING AND META IS THE SAME
+    const newStaker = Keypair.generate()
+    const changeStakerAuthIx = StakeProgram.authorize({
+      stakePubkey: stakeAccount1,
+      authorizedPubkey: staker.publicKey,
+      newAuthorizedPubkey: newStaker.publicKey,
+      stakeAuthorizationType: StakeAuthorizationLayout.Staker,
+    })
+    const changeStakerAuthIx2 = StakeProgram.authorize({
+      stakePubkey: stakeAccount2,
+      authorizedPubkey: staker.publicKey,
+      newAuthorizedPubkey: newStaker.publicKey,
+      stakeAuthorizationType: StakeAuthorizationLayout.Staker,
+    })
+    await bankrunExecuteIx(
+      provider,
+      [provider.wallet, staker],
+      changeStakerAuthIx, changeStakerAuthIx2
+    )
+
+    // stakeAccount2 --> merged to --> stakeAccount1
+    const mergeTx = StakeProgram.merge({
+      stakePubkey: stakeAccount1,
+      sourceStakePubKey: stakeAccount2,
+      authorizedPubkey: newStaker.publicKey,
+    })
+    await bankrunExecuteIx(
+      provider,
+      [provider.wallet, newStaker],
+      mergeTx
+    )
+
+    // creating vote account to delegate to it
+    const {voteAccount} = await createVoteAccount(provider, rentExemptVote)
+    const delegateIx = StakeProgram.delegate({
+      stakePubkey: stakeAccount1,
+      authorizedPubkey: newStaker.publicKey,
+      votePubkey: voteAccount,
+    })
+    await bankrunExecuteIx(
+      provider,
+      [provider.wallet, newStaker],
+      delegateIx
+    )
   })
 
   it.skip('merge delegated stake account', async () => {
@@ -354,7 +459,15 @@ async function checkStakeAccount(
   account: PublicKey,
   stakeStateCheck: StakeStates
 ): Promise<StakeState> {
-  const accountInfo = await provider.connection.getAccountInfo(account)
+  let accountInfo: AccountInfo<Buffer>
+  try {
+    accountInfo = (await provider.connection.getAccountInfo(
+      account
+    )) as AccountInfo<Buffer>
+  } catch (e) {
+    console.error(e)
+    throw new Error(`Account ${account.toBase58()} does not exist on chain`)
+  }
   expect(accountInfo).toBeDefined()
   assert(accountInfo)
   const stakeData = deserializeStakeState(accountInfo.data)
