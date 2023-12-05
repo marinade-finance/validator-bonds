@@ -1,12 +1,13 @@
 import {
   Authorized,
   Keypair,
+  Lockup,
   PublicKey,
   StakeAuthorizationLayout,
   SystemProgram,
+  VoteInit,
 } from '@solana/web3.js'
 import { ValidatorBondsProgram } from '../../src'
-import { Clock } from 'solana-bankrun'
 import { BankrunProvider } from 'anchor-bankrun'
 import {
   bankrunExecute,
@@ -14,8 +15,8 @@ import {
   bankrunTransaction,
   initBankrunTest,
 } from './utils/bankrun'
-import { StakeProgram } from '@solana/web3.js'
-import { deserializeStakeState } from './utils/stakeState'
+import { StakeProgram, VoteProgram } from '@solana/web3.js'
+import { VOTE_ACCOUNT_SIZE, deserializeStakeState } from './utils/stakeState'
 import assert from 'assert'
 import { StakeState } from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
 import { Provider } from '@coral-xyz/anchor'
@@ -23,18 +24,20 @@ import { Provider } from '@coral-xyz/anchor'
 describe('Solana stake account behavior verification', () => {
   let provider: BankrunProvider
   let program: ValidatorBondsProgram
-  let rentExempt: number
-
-  const keypairCreator = Keypair.generate()
-  const staker = Keypair.generate()
-  const withdrawer = Keypair.generate()
+  let rentExemptStake: number
+  let rentExemptVote: number
 
   beforeAll(async () => {
     // eslint-disable-next-line @typescript-eslint/no-extra-semi
     ;({ provider, program } = await initBankrunTest())
-    rentExempt = await provider.connection.getMinimumBalanceForRentExemption(
-      StakeProgram.space
-    )
+    rentExemptStake =
+      await provider.connection.getMinimumBalanceForRentExemption(
+        StakeProgram.space
+      )
+    rentExemptVote =
+      await provider.connection.getMinimumBalanceForRentExemption(
+        VOTE_ACCOUNT_SIZE
+      )
   })
 
   // TODO: #1 when stake account is created with lockup what happens when authority is changed?
@@ -44,58 +47,16 @@ describe('Solana stake account behavior verification', () => {
   //
   // TODO: #2 check what happens when lockup account is merged with non-lockup account?
   // TODO: #3 what happen after split of stake account with authorities, are they maintained as in the original one?
-  it.skip('Create stake account', async () => {
-    const sourceStake = await nonDelegatedStakeAccount(provider)
-    const destStake = await nonDelegatedStakeAccount(provider, staker.publicKey)
-    const mergeIx = StakeProgram.merge({
-      stakePubkey: destStake,
-      sourceStakePubKey: sourceStake,
-      authorizedPubkey: staker.publicKey,
-    })
-    const tx = await bankrunTransaction(provider)
-    tx.add(mergeIx)
-    await bankrunExecute(provider, [provider.wallet, keypairCreator], tx)
-  })
 
-  it.skip('Create and init stake account', async () => {
-    const accountKeypair = Keypair.generate()
-    const authority = Keypair.generate().publicKey
-    const rentExempt =
-      await provider.connection.getMinimumBalanceForRentExemption(
-        StakeProgram.space
-      )
-    const createSystemAccountIx = SystemProgram.createAccount({
-      fromPubkey: provider.wallet.publicKey,
-      newAccountPubkey: accountKeypair.publicKey,
-      lamports: rentExempt,
-      space: StakeProgram.space,
-      programId: StakeProgram.programId,
-    })
-    const initializeIx = StakeProgram.initialize({
-      stakePubkey: accountKeypair.publicKey,
-      authorized: new Authorized(authority, authority),
-      lockup: undefined,
-    })
-    const tx = await bankrunTransaction(provider)
-    tx.add(createSystemAccountIx, initializeIx)
-    await bankrunExecute(provider, [provider.wallet, accountKeypair], tx)
-
-    const ai = await provider.connection.getAccountInfo(
-      accountKeypair.publicKey
-    )
-    expect(ai).toBeDefined()
-    assert(ai)
-    const stakeData = deserializeStakeState(ai.data)
-    console.log(stakeData)
-    expect(stakeData.Uninitialized).toBeDefined()
-  })
-
-  it('Cannot merge uninitialized, merge initialized', async () => {
+  it.skip('cannot merge uninitialized + merge initialized with correct meta', async () => {
     const [sourcePubkey] = await nonInitializedStakeAccount(
       provider,
-      rentExempt
+      rentExemptStake
     )
-    const [destPubkey] = await nonInitializedStakeAccount(provider, rentExempt)
+    const [destPubkey] = await nonInitializedStakeAccount(
+      provider,
+      rentExemptStake
+    )
 
     await checkStakeAccount(provider, sourcePubkey, StakeStates.Uninitialized)
     await checkStakeAccount(provider, destPubkey, StakeStates.Uninitialized)
@@ -237,7 +198,71 @@ describe('Solana stake account behavior verification', () => {
     })
     await bankrunExecuteIx(provider, [provider.wallet, sourceStaker], mergeTx)
   })
+
+  it('merge stake account with lockup', async () => {
+    const stakeAccount = await initializedStakeAccount(provider, new Lockup(0, 0, provider.wallet.publicKey), rentExemptStake)
+    
+  })
+
+  it.skip('merge delegated stake account', async () => {
+    const {voteAccount} = await createVoteAccount(provider, rentExemptVote)
+    // TODO: ...
+  })
 })
+
+type VoteAccountKeys = {
+  voteAccount: PublicKey
+  nodeIdentity: Keypair
+  authorizedVoter: Keypair
+  authorizedWithdrawer: Keypair
+}
+
+async function createVoteAccount(
+  provider: BankrunProvider,
+  rentExempt: number
+): Promise<VoteAccountKeys> {
+  rentExempt =
+    rentExempt ||
+    (await provider.connection.getMinimumBalanceForRentExemption(
+      VOTE_ACCOUNT_SIZE
+    ))
+
+  const voteAccount = Keypair.generate()
+  const nodeIdentity = Keypair.generate()
+  const authorizedVoter = Keypair.generate()
+  const authorizedWithdrawer = Keypair.generate()
+
+  const ixCreate = SystemProgram.createAccount({
+    fromPubkey: provider.wallet.publicKey,
+    newAccountPubkey: voteAccount.publicKey,
+    lamports: rentExempt,
+    space: VOTE_ACCOUNT_SIZE,
+    programId: VoteProgram.programId,
+  })
+  const ixInitialize = VoteProgram.initializeAccount({
+    votePubkey: voteAccount.publicKey,
+    nodePubkey: nodeIdentity.publicKey,
+    voteInit: {
+      authorizedVoter: authorizedVoter.publicKey,
+      authorizedWithdrawer: authorizedWithdrawer.publicKey,
+      commission: 0,
+      nodePubkey: nodeIdentity.publicKey,
+    },
+  })
+
+  await bankrunExecuteIx(
+    provider,
+    [provider.wallet, voteAccount, nodeIdentity],
+    ixCreate,
+    ixInitialize
+  )
+  return {
+    voteAccount: voteAccount.publicKey,
+    nodeIdentity,
+    authorizedVoter,
+    authorizedWithdrawer,
+  }
+}
 
 function checkErrorMessage(e: unknown, message: string) {
   return (
@@ -302,28 +327,25 @@ async function nonInitializedStakeAccount(
   return [accountKeypair.publicKey, accountKeypair]
 }
 
-async function nonDelegatedStakeAccount(
+async function initializedStakeAccount(
   provider: BankrunProvider,
-  staker?: PublicKey,
-  withdrawer?: PublicKey
+  lockup?: Lockup,
+  rentExempt?: number
 ): Promise<PublicKey> {
-  const stakeKeypair = Keypair.generate()
-  staker = staker || Keypair.generate().publicKey
-  withdrawer = withdrawer || Keypair.generate().publicKey
-  const rentExempt =
-    await provider.connection.getMinimumBalanceForRentExemption(
-      StakeProgram.space
-    )
+  const stakeAccount = Keypair.generate()
+  const staker = Keypair.generate().publicKey
+  const withdrawer = Keypair.generate().publicKey
+  rentExempt = await getRentExempt(provider, rentExempt)
+
   const ix = StakeProgram.createAccount({
     fromPubkey: provider.wallet.publicKey,
-    stakePubkey: stakeKeypair.publicKey,
+    stakePubkey: stakeAccount.publicKey,
     authorized: new Authorized(staker, withdrawer),
     lamports: rentExempt,
+    lockup,
   })
-  const tx = await bankrunTransaction(provider)
-  tx.add(ix)
-  await bankrunExecute(provider, [provider.wallet, stakeKeypair], tx)
-  return stakeKeypair.publicKey
+  await bankrunExecuteIx(provider, [provider.wallet, stakeAccount], ix)
+  return stakeAccount.publicKey
 }
 
 async function getRentExempt(
