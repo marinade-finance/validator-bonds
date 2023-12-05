@@ -1,10 +1,9 @@
-use crate::insurance_claims::InsuranceClaim;
-
 use {
-    crate::insurance_claims::InsuranceClaimCollection,
+    crate::insurance_claims::{InsuranceClaim, InsuranceClaimCollection},
     merkle_tree::MerkleTree,
     serde::{Deserialize, Serialize},
     solana_sdk::hash::{Hash, Hasher},
+    std::collections::HashMap,
 };
 
 #[derive(Default, Clone, Eq, Debug, Hash, PartialEq, Deserialize, Serialize)]
@@ -28,12 +27,20 @@ impl TreeNode {
 }
 
 #[derive(Default, Clone, Deserialize, Serialize)]
+pub struct ClaimLimit {
+    pub vote_account: String,
+    pub max_total_claim_sum: u64,
+    pub max_total_claims: usize,
+}
+
+#[derive(Default, Clone, Deserialize, Serialize)]
 pub struct MerkleTreeCollection {
     pub epoch: u64,
     pub slot: u64,
     pub merkle_root: Option<Hash>,
     pub max_total_claim_sum: u64,
     pub max_total_claims: usize,
+    pub claim_limits: Vec<ClaimLimit>,
     pub tree_nodes: Vec<TreeNode>,
 }
 
@@ -61,6 +68,34 @@ pub fn generate_merkle_tree_collection(
         )
         .collect();
 
+    let claim_limits = insurance_claims_collection
+        .claims
+        .iter()
+        .fold(
+            HashMap::default(),
+            |mut claim_limits: HashMap<String, ClaimLimit>,
+             InsuranceClaim {
+                 vote_account,
+                 claim,
+                 ..
+             }| {
+                let claim_limit = claim_limits
+                    .entry(vote_account.clone())
+                    .or_insert(ClaimLimit {
+                        vote_account: vote_account.clone(),
+                        max_total_claim_sum: 0,
+                        max_total_claims: 0,
+                    });
+                claim_limit.max_total_claims += 1;
+                claim_limit.max_total_claim_sum += claim;
+
+                claim_limits
+            },
+        )
+        .values()
+        .cloned()
+        .collect();
+
     let max_total_claim_sum: u64 = tree_nodes.iter().map(|node| node.claim).sum();
 
     let hashed_nodes: Vec<[u8; 32]> = tree_nodes.iter().map(|n| n.hash().to_bytes()).collect();
@@ -76,6 +111,7 @@ pub fn generate_merkle_tree_collection(
         merkle_root: merkle_tree.get_root().cloned(),
         max_total_claim_sum,
         max_total_claims: tree_nodes.len(),
+        claim_limits,
         tree_nodes,
     })
 }
