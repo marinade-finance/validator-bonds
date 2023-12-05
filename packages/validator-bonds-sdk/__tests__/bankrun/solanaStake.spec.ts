@@ -5,16 +5,15 @@ import {
   PublicKey,
   StakeAuthorizationLayout,
   SystemProgram,
-  VoteInit,
+  Transaction,
+  TransactionInstruction,
+  TransactionInstructionCtorFields,
+  Signer,
 } from '@solana/web3.js'
 import { ValidatorBondsProgram } from '../../src'
 import { BankrunProvider } from 'anchor-bankrun'
-import {
-  bankrunExecute,
-  bankrunExecuteIx,
-  bankrunTransaction,
-  initBankrunTest,
-} from './utils/bankrun'
+import { bankrunExecuteIx, initBankrunTest } from './utils/bankrun'
+import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import { StakeProgram, VoteProgram } from '@solana/web3.js'
 import { VOTE_ACCOUNT_SIZE, deserializeStakeState } from './utils/stakeState'
 import assert from 'assert'
@@ -66,17 +65,13 @@ describe('Solana stake account behavior verification', () => {
       authorizedPubkey: provider.wallet.publicKey,
     })
     // 1. CANNOT MERGE WHEN UNINITIALIZED
-    try {
-      await bankrunExecuteIx(provider, [provider.wallet], mergeUninitializedTx)
-      throw new Error('Expected failure 1.')
-    } catch (e) {
-      if (checkErrorMessage(e, 'invalid account data for instruction')) {
-        console.debug('1. expected error', e)
-      } else {
-        console.error('Not expected error despite a failure expected', e)
-        throw e
-      }
-    }
+    await verifyErrorMessage(
+      provider,
+      '1.',
+      'invalid account data for instruction',
+      [provider.wallet],
+      mergeUninitializedTx
+    )
 
     const sourceStaker = Keypair.generate()
     const sourceWithdrawer = Keypair.generate()
@@ -114,21 +109,13 @@ describe('Solana stake account behavior verification', () => {
       authorizedPubkey: sourceStaker.publicKey,
     })
     // 2. CANNOT MERGE WHEN HAVING DIFFERENT STAKER AUTHORITIES
-    try {
-      await bankrunExecuteIx(
-        provider,
-        [provider.wallet, sourceStaker],
-        mergeInitializedWrongAuthorityTx
-      )
-      throw new Error('Expected failure 2.')
-    } catch (e) {
-      if (checkErrorMessage(e, 'missing required signature for instruction')) {
-        console.debug('2. expected error', e)
-      } else {
-        console.error('Not expected error despite a failure expected', e)
-        throw e
-      }
-    }
+    await verifyErrorMessage(
+      provider,
+      '2.',
+      'missing required signature for instruction',
+      [provider.wallet, sourceStaker],
+      mergeInitializedWrongAuthorityTx
+    )
 
     // staker authority change is ok to be signed by staker
     const changeStakerAuthIx = StakeProgram.authorize({
@@ -156,21 +143,13 @@ describe('Solana stake account behavior verification', () => {
     })
     // 3. CANNOT MERGE WHEN HAVING DIFFERENT WITHDRAWER AUTHORITIES
     // https://github.com/solana-labs/solana/blob/v1.17.7/programs/stake/src/stake_state.rs#L1392
-    try {
-      await bankrunExecuteIx(
-        provider,
-        [provider.wallet, sourceStaker],
-        mergeInitializedWrongWithdrawAuthorityTx
-      )
-      throw new Error('Expected failure 3.')
-    } catch (e) {
-      if (checkErrorMessage(e, 'custom program error: 0x6')) {
-        console.debug('3. expected error', e)
-      } else {
-        console.error('Not expected error despite a failure expected', e)
-        throw e
-      }
-    }
+    await verifyErrorMessage(
+      provider,
+      '3.',
+      'custom program error: 0x6',
+      [provider.wallet, sourceStaker],
+      mergeInitializedWrongWithdrawAuthorityTx
+    )
 
     const changeWithdrawerAuthIx = StakeProgram.authorize({
       stakePubkey: destPubkey,
@@ -200,12 +179,77 @@ describe('Solana stake account behavior verification', () => {
   })
 
   it('merge stake account with lockup', async () => {
-    const stakeAccount = await initializedStakeAccount(provider, new Lockup(0, 0, provider.wallet.publicKey), rentExemptStake)
-    
+    const { epoch, unixTimestamp } =
+      await provider.context.banksClient.getClock()
+    const staker = Keypair.generate()
+    const stakeAccount1Epoch = Number(epoch) - 1
+    const { stakeAccount: stakeAccount1, withdrawer } =
+      await initializedStakeAccount(
+        provider,
+        new Lockup(0, stakeAccount1Epoch, PublicKey.default),
+        rentExemptStake,
+        staker.publicKey
+      )
+    const { stakeAccount: stakeAccount2 } = await initializedStakeAccount(
+      provider,
+      new Lockup(0, Number(epoch) - 2, PublicKey.default),
+      rentExemptStake,
+      staker.publicKey,
+      withdrawer
+    )
+    const mergeTx = StakeProgram.merge({
+      stakePubkey: stakeAccount2,
+      sourceStakePubKey: stakeAccount1,
+      authorizedPubkey: staker.publicKey,
+    })
+    // 1. CANNOT MERGE EVEN WHEN LOCKUP IS OVER WHEN Lockup data is different
+    await verifyErrorMessage(
+      provider,
+      '1.',
+      'custom program error: 0x6',
+      [provider.wallet, staker],
+      mergeTx
+    )
+
+    const { stakeAccount: stakeAccount3 } = await initializedStakeAccount(
+      provider,
+      new Lockup(0, stakeAccount1Epoch, Keypair.generate().publicKey),
+      rentExemptStake,
+      staker.publicKey,
+      withdrawer
+    )
+    const mergeTx3 = StakeProgram.merge({
+      stakePubkey: stakeAccount3,
+      sourceStakePubKey: stakeAccount1,
+      authorizedPubkey: staker.publicKey,
+    })
+    // 2. CANNOT MERGE EVEN WHEN LOCKUP IS OVER WHEN Lockup custodians are different
+    await verifyErrorMessage(
+      provider,
+      '2.',
+      'custom program error: 0x6',
+      [provider.wallet, staker],
+      mergeTx3
+    )
+
+    const { stakeAccount: stakeAccount4 } = await initializedStakeAccount(
+      provider,
+      new Lockup(0, stakeAccount1Epoch, PublicKey.default),
+      rentExemptStake,
+      staker.publicKey,
+      withdrawer
+    )
+    const mergeTx4 = StakeProgram.merge({
+      stakePubkey: stakeAccount4,
+      sourceStakePubKey: stakeAccount1,
+      authorizedPubkey: staker.publicKey,
+    })
+    // 3. LOCKUP cannot be changed after creation, only merge accounts with the same lockup
+    await bankrunExecuteIx(provider, [provider.wallet, staker], mergeTx4)
   })
 
   it.skip('merge delegated stake account', async () => {
-    const {voteAccount} = await createVoteAccount(provider, rentExemptVote)
+    const { voteAccount } = await createVoteAccount(provider, rentExemptVote)
     // TODO: ...
   })
 })
@@ -274,6 +318,30 @@ function checkErrorMessage(e: unknown, message: string) {
   )
 }
 
+async function verifyErrorMessage(
+  provider: BankrunProvider,
+  info: string,
+  checkMessage: string,
+  signers: (WalletInterface | Signer)[],
+  ...ixes: (
+    | Transaction
+    | TransactionInstruction
+    | TransactionInstructionCtorFields
+  )[]
+) {
+  try {
+    await bankrunExecuteIx(provider, signers, ...ixes)
+    throw new Error(`Expected failure ${info}`)
+  } catch (e) {
+    if (checkErrorMessage(e, checkMessage)) {
+      console.debug(`${info} expected error`, e)
+    } else {
+      console.error(`${info} not expected error despite a failure expected`, e)
+      throw e
+    }
+  }
+}
+
 export enum StakeStates {
   Uninitialized,
   Initialized,
@@ -327,14 +395,20 @@ async function nonInitializedStakeAccount(
   return [accountKeypair.publicKey, accountKeypair]
 }
 
+type InitializedStakeAccount = {
+  stakeAccount: PublicKey
+  staker: PublicKey
+  withdrawer: PublicKey
+}
+
 async function initializedStakeAccount(
   provider: BankrunProvider,
   lockup?: Lockup,
-  rentExempt?: number
-): Promise<PublicKey> {
+  rentExempt?: number,
+  staker: PublicKey = Keypair.generate().publicKey,
+  withdrawer: PublicKey = Keypair.generate().publicKey
+): Promise<InitializedStakeAccount> {
   const stakeAccount = Keypair.generate()
-  const staker = Keypair.generate().publicKey
-  const withdrawer = Keypair.generate().publicKey
   rentExempt = await getRentExempt(provider, rentExempt)
 
   const ix = StakeProgram.createAccount({
@@ -345,7 +419,11 @@ async function initializedStakeAccount(
     lockup,
   })
   await bankrunExecuteIx(provider, [provider.wallet, stakeAccount], ix)
-  return stakeAccount.publicKey
+  return {
+    stakeAccount: stakeAccount.publicKey,
+    staker,
+    withdrawer,
+  }
 }
 
 async function getRentExempt(
