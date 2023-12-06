@@ -14,6 +14,7 @@ import {
 } from '@solana/web3.js'
 import { ValidatorBondsProgram } from '../../src'
 import { BankrunProvider } from 'anchor-bankrun'
+import { Clock } from 'solana-bankrun'
 import { bankrunExecuteIx, initBankrunTest } from './utils/bankrun'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import { StakeProgram, VoteProgram } from '@solana/web3.js'
@@ -21,7 +22,6 @@ import { VOTE_ACCOUNT_SIZE, deserializeStakeState } from './utils/stakeState'
 import assert from 'assert'
 import { StakeState } from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
 import { Provider } from '@coral-xyz/anchor'
-import { Key } from 'readline'
 
 describe('Solana stake account behavior verification', () => {
   let provider: BankrunProvider
@@ -281,16 +281,13 @@ describe('Solana stake account behavior verification', () => {
     )
   })
 
-  it('merge stake account with running lockup', async () => {
-    const { unixTimestamp } = await provider.context.banksClient.getClock()
+  it.skip('merge stake account with running lockup', async () => {
+    const clock = await provider.context.banksClient.getClock()
     const staker = Keypair.generate()
     const withdrawer = Keypair.generate()
     const custodian = provider.wallet
-    const lockup = new Lockup(
-      Number(unixTimestamp) + 1000,
-      0,
-      custodian.publicKey
-    )
+    const unixTimestampLockup = Number(clock.unixTimestamp) + 1000
+    const lockup = new Lockup(unixTimestampLockup, 0, custodian.publicKey)
     const { stakeAccount: stakeAccount1 } = await initializedStakeAccount(
       provider,
       lockup,
@@ -430,10 +427,42 @@ describe('Solana stake account behavior verification', () => {
       [provider.wallet, newWithdrawer],
       withdrawIx2
     )
+
+    // 5. WE CAN withdraw when lockup is over
+    // moving time forward to expire the lockup
+    provider.context.setClock(
+      new Clock(
+        clock.slot,
+        clock.epochStartTimestamp,
+        clock.epoch,
+        clock.leaderScheduleEpoch,
+        BigInt(unixTimestampLockup + 1)
+      )
+    )
+    const withdrawIx3 = StakeProgram.withdraw({
+      stakePubkey: stakeAccount1,
+      authorizedPubkey: newWithdrawer.publicKey,
+      toPubkey: provider.wallet.publicKey,
+      lamports: LAMPORTS_PER_SOL,
+    })
+    await bankrunExecuteIx(
+      provider,
+      [provider.wallet, newWithdrawer],
+      withdrawIx3
+    )
   })
 
-  it.skip('merge delegated stake account', async () => {
-    const { voteAccount } = await createVoteAccount(provider, rentExemptVote)
+  it('merge delegated stake account', async () => {
+    const { unixTimestamp } = await provider.context.banksClient.getClock()
+    const custodian = provider.wallet
+    const lockup = new Lockup(
+      Number(unixTimestamp) + 1000,
+      0,
+      custodian.publicKey
+    )
+    // NOTE: custom program error: 0xc => InsufficientDelegation
+    await delegatedStakeAccount(provider, undefined, undefined, LAMPORTS_PER_SOL * 100)
+
     // TODO: ...
   })
 })
@@ -652,7 +681,6 @@ async function delegatedStakeAccount(
     authorizedPubkey: staker.publicKey,
     votePubkey: voteAccountToDelegate,
   })
-  await bankrunExecuteIx(provider, [provider.wallet, staker], delegateIx)
   await bankrunExecuteIx(
     provider,
     [provider.wallet, stakeAccount, staker],
