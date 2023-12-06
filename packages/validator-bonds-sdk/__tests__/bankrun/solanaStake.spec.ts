@@ -21,6 +21,7 @@ import { VOTE_ACCOUNT_SIZE, deserializeStakeState } from './utils/stakeState'
 import assert from 'assert'
 import { StakeState } from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
 import { Provider } from '@coral-xyz/anchor'
+import { Key } from 'readline'
 
 describe('Solana stake account behavior verification', () => {
   let provider: BankrunProvider
@@ -31,14 +32,8 @@ describe('Solana stake account behavior verification', () => {
   beforeAll(async () => {
     // eslint-disable-next-line @typescript-eslint/no-extra-semi
     ;({ provider, program } = await initBankrunTest())
-    rentExemptStake =
-      await provider.connection.getMinimumBalanceForRentExemption(
-        StakeProgram.space
-      )
-    rentExemptVote =
-      await provider.connection.getMinimumBalanceForRentExemption(
-        VOTE_ACCOUNT_SIZE
-      )
+    rentExemptStake = await getRentExemptStake(provider)
+    rentExemptVote = await getRentExemptVote(provider)
   })
 
   // TODO: #1 when stake account is created with lockup what happens when authority is changed?
@@ -291,15 +286,18 @@ describe('Solana stake account behavior verification', () => {
     const staker = Keypair.generate()
     const withdrawer = Keypair.generate()
     const custodian = provider.wallet
-    const lockup = new Lockup(Number(unixTimestamp) + 1000, 0, custodian.publicKey)
-    const { stakeAccount: stakeAccount1 } =
-      await initializedStakeAccount(
-        provider,
-        lockup,
-        rentExemptStake,
-        staker.publicKey,
-        withdrawer.publicKey
-      )
+    const lockup = new Lockup(
+      Number(unixTimestamp) + 1000,
+      0,
+      custodian.publicKey
+    )
+    const { stakeAccount: stakeAccount1 } = await initializedStakeAccount(
+      provider,
+      lockup,
+      rentExemptStake,
+      staker.publicKey,
+      withdrawer.publicKey
+    )
     const { stakeAccount: stakeAccount2 } = await initializedStakeAccount(
       provider,
       lockup,
@@ -325,7 +323,8 @@ describe('Solana stake account behavior verification', () => {
     await bankrunExecuteIx(
       provider,
       [provider.wallet, staker],
-      changeStakerAuthIx, changeStakerAuthIx2
+      changeStakerAuthIx,
+      changeStakerAuthIx2
     )
 
     // 2. AUTHORIZE WITHDRAWER with lockup is possible only with correct custodian
@@ -358,12 +357,11 @@ describe('Solana stake account behavior verification', () => {
       stakeAuthorizationType: StakeAuthorizationLayout.Withdrawer,
       custodianPubkey: custodian.publicKey,
     })
-    console.log('withdrawer', withdrawer.publicKey.toBase58())
-    console.log('custodian', custodian.publicKey.toBase58())
     await bankrunExecuteIx(
       provider,
       [provider.wallet, withdrawer, custodian],
-      changeWithdrawer1Ix, changeWithdrawer2Ix
+      changeWithdrawer1Ix,
+      changeWithdrawer2Ix
     )
 
     // stakeAccount2 --> merged to --> stakeAccount1
@@ -372,11 +370,7 @@ describe('Solana stake account behavior verification', () => {
       sourceStakePubKey: stakeAccount2,
       authorizedPubkey: newStaker.publicKey,
     })
-    await bankrunExecuteIx(
-      provider,
-      [provider.wallet, newStaker],
-      mergeTx
-    )
+    await bankrunExecuteIx(provider, [provider.wallet, newStaker], mergeTx)
     expect(
       provider.context.banksClient.getAccount(stakeAccount2)
     ).resolves.toBeNull()
@@ -390,35 +384,23 @@ describe('Solana stake account behavior verification', () => {
       toPubkey: stakeAccount1,
       lamports: LAMPORTS_PER_SOL * 10,
     })
-    await bankrunExecuteIx(
-      provider,
-      [provider.wallet],
-      transferIx
-    )
+    await bankrunExecuteIx(provider, [provider.wallet], transferIx)
 
     // creating vote account to delegate to it
-    const {voteAccount} = await createVoteAccount(provider, rentExemptVote)
+    const { voteAccount } = await createVoteAccount(provider, rentExemptVote)
     const delegateIx = StakeProgram.delegate({
       stakePubkey: stakeAccount1,
       authorizedPubkey: newStaker.publicKey,
       votePubkey: voteAccount,
     })
-    await bankrunExecuteIx(
-      provider,
-      [provider.wallet, newStaker],
-      delegateIx
-    )
+    await bankrunExecuteIx(provider, [provider.wallet, newStaker], delegateIx)
     await checkStakeAccount(provider, stakeAccount1, StakeStates.Delegated)
 
     const deactivateIx = StakeProgram.deactivate({
       stakePubkey: stakeAccount1,
       authorizedPubkey: newStaker.publicKey,
     })
-    await bankrunExecuteIx(
-      provider,
-      [provider.wallet, newStaker],
-      deactivateIx
-    )
+    await bankrunExecuteIx(provider, [provider.wallet, newStaker], deactivateIx)
 
     // 3. CANNOT withdraw when lockup is active
     const withdrawIx = StakeProgram.withdraw({
@@ -467,11 +449,7 @@ async function createVoteAccount(
   provider: BankrunProvider,
   rentExempt: number
 ): Promise<VoteAccountKeys> {
-  rentExempt =
-    rentExempt ||
-    (await provider.connection.getMinimumBalanceForRentExemption(
-      VOTE_ACCOUNT_SIZE
-    ))
+  rentExempt = await getRentExemptVote(provider, rentExempt)
 
   const voteAccount = Keypair.generate()
   const nodeIdentity = Keypair.generate()
@@ -593,7 +571,7 @@ async function nonInitializedStakeAccount(
   const createSystemAccountIx = SystemProgram.createAccount({
     fromPubkey: provider.wallet.publicKey,
     newAccountPubkey: accountKeypair.publicKey,
-    lamports: await getRentExempt(provider, rentExempt),
+    lamports: await getRentExemptStake(provider, rentExempt),
     space: StakeProgram.space,
     programId: StakeProgram.programId,
   })
@@ -619,7 +597,7 @@ async function initializedStakeAccount(
   withdrawer: PublicKey = Keypair.generate().publicKey
 ): Promise<InitializedStakeAccount> {
   const stakeAccount = Keypair.generate()
-  rentExempt = await getRentExempt(provider, rentExempt)
+  rentExempt = await getRentExemptStake(provider, rentExempt)
 
   const ix = StakeProgram.createAccount({
     fromPubkey: provider.wallet.publicKey,
@@ -636,7 +614,60 @@ async function initializedStakeAccount(
   }
 }
 
-async function getRentExempt(
+type DelegatedStakeAccount = {
+  stakeAccount: PublicKey
+  voteAccount: PublicKey
+  staker: Keypair
+  withdrawer: Keypair
+}
+
+async function delegatedStakeAccount(
+  provider: BankrunProvider,
+  voteAccountToDelegate?: PublicKey,
+  lockup?: Lockup,
+  stakeAccountLamports?: number,
+  rentExemptVote?: number,
+  staker: Keypair = Keypair.generate(),
+  withdrawer: Keypair = Keypair.generate()
+): Promise<DelegatedStakeAccount> {
+  const stakeAccount = Keypair.generate()
+  stakeAccountLamports = await getRentExemptStake(
+    provider,
+    stakeAccountLamports
+  )
+  rentExemptVote = await getRentExemptVote(provider, rentExemptVote)
+
+  const createIx = StakeProgram.createAccount({
+    fromPubkey: provider.wallet.publicKey,
+    stakePubkey: stakeAccount.publicKey,
+    authorized: new Authorized(staker.publicKey, withdrawer.publicKey),
+    lamports: stakeAccountLamports,
+    lockup,
+  })
+  voteAccountToDelegate =
+    voteAccountToDelegate ||
+    (await createVoteAccount(provider, rentExemptVote)).voteAccount
+  const delegateIx = StakeProgram.delegate({
+    stakePubkey: stakeAccount.publicKey,
+    authorizedPubkey: staker.publicKey,
+    votePubkey: voteAccountToDelegate,
+  })
+  await bankrunExecuteIx(provider, [provider.wallet, staker], delegateIx)
+  await bankrunExecuteIx(
+    provider,
+    [provider.wallet, stakeAccount, staker],
+    createIx,
+    delegateIx
+  )
+  return {
+    stakeAccount: stakeAccount.publicKey,
+    voteAccount: voteAccountToDelegate,
+    staker,
+    withdrawer,
+  }
+}
+
+async function getRentExemptStake(
   provider: BankrunProvider,
   rentExempt?: number
 ): Promise<number> {
@@ -644,6 +675,18 @@ async function getRentExempt(
     rentExempt ||
     (await provider.connection.getMinimumBalanceForRentExemption(
       StakeProgram.space
+    ))
+  )
+}
+
+async function getRentExemptVote(
+  provider: BankrunProvider,
+  rentExempt?: number
+): Promise<number> {
+  return (
+    rentExempt ||
+    (await provider.connection.getMinimumBalanceForRentExemption(
+      VOTE_ACCOUNT_SIZE
     ))
   )
 }
