@@ -10,6 +10,7 @@ import {
   TransactionInstructionCtorFields,
   Signer,
   AccountInfo,
+  LAMPORTS_PER_SOL,
 } from '@solana/web3.js'
 import { ValidatorBondsProgram } from '../../src'
 import { BankrunProvider } from 'anchor-bankrun'
@@ -227,7 +228,7 @@ describe('Solana stake account behavior verification', () => {
     await verifyErrorMessage(
       provider,
       '2.',
-      'custom program error: 0x6',
+      'custom program error: 0x6', // MergeMismatch
       [provider.wallet, staker],
       mergeTx3
     )
@@ -289,7 +290,7 @@ describe('Solana stake account behavior verification', () => {
     const { unixTimestamp } = await provider.context.banksClient.getClock()
     const staker = Keypair.generate()
     const withdrawer = Keypair.generate()
-    const custodian = Keypair.generate()
+    const custodian = provider.wallet
     const lockup = new Lockup(Number(unixTimestamp) + 1000, 0, custodian.publicKey)
     const { stakeAccount: stakeAccount1 } =
       await initializedStakeAccount(
@@ -307,7 +308,7 @@ describe('Solana stake account behavior verification', () => {
       withdrawer.publicKey
     )
 
-    // 1. AUTHORIZE POSSIBLE WHEN LOCKUP IS RUNNING AND META IS THE SAME
+    // 1. AUTHORIZE STAKER is possible when lockup is running
     const newStaker = Keypair.generate()
     const changeStakerAuthIx = StakeProgram.authorize({
       stakePubkey: stakeAccount1,
@@ -327,6 +328,44 @@ describe('Solana stake account behavior verification', () => {
       changeStakerAuthIx, changeStakerAuthIx2
     )
 
+    // 2. AUTHORIZE WITHDRAWER with lockup is possible only with correct custodian
+    const newWithdrawer = Keypair.generate()
+    const changeWithdrawerNoCustodianIx = StakeProgram.authorize({
+      stakePubkey: stakeAccount1,
+      authorizedPubkey: withdrawer.publicKey,
+      newAuthorizedPubkey: newWithdrawer.publicKey,
+      stakeAuthorizationType: StakeAuthorizationLayout.Withdrawer,
+      custodianPubkey: undefined,
+    })
+    await verifyErrorMessage(
+      provider,
+      '2.',
+      'custom program error: 0x7', // CustodianMissing
+      [provider.wallet, withdrawer],
+      changeWithdrawerNoCustodianIx
+    )
+    const changeWithdrawer1Ix = StakeProgram.authorize({
+      stakePubkey: stakeAccount1,
+      authorizedPubkey: withdrawer.publicKey,
+      newAuthorizedPubkey: newWithdrawer.publicKey,
+      stakeAuthorizationType: StakeAuthorizationLayout.Withdrawer,
+      custodianPubkey: custodian.publicKey,
+    })
+    const changeWithdrawer2Ix = StakeProgram.authorize({
+      stakePubkey: stakeAccount2,
+      authorizedPubkey: withdrawer.publicKey,
+      newAuthorizedPubkey: newWithdrawer.publicKey,
+      stakeAuthorizationType: StakeAuthorizationLayout.Withdrawer,
+      custodianPubkey: custodian.publicKey,
+    })
+    console.log('withdrawer', withdrawer.publicKey.toBase58())
+    console.log('custodian', custodian.publicKey.toBase58())
+    await bankrunExecuteIx(
+      provider,
+      [provider.wallet, withdrawer, custodian],
+      changeWithdrawer1Ix, changeWithdrawer2Ix
+    )
+
     // stakeAccount2 --> merged to --> stakeAccount1
     const mergeTx = StakeProgram.merge({
       stakePubkey: stakeAccount1,
@@ -337,6 +376,24 @@ describe('Solana stake account behavior verification', () => {
       provider,
       [provider.wallet, newStaker],
       mergeTx
+    )
+    expect(
+      provider.context.banksClient.getAccount(stakeAccount2)
+    ).resolves.toBeNull()
+    expect(
+      provider.context.banksClient.getAccount(stakeAccount1)
+    ).resolves.not.toBeNull()
+
+    // transferring some SOLs to have enough for delegation
+    const transferIx = SystemProgram.transfer({
+      fromPubkey: provider.wallet.publicKey,
+      toPubkey: stakeAccount1,
+      lamports: LAMPORTS_PER_SOL * 10,
+    })
+    await bankrunExecuteIx(
+      provider,
+      [provider.wallet],
+      transferIx
     )
 
     // creating vote account to delegate to it
@@ -350,6 +407,46 @@ describe('Solana stake account behavior verification', () => {
       provider,
       [provider.wallet, newStaker],
       delegateIx
+    )
+    await checkStakeAccount(provider, stakeAccount1, StakeStates.Delegated)
+
+    const deactivateIx = StakeProgram.deactivate({
+      stakePubkey: stakeAccount1,
+      authorizedPubkey: newStaker.publicKey,
+    })
+    await bankrunExecuteIx(
+      provider,
+      [provider.wallet, newStaker],
+      deactivateIx
+    )
+
+    // 3. CANNOT withdraw when lockup is active
+    const withdrawIx = StakeProgram.withdraw({
+      stakePubkey: stakeAccount1,
+      authorizedPubkey: newWithdrawer.publicKey,
+      toPubkey: provider.wallet.publicKey,
+      lamports: LAMPORTS_PER_SOL * 5,
+    })
+    await verifyErrorMessage(
+      provider,
+      '2.',
+      'custom program error: 0x1', // LockupInForce
+      [provider.wallet, newWithdrawer],
+      withdrawIx
+    )
+
+    // 4. WE CAN withdraw when custodian signs despite lockup is active
+    const withdrawIx2 = StakeProgram.withdraw({
+      stakePubkey: stakeAccount1,
+      authorizedPubkey: newWithdrawer.publicKey,
+      toPubkey: provider.wallet.publicKey,
+      lamports: LAMPORTS_PER_SOL * 5,
+      custodianPubkey: custodian.publicKey,
+    })
+    await bankrunExecuteIx(
+      provider,
+      [provider.wallet, newWithdrawer],
+      withdrawIx2
     )
   })
 
