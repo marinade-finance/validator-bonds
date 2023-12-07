@@ -102,6 +102,9 @@ importers:
       '@marinade.finance/web3js-common':
         specifier: ^2.0.18
         version: 2.0.18(@marinade.finance/ts-common@2.0.18)(@solana/web3.js@1.87.6)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)
+      '@solana/buffer-layout':
+        specifier: ^4.0.1
+        version: 4.0.1
       '@solana/web3.js':
         specifier: ^1.87.6
         version: 1.87.6

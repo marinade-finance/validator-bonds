@@ -65,3 +65,20 @@ export async function bankrunExecute(
   }
   return await provider.context.banksClient.processTransaction(tx)
 }
+
+// https://github.com/solana-labs/solana/blob/v1.17.7/sdk/program/src/epoch_schedule.rs#L29C1-L29C45
+export const MINIMUM_SLOTS_PER_EPOCH = 32
+// https://github.com/solana-labs/solana/blob/v1.17.7/sdk/program/src/epoch_schedule.rs#L167
+export function warpToEpoch(provider: BankrunProvider, epoch: number) {
+  const epochBigInt = BigInt(epoch)
+  const { slotsPerEpoch, firstNormalEpoch, firstNormalSlot } =
+    provider.context.genesisConfig.epochSchedule
+  let warpToEpoch: bigint
+  if (epochBigInt <= firstNormalEpoch) {
+    warpToEpoch = BigInt(((2 ^ epoch) - 1) * MINIMUM_SLOTS_PER_EPOCH)
+  } else {
+    warpToEpoch =
+      (epochBigInt - firstNormalEpoch) * slotsPerEpoch + firstNormalSlot
+  }
+  provider.context.warpToSlot(warpToEpoch)
+}

@@ -33,10 +33,11 @@
     "@marinade.finance/marinade-ts-sdk": "^5.0.6",
     "borsh": "^0.7.0",
     "@solana/web3.js": "^1.87.6",
-    "anchor-bankrun": "^0.3.0",
     "bn.js": "^5.2.1",
     "jsbi": "^4.3.0",
+    "anchor-bankrun": "^0.3.0",
     "solana-bankrun": "^0.2.0",
+    "@solana/buffer-layout": "^4.0.1",
     "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.8"
   },
   "peerDependencies": {
