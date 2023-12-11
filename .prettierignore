@@ -7,4 +7,5 @@ build
 test-ledger
 
 packages/**/generated/*
+packages/*umi/**
 target/types/*

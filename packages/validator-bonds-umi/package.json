@@ -1,0 +1,37 @@
+{
+  "name": "@marinade.finance/validator-bonds-umi",
+  "version": "1.0.0",
+  "description": "UMI generated of the validator bonds contract",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:marinade-finance/validator-bonds.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified, go to project root\" && exit 1"
+  },
+  "keywords": [
+    "solana",
+    "marinade.finance",
+    "umi",
+    "metaplex"
+  ],
+  "author": "Marinade Finance",
+  "license": "ISC",
+  "main": "src/index",
+  "files": [
+    "src"
+  ],
+  "devDependencies": {
+    "@metaplex-foundation/kinobi": "^0.16.9"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "dependencies": {
+    "@metaplex-foundation/umi": "^0.8.10",
+    "serializers": "link:@metaplex-foundation/umi/serializers"
+  }
+}

@@ -5,6 +5,7 @@ solana_version = "1.16.18"
 [workspace]
 types = "packages/validator-bonds-sdk/generated/"
 
+
 [features]
 seeds = true
 skip-lint = false
