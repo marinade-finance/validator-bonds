@@ -30,7 +30,7 @@
   "engines": {
     "node": ">=16"
   },
-  "dependencies": {
+  "peerDependencies": {
     "@metaplex-foundation/umi": "^0.8.10",
     "serializers": "link:@metaplex-foundation/umi/serializers"
   }

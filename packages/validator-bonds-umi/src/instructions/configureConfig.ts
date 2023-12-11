@@ -39,15 +39,15 @@ export type ConfigureConfigInstructionAccounts = {
 
 // Data.
 export type ConfigureConfigInstructionData = {
-  adminAuthority: Option<PublicKey>;
-  operatorAuthority: Option<PublicKey>;
+  admin: Option<PublicKey>;
+  operator: Option<PublicKey>;
   epochsToClaimSettlement: Option<bigint>;
   withdrawLockupEpochs: Option<bigint>;
 };
 
 export type ConfigureConfigInstructionDataArgs = {
-  adminAuthority: OptionOrNullable<PublicKey>;
-  operatorAuthority: OptionOrNullable<PublicKey>;
+  admin: OptionOrNullable<PublicKey>;
+  operator: OptionOrNullable<PublicKey>;
   epochsToClaimSettlement: OptionOrNullable<number | bigint>;
   withdrawLockupEpochs: OptionOrNullable<number | bigint>;
 };
@@ -58,8 +58,8 @@ export function getConfigureConfigInstructionDataSerializer(): Serializer<
 > {
   return struct<ConfigureConfigInstructionData>(
     [
-      ['adminAuthority', option(publicKeySerializer())],
-      ['operatorAuthority', option(publicKeySerializer())],
+      ['admin', option(publicKeySerializer())],
+      ['operator', option(publicKeySerializer())],
       ['epochsToClaimSettlement', option(u64())],
       ['withdrawLockupEpochs', option(u64())],
     ],
@@ -76,8 +76,7 @@ export type ConfigureConfigInstructionArgs = ConfigureConfigInstructionDataArgs;
 // Instruction.
 export function configureConfig(
   context: Pick<Context, 'programs'>,
-  accounts: ConfigureConfigInstructionAccounts,
-  args: ConfigureConfigInstructionArgs
+  input: ConfigureConfigInstructionAccounts & ConfigureConfigInstructionArgs
 ): TransactionBuilder {
   // Program ID.
   const programId = context.programs.getPublicKey(
@@ -90,17 +89,17 @@ export function configureConfig(
     config: {
       index: 0,
       isWritable: true as boolean,
-      value: accounts.config ?? null,
+      value: input.config ?? null,
     },
     adminAuthority: {
       index: 1,
       isWritable: false as boolean,
-      value: accounts.adminAuthority ?? null,
+      value: input.adminAuthority ?? null,
     },
   } satisfies ResolvedAccountsWithIndices;
 
   // Arguments.
-  const resolvedArgs: ConfigureConfigInstructionArgs = { ...args };
+  const resolvedArgs: ConfigureConfigInstructionArgs = { ...input };
 
   // Accounts in order.
   const orderedAccounts: ResolvedAccount[] = Object.values(

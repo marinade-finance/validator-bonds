@@ -59,8 +59,9 @@ export type ClaimSettlementInstructionAccounts = {
 export type ClaimSettlementInstructionData = {
   amount: bigint;
   proof: Array<Uint8Array>;
-  stakeAuthority: PublicKey;
-  withdrawAuthority: PublicKey;
+  staker: PublicKey;
+  /** claim holder, withdraw_authority */
+  withdrawer: PublicKey;
   voteAccount: PublicKey;
   claim: bigint;
 };
@@ -68,8 +69,9 @@ export type ClaimSettlementInstructionData = {
 export type ClaimSettlementInstructionDataArgs = {
   amount: number | bigint;
   proof: Array<Uint8Array>;
-  stakeAuthority: PublicKey;
-  withdrawAuthority: PublicKey;
+  staker: PublicKey;
+  /** claim holder, withdraw_authority */
+  withdrawer: PublicKey;
   voteAccount: PublicKey;
   claim: number | bigint;
 };
@@ -82,8 +84,8 @@ export function getClaimSettlementInstructionDataSerializer(): Serializer<
     [
       ['amount', u64()],
       ['proof', array(bytes({ size: 32 }))],
-      ['stakeAuthority', publicKeySerializer()],
-      ['withdrawAuthority', publicKeySerializer()],
+      ['staker', publicKeySerializer()],
+      ['withdrawer', publicKeySerializer()],
       ['voteAccount', publicKeySerializer()],
       ['claim', u64()],
     ],
@@ -100,8 +102,7 @@ export type ClaimSettlementInstructionArgs = ClaimSettlementInstructionDataArgs;
 // Instruction.
 export function claimSettlement(
   context: Pick<Context, 'programs'>,
-  accounts: ClaimSettlementInstructionAccounts,
-  args: ClaimSettlementInstructionArgs
+  input: ClaimSettlementInstructionAccounts & ClaimSettlementInstructionArgs
 ): TransactionBuilder {
   // Program ID.
   const programId = context.programs.getPublicKey(
@@ -114,67 +115,63 @@ export function claimSettlement(
     config: {
       index: 0,
       isWritable: false as boolean,
-      value: accounts.config ?? null,
+      value: input.config ?? null,
     },
-    bond: {
-      index: 1,
-      isWritable: false as boolean,
-      value: accounts.bond ?? null,
-    },
+    bond: { index: 1, isWritable: false as boolean, value: input.bond ?? null },
     settlement: {
       index: 2,
       isWritable: true as boolean,
-      value: accounts.settlement ?? null,
+      value: input.settlement ?? null,
     },
     settlementClaim: {
       index: 3,
       isWritable: true as boolean,
-      value: accounts.settlementClaim ?? null,
+      value: input.settlementClaim ?? null,
     },
     stakeAccount: {
       index: 4,
       isWritable: true as boolean,
-      value: accounts.stakeAccount ?? null,
+      value: input.stakeAccount ?? null,
     },
     withdrawAuthority: {
       index: 5,
       isWritable: true as boolean,
-      value: accounts.withdrawAuthority ?? null,
+      value: input.withdrawAuthority ?? null,
     },
     bondsWithdrawerAuthority: {
       index: 6,
       isWritable: false as boolean,
-      value: accounts.bondsWithdrawerAuthority ?? null,
+      value: input.bondsWithdrawerAuthority ?? null,
     },
     rentPayer: {
       index: 7,
       isWritable: true as boolean,
-      value: accounts.rentPayer ?? null,
+      value: input.rentPayer ?? null,
     },
     systemProgram: {
       index: 8,
       isWritable: false as boolean,
-      value: accounts.systemProgram ?? null,
+      value: input.systemProgram ?? null,
     },
     stakeHistory: {
       index: 9,
       isWritable: false as boolean,
-      value: accounts.stakeHistory ?? null,
+      value: input.stakeHistory ?? null,
     },
     clock: {
       index: 10,
       isWritable: false as boolean,
-      value: accounts.clock ?? null,
+      value: input.clock ?? null,
     },
     stakeProgram: {
       index: 11,
       isWritable: false as boolean,
-      value: accounts.stakeProgram ?? null,
+      value: input.stakeProgram ?? null,
     },
   } satisfies ResolvedAccountsWithIndices;
 
   // Arguments.
-  const resolvedArgs: ClaimSettlementInstructionArgs = { ...args };
+  const resolvedArgs: ClaimSettlementInstructionArgs = { ...input };
 
   // Default values.
   if (!resolvedAccounts.rentPayer.value) {

@@ -5,8 +5,8 @@ use anchor_lang::prelude::*;
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct ConfigureConfigArgs {
-    pub admin_authority: Option<Pubkey>,
-    pub operator_authority: Option<Pubkey>,
+    pub admin: Option<Pubkey>,
+    pub operator: Option<Pubkey>,
     pub epochs_to_claim_settlement: Option<u64>,
     pub withdraw_lockup_epochs: Option<u64>,
 }
@@ -30,19 +30,19 @@ impl<'info> ConfigureConfig<'info> {
     pub fn process(
         &mut self,
         ConfigureConfigArgs {
-            admin_authority,
-            operator_authority,
+            admin,
+            operator,
             epochs_to_claim_settlement,
             withdraw_lockup_epochs,
         }: ConfigureConfigArgs,
     ) -> Result<()> {
-        let admin_authority_change = admin_authority.map(|admin| {
+        let admin_authority_change = admin.map(|admin| {
             let old = self.config.admin_authority;
             self.config.admin_authority = admin;
             PubkeyValueChange { old, new: admin }
         });
 
-        let operator_authority_change = operator_authority.map(|operator| {
+        let operator_authority_change = operator.map(|operator| {
             let old = self.config.operator_authority;
             self.config.operator_authority = operator;
             PubkeyValueChange { old, new: operator }

@@ -1121,14 +1121,14 @@ export type ValidatorBonds = {
                 "type": {
                   "defined": "ClaimSettlementArgs"
                 },
-                "path": "params.stake_authority"
+                "path": "params.staker"
               },
               {
                 "kind": "arg",
                 "type": {
                   "defined": "ClaimSettlementArgs"
                 },
-                "path": "params.withdraw_authority"
+                "path": "params.withdrawer"
               },
               {
                 "kind": "arg",
@@ -1913,13 +1913,13 @@ export type ValidatorBonds = {
         "kind": "struct",
         "fields": [
           {
-            "name": "adminAuthority",
+            "name": "admin",
             "type": {
               "option": "publicKey"
             }
           },
           {
-            "name": "operatorAuthority",
+            "name": "operator",
             "type": {
               "option": "publicKey"
             }
@@ -1984,11 +1984,14 @@ export type ValidatorBonds = {
             }
           },
           {
-            "name": "stakeAuthority",
+            "name": "staker",
             "type": "publicKey"
           },
           {
-            "name": "withdrawAuthority",
+            "name": "withdrawer",
+            "docs": [
+              "claim holder, withdraw_authority"
+            ],
             "type": "publicKey"
           },
           {
@@ -4140,14 +4143,14 @@ export const IDL: ValidatorBonds = {
                 "type": {
                   "defined": "ClaimSettlementArgs"
                 },
-                "path": "params.stake_authority"
+                "path": "params.staker"
               },
               {
                 "kind": "arg",
                 "type": {
                   "defined": "ClaimSettlementArgs"
                 },
-                "path": "params.withdraw_authority"
+                "path": "params.withdrawer"
               },
               {
                 "kind": "arg",
@@ -4932,13 +4935,13 @@ export const IDL: ValidatorBonds = {
         "kind": "struct",
         "fields": [
           {
-            "name": "adminAuthority",
+            "name": "admin",
             "type": {
               "option": "publicKey"
             }
           },
           {
-            "name": "operatorAuthority",
+            "name": "operator",
             "type": {
               "option": "publicKey"
             }
@@ -5003,11 +5006,14 @@ export const IDL: ValidatorBonds = {
             }
           },
           {
-            "name": "stakeAuthority",
+            "name": "staker",
             "type": "publicKey"
           },
           {
-            "name": "withdrawAuthority",
+            "name": "withdrawer",
+            "docs": [
+              "claim holder, withdraw_authority"
+            ],
             "type": "publicKey"
           },
           {

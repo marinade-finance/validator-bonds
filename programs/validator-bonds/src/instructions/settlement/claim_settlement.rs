@@ -17,8 +17,10 @@ use anchor_spl::stake::{withdraw, Stake, StakeAccount, Withdraw};
 pub struct ClaimSettlementArgs {
     pub amount: u64,
     pub proof: Vec<[u8; 32]>,
-    pub stake_authority: Pubkey,
-    pub withdraw_authority: Pubkey, // claim holder
+    // staker authority
+    pub staker: Pubkey,
+    /// claim holder, withdraw_authority
+    pub withdrawer: Pubkey,
     pub vote_account: Pubkey,
     pub claim: u64,
 }
@@ -63,8 +65,8 @@ pub struct ClaimSettlement<'info> {
         seeds = [
             b"claim_account",
             settlement.key().as_ref(),
-            params.stake_authority.as_ref(),
-            params.withdraw_authority.as_ref(),
+            params.staker.as_ref(),
+            params.withdrawer.as_ref(),
             params.vote_account.as_ref(),
             params.claim.to_le_bytes().as_ref(),
         ],
@@ -80,7 +82,7 @@ pub struct ClaimSettlement<'info> {
     /// account that will receive the funds on this claim
     #[account(
        mut,
-       constraint = params.withdraw_authority == withdraw_authority.key(),
+       constraint = params.withdrawer == withdraw_authority.key(),
     )]
     withdraw_authority: UncheckedAccount<'info>,
 
@@ -120,8 +122,8 @@ impl<'info> ClaimSettlement<'info> {
         ClaimSettlementArgs {
             amount,
             proof,
-            stake_authority,
-            withdraw_authority,
+            staker: stake_authority,
+            withdrawer: withdraw_authority,
             vote_account,
             claim,
         }: ClaimSettlementArgs,
