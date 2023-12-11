@@ -8,6 +8,7 @@ import { web3JsRpc } from '@metaplex-foundation/umi-rpc-web3js'
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import { fromWeb3JsInstruction, fromWeb3JsKeypair, fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
 import { defaultProgramRepository } from '@metaplex-foundation/umi-program-repository'
+import { createValidatorBondsProgram } from '@marinade.finance/validator-bonds-umi'
 
 export async function initTest(): Promise<{
   program: ValidatorBondsProgram
@@ -21,15 +22,7 @@ export async function initTest(): Promise<{
   
   const umi = createUmi(provider.connection)
     .use(walletAdapterIdentity(provider.wallet, true))
-    // .use(defaultProgramRepository());
-  const umiProgram: UmiProgram = {
-    name: 'ValidatorBonds',
-    publicKey: fromWeb3JsPublicKey(program.programId),
-    getErrorFromCode: () => null,
-    getErrorFromName: () => null,
-    isOnCluster: () => true,
-  };
-  umi.programs.add(umiProgram)
+  umi.programs.add(createValidatorBondsProgram(), false)
   
   return { program, provider, umi }
 }
