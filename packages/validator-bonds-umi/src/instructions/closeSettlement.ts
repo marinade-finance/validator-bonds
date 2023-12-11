@@ -15,6 +15,13 @@ import {
   transactionBuilder,
 } from '@metaplex-foundation/umi';
 import {
+  Serializer,
+  array,
+  mapSerializer,
+  struct,
+  u8,
+} from '@metaplex-foundation/umi/serializers';
+import {
   ResolvedAccount,
   ResolvedAccountsWithIndices,
   getAccountMetasAndSigners,
@@ -35,6 +42,31 @@ export type CloseSettlementInstructionAccounts = {
   stakeProgram: PublicKey | Pda;
   stakeHistory: PublicKey | Pda;
 };
+
+// Data.
+export type CloseSettlementInstructionData = { discriminator: Array<number> };
+
+export type CloseSettlementInstructionDataArgs = {};
+
+export function getCloseSettlementInstructionDataSerializer(): Serializer<
+  CloseSettlementInstructionDataArgs,
+  CloseSettlementInstructionData
+> {
+  return mapSerializer<
+    CloseSettlementInstructionDataArgs,
+    any,
+    CloseSettlementInstructionData
+  >(
+    struct<CloseSettlementInstructionData>(
+      [['discriminator', array(u8(), { size: 8 })]],
+      { description: 'CloseSettlementInstructionData' }
+    ),
+    (value) => ({ ...value, discriminator: [45, 247, 83, 183, 24, 102, 0, 68] })
+  ) as Serializer<
+    CloseSettlementInstructionDataArgs,
+    CloseSettlementInstructionData
+  >;
+}
 
 // Instruction.
 export function closeSettlement(
@@ -117,7 +149,7 @@ export function closeSettlement(
   );
 
   // Data.
-  const data = new Uint8Array();
+  const data = getCloseSettlementInstructionDataSerializer().serialize({});
 
   // Bytes Created On Chain.
   const bytesCreatedOnChain = 0;

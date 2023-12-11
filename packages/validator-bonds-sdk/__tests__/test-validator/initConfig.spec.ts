@@ -12,12 +12,11 @@ import { initTest } from './utils'
 import { transaction } from '@marinade.finance/anchor-common'
 import {
   Wallet,
-  executeTxSimple,
+  // executeTxSimple,
   splitAndExecuteTx,
 } from '@marinade.finance/web3js-common'
 import {  Umi, createSignerFromKeypair, keypairIdentity, transactionBuilder } from '@metaplex-foundation/umi';
-import { fromWeb3JsInstruction, fromWeb3JsKeypair, fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
-import {createWeb3JsTransactionFactory} from '@metaplex-foundation/umi-transaction-factory-web3js'
+import { fromWeb3JsKeypair, fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
 import {initConfig as initConfigUmi} from '@marinade.finance/validator-bonds-umi'
 
 describe('Validator Bonds config account tests', () => {
@@ -76,7 +75,7 @@ describe('Validator Bonds config account tests', () => {
     umiBuilder = umiBuilder.add(umiIx)
     // tx.add(instruction)
     // await executeTxSimple(provider.connection, tx, [provider.wallet, keypair!])
-    await umiBuilder.buildAndSign(umi);
+    // await umiBuilder.buildAndSign(umi);
     await umiBuilder.sendAndConfirm(umi);
     // const transaction = await umi.rpc.getTransaction(x.signature, {commitment: 'confirmed'});
 

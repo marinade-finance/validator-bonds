@@ -21,6 +21,8 @@ import {
 } from '@metaplex-foundation/umi';
 import {
   Serializer,
+  array,
+  mapSerializer,
   publicKey as publicKeySerializer,
   struct,
   u8,
@@ -38,6 +40,7 @@ import {
 export type Bond = Account<BondAccountData>;
 
 export type BondAccountData = {
+  discriminator: Array<number>;
   /**
    * Contract root config address. Validator bond is created for this config as PDA
    * but saving the address here for easier access with getProgramAccounts call
@@ -93,16 +96,23 @@ export function getBondAccountDataSerializer(): Serializer<
   BondAccountDataArgs,
   BondAccountData
 > {
-  return struct<BondAccountData>(
-    [
-      ['config', publicKeySerializer()],
-      ['validatorVoteAccount', publicKeySerializer()],
-      ['authority', publicKeySerializer()],
-      ['revenueShareConfig', getHundredthBasisPointSerializer()],
-      ['bump', u8()],
-      ['reserved', getReserved150Serializer()],
-    ],
-    { description: 'BondAccountData' }
+  return mapSerializer<BondAccountDataArgs, any, BondAccountData>(
+    struct<BondAccountData>(
+      [
+        ['discriminator', array(u8(), { size: 8 })],
+        ['config', publicKeySerializer()],
+        ['validatorVoteAccount', publicKeySerializer()],
+        ['authority', publicKeySerializer()],
+        ['revenueShareConfig', getHundredthBasisPointSerializer()],
+        ['bump', u8()],
+        ['reserved', getReserved150Serializer()],
+      ],
+      { description: 'BondAccountData' }
+    ),
+    (value) => ({
+      ...value,
+      discriminator: [224, 128, 48, 251, 182, 246, 111, 196],
+    })
   ) as Serializer<BondAccountDataArgs, BondAccountData>;
 }
 
@@ -171,6 +181,7 @@ export function getBondGpaBuilder(context: Pick<Context, 'rpc' | 'programs'>) {
   );
   return gpaBuilder(context, programId)
     .registerFields<{
+      discriminator: Array<number>;
       config: PublicKey;
       validatorVoteAccount: PublicKey;
       authority: PublicKey;
@@ -178,14 +189,16 @@ export function getBondGpaBuilder(context: Pick<Context, 'rpc' | 'programs'>) {
       bump: number;
       reserved: Reserved150Args;
     }>({
-      config: [0, publicKeySerializer()],
-      validatorVoteAccount: [32, publicKeySerializer()],
-      authority: [64, publicKeySerializer()],
-      revenueShareConfig: [96, getHundredthBasisPointSerializer()],
-      bump: [100, u8()],
-      reserved: [101, getReserved150Serializer()],
+      discriminator: [0, array(u8(), { size: 8 })],
+      config: [8, publicKeySerializer()],
+      validatorVoteAccount: [40, publicKeySerializer()],
+      authority: [72, publicKeySerializer()],
+      revenueShareConfig: [104, getHundredthBasisPointSerializer()],
+      bump: [108, u8()],
+      reserved: [109, getReserved150Serializer()],
     })
-    .deserializeUsing<Bond>((account) => deserializeBond(account));
+    .deserializeUsing<Bond>((account) => deserializeBond(account))
+    .whereField('discriminator', [224, 128, 48, 251, 182, 246, 111, 196]);
 }
 
 export function getBondSize(): number {

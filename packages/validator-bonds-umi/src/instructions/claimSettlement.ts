@@ -18,9 +18,11 @@ import {
   Serializer,
   array,
   bytes,
+  mapSerializer,
   publicKey as publicKeySerializer,
   struct,
   u64,
+  u8,
 } from '@metaplex-foundation/umi/serializers';
 import {
   ResolvedAccount,
@@ -56,6 +58,7 @@ export type ClaimSettlementInstructionAccounts = {
 
 // Data.
 export type ClaimSettlementInstructionData = {
+  discriminator: Array<number>;
   amount: bigint;
   proof: Array<Uint8Array>;
   staker: PublicKey;
@@ -79,16 +82,27 @@ export function getClaimSettlementInstructionDataSerializer(): Serializer<
   ClaimSettlementInstructionDataArgs,
   ClaimSettlementInstructionData
 > {
-  return struct<ClaimSettlementInstructionData>(
-    [
-      ['amount', u64()],
-      ['proof', array(bytes({ size: 32 }))],
-      ['staker', publicKeySerializer()],
-      ['withdrawer', publicKeySerializer()],
-      ['voteAccount', publicKeySerializer()],
-      ['claim', u64()],
-    ],
-    { description: 'ClaimSettlementInstructionData' }
+  return mapSerializer<
+    ClaimSettlementInstructionDataArgs,
+    any,
+    ClaimSettlementInstructionData
+  >(
+    struct<ClaimSettlementInstructionData>(
+      [
+        ['discriminator', array(u8(), { size: 8 })],
+        ['amount', u64()],
+        ['proof', array(bytes({ size: 32 }))],
+        ['staker', publicKeySerializer()],
+        ['withdrawer', publicKeySerializer()],
+        ['voteAccount', publicKeySerializer()],
+        ['claim', u64()],
+      ],
+      { description: 'ClaimSettlementInstructionData' }
+    ),
+    (value) => ({
+      ...value,
+      discriminator: [85, 208, 73, 229, 143, 98, 83, 212],
+    })
   ) as Serializer<
     ClaimSettlementInstructionDataArgs,
     ClaimSettlementInstructionData

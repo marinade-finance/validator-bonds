@@ -14,6 +14,13 @@ import {
   transactionBuilder,
 } from '@metaplex-foundation/umi';
 import {
+  Serializer,
+  array,
+  mapSerializer,
+  struct,
+  u8,
+} from '@metaplex-foundation/umi/serializers';
+import {
   ResolvedAccount,
   ResolvedAccountsWithIndices,
   getAccountMetasAndSigners,
@@ -34,6 +41,27 @@ export type ResetInstructionAccounts = {
   clock: PublicKey | Pda;
   stakeProgram: PublicKey | Pda;
 };
+
+// Data.
+export type ResetInstructionData = { discriminator: Array<number> };
+
+export type ResetInstructionDataArgs = {};
+
+export function getResetInstructionDataSerializer(): Serializer<
+  ResetInstructionDataArgs,
+  ResetInstructionData
+> {
+  return mapSerializer<ResetInstructionDataArgs, any, ResetInstructionData>(
+    struct<ResetInstructionData>(
+      [['discriminator', array(u8(), { size: 8 })]],
+      { description: 'ResetInstructionData' }
+    ),
+    (value) => ({
+      ...value,
+      discriminator: [23, 81, 251, 84, 138, 183, 240, 214],
+    })
+  ) as Serializer<ResetInstructionDataArgs, ResetInstructionData>;
+}
 
 // Instruction.
 export function reset(
@@ -104,7 +132,7 @@ export function reset(
   );
 
   // Data.
-  const data = new Uint8Array();
+  const data = getResetInstructionDataSerializer().serialize({});
 
   // Bytes Created On Chain.
   const bytesCreatedOnChain = 0;

@@ -15,6 +15,13 @@ import {
   transactionBuilder,
 } from '@metaplex-foundation/umi';
 import {
+  Serializer,
+  array,
+  mapSerializer,
+  struct,
+  u8,
+} from '@metaplex-foundation/umi/serializers';
+import {
   ResolvedAccount,
   ResolvedAccountsWithIndices,
   getAccountMetasAndSigners,
@@ -26,6 +33,36 @@ export type CloseSettlementClaimInstructionAccounts = {
   settlementClaim: PublicKey | Pda;
   rentCollector?: PublicKey | Pda;
 };
+
+// Data.
+export type CloseSettlementClaimInstructionData = {
+  discriminator: Array<number>;
+};
+
+export type CloseSettlementClaimInstructionDataArgs = {};
+
+export function getCloseSettlementClaimInstructionDataSerializer(): Serializer<
+  CloseSettlementClaimInstructionDataArgs,
+  CloseSettlementClaimInstructionData
+> {
+  return mapSerializer<
+    CloseSettlementClaimInstructionDataArgs,
+    any,
+    CloseSettlementClaimInstructionData
+  >(
+    struct<CloseSettlementClaimInstructionData>(
+      [['discriminator', array(u8(), { size: 8 })]],
+      { description: 'CloseSettlementClaimInstructionData' }
+    ),
+    (value) => ({
+      ...value,
+      discriminator: [103, 26, 247, 104, 254, 134, 218, 94],
+    })
+  ) as Serializer<
+    CloseSettlementClaimInstructionDataArgs,
+    CloseSettlementClaimInstructionData
+  >;
+}
 
 // Instruction.
 export function closeSettlementClaim(
@@ -77,7 +114,7 @@ export function closeSettlementClaim(
   );
 
   // Data.
-  const data = new Uint8Array();
+  const data = getCloseSettlementClaimInstructionDataSerializer().serialize({});
 
   // Bytes Created On Chain.
   const bytesCreatedOnChain = 0;

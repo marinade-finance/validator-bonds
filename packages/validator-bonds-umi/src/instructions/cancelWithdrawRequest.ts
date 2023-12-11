@@ -16,6 +16,13 @@ import {
   transactionBuilder,
 } from '@metaplex-foundation/umi';
 import {
+  Serializer,
+  array,
+  mapSerializer,
+  struct,
+  u8,
+} from '@metaplex-foundation/umi/serializers';
+import {
   ResolvedAccount,
   ResolvedAccountsWithIndices,
   getAccountMetasAndSigners,
@@ -30,6 +37,36 @@ export type CancelWithdrawRequestInstructionAccounts = {
   withdrawRequest: PublicKey | Pda;
   rentCollector?: PublicKey | Pda;
 };
+
+// Data.
+export type CancelWithdrawRequestInstructionData = {
+  discriminator: Array<number>;
+};
+
+export type CancelWithdrawRequestInstructionDataArgs = {};
+
+export function getCancelWithdrawRequestInstructionDataSerializer(): Serializer<
+  CancelWithdrawRequestInstructionDataArgs,
+  CancelWithdrawRequestInstructionData
+> {
+  return mapSerializer<
+    CancelWithdrawRequestInstructionDataArgs,
+    any,
+    CancelWithdrawRequestInstructionData
+  >(
+    struct<CancelWithdrawRequestInstructionData>(
+      [['discriminator', array(u8(), { size: 8 })]],
+      { description: 'CancelWithdrawRequestInstructionData' }
+    ),
+    (value) => ({
+      ...value,
+      discriminator: [167, 100, 110, 128, 113, 154, 224, 77],
+    })
+  ) as Serializer<
+    CancelWithdrawRequestInstructionDataArgs,
+    CancelWithdrawRequestInstructionData
+  >;
+}
 
 // Instruction.
 export function cancelWithdrawRequest(
@@ -90,7 +127,9 @@ export function cancelWithdrawRequest(
   );
 
   // Data.
-  const data = new Uint8Array();
+  const data = getCancelWithdrawRequestInstructionDataSerializer().serialize(
+    {}
+  );
 
   // Bytes Created On Chain.
   const bytesCreatedOnChain = 0;

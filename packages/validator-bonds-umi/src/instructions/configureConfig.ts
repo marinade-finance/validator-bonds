@@ -18,10 +18,13 @@ import {
 } from '@metaplex-foundation/umi';
 import {
   Serializer,
+  array,
+  mapSerializer,
   option,
   publicKey as publicKeySerializer,
   struct,
   u64,
+  u8,
 } from '@metaplex-foundation/umi/serializers';
 import {
   ResolvedAccount,
@@ -39,6 +42,7 @@ export type ConfigureConfigInstructionAccounts = {
 
 // Data.
 export type ConfigureConfigInstructionData = {
+  discriminator: Array<number>;
   admin: Option<PublicKey>;
   operator: Option<PublicKey>;
   epochsToClaimSettlement: Option<bigint>;
@@ -56,14 +60,25 @@ export function getConfigureConfigInstructionDataSerializer(): Serializer<
   ConfigureConfigInstructionDataArgs,
   ConfigureConfigInstructionData
 > {
-  return struct<ConfigureConfigInstructionData>(
-    [
-      ['admin', option(publicKeySerializer())],
-      ['operator', option(publicKeySerializer())],
-      ['epochsToClaimSettlement', option(u64())],
-      ['withdrawLockupEpochs', option(u64())],
-    ],
-    { description: 'ConfigureConfigInstructionData' }
+  return mapSerializer<
+    ConfigureConfigInstructionDataArgs,
+    any,
+    ConfigureConfigInstructionData
+  >(
+    struct<ConfigureConfigInstructionData>(
+      [
+        ['discriminator', array(u8(), { size: 8 })],
+        ['admin', option(publicKeySerializer())],
+        ['operator', option(publicKeySerializer())],
+        ['epochsToClaimSettlement', option(u64())],
+        ['withdrawLockupEpochs', option(u64())],
+      ],
+      { description: 'ConfigureConfigInstructionData' }
+    ),
+    (value) => ({
+      ...value,
+      discriminator: [198, 98, 161, 165, 137, 200, 230, 203],
+    })
   ) as Serializer<
     ConfigureConfigInstructionDataArgs,
     ConfigureConfigInstructionData

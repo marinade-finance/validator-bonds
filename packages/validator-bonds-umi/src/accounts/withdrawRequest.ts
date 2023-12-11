@@ -21,6 +21,8 @@ import {
 } from '@metaplex-foundation/umi';
 import {
   Serializer,
+  array,
+  mapSerializer,
   publicKey as publicKeySerializer,
   struct,
   u64,
@@ -36,6 +38,7 @@ import {
 export type WithdrawRequest = Account<WithdrawRequestAccountData>;
 
 export type WithdrawRequestAccountData = {
+  discriminator: Array<number>;
   /** Validator that requested the withdraw */
   validatorVoteAccount: PublicKey;
   /** Bond account that the withdraw request is for */
@@ -73,17 +76,28 @@ export function getWithdrawRequestAccountDataSerializer(): Serializer<
   WithdrawRequestAccountDataArgs,
   WithdrawRequestAccountData
 > {
-  return struct<WithdrawRequestAccountData>(
-    [
-      ['validatorVoteAccount', publicKeySerializer()],
-      ['bond', publicKeySerializer()],
-      ['bump', u8()],
-      ['epoch', u64()],
-      ['requestedAmount', u64()],
-      ['withdrawnAmount', u64()],
-      ['reserved', getReserved150Serializer()],
-    ],
-    { description: 'WithdrawRequestAccountData' }
+  return mapSerializer<
+    WithdrawRequestAccountDataArgs,
+    any,
+    WithdrawRequestAccountData
+  >(
+    struct<WithdrawRequestAccountData>(
+      [
+        ['discriminator', array(u8(), { size: 8 })],
+        ['validatorVoteAccount', publicKeySerializer()],
+        ['bond', publicKeySerializer()],
+        ['bump', u8()],
+        ['epoch', u64()],
+        ['requestedAmount', u64()],
+        ['withdrawnAmount', u64()],
+        ['reserved', getReserved150Serializer()],
+      ],
+      { description: 'WithdrawRequestAccountData' }
+    ),
+    (value) => ({
+      ...value,
+      discriminator: [186, 239, 174, 191, 189, 13, 47, 196],
+    })
   ) as Serializer<WithdrawRequestAccountDataArgs, WithdrawRequestAccountData>;
 }
 
@@ -161,6 +175,7 @@ export function getWithdrawRequestGpaBuilder(
   );
   return gpaBuilder(context, programId)
     .registerFields<{
+      discriminator: Array<number>;
       validatorVoteAccount: PublicKey;
       bond: PublicKey;
       bump: number;
@@ -169,17 +184,19 @@ export function getWithdrawRequestGpaBuilder(
       withdrawnAmount: number | bigint;
       reserved: Reserved150Args;
     }>({
-      validatorVoteAccount: [0, publicKeySerializer()],
-      bond: [32, publicKeySerializer()],
-      bump: [64, u8()],
-      epoch: [65, u64()],
-      requestedAmount: [73, u64()],
-      withdrawnAmount: [81, u64()],
-      reserved: [89, getReserved150Serializer()],
+      discriminator: [0, array(u8(), { size: 8 })],
+      validatorVoteAccount: [8, publicKeySerializer()],
+      bond: [40, publicKeySerializer()],
+      bump: [72, u8()],
+      epoch: [73, u64()],
+      requestedAmount: [81, u64()],
+      withdrawnAmount: [89, u64()],
+      reserved: [97, getReserved150Serializer()],
     })
     .deserializeUsing<WithdrawRequest>((account) =>
       deserializeWithdrawRequest(account)
-    );
+    )
+    .whereField('discriminator', [186, 239, 174, 191, 189, 13, 47, 196]);
 }
 
 export function getWithdrawRequestSize(): number {

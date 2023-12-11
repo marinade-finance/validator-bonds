@@ -15,8 +15,11 @@ import {
 } from '@metaplex-foundation/umi';
 import {
   Serializer,
+  array,
+  mapSerializer,
   publicKey as publicKeySerializer,
   struct,
+  u8,
 } from '@metaplex-foundation/umi/serializers';
 import {
   ResolvedAccount,
@@ -37,17 +40,30 @@ export type MergeInstructionAccounts = {
 };
 
 // Data.
-export type MergeInstructionData = { settlement: PublicKey };
+export type MergeInstructionData = {
+  discriminator: Array<number>;
+  settlement: PublicKey;
+};
 
-export type MergeInstructionDataArgs = MergeInstructionData;
+export type MergeInstructionDataArgs = { settlement: PublicKey };
 
 export function getMergeInstructionDataSerializer(): Serializer<
   MergeInstructionDataArgs,
   MergeInstructionData
 > {
-  return struct<MergeInstructionData>([['settlement', publicKeySerializer()]], {
-    description: 'MergeInstructionData',
-  }) as Serializer<MergeInstructionDataArgs, MergeInstructionData>;
+  return mapSerializer<MergeInstructionDataArgs, any, MergeInstructionData>(
+    struct<MergeInstructionData>(
+      [
+        ['discriminator', array(u8(), { size: 8 })],
+        ['settlement', publicKeySerializer()],
+      ],
+      { description: 'MergeInstructionData' }
+    ),
+    (value) => ({
+      ...value,
+      discriminator: [148, 141, 236, 47, 174, 126, 69, 111],
+    })
+  ) as Serializer<MergeInstructionDataArgs, MergeInstructionData>;
 }
 
 // Args.

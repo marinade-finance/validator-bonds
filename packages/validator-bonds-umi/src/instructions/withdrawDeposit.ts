@@ -15,6 +15,13 @@ import {
   transactionBuilder,
 } from '@metaplex-foundation/umi';
 import {
+  Serializer,
+  array,
+  mapSerializer,
+  struct,
+  u8,
+} from '@metaplex-foundation/umi/serializers';
+import {
   ResolvedAccount,
   ResolvedAccountsWithIndices,
   getAccountMetasAndSigners,
@@ -57,6 +64,34 @@ export type WithdrawDepositInstructionAccounts = {
   stakeHistory: PublicKey | Pda;
   clock: PublicKey | Pda;
 };
+
+// Data.
+export type WithdrawDepositInstructionData = { discriminator: Array<number> };
+
+export type WithdrawDepositInstructionDataArgs = {};
+
+export function getWithdrawDepositInstructionDataSerializer(): Serializer<
+  WithdrawDepositInstructionDataArgs,
+  WithdrawDepositInstructionData
+> {
+  return mapSerializer<
+    WithdrawDepositInstructionDataArgs,
+    any,
+    WithdrawDepositInstructionData
+  >(
+    struct<WithdrawDepositInstructionData>(
+      [['discriminator', array(u8(), { size: 8 })]],
+      { description: 'WithdrawDepositInstructionData' }
+    ),
+    (value) => ({
+      ...value,
+      discriminator: [197, 59, 182, 208, 73, 187, 119, 25],
+    })
+  ) as Serializer<
+    WithdrawDepositInstructionDataArgs,
+    WithdrawDepositInstructionData
+  >;
+}
 
 // Instruction.
 export function withdrawDeposit(
@@ -156,7 +191,7 @@ export function withdrawDeposit(
   );
 
   // Data.
-  const data = new Uint8Array();
+  const data = getWithdrawDepositInstructionDataSerializer().serialize({});
 
   // Bytes Created On Chain.
   const bytesCreatedOnChain = 0;

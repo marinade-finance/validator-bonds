@@ -22,6 +22,7 @@ import {
 import {
   Serializer,
   array,
+  mapSerializer,
   publicKey as publicKeySerializer,
   struct,
   u64,
@@ -32,6 +33,7 @@ import {
 export type Config = Account<ConfigAccountData>;
 
 export type ConfigAccountData = {
+  discriminator: Array<number>;
   /** Admin authority that can update the config */
   adminAuthority: PublicKey;
   /** Operator authority (bot hot wallet) */
@@ -65,16 +67,23 @@ export function getConfigAccountDataSerializer(): Serializer<
   ConfigAccountDataArgs,
   ConfigAccountData
 > {
-  return struct<ConfigAccountData>(
-    [
-      ['adminAuthority', publicKeySerializer()],
-      ['operatorAuthority', publicKeySerializer()],
-      ['epochsToClaimSettlement', u64()],
-      ['withdrawLockupEpochs', u64()],
-      ['bondsWithdrawerAuthorityBump', u8()],
-      ['reserved', array(u8(), { size: 512 })],
-    ],
-    { description: 'ConfigAccountData' }
+  return mapSerializer<ConfigAccountDataArgs, any, ConfigAccountData>(
+    struct<ConfigAccountData>(
+      [
+        ['discriminator', array(u8(), { size: 8 })],
+        ['adminAuthority', publicKeySerializer()],
+        ['operatorAuthority', publicKeySerializer()],
+        ['epochsToClaimSettlement', u64()],
+        ['withdrawLockupEpochs', u64()],
+        ['bondsWithdrawerAuthorityBump', u8()],
+        ['reserved', array(u8(), { size: 512 })],
+      ],
+      { description: 'ConfigAccountData' }
+    ),
+    (value) => ({
+      ...value,
+      discriminator: [155, 12, 170, 224, 30, 250, 204, 130],
+    })
   ) as Serializer<ConfigAccountDataArgs, ConfigAccountData>;
 }
 
@@ -145,6 +154,7 @@ export function getConfigGpaBuilder(
   );
   return gpaBuilder(context, programId)
     .registerFields<{
+      discriminator: Array<number>;
       adminAuthority: PublicKey;
       operatorAuthority: PublicKey;
       epochsToClaimSettlement: number | bigint;
@@ -152,14 +162,16 @@ export function getConfigGpaBuilder(
       bondsWithdrawerAuthorityBump: number;
       reserved: Array<number>;
     }>({
-      adminAuthority: [0, publicKeySerializer()],
-      operatorAuthority: [32, publicKeySerializer()],
-      epochsToClaimSettlement: [64, u64()],
-      withdrawLockupEpochs: [72, u64()],
-      bondsWithdrawerAuthorityBump: [80, u8()],
-      reserved: [81, array(u8(), { size: 512 })],
+      discriminator: [0, array(u8(), { size: 8 })],
+      adminAuthority: [8, publicKeySerializer()],
+      operatorAuthority: [40, publicKeySerializer()],
+      epochsToClaimSettlement: [72, u64()],
+      withdrawLockupEpochs: [80, u64()],
+      bondsWithdrawerAuthorityBump: [88, u8()],
+      reserved: [89, array(u8(), { size: 512 })],
     })
-    .deserializeUsing<Config>((account) => deserializeConfig(account));
+    .deserializeUsing<Config>((account) => deserializeConfig(account))
+    .whereField('discriminator', [155, 12, 170, 224, 30, 250, 204, 130]);
 }
 
 export function getConfigSize(): number {

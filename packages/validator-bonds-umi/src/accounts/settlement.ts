@@ -23,11 +23,14 @@ import {
 } from '@metaplex-foundation/umi';
 import {
   Serializer,
+  array,
   bytes,
+  mapSerializer,
   option,
   publicKey as publicKeySerializer,
   struct,
   u64,
+  u8,
 } from '@metaplex-foundation/umi/serializers';
 import {
   Bumps,
@@ -46,6 +49,7 @@ import {
 export type Settlement = Account<SettlementAccountData>;
 
 export type SettlementAccountData = {
+  discriminator: Array<number>;
   /** this settlement belongs under particular bond, i.e., under particular validator vote account */
   bond: PublicKey;
   /** stake account authority that manages the funded stake accounts */
@@ -109,24 +113,31 @@ export function getSettlementAccountDataSerializer(): Serializer<
   SettlementAccountDataArgs,
   SettlementAccountData
 > {
-  return struct<SettlementAccountData>(
-    [
-      ['bond', publicKeySerializer()],
-      ['settlementAuthority', publicKeySerializer()],
-      ['merkleRoot', bytes({ size: 32 })],
-      ['maxTotalClaim', u64()],
-      ['maxNumNodes', u64()],
-      ['totalFunded', u64()],
-      ['totalFundsClaimed', u64()],
-      ['numNodesClaimed', u64()],
-      ['epochCreatedAt', u64()],
-      ['rentCollector', publicKeySerializer()],
-      ['splitRentCollector', option(publicKeySerializer())],
-      ['splitRentAmount', u64()],
-      ['bumps', getBumpsSerializer()],
-      ['reserved', getReserved150Serializer()],
-    ],
-    { description: 'SettlementAccountData' }
+  return mapSerializer<SettlementAccountDataArgs, any, SettlementAccountData>(
+    struct<SettlementAccountData>(
+      [
+        ['discriminator', array(u8(), { size: 8 })],
+        ['bond', publicKeySerializer()],
+        ['settlementAuthority', publicKeySerializer()],
+        ['merkleRoot', bytes({ size: 32 })],
+        ['maxTotalClaim', u64()],
+        ['maxNumNodes', u64()],
+        ['totalFunded', u64()],
+        ['totalFundsClaimed', u64()],
+        ['numNodesClaimed', u64()],
+        ['epochCreatedAt', u64()],
+        ['rentCollector', publicKeySerializer()],
+        ['splitRentCollector', option(publicKeySerializer())],
+        ['splitRentAmount', u64()],
+        ['bumps', getBumpsSerializer()],
+        ['reserved', getReserved150Serializer()],
+      ],
+      { description: 'SettlementAccountData' }
+    ),
+    (value) => ({
+      ...value,
+      discriminator: [55, 11, 219, 33, 36, 136, 40, 182],
+    })
   ) as Serializer<SettlementAccountDataArgs, SettlementAccountData>;
 }
 
@@ -197,6 +208,7 @@ export function getSettlementGpaBuilder(
   );
   return gpaBuilder(context, programId)
     .registerFields<{
+      discriminator: Array<number>;
       bond: PublicKey;
       settlementAuthority: PublicKey;
       merkleRoot: Uint8Array;
@@ -212,20 +224,22 @@ export function getSettlementGpaBuilder(
       bumps: BumpsArgs;
       reserved: Reserved150Args;
     }>({
-      bond: [0, publicKeySerializer()],
-      settlementAuthority: [32, publicKeySerializer()],
-      merkleRoot: [64, bytes({ size: 32 })],
-      maxTotalClaim: [96, u64()],
-      maxNumNodes: [104, u64()],
-      totalFunded: [112, u64()],
-      totalFundsClaimed: [120, u64()],
-      numNodesClaimed: [128, u64()],
-      epochCreatedAt: [136, u64()],
-      rentCollector: [144, publicKeySerializer()],
-      splitRentCollector: [176, option(publicKeySerializer())],
+      discriminator: [0, array(u8(), { size: 8 })],
+      bond: [8, publicKeySerializer()],
+      settlementAuthority: [40, publicKeySerializer()],
+      merkleRoot: [72, bytes({ size: 32 })],
+      maxTotalClaim: [104, u64()],
+      maxNumNodes: [112, u64()],
+      totalFunded: [120, u64()],
+      totalFundsClaimed: [128, u64()],
+      numNodesClaimed: [136, u64()],
+      epochCreatedAt: [144, u64()],
+      rentCollector: [152, publicKeySerializer()],
+      splitRentCollector: [184, option(publicKeySerializer())],
       splitRentAmount: [null, u64()],
       bumps: [null, getBumpsSerializer()],
       reserved: [null, getReserved150Serializer()],
     })
-    .deserializeUsing<Settlement>((account) => deserializeSettlement(account));
+    .deserializeUsing<Settlement>((account) => deserializeSettlement(account))
+    .whereField('discriminator', [55, 11, 219, 33, 36, 136, 40, 182]);
 }

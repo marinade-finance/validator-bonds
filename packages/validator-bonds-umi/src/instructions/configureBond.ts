@@ -18,9 +18,12 @@ import {
 } from '@metaplex-foundation/umi';
 import {
   Serializer,
+  array,
+  mapSerializer,
   option,
   publicKey as publicKeySerializer,
   struct,
+  u8,
 } from '@metaplex-foundation/umi/serializers';
 import {
   ResolvedAccount,
@@ -43,6 +46,7 @@ export type ConfigureBondInstructionAccounts = {
 
 // Data.
 export type ConfigureBondInstructionData = {
+  discriminator: Array<number>;
   bondAuthority: Option<PublicKey>;
   revenueShareConfig: Option<HundredthBasisPoint>;
 };
@@ -56,12 +60,23 @@ export function getConfigureBondInstructionDataSerializer(): Serializer<
   ConfigureBondInstructionDataArgs,
   ConfigureBondInstructionData
 > {
-  return struct<ConfigureBondInstructionData>(
-    [
-      ['bondAuthority', option(publicKeySerializer())],
-      ['revenueShareConfig', option(getHundredthBasisPointSerializer())],
-    ],
-    { description: 'ConfigureBondInstructionData' }
+  return mapSerializer<
+    ConfigureBondInstructionDataArgs,
+    any,
+    ConfigureBondInstructionData
+  >(
+    struct<ConfigureBondInstructionData>(
+      [
+        ['discriminator', array(u8(), { size: 8 })],
+        ['bondAuthority', option(publicKeySerializer())],
+        ['revenueShareConfig', option(getHundredthBasisPointSerializer())],
+      ],
+      { description: 'ConfigureBondInstructionData' }
+    ),
+    (value) => ({
+      ...value,
+      discriminator: [228, 108, 79, 242, 82, 54, 105, 65],
+    })
   ) as Serializer<
     ConfigureBondInstructionDataArgs,
     ConfigureBondInstructionData

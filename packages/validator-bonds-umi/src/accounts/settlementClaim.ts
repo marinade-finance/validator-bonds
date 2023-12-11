@@ -21,6 +21,8 @@ import {
 } from '@metaplex-foundation/umi';
 import {
   Serializer,
+  array,
+  mapSerializer,
   publicKey as publicKeySerializer,
   struct,
   u64,
@@ -40,6 +42,7 @@ import {
 export type SettlementClaim = Account<SettlementClaimAccountData>;
 
 export type SettlementClaimAccountData = {
+  discriminator: Array<number>;
   /** settlement account this claim belongs under */
   settlement: PublicKey;
   /** stake authority as part of the merkle proof for this claim */
@@ -81,18 +84,29 @@ export function getSettlementClaimAccountDataSerializer(): Serializer<
   SettlementClaimAccountDataArgs,
   SettlementClaimAccountData
 > {
-  return struct<SettlementClaimAccountData>(
-    [
-      ['settlement', publicKeySerializer()],
-      ['stakeAuthority', publicKeySerializer()],
-      ['withdrawAuthority', publicKeySerializer()],
-      ['voteAccount', publicKeySerializer()],
-      ['claim', u64()],
-      ['bump', u8()],
-      ['rentCollector', publicKeySerializer()],
-      ['reserved', getReserved150Serializer()],
-    ],
-    { description: 'SettlementClaimAccountData' }
+  return mapSerializer<
+    SettlementClaimAccountDataArgs,
+    any,
+    SettlementClaimAccountData
+  >(
+    struct<SettlementClaimAccountData>(
+      [
+        ['discriminator', array(u8(), { size: 8 })],
+        ['settlement', publicKeySerializer()],
+        ['stakeAuthority', publicKeySerializer()],
+        ['withdrawAuthority', publicKeySerializer()],
+        ['voteAccount', publicKeySerializer()],
+        ['claim', u64()],
+        ['bump', u8()],
+        ['rentCollector', publicKeySerializer()],
+        ['reserved', getReserved150Serializer()],
+      ],
+      { description: 'SettlementClaimAccountData' }
+    ),
+    (value) => ({
+      ...value,
+      discriminator: [216, 103, 231, 246, 171, 99, 124, 133],
+    })
   ) as Serializer<SettlementClaimAccountDataArgs, SettlementClaimAccountData>;
 }
 
@@ -170,6 +184,7 @@ export function getSettlementClaimGpaBuilder(
   );
   return gpaBuilder(context, programId)
     .registerFields<{
+      discriminator: Array<number>;
       settlement: PublicKey;
       stakeAuthority: PublicKey;
       withdrawAuthority: PublicKey;
@@ -179,18 +194,20 @@ export function getSettlementClaimGpaBuilder(
       rentCollector: PublicKey;
       reserved: Reserved150Args;
     }>({
-      settlement: [0, publicKeySerializer()],
-      stakeAuthority: [32, publicKeySerializer()],
-      withdrawAuthority: [64, publicKeySerializer()],
-      voteAccount: [96, publicKeySerializer()],
-      claim: [128, u64()],
-      bump: [136, u8()],
-      rentCollector: [137, publicKeySerializer()],
-      reserved: [169, getReserved150Serializer()],
+      discriminator: [0, array(u8(), { size: 8 })],
+      settlement: [8, publicKeySerializer()],
+      stakeAuthority: [40, publicKeySerializer()],
+      withdrawAuthority: [72, publicKeySerializer()],
+      voteAccount: [104, publicKeySerializer()],
+      claim: [136, u64()],
+      bump: [144, u8()],
+      rentCollector: [145, publicKeySerializer()],
+      reserved: [177, getReserved150Serializer()],
     })
     .deserializeUsing<SettlementClaim>((account) =>
       deserializeSettlementClaim(account)
-    );
+    )
+    .whereField('discriminator', [216, 103, 231, 246, 171, 99, 124, 133]);
 }
 
 export function getSettlementClaimSize(): number {

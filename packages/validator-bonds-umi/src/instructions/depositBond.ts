@@ -15,6 +15,13 @@ import {
   transactionBuilder,
 } from '@metaplex-foundation/umi';
 import {
+  Serializer,
+  array,
+  mapSerializer,
+  struct,
+  u8,
+} from '@metaplex-foundation/umi/serializers';
+import {
   ResolvedAccount,
   ResolvedAccountsWithIndices,
   getAccountMetasAndSigners,
@@ -35,6 +42,31 @@ export type DepositBondInstructionAccounts = {
   stakeHistory: PublicKey | Pda;
   stakeProgram: PublicKey | Pda;
 };
+
+// Data.
+export type DepositBondInstructionData = { discriminator: Array<number> };
+
+export type DepositBondInstructionDataArgs = {};
+
+export function getDepositBondInstructionDataSerializer(): Serializer<
+  DepositBondInstructionDataArgs,
+  DepositBondInstructionData
+> {
+  return mapSerializer<
+    DepositBondInstructionDataArgs,
+    any,
+    DepositBondInstructionData
+  >(
+    struct<DepositBondInstructionData>(
+      [['discriminator', array(u8(), { size: 8 })]],
+      { description: 'DepositBondInstructionData' }
+    ),
+    (value) => ({
+      ...value,
+      discriminator: [120, 89, 18, 253, 112, 125, 87, 255],
+    })
+  ) as Serializer<DepositBondInstructionDataArgs, DepositBondInstructionData>;
+}
 
 // Instruction.
 export function depositBond(
@@ -100,7 +132,7 @@ export function depositBond(
   );
 
   // Data.
-  const data = new Uint8Array();
+  const data = getDepositBondInstructionDataSerializer().serialize({});
 
   // Bytes Created On Chain.
   const bytesCreatedOnChain = 0;

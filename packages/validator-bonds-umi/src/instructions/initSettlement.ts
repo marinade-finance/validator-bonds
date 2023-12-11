@@ -16,10 +16,13 @@ import {
 } from '@metaplex-foundation/umi';
 import {
   Serializer,
+  array,
   bytes,
+  mapSerializer,
   publicKey as publicKeySerializer,
   struct,
   u64,
+  u8,
 } from '@metaplex-foundation/umi/serializers';
 import {
   ResolvedAccount,
@@ -42,6 +45,7 @@ export type InitSettlementInstructionAccounts = {
 
 // Data.
 export type InitSettlementInstructionData = {
+  discriminator: Array<number>;
   merkleRoot: Uint8Array;
   voteAccount: PublicKey;
   settlementTotalClaim: bigint;
@@ -61,15 +65,26 @@ export function getInitSettlementInstructionDataSerializer(): Serializer<
   InitSettlementInstructionDataArgs,
   InitSettlementInstructionData
 > {
-  return struct<InitSettlementInstructionData>(
-    [
-      ['merkleRoot', bytes({ size: 32 })],
-      ['voteAccount', publicKeySerializer()],
-      ['settlementTotalClaim', u64()],
-      ['settlementNumNodes', u64()],
-      ['rentCollector', publicKeySerializer()],
-    ],
-    { description: 'InitSettlementInstructionData' }
+  return mapSerializer<
+    InitSettlementInstructionDataArgs,
+    any,
+    InitSettlementInstructionData
+  >(
+    struct<InitSettlementInstructionData>(
+      [
+        ['discriminator', array(u8(), { size: 8 })],
+        ['merkleRoot', bytes({ size: 32 })],
+        ['voteAccount', publicKeySerializer()],
+        ['settlementTotalClaim', u64()],
+        ['settlementNumNodes', u64()],
+        ['rentCollector', publicKeySerializer()],
+      ],
+      { description: 'InitSettlementInstructionData' }
+    ),
+    (value) => ({
+      ...value,
+      discriminator: [152, 178, 0, 65, 52, 210, 247, 58],
+    })
   ) as Serializer<
     InitSettlementInstructionDataArgs,
     InitSettlementInstructionData

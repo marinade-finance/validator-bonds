@@ -14,7 +14,14 @@ import {
   TransactionBuilder,
   transactionBuilder,
 } from '@metaplex-foundation/umi';
-import { Serializer, struct, u64 } from '@metaplex-foundation/umi/serializers';
+import {
+  Serializer,
+  array,
+  mapSerializer,
+  struct,
+  u64,
+  u8,
+} from '@metaplex-foundation/umi/serializers';
 import {
   ResolvedAccount,
   ResolvedAccountsWithIndices,
@@ -37,7 +44,10 @@ export type CreateWithdrawRequestInstructionAccounts = {
 };
 
 // Data.
-export type CreateWithdrawRequestInstructionData = { amount: bigint };
+export type CreateWithdrawRequestInstructionData = {
+  discriminator: Array<number>;
+  amount: bigint;
+};
 
 export type CreateWithdrawRequestInstructionDataArgs = {
   amount: number | bigint;
@@ -47,9 +57,23 @@ export function getCreateWithdrawRequestInstructionDataSerializer(): Serializer<
   CreateWithdrawRequestInstructionDataArgs,
   CreateWithdrawRequestInstructionData
 > {
-  return struct<CreateWithdrawRequestInstructionData>([['amount', u64()]], {
-    description: 'CreateWithdrawRequestInstructionData',
-  }) as Serializer<
+  return mapSerializer<
+    CreateWithdrawRequestInstructionDataArgs,
+    any,
+    CreateWithdrawRequestInstructionData
+  >(
+    struct<CreateWithdrawRequestInstructionData>(
+      [
+        ['discriminator', array(u8(), { size: 8 })],
+        ['amount', u64()],
+      ],
+      { description: 'CreateWithdrawRequestInstructionData' }
+    ),
+    (value) => ({
+      ...value,
+      discriminator: [42, 61, 111, 242, 204, 12, 99, 114],
+    })
+  ) as Serializer<
     CreateWithdrawRequestInstructionDataArgs,
     CreateWithdrawRequestInstructionData
   >;
