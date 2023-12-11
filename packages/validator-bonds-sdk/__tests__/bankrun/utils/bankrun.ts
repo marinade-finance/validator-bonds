@@ -10,13 +10,36 @@ import {
   TransactionInstructionCtorFields,
 } from '@solana/web3.js'
 import { instanceOfWallet } from '@marinade.finance/web3js-common'
+import { ExtendedProvider } from '../../utils/provider'
+
+export class BankrunExtendedProvider
+  extends BankrunProvider
+  implements ExtendedProvider
+{
+  async sendIx(
+    signers: (WalletInterface | Signer)[],
+    ...ixes: (
+      | Transaction
+      | TransactionInstruction
+      | TransactionInstructionCtorFields
+    )[]
+  ): Promise<void> {
+    const tx = await bankrunTransaction(this)
+    tx.add(...ixes)
+    await bankrunExecute(this, [this.wallet, ...signers], tx)
+  }
+
+  get walletPubkey(): PublicKey {
+    return this.wallet.publicKey
+  }
+}
 
 export async function initBankrunTest(programId?: PublicKey): Promise<{
   program: ValidatorBondsProgram
-  provider: BankrunProvider
+  provider: BankrunExtendedProvider
 }> {
   const context = await startAnchor('./', [], [])
-  const provider = new BankrunProvider(context)
+  const provider = new BankrunExtendedProvider(context)
   return {
     program: getProgram({ connection: provider, programId }),
     provider,
@@ -64,6 +87,14 @@ export async function bankrunExecute(
     }
   }
   return await provider.context.banksClient.processTransaction(tx)
+}
+
+export async function assertNotExist(
+  provider: BankrunProvider,
+  account: PublicKey
+) {
+  const accountInfo = await provider.context.banksClient.getAccount(account)
+  expect(accountInfo).toBeNull()
 }
 
 // https://github.com/solana-labs/solana/blob/v1.17.7/sdk/program/src/epoch_schedule.rs#L29C1-L29C45

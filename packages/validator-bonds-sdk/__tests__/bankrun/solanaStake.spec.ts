@@ -5,30 +5,32 @@ import {
   PublicKey,
   StakeAuthorizationLayout,
   SystemProgram,
-  Transaction,
-  TransactionInstruction,
-  TransactionInstructionCtorFields,
-  Signer,
-  AccountInfo,
   LAMPORTS_PER_SOL,
 } from '@solana/web3.js'
-import { ValidatorBondsProgram } from '../../src'
-import { BankrunProvider } from 'anchor-bankrun'
 import { Clock } from 'solana-bankrun'
-import { bankrunExecuteIx, initBankrunTest, warpToEpoch } from './utils/bankrun'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { StakeProgram, VoteProgram } from '@solana/web3.js'
 import {
-  VOTE_ACCOUNT_SIZE,
-  deserializeStakeState,
+  BankrunExtendedProvider,
+  assertNotExist,
+  bankrunExecuteIx,
+  initBankrunTest,
+  warpToEpoch,
+} from './utils/bankrun'
+import { StakeProgram } from '@solana/web3.js'
+import {
+  StakeStates,
+  createVoteAccount,
+  delegatedStakeAccount,
+  getAndCheckStakeAccount,
+  getRentExemptStake,
+  getRentExemptVote,
+  initializedStakeAccount,
+  nonInitializedStakeAccount,
   setLockup,
-} from '../utils/stakeState'
-import assert from 'assert'
-import { StakeState } from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
-import { Provider } from '@coral-xyz/anchor'
+} from '../utils/staking'
+import { verifyErrorMessage } from '../utils/helpers'
 
 describe('Solana stake account behavior verification', () => {
-  let provider: BankrunProvider
+  let provider: BankrunExtendedProvider
   let rentExemptStake: number
   let rentExemptVote: number
   const startUpEpoch = 42
@@ -41,11 +43,7 @@ describe('Solana stake account behavior verification', () => {
     warpToEpoch(provider, startUpEpoch)
   })
 
-  //
-  // TODO: #2 check what happens when lockup account is merged with non-lockup account?
-  // TODO: #3 what happen after split of stake account with authorities, are they maintained as in the original one?
-
-  it.skip('cannot merge uninitialized + merge initialized with correct meta', async () => {
+  it('cannot merge uninitialized + merge initialized with correct meta', async () => {
     const [sourcePubkey] = await nonInitializedStakeAccount(
       provider,
       rentExemptStake
@@ -193,11 +191,11 @@ describe('Solana stake account behavior verification', () => {
    *  - no, it seems the only way to change the lockup is to run SetLockup that configures but not removes it
    *    - when lockup is active the only way to change it is to use the custodian signature
    *    - when lockup is not active the only way to change it is to use the withdrawer signature
-   * 
+   *
    * When calling authorize with custodianPubkey, the lockup is not changed
    *   - when lockup is active, the custodian signature is required, custodianPubkey is a way to pass the lockup custodian to ix
    */
-  it.skip('merging stake account with different lockup metadata', async () => {
+  it('merging stake account with different lockup metadata', async () => {
     const { epoch } = await provider.context.banksClient.getClock()
     const staker = Keypair.generate()
     const withdrawer = Keypair.generate()
@@ -272,10 +270,11 @@ describe('Solana stake account behavior verification', () => {
       setLockupIx2
     )
 
-    // merging stakeAccount1 --> stakeAccount2
     provider.context.warpToSlot(
       (await provider.context.banksClient.getClock()).slot + BigInt(1)
     )
+
+    // merging stakeAccount1 --> stakeAccount2
     const mergeTx3 = StakeProgram.merge({
       stakePubkey: stakeAccount2,
       sourceStakePubKey: stakeAccount1,
@@ -348,7 +347,7 @@ describe('Solana stake account behavior verification', () => {
     )
   })
 
-  it.skip('merge stake account with running lockup', async () => {
+  it('merge stake account with running lockup', async () => {
     const clock = await provider.context.banksClient.getClock()
     const staker = Keypair.generate()
     const withdrawer = Keypair.generate()
@@ -527,7 +526,7 @@ describe('Solana stake account behavior verification', () => {
     )
   })
 
-  it.skip('merge delegated stake account', async () => {
+  it('merge delegated stake account', async () => {
     const clock = await provider.context.banksClient.getClock()
     const custodian = provider.wallet
     const lockup = new Lockup(0, -1, custodian.publicKey) // max lockup at the end of universe
@@ -672,6 +671,8 @@ describe('Solana stake account behavior verification', () => {
   /**
    * What happened with merged lockup?
    * - lockup metadata is the same as the first account where the second was merged into
+   * WHat happens when lockup account is merged with non-lockup account?
+   * - that's not possible, either lockup metadata matches or both are non-lockup
    */
   it('merging non-locked delegated stake accounts', async () => {
     const clock = await provider.context.banksClient.getClock()
@@ -721,7 +722,7 @@ describe('Solana stake account behavior verification', () => {
     )
 
     console.log(
-      'MERGING delegated to same vote account, non-locked stakes with different lockup meta data'
+      '1. MERGING delegated to same vote account, non-locked stakes with different lockup meta data'
     )
     const mergeIx = StakeProgram.merge({
       stakePubkey: stakeAccount1,
@@ -748,10 +749,10 @@ describe('Solana stake account behavior verification', () => {
       lockedCustodian.toBase58()
     )
 
-    
-    const {
-      stakeAccount: stakeAccountLocked,
-    } = await delegatedStakeAccount({
+    console.log(
+      '2. MERGING deactivated to activated not possible, lockup metadata is different'
+    )
+    const { stakeAccount: stakeAccountLocked } = await delegatedStakeAccount({
       provider,
       voteAccountToDelegate: voteAccount,
       lockup: new Lockup(0, Number(clock.epoch) + 1, lockedCustodian),
@@ -760,276 +761,88 @@ describe('Solana stake account behavior verification', () => {
       withdrawer,
     })
 
+    // merging stakeAccountLocked --> stakeAccount1
     const mergeWithLockedIx = StakeProgram.merge({
       stakePubkey: stakeAccount1,
       sourceStakePubKey: stakeAccountLocked,
       authorizedPubkey: staker.publicKey,
     })
-    await bankrunExecuteIx(provider, [provider.wallet, staker], mergeWithLockedIx)
+    await verifyErrorMessage(
+      provider,
+      '2.',
+      'custom program error: 0x6', // MergeMismatch
+      [provider.wallet, staker],
+      mergeWithLockedIx
+    )
+  })
+
+  /**
+   * What happen after split of stake account with authorities and lockup,
+   * are they maintained as in the original?
+   *  - yes, they are maintained
+   */
+  it('splitting stake accounts', async () => {
+    const clock = await provider.context.banksClient.getClock()
+    const custodian = Keypair.generate()
+    const lockedLockup = new Lockup(
+      0,
+      Number(clock.epoch) + 1,
+      custodian.publicKey
+    )
+    const lamports = LAMPORTS_PER_SOL * 5
+    const {
+      stakeAccount: stakeAccount1,
+      staker,
+      voteAccount,
+    } = await delegatedStakeAccount({
+      provider,
+      lockup: lockedLockup,
+      lamports,
+    })
+    const stakeAccount2 = Keypair.generate()
+    const spitLamports = LAMPORTS_PER_SOL * 2
+    expect(spitLamports).toBeLessThan(lamports)
+    const splitIx = StakeProgram.split({
+      stakePubkey: stakeAccount1,
+      authorizedPubkey: staker.publicKey,
+      splitStakePubkey: stakeAccount2.publicKey,
+      lamports: spitLamports,
+    })
+    await bankrunExecuteIx(
+      provider,
+      [provider.wallet, staker, stakeAccount2],
+      splitIx
+    )
+    const [stakeAccount1Data, stakeAccount1Info] =
+      await getAndCheckStakeAccount(
+        provider,
+        stakeAccount1,
+        StakeStates.Delegated
+      )
+    const [stakeAccount2Data, stakeAccount2Info] =
+      await getAndCheckStakeAccount(
+        provider,
+        stakeAccount2.publicKey,
+        StakeStates.Delegated
+      )
+    expect(stakeAccount1Data.Stake?.meta.lockup).toEqual(lockedLockup)
+    expect(stakeAccount2Data.Stake?.meta.lockup).toEqual(lockedLockup)
+    expect(stakeAccount1Data.Stake?.stake.delegation.stake.toNumber()).toEqual(
+      lamports - spitLamports - rentExemptStake
+    )
+    expect(stakeAccount2Data.Stake?.stake.delegation.stake.toNumber()).toEqual(
+      spitLamports - rentExemptStake
+    )
+    expect(stakeAccount1Info.lamports).toEqual(lamports - spitLamports)
+    expect(stakeAccount2Info.lamports).toEqual(spitLamports)
+    expect(stakeAccount2Data.Stake?.meta.authorized).toEqual(
+      stakeAccount1Data.Stake?.meta.authorized
+    )
+    expect(stakeAccount1Data.Stake?.stake.delegation.voterPubkey).toEqual(
+      voteAccount
+    )
+    expect(stakeAccount2Data.Stake?.stake.delegation.voterPubkey).toEqual(
+      voteAccount
+    )
   })
 })
-
-type VoteAccountKeys = {
-  voteAccount: PublicKey
-  nodeIdentity: Keypair
-  authorizedVoter: Keypair
-  authorizedWithdrawer: Keypair
-}
-
-async function createVoteAccount(
-  provider: BankrunProvider,
-  rentExempt: number
-): Promise<VoteAccountKeys> {
-  rentExempt = await getRentExemptVote(provider, rentExempt)
-
-  const voteAccount = Keypair.generate()
-  const nodeIdentity = Keypair.generate()
-  const authorizedVoter = Keypair.generate()
-  const authorizedWithdrawer = Keypair.generate()
-
-  const ixCreate = SystemProgram.createAccount({
-    fromPubkey: provider.wallet.publicKey,
-    newAccountPubkey: voteAccount.publicKey,
-    lamports: rentExempt,
-    space: VOTE_ACCOUNT_SIZE,
-    programId: VoteProgram.programId,
-  })
-  const ixInitialize = VoteProgram.initializeAccount({
-    votePubkey: voteAccount.publicKey,
-    nodePubkey: nodeIdentity.publicKey,
-    voteInit: {
-      authorizedVoter: authorizedVoter.publicKey,
-      authorizedWithdrawer: authorizedWithdrawer.publicKey,
-      commission: 0,
-      nodePubkey: nodeIdentity.publicKey,
-    },
-  })
-
-  await bankrunExecuteIx(
-    provider,
-    [provider.wallet, voteAccount, nodeIdentity],
-    ixCreate,
-    ixInitialize
-  )
-  return {
-    voteAccount: voteAccount.publicKey,
-    nodeIdentity,
-    authorizedVoter,
-    authorizedWithdrawer,
-  }
-}
-
-function checkErrorMessage(e: unknown, message: string) {
-  return (
-    typeof e === 'object' &&
-    e !== null &&
-    'message' in e &&
-    typeof e.message === 'string' &&
-    e.message.includes(message)
-  )
-}
-
-async function verifyErrorMessage(
-  provider: BankrunProvider,
-  info: string,
-  checkMessage: string,
-  signers: (WalletInterface | Signer)[],
-  ...ixes: (
-    | Transaction
-    | TransactionInstruction
-    | TransactionInstructionCtorFields
-  )[]
-) {
-  try {
-    await bankrunExecuteIx(provider, signers, ...ixes)
-    throw new Error(`Expected failure ${info}, but it hasn't happened`)
-  } catch (e) {
-    if (checkErrorMessage(e, checkMessage)) {
-      console.debug(`${info} expected error (check: '${checkMessage}')`, e)
-    } else {
-      console.error(
-        `${info} wrong failure thrown, expected error: '${checkMessage}'`,
-        e
-      )
-      throw e
-    }
-  }
-}
-
-export enum StakeStates {
-  Uninitialized,
-  Initialized,
-  Delegated,
-  RewardsPool,
-}
-
-async function assertNotExist(provider: BankrunProvider, account: PublicKey) {
-  const accountInfo = await provider.context.banksClient.getAccount(account)
-  expect(accountInfo).toBeNull()
-}
-
-async function getAndCheckStakeAccount(
-  provider: Provider,
-  account: PublicKey,
-  stakeStateCheck?: StakeStates
-): Promise<[StakeState, AccountInfo<Buffer>]> {
-  let accountInfo: AccountInfo<Buffer>
-  try {
-    accountInfo = (await provider.connection.getAccountInfo(
-      account
-    )) as AccountInfo<Buffer>
-  } catch (e) {
-    console.error(e)
-    throw new Error(`Account ${account.toBase58()} does not exist on chain`)
-  }
-  expect(accountInfo).toBeDefined()
-  assert(accountInfo)
-  const stakeData = deserializeStakeState(accountInfo.data)
-  switch (stakeStateCheck) {
-    case StakeStates.Uninitialized:
-      expect(stakeData.Uninitialized).toBeDefined()
-      break
-    case StakeStates.Initialized:
-      expect(stakeData.Initialized).toBeDefined()
-      break
-    case StakeStates.Delegated:
-      expect(stakeData.Stake).toBeDefined()
-      break
-    case StakeStates.RewardsPool:
-      expect(stakeData.RewardsPool).toBeDefined()
-      break
-  }
-  return [stakeData, accountInfo]
-}
-
-async function nonInitializedStakeAccount(
-  provider: BankrunProvider,
-  rentExempt?: number
-): Promise<[PublicKey, Keypair]> {
-  const accountKeypair = Keypair.generate()
-  const createSystemAccountIx = SystemProgram.createAccount({
-    fromPubkey: provider.wallet.publicKey,
-    newAccountPubkey: accountKeypair.publicKey,
-    lamports: await getRentExemptStake(provider, rentExempt),
-    space: StakeProgram.space,
-    programId: StakeProgram.programId,
-  })
-  await bankrunExecuteIx(
-    provider,
-    [accountKeypair, provider.wallet],
-    createSystemAccountIx
-  )
-  return [accountKeypair.publicKey, accountKeypair]
-}
-
-type InitializedStakeAccount = {
-  stakeAccount: PublicKey
-  staker: PublicKey
-  withdrawer: PublicKey
-}
-
-async function initializedStakeAccount(
-  provider: BankrunProvider,
-  lockup?: Lockup,
-  rentExempt?: number,
-  staker: PublicKey = Keypair.generate().publicKey,
-  withdrawer: PublicKey = Keypair.generate().publicKey
-): Promise<InitializedStakeAccount> {
-  const stakeAccount = Keypair.generate()
-  rentExempt = await getRentExemptStake(provider, rentExempt)
-
-  const ix = StakeProgram.createAccount({
-    fromPubkey: provider.wallet.publicKey,
-    stakePubkey: stakeAccount.publicKey,
-    authorized: new Authorized(staker, withdrawer),
-    lamports: rentExempt,
-    lockup,
-  })
-  await bankrunExecuteIx(provider, [provider.wallet, stakeAccount], ix)
-  return {
-    stakeAccount: stakeAccount.publicKey,
-    staker,
-    withdrawer,
-  }
-}
-
-type DelegatedStakeAccount = {
-  stakeAccount: PublicKey
-  voteAccount: PublicKey
-  staker: Keypair
-  withdrawer: Keypair
-}
-
-async function delegatedStakeAccount({
-  provider,
-  voteAccountToDelegate,
-  lockup,
-  lamports,
-  rentExemptVote,
-  staker = Keypair.generate(),
-  withdrawer = Keypair.generate(),
-}: {
-  provider: BankrunProvider
-  voteAccountToDelegate?: PublicKey
-  lockup?: Lockup
-  lamports?: number
-  rentExemptVote?: number
-  staker?: Keypair
-  withdrawer?: Keypair
-}): Promise<DelegatedStakeAccount> {
-  const stakeAccount = Keypair.generate()
-  lamports = await getRentExemptStake(provider, lamports)
-  rentExemptVote = await getRentExemptVote(provider, rentExemptVote)
-
-  const createIx = StakeProgram.createAccount({
-    fromPubkey: provider.wallet.publicKey,
-    stakePubkey: stakeAccount.publicKey,
-    authorized: new Authorized(staker.publicKey, withdrawer.publicKey),
-    lamports,
-    lockup,
-  })
-  voteAccountToDelegate =
-    voteAccountToDelegate ||
-    (await createVoteAccount(provider, rentExemptVote)).voteAccount
-  const delegateIx = StakeProgram.delegate({
-    stakePubkey: stakeAccount.publicKey,
-    authorizedPubkey: staker.publicKey,
-    votePubkey: voteAccountToDelegate,
-  })
-  await bankrunExecuteIx(
-    provider,
-    [provider.wallet, stakeAccount, staker],
-    createIx,
-    delegateIx
-  )
-  return {
-    stakeAccount: stakeAccount.publicKey,
-    voteAccount: voteAccountToDelegate,
-    staker,
-    withdrawer,
-  }
-}
-
-async function getRentExemptStake(
-  provider: BankrunProvider,
-  rentExempt?: number
-): Promise<number> {
-  return (
-    rentExempt ||
-    (await provider.connection.getMinimumBalanceForRentExemption(
-      StakeProgram.space
-    ))
-  )
-}
-
-async function getRentExemptVote(
-  provider: BankrunProvider,
-  rentExempt?: number
-): Promise<number> {
-  return (
-    rentExempt ||
-    (await provider.connection.getMinimumBalanceForRentExemption(
-      VOTE_ACCOUNT_SIZE
-    ))
-  )
-}
