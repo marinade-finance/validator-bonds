@@ -28,16 +28,21 @@
   "devDependencies": {
     "@coral-xyz/anchor": "^0.29.0",
     "@marinade.finance/anchor-common": "^2.0.18",
-    "@marinade.finance/ts-common": "^2.0.18",
-    "@marinade.finance/web3js-common": "^2.0.18",
     "@marinade.finance/marinade-ts-sdk": "^5.0.6",
-    "borsh": "^0.7.0",
-    "@solana/web3.js": "^1.87.6",
-    "bn.js": "^5.2.1",
-    "jsbi": "^4.3.0",
-    "anchor-bankrun": "^0.3.0",
-    "solana-bankrun": "^0.2.0",
+    "@marinade.finance/ts-common": "^2.0.18",
+    "@marinade.finance/validator-bonds-umi": "workspace:*",
+    "@marinade.finance/web3js-common": "^2.0.18",
+    "@metaplex-foundation/umi": "^0.8.10",
+    "@metaplex-foundation/umi-bundle-defaults": "^0.8.10",
+    "@metaplex-foundation/umi-program-repository": "^0.8.10",
+    "@metaplex-foundation/umi-signer-wallet-adapters": "^0.8.10",
     "@solana/buffer-layout": "^4.0.1",
+    "@solana/web3.js": "^1.87.6",
+    "anchor-bankrun": "^0.3.0",
+    "bn.js": "^5.2.1",
+    "borsh": "^0.7.0",
+    "jsbi": "^4.3.0",
+    "solana-bankrun": "^0.2.0",
     "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.8"
   },
   "peerDependencies": {
@@ -48,5 +53,10 @@
   },
   "engines": {
     "node": ">=16"
+  },
+  "dependencies": {
+    "@metaplex-foundation/umi-rpc-web3js": "^0.8.10",
+    "@metaplex-foundation/umi-transaction-factory-web3js": "^0.8.10",
+    "@metaplex-foundation/umi-web3js-adapters": "^0.8.10"
   }
 }

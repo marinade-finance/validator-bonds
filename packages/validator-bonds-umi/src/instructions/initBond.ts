@@ -119,11 +119,6 @@ export function initBond(
   if (!resolvedAccounts.authority.value) {
     resolvedAccounts.authority.value = context.identity;
   }
-  if (!resolvedAccounts.rentPayer.value) {
-    resolvedAccounts.rentPayer.value = publicKey(
-      'SysvarRent111111111111111111111111111111111'
-    );
-  }
   if (!resolvedAccounts.systemProgram.value) {
     resolvedAccounts.systemProgram.value = context.programs.getPublicKey(
       'splSystem',

@@ -174,11 +174,6 @@ export function claimSettlement(
   const resolvedArgs: ClaimSettlementInstructionArgs = { ...input };
 
   // Default values.
-  if (!resolvedAccounts.rentPayer.value) {
-    resolvedAccounts.rentPayer.value = publicKey(
-      'SysvarRent111111111111111111111111111111111'
-    );
-  }
   if (!resolvedAccounts.systemProgram.value) {
     resolvedAccounts.systemProgram.value = context.programs.getPublicKey(
       'splSystem',

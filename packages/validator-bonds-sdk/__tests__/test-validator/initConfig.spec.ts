@@ -15,14 +15,19 @@ import {
   executeTxSimple,
   splitAndExecuteTx,
 } from '@marinade.finance/web3js-common'
+import {  Umi, createSignerFromKeypair, keypairIdentity, transactionBuilder } from '@metaplex-foundation/umi';
+import { fromWeb3JsInstruction, fromWeb3JsKeypair, fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
+import {createWeb3JsTransactionFactory} from '@metaplex-foundation/umi-transaction-factory-web3js'
+import {initConfig as initConfigUmi} from '@marinade.finance/validator-bonds-umi'
 
 describe('Validator Bonds config account tests', () => {
   let provider: AnchorProvider
   let program: ValidatorBondsProgram
+  let umi: Umi
 
   beforeAll(async () => {
     // eslint-disable-next-line @typescript-eslint/no-extra-semi
-    ;({ provider, program } = await initTest())
+    ;({ provider, program, umi } = await initTest())
   })
 
   afterAll(async () => {
@@ -36,7 +41,7 @@ describe('Validator Bonds config account tests', () => {
     await new Promise(resolve => setTimeout(resolve, 500))
   })
 
-  it('init config', async () => {
+  it.only('init config', async () => {
     const adminAuthority = Keypair.generate().publicKey
     const operatorAuthority = Keypair.generate().publicKey
     expect(adminAuthority).not.toEqual(operatorAuthority)
@@ -51,20 +56,32 @@ describe('Validator Bonds config account tests', () => {
       )
     })
 
-    const tx = await transaction(provider)
+    let umiBuilder = transactionBuilder()
 
-    const { keypair, instruction } = await initConfigInstruction({
-      program,
-      adminAuthority,
-      operatorAuthority,
+    const configKeypair = Keypair.generate()
+    const umiIx = initConfigUmi(umi, {
+      config: createSignerFromKeypair(umi, fromWeb3JsKeypair(configKeypair)),
       epochsToClaimSettlement: 1,
       withdrawLockupEpochs: 2,
+      adminAuthority: fromWeb3JsPublicKey(adminAuthority),
+      operatorAuthority: fromWeb3JsPublicKey(operatorAuthority),
     })
-    tx.add(instruction)
-    await executeTxSimple(provider.connection, tx, [provider.wallet, keypair!])
+    // const { keypair, instruction } = await initConfigInstruction({
+    //   program,
+    //   adminAuthority,
+    //   operatorAuthority,
+    //   epochsToClaimSettlement: 1,
+    //   withdrawLockupEpochs: 2,
+    // })
+    umiBuilder = umiBuilder.add(umiIx)
+    // tx.add(instruction)
+    // await executeTxSimple(provider.connection, tx, [provider.wallet, keypair!])
+    await umiBuilder.buildAndSign(umi);
+    await umiBuilder.sendAndConfirm(umi);
+    // const transaction = await umi.rpc.getTransaction(x.signature, {commitment: 'confirmed'});
 
     // Ensure the account was created
-    const configAccountAddress = keypair!.publicKey
+    const configAccountAddress = configKeypair.publicKey
     const configData = await getConfig(program, configAccountAddress)
 
     const configDataFromList = await findConfigs({ program, adminAuthority })
