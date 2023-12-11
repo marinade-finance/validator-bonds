@@ -12,7 +12,6 @@ import {
   PublicKey,
   Signer,
   TransactionBuilder,
-  publicKey,
   transactionBuilder,
 } from '@metaplex-foundation/umi';
 import {
@@ -101,7 +100,7 @@ export type ClaimSettlementInstructionArgs = ClaimSettlementInstructionDataArgs;
 
 // Instruction.
 export function claimSettlement(
-  context: Pick<Context, 'programs'>,
+  context: Pick<Context, 'payer' | 'programs'>,
   input: ClaimSettlementInstructionAccounts & ClaimSettlementInstructionArgs
 ): TransactionBuilder {
   // Program ID.
@@ -174,6 +173,9 @@ export function claimSettlement(
   const resolvedArgs: ClaimSettlementInstructionArgs = { ...input };
 
   // Default values.
+  if (!resolvedAccounts.rentPayer.value) {
+    resolvedAccounts.rentPayer.value = context.payer;
+  }
   if (!resolvedAccounts.systemProgram.value) {
     resolvedAccounts.systemProgram.value = context.programs.getPublicKey(
       'splSystem',

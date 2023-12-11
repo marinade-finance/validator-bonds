@@ -12,7 +12,6 @@ import {
   PublicKey,
   Signer,
   TransactionBuilder,
-  publicKey,
   transactionBuilder,
 } from '@metaplex-foundation/umi';
 import {
@@ -82,7 +81,7 @@ export type InitSettlementInstructionArgs = InitSettlementInstructionDataArgs;
 
 // Instruction.
 export function initSettlement(
-  context: Pick<Context, 'programs'>,
+  context: Pick<Context, 'payer' | 'programs'>,
   input: InitSettlementInstructionAccounts & InitSettlementInstructionArgs
 ): TransactionBuilder {
   // Program ID.
@@ -130,6 +129,9 @@ export function initSettlement(
   const resolvedArgs: InitSettlementInstructionArgs = { ...input };
 
   // Default values.
+  if (!resolvedAccounts.rentPayer.value) {
+    resolvedAccounts.rentPayer.value = context.payer;
+  }
   if (!resolvedAccounts.systemProgram.value) {
     resolvedAccounts.systemProgram.value = context.programs.getPublicKey(
       'splSystem',

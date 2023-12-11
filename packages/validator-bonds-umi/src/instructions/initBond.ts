@@ -12,7 +12,6 @@ import {
   PublicKey,
   Signer,
   TransactionBuilder,
-  publicKey,
   transactionBuilder,
 } from '@metaplex-foundation/umi';
 import {
@@ -73,7 +72,7 @@ export type InitBondInstructionArgs = InitBondInstructionDataArgs;
 
 // Instruction.
 export function initBond(
-  context: Pick<Context, 'identity' | 'programs'>,
+  context: Pick<Context, 'identity' | 'payer' | 'programs'>,
   input: InitBondInstructionAccounts & InitBondInstructionArgs
 ): TransactionBuilder {
   // Program ID.
@@ -118,6 +117,9 @@ export function initBond(
   // Default values.
   if (!resolvedAccounts.authority.value) {
     resolvedAccounts.authority.value = context.identity;
+  }
+  if (!resolvedAccounts.rentPayer.value) {
+    resolvedAccounts.rentPayer.value = context.payer;
   }
   if (!resolvedAccounts.systemProgram.value) {
     resolvedAccounts.systemProgram.value = context.programs.getPublicKey(

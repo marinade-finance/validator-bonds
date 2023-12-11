@@ -12,7 +12,6 @@ import {
   PublicKey,
   Signer,
   TransactionBuilder,
-  publicKey,
   transactionBuilder,
 } from '@metaplex-foundation/umi';
 import { Serializer, struct, u64 } from '@metaplex-foundation/umi/serializers';
@@ -62,7 +61,7 @@ export type CreateWithdrawRequestInstructionArgs =
 
 // Instruction.
 export function createWithdrawRequest(
-  context: Pick<Context, 'identity' | 'programs'>,
+  context: Pick<Context, 'identity' | 'payer' | 'programs'>,
   input: CreateWithdrawRequestInstructionAccounts &
     CreateWithdrawRequestInstructionArgs
 ): TransactionBuilder {
@@ -118,6 +117,9 @@ export function createWithdrawRequest(
   // Default values.
   if (!resolvedAccounts.authority.value) {
     resolvedAccounts.authority.value = context.identity;
+  }
+  if (!resolvedAccounts.rentPayer.value) {
+    resolvedAccounts.rentPayer.value = context.payer;
   }
   if (!resolvedAccounts.systemProgram.value) {
     resolvedAccounts.systemProgram.value = context.programs.getPublicKey(

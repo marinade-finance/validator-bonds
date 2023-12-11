@@ -1,4 +1,4 @@
-import { createFromIdls, GetNodeTreeStringVisitor, RenderJavaScriptVisitor, UpdateProgramsVisitor } from "@metaplex-foundation/kinobi";
+import { createFromIdls, payerDefault, SetInstructionAccountDefaultValuesVisitor, RenderJavaScriptVisitor, UpdateProgramsVisitor } from "@metaplex-foundation/kinobi";
 import path from "path";
 import * as generated from '../validator-bonds-sdk/generated/validator_bonds'
 
@@ -19,6 +19,15 @@ kinobi.update(
     }
   })
 )
+// Set default values for instruction accounts.
+kinobi.update(
+  new SetInstructionAccountDefaultValuesVisitor([
+    {
+      account: "rentPayer",
+      ...payerDefault(),
+    },
+  ])
+);
 
 // Render JavaScript.
 console.log("Rendering JavaScript...");
