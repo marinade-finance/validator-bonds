@@ -15,6 +15,8 @@ pub struct Config {
     pub epochs_to_claim_settlement: u64,
     /// How many epochs before withdraw is allowed
     pub withdraw_lockup_epochs: u64,
+    /// Minimum amount of lamports to be considered for a stake account operations (e.g., split)
+    pub minimum_stake_lamports: u64,
     /// PDA bonds bonds stake accounts authority bump seed
     pub bonds_withdrawer_authority_bump: u8,
     /// reserved space for future changes
@@ -28,6 +30,7 @@ impl Default for Config {
             operator_authority: Pubkey::default(),
             epochs_to_claim_settlement: u64::default(),
             withdraw_lockup_epochs: u64::default(),
+            minimum_stake_lamports: u64::default(),
             bonds_withdrawer_authority_bump: u8::default(),
             reserved: [0; 512],
         }

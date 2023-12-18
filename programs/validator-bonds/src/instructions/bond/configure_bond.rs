@@ -8,7 +8,7 @@ use anchor_lang::prelude::*;
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct ConfigureBondArgs {
     pub bond_authority: Option<Pubkey>,
-    pub revenue_share_config: Option<HundredthBasisPoint>,
+    pub revenue_share: Option<HundredthBasisPoint>,
 }
 
 /// Change parameters of validator bond account
@@ -40,7 +40,7 @@ impl<'info> ConfigureBond<'info> {
         &mut self,
         ConfigureBondArgs {
             bond_authority,
-            revenue_share_config,
+            revenue_share,
         }: ConfigureBondArgs,
     ) -> Result<()> {
         require!(
@@ -60,10 +60,10 @@ impl<'info> ConfigureBond<'info> {
                 new: authority,
             }
         });
-        let revenue_share_config_change = match revenue_share_config {
+        let revenue_share_change = match revenue_share {
             Some(revenue) => {
-                let old = self.bond.revenue_share_config;
-                self.bond.revenue_share_config = revenue.check()?;
+                let old = self.bond.revenue_share;
+                self.bond.revenue_share = revenue.check()?;
                 Some(HundrethBasisPointChange { old, new: revenue })
             }
             None => None,
@@ -71,7 +71,7 @@ impl<'info> ConfigureBond<'info> {
 
         emit!(ConfigureBondEvent {
             bond_authority: bond_authority_change,
-            revenue_share_config: revenue_share_config_change,
+            revenue_share: revenue_share_change,
         });
 
         Ok(())

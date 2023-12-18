@@ -1,5 +1,5 @@
 use crate::checks::{
-    check_stake_exist_and_fully_activated, check_stake_is_initialized_with_authority,
+    check_stake_exist_and_fully_activated, check_stake_is_initialized_with_withdrawer_authority,
     check_stake_is_not_locked, check_stake_valid_delegation,
 };
 use crate::error::ErrorCode;
@@ -12,7 +12,7 @@ use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 
 /// Deposit stake account as validator bond record
 #[derive(Accounts)]
-pub struct DepositBond<'info> {
+pub struct FundBond<'info> {
     #[account()]
     config: Account<'info, Config>,
 
@@ -38,7 +38,7 @@ pub struct DepositBond<'info> {
         ],
         bump = config.bonds_withdrawer_authority_bump,
     )]
-    bonds_stake_authority: UncheckedAccount<'info>,
+    bonds_withdrawer_authority: UncheckedAccount<'info>,
 
     /// stake account to be deposited
     #[account()]
@@ -55,19 +55,14 @@ pub struct DepositBond<'info> {
     stake_program: Program<'info, Stake>,
 }
 
-impl<'info> DepositBond<'info> {
+impl<'info> FundBond<'info> {
     pub fn process(&mut self) -> Result<()> {
-        check_stake_is_initialized_with_authority(
+        check_stake_is_initialized_with_withdrawer_authority(
             &self.stake_account,
             &self.stake_authority.key(),
             "stake_account",
         )?;
-        check_stake_is_not_locked(
-            &self.stake_account,
-            &self.clock,
-            Some(self.stake_authority.key),
-            "stake_account",
-        )?;
+        check_stake_is_not_locked(&self.stake_account, &self.clock, "stake_account")?;
         check_stake_exist_and_fully_activated(
             &self.stake_account,
             self.clock.epoch,
@@ -81,7 +76,7 @@ impl<'info> DepositBond<'info> {
                 Authorize {
                     stake: self.stake_account.to_account_info(),
                     authorized: self.stake_authority.to_account_info(),
-                    new_authorized: self.bonds_stake_authority.to_account_info(),
+                    new_authorized: self.bonds_withdrawer_authority.to_account_info(),
                     clock: self.clock.to_account_info(),
                 },
             ),
@@ -95,11 +90,11 @@ impl<'info> DepositBond<'info> {
                 Authorize {
                     stake: self.stake_account.to_account_info(),
                     authorized: self.stake_authority.to_account_info(),
-                    new_authorized: self.bonds_stake_authority.to_account_info(),
+                    new_authorized: self.bonds_withdrawer_authority.to_account_info(),
                     clock: self.clock.to_account_info(),
                 },
             ),
-            // withdraw authority (owner) is the validator bonds program
+            // withdrawer authority (owner) is the validator bonds program
             StakeAuthorize::Withdrawer,
             None,
         )?;

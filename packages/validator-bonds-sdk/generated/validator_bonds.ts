@@ -5,7 +5,7 @@ export type ValidatorBonds = {
     {
       "name": "PROGRAM_ID",
       "type": "string",
-      "value": "\"vbondsKbsC4QSLQQnn6ngZvkqfywn6KgEeQbkGSpk1V\""
+      "value": "\"vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4\""
     },
     {
       "name": "BOND_SEED",
@@ -122,11 +122,11 @@ export type ValidatorBonds = {
           "isSigner": false
         },
         {
-          "name": "authority",
+          "name": "authorizedWithdrawer",
           "isMut": false,
           "isSigner": true,
           "docs": [
-            "only the owner authority of the validator vote account can create the bond"
+            "only validator vote account withdrawer authority may can create the bond"
           ]
         },
         {
@@ -232,7 +232,7 @@ export type ValidatorBonds = {
       ]
     },
     {
-      "name": "depositBond",
+      "name": "fundBond",
       "accounts": [
         {
           "name": "config",
@@ -272,7 +272,7 @@ export type ValidatorBonds = {
           ]
         },
         {
-          "name": "bondsStakeAuthority",
+          "name": "bondsWithdrawerAuthority",
           "isMut": false,
           "isSigner": false,
           "docs": [
@@ -329,7 +329,7 @@ export type ValidatorBonds = {
       "args": []
     },
     {
-      "name": "createWithdrawRequest",
+      "name": "initWithdrawRequest",
       "accounts": [
         {
           "name": "config",
@@ -424,7 +424,7 @@ export type ValidatorBonds = {
         {
           "name": "createWithdrawRequestArgs",
           "type": {
-            "defined": "CreateWithdrawRequestArgs"
+            "defined": "InitWithdrawRequestArgs"
           }
         }
       ]
@@ -505,7 +505,7 @@ export type ValidatorBonds = {
       "args": []
     },
     {
-      "name": "withdrawDeposit",
+      "name": "claimWithdrawRequest",
       "accounts": [
         {
           "name": "config",
@@ -696,29 +696,7 @@ export type ValidatorBonds = {
         {
           "name": "settlement",
           "isMut": true,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "settlement_account"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Bond",
-                "path": "bond"
-              },
-              {
-                "kind": "arg",
-                "type": {
-                  "defined": "InitSettlementArgs"
-                },
-                "path": "params.merkle_root"
-              }
-            ]
-          }
+          "isSigner": false
         },
         {
           "name": "operatorAuthority",
@@ -814,11 +792,21 @@ export type ValidatorBonds = {
                 "path": "bond"
               },
               {
-                "kind": "arg",
+                "kind": "account",
                 "type": {
-                  "defined": "CloseSettlementArgs"
+                  "array": [
+                    "u8",
+                    32
+                  ]
                 },
-                "path": "params.merkle_root"
+                "account": "Settlement",
+                "path": "settlement.merkle_root"
+              },
+              {
+                "kind": "account",
+                "type": "u64",
+                "account": "Settlement",
+                "path": "settlement.epoch_created_at"
               }
             ]
           },
@@ -890,8 +878,8 @@ export type ValidatorBonds = {
           "name": "config",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "the config root account under which the bond was created"
+          "relations": [
+            "operator_authority"
           ]
         },
         {
@@ -925,21 +913,70 @@ export type ValidatorBonds = {
         },
         {
           "name": "settlement",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "settlement_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond"
+              },
+              {
+                "kind": "account",
+                "type": {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                "account": "Settlement",
+                "path": "settlement.merkle_root"
+              },
+              {
+                "kind": "account",
+                "type": "u64",
+                "account": "Settlement",
+                "path": "settlement.epoch_created_at"
+              }
+            ]
+          },
+          "relations": [
+            "bond",
+            "settlement_authority"
+          ]
+        },
+        {
+          "name": "operatorAuthority",
           "isMut": false,
-          "isSigner": false
+          "isSigner": true,
+          "docs": [
+            "operator signer authority is allowed to fund the settlement account",
+            "(making this operation permission-ed, at least for the first version of the contract)"
+          ]
         },
         {
           "name": "stakeAccount",
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "stake account belonging to authority of the settlement"
+            "stake account to be funded into the settlement"
           ]
         },
         {
           "name": "settlementAuthority",
           "isMut": false,
           "isSigner": false,
+          "docs": [
+            "settlement stake authority to differentiate deposited and funded stake accounts",
+            "deposited has got bonds_withdrawer_authority, whilst funded has got the settlement authority"
+          ],
           "pda": {
             "seeds": [
               {
@@ -950,6 +987,7 @@ export type ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
+                "account": "Settlement",
                 "path": "settlement"
               }
             ]
@@ -960,7 +998,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "authority that manages (owns being withdrawer authority) all stakes account under the bonds program"
+            "authority that manages (owns) all stakes account under the bonds program"
           ],
           "pda": {
             "seeds": [
@@ -979,12 +1017,41 @@ export type ValidatorBonds = {
           }
         },
         {
+          "name": "splitStakeAccount",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "a split stake account is needed when the provided stake_account is bigger than the settlement"
+          ]
+        },
+        {
+          "name": "splitStakeRentPayer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "This is an account used to prefund the split stake account.",
+            "If a split stake account is not needed then rent payer is fully refunded at the end of the transaction.",
+            "If a split stake account is created for the settlement, the payer needs to manually close the claim_settlement",
+            "instruction to get the rent back (success only when the stake account is already deactivated)."
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "stakeHistory",
           "isMut": false,
           "isSigner": false
         },
         {
           "name": "clock",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
           "isMut": false,
           "isSigner": false
         },
@@ -1089,6 +1156,12 @@ export type ValidatorBonds = {
                 },
                 "account": "Settlement",
                 "path": "settlement.merkle_root"
+              },
+              {
+                "kind": "account",
+                "type": "u64",
+                "account": "Settlement",
+                "path": "settlement.epoch_created_at"
               }
             ]
           },
@@ -1121,14 +1194,14 @@ export type ValidatorBonds = {
                 "type": {
                   "defined": "ClaimSettlementArgs"
                 },
-                "path": "params.stake_authority"
+                "path": "params.staker"
               },
               {
                 "kind": "arg",
                 "type": {
                   "defined": "ClaimSettlementArgs"
                 },
-                "path": "params.withdraw_authority"
+                "path": "params.withdrawer"
               },
               {
                 "kind": "arg",
@@ -1156,7 +1229,7 @@ export type ValidatorBonds = {
           ]
         },
         {
-          "name": "withdrawAuthority",
+          "name": "withdrawerAuthority",
           "isMut": true,
           "isSigner": false,
           "docs": [
@@ -1332,28 +1405,14 @@ export type ValidatorBonds = {
         {
           "name": "settlementAuthority",
           "isMut": false,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "settlement_authority"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "path": "settlement"
-              }
-            ]
-          }
+          "isSigner": false
         },
         {
           "name": "bondsWithdrawerAuthority",
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "authority that manages (owns being withdrawer authority) all stakes account under the bonds program"
+            "authority that owns (withdrawer authority) all stakes account under the bonds program"
           ],
           "pda": {
             "seeds": [
@@ -1372,7 +1431,17 @@ export type ValidatorBonds = {
           }
         },
         {
+          "name": "validatorVoteAccount",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeConfig",
           "isMut": false,
           "isSigner": false
         },
@@ -1426,9 +1495,9 @@ export type ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "revenueShareConfig",
+            "name": "revenueShare",
             "docs": [
-              "Revenue that is distributed from the bond to the protocol"
+              "Revenue that is distributed from the bond (from validator) to the protocol"
             ],
             "type": {
               "defined": "HundredthBasisPoint"
@@ -1490,6 +1559,13 @@ export type ValidatorBonds = {
             "type": "u64"
           },
           {
+            "name": "minimumStakeLamports",
+            "docs": [
+              "Minimum amount of lamports to be considered for a stake account operations (e.g., split)"
+            ],
+            "type": "u64"
+          },
+          {
             "name": "bondsWithdrawerAuthorityBump",
             "docs": [
               "PDA bonds bonds stake accounts authority bump seed"
@@ -1528,16 +1604,16 @@ export type ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "stakeAuthority",
+            "name": "stakerAuthority",
             "docs": [
-              "stake authority as part of the merkle proof for this claim"
+              "staker authority as part of the merkle proof for this claim"
             ],
             "type": "publicKey"
           },
           {
-            "name": "withdrawAuthority",
+            "name": "withdrawerAuthority",
             "docs": [
-              "withdraw authority that has got permission to withdraw the claim"
+              "withdrawer authority that has got permission to withdraw the claim"
             ],
             "type": "publicKey"
           },
@@ -1585,7 +1661,7 @@ export type ValidatorBonds = {
       "name": "settlement",
       "docs": [
         "Settlement account for a particular config and merkle root",
-        "Settlement defines an insurance event happens and it's needed to be settled"
+        "Settlement defines that a protected event happened and it will be settled"
       ],
       "type": {
         "kind": "struct",
@@ -1722,13 +1798,6 @@ export type ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "bump",
-            "docs": [
-              "PDA account bump"
-            ],
-            "type": "u8"
-          },
-          {
             "name": "epoch",
             "docs": [
               "Epoch when the withdraw was requested, i.e., when this \"ticket\" is created"
@@ -1748,6 +1817,13 @@ export type ValidatorBonds = {
               "Amount of lamports withdrawn so far"
             ],
             "type": "u64"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA account bump"
+            ],
+            "type": "u8"
           },
           {
             "name": "reserved",
@@ -1879,7 +1955,7 @@ export type ValidatorBonds = {
             }
           },
           {
-            "name": "revenueShareConfig",
+            "name": "revenueShare",
             "type": {
               "option": {
                 "defined": "HundredthBasisPoint"
@@ -1899,7 +1975,7 @@ export type ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "revenueShareConfig",
+            "name": "revenueShare",
             "type": {
               "defined": "HundredthBasisPoint"
             }
@@ -1913,13 +1989,13 @@ export type ValidatorBonds = {
         "kind": "struct",
         "fields": [
           {
-            "name": "adminAuthority",
+            "name": "admin",
             "type": {
               "option": "publicKey"
             }
           },
           {
-            "name": "operatorAuthority",
+            "name": "operator",
             "type": {
               "option": "publicKey"
             }
@@ -1932,6 +2008,12 @@ export type ValidatorBonds = {
           },
           {
             "name": "withdrawLockupEpochs",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "minimumStakeLamports",
             "type": {
               "option": "u64"
             }
@@ -1984,11 +2066,14 @@ export type ValidatorBonds = {
             }
           },
           {
-            "name": "stakeAuthority",
+            "name": "staker",
             "type": "publicKey"
           },
           {
-            "name": "withdrawAuthority",
+            "name": "withdrawer",
+            "docs": [
+              "claim holder, withdrawer_authority"
+            ],
             "type": "publicKey"
           },
           {
@@ -1998,23 +2083,6 @@ export type ValidatorBonds = {
           {
             "name": "claim",
             "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "CloseSettlementArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "merkleRoot",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
           }
         ]
       }
@@ -2065,19 +2133,7 @@ export type ValidatorBonds = {
       }
     },
     {
-      "name": "ResetStateArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "settlementStakeAuthorityBump",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "CreateWithdrawRequestArgs",
+      "name": "InitWithdrawRequestArgs",
       "type": {
         "kind": "struct",
         "fields": [
@@ -2164,7 +2220,7 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "revenueShareConfig",
+          "name": "revenueShare",
           "type": {
             "defined": "HundredthBasisPoint"
           },
@@ -2190,7 +2246,7 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "revenueShareConfig",
+          "name": "revenueShare",
           "type": {
             "option": {
               "defined": "HundrethBasisPointChange"
@@ -2219,7 +2275,7 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "revenueShareConfig",
+          "name": "revenueShare",
           "type": {
             "defined": "HundredthBasisPoint"
           },
@@ -2286,6 +2342,11 @@ export type ValidatorBonds = {
           "index": false
         },
         {
+          "name": "minimumStakeLamports",
+          "type": "u64",
+          "index": false
+        },
+        {
           "name": "bondsWithdrawerAuthority",
           "type": "publicKey",
           "index": false
@@ -2328,6 +2389,15 @@ export type ValidatorBonds = {
           "index": false
         },
         {
+          "name": "minimumStakeLamports",
+          "type": {
+            "option": {
+              "defined": "U64ValueChange"
+            }
+          },
+          "index": false
+        },
+        {
           "name": "withdrawLockupEpochs",
           "type": {
             "option": {
@@ -2352,12 +2422,12 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "stakeAuthority",
+          "name": "stakerAuthority",
           "type": "publicKey",
           "index": false
         },
         {
-          "name": "withdrawAuthority",
+          "name": "withdrawerAuthority",
           "type": "publicKey",
           "index": false
         },
@@ -2660,6 +2730,11 @@ export type ValidatorBonds = {
           "index": false
         },
         {
+          "name": "validatorVoteAcount",
+          "type": "publicKey",
+          "index": false
+        },
+        {
           "name": "settlementAuthority",
           "type": "publicKey",
           "index": false
@@ -2946,7 +3021,7 @@ export type ValidatorBonds = {
     },
     {
       "code": 6031,
-      "name": "ClaimAmountExceedsMaxNumNodes",
+      "name": "ClaimCountExceedsMaxNumNodes",
       "msg": "Claim exceeded number of claimable nodes in the merkle tree"
     },
     {
@@ -3024,7 +3099,7 @@ export const IDL: ValidatorBonds = {
     {
       "name": "PROGRAM_ID",
       "type": "string",
-      "value": "\"vbondsKbsC4QSLQQnn6ngZvkqfywn6KgEeQbkGSpk1V\""
+      "value": "\"vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4\""
     },
     {
       "name": "BOND_SEED",
@@ -3141,11 +3216,11 @@ export const IDL: ValidatorBonds = {
           "isSigner": false
         },
         {
-          "name": "authority",
+          "name": "authorizedWithdrawer",
           "isMut": false,
           "isSigner": true,
           "docs": [
-            "only the owner authority of the validator vote account can create the bond"
+            "only validator vote account withdrawer authority may can create the bond"
           ]
         },
         {
@@ -3251,7 +3326,7 @@ export const IDL: ValidatorBonds = {
       ]
     },
     {
-      "name": "depositBond",
+      "name": "fundBond",
       "accounts": [
         {
           "name": "config",
@@ -3291,7 +3366,7 @@ export const IDL: ValidatorBonds = {
           ]
         },
         {
-          "name": "bondsStakeAuthority",
+          "name": "bondsWithdrawerAuthority",
           "isMut": false,
           "isSigner": false,
           "docs": [
@@ -3348,7 +3423,7 @@ export const IDL: ValidatorBonds = {
       "args": []
     },
     {
-      "name": "createWithdrawRequest",
+      "name": "initWithdrawRequest",
       "accounts": [
         {
           "name": "config",
@@ -3443,7 +3518,7 @@ export const IDL: ValidatorBonds = {
         {
           "name": "createWithdrawRequestArgs",
           "type": {
-            "defined": "CreateWithdrawRequestArgs"
+            "defined": "InitWithdrawRequestArgs"
           }
         }
       ]
@@ -3524,7 +3599,7 @@ export const IDL: ValidatorBonds = {
       "args": []
     },
     {
-      "name": "withdrawDeposit",
+      "name": "claimWithdrawRequest",
       "accounts": [
         {
           "name": "config",
@@ -3715,29 +3790,7 @@ export const IDL: ValidatorBonds = {
         {
           "name": "settlement",
           "isMut": true,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "settlement_account"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Bond",
-                "path": "bond"
-              },
-              {
-                "kind": "arg",
-                "type": {
-                  "defined": "InitSettlementArgs"
-                },
-                "path": "params.merkle_root"
-              }
-            ]
-          }
+          "isSigner": false
         },
         {
           "name": "operatorAuthority",
@@ -3833,11 +3886,21 @@ export const IDL: ValidatorBonds = {
                 "path": "bond"
               },
               {
-                "kind": "arg",
+                "kind": "account",
                 "type": {
-                  "defined": "CloseSettlementArgs"
+                  "array": [
+                    "u8",
+                    32
+                  ]
                 },
-                "path": "params.merkle_root"
+                "account": "Settlement",
+                "path": "settlement.merkle_root"
+              },
+              {
+                "kind": "account",
+                "type": "u64",
+                "account": "Settlement",
+                "path": "settlement.epoch_created_at"
               }
             ]
           },
@@ -3909,8 +3972,8 @@ export const IDL: ValidatorBonds = {
           "name": "config",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "the config root account under which the bond was created"
+          "relations": [
+            "operator_authority"
           ]
         },
         {
@@ -3944,21 +4007,70 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "settlement",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "settlement_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond"
+              },
+              {
+                "kind": "account",
+                "type": {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                "account": "Settlement",
+                "path": "settlement.merkle_root"
+              },
+              {
+                "kind": "account",
+                "type": "u64",
+                "account": "Settlement",
+                "path": "settlement.epoch_created_at"
+              }
+            ]
+          },
+          "relations": [
+            "bond",
+            "settlement_authority"
+          ]
+        },
+        {
+          "name": "operatorAuthority",
           "isMut": false,
-          "isSigner": false
+          "isSigner": true,
+          "docs": [
+            "operator signer authority is allowed to fund the settlement account",
+            "(making this operation permission-ed, at least for the first version of the contract)"
+          ]
         },
         {
           "name": "stakeAccount",
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "stake account belonging to authority of the settlement"
+            "stake account to be funded into the settlement"
           ]
         },
         {
           "name": "settlementAuthority",
           "isMut": false,
           "isSigner": false,
+          "docs": [
+            "settlement stake authority to differentiate deposited and funded stake accounts",
+            "deposited has got bonds_withdrawer_authority, whilst funded has got the settlement authority"
+          ],
           "pda": {
             "seeds": [
               {
@@ -3969,6 +4081,7 @@ export const IDL: ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
+                "account": "Settlement",
                 "path": "settlement"
               }
             ]
@@ -3979,7 +4092,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "authority that manages (owns being withdrawer authority) all stakes account under the bonds program"
+            "authority that manages (owns) all stakes account under the bonds program"
           ],
           "pda": {
             "seeds": [
@@ -3998,12 +4111,41 @@ export const IDL: ValidatorBonds = {
           }
         },
         {
+          "name": "splitStakeAccount",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "a split stake account is needed when the provided stake_account is bigger than the settlement"
+          ]
+        },
+        {
+          "name": "splitStakeRentPayer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "This is an account used to prefund the split stake account.",
+            "If a split stake account is not needed then rent payer is fully refunded at the end of the transaction.",
+            "If a split stake account is created for the settlement, the payer needs to manually close the claim_settlement",
+            "instruction to get the rent back (success only when the stake account is already deactivated)."
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "stakeHistory",
           "isMut": false,
           "isSigner": false
         },
         {
           "name": "clock",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
           "isMut": false,
           "isSigner": false
         },
@@ -4108,6 +4250,12 @@ export const IDL: ValidatorBonds = {
                 },
                 "account": "Settlement",
                 "path": "settlement.merkle_root"
+              },
+              {
+                "kind": "account",
+                "type": "u64",
+                "account": "Settlement",
+                "path": "settlement.epoch_created_at"
               }
             ]
           },
@@ -4140,14 +4288,14 @@ export const IDL: ValidatorBonds = {
                 "type": {
                   "defined": "ClaimSettlementArgs"
                 },
-                "path": "params.stake_authority"
+                "path": "params.staker"
               },
               {
                 "kind": "arg",
                 "type": {
                   "defined": "ClaimSettlementArgs"
                 },
-                "path": "params.withdraw_authority"
+                "path": "params.withdrawer"
               },
               {
                 "kind": "arg",
@@ -4175,7 +4323,7 @@ export const IDL: ValidatorBonds = {
           ]
         },
         {
-          "name": "withdrawAuthority",
+          "name": "withdrawerAuthority",
           "isMut": true,
           "isSigner": false,
           "docs": [
@@ -4351,28 +4499,14 @@ export const IDL: ValidatorBonds = {
         {
           "name": "settlementAuthority",
           "isMut": false,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "settlement_authority"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "path": "settlement"
-              }
-            ]
-          }
+          "isSigner": false
         },
         {
           "name": "bondsWithdrawerAuthority",
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "authority that manages (owns being withdrawer authority) all stakes account under the bonds program"
+            "authority that owns (withdrawer authority) all stakes account under the bonds program"
           ],
           "pda": {
             "seeds": [
@@ -4391,7 +4525,17 @@ export const IDL: ValidatorBonds = {
           }
         },
         {
+          "name": "validatorVoteAccount",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeConfig",
           "isMut": false,
           "isSigner": false
         },
@@ -4445,9 +4589,9 @@ export const IDL: ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "revenueShareConfig",
+            "name": "revenueShare",
             "docs": [
-              "Revenue that is distributed from the bond to the protocol"
+              "Revenue that is distributed from the bond (from validator) to the protocol"
             ],
             "type": {
               "defined": "HundredthBasisPoint"
@@ -4509,6 +4653,13 @@ export const IDL: ValidatorBonds = {
             "type": "u64"
           },
           {
+            "name": "minimumStakeLamports",
+            "docs": [
+              "Minimum amount of lamports to be considered for a stake account operations (e.g., split)"
+            ],
+            "type": "u64"
+          },
+          {
             "name": "bondsWithdrawerAuthorityBump",
             "docs": [
               "PDA bonds bonds stake accounts authority bump seed"
@@ -4547,16 +4698,16 @@ export const IDL: ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "stakeAuthority",
+            "name": "stakerAuthority",
             "docs": [
-              "stake authority as part of the merkle proof for this claim"
+              "staker authority as part of the merkle proof for this claim"
             ],
             "type": "publicKey"
           },
           {
-            "name": "withdrawAuthority",
+            "name": "withdrawerAuthority",
             "docs": [
-              "withdraw authority that has got permission to withdraw the claim"
+              "withdrawer authority that has got permission to withdraw the claim"
             ],
             "type": "publicKey"
           },
@@ -4604,7 +4755,7 @@ export const IDL: ValidatorBonds = {
       "name": "settlement",
       "docs": [
         "Settlement account for a particular config and merkle root",
-        "Settlement defines an insurance event happens and it's needed to be settled"
+        "Settlement defines that a protected event happened and it will be settled"
       ],
       "type": {
         "kind": "struct",
@@ -4741,13 +4892,6 @@ export const IDL: ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "bump",
-            "docs": [
-              "PDA account bump"
-            ],
-            "type": "u8"
-          },
-          {
             "name": "epoch",
             "docs": [
               "Epoch when the withdraw was requested, i.e., when this \"ticket\" is created"
@@ -4767,6 +4911,13 @@ export const IDL: ValidatorBonds = {
               "Amount of lamports withdrawn so far"
             ],
             "type": "u64"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA account bump"
+            ],
+            "type": "u8"
           },
           {
             "name": "reserved",
@@ -4898,7 +5049,7 @@ export const IDL: ValidatorBonds = {
             }
           },
           {
-            "name": "revenueShareConfig",
+            "name": "revenueShare",
             "type": {
               "option": {
                 "defined": "HundredthBasisPoint"
@@ -4918,7 +5069,7 @@ export const IDL: ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "revenueShareConfig",
+            "name": "revenueShare",
             "type": {
               "defined": "HundredthBasisPoint"
             }
@@ -4932,13 +5083,13 @@ export const IDL: ValidatorBonds = {
         "kind": "struct",
         "fields": [
           {
-            "name": "adminAuthority",
+            "name": "admin",
             "type": {
               "option": "publicKey"
             }
           },
           {
-            "name": "operatorAuthority",
+            "name": "operator",
             "type": {
               "option": "publicKey"
             }
@@ -4951,6 +5102,12 @@ export const IDL: ValidatorBonds = {
           },
           {
             "name": "withdrawLockupEpochs",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "minimumStakeLamports",
             "type": {
               "option": "u64"
             }
@@ -5003,11 +5160,14 @@ export const IDL: ValidatorBonds = {
             }
           },
           {
-            "name": "stakeAuthority",
+            "name": "staker",
             "type": "publicKey"
           },
           {
-            "name": "withdrawAuthority",
+            "name": "withdrawer",
+            "docs": [
+              "claim holder, withdrawer_authority"
+            ],
             "type": "publicKey"
           },
           {
@@ -5017,23 +5177,6 @@ export const IDL: ValidatorBonds = {
           {
             "name": "claim",
             "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "CloseSettlementArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "merkleRoot",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
           }
         ]
       }
@@ -5084,19 +5227,7 @@ export const IDL: ValidatorBonds = {
       }
     },
     {
-      "name": "ResetStateArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "settlementStakeAuthorityBump",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "CreateWithdrawRequestArgs",
+      "name": "InitWithdrawRequestArgs",
       "type": {
         "kind": "struct",
         "fields": [
@@ -5183,7 +5314,7 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "revenueShareConfig",
+          "name": "revenueShare",
           "type": {
             "defined": "HundredthBasisPoint"
           },
@@ -5209,7 +5340,7 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "revenueShareConfig",
+          "name": "revenueShare",
           "type": {
             "option": {
               "defined": "HundrethBasisPointChange"
@@ -5238,7 +5369,7 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "revenueShareConfig",
+          "name": "revenueShare",
           "type": {
             "defined": "HundredthBasisPoint"
           },
@@ -5305,6 +5436,11 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
+          "name": "minimumStakeLamports",
+          "type": "u64",
+          "index": false
+        },
+        {
           "name": "bondsWithdrawerAuthority",
           "type": "publicKey",
           "index": false
@@ -5347,6 +5483,15 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
+          "name": "minimumStakeLamports",
+          "type": {
+            "option": {
+              "defined": "U64ValueChange"
+            }
+          },
+          "index": false
+        },
+        {
           "name": "withdrawLockupEpochs",
           "type": {
             "option": {
@@ -5371,12 +5516,12 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "stakeAuthority",
+          "name": "stakerAuthority",
           "type": "publicKey",
           "index": false
         },
         {
-          "name": "withdrawAuthority",
+          "name": "withdrawerAuthority",
           "type": "publicKey",
           "index": false
         },
@@ -5679,6 +5824,11 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
+          "name": "validatorVoteAcount",
+          "type": "publicKey",
+          "index": false
+        },
+        {
           "name": "settlementAuthority",
           "type": "publicKey",
           "index": false
@@ -5965,7 +6115,7 @@ export const IDL: ValidatorBonds = {
     },
     {
       "code": 6031,
-      "name": "ClaimAmountExceedsMaxNumNodes",
+      "name": "ClaimCountExceedsMaxNumNodes",
       "msg": "Claim exceeded number of claimable nodes in the merkle tree"
     },
     {

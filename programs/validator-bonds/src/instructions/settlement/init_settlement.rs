@@ -36,9 +36,6 @@ pub struct InitSettlement<'info> {
     )]
     bond: Account<'info, Bond>,
 
-    // TODO: can we need to create a new settlement for the same merkle root?
-    //       probably yes as a merkle roots collision can happen?
-    //      if yes, what should be the discriminator, could that be epoch? or should we use a random pubkey rather?
     #[account(
         init,
         payer = rent_payer,
@@ -47,6 +44,7 @@ pub struct InitSettlement<'info> {
             b"settlement_account",
             bond.key().as_ref(),
             params.merkle_root.as_ref(),
+            clock.epoch.to_le_bytes().as_ref(),
         ],
         bump,
     )]

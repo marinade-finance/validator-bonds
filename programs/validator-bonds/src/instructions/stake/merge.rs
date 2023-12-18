@@ -53,6 +53,7 @@ impl<'info> Merge<'info> {
             .meta()
             .ok_or(error!(ErrorCode::UninitializedStake).with_account_name("source_stake"))?;
 
+        // staker authorities has to match each other, verification if it belongs to bond is down in switch statement
         if destination_meta.authorized.staker != self.staker_authority.key() {
             return Err(error!(ErrorCode::StakerAuthorityMismatch)
                 .with_pubkeys((
@@ -67,13 +68,23 @@ impl<'info> Merge<'info> {
                 .with_account_name("source_stake"));
         }
 
-        // this program provides only limited set of staker authorities to sign
-        let (bonds_authority, _) = find_bonds_withdrawer_authority(&self.config.key());
-        let (settlement_authority, settlement_bump) = find_settlement_authority(&settlement);
+        // withdrawer authorities must belongs to the bonds program (bonds program ownership)
+        let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(&self.config.key());
+        if source_meta.authorized.withdrawer != bonds_withdrawer_authority
+            || destination_meta.authorized.withdrawer != bonds_withdrawer_authority
+        {
+            return Err(error!(ErrorCode::StakerAuthorityMismatch)
+                .with_values(("bonds_withdrawer_authority", bonds_withdrawer_authority))
+                .with_values(("source_stake_withdrawer", source_meta.authorized.withdrawer))
+                .with_values((
+                    "destination_stake_withdrawer",
+                    destination_meta.authorized.withdrawer,
+                )));
+        }
 
         let destination_delegation = self.destination_stake.delegation();
         let source_delegation = self.source_stake.delegation();
-        // by design the stakes have to be delegated and to the same validator vote accounts
+        // the stakes have to be delegated to the same validator vote accounts
         if destination_delegation.is_none()
             || source_delegation.is_none()
             || destination_delegation.unwrap().voter_pubkey
@@ -98,6 +109,8 @@ impl<'info> Merge<'info> {
                 )));
         }
 
+        let (settlement_authority, settlement_bump) = find_settlement_authority(&settlement);
+
         let merge_instruction = &merge(
             &self.destination_stake.key(),
             &self.source_stake.key(),
@@ -111,7 +124,7 @@ impl<'info> Merge<'info> {
             self.stake_history.to_account_info(),
             self.staker_authority.to_account_info(),
         ];
-        if self.staker_authority.key() == bonds_authority {
+        if self.staker_authority.key() == bonds_withdrawer_authority {
             invoke_signed(
                 merge_instruction,
                 merge_account_infos,
@@ -135,7 +148,7 @@ impl<'info> Merge<'info> {
             return Err(error!(ErrorCode::StakerAuthorityMismatch)
                 .with_account_name("staker_authority")
                 .with_values(("staker_authority", self.staker_authority.key()))
-                .with_values(("bonds_authority", bonds_authority))
+                .with_values(("bonds_authority", bonds_withdrawer_authority))
                 .with_values(("settlement_authority", settlement_authority)));
         };
 

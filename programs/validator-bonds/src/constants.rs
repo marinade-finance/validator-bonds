@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 #[constant]
-pub const PROGRAM_ID: &str = "vbondsKbsC4QSLQQnn6ngZvkqfywn6KgEeQbkGSpk1V";
+pub const PROGRAM_ID: &str = "vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4";
 
 // TODO: anchor-0.29: constants cannot be used in anchor #[Account] when seeds = true
 //       https://github.com/coral-xyz/anchor/issues/2697

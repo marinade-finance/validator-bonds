@@ -1,4 +1,6 @@
-use crate::checks::{check_stake_is_initialized_with_authority, check_stake_valid_delegation};
+use crate::checks::{
+    check_stake_is_initialized_with_withdrawer_authority, check_stake_valid_delegation,
+};
 use crate::constants::BONDS_AUTHORITY_SEED;
 use crate::error::ErrorCode;
 use crate::events::settlement_claim::ClaimSettlementEvent;
@@ -17,8 +19,10 @@ use anchor_spl::stake::{withdraw, Stake, StakeAccount, Withdraw};
 pub struct ClaimSettlementArgs {
     pub amount: u64,
     pub proof: Vec<[u8; 32]>,
-    pub stake_authority: Pubkey,
-    pub withdraw_authority: Pubkey, // claim holder
+    // staker authority
+    pub staker: Pubkey,
+    /// claim holder, withdrawer_authority
+    pub withdrawer: Pubkey,
     pub vote_account: Pubkey,
     pub claim: u64,
 }
@@ -50,6 +54,7 @@ pub struct ClaimSettlement<'info> {
             b"settlement_account",
             bond.key().as_ref(),
             settlement.merkle_root.as_ref(),
+            settlement.epoch_created_at.to_le_bytes().as_ref(),
         ],
         bump = settlement.bumps.pda,
     )]
@@ -63,8 +68,8 @@ pub struct ClaimSettlement<'info> {
         seeds = [
             b"claim_account",
             settlement.key().as_ref(),
-            params.stake_authority.as_ref(),
-            params.withdraw_authority.as_ref(),
+            params.staker.as_ref(),
+            params.withdrawer.as_ref(),
             params.vote_account.as_ref(),
             params.claim.to_le_bytes().as_ref(),
         ],
@@ -80,9 +85,9 @@ pub struct ClaimSettlement<'info> {
     /// account that will receive the funds on this claim
     #[account(
        mut,
-       constraint = params.withdraw_authority == withdraw_authority.key(),
+       constraint = params.withdrawer == withdrawer_authority.key(),
     )]
-    withdraw_authority: UncheckedAccount<'info>,
+    withdrawer_authority: UncheckedAccount<'info>,
 
     /// CHECK: PDA
     /// authority that manages (owns == being withdrawer authority) all stakes account under the bonds program
@@ -120,8 +125,8 @@ impl<'info> ClaimSettlement<'info> {
         ClaimSettlementArgs {
             amount,
             proof,
-            stake_authority,
-            withdraw_authority,
+            staker: staker_authority,
+            withdrawer: withdrawer_authority,
             vote_account,
             claim,
         }: ClaimSettlementArgs,
@@ -133,21 +138,21 @@ impl<'info> ClaimSettlement<'info> {
                 .with_values(("max_total_claim", self.settlement.max_total_claim)));
         }
         if self.settlement.num_nodes_claimed + 1 > self.settlement.max_num_nodes {
-            return Err(error!(ErrorCode::ClaimAmountExceedsMaxNumNodes)
+            return Err(error!(ErrorCode::ClaimCountExceedsMaxNumNodes)
                 .with_values(("settlement", self.settlement.key()))
                 .with_values(("num_nodes_claimed", self.settlement.num_nodes_claimed))
                 .with_values(("max_num_nodes", self.settlement.max_num_nodes)));
         }
 
         // stake account is managed by bonds program
-        let stake_meta = check_stake_is_initialized_with_authority(
+        let stake_meta = check_stake_is_initialized_with_withdrawer_authority(
             &self.stake_account,
             &self.bonds_withdrawer_authority.key(),
             "stake_account",
         )?;
         // stake account is delegated (deposited by) the bond validator
         check_stake_valid_delegation(&self.stake_account, &self.bond.validator_vote_account)?;
-        // provided stake account must be funded
+        // provided stake account must be funded; staker == settlement staker authority
         require_keys_eq!(
             stake_meta.authorized.staker,
             self.settlement.settlement_authority,
@@ -157,31 +162,33 @@ impl<'info> ClaimSettlement<'info> {
         // provided stake account has to be big enough to cover the claim and still be valid to exist
         // it's responsibility of the SDK to merge the stake accounts if needed
         //   - the invariant here is that the stake account will be always rent exempt + min size
-        //     this has to be ensured by fund_settlement instruction)
-        if self.stake_account.get_lamports() < amount + minimal_size_stake_account(&stake_meta) {
+        //     this has to be ensured by fund_settlement instruction
+        if self.stake_account.get_lamports()
+            < amount + minimal_size_stake_account(&stake_meta, &self.config)
+        {
             return Err(error!(ErrorCode::ClaimingStakeAccountLamportsInsufficient)
                 .with_account_name("stake_account")
                 .with_values(("stake_account_lamports", self.stake_account.get_lamports()))
                 .with_values(("claiming_amount", amount))
                 .with_values((
                     "minimal_size_stake_account",
-                    minimal_size_stake_account(&stake_meta),
+                    minimal_size_stake_account(&stake_meta, &self.config),
                 )));
         }
 
         let merkle_tree_node =
-            merkle_proof::tree_node(stake_authority, withdraw_authority, vote_account, claim);
+            merkle_proof::tree_node(staker_authority, withdrawer_authority, vote_account, claim);
 
         if !merkle_proof::verify(proof, self.settlement.merkle_root, merkle_tree_node) {
             return Err(error!(ErrorCode::ClaimSettlementProofFailed)
                 .with_values(("claiming_amount", amount))
-                .with_values(("withdraw_authority", withdraw_authority.key())));
+                .with_values(("withdrawer_authority", withdrawer_authority.key())));
         }
 
         self.settlement_claim.set_inner(SettlementClaim {
             settlement: self.settlement.key(),
-            stake_authority,
-            withdraw_authority,
+            staker_authority,
+            withdrawer_authority,
             vote_account,
             claim,
             bump: settlement_claim_bump,
@@ -195,7 +202,7 @@ impl<'info> ClaimSettlement<'info> {
                 Withdraw {
                     stake: self.stake_account.to_account_info(),
                     withdrawer: self.bonds_withdrawer_authority.to_account_info(),
-                    to: self.withdraw_authority.to_account_info(),
+                    to: self.withdrawer_authority.to_account_info(),
                     clock: self.clock.to_account_info(),
                     stake_history: self.stake_history.to_account_info(),
                 },
@@ -215,9 +222,9 @@ impl<'info> ClaimSettlement<'info> {
         emit!(ClaimSettlementEvent {
             settlement: self.settlement_claim.settlement,
             settlement_claim: self.settlement_claim.key(),
-            stake_authority: self.settlement_claim.stake_authority,
+            staker_authority: self.settlement_claim.staker_authority,
             vote_account: self.settlement_claim.vote_account,
-            withdraw_authority: self.settlement_claim.withdraw_authority,
+            withdrawer_authority: self.settlement_claim.withdrawer_authority,
             claim: self.settlement_claim.claim,
             rent_collector: self.settlement_claim.rent_collector,
             bump: settlement_claim_bump,

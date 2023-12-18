@@ -29,8 +29,7 @@ security_txt! {
     source_release: default_env!("GIT_REV_NAME", "GIT_REV_NAME_MISSING")
 }
 
-// TODO: need to grind an address
-declare_id!("vbondsKbsC4QSLQQnn6ngZvkqfywn6KgEeQbkGSpk1V");
+declare_id!("vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4");
 
 // TODO: General TODOs:
 //       - verify that errors are used and error codes matches
@@ -79,14 +78,14 @@ pub mod validator_bonds {
         ctx.accounts.process(configure_bond_args)
     }
 
-    pub fn deposit_bond(ctx: Context<DepositBond>) -> Result<()> {
+    pub fn fund_bond(ctx: Context<FundBond>) -> Result<()> {
         check_context(&ctx)?;
         ctx.accounts.process()
     }
 
-    pub fn create_withdraw_request(
-        ctx: Context<CreateWithdrawRequest>,
-        create_withdraw_request_args: CreateWithdrawRequestArgs,
+    pub fn init_withdraw_request(
+        ctx: Context<InitWithdrawRequest>,
+        create_withdraw_request_args: InitWithdrawRequestArgs,
     ) -> Result<()> {
         check_context(&ctx)?;
         ctx.accounts
@@ -98,7 +97,7 @@ pub mod validator_bonds {
         ctx.accounts.process()
     }
 
-    pub fn withdraw_deposit(ctx: Context<WithdrawDeposit>) -> Result<()> {
+    pub fn claim_withdraw_request(ctx: Context<ClaimWithdrawRequest>) -> Result<()> {
         check_context(&ctx)?;
         ctx.accounts.process()
     }
@@ -117,7 +116,7 @@ pub mod validator_bonds {
         ctx.accounts.process()
     }
 
-    pub fn fund_settlement(ctx: Context<ResetStake>) -> Result<()> {
+    pub fn fund_settlement(ctx: Context<FundSettlement>) -> Result<()> {
         check_context(&ctx)?;
         ctx.accounts.process()
     }

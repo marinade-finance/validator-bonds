@@ -9,13 +9,13 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::system_program;
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
-pub struct CreateWithdrawRequestArgs {
+pub struct InitWithdrawRequestArgs {
     pub amount: u64,
 }
 
 /// Creates a withdraw request of bond funds for a validator vote account
 #[derive(Accounts)]
-pub struct CreateWithdrawRequest<'info> {
+pub struct InitWithdrawRequest<'info> {
     /// the config root account under which the bond was created
     #[account()]
     config: Account<'info, Config>,
@@ -64,10 +64,10 @@ pub struct CreateWithdrawRequest<'info> {
     clock: Sysvar<'info, Clock>,
 }
 
-impl<'info> CreateWithdrawRequest<'info> {
+impl<'info> InitWithdrawRequest<'info> {
     pub fn process(
         &mut self,
-        CreateWithdrawRequestArgs { amount }: CreateWithdrawRequestArgs,
+        InitWithdrawRequestArgs { amount }: InitWithdrawRequestArgs,
         withdraw_request_bump: u8,
     ) -> Result<()> {
         require!(

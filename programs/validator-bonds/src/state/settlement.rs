@@ -5,7 +5,7 @@ use crate::ID;
 use anchor_lang::prelude::*;
 
 /// Settlement account for a particular config and merkle root
-/// Settlement defines an insurance event happens and it's needed to be settled
+/// Settlement defines that a protected event happened and it will be settled
 #[account]
 #[derive(Debug, Default)]
 pub struct Settlement {
@@ -51,6 +51,7 @@ impl Settlement {
                 SETTLEMENT_SEED,
                 &self.bond.key().as_ref(),
                 &self.merkle_root,
+                &self.epoch_created_at.to_le_bytes(),
                 &[self.bumps.pda],
             ],
             &ID,

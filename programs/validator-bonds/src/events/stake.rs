@@ -17,6 +17,7 @@ pub struct ResetEvent {
     pub bond: Pubkey,
     pub settlement: Pubkey,
     pub stake_account: Pubkey,
+    pub validator_vote_acount: Pubkey,
     pub settlement_authority: Pubkey,
     pub bonds_withdrawer_authority: Pubkey,
 }

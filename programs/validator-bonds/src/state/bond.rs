@@ -21,8 +21,8 @@ pub struct Bond {
     /// The same powers has got the owner of the validator vote account
     // https://github.com/solana-labs/solana/blob/master/vote/src/vote_account.rs
     pub authority: Pubkey,
-    /// Revenue that is distributed from the bond to the protocol
-    pub revenue_share_config: HundredthBasisPoint,
+    /// Revenue that is distributed from the bond (from validator) to the protocol
+    pub revenue_share: HundredthBasisPoint,
     /// PDA Bond address bump seed
     pub bump: u8,
     /// reserve space for future extensions

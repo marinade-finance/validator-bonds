@@ -12,14 +12,14 @@ pub struct WithdrawRequest {
     pub validator_vote_account: Pubkey,
     /// Bond account that the withdraw request is for
     pub bond: Pubkey,
-    /// PDA account bump
-    pub bump: u8,
     /// Epoch when the withdraw was requested, i.e., when this "ticket" is created
     pub epoch: u64,
     /// Amount of lamports to withdraw
     pub requested_amount: u64,
     /// Amount of lamports withdrawn so far
     pub withdrawn_amount: u64,
+    /// PDA account bump
+    pub bump: u8,
     /// reserve space for future extensions
     pub reserved: Reserved150,
 }

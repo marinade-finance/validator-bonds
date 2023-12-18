@@ -6,31 +6,49 @@ use anchor_lang::require_keys_eq;
 use anchor_lang::solana_program::stake::state::{Delegation, Meta, Stake};
 use anchor_lang::solana_program::stake_history::{Epoch, StakeHistoryEntry};
 use anchor_lang::solana_program::vote::program::id as vote_program_id;
-use anchor_lang::solana_program::vote::state::VoteState;
 use anchor_spl::stake::StakeAccount;
 use std::ops::Deref;
 
-/// Verification the account is a vote account + matching owner (withdrawer authority)
-pub fn check_validator_vote_account_owner(
+/// Verification the account is owned by vote program + matching withdrawer authority (owner)
+pub fn check_validator_vote_account_withdrawer_authority(
     validator_vote_account: &UncheckedAccount,
     expected_owner: &Pubkey,
-) -> Result<VoteState> {
+) -> Result<()> {
     require!(
         validator_vote_account.owner == &vote_program_id(),
         ErrorCode::InvalidVoteAccountProgramId
     );
     let validator_vote_data = &validator_vote_account.data.borrow()[..];
-    let vote_account = VoteState::deserialize(validator_vote_data).map_err(|err| {
-        msg!("Cannot deserialize vote account: {:?}", err);
-        error!(ErrorCode::FailedToDeserializeVoteAccount)
-            .with_values(("validator_vote_account", validator_vote_account.key()))
-    })?;
+    // let's find position of the authorized withdrawer within the vote state account data
+    // https://github.com/solana-labs/solana/pull/30515
+    // https://github.com/solana-labs/solana/blob/v1.17.10/sdk/program/src/vote/state/mod.rs#L290
+    let pos = 36;
+    if validator_vote_data.len() < pos + 32 {
+        msg!(
+            "Cannot get withdrawer authority from vote account {} data",
+            validator_vote_account.key
+        );
+        return Err(ErrorCode::FailedToDeserializeVoteAccount.into());
+    }
+    let withdrawer_slice: [u8; 32] =
+        validator_vote_data[pos..pos + 32]
+            .try_into()
+            .map_err(|err| {
+                msg!(
+                    "Cannot get withdrawer authority from vote account {} data: {:?}",
+                    validator_vote_account.key,
+                    err
+                );
+                error!(ErrorCode::FailedToDeserializeVoteAccount)
+                    .with_values(("validator_vote_account", validator_vote_account.key()))
+            })?;
+    let authorized_withdrawer = Pubkey::from(withdrawer_slice);
     require_keys_eq!(
         *expected_owner,
-        vote_account.authorized_withdrawer,
+        authorized_withdrawer,
         ErrorCode::ValidatorVoteAccountOwnerMismatch
     );
-    Ok(vote_account)
+    Ok(())
 }
 
 /// Bond account change is permitted to bond authority or validator vote account owner
@@ -42,7 +60,7 @@ pub fn check_bond_change_permitted(
     if authority == &bond_account.authority.key() {
         true
     } else {
-        check_validator_vote_account_owner(validator_vote_account, authority)
+        check_validator_vote_account_withdrawer_authority(validator_vote_account, authority)
             .map_or(false, |_| true)
     }
 }
@@ -69,7 +87,7 @@ pub fn check_stake_valid_delegation(
     }
 }
 
-pub fn check_stake_is_initialized_with_authority(
+pub fn check_stake_is_initialized_with_withdrawer_authority(
     stake_account: &StakeAccount,
     authority: &Pubkey,
     stake_account_attribute_name: &str,
@@ -98,11 +116,12 @@ pub fn check_stake_is_initialized_with_authority(
 pub fn check_stake_is_not_locked(
     stake_account: &StakeAccount,
     clock: &Clock,
-    custodian: Option<&Pubkey>,
     stake_account_attribute_name: &str,
 ) -> Result<()> {
     if let Some(stake_lockup) = stake_account.lockup() {
-        if stake_lockup.is_in_force(clock, custodian) {
+        // TODO: consider working with custodian, would need to be passed from the caller
+        //       and on authorize withdrawer we would need to change the lockup to the new custodian
+        if stake_lockup.is_in_force(clock, None) {
             return Err(error!(ErrorCode::StakeLockedUp)
                 .with_account_name(stake_account_attribute_name)
                 .with_values((
@@ -180,7 +199,10 @@ mod tests {
         );
         let wrong_owner_account = UncheckedAccount::try_from(&account);
         assert_eq!(
-            check_validator_vote_account_owner(&wrong_owner_account, &vote_init.authorized_voter,),
+            check_validator_vote_account_withdrawer_authority(
+                &wrong_owner_account,
+                &vote_init.authorized_voter,
+            ),
             Err(ErrorCode::InvalidVoteAccountProgramId.into())
         );
 
@@ -197,14 +219,23 @@ mod tests {
         );
         let unchecked_account = UncheckedAccount::try_from(&account);
 
-        check_validator_vote_account_owner(&unchecked_account, &vote_init.authorized_withdrawer)
-            .unwrap();
+        check_validator_vote_account_withdrawer_authority(
+            &unchecked_account,
+            &vote_init.authorized_withdrawer,
+        )
+        .unwrap();
         assert_eq!(
-            check_validator_vote_account_owner(&unchecked_account, &vote_init.authorized_voter,),
+            check_validator_vote_account_withdrawer_authority(
+                &unchecked_account,
+                &vote_init.authorized_voter,
+            ),
             Err(ErrorCode::ValidatorVoteAccountOwnerMismatch.into())
         );
         assert_eq!(
-            check_validator_vote_account_owner(&unchecked_account, &Pubkey::default(),),
+            check_validator_vote_account_withdrawer_authority(
+                &unchecked_account,
+                &Pubkey::default(),
+            ),
             Err(ErrorCode::ValidatorVoteAccountOwnerMismatch.into())
         );
     }
@@ -304,7 +335,7 @@ mod tests {
     pub fn stake_initialized_with_authority_check() {
         let uninitialized_stake_account = get_stake_account(StakeState::Uninitialized);
         assert_eq!(
-            check_stake_is_initialized_with_authority(
+            check_stake_is_initialized_with_withdrawer_authority(
                 &uninitialized_stake_account,
                 &Pubkey::default(),
                 ""
@@ -313,7 +344,7 @@ mod tests {
         );
         let rewards_pool_stake_account = get_stake_account(StakeState::RewardsPool);
         assert_eq!(
-            check_stake_is_initialized_with_authority(
+            check_stake_is_initialized_with_withdrawer_authority(
                 &rewards_pool_stake_account,
                 &Pubkey::default(),
                 ""
@@ -323,7 +354,7 @@ mod tests {
 
         let initialized_stake_account = get_stake_account(StakeState::Initialized(Meta::default()));
         assert_eq!(
-            check_stake_is_initialized_with_authority(
+            check_stake_is_initialized_with_withdrawer_authority(
                 &initialized_stake_account,
                 &Pubkey::default(),
                 ""
@@ -333,7 +364,7 @@ mod tests {
         let default_delegated_stake_account =
             get_stake_account(StakeState::Stake(Meta::default(), Stake::default()));
         assert_eq!(
-            check_stake_is_initialized_with_authority(
+            check_stake_is_initialized_with_withdrawer_authority(
                 &default_delegated_stake_account,
                 &Pubkey::default(),
                 ""
@@ -347,7 +378,11 @@ mod tests {
         let delegated_stake_account =
             get_delegated_stake_account(None, Some(withdrawer), Some(staker));
         assert_eq!(
-            check_stake_is_initialized_with_authority(&delegated_stake_account, &withdrawer, ""),
+            check_stake_is_initialized_with_withdrawer_authority(
+                &delegated_stake_account,
+                &withdrawer,
+                ""
+            ),
             Ok(Meta {
                 authorized: Authorized { withdrawer, staker },
                 ..Meta::default()
@@ -359,7 +394,7 @@ mod tests {
         let delegated_stake_account =
             get_delegated_stake_account(None, Some(withdrawer), Some(staker));
         assert_eq!(
-            check_stake_is_initialized_with_authority(
+            check_stake_is_initialized_with_withdrawer_authority(
                 &delegated_stake_account,
                 &wrong_withdrawer,
                 ""
@@ -375,24 +410,24 @@ mod tests {
         // no lock on default stake account
         let unlocked_stake_account = get_stake_account(StakeState::Uninitialized);
         assert_eq!(
-            check_stake_is_not_locked(&unlocked_stake_account, &clock, None, ""),
+            check_stake_is_not_locked(&unlocked_stake_account, &clock, ""),
             Ok(())
         );
         let rewards_pool_stake_account = get_stake_account(StakeState::RewardsPool);
         assert_eq!(
-            check_stake_is_not_locked(&rewards_pool_stake_account, &clock, None, ""),
+            check_stake_is_not_locked(&rewards_pool_stake_account, &clock, ""),
             Ok(())
         );
 
         let initialized_stake_account = get_stake_account(StakeState::Initialized(Meta::default()));
         assert_eq!(
-            check_stake_is_not_locked(&initialized_stake_account, &clock, None, ""),
+            check_stake_is_not_locked(&initialized_stake_account, &clock, ""),
             Ok(())
         );
         let default_delegated_stake_account =
             get_stake_account(StakeState::Stake(Meta::default(), Stake::default()));
         assert_eq!(
-            check_stake_is_not_locked(&default_delegated_stake_account, &clock, None, ""),
+            check_stake_is_not_locked(&default_delegated_stake_account, &clock, ""),
             Ok(())
         );
 
@@ -412,25 +447,14 @@ mod tests {
 
         assert!(clock.epoch > 0 && clock.unix_timestamp > 0);
 
-        // locked, wrong custodian
-        let wrong_custodian = Pubkey::new_unique();
+        // locked
         assert_eq!(
-            check_stake_is_not_locked(&epoch_locked_stake_account, &clock, None, ""),
+            check_stake_is_not_locked(&epoch_locked_stake_account, &clock, ""),
             Err(ErrorCode::StakeLockedUp.into())
         );
         assert_eq!(
-            check_stake_is_not_locked(
-                &epoch_locked_stake_account,
-                &clock,
-                Some(&wrong_custodian),
-                ""
-            ),
+            check_stake_is_not_locked(&epoch_locked_stake_account, &clock, ""),
             Err(ErrorCode::StakeLockedUp.into())
-        );
-        // locked, correct custodian
-        assert_eq!(
-            check_stake_is_not_locked(&epoch_locked_stake_account, &clock, Some(&custodian), ""),
-            Ok(())
         );
 
         let unix_timestamp_lockup = Lockup {
@@ -446,7 +470,7 @@ mod tests {
             Stake::default(),
         ));
         assert_eq!(
-            check_stake_is_not_locked(&unix_locked_stake_account, &clock, None, ""),
+            check_stake_is_not_locked(&unix_locked_stake_account, &clock, ""),
             Err(ErrorCode::StakeLockedUp.into())
         );
     }

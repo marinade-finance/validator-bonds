@@ -8,14 +8,14 @@ pub struct InitBondEvent {
     pub validator_vote_account: Pubkey,
     pub validator_vote_withdrawer: Pubkey,
     pub authority: Pubkey,
-    pub revenue_share_config: HundredthBasisPoint,
+    pub revenue_share: HundredthBasisPoint,
     pub bond_bump: u8,
 }
 
 #[event]
 pub struct ConfigureBondEvent {
     pub bond_authority: Option<PubkeyValueChange>,
-    pub revenue_share_config: Option<HundrethBasisPointChange>,
+    pub revenue_share: Option<HundrethBasisPointChange>,
 }
 
 #[event]
@@ -23,7 +23,7 @@ pub struct CloseBondEvent {
     pub config_address: Pubkey,
     pub validator_vote_account: Pubkey,
     pub authority: Pubkey,
-    pub revenue_share_config: HundredthBasisPoint,
+    pub revenue_share: HundredthBasisPoint,
     pub bump: u8,
 }
 

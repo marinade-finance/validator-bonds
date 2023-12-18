@@ -1,4 +1,4 @@
-use crate::checks::check_validator_vote_account_owner;
+use crate::checks::check_validator_vote_account_withdrawer_authority;
 use crate::error::ErrorCode;
 use crate::events::bond::InitBondEvent;
 use crate::state::bond::Bond;
@@ -12,7 +12,7 @@ use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct InitBondArgs {
     pub bond_authority: Pubkey,
-    pub revenue_share_config: HundredthBasisPoint,
+    pub revenue_share: HundredthBasisPoint,
 }
 
 /// Creates new validator bond account based on the validator vote address
@@ -28,9 +28,9 @@ pub struct InitBond<'info> {
     )]
     validator_vote_account: UncheckedAccount<'info>,
 
-    /// only the owner authority of the validator vote account can create the bond
+    /// only validator vote account withdrawer authority may can create the bond
     #[account()]
-    authority: Signer<'info>,
+    authorized_withdrawer: Signer<'info>,
 
     #[account(
         init,
@@ -60,27 +60,30 @@ impl<'info> InitBond<'info> {
         &mut self,
         InitBondArgs {
             bond_authority,
-            revenue_share_config,
+            revenue_share,
         }: InitBondArgs,
         bond_bump: u8,
     ) -> Result<()> {
         // verification of the validator vote account
-        check_validator_vote_account_owner(&self.validator_vote_account, &self.authority.key())?;
+        check_validator_vote_account_withdrawer_authority(
+            &self.validator_vote_account,
+            &self.authorized_withdrawer.key(),
+        )?;
 
         self.bond.set_inner(Bond {
             config: self.config.key(),
             validator_vote_account: self.validator_vote_account.key(),
             authority: bond_authority,
-            revenue_share_config: revenue_share_config.check()?,
+            revenue_share: revenue_share.check()?,
             bump: bond_bump,
             reserved: Reserved150::default(),
         });
         emit!(InitBondEvent {
             config_address: self.bond.config,
             validator_vote_account: self.bond.validator_vote_account,
-            validator_vote_withdrawer: self.authority.key(),
+            validator_vote_withdrawer: self.authorized_withdrawer.key(),
             authority: self.bond.authority,
-            revenue_share_config: self.bond.revenue_share_config,
+            revenue_share: self.bond.revenue_share,
             bond_bump: self.bond.bump,
         });
 

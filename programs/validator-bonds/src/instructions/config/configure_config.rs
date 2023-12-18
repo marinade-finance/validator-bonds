@@ -5,10 +5,11 @@ use anchor_lang::prelude::*;
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct ConfigureConfigArgs {
-    pub admin_authority: Option<Pubkey>,
-    pub operator_authority: Option<Pubkey>,
+    pub admin: Option<Pubkey>,
+    pub operator: Option<Pubkey>,
     pub epochs_to_claim_settlement: Option<u64>,
     pub withdraw_lockup_epochs: Option<u64>,
+    pub minimum_stake_lamports: Option<u64>,
 }
 
 /// Configures bond program with the config root account params
@@ -30,19 +31,20 @@ impl<'info> ConfigureConfig<'info> {
     pub fn process(
         &mut self,
         ConfigureConfigArgs {
-            admin_authority,
-            operator_authority,
+            admin,
+            operator,
             epochs_to_claim_settlement,
             withdraw_lockup_epochs,
+            minimum_stake_lamports,
         }: ConfigureConfigArgs,
     ) -> Result<()> {
-        let admin_authority_change = admin_authority.map(|admin| {
+        let admin_authority_change = admin.map(|admin| {
             let old = self.config.admin_authority;
             self.config.admin_authority = admin;
             PubkeyValueChange { old, new: admin }
         });
 
-        let operator_authority_change = operator_authority.map(|operator| {
+        let operator_authority_change = operator.map(|operator| {
             let old = self.config.operator_authority;
             self.config.operator_authority = operator;
             PubkeyValueChange { old, new: operator }
@@ -67,11 +69,21 @@ impl<'info> ConfigureConfig<'info> {
             }
         });
 
+        let minimum_stake_lamports_change = minimum_stake_lamports.map(|minimum_stake| {
+            let old = self.config.minimum_stake_lamports;
+            self.config.minimum_stake_lamports = minimum_stake;
+            U64ValueChange {
+                old,
+                new: minimum_stake,
+            }
+        });
+
         emit!(ConfigureConfigEvent {
             admin_authority: admin_authority_change,
             operator_authority: operator_authority_change,
             epochs_to_claim_settlement: epochs_to_claim_settlement_change,
             withdraw_lockup_epochs: withdraw_lockup_epochs_change,
+            minimum_stake_lamports: minimum_stake_lamports_change,
         });
 
         Ok(())

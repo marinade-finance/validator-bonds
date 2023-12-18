@@ -96,7 +96,7 @@ pub enum ErrorCode {
     ClaimAmountExceedsMaxTotalClaim, // 6030 0x178e
 
     #[msg("Claim exceeded number of claimable nodes in the merkle tree")]
-    ClaimAmountExceedsMaxNumNodes, // 6031 0x178f
+    ClaimCountExceedsMaxNumNodes, // 6031 0x178f
 
     #[msg("Empty merkle tree, nothing to be claimed")]
     EmptySettlementMerkleTree, // 6032 0x1790

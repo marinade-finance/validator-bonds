@@ -1,3 +1,4 @@
+use crate::constants::MIN_STAKE_LAMPORTS;
 use crate::events::config::InitConfigEvent;
 use crate::state::config::{find_bonds_withdrawer_authority, Config};
 use anchor_lang::prelude::*;
@@ -42,9 +43,6 @@ impl<'info> InitConfig<'info> {
             withdraw_lockup_epochs,
         }: InitConfigArgs,
     ) -> Result<()> {
-        // TODO: are there some limitations about values for claim_settlement and withdraw_lockup?
-
-        // TODO: may we use just first bump, ignoring to save the bump in the account, without a danger?
         let (bonds_withdrawer_authority, bonds_withdrawer_authority_bump) =
             find_bonds_withdrawer_authority(&self.config.key());
         self.config.set_inner(Config {
@@ -52,6 +50,7 @@ impl<'info> InitConfig<'info> {
             operator_authority,
             epochs_to_claim_settlement,
             withdraw_lockup_epochs,
+            minimum_stake_lamports: MIN_STAKE_LAMPORTS,
             bonds_withdrawer_authority_bump,
             reserved: [0; 512],
         });
@@ -61,6 +60,7 @@ impl<'info> InitConfig<'info> {
             operator_authority: self.config.operator_authority,
             epochs_to_claim_settlement: self.config.epochs_to_claim_settlement,
             withdraw_lockup_epochs: self.config.withdraw_lockup_epochs,
+            minimum_stake_lamports: self.config.minimum_stake_lamports,
             bonds_withdrawer_authority_bump: self.config.bonds_withdrawer_authority_bump,
             bonds_withdrawer_authority,
         });

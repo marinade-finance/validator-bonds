@@ -11,10 +11,10 @@ use anchor_lang::prelude::*;
 pub struct SettlementClaim {
     /// settlement account this claim belongs under
     pub settlement: Pubkey,
-    /// stake authority as part of the merkle proof for this claim
-    pub stake_authority: Pubkey,
-    /// withdraw authority that has got permission to withdraw the claim
-    pub withdraw_authority: Pubkey,
+    /// staker authority as part of the merkle proof for this claim
+    pub staker_authority: Pubkey,
+    /// withdrawer authority that has got permission to withdraw the claim
+    pub withdrawer_authority: Pubkey,
     /// vote account as part of the merkle proof for this claim
     pub vote_account: Pubkey,
     /// claim amount
@@ -34,8 +34,8 @@ impl SettlementClaim {
             &[
                 SETTLEMENT_CLAIM_SEED,
                 &self.settlement.key().as_ref(),
-                &self.stake_authority.as_ref(),
-                &self.withdraw_authority.as_ref(),
+                &self.staker_authority.as_ref(),
+                &self.withdrawer_authority.as_ref(),
                 &self.vote_account.as_ref(),
                 &self.claim.to_le_bytes().as_ref(),
                 &[self.bump],

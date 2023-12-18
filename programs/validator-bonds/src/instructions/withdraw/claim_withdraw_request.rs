@@ -1,6 +1,6 @@
 use crate::checks::{
-    check_stake_is_initialized_with_authority, check_stake_valid_delegation,
-    check_validator_vote_account_owner,
+    check_stake_is_initialized_with_withdrawer_authority, check_stake_valid_delegation,
+    check_validator_vote_account_withdrawer_authority,
 };
 use crate::constants::BONDS_AUTHORITY_SEED;
 use crate::error::ErrorCode;
@@ -18,8 +18,9 @@ use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 
 /// Withdrawing funds from a bond account, to proceed the withdraw one must create a withdraw request first.
 /// Withdrawal takes StakeAccount that associated with bonds program and changes owner back to validator vote withdrawer.
+// TODO: AquireWithdrawRequest ?
 #[derive(Accounts)]
-pub struct WithdrawDeposit<'info> {
+pub struct ClaimWithdrawRequest<'info> {
     /// the config root configuration account
     #[account()]
     config: Account<'info, Config>,
@@ -105,18 +106,21 @@ pub struct WithdrawDeposit<'info> {
     clock: Sysvar<'info, Clock>,
 }
 
-impl<'info> WithdrawDeposit<'info> {
+impl<'info> ClaimWithdrawRequest<'info> {
     pub fn process(&mut self) -> Result<()> {
-        // vote account owner matches the authority where the funds will be withdrawn
+        // vote account owner matches the authority where the funds will be withdrawn to
         // i.e., the address where who will be new owner (withdrawer authority) of the stake account
-        check_validator_vote_account_owner(&self.validator_vote_account, &self.withdrawer.key())?;
+        check_validator_vote_account_withdrawer_authority(
+            &self.validator_vote_account,
+            &self.withdrawer.key(),
+        )?;
 
         // stake account is delegated to the validator vote account associated with the bond
         let stake_delegation =
             check_stake_valid_delegation(&self.stake_account, &self.bond.validator_vote_account)?;
 
         // stake account belongs under the bonds program
-        let stake_meta = check_stake_is_initialized_with_authority(
+        let stake_meta = check_stake_is_initialized_with_withdrawer_authority(
             &self.stake_account,
             &self.bonds_withdrawer_authority.key(),
             "stake_account",
@@ -136,57 +140,59 @@ impl<'info> WithdrawDeposit<'info> {
 
         // when the stake account is bigger to the non withdrawn amount of the withdrawal request
         // we need to split the stake account to parts and withdraw only the non withdrawn amount
-        let (withdrawing_amount, is_split) =
-            if self.stake_account.get_lamports() > amount_to_fulfill_withdraw {
-                // ensuring that splitting means stake accounts will be big enough
-                // note: the rent exempt of the newly created split account has been already paid by the tx caller
-                if self.stake_account.get_lamports() - amount_to_fulfill_withdraw
-                    >= minimal_size_stake_account(&stake_meta)
-                {
-                    return Err(error!(ErrorCode::StakeAccountNotBigEnoughToSplit)
-                        .with_account_name("stake_account")
-                        .with_values(("stake_account_lamports", self.stake_account.get_lamports()))
-                        .with_values(("amount_to_fulfill_withdraw", amount_to_fulfill_withdraw)));
-                }
+        let (withdrawing_amount, is_split) = if self.stake_account.get_lamports()
+            > amount_to_fulfill_withdraw
+        {
+            // ensuring that splitting means stake accounts will be big enough
+            // note: the rent exempt of the newly created split account has been already paid by the tx caller
+            let minimal_stake_size = minimal_size_stake_account(&stake_meta, &self.config);
+            if self.stake_account.get_lamports() - amount_to_fulfill_withdraw < minimal_stake_size
+                || amount_to_fulfill_withdraw < minimal_stake_size
+            {
+                return Err(error!(ErrorCode::StakeAccountNotBigEnoughToSplit)
+                    .with_account_name("stake_account")
+                    .with_values(("stake_account_lamports", self.stake_account.get_lamports()))
+                    .with_values(("amount_to_fulfill_withdraw", amount_to_fulfill_withdraw)));
+            }
 
-                let withdraw_split_leftover =
-                    self.stake_account.get_lamports() - amount_to_fulfill_withdraw;
-                let split_instruction = stake::instruction::split(
-                    &self.stake_account.key(),
-                    &self.withdrawer.key(),
-                    withdraw_split_leftover,
-                    &self.split_stake_account.key(),
-                )
-                .last()
-                .unwrap()
-                .clone();
-                invoke_signed(
-                    &split_instruction,
-                    &[
-                        self.stake_program.to_account_info(),
-                        self.stake_account.to_account_info(),
-                        self.split_stake_account.to_account_info(),
-                        self.bonds_withdrawer_authority.to_account_info(),
-                    ],
-                    &[&[
-                        BONDS_AUTHORITY_SEED,
-                        &self.config.key().as_ref(),
-                        &[self.config.bonds_withdrawer_authority_bump],
-                    ]],
-                )?;
-                // withdrawal amount is the rest to fulfil the withdrawal request
-                (amount_to_fulfill_withdraw, true)
-            } else {
-                return_unused_split_stake_account_rent(
-                    &self.stake_program,
-                    &self.split_stake_account,
-                    &self.split_stake_rent_payer,
-                    &self.clock,
-                    &self.stake_history,
-                )?;
-                // withdrawal amount is full stake account
-                (stake_delegation.stake, false)
-            };
+            let withdraw_split_leftover =
+                self.stake_account.get_lamports() - amount_to_fulfill_withdraw;
+            let split_instruction = stake::instruction::split(
+                &self.stake_account.key(),
+                &self.withdrawer.key(),
+                withdraw_split_leftover,
+                &self.split_stake_account.key(),
+            )
+            .last()
+            .unwrap()
+            .clone();
+            invoke_signed(
+                &split_instruction,
+                &[
+                    self.stake_program.to_account_info(),
+                    self.stake_account.to_account_info(),
+                    self.split_stake_account.to_account_info(),
+                    self.bonds_withdrawer_authority.to_account_info(),
+                ],
+                &[&[
+                    BONDS_AUTHORITY_SEED,
+                    &self.config.key().as_ref(),
+                    &[self.config.bonds_withdrawer_authority_bump],
+                ]],
+            )?;
+            // withdrawal amount is the rest to fulfil the withdrawal request
+            (amount_to_fulfill_withdraw, true)
+        } else {
+            return_unused_split_stake_account_rent(
+                &self.stake_program,
+                &self.split_stake_account,
+                &self.split_stake_rent_payer,
+                &self.clock,
+                &self.stake_history,
+            )?;
+            // withdrawal amount is full stake account
+            (stake_delegation.stake, false)
+        };
 
         let old_withdrawn_amount = self.withdraw_request.withdrawn_amount;
         self.withdraw_request.withdrawn_amount = self
@@ -210,7 +216,7 @@ impl<'info> WithdrawDeposit<'info> {
                     &[self.config.bonds_withdrawer_authority_bump],
                 ]],
             ),
-            // withdraw authority (owner) is now the withdrawer authority defined by ix
+            // withdrawer authority (owner) is now the withdrawer authority defined by ix
             StakeAuthorize::Withdrawer,
             None,
         )?;

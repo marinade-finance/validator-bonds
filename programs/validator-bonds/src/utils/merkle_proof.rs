@@ -33,8 +33,8 @@ pub fn verify(proof: Vec<[u8; 32]>, root: [u8; 32], leaf: [u8; 32]) -> bool {
 
 #[derive(Default, Clone, Eq, Debug, Hash, PartialEq)]
 pub struct TreeNode {
-    pub stake_authority: String,
-    pub withdraw_authority: String,
+    pub staker_authority: String,
+    pub withdrawer_authority: String,
     pub vote_account: String,
     pub claim: u64,
 }
@@ -42,8 +42,8 @@ pub struct TreeNode {
 impl TreeNode {
     fn hash(&self) -> Hash {
         let mut hasher = Hasher::default();
-        hasher.hash(self.stake_authority.as_ref());
-        hasher.hash(self.withdraw_authority.as_ref());
+        hasher.hash(self.staker_authority.as_ref());
+        hasher.hash(self.withdrawer_authority.as_ref());
         hasher.hash(self.vote_account.as_ref());
         hasher.hash(self.claim.to_le_bytes().as_ref());
         hasher.result()
@@ -51,14 +51,14 @@ impl TreeNode {
 }
 
 pub fn tree_node(
-    stake_authority: Pubkey,
-    withdraw_authority: Pubkey,
+    staker_authority: Pubkey,
+    withdrawer_authority: Pubkey,
     vote_account: Pubkey,
     claim: u64,
 ) -> [u8; 32] {
     let tree_node = TreeNode {
-        stake_authority: stake_authority.to_string(),
-        withdraw_authority: withdraw_authority.to_string(),
+        staker_authority: staker_authority.to_string(),
+        withdrawer_authority: withdrawer_authority.to_string(),
         vote_account: vote_account.to_string(),
         claim,
     };
@@ -131,9 +131,9 @@ mod tests {
                 21, 184, 12, 244, 6, 40, 200, 149, 249, 100, 177, 201, 234,
             ],
         ];
-        let stake_authority =
+        let staker_authority =
             Pubkey::from_str("A8fPZYZYQ15achgZvxUn4pzxjWqUU5gNuwvKgwLCegCT").unwrap();
-        let withdraw_authority =
+        let withdrawer_authority =
             Pubkey::from_str("A8fPZYZYQ15achgZvxUn4pzxjWqUU5gNuwvKgwLCegCT").unwrap();
         let vote_account =
             Pubkey::from_str("DdCNGDpP7qMgoAy6paFzhhak2EeyCZcgjH7ak5u5v28m").unwrap();
@@ -141,7 +141,7 @@ mod tests {
         assert!(verify(
             proof,
             merkle_root,
-            tree_node(stake_authority, withdraw_authority, vote_account, claim)
+            tree_node(staker_authority, withdrawer_authority, vote_account, claim)
         ));
     }
 }

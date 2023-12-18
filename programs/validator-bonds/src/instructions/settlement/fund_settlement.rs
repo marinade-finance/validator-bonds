@@ -1,4 +1,6 @@
-use crate::checks::{check_stake_is_initialized_with_authority, check_stake_valid_delegation};
+use crate::checks::{
+    check_stake_is_initialized_with_withdrawer_authority, check_stake_valid_delegation,
+};
 use crate::constants::BONDS_AUTHORITY_SEED;
 use crate::error::ErrorCode;
 use crate::events::settlement::FundSettlementEvent;
@@ -18,7 +20,7 @@ use anchor_spl::stake::{
 };
 
 /// Funding settlement by providing stake account delegated to particular validator vote account based on the merkle proof.
-/// The settlement has been previously created by operator to fulfil some insurance event (e.g., slashing)
+/// The settlement has been previously created by operator to fulfil some protected event (e.g., slashing)
 /// Currently permission-ed.
 #[derive(Accounts)]
 pub struct FundSettlement<'info> {
@@ -45,7 +47,8 @@ pub struct FundSettlement<'info> {
         seeds = [
             b"settlement_account",
             bond.key().as_ref(),
-            settlement.merkle_root.as_ref()
+            settlement.merkle_root.as_ref(),
+            settlement.epoch_created_at.to_le_bytes().as_ref(),
         ],
         bump = settlement.bumps.pda,
     )]
@@ -95,8 +98,8 @@ pub struct FundSettlement<'info> {
 
     /// This is an account used to prefund the split stake account.
     /// If a split stake account is not needed then rent payer is fully refunded at the end of the transaction.
-    /// If a split stake account is created for the settlement, the payer needs to manually call the claim_settlement
-    ///    instruction to get the rent back (call will succeed only when the stake account is already deactivated).
+    /// If a split stake account is created for the settlement, the payer needs to manually close the claim_settlement
+    ///    instruction to get the rent back (success only when the stake account is already deactivated).
     #[account(
         mut,
         owner = system_program::ID
@@ -124,14 +127,15 @@ impl<'info> FundSettlement<'info> {
         }
 
         // stake account is managed by bonds program
-        let stake_meta = check_stake_is_initialized_with_authority(
+        let stake_meta = check_stake_is_initialized_with_withdrawer_authority(
             &self.stake_account,
             &self.bonds_withdrawer_authority.key(),
             "stake_account",
         )?;
         // settlement funding may accept only stake account delegated to (i.e., deposited by) the bond validator
         check_stake_valid_delegation(&self.stake_account, &self.bond.validator_vote_account)?;
-        // provided stake account must NOT be funded (not deposited); deposited == bonds withdrawer authority, funded == settlement authority
+        // provided stake account must NOT have been used to fund settlement (but must be owned by bonds program)
+        // funded to bond account -> staker == bonds withdrawer authority, funded to settlement -> staker == settlement staker authority
         require_keys_eq!(
             stake_meta.authorized.staker,
             self.bonds_withdrawer_authority.key(),
@@ -139,11 +143,11 @@ impl<'info> FundSettlement<'info> {
         );
 
         let split_stake_rent_exempt = self.split_stake_account.to_account_info().lamports();
-        let stake_account_min_size = minimal_size_stake_account(&stake_meta);
+        let stake_account_min_size = minimal_size_stake_account(&stake_meta, &self.config);
 
         // note: we can over-fund the settlement when the stake account is in shape to not being possible to split it
         let amount_available = self.stake_account.get_lamports();
-        // note: needed rent exempt + minimal stake size to ensure stake account can exist after claiming all
+        // amount needed: "amount + rent exempt + minimal stake size" -> ensuring stake account may exist
         let amount_needed =
             self.settlement.max_total_claim - self.settlement.total_funded + stake_account_min_size;
         // the left-over stake account has to be capable to exist after splitting

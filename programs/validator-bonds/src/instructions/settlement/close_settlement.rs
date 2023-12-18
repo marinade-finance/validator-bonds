@@ -1,4 +1,6 @@
-use crate::checks::{check_stake_is_initialized_with_authority, check_stake_valid_delegation};
+use crate::checks::{
+    check_stake_is_initialized_with_withdrawer_authority, check_stake_valid_delegation,
+};
 use crate::constants::BONDS_AUTHORITY_SEED;
 use crate::error::ErrorCode;
 use crate::events::settlement::CloseSettlementEvent;
@@ -9,14 +11,8 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_spl::stake::{withdraw, Stake, StakeAccount, Withdraw};
 
-#[derive(AnchorDeserialize, AnchorSerialize)]
-pub struct CloseSettlementArgs {
-    pub merkle_root: [u8; 32],
-}
-
 /// Closes the settlement account, whoever can close it when the epoch expires
 #[derive(Accounts)]
-#[instruction(params: CloseSettlementArgs)]
 pub struct CloseSettlement<'info> {
     #[account()]
     config: Account<'info, Config>,
@@ -43,7 +39,8 @@ pub struct CloseSettlement<'info> {
         seeds = [
             b"settlement_account",
             bond.key().as_ref(),
-            params.merkle_root.as_ref(),
+            settlement.merkle_root.as_ref(),
+            settlement.epoch_created_at.to_le_bytes().as_ref(),
         ],
         bump = settlement.bumps.pda,
     )]
@@ -84,14 +81,14 @@ impl<'info> CloseSettlement<'info> {
     pub fn process(&mut self) -> Result<()> {
         if self.settlement.split_rent_collector.is_some() {
             // stake account is managed by bonds program
-            let stake_meta = check_stake_is_initialized_with_authority(
+            let stake_meta = check_stake_is_initialized_with_withdrawer_authority(
                 &self.stake_account,
                 &self.bonds_withdrawer_authority.key(),
                 "stake_account",
             )?;
             // stake account is delegated (deposited by) the bond validator
             check_stake_valid_delegation(&self.stake_account, &self.bond.validator_vote_account)?;
-            // provided stake account must be funded
+            // provided stake account must be funded; staker == settlement staker authority
             require_keys_eq!(
                 stake_meta.authorized.staker,
                 self.settlement.settlement_authority,
