@@ -5,7 +5,6 @@ import {
   ValidatorBondsProgram,
   bondAddress,
   findBonds,
-  findConfigs,
   getBond,
   initBondInstruction,
 } from '../../src'
@@ -16,6 +15,7 @@ import { signer } from '../utils/helpers'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
 import { ExtendedProvider } from '../utils/provider'
 import { createVoteAccount } from '../utils/staking'
+import { AnchorProvider } from '@coral-xyz/anchor'
 
 describe('Validator Bonds init bond', () => {
   let provider: ExtendedProvider
@@ -27,13 +27,7 @@ describe('Validator Bonds init bond', () => {
   })
 
   afterAll(async () => {
-    // Not clear behavior of the removeEventListener causes that jest fails time to time
-    // with "Jest has detected the following 1 open handle potentially keeping Jest from exiting"
-    // Solution 1: hard call to close the WS connection
-    //   await (provider.connection as unknown as any)._rpcWebSocket.close()
-    // Solution 2: wait for timeout 500 ms defined in @solana/web3.js to close the WS connection
-    //  when the WS connection is only closed then
-    //  see https://github.com/solana-labs/solana-web3.js/blob/v1.87.3/packages/library-legacy/src/connection.ts#L6043-L6046
+    // workaround: "Jest has detected the following 1 open handle", see `initConfig.spec.ts`
     await new Promise(resolve => setTimeout(resolve, 500))
   })
 
@@ -84,7 +78,7 @@ describe('Validator Bonds init bond', () => {
     expect(bondData.authority).toEqual(bondAuthority)
     expect(bondData.bump).toEqual(bondBump)
     expect(bondData.config).toEqual(configAccount)
-    expect(bondData.revenueShare).toEqual(22)
+    expect(bondData.revenueShare).toEqual({ hundredthBps: 22 })
     expect(bondData.validatorVoteAccount).toEqual(validatorVoteAccount)
 
     // Ensure the event listener was called
@@ -92,49 +86,70 @@ describe('Validator Bonds init bond', () => {
       expect(e.authority).toEqual(bondAuthority)
       expect(e.bondBump).toEqual(bondBump)
       expect(e.configAddress).toEqual(configAccount)
-      expect(e.revenueShare).toEqual(22)
+      expect(e.revenueShare).toEqual({ hundredthBps: 22 })
       expect(e.validatorVoteAccount).toEqual(validatorVoteAccount)
       expect(e.validatorVoteWithdrawer).toEqual(authorizedWithdrawer.publicKey)
     })
   })
 
   it('find bonds', async () => {
-    const adminAuthority = Keypair.generate().publicKey
-    const operatorAuthority = Keypair.generate().publicKey
+    const bondAuthority = Keypair.generate().publicKey
 
     const tx = await transaction(provider)
-    const signers: (Signer | Wallet)[] = [provider.wallet]
+    const signers: (Signer | Wallet)[] = [
+      (provider as unknown as AnchorProvider).wallet,
+    ]
 
-    const numberOfConfigs = 17
-    for (let i = 1; i <= numberOfConfigs; i++) {
-      const { configAccount, instruction } = await initBondInstruction({
+    const numberOfBonds = 24
+
+    const voteAccounts: [PublicKey, Keypair][] = []
+    for (let i = 1; i <= numberOfBonds; i++) {
+      const { voteAccount: validatorVoteAccount, authorizedWithdrawer } =
+        await createVoteAccount(provider)
+      voteAccounts.push([validatorVoteAccount, authorizedWithdrawer])
+      signers.push(signer(authorizedWithdrawer))
+    }
+
+    for (let i = 1; i <= numberOfBonds; i++) {
+      const [validatorVoteAccount, validatorVoteWithdrawer] =
+        voteAccounts[i - 1]
+      const { instruction } = await initBondInstruction({
         program,
-        adminAuthority,
-        operatorAuthority,
-        epochsToClaimSettlement: i,
-        withdrawLockupEpochs: i + 1,
+        configAccount,
+        bondAuthority: bondAuthority,
+        revenueShareHundredthBps: 100,
+        validatorVoteAccount,
+        validatorVoteWithdrawer,
       })
       tx.add(instruction)
-      signers.push(signer(configAccount))
     }
     await splitAndExecuteTx({
       connection: provider.connection,
       transaction: tx,
       signers,
-      errMessage: 'Failed to init configs',
+      errMessage: 'Failed to init bonds',
     })
 
-    let configDataFromList = await findConfigs({ program, adminAuthority })
-    expect(configDataFromList.length).toEqual(numberOfConfigs)
+    let bondDataFromList = await findBonds({ program, bondAuthority })
+    expect(bondDataFromList.length).toEqual(numberOfBonds)
 
-    configDataFromList = await findConfigs({ program, operatorAuthority })
-    expect(configDataFromList.length).toEqual(numberOfConfigs)
+    bondDataFromList = await findBonds({ program, config: configAccount })
+    expect(bondDataFromList.length).toEqual(numberOfBonds)
 
-    configDataFromList = await findConfigs({
+    for (let i = 1; i <= numberOfBonds; i++) {
+      const [validatorVoteAccount] = voteAccounts[i - 1]
+      bondDataFromList = await findBonds({
+        program,
+        validatorVoteAccount,
+      })
+      expect(bondDataFromList.length).toEqual(1)
+    }
+
+    bondDataFromList = await findBonds({
       program,
-      adminAuthority,
-      operatorAuthority,
+      bondAuthority,
+      config: configAccount,
     })
-    expect(configDataFromList.length).toEqual(numberOfConfigs)
+    expect(bondDataFromList.length).toEqual(numberOfBonds)
   })
 })

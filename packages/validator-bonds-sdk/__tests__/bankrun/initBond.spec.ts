@@ -58,7 +58,7 @@ describe('Validator Bonds init bond account', () => {
       validatorVoteWithdrawer: authorizedWithdrawer.publicKey,
       rentPayer: rentWallet.publicKey,
     })
-    await provider.sendIx([provider.wallet, authorizedWithdrawer], instruction)
+    await provider.sendIx([rentWallet, authorizedWithdrawer], instruction)
 
     const rentWalletInfo = await provider.connection.getAccountInfo(
       rentWallet.publicKey
