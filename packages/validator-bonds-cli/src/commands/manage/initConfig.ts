@@ -64,8 +64,8 @@ export function installInitConfig(program: Command) {
       }) => {
         await manageInitConfig({
           address: await address,
-          adminAuthority: await admin,
-          operatorAuthority: await operator,
+          admin: await admin,
+          operator: await operator,
           rentPayer: await rentPayer,
           epochsToClaimSettlement,
           withdrawLockupEpochs,
@@ -76,15 +76,15 @@ export function installInitConfig(program: Command) {
 
 async function manageInitConfig({
   address = Keypair.generate(),
-  adminAuthority,
-  operatorAuthority,
+  admin,
+  operator,
   rentPayer,
   epochsToClaimSettlement,
   withdrawLockupEpochs,
 }: {
   address?: Keypair
-  adminAuthority?: PublicKey
-  operatorAuthority?: PublicKey
+  admin?: PublicKey
+  operator?: PublicKey
   rentPayer?: PublicKey | Keypair
   epochsToClaimSettlement: number
   withdrawLockupEpochs: number
@@ -101,14 +101,14 @@ async function manageInitConfig({
     rentPayer = rentPayer.publicKey
   }
 
-  adminAuthority = adminAuthority || wallet.publicKey
-  operatorAuthority = operatorAuthority || adminAuthority
+  admin = admin || wallet.publicKey
+  operator = operator || admin
 
   const { instruction } = await initConfigInstruction({
     configAccount: address.publicKey,
     program,
-    adminAuthority,
-    operatorAuthority,
+    admin,
+    operator,
     epochsToClaimSettlement,
     withdrawLockupEpochs,
     rentPayer,

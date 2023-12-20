@@ -93,9 +93,8 @@ export type ConfigureBondEvent =
 export const CLOSE_BOND_EVENT = 'CloseBondEvent'
 export type CloseBondEvent = IdlEvents<ValidatorBonds>[typeof CLOSE_BOND_EVENT]
 
-export const DEPOSIT_BOND_EVENT = 'DepositBondEvent'
-export type DepositBondEvent =
-  IdlEvents<ValidatorBonds>[typeof DEPOSIT_BOND_EVENT]
+export const FUND_BOND_EVENT = 'FundBondEvent'
+export type FundBondEvent = IdlEvents<ValidatorBonds>[typeof FUND_BOND_EVENT]
 
 export const CONFIGURE_CONFIG_EVENT = 'ConfigureConfigEvent'
 export type ConfigureConfigEvent =
@@ -127,8 +126,9 @@ export const CANCEL_WITHDRAW_REQUEST_EVENT = 'CancelWithdrawRequestEvent'
 export type CancelWithdrawRequestEvent =
   IdlEvents<ValidatorBonds>[typeof CANCEL_WITHDRAW_REQUEST_EVENT]
 
-export const WITHDRAW_EVENT = 'WithdrawEvent'
-export type WithdrawEvent = IdlEvents<ValidatorBonds>[typeof WITHDRAW_EVENT]
+export const CLAIM_WITHDRAW_REQUEST_EVENT = 'ClaimWithdrawRequestEvent'
+export type ClaimWithdrawRequestEvent =
+  IdlEvents<ValidatorBonds>[typeof CLAIM_WITHDRAW_REQUEST_EVENT]
 
 export const Errors = parseIdlErrors(generated.IDL)
 

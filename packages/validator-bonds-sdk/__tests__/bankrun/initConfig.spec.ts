@@ -12,7 +12,12 @@ describe('Validator Bonds config account tests', () => {
 
   it('init config', async () => {
     const { configAccount, adminAuthority, operatorAuthority } =
-      await executeInitConfigInstruction(program, provider, 1, 2)
+      await executeInitConfigInstruction({
+        program,
+        provider,
+        epochsToClaimSettlement: 1,
+        withdrawLockupEpochs: 2,
+      })
 
     const configData = await getConfig(program, configAccount)
     expect(configData.adminAuthority).toEqual(adminAuthority.publicKey)

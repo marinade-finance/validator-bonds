@@ -130,3 +130,7 @@ export function signerWithPubkey(
   }
   return [key, key.publicKey]
 }
+
+export const sleep = async (ms: number) => {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}

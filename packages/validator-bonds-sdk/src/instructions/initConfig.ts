@@ -14,8 +14,8 @@ import { walletPubkey } from '../utils'
  * @type {Object} args - Arguments on instruction creation
  * @param param {ValidatorBondsProgram} args.program - anchor program instance
  * @param param {PublicKey} args.configAccount - new config account address [SIGNER] (when not provided, it will be generated)
- * @param param {PublicKey} args.adminAuthority - admin authority (default: provider wallet address)
- * @param param {PublicKey} args.operatorAuthority - operator authority (default: adminAuthority)
+ * @param param {PublicKey} args.admin - admin authority (default: provider wallet address)
+ * @param param {PublicKey} args.operator - operator authority (default: adminAuthority)
  * @param param {PublicKey} args.rentPayer - rent exception payer [SIGNER] (default: provider wallet address)
  * @param param {PublicKey} args.claimSettlementAfterEpochs - number of epochs after which claim can be settled (default: 0)
  * @param param {PublicKey} args.withdrawLockupEpochs - number of epochs after which withdraw can be executed (default: 0)
@@ -26,16 +26,16 @@ import { walletPubkey } from '../utils'
 export async function initConfigInstruction({
   program,
   configAccount = Keypair.generate(),
-  adminAuthority = walletPubkey(program),
-  operatorAuthority = adminAuthority,
+  admin = walletPubkey(program),
+  operator = admin,
   rentPayer = walletPubkey(program),
   epochsToClaimSettlement = 0,
   withdrawLockupEpochs = 0,
 }: {
   program: ValidatorBondsProgram
   configAccount?: PublicKey | Keypair | Signer // signer
-  adminAuthority?: PublicKey
-  operatorAuthority?: PublicKey
+  admin?: PublicKey
+  operator?: PublicKey
   rentPayer?: PublicKey | Keypair | Signer // signer
   epochsToClaimSettlement?: BN | number
   withdrawLockupEpochs?: BN | number
@@ -48,8 +48,8 @@ export async function initConfigInstruction({
 
   const instruction = await program.methods
     .initConfig({
-      adminAuthority,
-      operatorAuthority,
+      adminAuthority: admin,
+      operatorAuthority: operator,
       epochsToClaimSettlement: new BN(epochsToClaimSettlement),
       withdrawLockupEpochs: new BN(withdrawLockupEpochs),
     })

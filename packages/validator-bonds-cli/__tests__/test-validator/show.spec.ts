@@ -27,13 +27,13 @@ describe('Show command using CLI', () => {
 
   it('show config', async () => {
     const tx = await transaction(provider)
-    const adminAuthority = Keypair.generate().publicKey
-    const operatorAuthority = Keypair.generate().publicKey
+    const admin = Keypair.generate().publicKey
+    const operator = Keypair.generate().publicKey
     const { instruction: initConfigIx, configAccount } =
       await initConfigInstruction({
         program,
-        adminAuthority,
-        operatorAuthority,
+        admin,
+        operator,
         epochsToClaimSettlement: 101,
         withdrawLockupEpochs: 102,
       })
@@ -73,8 +73,8 @@ describe('Show command using CLI', () => {
         programId: program.programId,
         publicKey: configPubkey.toBase58(),
         account: {
-          adminAuthority: adminAuthority.toBase58(),
-          operatorAuthority: operatorAuthority.toBase58(),
+          adminAuthority: admin.toBase58(),
+          operatorAuthority: operator.toBase58(),
           epochsToClaimSettlement: 101,
           withdrawLockupEpochs: 102,
           minimumStakeLamports: LAMPORTS_PER_SOL,
@@ -96,7 +96,7 @@ describe('Show command using CLI', () => {
           program.programId.toBase58(),
           'show-config',
           '--admin',
-          adminAuthority.toBase58(),
+          admin.toBase58(),
           '-f',
           'yaml',
         ],
@@ -111,8 +111,8 @@ describe('Show command using CLI', () => {
           programId: program.programId,
           publicKey: configPubkey.toBase58(),
           account: {
-            adminAuthority: adminAuthority.toBase58(),
-            operatorAuthority: operatorAuthority.toBase58(),
+            adminAuthority: admin.toBase58(),
+            operatorAuthority: operator.toBase58(),
             epochsToClaimSettlement: 101,
             withdrawLockupEpochs: 102,
             minimumStakeLamports: LAMPORTS_PER_SOL,
@@ -161,7 +161,7 @@ describe('Show command using CLI', () => {
           program.programId.toBase58(),
           'show-config',
           '--operator',
-          operatorAuthority.toBase58(),
+          operator.toBase58(),
           '-f',
           'yaml',
         ],
@@ -176,8 +176,8 @@ describe('Show command using CLI', () => {
           programId: program.programId,
           publicKey: configPubkey.toBase58(),
           account: {
-            adminAuthority: adminAuthority.toBase58(),
-            operatorAuthority: operatorAuthority.toBase58(),
+            adminAuthority: admin.toBase58(),
+            operatorAuthority: operator.toBase58(),
             epochsToClaimSettlement: 101,
             withdrawLockupEpochs: 102,
             minimumStakeLamports: LAMPORTS_PER_SOL,

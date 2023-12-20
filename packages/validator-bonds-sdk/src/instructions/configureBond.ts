@@ -15,16 +15,16 @@ export async function configureBondInstruction({
   validatorVoteAccount,
   bondAccount,
   authority = walletPubkey(program),
-  bondAuthority,
-  revenueShare,
+  newAuthority,
+  newRevenueShare,
 }: {
   program: ValidatorBondsProgram
   configAccount?: PublicKey
   validatorVoteAccount?: PublicKey
   bondAccount?: PublicKey
   authority?: PublicKey | Keypair | Signer // signer
-  bondAuthority?: PublicKey
-  revenueShare?: BN | number
+  newAuthority?: PublicKey
+  newRevenueShare?: BN | number
 }): Promise<{
   instruction: TransactionInstruction
 }> {
@@ -38,17 +38,22 @@ export async function configureBondInstruction({
     const bondData = await getBond(program, bondAccount)
     validatorVoteAccount = bondData.validatorVoteAccount
   }
-  if (revenueShare !== undefined) {
-    revenueShare =
-      revenueShare instanceof BN ? revenueShare.toNumber() : revenueShare
-  }
   authority = authority instanceof PublicKey ? authority : authority.publicKey
+
+  if (newRevenueShare !== undefined) {
+    newRevenueShare =
+      newRevenueShare instanceof BN
+        ? newRevenueShare.toNumber()
+        : newRevenueShare
+  }
 
   const instruction = await program.methods
     .configureBond({
-      bondAuthority: bondAuthority === undefined ? null : bondAuthority,
+      bondAuthority: newAuthority === undefined ? null : newAuthority,
       revenueShare:
-        revenueShare === undefined ? null : { hundredthBps: revenueShare },
+        newRevenueShare === undefined
+          ? null
+          : { hundredthBps: newRevenueShare },
     })
     .accounts({
       bond: bondAccount,

@@ -3,6 +3,7 @@ import {
   PublicKey,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   Signer,
+  StakeProgram,
   TransactionInstruction,
 } from '@solana/web3.js'
 import {
@@ -111,6 +112,7 @@ export async function claimWithdrawRequestInstruction({
       splitStakeAccount: splitStakeAccount.publicKey,
       splitStakeRentPayer,
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
+      stakeProgram: StakeProgram.programId,
     })
     .instruction()
   return {

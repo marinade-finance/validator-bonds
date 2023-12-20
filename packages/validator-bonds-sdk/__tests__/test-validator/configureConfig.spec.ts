@@ -30,7 +30,12 @@ describe('Validator Bonds configure config', () => {
 
   beforeEach(async () => {
     const { configAccount, adminAuthority: adminAuth } =
-      await executeInitConfigInstruction(program, provider, 1, 2)
+      await executeInitConfigInstruction({
+        program,
+        provider,
+        epochsToClaimSettlement: 1,
+        withdrawLockupEpochs: 2,
+      })
     configInitialized = {
       publicKey: configAccount,
       account: await getConfig(program, configAccount),
@@ -62,11 +67,11 @@ describe('Validator Bonds configure config', () => {
       program,
       configAccount: configInitialized.publicKey,
       adminAuthority,
-      operator: newOperatorAuthority,
-      admin: newAdminAuthority.publicKey,
-      epochsToClaimSettlement: 100,
-      withdrawLockupEpochs: 103,
-      minimumStakeLamports: 1001,
+      newOperator: newOperatorAuthority,
+      newAdmin: newAdminAuthority.publicKey,
+      newEpochsToClaimSettlement: 100,
+      newWithdrawLockupEpochs: 103,
+      newMinimumStakeLamports: 1001,
     })
     tx.add(instruction)
     await executeTxSimple(provider.connection, tx, [

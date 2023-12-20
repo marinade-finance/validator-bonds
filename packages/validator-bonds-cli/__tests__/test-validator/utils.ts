@@ -4,6 +4,8 @@ import {
   ValidatorBondsProgram,
   getProgram,
 } from '@marinade.finance/validator-bonds-sdk'
+import { createTempFileKeypair } from '@marinade.finance/web3js-common'
+import { Keypair, LAMPORTS_PER_SOL, SystemProgram, Transaction } from '@solana/web3.js'
 
 export async function initTest(): Promise<{
   program: ValidatorBondsProgram
@@ -16,4 +18,29 @@ export async function initTest(): Promise<{
   const provider = AnchorProvider.env() as anchor.AnchorProvider
   provider.opts.skipPreflight = true
   return { program: getProgram(provider), provider }
+}
+
+export async function getRentPayer(provider: AnchorExtendedProvider) : Promise<{
+path: string
+cleanup: () => Promise<void>
+keypair: Keypair
+}> {
+  const {
+    keypair: rentPayerKeypair,
+    path: rentPayerPath,
+    cleanup: cleanupRentPayer,
+  } = await createTempFileKeypair()
+  const rentPayerFunds = 10 * LAMPORTS_PER_SOL
+  const tx = new Transaction().add(
+    SystemProgram.transfer({
+      fromPubkey: provider.walletPubkey,
+      toPubkey: rentPayerKeypair.publicKey,
+      lamports: rentPayerFunds,
+    })
+  )
+  await provider.sendAndConfirm!(tx)
+  await expect(
+    provider.connection.getBalance(rentPayerKeypair.publicKey)
+  ).resolves.toStrictEqual(rentPayerFunds)
+  return { rentPayerKeypair, rentPayerPath, cleanupRentPayer }
 }

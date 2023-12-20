@@ -32,9 +32,8 @@ program
   )
   .option(
     '--program-id <pubkey>',
-    `Program id of directed stake contract (default: ${VALIDATOR_BONDS_PROGRAM_ID})`,
-    parsePubkey,
-    Promise.resolve(VALIDATOR_BONDS_PROGRAM_ID)
+    `Program id of validator bonds contract (default: ${VALIDATOR_BONDS_PROGRAM_ID})`,
+    parsePubkey
   )
   .option('-s, --simulate', 'Simulate', false)
   .option(

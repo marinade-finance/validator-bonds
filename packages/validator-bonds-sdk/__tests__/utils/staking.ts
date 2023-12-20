@@ -10,6 +10,8 @@ import {
   SystemProgram,
   VoteProgram,
   TransactionInstruction,
+  Transaction,
+  StakeAuthorizationLayout,
 } from '@solana/web3.js'
 import { ExtendedProvider } from './provider'
 import {
@@ -17,6 +19,7 @@ import {
   STAKE_STATE_BORSH_SCHEMA,
 } from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
 import assert from 'assert'
+import { pubkey } from './helpers'
 
 // Depending if new vote account feature-set is gated on.
 // It can be 3762 or 3736
@@ -177,14 +180,16 @@ export type VoteAccountKeys = {
 
 export async function createVoteAccount(
   provider: ExtendedProvider,
-  rentExempt?: number
+  rentExempt?: number,
+  authorizedVoter?: Keypair,
+  authorizedWithdrawer?: Keypair
 ): Promise<VoteAccountKeys> {
   rentExempt = await getRentExemptVote(provider, rentExempt)
 
   const voteAccount = Keypair.generate()
   const nodeIdentity = Keypair.generate()
-  const authorizedVoter = Keypair.generate()
-  const authorizedWithdrawer = Keypair.generate()
+  authorizedVoter = authorizedVoter || Keypair.generate()
+  authorizedWithdrawer = authorizedWithdrawer || Keypair.generate()
 
   const ixCreate = SystemProgram.createAccount({
     fromPubkey: provider.walletPubkey,
@@ -213,6 +218,43 @@ export async function createVoteAccount(
   }
 }
 
+export async function authorizeStakeAccount({
+  provider,
+  stakeAccount,
+  authority,
+  staker,
+  withdrawer,
+}: {
+  provider: ExtendedProvider
+  stakeAccount: PublicKey
+  authority: Keypair
+  staker?: PublicKey
+  withdrawer?: PublicKey
+}) {
+  const ixes: Transaction[] = []
+  if (staker) {
+    const ix = StakeProgram.authorize({
+      stakePubkey: stakeAccount,
+      authorizedPubkey: authority.publicKey,
+      newAuthorizedPubkey: staker,
+      stakeAuthorizationType: StakeAuthorizationLayout.Staker,
+      custodianPubkey: undefined,
+    })
+    ixes.push(ix)
+  }
+  if (withdrawer) {
+    const ix = StakeProgram.authorize({
+      stakePubkey: stakeAccount,
+      authorizedPubkey: authority.publicKey,
+      newAuthorizedPubkey: withdrawer,
+      stakeAuthorizationType: StakeAuthorizationLayout.Withdrawer,
+      custodianPubkey: undefined,
+    })
+    ixes.push(ix)
+  }
+  await provider.sendIx([authority], ...ixes)
+}
+
 type DelegatedStakeAccount = {
   stakeAccount: PublicKey
   voteAccount: PublicKey
@@ -238,25 +280,32 @@ export async function delegatedStakeAccount({
   withdrawer?: Keypair
 }): Promise<DelegatedStakeAccount> {
   const stakeAccount = Keypair.generate()
-  lamports = await getRentExemptStake(provider, lamports)
+  lamports = lamports || (await getRentExemptStake(provider, lamports))
   rentExemptVote = await getRentExemptVote(provider, rentExemptVote)
 
-  const createIx = StakeProgram.createAccount({
+  voteAccountToDelegate =
+    voteAccountToDelegate ||
+    (await createVoteAccount(provider, rentExemptVote)).voteAccount
+
+  const createStakeAccountIx = StakeProgram.createAccount({
     fromPubkey: provider.walletPubkey,
     stakePubkey: stakeAccount.publicKey,
     authorized: new Authorized(staker.publicKey, withdrawer.publicKey),
     lamports,
     lockup,
   })
-  voteAccountToDelegate =
-    voteAccountToDelegate ||
-    (await createVoteAccount(provider, rentExemptVote)).voteAccount
-  const delegateIx = StakeProgram.delegate({
+  // error 0xc on 'Instruction 2' means not enough SOL to delegate the account
+  // lamports param has to be rentExempt + 1 SOL in new Solana versions
+  const delegateStakeAccountIx = StakeProgram.delegate({
     stakePubkey: stakeAccount.publicKey,
     authorizedPubkey: staker.publicKey,
     votePubkey: voteAccountToDelegate,
   })
-  await provider.sendIx([stakeAccount, staker], createIx, delegateIx)
+  await provider.sendIx(
+    [stakeAccount, staker],
+    createStakeAccountIx,
+    delegateStakeAccountIx
+  )
 
   return {
     stakeAccount: stakeAccount.publicKey,
@@ -284,16 +333,16 @@ export async function nonInitializedStakeAccount(
 
 type InitializedStakeAccount = {
   stakeAccount: PublicKey
-  staker: PublicKey
-  withdrawer: PublicKey
+  staker: Keypair | PublicKey
+  withdrawer: Keypair | PublicKey
 }
 
 export async function initializedStakeAccount(
   provider: ExtendedProvider,
   lockup?: Lockup,
   rentExempt?: number,
-  staker: PublicKey = Keypair.generate().publicKey,
-  withdrawer: PublicKey = Keypair.generate().publicKey
+  staker: Keypair | PublicKey = Keypair.generate(),
+  withdrawer: Keypair | PublicKey = Keypair.generate()
 ): Promise<InitializedStakeAccount> {
   const stakeAccount = Keypair.generate()
   rentExempt = await getRentExemptStake(provider, rentExempt)
@@ -301,7 +350,7 @@ export async function initializedStakeAccount(
   const ix = StakeProgram.createAccount({
     fromPubkey: provider.walletPubkey,
     stakePubkey: stakeAccount.publicKey,
-    authorized: new Authorized(staker, withdrawer),
+    authorized: new Authorized(pubkey(staker), pubkey(withdrawer)),
     lamports: rentExempt,
     lockup,
   })

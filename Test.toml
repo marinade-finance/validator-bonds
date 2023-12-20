@@ -2,3 +2,6 @@
 # recursive call: pnpm test -> anchor test -> pnpm _test
 # using solana-bankrun for testing (--runInBand is needed, see https://github.com/kevinheavey/solana-bankrun/issues/2)
 test = "pnpm _test"
+
+[test.validator]
+slots_per_epoch = "32"

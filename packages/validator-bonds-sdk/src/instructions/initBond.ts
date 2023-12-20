@@ -19,10 +19,10 @@ export async function initBondInstruction({
 }: {
   program: ValidatorBondsProgram
   configAccount?: PublicKey
+  bondAuthority?: PublicKey
   validatorVoteAccount: PublicKey
   validatorVoteWithdrawer?: PublicKey | Keypair | Signer // signer
   rentPayer?: PublicKey | Keypair | Signer // signer
-  bondAuthority?: PublicKey
   revenueShareHundredthBps: BN | number
 }): Promise<{
   instruction: TransactionInstruction

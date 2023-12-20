@@ -32,7 +32,12 @@ describe('Validator Bonds configure config tests', () => {
       configAccount,
       adminAuthority: adminAuth,
       operatorAuthority: operatorAuth,
-    } = await executeInitConfigInstruction(program, provider, 1, 2)
+    } = await executeInitConfigInstruction({
+      program,
+      provider,
+      epochsToClaimSettlement: 1,
+      withdrawLockupEpochs: 2,
+    })
     configInitialized = {
       publicKey: configAccount,
       account: await getConfig(program, configAccount),
@@ -52,8 +57,8 @@ describe('Validator Bonds configure config tests', () => {
       program,
       configAccount: configInitialized.publicKey,
       adminAuthority: configInitialized.account.adminAuthority,
-      epochsToClaimSettlement: 3,
-      admin: newAdminAuthority.publicKey,
+      newEpochsToClaimSettlement: 3,
+      newAdmin: newAdminAuthority.publicKey,
     })
     await bankrunExecuteIx(
       provider,
@@ -73,9 +78,9 @@ describe('Validator Bonds configure config tests', () => {
     const { instruction: instruction2 } = await configureConfigInstruction({
       program,
       configAccount: configInitialized.publicKey,
-      epochsToClaimSettlement: 3,
-      withdrawLockupEpochs: 4,
-      operator: PublicKey.default,
+      newEpochsToClaimSettlement: 3,
+      newWithdrawLockupEpochs: 4,
+      newOperator: PublicKey.default,
     })
     await bankrunExecuteIx(
       provider,
@@ -107,6 +112,7 @@ describe('Validator Bonds configure config tests', () => {
         [provider.wallet, operatorAuthority],
         txOperator
       )
+      throw new Error('failure expected as wrong admin')
     } catch (e) {
       checkAnchorErrorMessage(e, 6001, 'requires admin authority')
     }
@@ -120,7 +126,7 @@ describe('Validator Bonds configure config tests', () => {
       program,
       adminAuthority,
       configAccount: configInitialized.publicKey,
-      withdrawLockupEpochs: 42,
+      newWithdrawLockupEpochs: 42,
     })
     tx.add(instruction)
     provider.wallet.signTransaction(tx)

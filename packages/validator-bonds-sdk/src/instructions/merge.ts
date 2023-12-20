@@ -1,10 +1,14 @@
-import { PublicKey, TransactionInstruction } from '@solana/web3.js'
+import {
+  PublicKey,
+  SYSVAR_STAKE_HISTORY_PUBKEY,
+  StakeProgram,
+  TransactionInstruction,
+} from '@solana/web3.js'
 import {
   CONFIG_ADDRESS,
   ValidatorBondsProgram,
   withdrawerAuthority,
 } from '../sdk'
-import { getStakeAccount } from '../stakeAccount'
 
 export async function mergeInstruction({
   program,
@@ -26,27 +30,7 @@ export async function mergeInstruction({
   //       stake account staker authority can be either bond managed or settlement managed
   //       it would be good to check settlements automatically by searching all settlements of the bond and validator
   //       and make sdk to find the right settlement to use when the settlement pubkey is not provided as param
-
-  const [bondsAuthority] = withdrawerAuthority(configAccount)
-
-  // TODO: do we want to do double-checking at this level or leave it to the program?
-  const sourceStakeData = await getStakeAccount(program, sourceStakeAccount)
-  const destinationStakeData = await getStakeAccount(
-    program,
-    destinationStakeAccount,
-    sourceStakeData.currentEpoch
-  )
-  if (
-    !sourceStakeData.staker ||
-    !sourceStakeData.staker.equals(bondsAuthority) ||
-    !destinationStakeData.staker ||
-    !destinationStakeData.staker.equals(bondsAuthority)
-  ) {
-    throw new Error(
-      `Source ${sourceStakeAccount.toBase58()} and/or destination ${destinationStakeAccount.toBase58()} ` +
-        'stake account is not managed by the bonds program'
-    )
-  }
+  const [bondsWithdrawerAuthority] = withdrawerAuthority(configAccount)
 
   const instruction = await program.methods
     .merge({
@@ -56,7 +40,9 @@ export async function mergeInstruction({
       config: configAccount,
       sourceStake: sourceStakeAccount,
       destinationStake: destinationStakeAccount,
-      stakerAuthority: bondsAuthority,
+      stakerAuthority: bondsWithdrawerAuthority,
+      stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
+      stakeProgram: StakeProgram.programId,
     })
     .instruction()
 

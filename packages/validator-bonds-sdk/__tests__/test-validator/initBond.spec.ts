@@ -32,7 +32,10 @@ describe('Validator Bonds init bond', () => {
   })
 
   beforeEach(async () => {
-    ;({ configAccount } = await executeInitConfigInstruction(program, provider))
+    ;({ configAccount } = await executeInitConfigInstruction({
+      program,
+      provider,
+    }))
   })
 
   it('init bond', async () => {

@@ -203,16 +203,16 @@ describe('Solana stake account behavior verification', () => {
       provider,
       new Lockup(0, stakeAccount1Epoch, PublicKey.default),
       rentExemptStake,
-      staker.publicKey,
-      withdrawer.publicKey
+      staker,
+      withdrawer
     )
     const custodian2 = Keypair.generate()
     const { stakeAccount: stakeAccount2 } = await initializedStakeAccount(
       provider,
       new Lockup(0, -1, custodian2.publicKey), // max possible epoch lockup
       rentExemptStake,
-      staker.publicKey,
-      withdrawer.publicKey
+      staker,
+      withdrawer
     )
     const mergeTx = StakeProgram.merge({
       stakePubkey: stakeAccount2,
@@ -328,8 +328,8 @@ describe('Solana stake account behavior verification', () => {
         provider,
         new Lockup(0, 0, PublicKey.default),
         rentExemptStake,
-        staker.publicKey,
-        withdrawer.publicKey
+        staker,
+        withdrawer
       )
     // merging stakeAccountInactive -> stakeAccount2
     const mergeTxInactive = StakeProgram.merge({
@@ -357,15 +357,15 @@ describe('Solana stake account behavior verification', () => {
       provider,
       lockup,
       rentExemptStake,
-      staker.publicKey,
-      withdrawer.publicKey
+      staker,
+      withdrawer
     )
     const { stakeAccount: stakeAccount2 } = await initializedStakeAccount(
       provider,
       lockup,
       rentExemptStake,
-      staker.publicKey,
-      withdrawer.publicKey
+      staker,
+      withdrawer
     )
 
     console.log('1. AUTHORIZE STAKER is possible when lockup is running')

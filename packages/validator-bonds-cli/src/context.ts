@@ -1,6 +1,6 @@
 import { Connection, Keypair, PublicKey } from '@solana/web3.js'
 import { Logger } from 'pino'
-import { Provider, Wallet } from '@coral-xyz/anchor'
+import { AnchorProvider, Provider, Wallet } from '@coral-xyz/anchor'
 import {
   Context,
   getClusterUrl,
@@ -11,15 +11,15 @@ import {
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import {
   ValidatorBondsProgram,
-  getProgram,
+  getProgram as getValidatorBondsProgram,
 } from '@marinade.finance/validator-bonds-sdk'
 
 export class ValidatorBondsCliContext extends Context {
-  readonly program: ValidatorBondsProgram
+  private bondsProgramId?: PublicKey
   readonly provider: Provider
 
   constructor({
-    program,
+    programId,
     provider,
     wallet,
     logger,
@@ -28,7 +28,7 @@ export class ValidatorBondsCliContext extends Context {
     printOnly,
     commandName,
   }: {
-    program: ValidatorBondsProgram
+    programId?: PublicKey
     provider: Provider
     wallet: WalletInterface
     logger: Logger
@@ -39,7 +39,22 @@ export class ValidatorBondsCliContext extends Context {
   }) {
     super({ wallet, logger, skipPreflight, simulate, printOnly, commandName })
     this.provider = provider
-    this.program = program
+    this.bondsProgramId = programId
+  }
+
+  set programId(programId: PublicKey | undefined) {
+    this.bondsProgramId = programId
+  }
+
+  get programId(): PublicKey | undefined {
+    return this.bondsProgramId
+  }
+
+  get program(): ValidatorBondsProgram {
+    return getValidatorBondsProgram({
+      connection: this.provider,
+      programId: this.bondsProgramId,
+    })
   }
 }
 
@@ -56,7 +71,7 @@ export function setValidatorBondsCliContext({
 }: {
   cluster: string
   walletKeypair: Keypair
-  programId: PublicKey
+  programId?: PublicKey
   simulate: boolean
   printOnly: boolean
   skipPreflight: boolean
@@ -68,17 +83,11 @@ export function setValidatorBondsCliContext({
     const parsedCommitment = parseCommitment(commitment)
     const connection = new Connection(getClusterUrl(cluster), parsedCommitment)
     const wallet = new Wallet(walletKeypair)
-    const program = getProgram({
-      connection,
-      wallet,
-      opts: { skipPreflight },
-      programId,
-    })
-    const provider = program.provider as Provider
+    const provider = new AnchorProvider(connection, wallet, { skipPreflight })
 
     setContext(
       new ValidatorBondsCliContext({
-        program,
+        programId,
         provider,
         wallet,
         logger,
@@ -92,6 +101,27 @@ export function setValidatorBondsCliContext({
     logger.debug(e)
     throw new Error(`Failed to connect Solana cluster at ${cluster}`)
   }
+}
+
+// Configures the CLI validator bonds program id but only when it's not setup already.
+// It searches for owner of the provided account and sets the programId as its owner.
+export async function setProgramIdByOwner(
+  accountPubkey: PublicKey
+): Promise<ValidatorBondsCliContext> {
+  const cliContext = getCliContext()
+  if (cliContext.programId === undefined) {
+    const accountInfo = await cliContext.provider.connection.getAccountInfo(
+      accountPubkey
+    )
+    if (accountInfo === null) {
+      throw new Error(
+        `setProgramIdByOwner: account ${accountPubkey.toBase58()} does not exist` +
+          ` on cluster ${cliContext.provider.connection.rpcEndpoint}`
+      )
+    }
+    cliContext.programId = accountInfo.owner
+  }
+  return cliContext
 }
 
 export function getCliContext(): ValidatorBondsCliContext {

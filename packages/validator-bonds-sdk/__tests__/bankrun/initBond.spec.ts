@@ -25,12 +25,12 @@ describe('Validator Bonds init bond account', () => {
   })
 
   beforeEach(async () => {
-    const { configAccount } = await executeInitConfigInstruction(
+    const { configAccount } = await executeInitConfigInstruction({
       program,
       provider,
-      1,
-      2
-    )
+      epochsToClaimSettlement: 1,
+      withdrawLockupEpochs: 2,
+    })
     config = {
       publicKey: configAccount,
       account: await getConfig(program, configAccount),

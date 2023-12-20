@@ -27,6 +27,7 @@ pub struct Merge<'info> {
     destination_stake: Account<'info, StakeAccount>,
 
     /// CHECK: checked within the code
+    /// bonds program authority PDA address: settlement staker or bonds withdrawer
     #[account()]
     staker_authority: UncheckedAccount<'info>,
 
@@ -50,7 +51,7 @@ impl<'info> Merge<'info> {
             .meta()
             .ok_or(error!(ErrorCode::UninitializedStake).with_account_name("source_stake"))?;
 
-        // staker authorities has to match each other, verification if it belongs to bond is down in switch statement
+        // staker authorities has to match each other, intentional not permitting to pass stake account merge authority
         if destination_meta.authorized.staker != self.staker_authority.key() {
             return Err(error!(ErrorCode::StakerAuthorityMismatch)
                 .with_account_name("destination_stake")

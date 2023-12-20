@@ -1322,7 +1322,10 @@ export type ValidatorBonds = {
         {
           "name": "stakerAuthority",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "bonds program authority PDA address: settlement staker or bonds withdrawer"
+          ]
         },
         {
           "name": "stakeHistory",
@@ -4426,7 +4429,10 @@ export const IDL: ValidatorBonds = {
         {
           "name": "stakerAuthority",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "bonds program authority PDA address: settlement staker or bonds withdrawer"
+          ]
         },
         {
           "name": "stakeHistory",

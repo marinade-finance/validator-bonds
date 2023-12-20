@@ -62,8 +62,8 @@ async function parseStakeAccountData(
 
   return {
     address: address,
-    withdrawer: pubkeyOrNull(parsedData?.info?.stake?.delegation?.withdrawer),
-    staker: pubkeyOrNull(parsedData?.info?.stake?.delegation?.staker),
+    withdrawer: pubkeyOrNull(parsedData?.info?.meta?.authorized?.withdrawer),
+    staker: pubkeyOrNull(parsedData?.info?.meta?.authorized?.staker),
     voter: pubkeyOrNull(parsedData?.info?.stake?.delegation?.voter),
 
     activationEpoch,
