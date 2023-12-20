@@ -7,7 +7,6 @@ describe('Validator Bonds config account tests', () => {
   let program: ValidatorBondsProgram
 
   beforeAll(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-extra-semi
     ;({ provider, program } = await initBankrunTest())
   })
 

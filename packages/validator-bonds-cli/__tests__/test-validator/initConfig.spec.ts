@@ -26,7 +26,6 @@ describe('Init config account using CLI', () => {
   })
 
   beforeEach(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-extra-semi
     ;({
       path: configPath,
       keypair: configKeypair,

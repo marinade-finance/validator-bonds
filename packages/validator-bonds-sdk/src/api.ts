@@ -56,12 +56,12 @@ export async function findBonds({
   program,
   config,
   validatorVoteAccount,
-  authority,
+  bondAuthority,
 }: {
   program: ValidatorBondsProgram
   config?: PublicKey
   validatorVoteAccount?: PublicKey
-  authority?: PublicKey
+  bondAuthority?: PublicKey
 }): Promise<ProgramAccount<Bond>[]> {
   const filters = []
   if (config) {
@@ -82,10 +82,10 @@ export async function findBonds({
       },
     })
   }
-  if (authority) {
+  if (bondAuthority) {
     filters.push({
       memcmp: {
-        bytes: authority.toBase58(),
+        bytes: bondAuthority.toBase58(),
         // 8 anchor offset + 32B config pubkey + 32B validator vote pubkey
         offset: 72,
       },

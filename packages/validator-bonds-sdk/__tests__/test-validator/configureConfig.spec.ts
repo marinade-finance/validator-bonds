@@ -20,7 +20,6 @@ describe('Validator Bonds configure config', () => {
   let adminAuthority: Keypair
 
   beforeAll(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-extra-semi
     ;({ provider, program } = await initTest())
   })
 

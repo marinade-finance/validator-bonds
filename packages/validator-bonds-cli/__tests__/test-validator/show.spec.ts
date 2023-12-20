@@ -22,7 +22,6 @@ describe('Show command using CLI', () => {
 
   beforeAll(async () => {
     shellMatchers()
-    // eslint-disable-next-line @typescript-eslint/no-extra-semi
     ;({ provider, program } = await initTest())
   })
 

@@ -36,7 +36,6 @@ describe('Solana stake account behavior verification', () => {
   const startUpEpoch = 42
 
   beforeAll(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-extra-semi
     ;({ provider } = await initBankrunTest())
     rentExemptStake = await getRentExemptStake(provider)
     rentExemptVote = await getRentExemptVote(provider)

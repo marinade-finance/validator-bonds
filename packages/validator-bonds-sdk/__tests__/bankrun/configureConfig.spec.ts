@@ -24,7 +24,6 @@ describe('Validator Bonds configure config tests', () => {
   let operatorAuthority: Keypair
 
   beforeAll(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-extra-semi
     ;({ provider, program } = await initBankrunTest())
   })
 

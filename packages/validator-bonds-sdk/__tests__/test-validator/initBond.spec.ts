@@ -1,25 +1,26 @@
-import { Keypair, Signer } from '@solana/web3.js'
+import { Keypair, PublicKey, Signer } from '@solana/web3.js'
 import {
-  INIT_CONFIG_EVENT,
-  InitConfigEvent,
+  INIT_BOND_EVENT,
+  InitBondEvent,
   ValidatorBondsProgram,
+  bondAddress,
+  findBonds,
   findConfigs,
-  getConfig,
-  initConfigInstruction,
+  getBond,
+  initBondInstruction,
 } from '../../src'
-import { AnchorProvider } from '@coral-xyz/anchor'
 import { initTest } from './testValidator'
 import { transaction } from '@marinade.finance/anchor-common'
-import {
-  Wallet,
-  executeTxSimple,
-  splitAndExecuteTx,
-} from '@marinade.finance/web3js-common'
-import { signer, signerWithPubkey } from '../utils/helpers'
+import { Wallet, splitAndExecuteTx } from '@marinade.finance/web3js-common'
+import { signer } from '../utils/helpers'
+import { executeInitConfigInstruction } from '../utils/testTransactions'
+import { ExtendedProvider } from '../utils/provider'
+import { createVoteAccount } from '../utils/staking'
 
-describe('Validator Bonds init config', () => {
-  let provider: AnchorProvider
+describe('Validator Bonds init bond', () => {
+  let provider: ExtendedProvider
   let program: ValidatorBondsProgram
+  let configAccount: PublicKey
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
@@ -36,14 +37,14 @@ describe('Validator Bonds init config', () => {
     await new Promise(resolve => setTimeout(resolve, 500))
   })
 
-  it('init config', async () => {
-    const adminAuthority = Keypair.generate().publicKey
-    const operatorAuthority = Keypair.generate().publicKey
-    expect(adminAuthority).not.toEqual(operatorAuthority)
+  beforeEach(async () => {
+    ;({ configAccount } = await executeInitConfigInstruction(program, provider))
+  })
 
-    const event = new Promise<InitConfigEvent>(resolve => {
+  it('init bond', async () => {
+    const event = new Promise<InitBondEvent>(resolve => {
       const listener = program.addEventListener(
-        INIT_CONFIG_EVENT,
+        INIT_BOND_EVENT,
         async event => {
           await program.removeEventListener(listener)
           resolve(event)
@@ -51,44 +52,53 @@ describe('Validator Bonds init config', () => {
       )
     })
 
-    const tx = await transaction(provider)
-
-    const { configAccount, instruction } = await initConfigInstruction({
+    const { voteAccount: validatorVoteAccount, authorizedWithdrawer } =
+      await createVoteAccount(provider)
+    const bondAuthority = PublicKey.unique()
+    const { instruction, bondAccount } = await initBondInstruction({
       program,
-      adminAuthority,
-      operatorAuthority,
-      epochsToClaimSettlement: 1,
-      withdrawLockupEpochs: 2,
+      configAccount,
+      bondAuthority,
+      revenueShareHundredthBps: 22,
+      validatorVoteAccount,
+      validatorVoteWithdrawer: authorizedWithdrawer.publicKey,
     })
-    tx.add(instruction)
-    const [configSigner, configAddress] = signerWithPubkey(configAccount)
-    await executeTxSimple(provider.connection, tx, [
-      provider.wallet,
-      configSigner,
-    ])
+    await provider.sendIx([authorizedWithdrawer], instruction)
 
-    // Ensure the account was created
-    const configAccountAddress = configAddress
-    const configData = await getConfig(program, configAccountAddress)
+    const bondsDataFromList = await findBonds({
+      program,
+      config: configAccount,
+      validatorVoteAccount,
+      bondAuthority,
+    })
+    expect(bondsDataFromList.length).toEqual(1)
 
-    const configDataFromList = await findConfigs({ program, adminAuthority })
-    expect(configDataFromList.length).toEqual(1)
+    const bondData = await getBond(program, bondAccount)
 
-    expect(configData.adminAuthority).toEqual(adminAuthority)
-    expect(configData.operatorAuthority).toEqual(operatorAuthority)
-    expect(configData.epochsToClaimSettlement).toEqual(1)
-    expect(configData.withdrawLockupEpochs).toEqual(2)
+    const [bondCalculatedAddress, bondBump] = bondAddress(
+      configAccount,
+      validatorVoteAccount,
+      program.programId
+    )
+    expect(bondCalculatedAddress).toEqual(bondAccount)
+    expect(bondData.authority).toEqual(bondAuthority)
+    expect(bondData.bump).toEqual(bondBump)
+    expect(bondData.config).toEqual(configAccount)
+    expect(bondData.revenueShare).toEqual(22)
+    expect(bondData.validatorVoteAccount).toEqual(validatorVoteAccount)
 
     // Ensure the event listener was called
     await event.then(e => {
-      expect(e.adminAuthority).toEqual(adminAuthority)
-      expect(e.operatorAuthority).toEqual(operatorAuthority)
-      expect(e.epochsToClaimSettlement).toEqual(1)
-      expect(e.withdrawLockupEpochs).toEqual(2)
+      expect(e.authority).toEqual(bondAuthority)
+      expect(e.bondBump).toEqual(bondBump)
+      expect(e.configAddress).toEqual(configAccount)
+      expect(e.revenueShare).toEqual(22)
+      expect(e.validatorVoteAccount).toEqual(validatorVoteAccount)
+      expect(e.validatorVoteWithdrawer).toEqual(authorizedWithdrawer.publicKey)
     })
   })
 
-  it('find configs', async () => {
+  it('find bonds', async () => {
     const adminAuthority = Keypair.generate().publicKey
     const operatorAuthority = Keypair.generate().publicKey
 
@@ -97,7 +107,7 @@ describe('Validator Bonds init config', () => {
 
     const numberOfConfigs = 17
     for (let i = 1; i <= numberOfConfigs; i++) {
-      const { configAccount, instruction } = await initConfigInstruction({
+      const { configAccount, instruction } = await initBondInstruction({
         program,
         adminAuthority,
         operatorAuthority,

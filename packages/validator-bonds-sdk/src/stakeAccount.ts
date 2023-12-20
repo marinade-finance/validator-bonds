@@ -56,7 +56,6 @@ async function parseStakeAccountData(
     parsedData?.info?.stake?.delegation.stake ?? null
   )
   if (currentEpoch === undefined) {
-    // eslint-disable-next-line @typescript-eslint/no-extra-semi
     ;({ epoch: currentEpoch } = await connection.getEpochInfo())
   }
   const currentTimestamp = Date.now() / 1000
