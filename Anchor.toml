@@ -10,13 +10,13 @@ seeds = true
 skip-lint = false
 
 [programs.mainnet]
-validator_bonds = "vbondsKbsC4QSLQQnn6ngZvkqfywn6KgEeQbkGSpk1V"
+validator_bonds = "vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4"
 
 [programs.devnet]
-validator_bonds = "vbondsKbsC4QSLQQnn6ngZvkqfywn6KgEeQbkGSpk1V"
+validator_bonds = "vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4"
 
 [programs.localnet]
-validator_bonds = "vbondsKbsC4QSLQQnn6ngZvkqfywn6KgEeQbkGSpk1V"
+validator_bonds = "vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4"
 
 [registry]
 url = "https://api.apr.dev"
