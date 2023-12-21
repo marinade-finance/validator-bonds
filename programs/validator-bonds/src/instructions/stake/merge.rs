@@ -3,7 +3,6 @@ use crate::error::ErrorCode;
 use crate::events::stake::MergeEvent;
 use crate::state::config::{find_bonds_withdrawer_authority, Config};
 use crate::state::settlement::find_settlement_authority;
-use crate::ID;
 use anchor_lang::{
     prelude::*,
     solana_program::{program::invoke_signed, stake::instruction::merge, sysvar::stake_history},
@@ -27,10 +26,8 @@ pub struct Merge<'info> {
     #[account(mut)]
     destination_stake: Account<'info, StakeAccount>,
 
-    /// CHECK: staker authority defined here has to be owned by program, then checked within the code
-    #[account(
-        owner = ID
-    )]
+    /// CHECK: checked within the code
+    #[account()]
     staker_authority: UncheckedAccount<'info>,
 
     /// CHECK: have no CPU budget to parse
@@ -56,16 +53,16 @@ impl<'info> Merge<'info> {
         // staker authorities has to match each other, verification if it belongs to bond is down in switch statement
         if destination_meta.authorized.staker != self.staker_authority.key() {
             return Err(error!(ErrorCode::StakerAuthorityMismatch)
+                .with_account_name("destination_stake")
                 .with_pubkeys((
                     destination_meta.authorized.staker,
                     self.staker_authority.key(),
-                ))
-                .with_account_name("destination_stake"));
+                )));
         }
         if source_meta.authorized.staker != self.staker_authority.key() {
             return Err(error!(ErrorCode::StakerAuthorityMismatch)
-                .with_pubkeys((source_meta.authorized.staker, self.staker_authority.key()))
-                .with_account_name("source_stake"));
+                .with_account_name("source_stake")
+                .with_pubkeys((source_meta.authorized.staker, self.staker_authority.key())));
         }
 
         // withdrawer authorities must belongs to the bonds program (bonds program ownership)
@@ -73,13 +70,13 @@ impl<'info> Merge<'info> {
         if source_meta.authorized.withdrawer != bonds_withdrawer_authority
             || destination_meta.authorized.withdrawer != bonds_withdrawer_authority
         {
-            return Err(error!(ErrorCode::StakerAuthorityMismatch)
-                .with_values(("bonds_withdrawer_authority", bonds_withdrawer_authority))
-                .with_values(("source_stake_withdrawer", source_meta.authorized.withdrawer))
+            return Err(error!(ErrorCode::NonBondStakeAuthorities)
+                .with_account_name("source_stake/destination_stake")
                 .with_values((
-                    "destination_stake_withdrawer",
-                    destination_meta.authorized.withdrawer,
-                )));
+                    "bonds_withdrawer_authority/source_stake_withdrawer/destination_stake_withdrawer",
+                    format!("{}/{}/{}", bonds_withdrawer_authority, source_meta.authorized.withdrawer, destination_meta.authorized.withdrawer)
+                ))
+                );
         }
 
         let destination_delegation = self.destination_stake.delegation();
@@ -90,23 +87,13 @@ impl<'info> Merge<'info> {
             || destination_delegation.unwrap().voter_pubkey
                 != source_delegation.unwrap().voter_pubkey
         {
+            msg!(
+                "None or different stakes delegation, source: {:?}, destination: {:?}",
+                source_delegation,
+                destination_delegation
+            );
             return Err(error!(ErrorCode::StakeDelegationMismatch)
-                .with_values((
-                    "destination_stake_delegation",
-                    if let Some(dest) = destination_delegation {
-                        dest.voter_pubkey.to_string()
-                    } else {
-                        "none".to_string()
-                    },
-                ))
-                .with_values((
-                    "source_stake_delegation",
-                    if let Some(src) = source_delegation {
-                        src.voter_pubkey.to_string()
-                    } else {
-                        "none".to_string()
-                    },
-                )));
+                .with_account_name("source_stake/destination_stake"));
         }
 
         let (settlement_authority, settlement_bump) = find_settlement_authority(&settlement);
@@ -145,11 +132,15 @@ impl<'info> Merge<'info> {
                 ]],
             )?
         } else {
-            return Err(error!(ErrorCode::StakerAuthorityMismatch)
-                .with_account_name("staker_authority")
-                .with_values(("staker_authority", self.staker_authority.key()))
-                .with_values(("bonds_authority", bonds_withdrawer_authority))
-                .with_values(("settlement_authority", settlement_authority)));
+            msg!(
+                "Staker authority mismatch, staker_authority: {}, bonds_withdrawer_authority: {}, settlement_authority: {}",
+                self.staker_authority.key(),
+                bonds_withdrawer_authority,
+                settlement_authority
+                );
+            return Err(
+                error!(ErrorCode::StakerAuthorityMismatch).with_account_name("staker_authority")
+            );
         };
 
         emit!(MergeEvent {

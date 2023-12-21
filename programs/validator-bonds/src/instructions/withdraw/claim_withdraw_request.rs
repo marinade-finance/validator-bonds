@@ -4,7 +4,7 @@ use crate::checks::{
 };
 use crate::constants::BONDS_AUTHORITY_SEED;
 use crate::error::ErrorCode;
-use crate::events::withdraw::WithdrawEvent;
+use crate::events::withdraw::ClaimWithdrawRequestEvent;
 use crate::events::{SplitStakeData, U64ValueChange};
 use crate::state::bond::Bond;
 use crate::state::config::Config;
@@ -151,8 +151,14 @@ impl<'info> ClaimWithdrawRequest<'info> {
             {
                 return Err(error!(ErrorCode::StakeAccountNotBigEnoughToSplit)
                     .with_account_name("stake_account")
-                    .with_values(("stake_account_lamports", self.stake_account.get_lamports()))
-                    .with_values(("amount_to_fulfill_withdraw", amount_to_fulfill_withdraw)));
+                    .with_values(("stake_account_lamports - amount_to_fulfill_withdraw < minimal_stake_size || amount_to_fulfill_withdraw < minimal_stake_size",
+                                  format!("{} - {} < {} || {} < {}",
+                                          self.stake_account.get_lamports(),
+                                          amount_to_fulfill_withdraw,
+                                          minimal_stake_size,
+                                          amount_to_fulfill_withdraw,
+                                          minimal_stake_size,
+                                  ))));
             }
 
             let withdraw_split_leftover =
@@ -229,7 +235,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
             self.stake_account.get_lamports(),
         );
 
-        emit!(WithdrawEvent {
+        emit!(ClaimWithdrawRequestEvent {
             bond: self.bond.key(),
             validator_vote_account: self.validator_vote_account.key(),
             withdraw_request: self.withdraw_request.key(),

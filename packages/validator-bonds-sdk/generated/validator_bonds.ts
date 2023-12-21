@@ -276,7 +276,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "authority that the provided stake account will be assigned to, authority owner is the program"
+            "new authority owner, it's the bonds program"
           ],
           "pda": {
             "seeds": [
@@ -296,7 +296,7 @@ export type ValidatorBonds = {
         },
         {
           "name": "stakeAccount",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false,
           "docs": [
             "stake account to be deposited"
@@ -2289,7 +2289,7 @@ export type ValidatorBonds = {
       ]
     },
     {
-      "name": "DepositBondEvent",
+      "name": "FundBondEvent",
       "fields": [
         {
           "name": "bond",
@@ -2812,7 +2812,7 @@ export type ValidatorBonds = {
       ]
     },
     {
-      "name": "WithdrawEvent",
+      "name": "ClaimWithdrawRequestEvent",
       "fields": [
         {
           "name": "withdrawRequest",
@@ -2926,18 +2926,18 @@ export type ValidatorBonds = {
     },
     {
       "code": 6012,
-      "name": "HundrethBasisPointsOverflow",
+      "name": "HundredthBasisPointsOverflow",
       "msg": "Value of hundredth basis points is too big"
     },
     {
       "code": 6013,
-      "name": "HundrethBasisPointsCalculation",
-      "msg": "Hundreth basis points calculation failure"
+      "name": "HundredthBasisPointsCalculation",
+      "msg": "Hundredth basis points calculation failure"
     },
     {
       "code": 6014,
-      "name": "HundrethBasisPointsParse",
-      "msg": "Hundreth basis points failure to parse the value"
+      "name": "HundredthBasisPointsParse",
+      "msg": "Hundredth basis points failure to parse the value"
     },
     {
       "code": 6015,
@@ -3081,11 +3081,16 @@ export type ValidatorBonds = {
     },
     {
       "code": 6043,
+      "name": "NonBondStakeAuthorities",
+      "msg": "One or both stake authorities does not belong to bonds program"
+    },
+    {
+      "code": 6044,
       "name": "SettlementAuthorityMismatch",
       "msg": "Settlement stake account authority does not match with the provided stake account authority"
     },
     {
-      "code": 6044,
+      "code": 6045,
       "name": "StakeDelegationMismatch",
       "msg": "Delegation of provided stake account mismatches"
     },
@@ -3375,7 +3380,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "authority that the provided stake account will be assigned to, authority owner is the program"
+            "new authority owner, it's the bonds program"
           ],
           "pda": {
             "seeds": [
@@ -3395,7 +3400,7 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "stakeAccount",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false,
           "docs": [
             "stake account to be deposited"
@@ -5388,7 +5393,7 @@ export const IDL: ValidatorBonds = {
       ]
     },
     {
-      "name": "DepositBondEvent",
+      "name": "FundBondEvent",
       "fields": [
         {
           "name": "bond",
@@ -5911,7 +5916,7 @@ export const IDL: ValidatorBonds = {
       ]
     },
     {
-      "name": "WithdrawEvent",
+      "name": "ClaimWithdrawRequestEvent",
       "fields": [
         {
           "name": "withdrawRequest",
@@ -6025,18 +6030,18 @@ export const IDL: ValidatorBonds = {
     },
     {
       "code": 6012,
-      "name": "HundrethBasisPointsOverflow",
+      "name": "HundredthBasisPointsOverflow",
       "msg": "Value of hundredth basis points is too big"
     },
     {
       "code": 6013,
-      "name": "HundrethBasisPointsCalculation",
-      "msg": "Hundreth basis points calculation failure"
+      "name": "HundredthBasisPointsCalculation",
+      "msg": "Hundredth basis points calculation failure"
     },
     {
       "code": 6014,
-      "name": "HundrethBasisPointsParse",
-      "msg": "Hundreth basis points failure to parse the value"
+      "name": "HundredthBasisPointsParse",
+      "msg": "Hundredth basis points failure to parse the value"
     },
     {
       "code": 6015,
@@ -6180,11 +6185,16 @@ export const IDL: ValidatorBonds = {
     },
     {
       "code": 6043,
+      "name": "NonBondStakeAuthorities",
+      "msg": "One or both stake authorities does not belong to bonds program"
+    },
+    {
+      "code": 6044,
       "name": "SettlementAuthorityMismatch",
       "msg": "Settlement stake account authority does not match with the provided stake account authority"
     },
     {
-      "code": 6044,
+      "code": 6045,
       "name": "StakeDelegationMismatch",
       "msg": "Delegation of provided stake account mismatches"
     },

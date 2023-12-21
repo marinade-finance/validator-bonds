@@ -28,7 +28,7 @@ pub struct CloseBondEvent {
 }
 
 #[event]
-pub struct DepositBondEvent {
+pub struct FundBondEvent {
     pub bond: Pubkey,
     pub validator_vote: Pubkey,
     pub stake_account: Pubkey,

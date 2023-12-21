@@ -39,13 +39,13 @@ pub enum ErrorCode {
     InvalidWithdrawRequestAddress, // 6011 0x177b
 
     #[msg("Value of hundredth basis points is too big")]
-    HundrethBasisPointsOverflow, // 6012 0x177c
+    HundredthBasisPointsOverflow, // 6012 0x177c
 
-    #[msg("Hundreth basis points calculation failure")]
-    HundrethBasisPointsCalculation, // 6013 0x177d
+    #[msg("Hundredth basis points calculation failure")]
+    HundredthBasisPointsCalculation, // 6013 0x177d
 
-    #[msg("Hundreth basis points failure to parse the value")]
-    HundrethBasisPointsParse, // 6014 0x177e
+    #[msg("Hundredth basis points failure to parse the value")]
+    HundredthBasisPointsParse, // 6014 0x177e
 
     #[msg("Cannot deserialize validator vote account data")]
     FailedToDeserializeVoteAccount, // 6015 0x177f
@@ -131,11 +131,15 @@ pub enum ErrorCode {
     #[msg("Stake account's staker does not match with the provided authority")]
     StakerAuthorityMismatch, // 6042 0x179a
 
+    #[msg("One or both stake authorities does not belong to bonds program")]
+    NonBondStakeAuthorities, // 6043 0x179b
+
     #[msg("Settlement stake account authority does not match with the provided stake account authority")]
-    SettlementAuthorityMismatch, // 6043 0x179b
+    SettlementAuthorityMismatch, // 6044 0x179c
 
     #[msg("Delegation of provided stake account mismatches")]
-    StakeDelegationMismatch, // 6044 0x179c
+    StakeDelegationMismatch, // 6045 0x179d
+
     #[msg("Not yet implemented")]
-    NotYetImplemented, // 6045 0x179d
+    NotYetImplemented, // 6046 0x179e
 }

@@ -3,7 +3,7 @@ use crate::checks::{
     check_stake_is_not_locked, check_stake_valid_delegation,
 };
 use crate::error::ErrorCode;
-use crate::events::bond::DepositBondEvent;
+use crate::events::bond::FundBondEvent;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use anchor_lang::prelude::*;
@@ -30,7 +30,7 @@ pub struct FundBond<'info> {
     bond: Account<'info, Bond>,
 
     /// CHECK: PDA
-    /// authority that the provided stake account will be assigned to, authority owner is the program
+    /// new authority owner, it's the bonds program
     #[account(
         seeds = [
             b"bonds_authority",
@@ -41,7 +41,7 @@ pub struct FundBond<'info> {
     bonds_withdrawer_authority: UncheckedAccount<'info>,
 
     /// stake account to be deposited
-    #[account()]
+    #[account(mut)]
     stake_account: Account<'info, StakeAccount>,
 
     /// authority signature permitting to change the stake_account authorities
@@ -99,7 +99,7 @@ impl<'info> FundBond<'info> {
             None,
         )?;
 
-        emit!(DepositBondEvent {
+        emit!(FundBondEvent {
             bond: self.bond.key(),
             validator_vote: self.bond.validator_vote_account.key(),
             stake_account: self.stake_account.key(),

@@ -136,14 +136,27 @@ impl<'info> ClaimSettlement<'info> {
 
         if self.settlement.total_funds_claimed + amount > self.settlement.max_total_claim {
             return Err(error!(ErrorCode::ClaimAmountExceedsMaxTotalClaim)
-                .with_values(("amount", amount))
-                .with_values(("max_total_claim", self.settlement.max_total_claim)));
+                .with_account_name("settlement")
+                .with_values((
+                    "total_funds_claimed + amount > max_total_claim",
+                    format!(
+                        "{} + {} <= {}",
+                        self.settlement.total_funds_claimed,
+                        amount,
+                        self.settlement.max_total_claim
+                    ),
+                )));
         }
         if self.settlement.num_nodes_claimed + 1 > self.settlement.max_num_nodes {
             return Err(error!(ErrorCode::ClaimCountExceedsMaxNumNodes)
-                .with_values(("settlement", self.settlement.key()))
-                .with_values(("num_nodes_claimed", self.settlement.num_nodes_claimed))
-                .with_values(("max_num_nodes", self.settlement.max_num_nodes)));
+                .with_account_name("settlement")
+                .with_values((
+                    "num_nodes_claimed + 1 > max_num_nodes",
+                    format!(
+                        "{} + 1 <= {}",
+                        self.settlement.num_nodes_claimed, self.settlement.max_num_nodes
+                    ),
+                )));
         }
 
         // stake account is managed by bonds program
@@ -170,11 +183,14 @@ impl<'info> ClaimSettlement<'info> {
         {
             return Err(error!(ErrorCode::ClaimingStakeAccountLamportsInsufficient)
                 .with_account_name("stake_account")
-                .with_values(("stake_account_lamports", self.stake_account.get_lamports()))
-                .with_values(("claiming_amount", amount))
                 .with_values((
-                    "minimal_size_stake_account",
-                    minimal_size_stake_account(&stake_meta, &self.config),
+                    "stake_account_lamports < amount + minimal_size_stake_account",
+                    format!(
+                        "{} < {} + {}",
+                        self.stake_account.get_lamports(),
+                        amount,
+                        minimal_size_stake_account(&stake_meta, &self.config)
+                    ),
                 )));
         }
 
@@ -182,9 +198,9 @@ impl<'info> ClaimSettlement<'info> {
             merkle_proof::tree_node(staker_authority, withdrawer_authority, vote_account, claim);
 
         if !merkle_proof::verify(proof, self.settlement.merkle_root, merkle_tree_node) {
-            return Err(error!(ErrorCode::ClaimSettlementProofFailed)
-                .with_values(("claiming_amount", amount))
-                .with_values(("withdrawer_authority", withdrawer_authority.key())));
+            msg!("Merkle proof verification failed. Merkle tree node: {:?}, staker_authority: {}, withdrawer_authority: {}, vote_account: {}, claim: {}",
+                merkle_tree_node, staker_authority, withdrawer_authority, vote_account, claim);
+            return err!(ErrorCode::ClaimSettlementProofFailed);
         }
 
         self.settlement_claim.set_inner(SettlementClaim {

@@ -80,9 +80,10 @@ impl<'info> InitSettlement<'info> {
         require!(true == false, ErrorCode::NotYetImplemented);
 
         if settlement_total_claim == 0 || settlement_num_nodes == 0 {
-            return Err(error!(ErrorCode::EmptySettlementMerkleTree)
-                .with_values(("settlement_total_claim", settlement_total_claim))
-                .with_values(("settlement_num_nodes", settlement_num_nodes)));
+            return Err(error!(ErrorCode::EmptySettlementMerkleTree).with_values((
+                "settlement_total_claim, settlement_num_nodes",
+                format!("{}, {}", settlement_total_claim, settlement_num_nodes),
+            )));
         }
 
         let (settlement_authority, settlement_authority_bump) =

@@ -78,12 +78,11 @@ pub fn check_stake_valid_delegation(
         );
         Ok(delegation)
     } else {
-        Err(error!(ErrorCode::StakeNotDelegated)
-            .with_values((
-                "stake_account_state",
-                format!("{:?}", stake_account.deref()),
-            ))
-            .with_values(("validator_vote_account", validator_vote_account)))
+        msg!(
+            "Stake account is not delegated: {:?}",
+            stake_account.deref()
+        );
+        err!(ErrorCode::StakeNotDelegated)
     }
 }
 
@@ -93,22 +92,12 @@ pub fn check_stake_is_initialized_with_withdrawer_authority(
     stake_account_attribute_name: &str,
 ) -> Result<Meta> {
     let stake_meta = stake_account.meta().ok_or(
-        error!(ErrorCode::UninitializedStake)
-            .with_account_name(stake_account_attribute_name)
-            .with_values((
-                "stake_account_state",
-                format!("{:?}", stake_account.deref()),
-            )),
+        error!(ErrorCode::UninitializedStake).with_account_name(stake_account_attribute_name),
     )?;
     if stake_meta.authorized.withdrawer != *authority {
         return Err(error!(ErrorCode::InvalidStakeOwner)
             .with_account_name(stake_account_attribute_name)
-            .with_values((
-                "stake_account_state",
-                format!("{:?}", stake_account.deref()),
-            ))
-            .with_values(("authority", authority))
-            .with_values(("authorized_withdrawer", stake_meta.authorized.withdrawer)));
+            .with_pubkeys((stake_meta.authorized.withdrawer, *authority)));
     }
     Ok(stake_meta)
 }
@@ -122,12 +111,10 @@ pub fn check_stake_is_not_locked(
         // TODO: consider working with custodian, would need to be passed from the caller
         //       and on authorize withdrawer we would need to change the lockup to the new custodian
         if stake_lockup.is_in_force(clock, None) {
-            return Err(error!(ErrorCode::StakeLockedUp)
-                .with_account_name(stake_account_attribute_name)
-                .with_values((
-                    "stake_account_state",
-                    format!("{:?}", stake_account.deref()),
-                )));
+            msg!("Stake account is locked: {:?}", stake_account.deref());
+            return Err(
+                error!(ErrorCode::StakeLockedUp).with_account_name(stake_account_attribute_name)
+            );
         }
     }
     Ok(())
@@ -155,21 +142,22 @@ pub fn check_stake_exist_and_fully_activated(
             None,
         );
         if activating + deactivating > 0 || effective == 0 {
-            return Err(error!(ErrorCode::NoStakeOrNotFullyActivated)
-                .with_values((
-                    "stake_account_state",
-                    format!("{:?}", stake_account.deref()),
-                ))
-                .with_values(("effective", effective))
-                .with_values(("activating", activating))
-                .with_values(("deactivating", deactivating)));
+            msg!(
+                "Stake account is not activated: {:?}",
+                stake_account.deref()
+            );
+            return Err(error!(ErrorCode::NoStakeOrNotFullyActivated).with_values((
+                "effective/activating/deactivating",
+                format!("{}/{}/{}", effective, activating, deactivating),
+            )));
         }
         Ok(stake)
     } else {
-        Err(error!(ErrorCode::StakeNotDelegated).with_values((
-            "stake_account_state",
-            format!("{:?}", stake_account.deref()),
-        )))
+        msg!(
+            "Stake account is not delegated: {:?}",
+            stake_account.deref()
+        );
+        err!(ErrorCode::StakeNotDelegated)
     }
 }
 

@@ -21,7 +21,7 @@ pub struct CancelWithdrawRequestEvent {
 }
 
 #[event]
-pub struct WithdrawEvent {
+pub struct ClaimWithdrawRequestEvent {
     pub withdraw_request: Pubkey,
     pub bond: Pubkey,
     pub validator_vote_account: Pubkey,

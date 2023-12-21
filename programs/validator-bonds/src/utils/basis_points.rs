@@ -33,7 +33,7 @@ impl HundredthBasisPoint {
         require_gte!(
             &Self::MAX_HUNDREDTH_BPS,
             &self,
-            ErrorCode::HundrethBasisPointsOverflow
+            ErrorCode::HundredthBasisPointsOverflow
         );
         Ok(self)
     }
@@ -63,8 +63,11 @@ impl TryFrom<f64> for HundredthBasisPoint {
     fn try_from(n: f64) -> Result<Self> {
         let hundredth_bps_i = (n * HundredthBasisPoint::DIVIDER as f64).floor() as i64; // 4.5% => 45000 bp_cents
         let hundredths_bps = u32::try_from(hundredth_bps_i).map_err(|_| {
-            error!(ErrorCode::HundrethBasisPointsCalculation)
-                .with_values(("hundredth_bps_i", hundredth_bps_i))
+            msg!(
+                "failed to convert f64 to u32, hundredth_bps_i: {}",
+                hundredth_bps_i
+            );
+            error!(ErrorCode::HundredthBasisPointsCalculation)
         })?;
         Ok(HundredthBasisPoint::from_hundredth_bp(hundredths_bps)?)
     }
