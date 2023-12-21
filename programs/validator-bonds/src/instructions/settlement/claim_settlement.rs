@@ -132,6 +132,8 @@ impl<'info> ClaimSettlement<'info> {
         }: ClaimSettlementArgs,
         settlement_claim_bump: u8,
     ) -> Result<()> {
+        require!(true == false, ErrorCode::NotYetImplemented);
+
         if self.settlement.total_funds_claimed + amount > self.settlement.max_total_claim {
             return Err(error!(ErrorCode::ClaimAmountExceedsMaxTotalClaim)
                 .with_values(("amount", amount))

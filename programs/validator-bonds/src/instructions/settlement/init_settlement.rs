@@ -77,6 +77,8 @@ impl<'info> InitSettlement<'info> {
         }: InitSettlementArgs,
         settlement_bump: u8,
     ) -> Result<()> {
+        require!(true == false, ErrorCode::NotYetImplemented);
+
         if settlement_total_claim == 0 || settlement_num_nodes == 0 {
             return Err(error!(ErrorCode::EmptySettlementMerkleTree)
                 .with_values(("settlement_total_claim", settlement_total_claim))

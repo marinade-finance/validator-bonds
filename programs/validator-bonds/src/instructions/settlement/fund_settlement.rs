@@ -121,6 +121,8 @@ pub struct FundSettlement<'info> {
 
 impl<'info> FundSettlement<'info> {
     pub fn process(&mut self) -> Result<()> {
+        require!(true == false, ErrorCode::NotYetImplemented);
+
         if self.settlement.total_funded >= self.settlement.max_total_claim {
             msg!("Settlement is already fully funded");
             return Ok(());

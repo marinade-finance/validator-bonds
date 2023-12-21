@@ -79,6 +79,8 @@ pub struct CloseSettlement<'info> {
 
 impl<'info> CloseSettlement<'info> {
     pub fn process(&mut self) -> Result<()> {
+        require!(true == false, ErrorCode::NotYetImplemented);
+
         if self.settlement.split_rent_collector.is_some() {
             // stake account is managed by bonds program
             let stake_meta = check_stake_is_initialized_with_withdrawer_authority(

@@ -136,4 +136,6 @@ pub enum ErrorCode {
 
     #[msg("Delegation of provided stake account mismatches")]
     StakeDelegationMismatch, // 6044 0x179c
+    #[msg("Not yet implemented")]
+    NotYetImplemented, // 6045 0x179d
 }

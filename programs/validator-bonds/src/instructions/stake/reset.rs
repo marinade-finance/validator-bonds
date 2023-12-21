@@ -71,6 +71,8 @@ pub struct ResetStake<'info> {
 
 impl<'info> ResetStake<'info> {
     pub fn process(&mut self) -> Result<()> {
+        require!(true == false, ErrorCode::NotYetImplemented);
+
         // settlement account cannot exists
         require_eq!(
             self.settlement.lamports(),

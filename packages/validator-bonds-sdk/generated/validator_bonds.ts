@@ -3088,6 +3088,11 @@ export type ValidatorBonds = {
       "code": 6044,
       "name": "StakeDelegationMismatch",
       "msg": "Delegation of provided stake account mismatches"
+    },
+    {
+      "code": 6046,
+      "name": "NotYetImplemented",
+      "msg": "Not yet implemented"
     }
   ]
 };
@@ -6182,6 +6187,11 @@ export const IDL: ValidatorBonds = {
       "code": 6044,
       "name": "StakeDelegationMismatch",
       "msg": "Delegation of provided stake account mismatches"
+    },
+    {
+      "code": 6046,
+      "name": "NotYetImplemented",
+      "msg": "Not yet implemented"
     }
   ]
 };
