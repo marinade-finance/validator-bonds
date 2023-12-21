@@ -144,6 +144,9 @@ impl<'info> FundSettlement<'info> {
             ErrorCode::StakeAccountAlreadyFunded,
         );
 
+        // TODO: consider if missing to check the stake account is fully activated
+        //       considering we don't care as it will be just deactivated(?)
+
         let split_stake_rent_exempt = self.split_stake_account.to_account_info().lamports();
         let stake_account_min_size = minimal_size_stake_account(&stake_meta, &self.config);
 
