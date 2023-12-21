@@ -2,28 +2,26 @@ import { AnchorProvider } from '@coral-xyz/anchor'
 import { shellMatchers } from '@marinade.finance/jest-utils'
 import YAML from 'yaml'
 import {
-  getProgram,
   initConfigInstruction,
-  VALIDATOR_BONDS_PROGRAM_ID,
   findBondsWithdrawerAuthority,
+  ValidatorBondsProgram,
 } from '@marinade.finance/validator-bonds-sdk'
 import { executeTxSimple } from '@marinade.finance/web3js-common'
 import { transaction } from '@marinade.finance/anchor-common'
 import { Keypair } from '@solana/web3.js'
+import { initTest } from './utils'
 
 beforeAll(() => {
   shellMatchers()
 })
 
 describe('Show command using CLI', () => {
-  const provider = AnchorProvider.env()
-  provider.opts.skipPreflight = true
-  provider.opts.commitment = 'confirmed'
-  const program = getProgram({
-    connection: provider.connection,
-    wallet: provider.wallet,
-    opts: provider.opts,
-    programId: VALIDATOR_BONDS_PROGRAM_ID,
+  let provider: AnchorProvider
+  let program: ValidatorBondsProgram
+
+  beforeAll(async () => {
+    shellMatchers()
+    ;({ provider, program } = await initTest())
   })
 
   it('show config', async () => {
@@ -74,6 +72,7 @@ describe('Show command using CLI', () => {
           operatorAuthority: operatorAuthority.toBase58(),
           epochsToClaimSettlement: 101,
           withdrawLockupEpochs: 102,
+          minimumStakeLamports: 1000000000,
           bondsWithdrawerAuthorityBump,
           reserved: [512],
         },
@@ -111,6 +110,7 @@ describe('Show command using CLI', () => {
             operatorAuthority: operatorAuthority.toBase58(),
             epochsToClaimSettlement: 101,
             withdrawLockupEpochs: 102,
+            minimumStakeLamports: 1000000000,
             bondsWithdrawerAuthorityBump,
             reserved: [512],
           },
@@ -175,6 +175,7 @@ describe('Show command using CLI', () => {
             operatorAuthority: operatorAuthority.toBase58(),
             epochsToClaimSettlement: 101,
             withdrawLockupEpochs: 102,
+            minimumStakeLamports: 1000000000,
             bondsWithdrawerAuthorityBump,
             reserved: [512],
           },

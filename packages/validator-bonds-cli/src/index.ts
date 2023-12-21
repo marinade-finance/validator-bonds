@@ -20,7 +20,8 @@ program
   .allowExcessArguments(false)
   .option(
     '-u, --cluster <cluster>',
-    'solana cluster URL, accepts shortcuts (d/devnet, m/mainnet) (default: http://localhost:8899)'
+    'solana cluster URL, accepts shortcuts (d/devnet, m/mainnet)',
+    'http://127.0.0.1:8899'
   )
   .option('-c <cluster>', 'alias for "-u, --cluster"')
   .option('--commitment <commitment>', 'Commitment', 'confirmed')

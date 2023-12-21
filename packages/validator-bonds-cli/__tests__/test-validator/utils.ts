@@ -1,6 +1,9 @@
 import * as anchor from '@coral-xyz/anchor'
 import { AnchorProvider } from '@coral-xyz/anchor'
-import { ValidatorBondsProgram, getProgram } from '../../src'
+import {
+  ValidatorBondsProgram,
+  getProgram,
+} from '@marinade.finance/validator-bonds-sdk'
 
 export async function initTest(): Promise<{
   program: ValidatorBondsProgram

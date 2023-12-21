@@ -8,26 +8,27 @@ import {
   Transaction,
 } from '@solana/web3.js'
 import {
-  VALIDATOR_BONDS_PROGRAM_ID,
+  ValidatorBondsProgram,
   getConfig,
-  getProgram,
 } from '@marinade.finance/validator-bonds-sdk'
+import { initTest } from './utils'
 
 beforeAll(() => {
   shellMatchers()
 })
 
 describe('Init config account using CLI', () => {
-  const provider = AnchorProvider.env()
-  provider.opts.skipPreflight = true
-  const program = getProgram({
-    connection: provider,
-    programId: VALIDATOR_BONDS_PROGRAM_ID,
-  })
+  let provider: AnchorProvider
+  let program: ValidatorBondsProgram
 
   let configPath: string
   let configKeypair: Keypair
   let configCleanup: () => Promise<void>
+
+  beforeAll(async () => {
+    shellMatchers()
+    ;({ provider, program } = await initTest())
+  })
 
   beforeEach(async () => {
     // eslint-disable-next-line @typescript-eslint/no-extra-semi
