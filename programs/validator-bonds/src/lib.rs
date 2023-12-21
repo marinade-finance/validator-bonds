@@ -32,10 +32,10 @@ security_txt! {
 declare_id!("vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4");
 
 // TODO: General TODOs:
-//       - verify that errors are used and error codes matches
 //       - recheck all 'mut' definitions if they matches to what we need
 //       - consider utility of zero_copy, if it can be used, what are benefits?
 //       - consider using only PDA hash and not has_one at anchor constraints
+//       - readme with table of what stake_authority/withdraw_authority are at which stages
 
 fn check_context<T: Bumps>(ctx: &Context<T>) -> Result<()> {
     if !check_id(ctx.program_id) {

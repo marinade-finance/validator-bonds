@@ -2,6 +2,9 @@ import { ProgramAccount } from '@coral-xyz/anchor'
 import { PublicKey } from '@solana/web3.js'
 import { ValidatorBondsProgram, Config } from './sdk'
 
+// TODO:
+//   - users can create arbitrary stake accounts (even with lockups), sdk must be prepared for that when showing total usable deposits
+
 export async function getConfig(
   program: ValidatorBondsProgram,
   address: PublicKey

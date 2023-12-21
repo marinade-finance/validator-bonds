@@ -153,6 +153,8 @@ impl<'info> FundSettlement<'info> {
         // note: we can over-fund the settlement when the stake account is in shape to not being possible to split it
         let amount_available = self.stake_account.get_lamports();
         // amount needed: "amount + rent exempt + minimal stake size" -> ensuring stake account may exist
+        // NOTE: once deactivated the balance may drop only to "rent exempt" and "minimal stake size" is not needed anymore
+        //       but we want to re-activate later the left-over at the stake account thus needed to be funded with plus minimal stake size
         let amount_needed =
             self.settlement.max_total_claim - self.settlement.total_funded + stake_account_min_size;
         // the left-over stake account has to be capable to exist after splitting
