@@ -104,8 +104,8 @@ describe('Init config account using CLI', () => {
     ).resolves.toBeLessThan(rentPayerFunds)
   })
 
+  // this is a "mock test" that just checks that print only command works
   it('creates config in print-only mode', async () => {
-    // this is a "mock test" that just checks that print only command works
     await (
       expect([
         'pnpm',

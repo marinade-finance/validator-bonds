@@ -114,8 +114,6 @@ describe('Configure config account using CLI', () => {
   })
 
   it('configure config in print-only mode', async () => {
-    console.log('working with account: ', configAccount.toBase58())
-    // this is a "mock test" that just checks that print only command works
     await (
       expect([
         'pnpm',

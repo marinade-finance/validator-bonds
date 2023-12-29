@@ -5,7 +5,12 @@ import {
   getProgram,
 } from '@marinade.finance/validator-bonds-sdk'
 import { createTempFileKeypair } from '@marinade.finance/web3js-common'
-import { Keypair, LAMPORTS_PER_SOL, SystemProgram, Transaction } from '@solana/web3.js'
+import {
+  Keypair,
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+} from '@solana/web3.js'
 
 export async function initTest(): Promise<{
   program: ValidatorBondsProgram
@@ -20,10 +25,10 @@ export async function initTest(): Promise<{
   return { program: getProgram(provider), provider }
 }
 
-export async function getRentPayer(provider: AnchorExtendedProvider) : Promise<{
-path: string
-cleanup: () => Promise<void>
-keypair: Keypair
+export async function getRentPayer(provider: AnchorExtendedProvider): Promise<{
+  path: string
+  cleanup: () => Promise<void>
+  keypair: Keypair
 }> {
   const {
     keypair: rentPayerKeypair,
