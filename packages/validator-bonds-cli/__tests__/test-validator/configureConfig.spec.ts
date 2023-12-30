@@ -124,7 +124,7 @@ describe('Configure config account using CLI', () => {
           'configure-config',
           configAccount.toBase58(),
           '--admin-authority',
-          adminPath,
+          adminKeypair.publicKey.toBase58(),
           '--operator',
           PublicKey.default.toBase58(),
           '--print-only',

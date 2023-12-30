@@ -55,8 +55,8 @@ describe('Validator Bonds init config', () => {
 
     const { configAccount, instruction } = await initConfigInstruction({
       program,
-      adminAuthority,
-      operatorAuthority,
+      admin: adminAuthority,
+      operator: operatorAuthority,
       epochsToClaimSettlement: 1,
       withdrawLockupEpochs: 2,
     })
@@ -99,8 +99,8 @@ describe('Validator Bonds init config', () => {
     for (let i = 1; i <= numberOfConfigs; i++) {
       const { configAccount, instruction } = await initConfigInstruction({
         program,
-        adminAuthority,
-        operatorAuthority,
+        admin: adminAuthority,
+        operator: operatorAuthority,
         epochsToClaimSettlement: i,
         withdrawLockupEpochs: i + 1,
       })

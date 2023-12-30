@@ -4,6 +4,7 @@ import {
   ValidatorBondsProgram,
   getProgram,
 } from '@marinade.finance/validator-bonds-sdk'
+import { AnchorExtendedProvider } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
 import { createTempFileKeypair } from '@marinade.finance/web3js-common'
 import {
   Keypair,
@@ -47,5 +48,9 @@ export async function getRentPayer(provider: AnchorExtendedProvider): Promise<{
   await expect(
     provider.connection.getBalance(rentPayerKeypair.publicKey)
   ).resolves.toStrictEqual(rentPayerFunds)
-  return { rentPayerKeypair, rentPayerPath, cleanupRentPayer }
+  return {
+    keypair: rentPayerKeypair,
+    path: rentPayerPath,
+    cleanup: cleanupRentPayer,
+  }
 }
