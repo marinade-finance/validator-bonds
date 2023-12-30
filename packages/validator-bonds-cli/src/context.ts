@@ -106,10 +106,10 @@ export function setValidatorBondsCliContext({
 // Configures the CLI validator bonds program id but only when it's not setup already.
 // It searches for owner of the provided account and sets the programId as its owner.
 export async function setProgramIdByOwner(
-  accountPubkey: PublicKey
+  accountPubkey?: PublicKey
 ): Promise<ValidatorBondsCliContext> {
   const cliContext = getCliContext()
-  if (cliContext.programId === undefined) {
+  if (cliContext.programId === undefined && accountPubkey !== undefined) {
     const accountInfo = await cliContext.provider.connection.getAccountInfo(
       accountPubkey
     )

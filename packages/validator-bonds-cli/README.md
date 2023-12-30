@@ -26,7 +26,15 @@ validator-bonds -um init-bond -k <fee-payer-keypair> \
 validator-bonds -um configure-bond --help
 ```
 
-## CLI Help
+### Show the bond account
+
+```sh
+validator-bonds -um show-bond <bond-account-address> -f yaml
+```
+
+
+
+## `validator-bonds --help`
 
 ```sh
 pnpm cli --help
@@ -57,7 +65,8 @@ Commands:
   configure-config [options] [config-account-address]  Configure existing config account.
   init-bond [options]                                  Create a new bond account.
   configure-bond [options] [bond-account-address]      Configure existing bond account.
-  show-config [options] [address]                      Showing data of config account
+  show-config [options] [address]                      Showing data of config account(s)
   show-event [options] <event-data>                    Showing data of anchor event
+  show-bond [options] [address]                        Showing data of bond account(s)
   help [command]                                       display help for command
 ```

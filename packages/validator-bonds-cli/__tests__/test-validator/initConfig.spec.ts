@@ -11,7 +11,7 @@ import {
   ValidatorBondsProgram,
   getConfig,
 } from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from './utils'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
 
 describe('Init config account using CLI', () => {
   let provider: AnchorProvider
