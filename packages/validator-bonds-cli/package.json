@@ -6,6 +6,9 @@
     "type": "git",
     "url": "git@github.com:marinade-finance/validator-bonds.git"
   },
+  "bin": {
+    "validator-bonds": "./src/index.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

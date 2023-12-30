@@ -17,7 +17,9 @@
         "lint:ts-clean": "gts clean",
         "lint:fix": "pnpm lint:ts-fix && pnpm lint:cargo-fix",
         "lint": "pnpm lint:cargo && pnpm lint:ts",
-        "publish-sdk": "pnpm build && pnpm publish build/packages/validator-bonds-sdk"
+        "publish-sdk": "pnpm build && pnpm publish build/packages/validator-bonds-sdk",
+        "publish-cli": "pnpm build && pnpm publish build/packages/validator-bonds-cli",
+        "publish": "pnpm publish-sdk && pnpm publish-cli"
     },
     "devDependencies": {
         "@jest/globals": "^29.7.0",

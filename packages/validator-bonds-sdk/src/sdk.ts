@@ -21,15 +21,6 @@ import {
 } from '@solana/web3.js'
 import BN from 'bn.js'
 
-/**
- * Validator Bonds contract Anchor IDL wrapper.
- *
- * All operations are performed through the program instance.
- *
- * To get PDA and read account data see ./api.ts
- * To execute contract operations see ./with*.ts
- */
-
 export const CONFIG_ADDRESS = new PublicKey(
   'vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU'
 )
