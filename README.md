@@ -27,6 +27,8 @@ pnpm test
 pnpm test:bankrun
 # local validator part of the tests
 pnpm test:validator
+# cargo tests in rust code
+pnpm test:cargo
 ```
 
 ### Contract deployment
