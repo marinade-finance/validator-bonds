@@ -27,6 +27,7 @@ describe('Init bond account using CLI', () => {
   let rentPayerCleanup: () => Promise<void>
   const rentPayerFunds = 10 * LAMPORTS_PER_SOL
   let voteWithdrawerPath: string
+  let voteWithdrawerKeypair: Keypair
   let voteWithdrawerCleanup: () => Promise<void>
   let configAccount: PublicKey
   let voteAccount: PublicKey
@@ -42,8 +43,11 @@ describe('Init bond account using CLI', () => {
       keypair: rentPayerKeypair,
       cleanup: rentPayerCleanup,
     } = await createTempFileKeypair())
-    ;({ path: voteWithdrawerPath, cleanup: voteWithdrawerCleanup } =
-      await createTempFileKeypair())
+    ;({
+      path: voteWithdrawerPath,
+      keypair: voteWithdrawerKeypair,
+      cleanup: voteWithdrawerCleanup,
+    } = await createTempFileKeypair())
     ;({ configAccount } = await executeInitConfigInstruction({
       program,
       provider,
@@ -53,7 +57,12 @@ describe('Init bond account using CLI', () => {
     expect(
       provider.connection.getAccountInfo(configAccount)
     ).resolves.not.toBeNull()
-    ;({ voteAccount } = await createVoteAccount(provider))
+    ;({ voteAccount } = await createVoteAccount(
+      provider,
+      undefined,
+      undefined,
+      voteWithdrawerKeypair
+    ))
 
     const tx = new Transaction().add(
       SystemProgram.transfer({
@@ -73,7 +82,7 @@ describe('Init bond account using CLI', () => {
     await voteWithdrawerCleanup()
   })
 
-  it.only('init bond account', async () => {
+  it('init bond account', async () => {
     const bondAuthority = Keypair.generate()
 
     await (
