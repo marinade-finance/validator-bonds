@@ -11,21 +11,22 @@ import { getBond } from '../api'
 
 export async function configureBondInstruction({
   program,
+  bondAccount,
   configAccount = CONFIG_ADDRESS,
   validatorVoteAccount,
-  bondAccount,
   authority = walletPubkey(program),
-  newAuthority,
-  newRevenueShare,
+  newBondAuthority,
+  newRevenueShareHundredthBps,
 }: {
   program: ValidatorBondsProgram
+  bondAccount?: PublicKey
   configAccount?: PublicKey
   validatorVoteAccount?: PublicKey
-  bondAccount?: PublicKey
   authority?: PublicKey | Keypair | Signer // signer
-  newAuthority?: PublicKey
-  newRevenueShare?: BN | number
+  newBondAuthority?: PublicKey
+  newRevenueShareHundredthBps?: BN | number
 }): Promise<{
+  bondAccount: PublicKey
   instruction: TransactionInstruction
 }> {
   bondAccount = checkAndGetBondAddress(
@@ -40,20 +41,20 @@ export async function configureBondInstruction({
   }
   authority = authority instanceof PublicKey ? authority : authority.publicKey
 
-  if (newRevenueShare !== undefined) {
-    newRevenueShare =
-      newRevenueShare instanceof BN
-        ? newRevenueShare.toNumber()
-        : newRevenueShare
+  if (newRevenueShareHundredthBps !== undefined) {
+    newRevenueShareHundredthBps =
+      newRevenueShareHundredthBps instanceof BN
+        ? newRevenueShareHundredthBps.toNumber()
+        : newRevenueShareHundredthBps
   }
 
   const instruction = await program.methods
     .configureBond({
-      bondAuthority: newAuthority === undefined ? null : newAuthority,
+      bondAuthority: newBondAuthority === undefined ? null : newBondAuthority,
       revenueShare:
-        newRevenueShare === undefined
+        newRevenueShareHundredthBps === undefined
           ? null
-          : { hundredthBps: newRevenueShare },
+          : { hundredthBps: newRevenueShareHundredthBps },
     })
     .accounts({
       bond: bondAccount,
@@ -62,6 +63,7 @@ export async function configureBondInstruction({
     })
     .instruction()
   return {
+    bondAccount,
     instruction,
   }
 }

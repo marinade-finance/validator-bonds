@@ -64,8 +64,8 @@ describe('Validator Bonds configure bond account', () => {
       program,
       bondAccount: bond.publicKey,
       authority: bondAuthority,
-      newAuthority: newBondAuthority.publicKey,
-      newRevenueShare: 321,
+      newBondAuthority: newBondAuthority.publicKey,
+      newRevenueShareHundredthBps: 321,
     })
     await provider.sendIx([bondAuthority], ix1)
 
@@ -78,7 +78,7 @@ describe('Validator Bonds configure bond account', () => {
       program,
       bondAccount: bond.publicKey,
       authority: newBondAuthority.publicKey,
-      newAuthority: bondAuthority.publicKey,
+      newBondAuthority: bondAuthority.publicKey,
     })
     await provider.sendIx([newBondAuthority], ix2)
 
@@ -92,7 +92,7 @@ describe('Validator Bonds configure bond account', () => {
       program,
       bondAccount: bond.publicKey,
       authority: withdrawerAuthority,
-      newAuthority: newBondAuthority.publicKey,
+      newBondAuthority: newBondAuthority.publicKey,
     })
     await provider.sendIx([withdrawerAuthority], instruction)
 
@@ -108,7 +108,7 @@ describe('Validator Bonds configure bond account', () => {
       configAccount: config.publicKey,
       validatorVoteAccount: bond.account.validatorVoteAccount,
       authority: voterAuthority,
-      newAuthority: newBondAuthority.publicKey,
+      newBondAuthority: newBondAuthority.publicKey,
     })
     try {
       await provider.sendIx([voterAuthority], instruction)
@@ -124,7 +124,7 @@ describe('Validator Bonds configure bond account', () => {
       program,
       bondAccount: bond.publicKey,
       authority: newBondAuthority,
-      newAuthority: newBondAuthority.publicKey,
+      newBondAuthority: newBondAuthority.publicKey,
     })
     try {
       await provider.sendIx([newBondAuthority], instruction)

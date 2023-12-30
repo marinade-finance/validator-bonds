@@ -38,7 +38,7 @@ export function installInitBond(program: Command) {
     )
     .option(
       '--revenue-share <number>',
-      'Revenue share in percents (the precision is 1/10000 of the percent) (default: 0)',
+      'Revenue share in percents (the precision is 1/10000 of the percent)',
       toHundredsBps,
       0
     )

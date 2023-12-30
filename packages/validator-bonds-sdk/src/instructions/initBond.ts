@@ -11,19 +11,19 @@ import BN from 'bn.js'
 export async function initBondInstruction({
   program,
   configAccount = CONFIG_ADDRESS,
-  bondAuthority = walletPubkey(program),
   validatorVoteAccount,
   validatorVoteWithdrawer = walletPubkey(program),
-  rentPayer = walletPubkey(program),
+  bondAuthority = walletPubkey(program),
   revenueShareHundredthBps,
+  rentPayer = walletPubkey(program),
 }: {
   program: ValidatorBondsProgram
   configAccount?: PublicKey
-  bondAuthority?: PublicKey
   validatorVoteAccount: PublicKey
   validatorVoteWithdrawer?: PublicKey | Keypair | Signer // signer
-  rentPayer?: PublicKey | Keypair | Signer // signer
+  bondAuthority?: PublicKey
   revenueShareHundredthBps: BN | number
+  rentPayer?: PublicKey | Keypair | Signer // signer
 }): Promise<{
   instruction: TransactionInstruction
   bondAccount: PublicKey

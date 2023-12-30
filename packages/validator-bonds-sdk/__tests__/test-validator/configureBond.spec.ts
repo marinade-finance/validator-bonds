@@ -60,8 +60,8 @@ describe('Validator Bonds configure bond', () => {
       program,
       bondAccount,
       authority: bondAuthority,
-      newAuthority: newBondAuthority.publicKey,
-      newRevenueShare: 31,
+      newBondAuthority: newBondAuthority.publicKey,
+      newRevenueShareHundredthBps: 31,
     })
     await provider.sendIx([bondAuthority], instruction)
 

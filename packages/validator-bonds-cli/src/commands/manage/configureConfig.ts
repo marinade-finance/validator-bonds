@@ -14,7 +14,7 @@ export function installConfigureConfig(program: Command) {
     .command('configure-config')
     .description('Configure existing config account.')
     .argument(
-      '[config-account-address]s',
+      '[config-account-address]',
       'Address of the validator bonds config account to configure ' +
         `(default: ${CONFIG_ADDRESS.toBase58()})`,
       parsePubkey
