@@ -11,6 +11,7 @@ import {
   BankrunExtendedProvider,
   initBankrunTest,
   warpToEpoch,
+  warpToNextEpoch,
 } from './bankrun'
 import {
   executeInitBondInstruction,
@@ -75,7 +76,7 @@ describe('Validator Bonds fund bond account', () => {
       configAccount: config.publicKey,
       bondAccount: bond.publicKey,
       stakeAccount: nonDelegatedStakeAccount,
-      authority: withdrawer,
+      stakeAccountAuthority: withdrawer,
     })
     try {
       await provider.sendIx([signer(withdrawer)], instruction)
@@ -96,7 +97,7 @@ describe('Validator Bonds fund bond account', () => {
       configAccount: config.publicKey,
       bondAccount: bond.publicKey,
       stakeAccount,
-      authority: withdrawer,
+      stakeAccountAuthority: withdrawer,
     })
     try {
       await provider.sendIx([withdrawer], instruction)
@@ -105,9 +106,7 @@ describe('Validator Bonds fund bond account', () => {
       checkAnchorErrorMessage(e, 6023, 'Stake account is not fully activated')
     }
 
-    const nextEpoch =
-      Number((await provider.context.banksClient.getClock()).epoch) + 1
-    warpToEpoch(provider, nextEpoch)
+    await warpToNextEpoch(provider)
     try {
       await provider.sendIx([withdrawer], instruction)
     } catch (e) {
@@ -134,7 +133,7 @@ describe('Validator Bonds fund bond account', () => {
       configAccount: config.publicKey,
       bondAccount: bond.publicKey,
       stakeAccount,
-      authority: withdrawer,
+      stakeAccountAuthority: withdrawer,
     })
 
     warpToEpoch(provider, nextEpoch)
@@ -174,11 +173,9 @@ describe('Validator Bonds fund bond account', () => {
       configAccount: config.publicKey,
       bondAccount: bond.publicKey,
       stakeAccount,
-      authority: withdrawer,
+      stakeAccountAuthority: withdrawer,
     })
-    const nextEpoch =
-      Number((await provider.context.banksClient.getClock()).epoch) + 1
-    warpToEpoch(provider, nextEpoch)
+    await warpToNextEpoch(provider)
     await provider.sendIx([withdrawer], instruction)
 
     const [stakeAccountData2, stakeAccountInfo] = await getAndCheckStakeAccount(

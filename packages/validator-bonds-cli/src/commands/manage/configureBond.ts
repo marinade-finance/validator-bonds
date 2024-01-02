@@ -1,7 +1,7 @@
-import { parsePubkey, parsePubkeyOrKeypair } from '@marinade.finance/cli-common'
+import { parsePubkey } from '@marinade.finance/cli-common'
 import { Keypair, PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
+import { parseSignerOrPubkey, setProgramIdByOwner } from '../../context'
 import { transaction } from '@marinade.finance/anchor-common'
 import { Wallet, executeTx } from '@marinade.finance/web3js-common'
 import {
@@ -9,6 +9,7 @@ import {
   configureBondInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import { toHundredsBps } from '@marinade.finance/validator-bonds-sdk/src/utils'
+import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 
 export function installConfigureBond(program: Command) {
   program
@@ -22,24 +23,24 @@ export function installConfigureBond(program: Command) {
     )
     .option(
       '--config <pubkey>',
-      '(optional when the argument bond-account-address is provided)' +
+      '(optional when the argument bond-account-address is provided) ' +
         'The config account that the bond is created under ' +
         `(default: ${CONFIG_ADDRESS.toBase58()})`,
       parsePubkey
     )
     .option(
       '--vote-account <pubkey>',
-      '(optional when the argument bond-account-address is provided)' +
+      '(optional when the argument bond-account-address is provided) ' +
         'Validator vote account that the bond is bound to',
       parsePubkey
     )
     .option(
-      '--authority <keypair_or_pubkey>',
+      '--authority <keypair_or_ledger_or_pubkey>',
       'Authority that is permitted to do changes in bonds account. ' +
         'It is either the authority defined in bonds account or ' +
         'vote account validator identity that the bond account is connected to. ' +
         '(default: wallet keypair)',
-      parsePubkeyOrKeypair
+      parseSignerOrPubkey
     )
     .option(
       '--bond-authority <pubkey>',
@@ -64,7 +65,7 @@ export function installConfigureBond(program: Command) {
         }: {
           config?: Promise<PublicKey>
           voteAccount?: Promise<PublicKey>
-          authority?: Promise<PublicKey | Keypair>
+          authority?: Promise<WalletInterface | PublicKey>
           bondAuthority?: Promise<PublicKey>
           revenueShare?: number
         }
@@ -92,7 +93,7 @@ async function manageConfigureBond({
   bondAccountAddress?: PublicKey
   config?: PublicKey
   voteAccount?: PublicKey
-  authority?: PublicKey | Keypair
+  authority?: WalletInterface | PublicKey
   newBondAuthority?: PublicKey
   newRevenueShareHundredthBps?: number
 }) {

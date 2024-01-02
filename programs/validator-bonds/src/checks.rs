@@ -67,6 +67,7 @@ pub fn check_bond_change_permitted(
     bond_account: &Bond,
     validator_vote_account: &UncheckedAccount,
 ) -> bool {
+    // TODO: is possible to sign with default Pubkey? Should be Pubkey::default() defined as disabled bound authority?
     if authority == &bond_account.authority.key() {
         true
     } else {

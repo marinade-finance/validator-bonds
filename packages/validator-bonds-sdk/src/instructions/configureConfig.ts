@@ -11,6 +11,7 @@ import {
 } from '../sdk'
 import BN from 'bn.js'
 import { getConfig } from '../api'
+import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
 export async function configureConfigInstruction({
   program,
@@ -24,7 +25,7 @@ export async function configureConfigInstruction({
 }: {
   program: ValidatorBondsProgram
   configAccount?: PublicKey
-  adminAuthority?: PublicKey | Keypair | Signer // signer
+  adminAuthority?: PublicKey | Keypair | Signer | WalletInterface // signer
   newAdmin?: PublicKey
   newOperator?: PublicKey
   newEpochsToClaimSettlement?: BN | number

@@ -1,7 +1,11 @@
 import {
   ValidatorBondsProgram,
+  fundBondInstruction,
+  getBond,
   initBondInstruction,
   initConfigInstruction,
+  initWithdrawRequestInstruction,
+  withdrawerAuthority,
 } from '../../src'
 import {
   Keypair,
@@ -12,7 +16,7 @@ import {
 } from '@solana/web3.js'
 import { pubkey, signer } from './helpers'
 import { ExtendedProvider } from './provider'
-import { createVoteAccount } from './staking'
+import { createVoteAccount, delegatedStakeAccount } from './staking'
 import BN from 'bn.js'
 
 export async function createUserAndFund(
@@ -78,6 +82,7 @@ export async function executeInitConfigInstruction({
   withdrawLockupEpochs = Math.floor(Math.random() * 10) + 1,
   adminAuthority,
   operatorAuthority,
+  configAccountKeypair,
 }: {
   program: ValidatorBondsProgram
   provider: ExtendedProvider
@@ -85,6 +90,7 @@ export async function executeInitConfigInstruction({
   withdrawLockupEpochs?: number
   adminAuthority?: Keypair
   operatorAuthority?: Keypair
+  configAccountKeypair?: Keypair
 }): Promise<{
   configAccount: PublicKey
   adminAuthority: Keypair
@@ -96,6 +102,7 @@ export async function executeInitConfigInstruction({
 
   const { configAccount, instruction } = await initConfigInstruction({
     program,
+    configAccount: configAccountKeypair,
     admin: adminAuthority.publicKey,
     operator: operatorAuthority.publicKey,
     epochsToClaimSettlement,
@@ -142,7 +149,9 @@ export async function executeInitBondInstruction(
     ;({ voteAccount, validatorIdentity } = await createVoteAccount(provider))
   }
   if (validatorIdentity === undefined) {
-    throw new Error('nodeIdentity is undefined')
+    throw new Error(
+      'executeInitBondInstruction: vote account not to be created in method, requiring validatorIdentity'
+    )
   }
   const { instruction, bondAccount } = await initBondInstruction({
     program,
@@ -174,4 +183,135 @@ export async function executeInitBondInstruction(
     voteAccount,
     validatorIdentity,
   }
+}
+
+export async function executeFundBondInstruction({
+  program,
+  provider,
+  bondAccount,
+  config,
+  stakeAccount,
+  stakeAccountAuthority,
+  lamports,
+}: {
+  program: ValidatorBondsProgram
+  provider: ExtendedProvider
+  bondAccount?: PublicKey
+  config?: PublicKey
+  stakeAccount?: PublicKey
+  stakeAccountAuthority?: Keypair
+  lamports?: number
+}): Promise<{
+  bondAccount: PublicKey
+  bondAuthority: Keypair | PublicKey
+  voteAccount: PublicKey
+  bondWithdrawerAuthority: PublicKey
+  stakeAccount: PublicKey
+}> {
+  let bondAuthority: Keypair | PublicKey
+  let voteAccount: PublicKey
+  if (!bondAccount) {
+    if (!config) {
+      ;({ configAccount: config } = await executeInitConfigInstruction({
+        program,
+        provider,
+      }))
+    }
+    ;({ bondAccount, bondAuthority, voteAccount } =
+      await executeInitBondInstruction(program, provider, config))
+  } else {
+    const bondData = await getBond(program, bondAccount)
+    bondAuthority = bondData.authority
+    voteAccount = bondData.validatorVoteAccount
+    config = bondData.config
+  }
+
+  if (!stakeAccount) {
+    // to fully activate the stake account there is needed to wait (or warp) for 1 epoch
+    ;({ stakeAccount, withdrawer: stakeAccountAuthority } =
+      await delegatedStakeAccount({
+        provider,
+        lamports,
+        voteAccountToDelegate: voteAccount,
+      }))
+  }
+  if (stakeAccountAuthority === undefined) {
+    throw new Error(
+      'executeFundBondInstruction: stake account not to be created in method, requiring stakeAccountAuthority'
+    )
+  }
+  const [bondWithdrawerAuthority] = withdrawerAuthority(
+    config,
+    program.programId
+  )
+
+  const { instruction } = await fundBondInstruction({
+    program,
+    configAccount: config,
+    bondAccount,
+    validatorVoteAccount: voteAccount,
+    stakeAccount,
+    stakeAccountAuthority,
+  })
+  try {
+    await provider.sendIx([stakeAccountAuthority], instruction)
+  } catch (e) {
+    console.error(
+      `executeFundBondInstruction: bond account ${pubkey(
+        bondAccount
+      ).toBase58()}, ` +
+        `config: ${config.toBase58()}, ` +
+        `voteAccount: ${pubkey(voteAccount).toBase58()}, ` +
+        `stakeAccount: ${stakeAccount.toBase58()}, ` +
+        `stakeAccountAuthority: ${pubkey(
+          stakeAccountAuthority.publicKey
+        ).toBase58()}`,
+      e
+    )
+    throw e
+  }
+
+  return {
+    bondAccount,
+    bondAuthority,
+    voteAccount,
+    bondWithdrawerAuthority,
+    stakeAccount,
+  }
+}
+
+export async function executeInitWithdrawRequestInstruction({
+  program,
+  provider,
+  bondAccount,
+  validatorIdentity,
+  amount = LAMPORTS_PER_SOL,
+}: {
+  program: ValidatorBondsProgram
+  provider: ExtendedProvider
+  bondAccount: PublicKey
+  validatorIdentity: Keypair
+  amount?: number
+}): Promise<{ withdrawRequest: PublicKey }> {
+  const { instruction, withdrawRequest } = await initWithdrawRequestInstruction(
+    {
+      program,
+      bondAccount,
+      authority: validatorIdentity.publicKey,
+      amount,
+    }
+  )
+  try {
+    await provider.sendIx([validatorIdentity], instruction)
+  } catch (e) {
+    console.error(
+      `executeInitWithdrawRequestInstruction: bond account ${pubkey(
+        bondAccount
+      ).toBase58()}, ` +
+        `validatorIdentity: ${pubkey(validatorIdentity).toBase58()}`,
+      e
+    )
+    throw e
+  }
+  return { withdrawRequest }
 }

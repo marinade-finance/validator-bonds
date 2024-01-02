@@ -77,7 +77,7 @@ describe('Validator Bonds fund bond', () => {
       bondAccount,
       configAccount,
       stakeAccount,
-      authority: withdrawer,
+      stakeAccountAuthority: withdrawer,
     })
     await provider.sendIx([withdrawer], instruction)
 

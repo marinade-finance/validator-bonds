@@ -12,6 +12,7 @@ import {
 } from '../sdk'
 import { walletPubkey } from '../utils'
 import { getWithdrawRequest } from '../api'
+import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
 export async function cancelWithdrawRequestInstruction({
   program,
@@ -27,7 +28,7 @@ export async function cancelWithdrawRequestInstruction({
   bondAccount?: PublicKey
   configAccount?: PublicKey
   validatorVoteAccount: PublicKey
-  authority?: PublicKey | Keypair | Signer // signer
+  authority?: PublicKey | Keypair | Signer | WalletInterface // signer
   rentCollector?: PublicKey
 }): Promise<{
   instruction: TransactionInstruction

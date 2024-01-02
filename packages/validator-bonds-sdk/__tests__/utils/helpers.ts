@@ -91,14 +91,18 @@ export async function verifyErrorMessage(
 }
 
 export function isSinger(
-  key: PublicKey | Signer | Keypair | undefined
-): key is Signer | Keypair {
-  return key !== undefined && 'secretKey' in key && 'publicKey' in key
+  key: PublicKey | Signer | Keypair | WalletInterface | undefined
+): key is Signer | Keypair | WalletInterface {
+  return (
+    key !== undefined &&
+    'publicKey' in key &&
+    ('secretKey' in key || 'signTransaction' in key)
+  )
 }
 
 export function signer(
-  key: PublicKey | Signer | Keypair | undefined
-): Signer | Keypair {
+  key: PublicKey | Signer | Keypair | WalletInterface | undefined
+): Signer | Keypair | WalletInterface {
   if (isSinger(key)) {
     return key
   } else {
@@ -111,7 +115,7 @@ export function signer(
 }
 
 export function pubkey(
-  key: PublicKey | Signer | Keypair | undefined
+  key: PublicKey | Signer | Keypair | WalletInterface | undefined
 ): PublicKey {
   if (key === undefined) {
     throw new Error("Expected pubkey or signer but it's undefined")

@@ -1,4 +1,4 @@
-import { Connection, Keypair, PublicKey } from '@solana/web3.js'
+import { Connection, PublicKey } from '@solana/web3.js'
 import { Logger } from 'pino'
 import { AnchorProvider, Provider, Wallet } from '@coral-xyz/anchor'
 import {
@@ -6,9 +6,12 @@ import {
   getClusterUrl,
   getContext,
   parseCommitment,
+  parseKeypair,
+  parsePubkey,
   setContext,
 } from '@marinade.finance/cli-common'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+import { parseLedgerWallet } from '@marinade.finance/ledger-utils'
 import {
   ValidatorBondsProgram,
   getProgram as getValidatorBondsProgram,
@@ -60,7 +63,7 @@ export class ValidatorBondsCliContext extends Context {
 
 export function setValidatorBondsCliContext({
   cluster,
-  walletKeypair,
+  wallet,
   programId,
   simulate,
   printOnly,
@@ -70,7 +73,7 @@ export function setValidatorBondsCliContext({
   command,
 }: {
   cluster: string
-  walletKeypair: Keypair
+  wallet: WalletInterface
   programId?: PublicKey
   simulate: boolean
   printOnly: boolean
@@ -82,7 +85,6 @@ export function setValidatorBondsCliContext({
   try {
     const parsedCommitment = parseCommitment(commitment)
     const connection = new Connection(getClusterUrl(cluster), parsedCommitment)
-    const wallet = new Wallet(walletKeypair)
     const provider = new AnchorProvider(connection, wallet, { skipPreflight })
 
     setContext(
@@ -122,6 +124,28 @@ export async function setProgramIdByOwner(
     cliContext.programId = accountInfo.owner
   }
   return cliContext
+}
+
+export async function parseSigner(
+  pathOrLedger: string,
+  logger: Logger
+): Promise<WalletInterface> {
+  const wallet = await parseLedgerWallet(pathOrLedger, logger)
+  if (wallet) {
+    return wallet
+  }
+  const keypair = await parseKeypair(pathOrLedger)
+  return new Wallet(keypair)
+}
+
+export async function parseSignerOrPubkey(
+  pubkeyOrPathOrLedger: string
+): Promise<WalletInterface | PublicKey> {
+  try {
+    return await parseSigner(pubkeyOrPathOrLedger, getContext().logger)
+  } catch (err) {
+    return await parsePubkey(pubkeyOrPathOrLedger)
+  }
 }
 
 export function getCliContext(): ValidatorBondsCliContext {

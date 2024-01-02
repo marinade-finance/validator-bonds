@@ -7,6 +7,7 @@ import {
 import { ValidatorBondsProgram } from '../sdk'
 import BN from 'bn.js'
 import { walletPubkey } from '../utils'
+import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
 /**
  * Generate instruction to init config root account.
@@ -33,14 +34,14 @@ export async function initConfigInstruction({
   withdrawLockupEpochs = 0,
 }: {
   program: ValidatorBondsProgram
-  configAccount?: PublicKey | Keypair | Signer // signer
+  configAccount?: PublicKey | Keypair | Signer | WalletInterface // signer
   admin?: PublicKey
   operator?: PublicKey
-  rentPayer?: PublicKey | Keypair | Signer // signer
+  rentPayer?: PublicKey | Keypair | Signer | WalletInterface // signer
   epochsToClaimSettlement?: BN | number
   withdrawLockupEpochs?: BN | number
 }): Promise<{
-  configAccount: PublicKey | Keypair | Signer
+  configAccount: PublicKey | Keypair | Signer | WalletInterface
   instruction: TransactionInstruction
 }> {
   const configAccountPubkey =

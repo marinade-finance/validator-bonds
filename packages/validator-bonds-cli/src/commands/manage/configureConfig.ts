@@ -1,7 +1,7 @@
-import { parsePubkey, parsePubkeyOrKeypair } from '@marinade.finance/cli-common'
+import { parsePubkey } from '@marinade.finance/cli-common'
 import { Keypair, PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
+import { parseSignerOrPubkey, setProgramIdByOwner } from '../../context'
 import { transaction } from '@marinade.finance/anchor-common'
 import { Wallet, executeTx } from '@marinade.finance/web3js-common'
 import {
@@ -20,9 +20,9 @@ export function installConfigureConfig(program: Command) {
       parsePubkey
     )
     .option(
-      '--admin-authority <keypair_or_pubkey>',
+      '--admin-authority <keypair_or_ledger_or_pubkey>',
       'Admin authority that is permitted to do the configuration change (default: wallet)',
-      parsePubkeyOrKeypair
+      parseSignerOrPubkey
     )
     .option(
       '--operator <pubkey>',

@@ -272,10 +272,17 @@ describe('Validator Bonds fund bond account', () => {
     // deactivated but funds are still effective, withdraw cannot work
     try {
       executeWithdraw(provider, stakeAccount1, withdrawer1, undefined, 1)
+      throw new Error('failure expected; funds still effective')
     } catch (e) {
       if (
         !(e as Error).message.includes('insufficient funds for instruction')
       ) {
+        console.error(
+          'Expected failure as stake account funds are still effective, ' +
+            `failure happens but with a wrong message: '${
+              (e as Error).message
+            }'`
+        )
         throw e
       }
     }

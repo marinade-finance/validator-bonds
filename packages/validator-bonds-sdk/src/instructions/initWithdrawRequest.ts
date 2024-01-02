@@ -7,6 +7,7 @@ import {
 import { ValidatorBondsProgram, withdrawRequestAddress } from '../sdk'
 import { checkAndGetBondAddress, walletPubkey } from '../utils'
 import BN from 'bn.js'
+import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
 export async function initWithdrawRequestInstruction({
   program,
@@ -21,8 +22,8 @@ export async function initWithdrawRequestInstruction({
   bondAccount?: PublicKey
   configAccount?: PublicKey
   validatorVoteAccount?: PublicKey
-  authority?: PublicKey | Keypair | Signer // signer
-  rentPayer?: PublicKey | Keypair | Signer // signer
+  authority?: PublicKey | Keypair | Signer | WalletInterface // signer
+  rentPayer?: PublicKey | Keypair | Signer | WalletInterface // signer
   amount: BN | number
 }): Promise<{
   instruction: TransactionInstruction
@@ -34,13 +35,10 @@ export async function initWithdrawRequestInstruction({
     validatorVoteAccount,
     program.programId
   )
-  if (!validatorVoteAccount) {
+  if (!validatorVoteAccount || !configAccount) {
     const bondData = await program.account.bond.fetch(bondAccount)
-    validatorVoteAccount = bondData.validatorVoteAccount
-  }
-  if (!configAccount) {
-    const bondData = await program.account.bond.fetch(bondAccount)
-    configAccount = bondData.config
+    validatorVoteAccount = validatorVoteAccount || bondData.validatorVoteAccount
+    configAccount = configAccount || bondData.config
   }
 
   authority = authority instanceof PublicKey ? authority : authority.publicKey

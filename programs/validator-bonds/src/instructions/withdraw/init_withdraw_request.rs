@@ -1,6 +1,6 @@
 use crate::checks::check_bond_change_permitted;
 use crate::error::ErrorCode;
-use crate::events::withdraw::CreateWithdrawRequestEvent;
+use crate::events::withdraw::InitWithdrawRequestEvent;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::withdraw_request::WithdrawRequest;
@@ -88,7 +88,7 @@ impl<'info> InitWithdrawRequest<'info> {
             requested_amount: amount,
             reserved: Reserved150::default(),
         });
-        emit!(CreateWithdrawRequestEvent {
+        emit!(InitWithdrawRequestEvent {
             withdraw_request: self.withdraw_request.key(),
             bond: self.withdraw_request.bond.key(),
             validator_vote_account: self.withdraw_request.validator_vote_account.key(),

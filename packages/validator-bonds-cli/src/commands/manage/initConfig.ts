@@ -1,11 +1,7 @@
-import {
-  parseKeypair,
-  parsePubkey,
-  parsePubkeyOrKeypair,
-} from '@marinade.finance/cli-common'
+import { parseKeypair, parsePubkey } from '@marinade.finance/cli-common'
 import { Keypair, PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
-import { getCliContext } from '../../context'
+import { getCliContext, parseSignerOrPubkey } from '../../context'
 import { transaction } from '@marinade.finance/anchor-common'
 import { Wallet, executeTx } from '@marinade.finance/web3js-common'
 import { initConfigInstruction } from '@marinade.finance/validator-bonds-sdk'
@@ -30,9 +26,9 @@ export function installInitConfig(program: Command) {
       parsePubkey
     )
     .option(
-      '--rent-payer <keypair_or_pubkey>',
+      '--rent-payer <keypair_or_ledger_or_pubkey>',
       'Rent payer for the account creation (default: wallet keypair)',
-      parsePubkeyOrKeypair
+      parseSignerOrPubkey
     )
     .option(
       '--epochs-to-claim-settlement <number>',

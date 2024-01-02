@@ -2,14 +2,10 @@
 
 /* eslint-disable no-process-exit */
 import { Command } from 'commander'
-import {
-  configureLogger,
-  parseKeypair,
-  parsePubkey,
-} from '@marinade.finance/cli-common'
+import { configureLogger, parsePubkey } from '@marinade.finance/cli-common'
 import { installCommands } from './commands'
 import { Logger } from 'pino'
-import { setValidatorBondsCliContext } from './context'
+import { parseSignerWithLogger, setValidatorBondsCliContext } from './context'
 import { VALIDATOR_BONDS_PROGRAM_ID } from '@marinade.finance/validator-bonds-sdk'
 
 const DEFAULT_KEYPAIR_PATH = '~/.config/solana/id.json'
@@ -57,15 +53,15 @@ program
   .option('-v, --verbose', 'alias for --debug', false)
   .hook('preAction', async (command: Command, action: Command) => {
     const wallet = command.opts().keypair
-    const walletKeypair = wallet
-      ? await parseKeypair(wallet)
-      : await parseKeypair(DEFAULT_KEYPAIR_PATH)
+    const walletInterface = wallet
+      ? await parseSignerWithLogger(wallet, logger)
+      : await parseSignerWithLogger(DEFAULT_KEYPAIR_PATH, logger)
     if (command.opts().debug || command.opts().verbose) {
       logger.level = 'debug'
     }
     setValidatorBondsCliContext({
       cluster: command.opts().cluster as string,
-      walletKeypair,
+      wallet: walletInterface,
       programId: await command.opts().programId,
       simulate: Boolean(command.opts().simulate),
       printOnly: Boolean(command.opts().printOnly),

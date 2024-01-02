@@ -113,3 +113,9 @@ export function warpToEpoch(provider: BankrunProvider, epoch: number) {
   }
   provider.context.warpToSlot(warpToEpoch)
 }
+
+export async function warpToNextEpoch(provider: BankrunProvider) {
+  const nextEpoch =
+    Number((await provider.context.banksClient.getClock()).epoch) + 1
+  warpToEpoch(provider, nextEpoch)
+}

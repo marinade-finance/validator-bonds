@@ -113,6 +113,10 @@ export type MergeEvent = IdlEvents<ValidatorBonds>[typeof MERGE_EVENT]
 export const RESET_EVENT = 'ResetEvent'
 export type ResetEvent = IdlEvents<ValidatorBonds>[typeof RESET_EVENT]
 
+export const INIT_WITHDRAW_REQUEST_EVENT = 'InitWithdrawRequestEvent'
+export type InitWithdrawRequestEvent =
+  IdlEvents<ValidatorBonds>[typeof INIT_WITHDRAW_REQUEST_EVENT]
+
 export const CANCEL_WITHDRAW_REQUEST_EVENT = 'CancelWithdrawRequestEvent'
 export type CancelWithdrawRequestEvent =
   IdlEvents<ValidatorBonds>[typeof CANCEL_WITHDRAW_REQUEST_EVENT]

@@ -35,15 +35,13 @@ validator-bonds -um show-bond <bond-account-address> -f yaml
 
 
 
-## `validator-bonds --help`
+## `validator-bonds CLI Reference`
 
+### `validator-bonds cli --help`
 ```sh
-pnpm cli --help
+validator-bonds cli --help
 
-> @ cli /home/chalda/marinade/validator-bonds
-> ts-node ./packages/validator-bonds-cli/src/ "--help"
-
-Usage: src [options] [command]
+Usage: validator-bonds [options] [command]
 
 Options:
   -V, --version                                        output the version number

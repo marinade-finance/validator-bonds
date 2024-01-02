@@ -9,23 +9,25 @@ import {
 import { ValidatorBondsProgram } from '../sdk'
 import { checkAndGetBondAddress, walletPubkey } from '../utils'
 import { getBond } from '../api'
+import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
 export async function fundBondInstruction({
   program,
+  bondAccount,
+  stakeAccount,
+  stakeAccountAuthority = walletPubkey(program),
   configAccount,
   validatorVoteAccount,
-  bondAccount,
-  authority = walletPubkey(program),
-  stakeAccount,
 }: {
   program: ValidatorBondsProgram
+  bondAccount?: PublicKey
+  stakeAccount: PublicKey
+  stakeAccountAuthority?: PublicKey | Keypair | Signer | WalletInterface // signer
   configAccount?: PublicKey
   validatorVoteAccount?: PublicKey
-  bondAccount?: PublicKey
-  authority?: PublicKey | Keypair | Signer // signer
-  stakeAccount: PublicKey
 }): Promise<{
   instruction: TransactionInstruction
+  bondAccount: PublicKey
 }> {
   bondAccount = checkAndGetBondAddress(
     bondAccount,
@@ -37,14 +39,17 @@ export async function fundBondInstruction({
     const bondData = await getBond(program, bondAccount)
     configAccount = bondData.config
   }
-  authority = authority instanceof PublicKey ? authority : authority.publicKey
+  stakeAccountAuthority =
+    stakeAccountAuthority instanceof PublicKey
+      ? stakeAccountAuthority
+      : stakeAccountAuthority.publicKey
 
   const instruction = await program.methods
     .fundBond()
     .accounts({
       config: configAccount,
       bond: bondAccount,
-      stakeAuthority: authority,
+      stakeAuthority: stakeAccountAuthority,
       stakeAccount,
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
       stakeProgram: StakeProgram.programId,
@@ -52,5 +57,6 @@ export async function fundBondInstruction({
     .instruction()
   return {
     instruction,
+    bondAccount,
   }
 }

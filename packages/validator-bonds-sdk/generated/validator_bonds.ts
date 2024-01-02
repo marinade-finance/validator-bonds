@@ -2750,7 +2750,7 @@ export type ValidatorBonds = {
       ]
     },
     {
-      "name": "CreateWithdrawRequestEvent",
+      "name": "InitWithdrawRequestEvent",
       "fields": [
         {
           "name": "withdrawRequest",
@@ -5857,7 +5857,7 @@ export const IDL: ValidatorBonds = {
       ]
     },
     {
-      "name": "CreateWithdrawRequestEvent",
+      "name": "InitWithdrawRequestEvent",
       "fields": [
         {
           "name": "withdrawRequest",

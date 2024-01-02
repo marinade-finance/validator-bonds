@@ -2,7 +2,7 @@ use crate::events::{SplitStakeData, U64ValueChange};
 use anchor_lang::prelude::*;
 
 #[event]
-pub struct CreateWithdrawRequestEvent {
+pub struct InitWithdrawRequestEvent {
     pub withdraw_request: Pubkey,
     pub bond: Pubkey,
     pub validator_vote_account: Pubkey,

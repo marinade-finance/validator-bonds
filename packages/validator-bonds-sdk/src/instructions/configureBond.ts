@@ -8,6 +8,7 @@ import { CONFIG_ADDRESS, ValidatorBondsProgram } from '../sdk'
 import { checkAndGetBondAddress, walletPubkey } from '../utils'
 import BN from 'bn.js'
 import { getBond } from '../api'
+import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
 export async function configureBondInstruction({
   program,
@@ -22,7 +23,7 @@ export async function configureBondInstruction({
   bondAccount?: PublicKey
   configAccount?: PublicKey
   validatorVoteAccount?: PublicKey
-  authority?: PublicKey | Keypair | Signer // signer
+  authority?: PublicKey | Keypair | Signer | WalletInterface | WalletInterface // signer
   newBondAuthority?: PublicKey
   newRevenueShareHundredthBps?: BN | number
 }): Promise<{

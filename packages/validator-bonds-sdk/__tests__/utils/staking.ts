@@ -12,6 +12,7 @@ import {
   TransactionInstruction,
   Transaction,
   StakeAuthorizationLayout,
+  LAMPORTS_PER_SOL,
 } from '@solana/web3.js'
 import { ExtendedProvider } from './provider'
 import {
@@ -298,7 +299,7 @@ export async function delegatedStakeAccount({
   withdrawer?: Keypair
 }): Promise<DelegatedStakeAccount> {
   const stakeAccount = Keypair.generate()
-  lamports = lamports || (await getRentExemptStake(provider, lamports))
+  lamports = lamports || LAMPORTS_PER_SOL + 1
   rentExemptVote = await getRentExemptVote(provider, rentExemptVote)
 
   voteAccountToDelegate =

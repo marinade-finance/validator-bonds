@@ -21,6 +21,7 @@ import BN from 'bn.js'
 import { mergeInstruction } from '../instructions/merge'
 import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRequest'
 import { walletPubkey } from '../utils'
+import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
 /**
  * Returning the instructions for withdrawing the deposit (on top of the withdraw request)
@@ -35,7 +36,7 @@ export async function orchestrateWithdrawDeposit({
   program: ValidatorBondsProgram
   withdrawRequestAccount?: PublicKey
   bondAccount?: PublicKey
-  splitStakeRentPayer?: PublicKey | Keypair | Signer // signer
+  splitStakeRentPayer?: PublicKey | Keypair | Signer | WalletInterface // signer
 }): Promise<{
   instructions: TransactionInstruction[]
   splitStakeAccount: Keypair | undefined // signer
