@@ -15,7 +15,7 @@ import {
   getValidatorInfo,
   initTest,
 } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
-import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
+import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 
 describe('Configure bond account using CLI', () => {
   let provider: AnchorExtendedProvider
@@ -35,7 +35,6 @@ describe('Configure bond account using CLI', () => {
   })
 
   beforeEach(async () => {
-    const voteWithdrawerKeypair = Keypair.generate()
     ;({
       path: bondAuthorityPath,
       keypair: bondAuthorityKeypair,
@@ -53,11 +52,8 @@ describe('Configure bond account using CLI', () => {
     ;({ validatorIdentity, validatorIdentityPath } = await getValidatorInfo(
       provider.connection
     ))
-    ;({ voteAccount } = await createVoteAccount(
+    ;({ voteAccount } = await createVoteAccountWithIdentity(
       provider,
-      undefined,
-      undefined,
-      voteWithdrawerKeypair,
       validatorIdentity
     ))
     ;({ bondAccount } = await executeInitBondInstruction(

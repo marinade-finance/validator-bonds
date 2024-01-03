@@ -18,7 +18,7 @@ import {
   getValidatorInfo,
   initTest,
 } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
-import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
+import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 
 describe('Init bond account using CLI', () => {
   let provider: AnchorExtendedProvider
@@ -27,7 +27,6 @@ describe('Init bond account using CLI', () => {
   let rentPayerKeypair: Keypair
   let rentPayerCleanup: () => Promise<void>
   const rentPayerFunds = 10 * LAMPORTS_PER_SOL
-  let voteWithdrawerKeypair: Keypair
   let configAccount: PublicKey
   let voteAccount: PublicKey
   let validatorIdentity: Keypair
@@ -44,7 +43,6 @@ describe('Init bond account using CLI', () => {
       keypair: rentPayerKeypair,
       cleanup: rentPayerCleanup,
     } = await createTempFileKeypair())
-    voteWithdrawerKeypair = Keypair.generate()
     ;({ configAccount } = await executeInitConfigInstruction({
       program,
       provider,
@@ -57,11 +55,8 @@ describe('Init bond account using CLI', () => {
     ;({ validatorIdentity, validatorIdentityPath } = await getValidatorInfo(
       provider.connection
     ))
-    ;({ voteAccount } = await createVoteAccount(
+    ;({ voteAccount } = await createVoteAccountWithIdentity(
       provider,
-      undefined,
-      undefined,
-      voteWithdrawerKeypair,
       validatorIdentity
     ))
 
