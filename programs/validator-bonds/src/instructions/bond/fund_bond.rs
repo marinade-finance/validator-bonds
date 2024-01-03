@@ -30,7 +30,7 @@ pub struct FundBond<'info> {
     bond: Account<'info, Bond>,
 
     /// CHECK: PDA
-    /// new authority owner, it's the bonds program
+    /// new owner of the stake account, it's the bonds program PDA
     #[account(
         seeds = [
             b"bonds_authority",

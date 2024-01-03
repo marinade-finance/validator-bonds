@@ -41,9 +41,7 @@ describe('Validator Bonds init bond account', () => {
 
   it('init bond', async () => {
     const bondAuthority = Keypair.generate()
-    const { voteAccount, authorizedWithdrawer } = await createVoteAccount(
-      provider
-    )
+    const { voteAccount, validatorIdentity } = await createVoteAccount(provider)
     const rentWallet = await createUserAndFund(
       provider,
       Keypair.generate(),
@@ -55,10 +53,10 @@ describe('Validator Bonds init bond account', () => {
       bondAuthority: bondAuthority.publicKey,
       revenueShareHundredthBps: 30,
       validatorVoteAccount: voteAccount,
-      validatorVoteWithdrawer: authorizedWithdrawer.publicKey,
+      validatorIdentity: validatorIdentity.publicKey,
       rentPayer: rentWallet.publicKey,
     })
-    await provider.sendIx([rentWallet, authorizedWithdrawer], instruction)
+    await provider.sendIx([rentWallet, validatorIdentity], instruction)
 
     const rentWalletInfo = await provider.connection.getAccountInfo(
       rentWallet.publicKey

@@ -25,7 +25,7 @@ pub struct CancelWithdrawRequest<'info> {
     #[account()]
     validator_vote_account: UncheckedAccount<'info>,
 
-    /// validator vote account owner or bond authority may ask for cancelling
+    /// validator vote account validator identity or bond authority may ask for cancelling
     #[account()]
     pub authority: Signer<'info>,
 

@@ -5,6 +5,7 @@ import { ValidatorBondsProgram, getProgram, getStakeAccount } from '../../src'
 import { ExtendedProvider } from '../utils/provider'
 import {
   Connection,
+  Keypair,
   PublicKey,
   Signer,
   Transaction,
@@ -14,6 +15,8 @@ import {
 import { transaction } from '@marinade.finance/anchor-common'
 import { executeTxSimple } from '@marinade.finance/web3js-common'
 import { sleep } from '../utils/helpers'
+import { readFile } from 'fs/promises'
+import fs from 'fs'
 
 export class AnchorExtendedProvider
   extends AnchorProvider
@@ -51,7 +54,12 @@ export async function initTest(): Promise<{
   return { program: getProgram(provider), provider }
 }
 
-// NOTE: the Anchor.toml configures slots_per_epoch to 32,
+export function getValidatorIdentity(): Keypair {
+  return Keypair.generate()
+}
+
+// NOTE: the Anchor.toml configures slots_per_epoch to 32, otherwise
+//       waiting for activation will be pretty long and this method probably timeouts
 export async function waitForStakeAccountActivation({
   stakeAccount,
   connection,
@@ -119,4 +127,65 @@ export async function waitForStakeAccountActivation({
       currentEpoch = (await connection.getEpochInfo()).epoch
     }
   }
+}
+
+export async function getValidatorInfo(connection: Connection): Promise<{
+  votePubkey: PublicKey
+  validatorIdentity: Keypair
+  validatorIdentityPath: string
+}> {
+  // loading the test validator identity key pair, we expect the Anchor paths are defaults
+  // and that the tests is run with `pnpm test` from the root directory
+  const testIdentityKeypairPath =
+    process.cwd() + '/.anchor/test-ledger/validator-keypair.json'
+  if (!fs.existsSync(testIdentityKeypairPath)) {
+    throw new Error(
+      `Expected test validator identity key pair at ${testIdentityKeypairPath} but file not found`
+    )
+  }
+  const validatorIdentityPath = testIdentityKeypairPath
+  const validatorIdentity = await parseKeypair(testIdentityKeypairPath)
+
+  // let's verify the leader schedule matches the validator identity
+  const leaderSchedule = await connection.getLeaderSchedule()
+  const isScheduledOnlyTestValidator = Object.keys(leaderSchedule).every(
+    address => address === validatorIdentity.publicKey.toBase58()
+  )
+  if (!isScheduledOnlyTestValidator) {
+    throw new Error(
+      'Error on global setup: expected only test validator being run and scheduled as leader'
+    )
+  }
+
+  const voteAccounts = await connection.getVoteAccounts()
+  // expecting run on localhost and only one voting vote account is available
+  // i.e., one validator solana-test-validator is voting and the validator identity is the same
+  if (voteAccounts.current.length !== 1) {
+    throw new Error(
+      'Expected one vote account of solana-test-validator. Cannot continue in global local test setup.' +
+        ` Number of vote accounts found: ${voteAccounts.current.length}`
+    )
+  }
+  const votePubkey = new PublicKey(voteAccounts.current[0].votePubkey)
+  if (
+    voteAccounts.current[0].nodePubkey !==
+    validatorIdentity.publicKey.toBase58()
+  ) {
+    throw new Error(
+      `Expected validator identity ${validatorIdentity.publicKey.toBase58()} to be the same as the vote account node pubkey ${
+        voteAccounts.current[0].nodePubkey
+      }`
+    )
+  }
+
+  return {
+    votePubkey,
+    validatorIdentity,
+    validatorIdentityPath,
+  }
+}
+
+async function parseKeypair(path: string): Promise<Keypair> {
+  const fileContent = await readFile(path, 'utf-8')
+  return Keypair.fromSecretKey(new Uint8Array(JSON.parse(fileContent)))
 }

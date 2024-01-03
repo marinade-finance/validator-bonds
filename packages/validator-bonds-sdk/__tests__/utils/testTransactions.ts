@@ -129,20 +129,20 @@ export async function executeInitBondInstruction(
   config: PublicKey,
   bondAuthority?: Keypair,
   voteAccount?: PublicKey,
-  authorizedWithdrawer?: Keypair,
+  validatorIdentity?: Keypair,
   revenueShareHundredthBps: BN | number = Math.floor(Math.random() * 100) + 1
 ): Promise<{
   bondAccount: PublicKey
   bondAuthority: Keypair
   voteAccount: PublicKey
-  authorizedWithdrawer: Keypair
+  validatorIdentity: Keypair
 }> {
   bondAuthority = bondAuthority || Keypair.generate()
   if (!voteAccount) {
-    ;({ voteAccount, authorizedWithdrawer } = await createVoteAccount(provider))
+    ;({ voteAccount, validatorIdentity } = await createVoteAccount(provider))
   }
-  if (authorizedWithdrawer === undefined) {
-    throw new Error('authorizedWithdrawer is undefined')
+  if (validatorIdentity === undefined) {
+    throw new Error('nodeIdentity is undefined')
   }
   const { instruction, bondAccount } = await initBondInstruction({
     program,
@@ -150,21 +150,19 @@ export async function executeInitBondInstruction(
     bondAuthority: bondAuthority.publicKey,
     revenueShareHundredthBps,
     validatorVoteAccount: voteAccount,
-    validatorVoteWithdrawer: authorizedWithdrawer.publicKey,
+    validatorIdentity: validatorIdentity.publicKey,
   })
   try {
-    await provider.sendIx([authorizedWithdrawer], instruction)
+    await provider.sendIx([validatorIdentity], instruction)
   } catch (e) {
     console.error(
       `executeInitBondInstruction: bond account ${pubkey(
         bondAccount
       ).toBase58()}, ` +
         `config: ${pubkey(config).toBase58()}, ` +
-        `bondAuthority: ${pubkey(bondAuthority.publicKey).toBase58()}, ` +
+        `bondAuthority: ${pubkey(bondAuthority).toBase58()}, ` +
         `voteAccount: ${pubkey(voteAccount).toBase58()}, ` +
-        `authorizedWithdrawer: ${pubkey(
-          authorizedWithdrawer.publicKey
-        ).toBase58()}`,
+        `validatorIdentity: ${pubkey(validatorIdentity).toBase58()}`,
       e
     )
     throw e
@@ -174,6 +172,6 @@ export async function executeInitBondInstruction(
     bondAccount,
     bondAuthority,
     voteAccount,
-    authorizedWithdrawer,
+    validatorIdentity,
   }
 }

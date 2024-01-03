@@ -50,9 +50,7 @@ describe('Validator Bonds fund bond account', () => {
       publicKey: configAccount,
       account: await getConfig(program, configAccount),
     }
-    const { voteAccount, authorizedWithdrawer } = await createVoteAccount(
-      provider
-    )
+    const { voteAccount, validatorIdentity } = await createVoteAccount(provider)
     bondAuthority = Keypair.generate()
     const { bondAccount } = await executeInitBondInstruction(
       program,
@@ -60,7 +58,7 @@ describe('Validator Bonds fund bond account', () => {
       config.publicKey,
       bondAuthority,
       voteAccount,
-      authorizedWithdrawer,
+      validatorIdentity,
       123
     )
     bond = {

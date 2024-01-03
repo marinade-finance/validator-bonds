@@ -15,6 +15,7 @@ import {
 import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import {
   AnchorExtendedProvider,
+  getValidatorInfo,
   initTest,
 } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
 import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
@@ -26,11 +27,11 @@ describe('Init bond account using CLI', () => {
   let rentPayerKeypair: Keypair
   let rentPayerCleanup: () => Promise<void>
   const rentPayerFunds = 10 * LAMPORTS_PER_SOL
-  let voteWithdrawerPath: string
   let voteWithdrawerKeypair: Keypair
-  let voteWithdrawerCleanup: () => Promise<void>
   let configAccount: PublicKey
   let voteAccount: PublicKey
+  let validatorIdentity: Keypair
+  let validatorIdentityPath: string
 
   beforeAll(async () => {
     shellMatchers()
@@ -43,11 +44,7 @@ describe('Init bond account using CLI', () => {
       keypair: rentPayerKeypair,
       cleanup: rentPayerCleanup,
     } = await createTempFileKeypair())
-    ;({
-      path: voteWithdrawerPath,
-      keypair: voteWithdrawerKeypair,
-      cleanup: voteWithdrawerCleanup,
-    } = await createTempFileKeypair())
+    voteWithdrawerKeypair = Keypair.generate()
     ;({ configAccount } = await executeInitConfigInstruction({
       program,
       provider,
@@ -57,11 +54,15 @@ describe('Init bond account using CLI', () => {
     expect(
       provider.connection.getAccountInfo(configAccount)
     ).resolves.not.toBeNull()
+    ;({ validatorIdentity, validatorIdentityPath } = await getValidatorInfo(
+      provider.connection
+    ))
     ;({ voteAccount } = await createVoteAccount(
       provider,
       undefined,
       undefined,
-      voteWithdrawerKeypair
+      voteWithdrawerKeypair,
+      validatorIdentity
     ))
 
     const tx = new Transaction().add(
@@ -79,7 +80,6 @@ describe('Init bond account using CLI', () => {
 
   afterEach(async () => {
     await rentPayerCleanup()
-    await voteWithdrawerCleanup()
   })
 
   it('init bond account', async () => {
@@ -99,8 +99,8 @@ describe('Init bond account using CLI', () => {
           configAccount.toBase58(),
           '--vote-account',
           voteAccount.toBase58(),
-          '--vote-account-withdrawer',
-          voteWithdrawerPath,
+          '--validator-identity',
+          validatorIdentityPath,
           '--bond-authority',
           bondAuthority.publicKey.toBase58(),
           '--revenue-share',

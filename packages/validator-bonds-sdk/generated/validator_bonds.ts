@@ -122,11 +122,11 @@ export type ValidatorBonds = {
           "isSigner": false
         },
         {
-          "name": "authorizedWithdrawer",
+          "name": "validatorIdentity",
           "isMut": false,
           "isSigner": true,
           "docs": [
-            "only validator vote account withdrawer authority may can create the bond"
+            "only validator vote account validator identity may create the bond"
           ]
         },
         {
@@ -213,7 +213,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": true,
           "docs": [
-            "validator vote account owner or bond authority may change the account"
+            "validator vote account validator identity or bond authority may change the account"
           ]
         },
         {
@@ -276,7 +276,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "new authority owner, it's the bonds program"
+            "new owner of the stake account, it's the bonds program PDA"
           ],
           "pda": {
             "seeds": [
@@ -378,7 +378,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": true,
           "docs": [
-            "validator vote account owner or bond authority may ask for the withdrawal"
+            "validator vote account node identity or bond authority may ask for the withdrawal"
           ]
         },
         {
@@ -470,7 +470,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": true,
           "docs": [
-            "validator vote account owner or bond authority may ask for cancelling"
+            "validator vote account validator identity or bond authority may ask for cancelling"
           ]
         },
         {
@@ -2213,7 +2213,7 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "validatorVoteWithdrawer",
+          "name": "validatorIdentity",
           "type": "publicKey",
           "index": false
         },
@@ -3044,8 +3044,8 @@ export type ValidatorBonds = {
     },
     {
       "code": 6035,
-      "name": "ValidatorVoteAccountOwnerMismatch",
-      "msg": "Owner of validator vote account does not match with the provided owner signature"
+      "name": "VoteAccountValidatorIdentityMismatch",
+      "msg": "Validator vote account does not match to provided validator identity signature"
     },
     {
       "code": 6036,
@@ -3229,11 +3229,11 @@ export const IDL: ValidatorBonds = {
           "isSigner": false
         },
         {
-          "name": "authorizedWithdrawer",
+          "name": "validatorIdentity",
           "isMut": false,
           "isSigner": true,
           "docs": [
-            "only validator vote account withdrawer authority may can create the bond"
+            "only validator vote account validator identity may create the bond"
           ]
         },
         {
@@ -3320,7 +3320,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": true,
           "docs": [
-            "validator vote account owner or bond authority may change the account"
+            "validator vote account validator identity or bond authority may change the account"
           ]
         },
         {
@@ -3383,7 +3383,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "new authority owner, it's the bonds program"
+            "new owner of the stake account, it's the bonds program PDA"
           ],
           "pda": {
             "seeds": [
@@ -3485,7 +3485,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": true,
           "docs": [
-            "validator vote account owner or bond authority may ask for the withdrawal"
+            "validator vote account node identity or bond authority may ask for the withdrawal"
           ]
         },
         {
@@ -3577,7 +3577,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": true,
           "docs": [
-            "validator vote account owner or bond authority may ask for cancelling"
+            "validator vote account validator identity or bond authority may ask for cancelling"
           ]
         },
         {
@@ -5320,7 +5320,7 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "validatorVoteWithdrawer",
+          "name": "validatorIdentity",
           "type": "publicKey",
           "index": false
         },
@@ -6151,8 +6151,8 @@ export const IDL: ValidatorBonds = {
     },
     {
       "code": 6035,
-      "name": "ValidatorVoteAccountOwnerMismatch",
-      "msg": "Owner of validator vote account does not match with the provided owner signature"
+      "name": "VoteAccountValidatorIdentityMismatch",
+      "msg": "Validator vote account does not match to provided validator identity signature"
     },
     {
       "code": 6036,

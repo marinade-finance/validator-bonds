@@ -173,21 +173,35 @@ export async function getAndCheckStakeAccount(
 // ----- ENHANCED PROVIDER -----
 export type VoteAccountKeys = {
   voteAccount: PublicKey
-  nodeIdentity: Keypair
+  validatorIdentity: Keypair
   authorizedVoter: Keypair
   authorizedWithdrawer: Keypair
+}
+
+export async function createVoteAccountWithIdentity(
+  provider: ExtendedProvider,
+  validatorIdentity: Keypair
+): Promise<VoteAccountKeys> {
+  return await createVoteAccount(
+    provider,
+    undefined,
+    undefined,
+    undefined,
+    validatorIdentity
+  )
 }
 
 export async function createVoteAccount(
   provider: ExtendedProvider,
   rentExempt?: number,
   authorizedVoter?: Keypair,
-  authorizedWithdrawer?: Keypair
+  authorizedWithdrawer?: Keypair,
+  validatorIdentity?: Keypair
 ): Promise<VoteAccountKeys> {
   rentExempt = await getRentExemptVote(provider, rentExempt)
 
   const voteAccount = Keypair.generate()
-  const nodeIdentity = Keypair.generate()
+  validatorIdentity = validatorIdentity || Keypair.generate()
   authorizedVoter = authorizedVoter || Keypair.generate()
   authorizedWithdrawer = authorizedWithdrawer || Keypair.generate()
 
@@ -200,19 +214,23 @@ export async function createVoteAccount(
   })
   const ixInitialize = VoteProgram.initializeAccount({
     votePubkey: voteAccount.publicKey,
-    nodePubkey: nodeIdentity.publicKey,
+    nodePubkey: validatorIdentity.publicKey,
     voteInit: {
       authorizedVoter: authorizedVoter.publicKey,
       authorizedWithdrawer: authorizedWithdrawer.publicKey,
       commission: 0,
-      nodePubkey: nodeIdentity.publicKey,
+      nodePubkey: validatorIdentity.publicKey,
     },
   })
 
-  await provider.sendIx([voteAccount, nodeIdentity], ixCreate, ixInitialize)
+  await provider.sendIx(
+    [voteAccount, validatorIdentity],
+    ixCreate,
+    ixInitialize
+  )
   return {
     voteAccount: voteAccount.publicKey,
-    nodeIdentity,
+    validatorIdentity,
     authorizedVoter,
     authorizedWithdrawer,
   }

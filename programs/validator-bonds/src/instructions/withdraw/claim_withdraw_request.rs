@@ -1,6 +1,6 @@
 use crate::checks::{
     check_stake_is_initialized_with_withdrawer_authority, check_stake_valid_delegation,
-    check_validator_vote_account_withdrawer_authority,
+    check_validator_vote_account_validator_identity,
 };
 use crate::constants::BONDS_AUTHORITY_SEED;
 use crate::error::ErrorCode;
@@ -18,7 +18,6 @@ use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 
 /// Withdrawing funds from a bond account, to proceed the withdraw one must create a withdraw request first.
 /// Withdrawal takes StakeAccount that associated with bonds program and changes owner back to validator vote withdrawer.
-// TODO: AquireWithdrawRequest ?
 #[derive(Accounts)]
 pub struct ClaimWithdrawRequest<'info> {
     /// the config root configuration account
@@ -70,7 +69,8 @@ pub struct ClaimWithdrawRequest<'info> {
     #[account(mut)]
     stake_account: Account<'info, StakeAccount>,
 
-    /// CHECK: this has to match with validator vote account withdrawer
+    // TODO: is correct to pass the stake account to authority of the validator identity?
+    /// CHECK: this has to match with validator vote account validator identity
     /// this is the account that will be the new owner (withdrawer authority) of the stake account
     /// and ultimately it receives the withdrawing funds
     #[account()]
@@ -108,9 +108,9 @@ pub struct ClaimWithdrawRequest<'info> {
 
 impl<'info> ClaimWithdrawRequest<'info> {
     pub fn process(&mut self) -> Result<()> {
-        // vote account owner matches the authority where the funds will be withdrawn to
-        // i.e., the address where who will be new owner (withdrawer authority) of the stake account
-        check_validator_vote_account_withdrawer_authority(
+        // vote account validator identity matches the authority where the funds will be withdrawn to
+        // i.e., this address will be the new owner (withdrawer authority) of the stake account
+        check_validator_vote_account_validator_identity(
             &self.validator_vote_account,
             &self.withdrawer.key(),
         )?;

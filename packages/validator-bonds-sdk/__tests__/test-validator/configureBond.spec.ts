@@ -6,7 +6,7 @@ import {
   configureBondInstruction,
   getBond,
 } from '../../src'
-import { initTest } from './testValidator'
+import { getValidatorInfo, initTest } from './testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
@@ -16,10 +16,12 @@ import { ExtendedProvider } from '../utils/provider'
 describe('Validator Bonds configure bond', () => {
   let provider: ExtendedProvider
   let program: ValidatorBondsProgram
+  let validatorIdentity: Keypair
   let configAccount: PublicKey
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
+    ;({ validatorIdentity } = await getValidatorInfo(provider.connection))
   })
 
   afterAll(async () => {
@@ -41,7 +43,7 @@ describe('Validator Bonds configure bond', () => {
       configAccount,
       undefined,
       undefined,
-      undefined,
+      validatorIdentity,
       22
     )
 

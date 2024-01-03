@@ -1,4 +1,4 @@
-use crate::checks::check_validator_vote_account_withdrawer_authority;
+use crate::checks::check_validator_vote_account_validator_identity;
 use crate::error::ErrorCode;
 use crate::events::bond::InitBondEvent;
 use crate::state::bond::Bond;
@@ -28,9 +28,9 @@ pub struct InitBond<'info> {
     )]
     validator_vote_account: UncheckedAccount<'info>,
 
-    /// only validator vote account withdrawer authority may can create the bond
+    /// only validator vote account validator identity may create the bond
     #[account()]
-    authorized_withdrawer: Signer<'info>,
+    validator_identity: Signer<'info>,
 
     #[account(
         init,
@@ -65,9 +65,9 @@ impl<'info> InitBond<'info> {
         bond_bump: u8,
     ) -> Result<()> {
         // verification of the validator vote account
-        check_validator_vote_account_withdrawer_authority(
+        check_validator_vote_account_validator_identity(
             &self.validator_vote_account,
-            &self.authorized_withdrawer.key(),
+            &self.validator_identity.key(),
         )?;
 
         self.bond.set_inner(Bond {
@@ -81,7 +81,7 @@ impl<'info> InitBond<'info> {
         emit!(InitBondEvent {
             config_address: self.bond.config,
             validator_vote_account: self.bond.validator_vote_account,
-            validator_vote_withdrawer: self.authorized_withdrawer.key(),
+            validator_identity: self.validator_identity.key(),
             authority: self.bond.authority,
             revenue_share: self.bond.revenue_share,
             bond_bump: self.bond.bump,

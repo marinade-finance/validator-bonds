@@ -8,22 +8,24 @@ import {
   getBond,
   initBondInstruction,
 } from '../../src'
-import { initTest } from './testValidator'
+import { getValidatorInfo, initTest } from './testValidator'
 import { transaction } from '@marinade.finance/anchor-common'
 import { Wallet, splitAndExecuteTx } from '@marinade.finance/web3js-common'
 import { signer } from '../utils/helpers'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
 import { ExtendedProvider } from '../utils/provider'
-import { createVoteAccount } from '../utils/staking'
+import { createVoteAccountWithIdentity } from '../utils/staking'
 import { AnchorProvider } from '@coral-xyz/anchor'
 
 describe('Validator Bonds init bond', () => {
   let provider: ExtendedProvider
   let program: ValidatorBondsProgram
+  let validatorIdentity: Keypair
   let configAccount: PublicKey
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
+    ;({ validatorIdentity } = await getValidatorInfo(provider.connection))
   })
 
   afterAll(async () => {
@@ -49,8 +51,8 @@ describe('Validator Bonds init bond', () => {
       )
     })
 
-    const { voteAccount: validatorVoteAccount, authorizedWithdrawer } =
-      await createVoteAccount(provider)
+    const { voteAccount: validatorVoteAccount } =
+      await createVoteAccountWithIdentity(provider, validatorIdentity)
     const bondAuthority = PublicKey.unique()
     const { instruction, bondAccount } = await initBondInstruction({
       program,
@@ -58,9 +60,9 @@ describe('Validator Bonds init bond', () => {
       bondAuthority,
       revenueShareHundredthBps: 22,
       validatorVoteAccount,
-      validatorVoteWithdrawer: authorizedWithdrawer.publicKey,
+      validatorIdentity: validatorIdentity.publicKey,
     })
-    await provider.sendIx([authorizedWithdrawer], instruction)
+    await provider.sendIx([validatorIdentity], instruction)
 
     const bondsDataFromList = await findBonds({
       program,
@@ -91,7 +93,7 @@ describe('Validator Bonds init bond', () => {
       expect(e.configAddress).toEqual(configAccount)
       expect(e.revenueShare).toEqual({ hundredthBps: 22 })
       expect(e.validatorVoteAccount).toEqual(validatorVoteAccount)
-      expect(e.validatorVoteWithdrawer).toEqual(authorizedWithdrawer.publicKey)
+      expect(e.validatorIdentity).toEqual(validatorIdentity.publicKey)
     })
   })
 
@@ -107,25 +109,25 @@ describe('Validator Bonds init bond', () => {
 
     const voteAccounts: [PublicKey, Keypair][] = []
     for (let i = 1; i <= numberOfBonds; i++) {
-      const { voteAccount: validatorVoteAccount, authorizedWithdrawer } =
-        await createVoteAccount(provider)
-      voteAccounts.push([validatorVoteAccount, authorizedWithdrawer])
-      signers.push(signer(authorizedWithdrawer))
+      const { voteAccount: validatorVoteAccount } =
+        await createVoteAccountWithIdentity(provider, validatorIdentity)
+      voteAccounts.push([validatorVoteAccount, validatorIdentity])
+      signers.push(signer(validatorIdentity))
     }
 
     for (let i = 1; i <= numberOfBonds; i++) {
-      const [validatorVoteAccount, validatorVoteWithdrawer] =
-        voteAccounts[i - 1]
+      const [validatorVoteAccount, nodeIdentity] = voteAccounts[i - 1]
       const { instruction } = await initBondInstruction({
         program,
         configAccount,
         bondAuthority: bondAuthority,
         revenueShareHundredthBps: 100,
         validatorVoteAccount,
-        validatorVoteWithdrawer,
+        validatorIdentity: nodeIdentity,
       })
       tx.add(instruction)
     }
+    expect(tx.instructions.length).toEqual(numberOfBonds)
     await splitAndExecuteTx({
       connection: provider.connection,
       transaction: tx,

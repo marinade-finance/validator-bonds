@@ -12,7 +12,7 @@ export async function initBondInstruction({
   program,
   configAccount = CONFIG_ADDRESS,
   validatorVoteAccount,
-  validatorVoteWithdrawer = walletPubkey(program),
+  validatorIdentity = walletPubkey(program),
   bondAuthority = walletPubkey(program),
   revenueShareHundredthBps,
   rentPayer = walletPubkey(program),
@@ -20,7 +20,7 @@ export async function initBondInstruction({
   program: ValidatorBondsProgram
   configAccount?: PublicKey
   validatorVoteAccount: PublicKey
-  validatorVoteWithdrawer?: PublicKey | Keypair | Signer // signer
+  validatorIdentity?: PublicKey | Keypair | Signer // signer
   bondAuthority?: PublicKey
   revenueShareHundredthBps: BN | number
   rentPayer?: PublicKey | Keypair | Signer // signer
@@ -28,10 +28,10 @@ export async function initBondInstruction({
   instruction: TransactionInstruction
   bondAccount: PublicKey
 }> {
-  const authorizedWithdrawer =
-    validatorVoteWithdrawer instanceof PublicKey
-      ? validatorVoteWithdrawer
-      : validatorVoteWithdrawer.publicKey
+  validatorIdentity =
+    validatorIdentity instanceof PublicKey
+      ? validatorIdentity
+      : validatorIdentity.publicKey
   const renPayerPubkey =
     rentPayer instanceof PublicKey ? rentPayer : rentPayer.publicKey
   const [bondAccount] = bondAddress(
@@ -53,7 +53,7 @@ export async function initBondInstruction({
       config: configAccount,
       bond: bondAccount,
       validatorVoteAccount,
-      authorizedWithdrawer,
+      validatorIdentity,
       rentPayer: renPayerPubkey,
     })
     .instruction()

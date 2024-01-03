@@ -107,8 +107,8 @@ pub enum ErrorCode {
     #[msg("Provided stake account is not funded under a settlement")]
     StakeAccountNotFunded, // 6034 0x1792
 
-    #[msg("Owner of validator vote account does not match with the provided owner signature")]
-    ValidatorVoteAccountOwnerMismatch, // 6035 0x1793
+    #[msg("Validator vote account does not match to provided validator identity signature")]
+    VoteAccountValidatorIdentityMismatch, // 6035 0x1793
 
     #[msg("Bond vote account address does not match with the provided validator vote account")]
     VoteAccountMismatch, // 6036 0x1794

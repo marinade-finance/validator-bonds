@@ -6,7 +6,7 @@ use anchor_lang::prelude::*;
 pub struct InitBondEvent {
     pub config_address: Pubkey,
     pub validator_vote_account: Pubkey,
-    pub validator_vote_withdrawer: Pubkey,
+    pub validator_identity: Pubkey,
     pub authority: Pubkey,
     pub revenue_share: HundredthBasisPoint,
     pub bond_bump: u8,

@@ -91,7 +91,7 @@ export async function claimWithdrawRequestInstruction({
       program,
       withdrawRequestData.validatorVoteAccount
     )
-    withdrawer = voteAccountData.account.data.authorizedWithdrawer
+    withdrawer = voteAccountData.account.data.nodePubkey
   }
 
   splitStakeRentPayer =

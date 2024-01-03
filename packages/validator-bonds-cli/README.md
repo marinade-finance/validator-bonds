@@ -19,8 +19,9 @@ The bond account is bound to a validator vote account.
 ```sh
 # bond account at mainnet
 validator-bonds -um init-bond -k <fee-payer-keypair> \
-  --vote-account <vote-account-pubkey> --vote-account-withdrawer <vote-account-withdrawer-keypair> \
-  --bond-authority <authority-on-bond-account-pubkey> --rent-payer <rent-payer-account-keypair>
+  --vote-account <vote-account-pubkey> --validator-identity <validator-identity-keypair> \
+  --bond-authority <authority-on-bond-account-pubkey> \
+  --rent-payer <rent-payer-account-keypair>
 
 # to configure bond account properties
 validator-bonds -um configure-bond --help

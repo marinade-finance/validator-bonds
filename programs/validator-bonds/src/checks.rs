@@ -9,46 +9,56 @@ use anchor_lang::solana_program::vote::program::id as vote_program_id;
 use anchor_spl::stake::StakeAccount;
 use std::ops::Deref;
 
-/// Verification the account is owned by vote program + matching withdrawer authority (owner)
-pub fn check_validator_vote_account_withdrawer_authority(
+/// Verification the account is owned by vote program + matching validator identity
+pub fn check_validator_vote_account_validator_identity(
     validator_vote_account: &UncheckedAccount,
-    expected_owner: &Pubkey,
+    expected_validator_identity: &Pubkey,
 ) -> Result<()> {
+    // https://github.com/solana-labs/solana/blob/v1.17.10/sdk/program/src/vote/state/mod.rs#L287
+    let node_pubkey =
+        check_validator_vote_account_pubkey(validator_vote_account, 4, "validator identity")?;
+    require_keys_eq!(
+        *expected_validator_identity,
+        node_pubkey,
+        ErrorCode::VoteAccountValidatorIdentityMismatch
+    );
+    Ok(())
+}
+
+fn check_validator_vote_account_pubkey(
+    validator_vote_account: &UncheckedAccount,
+    byte_position: usize,
+    pubkey_name: &str,
+) -> Result<Pubkey> {
     require!(
         validator_vote_account.owner == &vote_program_id(),
         ErrorCode::InvalidVoteAccountProgramId
     );
     let validator_vote_data = &validator_vote_account.data.borrow()[..];
-    // let's find position of the authorized withdrawer within the vote state account data
+    // let's find position of the pubkey within the vote state account data
     // https://github.com/solana-labs/solana/pull/30515
     // https://github.com/solana-labs/solana/blob/v1.17.10/sdk/program/src/vote/state/mod.rs#L290
-    let pos = 36;
-    if validator_vote_data.len() < pos + 32 {
+    if validator_vote_data.len() < byte_position + 32 {
         msg!(
-            "Cannot get withdrawer authority from vote account {} data",
-            validator_vote_account.key
+            "Cannot get {} from vote account {} data",
+            pubkey_name,
+            validator_vote_account.key,
         );
         return Err(ErrorCode::FailedToDeserializeVoteAccount.into());
     }
-    let withdrawer_slice: [u8; 32] =
-        validator_vote_data[pos..pos + 32]
-            .try_into()
-            .map_err(|err| {
-                msg!(
-                    "Cannot get withdrawer authority from vote account {} data: {:?}",
-                    validator_vote_account.key,
-                    err
-                );
-                error!(ErrorCode::FailedToDeserializeVoteAccount)
-                    .with_values(("validator_vote_account", validator_vote_account.key()))
-            })?;
-    let authorized_withdrawer = Pubkey::from(withdrawer_slice);
-    require_keys_eq!(
-        *expected_owner,
-        authorized_withdrawer,
-        ErrorCode::ValidatorVoteAccountOwnerMismatch
-    );
-    Ok(())
+    let pubkey_slice: [u8; 32] = validator_vote_data[byte_position..byte_position + 32]
+        .try_into()
+        .map_err(|err| {
+            msg!(
+                "Cannot get {} from vote account {} data: {:?}",
+                pubkey_name,
+                validator_vote_account.key,
+                err
+            );
+            error!(ErrorCode::FailedToDeserializeVoteAccount)
+                .with_values(("validator_vote_account", validator_vote_account.key()))
+        })?;
+    Ok(Pubkey::from(pubkey_slice))
 }
 
 /// Bond account change is permitted to bond authority or validator vote account owner
@@ -60,7 +70,7 @@ pub fn check_bond_change_permitted(
     if authority == &bond_account.authority.key() {
         true
     } else {
-        check_validator_vote_account_withdrawer_authority(validator_vote_account, authority)
+        check_validator_vote_account_validator_identity(validator_vote_account, authority)
             .map_or(false, |_| true)
     }
 }
@@ -187,7 +197,7 @@ mod tests {
         );
         let wrong_owner_account = UncheckedAccount::try_from(&account);
         assert_eq!(
-            check_validator_vote_account_withdrawer_authority(
+            check_validator_vote_account_validator_identity(
                 &wrong_owner_account,
                 &vote_init.authorized_voter,
             ),
@@ -207,24 +217,15 @@ mod tests {
         );
         let unchecked_account = UncheckedAccount::try_from(&account);
 
-        check_validator_vote_account_withdrawer_authority(
-            &unchecked_account,
-            &vote_init.authorized_withdrawer,
-        )
-        .unwrap();
+        check_validator_vote_account_validator_identity(&unchecked_account, &vote_init.node_pubkey)
+            .unwrap();
         assert_eq!(
-            check_validator_vote_account_withdrawer_authority(
-                &unchecked_account,
-                &vote_init.authorized_voter,
-            ),
-            Err(ErrorCode::ValidatorVoteAccountOwnerMismatch.into())
+            check_validator_vote_account_validator_identity(&unchecked_account, &Pubkey::default(),),
+            Err(ErrorCode::VoteAccountValidatorIdentityMismatch.into())
         );
         assert_eq!(
-            check_validator_vote_account_withdrawer_authority(
-                &unchecked_account,
-                &Pubkey::default(),
-            ),
-            Err(ErrorCode::ValidatorVoteAccountOwnerMismatch.into())
+            check_validator_vote_account_validator_identity(&unchecked_account, &Pubkey::default(),),
+            Err(ErrorCode::VoteAccountValidatorIdentityMismatch.into())
         );
     }
 
@@ -256,7 +257,7 @@ mod tests {
             &unchecked_account,
         ));
         assert!(check_bond_change_permitted(
-            &vote_init.authorized_withdrawer,
+            &vote_init.node_pubkey,
             &Bond {
                 authority: Pubkey::new_unique(),
                 ..Bond::default()

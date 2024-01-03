@@ -26,9 +26,9 @@ export function installInitBond(program: Command) {
       parsePubkey
     )
     .option(
-      '--vote-account-withdrawer <keypair_or_pubkey>',
-      'Validator vote account withdrawer authority. ' +
-        'To create the bond the signature of the account is needed (default: wallet keypair)',
+      '--validator-identity <keypair_or_pubkey>',
+      'Validator identity linked to the vote account. ' +
+        'To create the bond the signature of the validator identity is needed (default: wallet keypair)',
       parsePubkeyOrKeypair
     )
     .option(
@@ -52,14 +52,14 @@ export function installInitBond(program: Command) {
       async ({
         config,
         voteAccount,
-        voteAccountWithdrawer,
+        validatorIdentity,
         bondAuthority,
         revenueShare,
         rentPayer,
       }: {
         config?: Promise<PublicKey>
         voteAccount: Promise<PublicKey>
-        voteAccountWithdrawer?: Promise<PublicKey | Keypair>
+        validatorIdentity?: Promise<PublicKey | Keypair>
         bondAuthority: Promise<PublicKey>
         revenueShare: number
         rentPayer?: Promise<PublicKey | Keypair>
@@ -67,7 +67,7 @@ export function installInitBond(program: Command) {
         await manageInitBond({
           config: await config,
           voteAccount: await voteAccount,
-          voteAccountWithdrawer: await voteAccountWithdrawer,
+          validatorIdentity: await validatorIdentity,
           bondAuthority: await bondAuthority,
           revenueShare: revenueShare,
           rentPayer: await rentPayer,
@@ -79,14 +79,14 @@ export function installInitBond(program: Command) {
 async function manageInitBond({
   config = CONFIG_ADDRESS,
   voteAccount,
-  voteAccountWithdrawer,
+  validatorIdentity,
   bondAuthority,
   revenueShare,
   rentPayer,
 }: {
   config?: PublicKey
   voteAccount: PublicKey
-  voteAccountWithdrawer?: PublicKey | Keypair
+  validatorIdentity?: PublicKey | Keypair
   bondAuthority: PublicKey
   revenueShare: number
   rentPayer?: PublicKey | Keypair
@@ -102,10 +102,10 @@ async function manageInitBond({
     signers.push(rentPayer)
     rentPayer = rentPayer.publicKey
   }
-  voteAccountWithdrawer = voteAccountWithdrawer || wallet.publicKey
-  if (voteAccountWithdrawer instanceof Keypair) {
-    signers.push(voteAccountWithdrawer)
-    voteAccountWithdrawer = voteAccountWithdrawer.publicKey
+  validatorIdentity = validatorIdentity || wallet.publicKey
+  if (validatorIdentity instanceof Keypair) {
+    signers.push(validatorIdentity)
+    validatorIdentity = validatorIdentity.publicKey
   }
 
   bondAuthority = bondAuthority || wallet.publicKey
@@ -115,7 +115,7 @@ async function manageInitBond({
     configAccount: config,
     bondAuthority,
     validatorVoteAccount: voteAccount,
-    validatorVoteWithdrawer: voteAccountWithdrawer,
+    validatorIdentity,
     revenueShareHundredthBps: revenueShare,
     rentPayer,
   })

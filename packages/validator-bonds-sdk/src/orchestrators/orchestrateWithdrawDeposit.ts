@@ -80,7 +80,7 @@ export async function orchestrateWithdrawDeposit({
     program,
     withdrawRequestData.validatorVoteAccount
   )
-  const withdrawer = voteAccountData.account.data.authorizedWithdrawer
+  const withdrawer = voteAccountData.account.data.nodePubkey
   const configAccount = bondData.config
 
   let amountToWithdraw = withdrawRequestData.requestedAmount.sub(

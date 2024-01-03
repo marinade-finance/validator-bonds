@@ -37,7 +37,7 @@ export function installConfigureBond(program: Command) {
       '--authority <keypair_or_pubkey>',
       'Authority that is permitted to do changes in bonds account. ' +
         'It is either the authority defined in bonds account or ' +
-        'validator vote account withdrawer authority that the bond account is connected to. ' +
+        'vote account validator identity that the bond account is connected to. ' +
         '(default: wallet keypair)',
       parsePubkeyOrKeypair
     )

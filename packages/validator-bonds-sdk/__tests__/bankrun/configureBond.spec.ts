@@ -22,7 +22,7 @@ describe('Validator Bonds configure bond account', () => {
   let config: ProgramAccount<Config>
   let bond: ProgramAccount<Bond>
   let bondAuthority: Keypair
-  let withdrawerAuthority: Keypair
+  let validatorIdentity: Keypair
   let voterAuthority: Keypair
 
   beforeAll(async () => {
@@ -38,8 +38,11 @@ describe('Validator Bonds configure bond account', () => {
       publicKey: configAccount,
       account: await getConfig(program, configAccount),
     }
-    const { voteAccount, authorizedWithdrawer, authorizedVoter } =
-      await createVoteAccount(provider)
+    const {
+      voteAccount,
+      validatorIdentity: nodePubkey,
+      authorizedVoter,
+    } = await createVoteAccount(provider)
     bondAuthority = Keypair.generate()
     const { bondAccount } = await executeInitBondInstruction(
       program,
@@ -47,14 +50,14 @@ describe('Validator Bonds configure bond account', () => {
       config.publicKey,
       bondAuthority,
       voteAccount,
-      authorizedWithdrawer,
+      nodePubkey,
       123
     )
     bond = {
       publicKey: bondAccount,
       account: await getBond(program, bondAccount),
     }
-    withdrawerAuthority = authorizedWithdrawer
+    validatorIdentity = nodePubkey
     voterAuthority = authorizedVoter
   })
 
@@ -91,10 +94,10 @@ describe('Validator Bonds configure bond account', () => {
     const { instruction } = await configureBondInstruction({
       program,
       bondAccount: bond.publicKey,
-      authority: withdrawerAuthority,
+      authority: validatorIdentity,
       newBondAuthority: newBondAuthority.publicKey,
     })
-    await provider.sendIx([withdrawerAuthority], instruction)
+    await provider.sendIx([validatorIdentity], instruction)
 
     const bondData = await getBond(program, bond.publicKey)
     expect(bondData.config).toEqual(config.publicKey)

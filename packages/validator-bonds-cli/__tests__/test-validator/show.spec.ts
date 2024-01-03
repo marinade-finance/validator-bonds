@@ -207,9 +207,7 @@ describe('Show command using CLI', () => {
     expect(
       provider.connection.getAccountInfo(configAccount)
     ).resolves.not.toBeNull()
-    const { voteAccount, authorizedWithdrawer } = await createVoteAccount(
-      provider
-    )
+    const { voteAccount, validatorIdentity } = await createVoteAccount(provider)
     const bondAuthority = Keypair.generate()
     const { bondAccount } = await executeInitBondInstruction(
       program,
@@ -217,7 +215,7 @@ describe('Show command using CLI', () => {
       configAccount,
       bondAuthority,
       voteAccount,
-      authorizedWithdrawer,
+      validatorIdentity,
       222
     )
     const [, bump] = bondAddress(configAccount, voteAccount, program.programId)

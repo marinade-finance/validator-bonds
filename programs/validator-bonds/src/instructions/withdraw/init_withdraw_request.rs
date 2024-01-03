@@ -36,7 +36,7 @@ pub struct InitWithdrawRequest<'info> {
     #[account()]
     validator_vote_account: UncheckedAccount<'info>,
 
-    /// validator vote account owner or bond authority may ask for the withdrawal
+    /// validator vote account node identity or bond authority may ask for the withdrawal
     #[account()]
     authority: Signer<'info>,
 

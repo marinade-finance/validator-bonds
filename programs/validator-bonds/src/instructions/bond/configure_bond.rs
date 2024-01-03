@@ -26,7 +26,7 @@ pub struct ConfigureBond<'info> {
     )]
     bond: Account<'info, Bond>,
 
-    /// validator vote account owner or bond authority may change the account
+    /// validator vote account validator identity or bond authority may change the account
     #[account()]
     authority: Signer<'info>,
 

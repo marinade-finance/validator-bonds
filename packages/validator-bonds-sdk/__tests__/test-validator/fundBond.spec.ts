@@ -36,9 +36,7 @@ describe('Validator Bonds fund bond', () => {
       program,
       provider,
     }))
-    const { voteAccount, authorizedWithdrawer } = await createVoteAccount(
-      provider
-    )
+    const { voteAccount, validatorIdentity } = await createVoteAccount(provider)
     validatorVoteAccount = voteAccount
     ;({ bondAccount } = await executeInitBondInstruction(
       program,
@@ -46,7 +44,7 @@ describe('Validator Bonds fund bond', () => {
       configAccount,
       undefined,
       validatorVoteAccount,
-      authorizedWithdrawer
+      validatorIdentity
     ))
   })
 
