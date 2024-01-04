@@ -271,7 +271,13 @@ describe('Validator Bonds fund bond account', () => {
     await provider.sendIx([staker1, staker2], deactivate1Ix, deactivate2Ix)
     // deactivated but funds are still effective, withdraw cannot work
     try {
-      executeWithdraw(provider, stakeAccount1, withdrawer1, undefined, 1)
+      const withdrawIx = StakeProgram.withdraw({
+        stakePubkey: stakeAccount1,
+        authorizedPubkey: withdrawer1.publicKey,
+        lamports: 1,
+        toPubkey: provider.walletPubkey,
+      })
+      await provider.sendIx([withdrawer1], withdrawIx)
       throw new Error('failure expected; funds still effective')
     } catch (e) {
       if (

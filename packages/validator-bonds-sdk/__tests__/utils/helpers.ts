@@ -90,7 +90,7 @@ export async function verifyErrorMessage(
   }
 }
 
-export function isSinger(
+export function isSigner(
   key: PublicKey | Signer | Keypair | WalletInterface | undefined
 ): key is Signer | Keypair | WalletInterface {
   return (
@@ -103,7 +103,7 @@ export function isSinger(
 export function signer(
   key: PublicKey | Signer | Keypair | WalletInterface | undefined
 ): Signer | Keypair | WalletInterface {
-  if (isSinger(key)) {
+  if (isSigner(key)) {
     return key
   } else {
     throw new Error(
@@ -120,16 +120,16 @@ export function pubkey(
   if (key === undefined) {
     throw new Error("Expected pubkey or signer but it's undefined")
   }
-  return isSinger(key) ? key.publicKey : key
+  return isSigner(key) ? key.publicKey : key
 }
 
 export function signerWithPubkey(
-  key: PublicKey | Signer | Keypair | undefined
-): [Signer | Keypair, PublicKey] {
+  key: PublicKey | Signer | Keypair | WalletInterface | undefined
+): [Signer | Keypair | WalletInterface, PublicKey] {
   if (key === undefined) {
     throw new Error("Expected pubkey or signer but it's undefined")
   }
-  if (!isSinger(key)) {
+  if (!isSigner(key)) {
     throw new Error(`Expected signer but it's not: ${key.toBase58()}`)
   }
   return [key, key.publicKey]

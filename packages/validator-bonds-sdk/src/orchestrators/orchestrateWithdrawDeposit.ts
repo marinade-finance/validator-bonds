@@ -20,7 +20,7 @@ import {
 import BN from 'bn.js'
 import { mergeInstruction } from '../instructions/merge'
 import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRequest'
-import { walletPubkey } from '../utils'
+import { anchorProgramWalletPubkey } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
 /**
@@ -31,7 +31,7 @@ export async function orchestrateWithdrawDeposit({
   program,
   withdrawRequestAccount,
   bondAccount,
-  splitStakeRentPayer = walletPubkey(program),
+  splitStakeRentPayer = anchorProgramWalletPubkey(program),
 }: {
   program: ValidatorBondsProgram
   withdrawRequestAccount?: PublicKey

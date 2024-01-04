@@ -7,7 +7,7 @@ import {
   TransactionInstruction,
 } from '@solana/web3.js'
 import { ValidatorBondsProgram } from '../sdk'
-import { checkAndGetBondAddress, walletPubkey } from '../utils'
+import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
 import { getBond } from '../api'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
@@ -15,7 +15,7 @@ export async function fundBondInstruction({
   program,
   bondAccount,
   stakeAccount,
-  stakeAccountAuthority = walletPubkey(program),
+  stakeAccountAuthority = anchorProgramWalletPubkey(program),
   configAccount,
   validatorVoteAccount,
 }: {

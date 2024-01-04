@@ -50,7 +50,7 @@ describe('Fund bond account using CLI', () => {
     expect(
       provider.connection.getAccountInfo(configAccount)
     ).resolves.not.toBeNull()
-    const { voteAccount: voteAccountAddress, authorizedWithdrawer } =
+    const { voteAccount: voteAccountAddress, validatorIdentity } =
       await createVoteAccount(provider)
     voteAccount = voteAccountAddress
     ;({ bondAccount } = await executeInitBondInstruction(
@@ -59,7 +59,7 @@ describe('Fund bond account using CLI', () => {
       configAccount,
       undefined,
       voteAccount,
-      authorizedWithdrawer,
+      validatorIdentity,
       123
     ))
   })

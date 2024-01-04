@@ -128,7 +128,7 @@ export async function setProgramIdByOwner(
 
 export async function parseSigner(
   pathOrLedger: string,
-  logger: Logger
+  logger: Logger | undefined
 ): Promise<WalletInterface> {
   const wallet = await parseLedgerWallet(pathOrLedger, logger)
   if (wallet) {
@@ -141,8 +141,14 @@ export async function parseSigner(
 export async function parseSignerOrPubkey(
   pubkeyOrPathOrLedger: string
 ): Promise<WalletInterface | PublicKey> {
+  let logger: Logger | undefined = undefined
   try {
-    return await parseSigner(pubkeyOrPathOrLedger, getContext().logger)
+    logger = getContext().logger
+  } catch (e) {
+    // ignore as we can work without logger
+  }
+  try {
+    return await parseSigner(pubkeyOrPathOrLedger, logger)
   } catch (err) {
     return await parsePubkey(pubkeyOrPathOrLedger)
   }

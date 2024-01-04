@@ -5,7 +5,7 @@ import { Command } from 'commander'
 import { configureLogger, parsePubkey } from '@marinade.finance/cli-common'
 import { installCommands } from './commands'
 import { Logger } from 'pino'
-import { parseSignerWithLogger, setValidatorBondsCliContext } from './context'
+import { parseSigner, setValidatorBondsCliContext } from './context'
 import { VALIDATOR_BONDS_PROGRAM_ID } from '@marinade.finance/validator-bonds-sdk'
 
 const DEFAULT_KEYPAIR_PATH = '~/.config/solana/id.json'
@@ -54,8 +54,8 @@ program
   .hook('preAction', async (command: Command, action: Command) => {
     const wallet = command.opts().keypair
     const walletInterface = wallet
-      ? await parseSignerWithLogger(wallet, logger)
-      : await parseSignerWithLogger(DEFAULT_KEYPAIR_PATH, logger)
+      ? await parseSigner(wallet, logger)
+      : await parseSigner(DEFAULT_KEYPAIR_PATH, logger)
     if (command.opts().debug || command.opts().verbose) {
       logger.level = 'debug'
     }

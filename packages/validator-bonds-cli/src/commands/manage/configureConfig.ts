@@ -1,9 +1,14 @@
 import { parsePubkey } from '@marinade.finance/cli-common'
-import { Keypair, PublicKey, Signer } from '@solana/web3.js'
+import { PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
 import { parseSignerOrPubkey, setProgramIdByOwner } from '../../context'
 import { transaction } from '@marinade.finance/anchor-common'
-import { Wallet, executeTx } from '@marinade.finance/web3js-common'
+import {
+  Wallet,
+  executeTx,
+  instanceOfWallet,
+} from '@marinade.finance/web3js-common'
+import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import {
   CONFIG_ADDRESS,
   configureConfigInstruction,
@@ -60,10 +65,9 @@ export function installConfigureConfig(program: Command) {
           withdrawLockupEpochs,
           minimumStakeLamports,
         }: {
-          adminAuthority?: Promise<Keypair | PublicKey>
+          adminAuthority?: Promise<WalletInterface | PublicKey>
           admin?: Promise<PublicKey>
           operator?: Promise<PublicKey>
-          rentPayer?: Promise<PublicKey | Keypair>
           epochsToClaimSettlement?: number
           withdrawLockupEpochs?: number
           minimumStakeLamports?: number
@@ -92,7 +96,7 @@ async function manageConfigureConfig({
   minimumStakeLamports,
 }: {
   address?: PublicKey
-  adminAuthority?: Keypair | PublicKey
+  adminAuthority?: WalletInterface | PublicKey
   admin?: PublicKey
   operator?: PublicKey
   epochsToClaimSettlement?: number
@@ -106,7 +110,7 @@ async function manageConfigureConfig({
   const signers: (Signer | Wallet)[] = [wallet]
 
   adminAuthority = adminAuthority || wallet.publicKey
-  if (adminAuthority instanceof Keypair) {
+  if (instanceOfWallet(adminAuthority)) {
     signers.push(adminAuthority)
     adminAuthority = adminAuthority.publicKey
   }

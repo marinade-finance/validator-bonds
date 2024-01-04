@@ -5,7 +5,7 @@ import {
   TransactionInstruction,
 } from '@solana/web3.js'
 import { CONFIG_ADDRESS, ValidatorBondsProgram } from '../sdk'
-import { checkAndGetBondAddress, walletPubkey } from '../utils'
+import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
 import BN from 'bn.js'
 import { getBond } from '../api'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
@@ -15,7 +15,7 @@ export async function configureBondInstruction({
   bondAccount,
   configAccount = CONFIG_ADDRESS,
   validatorVoteAccount,
-  authority = walletPubkey(program),
+  authority = anchorProgramWalletPubkey(program),
   newBondAuthority,
   newRevenueShareHundredthBps,
 }: {

@@ -10,7 +10,7 @@ import {
   bondAddress,
   withdrawRequestAddress,
 } from '../sdk'
-import { walletPubkey } from '../utils'
+import { anchorProgramWalletPubkey } from '../utils'
 import { getWithdrawRequest } from '../api'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
@@ -20,8 +20,8 @@ export async function cancelWithdrawRequestInstruction({
   bondAccount,
   configAccount,
   validatorVoteAccount,
-  authority = walletPubkey(program),
-  rentCollector = walletPubkey(program),
+  authority = anchorProgramWalletPubkey(program),
+  rentCollector = anchorProgramWalletPubkey(program),
 }: {
   program: ValidatorBondsProgram
   withdrawRequestAccount?: PublicKey

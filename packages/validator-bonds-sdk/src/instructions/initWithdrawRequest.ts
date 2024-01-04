@@ -5,7 +5,7 @@ import {
   TransactionInstruction,
 } from '@solana/web3.js'
 import { ValidatorBondsProgram, withdrawRequestAddress } from '../sdk'
-import { checkAndGetBondAddress, walletPubkey } from '../utils'
+import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
 import BN from 'bn.js'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
@@ -14,8 +14,8 @@ export async function initWithdrawRequestInstruction({
   bondAccount,
   configAccount,
   validatorVoteAccount,
-  authority = walletPubkey(program),
-  rentPayer = walletPubkey(program),
+  authority = anchorProgramWalletPubkey(program),
+  rentPayer = anchorProgramWalletPubkey(program),
   amount,
 }: {
   program: ValidatorBondsProgram

@@ -1,14 +1,19 @@
 import { parsePubkey } from '@marinade.finance/cli-common'
-import { Keypair, PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
 import { parseSignerOrPubkey, setProgramIdByOwner } from '../../context'
 import { transaction } from '@marinade.finance/anchor-common'
-import { Wallet, executeTx } from '@marinade.finance/web3js-common'
+import {
+  Wallet,
+  executeTx,
+  instanceOfWallet,
+} from '@marinade.finance/web3js-common'
 import {
   CONFIG_ADDRESS,
   initBondInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import { toHundredsBps } from '@marinade.finance/validator-bonds-sdk/src/utils'
+import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+import { PublicKey, Signer } from '@solana/web3.js'
 
 export function installInitBond(program: Command) {
   program
@@ -59,10 +64,10 @@ export function installInitBond(program: Command) {
       }: {
         config?: Promise<PublicKey>
         voteAccount: Promise<PublicKey>
-        validatorIdentity?: Promise<PublicKey | Keypair>
+        validatorIdentity?: Promise<WalletInterface | PublicKey>
         bondAuthority: Promise<PublicKey>
         revenueShare: number
-        rentPayer?: Promise<PublicKey | Keypair>
+        rentPayer?: Promise<WalletInterface | PublicKey>
       }) => {
         await manageInitBond({
           config: await config,
@@ -86,10 +91,10 @@ async function manageInitBond({
 }: {
   config?: PublicKey
   voteAccount: PublicKey
-  validatorIdentity?: PublicKey | Keypair
+  validatorIdentity?: WalletInterface | PublicKey
   bondAuthority: PublicKey
   revenueShare: number
-  rentPayer?: PublicKey | Keypair
+  rentPayer?: WalletInterface | PublicKey
 }) {
   const { program, provider, logger, simulate, printOnly, wallet } =
     await setProgramIdByOwner(config)
@@ -98,12 +103,12 @@ async function manageInitBond({
   const signers: (Signer | Wallet)[] = [wallet]
 
   rentPayer = rentPayer || wallet.publicKey
-  if (rentPayer instanceof Keypair) {
+  if (instanceOfWallet(rentPayer)) {
     signers.push(rentPayer)
     rentPayer = rentPayer.publicKey
   }
   validatorIdentity = validatorIdentity || wallet.publicKey
-  if (validatorIdentity instanceof Keypair) {
+  if (instanceOfWallet(validatorIdentity)) {
     signers.push(validatorIdentity)
     validatorIdentity = validatorIdentity.publicKey
   }

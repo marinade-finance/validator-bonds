@@ -5,7 +5,7 @@ import {
   TransactionInstruction,
 } from '@solana/web3.js'
 import { CONFIG_ADDRESS, ValidatorBondsProgram, bondAddress } from '../sdk'
-import { walletPubkey } from '../utils'
+import { anchorProgramWalletPubkey } from '../utils'
 import BN from 'bn.js'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
@@ -13,10 +13,10 @@ export async function initBondInstruction({
   program,
   configAccount = CONFIG_ADDRESS,
   validatorVoteAccount,
-  validatorIdentity = walletPubkey(program),
-  bondAuthority = walletPubkey(program),
+  validatorIdentity = anchorProgramWalletPubkey(program),
+  bondAuthority = anchorProgramWalletPubkey(program),
   revenueShareHundredthBps,
-  rentPayer = walletPubkey(program),
+  rentPayer = anchorProgramWalletPubkey(program),
 }: {
   program: ValidatorBondsProgram
   configAccount?: PublicKey

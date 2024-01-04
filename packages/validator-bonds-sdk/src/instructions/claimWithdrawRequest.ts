@@ -14,7 +14,7 @@ import {
 } from '../sdk'
 import { getWithdrawRequest } from '../api'
 import { getVoteAccount } from '../stakeAccount'
-import { walletPubkey } from '../utils'
+import { anchorProgramWalletPubkey } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
 export async function claimWithdrawRequestInstruction({
@@ -24,7 +24,7 @@ export async function claimWithdrawRequestInstruction({
   configAccount,
   validatorVoteAccount,
   stakeAccount,
-  splitStakeRentPayer = walletPubkey(program),
+  splitStakeRentPayer = anchorProgramWalletPubkey(program),
   withdrawer,
 }: {
   program: ValidatorBondsProgram

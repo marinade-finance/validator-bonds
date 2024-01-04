@@ -3,8 +3,13 @@ import { Keypair, PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
 import { getCliContext, parseSignerOrPubkey } from '../../context'
 import { transaction } from '@marinade.finance/anchor-common'
-import { Wallet, executeTx } from '@marinade.finance/web3js-common'
+import {
+  Wallet,
+  executeTx,
+  instanceOfWallet,
+} from '@marinade.finance/web3js-common'
 import { initConfigInstruction } from '@marinade.finance/validator-bonds-sdk'
+import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 
 export function installInitConfig(program: Command) {
   program
@@ -54,7 +59,7 @@ export function installInitConfig(program: Command) {
         address?: Promise<Keypair>
         admin?: Promise<PublicKey>
         operator?: Promise<PublicKey>
-        rentPayer?: Promise<PublicKey | Keypair>
+        rentPayer?: Promise<WalletInterface | PublicKey>
         epochsToClaimSettlement: number
         withdrawLockupEpochs: number
       }) => {
@@ -81,7 +86,7 @@ async function manageInitConfig({
   address?: Keypair
   admin?: PublicKey
   operator?: PublicKey
-  rentPayer?: PublicKey | Keypair
+  rentPayer?: WalletInterface | PublicKey
   epochsToClaimSettlement: number
   withdrawLockupEpochs: number
 }) {
@@ -91,8 +96,17 @@ async function manageInitConfig({
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [address, wallet]
 
+  console.log('rent payer:1', rentPayer)
   rentPayer = rentPayer || wallet.publicKey
-  if (rentPayer instanceof Keypair) {
+  console.log(
+    'rent payer:2',
+    rentPayer,
+    instanceOfWallet(rentPayer),
+    rentPayer instanceof Keypair,
+    rentPayer instanceof PublicKey
+  )
+  if (instanceOfWallet(rentPayer)) {
+    console.log('signature of the rent payer here....')
     signers.push(rentPayer)
     rentPayer = rentPayer.publicKey
   }

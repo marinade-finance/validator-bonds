@@ -79,7 +79,7 @@ describe('Validator Bonds init withdraw request', () => {
     expect(withdrawRequestData.bond).toEqual(bondAccount)
     expect(withdrawRequestData.bump).toEqual(bump)
     expect(withdrawRequestData.epoch).toEqual(epoch)
-    expect(withdrawRequestData.requestedAmount).toEqual(LAMPORTS_PER_SOL)
+    expect(withdrawRequestData.requestedAmount).toEqual(2 * LAMPORTS_PER_SOL)
     expect(withdrawRequestData.validatorVoteAccount).toEqual(
       validatorVoteAccount
     )
@@ -90,7 +90,7 @@ describe('Validator Bonds init withdraw request', () => {
       expect(e.bond).toEqual(bondAccount)
       expect(e.bump).toEqual(bump)
       expect(e.epoch).toEqual(epoch)
-      expect(e.requestedAmount).toEqual(LAMPORTS_PER_SOL)
+      expect(e.requestedAmount).toEqual(2 * LAMPORTS_PER_SOL)
       expect(e.validatorVoteAccount).toEqual(validatorVoteAccount)
     })
   })

@@ -2,7 +2,9 @@ import { Program, Idl } from '@coral-xyz/anchor'
 import { PublicKey } from '@solana/web3.js'
 import { bondAddress as sdkBondAddress } from './sdk'
 
-export function walletPubkey<IDL extends Idl = Idl>(program: Program<IDL>) {
+export function anchorProgramWalletPubkey<IDL extends Idl = Idl>(
+  program: Program<IDL>
+) {
   const pubkey = program.provider.publicKey
   if (pubkey === undefined) {
     throw new Error(

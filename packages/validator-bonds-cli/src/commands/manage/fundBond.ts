@@ -1,13 +1,18 @@
 import { parsePubkey } from '@marinade.finance/cli-common'
-import { Keypair, PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
 import { parseSignerOrPubkey, setProgramIdByOwner } from '../../context'
 import { transaction } from '@marinade.finance/anchor-common'
-import { Wallet, executeTx } from '@marinade.finance/web3js-common'
+import {
+  Wallet,
+  executeTx,
+  instanceOfWallet,
+} from '@marinade.finance/web3js-common'
 import {
   CONFIG_ADDRESS,
   fundBondInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
+import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+import { PublicKey, Signer } from '@solana/web3.js'
 
 export function installFundBond(program: Command) {
   program
@@ -59,7 +64,7 @@ export function installFundBond(program: Command) {
           config?: Promise<PublicKey>
           voteAccount?: Promise<PublicKey>
           stakeAccount: Promise<PublicKey>
-          stakeAuthority?: Promise<PublicKey | Keypair>
+          stakeAuthority?: Promise<WalletInterface | PublicKey>
         }
       ) => {
         await manageFundBond({
@@ -84,7 +89,7 @@ async function manageFundBond({
   config?: PublicKey
   voteAccount?: PublicKey
   stakeAccount: PublicKey
-  stakeAuthority?: PublicKey | Keypair
+  stakeAuthority?: WalletInterface | PublicKey
 }) {
   const { program, provider, logger, simulate, printOnly, wallet } =
     await setProgramIdByOwner(config)
@@ -93,7 +98,7 @@ async function manageFundBond({
   const signers: (Signer | Wallet)[] = [wallet]
 
   stakeAuthority = stakeAuthority || wallet.publicKey
-  if (stakeAuthority instanceof Keypair) {
+  if (instanceOfWallet(stakeAuthority)) {
     signers.push(stakeAuthority)
     stakeAuthority = stakeAuthority.publicKey
   }

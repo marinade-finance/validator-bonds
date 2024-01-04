@@ -6,7 +6,7 @@ import {
 } from '@solana/web3.js'
 import { ValidatorBondsProgram } from '../sdk'
 import BN from 'bn.js'
-import { walletPubkey } from '../utils'
+import { anchorProgramWalletPubkey } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
 /**
@@ -27,9 +27,9 @@ import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 export async function initConfigInstruction({
   program,
   configAccount = Keypair.generate(),
-  admin = walletPubkey(program),
+  admin = anchorProgramWalletPubkey(program),
   operator = admin,
-  rentPayer = walletPubkey(program),
+  rentPayer = anchorProgramWalletPubkey(program),
   epochsToClaimSettlement = 0,
   withdrawLockupEpochs = 0,
 }: {
