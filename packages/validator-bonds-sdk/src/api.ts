@@ -1,6 +1,13 @@
 import { ProgramAccount } from '@coral-xyz/anchor'
 import { PublicKey } from '@solana/web3.js'
-import { ValidatorBondsProgram, Config, Bond, WithdrawRequest } from './sdk'
+import {
+  ValidatorBondsProgram,
+  Config,
+  Bond,
+  WithdrawRequest,
+  bondAddress,
+  withdrawRequestAddress,
+} from './sdk'
 import BN from 'bn.js'
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 
@@ -63,6 +70,15 @@ export async function findBonds({
   validatorVoteAccount?: PublicKey
   bondAuthority?: PublicKey
 }): Promise<ProgramAccount<Bond>[]> {
+  if (config && validatorVoteAccount) {
+    const [bondAccount] = bondAddress(
+      config,
+      validatorVoteAccount,
+      program.programId
+    )
+    const bondData = await getBond(program, bondAccount)
+    return [{ publicKey: bondAccount, account: bondData }]
+  }
   const filters = []
   if (config) {
     filters.push({
@@ -112,6 +128,17 @@ export async function findWithdrawRequests({
   bond?: PublicKey
   epoch?: number | BN
 }): Promise<ProgramAccount<WithdrawRequest>[]> {
+  if (bond) {
+    const [withdrawRequestAccount] = withdrawRequestAddress(
+      bond,
+      program.programId
+    )
+    const withdrawRequestData = await getWithdrawRequest(
+      program,
+      withdrawRequestAccount
+    )
+    return [{ publicKey: withdrawRequestAccount, account: withdrawRequestData }]
+  }
   const filters = []
   if (validatorVoteAccount) {
     filters.push({
@@ -119,15 +146,6 @@ export async function findWithdrawRequests({
         bytes: validatorVoteAccount.toBase58(),
         // 8 anchor offset
         offset: 8,
-      },
-    })
-  }
-  if (bond) {
-    filters.push({
-      memcmp: {
-        bytes: bond.toBase58(),
-        // 8 anchor offset + 32B validator vote pubkey
-        offset: 40,
       },
     })
   }
