@@ -33,6 +33,25 @@ validator-bonds -um configure-bond --help
 validator-bonds -um show-bond <bond-account-address> -f yaml
 ```
 
+## Support for Ledger signing
+
+Any signature can be signed with Ledger when it's used the pubkey (`usb://ledger/9rPVSygg3brqghvdZ6wsL2i5YNQTGhXGdJzF65YxaCQd`) or the path (`usb://ledger?key=0/0`) as the parameter value.
+For example, when the bond authority is configured to be managed with a key managed in Ledger
+we can run like
+
+```sh
+# using solana-keygen to find pubkey on a particular derivation path
+solana-keygen pubkey 'usb://ledger?key=0/3'
+
+# using the ledger to sign as the authority to change the bond account configuration
+validator-bonds -um configure-bond \
+  --authority 'usb://ledger?key=0/3' --bond-authority <new-authority-pubkey> \
+  <bond-account-address>
+```
+
+The support for ledger came from (`@marinade.finance/ledger-utils` TS implementation wrapper)[https://github.com/marinade-finance/marinade-ts-cli/tree/main/packages/lib/ledger-utils] around `@ledgerhq/hw-app-solana`. The implementation tries to be compatible with way how (`solana` CLI)[https://github.com/solana-labs/solana/blob/v1.14.19/clap-utils/src/keypair.rs#L613] behaves.
+
+
 
 
 ## `validator-bonds CLI Reference`

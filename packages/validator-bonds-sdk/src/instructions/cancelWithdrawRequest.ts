@@ -20,30 +20,19 @@ export async function cancelWithdrawRequestInstruction({
   bondAccount,
   configAccount,
   validatorVoteAccount,
-  authority = anchorProgramWalletPubkey(program),
+  authority,
   rentCollector = anchorProgramWalletPubkey(program),
 }: {
   program: ValidatorBondsProgram
   withdrawRequestAccount?: PublicKey
   bondAccount?: PublicKey
   configAccount?: PublicKey
-  validatorVoteAccount: PublicKey
+  validatorVoteAccount?: PublicKey
   authority?: PublicKey | Keypair | Signer | WalletInterface // signer
   rentCollector?: PublicKey
 }): Promise<{
   instruction: TransactionInstruction
 }> {
-  if (
-    configAccount !== undefined &&
-    validatorVoteAccount !== undefined &&
-    bondAccount === undefined
-  ) {
-    bondAccount = bondAddress(
-      configAccount,
-      validatorVoteAccount,
-      program.programId
-    )[0]
-  }
   let withdrawRequestData: WithdrawRequest | undefined
   if (
     withdrawRequestAccount !== undefined &&
@@ -57,16 +46,32 @@ export async function cancelWithdrawRequestInstruction({
     validatorVoteAccount =
       validatorVoteAccount || withdrawRequestData.validatorVoteAccount
   }
+  if (
+    configAccount !== undefined &&
+    validatorVoteAccount !== undefined &&
+    bondAccount === undefined
+  ) {
+    bondAccount = bondAddress(
+      configAccount,
+      validatorVoteAccount,
+      program.programId
+    )[0]
+  }
   if (bondAccount !== undefined && withdrawRequestAccount === undefined) {
     withdrawRequestAccount = withdrawRequestAddress(
       bondAccount,
       program.programId
     )[0]
   }
-  if (bondAccount !== undefined && validatorVoteAccount === undefined) {
+  if (
+    bondAccount !== undefined &&
+    (validatorVoteAccount === undefined || authority === undefined)
+  ) {
     const bondData = await program.account.bond.fetch(bondAccount)
     validatorVoteAccount = bondData.validatorVoteAccount
+    authority = authority || bondData.authority
   }
+  authority = authority || anchorProgramWalletPubkey(program)
   authority = authority instanceof PublicKey ? authority : authority.publicKey
 
   if (withdrawRequestAccount === undefined) {

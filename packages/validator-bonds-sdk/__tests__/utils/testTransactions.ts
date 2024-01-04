@@ -1,5 +1,6 @@
 import {
   ValidatorBondsProgram,
+  cancelWithdrawRequestInstruction,
   fundBondInstruction,
   getBond,
   initBondInstruction,
@@ -18,6 +19,7 @@ import { pubkey, signer } from './helpers'
 import { ExtendedProvider } from './provider'
 import { createVoteAccount, delegatedStakeAccount } from './staking'
 import BN from 'bn.js'
+import assert from 'assert'
 
 export async function createUserAndFund(
   provider: ExtendedProvider,
@@ -284,25 +286,62 @@ export async function executeInitWithdrawRequestInstruction({
   program,
   provider,
   bondAccount,
+  configAccount,
   validatorIdentity,
   amount = LAMPORTS_PER_SOL,
 }: {
   program: ValidatorBondsProgram
   provider: ExtendedProvider
-  bondAccount: PublicKey
-  validatorIdentity: Keypair
+  bondAccount?: PublicKey
+  configAccount?: PublicKey
+  validatorIdentity?: Keypair
   amount?: number
-}): Promise<{ withdrawRequest: PublicKey }> {
+}): Promise<{
+  withdrawRequest: PublicKey
+  validatorIdentity?: Keypair
+  configAccount: PublicKey
+  bondAccount: PublicKey
+  bondAuthority: PublicKey | Keypair
+  voteAccount: PublicKey
+}> {
+  let bondAuthority: Keypair | PublicKey
+  let voteAccount: PublicKey
+  if (bondAccount === undefined) {
+    if (configAccount === undefined) {
+      ;({ configAccount } = await executeInitConfigInstruction({
+        program,
+        provider,
+      }))
+    }
+    ;({ bondAccount, validatorIdentity, bondAuthority, voteAccount } =
+      await executeInitBondInstruction(program, provider, configAccount))
+  } else {
+    const bondData = await getBond(program, bondAccount)
+    bondAuthority = bondData.authority
+    configAccount = configAccount || bondData.config
+    voteAccount = bondData.validatorVoteAccount
+  }
+  assert(bondAccount)
+  let authority = validatorIdentity
+  if (!authority && bondAuthority && bondAuthority instanceof Keypair) {
+    authority = bondAuthority as Keypair
+  }
+  if (authority === undefined) {
+    throw new Error(
+      'executeInitWithdrawRequestInstruction: bond not to be created in method, requiring validatorIdentity'
+    )
+  }
   const { instruction, withdrawRequest } = await initWithdrawRequestInstruction(
     {
       program,
       bondAccount,
-      authority: validatorIdentity.publicKey,
+      configAccount,
+      authority: authority.publicKey,
       amount,
     }
   )
   try {
-    await provider.sendIx([validatorIdentity], instruction)
+    await provider.sendIx([authority], instruction)
   } catch (e) {
     console.error(
       `executeInitWithdrawRequestInstruction: bond account ${pubkey(
@@ -313,5 +352,82 @@ export async function executeInitWithdrawRequestInstruction({
     )
     throw e
   }
-  return { withdrawRequest }
+  return {
+    withdrawRequest,
+    bondAccount,
+    validatorIdentity,
+    bondAuthority,
+    configAccount,
+    voteAccount,
+  }
+}
+
+export async function executeNewWithdrawRequest({
+  program,
+  provider,
+  configAccount,
+  amount,
+}: {
+  program: ValidatorBondsProgram
+  provider: ExtendedProvider
+  configAccount: PublicKey
+  amount?: number
+}): Promise<{
+  withdrawRequest: PublicKey
+  bondAuthority: Keypair
+  validatorIdentity: Keypair
+  bondAccount: PublicKey
+  voteAccount: PublicKey
+}> {
+  const {
+    withdrawRequest,
+    bondAuthority,
+    validatorIdentity,
+    bondAccount,
+    voteAccount,
+  } = await executeInitWithdrawRequestInstruction({
+    program,
+    provider,
+    configAccount,
+    amount,
+  })
+  expect(
+    provider.connection.getAccountInfo(withdrawRequest)
+  ).resolves.not.toBeNull()
+  if (!(bondAuthority instanceof Keypair)) {
+    throw new Error('Expected bond authority to be a keypair')
+  }
+  if (!(validatorIdentity instanceof Keypair)) {
+    throw new Error('Expected validator identity to be a keypair')
+  }
+  return {
+    withdrawRequest,
+    bondAuthority,
+    validatorIdentity,
+    bondAccount,
+    voteAccount,
+  }
+}
+
+export async function executeCancelWithdrawRequestInstruction(
+  program: ValidatorBondsProgram,
+  provider: ExtendedProvider,
+  withdrawRequest: PublicKey,
+  authority: Keypair
+) {
+  const { instruction } = await cancelWithdrawRequestInstruction({
+    program,
+    withdrawRequestAccount: withdrawRequest,
+    authority: authority.publicKey,
+  })
+  try {
+    await provider.sendIx([authority], instruction)
+  } catch (e) {
+    console.error(
+      `executeCancelWithdrawRequest: withdraw request account ${withdrawRequest.toBase58()}, ` +
+        `authority: ${pubkey(authority).toBase58()}`,
+      e
+    )
+    throw e
+  }
 }

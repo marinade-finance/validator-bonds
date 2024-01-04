@@ -82,8 +82,12 @@ export async function bankrunExecute(
   for (const signer of signers) {
     if (instanceOfWallet(signer)) {
       await signer.signTransaction(tx)
-    } else {
+    } else if ('secretKey' in signer) {
       tx.partialSign(signer)
+    } else {
+      throw new Error(
+        'bankrunExecute: provided signer parameter is not a signer: ' + signer
+      )
     }
   }
   return await provider.context.banksClient.processTransaction(tx)
