@@ -34,7 +34,7 @@ pub struct CancelWithdrawRequest<'info> {
         close = rent_collector,
         has_one = bond @ ErrorCode::BondAccountMismatch,
         seeds = [
-            b"withdraw_request",
+            b"withdraw_account",
             bond.key().as_ref(),
         ],
         bump = withdraw_request.bump

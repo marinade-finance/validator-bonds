@@ -482,7 +482,7 @@ export type ValidatorBonds = {
               {
                 "kind": "const",
                 "type": "string",
-                "value": "withdraw_request"
+                "value": "withdraw_account"
               },
               {
                 "kind": "account",
@@ -558,7 +558,7 @@ export type ValidatorBonds = {
               {
                 "kind": "const",
                 "type": "string",
-                "value": "withdraw_request"
+                "value": "withdraw_account"
               },
               {
                 "kind": "account",
@@ -3589,7 +3589,7 @@ export const IDL: ValidatorBonds = {
               {
                 "kind": "const",
                 "type": "string",
-                "value": "withdraw_request"
+                "value": "withdraw_account"
               },
               {
                 "kind": "account",
@@ -3665,7 +3665,7 @@ export const IDL: ValidatorBonds = {
               {
                 "kind": "const",
                 "type": "string",
-                "value": "withdraw_request"
+                "value": "withdraw_account"
               },
               {
                 "kind": "account",

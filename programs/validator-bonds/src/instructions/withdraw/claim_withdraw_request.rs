@@ -47,7 +47,7 @@ pub struct ClaimWithdrawRequest<'info> {
         has_one = bond @ ErrorCode::BondAccountMismatch,
         constraint = withdraw_request.epoch + config.withdraw_lockup_epochs < clock.epoch @ ErrorCode::WithdrawRequestNotReady,
         seeds = [
-            b"withdraw_request",
+            b"withdraw_account",
             bond.key().as_ref(),
         ],
         bump = withdraw_request.bump
