@@ -67,9 +67,6 @@ describe('Validator Bonds cancel withdraw request', () => {
       bondAccount: bond.publicKey,
       validatorIdentity,
     }))
-    expect(
-      provider.connection.getAccountInfo(withdrawRequest)
-    ).resolves.not.toBeNull()
   })
 
   it('cancel withdraw request with bond authority', async () => {

@@ -76,7 +76,6 @@ pub struct ClaimWithdrawRequest<'info> {
     #[account()]
     withdrawer: UncheckedAccount<'info>,
 
-    // TODO: can this be a PDA (not sure about Solana PDA rules)
     /// this is a whatever address that does not exist
     /// when withdrawing needs to split the provided account this will be used as a new stake account
     #[account(

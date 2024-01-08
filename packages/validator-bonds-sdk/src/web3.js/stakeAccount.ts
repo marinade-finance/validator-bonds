@@ -6,11 +6,11 @@ import {
   ParsedAccountData,
   PublicKey,
   StakeProgram,
-  VoteAccount,
 } from '@solana/web3.js'
 import assert from 'assert'
 import BN from 'bn.js'
-import { ProgramAccountInfo, programAccountInfo } from './sdk'
+import { ProgramAccountInfo, programAccountInfo } from '../sdk'
+import { getConnection } from '.'
 
 export type StakeAccountParsed = {
   address: PublicKey
@@ -25,16 +25,6 @@ export type StakeAccountParsed = {
   stakedLamports: BN | null
   currentEpoch: number
   currentTimestamp: number
-}
-
-function getConnection<IDL extends Idl = Idl>(
-  providerOrConnection: Provider | Connection | Program<IDL>
-): Connection {
-  const connection =
-    providerOrConnection instanceof Program
-      ? providerOrConnection.provider
-      : providerOrConnection
-  return connection instanceof Connection ? connection : connection.connection
 }
 
 async function parseStakeAccountData(
@@ -191,22 +181,6 @@ export async function findStakeAccountAccount<IDL extends Idl = Idl>({
       )
     })
   return Promise.all(parsedPromises)
-}
-
-export async function getVoteAccount<IDL extends Idl = Idl>(
-  providerOrConnection: Provider | Connection | Program<IDL>,
-  address: PublicKey
-): Promise<ProgramAccountInfo<VoteAccount>> {
-  const connection = getConnection(providerOrConnection)
-  const voteAccountInfo = await connection.getAccountInfo(address)
-  if (voteAccountInfo === null) {
-    throw new Error(
-      `Vote account ${address.toBase58()} not found at endpoint ` +
-        `${connection.rpcEndpoint}`
-    )
-  }
-  const voteAccountData = VoteAccount.fromAccountData(voteAccountInfo.data)
-  return programAccountInfo(address, voteAccountInfo, voteAccountData)
 }
 
 const U64_MAX = new BN('ffffffffffffffff', 16)

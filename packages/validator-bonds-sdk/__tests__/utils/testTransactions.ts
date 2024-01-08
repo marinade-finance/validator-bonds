@@ -17,9 +17,11 @@ import {
 } from '@solana/web3.js'
 import { pubkey, signer } from './helpers'
 import { ExtendedProvider } from './provider'
-import { createVoteAccount, delegatedStakeAccount } from './staking'
+import { createVoteAccount } from './staking'
 import BN from 'bn.js'
 import assert from 'assert'
+// import { BankrunExtendedProvider, warpToNextEpoch } from '../bankrun/bankrun'
+// import { waitForStakeAccountActivation } from '../test-validator/testValidator'
 
 export async function createUserAndFund(
   provider: ExtendedProvider,
@@ -194,21 +196,19 @@ export async function executeFundBondInstruction({
   config,
   stakeAccount,
   stakeAccountAuthority,
-  lamports,
 }: {
   program: ValidatorBondsProgram
   provider: ExtendedProvider
   bondAccount?: PublicKey
   config?: PublicKey
-  stakeAccount?: PublicKey
-  stakeAccountAuthority?: Keypair
+  stakeAccount: PublicKey
+  stakeAccountAuthority: Keypair
   lamports?: number
 }): Promise<{
   bondAccount: PublicKey
   bondAuthority: Keypair | PublicKey
   voteAccount: PublicKey
   bondWithdrawerAuthority: PublicKey
-  stakeAccount: PublicKey
 }> {
   let bondAuthority: Keypair | PublicKey
   let voteAccount: PublicKey
@@ -228,20 +228,6 @@ export async function executeFundBondInstruction({
     config = bondData.config
   }
 
-  if (!stakeAccount) {
-    // to fully activate the stake account there is needed to wait (or warp) for 1 epoch
-    ;({ stakeAccount, withdrawer: stakeAccountAuthority } =
-      await delegatedStakeAccount({
-        provider,
-        lamports,
-        voteAccountToDelegate: voteAccount,
-      }))
-  }
-  if (stakeAccountAuthority === undefined) {
-    throw new Error(
-      'executeFundBondInstruction: stake account not to be created in method, requiring stakeAccountAuthority'
-    )
-  }
   const [bondWithdrawerAuthority] = withdrawerAuthority(
     config,
     program.programId
@@ -278,7 +264,6 @@ export async function executeFundBondInstruction({
     bondAuthority,
     voteAccount,
     bondWithdrawerAuthority,
-    stakeAccount,
   }
 }
 
@@ -352,6 +337,9 @@ export async function executeInitWithdrawRequestInstruction({
     )
     throw e
   }
+  expect(
+    provider.connection.getAccountInfo(withdrawRequest)
+  ).resolves.not.toBeNull()
   return {
     withdrawRequest,
     bondAccount,
@@ -391,9 +379,6 @@ export async function executeNewWithdrawRequest({
     configAccount,
     amount,
   })
-  expect(
-    provider.connection.getAccountInfo(withdrawRequest)
-  ).resolves.not.toBeNull()
   if (!(bondAuthority instanceof Keypair)) {
     throw new Error('Expected bond authority to be a keypair')
   }
