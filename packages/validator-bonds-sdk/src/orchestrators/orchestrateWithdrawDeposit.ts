@@ -15,13 +15,13 @@ import assert from 'assert'
 import {
   StakeAccountParsed,
   findStakeAccountAccount,
-  getVoteAccount,
-} from '../stakeAccount'
+} from '../web3.js/stakeAccount'
 import BN from 'bn.js'
 import { mergeInstruction } from '../instructions/merge'
 import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRequest'
 import { anchorProgramWalletPubkey } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import { getVoteAccount } from '../web3.js'
 
 /**
  * Returning the instructions for withdrawing the deposit (on top of the withdraw request)

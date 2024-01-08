@@ -13,7 +13,7 @@ import {
   withdrawRequestAddress,
 } from '../sdk'
 import { getWithdrawRequest } from '../api'
-import { getVoteAccount } from '../stakeAccount'
+import { getVoteAccount } from '../web3.js/voteAccount'
 import { anchorProgramWalletPubkey } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
