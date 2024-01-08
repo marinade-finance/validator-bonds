@@ -7,7 +7,7 @@
         "build": "pnpm compile && pnpm _copy-readme",
         "_test": "pnpm jest --config jest.config.test-validator.js -- \"$FILE\"",
         "test:validator": "anchor test",
-        "test:bankrun": "pnpm jest --config jest.config.bankrun.js --runInBand true -- \"$FILE\"",
+        "test:bankrun": "pnpm anchor:build && pnpm jest --config jest.config.bankrun.js --runInBand true -- \"$FILE\"",
         "test:cargo": "cargo test --features no-entrypoint",
         "test": "pnpm test:cargo && pnpm test:bankrun && pnpm test:validator",
         "cli": "ts-node ./packages/validator-bonds-cli/src/",

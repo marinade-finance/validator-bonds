@@ -4,7 +4,6 @@ import {
   ValidatorBondsProgram,
   getBond,
   getConfig,
-  getVoteAccount,
   getWithdrawRequest,
 } from '../../src'
 import {
@@ -23,13 +22,13 @@ import { ProgramAccount } from '@coral-xyz/anchor'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import { claimWithdrawRequestInstruction } from '../../src/instructions/claimWithdrawRequest'
 import { delegatedStakeAccount } from '../utils/staking'
+import { checkAnchorErrorMessage } from '../utils/helpers'
 
 describe('Validator Bonds claim withdraw request', () => {
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
   let config: ProgramAccount<Config>
   let bond: ProgramAccount<Bond>
-  let bondAuthority: Keypair
   let validatorIdentity: Keypair
   let voteAccount: PublicKey
   const startUpEpoch = Math.floor(Math.random() * 100) + 100
@@ -52,12 +51,9 @@ describe('Validator Bonds claim withdraw request', () => {
     const {
       bondAccount,
       validatorIdentity: nodeIdentity,
-      bondAuthority: bondAuth,
       voteAccount: voteAcc,
     } = await executeInitBondInstruction(program, provider, config.publicKey)
     voteAccount = voteAcc
-    console.log('voteAccount', voteAccount.toBase58())
-    bondAuthority = bondAuth
     validatorIdentity = nodeIdentity
     bond = {
       publicKey: bondAccount,
@@ -65,19 +61,102 @@ describe('Validator Bonds claim withdraw request', () => {
     }
   })
 
-  it('claim withdraw request with bond authority', async () => {
+  it('claim withdraw request with split stake account created', async () => {
     const { stakeAccount, withdrawer: stakeAccountWithdrawer } =
       await delegatedStakeAccount({
         provider,
-        lamports: 3 * LAMPORTS_PER_SOL,
+        lamports: 4 * LAMPORTS_PER_SOL,
         voteAccountToDelegate: voteAccount,
       })
-    await warpToNextEpoch(provider)
+    await warpToNextEpoch(provider) // activating stake account
     await executeFundBondInstruction({
       program,
       provider,
       bondAccount: bond.publicKey,
-      lamports: 3 * LAMPORTS_PER_SOL,
+      stakeAccount,
+      stakeAccountAuthority: stakeAccountWithdrawer,
+    })
+    const requestedAmount = LAMPORTS_PER_SOL * 2
+    const { withdrawRequest } = await executeInitWithdrawRequestInstruction({
+      program,
+      provider,
+      bondAccount: bond.publicKey,
+      validatorIdentity,
+      // TODO: test that asking for more than available fails
+      // TODO: test the amount to be smaller than the minimum (1 SOL + 1) and the split can't happen
+      // TODO: test SDK
+      // TODO: withdrawing with several different stake accounts
+      // TODO: test the merging stake accounts through the orchestrate withdraw request
+      // TODO: try to claim all first and then claim more on top of the requested amount
+      amount: requestedAmount,
+    })
+    let withdrawRequestData = await getWithdrawRequest(program, withdrawRequest)
+    expect(withdrawRequestData.validatorVoteAccount).toEqual(voteAccount)
+    expect(withdrawRequestData.withdrawnAmount).toEqual(0)
+    expect(withdrawRequestData.requestedAmount).toEqual(requestedAmount)
+
+    const { instruction, splitStakeAccount } =
+      await claimWithdrawRequestInstruction({
+        program,
+        withdrawRequestAccount: withdrawRequest,
+        bondAccount: bond.publicKey,
+        stakeAccount,
+      })
+
+    // waiting an epoch but not enough to unlock
+    await warpToNextEpoch(provider)
+    try {
+      await provider.sendIx([splitStakeAccount], instruction)
+      throw new Error('Expected withdraw request should not be elapsed')
+    } catch (err) {
+      checkAnchorErrorMessage(err, 6019, 'Withdraw request has not elapsed')
+    }
+
+    // withdrawLockupEpochs is 2, then second warp should make the withdraw request unlocked
+    await warpToNextEpoch(provider)
+    await warpToNextEpoch(provider)
+    await provider.sendIx([splitStakeAccount], instruction)
+
+    // withdraw request exists until is cancelled
+    withdrawRequestData = await getWithdrawRequest(program, withdrawRequest)
+    expect(withdrawRequestData.withdrawnAmount).toEqual(requestedAmount)
+    expect(withdrawRequestData.requestedAmount).toEqual(requestedAmount)
+
+    // TODO: finalize checks here
+    const originalStakeAccountInfo = await provider.connection.getAccountInfo(
+      stakeAccount
+    )
+    expect(originalStakeAccountInfo?.lamports).toEqual(requestedAmount)
+    const splitStakeAccountInfo = await provider.connection.getAccountInfo(
+      splitStakeAccount.publicKey
+    )
+    if (splitStakeAccountInfo === null) {
+      throw new Error(
+        `claiming split stake account '${splitStakeAccount.publicKey.toBase58()} not found`
+      )
+    }
+    const rentExemptStakeAccount =
+      await provider.connection.getMinimumBalanceForRentExemption(
+        splitStakeAccountInfo.data.length
+      )
+    console.log('rentExemptStakeAccount', rentExemptStakeAccount)
+    expect(splitStakeAccountInfo.lamports).toEqual(
+      requestedAmount + rentExemptStakeAccount
+    )
+  })
+
+  it('claim withdraw request with stake fulfilling the whole', async () => {
+    const { stakeAccount, withdrawer: stakeAccountWithdrawer } =
+      await delegatedStakeAccount({
+        provider,
+        lamports: 2 * LAMPORTS_PER_SOL,
+        voteAccountToDelegate: voteAccount,
+      })
+    await warpToNextEpoch(provider) // activating stake account
+    await executeFundBondInstruction({
+      program,
+      provider,
+      bondAccount: bond.publicKey,
       stakeAccount,
       stakeAccountAuthority: stakeAccountWithdrawer,
     })
@@ -86,20 +165,26 @@ describe('Validator Bonds claim withdraw request', () => {
       provider,
       bondAccount: bond.publicKey,
       validatorIdentity,
+      amount: LAMPORTS_PER_SOL * 2,
     })
     const withdrawRequestData = await getWithdrawRequest(
       program,
       withdrawRequest
     )
     expect(withdrawRequestData.validatorVoteAccount).toEqual(voteAccount)
-    await warpToNextEpoch(provider)
 
-    const { instruction } = await claimWithdrawRequestInstruction({
-      program,
-      withdrawRequestAccount: withdrawRequest,
-      bondAccount: bond.publicKey,
-      stakeAccount,
-    })
-    await provider.sendIx([], instruction)
+    const { instruction, splitStakeAccount } =
+      await claimWithdrawRequestInstruction({
+        program,
+        withdrawRequestAccount: withdrawRequest,
+        bondAccount: bond.publicKey,
+        stakeAccount,
+      })
+
+    // waiting an epoch but not enough to unlock
+    await warpToNextEpoch(provider)
+    await warpToNextEpoch(provider)
+    await warpToNextEpoch(provider)
+    await provider.sendIx([splitStakeAccount], instruction)
   })
 })

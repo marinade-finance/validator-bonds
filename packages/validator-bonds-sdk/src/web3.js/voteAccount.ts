@@ -29,50 +29,11 @@ export async function getVoteAccount<IDL extends Idl = Idl>(
   let voteAccountData: VoteAccount
   try {
     voteAccountData = fromAccount0_14_11Data(voteAccountInfo.data)
-    console.log('parsed 0_14_11 vote account data', voteAccountInfo.data.length)
   } catch (err) {
-    console.log('cannot decode 0_14_11 vote account data', err)
     voteAccountData = fromAccount0_23_5Data(voteAccountInfo.data)
-    console.log('parsed 0_23_5 vote account data', voteAccountInfo.data.length)
   }
-
-  console.log(
-    'voteAccountInfo',
-    address.toBase58(),
-    voteAccountInfo.owner.toBase58()
-  )
   return programAccountInfo(address, voteAccountInfo, voteAccountData)
 }
-
-function isData0_23_5(
-  vad: VoteAccountData0_14_11 | VoteAccountData0_23_5
-): vad is VoteAccountData0_23_5 {
-  return 'authorizedVoter' in vad && 'authorizedVoterEpoch' in vad
-}
-
-// class classMyVoteAccount extends VoteAccount {
-//   constructor(vad: VoteAccountData0_14_11 | VoteAccountData0_23_5) {
-//     super()
-//     this.nodePubkey = new PublicKey(vad.nodePubkey)
-//     this.authorizedWithdrawer = new PublicKey(vad.authorizedWithdrawer)
-//     this.commission = vad.commission
-//     this.votes = vad.votes
-//     this.rootSlot = vad.rootSlot
-//     if (isData0_23_5(vad)) {
-//       this.authorizedVoters = [
-//         parseAuthorizedVoter({
-//           authorizedVoter: vad.authorizedVoter,
-//           epoch: vad.authorizedVoterEpoch,
-//         }),
-//       ]
-//     } else {
-//       this.authorizedVoters = vad.authorizedVoters.map(parseAuthorizedVoter)
-//     }
-//     this.priorVoters = getPriorVoters(vad.priorVoters)
-//     this.epochCredits = vad.epochCredits
-//     this.lastTimestamp = vad.lastTimestamp
-//   }
-// }
 
 /**
  * Deserialize VoteAccount 0.14.11 from the account data.
@@ -81,15 +42,16 @@ function fromAccount0_14_11Data(
   buffer: Buffer | Uint8Array | Array<number>
 ): VoteAccount {
   const versionOffset = 4
-  console.log(
-    'fromAccount0_14_11Data: starting buffer length',
-    buffer.length,
-    versionOffset
-  )
+  // console.log(
+  //   'fromAccount0_14_11Data: starting buffer length',
+  //   buffer.length,
+  //   versionOffset
+  // )
   const voteAccount01411 = VoteAccount0_14_11Layout.decode(
     toBuffer(buffer),
     versionOffset
   )
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return new (VoteAccount as any)({
     nodePubkey: new PublicKey(voteAccount01411.nodePubkey),
     authorizedWithdrawer: new PublicKey(voteAccount01411.authorizedWithdrawer),
@@ -111,15 +73,16 @@ function fromAccount0_23_5Data(
   buffer: Buffer | Uint8Array | Array<number>
 ): VoteAccount {
   const versionOffset = 4
-  console.log(
-    'fromAccount0_23_5Data: starting buffer length',
-    buffer.length,
-    versionOffset
-  )
+  // console.log(
+  //   'fromAccount0_23_5Data: starting buffer length',
+  //   buffer.length,
+  //   versionOffset
+  // )
   const voteAccount0235 = VoteAccount0_23_5Layout.decode(
     toBuffer(buffer),
     versionOffset
   )
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return new (VoteAccount as any)({
     nodePubkey: new PublicKey(voteAccount0235.nodePubkey),
     authorizedWithdrawer: new PublicKey(voteAccount0235.authorizedWithdrawer),
@@ -193,28 +156,7 @@ class OptionLayout<T> extends BufferLayout.Layout<T | null> {
   }
 
   decode(b: Buffer, offset = 0): T | null {
-    console.log('bufeffer length', b.length, b.toString('hex'))
-    const c = b.subarray(offset)
-    console.log(
-      'buffer c',
-      `offset: ${offset}, length: ${c.length}`,
-      c.toString('hex')
-    )
-    console.log('bufeffer length', b.length, b.toString('hex'))
-    const newBuf = Buffer.from(b, offset, offset + 1)
-    const a = newBuf.subarray(offset, offset + 1)
-    console.log(
-      'buffer from',
-      `offset: ${offset}, length new buf: ${newBuf.length}/${newBuf.byteLength}`
-    )
-    console.log(
-      'a length:',
-      a.length,
-      Array.from(a),
-      `hex: '${a.toString('hex')}'`
-    )
     const discriminator = this.discriminator.decode(b, offset)
-    console.log('discriminator', discriminator.toString(2))
     if (discriminator === 0) {
       return null
     } else if (discriminator === 1) {

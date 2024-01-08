@@ -21,7 +21,7 @@ import { mergeInstruction } from '../instructions/merge'
 import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRequest'
 import { anchorProgramWalletPubkey } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { getVoteAccount } from '../web3.js'
+import { getVoteAccount } from '../web3.js/index'
 
 /**
  * Returning the instructions for withdrawing the deposit (on top of the withdraw request)

@@ -100,17 +100,8 @@ async function manageInitConfig({
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [address, wallet]
 
-  console.log('rent payer:1', rentPayer)
   rentPayer = rentPayer || wallet.publicKey
-  console.log(
-    'rent payer:2',
-    rentPayer,
-    instanceOfWallet(rentPayer),
-    rentPayer instanceof Keypair,
-    rentPayer instanceof PublicKey
-  )
   if (instanceOfWallet(rentPayer)) {
-    console.log('signature of the rent payer here....')
     signers.push(rentPayer)
     rentPayer = rentPayer.publicKey
   }

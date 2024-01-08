@@ -203,7 +203,6 @@ export async function executeFundBondInstruction({
   config?: PublicKey
   stakeAccount: PublicKey
   stakeAccountAuthority: Keypair
-  lamports?: number
 }): Promise<{
   bondAccount: PublicKey
   bondAuthority: Keypair | PublicKey

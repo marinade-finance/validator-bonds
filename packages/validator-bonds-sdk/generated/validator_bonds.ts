@@ -604,10 +604,10 @@ export type ValidatorBonds = {
         },
         {
           "name": "withdrawer",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false,
           "docs": [
-            "this is the account that will be the new owner (withdrawer authority) of the stake account",
+            "This is the account that will be the new owner (withdrawer authority) of the stake account",
             "and ultimately it receives the withdrawing funds"
           ]
         },
@@ -3711,10 +3711,10 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "withdrawer",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false,
           "docs": [
-            "this is the account that will be the new owner (withdrawer authority) of the stake account",
+            "This is the account that will be the new owner (withdrawer authority) of the stake account",
             "and ultimately it receives the withdrawing funds"
           ]
         },

@@ -69,11 +69,10 @@ pub struct ClaimWithdrawRequest<'info> {
     #[account(mut)]
     stake_account: Account<'info, StakeAccount>,
 
-    // TODO: is correct to pass the stake account to authority of the validator identity?
-    /// CHECK: this has to match with validator vote account validator identity
-    /// this is the account that will be the new owner (withdrawer authority) of the stake account
+    /// CHECK: this has to match with validator vote account validator identity.
+    /// This is the account that will be the new owner (withdrawer authority) of the stake account
     /// and ultimately it receives the withdrawing funds
-    #[account()]
+    #[account(mut)]
     withdrawer: UncheckedAccount<'info>,
 
     /// this is a whatever address that does not exist
@@ -164,7 +163,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
                 self.stake_account.get_lamports() - amount_to_fulfill_withdraw;
             let split_instruction = stake::instruction::split(
                 &self.stake_account.key(),
-                &self.withdrawer.key(),
+                self.bonds_withdrawer_authority.key,
                 withdraw_split_leftover,
                 &self.split_stake_account.key(),
             )
@@ -176,8 +175,8 @@ impl<'info> ClaimWithdrawRequest<'info> {
                 &[
                     self.stake_program.to_account_info(),
                     self.stake_account.to_account_info(),
-                    self.split_stake_account.to_account_info(),
                     self.bonds_withdrawer_authority.to_account_info(),
+                    self.split_stake_account.to_account_info(),
                 ],
                 &[&[
                     BONDS_AUTHORITY_SEED,
@@ -185,7 +184,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
                     &[self.config.bonds_withdrawer_authority_bump],
                 ]],
             )?;
-            // withdrawal amount is the rest to fulfil the withdrawal request
+            // the amount  is enough to fulfil the missing part of the withdrawal request
             (amount_to_fulfill_withdraw, true)
         } else {
             return_unused_split_stake_account_rent(
@@ -222,17 +221,27 @@ impl<'info> ClaimWithdrawRequest<'info> {
                 ]],
             ),
             // withdrawer authority (owner) is now the withdrawer authority defined by ix
+            StakeAuthorize::Staker,
+            None,
+        )?;
+        authorize(
+            CpiContext::new_with_signer(
+                self.stake_program.to_account_info(),
+                Authorize {
+                    stake: self.stake_account.to_account_info(),
+                    authorized: self.bonds_withdrawer_authority.to_account_info(),
+                    new_authorized: self.withdrawer.to_account_info(),
+                    clock: self.clock.to_account_info(),
+                },
+                &[&[
+                    BONDS_AUTHORITY_SEED,
+                    &self.config.key().as_ref(),
+                    &[self.config.bonds_withdrawer_authority_bump],
+                ]],
+            ),
             StakeAuthorize::Withdrawer,
             None,
         )?;
-
-        // TODO: DELETE ME -> test building verification purposes; checking by logging that amounts are equal
-        msg!(
-            "stake {} of stake account {}, to account info lamports: {}",
-            withdrawing_amount,
-            self.stake_account.key(),
-            self.stake_account.get_lamports(),
-        );
 
         emit!(ClaimWithdrawRequestEvent {
             bond: self.bond.key(),
@@ -255,7 +264,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
             },
         });
         msg!(
-            "stake account {} moved to {} with amount {}",
+            "stake account {} claimed to {} with amount {}",
             self.stake_account.key(),
             self.withdrawer.key(),
             withdrawing_amount

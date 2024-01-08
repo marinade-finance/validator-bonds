@@ -1,19 +1,28 @@
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import { ValidatorBondsProgram, getVoteAccount } from '../../src'
-import { initTest } from './testValidator'
+import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
+  CLAIM_WITHDRAW_REQUEST_EVENT,
+  ClaimWithdrawRequestEvent,
+  ValidatorBondsProgram,
+  getStakeAccount,
+  getVoteAccount,
+  getWithdrawRequest,
+  withdrawerAuthority,
+} from '../../src'
+import { initTest, waitForStakeAccountActivation } from './testValidator'
+import {
+  executeFundBondInstruction,
   executeInitConfigInstruction,
   executeNewWithdrawRequest,
 } from '../utils/testTransactions'
 import { ExtendedProvider } from '../utils/provider'
+import { delegatedStakeAccount } from '../utils/staking'
+import { claimWithdrawRequestInstruction } from '../../src/instructions/claimWithdrawRequest'
+import BN from 'bn.js'
 
 describe('Validator Bonds claim withdraw request', () => {
   let provider: ExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
-  let bondAccount: PublicKey
-  let withdrawRequest: PublicKey
-  let validatorIdentity: Keypair
   const requestedAmount = 2 * LAMPORTS_PER_SOL
 
   beforeAll(async () => {
@@ -29,22 +38,107 @@ describe('Validator Bonds claim withdraw request', () => {
     ;({ configAccount } = await executeInitConfigInstruction({
       program,
       provider,
+      withdrawLockupEpochs: 0,
     }))
-    ;({ withdrawRequest, validatorIdentity, bondAccount } =
+  })
+
+  it('claim withdraw request', async () => {
+    const event = new Promise<ClaimWithdrawRequestEvent>(resolve => {
+      const listener = program.addEventListener(
+        CLAIM_WITHDRAW_REQUEST_EVENT,
+        async event => {
+          await program.removeEventListener(listener)
+          resolve(event)
+        }
+      )
+    })
+
+    const { withdrawRequest, bondAccount, voteAccount } =
       await executeNewWithdrawRequest({
         program,
         provider,
         configAccount,
         amount: requestedAmount,
-      }))
-  })
+      })
 
-  it('cancel withdraw request', async () => {
-    const va = await provider.connection.getVoteAccounts()
-    const gva = await getVoteAccount(
+    const { stakeAccount, withdrawer } = await delegatedStakeAccount({
       provider,
-      new PublicKey(va.current[0].votePubkey)
+      lamports: requestedAmount * 2,
+      voteAccountToDelegate: voteAccount,
+    })
+    console.debug(
+      `Waiting for activation of stake account: ${stakeAccount.toBase58()}`
     )
-    console.log('parssssed', gva.publicKey.toBase58())
+    await waitForStakeAccountActivation({
+      stakeAccount,
+      connection: provider.connection,
+    })
+    await executeFundBondInstruction({
+      program,
+      provider,
+      bondAccount,
+      stakeAccount,
+      stakeAccountAuthority: withdrawer,
+    })
+
+    let stakeAccountData = await getStakeAccount(program, stakeAccount)
+    const [bondsWithdrawerAuthority] = withdrawerAuthority(
+      configAccount,
+      program.programId
+    )
+    expect(stakeAccountData.staker).toEqual(bondsWithdrawerAuthority)
+    expect(stakeAccountData.withdrawer).toEqual(bondsWithdrawerAuthority)
+    const withdrawRequestData = await getWithdrawRequest(
+      program,
+      withdrawRequest
+    )
+    expect(withdrawRequestData.bond).toEqual(bondAccount)
+    expect(withdrawRequestData.withdrawnAmount).toEqual(0)
+
+    const { instruction, splitStakeAccount } =
+      await claimWithdrawRequestInstruction({
+        program,
+        withdrawRequestAccount: withdrawRequest,
+        bondAccount,
+        stakeAccount,
+      })
+
+    await provider.sendIx([splitStakeAccount], instruction)
+
+    stakeAccountData = await getStakeAccount(provider, stakeAccount)
+    const voteAccountData = await getVoteAccount(provider, voteAccount)
+    expect(stakeAccountData.staker).toEqual(
+      voteAccountData.account.data.nodePubkey
+    )
+    expect(stakeAccountData.withdrawer).toEqual(
+      voteAccountData.account.data.nodePubkey
+    )
+
+    const withdrawRequestDataAfter = await getWithdrawRequest(
+      program,
+      withdrawRequest
+    )
+    expect(withdrawRequestDataAfter.withdrawnAmount).toEqual(requestedAmount)
+    expect(withdrawRequestDataAfter.requestedAmount).toEqual(requestedAmount)
+    const splitStakeLamports = (
+      await provider.connection.getAccountInfo(splitStakeAccount.publicKey)
+    )?.lamports
+
+    await event.then(e => {
+      expect(e.bond).toEqual(bondAccount)
+      expect(e.stakeAccount).toEqual(stakeAccount)
+      expect(e.newStakeAccountOwner).toEqual(
+        voteAccountData.account.data.nodePubkey
+      )
+      expect(e.splitStake?.amount).toEqual(splitStakeLamports)
+      expect(e.splitStake?.address).toEqual(splitStakeAccount.publicKey)
+      expect(e.validatorVoteAccount).toEqual(voteAccount)
+      expect(e.withdrawRequest).toEqual(withdrawRequest)
+      expect(e.withdrawingAmount).toEqual(requestedAmount)
+      expect(e.withdrawnAmount).toEqual({
+        old: new BN(0),
+        new: requestedAmount,
+      })
+    })
   })
 })
