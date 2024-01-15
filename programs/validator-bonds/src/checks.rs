@@ -106,7 +106,7 @@ pub fn check_stake_is_initialized_with_withdrawer_authority(
         error!(ErrorCode::UninitializedStake).with_account_name(stake_account_attribute_name),
     )?;
     if stake_meta.authorized.withdrawer != *authority {
-        return Err(error!(ErrorCode::InvalidStakeOwner)
+        return Err(error!(ErrorCode::WrongStakeAccountWithdrawer)
             .with_account_name(stake_account_attribute_name)
             .with_pubkeys((stake_meta.authorized.withdrawer, *authority)));
     }
@@ -389,7 +389,7 @@ mod tests {
                 &wrong_withdrawer,
                 ""
             ),
-            Err(ErrorCode::InvalidStakeOwner.into())
+            Err(ErrorCode::WrongStakeAccountWithdrawer.into())
         );
     }
 

@@ -7,6 +7,7 @@ import {
 import {
   AnchorExtendedProvider,
   initTest,
+  waitForNextEpoch,
 } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
 import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import {
@@ -23,6 +24,10 @@ describe('Merge stake accounts using CLI', () => {
   beforeAll(async () => {
     shellMatchers()
     ;({ provider, program } = await initTest())
+    // we want to be at the beginning of the epoch
+    // otherwise the merge instruction could fail as the stake account is in different state (0x6)
+    // https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/instruction.rs#L42
+    await waitForNextEpoch(provider.connection, 15)
   })
 
   beforeEach(async () => {

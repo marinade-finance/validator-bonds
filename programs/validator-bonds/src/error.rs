@@ -32,8 +32,8 @@ pub enum ErrorCode {
     #[msg("Fail to create program address for Bond")]
     InvalidBondAddress, // 6009 0x1779
 
-    #[msg("Stake account's withdrawer does not match with the provided owner")]
-    InvalidStakeOwner, // 6010 0x177a
+    #[msg("Wrong withdrawer authority of the stake account")]
+    WrongStakeAccountWithdrawer, // 6010 0x177a
 
     #[msg("Fail to create program address for WithdrawRequest")]
     InvalidWithdrawRequestAddress, // 6011 0x177b
@@ -81,7 +81,7 @@ pub enum ErrorCode {
     SettlementNotClosed, // 6025 0x1789
 
     #[msg("Provided stake account has been already funded to a settlement")]
-    StakeAccountAlreadyFunded, // 6026 0x178a
+    StakeAccountIsFundedToSettlement, // 6026 0x178a
 
     #[msg("Settlement claim proof failed")]
     ClaimSettlementProofFailed, // 6027 0x178b
@@ -89,7 +89,7 @@ pub enum ErrorCode {
     #[msg("Provided stake account is locked-up")]
     StakeLockedUp, // 6028 0x178c
 
-    #[msg("Stake account is not big enough to split")]
+    #[msg("Stake account is not big enough to be split")]
     StakeAccountNotBigEnoughToSplit, // 6029 0x178d
 
     #[msg("Claiming bigger amount than the max total claim")]
@@ -140,6 +140,12 @@ pub enum ErrorCode {
     #[msg("Delegation of provided stake account mismatches")]
     StakeDelegationMismatch, // 6045 0x179d
 
+    #[msg("Too small non-withdrawn withdraw request amount, cancel and init new one")]
+    WithdrawRequestAmountTooSmall, // 6046 0x179e
+
+    #[msg("Withdraw request has been already fulfilled")]
+    WithdrawRequestAlreadyFulfilled, // 6047 0x179f
+
     #[msg("Not yet implemented")]
-    NotYetImplemented, // 6046 0x179e
+    NotYetImplemented, // 6048 0x17a0
 }

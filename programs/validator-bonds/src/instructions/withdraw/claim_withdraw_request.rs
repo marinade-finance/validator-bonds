@@ -1,6 +1,7 @@
 use crate::checks::{
-    check_stake_is_initialized_with_withdrawer_authority, check_stake_valid_delegation,
-    check_validator_vote_account_validator_identity,
+    check_bond_change_permitted, check_stake_exist_and_fully_activated,
+    check_stake_is_initialized_with_withdrawer_authority, check_stake_is_not_locked,
+    check_stake_valid_delegation,
 };
 use crate::constants::BONDS_AUTHORITY_SEED;
 use crate::error::ErrorCode;
@@ -12,7 +13,6 @@ use crate::state::withdraw_request::WithdrawRequest;
 use crate::utils::{minimal_size_stake_account, return_unused_split_stake_account_rent};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::stake::state::{StakeAuthorize, StakeState};
-use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_lang::solana_program::{program::invoke_signed, stake, system_program};
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 
@@ -40,6 +40,10 @@ pub struct ClaimWithdrawRequest<'info> {
     /// CHECK: deserialization of the vote account in the code
     #[account()]
     validator_vote_account: UncheckedAccount<'info>,
+
+    /// validator vote account node identity or bond authority may claim
+    #[account()]
+    authority: Signer<'info>,
 
     #[account(
         mut,
@@ -69,10 +73,9 @@ pub struct ClaimWithdrawRequest<'info> {
     #[account(mut)]
     stake_account: Account<'info, StakeAccount>,
 
-    /// CHECK: this has to match with validator vote account validator identity.
-    /// This is the account that will be the new owner (withdrawer authority) of the stake account
-    /// and ultimately it receives the withdrawing funds
-    #[account(mut)]
+    /// CHECK: whatever address, authority signature states his intention to withdraw the funds
+    /// New owner of the stake account, it will be accounted to the withdrawer authority
+    #[account()]
     withdrawer: UncheckedAccount<'info>,
 
     /// this is a whatever address that does not exist
@@ -97,25 +100,40 @@ pub struct ClaimWithdrawRequest<'info> {
 
     system_program: Program<'info, System>,
 
-    /// CHECK: stake history address, no parsing not eating CPU cycles
-    #[account(address = stake_history::ID)]
-    stake_history: UncheckedAccount<'info>,
+    stake_history: Sysvar<'info, StakeHistory>,
 
     clock: Sysvar<'info, Clock>,
 }
 
 impl<'info> ClaimWithdrawRequest<'info> {
     pub fn process(&mut self) -> Result<()> {
-        // vote account validator identity matches the authority where the funds will be withdrawn to
-        // i.e., this address will be the new owner (withdrawer authority) of the stake account
-        check_validator_vote_account_validator_identity(
-            &self.validator_vote_account,
-            &self.withdrawer.key(),
-        )?;
+        require_gt!(
+            self.withdraw_request
+                .requested_amount
+                .saturating_sub(self.withdraw_request.withdrawn_amount),
+            0,
+            ErrorCode::WithdrawRequestAlreadyFulfilled,
+        );
 
+        // claim is permission-ed as the init withdraw request
+        require!(
+            check_bond_change_permitted(
+                &self.authority.key(),
+                &self.bond,
+                &self.validator_vote_account
+            ),
+            ErrorCode::InvalidWithdrawRequestAuthority
+        );
+
+        // whoever can provide us with the stake account of any configuration, requiring the same constraints as for funding
+        check_stake_is_not_locked(&self.stake_account, &self.clock, "stake_account")?;
+        check_stake_exist_and_fully_activated(
+            &self.stake_account,
+            self.clock.epoch,
+            &self.stake_history,
+        )?;
         // stake account is delegated to the validator vote account associated with the bond
-        let stake_delegation =
-            check_stake_valid_delegation(&self.stake_account, &self.bond.validator_vote_account)?;
+        check_stake_valid_delegation(&self.stake_account, &self.bond.validator_vote_account)?;
 
         // stake account belongs under the bonds program
         let stake_meta = check_stake_is_initialized_with_withdrawer_authority(
@@ -123,11 +141,11 @@ impl<'info> ClaimWithdrawRequest<'info> {
             &self.bonds_withdrawer_authority.key(),
             "stake_account",
         )?;
-        // stake account is not funded
+        // stake account is not funded to settlement and is still under bonds program
         require_keys_eq!(
             stake_meta.authorized.staker,
             self.bonds_withdrawer_authority.key(),
-            ErrorCode::StakeAccountAlreadyFunded,
+            ErrorCode::StakeAccountIsFundedToSettlement,
         );
 
         // the amount that has not yet been withdrawn from the request
@@ -144,19 +162,26 @@ impl<'info> ClaimWithdrawRequest<'info> {
             // ensuring that splitting means stake accounts will be big enough
             // note: the rent exempt of the newly created split account has been already paid by the tx caller
             let minimal_stake_size = minimal_size_stake_account(&stake_meta, &self.config);
-            if self.stake_account.get_lamports() - amount_to_fulfill_withdraw < minimal_stake_size
-                || amount_to_fulfill_withdraw < minimal_stake_size
-            {
+            if self.stake_account.get_lamports() - amount_to_fulfill_withdraw < minimal_stake_size {
                 return Err(error!(ErrorCode::StakeAccountNotBigEnoughToSplit)
                     .with_account_name("stake_account")
-                    .with_values(("stake_account_lamports - amount_to_fulfill_withdraw < minimal_stake_size || amount_to_fulfill_withdraw < minimal_stake_size",
-                                  format!("{} - {} < {} || {} < {}",
-                                          self.stake_account.get_lamports(),
-                                          amount_to_fulfill_withdraw,
-                                          minimal_stake_size,
-                                          amount_to_fulfill_withdraw,
-                                          minimal_stake_size,
-                                  ))));
+                    .with_values((
+                        "stake_account_lamports - amount_to_fulfill_withdraw < minimal_stake_size",
+                        format!(
+                            "{} - {} < {}",
+                            self.stake_account.get_lamports(),
+                            amount_to_fulfill_withdraw,
+                            minimal_stake_size,
+                        ),
+                    )));
+            }
+            if amount_to_fulfill_withdraw < minimal_stake_size {
+                return Err(error!(ErrorCode::WithdrawRequestAmountTooSmall)
+                    .with_account_name("stake_account")
+                    .with_values((
+                        "amount_to_fulfill_withdraw < minimal_stake_size",
+                        format!("{} < {}", amount_to_fulfill_withdraw, minimal_stake_size,),
+                    )));
             }
 
             let withdraw_split_leftover =
@@ -192,10 +217,10 @@ impl<'info> ClaimWithdrawRequest<'info> {
                 &self.split_stake_account,
                 &self.split_stake_rent_payer,
                 &self.clock,
-                &self.stake_history,
+                &self.stake_history.to_account_info(),
             )?;
             // withdrawal amount is full stake account
-            (stake_delegation.stake, false)
+            (self.stake_account.to_account_info().lamports(), false)
         };
 
         let old_withdrawn_amount = self.withdraw_request.withdrawn_amount;

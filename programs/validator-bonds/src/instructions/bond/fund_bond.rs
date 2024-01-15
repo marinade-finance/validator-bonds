@@ -57,11 +57,28 @@ pub struct FundBond<'info> {
 
 impl<'info> FundBond<'info> {
     pub fn process(&mut self) -> Result<()> {
+        // when the stake account is already "owned" by the bonds program, let's just return OK
+        if check_stake_is_initialized_with_withdrawer_authority(
+            &self.stake_account,
+            &self.bonds_withdrawer_authority.key(),
+            "stake_account",
+        )
+        .is_ok()
+        {
+            msg!(
+                "Stake account {} is already owned by the bonds program",
+                self.stake_account.key()
+            );
+            return Ok(());
+        }
+
+        // check we've got signature of the stake account owner
         check_stake_is_initialized_with_withdrawer_authority(
             &self.stake_account,
             &self.stake_authority.key(),
             "stake_account",
         )?;
+        // check the stake account is in valid state to be used for bonds
         check_stake_is_not_locked(&self.stake_account, &self.clock, "stake_account")?;
         check_stake_exist_and_fully_activated(
             &self.stake_account,

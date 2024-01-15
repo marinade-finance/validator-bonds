@@ -20,8 +20,6 @@ import { ExtendedProvider } from './provider'
 import { createVoteAccount } from './staking'
 import BN from 'bn.js'
 import assert from 'assert'
-// import { BankrunExtendedProvider, warpToNextEpoch } from '../bankrun/bankrun'
-// import { waitForStakeAccountActivation } from '../test-validator/testValidator'
 
 export async function createUserAndFund(
   provider: ExtendedProvider,
@@ -71,7 +69,7 @@ export async function executeWithdraw(
     await provider.sendIx([withdrawAuthority], withdrawIx)
   } catch (e) {
     console.error(
-      `executeWithdraw: withdraw ${stakeAccount.toBase58()}, ` +
+      `[executeWithdraw] stake account: ${stakeAccount.toBase58()}, ` +
         `withdrawer: ${withdrawAuthority.publicKey.toBase58()}`,
       e
     )

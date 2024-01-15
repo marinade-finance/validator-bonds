@@ -3,6 +3,7 @@ import { ValidatorBondsProgram, getProgram } from '../../src'
 import { BanksTransactionMeta, startAnchor } from 'solana-bankrun'
 import { BankrunProvider } from 'anchor-bankrun'
 import {
+  Keypair,
   PublicKey,
   Signer,
   Transaction,
@@ -17,7 +18,7 @@ export class BankrunExtendedProvider
   implements ExtendedProvider
 {
   async sendIx(
-    signers: (WalletInterface | Signer)[],
+    signers: (WalletInterface | Signer | Keypair)[],
     ...ixes: (
       | Transaction
       | TransactionInstruction
@@ -62,7 +63,7 @@ export async function bankrunTransaction(
 
 export async function bankrunExecuteIx(
   provider: BankrunProvider,
-  signers: (WalletInterface | Signer)[],
+  signers: (WalletInterface | Signer | Keypair)[],
   ...ixes: (
     | Transaction
     | TransactionInstruction
@@ -76,13 +77,13 @@ export async function bankrunExecuteIx(
 
 export async function bankrunExecute(
   provider: BankrunProvider,
-  signers: (WalletInterface | Signer)[],
+  signers: (WalletInterface | Signer | Keypair)[],
   tx: Transaction
 ): Promise<BanksTransactionMeta> {
   for (const signer of signers) {
     if (instanceOfWallet(signer)) {
       await signer.signTransaction(tx)
-    } else if ('secretKey' in signer) {
+    } else if (signer instanceof Keypair || 'secretKey' in signer) {
       tx.partialSign(signer)
     } else {
       throw new Error(

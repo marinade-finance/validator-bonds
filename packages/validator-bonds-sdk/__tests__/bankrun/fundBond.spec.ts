@@ -9,6 +9,7 @@ import {
 } from '../../src'
 import {
   BankrunExtendedProvider,
+  bankrunExecuteIx,
   initBankrunTest,
   warpToEpoch,
   warpToNextEpoch,
@@ -109,6 +110,7 @@ describe('Validator Bonds fund bond account', () => {
     await warpToNextEpoch(provider)
     try {
       await provider.sendIx([withdrawer], instruction)
+      throw new Error('failure expected as delegated to wrong validator')
     } catch (e) {
       checkAnchorErrorMessage(e, 6018, 'delegated to a wrong validator')
     }
@@ -195,5 +197,18 @@ describe('Validator Bonds fund bond account', () => {
       epoch: new BN(0),
       unixTimestamp: new BN(0),
     })
+
+    // double funding the same account
+    await warpToNextEpoch(provider)
+    const txRet = await bankrunExecuteIx(
+      provider,
+      [provider.wallet, withdrawer],
+      instruction
+    )
+    expect(
+      txRet.logMessages.find(m =>
+        m.includes('is already owned by the bonds program')
+      )
+    ).toBeDefined()
   })
 })

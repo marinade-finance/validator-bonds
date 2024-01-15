@@ -27,11 +27,11 @@
     "@marinade.finance/validator-bonds-sdk": "^1.1.5",
     "@coral-xyz/anchor": "^0.29.0",
     "@solana/web3.js": "^1.87.6",
-    "@marinade.finance/cli-common": "^2.1.0",
-    "@marinade.finance/anchor-common": "^2.1.0",
-    "@marinade.finance/web3js-common": "^2.1.0",
-    "@marinade.finance/ledger-utils": "^2.1.0",
-    "@marinade.finance/ts-common": "^2.1.0",
+    "@marinade.finance/cli-common": "^2.1.1",
+    "@marinade.finance/anchor-common": "^2.1.1",
+    "@marinade.finance/web3js-common": "^2.1.1",
+    "@marinade.finance/ledger-utils": "^2.1.1",
+    "@marinade.finance/ts-common": "^2.1.1",
     "bn.js": "^5.2.1",
     "jsbi": "^4.3.0",
     "commander": "^9.5.0",
@@ -41,6 +41,6 @@
     "yaml": "^2.3.3"
   },
   "devDependencies": {
-    "@marinade.finance/jest-utils": "^2.1.0"
+    "@marinade.finance/jest-utils": "^2.1.1"
   }
 }

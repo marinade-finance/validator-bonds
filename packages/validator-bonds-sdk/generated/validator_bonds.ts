@@ -550,6 +550,14 @@ export type ValidatorBonds = {
           "isSigner": false
         },
         {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "validator vote account node identity or bond authority may claim"
+          ]
+        },
+        {
           "name": "withdrawRequest",
           "isMut": true,
           "isSigner": false,
@@ -604,11 +612,10 @@ export type ValidatorBonds = {
         },
         {
           "name": "withdrawer",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false,
           "docs": [
-            "This is the account that will be the new owner (withdrawer authority) of the stake account",
-            "and ultimately it receives the withdrawing funds"
+            "New owner of the stake account, it will be accounted to the withdrawer authority"
           ]
         },
         {
@@ -2919,8 +2926,8 @@ export type ValidatorBonds = {
     },
     {
       "code": 6010,
-      "name": "InvalidStakeOwner",
-      "msg": "Stake account's withdrawer does not match with the provided owner"
+      "name": "WrongStakeAccountWithdrawer",
+      "msg": "Wrong withdrawer authority of the stake account"
     },
     {
       "code": 6011,
@@ -2999,7 +3006,7 @@ export type ValidatorBonds = {
     },
     {
       "code": 6026,
-      "name": "StakeAccountAlreadyFunded",
+      "name": "StakeAccountIsFundedToSettlement",
       "msg": "Provided stake account has been already funded to a settlement"
     },
     {
@@ -3015,7 +3022,7 @@ export type ValidatorBonds = {
     {
       "code": 6029,
       "name": "StakeAccountNotBigEnoughToSplit",
-      "msg": "Stake account is not big enough to split"
+      "msg": "Stake account is not big enough to be split"
     },
     {
       "code": 6030,
@@ -3099,6 +3106,16 @@ export type ValidatorBonds = {
     },
     {
       "code": 6046,
+      "name": "WithdrawRequestAmountTooSmall",
+      "msg": "Too small non-withdrawn withdraw request amount, cancel and init new one"
+    },
+    {
+      "code": 6047,
+      "name": "WithdrawRequestAlreadyFulfilled",
+      "msg": "Withdraw request has been already fulfilled"
+    },
+    {
+      "code": 6048,
       "name": "NotYetImplemented",
       "msg": "Not yet implemented"
     }
@@ -3657,6 +3674,14 @@ export const IDL: ValidatorBonds = {
           "isSigner": false
         },
         {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "validator vote account node identity or bond authority may claim"
+          ]
+        },
+        {
           "name": "withdrawRequest",
           "isMut": true,
           "isSigner": false,
@@ -3711,11 +3736,10 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "withdrawer",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false,
           "docs": [
-            "This is the account that will be the new owner (withdrawer authority) of the stake account",
-            "and ultimately it receives the withdrawing funds"
+            "New owner of the stake account, it will be accounted to the withdrawer authority"
           ]
         },
         {
@@ -6026,8 +6050,8 @@ export const IDL: ValidatorBonds = {
     },
     {
       "code": 6010,
-      "name": "InvalidStakeOwner",
-      "msg": "Stake account's withdrawer does not match with the provided owner"
+      "name": "WrongStakeAccountWithdrawer",
+      "msg": "Wrong withdrawer authority of the stake account"
     },
     {
       "code": 6011,
@@ -6106,7 +6130,7 @@ export const IDL: ValidatorBonds = {
     },
     {
       "code": 6026,
-      "name": "StakeAccountAlreadyFunded",
+      "name": "StakeAccountIsFundedToSettlement",
       "msg": "Provided stake account has been already funded to a settlement"
     },
     {
@@ -6122,7 +6146,7 @@ export const IDL: ValidatorBonds = {
     {
       "code": 6029,
       "name": "StakeAccountNotBigEnoughToSplit",
-      "msg": "Stake account is not big enough to split"
+      "msg": "Stake account is not big enough to be split"
     },
     {
       "code": 6030,
@@ -6206,6 +6230,16 @@ export const IDL: ValidatorBonds = {
     },
     {
       "code": 6046,
+      "name": "WithdrawRequestAmountTooSmall",
+      "msg": "Too small non-withdrawn withdraw request amount, cancel and init new one"
+    },
+    {
+      "code": 6047,
+      "name": "WithdrawRequestAlreadyFulfilled",
+      "msg": "Withdraw request has been already fulfilled"
+    },
+    {
+      "code": 6048,
       "name": "NotYetImplemented",
       "msg": "Not yet implemented"
     }

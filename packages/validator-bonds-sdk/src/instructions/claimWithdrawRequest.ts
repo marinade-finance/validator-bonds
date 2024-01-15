@@ -24,6 +24,7 @@ export async function claimWithdrawRequestInstruction({
   configAccount,
   validatorVoteAccount,
   stakeAccount,
+  authority = anchorProgramWalletPubkey(program),
   splitStakeRentPayer = anchorProgramWalletPubkey(program),
   withdrawer,
 }: {
@@ -33,6 +34,7 @@ export async function claimWithdrawRequestInstruction({
   configAccount?: PublicKey
   validatorVoteAccount?: PublicKey
   stakeAccount: PublicKey
+  authority?: PublicKey | Keypair | Signer | WalletInterface // signer
   splitStakeRentPayer?: PublicKey | Keypair | Signer | WalletInterface // signer
   withdrawer?: PublicKey
 }): Promise<{
@@ -95,6 +97,7 @@ export async function claimWithdrawRequestInstruction({
     withdrawer = voteAccountData.account.data.nodePubkey
   }
 
+  authority = authority instanceof PublicKey ? authority : authority.publicKey
   splitStakeRentPayer =
     splitStakeRentPayer instanceof PublicKey
       ? splitStakeRentPayer
@@ -111,6 +114,7 @@ export async function claimWithdrawRequestInstruction({
       stakeAccount,
       withdrawer,
       splitStakeAccount: splitStakeAccount.publicKey,
+      authority,
       splitStakeRentPayer,
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
       stakeProgram: StakeProgram.programId,

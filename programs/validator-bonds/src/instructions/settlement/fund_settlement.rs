@@ -141,7 +141,7 @@ impl<'info> FundSettlement<'info> {
         require_keys_eq!(
             stake_meta.authorized.staker,
             self.bonds_withdrawer_authority.key(),
-            ErrorCode::StakeAccountAlreadyFunded,
+            ErrorCode::StakeAccountIsFundedToSettlement,
         );
 
         // TODO: consider if missing to check the stake account is fully activated
