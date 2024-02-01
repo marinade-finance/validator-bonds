@@ -125,8 +125,10 @@ export type ValidatorBonds = {
           "name": "validatorIdentity",
           "isMut": false,
           "isSigner": true,
+          "isOptional": true,
           "docs": [
-            "only validator vote account validator identity may create the bond"
+            "when validator identity signs the instruction then configuration arguments are applied",
+            "otherwise it's a permission-less operation that uses default init bond setup"
           ]
         },
         {
@@ -3249,8 +3251,10 @@ export const IDL: ValidatorBonds = {
           "name": "validatorIdentity",
           "isMut": false,
           "isSigner": true,
+          "isOptional": true,
           "docs": [
-            "only validator vote account validator identity may create the bond"
+            "when validator identity signs the instruction then configuration arguments are applied",
+            "otherwise it's a permission-less operation that uses default init bond setup"
           ]
         },
         {

@@ -13,6 +13,7 @@ import {
 } from '@marinade.finance/web3js-common'
 import {
   CONFIG_ADDRESS,
+  getVoteAccount,
   initBondInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import { toHundredsBps } from '@marinade.finance/validator-bonds-sdk/src/utils'
@@ -37,12 +38,13 @@ export function installInitBond(program: Command) {
     .option(
       '--validator-identity <keypair_or_ledger_or_pubkey>',
       'Validator identity linked to the vote account. ' +
-        'To create the bond the signature of the validator identity is needed (default: wallet keypair)',
+        'Permission-ed execution requires the validator identity signature. Then possible to set --bond-authority and --revenue-share. ' +
+        'Permission-less execution requires no signature, bond account configuration is possible later with validator identity signature (default: NONE)',
       parseWalletOrPubkey
     )
     .option(
       '--bond-authority <pubkey>',
-      'Authority that is permitted to operate with bond account (default: wallet pubkey)',
+      'Authority that is permitted to operate with bond account (default: vote account validator identity)',
       parsePubkeyOrPubkeyFromWallet
     )
     .option(
@@ -118,13 +120,16 @@ async function manageInitBond({
     signers.push(rentPayer)
     rentPayer = rentPayer.publicKey
   }
-  validatorIdentity = validatorIdentity || wallet.publicKey
   if (instanceOfWallet(validatorIdentity)) {
     signers.push(validatorIdentity)
     validatorIdentity = validatorIdentity.publicKey
   }
 
-  bondAuthority = bondAuthority || wallet.publicKey
+  if (bondAuthority === undefined) {
+    // when not defined the bondAuthority is the validator identity
+    const voteAccountData = await getVoteAccount(provider, voteAccount)
+    bondAuthority = voteAccountData.account.data.nodePubkey
+  }
 
   const { instruction, bondAccount } = await initBondInstruction({
     program,

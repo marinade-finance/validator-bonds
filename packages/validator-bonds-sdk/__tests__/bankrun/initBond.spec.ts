@@ -87,6 +87,28 @@ describe('Validator Bonds init bond account', () => {
     expect(bondData.validatorVoteAccount).toEqual(voteAccount)
   })
 
+  it('init bond permission-less', async () => {
+    const bondAuthority = Keypair.generate()
+    const { voteAccount, validatorIdentity } = await createVoteAccount(provider)
+    const { instruction, bondAccount } = await initBondInstruction({
+      program,
+      configAccount: config.publicKey,
+      bondAuthority: bondAuthority.publicKey,
+      revenueShareHundredthBps: 88,
+      validatorVoteAccount: voteAccount,
+    })
+    await provider.sendIx([], instruction)
+
+    const bondData = await getBond(program, bondAccount)
+    expect(bondData.authority).toEqual(validatorIdentity.publicKey)
+    expect(bondData.bump).toEqual(
+      bondAddress(config.publicKey, voteAccount, program.programId)[1]
+    )
+    expect(bondData.config).toEqual(config.publicKey)
+    expect(bondData.revenueShare).toEqual({ hundredthBps: 0 })
+    expect(bondData.validatorVoteAccount).toEqual(voteAccount)
+  })
+
   it('init bond failure on vote account withdrawer signature', async () => {
     const bondAuthority = Keypair.generate()
     const { voteAccount, authorizedWithdrawer } = await createVoteAccount(

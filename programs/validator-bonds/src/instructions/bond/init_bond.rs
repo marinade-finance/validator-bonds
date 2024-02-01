@@ -1,4 +1,6 @@
-use crate::checks::check_validator_vote_account_validator_identity;
+use crate::checks::{
+    check_validator_vote_account_validator_identity, get_validator_vote_account_validator_identity,
+};
 use crate::error::ErrorCode;
 use crate::events::bond::InitBondEvent;
 use crate::state::bond::Bond;
@@ -28,9 +30,10 @@ pub struct InitBond<'info> {
     )]
     validator_vote_account: UncheckedAccount<'info>,
 
-    /// only validator vote account validator identity may create the bond
+    /// when validator identity signs the instruction then configuration arguments are applied
+    /// otherwise it's a permission-less operation that uses default init bond setup
     #[account()]
-    validator_identity: Signer<'info>,
+    validator_identity: Option<Signer<'info>>,
 
     #[account(
         init,
@@ -64,11 +67,23 @@ impl<'info> InitBond<'info> {
         }: InitBondArgs,
         bond_bump: u8,
     ) -> Result<()> {
-        // verification of the validator vote account
-        check_validator_vote_account_validator_identity(
-            &self.validator_vote_account,
-            &self.validator_identity.key(),
-        )?;
+        let mut revenue_share = revenue_share;
+        let mut bond_authority = bond_authority;
+        let validator_identity = if let Some(validator_identity_info) = &self.validator_identity {
+            // permission-ed: verification of validator identity as a signer, config of bond account possible
+            check_validator_vote_account_validator_identity(
+                &self.validator_vote_account,
+                &validator_identity_info.key(),
+            )?;
+            validator_identity_info.key()
+        } else {
+            // permission-less: not possible to configure bond account
+            revenue_share = HundredthBasisPoint::default();
+            let validator_identity =
+                get_validator_vote_account_validator_identity(&self.validator_vote_account)?;
+            bond_authority = validator_identity;
+            validator_identity
+        };
 
         self.bond.set_inner(Bond {
             config: self.config.key(),
@@ -81,7 +96,7 @@ impl<'info> InitBond<'info> {
         emit!(InitBondEvent {
             config_address: self.bond.config,
             validator_vote_account: self.bond.validator_vote_account,
-            validator_identity: self.validator_identity.key(),
+            validator_identity,
             authority: self.bond.authority,
             revenue_share: self.bond.revenue_share,
             bond_bump: self.bond.bump,

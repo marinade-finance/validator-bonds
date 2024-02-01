@@ -15,8 +15,7 @@ pub fn check_validator_vote_account_validator_identity(
     expected_validator_identity: &Pubkey,
 ) -> Result<()> {
     // https://github.com/solana-labs/solana/blob/v1.17.10/sdk/program/src/vote/state/mod.rs#L287
-    let node_pubkey =
-        check_validator_vote_account_pubkey(validator_vote_account, 4, "validator identity")?;
+    let node_pubkey = get_validator_vote_account_validator_identity(validator_vote_account)?;
     require_keys_eq!(
         *expected_validator_identity,
         node_pubkey,
@@ -25,7 +24,13 @@ pub fn check_validator_vote_account_validator_identity(
     Ok(())
 }
 
-fn check_validator_vote_account_pubkey(
+pub fn get_validator_vote_account_validator_identity(
+    validator_vote_account: &UncheckedAccount,
+) -> Result<Pubkey> {
+    get_from_validator_vote_account(validator_vote_account, 4, "validator identity")
+}
+
+fn get_from_validator_vote_account(
     validator_vote_account: &UncheckedAccount,
     byte_position: usize,
     pubkey_name: &str,

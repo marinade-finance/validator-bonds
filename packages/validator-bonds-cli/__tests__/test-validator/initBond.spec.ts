@@ -129,6 +129,47 @@ describe('Init bond account using CLI', () => {
     ).resolves.toBeLessThan(rentPayerFunds)
   })
 
+  it('init bond account permission-less', async () => {
+    await (
+      expect([
+        'pnpm',
+        [
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          'init-bond',
+          '--config',
+          configAccount.toBase58(),
+          '--vote-account',
+          voteAccount.toBase58(),
+          '--revenue-share',
+          '1000',
+          '--confirmation-finality',
+          'confirmed',
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+      // stderr: '',
+      stdout: /Bond account.*successfully created/,
+    })
+
+    const [bondAccount, bump] = bondAddress(
+      configAccount,
+      voteAccount,
+      program.programId
+    )
+    const bondsData = await getBond(program, bondAccount)
+    expect(bondsData.config).toEqual(configAccount)
+    expect(bondsData.validatorVoteAccount).toEqual(voteAccount)
+    expect(bondsData.authority).toEqual(validatorIdentity.publicKey)
+    expect(bondsData.revenueShare.hundredthBps).toEqual(0)
+    expect(bondsData.bump).toEqual(bump)
+  })
+
   it('init bond in print-only mode', async () => {
     await (
       expect([
