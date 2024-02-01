@@ -56,7 +56,7 @@ export async function initBondInstruction({
       config: configAccount,
       bond: bondAccount,
       validatorVoteAccount,
-      validatorIdentity: validatorIdentity || null,
+      validatorIdentity: validatorIdentity ?? null,
       rentPayer: renPayerPubkey,
     })
     .instruction()

@@ -74,7 +74,7 @@ export async function orchestrateWithdrawDeposit({
   )
 
   withdrawRequestData =
-    withdrawRequestData ||
+    withdrawRequestData ??
     (await getWithdrawRequest(program, withdrawRequestAccount))
   const bondData = await getBond(program, bondAccount)
   const voteAccountData = await getVoteAccount(

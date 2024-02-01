@@ -114,7 +114,7 @@ export async function getRentExemptVote(
   rentExempt?: number
 ): Promise<number> {
   return (
-    rentExempt ||
+    rentExempt ??
     (await provider.connection.getMinimumBalanceForRentExemption(
       VOTE_ACCOUNT_SIZE
     ))
@@ -126,7 +126,7 @@ export async function getRentExemptStake(
   rentExempt?: number
 ): Promise<number> {
   return (
-    rentExempt ||
+    rentExempt ??
     (await provider.connection.getMinimumBalanceForRentExemption(
       StakeProgram.space
     ))
@@ -205,9 +205,9 @@ export async function createVoteAccount(
   rentExempt = await getRentExemptVote(provider, rentExempt)
 
   const voteAccount = Keypair.generate()
-  validatorIdentity = validatorIdentity || Keypair.generate()
-  authorizedVoter = authorizedVoter || Keypair.generate()
-  authorizedWithdrawer = authorizedWithdrawer || Keypair.generate()
+  validatorIdentity = validatorIdentity ?? Keypair.generate()
+  authorizedVoter = authorizedVoter ?? Keypair.generate()
+  authorizedWithdrawer = authorizedWithdrawer ?? Keypair.generate()
 
   const ixCreate = SystemProgram.createAccount({
     fromPubkey: provider.walletPubkey,
@@ -302,11 +302,11 @@ export async function delegatedStakeAccount({
   withdrawer?: Keypair
 }): Promise<DelegatedStakeAccount> {
   const stakeAccount = Keypair.generate()
-  lamports = lamports || LAMPORTS_PER_SOL + 1
+  lamports = lamports ?? LAMPORTS_PER_SOL + 1
   rentExemptVote = await getRentExemptVote(provider, rentExemptVote)
 
   voteAccountToDelegate =
-    voteAccountToDelegate ||
+    voteAccountToDelegate ??
     (await createVoteAccount(provider, rentExemptVote)).voteAccount
 
   const createStakeAccountIx = StakeProgram.createAccount({

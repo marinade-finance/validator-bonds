@@ -104,7 +104,7 @@ async function manageFundBond({
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]
 
-  stakeAuthority = stakeAuthority || wallet.publicKey
+  stakeAuthority = stakeAuthority ?? wallet.publicKey
   if (instanceOfWallet(stakeAuthority)) {
     signers.push(stakeAuthority)
     stakeAuthority = stakeAuthority.publicKey

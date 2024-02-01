@@ -178,7 +178,7 @@ export function getProgram({
     provider = new AnchorProvider(
       connection,
       wallet,
-      opts || AnchorProvider.defaultOptions()
+      opts ?? AnchorProvider.defaultOptions()
     )
   } else {
     provider = connection

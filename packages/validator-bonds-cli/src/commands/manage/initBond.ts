@@ -115,7 +115,7 @@ async function manageInitBond({
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]
 
-  rentPayer = rentPayer || wallet.publicKey
+  rentPayer = rentPayer ?? wallet.publicKey
   if (instanceOfWallet(rentPayer)) {
     signers.push(rentPayer)
     rentPayer = rentPayer.publicKey

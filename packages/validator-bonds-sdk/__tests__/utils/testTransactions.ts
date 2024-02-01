@@ -63,7 +63,7 @@ export async function executeWithdraw(
     authorizedPubkey: withdrawAuthority.publicKey,
     stakePubkey: stakeAccount,
     lamports,
-    toPubkey: toPubkey || provider.walletPubkey,
+    toPubkey: toPubkey ?? provider.walletPubkey,
   })
   try {
     await provider.sendIx([withdrawAuthority], withdrawIx)
@@ -98,8 +98,8 @@ export async function executeInitConfigInstruction({
   adminAuthority: Keypair
   operatorAuthority: Keypair
 }> {
-  adminAuthority = adminAuthority || Keypair.generate()
-  operatorAuthority = operatorAuthority || Keypair.generate()
+  adminAuthority = adminAuthority ?? Keypair.generate()
+  operatorAuthority = operatorAuthority ?? Keypair.generate()
   expect(adminAuthority).not.toEqual(operatorAuthority)
 
   const { configAccount, instruction } = await initConfigInstruction({
@@ -146,7 +146,7 @@ export async function executeInitBondInstruction(
   voteAccount: PublicKey
   validatorIdentity: Keypair
 }> {
-  bondAuthority = bondAuthority || Keypair.generate()
+  bondAuthority = bondAuthority ?? Keypair.generate()
   if (!voteAccount) {
     ;({ voteAccount, validatorIdentity } = await createVoteAccount(provider))
   }
@@ -300,7 +300,7 @@ export async function executeInitWithdrawRequestInstruction({
   } else {
     const bondData = await getBond(program, bondAccount)
     bondAuthority = bondData.authority
-    configAccount = configAccount || bondData.config
+    configAccount = configAccount ?? bondData.config
     voteAccount = bondData.validatorVoteAccount
   }
   assert(bondAccount)

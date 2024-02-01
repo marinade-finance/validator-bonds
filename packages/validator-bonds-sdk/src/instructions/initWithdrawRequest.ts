@@ -37,8 +37,8 @@ export async function initWithdrawRequestInstruction({
   )
   if (!validatorVoteAccount || !configAccount) {
     const bondData = await program.account.bond.fetch(bondAccount)
-    validatorVoteAccount = validatorVoteAccount || bondData.validatorVoteAccount
-    configAccount = configAccount || bondData.config
+    validatorVoteAccount = validatorVoteAccount ?? bondData.validatorVoteAccount
+    configAccount = configAccount ?? bondData.config
   }
 
   authority = authority instanceof PublicKey ? authority : authority.publicKey

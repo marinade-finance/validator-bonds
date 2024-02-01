@@ -110,7 +110,7 @@ describe('Init bond account using CLI', () => {
     ).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
-      stdout: /Bond account.*successfully created/,
+      stdout: /Bond account .* successfully created/,
     })
 
     const [bondAccount, bump] = bondAddress(
@@ -154,7 +154,7 @@ describe('Init bond account using CLI', () => {
     ).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
-      stdout: /Bond account.*successfully created/,
+      stdout: /Bond account .* successfully created/,
     })
 
     const [bondAccount, bump] = bondAddress(

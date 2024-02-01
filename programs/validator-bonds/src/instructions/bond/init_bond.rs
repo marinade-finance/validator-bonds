@@ -78,7 +78,7 @@ impl<'info> InitBond<'info> {
             validator_identity_info.key()
         } else {
             // permission-less: not possible to configure bond account
-            revenue_share = HundredthBasisPoint::default();
+            revenue_share = HundredthBasisPoint { hundredth_bps: 0 };
             let validator_identity =
                 get_validator_vote_account_validator_identity(&self.validator_vote_account)?;
             bond_authority = validator_identity;

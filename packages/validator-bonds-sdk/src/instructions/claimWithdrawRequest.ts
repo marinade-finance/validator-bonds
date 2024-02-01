@@ -61,9 +61,9 @@ export async function claimWithdrawRequestInstruction({
       program,
       withdrawRequestAccount
     )
-    bondAccount = bondAccount || withdrawRequestData.bond
+    bondAccount = bondAccount ?? withdrawRequestData.bond
     validatorVoteAccount =
-      validatorVoteAccount || withdrawRequestData.validatorVoteAccount
+      validatorVoteAccount ?? withdrawRequestData.validatorVoteAccount
   }
   if (bondAccount !== undefined && withdrawRequestAccount === undefined) {
     withdrawRequestAccount = withdrawRequestAddress(
@@ -76,8 +76,8 @@ export async function claimWithdrawRequestInstruction({
     (validatorVoteAccount === undefined || configAccount === undefined)
   ) {
     const bondData = await program.account.bond.fetch(bondAccount)
-    validatorVoteAccount = validatorVoteAccount || bondData.validatorVoteAccount
-    configAccount = configAccount || bondData.config
+    validatorVoteAccount = validatorVoteAccount ?? bondData.validatorVoteAccount
+    configAccount = configAccount ?? bondData.config
   }
 
   if (withdrawRequestAccount === undefined) {
@@ -88,7 +88,7 @@ export async function claimWithdrawRequestInstruction({
 
   if (withdrawer === undefined) {
     withdrawRequestData =
-      withdrawRequestData ||
+      withdrawRequestData ??
       (await getWithdrawRequest(program, withdrawRequestAccount))
     const voteAccountData = await getVoteAccount(
       program,

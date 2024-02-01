@@ -42,9 +42,9 @@ export async function cancelWithdrawRequestInstruction({
       program,
       withdrawRequestAccount
     )
-    bondAccount = bondAccount || withdrawRequestData.bond
+    bondAccount = bondAccount ?? withdrawRequestData.bond
     validatorVoteAccount =
-      validatorVoteAccount || withdrawRequestData.validatorVoteAccount
+      validatorVoteAccount ?? withdrawRequestData.validatorVoteAccount
   }
   if (
     configAccount !== undefined &&
@@ -69,9 +69,9 @@ export async function cancelWithdrawRequestInstruction({
   ) {
     const bondData = await program.account.bond.fetch(bondAccount)
     validatorVoteAccount = bondData.validatorVoteAccount
-    authority = authority || bondData.authority
+    authority = authority ?? bondData.authority
   }
-  authority = authority || anchorProgramWalletPubkey(program)
+  authority = authority ?? anchorProgramWalletPubkey(program)
   authority = authority instanceof PublicKey ? authority : authority.publicKey
 
   if (withdrawRequestAccount === undefined) {

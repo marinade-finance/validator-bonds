@@ -107,14 +107,14 @@ async function manageInitConfig({
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [address, wallet]
 
-  rentPayer = rentPayer || wallet.publicKey
+  rentPayer = rentPayer ?? wallet.publicKey
   if (instanceOfWallet(rentPayer)) {
     signers.push(rentPayer)
     rentPayer = rentPayer.publicKey
   }
 
-  admin = admin || wallet.publicKey
-  operator = operator || admin
+  admin = admin ?? wallet.publicKey
+  operator = operator ?? admin
 
   const { instruction } = await initConfigInstruction({
     configAccount: address.publicKey,

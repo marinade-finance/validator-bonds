@@ -44,8 +44,8 @@ export async function configureConfigInstruction({
       : adminAuthority.publicKey
 
   const args: ConfigureConfigArgs = {
-    admin: newAdmin || null,
-    operator: newOperator || null,
+    admin: newAdmin ?? null,
+    operator: newOperator ?? null,
     epochsToClaimSettlement: newEpochsToClaimSettlement
       ? new BN(newEpochsToClaimSettlement)
       : null,

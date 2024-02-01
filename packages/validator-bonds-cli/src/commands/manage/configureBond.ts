@@ -118,7 +118,7 @@ async function manageConfigureBond({
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]
 
-  authority = authority || wallet.publicKey
+  authority = authority ?? wallet.publicKey
   if (instanceOfWallet(authority)) {
     signers.push(authority)
     authority = authority.publicKey

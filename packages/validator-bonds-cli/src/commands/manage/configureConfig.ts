@@ -120,7 +120,7 @@ async function manageConfigureConfig({
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]
 
-  adminAuthority = adminAuthority || wallet.publicKey
+  adminAuthority = adminAuthority ?? wallet.publicKey
   if (instanceOfWallet(adminAuthority)) {
     signers.push(adminAuthority)
     adminAuthority = adminAuthority.publicKey
