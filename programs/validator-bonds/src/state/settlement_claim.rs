@@ -3,7 +3,6 @@ use crate::error::ErrorCode;
 use crate::state::Reserved150;
 use crate::ID;
 use anchor_lang::prelude::*;
-
 use merkle_tree::psr_claim::TreeNode;
 
 /// Settlement claim serves for deduplication purposes to not allow
@@ -13,10 +12,12 @@ use merkle_tree::psr_claim::TreeNode;
 pub struct SettlementClaim {
     /// settlement account this claim belongs under
     pub settlement: Pubkey,
-    /// stake authority as part of the merkle proof for this claim
-    pub stake_authority: Pubkey,
-    /// withdrawer authority that has got permission to withdraw the claim
-    pub withdraw_authority: Pubkey,
+    /// stake account to which the claim has been withdrawn to
+    pub stake_account_to: Pubkey,
+    /// staker authority as part of the merkle proof for this claim
+    pub stake_account_staker: Pubkey,
+    /// withdrawer authority as part of the merkle proof for this claim
+    pub stake_account_withdrawer: Pubkey,
     /// vote account as part of the merkle proof for this claim
     pub vote_account: Pubkey,
     /// claim amount
@@ -36,8 +37,8 @@ impl SettlementClaim {
                 SETTLEMENT_CLAIM_SEED,
                 &self.settlement.key().as_ref(),
                 TreeNode {
-                    stake_authority: self.withdraw_authority,
-                    withdraw_authority: self.stake_authority,
+                    stake_authority: self.stake_account_staker,
+                    withdraw_authority: self.stake_account_withdrawer,
                     vote_account: self.vote_account,
                     claim: self.amount,
                     proof: None,
@@ -50,4 +51,11 @@ impl SettlementClaim {
         )
         .map_err(|_| ErrorCode::InvalidSettlementClaimAddress.into())
     }
+}
+
+pub fn find_settlement_claim_address(settlement: &Pubkey, tree_node_bytes: &[u8]) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[SETTLEMENT_CLAIM_SEED, settlement.as_ref(), tree_node_bytes],
+        &ID,
+    )
 }

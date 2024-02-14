@@ -10,7 +10,7 @@ pub struct InitSettlementEvent {
     pub merkle_root: [u8; 32],
     pub max_total_claim: u64,
     pub max_merkle_nodes: u64,
-    pub epoch_created_at: u64,
+    pub epoch_created_for: u64,
     pub rent_collector: Pubkey,
     pub bumps: Bumps,
 }

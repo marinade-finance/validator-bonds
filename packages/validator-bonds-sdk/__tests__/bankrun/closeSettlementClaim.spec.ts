@@ -23,14 +23,10 @@ import {
   executeInitSettlement,
 } from '../utils/testTransactions'
 import { ProgramAccount } from '@coral-xyz/anchor'
-import {
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  ComputeBudgetProgram,
-} from '@solana/web3.js'
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   createBondsFundedStakeAccount,
+  createStakeAccount,
   createVoteAccount,
 } from '../utils/staking'
 import { signer } from '@marinade.finance/web3js-common'
@@ -59,10 +55,6 @@ describe('Validator Bonds close settlement claim', () => {
   let settlementAccount1: PublicKey
   let settlementEpoch: number
   let stakeAccount1: PublicKey
-
-  const computeUnitIx = ComputeBudgetProgram.setComputeUnitLimit({
-    units: 1_000_000,
-  })
 
   beforeAll(async () => {
     ;({ provider, program } = await initBankrunTest())
@@ -130,17 +122,26 @@ describe('Validator Bonds close settlement claim', () => {
 
   it('close settlement claim', async () => {
     const treeNode1Withdrawer1 = treeNodeBy(voteAccount1, withdrawer1)
+    const stakeAccountTreeNode1Withdrawer1 = await createStakeAccount({
+      provider,
+      lamports: 123 * LAMPORTS_PER_SOL,
+      voteAccount: voteAccount1,
+      newStakerAuthority: treeNode1Withdrawer1.treeNode.stakeAuthority,
+      newWithdrawerAuthority: treeNode1Withdrawer1.treeNode.withdrawAuthority,
+    })
     await warpToNextEpoch(provider)
     const { instruction: claimIx, settlementClaimAccount } =
       await claimSettlementInstruction({
         program,
         claimAmount: treeNode1Withdrawer1.treeNode.data.claim,
         merkleProof: treeNode1Withdrawer1.proof,
-        withdrawer: withdrawer1,
         settlementAccount: settlementAccount1,
-        stakeAccount: stakeAccount1,
+        stakeAccountFrom: stakeAccount1,
+        stakeAccountTo: stakeAccountTreeNode1Withdrawer1,
+        stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
+        stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
       })
-    await provider.sendIx([], computeUnitIx, claimIx)
+    await provider.sendIx([], claimIx)
     expect(
       provider.connection.getAccountInfo(settlementClaimAccount)
     ).resolves.not.toBeNull()

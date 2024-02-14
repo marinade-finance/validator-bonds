@@ -12,7 +12,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::Bumps;
 use instructions::*;
 
-/// solana-security-txt for Validator Bonds program by Marinade.finance
+/// solana-security-txt for Validator Bonds program by Marinade.Finance
 #[cfg(not(feature = "no-entrypoint"))]
 use {default_env::default_env, solana_security_txt::security_txt};
 #[cfg(not(feature = "no-entrypoint"))]

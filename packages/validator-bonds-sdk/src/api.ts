@@ -257,14 +257,14 @@ export async function getSettlementClaim(
 export async function findSettlementClaims({
   program,
   settlement,
-  stakeAuthority,
-  withdrawAuthority,
+  stakeAccountStaker,
+  stakeAccountWithdrawer,
   voteAccount,
 }: {
   program: ValidatorBondsProgram
   settlement?: PublicKey
-  stakeAuthority?: PublicKey
-  withdrawAuthority?: PublicKey
+  stakeAccountStaker?: PublicKey
+  stakeAccountWithdrawer?: PublicKey
   voteAccount?: PublicKey
 }): Promise<ProgramAccount<SettlementClaim>[]> {
   const filters = []
@@ -277,21 +277,21 @@ export async function findSettlementClaims({
       },
     })
   }
-  if (stakeAuthority) {
+  if (stakeAccountStaker) {
     filters.push({
       memcmp: {
-        bytes: stakeAuthority.toBase58(),
-        // 8 anchor offset + settlement 32B
-        offset: 40,
+        bytes: stakeAccountStaker.toBase58(),
+        // 8 anchor offset + settlement 32B + stake account to 32B
+        offset: 72,
       },
     })
   }
-  if (withdrawAuthority) {
+  if (stakeAccountWithdrawer) {
     filters.push({
       memcmp: {
-        bytes: withdrawAuthority.toBase58(),
-        // 8 anchor offset + 32B settlement + 32B stake authority
-        offset: 72,
+        bytes: stakeAccountWithdrawer.toBase58(),
+        // 8 anchor offset + 32B settlement + stake acc. to 32B + 32B staker
+        offset: 104,
       },
     })
   }
@@ -299,8 +299,8 @@ export async function findSettlementClaims({
     filters.push({
       memcmp: {
         bytes: voteAccount.toBase58(),
-        // 8 anchor offset + 32B settlement + 32B stake authority + withdraw authority 32B
-        offset: 104,
+        // 8 anchor offset + 32B settlement + stake acc. to 32B + 32B staker + withdrawer 32B
+        offset: 136,
       },
     })
   }

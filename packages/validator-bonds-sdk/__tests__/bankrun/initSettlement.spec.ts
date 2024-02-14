@@ -80,7 +80,7 @@ describe('Validator Bonds init settlement', () => {
         maxMerkleNodes: 1,
         maxTotalClaim: 3,
         voteAccount,
-        currentEpoch: epochNow,
+        epoch: epochNow,
         configAccount: config.publicKey,
         rentCollector,
       })
@@ -105,7 +105,7 @@ describe('Validator Bonds init settlement', () => {
     expect(settlementData.bumps.pda).toEqual(bump)
     expect(settlementData.bumps.authority).toEqual(authorityBump)
     expect(settlementData.authority).toEqual(authorityAddr)
-    expect(settlementData.epochCreatedAt.gte(epoch)).toBeTruthy()
+    expect(settlementData.epochCreatedFor).toEqual(epoch)
     expect(settlementData.maxMerkleNodes).toEqual(1)
     expect(settlementData.maxTotalClaim).toEqual(3)
     expect(settlementData.merkleRoot).toEqual(Array.from(merkleRoot))
@@ -115,6 +115,14 @@ describe('Validator Bonds init settlement', () => {
     expect(settlementData.rentCollector).toEqual(rentCollector)
     expect(settlementData.splitRentAmount).toEqual(0)
     expect(settlementData.splitRentCollector).toEqual(null)
+
+    // TODO: add expect on size of account
+    const settlementAccountInfo =
+      await provider.connection.getAccountInfo(settlementAccount)
+    console.log(
+      'settlement account length',
+      settlementAccountInfo?.data.byteLength
+    )
   })
 
   it('cannot init settlement with wrong buffer size', async () => {
@@ -129,7 +137,7 @@ describe('Validator Bonds init settlement', () => {
       maxTotalClaim: 3,
       voteAccount,
       configAccount: config.publicKey,
-      currentEpoch: await currentEpoch(provider),
+      epoch: await currentEpoch(provider),
     })
     try {
       await provider.sendIx([operatorAuthority], instruction)
@@ -143,7 +151,7 @@ describe('Validator Bonds init settlement', () => {
     assertNotExist(provider, settlementAccount)
   })
 
-  it('cannot init settlement with wrong epoch', async () => {
+  it('init settlement with future epoch', async () => {
     const merkleRoot = Buffer.alloc(32)
     const futureEpoch = (await currentEpoch(provider)) + 2024
     const { instruction, settlementAccount } = await initSettlementInstruction({
@@ -155,18 +163,12 @@ describe('Validator Bonds init settlement', () => {
       maxTotalClaim: 3,
       voteAccount,
       configAccount: config.publicKey,
-      currentEpoch: futureEpoch,
+      epoch: futureEpoch,
     })
-    try {
-      await provider.sendIx([operatorAuthority], instruction)
-      throw new Error('failure; expected wrong constraint')
-    } catch (e) {
-      // Error Code: ConstraintSeeds. Error Number: 2006. Error Message: A seeds constraint was violated.
-      if (!(e as Error).message.includes('custom program error: 0x7d6')) {
-        throw e
-      }
-    }
-    assertNotExist(provider, settlementAccount)
+    await provider.sendIx([operatorAuthority], instruction)
+    expect(
+      await provider.connection.getAccountInfo(settlementAccount)
+    ).not.toBeNull()
   })
 
   it('cannot init settlement with wrong authority', async () => {
@@ -180,7 +182,7 @@ describe('Validator Bonds init settlement', () => {
       maxMerkleNodes: 1,
       maxTotalClaim: 3,
       voteAccount,
-      currentEpoch: await currentEpoch(provider),
+      epoch: await currentEpoch(provider),
       configAccount: config.publicKey,
     })
     try {

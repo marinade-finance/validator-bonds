@@ -9,7 +9,7 @@ import {
   settlementAddress,
   settlementAuthority,
 } from '../../src'
-import { getValidatorInfo, initTest, waitForNextEpoch } from './testValidator'
+import { getValidatorInfo, initTest } from './testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
@@ -101,7 +101,7 @@ describe('Validator Bonds init settlement', () => {
       pda: bump,
       authority: authorityBump,
     })
-    expect(settlementData.epochCreatedAt).toEqual(currentEpoch)
+    expect(settlementData.epochCreatedFor).toEqual(currentEpoch)
     expect(settlementData.maxMerkleNodes).toEqual(2)
     expect(settlementData.maxTotalClaim).toEqual(100)
     expect(settlementData.merkleRoot).toEqual(Array.from(merkleRoot))
@@ -117,7 +117,7 @@ describe('Validator Bonds init settlement', () => {
       expect(e.bond).toEqual(bondAccount)
       expect(e.voteAccount).toEqual(voteAccount)
       expect(e.bumps).toEqual({ pda: bump, authority: authorityBump })
-      expect(e.epochCreatedAt).toEqual(currentEpoch)
+      expect(e.epochCreatedFor).toEqual(currentEpoch)
       expect(e.maxMerkleNodes).toEqual(2)
       expect(e.maxTotalClaim).toEqual(100)
       expect(e.merkleRoot).toEqual(Array.from(merkleRoot))
@@ -135,8 +135,6 @@ describe('Validator Bonds init settlement', () => {
 
     const numberOfSettlements = 19
 
-    // we want to be at the beginning of the epoch
-    await waitForNextEpoch(provider.connection, 15)
     const currentEpoch = (await program.provider.connection.getEpochInfo())
       .epoch
     const buffers: Buffer[] = []
@@ -151,7 +149,7 @@ describe('Validator Bonds init settlement', () => {
         operatorAuthority,
         configAccount,
         merkleRoot: buffer,
-        currentEpoch,
+        epoch: currentEpoch,
         voteAccount,
         maxTotalClaim: 1,
         maxMerkleNodes: 11,

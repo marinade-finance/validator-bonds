@@ -157,4 +157,7 @@ pub enum ErrorCode {
 
     #[msg("Claim settlement merkle tree node mismatch")]
     ClaimSettlementMerkleTreeNodeMismatch, // 6050 0x17a2
+
+    #[msg("Wrong staker authority of the stake account")]
+    WrongStakeAccountStaker, // 6051 0x17a3
 }

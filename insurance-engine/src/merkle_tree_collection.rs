@@ -149,7 +149,7 @@ mod tests {
     pub fn ts_cross_check_merkle_proof() {
         let mut items: Vec<TreeNode> = vec![
             TreeNode {
-                stake_authority: Pubkey::from_str("612S5jWDKhCxdzugJ6JED5whc1dCkZBPrer3mx3D2V5J")
+                stake_authority: Pubkey::from_str("82ewSU2zNH87PajZHf7betFbZAaGR8bwDp8azSHNCAnA")
                     .unwrap(),
                 withdraw_authority: Pubkey::from_str(
                     "3vGstFWWyQbDknu9WKr9vbTn2Kw5qgorP7UkRXVrfe9t",
@@ -197,7 +197,7 @@ mod tests {
                 proof: None,
             },
             TreeNode {
-                stake_authority: Pubkey::from_str("612S5jWDKhCxdzugJ6JED5whc1dCkZBPrer3mx3D2V5J")
+                stake_authority: Pubkey::from_str("121WqnefAgXvLZdW42LsGUbkFjv7LVUqvcpkskxyVgeu")
                     .unwrap(),
                 withdraw_authority: Pubkey::from_str(
                     "DBnWKq1Ln9y8HtGwYxFMqMWLY1Ld9xpB28ayKfHejiTs",
@@ -212,37 +212,37 @@ mod tests {
         let item_hashes = items.clone().iter().map(|n| n.hash()).collect::<Vec<_>>();
         let merkle_tree = MerkleTree::new(&item_hashes[..], true);
         let merkle_tree_root = merkle_tree.get_root().unwrap();
-        // println!("merkle tree root: {}", merkle_tree_root);
+        println!("merkle tree root: {}", merkle_tree_root);
         for (i, tree_node) in items.iter_mut().enumerate() {
             tree_node.proof = Some(get_proof(&merkle_tree, i));
-            // println!(
-            //     "proof: {:?}, hash tree node: {}",
-            //     tree_node.proof,
-            //     tree_node.hash()
-            // )
+            println!(
+                "proof: {:?}, hash tree node: {}",
+                tree_node.proof,
+                tree_node.hash()
+            )
         }
         assert_eq!(
             merkle_tree_root.to_string(),
-            "CnJDz26xaCtWcmWroKK7R7A5TFUiQ5Nn2ZkZwfDkFUhX"
+            "7iF4883Y16rWHqYrtdmn6ykvV7NvGsbibnmZwBanojZD"
         );
         let check_proof = [
             [
-                14, 235, 255, 251, 170, 3, 134, 248, 124, 209, 130, 237, 93, 49, 147, 60, 190, 245,
-                185, 158, 240, 4, 61, 255, 78, 190, 156, 200, 63, 34, 150, 164,
+                43, 115, 25, 67, 8, 94, 86, 102, 222, 131, 96, 254, 188, 172, 164, 179, 156, 92,
+                79, 248, 195, 120, 183, 106, 96, 38, 120, 23, 59, 195, 169, 208,
             ],
             [
-                233, 206, 59, 221, 104, 149, 222, 77, 164, 161, 179, 193, 251, 13, 182, 232, 23,
-                206, 53, 8, 185, 206, 48, 148, 5, 70, 218, 15, 27, 209, 134, 230,
+                159, 219, 61, 246, 151, 49, 200, 46, 195, 10, 112, 214, 44, 95, 201, 51, 28, 38,
+                135, 106, 58, 162, 239, 247, 191, 121, 138, 103, 191, 34, 100, 153,
             ],
             [
-                182, 224, 192, 203, 65, 30, 57, 3, 19, 229, 229, 153, 47, 34, 38, 154, 100, 242,
-                241, 250, 78, 156, 73, 53, 15, 171, 69, 55, 220, 64, 189, 237,
+                96, 247, 12, 68, 67, 41, 253, 26, 149, 121, 158, 236, 188, 56, 19, 184, 242, 63,
+                242, 61, 147, 50, 119, 26, 21, 76, 36, 242, 151, 143, 142, 182,
             ],
         ];
         assert_eq!(items.get(3).unwrap().proof, Some(check_proof.to_vec()));
         assert_eq!(
-            item_hashes.get(4).unwrap().to_string(),
-            "Bo2SdcAd4ZyU7S28ZuUeSHAziPYV3bR7AqimamJMAs2K"
+            item_hashes.get(3).unwrap().to_string(),
+            "2g6GGBps8fTTq9DvJHwBxNC57k5REDFbjebWYyw9qDYQ"
         );
     }
 }

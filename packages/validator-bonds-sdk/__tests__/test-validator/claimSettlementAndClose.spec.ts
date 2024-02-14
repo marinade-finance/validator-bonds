@@ -5,7 +5,6 @@ import {
   CLAIM_SETTLEMENT_EVENT,
   claimSettlementInstruction,
   fundSettlementInstruction,
-  withdrawerAuthority,
   settlementClaimAddress,
   findSettlementClaims,
   CloseSettlementClaimEvent,
@@ -15,7 +14,6 @@ import {
 } from '../../src'
 import { getValidatorInfo, initTest, waitForNextEpoch } from './testValidator'
 import {
-  computeUnitIx,
   createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
@@ -26,6 +24,7 @@ import { signer } from '@marinade.finance/web3js-common'
 import {
   MERKLE_ROOT_BUF,
   configAccountKeypair,
+  staker2,
   totalClaimVoteAccount1,
   treeNodeBy,
   treeNodesVoteAccount1,
@@ -40,6 +39,7 @@ import {
 } from '../utils/merkleTreeTestData'
 import {
   createBondsFundedStakeAccount,
+  createStakeAccount,
   createVoteAccount,
 } from '../utils/staking'
 
@@ -133,29 +133,37 @@ describe('Validator Bonds claim settlement', () => {
       voteAccount1,
       withdrawer1
     )
+    const stakeAccountTreeNodeVoteAccount1Withdrawer1 =
+      await createStakeAccount({
+        provider,
+        lamports: 4 * LAMPORTS_PER_SOL,
+        voteAccount: voteAccount1,
+        newStakerAuthority:
+          treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority,
+        newWithdrawerAuthority:
+          treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority,
+      })
 
     const { instruction, settlementClaimAccount } =
       await claimSettlementInstruction({
         program,
         claimAmount: treeNodeVoteAccount1Withdrawer1.treeNode.data.claim,
         merkleProof: treeNodeVoteAccount1Withdrawer1.proof,
-        withdrawer: withdrawer1,
         settlementAccount,
-        stakeAccount,
+        stakeAccountFrom: stakeAccount,
+        stakeAccountTo: stakeAccountTreeNodeVoteAccount1Withdrawer1,
         rentPayer: fundSettlementRentPayer.publicKey,
       })
-    await provider.sendIx([fundSettlementRentPayer], computeUnitIx, instruction)
+    await provider.sendIx([fundSettlementRentPayer], instruction)
 
-    const [bondsWithdrawerAuthority] = withdrawerAuthority(
-      configAccount,
-      program.programId
-    )
     const [settlementClaimAddr, bumpSettlementClaim] = settlementClaimAddress(
       {
         settlement: settlementAccount,
-        stakeAuthority: bondsWithdrawerAuthority,
+        stakeAccountStaker:
+          treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority,
+        stakeAccountWithdrawer:
+          treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority,
         voteAccount,
-        withdrawAuthority: withdrawer1,
         claim: treeNodeVoteAccount1Withdrawer1.treeNode.data.claim,
       },
       program.programId
@@ -176,33 +184,55 @@ describe('Validator Bonds claim settlement', () => {
       )
       expect(e.settlementMerkleNodesClaimed).toEqual(1)
       expect(e.voteAccount).toEqual(voteAccount)
-      expect(e.withdrawAuthority).toEqual(withdrawer1)
+      expect(e.stakeAccountStaker).toEqual(
+        treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority
+      )
+      expect(e.stakeAccountWithdrawer).toEqual(
+        treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority
+      )
+      expect(e.stakeAccountTo).toEqual(
+        stakeAccountTreeNodeVoteAccount1Withdrawer1
+      )
     })
   })
 
   it('find claim settlements', async () => {
     await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer2Keypair)
     const treeNodeWithdrawer2 = treeNodeBy(voteAccount1, withdrawer2)
+    const stakeAccountTreeNodeWithdrawer2 = await createStakeAccount({
+      provider,
+      lamports: 6 * LAMPORTS_PER_SOL,
+      voteAccount: voteAccount1,
+      newStakerAuthority: treeNodeWithdrawer2.treeNode.stakeAuthority,
+      newWithdrawerAuthority: treeNodeWithdrawer2.treeNode.withdrawAuthority,
+    })
     const { instruction: ix1 } = await claimSettlementInstruction({
       program,
       claimAmount: treeNodeWithdrawer2.treeNode.data.claim,
       merkleProof: treeNodeWithdrawer2.proof,
-      withdrawer: withdrawer2,
       settlementAccount,
-      stakeAccount,
+      stakeAccountFrom: stakeAccount,
+      stakeAccountTo: stakeAccountTreeNodeWithdrawer2,
     })
     await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer3Keypair)
     const treeNodeWithdrawer3 = treeNodeBy(voteAccount1, withdrawer3)
+    const stakeAccountTreeNodeWithdrawer3 = await createStakeAccount({
+      provider,
+      lamports: 7 * LAMPORTS_PER_SOL,
+      voteAccount: voteAccount1,
+      newStakerAuthority: treeNodeWithdrawer3.treeNode.stakeAuthority,
+      newWithdrawerAuthority: treeNodeWithdrawer3.treeNode.withdrawAuthority,
+    })
     const { instruction: ix2 } = await claimSettlementInstruction({
       program,
       claimAmount: treeNodeWithdrawer3.treeNode.data.claim,
       merkleProof: treeNodeWithdrawer3.proof,
-      withdrawer: withdrawer3,
       settlementAccount,
-      stakeAccount,
+      stakeAccountFrom: stakeAccount,
+      stakeAccountTo: stakeAccountTreeNodeWithdrawer3,
     })
 
-    await provider.sendIx([], computeUnitIx, ix1, ix2)
+    await provider.sendIx([], ix1, ix2)
 
     let findSettlementList = await findSettlementClaims({
       program,
@@ -210,15 +240,11 @@ describe('Validator Bonds claim settlement', () => {
     })
     expect(findSettlementList.length).toBeGreaterThanOrEqual(2)
 
-    const [bondsWithdrawerAuthority] = withdrawerAuthority(
-      configAccount,
-      program.programId
-    )
     findSettlementList = await findSettlementClaims({
       program,
-      stakeAuthority: bondsWithdrawerAuthority,
+      stakeAccountStaker: staker2,
     })
-    expect(findSettlementList.length).toBeGreaterThanOrEqual(2)
+    expect(findSettlementList.length).toBeGreaterThanOrEqual(1)
     findSettlementList = await findSettlementClaims({
       program,
       voteAccount,
@@ -226,16 +252,16 @@ describe('Validator Bonds claim settlement', () => {
     expect(findSettlementList.length).toBeGreaterThanOrEqual(2)
     findSettlementList = await findSettlementClaims({
       program,
-      withdrawAuthority: withdrawer1,
+      stakeAccountWithdrawer: withdrawer1,
     })
     expect(findSettlementList.length).toEqual(1)
     findSettlementList = await findSettlementClaims({
       program,
       settlement: settlementAccount,
-      stakeAuthority: bondsWithdrawerAuthority,
+      stakeAccountStaker: staker2,
       voteAccount,
     })
-    expect(findSettlementList.length).toBeGreaterThanOrEqual(2)
+    expect(findSettlementList.length).toBeGreaterThanOrEqual(1)
   })
 
   it('close settlement claim', async () => {
@@ -261,16 +287,14 @@ describe('Validator Bonds claim settlement', () => {
       voteAccount1,
       withdrawer1
     )
-    const [bondsWithdrawerAuthority] = withdrawerAuthority(
-      configAccount,
-      program.programId
-    )
     const [settlementClaimAccount] = settlementClaimAddress(
       {
         settlement: settlementAccount,
-        stakeAuthority: bondsWithdrawerAuthority,
         voteAccount,
-        withdrawAuthority: withdrawer1,
+        stakeAccountStaker:
+          treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority,
+        stakeAccountWithdrawer:
+          treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority,
         claim: treeNodeVoteAccount1Withdrawer1.treeNode.data.claim,
       },
       program.programId

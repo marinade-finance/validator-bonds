@@ -41,9 +41,9 @@ export async function closeSettlementClaimInstruction({
     settlementClaimAccount = settlementClaimAddress(
       {
         settlement: settlementAccount,
-        stakeAuthority: bondsWithdrawerAuthority,
+        stakeAccountStaker: bondsWithdrawerAuthority,
         voteAccount,
-        withdrawAuthority: withdrawer,
+        stakeAccountWithdrawer: withdrawer,
         claim: claimAmount,
       },
       program.programId

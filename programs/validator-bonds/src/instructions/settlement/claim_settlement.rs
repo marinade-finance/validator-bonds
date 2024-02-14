@@ -21,7 +21,14 @@ use merkle_tree::{hash_leaf, LEAF_PREFIX};
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct ClaimSettlementArgs {
+    /// proof that the claim is appropriate
     pub proof: Vec<[u8; 32]>,
+    // tree node hash; PDA seed
+    pub tree_node_hash: [u8; 32],
+    /// staker authority of the stake_account_to; merkle root verification
+    pub stake_account_staker: Pubkey,
+    /// withdrawer authority of the stake_account_to; merkle root verification
+    pub stake_account_withdrawer: Pubkey,
     /// claim amount; merkle root verification
     pub claim: u64,
 }
@@ -47,22 +54,18 @@ pub struct ClaimSettlement<'info> {
     #[account(
         mut,
         has_one = bond @ ErrorCode::BondAccountMismatch,
-        constraint = settlement.epoch_created_at + config.epochs_to_claim_settlement >= clock.epoch @ ErrorCode::SettlementExpired,
+        constraint = settlement.epoch_created_for + config.epochs_to_claim_settlement >= clock.epoch @ ErrorCode::SettlementExpired,
         seeds = [
             b"settlement_account",
             bond.key().as_ref(),
             settlement.merkle_root.as_ref(),
-            settlement.epoch_created_at.to_le_bytes().as_ref(),
+            settlement.epoch_created_for.to_le_bytes().as_ref(),
         ],
         bump = settlement.bumps.pda,
     )]
     settlement: Account<'info, Settlement>,
 
-    // TODO: verify in test that the claim account is created with the right bump and cannot be created with other bump
-    // TODO: verify that understanding of the TreeNode values is correct
     /// deduplication, one amount cannot be claimed twice
-    // INFO: IDL generation generates WARNING: unexpected seed category for var: SeedPath("merkle_proof :: TreeNode { stake_authority : bonds_withdrawer_authority", [])
-    //       https://github.com/coral-xyz/anchor/issues/1550
     #[account(
         init,
         payer = rent_payer,
@@ -70,13 +73,7 @@ pub struct ClaimSettlement<'info> {
         seeds = [
             b"claim_account",
             settlement.key().as_ref(),
-            TreeNode {
-                stake_authority: bonds_withdrawer_authority.key(),
-                withdraw_authority: withdraw_authority.key(),
-                vote_account: bond.vote_account.key(),
-                claim: params.claim,
-                proof: None,
-            }.hash().to_bytes().as_ref(),
+            params.tree_node_hash.as_ref(),
         ],
         bump,
     )]
@@ -84,12 +81,11 @@ pub struct ClaimSettlement<'info> {
 
     /// a stake account which will be withdrawn
     #[account(mut)]
-    stake_account: Box<Account<'info, StakeAccount>>,
+    stake_account_from: Box<Account<'info, StakeAccount>>,
 
-    /// CHECK: verification within merkle proof
-    /// account that will receive the funds on this claim
+    /// a stake account that will receive the funds
     #[account(mut)]
-    withdraw_authority: UncheckedAccount<'info>,
+    stake_account_to: Box<Account<'info, StakeAccount>>,
 
     /// CHECK: PDA
     /// authority that manages (owns == being withdrawer authority) all stakes account under the bonds program
@@ -124,17 +120,33 @@ pub struct ClaimSettlement<'info> {
 impl<'info> ClaimSettlement<'info> {
     pub fn process(
         &mut self,
-        ClaimSettlementArgs { proof, claim }: ClaimSettlementArgs,
+        ClaimSettlementArgs {
+            proof,
+            tree_node_hash: tree_node_hash_args,
+            claim,
+            stake_account_staker,
+            stake_account_withdrawer,
+        }: ClaimSettlementArgs,
         settlement_claim_bump: u8,
     ) -> Result<()> {
         // settlement_claim PDA address verification
         let tree_node = TreeNode {
-            stake_authority: self.bonds_withdrawer_authority.key(),
-            withdraw_authority: self.withdraw_authority.key(),
+            stake_authority: stake_account_staker,
+            withdraw_authority: stake_account_withdrawer.key(),
             vote_account: self.bond.vote_account.key(),
             claim,
             proof: None,
         };
+        let tree_node_bytes = tree_node.hash().to_bytes();
+        if tree_node_bytes != tree_node_hash_args {
+            return Err(
+                error!(ErrorCode::ClaimSettlementMerkleTreeNodeMismatch).with_values((
+                    "tree_node_bytes vs. tree_node_hash_args",
+                    format!("'{:?}' vs. '{:?}'", tree_node_bytes, tree_node_hash_args),
+                )),
+            );
+        }
+
         if self.settlement.lamports_claimed + claim > self.settlement.max_total_claim {
             return Err(error!(ErrorCode::ClaimAmountExceedsMaxTotalClaim)
                 .with_account_name("settlement")
@@ -159,38 +171,50 @@ impl<'info> ClaimSettlement<'info> {
         }
 
         // stake account is managed by bonds program
-        let stake_meta = check_stake_is_initialized_with_withdrawer_authority(
-            &self.stake_account,
+        let stake_from_meta = check_stake_is_initialized_with_withdrawer_authority(
+            &self.stake_account_from,
             &self.bonds_withdrawer_authority.key(),
-            "stake_account",
+            "stake_account_from",
         )?;
-        // provided stake account must be funded; staker == settlement staker authority
+        // provided stake account "from" must be funded; staker == settlement staker authority
         require_keys_eq!(
-            stake_meta.authorized.staker,
+            stake_from_meta.authorized.staker,
             self.settlement.authority,
             ErrorCode::StakeAccountNotFundedToSettlement,
         );
         // stake account is delegated (deposited by) the bond validator
-        check_stake_valid_delegation(&self.stake_account, &self.bond.vote_account)?;
+        check_stake_valid_delegation(&self.stake_account_from, &self.bond.vote_account)?;
         // stake account cannot be locked (constraints do not permit a correctly set-up account being locked)
-        check_stake_is_not_locked(&self.stake_account, &self.clock, "stake_account")?;
+        check_stake_is_not_locked(&self.stake_account_from, &self.clock, "stake_account")?;
+
+        // stake account "to" for withdrawing funds to has to match merkle proof data
+        let stake_to_meta = check_stake_is_initialized_with_withdrawer_authority(
+            &self.stake_account_to,
+            &stake_account_withdrawer,
+            "stake_account_to",
+        )?;
+        require_keys_eq!(
+            stake_to_meta.authorized.staker,
+            stake_account_staker,
+            ErrorCode::WrongStakeAccountStaker,
+        );
 
         // provided stake account has to be big enough to cover the claim and still be valid to exist
         // responsibility of the SDK to merge the stake accounts if needed
         //   - the invariant here is that the stake account will be always rent exempt + min size
         //     this has to be ensured by fund_settlement instruction
-        if self.stake_account.get_lamports()
-            < claim + minimal_size_stake_account(&stake_meta, &self.config)
+        if self.stake_account_from.get_lamports()
+            < claim + minimal_size_stake_account(&stake_from_meta, &self.config)
         {
             return Err(error!(ErrorCode::ClaimingStakeAccountLamportsInsufficient)
-                .with_account_name("stake_account")
+                .with_account_name("stake_account_from")
                 .with_values((
-                    "stake_account_lamports < claim_amount + minimal_size_stake_account",
+                    "stake_account_from_lamports < claim_amount + minimal_size_stake_account",
                     format!(
                         "{} < {} + {}",
-                        self.stake_account.get_lamports(),
+                        self.stake_account_from.get_lamports(),
                         claim,
-                        minimal_size_stake_account(&stake_meta, &self.config)
+                        minimal_size_stake_account(&stake_from_meta, &self.config)
                     ),
                 )));
         }
@@ -201,16 +225,17 @@ impl<'info> ClaimSettlement<'info> {
             self.settlement.merkle_root,
             hash_leaf!(tree_node_hash).to_bytes(),
         ) {
-            // TODO: change for correct staker_authority
-            msg!("Merkle proof verification failed. Merkle tree node: {:?}, staker_authority: {}, withdrawer_authority: {}, vote_account: {}, claim_amount: {}",
-                tree_node, self.bonds_withdrawer_authority.key(), self.withdraw_authority.key(), self.bond.vote_account.key(), claim);
-            return err!(ErrorCode::ClaimSettlementProofFailed);
+            return Err(error!(ErrorCode::ClaimSettlementProofFailed).with_values((
+                "Merkle proof verification failed",
+                format!("Tree node: {:?}", tree_node),
+            )));
         }
 
         self.settlement_claim.set_inner(SettlementClaim {
             settlement: self.settlement.key(),
-            stake_authority: self.bonds_withdrawer_authority.key(),
-            withdraw_authority: self.withdraw_authority.key(),
+            stake_account_to: self.stake_account_to.key(),
+            stake_account_staker,
+            stake_account_withdrawer,
             vote_account: self.bond.vote_account.key(),
             amount: claim,
             bump: settlement_claim_bump,
@@ -222,9 +247,9 @@ impl<'info> ClaimSettlement<'info> {
             CpiContext::new_with_signer(
                 self.stake_program.to_account_info(),
                 Withdraw {
-                    stake: self.stake_account.to_account_info(),
+                    stake: self.stake_account_from.to_account_info(),
                     withdrawer: self.bonds_withdrawer_authority.to_account_info(),
-                    to: self.withdraw_authority.to_account_info(),
+                    to: self.stake_account_to.to_account_info(),
                     clock: self.clock.to_account_info(),
                     stake_history: self.stake_history.to_account_info(),
                 },
@@ -244,10 +269,12 @@ impl<'info> ClaimSettlement<'info> {
         emit!(ClaimSettlementEvent {
             settlement: self.settlement_claim.settlement,
             settlement_claim: self.settlement_claim.key(),
+            stake_account_to: self.settlement_claim.stake_account_to,
             settlement_lamports_claimed: self.settlement.lamports_claimed,
             settlement_merkle_nodes_claimed: self.settlement.merkle_nodes_claimed,
             vote_account: self.settlement_claim.vote_account,
-            withdraw_authority: self.settlement_claim.withdraw_authority,
+            stake_account_staker: self.settlement_claim.stake_account_staker,
+            stake_account_withdrawer: self.settlement_claim.stake_account_withdrawer,
             amount: self.settlement_claim.amount,
             rent_collector: self.settlement_claim.rent_collector,
             bump: settlement_claim_bump,

@@ -18,6 +18,8 @@ pub struct InitSettlementArgs {
     pub max_merkle_nodes: u64,
     /// collects the rent exempt from the settlement account when closed
     pub rent_collector: Pubkey,
+    /// epoch that the settlement is created for
+    pub epoch: u64,
 }
 
 /// Creates settlement account for the bond, only operator authority can create the account
@@ -40,8 +42,6 @@ pub struct InitSettlement<'info> {
     )]
     bond: Account<'info, Bond>,
 
-    // TODO: settlement account is defined by clock account epoch at time when it's created.
-    //       Question is if it's ok to not be sure of the settlement address when calling from SDK. Or how to return correct address?
     #[account(
         init,
         payer = rent_payer,
@@ -50,7 +50,7 @@ pub struct InitSettlement<'info> {
             b"settlement_account",
             bond.key().as_ref(),
             params.merkle_root.as_ref(),
-            clock.epoch.to_le_bytes().as_ref(),
+            params.epoch.to_le_bytes().as_ref(),
         ],
         bump,
     )]
@@ -66,8 +66,6 @@ pub struct InitSettlement<'info> {
     )]
     rent_payer: Signer<'info>,
 
-    clock: Sysvar<'info, Clock>,
-
     system_program: Program<'info, System>,
 }
 
@@ -79,6 +77,7 @@ impl<'info> InitSettlement<'info> {
             rent_collector,
             max_total_claim,
             max_merkle_nodes,
+            epoch,
         }: InitSettlementArgs,
         settlement_bump: u8,
     ) -> Result<()> {
@@ -99,7 +98,7 @@ impl<'info> InitSettlement<'info> {
             lamports_funded: 0,
             lamports_claimed: 0,
             merkle_nodes_claimed: 0,
-            epoch_created_at: self.clock.epoch,
+            epoch_created_for: epoch,
             rent_collector,
             split_rent_collector: None,
             split_rent_amount: 0,
@@ -116,7 +115,7 @@ impl<'info> InitSettlement<'info> {
             merkle_root: self.settlement.merkle_root,
             max_total_claim: self.settlement.max_total_claim,
             max_merkle_nodes: self.settlement.max_merkle_nodes,
-            epoch_created_at: self.settlement.epoch_created_at,
+            epoch_created_for: self.settlement.epoch_created_for,
             rent_collector: self.settlement.rent_collector,
             bumps: self.settlement.bumps.clone(),
         });

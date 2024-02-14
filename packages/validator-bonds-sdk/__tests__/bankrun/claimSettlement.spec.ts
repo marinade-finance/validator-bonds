@@ -9,7 +9,6 @@ import {
   getConfig,
   getSettlementClaim,
   settlementClaimAddress,
-  withdrawerAuthority,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -20,7 +19,6 @@ import {
   warpToNextEpoch,
 } from './bankrun'
 import {
-  computeUnitIx,
   createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
@@ -38,6 +36,7 @@ import {
 } from '@solana/web3.js'
 import {
   createBondsFundedStakeAccount,
+  createStakeAccount,
   createVoteAccount,
 } from '../utils/staking'
 import { signer, pubkey } from '@marinade.finance/web3js-common'
@@ -185,16 +184,26 @@ describe('Validator Bonds claim settlement', () => {
 
   it('claim settlement various', async () => {
     const treeNode1Withdrawer1 = treeNodeBy(voteAccount1, withdrawer1)
+    const stakeAccountLamportsBefore = 123 * LAMPORTS_PER_SOL
+    const stakeAccountTreeNode1Withdrawer1 = await createStakeAccount({
+      provider,
+      lamports: stakeAccountLamportsBefore,
+      voteAccount: voteAccount1,
+      newStakerAuthority: treeNode1Withdrawer1.treeNode.stakeAuthority,
+      newWithdrawerAuthority: treeNode1Withdrawer1.treeNode.withdrawAuthority,
+    })
     const { instruction: ixWrongTreeNode } = await claimSettlementInstruction({
       program,
       claimAmount: treeNode1Withdrawer1.treeNode.data.claim.subn(1),
       merkleProof: treeNode1Withdrawer1.proof,
-      withdrawer: withdrawer1,
       settlementAccount: settlementAccount1,
-      stakeAccount: stakeAccount1,
+      stakeAccountFrom: stakeAccount1,
+      stakeAccountTo: stakeAccountTreeNode1Withdrawer1,
+      stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
+      stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
     })
     try {
-      await provider.sendIx([], computeUnitIx, ixWrongTreeNode)
+      await provider.sendIx([], ixWrongTreeNode)
       throw new Error('should have failed; wrong tree node proof')
     } catch (e) {
       verifyError(e, Errors, 6029, 'claim proof failed')
@@ -206,32 +215,105 @@ describe('Validator Bonds claim settlement', () => {
         program,
         claimAmount: treeNode1Withdrawer1.treeNode.data.claim,
         merkleProof: treeNode1Withdrawer1.proof,
-        withdrawer: withdrawer1,
         settlementAccount: settlementAccount1,
-        stakeAccount: stakeAccount1,
+        stakeAccountFrom: stakeAccount1,
+        stakeAccountTo: stakeAccountTreeNode1Withdrawer1,
+        stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
+        stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
         rentPayer: rentPayer,
       })
     try {
-      await provider.sendIx([signer(rentPayer)], computeUnitIx, instruction)
+      await provider.sendIx([signer(rentPayer)], instruction)
       throw new Error('should have failed; stake is not deactivated')
     } catch (e) {
       expect(checkErrorMessage(e, 'insufficient funds')).toBeTruthy()
     }
 
+    const notAStakeAccount = await createUserAndFund(provider, LAMPORTS_PER_SOL)
+    const { instruction: ixWrongStakeAccountTo } =
+      await claimSettlementInstruction({
+        program,
+        claimAmount: treeNode1Withdrawer1.treeNode.data.claim,
+        merkleProof: treeNode1Withdrawer1.proof,
+        settlementAccount: settlementAccount1,
+        stakeAccountFrom: stakeAccount1,
+        stakeAccountTo: pubkey(notAStakeAccount),
+        stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
+        stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
+      })
+    try {
+      await provider.sendIx([], ixWrongStakeAccountTo)
+      throw new Error('should have failed; wrong stake account')
+    } catch (e) {
+      expect((e as Error).message).toMatch('custom program error: 0xbbf')
+    }
+    const stakeAccountWrongStaker = await createStakeAccount({
+      provider,
+      lamports: 3 * LAMPORTS_PER_SOL,
+      voteAccount: voteAccount1,
+      newStakerAuthority: pubkey(notAStakeAccount),
+      newWithdrawerAuthority: treeNode1Withdrawer1.treeNode.withdrawAuthority,
+    })
+    const { instruction: ixWrongStaker } = await claimSettlementInstruction({
+      program,
+      claimAmount: treeNode1Withdrawer1.treeNode.data.claim,
+      merkleProof: treeNode1Withdrawer1.proof,
+      settlementAccount: settlementAccount1,
+      stakeAccountFrom: stakeAccount1,
+      stakeAccountTo: stakeAccountWrongStaker,
+      stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
+      stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
+    })
+    try {
+      await provider.sendIx([], ixWrongStaker)
+      throw new Error('should have failed; wrong staker')
+    } catch (e) {
+      verifyError(e, Errors, 6051, 'Wrong staker authority')
+    }
+    const stakeAccountWrongWithdrawer = await createStakeAccount({
+      provider,
+      lamports: 3 * LAMPORTS_PER_SOL,
+      voteAccount: voteAccount1,
+      newStakerAuthority: treeNode1Withdrawer1.treeNode.stakeAuthority,
+      newWithdrawerAuthority: pubkey(notAStakeAccount),
+    })
+    const { instruction: ixWrongWithdrawer } = await claimSettlementInstruction(
+      {
+        program,
+        claimAmount: treeNode1Withdrawer1.treeNode.data.claim,
+        merkleProof: treeNode1Withdrawer1.proof,
+        settlementAccount: settlementAccount1,
+        stakeAccountFrom: stakeAccount1,
+        stakeAccountTo: stakeAccountWrongWithdrawer,
+        stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
+        stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
+      }
+    )
+    try {
+      await provider.sendIx([], ixWrongWithdrawer)
+      throw new Error('should have failed; wrong withdrawer')
+    } catch (e) {
+      verifyError(e, Errors, 6012, 'Wrong withdrawer authority')
+    }
+
     warpToNextEpoch(provider) // deactivate stake account
 
-    await provider.sendIx([signer(rentPayer)], computeUnitIx, instruction)
+    await provider.sendIx([signer(rentPayer)], instruction)
 
-    const [bondsWithdrawerAuthority] = withdrawerAuthority(
-      configAccountKeypair.publicKey,
-      program.programId
+    const stakeAccountInfo = await provider.connection.getAccountInfo(
+      stakeAccountTreeNode1Withdrawer1
     )
+    expect(stakeAccountInfo?.lamports).toEqual(
+      stakeAccountLamportsBefore +
+        treeNode1Withdrawer1.treeNode.data.claim.toNumber()
+    )
+
     const [settlementClaimAddr, bump] = settlementClaimAddress(
       {
         settlement: settlementAccount1,
-        stakeAuthority: bondsWithdrawerAuthority,
         voteAccount: voteAccount1,
-        withdrawAuthority: withdrawer1,
+        stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
+        stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
         claim: treeNode1Withdrawer1.treeNode.data.claim,
       },
       program.programId
@@ -247,34 +329,52 @@ describe('Validator Bonds claim settlement', () => {
     expect(settlementClaim.bump).toEqual(bump)
     expect(settlementClaim.rentCollector).toEqual(pubkey(rentPayer))
     expect(settlementClaim.settlement).toEqual(pubkey(settlementAccount1))
-    expect(settlementClaim.stakeAuthority).toEqual(bondsWithdrawerAuthority)
+    expect(settlementClaim.stakeAccountStaker).toEqual(
+      treeNode1Withdrawer1.treeNode.stakeAuthority
+    )
+    expect(settlementClaim.stakeAccountWithdrawer).toEqual(
+      treeNode1Withdrawer1.treeNode.withdrawAuthority
+    )
     expect(settlementClaim.voteAccount).toEqual(pubkey(voteAccount1))
-    expect(settlementClaim.withdrawAuthority).toEqual(withdrawer1)
     const settlementClaimAccountInfo = await provider.connection.getAccountInfo(
       settlementClaimAccount
     )
     expect(
       (await provider.connection.getAccountInfo(pubkey(rentPayer)))?.lamports
     ).toEqual(LAMPORTS_PER_SOL - settlementClaimAccountInfo!.lamports)
+    // TODO: add expect on size of account
+    console.log(
+      'settlement claim account length',
+      settlementClaimAccountInfo?.data.byteLength
+    )
 
     await warpToNextEpoch(provider)
 
     try {
-      await provider.sendIx([signer(rentPayer)], computeUnitIx, instruction)
+      await provider.sendIx([signer(rentPayer)], instruction)
       throw new Error('should have failed; already claimed')
     } catch (e) {
       expect((e as Error).message).toMatch('custom program error: 0x0')
     }
 
+    const stakeAccountToWrongBump = await createStakeAccount({
+      provider,
+      lamports: 233 * LAMPORTS_PER_SOL,
+      voteAccount: voteAccount1,
+      newStakerAuthority: treeNode1Withdrawer1.treeNode.stakeAuthority,
+      newWithdrawerAuthority: treeNode1Withdrawer1.treeNode.withdrawAuthority,
+    })
     try {
       const wrongBumpIx = await claimSettlementWrongBump({
         proof: treeNode1Withdrawer1.proof,
         claim: treeNode1Withdrawer1.treeNode.data.claim,
-        withdrawer: withdrawer1,
         configAccount: config.publicKey,
         bondAccount: bondAccount,
         settlementAccount: settlementAccount1,
-        stakeAccount: stakeAccount1,
+        stakeAccountFrom: stakeAccount1,
+        stakeAccountTo: stakeAccountToWrongBump,
+        stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
+        stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
         voteAccount: voteAccount1,
       })
       await provider.sendIx([signer(rentPayer)], wrongBumpIx, instruction)
@@ -284,34 +384,52 @@ describe('Validator Bonds claim settlement', () => {
     }
 
     const treeNode1Withdrawer2 = treeNodeBy(voteAccount1, withdrawer2)
+    const stakeAccountTreeNode1Withdrawer2 = await createStakeAccount({
+      provider,
+      lamports: 369 * LAMPORTS_PER_SOL,
+      voteAccount: voteAccount1,
+      newStakerAuthority: treeNode1Withdrawer2.treeNode.stakeAuthority,
+      newWithdrawerAuthority: treeNode1Withdrawer2.treeNode.withdrawAuthority,
+    })
     const { instruction: ixWrongMerkleTreeNodes } =
       await claimSettlementInstruction({
         program,
         claimAmount: treeNode1Withdrawer2.treeNode.data.claim,
         merkleProof: treeNode1Withdrawer2.proof,
-        withdrawer: withdrawer2,
         settlementAccount: settlementAccount1,
-        stakeAccount: stakeAccount1,
+        stakeAccountFrom: stakeAccount1,
+        stakeAccountTo: stakeAccountTreeNode1Withdrawer2,
+        stakeAccountStaker: treeNode1Withdrawer2.treeNode.stakeAuthority,
+        stakeAccountWithdrawer: treeNode1Withdrawer2.treeNode.withdrawAuthority,
       })
     try {
-      await provider.sendIx([], computeUnitIx, ixWrongMerkleTreeNodes)
+      await provider.sendIx([], ixWrongMerkleTreeNodes)
       throw new Error('should have failed; wrong stake account')
     } catch (e) {
       verifyError(e, Errors, 6033, 'exceeded number of claimable nodes')
     }
 
     const treeNode2Withdrawer2 = treeNodeBy(voteAccount2, withdrawer2)
+    const stakeAccountTreeNode2Withdrawer2 = await createStakeAccount({
+      provider,
+      lamports: 32 * LAMPORTS_PER_SOL,
+      voteAccount: voteAccount1,
+      newStakerAuthority: treeNode2Withdrawer2.treeNode.stakeAuthority,
+      newWithdrawerAuthority: treeNode2Withdrawer2.treeNode.withdrawAuthority,
+    })
     const { instruction: treeNode2Withdrawer2Ix } =
       await claimSettlementInstruction({
         program,
         claimAmount: treeNode2Withdrawer2.treeNode.data.claim,
         merkleProof: treeNode2Withdrawer2.proof,
-        withdrawer: withdrawer2,
         settlementAccount: settlementAccount2,
-        stakeAccount: stakeAccount2,
+        stakeAccountFrom: stakeAccount2,
+        stakeAccountTo: stakeAccountTreeNode2Withdrawer2,
+        stakeAccountStaker: treeNode2Withdrawer2.treeNode.stakeAuthority,
+        stakeAccountWithdrawer: treeNode2Withdrawer2.treeNode.withdrawAuthority,
       })
     try {
-      await provider.sendIx([], computeUnitIx, treeNode2Withdrawer2Ix)
+      await provider.sendIx([], treeNode2Withdrawer2Ix)
       throw new Error(
         'should have failed; over claimed (wrong argument on settlement)'
       )
@@ -320,17 +438,26 @@ describe('Validator Bonds claim settlement', () => {
     }
 
     const treeNode2Withdrawer1 = treeNodeBy(voteAccount2, withdrawer1)
+    const stakeAccountTreeNode2Withdrawer1 = await createStakeAccount({
+      provider,
+      lamports: 11 * LAMPORTS_PER_SOL,
+      voteAccount: voteAccount1,
+      newStakerAuthority: treeNode2Withdrawer1.treeNode.stakeAuthority,
+      newWithdrawerAuthority: treeNode2Withdrawer1.treeNode.withdrawAuthority,
+    })
     const { instruction: ixWrongStakeAccount } =
       await claimSettlementInstruction({
         program,
         claimAmount: treeNode2Withdrawer1.treeNode.data.claim,
         merkleProof: treeNode2Withdrawer1.proof,
-        withdrawer: withdrawer1,
         settlementAccount: settlementAccount2,
-        stakeAccount: stakeAccount1,
+        stakeAccountFrom: stakeAccount1,
+        stakeAccountTo: stakeAccountTreeNode2Withdrawer1,
+        stakeAccountStaker: treeNode2Withdrawer1.treeNode.stakeAuthority,
+        stakeAccountWithdrawer: treeNode2Withdrawer1.treeNode.withdrawAuthority,
       })
     try {
-      await provider.sendIx([], computeUnitIx, ixWrongStakeAccount)
+      await provider.sendIx([], ixWrongStakeAccount)
       throw new Error('should have failed; wrong stake account')
     } catch (e) {
       verifyError(e, Errors, 6036, 'not funded under the settlement')
@@ -341,26 +468,37 @@ describe('Validator Bonds claim settlement', () => {
         program,
         claimAmount: treeNode2Withdrawer1.treeNode.data.claim,
         merkleProof: treeNode2Withdrawer1.proof,
-        withdrawer: withdrawer1,
         settlementAccount: settlementAccount2,
-        stakeAccount: stakeAccount2,
+        stakeAccountFrom: stakeAccount2,
+        stakeAccountTo: stakeAccountTreeNode2Withdrawer1,
+        stakeAccountStaker: treeNode2Withdrawer1.treeNode.stakeAuthority,
+        stakeAccountWithdrawer: treeNode2Withdrawer1.treeNode.withdrawAuthority,
       })
-    await provider.sendIx([], computeUnitIx, treeNode2Withdrawer1Ix)
+    await provider.sendIx([], treeNode2Withdrawer1Ix)
 
     await warpToNotBeClaimable()
 
     const treeNode1Withdrawer3 = treeNodeBy(voteAccount1, withdrawer3)
+    const stakeAccountTreeNode1Withdrawer3 = await createStakeAccount({
+      provider,
+      lamports: 11 * LAMPORTS_PER_SOL,
+      voteAccount: voteAccount1,
+      newStakerAuthority: treeNode1Withdrawer3.treeNode.stakeAuthority,
+      newWithdrawerAuthority: treeNode1Withdrawer3.treeNode.withdrawAuthority,
+    })
     const { instruction: ixTooLate, settlementClaimAccount: accTooLate } =
       await claimSettlementInstruction({
         program,
         claimAmount: treeNode1Withdrawer3.treeNode.data.claim,
         merkleProof: treeNode1Withdrawer3.proof,
-        withdrawer: withdrawer3,
         settlementAccount: settlementAccount1,
-        stakeAccount: stakeAccount1,
+        stakeAccountFrom: stakeAccount1,
+        stakeAccountTo: stakeAccountTreeNode1Withdrawer3,
+        stakeAccountStaker: treeNode1Withdrawer3.treeNode.stakeAuthority,
+        stakeAccountWithdrawer: treeNode1Withdrawer3.treeNode.withdrawAuthority,
       })
     try {
-      await provider.sendIx([], computeUnitIx, ixTooLate)
+      await provider.sendIx([], ixTooLate)
       throw new Error('should have failed; too late to claim')
     } catch (e) {
       verifyError(e, Errors, 6023, 'already expired')
@@ -375,46 +513,47 @@ describe('Validator Bonds claim settlement', () => {
   async function claimSettlementWrongBump({
     proof,
     claim,
-    withdrawer,
     configAccount,
     bondAccount,
     settlementAccount,
-    stakeAccount,
+    stakeAccountFrom,
+    stakeAccountTo,
+    stakeAccountStaker,
+    stakeAccountWithdrawer,
     voteAccount,
   }: {
     proof: number[][]
     claim: BN | number
-    withdrawer: PublicKey
     configAccount: PublicKey
     bondAccount: PublicKey
     settlementAccount: PublicKey
-    stakeAccount: PublicKey
+    stakeAccountFrom: PublicKey
+    stakeAccountTo: PublicKey
+    stakeAccountStaker: PublicKey
+    stakeAccountWithdrawer: PublicKey
     voteAccount: PublicKey
   }) {
-    const [bondsWithdrawerAuthority] = withdrawerAuthority(
-      configAccount,
-      program.programId
-    )
     let [, bump] = settlementClaimAddress(
       {
         settlement: settlementAccount,
-        stakeAuthority: bondsWithdrawerAuthority,
+        stakeAccountStaker,
         voteAccount,
-        withdrawAuthority: withdrawer,
+        stakeAccountWithdrawer,
         claim,
       },
       program.programId
     )
     let settlementAccountWrongBump: PublicKey | undefined
+    const treeNodeHash = MerkleTreeNode.hash({
+      stakeAuthority: stakeAccountStaker,
+      withdrawAuthority: stakeAccountWithdrawer,
+      voteAccount: voteAccount,
+      claim: claim,
+    })
     const seeds = [
       SETTLEMENT_CLAIM_SEED,
       settlementAccount.toBytes(),
-      MerkleTreeNode.hash({
-        stakeAuthority: bondsWithdrawerAuthority,
-        withdrawAuthority: withdrawer,
-        voteAccount: voteAccount,
-        claim: claim,
-      }).buffer,
+      treeNodeHash.buffer,
     ]
     while (settlementAccountWrongBump === undefined && bump > 0) {
       bump--
@@ -434,15 +573,18 @@ describe('Validator Bonds claim settlement', () => {
     return await program.methods
       .claimSettlement({
         proof,
+        treeNodeHash: treeNodeHash.words,
+        stakeAccountStaker,
+        stakeAccountWithdrawer,
         claim: new BN(claim),
       })
       .accounts({
-        withdrawAuthority: withdrawer,
         config: configAccount,
         bond: bondAccount,
         settlement: settlementAccount,
         settlementClaim: settlementAccountWrongBump,
-        stakeAccount,
+        stakeAccountFrom,
+        stakeAccountTo,
         rentPayer: provider.walletPubkey,
         systemProgram: SystemProgram.programId,
         stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,

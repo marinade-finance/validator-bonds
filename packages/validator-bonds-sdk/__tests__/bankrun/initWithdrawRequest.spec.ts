@@ -116,6 +116,14 @@ describe('Validator Bonds init withdraw request', () => {
     expect(withdrawRequestData.requestedAmount).toEqual(LAMPORTS_PER_SOL)
     expect(withdrawRequestData.voteAccount).toEqual(bond.account.voteAccount)
     expect(withdrawRequestData.withdrawnAmount).toEqual(0)
+
+    // TODO: add expect on size of account
+    const withdrawRequestAccountInfo =
+      await provider.connection.getAccountInfo(withdrawRequest)
+    console.log(
+      'withdraw request account length',
+      withdrawRequestAccountInfo?.data.byteLength
+    )
   })
 
   it('init withdraw request withdrawer validator identity authority', async () => {

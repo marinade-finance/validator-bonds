@@ -17,7 +17,7 @@ export async function initSettlementInstruction({
   configAccount,
   bondAccount,
   voteAccount,
-  currentEpoch,
+  epoch,
   maxTotalClaim,
   maxMerkleNodes,
   operatorAuthority,
@@ -29,7 +29,7 @@ export async function initSettlementInstruction({
   configAccount?: PublicKey
   bondAccount?: PublicKey
   voteAccount?: PublicKey
-  currentEpoch?: EpochInfo | number | BN | bigint
+  epoch?: EpochInfo | number | BN | bigint
   maxTotalClaim: number | BN
   maxMerkleNodes: number | BN
   operatorAuthority?: PublicKey | Keypair | Signer | WalletInterface // signer
@@ -43,8 +43,8 @@ export async function initSettlementInstruction({
   const renPayerPubkey =
     rentPayer instanceof PublicKey ? rentPayer : rentPayer.publicKey
   rentCollector = rentCollector || renPayerPubkey
-  if (currentEpoch === undefined) {
-    currentEpoch = (await program.provider.connection.getEpochInfo()).epoch
+  if (epoch === undefined) {
+    epoch = (await program.provider.connection.getEpochInfo()).epoch
   }
 
   if (
@@ -75,7 +75,7 @@ export async function initSettlementInstruction({
   const [settlementAccount] = settlementAddress(
     bondAccount,
     merkleRoot,
-    currentEpoch,
+    epoch,
     program.programId
   )
 
@@ -86,6 +86,7 @@ export async function initSettlementInstruction({
       maxTotalClaim: new BN(maxTotalClaim),
       maxMerkleNodes: new BN(maxMerkleNodes),
       rentCollector,
+      epoch: epochAsBn(epoch),
     })
     .accounts({
       config: configAccount,
@@ -98,9 +99,12 @@ export async function initSettlementInstruction({
   return {
     settlementAccount,
     instruction,
-    epoch:
-      typeof currentEpoch === 'object' && 'epoch' in currentEpoch
-        ? new BN(currentEpoch.epoch)
-        : new BN(currentEpoch.toString()),
+    epoch: epochAsBn(epoch),
   }
+}
+
+function epochAsBn(epoch: EpochInfo | number | BN | bigint): BN {
+  return typeof epoch === 'object' && 'epoch' in epoch
+    ? new BN(epoch.epoch)
+    : new BN(epoch.toString())
 }

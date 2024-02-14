@@ -489,7 +489,7 @@ export async function executeInitSettlement({
     maxTotalClaim,
     voteAccount,
     bondAccount,
-    currentEpoch,
+    epoch: currentEpoch,
     rentCollector,
   })
   await provider.sendIx([operatorAuthority], instruction)
@@ -507,5 +507,5 @@ export async function executeInitSettlement({
 }
 
 export const computeUnitIx = ComputeBudgetProgram.setComputeUnitLimit({
-  units: 1_000_000,
+  units: 1_500_000,
 })

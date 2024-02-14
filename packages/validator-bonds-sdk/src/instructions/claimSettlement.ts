@@ -15,19 +15,22 @@ import {
   bondAddress,
   settlementAddress,
   settlementClaimAddress,
-  withdrawerAuthority,
 } from '../sdk'
 import { anchorProgramWalletPubkey } from '../utils'
 import BN from 'bn.js'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import { getBond, getSettlement } from '../api'
+import { getStakeAccount } from '../web3.js'
+import { MerkleTreeNode } from '../merkleTree'
 
 export async function claimSettlementInstruction({
   program,
   claimAmount,
   merkleProof,
-  withdrawer,
-  stakeAccount,
+  stakeAccountFrom,
+  stakeAccountTo,
+  stakeAccountStaker,
+  stakeAccountWithdrawer,
   settlementAccount,
   settlementMerkleRoot,
   settlementEpoch,
@@ -39,8 +42,10 @@ export async function claimSettlementInstruction({
   program: ValidatorBondsProgram
   claimAmount: number | BN
   merkleProof: (number[] | Uint8Array | Buffer)[]
-  withdrawer: PublicKey
-  stakeAccount: PublicKey
+  stakeAccountFrom: PublicKey
+  stakeAccountTo: PublicKey
+  stakeAccountWithdrawer?: PublicKey
+  stakeAccountStaker?: PublicKey
   settlementAccount?: PublicKey
   settlementMerkleRoot?: number[] | Uint8Array | Buffer
   settlementEpoch?: number | BN | EpochInfo
@@ -104,33 +109,58 @@ export async function claimSettlementInstruction({
       return Array.from(proofPathRecord)
     }
   })
-  const [bondsWithdrawerAuthority] = withdrawerAuthority(
-    configAccount,
-    program.programId
-  )
+
+  if (
+    stakeAccountStaker === undefined ||
+    stakeAccountWithdrawer === undefined
+  ) {
+    const stakeAccountToData = await getStakeAccount(program, stakeAccountTo)
+    if (
+      stakeAccountToData.staker === null ||
+      stakeAccountToData.withdrawer === null
+    ) {
+      throw new Error(
+        'stakeAccountTo must be activated with staker and withdrawer defined'
+      )
+    }
+    stakeAccountStaker = stakeAccountStaker || stakeAccountToData.staker
+    stakeAccountWithdrawer =
+      stakeAccountWithdrawer || stakeAccountToData.withdrawer
+  }
+
   const [settlementClaimAccount] = settlementClaimAddress(
     {
       settlement: settlementAccount,
-      stakeAuthority: bondsWithdrawerAuthority,
+      stakeAccountStaker,
       voteAccount,
-      withdrawAuthority: withdrawer,
+      stakeAccountWithdrawer,
       claim: claimAmount,
     },
     program.programId
   )
 
+  const treeNodeHash = MerkleTreeNode.hash({
+    stakeAuthority: stakeAccountStaker,
+    withdrawAuthority: stakeAccountWithdrawer,
+    voteAccount: voteAccount,
+    claim: claimAmount,
+  }).words
+
   const instruction = await program.methods
     .claimSettlement({
       proof: merkleProofNumbers,
+      treeNodeHash,
       claim: new BN(claimAmount),
+      stakeAccountStaker,
+      stakeAccountWithdrawer,
     })
     .accounts({
-      withdrawAuthority: withdrawer,
       config: configAccount,
       bond: bondAccount,
       settlement: settlementAccount,
       settlementClaim: settlementClaimAccount,
-      stakeAccount,
+      stakeAccountFrom,
+      stakeAccountTo,
       rentPayer: renPayerPubkey,
       systemProgram: SystemProgram.programId,
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,

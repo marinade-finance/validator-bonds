@@ -100,6 +100,18 @@ export class MerkleTreeNode {
     }).hash()
   }
 
+  get stakeAuthority(): PublicKey {
+    return new PublicKey(this.data.stakeAuthority)
+  }
+
+  get withdrawAuthority(): PublicKey {
+    return new PublicKey(this.data.withdrawAuthority)
+  }
+
+  get voteAccount(): PublicKey {
+    return new PublicKey(this.data.voteAccount)
+  }
+
   public static hash({
     stakeAuthority,
     withdrawAuthority,

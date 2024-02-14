@@ -247,14 +247,14 @@ export function settlementAuthority(
 export function settlementClaimAddress(
   {
     settlement,
-    stakeAuthority,
-    withdrawAuthority,
+    stakeAccountStaker,
+    stakeAccountWithdrawer,
     voteAccount,
     claim,
   }: {
     settlement: PublicKey
-    stakeAuthority: PublicKey
-    withdrawAuthority: PublicKey
+    stakeAccountStaker: PublicKey
+    stakeAccountWithdrawer: PublicKey
     voteAccount: PublicKey
     claim: BN | number
   },

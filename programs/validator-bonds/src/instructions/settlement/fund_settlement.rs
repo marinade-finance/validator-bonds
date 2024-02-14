@@ -49,7 +49,7 @@ pub struct FundSettlement<'info> {
             b"settlement_account",
             bond.key().as_ref(),
             settlement.merkle_root.as_ref(),
-            settlement.epoch_created_at.to_le_bytes().as_ref(),
+            settlement.epoch_created_for.to_le_bytes().as_ref(),
         ],
         bump = settlement.bumps.pda,
     )]

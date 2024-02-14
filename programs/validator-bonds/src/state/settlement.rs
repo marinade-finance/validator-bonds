@@ -26,8 +26,8 @@ pub struct Settlement {
     pub lamports_claimed: u64,
     /// number of nodes that have been claimed from this [Settlement]
     pub merkle_nodes_claimed: u64,
-    /// epoch that the [Settlement] has been created at
-    pub epoch_created_at: u64,
+    /// what epoch the [Settlement] has been created for
+    pub epoch_created_for: u64,
     /// address that collects the rent exempt from the [Settlement] account when closed
     pub rent_collector: Pubkey,
     /// address claiming the rent exempt for "split stake account" created on funding settlement
@@ -52,7 +52,7 @@ impl Settlement {
                 SETTLEMENT_SEED,
                 &self.bond.key().as_ref(),
                 &self.merkle_root,
-                &self.epoch_created_at.to_le_bytes(),
+                &self.epoch_created_for.to_le_bytes(),
                 &[self.bumps.pda],
             ],
             &ID,

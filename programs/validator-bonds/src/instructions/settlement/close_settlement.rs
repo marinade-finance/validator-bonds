@@ -36,12 +36,12 @@ pub struct CloseSettlement<'info> {
         has_one = bond @ ErrorCode::BondAccountMismatch,
         has_one = rent_collector @ ErrorCode::RentCollectorMismatch,
         constraint = (settlement.split_rent_collector.is_none() || settlement.split_rent_collector.unwrap() == split_rent_collector.key()) @ ErrorCode::RentCollectorMismatch,
-        constraint = settlement.epoch_created_at + config.epochs_to_claim_settlement < clock.epoch @ ErrorCode::SettlementNotExpired,
+        constraint = settlement.epoch_created_for + config.epochs_to_claim_settlement < clock.epoch @ ErrorCode::SettlementNotExpired,
         seeds = [
             b"settlement_account",
             bond.key().as_ref(),
             settlement.merkle_root.as_ref(),
-            settlement.epoch_created_at.to_le_bytes().as_ref(),
+            settlement.epoch_created_for.to_le_bytes().as_ref(),
         ],
         bump = settlement.bumps.pda,
     )]
@@ -134,7 +134,7 @@ impl<'info> CloseSettlement<'info> {
             rent_collector: self.rent_collector.key(),
             split_rent_collector: self.settlement.split_rent_collector,
             split_rent_refund_account: self.split_rent_refund_account.key(),
-            expiration_epoch: self.settlement.epoch_created_at
+            expiration_epoch: self.settlement.epoch_created_for
                 + self.config.epochs_to_claim_settlement,
             current_epoch: self.clock.epoch,
         });
