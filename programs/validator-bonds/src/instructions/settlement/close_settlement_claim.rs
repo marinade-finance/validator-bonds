@@ -24,10 +24,7 @@ pub struct CloseSettlementClaim<'info> {
 
 impl<'info> CloseSettlementClaim<'info> {
     pub fn process(&mut self) -> Result<()> {
-        require!(true == false, ErrorCode::NotYetImplemented);
-
         // The rule is that the settlement claim can be closed only when settlement does not exist
-        // TODO: is there a nicer (more anchor native) way to verify the non-existence of the account?
         require_eq!(
             self.settlement.lamports(),
             0,

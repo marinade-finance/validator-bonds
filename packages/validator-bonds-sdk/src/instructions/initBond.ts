@@ -12,18 +12,18 @@ import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 export async function initBondInstruction({
   program,
   configAccount = CONFIG_ADDRESS,
-  validatorVoteAccount,
+  voteAccount,
   validatorIdentity,
   bondAuthority = anchorProgramWalletPubkey(program),
-  revenueShareHundredthBps = 0,
+  cpmpe = 0,
   rentPayer = anchorProgramWalletPubkey(program),
 }: {
   program: ValidatorBondsProgram
-  configAccount?: PublicKey
-  validatorVoteAccount: PublicKey
+  configAccount: PublicKey
+  voteAccount: PublicKey
   validatorIdentity?: PublicKey | Keypair | Signer | WalletInterface // signer
   bondAuthority?: PublicKey
-  revenueShareHundredthBps?: BN | number
+  cpmpe?: BN | number
   rentPayer?: PublicKey | Keypair | Signer | WalletInterface // signer
 }): Promise<{
   instruction: TransactionInstruction
@@ -39,23 +39,19 @@ export async function initBondInstruction({
     rentPayer instanceof PublicKey ? rentPayer : rentPayer.publicKey
   const [bondAccount] = bondAddress(
     configAccount,
-    validatorVoteAccount,
+    voteAccount,
     program.programId
   )
-  const revenueShare =
-    revenueShareHundredthBps instanceof BN
-      ? revenueShareHundredthBps.toNumber()
-      : revenueShareHundredthBps
 
   const instruction = await program.methods
     .initBond({
       bondAuthority,
-      revenueShare: { hundredthBps: revenueShare },
+      cpmpe: new BN(cpmpe),
     })
     .accounts({
       config: configAccount,
       bond: bondAccount,
-      validatorVoteAccount,
+      voteAccount,
       validatorIdentity: validatorIdentity ?? null,
       rentPayer: renPayerPubkey,
     })

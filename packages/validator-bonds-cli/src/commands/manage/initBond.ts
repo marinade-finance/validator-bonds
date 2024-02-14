@@ -16,7 +16,6 @@ import {
   getVoteAccount,
   initBondInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
-import { toHundredsBps } from '@marinade.finance/validator-bonds-sdk/src/utils'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 
@@ -38,7 +37,7 @@ export function installInitBond(program: Command) {
     .option(
       '--validator-identity <keypair_or_ledger_or_pubkey>',
       'Validator identity linked to the vote account. ' +
-        'Permission-ed execution requires the validator identity signature. Then possible to set --bond-authority and --revenue-share. ' +
+        'Permission-ed execution requires the validator identity signature, possible possible to configure --bond-authority. ' +
         'Permission-less execution requires no signature, bond account configuration is possible later with validator identity signature (default: NONE)',
       parseWalletOrPubkey
     )
@@ -46,12 +45,6 @@ export function installInitBond(program: Command) {
       '--bond-authority <pubkey>',
       'Authority that is permitted to operate with bond account (default: vote account validator identity)',
       parsePubkeyOrPubkeyFromWallet
-    )
-    .option(
-      '--revenue-share <number>',
-      'Revenue share in percents (the precision is 1/10000 of the percent)',
-      toHundredsBps,
-      0
     )
     .option(
       '--rent-payer <keypair_or_ledger_or_pubkey>',
@@ -65,14 +58,12 @@ export function installInitBond(program: Command) {
         voteAccount,
         validatorIdentity,
         bondAuthority,
-        revenueShare,
         rentPayer,
       }: {
         config?: Promise<PublicKey>
         voteAccount: Promise<PublicKey>
         validatorIdentity?: Promise<WalletInterface | PublicKey>
         bondAuthority: Promise<PublicKey>
-        revenueShare: number
         rentPayer?: Promise<WalletInterface | PublicKey>
       }) => {
         await manageInitBond({
@@ -80,7 +71,6 @@ export function installInitBond(program: Command) {
           voteAccount: await voteAccount,
           validatorIdentity: await validatorIdentity,
           bondAuthority: await bondAuthority,
-          revenueShare: revenueShare,
           rentPayer: await rentPayer,
         })
       }
@@ -92,14 +82,12 @@ async function manageInitBond({
   voteAccount,
   validatorIdentity,
   bondAuthority,
-  revenueShare,
   rentPayer,
 }: {
   config?: PublicKey
   voteAccount: PublicKey
   validatorIdentity?: WalletInterface | PublicKey
   bondAuthority: PublicKey
-  revenueShare: number
   rentPayer?: WalletInterface | PublicKey
 }) {
   const {
@@ -135,9 +123,8 @@ async function manageInitBond({
     program,
     configAccount: config,
     bondAuthority,
-    validatorVoteAccount: voteAccount,
+    voteAccount,
     validatorIdentity,
-    revenueShareHundredthBps: revenueShare,
     rentPayer,
   })
   tx.add(instruction)

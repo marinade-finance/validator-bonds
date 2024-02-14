@@ -88,7 +88,7 @@ describe('Validator Bonds fund bond account', () => {
         'failure expected as accounts are not owned by bonds program'
       )
     } catch (e) {
-      verifyError(e, Errors, 6043, 'does not belong to bonds program')
+      verifyError(e, Errors, 6045, 'does not belong to bonds program')
     }
   })
 
@@ -123,7 +123,7 @@ describe('Validator Bonds fund bond account', () => {
         'failure expected as accounts are not owned by bonds program'
       )
     } catch (e) {
-      verifyError(e, Errors, 6043, 'does not belong to bonds program')
+      verifyError(e, Errors, 6045, 'does not belong to bonds program')
     }
   })
 
@@ -161,7 +161,7 @@ describe('Validator Bonds fund bond account', () => {
       verifyError(
         e,
         Errors,
-        6045,
+        6047,
         'Delegation of provided stake account mismatches'
       )
     }
@@ -213,7 +213,7 @@ describe('Validator Bonds fund bond account', () => {
       verifyError(
         e,
         Errors,
-        6045,
+        6047,
         'Delegation of provided stake account mismatches'
       )
     }
@@ -230,7 +230,7 @@ describe('Validator Bonds fund bond account', () => {
       verifyError(
         e,
         Errors,
-        6045,
+        6047,
         'Delegation of provided stake account mismatches'
       )
     }
@@ -333,7 +333,7 @@ describe('Validator Bonds fund bond account', () => {
       verifyError(
         e,
         Errors,
-        6045,
+        6047,
         'Delegation of provided stake account mismatches'
       )
     }
@@ -350,22 +350,24 @@ describe('Validator Bonds fund bond account', () => {
       verifyError(
         e,
         Errors,
-        6045,
+        6047,
         'Delegation of provided stake account mismatches'
       )
     }
   })
 
   it('cannot merge settlement and bond authority', async () => {
-    const voteAccount = (await createVoteAccount(provider)).voteAccount
+    const voteAccount = (await createVoteAccount({ provider })).voteAccount
     const [bondWithdrawer] = withdrawerAuthority(
       config.publicKey,
       program.programId
     )
+    const currentEpoch = (await provider.context.banksClient.getClock()).epoch
     const [bond] = bondAddress(config.publicKey, program.programId)
     const [settlement] = settlementAddress(
       bond,
       Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+      currentEpoch,
       program.programId
     )
     const [settlementStaker] = settlementAuthority(
@@ -412,7 +414,7 @@ describe('Validator Bonds fund bond account', () => {
       await provider.sendIx([], instruction)
       throw new Error('failure expected; wrong authorities')
     } catch (e) {
-      verifyError(e, Errors, 6042, 'staker does not match')
+      verifyError(e, Errors, 6044, 'staker does not match')
     }
     const { instruction: instruction2 } = await mergeInstruction({
       program,
@@ -424,7 +426,7 @@ describe('Validator Bonds fund bond account', () => {
       await provider.sendIx([], instruction2)
       throw new Error('failure expected; wrong authorities')
     } catch (e) {
-      verifyError(e, Errors, 6042, 'staker does not match')
+      verifyError(e, Errors, 6044, 'staker does not match')
     }
   })
 

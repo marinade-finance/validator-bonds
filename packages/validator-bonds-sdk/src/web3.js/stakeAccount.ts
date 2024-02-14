@@ -12,6 +12,8 @@ import BN from 'bn.js'
 import { ProgramAccountInfo, programAccountInfo } from '../sdk'
 import { getConnection } from '.'
 
+export const U64_MAX = new BN('ffffffffffffffff', 16)
+
 export type StakeAccountParsed = {
   address: PublicKey
   withdrawer: PublicKey | null
@@ -90,9 +92,8 @@ export async function getStakeAccount<IDL extends Idl = Idl>(
   currentEpoch?: number
 ): Promise<StakeAccountParsed> {
   connection = getConnection(connection)
-  const { value: stakeAccountInfo } = await connection.getParsedAccountInfo(
-    address
-  )
+  const { value: stakeAccountInfo } =
+    await connection.getParsedAccountInfo(address)
 
   if (!stakeAccountInfo) {
     throw new Error(
@@ -122,17 +123,22 @@ export async function getStakeAccount<IDL extends Idl = Idl>(
   )
 }
 
-const STAKER_OFFSET = 12
-const WITHDRAWER_OFFSET = 44
+// https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/state.rs#L60
+const STAKER_OFFSET = 12 // 4 for enum, 8 rent exempt reserve
+const WITHDRAWER_OFFSET = 44 // 4 + 8 + staker pubkey
+// https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/state.rs#L414
+const VOTER_PUBKEY_OFFSET = 124 // 4 for enum + 120 for Meta
 
-export async function findStakeAccountAccount<IDL extends Idl = Idl>({
+export async function findStakeAccount<IDL extends Idl = Idl>({
   connection,
   staker,
   withdrawer,
+  voter,
 }: {
   connection: Provider | Connection | Program<IDL>
   staker?: PublicKey
   withdrawer?: PublicKey
+  voter?: PublicKey
 }): Promise<ProgramAccountInfo<StakeAccountParsed>[]> {
   const innerConnection = getConnection(connection)
 
@@ -150,6 +156,14 @@ export async function findStakeAccountAccount<IDL extends Idl = Idl>({
       memcmp: {
         offset: WITHDRAWER_OFFSET,
         bytes: withdrawer.toBase58(),
+      },
+    })
+  }
+  if (voter) {
+    filters.push({
+      memcmp: {
+        offset: VOTER_PUBKEY_OFFSET,
+        bytes: voter.toBase58(),
       },
     })
   }
@@ -182,8 +196,6 @@ export async function findStakeAccountAccount<IDL extends Idl = Idl>({
     })
   return Promise.all(parsedPromises)
 }
-
-const U64_MAX = new BN('ffffffffffffffff', 16)
 
 function pubkeyOrNull(
   value?: ConstructorParameters<typeof PublicKey>[0] | null

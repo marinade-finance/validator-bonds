@@ -6,6 +6,7 @@ import {
   configureBondInstruction,
   getBond,
   getConfig,
+  initBondInstruction,
 } from '../../src'
 import { BankrunExtendedProvider, initBankrunTest } from './bankrun'
 import {
@@ -13,7 +14,7 @@ import {
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
 import { ProgramAccount } from '@coral-xyz/anchor'
-import { Keypair } from '@solana/web3.js'
+import { Keypair, PublicKey } from '@solana/web3.js'
 import { createVoteAccount } from '../utils/staking'
 import { verifyError } from '@marinade.finance/anchor-common'
 
@@ -43,17 +44,17 @@ describe('Validator Bonds configure bond account', () => {
       voteAccount,
       validatorIdentity: nodePubkey,
       authorizedVoter,
-    } = await createVoteAccount(provider)
+    } = await createVoteAccount({ provider })
     bondAuthority = Keypair.generate()
-    const { bondAccount } = await executeInitBondInstruction(
+    const { bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      config.publicKey,
+      config: config.publicKey,
       bondAuthority,
       voteAccount,
-      nodePubkey,
-      123
-    )
+      validatorIdentity: nodePubkey,
+      cpmpe: 123,
+    })
     bond = {
       publicKey: bondAccount,
       account: await getBond(program, bondAccount),
@@ -69,14 +70,14 @@ describe('Validator Bonds configure bond account', () => {
       bondAccount: bond.publicKey,
       authority: bondAuthority,
       newBondAuthority: newBondAuthority.publicKey,
-      newRevenueShareHundredthBps: 321,
+      newCpmpe: 321,
     })
     await provider.sendIx([bondAuthority], ix1)
 
     let bondData = await getBond(program, bond.publicKey)
     expect(bondData.config).toEqual(config.publicKey)
     expect(bondData.authority).toEqual(newBondAuthority.publicKey)
-    expect(bondData.revenueShare).toEqual({ hundredthBps: 321 })
+    expect(bondData.cpmpe).toEqual(321)
 
     const { instruction: ix2 } = await configureBondInstruction({
       program,
@@ -110,7 +111,7 @@ describe('Validator Bonds configure bond account', () => {
     const { instruction } = await configureBondInstruction({
       program,
       configAccount: config.publicKey,
-      validatorVoteAccount: bond.account.validatorVoteAccount,
+      voteAccount: bond.account.voteAccount,
       authority: voterAuthority,
       newBondAuthority: newBondAuthority.publicKey,
     })
@@ -118,9 +119,11 @@ describe('Validator Bonds configure bond account', () => {
       await provider.sendIx([voterAuthority], instruction)
       throw new Error('failure expected as wrong admin')
     } catch (e) {
-      verifyError(e, Errors, 6016, 'Wrong authority')
+      verifyError(e, Errors, 6018, 'Wrong authority')
     }
   })
+
+  // TODO: add a test that fails when configuring with a wrong validator identity
 
   it('fails to configure with a random authority', async () => {
     const newBondAuthority = Keypair.generate()
@@ -134,7 +137,49 @@ describe('Validator Bonds configure bond account', () => {
       await provider.sendIx([newBondAuthority], instruction)
       throw new Error('failure expected as wrong admin')
     } catch (e) {
-      verifyError(e, Errors, 6016, 'Wrong authority')
+      verifyError(e, Errors, 6018, 'Wrong authority')
     }
+  })
+
+  it('configure bond with validator identity', async () => {
+    const { voteAccount, validatorIdentity } = await createVoteAccount({
+      provider,
+    })
+    // permission-less creation
+    const {
+      instruction: createBondIx,
+      bondAccount: permissionLessBondAccount,
+    } = await initBondInstruction({
+      program,
+      configAccount: config.publicKey,
+      voteAccount,
+    })
+    await provider.sendIx([], createBondIx)
+
+    const randomAuthority = Keypair.generate()
+    const { instruction: ixWrongAuth } = await configureBondInstruction({
+      program,
+      bondAccount: permissionLessBondAccount,
+      authority: randomAuthority.publicKey,
+      newBondAuthority: PublicKey.default,
+    })
+    try {
+      await provider.sendIx([randomAuthority], ixWrongAuth)
+      throw new Error('failure expected; wrong authority validator identity')
+    } catch (e) {
+      verifyError(e, Errors, 6018, 'Wrong authority')
+    }
+    let bondsData = await getBond(program, permissionLessBondAccount)
+    expect(bondsData.authority).toEqual(validatorIdentity.publicKey)
+
+    const { instruction } = await configureBondInstruction({
+      program,
+      bondAccount: permissionLessBondAccount,
+      authority: validatorIdentity.publicKey,
+      newBondAuthority: PublicKey.default,
+    })
+    await provider.sendIx([validatorIdentity], instruction)
+    bondsData = await getBond(program, permissionLessBondAccount)
+    expect(bondsData.authority).toEqual(PublicKey.default)
   })
 })

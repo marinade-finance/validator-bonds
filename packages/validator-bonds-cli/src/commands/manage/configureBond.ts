@@ -16,7 +16,6 @@ import {
   CONFIG_ADDRESS,
   configureBondInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
-import { toHundredsBps } from '@marinade.finance/validator-bonds-sdk/src/utils'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 
 export function installConfigureBond(program: Command) {
@@ -55,11 +54,6 @@ export function installConfigureBond(program: Command) {
       'New value of authority that is permitted to operate with bond account.',
       parsePubkeyOrPubkeyFromWallet
     )
-    .option(
-      '--revenue-share <number>',
-      'New value of the revenue share in percents (the precision is 1/10000 of the percent, use e.g. 1.0001).',
-      toHundredsBps
-    )
 
     .action(
       async (
@@ -69,13 +63,11 @@ export function installConfigureBond(program: Command) {
           voteAccount,
           authority,
           bondAuthority,
-          revenueShare,
         }: {
           config?: Promise<PublicKey>
           voteAccount?: Promise<PublicKey>
           authority?: Promise<WalletInterface | PublicKey>
           bondAuthority?: Promise<PublicKey>
-          revenueShare?: number
         }
       ) => {
         await manageConfigureBond({
@@ -84,7 +76,6 @@ export function installConfigureBond(program: Command) {
           voteAccount: await voteAccount,
           authority: await authority,
           newBondAuthority: await bondAuthority,
-          newRevenueShareHundredthBps: revenueShare,
         })
       }
     )
@@ -96,14 +87,12 @@ async function manageConfigureBond({
   voteAccount,
   authority,
   newBondAuthority,
-  newRevenueShareHundredthBps,
 }: {
   bondAccountAddress?: PublicKey
   config?: PublicKey
   voteAccount?: PublicKey
   authority?: WalletInterface | PublicKey
   newBondAuthority?: PublicKey
-  newRevenueShareHundredthBps?: number
 }) {
   const {
     program,
@@ -128,9 +117,8 @@ async function manageConfigureBond({
     program,
     bondAccount: bondAccountAddress,
     configAccount: config,
-    validatorVoteAccount: voteAccount,
+    voteAccount,
     authority,
-    newRevenueShareHundredthBps,
     newBondAuthority,
   })
   tx.add(instruction)

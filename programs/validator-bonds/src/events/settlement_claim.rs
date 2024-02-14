@@ -4,10 +4,11 @@ use anchor_lang::prelude::*;
 pub struct ClaimSettlementEvent {
     pub settlement: Pubkey,
     pub settlement_claim: Pubkey,
-    pub staker_authority: Pubkey,
-    pub withdrawer_authority: Pubkey,
+    pub settlement_lamports_claimed: u64,
+    pub settlement_merkle_nodes_claimed: u64,
+    pub withdraw_authority: Pubkey,
     pub vote_account: Pubkey,
-    pub claim: u64,
+    pub amount: u64,
     pub rent_collector: Pubkey,
     pub bump: u8,
 }

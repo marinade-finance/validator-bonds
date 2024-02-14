@@ -57,7 +57,11 @@ describe('Validator Bonds cancel withdraw request', () => {
       bondAccount,
       validatorIdentity: nodeIdentity,
       bondAuthority: bondAuth,
-    } = await executeInitBondInstruction(program, provider, config.publicKey)
+    } = await executeInitBondInstruction({
+      program,
+      provider,
+      config: config.publicKey,
+    })
     bondAuthority = bondAuth
     validatorIdentity = nodeIdentity
     bond = {
@@ -80,9 +84,8 @@ describe('Validator Bonds cancel withdraw request', () => {
     expect(rentCollectorInfo).not.toBeNull()
     assert(rentCollectorInfo !== null)
     expect(rentCollectorInfo.lamports).toEqual(LAMPORTS_PER_SOL)
-    const withdrawRequestInfo = await provider.connection.getAccountInfo(
-      withdrawRequest
-    )
+    const withdrawRequestInfo =
+      await provider.connection.getAccountInfo(withdrawRequest)
     assert(withdrawRequestInfo !== null)
     const rentExempt =
       await provider.connection.getMinimumBalanceForRentExemption(
@@ -214,7 +217,7 @@ describe('Validator Bonds cancel withdraw request', () => {
       bondAccount,
       configAccount: config.publicKey,
       authority: valIdent,
-      validatorVoteAccount: voteAccount,
+      voteAccount,
     }))
     await provider.sendIx([valIdent!], instruction)
     await assertNotExist(provider, withdrawRequest)
@@ -230,7 +233,7 @@ describe('Validator Bonds cancel withdraw request', () => {
     ;({ instruction } = await cancelWithdrawRequestInstruction({
       program,
       configAccount: config.publicKey,
-      validatorVoteAccount: voteAccount,
+      voteAccount,
     }))
     await provider.sendIx([bondIdent!], instruction)
     await assertNotExist(provider, withdrawRequest)

@@ -98,8 +98,6 @@ describe('Init bond account using CLI', () => {
           validatorIdentityPath,
           '--bond-authority',
           bondAuthority.publicKey.toBase58(),
-          '--revenue-share',
-          '10',
           '--rent-payer',
           rentPayerPath,
           '--confirmation-finality',
@@ -120,9 +118,9 @@ describe('Init bond account using CLI', () => {
     )
     const bondsData = await getBond(program, bondAccount)
     expect(bondsData.config).toEqual(configAccount)
-    expect(bondsData.validatorVoteAccount).toEqual(voteAccount)
+    expect(bondsData.voteAccount).toEqual(voteAccount)
     expect(bondsData.authority).toEqual(bondAuthority.publicKey)
-    expect(bondsData.revenueShare.hundredthBps).toEqual(10 * 10 ** 4)
+    expect(bondsData.cpmpe).toEqual(0)
     expect(bondsData.bump).toEqual(bump)
     await expect(
       provider.connection.getBalance(rentPayerKeypair.publicKey)
@@ -144,8 +142,6 @@ describe('Init bond account using CLI', () => {
           configAccount.toBase58(),
           '--vote-account',
           voteAccount.toBase58(),
-          '--revenue-share',
-          '1000',
           '--confirmation-finality',
           'confirmed',
         ],
@@ -164,9 +160,9 @@ describe('Init bond account using CLI', () => {
     )
     const bondsData = await getBond(program, bondAccount)
     expect(bondsData.config).toEqual(configAccount)
-    expect(bondsData.validatorVoteAccount).toEqual(voteAccount)
+    expect(bondsData.voteAccount).toEqual(voteAccount)
     expect(bondsData.authority).toEqual(validatorIdentity.publicKey)
-    expect(bondsData.revenueShare.hundredthBps).toEqual(0)
+    expect(bondsData.cpmpe).toEqual(0)
     expect(bondsData.bump).toEqual(bump)
   })
 

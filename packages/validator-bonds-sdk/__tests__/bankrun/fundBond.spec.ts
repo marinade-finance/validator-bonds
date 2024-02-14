@@ -54,17 +54,19 @@ describe('Validator Bonds fund bond account', () => {
       publicKey: configAccount,
       account: await getConfig(program, configAccount),
     }
-    const { voteAccount, validatorIdentity } = await createVoteAccount(provider)
+    const { voteAccount, validatorIdentity } = await createVoteAccount({
+      provider,
+    })
     bondAuthority = Keypair.generate()
-    const { bondAccount } = await executeInitBondInstruction(
+    const { bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      config.publicKey,
+      config: config.publicKey,
       bondAuthority,
       voteAccount,
       validatorIdentity,
-      123
-    )
+      cpmpe: 123,
+    })
     bond = {
       publicKey: bondAccount,
       account: await getBond(program, bondAccount),
@@ -85,7 +87,7 @@ describe('Validator Bonds fund bond account', () => {
       await provider.sendIx([signer(withdrawer)], instruction)
       throw new Error('failure expected as not delegated')
     } catch (e) {
-      verifyError(e, Errors, 6017, 'cannot be used for bonds')
+      verifyError(e, Errors, 6019, 'cannot be used for bonds')
     }
   })
 
@@ -106,7 +108,7 @@ describe('Validator Bonds fund bond account', () => {
       await provider.sendIx([withdrawer], instruction)
       throw new Error('failure expected as not activated')
     } catch (e) {
-      verifyError(e, Errors, 6023, 'Stake account is not fully activated')
+      verifyError(e, Errors, 6025, 'Stake account is not fully activated')
     }
 
     await warpToNextEpoch(provider)
@@ -114,7 +116,7 @@ describe('Validator Bonds fund bond account', () => {
       await provider.sendIx([withdrawer], instruction)
       throw new Error('failure expected as delegated to wrong validator')
     } catch (e) {
-      verifyError(e, Errors, 6018, 'delegated to a wrong validator')
+      verifyError(e, Errors, 6020, 'delegated to a wrong validator')
     }
   })
 
@@ -124,7 +126,7 @@ describe('Validator Bonds fund bond account', () => {
     const { stakeAccount, withdrawer } = await delegatedStakeAccount({
       provider,
       lamports: LAMPORTS_PER_SOL * 2,
-      voteAccountToDelegate: bond.account.validatorVoteAccount,
+      voteAccountToDelegate: bond.account.voteAccount,
       lockup: {
         custodian: Keypair.generate().publicKey,
         epoch: nextEpoch + 1,
@@ -145,7 +147,7 @@ describe('Validator Bonds fund bond account', () => {
       await provider.sendIx([withdrawer], instruction)
       throw new Error('failure expected as should be locked')
     } catch (e) {
-      verifyError(e, Errors, 6028, 'stake account is locked-up')
+      verifyError(e, Errors, 6030, 'stake account is locked-up')
     }
   })
 
@@ -153,7 +155,7 @@ describe('Validator Bonds fund bond account', () => {
     const { stakeAccount, withdrawer } = await delegatedStakeAccount({
       provider,
       lamports: LAMPORTS_PER_SOL * 2,
-      voteAccountToDelegate: bond.account.validatorVoteAccount,
+      voteAccountToDelegate: bond.account.voteAccount,
     })
     const [bondWithdrawer] = withdrawerAuthority(
       config.publicKey,

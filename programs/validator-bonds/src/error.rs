@@ -17,135 +17,144 @@ pub enum ErrorCode {
     #[msg("Provided vote account is not owned by the validator vote program")]
     InvalidVoteAccountProgramId, // 6004 0x1774
 
+    #[msg("Provided vote account is trouble to deserialize")]
+    InvalidStakeAccountState, // 6005 0x1775
+
+    #[msg("Provided stake account is not owned by the stake account program")]
+    InvalidStakeAccountProgramId, // 6006 0x1776
+
     #[msg("Fail to create account address for Settlement")]
-    InvalidSettlementAddress, // 6005 0x1775
+    InvalidSettlementAddress, // 6007 0x1777
 
     #[msg("Fail to create PDA address for Settlement Authority")]
-    InvalidSettlementAuthorityAddress, // 6006 0x1776
+    InvalidSettlementAuthorityAddress, // 6008 0x1778
 
     #[msg("Fail to create PDA address for Bonds Withdrawer Authority")]
-    InvalidBondsWithdrawerAuthorityAddress, // 6007 0x1777
+    InvalidBondsWithdrawerAuthorityAddress, // 6009 0x1779
 
     #[msg("Fail to create program address for SettlementClaim")]
-    InvalidSettlementClaimAddress, // 6008 0x1778
+    InvalidSettlementClaimAddress, // 6010 0x177a
 
     #[msg("Fail to create program address for Bond")]
-    InvalidBondAddress, // 6009 0x1779
+    InvalidBondAddress, // 6011 0x177b
 
     #[msg("Wrong withdrawer authority of the stake account")]
-    WrongStakeAccountWithdrawer, // 6010 0x177a
+    WrongStakeAccountWithdrawer, // 6012 0x177c
 
     #[msg("Fail to create program address for WithdrawRequest")]
-    InvalidWithdrawRequestAddress, // 6011 0x177b
+    InvalidWithdrawRequestAddress, // 6013 0x177d
 
+    // note: not used
     #[msg("Value of hundredth basis points is too big")]
-    HundredthBasisPointsOverflow, // 6012 0x177c
+    HundredthBasisPointsOverflow, // 6014 0x177e
 
+    // note: not used
     #[msg("Hundredth basis points calculation failure")]
-    HundredthBasisPointsCalculation, // 6013 0x177d
+    HundredthBasisPointsCalculation, // 6015 0x177f
 
+    // note: not used
     #[msg("Hundredth basis points failure to parse the value")]
-    HundredthBasisPointsParse, // 6014 0x177e
+    HundredthBasisPointsParse, // 6016 0x1780
 
     #[msg("Cannot deserialize validator vote account data")]
-    FailedToDeserializeVoteAccount, // 6015 0x177f
+    FailedToDeserializeVoteAccount, // 6017 0x1781
 
     #[msg("Wrong authority for changing the validator bond account")]
-    BondChangeNotPermitted, // 6016 0x1780
+    BondChangeNotPermitted, // 6018 0x1782
 
     #[msg("Provided stake cannot be used for bonds, it's not delegated")]
-    StakeNotDelegated, // 6017 0x1781
+    StakeNotDelegated, // 6019 0x1783
 
     #[msg("Provided stake is delegated to a wrong validator vote account")]
-    BondStakeWrongDelegation, // 6018 0x1782
+    BondStakeWrongDelegation, // 6020 0x1784
 
     #[msg("Withdraw request has not elapsed the epoch lockup period yet")]
-    WithdrawRequestNotReady, // 6019 0x1783
+    WithdrawRequestNotReady, // 6021 0x1785
 
     #[msg("Settlement has not expired yet")]
-    SettlementNotExpired, // 6020 0x1784
+    SettlementNotExpired, // 6022 0x1786
 
     #[msg("Settlement has already expired")]
-    SettlementExpired, // 6021 0x1785
+    SettlementExpired, // 6023 0x1787
 
     #[msg("Stake is not initialized")]
-    UninitializedStake, // 6022 0x1786
+    UninitializedStake, // 6024 0x1788
 
     #[msg("Stake account is not fully activated")]
-    NoStakeOrNotFullyActivated, // 6023 0x1787
+    NoStakeOrNotFullyActivated, // 6025 0x1789
 
     #[msg("Instruction context was provided with unexpected set of remaining accounts")]
-    UnexpectedRemainingAccounts, // 6024 0x1788
+    UnexpectedRemainingAccounts, // 6026 0x178a
 
-    #[msg("Closing SettlementClaim requires the settlement being closed")]
-    SettlementNotClosed, // 6025 0x1789
+    #[msg("Required settlement to be closed")]
+    SettlementNotClosed, // 6027 0x178b
 
     #[msg("Provided stake account has been already funded to a settlement")]
-    StakeAccountIsFundedToSettlement, // 6026 0x178a
+    StakeAccountIsFundedToSettlement, // 6028 0x178c
 
     #[msg("Settlement claim proof failed")]
-    ClaimSettlementProofFailed, // 6027 0x178b
+    ClaimSettlementProofFailed, // 6029 0x178d
 
     #[msg("Provided stake account is locked-up")]
-    StakeLockedUp, // 6028 0x178c
+    StakeLockedUp, // 6030 0x178e
 
     #[msg("Stake account is not big enough to be split")]
-    StakeAccountNotBigEnoughToSplit, // 6029 0x178d
+    StakeAccountNotBigEnoughToSplit, // 6031 0x178f
 
     #[msg("Claiming bigger amount than the max total claim")]
-    ClaimAmountExceedsMaxTotalClaim, // 6030 0x178e
+    ClaimAmountExceedsMaxTotalClaim, // 6032 0x1790
 
     #[msg("Claim exceeded number of claimable nodes in the merkle tree")]
-    ClaimCountExceedsMaxNumNodes, // 6031 0x178f
+    ClaimCountExceedsMaxMerkleNodes, // 6033 0x1791
 
     #[msg("Empty merkle tree, nothing to be claimed")]
-    EmptySettlementMerkleTree, // 6032 0x1790
+    EmptySettlementMerkleTree, // 6034 0x1792
 
     #[msg("Provided stake account has not enough lamports to cover the claim")]
-    ClaimingStakeAccountLamportsInsufficient, // 6033 0x1791
+    ClaimingStakeAccountLamportsInsufficient, // 6035 0x1793
 
-    #[msg("Provided stake account is not funded under a settlement")]
-    StakeAccountNotFunded, // 6034 0x1792
+    #[msg("Provided stake account is not funded under the settlement")]
+    StakeAccountNotFundedToSettlement, // 6036 0x1794
 
     #[msg("Validator vote account does not match to provided validator identity signature")]
-    VoteAccountValidatorIdentityMismatch, // 6035 0x1793
+    VoteAccountValidatorIdentityMismatch, // 6037 0x1795
 
     #[msg("Bond vote account address does not match with the provided validator vote account")]
-    VoteAccountMismatch, // 6036 0x1794
+    VoteAccountMismatch, // 6038 0x1796
 
     #[msg("Bond config address does not match with the provided config account")]
-    ConfigAccountMismatch, // 6037 0x1795
+    ConfigAccountMismatch, // 6039 0x1797
 
     #[msg("Withdraw request vote account address does not match with the provided validator vote account")]
-    WithdrawRequestVoteAccountMismatch, // 6038 0x1796
+    WithdrawRequestVoteAccountMismatch, // 6040 0x1798
 
     #[msg("Bond account address does not match with the stored one")]
-    BondAccountMismatch, // 6039 0x1797
+    BondAccountMismatch, // 6041 0x1799
 
     #[msg("Settlement account address does not match with the stored one")]
-    SettlementAccountMismatch, // 6040 0x1798
+    SettlementAccountMismatch, // 6042 0x179a
 
     #[msg("Rent collector address does not match permitted rent collector")]
-    RentCollectorMismatch, // 6041 0x1799
+    RentCollectorMismatch, // 6043 0x179b
 
     #[msg("Stake account's staker does not match with the provided authority")]
-    StakerAuthorityMismatch, // 6042 0x179a
+    StakerAuthorityMismatch, // 6044 0x179c
 
     #[msg("One or both stake authorities does not belong to bonds program")]
-    NonBondStakeAuthorities, // 6043 0x179b
+    NonBondStakeAuthorities, // 6045 0x179d
 
-    #[msg("Settlement stake account authority does not match with the provided stake account authority")]
-    SettlementAuthorityMismatch, // 6044 0x179c
+    #[msg("Stake account staker authority mismatches with the settlement authority")]
+    SettlementAuthorityMismatch, // 6046 0x179e
 
     #[msg("Delegation of provided stake account mismatches")]
-    StakeDelegationMismatch, // 6045 0x179d
+    StakeDelegationMismatch, // 6047 0x179f
 
     #[msg("Too small non-withdrawn withdraw request amount, cancel and init new one")]
-    WithdrawRequestAmountTooSmall, // 6046 0x179e
+    WithdrawRequestAmountTooSmall, // 6048 0x17a0
 
     #[msg("Withdraw request has been already fulfilled")]
-    WithdrawRequestAlreadyFulfilled, // 6047 0x179f
+    WithdrawRequestAlreadyFulfilled, // 6049 0x17a1
 
-    #[msg("Not yet implemented")]
-    NotYetImplemented, // 6048 0x17a0
+    #[msg("Claim settlement merkle tree node mismatch")]
+    ClaimSettlementMerkleTreeNodeMismatch, // 6050 0x17a2
 }

@@ -54,7 +54,7 @@ describe('Validator Bonds claim withdraw request', () => {
       )
     })
 
-    const { withdrawRequest, bondAccount, voteAccount } =
+    const { withdrawRequest, bondAccount, voteAccount, bondAuthority } =
       await executeNewWithdrawRequest({
         program,
         provider,
@@ -99,12 +99,13 @@ describe('Validator Bonds claim withdraw request', () => {
     const { instruction, splitStakeAccount } =
       await claimWithdrawRequestInstruction({
         program,
+        authority: bondAuthority,
         withdrawRequestAccount: withdrawRequest,
         bondAccount,
         stakeAccount,
       })
 
-    await provider.sendIx([splitStakeAccount], instruction)
+    await provider.sendIx([splitStakeAccount, bondAuthority], instruction)
 
     stakeAccountData = await getStakeAccount(provider, stakeAccount)
     const voteAccountData = await getVoteAccount(provider, voteAccount)
@@ -133,7 +134,7 @@ describe('Validator Bonds claim withdraw request', () => {
       )
       expect(e.splitStake?.amount).toEqual(splitStakeLamports)
       expect(e.splitStake?.address).toEqual(splitStakeAccount.publicKey)
-      expect(e.validatorVoteAccount).toEqual(voteAccount)
+      expect(e.voteAccount).toEqual(voteAccount)
       expect(e.withdrawRequest).toEqual(withdrawRequest)
       expect(e.withdrawingAmount).toEqual(requestedAmount)
       expect(e.withdrawnAmount).toEqual({

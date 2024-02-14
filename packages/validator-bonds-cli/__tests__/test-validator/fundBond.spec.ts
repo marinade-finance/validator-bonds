@@ -51,17 +51,16 @@ describe('Fund bond account using CLI', () => {
       provider.connection.getAccountInfo(configAccount)
     ).resolves.not.toBeNull()
     const { voteAccount: voteAccountAddress, validatorIdentity } =
-      await createVoteAccount(provider)
+      await createVoteAccount({ provider })
     voteAccount = voteAccountAddress
-    ;({ bondAccount } = await executeInitBondInstruction(
+    ;({ bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      configAccount,
-      undefined,
+      config: configAccount,
       voteAccount,
       validatorIdentity,
-      123
-    ))
+      cpmpe: 123,
+    }))
   })
 
   afterEach(async () => {

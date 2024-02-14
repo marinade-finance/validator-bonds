@@ -20,7 +20,7 @@ describe('Validator Bonds fund bond', () => {
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let bondAccount: PublicKey
-  let validatorVoteAccount: PublicKey
+  let voteAccount: PublicKey
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
@@ -36,16 +36,16 @@ describe('Validator Bonds fund bond', () => {
       program,
       provider,
     }))
-    const { voteAccount, validatorIdentity } = await createVoteAccount(provider)
-    validatorVoteAccount = voteAccount
-    ;({ bondAccount } = await executeInitBondInstruction(
+    const { voteAccount: validatorVoteAccount, validatorIdentity } =
+      await createVoteAccount({ provider })
+    voteAccount = validatorVoteAccount
+    ;({ bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      configAccount,
-      undefined,
-      validatorVoteAccount,
-      validatorIdentity
-    ))
+      config: configAccount,
+      voteAccount,
+      validatorIdentity,
+    }))
   })
 
   it('fund bond', async () => {
@@ -62,7 +62,7 @@ describe('Validator Bonds fund bond', () => {
     const { stakeAccount, withdrawer } = await delegatedStakeAccount({
       provider,
       lamports: LAMPORTS_PER_SOL * 2,
-      voteAccountToDelegate: validatorVoteAccount,
+      voteAccountToDelegate: voteAccount,
     })
     console.debug(
       `Waiting for activation of stake account: ${stakeAccount.toBase58()}`
@@ -95,7 +95,7 @@ describe('Validator Bonds fund bond', () => {
       expect(e.depositedAmount).toEqual(2 * LAMPORTS_PER_SOL)
       expect(e.stakeAccount).toEqual(stakeAccount)
       expect(e.stakeAuthoritySigner).toEqual(withdrawer.publicKey)
-      expect(e.validatorVote).toEqual(validatorVoteAccount)
+      expect(e.voteAccount).toEqual(voteAccount)
     })
   })
 })

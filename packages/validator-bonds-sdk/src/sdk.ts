@@ -15,11 +15,13 @@ import {
   AccountInfo,
   ConfirmOptions,
   Connection,
+  EpochInfo,
   Keypair,
   ParsedAccountData,
   PublicKey,
 } from '@solana/web3.js'
 import BN from 'bn.js'
+import { MerkleTreeNode } from './merkleTree'
 
 export const CONFIG_ADDRESS = new PublicKey(
   'vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU'
@@ -46,8 +48,6 @@ export type InitConfigArgs = IdlTypes<ValidatorBonds>['InitConfigArgs']
 export type ConfigureConfigArgs =
   IdlTypes<ValidatorBonds>['ConfigureConfigArgs']
 export type InitBondArgs = IdlTypes<ValidatorBonds>['InitBondArgs']
-export type HundredthBasisPoint =
-  IdlTypes<ValidatorBonds>['HundredthBasisPoint']
 
 // --- CONSTANTS ---
 function seedFromConstants(seedName: string): Uint8Array {
@@ -90,6 +90,10 @@ export type FundBondEvent = IdlEvents<ValidatorBonds>[typeof FUND_BOND_EVENT]
 export const CONFIGURE_CONFIG_EVENT = 'ConfigureConfigEvent'
 export type ConfigureConfigEvent =
   IdlEvents<ValidatorBonds>[typeof CONFIGURE_CONFIG_EVENT]
+
+export const FUND_SETTLEMENT_EVENT = 'FundSettlementEvent'
+export type FundSettlementEvent =
+  IdlEvents<ValidatorBonds>[typeof FUND_SETTLEMENT_EVENT]
 
 export const CLAIM_SETTLEMENT_EVENT = 'ClaimSettlementEvent'
 export type ClaimSettlementEvent =
@@ -209,11 +213,23 @@ export function withdrawerAuthority(
 
 export function settlementAddress(
   bond: PublicKey,
-  merkleRoot: Uint8Array,
+  merkleRoot: Uint8Array | Buffer | number[],
+  epoch: EpochInfo | number | BN | bigint,
   validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
 ): [PublicKey, number] {
+  if (Array.isArray(merkleRoot)) {
+    merkleRoot = new Uint8Array(merkleRoot)
+  }
+  const epochLittleEndian = Buffer.alloc(8)
+  const epochBigint =
+    typeof epoch === 'number' ||
+    epoch instanceof BN ||
+    typeof epoch === 'bigint'
+      ? BigInt(epoch.toString())
+      : BigInt(epoch.epoch)
+  epochLittleEndian.writeBigInt64LE(epochBigint)
   return PublicKey.findProgramAddressSync(
-    [SETTLEMENT_SEED, bond.toBytes(), merkleRoot],
+    [SETTLEMENT_SEED, bond.toBytes(), merkleRoot, epochLittleEndian],
     validatorBondsProgramId
   )
 }
@@ -229,21 +245,31 @@ export function settlementAuthority(
 }
 
 export function settlementClaimAddress(
-  settlement: PublicKey,
-  stakeAuthority: PublicKey,
-  withdrawAuthority: PublicKey,
-  voteAccount: PublicKey,
-  claim: BN,
+  {
+    settlement,
+    stakeAuthority,
+    withdrawAuthority,
+    voteAccount,
+    claim,
+  }: {
+    settlement: PublicKey
+    stakeAuthority: PublicKey
+    withdrawAuthority: PublicKey
+    voteAccount: PublicKey
+    claim: BN | number
+  },
   validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [
       SETTLEMENT_CLAIM_SEED,
       settlement.toBytes(),
-      stakeAuthority.toBytes(),
-      withdrawAuthority.toBytes(),
-      voteAccount.toBytes(),
-      claim.toArrayLike(Buffer, 'le', 8),
+      MerkleTreeNode.hash({
+        stakeAuthority: stakeAuthority.toBase58(),
+        withdrawAuthority: withdrawAuthority.toBase58(),
+        voteAccount: voteAccount.toBase58(),
+        claim: claim,
+      }).buffer,
     ],
     validatorBondsProgramId
   )

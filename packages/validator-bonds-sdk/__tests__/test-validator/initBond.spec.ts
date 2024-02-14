@@ -54,15 +54,17 @@ describe('Validator Bonds init bond', () => {
       )
     })
 
-    const { voteAccount: validatorVoteAccount } =
-      await createVoteAccountWithIdentity(provider, validatorIdentity)
+    const { voteAccount } = await createVoteAccountWithIdentity(
+      provider,
+      validatorIdentity
+    )
     const bondAuthority = PublicKey.unique()
     const { instruction, bondAccount } = await initBondInstruction({
       program,
       configAccount,
       bondAuthority,
-      revenueShareHundredthBps: 22,
-      validatorVoteAccount,
+      cpmpe: 22,
+      voteAccount,
       validatorIdentity: validatorIdentity.publicKey,
     })
     await provider.sendIx([validatorIdentity], instruction)
@@ -70,7 +72,7 @@ describe('Validator Bonds init bond', () => {
     const bondsDataFromList = await findBonds({
       program,
       config: configAccount,
-      validatorVoteAccount,
+      voteAccount,
       bondAuthority,
     })
     expect(bondsDataFromList.length).toEqual(1)
@@ -79,23 +81,23 @@ describe('Validator Bonds init bond', () => {
 
     const [bondCalculatedAddress, bondBump] = bondAddress(
       configAccount,
-      validatorVoteAccount,
+      voteAccount,
       program.programId
     )
     expect(bondCalculatedAddress).toEqual(bondAccount)
     expect(bondData.authority).toEqual(bondAuthority)
     expect(bondData.bump).toEqual(bondBump)
     expect(bondData.config).toEqual(configAccount)
-    expect(bondData.revenueShare).toEqual({ hundredthBps: 22 })
-    expect(bondData.validatorVoteAccount).toEqual(validatorVoteAccount)
+    expect(bondData.cpmpe).toEqual(22)
+    expect(bondData.voteAccount).toEqual(voteAccount)
 
     // Ensure the event listener was called
     await event.then(e => {
       expect(e.authority).toEqual(bondAuthority)
       expect(e.bondBump).toEqual(bondBump)
       expect(e.configAddress).toEqual(configAccount)
-      expect(e.revenueShare).toEqual({ hundredthBps: 22 })
-      expect(e.validatorVoteAccount).toEqual(validatorVoteAccount)
+      expect(e.cpmpe).toEqual(22)
+      expect(e.voteAccount).toEqual(voteAccount)
       expect(e.validatorIdentity).toEqual(validatorIdentity.publicKey)
     })
   })
@@ -112,20 +114,22 @@ describe('Validator Bonds init bond', () => {
 
     const voteAccounts: [PublicKey, Keypair][] = []
     for (let i = 1; i <= numberOfBonds; i++) {
-      const { voteAccount: validatorVoteAccount } =
-        await createVoteAccountWithIdentity(provider, validatorIdentity)
-      voteAccounts.push([validatorVoteAccount, validatorIdentity])
+      const { voteAccount: voteAccount } = await createVoteAccountWithIdentity(
+        provider,
+        validatorIdentity
+      )
+      voteAccounts.push([voteAccount, validatorIdentity])
       signers.push(signer(validatorIdentity))
     }
 
     for (let i = 1; i <= numberOfBonds; i++) {
-      const [validatorVoteAccount, nodeIdentity] = voteAccounts[i - 1]
+      const [voteAccount, nodeIdentity] = voteAccounts[i - 1]
       const { instruction } = await initBondInstruction({
         program,
         configAccount,
         bondAuthority: bondAuthority,
-        revenueShareHundredthBps: 100,
-        validatorVoteAccount,
+        cpmpe: 100,
+        voteAccount,
         validatorIdentity: nodeIdentity,
       })
       tx.add(instruction)
@@ -145,10 +149,10 @@ describe('Validator Bonds init bond', () => {
     expect(bondDataFromList.length).toEqual(numberOfBonds)
 
     for (let i = 1; i <= numberOfBonds; i++) {
-      const [validatorVoteAccount] = voteAccounts[i - 1]
+      const [voteAccount] = voteAccounts[i - 1]
       bondDataFromList = await findBonds({
         program,
-        validatorVoteAccount,
+        voteAccount,
       })
       expect(bondDataFromList.length).toEqual(1)
     }

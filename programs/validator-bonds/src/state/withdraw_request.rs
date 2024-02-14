@@ -8,9 +8,9 @@ use anchor_lang::prelude::*;
 #[account]
 #[derive(Debug, Default)]
 pub struct WithdrawRequest {
-    /// Validator that requested the withdraw
-    pub validator_vote_account: Pubkey,
-    /// Bond account that the withdraw request is for
+    /// Validator vote account that requested the withdraw
+    pub vote_account: Pubkey,
+    /// Bond account that the withdraw request is for (has to match with vote_account)
     pub bond: Pubkey,
     /// Epoch when the withdraw was requested, i.e., when this "ticket" is created
     pub epoch: u64,

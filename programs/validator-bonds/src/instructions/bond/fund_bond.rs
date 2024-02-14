@@ -23,7 +23,7 @@ pub struct FundBond<'info> {
         seeds = [
             b"bond_account",
             config.key().as_ref(),
-            bond.validator_vote_account.as_ref()
+            bond.vote_account.as_ref()
         ],
         bump = bond.bump,
     )]
@@ -85,7 +85,7 @@ impl<'info> FundBond<'info> {
             self.clock.epoch,
             &self.stake_history,
         )?;
-        check_stake_valid_delegation(&self.stake_account, &self.bond.validator_vote_account)?;
+        check_stake_valid_delegation(&self.stake_account, &self.bond.vote_account)?;
 
         authorize(
             CpiContext::new(
@@ -118,7 +118,7 @@ impl<'info> FundBond<'info> {
 
         emit!(FundBondEvent {
             bond: self.bond.key(),
-            validator_vote: self.bond.validator_vote_account.key(),
+            vote_account: self.bond.vote_account.key(),
             stake_account: self.stake_account.key(),
             stake_authority_signer: self.stake_authority.key(),
             deposited_amount: self.stake_account.get_lamports(),

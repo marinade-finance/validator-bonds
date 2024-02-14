@@ -1,14 +1,14 @@
 use crate::checks::check_bond_change_permitted;
 use crate::error::ErrorCode;
-use crate::events::{bond::ConfigureBondEvent, HundrethBasisPointChange, PubkeyValueChange};
+use crate::events::{bond::ConfigureBondEvent, PubkeyValueChange, U64ValueChange};
 use crate::state::bond::Bond;
-use crate::utils::basis_points::HundredthBasisPoint;
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct ConfigureBondArgs {
     pub bond_authority: Option<Pubkey>,
-    pub revenue_share: Option<HundredthBasisPoint>,
+    pub cpmpe: Option<u64>,
 }
 
 /// Change parameters of validator bond account
@@ -16,11 +16,11 @@ pub struct ConfigureBondArgs {
 pub struct ConfigureBond<'info> {
     #[account(
         mut,
-        has_one = validator_vote_account @ ErrorCode::VoteAccountMismatch,
+        has_one = vote_account @ ErrorCode::VoteAccountMismatch,
         seeds = [
             b"bond_account",
             bond.config.as_ref(),
-            validator_vote_account.key().as_ref(),
+            vote_account.key().as_ref(),
         ],
         bump = bond.bump,
     )]
@@ -31,8 +31,10 @@ pub struct ConfigureBond<'info> {
     authority: Signer<'info>,
 
     /// CHECK: check&deserialize the vote account in the code
-    #[account()]
-    validator_vote_account: UncheckedAccount<'info>,
+    #[account(
+        owner = vote_program_id @ ErrorCode::InvalidVoteAccountProgramId,
+    )]
+    vote_account: UncheckedAccount<'info>,
 }
 
 impl<'info> ConfigureBond<'info> {
@@ -40,15 +42,11 @@ impl<'info> ConfigureBond<'info> {
         &mut self,
         ConfigureBondArgs {
             bond_authority,
-            revenue_share,
+            cpmpe,
         }: ConfigureBondArgs,
     ) -> Result<()> {
         require!(
-            check_bond_change_permitted(
-                &self.authority.key(),
-                &self.bond,
-                &self.validator_vote_account
-            ),
+            check_bond_change_permitted(&self.authority.key(), &self.bond, &self.vote_account),
             ErrorCode::BondChangeNotPermitted
         );
 
@@ -60,18 +58,21 @@ impl<'info> ConfigureBond<'info> {
                 new: authority,
             }
         });
-        let revenue_share_change = match revenue_share {
-            Some(revenue) => {
-                let old = self.bond.revenue_share;
-                self.bond.revenue_share = revenue.check()?;
-                Some(HundrethBasisPointChange { old, new: revenue })
+        let cpmpe_change = match cpmpe {
+            Some(new_cpmpe) => {
+                let old = self.bond.cpmpe;
+                self.bond.cpmpe = new_cpmpe;
+                Some(U64ValueChange {
+                    old,
+                    new: new_cpmpe,
+                })
             }
             None => None,
         };
 
         emit!(ConfigureBondEvent {
             bond_authority: bond_authority_change,
-            revenue_share: revenue_share_change,
+            cpmpe: cpmpe_change,
         });
 
         Ok(())

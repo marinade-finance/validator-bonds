@@ -6,11 +6,13 @@ use crate::error::ErrorCode;
 use crate::events::stake::ResetEvent;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
+use crate::state::settlement::find_settlement_authority;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
 use anchor_lang::solana_program::stake;
 use anchor_lang::solana_program::stake::state::StakeAuthorize;
 use anchor_lang::solana_program::sysvar::stake_history;
+use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 
 /// Resetting stake authority of a funded stake account belonging to removed settlement.
@@ -23,27 +25,27 @@ pub struct ResetStake<'info> {
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,
+        has_one = vote_account @ ErrorCode::VoteAccountMismatch,
         seeds = [
             b"bond_account",
             config.key().as_ref(),
-            bond.validator_vote_account.key().as_ref()
+            vote_account.key().as_ref()
         ],
         bump = bond.bump,
     )]
     bond: Account<'info, Bond>,
 
-    /// CHECK: verification that it does not exist
+    /// CHECK: cannot exist
+    /// settlment account used to derive settlement authority which cannot exists
     settlement: UncheckedAccount<'info>,
 
     /// stake account belonging to authority of the settlement
     #[account(mut)]
     stake_account: Account<'info, StakeAccount>,
 
-    /// CHECK: CPI calls of stake authorize permits to change the staker only with correct settlement authority
-    settlement_authority: UncheckedAccount<'info>,
-
     /// CHECK: PDA
-    /// authority that owns (withdrawer authority) all stakes account under the bonds program
+    /// bonds withdrawer authority
+    /// to cancel settlement funding of the stake account changing staker authority to address
     #[account(
       seeds = [
           b"bonds_authority",
@@ -54,7 +56,10 @@ pub struct ResetStake<'info> {
     bonds_withdrawer_authority: UncheckedAccount<'info>,
 
     /// CHECK: the validator vote account to which the stake account is delegated, check in code
-    validator_vote_account: UncheckedAccount<'info>,
+    #[account(
+        owner = vote_program_id @ ErrorCode::InvalidVoteAccountProgramId,
+    )]
+    vote_account: UncheckedAccount<'info>,
 
     /// CHECK: have no CPU budget to parse
     #[account(address = stake_history::ID)]
@@ -71,8 +76,6 @@ pub struct ResetStake<'info> {
 
 impl<'info> ResetStake<'info> {
     pub fn process(&mut self) -> Result<()> {
-        require!(true == false, ErrorCode::NotYetImplemented);
-
         // settlement account cannot exists
         require_eq!(
             self.settlement.lamports(),
@@ -86,13 +89,13 @@ impl<'info> ResetStake<'info> {
             &self.bonds_withdrawer_authority.key(),
             "stake_account",
         )?;
-        // one bond can be created for a validator vote account, this stake account belongs to bond
-        check_stake_valid_delegation(&self.stake_account, &self.bond.validator_vote_account)?;
-        check_stake_valid_delegation(&self.stake_account, &self.validator_vote_account.key())?;
+        // a bond account is tightly coupled to a vote account, this stake account belongs to bond
+        check_stake_valid_delegation(&self.stake_account, &self.bond.vote_account)?;
         // stake account is funded to particular settlement
+        let settlement_authority = find_settlement_authority(&self.settlement.key()).0;
         require_eq!(
             stake_meta.authorized.staker,
-            self.settlement_authority.key(),
+            settlement_authority,
             ErrorCode::SettlementAuthorityMismatch
         );
 
@@ -103,7 +106,7 @@ impl<'info> ResetStake<'info> {
                 self.stake_program.to_account_info(),
                 Authorize {
                     stake: self.stake_account.to_account_info(),
-                    authorized: self.settlement_authority.to_account_info(),
+                    authorized: self.bonds_withdrawer_authority.to_account_info(),
                     new_authorized: self.bonds_withdrawer_authority.to_account_info(),
                     clock: self.clock.to_account_info(),
                 },
@@ -117,11 +120,11 @@ impl<'info> ResetStake<'info> {
             None,
         )?;
 
-        // activate the stake, i.e., resetting is delegating to the validator again
+        // activate the stake, i.e., resetting delegation to the validator again
         let delegate_instruction = &stake::instruction::delegate_stake(
             &self.stake_account.key(),
             &self.bonds_withdrawer_authority.key(),
-            &self.bond.validator_vote_account,
+            &self.bond.vote_account,
         );
         invoke_signed(
             delegate_instruction,
@@ -129,7 +132,7 @@ impl<'info> ResetStake<'info> {
                 self.stake_program.to_account_info(),
                 self.stake_account.to_account_info(),
                 self.bonds_withdrawer_authority.to_account_info(),
-                self.validator_vote_account.to_account_info(),
+                self.vote_account.to_account_info(),
                 self.clock.to_account_info(),
                 self.stake_history.to_account_info(),
                 self.stake_config.to_account_info(),
@@ -146,9 +149,8 @@ impl<'info> ResetStake<'info> {
             bond: self.bond.key(),
             settlement: self.settlement.key(),
             stake_account: self.stake_account.key(),
-            validator_vote_acount: self.validator_vote_account.key(),
-            settlement_authority: self.settlement_authority.key(),
-            bonds_withdrawer_authority: self.bonds_withdrawer_authority.key(),
+            vote_account: self.vote_account.key(),
+            settlement_authority,
         });
 
         Ok(())

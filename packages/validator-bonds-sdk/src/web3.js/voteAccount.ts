@@ -26,43 +26,55 @@ export async function getVoteAccount<IDL extends Idl = Idl>(
     )
   }
 
+  const versionOffset = 4
+  const version = VoteAccountVersionLayout.decode(
+    toBuffer(voteAccountInfo.data),
+    0
+  ) as VoteAccountVersion
+
   let voteAccountData: VoteAccount
-  try {
-    voteAccountData = fromAccount0_14_11Data(voteAccountInfo.data)
-  } catch (err) {
-    voteAccountData = fromAccount0_23_5Data(voteAccountInfo.data)
+  if (version.V0_23_5) {
+    voteAccountData = fromAccount0_23_5Data(voteAccountInfo.data, versionOffset)
+  } else if (version.V1_14_11 || version.CURRENT) {
+    voteAccountData = fromAccount1_14_11Data(
+      voteAccountInfo.data,
+      versionOffset
+    )
+  } else {
+    throw new Error(
+      `Unknown vote account version: ${JSON.stringify(
+        version
+      )} at ${address.toBase58()}`
+    )
   }
   return programAccountInfo(address, voteAccountInfo, voteAccountData)
 }
 
 /**
- * Deserialize VoteAccount 0.14.11 from the account data.
+ * Deserialize VoteAccount 1.14.11 from the account data.
  */
-function fromAccount0_14_11Data(
-  buffer: Buffer | Uint8Array | Array<number>
+function fromAccount1_14_11Data(
+  buffer: Buffer | Uint8Array | Array<number>,
+  versionOffset: number
 ): VoteAccount {
-  const versionOffset = 4
-  // console.log(
-  //   'fromAccount0_14_11Data: starting buffer length',
-  //   buffer.length,
-  //   versionOffset
-  // )
-  const voteAccount01411 = VoteAccount0_14_11Layout.decode(
+  const voteAccount1_14_11 = VoteAccount1_14_11Layout.decode(
     toBuffer(buffer),
     versionOffset
   )
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return new (VoteAccount as any)({
-    nodePubkey: new PublicKey(voteAccount01411.nodePubkey),
-    authorizedWithdrawer: new PublicKey(voteAccount01411.authorizedWithdrawer),
-    commission: voteAccount01411.commission,
-    votes: voteAccount01411.votes,
-    rootSlot: voteAccount01411.rootSlot,
+    nodePubkey: new PublicKey(voteAccount1_14_11.nodePubkey),
+    authorizedWithdrawer: new PublicKey(
+      voteAccount1_14_11.authorizedWithdrawer
+    ),
+    commission: voteAccount1_14_11.commission,
+    votes: voteAccount1_14_11.votes,
+    rootSlot: voteAccount1_14_11.rootSlot,
     authorizedVoters:
-      voteAccount01411.authorizedVoters.map(parseAuthorizedVoter),
-    priorVoters: getPriorVoters(voteAccount01411.priorVoters),
-    epochCredits: voteAccount01411.epochCredits,
-    lastTimestamp: voteAccount01411.lastTimestamp,
+      voteAccount1_14_11.authorizedVoters.map(parseAuthorizedVoter),
+    priorVoters: getPriorVoters(voteAccount1_14_11.priorVoters),
+    epochCredits: voteAccount1_14_11.epochCredits,
+    lastTimestamp: voteAccount1_14_11.lastTimestamp,
   }) as VoteAccount
 }
 
@@ -70,34 +82,29 @@ function fromAccount0_14_11Data(
  * Deserialize VoteAccount 0.23.5 from the account data.
  */
 function fromAccount0_23_5Data(
-  buffer: Buffer | Uint8Array | Array<number>
+  buffer: Buffer | Uint8Array | Array<number>,
+  versionOffset: number
 ): VoteAccount {
-  const versionOffset = 4
-  // console.log(
-  //   'fromAccount0_23_5Data: starting buffer length',
-  //   buffer.length,
-  //   versionOffset
-  // )
-  const voteAccount0235 = VoteAccount0_23_5Layout.decode(
+  const voteAccount0_23_5 = VoteAccount0_23_5Layout.decode(
     toBuffer(buffer),
     versionOffset
   )
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return new (VoteAccount as any)({
-    nodePubkey: new PublicKey(voteAccount0235.nodePubkey),
-    authorizedWithdrawer: new PublicKey(voteAccount0235.authorizedWithdrawer),
-    commission: voteAccount0235.commission,
-    votes: voteAccount0235.votes,
-    rootSlot: voteAccount0235.rootSlot,
+    nodePubkey: new PublicKey(voteAccount0_23_5.nodePubkey),
+    authorizedWithdrawer: new PublicKey(voteAccount0_23_5.authorizedWithdrawer),
+    commission: voteAccount0_23_5.commission,
+    votes: voteAccount0_23_5.votes,
+    rootSlot: voteAccount0_23_5.rootSlot,
     authorizedVoters: [
       parseAuthorizedVoter({
-        authorizedVoter: voteAccount0235.authorizedVoter,
-        epoch: voteAccount0235.authorizedVoterEpoch,
+        authorizedVoter: voteAccount0_23_5.authorizedVoter,
+        epoch: voteAccount0_23_5.authorizedVoterEpoch,
       }),
     ],
-    priorVoters: getPriorVoters(voteAccount0235.priorVoters),
-    epochCredits: voteAccount0235.epochCredits,
-    lastTimestamp: voteAccount0235.lastTimestamp,
+    priorVoters: getPriorVoters(voteAccount0_23_5.priorVoters),
+    epochCredits: voteAccount0_23_5.epochCredits,
+    lastTimestamp: voteAccount0_23_5.lastTimestamp,
   }) as VoteAccount
 }
 
@@ -179,6 +186,19 @@ class OptionLayout<T> extends BufferLayout.Layout<T | null> {
   }
 }
 
+type VoteAccountVersions = 'V0_23_5' | 'V1_14_11' | 'CURRENT' | 'UNKNOWN'
+
+type VoteAccountVersion = Readonly<Record<VoteAccountVersions, {}>>
+
+// https://github.com/solana-labs/solana/blob/v1.17/sdk/program/src/vote/state/vote_state_versions.rs#L4
+const VoteAccountVersionLayout = BufferLayout.union(
+  BufferLayout.u32(),
+  BufferLayout.struct([BufferLayout.u32()])
+)
+VoteAccountVersionLayout.addVariant(0, BufferLayout.struct([]), 'V0_23_5')
+VoteAccountVersionLayout.addVariant(1, BufferLayout.struct([]), 'V1_14_11')
+VoteAccountVersionLayout.addVariant(2, BufferLayout.struct([]), 'CURRENT')
+
 /**
  * See solana-labs/web3.js:
  *   https://github.com/solana-labs/solana-web3.js/blob/v1.88.0/packages/library-legacy/src/vote-account.ts#L77
@@ -235,7 +255,7 @@ const VoteAccount0_23_5Layout = BufferLayout.struct<VoteAccountData0_23_5>([
   ),
 ])
 
-const VoteAccount0_14_11Layout = BufferLayout.struct<VoteAccountData0_14_11>([
+const VoteAccount1_14_11Layout = BufferLayout.struct<VoteAccountData0_14_11>([
   publicKey('nodePubkey'),
   publicKey('authorizedWithdrawer'),
   BufferLayout.u8('commission'),

@@ -126,9 +126,8 @@ export async function setProgramIdByOwner(
 ): Promise<ValidatorBondsCliContext> {
   const cliContext = getCliContext()
   if (cliContext.programId === undefined && accountPubkey !== undefined) {
-    const accountInfo = await cliContext.provider.connection.getAccountInfo(
-      accountPubkey
-    )
+    const accountInfo =
+      await cliContext.provider.connection.getAccountInfo(accountPubkey)
     if (accountInfo === null) {
       throw new Error(
         `setProgramIdByOwner: account ${accountPubkey.toBase58()} does not exist` +

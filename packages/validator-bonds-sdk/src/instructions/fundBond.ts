@@ -17,14 +17,14 @@ export async function fundBondInstruction({
   stakeAccount,
   stakeAccountAuthority = anchorProgramWalletPubkey(program),
   configAccount,
-  validatorVoteAccount,
+  voteAccount,
 }: {
   program: ValidatorBondsProgram
   bondAccount?: PublicKey
   stakeAccount: PublicKey
   stakeAccountAuthority?: PublicKey | Keypair | Signer | WalletInterface // signer
   configAccount?: PublicKey
-  validatorVoteAccount?: PublicKey
+  voteAccount?: PublicKey
 }): Promise<{
   instruction: TransactionInstruction
   bondAccount: PublicKey
@@ -32,7 +32,7 @@ export async function fundBondInstruction({
   bondAccount = checkAndGetBondAddress(
     bondAccount,
     configAccount,
-    validatorVoteAccount,
+    voteAccount,
     program.programId
   )
   if (configAccount === undefined) {

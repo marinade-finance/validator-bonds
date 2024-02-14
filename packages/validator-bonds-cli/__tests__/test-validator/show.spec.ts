@@ -212,17 +212,19 @@ describe('Show command using CLI', () => {
     expect(
       provider.connection.getAccountInfo(configAccount)
     ).resolves.not.toBeNull()
-    const { voteAccount, validatorIdentity } = await createVoteAccount(provider)
+    const { voteAccount, validatorIdentity } = await createVoteAccount({
+      provider,
+    })
     const bondAuthority = Keypair.generate()
-    const { bondAccount } = await executeInitBondInstruction(
+    const { bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      configAccount,
+      config: configAccount,
       bondAuthority,
       voteAccount,
       validatorIdentity,
-      222
-    )
+      cpmpe: 222,
+    })
     const [, bump] = bondAddress(configAccount, voteAccount, program.programId)
 
     const expectedData = {
@@ -230,12 +232,9 @@ describe('Show command using CLI', () => {
       publicKey: bondAccount.toBase58(),
       account: {
         config: configAccount.toBase58(),
-        validatorVoteAccount: voteAccount.toBase58(),
+        voteAccount: voteAccount.toBase58(),
         authority: bondAuthority.publicKey.toBase58(),
-        revenueShare: { hundredthBps: 222 },
         bump,
-        // TODO: this is strange format
-        reserved: { reserved: [150] },
       },
     }
 
@@ -299,7 +298,7 @@ describe('Show command using CLI', () => {
           '--program-id',
           program.programId.toBase58(),
           'show-bond',
-          '--validator-vote-account',
+          '--vote-account',
           voteAccount.toBase58(),
           '-f',
           'yaml',
@@ -351,7 +350,7 @@ describe('Show command using CLI', () => {
           'show-bond',
           '--config',
           configAccount.toBase58(),
-          '--validator-vote-account',
+          '--vote-account',
           voteAccount.toBase58(),
           '--bond-authority',
           bondAuthority.publicKey.toBase58(),
@@ -378,7 +377,7 @@ describe('Show command using CLI', () => {
           '--program-id',
           program.programId.toBase58(),
           'show-bond',
-          '--validator-vote-account',
+          '--vote-account',
           Keypair.generate().publicKey,
           '-f',
           'yaml',

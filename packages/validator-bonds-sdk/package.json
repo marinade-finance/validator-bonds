@@ -29,22 +29,24 @@
   "devDependencies": {
     "@coral-xyz/anchor": "^0.29.0",
     "@marinade.finance/marinade-ts-sdk": "^5.0.7",
-    "@marinade.finance/anchor-common": "^2.2.1",
-    "@marinade.finance/ts-common": "^2.2.1",
-    "@marinade.finance/web3js-common": "^2.2.1",
+    "@marinade.finance/anchor-common": "^2.2.2",
+    "@marinade.finance/ts-common": "^2.2.2",
+    "@marinade.finance/web3js-common": "^2.2.2",
     "@solana/buffer-layout": "^4.0.1",
-    "@solana/web3.js": "^1.87.6",
+    "@solana/web3.js": "^1.89.1",
+    "@types/crypto-js": "^4.2.1",
     "anchor-bankrun": "^0.3.0",
-    "solana-bankrun": "^0.2.0",
     "bn.js": "^5.2.1",
     "borsh": "^0.7.0",
     "jsbi": "^4.3.0",
-    "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.8"
+    "solana-bankrun": "^0.2.0",
+    "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11"
   },
   "peerDependencies": {
     "@coral-xyz/anchor": "^0.29.0",
-    "@solana/web3.js": "^1.87.3",
     "@solana/buffer-layout": "^4.0.1",
+    "@solana/web3.js": "^1.89.1",
+    "crypto-js": "^4.2.0",
     "bn.js": "^5.2.1",
     "bs58": "^5.0.0",
     "jsbi": "^4.3.0"

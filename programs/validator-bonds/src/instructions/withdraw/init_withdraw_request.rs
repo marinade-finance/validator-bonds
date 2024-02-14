@@ -7,6 +7,7 @@ use crate::state::withdraw_request::WithdrawRequest;
 use crate::state::Reserved150;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::system_program;
+use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct InitWithdrawRequestArgs {
@@ -22,19 +23,21 @@ pub struct InitWithdrawRequest<'info> {
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,
-        has_one = validator_vote_account @ ErrorCode::VoteAccountMismatch,
+        has_one = vote_account @ ErrorCode::VoteAccountMismatch,
         seeds = [
             b"bond_account",
             config.key().as_ref(),
-            validator_vote_account.key().as_ref()
+            vote_account.key().as_ref()
         ],
         bump = bond.bump,
     )]
     bond: Account<'info, Bond>,
 
-    /// CHECK: check&deserialize of the vote account in the code
-    #[account()]
-    validator_vote_account: UncheckedAccount<'info>,
+    /// CHECK: check&deserialize of the validator vote account in the code
+    #[account(
+        owner = vote_program_id @ ErrorCode::InvalidVoteAccountProgramId,
+    )]
+    vote_account: UncheckedAccount<'info>,
 
     /// validator vote account node identity or bond authority may ask for the withdrawal
     #[account()]
@@ -71,17 +74,13 @@ impl<'info> InitWithdrawRequest<'info> {
         withdraw_request_bump: u8,
     ) -> Result<()> {
         require!(
-            check_bond_change_permitted(
-                &self.authority.key(),
-                &self.bond,
-                &self.validator_vote_account
-            ),
+            check_bond_change_permitted(&self.authority.key(), &self.bond, &self.vote_account),
             ErrorCode::InvalidWithdrawRequestAuthority
         );
 
         self.withdraw_request.set_inner(WithdrawRequest {
             bond: self.bond.key(),
-            validator_vote_account: self.bond.validator_vote_account.key(),
+            vote_account: self.bond.vote_account.key(),
             bump: withdraw_request_bump,
             epoch: self.clock.epoch,
             withdrawn_amount: 0,
@@ -91,7 +90,7 @@ impl<'info> InitWithdrawRequest<'info> {
         emit!(InitWithdrawRequestEvent {
             withdraw_request: self.withdraw_request.key(),
             bond: self.withdraw_request.bond.key(),
-            validator_vote_account: self.withdraw_request.validator_vote_account.key(),
+            vote_account: self.withdraw_request.vote_account.key(),
             bump: self.withdraw_request.bump,
             requested_amount: self.withdraw_request.requested_amount,
             epoch: self.withdraw_request.epoch,

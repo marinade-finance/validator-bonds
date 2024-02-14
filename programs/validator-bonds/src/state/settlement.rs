@@ -11,25 +11,26 @@ use anchor_lang::prelude::*;
 pub struct Settlement {
     /// this settlement belongs under particular bond, i.e., under particular validator vote account
     pub bond: Pubkey,
-    /// stake account authority that manages the funded stake accounts
-    pub settlement_authority: Pubkey,
+    /// settlement authority used as the 'staker' stake account authority
+    /// of stake accounts funded to this settlement
+    pub authority: Pubkey,
     /// 256-bit merkle root to check the claims against
     pub merkle_root: [u8; 32],
     /// maximum number of funds that can ever be claimed from this [Settlement]
     pub max_total_claim: u64,
-    /// maximum number of nodes that can ever be claimed from this [Settlement]
-    pub max_num_nodes: u64,
-    /// total funds that have been deposited to this [Settlement]
-    pub total_funded: u64,
-    /// total funds that have been claimed from this [Settlement]
-    pub total_funds_claimed: u64,
+    /// maximum number of merkle tree nodes that can ever be claimed from this [Settlement]
+    pub max_merkle_nodes: u64,
+    /// total lamports funded to this [Settlement]
+    pub lamports_funded: u64,
+    /// total lamports that have been claimed from this [Settlement]
+    pub lamports_claimed: u64,
     /// number of nodes that have been claimed from this [Settlement]
-    pub num_nodes_claimed: u64,
+    pub merkle_nodes_claimed: u64,
     /// epoch that the [Settlement] has been created at
     pub epoch_created_at: u64,
     /// address that collects the rent exempt from the [Settlement] account when closed
     pub rent_collector: Pubkey,
-    /// address that may claim the rent exempt for creation of "split stake account"
+    /// address claiming the rent exempt for "split stake account" created on funding settlement
     pub split_rent_collector: Option<Pubkey>,
     pub split_rent_amount: u64,
     /// PDA bumps

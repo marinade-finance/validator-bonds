@@ -81,12 +81,10 @@ describe('Merge stake accounts using CLI', () => {
       stdout: /successfully merged/,
     })
 
-    const stakeAccount1Info = await provider.connection.getAccountInfo(
-      stakeAccount1
-    )
-    const stakeAccount2Info = await provider.connection.getAccountInfo(
-      stakeAccount2
-    )
+    const stakeAccount1Info =
+      await provider.connection.getAccountInfo(stakeAccount1)
+    const stakeAccount2Info =
+      await provider.connection.getAccountInfo(stakeAccount2)
     expect(stakeAccount1Info).toBeNull()
     expect(stakeAccount2Info).not.toBeNull()
     expect(stakeAccount2Info?.lamports).toEqual(LAMPORTS_PER_SOL * 5)
@@ -177,12 +175,10 @@ async function createMergeStakeAccounts({
     staker: bondWithdrawer,
     withdrawer: bondWithdrawer,
   })
-  const stakeAccount1Info = await provider.connection.getAccountInfo(
-    stakeAccount1
-  )
-  const stakeAccount2Info = await provider.connection.getAccountInfo(
-    stakeAccount2
-  )
+  const stakeAccount1Info =
+    await provider.connection.getAccountInfo(stakeAccount1)
+  const stakeAccount2Info =
+    await provider.connection.getAccountInfo(stakeAccount2)
   expect(stakeAccount1Info).not.toBeNull()
   expect(stakeAccount2Info).not.toBeNull()
   expect(stakeAccount1Info?.lamports).toEqual(lamports1)

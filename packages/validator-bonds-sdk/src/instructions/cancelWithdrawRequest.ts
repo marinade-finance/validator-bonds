@@ -19,7 +19,7 @@ export async function cancelWithdrawRequestInstruction({
   withdrawRequestAccount,
   bondAccount,
   configAccount,
-  validatorVoteAccount,
+  voteAccount,
   authority,
   rentCollector = anchorProgramWalletPubkey(program),
 }: {
@@ -27,7 +27,7 @@ export async function cancelWithdrawRequestInstruction({
   withdrawRequestAccount?: PublicKey
   bondAccount?: PublicKey
   configAccount?: PublicKey
-  validatorVoteAccount?: PublicKey
+  voteAccount?: PublicKey
   authority?: PublicKey | Keypair | Signer | WalletInterface // signer
   rentCollector?: PublicKey
 }): Promise<{
@@ -36,26 +36,21 @@ export async function cancelWithdrawRequestInstruction({
   let withdrawRequestData: WithdrawRequest | undefined
   if (
     withdrawRequestAccount !== undefined &&
-    (bondAccount === undefined || validatorVoteAccount === undefined)
+    (bondAccount === undefined || voteAccount === undefined)
   ) {
     withdrawRequestData = await getWithdrawRequest(
       program,
       withdrawRequestAccount
     )
     bondAccount = bondAccount ?? withdrawRequestData.bond
-    validatorVoteAccount =
-      validatorVoteAccount ?? withdrawRequestData.validatorVoteAccount
+    voteAccount = voteAccount ?? withdrawRequestData.voteAccount
   }
   if (
     configAccount !== undefined &&
-    validatorVoteAccount !== undefined &&
+    voteAccount !== undefined &&
     bondAccount === undefined
   ) {
-    bondAccount = bondAddress(
-      configAccount,
-      validatorVoteAccount,
-      program.programId
-    )[0]
+    bondAccount = bondAddress(configAccount, voteAccount, program.programId)[0]
   }
   if (bondAccount !== undefined && withdrawRequestAccount === undefined) {
     withdrawRequestAccount = withdrawRequestAddress(
@@ -65,10 +60,10 @@ export async function cancelWithdrawRequestInstruction({
   }
   if (
     bondAccount !== undefined &&
-    (validatorVoteAccount === undefined || authority === undefined)
+    (voteAccount === undefined || authority === undefined)
   ) {
     const bondData = await program.account.bond.fetch(bondAccount)
-    validatorVoteAccount = bondData.validatorVoteAccount
+    voteAccount = bondData.voteAccount
     authority = authority ?? bondData.authority
   }
   authority = authority ?? anchorProgramWalletPubkey(program)
@@ -84,7 +79,7 @@ export async function cancelWithdrawRequestInstruction({
     .cancelWithdrawRequest()
     .accounts({
       bond: bondAccount,
-      validatorVoteAccount,
+      voteAccount,
       authority,
       withdrawRequest: withdrawRequestAccount,
       rentCollector,

@@ -114,7 +114,7 @@ async function manageFundBond({
     program,
     bondAccount: bondAccountAddress,
     configAccount: config,
-    validatorVoteAccount: voteAccount,
+    voteAccount,
     stakeAccount,
     stakeAccountAuthority: stakeAuthority,
   })

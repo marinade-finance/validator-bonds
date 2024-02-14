@@ -3,6 +3,7 @@ use crate::state::bond::Bond;
 use anchor_lang::prelude::*;
 use anchor_lang::prelude::{msg, Pubkey};
 use anchor_lang::require_keys_eq;
+use anchor_lang::solana_program::stake::program::ID as stake_program_id;
 use anchor_lang::solana_program::stake::state::{Delegation, Meta, Stake};
 use anchor_lang::solana_program::stake_history::{Epoch, StakeHistoryEntry};
 use anchor_lang::solana_program::vote::program::id as vote_program_id;
@@ -10,12 +11,12 @@ use anchor_spl::stake::StakeAccount;
 use std::ops::Deref;
 
 /// Verification the account is owned by vote program + matching validator identity
-pub fn check_validator_vote_account_validator_identity(
-    validator_vote_account: &UncheckedAccount,
+pub fn check_vote_account_validator_identity(
+    vote_account: &UncheckedAccount,
     expected_validator_identity: &Pubkey,
 ) -> Result<()> {
     // https://github.com/solana-labs/solana/blob/v1.17.10/sdk/program/src/vote/state/mod.rs#L287
-    let node_pubkey = get_validator_vote_account_validator_identity(validator_vote_account)?;
+    let node_pubkey = get_validator_vote_account_validator_identity(vote_account)?;
     require_keys_eq!(
         *expected_validator_identity,
         node_pubkey,
@@ -25,21 +26,22 @@ pub fn check_validator_vote_account_validator_identity(
 }
 
 pub fn get_validator_vote_account_validator_identity(
-    validator_vote_account: &UncheckedAccount,
+    vote_account: &UncheckedAccount,
 ) -> Result<Pubkey> {
-    get_from_validator_vote_account(validator_vote_account, 4, "validator identity")
+    get_from_validator_vote_account(vote_account, 4, "validator identity")
 }
 
 fn get_from_validator_vote_account(
-    validator_vote_account: &UncheckedAccount,
+    vote_account: &UncheckedAccount,
     byte_position: usize,
     pubkey_name: &str,
 ) -> Result<Pubkey> {
-    require!(
-        validator_vote_account.owner == &vote_program_id(),
+    require_keys_eq!(
+        *vote_account.owner,
+        vote_program_id(),
         ErrorCode::InvalidVoteAccountProgramId
     );
-    let validator_vote_data = &validator_vote_account.data.borrow()[..];
+    let validator_vote_data = &vote_account.data.borrow()[..];
     // let's find position of the pubkey within the vote state account data
     // https://github.com/solana-labs/solana/pull/30515
     // https://github.com/solana-labs/solana/blob/v1.17.10/sdk/program/src/vote/state/mod.rs#L290
@@ -47,7 +49,7 @@ fn get_from_validator_vote_account(
         msg!(
             "Cannot get {} from vote account {} data",
             pubkey_name,
-            validator_vote_account.key,
+            vote_account.key,
         );
         return Err(ErrorCode::FailedToDeserializeVoteAccount.into());
     }
@@ -57,11 +59,11 @@ fn get_from_validator_vote_account(
             msg!(
                 "Cannot get {} from vote account {} data: {:?}",
                 pubkey_name,
-                validator_vote_account.key,
+                vote_account.key,
                 err
             );
             error!(ErrorCode::FailedToDeserializeVoteAccount)
-                .with_values(("validator_vote_account", validator_vote_account.key()))
+                .with_values(("vote_account", vote_account.key()))
         })?;
     Ok(Pubkey::from(pubkey_slice))
 }
@@ -70,26 +72,26 @@ fn get_from_validator_vote_account(
 pub fn check_bond_change_permitted(
     authority: &Pubkey,
     bond_account: &Bond,
-    validator_vote_account: &UncheckedAccount,
+    vote_account: &UncheckedAccount,
 ) -> bool {
     // TODO: is possible to sign with default Pubkey? Should be Pubkey::default() defined as disabled bound authority?
+    // TODO: consider use the map_or_else to return the error
     if authority == &bond_account.authority.key() {
         true
     } else {
-        check_validator_vote_account_validator_identity(validator_vote_account, authority)
-            .map_or(false, |_| true)
+        check_vote_account_validator_identity(vote_account, authority).map_or(false, |_| true)
     }
 }
 
 /// Check if the stake account is delegated to the right validator
 pub fn check_stake_valid_delegation(
     stake_account: &StakeAccount,
-    validator_vote_account: &Pubkey,
+    vote_account: &Pubkey,
 ) -> Result<Delegation> {
     if let Some(delegation) = stake_account.delegation() {
         require_keys_eq!(
             delegation.voter_pubkey,
-            *validator_vote_account,
+            *vote_account,
             ErrorCode::BondStakeWrongDelegation
         );
         Ok(delegation)
@@ -177,6 +179,19 @@ pub fn check_stake_exist_and_fully_activated(
     }
 }
 
+pub fn deserialize_stake_account(account: &UncheckedAccount) -> Result<StakeAccount> {
+    require_keys_eq!(
+        *account.owner,
+        stake_program_id,
+        ErrorCode::InvalidStakeAccountProgramId
+    );
+    if account.try_lamports()? == 0 {
+        return Err(ErrorCode::InvalidStakeAccountState.into());
+    }
+    let stake_state = account.try_borrow_data()?;
+    StakeAccount::try_deserialize(&mut stake_state.as_ref())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -203,7 +218,7 @@ mod tests {
         );
         let wrong_owner_account = UncheckedAccount::try_from(&account);
         assert_eq!(
-            check_validator_vote_account_validator_identity(
+            check_vote_account_validator_identity(
                 &wrong_owner_account,
                 &vote_init.authorized_voter,
             ),
@@ -223,14 +238,13 @@ mod tests {
         );
         let unchecked_account = UncheckedAccount::try_from(&account);
 
-        check_validator_vote_account_validator_identity(&unchecked_account, &vote_init.node_pubkey)
-            .unwrap();
+        check_vote_account_validator_identity(&unchecked_account, &vote_init.node_pubkey).unwrap();
         assert_eq!(
-            check_validator_vote_account_validator_identity(&unchecked_account, &Pubkey::default(),),
+            check_vote_account_validator_identity(&unchecked_account, &Pubkey::default(),),
             Err(ErrorCode::VoteAccountValidatorIdentityMismatch.into())
         );
         assert_eq!(
-            check_validator_vote_account_validator_identity(&unchecked_account, &Pubkey::default(),),
+            check_vote_account_validator_identity(&unchecked_account, &Pubkey::default(),),
             Err(ErrorCode::VoteAccountValidatorIdentityMismatch.into())
         );
     }

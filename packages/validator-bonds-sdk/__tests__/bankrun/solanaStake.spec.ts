@@ -303,8 +303,6 @@ describe('Solana stake account behavior verification', () => {
       authorizedPubkey: staker.publicKey,
       newAuthorizedPubkey: newStaker.publicKey,
       stakeAuthorizationType: StakeAuthorizationLayout.Staker,
-      // using random non-existent custodian here
-      custodianPubkey: Keypair.generate().publicKey,
     })
     await bankrunExecuteIx(
       provider,
@@ -451,7 +449,10 @@ describe('Solana stake account behavior verification', () => {
     await bankrunExecuteIx(provider, [provider.wallet], transferIx)
 
     // creating vote account to delegate to it
-    const { voteAccount } = await createVoteAccount(provider, rentExemptVote)
+    const { voteAccount } = await createVoteAccount({
+      provider,
+      rentExempt: rentExemptVote,
+    })
     const delegateIx = StakeProgram.delegate({
       stakePubkey: stakeAccount1,
       authorizedPubkey: newStaker.publicKey,
@@ -791,8 +792,9 @@ describe('Solana stake account behavior verification', () => {
     )
 
     console.log('3. MERGING deactivated with different delegation')
-    const otherVoteAccount = (await createVoteAccount(provider, rentExemptVote))
-      .voteAccount
+    const otherVoteAccount = (
+      await createVoteAccount({ provider, rentExempt: rentExemptVote })
+    ).voteAccount
     const delegateIx = StakeProgram.delegate({
       stakePubkey: stakeAccountLocked,
       authorizedPubkey: staker.publicKey,

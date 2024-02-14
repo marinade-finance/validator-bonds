@@ -1,12 +1,14 @@
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import { ExtendedProvider } from './provider'
 import {
+  PublicKey,
   Signer,
   Transaction,
   TransactionInstruction,
   TransactionInstructionCtorFields,
 } from '@solana/web3.js'
 import { checkErrorMessage } from '@marinade.finance/anchor-common'
+import assert from 'assert'
 
 export async function verifyErrorMessage(
   provider: ExtendedProvider,
@@ -33,4 +35,15 @@ export async function verifyErrorMessage(
       throw e
     }
   }
+}
+
+export async function getRentExempt(
+  provider: ExtendedProvider,
+  account: PublicKey
+): Promise<number> {
+  const accountInfo = await provider.connection.getAccountInfo(account)
+  assert(accountInfo !== null)
+  return await provider.connection.getMinimumBalanceForRentExemption(
+    accountInfo.data.length
+  )
 }

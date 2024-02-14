@@ -4,21 +4,17 @@ import {
   StakeProgram,
   TransactionInstruction,
 } from '@solana/web3.js'
-import {
-  CONFIG_ADDRESS,
-  ValidatorBondsProgram,
-  withdrawerAuthority,
-} from '../sdk'
+import { ValidatorBondsProgram, withdrawerAuthority } from '../sdk'
 
 export async function mergeInstruction({
   program,
-  configAccount = CONFIG_ADDRESS,
+  configAccount,
   sourceStakeAccount,
   destinationStakeAccount,
   settlementAccount = PublicKey.default,
 }: {
   program: ValidatorBondsProgram
-  configAccount?: PublicKey
+  configAccount: PublicKey
   sourceStakeAccount: PublicKey
   destinationStakeAccount: PublicKey
   settlementAccount?: PublicKey

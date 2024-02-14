@@ -35,6 +35,7 @@ declare_id!("vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4");
 //       - consider utility of zero_copy, if it can be used, what are benefits?
 //       - consider using only PDA hash and not has_one at anchor constraints
 //       - readme with table of what stake_authority/withdraw_authority are at which stages
+//       - verify that really every input account is checked for owner program!
 
 fn check_context<T: Bumps>(ctx: &Context<T>) -> Result<()> {
     if !check_id(ctx.program_id) {
@@ -140,6 +141,11 @@ pub mod validator_bonds {
     }
 
     pub fn reset(ctx: Context<ResetStake>) -> Result<()> {
+        check_context(&ctx)?;
+        ctx.accounts.process()
+    }
+
+    pub fn migrate_bond_cpmpe(ctx: Context<MigrateBondCpmpe>) -> Result<()> {
         check_context(&ctx)?;
         ctx.accounts.process()
     }

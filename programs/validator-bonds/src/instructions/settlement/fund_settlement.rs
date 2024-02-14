@@ -1,5 +1,6 @@
 use crate::checks::{
-    check_stake_is_initialized_with_withdrawer_authority, check_stake_valid_delegation,
+    check_stake_is_initialized_with_withdrawer_authority, check_stake_is_not_locked,
+    check_stake_valid_delegation,
 };
 use crate::constants::BONDS_AUTHORITY_SEED;
 use crate::error::ErrorCode;
@@ -34,7 +35,7 @@ pub struct FundSettlement<'info> {
         seeds = [
             b"bond_account",
             config.key().as_ref(),
-            bond.validator_vote_account.as_ref(),
+            bond.vote_account.as_ref(),
         ],
         bump = bond.bump,
     )]
@@ -43,7 +44,7 @@ pub struct FundSettlement<'info> {
     #[account(
         mut,
         has_one = bond @ ErrorCode::BondAccountMismatch,
-        has_one = settlement_authority @ ErrorCode::SettlementAuthorityMismatch,
+        constraint = settlement.authority == settlement_authority.key() @ ErrorCode::SettlementAuthorityMismatch,
         seeds = [
             b"settlement_account",
             bond.key().as_ref(),
@@ -54,6 +55,7 @@ pub struct FundSettlement<'info> {
     )]
     settlement: Account<'info, Settlement>,
 
+    // TODO: verify with lj how we want to manage this
     /// operator signer authority is allowed to fund the settlement account
     /// (making this operation permission-ed, at least for the first version of the contract)
     operator_authority: Signer<'info>,
@@ -85,9 +87,10 @@ pub struct FundSettlement<'info> {
     )]
     bonds_withdrawer_authority: UncheckedAccount<'info>,
 
-    // TODO: could this be a PDA?
-    // this is a whatever address that does not exist (needed a signature for it) and will be initiated here
-    /// a split stake account is needed when the provided stake_account is bigger than the settlement
+    /// an account that does not exist, it will be initialized as a stake account (the signature needed)
+    /// the split_stake_account is needed when the provided stake_account is consists of more lamports
+    /// than the amount needed to fund the settlement, the left-over lamports from the stake account is split
+    /// into the new split_stake_account; when the split_stake_account is not needed, the rent payer is refunded
     #[account(
         init,
         payer = split_stake_rent_payer,
@@ -96,10 +99,10 @@ pub struct FundSettlement<'info> {
     )]
     split_stake_account: Account<'info, StakeAccount>,
 
-    /// This is an account used to prefund the split stake account.
-    /// If a split stake account is not needed then rent payer is fully refunded at the end of the transaction.
-    /// If a split stake account is created for the settlement, the payer needs to manually close the claim_settlement
-    ///    instruction to get the rent back (success only when the stake account is already deactivated).
+    /// rent exempt payer of the split_stake_account creation
+    /// if the split_stake_account is not needed (no left-over lamports on funding) then rent payer is refunded
+    /// it the split_stake_account is needed to spill out over funding of the settlement
+    ///     then the rent payer is refunded when the settlement is closed
     #[account(
         mut,
         owner = system_program::ID
@@ -121,10 +124,15 @@ pub struct FundSettlement<'info> {
 
 impl<'info> FundSettlement<'info> {
     pub fn process(&mut self) -> Result<()> {
-        require!(true == false, ErrorCode::NotYetImplemented);
-
-        if self.settlement.total_funded >= self.settlement.max_total_claim {
+        if self.settlement.lamports_funded >= self.settlement.max_total_claim {
             msg!("Settlement is already fully funded");
+            return_unused_split_stake_account_rent(
+                &self.stake_program,
+                &self.split_stake_account,
+                &self.split_stake_rent_payer,
+                &self.clock,
+                &self.stake_history,
+            )?;
             return Ok(());
         }
 
@@ -134,8 +142,6 @@ impl<'info> FundSettlement<'info> {
             &self.bonds_withdrawer_authority.key(),
             "stake_account",
         )?;
-        // settlement funding may accept only stake account delegated to (i.e., deposited by) the bond validator
-        check_stake_valid_delegation(&self.stake_account, &self.bond.validator_vote_account)?;
         // provided stake account must NOT have been used to fund settlement (but must be owned by bonds program)
         // funded to bond account -> staker == bonds withdrawer authority, funded to settlement -> staker == settlement staker authority
         require_keys_eq!(
@@ -143,9 +149,11 @@ impl<'info> FundSettlement<'info> {
             self.bonds_withdrawer_authority.key(),
             ErrorCode::StakeAccountIsFundedToSettlement,
         );
+        // only stake account delegated to (i.e., funded by) the bond validator vote account
+        check_stake_valid_delegation(&self.stake_account, &self.bond.vote_account)?;
 
-        // TODO: consider if missing to check the stake account is fully activated
-        //       considering we don't care as it will be just deactivated(?)
+        // funded stake account cannot be locked as we want to deactivate&withdraw
+        check_stake_is_not_locked(&self.stake_account, &self.clock, "stake_account")?;
 
         let split_stake_rent_exempt = self.split_stake_account.to_account_info().lamports();
         let stake_account_min_size = minimal_size_stake_account(&stake_meta, &self.config);
@@ -155,16 +163,17 @@ impl<'info> FundSettlement<'info> {
         // amount needed: "amount + rent exempt + minimal stake size" -> ensuring stake account may exist
         // NOTE: once deactivated the balance may drop only to "rent exempt" and "minimal stake size" is not needed anymore
         //       but we want to re-activate later the left-over at the stake account thus needed to be funded with plus minimal stake size
-        let amount_needed =
-            self.settlement.max_total_claim - self.settlement.total_funded + stake_account_min_size;
+        let amount_needed = self.settlement.max_total_claim - self.settlement.lamports_funded
+            + stake_account_min_size;
         // the left-over stake account has to be capable to exist after splitting
-        let left_over_splittable = amount_available - amount_needed >= stake_account_min_size;
+        let left_over_splittable = amount_available > amount_needed
+            && amount_available - amount_needed >= stake_account_min_size + split_stake_rent_exempt;
 
         let (funding_amount, is_split) =
-            // no split needed or possible, all stake amount goes into non-fulfilled settlement amount
+            // no split needed or possible, whole stake account funded, still amout funded is substracted off the min size
+            // as after claiming the stake will be capable to exist
             if amount_available <= amount_needed || !left_over_splittable  {
-                let lamports_to_fund = self.stake_account.get_lamports();
-                self.settlement.total_funded += lamports_to_fund;
+                let lamports_to_fund = self.stake_account.get_lamports() - stake_account_min_size;
 
                 // whole amount used, not split - closing and returning rent
                 return_unused_split_stake_account_rent(
@@ -176,11 +185,11 @@ impl<'info> FundSettlement<'info> {
                 )?;
                 (lamports_to_fund, false)
             } else {
-                let lamports_to_fund = amount_needed;
-                self.settlement.total_funded += lamports_to_fund;
-
+                let lamports_to_fund = amount_needed - stake_account_min_size;
+                // split gains what overflows from funding + amount needed to pay back to split rent payer on close
                 let fund_split_leftover =
-                    self.stake_account.get_lamports() - lamports_to_fund;
+                    self.stake_account.get_lamports() - amount_needed - split_stake_rent_exempt;
+
                 let split_instruction = stake::instruction::split(
                   self.stake_account.to_account_info().key,
                   self.bonds_withdrawer_authority.key,
@@ -246,14 +255,16 @@ impl<'info> FundSettlement<'info> {
             None,
         )?;
 
+        self.settlement.lamports_funded += funding_amount;
+
         emit!(FundSettlementEvent {
             bond: self.bond.key(),
-            vote_account: self.bond.validator_vote_account,
+            vote_account: self.bond.vote_account,
             settlement: self.settlement.key(),
             funding_amount,
-            total_funded: self.settlement.total_funded,
-            total_funds_claimed: self.settlement.total_funds_claimed,
-            num_nodes_claimed: self.settlement.num_nodes_claimed,
+            lamports_funded: self.settlement.lamports_funded,
+            lamports_claimed: self.settlement.lamports_claimed,
+            merkle_nodes_claimed: self.settlement.merkle_nodes_claimed,
             stake_account: self.stake_account.key(),
             split_stake_account: if is_split {
                 Some(SplitStakeData {

@@ -8,8 +8,6 @@ pub mod settlement_claim;
 pub mod stake;
 pub mod withdraw;
 
-use crate::utils::basis_points::HundredthBasisPoint;
-
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
 pub struct PubkeyValueChange {
     pub old: Pubkey,
@@ -20,12 +18,6 @@ pub struct PubkeyValueChange {
 pub struct U64ValueChange {
     pub old: u64,
     pub new: u64,
-}
-
-#[derive(Clone, AnchorSerialize, AnchorDeserialize)]
-pub struct HundrethBasisPointChange {
-    pub old: HundredthBasisPoint,
-    pub new: HundredthBasisPoint,
 }
 
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]

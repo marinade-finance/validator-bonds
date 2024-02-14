@@ -7,6 +7,7 @@ import {
   FormatType,
   reformat,
   reformatReserved,
+  ReformatAction,
 } from '@marinade.finance/cli-common'
 import { PublicKey } from '@solana/web3.js'
 import { Command } from 'commander'
@@ -88,7 +89,7 @@ export function installShowBond(program: Command) {
       parsePubkeyOrPubkeyFromWallet
     )
     .option(
-      '--validator-vote-account <pubkey>',
+      '--vote-account <pubkey>',
       'Validator vote account to filter the bond accounts with',
       parsePubkeyOrPubkeyFromWallet
     )
@@ -107,12 +108,12 @@ export function installShowBond(program: Command) {
         address: Promise<PublicKey | undefined>,
         {
           config,
-          validatorVoteAccount,
+          voteAccount,
           bondAuthority,
           format,
         }: {
           config?: Promise<PublicKey>
-          validatorVoteAccount?: Promise<PublicKey>
+          voteAccount?: Promise<PublicKey>
           bondAuthority?: Promise<PublicKey>
           format: FormatType
         }
@@ -120,7 +121,7 @@ export function installShowBond(program: Command) {
         await showBond({
           address: await address,
           config: await config,
-          validatorVoteAccount: await validatorVoteAccount,
+          voteAccount: await voteAccount,
           bondAuthority: await bondAuthority,
           format,
         })
@@ -204,13 +205,13 @@ async function showConfig({
 async function showBond({
   address,
   config,
-  validatorVoteAccount,
+  voteAccount,
   bondAuthority,
   format,
 }: {
   address?: PublicKey
   config?: PublicKey
-  validatorVoteAccount?: PublicKey
+  voteAccount?: PublicKey
   bondAuthority?: PublicKey
   format: FormatType
 }) {
@@ -241,7 +242,7 @@ async function showBond({
       const foundData = await findBonds({
         program,
         config,
-        validatorVoteAccount,
+        voteAccount,
         bondAuthority,
       })
       data = foundData.map(bondData => ({
@@ -251,15 +252,15 @@ async function showBond({
       }))
     } catch (err) {
       throw new CliCommandError({
-        valueName: '--config|--validator-vote-account|--bond-authority',
-        value: `${config?.toBase58()}}|${validatorVoteAccount?.toBase58()}|${bondAuthority?.toBase58()}}`,
+        valueName: '--config|--vote-account|--bond-authority',
+        value: `${config?.toBase58()}}|${voteAccount?.toBase58()}|${bondAuthority?.toBase58()}}`,
         msg: 'Error while fetching bond account based on filter parameters',
         cause: err as Error,
       })
     }
   }
 
-  const reformatted = reformat(data, reformatReserved)
+  const reformatted = reformat(data, reformatBonds)
   print_data(reformatted, format)
 }
 
@@ -269,4 +270,19 @@ async function showEvent({ eventData }: { eventData: string }) {
   const decodedData = program.coder.events.decode(eventData)
   const reformattedData = reformat(decodedData)
   print_data(reformattedData, 'text')
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function reformatBonds(key: string, value: any): ReformatAction {
+  if (
+    typeof key === 'string' &&
+    (key as string).startsWith('reserved') &&
+    (Array.isArray(value) || value instanceof Uint8Array)
+  ) {
+    return { type: 'Remove' }
+  }
+  if (key.toLowerCase() === 'cpmpe') {
+    return { type: 'Remove' }
+  }
+  return { type: 'UsePassThrough' }
 }

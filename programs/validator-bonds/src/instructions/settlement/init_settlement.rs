@@ -9,10 +9,14 @@ use anchor_lang::solana_program::system_program;
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct InitSettlementArgs {
+    /// merkle root for this settlement, multiple settlements can be created with the same merkle root,
+    /// settlements will be distinguished by the vote_account
     pub merkle_root: [u8; 32],
-    pub vote_account: Pubkey,
-    pub settlement_total_claim: u64,
-    pub settlement_num_nodes: u64,
+    /// maximal number of lamports that can be claimed from this settlement
+    pub max_total_claim: u64,
+    /// maximal number of merkle tree nodes that can be claimed from this settlement
+    pub max_merkle_nodes: u64,
+    /// collects the rent exempt from the settlement account when closed
     pub rent_collector: Pubkey,
 }
 
@@ -30,12 +34,14 @@ pub struct InitSettlement<'info> {
         seeds = [
             b"bond_account",
             config.key().as_ref(),
-            params.vote_account.as_ref()
+            bond.vote_account.as_ref()
         ],
         bump = bond.bump,
     )]
     bond: Account<'info, Bond>,
 
+    // TODO: settlement account is defined by clock account epoch at time when it's created.
+    //       Question is if it's ok to not be sure of the settlement address when calling from SDK. Or how to return correct address?
     #[account(
         init,
         payer = rent_payer,
@@ -70,51 +76,47 @@ impl<'info> InitSettlement<'info> {
         &mut self,
         InitSettlementArgs {
             merkle_root,
-            vote_account,
             rent_collector,
-            settlement_total_claim,
-            settlement_num_nodes,
+            max_total_claim,
+            max_merkle_nodes,
         }: InitSettlementArgs,
         settlement_bump: u8,
     ) -> Result<()> {
-        require!(true == false, ErrorCode::NotYetImplemented);
-
-        if settlement_total_claim == 0 || settlement_num_nodes == 0 {
+        if max_total_claim == 0 || max_merkle_nodes == 0 {
             return Err(error!(ErrorCode::EmptySettlementMerkleTree).with_values((
-                "settlement_total_claim, settlement_num_nodes",
-                format!("{}, {}", settlement_total_claim, settlement_num_nodes),
+                "max_total_claim, max_merkle_nodes",
+                format!("{}, {}", max_total_claim, max_merkle_nodes),
             )));
         }
 
-        let (settlement_authority, settlement_authority_bump) =
-            find_settlement_authority(&self.settlement.key());
+        let (authority, authority_bump) = find_settlement_authority(&self.settlement.key());
         self.settlement.set_inner(Settlement {
             bond: self.bond.key(),
-            settlement_authority,
+            authority,
             merkle_root,
-            max_total_claim: settlement_total_claim,
-            max_num_nodes: settlement_num_nodes,
-            total_funded: 0,
-            total_funds_claimed: 0,
-            num_nodes_claimed: 0,
+            max_total_claim,
+            max_merkle_nodes,
+            lamports_funded: 0,
+            lamports_claimed: 0,
+            merkle_nodes_claimed: 0,
             epoch_created_at: self.clock.epoch,
             rent_collector,
             split_rent_collector: None,
             split_rent_amount: 0,
             bumps: Bumps {
                 pda: settlement_bump,
-                authority: settlement_authority_bump,
+                authority: authority_bump,
             },
             reserved: Reserved150::default(),
         });
         emit!(InitSettlementEvent {
             bond: self.settlement.bond,
-            vote_account,
-            settlement_authority: self.settlement.settlement_authority,
+            vote_account: self.bond.vote_account,
+            authority: self.settlement.authority,
             merkle_root: self.settlement.merkle_root,
             max_total_claim: self.settlement.max_total_claim,
-            max_num_nodes: self.settlement.max_num_nodes,
-            epoch: self.settlement.epoch_created_at,
+            max_merkle_nodes: self.settlement.max_merkle_nodes,
+            epoch_created_at: self.settlement.epoch_created_at,
             rent_collector: self.settlement.rent_collector,
             bumps: self.settlement.bumps.clone(),
         });

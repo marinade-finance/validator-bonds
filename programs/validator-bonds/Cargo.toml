@@ -1,6 +1,6 @@
 [package]
 name = "validator-bonds"
-version = "0.1.0"
+version = "1.1.0"
 description = "Marinade validator bonds program protecting validator behavior"
 edition = "2021"
 license = "Apache-2.0"
@@ -25,4 +25,3 @@ anchor-lang = { workspace = true }
 anchor-spl = { workspace = true }
 solana-security-txt = { workspace = true }
 default-env = { workspace = true }
-

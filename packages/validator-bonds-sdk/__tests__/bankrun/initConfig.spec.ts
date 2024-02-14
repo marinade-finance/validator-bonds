@@ -30,12 +30,12 @@ describe('Validator Bonds config account tests', () => {
     expect(configData.epochsToClaimSettlement).toEqual(1)
     expect(configData.withdrawLockupEpochs).toEqual(2)
 
-    const configAccountInfo = await provider.connection.getAccountInfo(
-      configAccount
-    )
-    // not account size change from the first deployment on mainnet
+    const configAccountInfo =
+      await provider.connection.getAccountInfo(configAccount)
+    // NO change of account size from the first deployment on mainnet
     // account size is 609 bytes and aligned to 8 bytes alignment
     expect(configAccountInfo?.data.byteLength).toEqual(616)
+    console.log('config account length', configAccountInfo?.data.byteLength)
   })
 
   it('cannot init config when already exists', async () => {

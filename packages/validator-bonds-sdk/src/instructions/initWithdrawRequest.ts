@@ -13,7 +13,7 @@ export async function initWithdrawRequestInstruction({
   program,
   bondAccount,
   configAccount,
-  validatorVoteAccount,
+  voteAccount,
   authority = anchorProgramWalletPubkey(program),
   rentPayer = anchorProgramWalletPubkey(program),
   amount,
@@ -21,7 +21,7 @@ export async function initWithdrawRequestInstruction({
   program: ValidatorBondsProgram
   bondAccount?: PublicKey
   configAccount?: PublicKey
-  validatorVoteAccount?: PublicKey
+  voteAccount?: PublicKey
   authority?: PublicKey | Keypair | Signer | WalletInterface // signer
   rentPayer?: PublicKey | Keypair | Signer | WalletInterface // signer
   amount: BN | number
@@ -32,12 +32,12 @@ export async function initWithdrawRequestInstruction({
   bondAccount = checkAndGetBondAddress(
     bondAccount,
     configAccount,
-    validatorVoteAccount,
+    voteAccount,
     program.programId
   )
-  if (!validatorVoteAccount || !configAccount) {
+  if (!voteAccount || !configAccount) {
     const bondData = await program.account.bond.fetch(bondAccount)
-    validatorVoteAccount = validatorVoteAccount ?? bondData.validatorVoteAccount
+    voteAccount = voteAccount ?? bondData.voteAccount
     configAccount = configAccount ?? bondData.config
   }
 
@@ -55,7 +55,7 @@ export async function initWithdrawRequestInstruction({
     .accounts({
       config: configAccount,
       bond: bondAccount,
-      validatorVoteAccount,
+      voteAccount,
       withdrawRequest,
       authority,
       rentPayer,

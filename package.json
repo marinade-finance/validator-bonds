@@ -8,7 +8,7 @@
         "_test": "pnpm jest --config jest.config.test-validator.js -- \"$FILE\"",
         "test:validator": "anchor test",
         "test:bankrun": "pnpm anchor:build && pnpm jest --config jest.config.bankrun.js --runInBand true -- \"$FILE\"",
-        "test:cargo": "cargo test --features no-entrypoint",
+        "test:cargo": "cargo test --features no-entrypoint -- --nocapture",
         "test": "pnpm test:cargo && pnpm test:bankrun && pnpm test:validator",
         "cli": "ts-node ./packages/validator-bonds-cli/src/",
         "lint:cargo": "cargo fmt -- --check && cargo clippy",
@@ -27,12 +27,12 @@
         "@types/bn.js": "^5.1.3",
         "@types/jest": "^29.5.6",
         "@types/node": "^18.11.9",
-        "gts": "^4.0.1",
+        "gts": "^5.2.0",
         "jest": "^29.7.0",
-        "ts-jest": "^29.1.1",
-        "ts-node": "^10.9.1",
+        "ts-jest": "^29.1.2",
+        "ts-node": "^10.9.2",
         "typescript": "4.9.5",
-        "@marinade.finance/jest-utils": "^2.2.1"
+        "@marinade.finance/jest-utils": "^2.2.2"
     },
     "pnpm": {
         "peerDependencyRules": {

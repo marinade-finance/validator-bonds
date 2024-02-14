@@ -37,15 +37,13 @@ describe('Validator Bonds configure bond', () => {
   })
 
   it('configure bond', async () => {
-    const { bondAccount, bondAuthority } = await executeInitBondInstruction(
+    const { bondAccount, bondAuthority } = await executeInitBondInstruction({
       program,
       provider,
-      configAccount,
-      undefined,
-      undefined,
+      config: configAccount,
       validatorIdentity,
-      22
-    )
+      cpmpe: 22,
+    })
 
     const event = new Promise<ConfigureBondEvent>(resolve => {
       const listener = program.addEventListener(
@@ -63,14 +61,14 @@ describe('Validator Bonds configure bond', () => {
       bondAccount,
       authority: bondAuthority,
       newBondAuthority: newBondAuthority.publicKey,
-      newRevenueShareHundredthBps: 31,
+      newCpmpe: 31,
     })
     await provider.sendIx([bondAuthority], instruction)
 
     const bondData = await getBond(program, bondAccount)
     expect(bondData.authority).toEqual(newBondAuthority.publicKey)
     expect(bondData.config).toEqual(configAccount)
-    expect(bondData.revenueShare).toEqual({ hundredthBps: 31 })
+    expect(bondData.cpmpe).toEqual(31)
     expect(bondData.authority).toEqual(newBondAuthority.publicKey)
 
     await event.then(e => {
@@ -78,9 +76,9 @@ describe('Validator Bonds configure bond', () => {
         old: bondAuthority.publicKey,
         new: newBondAuthority.publicKey,
       })
-      expect(e.revenueShare).toEqual({
-        old: { hundredthBps: 22 },
-        new: { hundredthBps: 31 },
+      expect(e.cpmpe).toEqual({
+        old: 22,
+        new: 31,
       })
     })
   })

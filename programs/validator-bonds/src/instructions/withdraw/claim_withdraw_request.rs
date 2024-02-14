@@ -13,6 +13,7 @@ use crate::state::withdraw_request::WithdrawRequest;
 use crate::utils::{minimal_size_stake_account, return_unused_split_stake_account_rent};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::stake::state::{StakeAuthorize, StakeState};
+use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 use anchor_lang::solana_program::{program::invoke_signed, stake, system_program};
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 
@@ -27,19 +28,21 @@ pub struct ClaimWithdrawRequest<'info> {
     #[account(
         mut,
         has_one = config @ ErrorCode::ConfigAccountMismatch,
-        has_one = validator_vote_account @ ErrorCode::VoteAccountMismatch,
+        has_one = vote_account @ ErrorCode::VoteAccountMismatch,
         seeds = [
             b"bond_account",
             config.key().as_ref(),
-            validator_vote_account.key().as_ref()
+            vote_account.key().as_ref()
         ],
         bump = bond.bump,
     )]
     bond: Account<'info, Bond>,
 
     /// CHECK: deserialization of the vote account in the code
-    #[account()]
-    validator_vote_account: UncheckedAccount<'info>,
+    #[account(
+        owner = vote_program_id @ ErrorCode::InvalidVoteAccountProgramId,
+    )]
+    vote_account: UncheckedAccount<'info>,
 
     /// validator vote account node identity or bond authority may claim
     #[account()]
@@ -47,7 +50,7 @@ pub struct ClaimWithdrawRequest<'info> {
 
     #[account(
         mut,
-        has_one = validator_vote_account @ ErrorCode::WithdrawRequestVoteAccountMismatch,
+        has_one = vote_account @ ErrorCode::WithdrawRequestVoteAccountMismatch,
         has_one = bond @ ErrorCode::BondAccountMismatch,
         constraint = withdraw_request.epoch + config.withdraw_lockup_epochs < clock.epoch @ ErrorCode::WithdrawRequestNotReady,
         seeds = [
@@ -117,11 +120,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
 
         // claim is permission-ed as the init withdraw request
         require!(
-            check_bond_change_permitted(
-                &self.authority.key(),
-                &self.bond,
-                &self.validator_vote_account
-            ),
+            check_bond_change_permitted(&self.authority.key(), &self.bond, &self.vote_account),
             ErrorCode::InvalidWithdrawRequestAuthority
         );
 
@@ -133,7 +132,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
             &self.stake_history,
         )?;
         // stake account is delegated to the validator vote account associated with the bond
-        check_stake_valid_delegation(&self.stake_account, &self.bond.validator_vote_account)?;
+        check_stake_valid_delegation(&self.stake_account, &self.bond.vote_account)?;
 
         // stake account belongs under the bonds program
         let stake_meta = check_stake_is_initialized_with_withdrawer_authority(
@@ -270,7 +269,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
 
         emit!(ClaimWithdrawRequestEvent {
             bond: self.bond.key(),
-            validator_vote_account: self.validator_vote_account.key(),
+            vote_account: self.vote_account.key(),
             withdraw_request: self.withdraw_request.key(),
             stake_account: self.stake_account.key(),
             split_stake: if is_split {

@@ -1,5 +1,9 @@
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { ValidatorBondsProgram, getProgram } from '../../src'
+import {
+  ValidatorBondsProgram,
+  checkAndGetBondAddress,
+  getProgram,
+} from '../../src'
 import { BanksTransactionMeta, startAnchor } from 'solana-bankrun'
 import { BankrunProvider } from 'anchor-bankrun'
 import {
@@ -12,6 +16,8 @@ import {
 } from '@solana/web3.js'
 import { instanceOfWallet } from '@marinade.finance/web3js-common'
 import { ExtendedProvider } from '../utils/provider'
+import { delegatedStakeAccount } from '../utils/staking'
+import { executeFundBondInstruction } from '../utils/testTransactions'
 
 export class BankrunExtendedProvider
   extends BankrunProvider
@@ -109,18 +115,62 @@ export function warpToEpoch(provider: BankrunProvider, epoch: number) {
   const epochBigInt = BigInt(epoch)
   const { slotsPerEpoch, firstNormalEpoch, firstNormalSlot } =
     provider.context.genesisConfig.epochSchedule
-  let warpToEpoch: bigint
+  let warpToSlot: bigint
   if (epochBigInt <= firstNormalEpoch) {
-    warpToEpoch = BigInt(((2 ^ epoch) - 1) * MINIMUM_SLOTS_PER_EPOCH)
+    warpToSlot = BigInt((2 ** epoch - 1) * MINIMUM_SLOTS_PER_EPOCH)
   } else {
-    warpToEpoch =
+    warpToSlot =
       (epochBigInt - firstNormalEpoch) * slotsPerEpoch + firstNormalSlot
   }
-  provider.context.warpToSlot(warpToEpoch)
+  provider.context.warpToSlot(warpToSlot)
 }
 
 export async function warpToNextEpoch(provider: BankrunProvider) {
-  const nextEpoch =
-    Number((await provider.context.banksClient.getClock()).epoch) + 1
+  await warpOffsetEpoch(provider, 1)
+}
+
+export async function warpOffsetEpoch(
+  provider: BankrunProvider,
+  plusEpochs: number
+) {
+  const nextEpoch = (await currentEpoch(provider)) + plusEpochs
   warpToEpoch(provider, nextEpoch)
+}
+
+export async function currentEpoch(provider: BankrunProvider): Promise<number> {
+  return Number((await provider.context.banksClient.getClock()).epoch)
+}
+
+// this cannot be in generic testTransactions.ts because of warping requires BankrunProvider
+export async function delegateAndFund({
+  program,
+  provider,
+  lamports,
+  voteAccount,
+  bond,
+  config,
+}: {
+  program: ValidatorBondsProgram
+  provider: BankrunExtendedProvider
+  lamports: number
+  voteAccount: PublicKey
+  bond?: PublicKey
+  config?: PublicKey
+}): Promise<{ stakeAccount: PublicKey }> {
+  const { stakeAccount, withdrawer: stakeAccountWithdrawer } =
+    await delegatedStakeAccount({
+      provider,
+      lamports,
+      voteAccountToDelegate: voteAccount,
+    })
+  bond = checkAndGetBondAddress(bond, config, voteAccount, program.programId)
+  await warpToNextEpoch(provider) // activating stake account
+  await executeFundBondInstruction({
+    program,
+    provider,
+    bondAccount: bond,
+    stakeAccount,
+    stakeAccountAuthority: stakeAccountWithdrawer,
+  })
+  return { stakeAccount }
 }

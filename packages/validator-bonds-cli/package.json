@@ -26,21 +26,21 @@
   "dependencies": {
     "@marinade.finance/validator-bonds-sdk": "^1.1.10",
     "@coral-xyz/anchor": "^0.29.0",
-    "@solana/web3.js": "^1.87.6",
+    "@solana/web3.js": "^1.89.1",
     "@marinade.finance/ledger-utils": "^3.0.1",
-    "@marinade.finance/cli-common": "^2.2.1",
-    "@marinade.finance/anchor-common": "^2.2.1",
-    "@marinade.finance/web3js-common": "^2.2.1",
-    "@marinade.finance/ts-common": "^2.2.1",
+    "@marinade.finance/cli-common": "^2.2.2",
+    "@marinade.finance/anchor-common": "^2.2.2",
+    "@marinade.finance/web3js-common": "^2.2.2",
+    "@marinade.finance/ts-common": "^2.2.2",
     "bn.js": "^5.2.1",
     "jsbi": "^4.3.0",
-    "commander": "^9.5.0",
-    "pino": "^8.16.1",
-    "pino-pretty": "^10.2.3",
-    "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.8",
-    "yaml": "^2.3.3"
+    "commander": "^11.1.0",
+    "pino": "^8.17.2",
+    "pino-pretty": "^10.3.1",
+    "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
+    "yaml": "^2.3.4"
   },
   "devDependencies": {
-    "@marinade.finance/jest-utils": "^2.2.1"
+    "@marinade.finance/jest-utils": "^2.2.2"
   }
 }

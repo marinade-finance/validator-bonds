@@ -4,7 +4,7 @@ import {
   Signer,
   TransactionInstruction,
 } from '@solana/web3.js'
-import { CONFIG_ADDRESS, ValidatorBondsProgram } from '../sdk'
+import { ValidatorBondsProgram } from '../sdk'
 import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
 import BN from 'bn.js'
 import { getBond } from '../api'
@@ -13,19 +13,19 @@ import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 export async function configureBondInstruction({
   program,
   bondAccount,
-  configAccount = CONFIG_ADDRESS,
-  validatorVoteAccount,
+  configAccount,
+  voteAccount,
   authority = anchorProgramWalletPubkey(program),
   newBondAuthority,
-  newRevenueShareHundredthBps,
+  newCpmpe,
 }: {
   program: ValidatorBondsProgram
   bondAccount?: PublicKey
   configAccount?: PublicKey
-  validatorVoteAccount?: PublicKey
+  voteAccount?: PublicKey
   authority?: PublicKey | Keypair | Signer | WalletInterface | WalletInterface // signer
   newBondAuthority?: PublicKey
-  newRevenueShareHundredthBps?: BN | number
+  newCpmpe?: BN | number
 }): Promise<{
   bondAccount: PublicKey
   instruction: TransactionInstruction
@@ -33,34 +33,24 @@ export async function configureBondInstruction({
   bondAccount = checkAndGetBondAddress(
     bondAccount,
     configAccount,
-    validatorVoteAccount,
+    voteAccount,
     program.programId
   )
-  if (validatorVoteAccount === undefined) {
+  if (voteAccount === undefined) {
     const bondData = await getBond(program, bondAccount)
-    validatorVoteAccount = bondData.validatorVoteAccount
+    voteAccount = bondData.voteAccount
   }
   authority = authority instanceof PublicKey ? authority : authority.publicKey
-
-  if (newRevenueShareHundredthBps !== undefined) {
-    newRevenueShareHundredthBps =
-      newRevenueShareHundredthBps instanceof BN
-        ? newRevenueShareHundredthBps.toNumber()
-        : newRevenueShareHundredthBps
-  }
 
   const instruction = await program.methods
     .configureBond({
       bondAuthority: newBondAuthority === undefined ? null : newBondAuthority,
-      revenueShare:
-        newRevenueShareHundredthBps === undefined
-          ? null
-          : { hundredthBps: newRevenueShareHundredthBps },
+      cpmpe: newCpmpe === undefined ? null : new BN(newCpmpe),
     })
     .accounts({
       bond: bondAccount,
       authority,
-      validatorVoteAccount,
+      voteAccount,
     })
     .instruction()
   return {

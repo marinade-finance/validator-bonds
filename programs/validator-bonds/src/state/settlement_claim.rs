@@ -1,6 +1,7 @@
 use crate::constants::SETTLEMENT_CLAIM_SEED;
 use crate::error::ErrorCode;
 use crate::state::Reserved150;
+use crate::utils::merkle_proof;
 use crate::ID;
 use anchor_lang::prelude::*;
 
@@ -11,14 +12,14 @@ use anchor_lang::prelude::*;
 pub struct SettlementClaim {
     /// settlement account this claim belongs under
     pub settlement: Pubkey,
-    /// staker authority as part of the merkle proof for this claim
-    pub staker_authority: Pubkey,
+    /// stake authority as part of the merkle proof for this claim
+    pub stake_authority: Pubkey,
     /// withdrawer authority that has got permission to withdraw the claim
-    pub withdrawer_authority: Pubkey,
+    pub withdraw_authority: Pubkey,
     /// vote account as part of the merkle proof for this claim
     pub vote_account: Pubkey,
     /// claim amount
-    pub claim: u64,
+    pub amount: u64,
     /// PDA account bump, one claim per settlement
     pub bump: u8,
     /// rent collector account to get the rent back for claim account creation
@@ -29,15 +30,18 @@ pub struct SettlementClaim {
 
 impl SettlementClaim {
     pub fn find_address(&self) -> Result<Pubkey> {
-        // TODO: I'm not sure about the maximal seed length for the program address
         Pubkey::create_program_address(
             &[
                 SETTLEMENT_CLAIM_SEED,
                 &self.settlement.key().as_ref(),
-                &self.staker_authority.as_ref(),
-                &self.withdrawer_authority.as_ref(),
-                &self.vote_account.as_ref(),
-                &self.claim.to_le_bytes().as_ref(),
+                merkle_proof::TreeNode {
+                    stake_authority: self.withdraw_authority.to_string(),
+                    withdraw_authority: self.stake_authority.to_string(),
+                    vote_account: self.vote_account.to_string(),
+                    claim: self.amount,
+                }
+                .hash()
+                .as_ref(),
                 &[self.bump],
             ],
             &ID,

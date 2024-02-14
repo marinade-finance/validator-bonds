@@ -56,15 +56,15 @@ describe('Configure bond account using CLI', () => {
       provider,
       validatorIdentity
     ))
-    ;({ bondAccount } = await executeInitBondInstruction(
+    ;({ bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      configAccount,
-      bondAuthorityKeypair,
+      config: configAccount,
+      bondAuthority: bondAuthorityKeypair,
       voteAccount,
       validatorIdentity,
-      33
-    ))
+      cpmpe: 33,
+    }))
   })
 
   afterEach(async () => {
@@ -85,8 +85,6 @@ describe('Configure bond account using CLI', () => {
           bondAccount.toBase58(),
           '--authority',
           bondAuthorityPath,
-          '--revenue-share',
-          '42',
           '--confirmation-finality',
           'confirmed',
         ],
@@ -101,9 +99,9 @@ describe('Configure bond account using CLI', () => {
     const [, bump] = bondAddress(configAccount, voteAccount, program.programId)
     const bondsData1 = await getBond(program, bondAccount)
     expect(bondsData1.config).toEqual(configAccount)
-    expect(bondsData1.validatorVoteAccount).toEqual(voteAccount)
+    expect(bondsData1.voteAccount).toEqual(voteAccount)
     expect(bondsData1.authority).toEqual(bondAuthorityKeypair.publicKey)
-    expect(bondsData1.revenueShare.hundredthBps).toEqual(42 * 10 ** 4)
+    expect(bondsData1.cpmpe).toEqual(33)
     expect(bondsData1.bump).toEqual(bump)
 
     const newBondAuthority = PublicKey.unique()
@@ -125,8 +123,6 @@ describe('Configure bond account using CLI', () => {
           validatorIdentityPath,
           '--bond-authority',
           newBondAuthority.toBase58(),
-          '--revenue-share',
-          43,
           '--confirmation-finality',
           'confirmed',
         ],
@@ -140,7 +136,7 @@ describe('Configure bond account using CLI', () => {
 
     const bondsData2 = await getBond(program, bondAccount)
     expect(bondsData2.authority).toEqual(newBondAuthority)
-    expect(bondsData2.revenueShare.hundredthBps).toEqual(43 * 10 ** 4)
+    expect(bondsData2.cpmpe).toEqual(33)
   })
 
   it('configure bond in print-only mode', async () => {

@@ -31,34 +31,35 @@ pub fn verify(proof: Vec<[u8; 32]>, root: [u8; 32], leaf: [u8; 32]) -> bool {
     computed_hash == root
 }
 
-#[derive(Default, Clone, Eq, Debug, Hash, PartialEq)]
+// TODO: the TreeNode implementation should be shared with insurance-engine in a lib
+#[derive(Default, Clone, Eq, Debug, PartialEq)]
 pub struct TreeNode {
-    pub staker_authority: String,
-    pub withdrawer_authority: String,
+    pub stake_authority: String,
+    pub withdraw_authority: String,
     pub vote_account: String,
     pub claim: u64,
 }
 
 impl TreeNode {
-    fn hash(&self) -> Hash {
+    pub fn hash(&self) -> Hash {
         let mut hasher = Hasher::default();
-        hasher.hash(self.staker_authority.as_ref());
-        hasher.hash(self.withdrawer_authority.as_ref());
+        hasher.hash(self.stake_authority.as_ref());
+        hasher.hash(self.withdraw_authority.as_ref());
         hasher.hash(self.vote_account.as_ref());
         hasher.hash(self.claim.to_le_bytes().as_ref());
         hasher.result()
     }
 }
 
-pub fn tree_node(
-    staker_authority: Pubkey,
-    withdrawer_authority: Pubkey,
+pub fn tree_node_leaf_hash(
+    stake_authority: Pubkey,
+    withdraw_authority: Pubkey,
     vote_account: Pubkey,
     claim: u64,
 ) -> [u8; 32] {
     let tree_node = TreeNode {
-        staker_authority: staker_authority.to_string(),
-        withdrawer_authority: withdrawer_authority.to_string(),
+        stake_authority: stake_authority.to_string(),
+        withdraw_authority: withdraw_authority.to_string(),
         vote_account: vote_account.to_string(),
         claim,
     };
@@ -141,7 +142,7 @@ mod tests {
         assert!(verify(
             proof,
             merkle_root,
-            tree_node(staker_authority, withdrawer_authority, vote_account, claim)
+            tree_node_leaf_hash(staker_authority, withdrawer_authority, vote_account, claim)
         ));
     }
 }

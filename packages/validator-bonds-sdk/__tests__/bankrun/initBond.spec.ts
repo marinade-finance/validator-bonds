@@ -46,14 +46,16 @@ describe('Validator Bonds init bond account', () => {
 
   it('init bond', async () => {
     const bondAuthority = Keypair.generate()
-    const { voteAccount, validatorIdentity } = await createVoteAccount(provider)
+    const { voteAccount, validatorIdentity } = await createVoteAccount({
+      provider,
+    })
     const rentWallet = await createUserAndFund(provider, LAMPORTS_PER_SOL)
     const { instruction, bondAccount } = await initBondInstruction({
       program,
       configAccount: config.publicKey,
       bondAuthority: bondAuthority.publicKey,
-      revenueShareHundredthBps: 30,
-      validatorVoteAccount: voteAccount,
+      cpmpe: 30,
+      voteAccount: voteAccount,
       validatorIdentity: validatorIdentity.publicKey,
       rentPayer: pubkey(rentWallet),
     })
@@ -62,9 +64,8 @@ describe('Validator Bonds init bond account', () => {
     const rentWalletInfo = await provider.connection.getAccountInfo(
       pubkey(rentWallet)
     )
-    const bondAccountInfo = await provider.connection.getAccountInfo(
-      bondAccount
-    )
+    const bondAccountInfo =
+      await provider.connection.getAccountInfo(bondAccount)
     if (bondAccountInfo === null) {
       throw new Error(`Bond account ${bondAccountInfo} not found`)
     }
@@ -73,9 +74,9 @@ describe('Validator Bonds init bond account', () => {
         bondAccountInfo.data.length
       )
     expect(rentWalletInfo!.lamports).toEqual(LAMPORTS_PER_SOL - rentExempt)
-    console.log(
-      `Bond record data length ${bondAccountInfo.data.length}, exempt rent: ${rentExempt}`
-    )
+    // NO overflow of account size from the first deployment on mainnet
+    expect(bondAccountInfo?.data.byteLength).toBeLessThanOrEqual(260)
+    console.log('bond account length', bondAccountInfo?.data.byteLength)
 
     const bondData = await getBond(program, bondAccount)
     expect(bondData.authority).toEqual(bondAuthority.publicKey)
@@ -83,19 +84,21 @@ describe('Validator Bonds init bond account', () => {
       bondAddress(config.publicKey, voteAccount, program.programId)[1]
     )
     expect(bondData.config).toEqual(config.publicKey)
-    expect(bondData.revenueShare).toEqual({ hundredthBps: 30 })
-    expect(bondData.validatorVoteAccount).toEqual(voteAccount)
+    expect(bondData.cpmpe).toEqual(30)
+    expect(bondData.voteAccount).toEqual(voteAccount)
   })
 
   it('init bond permission-less', async () => {
     const bondAuthority = Keypair.generate()
-    const { voteAccount, validatorIdentity } = await createVoteAccount(provider)
+    const { voteAccount, validatorIdentity } = await createVoteAccount({
+      provider,
+    })
     const { instruction, bondAccount } = await initBondInstruction({
       program,
       configAccount: config.publicKey,
       bondAuthority: bondAuthority.publicKey,
-      revenueShareHundredthBps: 88,
-      validatorVoteAccount: voteAccount,
+      cpmpe: 88,
+      voteAccount,
     })
     await provider.sendIx([], instruction)
 
@@ -105,23 +108,23 @@ describe('Validator Bonds init bond account', () => {
       bondAddress(config.publicKey, voteAccount, program.programId)[1]
     )
     expect(bondData.config).toEqual(config.publicKey)
-    expect(bondData.revenueShare).toEqual({ hundredthBps: 0 })
-    expect(bondData.validatorVoteAccount).toEqual(voteAccount)
+    expect(bondData.cpmpe).toEqual(0)
+    expect(bondData.voteAccount).toEqual(voteAccount)
   })
 
   it('init bond failure on vote account withdrawer signature', async () => {
     const bondAuthority = Keypair.generate()
-    const { voteAccount, authorizedWithdrawer } = await createVoteAccount(
-      provider
-    )
+    const { voteAccount, authorizedWithdrawer } = await createVoteAccount({
+      provider,
+    })
 
     try {
       const { instruction } = await initBondInstruction({
         program,
         configAccount: config.publicKey,
         bondAuthority: bondAuthority.publicKey,
-        revenueShareHundredthBps: 30,
-        validatorVoteAccount: voteAccount,
+        cpmpe: 30,
+        voteAccount: voteAccount,
         validatorIdentity: authorizedWithdrawer.publicKey,
       })
       await provider.sendIx([authorizedWithdrawer], instruction)
@@ -130,7 +133,7 @@ describe('Validator Bonds init bond account', () => {
       verifyError(
         e,
         Errors,
-        6035,
+        6037,
         'does not match to provided validator identity'
       )
     }
@@ -138,7 +141,11 @@ describe('Validator Bonds init bond account', () => {
 
   it('cannot init bond when already exists', async () => {
     const { bondAccount, voteAccount, validatorIdentity } =
-      await executeInitBondInstruction(program, provider, config.publicKey)
+      await executeInitBondInstruction({
+        program,
+        provider,
+        config: config.publicKey,
+      })
     expect(
       provider.connection.getAccountInfo(bondAccount)
     ).resolves.not.toBeNull()
@@ -148,8 +155,8 @@ describe('Validator Bonds init bond account', () => {
         program,
         configAccount: config.publicKey,
         bondAuthority: PublicKey.default,
-        revenueShareHundredthBps: 30,
-        validatorVoteAccount: voteAccount,
+        cpmpe: 30,
+        voteAccount: voteAccount,
         validatorIdentity: validatorIdentity.publicKey,
       })
       await provider.sendIx([validatorIdentity], instruction)

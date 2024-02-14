@@ -26,7 +26,7 @@ export function checkAndGetBondAddress(
     return sdkBondAddress(config, voteAccount, programId)[0]
   } else {
     throw new Error(
-      'Either [bondAccount] or [validatorVoteAccount and configAccount] is required'
+      'Either [bondAccount] or [voteAccount and configAccount] is required'
     )
   }
 }

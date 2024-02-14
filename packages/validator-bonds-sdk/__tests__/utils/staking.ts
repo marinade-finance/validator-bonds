@@ -21,6 +21,11 @@ import {
 } from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
 import assert from 'assert'
 import { pubkey } from '@marinade.finance/web3js-common'
+import {
+  ValidatorBondsProgram,
+  settlementAuthority,
+  withdrawerAuthority,
+} from '../../src'
 
 // Depending if new vote account feature-set is gated on.
 // It can be 3762 or 3736
@@ -186,25 +191,28 @@ export async function createVoteAccountWithIdentity(
   provider: ExtendedProvider,
   validatorIdentity: Keypair
 ): Promise<VoteAccountKeys> {
-  return await createVoteAccount(
+  return await createVoteAccount({
     provider,
-    undefined,
-    undefined,
-    undefined,
-    validatorIdentity
-  )
+    validatorIdentity,
+  })
 }
 
-export async function createVoteAccount(
-  provider: ExtendedProvider,
-  rentExempt?: number,
-  authorizedVoter?: Keypair,
-  authorizedWithdrawer?: Keypair,
+export async function createVoteAccount({
+  provider,
+  rentExempt,
+  authorizedVoter,
+  authorizedWithdrawer,
+  validatorIdentity,
+  voteAccount = Keypair.generate(),
+}: {
+  provider: ExtendedProvider
+  rentExempt?: number
+  authorizedVoter?: Keypair
+  authorizedWithdrawer?: Keypair
   validatorIdentity?: Keypair
-): Promise<VoteAccountKeys> {
+  voteAccount?: Keypair
+}): Promise<VoteAccountKeys> {
   rentExempt = await getRentExemptVote(provider, rentExempt)
-
-  const voteAccount = Keypair.generate()
   validatorIdentity = validatorIdentity ?? Keypair.generate()
   authorizedVoter = authorizedVoter ?? Keypair.generate()
   authorizedWithdrawer = authorizedWithdrawer ?? Keypair.generate()
@@ -307,7 +315,8 @@ export async function delegatedStakeAccount({
 
   voteAccountToDelegate =
     voteAccountToDelegate ??
-    (await createVoteAccount(provider, rentExemptVote)).voteAccount
+    (await createVoteAccount({ provider, rentExempt: rentExemptVote }))
+      .voteAccount
 
   const createStakeAccountIx = StakeProgram.createAccount({
     fromPubkey: provider.walletPubkey,
@@ -335,6 +344,84 @@ export async function delegatedStakeAccount({
     staker,
     withdrawer,
   }
+}
+
+export async function createBondsFundedStakeAccount({
+  program,
+  provider,
+  config,
+  lamports,
+  voteAccount,
+}: {
+  program: ValidatorBondsProgram
+  provider: ExtendedProvider
+  config: PublicKey
+  lamports: number
+  voteAccount: PublicKey
+}): Promise<PublicKey> {
+  const [bondsAuth] = withdrawerAuthority(config, program.programId)
+  return await createStakeAccount({
+    provider,
+    voteAccount,
+    lamports,
+    newWithdrawerAuthority: bondsAuth,
+    newStakerAuthority: bondsAuth,
+  })
+}
+
+export async function createSettlementFundedStakeAccount({
+  program,
+  provider,
+  config,
+  settlement,
+  voteAccount,
+  lamports,
+}: {
+  program: ValidatorBondsProgram
+  provider: ExtendedProvider
+  config: PublicKey
+  settlement: PublicKey
+  voteAccount: PublicKey
+  lamports: number
+}): Promise<PublicKey> {
+  const [bondsAuth] = withdrawerAuthority(config, program.programId)
+  const [settlementAuth] = settlementAuthority(settlement, program.programId)
+  return await createStakeAccount({
+    provider,
+    voteAccount,
+    lamports,
+    newWithdrawerAuthority: bondsAuth,
+    newStakerAuthority: settlementAuth,
+  })
+}
+
+export async function createStakeAccount({
+  provider,
+  lamports,
+  voteAccount,
+  newWithdrawerAuthority,
+  newStakerAuthority,
+}: {
+  provider: ExtendedProvider
+  lamports: number
+  voteAccount: PublicKey
+  newWithdrawerAuthority: PublicKey
+  newStakerAuthority: PublicKey
+}): Promise<PublicKey> {
+  const { stakeAccount, withdrawer: initWithdrawer } =
+    await delegatedStakeAccount({
+      provider,
+      lamports,
+      voteAccountToDelegate: voteAccount,
+    })
+  await authorizeStakeAccount({
+    provider,
+    authority: initWithdrawer,
+    stakeAccount: stakeAccount,
+    withdrawer: newWithdrawerAuthority,
+    staker: newStakerAuthority,
+  })
+  return stakeAccount
 }
 
 export async function nonInitializedStakeAccount(

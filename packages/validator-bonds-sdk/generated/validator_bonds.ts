@@ -1,5 +1,5 @@
 export type ValidatorBonds = {
-  "version": "0.1.0",
+  "version": "1.1.0",
   "name": "validator_bonds",
   "constants": [
     {
@@ -117,7 +117,7 @@ export type ValidatorBonds = {
           ]
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "isMut": false,
           "isSigner": false
         },
@@ -151,7 +151,7 @@ export type ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "path": "validator_vote_account"
+                "path": "vote_account"
               }
             ]
           }
@@ -202,12 +202,12 @@ export type ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "path": "validator_vote_account"
+                "path": "vote_account"
               }
             ]
           },
           "relations": [
-            "validator_vote_account"
+            "vote_account"
           ]
         },
         {
@@ -219,7 +219,7 @@ export type ValidatorBonds = {
           ]
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "isMut": false,
           "isSigner": false
         }
@@ -265,7 +265,7 @@ export type ValidatorBonds = {
                 "kind": "account",
                 "type": "publicKey",
                 "account": "Bond",
-                "path": "bond.validator_vote_account"
+                "path": "bond.vote_account"
               }
             ]
           },
@@ -361,17 +361,17 @@ export type ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "path": "validator_vote_account"
+                "path": "vote_account"
               }
             ]
           },
           "relations": [
             "config",
-            "validator_vote_account"
+            "vote_account"
           ]
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "isMut": false,
           "isSigner": false
         },
@@ -454,16 +454,16 @@ export type ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "path": "validator_vote_account"
+                "path": "vote_account"
               }
             ]
           },
           "relations": [
-            "validator_vote_account"
+            "vote_account"
           ]
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "isMut": false,
           "isSigner": false
         },
@@ -537,17 +537,17 @@ export type ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "path": "validator_vote_account"
+                "path": "vote_account"
               }
             ]
           },
           "relations": [
             "config",
-            "validator_vote_account"
+            "vote_account"
           ]
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "isMut": false,
           "isSigner": false
         },
@@ -579,7 +579,7 @@ export type ValidatorBonds = {
             ]
           },
           "relations": [
-            "validator_vote_account",
+            "vote_account",
             "bond"
           ]
         },
@@ -690,11 +690,10 @@ export type ValidatorBonds = {
                 "path": "config"
               },
               {
-                "kind": "arg",
-                "type": {
-                  "defined": "InitSettlementArgs"
-                },
-                "path": "params.vote_account"
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond.vote_account"
               }
             ]
           },
@@ -772,7 +771,7 @@ export type ValidatorBonds = {
                 "kind": "account",
                 "type": "publicKey",
                 "account": "Bond",
-                "path": "bond.validator_vote_account"
+                "path": "bond.vote_account"
               }
             ]
           },
@@ -825,16 +824,6 @@ export type ValidatorBonds = {
           ]
         },
         {
-          "name": "rentCollector",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "splitRentCollector",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "bondsWithdrawerAuthority",
           "isMut": false,
           "isSigner": false,
@@ -855,11 +844,23 @@ export type ValidatorBonds = {
           }
         },
         {
-          "name": "stakeAccount",
+          "name": "rentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "splitRentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "splitRentRefundAccount",
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "a stake account to be used to return back the split rent exempt fee"
+            "a stake account that was funded to the settlement credited to bond's validator vote account",
+            "lamports of the stake accounts are used to pay back rent exempt of the split_stake_account",
+            "that can be created on funding the settlement"
           ]
         },
         {
@@ -912,7 +913,7 @@ export type ValidatorBonds = {
                 "kind": "account",
                 "type": "publicKey",
                 "account": "Bond",
-                "path": "bond.validator_vote_account"
+                "path": "bond.vote_account"
               }
             ]
           },
@@ -957,8 +958,7 @@ export type ValidatorBonds = {
             ]
           },
           "relations": [
-            "bond",
-            "settlement_authority"
+            "bond"
           ]
         },
         {
@@ -1030,7 +1030,10 @@ export type ValidatorBonds = {
           "isMut": true,
           "isSigner": true,
           "docs": [
-            "a split stake account is needed when the provided stake_account is bigger than the settlement"
+            "an account that does not exist, it will be initialized as a stake account (the signature needed)",
+            "the split_stake_account is needed when the provided stake_account is consists of more lamports",
+            "than the amount needed to fund the settlement, the left-over lamports from the stake account is split",
+            "into the new split_stake_account; when the split_stake_account is not needed, the rent payer is refunded"
           ]
         },
         {
@@ -1038,10 +1041,10 @@ export type ValidatorBonds = {
           "isMut": true,
           "isSigner": true,
           "docs": [
-            "This is an account used to prefund the split stake account.",
-            "If a split stake account is not needed then rent payer is fully refunded at the end of the transaction.",
-            "If a split stake account is created for the settlement, the payer needs to manually close the claim_settlement",
-            "instruction to get the rent back (success only when the stake account is already deactivated)."
+            "rent exempt payer of the split_stake_account creation",
+            "if the split_stake_account is not needed (no left-over lamports on funding) then rent payer is refunded",
+            "it the split_stake_account is needed to spill out over funding of the settlement",
+            "then the rent payer is refunded when the settlement is closed"
           ]
         },
         {
@@ -1126,11 +1129,10 @@ export type ValidatorBonds = {
                 "path": "config"
               },
               {
-                "kind": "arg",
-                "type": {
-                  "defined": "ClaimSettlementArgs"
-                },
-                "path": "params.vote_account"
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond.vote_account"
               }
             ]
           },
@@ -1184,50 +1186,7 @@ export type ValidatorBonds = {
           "isSigner": false,
           "docs": [
             "deduplication, one amount cannot be claimed twice"
-          ],
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "claim_account"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Settlement",
-                "path": "settlement"
-              },
-              {
-                "kind": "arg",
-                "type": {
-                  "defined": "ClaimSettlementArgs"
-                },
-                "path": "params.staker"
-              },
-              {
-                "kind": "arg",
-                "type": {
-                  "defined": "ClaimSettlementArgs"
-                },
-                "path": "params.withdrawer"
-              },
-              {
-                "kind": "arg",
-                "type": {
-                  "defined": "ClaimSettlementArgs"
-                },
-                "path": "params.vote_account"
-              },
-              {
-                "kind": "arg",
-                "type": {
-                  "defined": "ClaimSettlementArgs"
-                },
-                "path": "params.claim"
-              }
-            ]
-          }
+          ]
         },
         {
           "name": "stakeAccount",
@@ -1238,7 +1197,7 @@ export type ValidatorBonds = {
           ]
         },
         {
-          "name": "withdrawerAuthority",
+          "name": "withdrawAuthority",
           "isMut": true,
           "isSigner": false,
           "docs": [
@@ -1392,19 +1351,22 @@ export type ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "account": "Bond",
-                "path": "bond.validator_vote_account"
+                "path": "vote_account"
               }
             ]
           },
           "relations": [
-            "config"
+            "config",
+            "vote_account"
           ]
         },
         {
           "name": "settlement",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "settlment account used to derive settlement authority which cannot exists"
+          ]
         },
         {
           "name": "stakeAccount",
@@ -1415,16 +1377,12 @@ export type ValidatorBonds = {
           ]
         },
         {
-          "name": "settlementAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "bondsWithdrawerAuthority",
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "authority that owns (withdrawer authority) all stakes account under the bonds program"
+            "bonds withdrawer authority",
+            "to cancel settlement funding of the stake account changing staker authority to address"
           ],
           "pda": {
             "seeds": [
@@ -1443,7 +1401,7 @@ export type ValidatorBonds = {
           }
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "isMut": false,
           "isSigner": false
         },
@@ -1469,6 +1427,30 @@ export type ValidatorBonds = {
         }
       ],
       "args": []
+    },
+    {
+      "name": "migrateBondCpmpe",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "config root account that will be configured"
+          ]
+        },
+        {
+          "name": "bond",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "adminAuthority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": []
     }
   ],
   "accounts": [
@@ -1489,12 +1471,12 @@ export type ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "validatorVoteAccount",
+            "name": "voteAccount",
             "docs": [
               "Validator vote address that this bond account is crated for",
               "INVARIANTS:",
               "- one bond account per validator vote address",
-              "- bond program does not change received stake account delegation voter_pubkey to any other validator vote"
+              "- this program does NOT change stake account delegation voter_pubkey to any other validator vote account"
             ],
             "type": "publicKey"
           },
@@ -1507,13 +1489,11 @@ export type ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "revenueShare",
+            "name": "cpmpe",
             "docs": [
-              "Revenue that is distributed from the bond (from validator) to the protocol"
+              "Cost per mille per epoch"
             ],
-            "type": {
-              "defined": "HundredthBasisPoint"
-            }
+            "type": "u64"
           },
           {
             "name": "bump",
@@ -1527,6 +1507,43 @@ export type ValidatorBonds = {
             "docs": [
               "reserve space for future extensions"
             ],
+            "type": {
+              "array": [
+                "u8",
+                142
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "bondWithRevenueShare",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "type": "publicKey"
+          },
+          {
+            "name": "voteAccount",
+            "type": "publicKey"
+          },
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "revenueShare",
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "reserved",
             "type": {
               "defined": "Reserved150"
             }
@@ -1616,14 +1633,14 @@ export type ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "stakerAuthority",
+            "name": "stakeAuthority",
             "docs": [
-              "staker authority as part of the merkle proof for this claim"
+              "stake authority as part of the merkle proof for this claim"
             ],
             "type": "publicKey"
           },
           {
-            "name": "withdrawerAuthority",
+            "name": "withdrawAuthority",
             "docs": [
               "withdrawer authority that has got permission to withdraw the claim"
             ],
@@ -1637,7 +1654,7 @@ export type ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "claim",
+            "name": "amount",
             "docs": [
               "claim amount"
             ],
@@ -1686,9 +1703,10 @@ export type ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "settlementAuthority",
+            "name": "authority",
             "docs": [
-              "stake account authority that manages the funded stake accounts"
+              "settlement authority used as the 'staker' stake account authority",
+              "of stake accounts funded to this settlement"
             ],
             "type": "publicKey"
           },
@@ -1712,28 +1730,28 @@ export type ValidatorBonds = {
             "type": "u64"
           },
           {
-            "name": "maxNumNodes",
+            "name": "maxMerkleNodes",
             "docs": [
-              "maximum number of nodes that can ever be claimed from this [Settlement]"
+              "maximum number of merkle tree nodes that can ever be claimed from this [Settlement]"
             ],
             "type": "u64"
           },
           {
-            "name": "totalFunded",
+            "name": "lamportsFunded",
             "docs": [
-              "total funds that have been deposited to this [Settlement]"
+              "total lamports funded to this [Settlement]"
             ],
             "type": "u64"
           },
           {
-            "name": "totalFundsClaimed",
+            "name": "lamportsClaimed",
             "docs": [
-              "total funds that have been claimed from this [Settlement]"
+              "total lamports that have been claimed from this [Settlement]"
             ],
             "type": "u64"
           },
           {
-            "name": "numNodesClaimed",
+            "name": "merkleNodesClaimed",
             "docs": [
               "number of nodes that have been claimed from this [Settlement]"
             ],
@@ -1756,7 +1774,7 @@ export type ValidatorBonds = {
           {
             "name": "splitRentCollector",
             "docs": [
-              "address that may claim the rent exempt for creation of \"split stake account\""
+              "address claiming the rent exempt for \"split stake account\" created on funding settlement"
             ],
             "type": {
               "option": "publicKey"
@@ -1796,16 +1814,16 @@ export type ValidatorBonds = {
         "kind": "struct",
         "fields": [
           {
-            "name": "validatorVoteAccount",
+            "name": "voteAccount",
             "docs": [
-              "Validator that requested the withdraw"
+              "Validator vote account that requested the withdraw"
             ],
             "type": "publicKey"
           },
           {
             "name": "bond",
             "docs": [
-              "Bond account that the withdraw request is for"
+              "Bond account that the withdraw request is for (has to match with vote_account)"
             ],
             "type": "publicKey"
           },
@@ -1884,26 +1902,6 @@ export type ValidatorBonds = {
       }
     },
     {
-      "name": "HundrethBasisPointChange",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "old",
-            "type": {
-              "defined": "HundredthBasisPoint"
-            }
-          },
-          {
-            "name": "new",
-            "type": {
-              "defined": "HundredthBasisPoint"
-            }
-          }
-        ]
-      }
-    },
-    {
       "name": "DelegationInfo",
       "type": {
         "kind": "struct",
@@ -1967,11 +1965,9 @@ export type ValidatorBonds = {
             }
           },
           {
-            "name": "revenueShare",
+            "name": "cpmpe",
             "type": {
-              "option": {
-                "defined": "HundredthBasisPoint"
-              }
+              "option": "u64"
             }
           }
         ]
@@ -1987,10 +1983,8 @@ export type ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "revenueShare",
-            "type": {
-              "defined": "HundredthBasisPoint"
-            }
+            "name": "cpmpe",
+            "type": "u64"
           }
         ]
       }
@@ -2063,10 +2057,6 @@ export type ValidatorBonds = {
         "kind": "struct",
         "fields": [
           {
-            "name": "amount",
-            "type": "u64"
-          },
-          {
             "name": "proof",
             "type": {
               "vec": {
@@ -2078,22 +2068,10 @@ export type ValidatorBonds = {
             }
           },
           {
-            "name": "staker",
-            "type": "publicKey"
-          },
-          {
-            "name": "withdrawer",
-            "docs": [
-              "claim holder, withdrawer_authority"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "voteAccount",
-            "type": "publicKey"
-          },
-          {
             "name": "claim",
+            "docs": [
+              "claim amount; merkle root verification"
+            ],
             "type": "u64"
           }
         ]
@@ -2106,6 +2084,10 @@ export type ValidatorBonds = {
         "fields": [
           {
             "name": "merkleRoot",
+            "docs": [
+              "merkle root for this settlement, multiple settlements can be created with the same merkle root,",
+              "settlements will be distinguished by the vote_account"
+            ],
             "type": {
               "array": [
                 "u8",
@@ -2114,19 +2096,24 @@ export type ValidatorBonds = {
             }
           },
           {
-            "name": "voteAccount",
-            "type": "publicKey"
-          },
-          {
-            "name": "settlementTotalClaim",
+            "name": "maxTotalClaim",
+            "docs": [
+              "maximal number of lamports that can be claimed from this settlement"
+            ],
             "type": "u64"
           },
           {
-            "name": "settlementNumNodes",
+            "name": "maxMerkleNodes",
+            "docs": [
+              "maximal number of merkle tree nodes that can be claimed from this settlement"
+            ],
             "type": "u64"
           },
           {
             "name": "rentCollector",
+            "docs": [
+              "collects the rent exempt from the settlement account when closed"
+            ],
             "type": "publicKey"
           }
         ]
@@ -2188,23 +2175,6 @@ export type ValidatorBonds = {
           }
         ]
       }
-    },
-    {
-      "name": "HundredthBasisPoint",
-      "docs": [
-        "It's a smaller unit of a basis point (basis point = 1/100%), we calculate 1/10_000% here instead.",
-        "The max value is 1_000_000 (100%).",
-        "1 HundredthBasisPoint = 0.0001%, 10_000 HundredthBasisPoint = 1%, 1_000_000 HundredthBasisPoint = 100%."
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "hundredthBps",
-            "type": "u32"
-          }
-        ]
-      }
     }
   ],
   "events": [
@@ -2217,7 +2187,7 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "type": "publicKey",
           "index": false
         },
@@ -2232,10 +2202,8 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "revenueShare",
-          "type": {
-            "defined": "HundredthBasisPoint"
-          },
+          "name": "cpmpe",
+          "type": "u64",
           "index": false
         },
         {
@@ -2258,10 +2226,10 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "revenueShare",
+          "name": "cpmpe",
           "type": {
             "option": {
-              "defined": "HundrethBasisPointChange"
+              "defined": "U64ValueChange"
             }
           },
           "index": false
@@ -2277,7 +2245,7 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "type": "publicKey",
           "index": false
         },
@@ -2287,10 +2255,8 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "revenueShare",
-          "type": {
-            "defined": "HundredthBasisPoint"
-          },
+          "name": "cpmpe",
+          "type": "u64",
           "index": false
         },
         {
@@ -2309,7 +2275,7 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "validatorVote",
+          "name": "voteAccount",
           "type": "publicKey",
           "index": false
         },
@@ -2434,12 +2400,17 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "stakerAuthority",
-          "type": "publicKey",
+          "name": "settlementLamportsClaimed",
+          "type": "u64",
           "index": false
         },
         {
-          "name": "withdrawerAuthority",
+          "name": "settlementMerkleNodesClaimed",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "withdrawAuthority",
           "type": "publicKey",
           "index": false
         },
@@ -2449,7 +2420,7 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "claim",
+          "name": "amount",
           "type": "u64",
           "index": false
         },
@@ -2494,7 +2465,7 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "settlementAuthority",
+          "name": "authority",
           "type": "publicKey",
           "index": false
         },
@@ -2514,12 +2485,12 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "maxNumNodes",
+          "name": "maxMerkleNodes",
           "type": "u64",
           "index": false
         },
         {
-          "name": "epoch",
+          "name": "epochCreatedAt",
           "type": "u64",
           "index": false
         },
@@ -2566,22 +2537,22 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "maxNumNodes",
+          "name": "maxMerkleNodes",
           "type": "u64",
           "index": false
         },
         {
-          "name": "totalFunded",
+          "name": "lamportsFunded",
           "type": "u64",
           "index": false
         },
         {
-          "name": "totalFundsClaimed",
+          "name": "lamportsClaimed",
           "type": "u64",
           "index": false
         },
         {
-          "name": "numNodesClaimed",
+          "name": "merkleNodesClaimed",
           "type": "u64",
           "index": false
         },
@@ -2590,6 +2561,11 @@ export type ValidatorBonds = {
           "type": {
             "option": "publicKey"
           },
+          "index": false
+        },
+        {
+          "name": "splitRentRefundAccount",
+          "type": "publicKey",
           "index": false
         },
         {
@@ -2628,17 +2604,17 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "totalFunded",
+          "name": "lamportsFunded",
           "type": "u64",
           "index": false
         },
         {
-          "name": "totalFundsClaimed",
+          "name": "lamportsClaimed",
           "type": "u64",
           "index": false
         },
         {
-          "name": "numNodesClaimed",
+          "name": "merkleNodesClaimed",
           "type": "u64",
           "index": false
         },
@@ -2742,17 +2718,12 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "validatorVoteAcount",
+          "name": "voteAccount",
           "type": "publicKey",
           "index": false
         },
         {
           "name": "settlementAuthority",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "bondsWithdrawerAuthority",
           "type": "publicKey",
           "index": false
         }
@@ -2772,7 +2743,7 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "type": "publicKey",
           "index": false
         },
@@ -2837,7 +2808,7 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "type": "publicKey",
           "index": false
         },
@@ -2903,229 +2874,239 @@ export type ValidatorBonds = {
     },
     {
       "code": 6005,
+      "name": "InvalidStakeAccountState",
+      "msg": "Provided vote account is trouble to deserialize"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidStakeAccountProgramId",
+      "msg": "Provided stake account is not owned by the stake account program"
+    },
+    {
+      "code": 6007,
       "name": "InvalidSettlementAddress",
       "msg": "Fail to create account address for Settlement"
     },
     {
-      "code": 6006,
+      "code": 6008,
       "name": "InvalidSettlementAuthorityAddress",
       "msg": "Fail to create PDA address for Settlement Authority"
     },
     {
-      "code": 6007,
+      "code": 6009,
       "name": "InvalidBondsWithdrawerAuthorityAddress",
       "msg": "Fail to create PDA address for Bonds Withdrawer Authority"
     },
     {
-      "code": 6008,
+      "code": 6010,
       "name": "InvalidSettlementClaimAddress",
       "msg": "Fail to create program address for SettlementClaim"
     },
     {
-      "code": 6009,
+      "code": 6011,
       "name": "InvalidBondAddress",
       "msg": "Fail to create program address for Bond"
     },
     {
-      "code": 6010,
+      "code": 6012,
       "name": "WrongStakeAccountWithdrawer",
       "msg": "Wrong withdrawer authority of the stake account"
     },
     {
-      "code": 6011,
+      "code": 6013,
       "name": "InvalidWithdrawRequestAddress",
       "msg": "Fail to create program address for WithdrawRequest"
     },
     {
-      "code": 6012,
+      "code": 6014,
       "name": "HundredthBasisPointsOverflow",
       "msg": "Value of hundredth basis points is too big"
     },
     {
-      "code": 6013,
+      "code": 6015,
       "name": "HundredthBasisPointsCalculation",
       "msg": "Hundredth basis points calculation failure"
     },
     {
-      "code": 6014,
+      "code": 6016,
       "name": "HundredthBasisPointsParse",
       "msg": "Hundredth basis points failure to parse the value"
     },
     {
-      "code": 6015,
+      "code": 6017,
       "name": "FailedToDeserializeVoteAccount",
       "msg": "Cannot deserialize validator vote account data"
     },
     {
-      "code": 6016,
+      "code": 6018,
       "name": "BondChangeNotPermitted",
       "msg": "Wrong authority for changing the validator bond account"
     },
     {
-      "code": 6017,
+      "code": 6019,
       "name": "StakeNotDelegated",
       "msg": "Provided stake cannot be used for bonds, it's not delegated"
     },
     {
-      "code": 6018,
+      "code": 6020,
       "name": "BondStakeWrongDelegation",
       "msg": "Provided stake is delegated to a wrong validator vote account"
     },
     {
-      "code": 6019,
+      "code": 6021,
       "name": "WithdrawRequestNotReady",
       "msg": "Withdraw request has not elapsed the epoch lockup period yet"
     },
     {
-      "code": 6020,
+      "code": 6022,
       "name": "SettlementNotExpired",
       "msg": "Settlement has not expired yet"
     },
     {
-      "code": 6021,
+      "code": 6023,
       "name": "SettlementExpired",
       "msg": "Settlement has already expired"
     },
     {
-      "code": 6022,
+      "code": 6024,
       "name": "UninitializedStake",
       "msg": "Stake is not initialized"
     },
     {
-      "code": 6023,
+      "code": 6025,
       "name": "NoStakeOrNotFullyActivated",
       "msg": "Stake account is not fully activated"
     },
     {
-      "code": 6024,
+      "code": 6026,
       "name": "UnexpectedRemainingAccounts",
       "msg": "Instruction context was provided with unexpected set of remaining accounts"
     },
     {
-      "code": 6025,
+      "code": 6027,
       "name": "SettlementNotClosed",
-      "msg": "Closing SettlementClaim requires the settlement being closed"
+      "msg": "Required settlement to be closed"
     },
     {
-      "code": 6026,
+      "code": 6028,
       "name": "StakeAccountIsFundedToSettlement",
       "msg": "Provided stake account has been already funded to a settlement"
     },
     {
-      "code": 6027,
+      "code": 6029,
       "name": "ClaimSettlementProofFailed",
       "msg": "Settlement claim proof failed"
     },
     {
-      "code": 6028,
+      "code": 6030,
       "name": "StakeLockedUp",
       "msg": "Provided stake account is locked-up"
     },
     {
-      "code": 6029,
+      "code": 6031,
       "name": "StakeAccountNotBigEnoughToSplit",
       "msg": "Stake account is not big enough to be split"
     },
     {
-      "code": 6030,
+      "code": 6032,
       "name": "ClaimAmountExceedsMaxTotalClaim",
       "msg": "Claiming bigger amount than the max total claim"
     },
     {
-      "code": 6031,
-      "name": "ClaimCountExceedsMaxNumNodes",
+      "code": 6033,
+      "name": "ClaimCountExceedsMaxMerkleNodes",
       "msg": "Claim exceeded number of claimable nodes in the merkle tree"
     },
     {
-      "code": 6032,
+      "code": 6034,
       "name": "EmptySettlementMerkleTree",
       "msg": "Empty merkle tree, nothing to be claimed"
     },
     {
-      "code": 6033,
+      "code": 6035,
       "name": "ClaimingStakeAccountLamportsInsufficient",
       "msg": "Provided stake account has not enough lamports to cover the claim"
     },
     {
-      "code": 6034,
-      "name": "StakeAccountNotFunded",
-      "msg": "Provided stake account is not funded under a settlement"
+      "code": 6036,
+      "name": "StakeAccountNotFundedToSettlement",
+      "msg": "Provided stake account is not funded under the settlement"
     },
     {
-      "code": 6035,
+      "code": 6037,
       "name": "VoteAccountValidatorIdentityMismatch",
       "msg": "Validator vote account does not match to provided validator identity signature"
     },
     {
-      "code": 6036,
+      "code": 6038,
       "name": "VoteAccountMismatch",
       "msg": "Bond vote account address does not match with the provided validator vote account"
     },
     {
-      "code": 6037,
+      "code": 6039,
       "name": "ConfigAccountMismatch",
       "msg": "Bond config address does not match with the provided config account"
     },
     {
-      "code": 6038,
+      "code": 6040,
       "name": "WithdrawRequestVoteAccountMismatch",
       "msg": "Withdraw request vote account address does not match with the provided validator vote account"
     },
     {
-      "code": 6039,
+      "code": 6041,
       "name": "BondAccountMismatch",
       "msg": "Bond account address does not match with the stored one"
     },
     {
-      "code": 6040,
+      "code": 6042,
       "name": "SettlementAccountMismatch",
       "msg": "Settlement account address does not match with the stored one"
     },
     {
-      "code": 6041,
+      "code": 6043,
       "name": "RentCollectorMismatch",
       "msg": "Rent collector address does not match permitted rent collector"
     },
     {
-      "code": 6042,
+      "code": 6044,
       "name": "StakerAuthorityMismatch",
       "msg": "Stake account's staker does not match with the provided authority"
     },
     {
-      "code": 6043,
+      "code": 6045,
       "name": "NonBondStakeAuthorities",
       "msg": "One or both stake authorities does not belong to bonds program"
     },
     {
-      "code": 6044,
+      "code": 6046,
       "name": "SettlementAuthorityMismatch",
-      "msg": "Settlement stake account authority does not match with the provided stake account authority"
+      "msg": "Stake account staker authority mismatches with the settlement authority"
     },
     {
-      "code": 6045,
+      "code": 6047,
       "name": "StakeDelegationMismatch",
       "msg": "Delegation of provided stake account mismatches"
     },
     {
-      "code": 6046,
+      "code": 6048,
       "name": "WithdrawRequestAmountTooSmall",
       "msg": "Too small non-withdrawn withdraw request amount, cancel and init new one"
     },
     {
-      "code": 6047,
+      "code": 6049,
       "name": "WithdrawRequestAlreadyFulfilled",
       "msg": "Withdraw request has been already fulfilled"
     },
     {
-      "code": 6048,
-      "name": "NotYetImplemented",
-      "msg": "Not yet implemented"
+      "code": 6050,
+      "name": "ClaimSettlementMerkleTreeNodeMismatch",
+      "msg": "Claim settlement merkle tree node mismatch"
     }
   ]
 };
 
 export const IDL: ValidatorBonds = {
-  "version": "0.1.0",
+  "version": "1.1.0",
   "name": "validator_bonds",
   "constants": [
     {
@@ -3243,7 +3224,7 @@ export const IDL: ValidatorBonds = {
           ]
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "isMut": false,
           "isSigner": false
         },
@@ -3277,7 +3258,7 @@ export const IDL: ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "path": "validator_vote_account"
+                "path": "vote_account"
               }
             ]
           }
@@ -3328,12 +3309,12 @@ export const IDL: ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "path": "validator_vote_account"
+                "path": "vote_account"
               }
             ]
           },
           "relations": [
-            "validator_vote_account"
+            "vote_account"
           ]
         },
         {
@@ -3345,7 +3326,7 @@ export const IDL: ValidatorBonds = {
           ]
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "isMut": false,
           "isSigner": false
         }
@@ -3391,7 +3372,7 @@ export const IDL: ValidatorBonds = {
                 "kind": "account",
                 "type": "publicKey",
                 "account": "Bond",
-                "path": "bond.validator_vote_account"
+                "path": "bond.vote_account"
               }
             ]
           },
@@ -3487,17 +3468,17 @@ export const IDL: ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "path": "validator_vote_account"
+                "path": "vote_account"
               }
             ]
           },
           "relations": [
             "config",
-            "validator_vote_account"
+            "vote_account"
           ]
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "isMut": false,
           "isSigner": false
         },
@@ -3580,16 +3561,16 @@ export const IDL: ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "path": "validator_vote_account"
+                "path": "vote_account"
               }
             ]
           },
           "relations": [
-            "validator_vote_account"
+            "vote_account"
           ]
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "isMut": false,
           "isSigner": false
         },
@@ -3663,17 +3644,17 @@ export const IDL: ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "path": "validator_vote_account"
+                "path": "vote_account"
               }
             ]
           },
           "relations": [
             "config",
-            "validator_vote_account"
+            "vote_account"
           ]
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "isMut": false,
           "isSigner": false
         },
@@ -3705,7 +3686,7 @@ export const IDL: ValidatorBonds = {
             ]
           },
           "relations": [
-            "validator_vote_account",
+            "vote_account",
             "bond"
           ]
         },
@@ -3816,11 +3797,10 @@ export const IDL: ValidatorBonds = {
                 "path": "config"
               },
               {
-                "kind": "arg",
-                "type": {
-                  "defined": "InitSettlementArgs"
-                },
-                "path": "params.vote_account"
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond.vote_account"
               }
             ]
           },
@@ -3898,7 +3878,7 @@ export const IDL: ValidatorBonds = {
                 "kind": "account",
                 "type": "publicKey",
                 "account": "Bond",
-                "path": "bond.validator_vote_account"
+                "path": "bond.vote_account"
               }
             ]
           },
@@ -3951,16 +3931,6 @@ export const IDL: ValidatorBonds = {
           ]
         },
         {
-          "name": "rentCollector",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "splitRentCollector",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "bondsWithdrawerAuthority",
           "isMut": false,
           "isSigner": false,
@@ -3981,11 +3951,23 @@ export const IDL: ValidatorBonds = {
           }
         },
         {
-          "name": "stakeAccount",
+          "name": "rentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "splitRentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "splitRentRefundAccount",
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "a stake account to be used to return back the split rent exempt fee"
+            "a stake account that was funded to the settlement credited to bond's validator vote account",
+            "lamports of the stake accounts are used to pay back rent exempt of the split_stake_account",
+            "that can be created on funding the settlement"
           ]
         },
         {
@@ -4038,7 +4020,7 @@ export const IDL: ValidatorBonds = {
                 "kind": "account",
                 "type": "publicKey",
                 "account": "Bond",
-                "path": "bond.validator_vote_account"
+                "path": "bond.vote_account"
               }
             ]
           },
@@ -4083,8 +4065,7 @@ export const IDL: ValidatorBonds = {
             ]
           },
           "relations": [
-            "bond",
-            "settlement_authority"
+            "bond"
           ]
         },
         {
@@ -4156,7 +4137,10 @@ export const IDL: ValidatorBonds = {
           "isMut": true,
           "isSigner": true,
           "docs": [
-            "a split stake account is needed when the provided stake_account is bigger than the settlement"
+            "an account that does not exist, it will be initialized as a stake account (the signature needed)",
+            "the split_stake_account is needed when the provided stake_account is consists of more lamports",
+            "than the amount needed to fund the settlement, the left-over lamports from the stake account is split",
+            "into the new split_stake_account; when the split_stake_account is not needed, the rent payer is refunded"
           ]
         },
         {
@@ -4164,10 +4148,10 @@ export const IDL: ValidatorBonds = {
           "isMut": true,
           "isSigner": true,
           "docs": [
-            "This is an account used to prefund the split stake account.",
-            "If a split stake account is not needed then rent payer is fully refunded at the end of the transaction.",
-            "If a split stake account is created for the settlement, the payer needs to manually close the claim_settlement",
-            "instruction to get the rent back (success only when the stake account is already deactivated)."
+            "rent exempt payer of the split_stake_account creation",
+            "if the split_stake_account is not needed (no left-over lamports on funding) then rent payer is refunded",
+            "it the split_stake_account is needed to spill out over funding of the settlement",
+            "then the rent payer is refunded when the settlement is closed"
           ]
         },
         {
@@ -4252,11 +4236,10 @@ export const IDL: ValidatorBonds = {
                 "path": "config"
               },
               {
-                "kind": "arg",
-                "type": {
-                  "defined": "ClaimSettlementArgs"
-                },
-                "path": "params.vote_account"
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond.vote_account"
               }
             ]
           },
@@ -4310,50 +4293,7 @@ export const IDL: ValidatorBonds = {
           "isSigner": false,
           "docs": [
             "deduplication, one amount cannot be claimed twice"
-          ],
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "claim_account"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Settlement",
-                "path": "settlement"
-              },
-              {
-                "kind": "arg",
-                "type": {
-                  "defined": "ClaimSettlementArgs"
-                },
-                "path": "params.staker"
-              },
-              {
-                "kind": "arg",
-                "type": {
-                  "defined": "ClaimSettlementArgs"
-                },
-                "path": "params.withdrawer"
-              },
-              {
-                "kind": "arg",
-                "type": {
-                  "defined": "ClaimSettlementArgs"
-                },
-                "path": "params.vote_account"
-              },
-              {
-                "kind": "arg",
-                "type": {
-                  "defined": "ClaimSettlementArgs"
-                },
-                "path": "params.claim"
-              }
-            ]
-          }
+          ]
         },
         {
           "name": "stakeAccount",
@@ -4364,7 +4304,7 @@ export const IDL: ValidatorBonds = {
           ]
         },
         {
-          "name": "withdrawerAuthority",
+          "name": "withdrawAuthority",
           "isMut": true,
           "isSigner": false,
           "docs": [
@@ -4518,19 +4458,22 @@ export const IDL: ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "account": "Bond",
-                "path": "bond.validator_vote_account"
+                "path": "vote_account"
               }
             ]
           },
           "relations": [
-            "config"
+            "config",
+            "vote_account"
           ]
         },
         {
           "name": "settlement",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "settlment account used to derive settlement authority which cannot exists"
+          ]
         },
         {
           "name": "stakeAccount",
@@ -4541,16 +4484,12 @@ export const IDL: ValidatorBonds = {
           ]
         },
         {
-          "name": "settlementAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "bondsWithdrawerAuthority",
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "authority that owns (withdrawer authority) all stakes account under the bonds program"
+            "bonds withdrawer authority",
+            "to cancel settlement funding of the stake account changing staker authority to address"
           ],
           "pda": {
             "seeds": [
@@ -4569,7 +4508,7 @@ export const IDL: ValidatorBonds = {
           }
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "isMut": false,
           "isSigner": false
         },
@@ -4595,6 +4534,30 @@ export const IDL: ValidatorBonds = {
         }
       ],
       "args": []
+    },
+    {
+      "name": "migrateBondCpmpe",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "config root account that will be configured"
+          ]
+        },
+        {
+          "name": "bond",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "adminAuthority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": []
     }
   ],
   "accounts": [
@@ -4615,12 +4578,12 @@ export const IDL: ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "validatorVoteAccount",
+            "name": "voteAccount",
             "docs": [
               "Validator vote address that this bond account is crated for",
               "INVARIANTS:",
               "- one bond account per validator vote address",
-              "- bond program does not change received stake account delegation voter_pubkey to any other validator vote"
+              "- this program does NOT change stake account delegation voter_pubkey to any other validator vote account"
             ],
             "type": "publicKey"
           },
@@ -4633,13 +4596,11 @@ export const IDL: ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "revenueShare",
+            "name": "cpmpe",
             "docs": [
-              "Revenue that is distributed from the bond (from validator) to the protocol"
+              "Cost per mille per epoch"
             ],
-            "type": {
-              "defined": "HundredthBasisPoint"
-            }
+            "type": "u64"
           },
           {
             "name": "bump",
@@ -4653,6 +4614,43 @@ export const IDL: ValidatorBonds = {
             "docs": [
               "reserve space for future extensions"
             ],
+            "type": {
+              "array": [
+                "u8",
+                142
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "bondWithRevenueShare",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "type": "publicKey"
+          },
+          {
+            "name": "voteAccount",
+            "type": "publicKey"
+          },
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "revenueShare",
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "reserved",
             "type": {
               "defined": "Reserved150"
             }
@@ -4742,14 +4740,14 @@ export const IDL: ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "stakerAuthority",
+            "name": "stakeAuthority",
             "docs": [
-              "staker authority as part of the merkle proof for this claim"
+              "stake authority as part of the merkle proof for this claim"
             ],
             "type": "publicKey"
           },
           {
-            "name": "withdrawerAuthority",
+            "name": "withdrawAuthority",
             "docs": [
               "withdrawer authority that has got permission to withdraw the claim"
             ],
@@ -4763,7 +4761,7 @@ export const IDL: ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "claim",
+            "name": "amount",
             "docs": [
               "claim amount"
             ],
@@ -4812,9 +4810,10 @@ export const IDL: ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "settlementAuthority",
+            "name": "authority",
             "docs": [
-              "stake account authority that manages the funded stake accounts"
+              "settlement authority used as the 'staker' stake account authority",
+              "of stake accounts funded to this settlement"
             ],
             "type": "publicKey"
           },
@@ -4838,28 +4837,28 @@ export const IDL: ValidatorBonds = {
             "type": "u64"
           },
           {
-            "name": "maxNumNodes",
+            "name": "maxMerkleNodes",
             "docs": [
-              "maximum number of nodes that can ever be claimed from this [Settlement]"
+              "maximum number of merkle tree nodes that can ever be claimed from this [Settlement]"
             ],
             "type": "u64"
           },
           {
-            "name": "totalFunded",
+            "name": "lamportsFunded",
             "docs": [
-              "total funds that have been deposited to this [Settlement]"
+              "total lamports funded to this [Settlement]"
             ],
             "type": "u64"
           },
           {
-            "name": "totalFundsClaimed",
+            "name": "lamportsClaimed",
             "docs": [
-              "total funds that have been claimed from this [Settlement]"
+              "total lamports that have been claimed from this [Settlement]"
             ],
             "type": "u64"
           },
           {
-            "name": "numNodesClaimed",
+            "name": "merkleNodesClaimed",
             "docs": [
               "number of nodes that have been claimed from this [Settlement]"
             ],
@@ -4882,7 +4881,7 @@ export const IDL: ValidatorBonds = {
           {
             "name": "splitRentCollector",
             "docs": [
-              "address that may claim the rent exempt for creation of \"split stake account\""
+              "address claiming the rent exempt for \"split stake account\" created on funding settlement"
             ],
             "type": {
               "option": "publicKey"
@@ -4922,16 +4921,16 @@ export const IDL: ValidatorBonds = {
         "kind": "struct",
         "fields": [
           {
-            "name": "validatorVoteAccount",
+            "name": "voteAccount",
             "docs": [
-              "Validator that requested the withdraw"
+              "Validator vote account that requested the withdraw"
             ],
             "type": "publicKey"
           },
           {
             "name": "bond",
             "docs": [
-              "Bond account that the withdraw request is for"
+              "Bond account that the withdraw request is for (has to match with vote_account)"
             ],
             "type": "publicKey"
           },
@@ -5010,26 +5009,6 @@ export const IDL: ValidatorBonds = {
       }
     },
     {
-      "name": "HundrethBasisPointChange",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "old",
-            "type": {
-              "defined": "HundredthBasisPoint"
-            }
-          },
-          {
-            "name": "new",
-            "type": {
-              "defined": "HundredthBasisPoint"
-            }
-          }
-        ]
-      }
-    },
-    {
       "name": "DelegationInfo",
       "type": {
         "kind": "struct",
@@ -5093,11 +5072,9 @@ export const IDL: ValidatorBonds = {
             }
           },
           {
-            "name": "revenueShare",
+            "name": "cpmpe",
             "type": {
-              "option": {
-                "defined": "HundredthBasisPoint"
-              }
+              "option": "u64"
             }
           }
         ]
@@ -5113,10 +5090,8 @@ export const IDL: ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "revenueShare",
-            "type": {
-              "defined": "HundredthBasisPoint"
-            }
+            "name": "cpmpe",
+            "type": "u64"
           }
         ]
       }
@@ -5189,10 +5164,6 @@ export const IDL: ValidatorBonds = {
         "kind": "struct",
         "fields": [
           {
-            "name": "amount",
-            "type": "u64"
-          },
-          {
             "name": "proof",
             "type": {
               "vec": {
@@ -5204,22 +5175,10 @@ export const IDL: ValidatorBonds = {
             }
           },
           {
-            "name": "staker",
-            "type": "publicKey"
-          },
-          {
-            "name": "withdrawer",
-            "docs": [
-              "claim holder, withdrawer_authority"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "voteAccount",
-            "type": "publicKey"
-          },
-          {
             "name": "claim",
+            "docs": [
+              "claim amount; merkle root verification"
+            ],
             "type": "u64"
           }
         ]
@@ -5232,6 +5191,10 @@ export const IDL: ValidatorBonds = {
         "fields": [
           {
             "name": "merkleRoot",
+            "docs": [
+              "merkle root for this settlement, multiple settlements can be created with the same merkle root,",
+              "settlements will be distinguished by the vote_account"
+            ],
             "type": {
               "array": [
                 "u8",
@@ -5240,19 +5203,24 @@ export const IDL: ValidatorBonds = {
             }
           },
           {
-            "name": "voteAccount",
-            "type": "publicKey"
-          },
-          {
-            "name": "settlementTotalClaim",
+            "name": "maxTotalClaim",
+            "docs": [
+              "maximal number of lamports that can be claimed from this settlement"
+            ],
             "type": "u64"
           },
           {
-            "name": "settlementNumNodes",
+            "name": "maxMerkleNodes",
+            "docs": [
+              "maximal number of merkle tree nodes that can be claimed from this settlement"
+            ],
             "type": "u64"
           },
           {
             "name": "rentCollector",
+            "docs": [
+              "collects the rent exempt from the settlement account when closed"
+            ],
             "type": "publicKey"
           }
         ]
@@ -5314,23 +5282,6 @@ export const IDL: ValidatorBonds = {
           }
         ]
       }
-    },
-    {
-      "name": "HundredthBasisPoint",
-      "docs": [
-        "It's a smaller unit of a basis point (basis point = 1/100%), we calculate 1/10_000% here instead.",
-        "The max value is 1_000_000 (100%).",
-        "1 HundredthBasisPoint = 0.0001%, 10_000 HundredthBasisPoint = 1%, 1_000_000 HundredthBasisPoint = 100%."
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "hundredthBps",
-            "type": "u32"
-          }
-        ]
-      }
     }
   ],
   "events": [
@@ -5343,7 +5294,7 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "type": "publicKey",
           "index": false
         },
@@ -5358,10 +5309,8 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "revenueShare",
-          "type": {
-            "defined": "HundredthBasisPoint"
-          },
+          "name": "cpmpe",
+          "type": "u64",
           "index": false
         },
         {
@@ -5384,10 +5333,10 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "revenueShare",
+          "name": "cpmpe",
           "type": {
             "option": {
-              "defined": "HundrethBasisPointChange"
+              "defined": "U64ValueChange"
             }
           },
           "index": false
@@ -5403,7 +5352,7 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "type": "publicKey",
           "index": false
         },
@@ -5413,10 +5362,8 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "revenueShare",
-          "type": {
-            "defined": "HundredthBasisPoint"
-          },
+          "name": "cpmpe",
+          "type": "u64",
           "index": false
         },
         {
@@ -5435,7 +5382,7 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "validatorVote",
+          "name": "voteAccount",
           "type": "publicKey",
           "index": false
         },
@@ -5560,12 +5507,17 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "stakerAuthority",
-          "type": "publicKey",
+          "name": "settlementLamportsClaimed",
+          "type": "u64",
           "index": false
         },
         {
-          "name": "withdrawerAuthority",
+          "name": "settlementMerkleNodesClaimed",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "withdrawAuthority",
           "type": "publicKey",
           "index": false
         },
@@ -5575,7 +5527,7 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "claim",
+          "name": "amount",
           "type": "u64",
           "index": false
         },
@@ -5620,7 +5572,7 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "settlementAuthority",
+          "name": "authority",
           "type": "publicKey",
           "index": false
         },
@@ -5640,12 +5592,12 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "maxNumNodes",
+          "name": "maxMerkleNodes",
           "type": "u64",
           "index": false
         },
         {
-          "name": "epoch",
+          "name": "epochCreatedAt",
           "type": "u64",
           "index": false
         },
@@ -5692,22 +5644,22 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "maxNumNodes",
+          "name": "maxMerkleNodes",
           "type": "u64",
           "index": false
         },
         {
-          "name": "totalFunded",
+          "name": "lamportsFunded",
           "type": "u64",
           "index": false
         },
         {
-          "name": "totalFundsClaimed",
+          "name": "lamportsClaimed",
           "type": "u64",
           "index": false
         },
         {
-          "name": "numNodesClaimed",
+          "name": "merkleNodesClaimed",
           "type": "u64",
           "index": false
         },
@@ -5716,6 +5668,11 @@ export const IDL: ValidatorBonds = {
           "type": {
             "option": "publicKey"
           },
+          "index": false
+        },
+        {
+          "name": "splitRentRefundAccount",
+          "type": "publicKey",
           "index": false
         },
         {
@@ -5754,17 +5711,17 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "totalFunded",
+          "name": "lamportsFunded",
           "type": "u64",
           "index": false
         },
         {
-          "name": "totalFundsClaimed",
+          "name": "lamportsClaimed",
           "type": "u64",
           "index": false
         },
         {
-          "name": "numNodesClaimed",
+          "name": "merkleNodesClaimed",
           "type": "u64",
           "index": false
         },
@@ -5868,17 +5825,12 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "validatorVoteAcount",
+          "name": "voteAccount",
           "type": "publicKey",
           "index": false
         },
         {
           "name": "settlementAuthority",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "bondsWithdrawerAuthority",
           "type": "publicKey",
           "index": false
         }
@@ -5898,7 +5850,7 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "type": "publicKey",
           "index": false
         },
@@ -5963,7 +5915,7 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "validatorVoteAccount",
+          "name": "voteAccount",
           "type": "publicKey",
           "index": false
         },
@@ -6029,223 +5981,233 @@ export const IDL: ValidatorBonds = {
     },
     {
       "code": 6005,
+      "name": "InvalidStakeAccountState",
+      "msg": "Provided vote account is trouble to deserialize"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidStakeAccountProgramId",
+      "msg": "Provided stake account is not owned by the stake account program"
+    },
+    {
+      "code": 6007,
       "name": "InvalidSettlementAddress",
       "msg": "Fail to create account address for Settlement"
     },
     {
-      "code": 6006,
+      "code": 6008,
       "name": "InvalidSettlementAuthorityAddress",
       "msg": "Fail to create PDA address for Settlement Authority"
     },
     {
-      "code": 6007,
+      "code": 6009,
       "name": "InvalidBondsWithdrawerAuthorityAddress",
       "msg": "Fail to create PDA address for Bonds Withdrawer Authority"
     },
     {
-      "code": 6008,
+      "code": 6010,
       "name": "InvalidSettlementClaimAddress",
       "msg": "Fail to create program address for SettlementClaim"
     },
     {
-      "code": 6009,
+      "code": 6011,
       "name": "InvalidBondAddress",
       "msg": "Fail to create program address for Bond"
     },
     {
-      "code": 6010,
+      "code": 6012,
       "name": "WrongStakeAccountWithdrawer",
       "msg": "Wrong withdrawer authority of the stake account"
     },
     {
-      "code": 6011,
+      "code": 6013,
       "name": "InvalidWithdrawRequestAddress",
       "msg": "Fail to create program address for WithdrawRequest"
     },
     {
-      "code": 6012,
+      "code": 6014,
       "name": "HundredthBasisPointsOverflow",
       "msg": "Value of hundredth basis points is too big"
     },
     {
-      "code": 6013,
+      "code": 6015,
       "name": "HundredthBasisPointsCalculation",
       "msg": "Hundredth basis points calculation failure"
     },
     {
-      "code": 6014,
+      "code": 6016,
       "name": "HundredthBasisPointsParse",
       "msg": "Hundredth basis points failure to parse the value"
     },
     {
-      "code": 6015,
+      "code": 6017,
       "name": "FailedToDeserializeVoteAccount",
       "msg": "Cannot deserialize validator vote account data"
     },
     {
-      "code": 6016,
+      "code": 6018,
       "name": "BondChangeNotPermitted",
       "msg": "Wrong authority for changing the validator bond account"
     },
     {
-      "code": 6017,
+      "code": 6019,
       "name": "StakeNotDelegated",
       "msg": "Provided stake cannot be used for bonds, it's not delegated"
     },
     {
-      "code": 6018,
+      "code": 6020,
       "name": "BondStakeWrongDelegation",
       "msg": "Provided stake is delegated to a wrong validator vote account"
     },
     {
-      "code": 6019,
+      "code": 6021,
       "name": "WithdrawRequestNotReady",
       "msg": "Withdraw request has not elapsed the epoch lockup period yet"
     },
     {
-      "code": 6020,
+      "code": 6022,
       "name": "SettlementNotExpired",
       "msg": "Settlement has not expired yet"
     },
     {
-      "code": 6021,
+      "code": 6023,
       "name": "SettlementExpired",
       "msg": "Settlement has already expired"
     },
     {
-      "code": 6022,
+      "code": 6024,
       "name": "UninitializedStake",
       "msg": "Stake is not initialized"
     },
     {
-      "code": 6023,
+      "code": 6025,
       "name": "NoStakeOrNotFullyActivated",
       "msg": "Stake account is not fully activated"
     },
     {
-      "code": 6024,
+      "code": 6026,
       "name": "UnexpectedRemainingAccounts",
       "msg": "Instruction context was provided with unexpected set of remaining accounts"
     },
     {
-      "code": 6025,
+      "code": 6027,
       "name": "SettlementNotClosed",
-      "msg": "Closing SettlementClaim requires the settlement being closed"
+      "msg": "Required settlement to be closed"
     },
     {
-      "code": 6026,
+      "code": 6028,
       "name": "StakeAccountIsFundedToSettlement",
       "msg": "Provided stake account has been already funded to a settlement"
     },
     {
-      "code": 6027,
+      "code": 6029,
       "name": "ClaimSettlementProofFailed",
       "msg": "Settlement claim proof failed"
     },
     {
-      "code": 6028,
+      "code": 6030,
       "name": "StakeLockedUp",
       "msg": "Provided stake account is locked-up"
     },
     {
-      "code": 6029,
+      "code": 6031,
       "name": "StakeAccountNotBigEnoughToSplit",
       "msg": "Stake account is not big enough to be split"
     },
     {
-      "code": 6030,
+      "code": 6032,
       "name": "ClaimAmountExceedsMaxTotalClaim",
       "msg": "Claiming bigger amount than the max total claim"
     },
     {
-      "code": 6031,
-      "name": "ClaimCountExceedsMaxNumNodes",
+      "code": 6033,
+      "name": "ClaimCountExceedsMaxMerkleNodes",
       "msg": "Claim exceeded number of claimable nodes in the merkle tree"
     },
     {
-      "code": 6032,
+      "code": 6034,
       "name": "EmptySettlementMerkleTree",
       "msg": "Empty merkle tree, nothing to be claimed"
     },
     {
-      "code": 6033,
+      "code": 6035,
       "name": "ClaimingStakeAccountLamportsInsufficient",
       "msg": "Provided stake account has not enough lamports to cover the claim"
     },
     {
-      "code": 6034,
-      "name": "StakeAccountNotFunded",
-      "msg": "Provided stake account is not funded under a settlement"
+      "code": 6036,
+      "name": "StakeAccountNotFundedToSettlement",
+      "msg": "Provided stake account is not funded under the settlement"
     },
     {
-      "code": 6035,
+      "code": 6037,
       "name": "VoteAccountValidatorIdentityMismatch",
       "msg": "Validator vote account does not match to provided validator identity signature"
     },
     {
-      "code": 6036,
+      "code": 6038,
       "name": "VoteAccountMismatch",
       "msg": "Bond vote account address does not match with the provided validator vote account"
     },
     {
-      "code": 6037,
+      "code": 6039,
       "name": "ConfigAccountMismatch",
       "msg": "Bond config address does not match with the provided config account"
     },
     {
-      "code": 6038,
+      "code": 6040,
       "name": "WithdrawRequestVoteAccountMismatch",
       "msg": "Withdraw request vote account address does not match with the provided validator vote account"
     },
     {
-      "code": 6039,
+      "code": 6041,
       "name": "BondAccountMismatch",
       "msg": "Bond account address does not match with the stored one"
     },
     {
-      "code": 6040,
+      "code": 6042,
       "name": "SettlementAccountMismatch",
       "msg": "Settlement account address does not match with the stored one"
     },
     {
-      "code": 6041,
+      "code": 6043,
       "name": "RentCollectorMismatch",
       "msg": "Rent collector address does not match permitted rent collector"
     },
     {
-      "code": 6042,
+      "code": 6044,
       "name": "StakerAuthorityMismatch",
       "msg": "Stake account's staker does not match with the provided authority"
     },
     {
-      "code": 6043,
+      "code": 6045,
       "name": "NonBondStakeAuthorities",
       "msg": "One or both stake authorities does not belong to bonds program"
     },
     {
-      "code": 6044,
+      "code": 6046,
       "name": "SettlementAuthorityMismatch",
-      "msg": "Settlement stake account authority does not match with the provided stake account authority"
+      "msg": "Stake account staker authority mismatches with the settlement authority"
     },
     {
-      "code": 6045,
+      "code": 6047,
       "name": "StakeDelegationMismatch",
       "msg": "Delegation of provided stake account mismatches"
     },
     {
-      "code": 6046,
+      "code": 6048,
       "name": "WithdrawRequestAmountTooSmall",
       "msg": "Too small non-withdrawn withdraw request amount, cancel and init new one"
     },
     {
-      "code": 6047,
+      "code": 6049,
       "name": "WithdrawRequestAlreadyFulfilled",
       "msg": "Withdraw request has been already fulfilled"
     },
     {
-      "code": 6048,
-      "name": "NotYetImplemented",
-      "msg": "Not yet implemented"
+      "code": 6050,
+      "name": "ClaimSettlementMerkleTreeNodeMismatch",
+      "msg": "Claim settlement merkle tree node mismatch"
     }
   ]
 };

@@ -12,10 +12,7 @@ import {
 } from '../sdk'
 import { getBond, getWithdrawRequest } from '../api'
 import assert from 'assert'
-import {
-  StakeAccountParsed,
-  findStakeAccountAccount,
-} from '../web3.js/stakeAccount'
+import { StakeAccountParsed, findStakeAccount } from '../web3.js/stakeAccount'
 import BN from 'bn.js'
 import { mergeInstruction } from '../instructions/merge'
 import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRequest'
@@ -79,7 +76,7 @@ export async function orchestrateWithdrawDeposit({
   const bondData = await getBond(program, bondAccount)
   const voteAccountData = await getVoteAccount(
     program,
-    withdrawRequestData.validatorVoteAccount
+    withdrawRequestData.voteAccount
   )
   const withdrawer = voteAccountData.account.data.nodePubkey
   const configAccount = bondData.config
@@ -90,7 +87,7 @@ export async function orchestrateWithdrawDeposit({
   amountToWithdraw =
     amountToWithdraw <= new BN(0) ? new BN(0) : amountToWithdraw
   const stakeAccountsToWithdraw = (
-    await findStakeAccountAccount({
+    await findStakeAccount({
       connection: program,
       staker: withdrawer,
       withdrawer,
@@ -142,7 +139,7 @@ export async function orchestrateWithdrawDeposit({
       withdrawRequestAccount,
       bondAccount,
       stakeAccount: destinationStakeAccount,
-      validatorVoteAccount: withdrawRequestData.validatorVoteAccount,
+      voteAccount: withdrawRequestData.voteAccount,
       splitStakeRentPayer,
       withdrawer,
     })

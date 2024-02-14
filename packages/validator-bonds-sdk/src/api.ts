@@ -1,5 +1,5 @@
 import { ProgramAccount } from '@coral-xyz/anchor'
-import { PublicKey } from '@solana/web3.js'
+import { EpochInfo, PublicKey } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
   Config,
@@ -7,6 +7,9 @@ import {
   WithdrawRequest,
   bondAddress,
   withdrawRequestAddress,
+  settlementAddress,
+  Settlement,
+  SettlementClaim,
 } from './sdk'
 import BN from 'bn.js'
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
@@ -62,20 +65,16 @@ export async function getBond(
 export async function findBonds({
   program,
   config,
-  validatorVoteAccount,
+  voteAccount,
   bondAuthority,
 }: {
   program: ValidatorBondsProgram
   config?: PublicKey
-  validatorVoteAccount?: PublicKey
+  voteAccount?: PublicKey
   bondAuthority?: PublicKey
 }): Promise<ProgramAccount<Bond>[]> {
-  if (config && validatorVoteAccount) {
-    const [bondAccount] = bondAddress(
-      config,
-      validatorVoteAccount,
-      program.programId
-    )
+  if (config && voteAccount) {
+    const [bondAccount] = bondAddress(config, voteAccount, program.programId)
     const bondData = await getBond(program, bondAccount)
     return [{ publicKey: bondAccount, account: bondData }]
   }
@@ -89,10 +88,10 @@ export async function findBonds({
       },
     })
   }
-  if (validatorVoteAccount) {
+  if (voteAccount) {
     filters.push({
       memcmp: {
-        bytes: validatorVoteAccount.toBase58(),
+        bytes: voteAccount.toBase58(),
         // 8 anchor offset + first data 32B config pubkey
         offset: 40,
       },
@@ -119,12 +118,12 @@ export async function getWithdrawRequest(
 
 export async function findWithdrawRequests({
   program,
-  validatorVoteAccount,
+  voteAccount,
   bond,
   epoch,
 }: {
   program: ValidatorBondsProgram
-  validatorVoteAccount?: PublicKey
+  voteAccount?: PublicKey
   bond?: PublicKey
   epoch?: number | BN
 }): Promise<ProgramAccount<WithdrawRequest>[]> {
@@ -140,10 +139,10 @@ export async function findWithdrawRequests({
     return [{ publicKey: withdrawRequestAccount, account: withdrawRequestData }]
   }
   const filters = []
-  if (validatorVoteAccount) {
+  if (voteAccount) {
     filters.push({
       memcmp: {
-        bytes: validatorVoteAccount.toBase58(),
+        bytes: voteAccount.toBase58(),
         // 8 anchor offset
         offset: 8,
       },
@@ -152,11 +151,121 @@ export async function findWithdrawRequests({
   if (epoch) {
     filters.push({
       memcmp: {
-        bytes: bs58.encode(new BN(epoch).toArray('le', 8)),
+        bytes: bs58.encode(new BN(epoch).toArray('le', 8)), // TODO: consider to use the same number-to-bytes as in settlement address
         // 8 anchor offset + 32B validator vote pubkey + 32B bond pubkey
         offset: 72,
       },
     })
   }
   return await program.account.withdrawRequest.all(filters)
+}
+
+export async function getSettlement(
+  program: ValidatorBondsProgram,
+  address: PublicKey
+): Promise<Settlement> {
+  return program.account.settlement.fetch(address)
+}
+
+export async function findSettlements({
+  program,
+  bond,
+  merkleRoot,
+  epoch,
+}: {
+  program: ValidatorBondsProgram
+  bond?: PublicKey
+  merkleRoot?: Uint8Array | Buffer | number[]
+  epoch?: number | BN | EpochInfo
+}): Promise<ProgramAccount<Settlement>[]> {
+  if (bond && merkleRoot && epoch) {
+    const [settlementAccount] = settlementAddress(
+      bond,
+      merkleRoot,
+      epoch,
+      program.programId
+    )
+    const settlementData = await getSettlement(program, settlementAccount)
+    return [{ publicKey: settlementAccount, account: settlementData }]
+  }
+  const filters = []
+  if (bond) {
+    filters.push({
+      memcmp: {
+        bytes: bond.toBase58(),
+        // 8 anchor offset
+        offset: 8,
+      },
+    })
+  }
+  if (merkleRoot) {
+    filters.push({
+      memcmp: {
+        bytes: bs58.encode(merkleRoot),
+        // 8 anchor offset + 32B bond pubkey + 32B settlement authority
+        offset: 72,
+      },
+    })
+  }
+  return await program.account.settlement.all(filters)
+}
+
+export async function getSettlementClaim(
+  program: ValidatorBondsProgram,
+  address: PublicKey
+): Promise<SettlementClaim> {
+  return program.account.settlementClaim.fetch(address)
+}
+
+export async function findSettlementClaims({
+  program,
+  settlement,
+  stakeAuthority,
+  withdrawAuthority,
+  voteAccount,
+}: {
+  program: ValidatorBondsProgram
+  settlement?: PublicKey
+  stakeAuthority?: PublicKey
+  withdrawAuthority?: PublicKey
+  voteAccount?: PublicKey
+}): Promise<ProgramAccount<SettlementClaim>[]> {
+  const filters = []
+  if (settlement) {
+    filters.push({
+      memcmp: {
+        bytes: settlement.toBase58(),
+        // 8 anchor offset
+        offset: 8,
+      },
+    })
+  }
+  if (stakeAuthority) {
+    filters.push({
+      memcmp: {
+        bytes: stakeAuthority.toBase58(),
+        // 8 anchor offset + settlement 32B
+        offset: 40,
+      },
+    })
+  }
+  if (withdrawAuthority) {
+    filters.push({
+      memcmp: {
+        bytes: withdrawAuthority.toBase58(),
+        // 8 anchor offset + 32B settlement + 32B stake authority
+        offset: 72,
+      },
+    })
+  }
+  if (voteAccount) {
+    filters.push({
+      memcmp: {
+        bytes: voteAccount.toBase58(),
+        // 8 anchor offset + 32B settlement + 32B stake authority + withdraw authority 32B
+        offset: 104,
+      },
+    })
+  }
+  return await program.account.settlementClaim.all(filters)
 }

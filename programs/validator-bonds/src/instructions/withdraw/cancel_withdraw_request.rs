@@ -4,6 +4,7 @@ use crate::events::withdraw::CancelWithdrawRequestEvent;
 use crate::state::bond::Bond;
 use crate::state::withdraw_request::WithdrawRequest;
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 
 /// Cancelling validator bond withdraw request.
 /// Only one withdraw request per bond. Cancelling makes a way for a new request with new amount.
@@ -11,19 +12,21 @@ use anchor_lang::prelude::*;
 pub struct CancelWithdrawRequest<'info> {
     #[account(
         mut,
-        has_one = validator_vote_account @ ErrorCode::VoteAccountMismatch,
+        has_one = vote_account @ ErrorCode::VoteAccountMismatch,
         seeds = [
             b"bond_account",
             bond.config.key().as_ref(),
-            validator_vote_account.key().as_ref()
+            vote_account.key().as_ref()
         ],
         bump = bond.bump,
     )]
     bond: Account<'info, Bond>,
 
     /// CHECK: check&deserialize of the vote account in the code
-    #[account()]
-    validator_vote_account: UncheckedAccount<'info>,
+    #[account(
+        owner = vote_program_id @ ErrorCode::InvalidVoteAccountProgramId,
+    )]
+    vote_account: UncheckedAccount<'info>,
 
     /// validator vote account validator identity or bond authority may ask for cancelling
     #[account()]
@@ -48,11 +51,7 @@ pub struct CancelWithdrawRequest<'info> {
 impl<'info> CancelWithdrawRequest<'info> {
     pub fn process(&mut self) -> Result<()> {
         require!(
-            check_bond_change_permitted(
-                &self.authority.key(),
-                &self.bond,
-                &self.validator_vote_account
-            ),
+            check_bond_change_permitted(&self.authority.key(), &self.bond, &self.vote_account),
             ErrorCode::InvalidWithdrawRequestAuthority
         );
 

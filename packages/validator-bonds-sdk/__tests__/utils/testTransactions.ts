@@ -5,10 +5,12 @@ import {
   getBond,
   initBondInstruction,
   initConfigInstruction,
+  initSettlementInstruction,
   initWithdrawRequestInstruction,
   withdrawerAuthority,
 } from '../../src'
 import {
+  ComputeBudgetProgram,
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
@@ -16,7 +18,7 @@ import {
   SystemProgram,
 } from '@solana/web3.js'
 import { ExtendedProvider } from './provider'
-import { createVoteAccount } from './staking'
+import { createVoteAccount, createVoteAccountWithIdentity } from './staking'
 import BN from 'bn.js'
 import assert from 'assert'
 import { pubkey, signer } from '@marinade.finance/web3js-common'
@@ -24,18 +26,20 @@ import { pubkey, signer } from '@marinade.finance/web3js-common'
 export async function createUserAndFund(
   provider: ExtendedProvider,
   lamports = LAMPORTS_PER_SOL,
-  user: Keypair = Keypair.generate()
-): Promise<Keypair> {
+  user: Keypair | PublicKey = Keypair.generate()
+): Promise<Keypair | PublicKey> {
   const instruction = SystemProgram.transfer({
     fromPubkey: provider.walletPubkey,
-    toPubkey: user.publicKey,
+    toPubkey: pubkey(user),
     lamports,
   })
   try {
     await provider.sendIx([], instruction)
   } catch (e) {
     console.error(
-      `createUserAndFund: to fund ${user.publicKey.toBase58()} with ${lamports} lamports`,
+      `createUserAndFund: to fund ${pubkey(
+        user
+      ).toBase58()} with ${lamports} lamports`,
       e
     )
     throw e
@@ -132,15 +136,23 @@ export async function executeInitConfigInstruction({
   }
 }
 
-export async function executeInitBondInstruction(
-  program: ValidatorBondsProgram,
-  provider: ExtendedProvider,
-  config: PublicKey,
-  bondAuthority?: Keypair,
-  voteAccount?: PublicKey,
-  validatorIdentity?: Keypair,
-  revenueShareHundredthBps: BN | number = Math.floor(Math.random() * 100) + 1
-): Promise<{
+export async function executeInitBondInstruction({
+  program,
+  provider,
+  config,
+  bondAuthority,
+  voteAccount,
+  validatorIdentity,
+  cpmpe = Math.floor(Math.random() * 100) + 1,
+}: {
+  program: ValidatorBondsProgram
+  provider: ExtendedProvider
+  config: PublicKey
+  bondAuthority?: Keypair
+  voteAccount?: PublicKey
+  validatorIdentity?: Keypair
+  cpmpe?: BN | number
+}): Promise<{
   bondAccount: PublicKey
   bondAuthority: Keypair
   voteAccount: PublicKey
@@ -148,7 +160,16 @@ export async function executeInitBondInstruction(
 }> {
   bondAuthority = bondAuthority ?? Keypair.generate()
   if (!voteAccount) {
-    ;({ voteAccount, validatorIdentity } = await createVoteAccount(provider))
+    if (validatorIdentity !== undefined) {
+      ;({ voteAccount } = await createVoteAccountWithIdentity(
+        provider,
+        validatorIdentity
+      ))
+    } else {
+      ;({ validatorIdentity, voteAccount } = await createVoteAccount({
+        provider,
+      }))
+    }
   }
   if (validatorIdentity === undefined) {
     throw new Error(
@@ -159,12 +180,15 @@ export async function executeInitBondInstruction(
     program,
     configAccount: config,
     bondAuthority: bondAuthority.publicKey,
-    revenueShareHundredthBps,
-    validatorVoteAccount: voteAccount,
+    cpmpe,
+    voteAccount,
     validatorIdentity: validatorIdentity.publicKey,
   })
   try {
     await provider.sendIx([validatorIdentity], instruction)
+    expect(
+      provider.connection.getAccountInfo(bondAccount)
+    ).resolves.not.toBeNull()
   } catch (e) {
     console.error(
       `executeInitBondInstruction: bond account ${pubkey(
@@ -217,11 +241,11 @@ export async function executeFundBondInstruction({
       }))
     }
     ;({ bondAccount, bondAuthority, voteAccount } =
-      await executeInitBondInstruction(program, provider, config))
+      await executeInitBondInstruction({ program, provider, config }))
   } else {
     const bondData = await getBond(program, bondAccount)
     bondAuthority = bondData.authority
-    voteAccount = bondData.validatorVoteAccount
+    voteAccount = bondData.voteAccount
     config = bondData.config
   }
 
@@ -234,7 +258,7 @@ export async function executeFundBondInstruction({
     program,
     configAccount: config,
     bondAccount,
-    validatorVoteAccount: voteAccount,
+    voteAccount: voteAccount,
     stakeAccount,
     stakeAccountAuthority,
   })
@@ -296,12 +320,16 @@ export async function executeInitWithdrawRequestInstruction({
       }))
     }
     ;({ bondAccount, validatorIdentity, bondAuthority, voteAccount } =
-      await executeInitBondInstruction(program, provider, configAccount))
+      await executeInitBondInstruction({
+        program,
+        provider,
+        config: configAccount,
+      }))
   } else {
     const bondData = await getBond(program, bondAccount)
     bondAuthority = bondData.authority
     configAccount = configAccount ?? bondData.config
-    voteAccount = bondData.validatorVoteAccount
+    voteAccount = bondData.voteAccount
   }
   assert(bondAccount)
   let authority = validatorIdentity
@@ -413,3 +441,71 @@ export async function executeCancelWithdrawRequestInstruction(
     throw e
   }
 }
+
+export async function executeInitSettlement({
+  program,
+  provider,
+  config,
+  bondAccount,
+  voteAccount,
+  operatorAuthority,
+  currentEpoch,
+  merkleRoot = Buffer.from(
+    Array.from({ length: 32 }, () => Math.floor(Math.random() * 256))
+  ),
+  rentCollector = Keypair.generate().publicKey,
+  maxMerkleNodes = Math.floor(Math.random() * 100) + 1,
+  maxTotalClaim = Math.floor(Math.random() * 100) + 1,
+}: {
+  program: ValidatorBondsProgram
+  provider: ExtendedProvider
+  config: PublicKey
+  voteAccount?: PublicKey
+  bondAccount?: PublicKey
+  operatorAuthority: Keypair
+  currentEpoch?: number
+  rentCollector?: PublicKey
+  merkleRoot?: number[] | Uint8Array | Buffer
+  maxMerkleNodes?: number | BN
+  maxTotalClaim?: number | BN
+}): Promise<{
+  settlementAccount: PublicKey
+  epoch: BN
+  rentCollector: PublicKey
+  merkleRoot: number[] | Uint8Array | Buffer
+  maxMerkleNodes: number
+  maxTotalClaim: number
+}> {
+  const {
+    instruction,
+    settlementAccount,
+    epoch: settlementEpoch,
+  } = await initSettlementInstruction({
+    program,
+    configAccount: config,
+    operatorAuthority,
+    merkleRoot,
+    maxMerkleNodes,
+    maxTotalClaim,
+    voteAccount,
+    bondAccount,
+    currentEpoch,
+    rentCollector,
+  })
+  await provider.sendIx([operatorAuthority], instruction)
+  expect(
+    provider.connection.getAccountInfo(settlementAccount)
+  ).resolves.not.toBeNull()
+  return {
+    settlementAccount,
+    epoch: settlementEpoch,
+    rentCollector,
+    merkleRoot,
+    maxMerkleNodes: new BN(maxMerkleNodes).toNumber(),
+    maxTotalClaim: new BN(maxTotalClaim).toNumber(),
+  }
+}
+
+export const computeUnitIx = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 1_000_000,
+})

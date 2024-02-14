@@ -92,9 +92,7 @@ validator-bonds -um show-bond ...
     config: 'vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU',
     validatorVoteAccount: '...',
     authority: '...',
-    revenueShare: { hundredthBps: 0 },
     bump: 255,
-    reserved: { reserved: [Array] }
   }
 }
 ```

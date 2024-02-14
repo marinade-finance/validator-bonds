@@ -1,5 +1,6 @@
 use crate::checks::{
     check_stake_is_initialized_with_withdrawer_authority, check_stake_valid_delegation,
+    deserialize_stake_account,
 };
 use crate::constants::BONDS_AUTHORITY_SEED;
 use crate::error::ErrorCode;
@@ -9,7 +10,7 @@ use crate::state::config::Config;
 use crate::state::settlement::Settlement;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::sysvar::stake_history;
-use anchor_spl::stake::{withdraw, Stake, StakeAccount, Withdraw};
+use anchor_spl::stake::{withdraw, Stake, Withdraw};
 
 /// Closes the settlement account, whoever can close it when the epoch expires
 #[derive(Accounts)]
@@ -22,7 +23,7 @@ pub struct CloseSettlement<'info> {
         seeds = [
             b"bond_account",
             config.key().as_ref(),
-            bond.validator_vote_account.as_ref(),
+            bond.vote_account.as_ref(),
         ],
         bump = bond.bump,
     )]
@@ -46,14 +47,6 @@ pub struct CloseSettlement<'info> {
     )]
     settlement: Account<'info, Settlement>,
 
-    /// CHECK: verified against settlement account
-    #[account(mut)]
-    rent_collector: UncheckedAccount<'info>,
-
-    /// CHECK: verified against settlement account
-    #[account(mut)]
-    split_rent_collector: UncheckedAccount<'info>,
-
     /// CHECK: PDA
     #[account(
         seeds = [
@@ -64,9 +57,20 @@ pub struct CloseSettlement<'info> {
     )]
     bonds_withdrawer_authority: UncheckedAccount<'info>,
 
-    /// a stake account to be used to return back the split rent exempt fee
+    /// CHECK: verified at settlement #[account()]
     #[account(mut)]
-    stake_account: Account<'info, StakeAccount>,
+    rent_collector: UncheckedAccount<'info>,
+
+    /// CHECK: verified at settlement #[account()]
+    #[account(mut)]
+    split_rent_collector: UncheckedAccount<'info>,
+
+    /// CHECK: deserialization in code only when needed
+    /// a stake account that was funded to the settlement credited to bond's validator vote account
+    /// lamports of the stake accounts are used to pay back rent exempt of the split_stake_account
+    /// that can be created on funding the settlement
+    #[account(mut)]
+    split_rent_refund_account: UncheckedAccount<'info>,
 
     clock: Sysvar<'info, Clock>,
 
@@ -79,28 +83,29 @@ pub struct CloseSettlement<'info> {
 
 impl<'info> CloseSettlement<'info> {
     pub fn process(&mut self) -> Result<()> {
-        require!(true == false, ErrorCode::NotYetImplemented);
-
         if self.settlement.split_rent_collector.is_some() {
+            let stake_account = deserialize_stake_account(&self.split_rent_refund_account)?;
             // stake account is managed by bonds program
             let stake_meta = check_stake_is_initialized_with_withdrawer_authority(
-                &self.stake_account,
+                &stake_account,
                 &self.bonds_withdrawer_authority.key(),
                 "stake_account",
             )?;
-            // stake account is delegated (deposited by) the bond validator
-            check_stake_valid_delegation(&self.stake_account, &self.bond.validator_vote_account)?;
-            // provided stake account must be funded; staker == settlement staker authority
+            // TODO: could be stake account only under bonds? do we need to have here settlement stake account?
+            // stake account must be attached to the settlement, i.e., staker == settlement staker authority
             require_keys_eq!(
                 stake_meta.authorized.staker,
-                self.settlement.settlement_authority,
-                ErrorCode::StakeAccountNotFunded,
+                self.settlement.authority,
+                ErrorCode::StakeAccountNotFundedToSettlement,
             );
+            // stake account is delegated to bond's validator vote account
+            check_stake_valid_delegation(&stake_account, &self.bond.vote_account)?;
+
             withdraw(
                 CpiContext::new_with_signer(
                     self.stake_program.to_account_info(),
                     Withdraw {
-                        stake: self.stake_account.to_account_info(),
+                        stake: self.split_rent_refund_account.to_account_info(),
                         withdrawer: self.bonds_withdrawer_authority.to_account_info(),
                         to: self.split_rent_collector.to_account_info(),
                         clock: self.clock.to_account_info(),
@@ -122,12 +127,13 @@ impl<'info> CloseSettlement<'info> {
             settlement: self.settlement.key(),
             merkle_root: self.settlement.merkle_root,
             max_total_claim: self.settlement.max_total_claim,
-            max_num_nodes: self.settlement.max_num_nodes,
-            total_funded: self.settlement.total_funded,
-            total_funds_claimed: self.settlement.total_funds_claimed,
-            num_nodes_claimed: self.settlement.num_nodes_claimed,
+            max_merkle_nodes: self.settlement.max_merkle_nodes,
+            lamports_funded: self.settlement.lamports_funded,
+            lamports_claimed: self.settlement.lamports_claimed,
+            merkle_nodes_claimed: self.settlement.merkle_nodes_claimed,
             rent_collector: self.rent_collector.key(),
             split_rent_collector: self.settlement.split_rent_collector,
+            split_rent_refund_account: self.split_rent_refund_account.key(),
             expiration_epoch: self.settlement.epoch_created_at
                 + self.config.epochs_to_claim_settlement,
             current_epoch: self.clock.epoch,
