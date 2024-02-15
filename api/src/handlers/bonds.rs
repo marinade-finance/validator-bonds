@@ -14,12 +14,17 @@ pub struct BondsResponse {
 #[into_params(parameter_in = Query)]
 pub struct QueryParams {}
 
-#[derive(Debug)]
 struct CustomError {
     message: String,
 }
 
 impl Reject for CustomError {}
+
+impl std::fmt::Debug for CustomError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CustomError: {}", self.message)
+    }
+}
 
 #[utoipa::path(
     get,

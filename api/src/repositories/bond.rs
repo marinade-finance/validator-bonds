@@ -26,7 +26,7 @@ pub async fn get_bonds(psql_client: &Client) -> anyhow::Result<Vec<ValidatorBond
             vote_account: row.get("vote_account"),
             authority: row.get("authority"),
             epoch: row.get::<_, i32>("epoch").try_into()?,
-            cpmpe: row.get::<_, Decimal>("cpmpe").try_into()?,
+            cpmpe: row.get::<_, Decimal>("cpmpe"),
             updated_at: row.get("updated_at"),
         })
     }
@@ -77,7 +77,7 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
             params.push(Box::new(&bond.authority));
             params.push(Box::new(epoch));
             params.push(Box::new(bond.updated_at));
-            params.push(Box::new(Decimal::from(bond.cpmpe)));
+            params.push(Box::new(bond.cpmpe));
         }
 
         insert_values.pop();

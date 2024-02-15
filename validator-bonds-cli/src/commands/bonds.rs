@@ -44,7 +44,7 @@ pub async fn collect_bonds(options: CommonCollectOptions) -> anyhow::Result<()> 
             vote_account: bond.vote_account.to_string(),
             authority: bond.authority.to_string(),
             cpmpe: bond.cpmpe.try_into().unwrap(),
-            epoch: epoch,
+            epoch,
             updated_at,
         })
     }

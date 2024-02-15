@@ -47,7 +47,8 @@ async fn main() -> anyhow::Result<()> {
         std::process::exit(1);
     }));
 
-    Ok(match params.command {
+    match params.command {
         Command::CollectBonds(options) => collect_bonds(options).await?,
-    })
+    };
+    Ok(())
 }
