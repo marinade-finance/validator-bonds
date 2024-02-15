@@ -2,7 +2,7 @@
 
 use solana_program::hash::{hashv, Hash};
 
-pub mod insurance_engine;
+pub mod psr_claim;
 
 // We need to discern between leaf and intermediate nodes to prevent trivial second
 // pre-image attacks.

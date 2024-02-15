@@ -16,7 +16,7 @@ use anchor_lang::solana_program::hash::hashv;
 use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_lang::system_program::ID as system_program_id;
 use anchor_spl::stake::{withdraw, Stake, StakeAccount, Withdraw};
-use merkle_tree::insurance_engine::TreeNode;
+use merkle_tree::psr_claim::TreeNode;
 use merkle_tree::{hash_leaf, LEAF_PREFIX};
 
 #[derive(AnchorDeserialize, AnchorSerialize)]

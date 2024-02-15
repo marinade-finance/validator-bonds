@@ -4,7 +4,7 @@ use crate::state::Reserved150;
 use crate::ID;
 use anchor_lang::prelude::*;
 
-use merkle_tree::insurance_engine::TreeNode;
+use merkle_tree::psr_claim::TreeNode;
 
 /// Settlement claim serves for deduplication purposes to not allow
 /// claiming the same settlement with the same claiming data twice.

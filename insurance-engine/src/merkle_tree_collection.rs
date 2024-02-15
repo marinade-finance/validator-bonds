@@ -1,6 +1,6 @@
 use {
     crate::insurance_claims::{InsuranceClaim, InsuranceClaimCollection},
-    merkle_tree::insurance_engine::TreeNode,
+    merkle_tree::psr_claim::TreeNode,
     merkle_tree::MerkleTree,
     serde::{Deserialize, Serialize},
     solana_sdk::hash::Hash,

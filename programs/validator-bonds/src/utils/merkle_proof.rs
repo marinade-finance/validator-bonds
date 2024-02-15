@@ -27,7 +27,7 @@ pub fn verify(proof: Vec<[u8; 32]>, root: [u8; 32], leaf: [u8; 32]) -> bool {
 mod tests {
     use super::*;
     use anchor_lang::prelude::Pubkey;
-    use merkle_tree::{hash_leaf, insurance_engine::TreeNode, LEAF_PREFIX};
+    use merkle_tree::{hash_leaf, psr_claim::TreeNode, LEAF_PREFIX};
     use std::str::FromStr;
 
     // data from google cloud bucket marinade-validator-bonds-mainnet / 538 / claims_merkle_all.json
