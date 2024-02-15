@@ -1,5 +1,6 @@
 use {
     log::info,
+    solana_accounts_db::hardened_unpack::{open_genesis_config, MAX_GENESIS_ARCHIVE_UNPACKED_SIZE},
     solana_ledger::{bank_forks_utils, blockstore_processor::ProcessOptions},
     solana_ledger::{
         blockstore::Blockstore,
@@ -7,7 +8,6 @@ use {
     },
     solana_runtime::{
         bank::Bank,
-        hardened_unpack::{open_genesis_config, MAX_GENESIS_ARCHIVE_UNPACKED_SIZE},
         snapshot_config::{SnapshotConfig, SnapshotUsage},
     },
     solana_sdk::clock::Slot,
@@ -49,7 +49,7 @@ pub fn create_bank_from_ledger(ledger_path: &Path) -> anyhow::Result<Arc<Bank>> 
         None,
         None,
         None,
-        &Arc::new(AtomicBool::new(false)),
+        Arc::new(AtomicBool::new(false)),
     );
     info!("Bank forks loaded.");
 

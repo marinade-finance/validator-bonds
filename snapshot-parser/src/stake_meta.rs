@@ -1,12 +1,13 @@
 use {
     log::{error, info},
     serde::{Deserialize, Serialize},
+    solana_accounts_db::accounts_index::ScanConfig,
     solana_program::{
         native_token::lamports_to_sol,
-        stake::state::StakeState,
+        stake::state::StakeStateV2,
         stake_history::{Epoch, StakeHistory, StakeHistoryEntry},
     },
-    solana_runtime::{accounts_index::ScanConfig, bank::Bank},
+    solana_runtime::bank::Bank,
     solana_sdk::{
         account::{Account, AccountSharedData},
         epoch_info::EpochInfo,
@@ -69,7 +70,7 @@ pub fn generate_stake_meta_collection(bank: &Arc<Bank>) -> anyhow::Result<StakeM
 
     for (pubkey, shared_account) in stake_accounts_raw {
         let account = <AccountSharedData as Into<Account>>::into(shared_account);
-        let stake_account: StakeState = match bincode::deserialize(&account.data) {
+        let stake_account: StakeStateV2 = match bincode::deserialize(&account.data) {
             Ok(account) => account,
             Err(err) => {
                 error!("Error parsing stake account {}: {}", pubkey, err);

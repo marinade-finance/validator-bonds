@@ -196,7 +196,8 @@ pub fn deserialize_stake_account(account: &UncheckedAccount) -> Result<StakeAcco
 mod tests {
     use super::*;
     use anchor_lang::prelude::{AccountInfo, Clock, Pubkey, UncheckedAccount};
-    use anchor_lang::solana_program::stake::state::{Authorized, Lockup, StakeState};
+    use anchor_lang::solana_program::stake::stake_flags::StakeFlags;
+    use anchor_lang::solana_program::stake::state::{Authorized, Lockup, StakeStateV2};
     use anchor_lang::solana_program::vote::state::{VoteInit, VoteState, VoteStateVersions};
     use std::ops::DerefMut;
 
@@ -296,26 +297,30 @@ mod tests {
 
     #[test]
     pub fn stake_valid_delegation_check() {
-        let uninitialized_stake_account = get_stake_account(StakeState::Uninitialized);
+        let uninitialized_stake_account = get_stake_account(StakeStateV2::Uninitialized);
         assert_eq!(
             check_stake_valid_delegation(&uninitialized_stake_account, &Pubkey::default()),
             Err(ErrorCode::StakeNotDelegated.into())
         );
 
-        let initialized_stake_account = get_stake_account(StakeState::Initialized(Meta::default()));
+        let initialized_stake_account =
+            get_stake_account(StakeStateV2::Initialized(Meta::default()));
         assert_eq!(
             check_stake_valid_delegation(&initialized_stake_account, &Pubkey::default()),
             Err(ErrorCode::StakeNotDelegated.into())
         );
 
-        let rewards_pool_stake_account = get_stake_account(StakeState::RewardsPool);
+        let rewards_pool_stake_account = get_stake_account(StakeStateV2::RewardsPool);
         assert_eq!(
             check_stake_valid_delegation(&rewards_pool_stake_account, &Pubkey::default()),
             Err(ErrorCode::StakeNotDelegated.into())
         );
 
-        let default_delegated_stake_account =
-            get_stake_account(StakeState::Stake(Meta::default(), Stake::default()));
+        let default_delegated_stake_account = get_stake_account(StakeStateV2::Stake(
+            Meta::default(),
+            Stake::default(),
+            StakeFlags::empty(),
+        ));
         assert_eq!(
             check_stake_valid_delegation(&default_delegated_stake_account, &Pubkey::default()),
             Ok(Delegation::default())
@@ -342,7 +347,7 @@ mod tests {
 
     #[test]
     pub fn stake_initialized_with_authority_check() {
-        let uninitialized_stake_account = get_stake_account(StakeState::Uninitialized);
+        let uninitialized_stake_account = get_stake_account(StakeStateV2::Uninitialized);
         assert_eq!(
             check_stake_is_initialized_with_withdrawer_authority(
                 &uninitialized_stake_account,
@@ -351,7 +356,7 @@ mod tests {
             ),
             Err(ErrorCode::UninitializedStake.into())
         );
-        let rewards_pool_stake_account = get_stake_account(StakeState::RewardsPool);
+        let rewards_pool_stake_account = get_stake_account(StakeStateV2::RewardsPool);
         assert_eq!(
             check_stake_is_initialized_with_withdrawer_authority(
                 &rewards_pool_stake_account,
@@ -361,7 +366,8 @@ mod tests {
             Err(ErrorCode::UninitializedStake.into())
         );
 
-        let initialized_stake_account = get_stake_account(StakeState::Initialized(Meta::default()));
+        let initialized_stake_account =
+            get_stake_account(StakeStateV2::Initialized(Meta::default()));
         assert_eq!(
             check_stake_is_initialized_with_withdrawer_authority(
                 &initialized_stake_account,
@@ -370,8 +376,11 @@ mod tests {
             ),
             Ok(Meta::default())
         );
-        let default_delegated_stake_account =
-            get_stake_account(StakeState::Stake(Meta::default(), Stake::default()));
+        let default_delegated_stake_account = get_stake_account(StakeStateV2::Stake(
+            Meta::default(),
+            Stake::default(),
+            StakeFlags::empty(),
+        ));
         assert_eq!(
             check_stake_is_initialized_with_withdrawer_authority(
                 &default_delegated_stake_account,
@@ -417,24 +426,28 @@ mod tests {
         let clock = get_clock();
 
         // no lock on default stake account
-        let unlocked_stake_account = get_stake_account(StakeState::Uninitialized);
+        let unlocked_stake_account = get_stake_account(StakeStateV2::Uninitialized);
         assert_eq!(
             check_stake_is_not_locked(&unlocked_stake_account, &clock, ""),
             Ok(())
         );
-        let rewards_pool_stake_account = get_stake_account(StakeState::RewardsPool);
+        let rewards_pool_stake_account = get_stake_account(StakeStateV2::RewardsPool);
         assert_eq!(
             check_stake_is_not_locked(&rewards_pool_stake_account, &clock, ""),
             Ok(())
         );
 
-        let initialized_stake_account = get_stake_account(StakeState::Initialized(Meta::default()));
+        let initialized_stake_account =
+            get_stake_account(StakeStateV2::Initialized(Meta::default()));
         assert_eq!(
             check_stake_is_not_locked(&initialized_stake_account, &clock, ""),
             Ok(())
         );
-        let default_delegated_stake_account =
-            get_stake_account(StakeState::Stake(Meta::default(), Stake::default()));
+        let default_delegated_stake_account = get_stake_account(StakeStateV2::Stake(
+            Meta::default(),
+            Stake::default(),
+            StakeFlags::empty(),
+        ));
         assert_eq!(
             check_stake_is_not_locked(&default_delegated_stake_account, &clock, ""),
             Ok(())
@@ -446,12 +459,13 @@ mod tests {
             unix_timestamp: 0,
             custodian,
         };
-        let epoch_locked_stake_account = get_stake_account(StakeState::Stake(
+        let epoch_locked_stake_account = get_stake_account(StakeStateV2::Stake(
             Meta {
                 lockup: epoch_lockup,
                 ..Meta::default()
             },
             Stake::default(),
+            StakeFlags::empty(),
         ));
 
         assert!(clock.epoch > 0 && clock.unix_timestamp > 0);
@@ -471,12 +485,13 @@ mod tests {
             unix_timestamp: clock.unix_timestamp + 1, // lock-up to the future timestamp
             custodian,
         };
-        let unix_locked_stake_account = get_stake_account(StakeState::Stake(
+        let unix_locked_stake_account = get_stake_account(StakeStateV2::Stake(
             Meta {
                 lockup: unix_timestamp_lockup,
                 ..Meta::default()
             },
             Stake::default(),
+            StakeFlags::empty(),
         ));
         assert_eq!(
             check_stake_is_not_locked(&unix_locked_stake_account, &clock, ""),
@@ -490,7 +505,7 @@ mod tests {
         let stake_history = StakeHistory::default();
 
         // no stake delegation
-        let no_stake_stake_account = get_stake_account(StakeState::Uninitialized);
+        let no_stake_stake_account = get_stake_account(StakeStateV2::Uninitialized);
         assert_eq!(
             check_stake_exist_and_fully_activated(
                 &no_stake_stake_account,
@@ -499,7 +514,7 @@ mod tests {
             ),
             Err(ErrorCode::StakeNotDelegated.into())
         );
-        let rewards_pool_stake_account = get_stake_account(StakeState::RewardsPool);
+        let rewards_pool_stake_account = get_stake_account(StakeStateV2::RewardsPool);
         assert_eq!(
             check_stake_exist_and_fully_activated(
                 &rewards_pool_stake_account,
@@ -508,7 +523,8 @@ mod tests {
             ),
             Err(ErrorCode::StakeNotDelegated.into())
         );
-        let initialized_stake_account = get_stake_account(StakeState::Initialized(Meta::default()));
+        let initialized_stake_account =
+            get_stake_account(StakeStateV2::Initialized(Meta::default()));
         assert_eq!(
             check_stake_exist_and_fully_activated(
                 &initialized_stake_account,
@@ -518,8 +534,11 @@ mod tests {
             Err(ErrorCode::StakeNotDelegated.into())
         );
         // delegated but no stake
-        let delegated_stake_account =
-            get_stake_account(StakeState::Stake(Meta::default(), Stake::default()));
+        let delegated_stake_account = get_stake_account(StakeStateV2::Stake(
+            Meta::default(),
+            Stake::default(),
+            StakeFlags::empty(),
+        ));
         assert_eq!(
             check_stake_exist_and_fully_activated(
                 &delegated_stake_account,
@@ -541,7 +560,11 @@ mod tests {
             },
             ..Stake::default()
         };
-        let stake_account = get_stake_account(StakeState::Stake(Meta::default(), stake));
+        let stake_account = get_stake_account(StakeStateV2::Stake(
+            Meta::default(),
+            stake,
+            StakeFlags::empty(),
+        ));
         assert_eq!(
             check_stake_exist_and_fully_activated(&stake_account, clock.epoch, &stake_history),
             Err(ErrorCode::NoStakeOrNotFullyActivated.into())
@@ -556,7 +579,11 @@ mod tests {
             },
             ..Stake::default()
         };
-        let stake_account = get_stake_account(StakeState::Stake(Meta::default(), stake));
+        let stake_account = get_stake_account(StakeStateV2::Stake(
+            Meta::default(),
+            stake,
+            StakeFlags::empty(),
+        ));
         assert_eq!(
             check_stake_exist_and_fully_activated(&stake_account, clock.epoch, &stake_history),
             Err(ErrorCode::NoStakeOrNotFullyActivated.into())
@@ -571,14 +598,18 @@ mod tests {
             },
             ..Stake::default()
         };
-        let stake_account = get_stake_account(StakeState::Stake(Meta::default(), stake));
+        let stake_account = get_stake_account(StakeStateV2::Stake(
+            Meta::default(),
+            stake,
+            StakeFlags::empty(),
+        ));
         assert_eq!(
             check_stake_exist_and_fully_activated(&stake_account, clock.epoch, &stake_history),
             Ok(stake)
         );
     }
 
-    pub fn get_stake_account(stake_state: StakeState) -> StakeAccount {
+    pub fn get_stake_account(stake_state: StakeStateV2) -> StakeAccount {
         let stake_state_vec = stake_state.try_to_vec().unwrap();
         let mut stake_state_data = stake_state_vec.as_slice();
         StakeAccount::try_deserialize(&mut stake_state_data).unwrap()
@@ -604,7 +635,7 @@ mod tests {
             },
             ..Meta::default()
         };
-        get_stake_account(StakeState::Stake(meta, stake))
+        get_stake_account(StakeStateV2::Stake(meta, stake, StakeFlags::empty()))
     }
 
     pub fn get_clock() -> Clock {

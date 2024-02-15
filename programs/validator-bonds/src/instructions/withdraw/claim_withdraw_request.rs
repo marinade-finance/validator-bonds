@@ -12,7 +12,7 @@ use crate::state::config::Config;
 use crate::state::withdraw_request::WithdrawRequest;
 use crate::utils::{minimal_size_stake_account, return_unused_split_stake_account_rent};
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::stake::state::{StakeAuthorize, StakeState};
+use anchor_lang::solana_program::stake::state::{StakeAuthorize, StakeStateV2};
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 use anchor_lang::solana_program::{program::invoke_signed, stake, system_program};
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
@@ -86,7 +86,7 @@ pub struct ClaimWithdrawRequest<'info> {
     #[account(
         init,
         payer = split_stake_rent_payer,
-        space = std::mem::size_of::<StakeState>(),
+        space = std::mem::size_of::<StakeStateV2>(),
         owner = stake::program::ID,
     )]
     split_stake_account: Account<'info, StakeAccount>,

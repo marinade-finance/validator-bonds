@@ -13,7 +13,7 @@ use crate::utils::{minimal_size_stake_account, return_unused_split_stake_account
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
 use anchor_lang::solana_program::stake;
-use anchor_lang::solana_program::stake::state::{StakeAuthorize, StakeState};
+use anchor_lang::solana_program::stake::state::{StakeAuthorize, StakeStateV2};
 use anchor_lang::solana_program::system_program;
 use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_spl::stake::{
@@ -94,7 +94,7 @@ pub struct FundSettlement<'info> {
     #[account(
         init,
         payer = split_stake_rent_payer,
-        space = std::mem::size_of::<StakeState>(),
+        space = std::mem::size_of::<StakeStateV2>(),
         owner = stake::program::ID,
     )]
     split_stake_account: Account<'info, StakeAccount>,
