@@ -10,11 +10,14 @@ use crate::state::config::Config;
 use crate::state::settlement::Settlement;
 use crate::state::settlement_claim::SettlementClaim;
 use crate::state::Reserved150;
-use crate::utils::{merkle_proof, minimal_size_stake_account, TreeNode};
+use crate::utils::{merkle_proof, minimal_size_stake_account};
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::hash::hashv;
 use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_lang::system_program::ID as system_program_id;
 use anchor_spl::stake::{withdraw, Stake, StakeAccount, Withdraw};
+use merkle_tree::insurance_engine::TreeNode;
+use merkle_tree::{hash_leaf, LEAF_PREFIX};
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct ClaimSettlementArgs {
@@ -43,7 +46,7 @@ pub struct ClaimSettlement<'info> {
 
     #[account(
         mut,
-        has_one = bond @ ErrorCode::ConfigAccountMismatch,
+        has_one = bond @ ErrorCode::BondAccountMismatch,
         constraint = settlement.epoch_created_at + config.epochs_to_claim_settlement >= clock.epoch @ ErrorCode::SettlementExpired,
         seeds = [
             b"settlement_account",
@@ -72,6 +75,7 @@ pub struct ClaimSettlement<'info> {
                 withdraw_authority: withdraw_authority.key().to_string(),
                 vote_account: bond.vote_account.key().to_string(),
                 claim: params.claim,
+                proof: None,
             }.hash().to_bytes().as_ref(),
         ],
         bump,
@@ -123,26 +127,14 @@ impl<'info> ClaimSettlement<'info> {
         ClaimSettlementArgs { proof, claim }: ClaimSettlementArgs,
         settlement_claim_bump: u8,
     ) -> Result<()> {
-        // TODO: let's check with Roman what's a better way
-        // let tree_node_calculated = TreeNode {
-        //     stake_authority: self.bonds_withdrawer_authority.key().to_string(),
-        //     withdraw_authority: self.withdraw_authority.key().to_string(),
-        //     vote_account: self.bond.vote_account.key().to_string(),
-        //     claim,
-        // };
-        // if tree_node_calculated.hash().to_bytes() != tree_node {
-        //     return Err(error!(ErrorCode::ClaimSettlementMerkleTreeNodeMismatch)
-        //         .with_account_name("settlement_claim")
-        //         .with_values((
-        //             "tree_node_calculated.hash().to_bytes() != tree_node",
-        //             format!(
-        //                 "{:?}/{:?} != {:?}",
-        //                 tree_node_calculated.hash(),
-        //                 tree_node_calculated.hash().to_bytes(),
-        //                 tree_node
-        //             ),
-        //         )));
-        // }
+        // settlement_claim PDA address verification
+        let tree_node = TreeNode {
+            stake_authority: self.bonds_withdrawer_authority.key().to_string(),
+            withdraw_authority: self.withdraw_authority.key().to_string(),
+            vote_account: self.bond.vote_account.key().to_string(),
+            claim,
+            proof: None,
+        };
         if self.settlement.lamports_claimed + claim > self.settlement.max_total_claim {
             return Err(error!(ErrorCode::ClaimAmountExceedsMaxTotalClaim)
                 .with_account_name("settlement")
@@ -203,16 +195,15 @@ impl<'info> ClaimSettlement<'info> {
                 )));
         }
 
-        let merkle_tree_node = merkle_proof::tree_node_leaf_hash(
-            self.bonds_withdrawer_authority.key(),
-            self.withdraw_authority.key(),
-            self.bond.vote_account.key(),
-            claim,
-        );
-
-        if !merkle_proof::verify(proof, self.settlement.merkle_root, merkle_tree_node) {
+        let tree_node_hash = tree_node.hash().to_bytes();
+        if !merkle_proof::verify(
+            proof,
+            self.settlement.merkle_root,
+            hash_leaf!(tree_node_hash).to_bytes(),
+        ) {
+            // TODO: change for correct staker_authority
             msg!("Merkle proof verification failed. Merkle tree node: {:?}, staker_authority: {}, withdrawer_authority: {}, vote_account: {}, claim_amount: {}",
-                merkle_tree_node, self.bonds_withdrawer_authority.key(), self.withdraw_authority.key(), self.bond.vote_account.key(), claim);
+                tree_node, self.bonds_withdrawer_authority.key(), self.withdraw_authority.key(), self.bond.vote_account.key(), claim);
             return err!(ErrorCode::ClaimSettlementProofFailed);
         }
 

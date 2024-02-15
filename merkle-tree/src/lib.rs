@@ -1,19 +1,23 @@
 // Copied from https://github.com/jito-foundation/jito-solana/blob/9d0fa4326b6375a5e9d9d0880a8a42515d3774ee/merkle-tree/src/merkle_tree.rs until solana-merkle-tree exposes needed values as well
 
-use solana_sdk::hash::{hashv, Hash};
+use solana_program::hash::{hashv, Hash};
+
+pub mod insurance_engine;
 
 // We need to discern between leaf and intermediate nodes to prevent trivial second
 // pre-image attacks.
 // https://flawed.net.nz/2018/02/21/attacking-merkle-trees-with-a-second-preimage-attack
-const LEAF_PREFIX: &[u8] = &[0];
-const INTERMEDIATE_PREFIX: &[u8] = &[1];
+pub const LEAF_PREFIX: &[u8] = &[0];
+pub const INTERMEDIATE_PREFIX: &[u8] = &[1];
 
+#[macro_export]
 macro_rules! hash_leaf {
     {$d:ident} => {
-        hashv(&[LEAF_PREFIX, $d])
+        hashv(&[LEAF_PREFIX, $d.as_ref()])
     }
 }
 
+#[macro_export]
 macro_rules! hash_intermediate {
     {$l:ident, $r:ident} => {
         hashv(&[INTERMEDIATE_PREFIX, $l.as_ref(), $r.as_ref()])
@@ -117,7 +121,6 @@ impl MerkleTree {
         };
 
         for item in items {
-            let item = item.as_ref();
             let hash = hash_leaf!(item);
             mt.nodes.push(hash);
         }

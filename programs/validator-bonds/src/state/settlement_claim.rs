@@ -1,9 +1,10 @@
 use crate::constants::SETTLEMENT_CLAIM_SEED;
 use crate::error::ErrorCode;
 use crate::state::Reserved150;
-use crate::utils::merkle_proof;
 use crate::ID;
 use anchor_lang::prelude::*;
+
+use merkle_tree::insurance_engine::TreeNode;
 
 /// Settlement claim serves for deduplication purposes to not allow
 /// claiming the same settlement with the same claiming data twice.
@@ -34,11 +35,12 @@ impl SettlementClaim {
             &[
                 SETTLEMENT_CLAIM_SEED,
                 &self.settlement.key().as_ref(),
-                merkle_proof::TreeNode {
+                TreeNode {
                     stake_authority: self.withdraw_authority.to_string(),
                     withdraw_authority: self.stake_authority.to_string(),
                     vote_account: self.vote_account.to_string(),
                     claim: self.amount,
+                    proof: None,
                 }
                 .hash()
                 .as_ref(),

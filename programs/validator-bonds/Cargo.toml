@@ -25,3 +25,4 @@ anchor-lang = { workspace = true }
 anchor-spl = { workspace = true }
 solana-security-txt = { workspace = true }
 default-env = { workspace = true }
+merkle-tree = {workspace = true }

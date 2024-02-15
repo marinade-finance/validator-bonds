@@ -1,9 +1,5 @@
-use anchor_lang::prelude::Pubkey;
-use anchor_lang::solana_program;
-use anchor_lang::solana_program::hash::{hashv, Hash, Hasher};
-
-const LEAF_PREFIX: &[u8] = &[0];
-const INTERMEDIATE_PREFIX: &[u8] = &[1];
+use anchor_lang::solana_program::hash::hashv;
+use merkle_tree::{hash_intermediate, INTERMEDIATE_PREFIX};
 
 /// copy&paste from https://github.com/jito-foundation/jito-programs/blob/master/mev-programs/programs/tip-distribution/src/merkle_proof.rs
 /// This function deals with verification of Merkle trees (hash trees).
@@ -17,58 +13,21 @@ pub fn verify(proof: Vec<[u8; 32]>, root: [u8; 32], leaf: [u8; 32]) -> bool {
     for proof_element in proof.into_iter() {
         if computed_hash <= proof_element {
             // Hash(current computed hash + current element of the proof)
-            computed_hash =
-                solana_program::hash::hashv(&[INTERMEDIATE_PREFIX, &computed_hash, &proof_element])
-                    .to_bytes();
+            computed_hash = hash_intermediate!(computed_hash, proof_element).to_bytes();
         } else {
             // Hash(current element of the proof + current computed hash)
-            computed_hash =
-                solana_program::hash::hashv(&[INTERMEDIATE_PREFIX, &proof_element, &computed_hash])
-                    .to_bytes();
+            computed_hash = hash_intermediate!(proof_element, computed_hash).to_bytes();
         }
     }
     // Check if the computed hash (root) is equal to the provided root
     computed_hash == root
 }
 
-// TODO: the TreeNode implementation should be shared with insurance-engine in a lib
-#[derive(Default, Clone, Eq, Debug, PartialEq)]
-pub struct TreeNode {
-    pub stake_authority: String,
-    pub withdraw_authority: String,
-    pub vote_account: String,
-    pub claim: u64,
-}
-
-impl TreeNode {
-    pub fn hash(&self) -> Hash {
-        let mut hasher = Hasher::default();
-        hasher.hash(self.stake_authority.as_ref());
-        hasher.hash(self.withdraw_authority.as_ref());
-        hasher.hash(self.vote_account.as_ref());
-        hasher.hash(self.claim.to_le_bytes().as_ref());
-        hasher.result()
-    }
-}
-
-pub fn tree_node_leaf_hash(
-    stake_authority: Pubkey,
-    withdraw_authority: Pubkey,
-    vote_account: Pubkey,
-    claim: u64,
-) -> [u8; 32] {
-    let tree_node = TreeNode {
-        stake_authority: stake_authority.to_string(),
-        withdraw_authority: withdraw_authority.to_string(),
-        vote_account: vote_account.to_string(),
-        claim,
-    };
-    hashv(&[LEAF_PREFIX, tree_node.hash().as_ref()]).to_bytes()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anchor_lang::prelude::Pubkey;
+    use merkle_tree::{hash_leaf, insurance_engine::TreeNode, LEAF_PREFIX};
     use std::str::FromStr;
 
     // data from google cloud bucket marinade-validator-bonds-mainnet / 538 / claims_merkle_all.json
@@ -139,10 +98,18 @@ mod tests {
         let vote_account =
             Pubkey::from_str("DdCNGDpP7qMgoAy6paFzhhak2EeyCZcgjH7ak5u5v28m").unwrap();
         let claim = 3101;
+        let tree_node_hash = TreeNode {
+            stake_authority: staker_authority.to_string(),
+            withdraw_authority: withdrawer_authority.to_string(),
+            vote_account: vote_account.to_string(),
+            claim,
+            ..TreeNode::default()
+        }
+        .hash();
         assert!(verify(
             proof,
             merkle_root,
-            tree_node_leaf_hash(staker_authority, withdrawer_authority, vote_account, claim)
+            hash_leaf!(tree_node_hash).to_bytes()
         ));
     }
 }
