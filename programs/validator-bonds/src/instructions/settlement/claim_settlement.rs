@@ -71,9 +71,9 @@ pub struct ClaimSettlement<'info> {
             b"claim_account",
             settlement.key().as_ref(),
             TreeNode {
-                stake_authority: bonds_withdrawer_authority.key().to_string(),
-                withdraw_authority: withdraw_authority.key().to_string(),
-                vote_account: bond.vote_account.key().to_string(),
+                stake_authority: bonds_withdrawer_authority.key(),
+                withdraw_authority: withdraw_authority.key(),
+                vote_account: bond.vote_account.key(),
                 claim: params.claim,
                 proof: None,
             }.hash().to_bytes().as_ref(),
@@ -129,9 +129,9 @@ impl<'info> ClaimSettlement<'info> {
     ) -> Result<()> {
         // settlement_claim PDA address verification
         let tree_node = TreeNode {
-            stake_authority: self.bonds_withdrawer_authority.key().to_string(),
-            withdraw_authority: self.withdraw_authority.key().to_string(),
-            vote_account: self.bond.vote_account.key().to_string(),
+            stake_authority: self.bonds_withdrawer_authority.key(),
+            withdraw_authority: self.withdraw_authority.key(),
+            vote_account: self.bond.vote_account.key(),
             claim,
             proof: None,
         };

@@ -1,3 +1,4 @@
+use solana_program::pubkey::Pubkey;
 use {
     log::{error, info},
     serde::{Deserialize, Serialize},
@@ -9,7 +10,7 @@ use {
 
 #[derive(Clone, Deserialize, Serialize, Debug, Eq, PartialEq)]
 pub struct ValidatorMeta {
-    pub vote_account: String,
+    pub vote_account: Pubkey,
     pub commission: u8,
     pub stake: u64,
     pub credits: u64,
@@ -111,7 +112,7 @@ pub fn generate_validator_collection(bank: &Arc<Bank>) -> anyhow::Result<Validat
                         .unwrap_or(0);
 
                     Some(ValidatorMeta {
-                        vote_account: pubkey.to_string(),
+                        vote_account: *pubkey,
                         commission: vote_state.commission,
                         stake: *stake,
                         credits,

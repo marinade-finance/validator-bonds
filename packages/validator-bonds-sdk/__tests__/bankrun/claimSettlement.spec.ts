@@ -410,9 +410,9 @@ describe('Validator Bonds claim settlement', () => {
       SETTLEMENT_CLAIM_SEED,
       settlementAccount.toBytes(),
       MerkleTreeNode.hash({
-        stakeAuthority: bondsWithdrawerAuthority.toBase58(),
-        withdrawAuthority: withdrawer.toBase58(),
-        voteAccount: voteAccount.toBase58(),
+        stakeAuthority: bondsWithdrawerAuthority,
+        withdrawAuthority: withdrawer,
+        voteAccount: voteAccount,
         claim: claim,
       }).buffer,
     ]

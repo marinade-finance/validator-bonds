@@ -1,3 +1,4 @@
+use solana_program::pubkey::Pubkey;
 use {
     log::{error, info},
     serde::{Deserialize, Serialize},
@@ -17,14 +18,14 @@ use {
 
 #[derive(Clone, Deserialize, Serialize, Debug, Eq, PartialEq)]
 pub struct StakeMeta {
-    pub pubkey: String,
+    pub pubkey: Pubkey,
     pub balance_lamports: u64,
     pub active_delegation_lamports: u64,
     pub activating_delegation_lamports: u64,
     pub deactivating_delegation_lamports: u64,
-    pub validator: Option<String>,
-    pub stake_authority: String,
-    pub withdraw_authority: String,
+    pub validator: Option<Pubkey>,
+    pub stake_authority: Pubkey,
+    pub withdraw_authority: Pubkey,
 }
 
 impl Ord for StakeMeta {
@@ -93,7 +94,7 @@ pub fn generate_stake_meta_collection(bank: &Arc<Bank>) -> anyhow::Result<StakeM
                     .delegation
                     .stake_activating_and_deactivating(epoch, Some(&history), None);
                 (
-                    Some(stake.delegation.voter_pubkey.to_string()),
+                    Some(stake.delegation.voter_pubkey),
                     effective,
                     activating,
                     deactivating,
@@ -103,24 +104,18 @@ pub fn generate_stake_meta_collection(bank: &Arc<Bank>) -> anyhow::Result<StakeM
         };
 
         stake_metas.push(StakeMeta {
-            pubkey: pubkey.to_string(),
+            pubkey,
             balance_lamports: account.lamports,
             active_delegation_lamports,
             activating_delegation_lamports,
             deactivating_delegation_lamports,
             validator,
-            stake_authority: stake_account
-                .meta()
-                .unwrap_or_default()
-                .authorized
-                .staker
-                .to_string(),
+            stake_authority: stake_account.meta().unwrap_or_default().authorized.staker,
             withdraw_authority: stake_account
                 .meta()
                 .unwrap_or_default()
                 .authorized
-                .withdrawer
-                .to_string(),
+                .withdrawer,
         })
     }
     info!("Collected all stake account metas: {}", stake_metas.len());
