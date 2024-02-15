@@ -1,5 +1,7 @@
 #![allow(clippy::type_complexity)]
+use solana_sdk::pubkey::Pubkey;
 use std::collections::HashSet;
+use std::str::FromStr;
 
 use snapshot_parser::stake_meta::StakeMeta;
 
@@ -12,10 +14,10 @@ use {
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct InsuranceClaim {
-    pub withdraw_authority: String,
-    pub stake_authority: String,
-    pub vote_account: String,
-    pub stake_accounts: HashMap<String, u64>,
+    pub withdraw_authority: Pubkey,
+    pub stake_authority: Pubkey,
+    pub vote_account: Pubkey,
+    pub stake_accounts: HashMap<Pubkey, u64>,
     pub stake: u64,
     pub claim: u64,
 }
@@ -27,8 +29,19 @@ pub struct InsuranceClaimCollection {
     pub claims: Vec<InsuranceClaim>,
 }
 
-pub fn stake_authorities_filter(whitelist: HashSet<String>) -> Box<dyn Fn(&StakeMeta) -> bool> {
+pub fn stake_authorities_filter(whitelist: HashSet<Pubkey>) -> Box<dyn Fn(&StakeMeta) -> bool> {
     Box::new(move |s| whitelist.contains(&s.stake_authority))
+}
+
+pub fn stake_authorities_filter_string(
+    whitelist: HashSet<String>,
+) -> Box<dyn Fn(&StakeMeta) -> bool> {
+    stake_authorities_filter(
+        whitelist
+            .into_iter()
+            .map(|s| Pubkey::from_str(&s).unwrap())
+            .collect(),
+    )
 }
 
 fn no_filter() -> Box<dyn Fn(&StakeMeta) -> bool> {
@@ -50,7 +63,7 @@ pub fn generate_insurance_claim_collection(
         .into_iter()
         .filter(stake_meta_filter);
 
-    let mut grouped_stake_meta: HashMap<(String, String, String), Vec<StakeMeta>> =
+    let mut grouped_stake_meta: HashMap<(Pubkey, Pubkey, Pubkey), Vec<StakeMeta>> =
         Default::default();
     for stake_meta in filtered_stake_meta_iter {
         if stake_meta.active_delegation_lamports == 0 {
@@ -59,9 +72,9 @@ pub fn generate_insurance_claim_collection(
         if let Some(validator) = &stake_meta.validator {
             grouped_stake_meta
                 .entry((
-                    validator.clone(),
-                    stake_meta.withdraw_authority.clone(),
-                    stake_meta.stake_authority.clone(),
+                    *validator,
+                    stake_meta.withdraw_authority,
+                    stake_meta.stake_authority,
                 ))
                 .or_default()
                 .push(stake_meta);
@@ -74,7 +87,7 @@ pub fn generate_insurance_claim_collection(
             |((vote_account, withdraw_authority, stake_authority), stake_metas)| {
                 let stake_accounts = stake_metas
                     .iter()
-                    .map(|s| (s.pubkey.clone(), s.active_delegation_lamports))
+                    .map(|s| (s.pubkey, s.active_delegation_lamports))
                     .collect();
 
                 let stake: u64 = stake_metas

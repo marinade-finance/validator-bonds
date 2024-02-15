@@ -265,9 +265,9 @@ export function settlementClaimAddress(
       SETTLEMENT_CLAIM_SEED,
       settlement.toBytes(),
       MerkleTreeNode.hash({
-        stakeAuthority: stakeAuthority.toBase58(),
-        withdrawAuthority: withdrawAuthority.toBase58(),
-        voteAccount: voteAccount.toBase58(),
+        stakeAuthority: stakeAuthority,
+        withdrawAuthority: withdrawAuthority,
+        voteAccount,
         claim: claim,
       }).buffer,
     ],

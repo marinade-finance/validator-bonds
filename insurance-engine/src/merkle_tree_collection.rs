@@ -1,3 +1,4 @@
+use solana_sdk::pubkey::Pubkey;
 use {
     crate::insurance_claims::{InsuranceClaim, InsuranceClaimCollection},
     merkle_tree::psr_claim::TreeNode,
@@ -9,7 +10,7 @@ use {
 
 #[derive(Default, Clone, Deserialize, Serialize)]
 pub struct ClaimLimit {
-    pub vote_account: String,
+    pub vote_account: Pubkey,
     pub max_total_claim_sum: u64,
     pub max_total_claims: usize,
 }
@@ -54,19 +55,17 @@ pub fn generate_merkle_tree_collection(
         .iter()
         .fold(
             HashMap::default(),
-            |mut claim_limits: HashMap<String, ClaimLimit>,
+            |mut claim_limits: HashMap<Pubkey, ClaimLimit>,
              InsuranceClaim {
                  vote_account,
                  claim,
                  ..
              }| {
-                let claim_limit = claim_limits
-                    .entry(vote_account.clone())
-                    .or_insert(ClaimLimit {
-                        vote_account: vote_account.clone(),
-                        max_total_claim_sum: 0,
-                        max_total_claims: 0,
-                    });
+                let claim_limit = claim_limits.entry(*vote_account).or_insert(ClaimLimit {
+                    vote_account: *vote_account,
+                    max_total_claim_sum: 0,
+                    max_total_claims: 0,
+                });
                 claim_limit.max_total_claims += 1;
                 claim_limit.max_total_claim_sum += claim;
 
@@ -124,28 +123,24 @@ mod tests {
     /// the TS implementation uses the same static pubkeys and the tests should pass here and there
     #[test]
     pub fn ts_cross_check_hash_generate() {
-        let hash_pub = TreeNode {
+        let tree_node_hash = TreeNode {
             stake_authority: Pubkey::from_str("EjeWgRiaawLSCUM7uojZgSnwipEiypS986yorgvfAzYW")
-                .unwrap()
-                .to_string(),
+                .unwrap(),
             withdraw_authority: Pubkey::from_str("BT6Y2kX5RLhQ6DDzbjbiHNDyyWJgn9jp7g5rCFn8stqy")
-                .unwrap()
-                .to_string(),
-            vote_account: Pubkey::from_str("DYSosfmS9gp1hTY4jAdKJFWK3XHsemecgVPwjqgwM2Pb")
-                .unwrap()
-                .to_string(),
+                .unwrap(),
+            vote_account: Pubkey::from_str("DYSosfmS9gp1hTY4jAdKJFWK3XHsemecgVPwjqgwM2Pb").unwrap(),
             claim: 444,
             proof: None,
         }
         .hash();
-        let tree_node = hashv(&[&[0], hash_pub.as_ref()]).to_bytes();
+        let leaf_hash = hashv(&[&[0], tree_node_hash.as_ref()]).to_bytes();
         assert_eq!(
-            hash_pub.to_string(),
-            "3LrYLzt4P6LJCyLsbYPAes4d5U8aohjbmW1dJvbrkdse"
+            tree_node_hash.to_string(),
+            "4zDyYyE5oGrun3Uvfav5hVuRZbAf3a7tXkrgQFtj8XUm"
         );
         assert_eq!(
-            bs58::encode(tree_node).into_string(),
-            "37uc7x9LVzJqsPB9un28SJEPbSop8NGHXHQjZCe6GKAX"
+            bs58::encode(leaf_hash).into_string(),
+            "GjUZTX9QYsa84HuHHXQNJFghuh7aYuEhtoFEoNquTSuy"
         );
     }
 
@@ -154,37 +149,62 @@ mod tests {
     pub fn ts_cross_check_merkle_proof() {
         let mut items: Vec<TreeNode> = vec![
             TreeNode {
-                stake_authority: "612S5jWDKhCxdzugJ6JED5whc1dCkZBPrer3mx3D2V5J".to_string(),
-                withdraw_authority: "3vGstFWWyQbDknu9WKr9vbTn2Kw5qgorP7UkRXVrfe9t".to_string(),
-                vote_account: "FHUuZcuLB3ZLWZhKoY7metTEJ2Y2Xton99TTuDmzFmgW".to_string(),
+                stake_authority: Pubkey::from_str("612S5jWDKhCxdzugJ6JED5whc1dCkZBPrer3mx3D2V5J")
+                    .unwrap(),
+                withdraw_authority: Pubkey::from_str(
+                    "3vGstFWWyQbDknu9WKr9vbTn2Kw5qgorP7UkRXVrfe9t",
+                )
+                .unwrap(),
+                vote_account: Pubkey::from_str("FHUuZcuLB3ZLWZhKoY7metTEJ2Y2Xton99TTuDmzFmgW")
+                    .unwrap(),
                 claim: 1234,
                 proof: None,
             },
             TreeNode {
-                stake_authority: "612S5jWDKhCxdzugJ6JED5whc1dCkZBPrer3mx3D2V5J".to_string(),
-                withdraw_authority: "DBnWKq1Ln9y8HtGwYxFMqMWLY1Ld9xpB28ayKfHejiTs".to_string(),
-                vote_account: "FHUuZcuLB3ZLWZhKoY7metTEJ2Y2Xton99TTuDmzFmgW".to_string(),
+                stake_authority: Pubkey::from_str("612S5jWDKhCxdzugJ6JED5whc1dCkZBPrer3mx3D2V5J")
+                    .unwrap(),
+                withdraw_authority: Pubkey::from_str(
+                    "DBnWKq1Ln9y8HtGwYxFMqMWLY1Ld9xpB28ayKfHejiTs",
+                )
+                .unwrap(),
+                vote_account: Pubkey::from_str("FHUuZcuLB3ZLWZhKoY7metTEJ2Y2Xton99TTuDmzFmgW")
+                    .unwrap(),
                 claim: 99999,
                 proof: None,
             },
             TreeNode {
-                stake_authority: "612S5jWDKhCxdzugJ6JED5whc1dCkZBPrer3mx3D2V5J".to_string(),
-                withdraw_authority: "CgoqXy3e1hsnuNw6bJ8iuzqZwr93CA4jsRa1AnsseJ53".to_string(),
-                vote_account: "FHUuZcuLB3ZLWZhKoY7metTEJ2Y2Xton99TTuDmzFmgW".to_string(),
+                stake_authority: Pubkey::from_str("612S5jWDKhCxdzugJ6JED5whc1dCkZBPrer3mx3D2V5J")
+                    .unwrap(),
+                withdraw_authority: Pubkey::from_str(
+                    "CgoqXy3e1hsnuNw6bJ8iuzqZwr93CA4jsRa1AnsseJ53",
+                )
+                .unwrap(),
+                vote_account: Pubkey::from_str("FHUuZcuLB3ZLWZhKoY7metTEJ2Y2Xton99TTuDmzFmgW")
+                    .unwrap(),
                 claim: 212121,
                 proof: None,
             },
             TreeNode {
-                stake_authority: "612S5jWDKhCxdzugJ6JED5whc1dCkZBPrer3mx3D2V5J".to_string(),
-                withdraw_authority: "3vGstFWWyQbDknu9WKr9vbTn2Kw5qgorP7UkRXVrfe9t".to_string(),
-                vote_account: "9D6EuvndvhgDBLRzpxNjHdvLWicJE1WvZrdTbapjhKR6".to_string(),
+                stake_authority: Pubkey::from_str("612S5jWDKhCxdzugJ6JED5whc1dCkZBPrer3mx3D2V5J")
+                    .unwrap(),
+                withdraw_authority: Pubkey::from_str(
+                    "3vGstFWWyQbDknu9WKr9vbTn2Kw5qgorP7UkRXVrfe9t",
+                )
+                .unwrap(),
+                vote_account: Pubkey::from_str("9D6EuvndvhgDBLRzpxNjHdvLWicJE1WvZrdTbapjhKR6")
+                    .unwrap(),
                 claim: 69,
                 proof: None,
             },
             TreeNode {
-                stake_authority: "612S5jWDKhCxdzugJ6JED5whc1dCkZBPrer3mx3D2V5J".to_string(),
-                withdraw_authority: "DBnWKq1Ln9y8HtGwYxFMqMWLY1Ld9xpB28ayKfHejiTs".to_string(),
-                vote_account: "9D6EuvndvhgDBLRzpxNjHdvLWicJE1WvZrdTbapjhKR6".to_string(),
+                stake_authority: Pubkey::from_str("612S5jWDKhCxdzugJ6JED5whc1dCkZBPrer3mx3D2V5J")
+                    .unwrap(),
+                withdraw_authority: Pubkey::from_str(
+                    "DBnWKq1Ln9y8HtGwYxFMqMWLY1Ld9xpB28ayKfHejiTs",
+                )
+                .unwrap(),
+                vote_account: Pubkey::from_str("9D6EuvndvhgDBLRzpxNjHdvLWicJE1WvZrdTbapjhKR6")
+                    .unwrap(),
                 claim: 111111,
                 proof: None,
             },
@@ -203,26 +223,26 @@ mod tests {
         }
         assert_eq!(
             merkle_tree_root.to_string(),
-            "CJWSpJD2yeL1JPUH9pyfAefFetdiSuvPNCqq5LfQ71je"
+            "CnJDz26xaCtWcmWroKK7R7A5TFUiQ5Nn2ZkZwfDkFUhX"
         );
         let check_proof = [
             [
-                217, 141, 69, 36, 65, 205, 32, 76, 165, 35, 197, 94, 188, 141, 93, 158, 129, 239,
-                253, 174, 42, 156, 151, 29, 197, 253, 160, 116, 10, 112, 12, 10,
+                14, 235, 255, 251, 170, 3, 134, 248, 124, 209, 130, 237, 93, 49, 147, 60, 190, 245,
+                185, 158, 240, 4, 61, 255, 78, 190, 156, 200, 63, 34, 150, 164,
             ],
             [
-                190, 99, 233, 8, 249, 68, 135, 70, 128, 15, 2, 169, 47, 194, 102, 12, 200, 64, 213,
-                103, 134, 64, 112, 215, 201, 36, 212, 236, 32, 93, 76, 106,
+                233, 206, 59, 221, 104, 149, 222, 77, 164, 161, 179, 193, 251, 13, 182, 232, 23,
+                206, 53, 8, 185, 206, 48, 148, 5, 70, 218, 15, 27, 209, 134, 230,
             ],
             [
-                147, 52, 104, 182, 174, 190, 248, 228, 27, 240, 240, 245, 6, 218, 13, 196, 53, 63,
-                242, 117, 208, 239, 15, 106, 255, 30, 248, 47, 107, 170, 233, 94,
+                182, 224, 192, 203, 65, 30, 57, 3, 19, 229, 229, 153, 47, 34, 38, 154, 100, 242,
+                241, 250, 78, 156, 73, 53, 15, 171, 69, 55, 220, 64, 189, 237,
             ],
         ];
         assert_eq!(items.get(3).unwrap().proof, Some(check_proof.to_vec()));
         assert_eq!(
-            item_hashes.get(3).unwrap().to_string(),
-            "C94ftStYh3afdysMEnf4KGMvyQZVcMY6P16UkEJGkYbU"
+            item_hashes.get(4).unwrap().to_string(),
+            "Bo2SdcAd4ZyU7S28ZuUeSHAziPYV3bR7AqimamJMAs2K"
         );
     }
 }

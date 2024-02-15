@@ -1,4 +1,5 @@
 import { base64, bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
+import { PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
 import CryptoJS from 'crypto-js'
 
@@ -22,9 +23,9 @@ export type MerkleTreeNodeEncoded = {
 }
 
 type MerkleTreeNodeDataInput = {
-  stakeAuthority: string
-  withdrawAuthority: string
-  voteAccount: string
+  stakeAuthority: PublicKey
+  withdrawAuthority: PublicKey
+  voteAccount: PublicKey
   claim: BN | number
 }
 
@@ -41,12 +42,62 @@ export class MerkleTreeNode {
     }
   }
 
+  public static fromString({
+    stakeAuthority,
+    withdrawAuthority,
+    voteAccount,
+    claim,
+  }: {
+    stakeAuthority: string
+    withdrawAuthority: string
+    voteAccount: string
+    claim: BN | number
+  }): MerkleTreeNode {
+    return new MerkleTreeNode({
+      stakeAuthority: new PublicKey(stakeAuthority),
+      withdrawAuthority: new PublicKey(withdrawAuthority),
+      voteAccount: new PublicKey(voteAccount),
+      claim,
+    })
+  }
+
   public hash(): MerkleTreeNodeEncoded {
     return MerkleTreeNode.hash(this.data)
   }
 
-  public leafNodeHash(): MerkleTreeNodeEncoded {
-    return MerkleTreeNode.leafNodeHash(this.data)
+  public hashLeafNode(): MerkleTreeNodeEncoded {
+    return MerkleTreeNode.hashLeafNode(this.data)
+  }
+
+  get stakeAuthority(): PublicKey {
+    return new PublicKey(this.data.stakeAuthority)
+  }
+
+  get withdrawAuthority(): PublicKey {
+    return new PublicKey(this.data.withdrawAuthority)
+  }
+
+  get voteAccount(): PublicKey {
+    return new PublicKey(this.data.voteAccount)
+  }
+
+  public static hashFromString({
+    stakeAuthority,
+    withdrawAuthority,
+    voteAccount,
+    claim,
+  }: {
+    stakeAuthority: string
+    withdrawAuthority: string
+    voteAccount: string
+    claim: BN | number
+  }): MerkleTreeNodeEncoded {
+    return MerkleTreeNode.fromString({
+      stakeAuthority,
+      withdrawAuthority,
+      voteAccount,
+      claim,
+    }).hash()
   }
 
   public static hash({
@@ -56,9 +107,9 @@ export class MerkleTreeNode {
     claim,
   }: MerkleTreeNodeDataInput): MerkleTreeNodeEncoded {
     const sha256 = CryptoJS.algo.SHA256.create()
-    sha256.update(stakeAuthority)
-    sha256.update(withdrawAuthority)
-    sha256.update(voteAccount)
+    sha256.update(pubkeyToWordArray(stakeAuthority))
+    sha256.update(pubkeyToWordArray(withdrawAuthority))
+    sha256.update(pubkeyToWordArray(voteAccount))
     claim = new BN(claim)
     sha256.update(
       CryptoJS.enc.Hex.parse(claim.toBuffer('le', 8).toString('hex'))
@@ -67,7 +118,7 @@ export class MerkleTreeNode {
     return MerkleTreeNode.toEncodings(wordArray)
   }
 
-  public static leafNodeHash({
+  public static hashLeafNode({
     stakeAuthority,
     withdrawAuthority,
     voteAccount,
@@ -79,13 +130,12 @@ export class MerkleTreeNode {
       voteAccount,
       claim,
     })
-    return MerkleTreeNode.treeNodeFromHash(resultHash)
+    return MerkleTreeNode.hashLeafNodeFromBuffer(resultHash)
   }
 
-  public static treeNodeFromHash({
-    base58,
+  public static hashLeafNodeFromBuffer({
+    buffer,
   }: MerkleTreeNodeEncoded): MerkleTreeNodeEncoded {
-    const buffer: Buffer = bs58.decode(base58)
     const prolongedBuffer = Buffer.concat([LEAF_NODE_PREFIX_BUF, buffer])
     const sha256 = CryptoJS.algo.SHA256.create()
     sha256.update(CryptoJS.enc.Hex.parse(prolongedBuffer.toString('hex')))
@@ -107,4 +157,20 @@ export class MerkleTreeNode {
       wordArray,
     }
   }
+}
+
+/**
+ * Returns a crypto-JS compatible Word Array, based on the byte array provided.
+ * https://gist.github.com/artjomb/7ef1ee574a411ba0dd1933c1ef4690d1?permalink_comment_id=4759901#gistcomment-4759901
+ **/
+export function toWordArray(bytes: number[]) {
+  const words: number[] = []
+  for (let j = 0; j < bytes.length; j++) {
+    words[j >>> 2] |= bytes[j] << (24 - 8 * (j % 4))
+  }
+  return CryptoJS.lib.WordArray.create(words, bytes.length)
+}
+
+export function pubkeyToWordArray(pubkey: PublicKey) {
+  return toWordArray(Array.from(pubkey.toBuffer()))
 }

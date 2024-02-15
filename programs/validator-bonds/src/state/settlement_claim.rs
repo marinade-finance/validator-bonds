@@ -36,9 +36,9 @@ impl SettlementClaim {
                 SETTLEMENT_CLAIM_SEED,
                 &self.settlement.key().as_ref(),
                 TreeNode {
-                    stake_authority: self.withdraw_authority.to_string(),
-                    withdraw_authority: self.stake_authority.to_string(),
-                    vote_account: self.vote_account.to_string(),
+                    stake_authority: self.withdraw_authority,
+                    withdraw_authority: self.stake_authority,
+                    vote_account: self.vote_account,
                     claim: self.amount,
                     proof: None,
                 }

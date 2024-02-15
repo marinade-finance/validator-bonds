@@ -1,3 +1,4 @@
+use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
 use {
@@ -46,11 +47,11 @@ pub struct InsuredEventCollection {
     pub epoch: u64,
     pub slot: u64,
     pub low_rewards_threshold_pct: f64,
-    pub events: HashMap</* vote_account */ String, Vec<InsuredEvent>>,
+    pub events: HashMap</* vote_account */ Pubkey, Vec<InsuredEvent>>,
 }
 
 impl InsuredEventCollection {
-    pub fn events_by_validator(&self, vote_account: &str) -> Option<&Vec<InsuredEvent>> {
+    pub fn events_by_validator(&self, vote_account: &Pubkey) -> Option<&Vec<InsuredEvent>> {
         self.events.get(vote_account)
     }
 }
@@ -85,7 +86,7 @@ pub fn generate_insured_event_collection(
             .collect();
 
             if !events.is_empty() {
-                Some((v.vote_account.clone(), events))
+                Some((v.vote_account, events))
             } else {
                 None
             }
