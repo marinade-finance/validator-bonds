@@ -3,7 +3,7 @@ use crate::events::settlement::InitSettlementEvent;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::settlement::{find_settlement_authority, Bumps, Settlement};
-use crate::state::Reserved150;
+
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::system_program;
 
@@ -106,7 +106,7 @@ impl<'info> InitSettlement<'info> {
                 pda: settlement_bump,
                 authority: authority_bump,
             },
-            reserved: Reserved150::default(),
+            reserved: [0; 99],
         });
         emit!(InitSettlementEvent {
             bond: self.settlement.bond,

@@ -1,6 +1,5 @@
 use crate::constants::SETTLEMENT_CLAIM_SEED;
 use crate::error::ErrorCode;
-use crate::state::Reserved150;
 use crate::ID;
 use anchor_lang::prelude::*;
 use merkle_tree::psr_claim::TreeNode;
@@ -8,7 +7,7 @@ use merkle_tree::psr_claim::TreeNode;
 /// Settlement claim serves for deduplication purposes to not allow
 /// claiming the same settlement with the same claiming data twice.
 #[account]
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct SettlementClaim {
     /// settlement account this claim belongs under
     pub settlement: Pubkey,
@@ -27,7 +26,7 @@ pub struct SettlementClaim {
     /// rent collector account to get the rent back for claim account creation
     pub rent_collector: Pubkey,
     /// reserve space for future extensions
-    pub reserved: Reserved150,
+    pub reserved: [u8; 93],
 }
 
 impl SettlementClaim {

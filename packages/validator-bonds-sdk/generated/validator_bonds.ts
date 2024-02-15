@@ -1675,7 +1675,10 @@ export type ValidatorBonds = {
               "reserve space for future extensions"
             ],
             "type": {
-              "defined": "Reserved150"
+              "array": [
+                "u8",
+                93
+              ]
             }
           }
         ]
@@ -1794,7 +1797,10 @@ export type ValidatorBonds = {
               "reserve space for future extensions"
             ],
             "type": {
-              "defined": "Reserved150"
+              "array": [
+                "u8",
+                99
+              ]
             }
           }
         ]
@@ -1856,7 +1862,10 @@ export type ValidatorBonds = {
               "reserve space for future extensions"
             ],
             "type": {
-              "defined": "Reserved150"
+              "array": [
+                "u8",
+                93
+              ]
             }
           }
         ]
@@ -2183,23 +2192,6 @@ export type ValidatorBonds = {
           {
             "name": "authority",
             "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "Reserved150",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "reserved",
-            "type": {
-              "array": [
-                "u8",
-                150
-              ]
-            }
           }
         ]
       }
@@ -4825,7 +4817,10 @@ export const IDL: ValidatorBonds = {
               "reserve space for future extensions"
             ],
             "type": {
-              "defined": "Reserved150"
+              "array": [
+                "u8",
+                93
+              ]
             }
           }
         ]
@@ -4944,7 +4939,10 @@ export const IDL: ValidatorBonds = {
               "reserve space for future extensions"
             ],
             "type": {
-              "defined": "Reserved150"
+              "array": [
+                "u8",
+                99
+              ]
             }
           }
         ]
@@ -5006,7 +5004,10 @@ export const IDL: ValidatorBonds = {
               "reserve space for future extensions"
             ],
             "type": {
-              "defined": "Reserved150"
+              "array": [
+                "u8",
+                93
+              ]
             }
           }
         ]
@@ -5333,23 +5334,6 @@ export const IDL: ValidatorBonds = {
           {
             "name": "authority",
             "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "Reserved150",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "reserved",
-            "type": {
-              "array": [
-                "u8",
-                150
-              ]
-            }
           }
         ]
       }

@@ -27,19 +27,6 @@ pub struct Bond {
     pub reserved: [u8; 142],
 }
 
-impl Default for Bond {
-    fn default() -> Self {
-        Self {
-            config: Pubkey::default(),
-            vote_account: Pubkey::default(),
-            authority: Pubkey::default(),
-            cpmpe: 0,
-            bump: 0,
-            reserved: [0; 142],
-        }
-    }
-}
-
 impl Bond {
     pub fn find_address(&self) -> Result<Pubkey> {
         Pubkey::create_program_address(

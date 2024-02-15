@@ -26,3 +26,4 @@ anchor-spl = { workspace = true }
 solana-security-txt = { workspace = true }
 default-env = { workspace = true }
 merkle-tree = {workspace = true }
+serde = { version = "1.0.192", features = ["derive"] }

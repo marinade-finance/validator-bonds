@@ -9,7 +9,6 @@ use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::settlement::Settlement;
 use crate::state::settlement_claim::SettlementClaim;
-use crate::state::Reserved150;
 use crate::utils::{merkle_proof, minimal_size_stake_account};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::hash::hashv;
@@ -240,7 +239,7 @@ impl<'info> ClaimSettlement<'info> {
             amount: claim,
             bump: settlement_claim_bump,
             rent_collector: self.rent_payer.key(),
-            reserved: Reserved150::default(),
+            reserved: [0; 93],
         });
 
         withdraw(

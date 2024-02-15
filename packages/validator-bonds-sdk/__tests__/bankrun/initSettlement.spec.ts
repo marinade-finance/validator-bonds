@@ -116,13 +116,14 @@ describe('Validator Bonds init settlement', () => {
     expect(settlementData.splitRentAmount).toEqual(0)
     expect(settlementData.splitRentCollector).toEqual(null)
 
-    // TODO: add expect on size of account
     const settlementAccountInfo =
       await provider.connection.getAccountInfo(settlementAccount)
     console.log(
       'settlement account length',
       settlementAccountInfo?.data.byteLength
     )
+    // not account change size expected
+    expect(settlementAccountInfo?.data.byteLength).toEqual(328)
   })
 
   it('cannot init settlement with wrong buffer size', async () => {

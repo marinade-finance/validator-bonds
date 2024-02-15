@@ -1,12 +1,11 @@
 use crate::constants::WITHDRAW_REQUEST_SEED;
 use crate::error::ErrorCode;
-use crate::state::Reserved150;
 use crate::ID;
 use anchor_lang::prelude::*;
 
 /// Request from a validator to withdraw their bond
 #[account]
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct WithdrawRequest {
     /// Validator vote account that requested the withdraw
     pub vote_account: Pubkey,
@@ -21,7 +20,7 @@ pub struct WithdrawRequest {
     /// PDA account bump
     pub bump: u8,
     /// reserve space for future extensions
-    pub reserved: Reserved150,
+    pub reserved: [u8; 93],
 }
 
 impl WithdrawRequest {

@@ -1,13 +1,13 @@
 use crate::constants::{SETTLEMENT_AUTHORITY_SEED, SETTLEMENT_SEED};
 use crate::error::ErrorCode;
-use crate::state::Reserved150;
 use crate::ID;
 use anchor_lang::prelude::*;
+use std::fmt::Debug;
 
 /// Settlement account for a particular config and merkle root
 /// Settlement defines that a protected event happened and it will be settled
 #[account]
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Settlement {
     /// this settlement belongs under particular bond, i.e., under particular validator vote account
     pub bond: Pubkey,
@@ -36,7 +36,7 @@ pub struct Settlement {
     /// PDA bumps
     pub bumps: Bumps,
     /// reserve space for future extensions
-    pub reserved: Reserved150,
+    pub reserved: [u8; 99],
 }
 
 #[derive(AnchorDeserialize, AnchorSerialize, Clone, Debug, Default)]

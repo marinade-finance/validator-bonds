@@ -6910,6 +6910,7 @@ dependencies = [
  "bincode",
  "default-env",
  "merkle-tree",
+ "serde",
  "solana-security-txt",
 ]
 

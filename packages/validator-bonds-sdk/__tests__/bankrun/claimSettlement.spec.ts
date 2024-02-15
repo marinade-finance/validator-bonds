@@ -342,11 +342,12 @@ describe('Validator Bonds claim settlement', () => {
     expect(
       (await provider.connection.getAccountInfo(pubkey(rentPayer)))?.lamports
     ).toEqual(LAMPORTS_PER_SOL - settlementClaimAccountInfo!.lamports)
-    // TODO: add expect on size of account
     console.log(
       'settlement claim account length',
       settlementClaimAccountInfo?.data.byteLength
     )
+    // no expected account change size
+    expect(settlementClaimAccountInfo?.data.byteLength).toEqual(272)
 
     await warpToNextEpoch(provider)
 

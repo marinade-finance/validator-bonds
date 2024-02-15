@@ -4,7 +4,6 @@ use crate::events::withdraw::InitWithdrawRequestEvent;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::withdraw_request::WithdrawRequest;
-use crate::state::Reserved150;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::system_program;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
@@ -85,7 +84,7 @@ impl<'info> InitWithdrawRequest<'info> {
             epoch: self.clock.epoch,
             withdrawn_amount: 0,
             requested_amount: amount,
-            reserved: Reserved150::default(),
+            reserved: [0; 93],
         });
         emit!(InitWithdrawRequestEvent {
             withdraw_request: self.withdraw_request.key(),

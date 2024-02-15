@@ -201,6 +201,17 @@ mod tests {
     use anchor_lang::solana_program::vote::state::{VoteInit, VoteState, VoteStateVersions};
     use std::ops::DerefMut;
 
+    fn test_bond_with_authority(authority: Pubkey) -> Bond {
+        Bond {
+            config: Pubkey::default(),
+            vote_account: Pubkey::default(),
+            authority,
+            cpmpe: 0,
+            bump: 0,
+            reserved: [0; 142],
+        }
+    }
+
     #[test]
     pub fn validator_vote_account_owner_check() {
         let (vote_init, mut serialized_data) = get_vote_account_data();
@@ -271,26 +282,17 @@ mod tests {
         let bond_authority = Pubkey::new_unique();
         assert!(check_bond_change_permitted(
             &bond_authority,
-            &Bond {
-                authority: bond_authority,
-                ..Bond::default()
-            },
+            &test_bond_with_authority(bond_authority),
             &unchecked_account,
         ));
         assert!(check_bond_change_permitted(
             &vote_init.node_pubkey,
-            &Bond {
-                authority: Pubkey::new_unique(),
-                ..Bond::default()
-            },
+            &test_bond_with_authority(bond_authority),
             &unchecked_account,
         ));
         assert!(!check_bond_change_permitted(
             &Pubkey::new_unique(),
-            &Bond {
-                authority: Pubkey::new_unique(),
-                ..Bond::default()
-            },
+            &test_bond_with_authority(bond_authority),
             &unchecked_account,
         ));
     }

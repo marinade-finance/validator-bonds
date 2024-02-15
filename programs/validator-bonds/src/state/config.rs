@@ -23,20 +23,6 @@ pub struct Config {
     pub reserved: [u8; 512],
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            admin_authority: Pubkey::default(),
-            operator_authority: Pubkey::default(),
-            epochs_to_claim_settlement: u64::default(),
-            withdraw_lockup_epochs: u64::default(),
-            minimum_stake_lamports: u64::default(),
-            bonds_withdrawer_authority_bump: u8::default(),
-            reserved: [0; 512],
-        }
-    }
-}
-
 impl Config {
     pub fn bonds_withdrawer_authority_address(&self, config_address: &Pubkey) -> Result<Pubkey> {
         Pubkey::create_program_address(

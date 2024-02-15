@@ -89,7 +89,7 @@ impl<'info> InitBond<'info> {
             authority: bond_authority,
             cpmpe,
             bump: bond_bump,
-            ..Bond::default()
+            reserved: [0; 142],
         });
         emit!(InitBondEvent {
             config_address: self.bond.config,
