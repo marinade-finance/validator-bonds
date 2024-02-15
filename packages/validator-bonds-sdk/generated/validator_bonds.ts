@@ -1427,30 +1427,6 @@ export type ValidatorBonds = {
         }
       ],
       "args": []
-    },
-    {
-      "name": "migrateBondCpmpe",
-      "accounts": [
-        {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "config root account that will be configured"
-          ]
-        },
-        {
-          "name": "bond",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "adminAuthority",
-          "isMut": false,
-          "isSigner": true
-        }
-      ],
-      "args": []
     }
   ],
   "accounts": [
@@ -1512,40 +1488,6 @@ export type ValidatorBonds = {
                 "u8",
                 142
               ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "bondWithRevenueShare",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "config",
-            "type": "publicKey"
-          },
-          {
-            "name": "voteAccount",
-            "type": "publicKey"
-          },
-          {
-            "name": "authority",
-            "type": "publicKey"
-          },
-          {
-            "name": "revenueShare",
-            "type": "u32"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "reserved",
-            "type": {
-              "defined": "Reserved150"
             }
           }
         ]
@@ -4534,30 +4476,6 @@ export const IDL: ValidatorBonds = {
         }
       ],
       "args": []
-    },
-    {
-      "name": "migrateBondCpmpe",
-      "accounts": [
-        {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "config root account that will be configured"
-          ]
-        },
-        {
-          "name": "bond",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "adminAuthority",
-          "isMut": false,
-          "isSigner": true
-        }
-      ],
-      "args": []
     }
   ],
   "accounts": [
@@ -4619,40 +4537,6 @@ export const IDL: ValidatorBonds = {
                 "u8",
                 142
               ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "bondWithRevenueShare",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "config",
-            "type": "publicKey"
-          },
-          {
-            "name": "voteAccount",
-            "type": "publicKey"
-          },
-          {
-            "name": "authority",
-            "type": "publicKey"
-          },
-          {
-            "name": "revenueShare",
-            "type": "u32"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "reserved",
-            "type": {
-              "defined": "Reserved150"
             }
           }
         ]

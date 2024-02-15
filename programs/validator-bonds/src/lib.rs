@@ -144,11 +144,6 @@ pub mod validator_bonds {
         check_context(&ctx)?;
         ctx.accounts.process()
     }
-
-    pub fn migrate_bond_cpmpe(ctx: Context<MigrateBondCpmpe>) -> Result<()> {
-        check_context(&ctx)?;
-        ctx.accounts.process()
-    }
 }
 
 #[cfg(test)]

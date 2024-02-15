@@ -1,6 +1,5 @@
 use crate::constants::BOND_SEED;
 use crate::error::ErrorCode;
-use crate::state::Reserved150;
 use crate::ID;
 use anchor_lang::prelude::*;
 
@@ -26,17 +25,6 @@ pub struct Bond {
     pub bump: u8,
     /// reserve space for future extensions
     pub reserved: [u8; 142],
-}
-
-#[account]
-#[derive(Debug)]
-pub struct BondWithRevenueShare {
-    pub config: Pubkey,
-    pub vote_account: Pubkey,
-    pub authority: Pubkey,
-    pub revenue_share: u32,
-    pub bump: u8,
-    pub reserved: Reserved150,
 }
 
 impl Default for Bond {
