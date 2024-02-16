@@ -1,7 +1,6 @@
 #![allow(clippy::type_complexity)]
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashSet;
-use std::str::FromStr;
 
 use snapshot_parser::stake_meta::StakeMeta;
 
@@ -31,17 +30,6 @@ pub struct InsuranceClaimCollection {
 
 pub fn stake_authorities_filter(whitelist: HashSet<Pubkey>) -> Box<dyn Fn(&StakeMeta) -> bool> {
     Box::new(move |s| whitelist.contains(&s.stake_authority))
-}
-
-pub fn stake_authorities_filter_string(
-    whitelist: HashSet<String>,
-) -> Box<dyn Fn(&StakeMeta) -> bool> {
-    stake_authorities_filter(
-        whitelist
-            .into_iter()
-            .map(|s| Pubkey::from_str(&s).unwrap())
-            .collect(),
-    )
 }
 
 fn no_filter() -> Box<dyn Fn(&StakeMeta) -> bool> {

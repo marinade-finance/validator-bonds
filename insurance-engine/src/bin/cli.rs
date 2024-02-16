@@ -1,5 +1,5 @@
 use env_logger::{Builder, Env};
-use insurance_engine::insurance_claims::stake_authorities_filter_string;
+use insurance_engine::insurance_claims::stake_authorities_filter;
 use insurance_engine::{
     insurance_claims::generate_insurance_claim_collection,
     insured_events::generate_insured_event_collection,
@@ -7,6 +7,7 @@ use insurance_engine::{
     utils::{read_from_json_file, write_to_json_file},
 };
 use snapshot_parser::{stake_meta::StakeMetaCollection, validator_meta::ValidatorMetaCollection};
+use solana_sdk::pubkey::Pubkey;
 use std::collections::HashSet;
 use {clap::Parser, log::info};
 
@@ -29,7 +30,7 @@ struct Args {
     output_merkle_tree_collection: String,
 
     #[arg(long, env, value_delimiter = ',')]
-    whitelist_stake_authority: Option<Vec<String>>,
+    whitelist_stake_authority: Option<Vec<Pubkey>>,
 
     #[arg(long, env)]
     low_rewards_threshold_pct: f64,
@@ -70,7 +71,7 @@ fn main() -> anyhow::Result<()> {
     let stake_meta_filter = args
         .whitelist_stake_authority
         .map(|whitelisted_stake_authorities| {
-            stake_authorities_filter_string(HashSet::from_iter(whitelisted_stake_authorities))
+            stake_authorities_filter(HashSet::from_iter(whitelisted_stake_authorities))
         });
 
     info!("Generating insurance claim collection...");
