@@ -1,5 +1,6 @@
 use crate::error::ErrorCode;
 use crate::events::settlement_claim::CloseSettlementClaimEvent;
+
 use crate::state::settlement_claim::SettlementClaim;
 use anchor_lang::prelude::*;
 

@@ -2,7 +2,6 @@
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashSet;
 
-
 use snapshot_parser::stake_meta::StakeMeta;
 
 use {

@@ -129,6 +129,14 @@ export const CLAIM_WITHDRAW_REQUEST_EVENT = 'ClaimWithdrawRequestEvent'
 export type ClaimWithdrawRequestEvent =
   IdlEvents<ValidatorBonds>[typeof CLAIM_WITHDRAW_REQUEST_EVENT]
 
+export const EMERGENCY_PAUSE_EVENT = 'EmergencyPauseEvent'
+export type EmergencyPauseEvent =
+  IdlEvents<ValidatorBonds>[typeof EMERGENCY_PAUSE_EVENT]
+
+export const EMERGENCY_RESUME_EVENT = 'EmergencyResumeEvent'
+export type EmergencyResumeEvent =
+  IdlEvents<ValidatorBonds>[typeof EMERGENCY_RESUME_EVENT]
+
 export const Errors = parseIdlErrors(generated.IDL)
 
 export type ProgramAccountInfo<T> = {

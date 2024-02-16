@@ -110,6 +110,8 @@ pub struct ClaimWithdrawRequest<'info> {
 
 impl<'info> ClaimWithdrawRequest<'info> {
     pub fn process(&mut self) -> Result<()> {
+        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+
         require_gt!(
             self.withdraw_request
                 .requested_amount

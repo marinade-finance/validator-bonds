@@ -76,12 +76,14 @@ describe('Validator Bonds configure config tests', () => {
       configInitialized.account.withdrawLockupEpochs
     )
 
+    const pauseAuthority = PublicKey.unique()
     const { instruction: instruction2 } = await configureConfigInstruction({
       program,
       configAccount: configInitialized.publicKey,
       newEpochsToClaimSettlement: 3,
       newWithdrawLockupEpochs: 4,
       newOperator: PublicKey.default,
+      newPauseAuthority: pauseAuthority,
     })
     await bankrunExecuteIx(
       provider,
@@ -91,6 +93,8 @@ describe('Validator Bonds configure config tests', () => {
     const config2 = await getConfig(program, configInitialized.publicKey)
     expect(config2.adminAuthority).toEqual(newAdminAuthority.publicKey)
     expect(config2.operatorAuthority).toEqual(PublicKey.default)
+    expect(config2.pauseAuthority).toEqual(pauseAuthority)
+    expect(config2.paused).toBeFalsy()
     expect(config2.epochsToClaimSettlement).toEqual(3)
     expect(config2.withdrawLockupEpochs).toEqual(4)
   })

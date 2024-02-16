@@ -349,17 +349,17 @@ export async function delegatedStakeAccount({
 export async function createBondsFundedStakeAccount({
   program,
   provider,
-  config,
+  configAccount,
   lamports,
   voteAccount,
 }: {
   program: ValidatorBondsProgram
   provider: ExtendedProvider
-  config: PublicKey
+  configAccount: PublicKey
   lamports: number
   voteAccount: PublicKey
 }): Promise<PublicKey> {
-  const [bondsAuth] = withdrawerAuthority(config, program.programId)
+  const [bondsAuth] = withdrawerAuthority(configAccount, program.programId)
   return await createStakeAccount({
     provider,
     voteAccount,
@@ -372,20 +372,23 @@ export async function createBondsFundedStakeAccount({
 export async function createSettlementFundedStakeAccount({
   program,
   provider,
-  config,
-  settlement,
+  configAccount,
+  settlementAccount,
   voteAccount,
   lamports,
 }: {
   program: ValidatorBondsProgram
   provider: ExtendedProvider
-  config: PublicKey
-  settlement: PublicKey
+  configAccount: PublicKey
+  settlementAccount: PublicKey
   voteAccount: PublicKey
   lamports: number
 }): Promise<PublicKey> {
-  const [bondsAuth] = withdrawerAuthority(config, program.programId)
-  const [settlementAuth] = settlementAuthority(settlement, program.programId)
+  const [bondsAuth] = withdrawerAuthority(configAccount, program.programId)
+  const [settlementAuth] = settlementAuthority(
+    settlementAccount,
+    program.programId
+  )
   return await createStakeAccount({
     provider,
     voteAccount,

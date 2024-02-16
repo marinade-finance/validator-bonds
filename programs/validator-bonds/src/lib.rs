@@ -144,6 +144,16 @@ pub mod validator_bonds {
         check_context(&ctx)?;
         ctx.accounts.process()
     }
+
+    pub fn emergency_pause(ctx: Context<EmergencyPause>) -> Result<()> {
+        check_context(&ctx)?;
+        ctx.accounts.pause()
+    }
+
+    pub fn emergency_resume(ctx: Context<EmergencyPause>) -> Result<()> {
+        check_context(&ctx)?;
+        ctx.accounts.resume()
+    }
 }
 
 #[cfg(test)]

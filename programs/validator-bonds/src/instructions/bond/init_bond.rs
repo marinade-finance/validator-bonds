@@ -65,6 +65,8 @@ impl<'info> InitBond<'info> {
         }: InitBondArgs,
         bond_bump: u8,
     ) -> Result<()> {
+        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+
         let mut cpmpe = cpmpe;
         let mut bond_authority = bond_authority;
         let validator_identity = if let Some(validator_identity_info) = &self.validator_identity {

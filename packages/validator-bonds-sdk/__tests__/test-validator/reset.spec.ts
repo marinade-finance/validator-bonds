@@ -65,8 +65,8 @@ describe('Validator Bonds reset settlement stake account', () => {
     const stakeAccount = await createSettlementFundedStakeAccount({
       program,
       provider,
-      config: configAccount,
-      settlement: fakeSettlement,
+      configAccount: configAccount,
+      settlementAccount: fakeSettlement,
       voteAccount,
       lamports: LAMPORTS_PER_SOL * 54,
     })

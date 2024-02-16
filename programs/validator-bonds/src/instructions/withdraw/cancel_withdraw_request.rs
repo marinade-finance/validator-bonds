@@ -2,6 +2,7 @@ use crate::checks::check_bond_change_permitted;
 use crate::error::ErrorCode;
 use crate::events::withdraw::CancelWithdrawRequestEvent;
 use crate::state::bond::Bond;
+use crate::state::config::Config;
 use crate::state::withdraw_request::WithdrawRequest;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
@@ -10,12 +11,15 @@ use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 /// Only one withdraw request per bond. Cancelling makes a way for a new request with new amount.
 #[derive(Accounts)]
 pub struct CancelWithdrawRequest<'info> {
+    config: Account<'info, Config>,
+
     #[account(
         mut,
         has_one = vote_account @ ErrorCode::VoteAccountMismatch,
+        has_one = config @ ErrorCode::ConfigAccountMismatch,
         seeds = [
             b"bond_account",
-            bond.config.key().as_ref(),
+            config.key().as_ref(),
             vote_account.key().as_ref()
         ],
         bump = bond.bump,
@@ -50,6 +54,8 @@ pub struct CancelWithdrawRequest<'info> {
 
 impl<'info> CancelWithdrawRequest<'info> {
     pub fn process(&mut self) -> Result<()> {
+        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+
         require!(
             check_bond_change_permitted(&self.authority.key(), &self.bond, &self.vote_account),
             ErrorCode::InvalidWithdrawRequestAuthority

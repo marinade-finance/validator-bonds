@@ -124,6 +124,8 @@ pub struct FundSettlement<'info> {
 
 impl<'info> FundSettlement<'info> {
     pub fn process(&mut self) -> Result<()> {
+        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+
         if self.settlement.lamports_funded >= self.settlement.max_total_claim {
             msg!("Settlement is already fully funded");
             return_unused_split_stake_account_rent(

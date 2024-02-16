@@ -341,15 +341,14 @@ export async function executeInitWithdrawRequestInstruction({
       'executeInitWithdrawRequestInstruction: bond not to be created in method, requiring validatorIdentity'
     )
   }
-  const { instruction, withdrawRequest } = await initWithdrawRequestInstruction(
-    {
+  const { instruction, withdrawRequestAccount: withdrawRequest } =
+    await initWithdrawRequestInstruction({
       program,
       bondAccount,
       configAccount,
       authority: authority.publicKey,
       amount,
-    }
-  )
+    })
   try {
     await provider.sendIx([authority], instruction)
   } catch (e) {

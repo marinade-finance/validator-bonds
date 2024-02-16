@@ -42,6 +42,8 @@ pub struct Merge<'info> {
 
 impl<'info> Merge<'info> {
     pub fn process(&mut self, MergeArgs { settlement }: MergeArgs) -> Result<()> {
+        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+
         let destination_meta = self
             .destination_stake
             .meta()

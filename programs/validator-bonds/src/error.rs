@@ -160,4 +160,16 @@ pub enum ErrorCode {
 
     #[msg("Wrong staker authority of the stake account")]
     WrongStakeAccountStaker, // 6051 0x17a3
+
+    #[msg("Requested pause and already Paused")]
+    AlreadyPaused, // 6052 0x17a4
+
+    #[msg("Requested resume, but not Paused")]
+    NotPaused, // 6053 0x17a5
+
+    #[msg("Emergency Pause is Active")]
+    ProgramIsPaused, // 6054 0x17a6
+
+    #[msg("Invalid pause authority")]
+    InvalidPauseAuthority, // 6055 0x17a7
 }

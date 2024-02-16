@@ -183,6 +183,11 @@ export type ValidatorBonds = {
       "name": "configureBond",
       "accounts": [
         {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "bond",
           "isMut": true,
           "isSigner": false,
@@ -196,8 +201,8 @@ export type ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "account": "Bond",
-                "path": "bond.config"
+                "account": "Config",
+                "path": "config"
               },
               {
                 "kind": "account",
@@ -207,7 +212,8 @@ export type ValidatorBonds = {
             ]
           },
           "relations": [
-            "vote_account"
+            "vote_account",
+            "config"
           ]
         },
         {
@@ -435,6 +441,11 @@ export type ValidatorBonds = {
       "name": "cancelWithdrawRequest",
       "accounts": [
         {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "bond",
           "isMut": true,
           "isSigner": false,
@@ -448,8 +459,8 @@ export type ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "account": "Bond",
-                "path": "bond.config"
+                "account": "Config",
+                "path": "config"
               },
               {
                 "kind": "account",
@@ -459,7 +470,8 @@ export type ValidatorBonds = {
             ]
           },
           "relations": [
-            "vote_account"
+            "vote_account",
+            "config"
           ]
         },
         {
@@ -1473,6 +1485,44 @@ export type ValidatorBonds = {
         }
       ],
       "args": []
+    },
+    {
+      "name": "emergencyPause",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false,
+          "relations": [
+            "pause_authority"
+          ]
+        },
+        {
+          "name": "pauseAuthority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "emergencyResume",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false,
+          "relations": [
+            "pause_authority"
+          ]
+        },
+        {
+          "name": "pauseAuthority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": []
     }
   ],
   "accounts": [
@@ -1585,9 +1635,20 @@ export type ValidatorBonds = {
           {
             "name": "bondsWithdrawerAuthorityBump",
             "docs": [
-              "PDA bonds bonds stake accounts authority bump seed"
+              "PDA bonds stake accounts authority bump seed"
             ],
             "type": "u8"
+          },
+          {
+            "name": "pauseAuthority",
+            "docs": [
+              "Authority that can pause the program in case of emergency"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
           },
           {
             "name": "reserved",
@@ -1597,7 +1658,7 @@ export type ValidatorBonds = {
             "type": {
               "array": [
                 "u8",
-                512
+                479
               ]
             }
           }
@@ -2011,6 +2072,12 @@ export type ValidatorBonds = {
             }
           },
           {
+            "name": "pauseAuthority",
+            "type": {
+              "option": "publicKey"
+            }
+          },
+          {
             "name": "epochsToClaimSettlement",
             "type": {
               "option": "u64"
@@ -2378,6 +2445,15 @@ export type ValidatorBonds = {
           "index": false
         },
         {
+          "name": "pauseAuthority",
+          "type": {
+            "option": {
+              "defined": "PubkeyValueChange"
+            }
+          },
+          "index": false
+        },
+        {
           "name": "epochsToClaimSettlement",
           "type": {
             "option": {
@@ -2402,6 +2478,86 @@ export type ValidatorBonds = {
               "defined": "U64ValueChange"
             }
           },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "EmergencyPauseEvent",
+      "fields": [
+        {
+          "name": "config",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "adminAuthority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "operatorAuthority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "epochsToClaimSettlement",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "withdrawLockupEpochs",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "minimumStakeLamports",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "pauseAuthority",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "EmergencyResumeEvent",
+      "fields": [
+        {
+          "name": "config",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "adminAuthority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "operatorAuthority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "epochsToClaimSettlement",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "withdrawLockupEpochs",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "minimumStakeLamports",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "pauseAuthority",
+          "type": "publicKey",
           "index": false
         }
       ]
@@ -3136,6 +3292,26 @@ export type ValidatorBonds = {
       "code": 6051,
       "name": "WrongStakeAccountStaker",
       "msg": "Wrong staker authority of the stake account"
+    },
+    {
+      "code": 6052,
+      "name": "AlreadyPaused",
+      "msg": "Requested pause and already Paused"
+    },
+    {
+      "code": 6053,
+      "name": "NotPaused",
+      "msg": "Requested resume, but not Paused"
+    },
+    {
+      "code": 6054,
+      "name": "ProgramIsPaused",
+      "msg": "Emergency Pause is Active"
+    },
+    {
+      "code": 6055,
+      "name": "InvalidPauseAuthority",
+      "msg": "Invalid pause authority"
     }
   ]
 };
@@ -3325,6 +3501,11 @@ export const IDL: ValidatorBonds = {
       "name": "configureBond",
       "accounts": [
         {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "bond",
           "isMut": true,
           "isSigner": false,
@@ -3338,8 +3519,8 @@ export const IDL: ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "account": "Bond",
-                "path": "bond.config"
+                "account": "Config",
+                "path": "config"
               },
               {
                 "kind": "account",
@@ -3349,7 +3530,8 @@ export const IDL: ValidatorBonds = {
             ]
           },
           "relations": [
-            "vote_account"
+            "vote_account",
+            "config"
           ]
         },
         {
@@ -3577,6 +3759,11 @@ export const IDL: ValidatorBonds = {
       "name": "cancelWithdrawRequest",
       "accounts": [
         {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "bond",
           "isMut": true,
           "isSigner": false,
@@ -3590,8 +3777,8 @@ export const IDL: ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "account": "Bond",
-                "path": "bond.config"
+                "account": "Config",
+                "path": "config"
               },
               {
                 "kind": "account",
@@ -3601,7 +3788,8 @@ export const IDL: ValidatorBonds = {
             ]
           },
           "relations": [
-            "vote_account"
+            "vote_account",
+            "config"
           ]
         },
         {
@@ -4615,6 +4803,44 @@ export const IDL: ValidatorBonds = {
         }
       ],
       "args": []
+    },
+    {
+      "name": "emergencyPause",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false,
+          "relations": [
+            "pause_authority"
+          ]
+        },
+        {
+          "name": "pauseAuthority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "emergencyResume",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false,
+          "relations": [
+            "pause_authority"
+          ]
+        },
+        {
+          "name": "pauseAuthority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": []
     }
   ],
   "accounts": [
@@ -4727,9 +4953,20 @@ export const IDL: ValidatorBonds = {
           {
             "name": "bondsWithdrawerAuthorityBump",
             "docs": [
-              "PDA bonds bonds stake accounts authority bump seed"
+              "PDA bonds stake accounts authority bump seed"
             ],
             "type": "u8"
+          },
+          {
+            "name": "pauseAuthority",
+            "docs": [
+              "Authority that can pause the program in case of emergency"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
           },
           {
             "name": "reserved",
@@ -4739,7 +4976,7 @@ export const IDL: ValidatorBonds = {
             "type": {
               "array": [
                 "u8",
-                512
+                479
               ]
             }
           }
@@ -5153,6 +5390,12 @@ export const IDL: ValidatorBonds = {
             }
           },
           {
+            "name": "pauseAuthority",
+            "type": {
+              "option": "publicKey"
+            }
+          },
+          {
             "name": "epochsToClaimSettlement",
             "type": {
               "option": "u64"
@@ -5520,6 +5763,15 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
+          "name": "pauseAuthority",
+          "type": {
+            "option": {
+              "defined": "PubkeyValueChange"
+            }
+          },
+          "index": false
+        },
+        {
           "name": "epochsToClaimSettlement",
           "type": {
             "option": {
@@ -5544,6 +5796,86 @@ export const IDL: ValidatorBonds = {
               "defined": "U64ValueChange"
             }
           },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "EmergencyPauseEvent",
+      "fields": [
+        {
+          "name": "config",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "adminAuthority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "operatorAuthority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "epochsToClaimSettlement",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "withdrawLockupEpochs",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "minimumStakeLamports",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "pauseAuthority",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "EmergencyResumeEvent",
+      "fields": [
+        {
+          "name": "config",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "adminAuthority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "operatorAuthority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "epochsToClaimSettlement",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "withdrawLockupEpochs",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "minimumStakeLamports",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "pauseAuthority",
+          "type": "publicKey",
           "index": false
         }
       ]
@@ -6278,6 +6610,26 @@ export const IDL: ValidatorBonds = {
       "code": 6051,
       "name": "WrongStakeAccountStaker",
       "msg": "Wrong staker authority of the stake account"
+    },
+    {
+      "code": 6052,
+      "name": "AlreadyPaused",
+      "msg": "Requested pause and already Paused"
+    },
+    {
+      "code": 6053,
+      "name": "NotPaused",
+      "msg": "Requested resume, but not Paused"
+    },
+    {
+      "code": 6054,
+      "name": "ProgramIsPaused",
+      "msg": "Emergency Pause is Active"
+    },
+    {
+      "code": 6055,
+      "name": "InvalidPauseAuthority",
+      "msg": "Invalid pause authority"
     }
   ]
 };

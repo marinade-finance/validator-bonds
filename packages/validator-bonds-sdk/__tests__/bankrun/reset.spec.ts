@@ -68,8 +68,8 @@ describe('Validator Bonds reset', () => {
     const stakeAccount = await createSettlementFundedStakeAccount({
       program,
       provider,
-      config: config.publicKey,
-      settlement: fakeSettlement,
+      configAccount: config.publicKey,
+      settlementAccount: fakeSettlement,
       voteAccount,
       lamports: LAMPORTS_PER_SOL * 5,
     })
@@ -110,7 +110,7 @@ describe('Validator Bonds reset', () => {
     const stakeAccount = await createBondsFundedStakeAccount({
       program,
       provider,
-      config: config.publicKey,
+      configAccount: config.publicKey,
       voteAccount,
       lamports: LAMPORTS_PER_SOL * 5,
     })
@@ -144,8 +144,8 @@ describe('Validator Bonds reset', () => {
     const stakeAccount = await createSettlementFundedStakeAccount({
       program,
       provider,
-      config: config.publicKey,
-      settlement: settlementAccount,
+      configAccount: config.publicKey,
+      settlementAccount: settlementAccount,
       voteAccount,
       lamports: LAMPORTS_PER_SOL * 5,
     })

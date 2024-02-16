@@ -91,6 +91,8 @@ describe('Configure config account using CLI', () => {
           PublicKey.default.toBase58(),
           '--admin',
           newAdmin.publicKey.toBase58(),
+          '--pause-authority',
+          PublicKey.default.toBase58(),
           '--epochs-to-claim-settlement',
           111,
           '--withdraw-lockup-epochs',
@@ -112,6 +114,7 @@ describe('Configure config account using CLI', () => {
     const configData = await getConfig(program, configAccount)
     expect(configData.adminAuthority).toEqual(newAdmin.publicKey)
     expect(configData.operatorAuthority).toEqual(PublicKey.default)
+    expect(configData.pauseAuthority).toEqual(PublicKey.default)
     expect(configData.epochsToClaimSettlement).toEqual(111)
     expect(configData.withdrawLockupEpochs).toEqual(112)
     expect(configData.minimumStakeLamports).toEqual(134)

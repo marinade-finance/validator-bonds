@@ -32,6 +32,8 @@ pub struct ClaimSettlementArgs {
     pub claim: u64,
 }
 
+// TODO: is ok that claiming settlement is possible only for few epochs? Who will be claiming and
+//       how the claiming works with native staking?
 #[derive(Accounts)]
 #[instruction(params: ClaimSettlementArgs)]
 pub struct ClaimSettlement<'info> {
@@ -128,6 +130,8 @@ impl<'info> ClaimSettlement<'info> {
         }: ClaimSettlementArgs,
         settlement_claim_bump: u8,
     ) -> Result<()> {
+        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+
         // settlement_claim PDA address verification
         let tree_node = TreeNode {
             stake_authority: stake_account_staker,

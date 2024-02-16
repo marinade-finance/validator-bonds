@@ -90,7 +90,7 @@ describe('Validator Bonds init withdraw request', () => {
   })
 
   it('init withdraw request bond authority', async () => {
-    const { instruction, withdrawRequest } =
+    const { instruction, withdrawRequestAccount } =
       await initWithdrawRequestInstruction({
         program,
         bondAccount: bond.publicKey,
@@ -105,10 +105,10 @@ describe('Validator Bonds init withdraw request', () => {
     )
     const epoch = Number((await provider.context.banksClient.getClock()).epoch)
 
-    expect(withdrawRequest).toEqual(withdrawRequestAddr)
+    expect(withdrawRequestAccount).toEqual(withdrawRequestAddr)
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequest
+      withdrawRequestAccount
     )
     expect(withdrawRequestData.bond).toEqual(bond.publicKey)
     expect(withdrawRequestData.bump).toEqual(bump)
@@ -117,8 +117,9 @@ describe('Validator Bonds init withdraw request', () => {
     expect(withdrawRequestData.voteAccount).toEqual(bond.account.voteAccount)
     expect(withdrawRequestData.withdrawnAmount).toEqual(0)
 
-    const withdrawRequestAccountInfo =
-      await provider.connection.getAccountInfo(withdrawRequest)
+    const withdrawRequestAccountInfo = await provider.connection.getAccountInfo(
+      withdrawRequestAccount
+    )
     console.log(
       'withdraw request account length',
       withdrawRequestAccountInfo?.data.byteLength
@@ -130,7 +131,7 @@ describe('Validator Bonds init withdraw request', () => {
   it('init withdraw request withdrawer validator identity authority', async () => {
     const rentWallet = await createUserAndFund(provider, LAMPORTS_PER_SOL)
 
-    const { instruction, withdrawRequest } =
+    const { instruction, withdrawRequestAccount } =
       await initWithdrawRequestInstruction({
         program,
         bondAccount: bond.publicKey,
@@ -143,10 +144,13 @@ describe('Validator Bonds init withdraw request', () => {
     const rentWalletInfo = await provider.connection.getAccountInfo(
       pubkey(rentWallet)
     )
-    const withdrawRequestInfo =
-      await provider.connection.getAccountInfo(withdrawRequest)
+    const withdrawRequestInfo = await provider.connection.getAccountInfo(
+      withdrawRequestAccount
+    )
     if (withdrawRequestInfo === null) {
-      throw new Error(`Withdraw request account ${withdrawRequest} not found`)
+      throw new Error(
+        `Withdraw request account ${withdrawRequestAccount} not found`
+      )
     }
     const rentExempt =
       await provider.connection.getMinimumBalanceForRentExemption(
@@ -156,7 +160,7 @@ describe('Validator Bonds init withdraw request', () => {
 
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequest
+      withdrawRequestAccount
     )
     expect(withdrawRequestData.bond).toEqual(bond.publicKey)
     expect(withdrawRequestData.requestedAmount).toEqual(123)

@@ -34,13 +34,18 @@ export function installConfigureConfig(program: Command) {
       parseWalletOrPubkey
     )
     .option(
+      '--admin <pubkey>',
+      'New admin authority to be configured',
+      parsePubkeyOrPubkeyFromWallet
+    )
+    .option(
       '--operator <pubkey>',
       'New operator authority to be configured',
       parsePubkeyOrPubkeyFromWallet
     )
     .option(
-      '--admin <pubkey>',
-      'New admin authority to be configured',
+      '--pause-authority <pubkey>',
+      'New pause authority to be configured',
       parsePubkeyOrPubkeyFromWallet
     )
     .option(
@@ -65,6 +70,7 @@ export function installConfigureConfig(program: Command) {
           adminAuthority,
           admin,
           operator,
+          pauseAuthority,
           epochsToClaimSettlement,
           withdrawLockupEpochs,
           minimumStakeLamports,
@@ -72,6 +78,7 @@ export function installConfigureConfig(program: Command) {
           adminAuthority?: Promise<WalletInterface | PublicKey>
           admin?: Promise<PublicKey>
           operator?: Promise<PublicKey>
+          pauseAuthority?: Promise<PublicKey>
           epochsToClaimSettlement?: number
           withdrawLockupEpochs?: number
           minimumStakeLamports?: number
@@ -82,6 +89,7 @@ export function installConfigureConfig(program: Command) {
           adminAuthority: await adminAuthority,
           admin: await admin,
           operator: await operator,
+          pauseAuthority: await pauseAuthority,
           epochsToClaimSettlement,
           withdrawLockupEpochs,
           minimumStakeLamports,
@@ -95,6 +103,7 @@ async function manageConfigureConfig({
   adminAuthority,
   admin,
   operator,
+  pauseAuthority,
   epochsToClaimSettlement,
   withdrawLockupEpochs,
   minimumStakeLamports,
@@ -103,6 +112,7 @@ async function manageConfigureConfig({
   adminAuthority?: WalletInterface | PublicKey
   admin?: PublicKey
   operator?: PublicKey
+  pauseAuthority?: PublicKey
   epochsToClaimSettlement?: number
   withdrawLockupEpochs?: number
   minimumStakeLamports?: number
@@ -132,6 +142,7 @@ async function manageConfigureConfig({
     adminAuthority,
     newAdmin: admin,
     newOperator: operator,
+    newPauseAuthority: pauseAuthority,
     newEpochsToClaimSettlement: epochsToClaimSettlement,
     newWithdrawLockupEpochs: withdrawLockupEpochs,
     newMinimumStakeLamports: minimumStakeLamports,

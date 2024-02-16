@@ -57,6 +57,8 @@ pub struct FundBond<'info> {
 
 impl<'info> FundBond<'info> {
     pub fn process(&mut self) -> Result<()> {
+        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+
         // when the stake account is already "owned" by the bonds program, let's just return OK
         if check_stake_is_initialized_with_withdrawer_authority(
             &self.stake_account,

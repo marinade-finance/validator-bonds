@@ -2,6 +2,7 @@ use crate::checks::check_bond_change_permitted;
 use crate::error::ErrorCode;
 use crate::events::{bond::ConfigureBondEvent, PubkeyValueChange, U64ValueChange};
 use crate::state::bond::Bond;
+use crate::state::config::Config;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 
@@ -14,12 +15,15 @@ pub struct ConfigureBondArgs {
 /// Change parameters of validator bond account
 #[derive(Accounts)]
 pub struct ConfigureBond<'info> {
+    config: Account<'info, Config>,
+
     #[account(
         mut,
         has_one = vote_account @ ErrorCode::VoteAccountMismatch,
+        has_one = config @ ErrorCode::ConfigAccountMismatch,
         seeds = [
             b"bond_account",
-            bond.config.as_ref(),
+            config.key().as_ref(),
             vote_account.key().as_ref(),
         ],
         bump = bond.bump,
@@ -45,6 +49,8 @@ impl<'info> ConfigureBond<'info> {
             cpmpe,
         }: ConfigureBondArgs,
     ) -> Result<()> {
+        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+
         require!(
             check_bond_change_permitted(&self.authority.key(), &self.bond, &self.vote_account),
             ErrorCode::BondChangeNotPermitted

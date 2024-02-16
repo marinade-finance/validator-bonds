@@ -76,6 +76,8 @@ pub struct ResetStake<'info> {
 
 impl<'info> ResetStake<'info> {
     pub fn process(&mut self) -> Result<()> {
+        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+
         // settlement account cannot exists
         require_eq!(
             self.settlement.lamports(),

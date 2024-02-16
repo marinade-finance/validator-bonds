@@ -50,6 +50,7 @@ describe('Validator Bonds configure config', () => {
   it('configure config', async () => {
     const newAdminAuthority = Keypair.generate()
     const newOperatorAuthority = PublicKey.unique()
+    const newPauseAuthority = PublicKey.unique()
 
     const event = new Promise<ConfigureConfigEvent>(resolve => {
       const listener = program.addEventListener(
@@ -68,6 +69,7 @@ describe('Validator Bonds configure config', () => {
       adminAuthority,
       newOperator: newOperatorAuthority,
       newAdmin: newAdminAuthority.publicKey,
+      newPauseAuthority: newPauseAuthority,
       newEpochsToClaimSettlement: 100,
       newWithdrawLockupEpochs: 103,
       newMinimumStakeLamports: 1001,
@@ -81,6 +83,8 @@ describe('Validator Bonds configure config', () => {
     const configData = await getConfig(program, configInitialized.publicKey)
     expect(configData.adminAuthority).toEqual(newAdminAuthority.publicKey)
     expect(configData.operatorAuthority).toEqual(newOperatorAuthority)
+    expect(configData.pauseAuthority).toEqual(newPauseAuthority)
+    expect(configData.paused).toBeFalsy()
     expect(configData.epochsToClaimSettlement).toEqual(100)
     expect(configData.withdrawLockupEpochs).toEqual(103)
     expect(configData.minimumStakeLamports).toEqual(1001)
@@ -93,6 +97,10 @@ describe('Validator Bonds configure config', () => {
       expect(e.operatorAuthority).toEqual({
         old: configInitialized.account.operatorAuthority,
         new: newOperatorAuthority,
+      })
+      expect(e.pauseAuthority).toEqual({
+        old: configInitialized.account.pauseAuthority,
+        new: newPauseAuthority,
       })
       expect(e.epochsToClaimSettlement).toEqual({
         old: configInitialized.account.epochsToClaimSettlement,

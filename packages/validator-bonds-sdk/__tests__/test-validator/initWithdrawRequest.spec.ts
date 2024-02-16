@@ -74,7 +74,7 @@ describe('Validator Bonds init withdraw request', () => {
       )
     })
 
-    const { instruction, withdrawRequest } =
+    const { instruction, withdrawRequestAccount } =
       await initWithdrawRequestInstruction({
         program,
         bondAccount,
@@ -94,7 +94,7 @@ describe('Validator Bonds init withdraw request', () => {
     const [, bump] = withdrawRequestAddress(bondAccount, program.programId)
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequest
+      withdrawRequestAccount
     )
     expect(withdrawRequestData.bond).toEqual(bondAccount)
     expect(withdrawRequestData.bump).toEqual(bump)
@@ -104,7 +104,7 @@ describe('Validator Bonds init withdraw request', () => {
     expect(withdrawRequestData.withdrawnAmount).toEqual(0)
 
     await event.then(e => {
-      expect(e.withdrawRequest).toEqual(withdrawRequest)
+      expect(e.withdrawRequest).toEqual(withdrawRequestAccount)
       expect(e.bond).toEqual(bondAccount)
       expect(e.bump).toEqual(bump)
       expect(e.epoch).toEqual(epoch)

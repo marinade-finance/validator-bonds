@@ -19,6 +19,7 @@ export async function configureConfigInstruction({
   adminAuthority,
   newAdmin,
   newOperator,
+  newPauseAuthority,
   newEpochsToClaimSettlement,
   newWithdrawLockupEpochs,
   newMinimumStakeLamports,
@@ -28,6 +29,7 @@ export async function configureConfigInstruction({
   adminAuthority?: PublicKey | Keypair | Signer | WalletInterface // signer
   newAdmin?: PublicKey
   newOperator?: PublicKey
+  newPauseAuthority?: PublicKey
   newEpochsToClaimSettlement?: BN | number
   newWithdrawLockupEpochs?: BN | number
   newMinimumStakeLamports?: BN | number
@@ -46,6 +48,7 @@ export async function configureConfigInstruction({
   const args: ConfigureConfigArgs = {
     admin: newAdmin ?? null,
     operator: newOperator ?? null,
+    pauseAuthority: newPauseAuthority ?? null,
     epochsToClaimSettlement: newEpochsToClaimSettlement
       ? new BN(newEpochsToClaimSettlement)
       : null,

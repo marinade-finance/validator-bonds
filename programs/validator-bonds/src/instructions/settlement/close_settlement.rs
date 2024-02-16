@@ -83,6 +83,8 @@ pub struct CloseSettlement<'info> {
 
 impl<'info> CloseSettlement<'info> {
     pub fn process(&mut self) -> Result<()> {
+        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+
         if self.settlement.split_rent_collector.is_some() {
             let stake_account = deserialize_stake_account(&self.split_rent_refund_account)?;
             // stake account is managed by bonds program

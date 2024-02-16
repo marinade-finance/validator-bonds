@@ -17,10 +17,14 @@ pub struct Config {
     pub withdraw_lockup_epochs: u64,
     /// Minimum amount of lamports to be considered for a stake account operations (e.g., split)
     pub minimum_stake_lamports: u64,
-    /// PDA bonds bonds stake accounts authority bump seed
+    /// PDA bonds stake accounts authority bump seed
     pub bonds_withdrawer_authority_bump: u8,
+    /// Authority that can pause the program in case of emergency
+    pub pause_authority: Pubkey,
+    // Defines if the program is paused
+    pub paused: bool,
     /// reserved space for future changes
-    pub reserved: [u8; 512],
+    pub reserved: [u8; 479],
 }
 
 impl Config {

@@ -160,7 +160,7 @@ describe('Validator Bonds close settlement', () => {
     const stakeAccount = await createBondsFundedStakeAccount({
       program,
       provider,
-      config: config.publicKey,
+      configAccount: config.publicKey,
       voteAccount,
       lamports: lamportsToFund,
     })

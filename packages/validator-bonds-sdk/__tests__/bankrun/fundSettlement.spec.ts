@@ -552,7 +552,7 @@ describe('Validator Bonds fund settlement', () => {
       provider,
       voteAccount,
       lamports,
-      config: config.publicKey,
+      configAccount: config.publicKey,
     })
     await warpToNextEpoch(provider)
     return sa
@@ -567,8 +567,8 @@ describe('Validator Bonds fund settlement', () => {
       provider,
       voteAccount,
       lamports,
-      config: config.publicKey,
-      settlement: settlementAccount,
+      configAccount: config.publicKey,
+      settlementAccount: settlementAccount,
     })
     await warpToNextEpoch(provider)
     return sa

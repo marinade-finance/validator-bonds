@@ -77,6 +77,8 @@ describe('Validator Bonds init config', () => {
 
     expect(configData.adminAuthority).toEqual(adminAuthority)
     expect(configData.operatorAuthority).toEqual(operatorAuthority)
+    expect(configData.pauseAuthority).toEqual(adminAuthority)
+    expect(configData.paused).toBeFalsy()
     expect(configData.epochsToClaimSettlement).toEqual(1)
     expect(configData.withdrawLockupEpochs).toEqual(2)
 

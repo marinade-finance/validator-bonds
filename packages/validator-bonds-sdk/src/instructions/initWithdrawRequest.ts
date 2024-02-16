@@ -27,7 +27,7 @@ export async function initWithdrawRequestInstruction({
   amount: BN | number
 }): Promise<{
   instruction: TransactionInstruction
-  withdrawRequest: PublicKey
+  withdrawRequestAccount: PublicKey
 }> {
   bondAccount = checkAndGetBondAddress(
     bondAccount,
@@ -62,7 +62,7 @@ export async function initWithdrawRequestInstruction({
     })
     .instruction()
   return {
-    withdrawRequest,
+    withdrawRequestAccount: withdrawRequest,
     instruction,
   }
 }

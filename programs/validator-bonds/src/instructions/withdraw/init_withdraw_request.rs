@@ -72,6 +72,8 @@ impl<'info> InitWithdrawRequest<'info> {
         InitWithdrawRequestArgs { amount }: InitWithdrawRequestArgs,
         withdraw_request_bump: u8,
     ) -> Result<()> {
+        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+
         require!(
             check_bond_change_permitted(&self.authority.key(), &self.bond, &self.vote_account),
             ErrorCode::InvalidWithdrawRequestAuthority

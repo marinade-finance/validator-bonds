@@ -5,6 +5,10 @@ import { installInitBond } from './initBond'
 import { installConfigureBond } from './configureBond'
 import { installMerge } from './merge'
 import { installFundBond } from './fundBond'
+import {
+  installEmergencyPause,
+  installEmergencyResume,
+} from './emergencyPauseAndResume'
 
 export function installManage(program: Command) {
   installInitConfig(program)
@@ -13,4 +17,6 @@ export function installManage(program: Command) {
   installConfigureBond(program)
   installMerge(program)
   installFundBond(program)
+  installEmergencyPause(program)
+  installEmergencyResume(program)
 }

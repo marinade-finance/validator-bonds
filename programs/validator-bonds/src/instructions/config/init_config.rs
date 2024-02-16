@@ -52,7 +52,9 @@ impl<'info> InitConfig<'info> {
             withdraw_lockup_epochs,
             minimum_stake_lamports: MIN_STAKE_LAMPORTS,
             bonds_withdrawer_authority_bump,
-            reserved: [0; 512],
+            pause_authority: admin_authority,
+            paused: false,
+            reserved: [0; 479],
         });
 
         emit!(InitConfigEvent {
