@@ -47,7 +47,7 @@ import {
 } from '../utils/staking'
 import { Wallet, signer } from '@marinade.finance/web3js-common'
 import {
-  MERKLE_ROOT_BUF,
+  MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
   configAccountKeypair,
   totalClaimVoteAccount1,
   treeNodeBy,
@@ -228,7 +228,7 @@ describe('Validator Bonds pause&resume', () => {
         program,
         configAccount,
         operatorAuthority: adminAuthority.publicKey,
-        merkleRoot: MERKLE_ROOT_BUF,
+        merkleRoot: MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
         maxMerkleNodes: treeNodesVoteAccount1.length,
         maxTotalClaim: totalClaimVoteAccount1,
         voteAccount: voteAccount1,

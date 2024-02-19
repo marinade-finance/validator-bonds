@@ -257,13 +257,11 @@ export function settlementClaimAddress(
     settlement,
     stakeAccountStaker,
     stakeAccountWithdrawer,
-    voteAccount,
     claim,
   }: {
     settlement: PublicKey
     stakeAccountStaker: PublicKey
     stakeAccountWithdrawer: PublicKey
-    voteAccount: PublicKey
     claim: BN | number
   },
   validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
@@ -273,9 +271,8 @@ export function settlementClaimAddress(
       SETTLEMENT_CLAIM_SEED,
       settlement.toBytes(),
       MerkleTreeNode.hash({
-        stakeAuthority: stakeAuthority,
-        withdrawAuthority: withdrawAuthority,
-        voteAccount,
+        stakeAuthority: stakeAccountStaker,
+        withdrawAuthority: stakeAccountWithdrawer,
         claim: claim,
       }).buffer,
     ],

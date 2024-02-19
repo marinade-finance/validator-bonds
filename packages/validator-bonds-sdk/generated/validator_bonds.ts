@@ -1703,13 +1703,6 @@ export type ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "voteAccount",
-            "docs": [
-              "vote account as part of the merkle proof for this claim"
-            ],
-            "type": "publicKey"
-          },
-          {
             "name": "amount",
             "docs": [
               "claim amount"
@@ -2597,11 +2590,6 @@ export type ValidatorBonds = {
         },
         {
           "name": "stakeAccountStaker",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "voteAccount",
           "type": "publicKey",
           "index": false
         },
@@ -5021,13 +5009,6 @@ export const IDL: ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "voteAccount",
-            "docs": [
-              "vote account as part of the merkle proof for this claim"
-            ],
-            "type": "publicKey"
-          },
-          {
             "name": "amount",
             "docs": [
               "claim amount"
@@ -5915,11 +5896,6 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "stakeAccountStaker",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "voteAccount",
           "type": "publicKey",
           "index": false
         },

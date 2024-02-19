@@ -75,13 +75,14 @@ export async function claimSettlementInstruction({
     ;[bondAccount] = bondAddress(configAccount, voteAccount, program.programId)
   }
   if (bondAccount === undefined) {
-    throw new Error('Either voteAccount or bondAccount must be provided')
+    throw new Error(
+      'Either [configAccount+voteAccount] or [bondAccount] must be provided'
+    )
   }
 
   if (configAccount === undefined || voteAccount === undefined) {
     const bondData = await getBond(program, bondAccount)
     configAccount = configAccount || bondData.config
-    voteAccount = voteAccount || bondData.voteAccount
   }
 
   if (
@@ -132,7 +133,6 @@ export async function claimSettlementInstruction({
     {
       settlement: settlementAccount,
       stakeAccountStaker,
-      voteAccount,
       stakeAccountWithdrawer,
       claim: claimAmount,
     },
@@ -142,7 +142,6 @@ export async function claimSettlementInstruction({
   const treeNodeHash = MerkleTreeNode.hash({
     stakeAuthority: stakeAccountStaker,
     withdrawAuthority: stakeAccountWithdrawer,
-    voteAccount: voteAccount,
     claim: claimAmount,
   }).words
 

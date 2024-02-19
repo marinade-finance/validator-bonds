@@ -37,13 +37,11 @@ pub fn generate_merkle_tree_collection(
             |InsuranceClaim {
                  withdraw_authority,
                  stake_authority,
-                 vote_account,
                  claim,
                  ..
              }| TreeNode {
                 stake_authority,
                 withdraw_authority,
-                vote_account,
                 claim,
                 ..Default::default()
             },
@@ -128,7 +126,6 @@ mod tests {
                 .unwrap(),
             withdraw_authority: Pubkey::from_str("BT6Y2kX5RLhQ6DDzbjbiHNDyyWJgn9jp7g5rCFn8stqy")
                 .unwrap(),
-            vote_account: Pubkey::from_str("DYSosfmS9gp1hTY4jAdKJFWK3XHsemecgVPwjqgwM2Pb").unwrap(),
             claim: 444,
             proof: None,
         }
@@ -136,18 +133,18 @@ mod tests {
         let leaf_hash = hashv(&[&[0], tree_node_hash.as_ref()]).to_bytes();
         assert_eq!(
             tree_node_hash.to_string(),
-            "4zDyYyE5oGrun3Uvfav5hVuRZbAf3a7tXkrgQFtj8XUm"
+            "A2grPmDuPXWQK2Qch7b2pj97SunPw3xjpxDV8efAtAZD"
         );
         assert_eq!(
             bs58::encode(leaf_hash).into_string(),
-            "GjUZTX9QYsa84HuHHXQNJFghuh7aYuEhtoFEoNquTSuy"
+            "CRZSudMd4t7FWQnnpd8scbtrZepB7mMZa9HgBv2pkZRN"
         );
     }
 
     // TS cross-check constant test
     #[test]
     pub fn ts_cross_check_merkle_proof() {
-        let mut items: Vec<TreeNode> = vec![
+        let mut items_vote_account1: Vec<TreeNode> = vec![
             TreeNode {
                 stake_authority: Pubkey::from_str("82ewSU2zNH87PajZHf7betFbZAaGR8bwDp8azSHNCAnA")
                     .unwrap(),
@@ -155,8 +152,6 @@ mod tests {
                     "3vGstFWWyQbDknu9WKr9vbTn2Kw5qgorP7UkRXVrfe9t",
                 )
                 .unwrap(),
-                vote_account: Pubkey::from_str("FHUuZcuLB3ZLWZhKoY7metTEJ2Y2Xton99TTuDmzFmgW")
-                    .unwrap(),
                 claim: 1234,
                 proof: None,
             },
@@ -167,8 +162,6 @@ mod tests {
                     "DBnWKq1Ln9y8HtGwYxFMqMWLY1Ld9xpB28ayKfHejiTs",
                 )
                 .unwrap(),
-                vote_account: Pubkey::from_str("FHUuZcuLB3ZLWZhKoY7metTEJ2Y2Xton99TTuDmzFmgW")
-                    .unwrap(),
                 claim: 99999,
                 proof: None,
             },
@@ -179,11 +172,11 @@ mod tests {
                     "CgoqXy3e1hsnuNw6bJ8iuzqZwr93CA4jsRa1AnsseJ53",
                 )
                 .unwrap(),
-                vote_account: Pubkey::from_str("FHUuZcuLB3ZLWZhKoY7metTEJ2Y2Xton99TTuDmzFmgW")
-                    .unwrap(),
                 claim: 212121,
                 proof: None,
             },
+        ];
+        let mut items_vote_account2: Vec<TreeNode> = vec![
             TreeNode {
                 stake_authority: Pubkey::from_str("612S5jWDKhCxdzugJ6JED5whc1dCkZBPrer3mx3D2V5J")
                     .unwrap(),
@@ -191,8 +184,6 @@ mod tests {
                     "3vGstFWWyQbDknu9WKr9vbTn2Kw5qgorP7UkRXVrfe9t",
                 )
                 .unwrap(),
-                vote_account: Pubkey::from_str("9D6EuvndvhgDBLRzpxNjHdvLWicJE1WvZrdTbapjhKR6")
-                    .unwrap(),
                 claim: 69,
                 proof: None,
             },
@@ -203,46 +194,65 @@ mod tests {
                     "DBnWKq1Ln9y8HtGwYxFMqMWLY1Ld9xpB28ayKfHejiTs",
                 )
                 .unwrap(),
-                vote_account: Pubkey::from_str("9D6EuvndvhgDBLRzpxNjHdvLWicJE1WvZrdTbapjhKR6")
-                    .unwrap(),
                 claim: 111111,
                 proof: None,
             },
         ];
-        let item_hashes = items.clone().iter().map(|n| n.hash()).collect::<Vec<_>>();
-        let merkle_tree = MerkleTree::new(&item_hashes[..], true);
-        let merkle_tree_root = merkle_tree.get_root().unwrap();
-        println!("merkle tree root: {}", merkle_tree_root);
-        for (i, tree_node) in items.iter_mut().enumerate() {
-            tree_node.proof = Some(get_proof(&merkle_tree, i));
+
+        let item_vote_account1_hashes = items_vote_account1
+            .clone()
+            .iter()
+            .map(|n| n.hash())
+            .collect::<Vec<_>>();
+        let merkle_tree_vote_account1 = MerkleTree::new(&item_vote_account1_hashes[..], true);
+        let merkle_tree_vote_account1_root = merkle_tree_vote_account1.get_root().unwrap();
+        println!(
+            "merkle tree root vote account 1: {}",
+            merkle_tree_vote_account1_root
+        );
+        assert_eq!(
+            merkle_tree_vote_account1_root.to_string(),
+            "EnBJg4qV4GjH3Sgigsi8wkWz966QYgSQkgPMCmWto51f"
+        );
+        for (i, tree_node) in items_vote_account1.iter_mut().enumerate() {
+            tree_node.proof = Some(get_proof(&merkle_tree_vote_account1, i));
             println!(
-                "proof: {:?}, hash tree node: {}",
+                "vote account1: proof: {:?}, hash tree node: {}",
                 tree_node.proof,
                 tree_node.hash()
             )
         }
         assert_eq!(
-            merkle_tree_root.to_string(),
-            "7iF4883Y16rWHqYrtdmn6ykvV7NvGsbibnmZwBanojZD"
+            item_vote_account1_hashes.get(1).unwrap().to_string(),
+            "AQT4KsCwXci528hys9WgWcURigR4TiNKDsCV9iEmVZ1P"
         );
-        let check_proof = [
-            [
-                43, 115, 25, 67, 8, 94, 86, 102, 222, 131, 96, 254, 188, 172, 164, 179, 156, 92,
-                79, 248, 195, 120, 183, 106, 96, 38, 120, 23, 59, 195, 169, 208,
-            ],
-            [
-                159, 219, 61, 246, 151, 49, 200, 46, 195, 10, 112, 214, 44, 95, 201, 51, 28, 38,
-                135, 106, 58, 162, 239, 247, 191, 121, 138, 103, 191, 34, 100, 153,
-            ],
-            [
-                96, 247, 12, 68, 67, 41, 253, 26, 149, 121, 158, 236, 188, 56, 19, 184, 242, 63,
-                242, 61, 147, 50, 119, 26, 21, 76, 36, 242, 151, 143, 142, 182,
-            ],
-        ];
-        assert_eq!(items.get(3).unwrap().proof, Some(check_proof.to_vec()));
+
+        let item_vote_account2_hashes = items_vote_account2
+            .clone()
+            .iter()
+            .map(|n| n.hash())
+            .collect::<Vec<_>>();
+        let merkle_tree_vote_account2 = MerkleTree::new(&item_vote_account2_hashes[..], true);
+        let merkle_tree_vote_account2_root = merkle_tree_vote_account2.get_root().unwrap();
+        println!(
+            "merkle tree root vote account 2: {}",
+            merkle_tree_vote_account2_root
+        );
         assert_eq!(
-            item_hashes.get(3).unwrap().to_string(),
-            "2g6GGBps8fTTq9DvJHwBxNC57k5REDFbjebWYyw9qDYQ"
+            merkle_tree_vote_account2_root.to_string(),
+            "Asi9uVpB3Tx29L17X3Z46jrPizKywTRttqsvnLTzgh27"
+        );
+        for (i, tree_node) in items_vote_account2.iter_mut().enumerate() {
+            tree_node.proof = Some(get_proof(&merkle_tree_vote_account2, i));
+            println!(
+                "vote account2: proof: {:?}, hash tree node: {}",
+                tree_node.proof,
+                tree_node.hash()
+            )
+        }
+        assert_eq!(
+            item_vote_account2_hashes.get(1).unwrap().to_string(),
+            "4WmpRvgW6HdHW4bPVEqPVJXyF2mVG9wpH5mGpgzjmJGY"
         );
     }
 }

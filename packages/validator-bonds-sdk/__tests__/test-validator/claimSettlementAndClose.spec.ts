@@ -22,7 +22,7 @@ import {
 import { ExtendedProvider } from '../utils/provider'
 import { signer } from '@marinade.finance/web3js-common'
 import {
-  MERKLE_ROOT_BUF,
+  MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
   configAccountKeypair,
   staker2,
   totalClaimVoteAccount1,
@@ -50,7 +50,6 @@ describe('Validator Bonds claim settlement', () => {
   let configAccount: PublicKey
   let operatorAuthority: Keypair
   let validatorIdentity: Keypair
-  let voteAccount: PublicKey
   let settlementAccount: PublicKey
   let stakeAccount: PublicKey
   let fundSettlementRentPayer: Keypair
@@ -71,20 +70,20 @@ describe('Validator Bonds claim settlement', () => {
       provider,
       validatorIdentity,
     })
-    ;({ voteAccount } = await executeInitBondInstruction({
+    await executeInitBondInstruction({
       config: configAccount,
       program,
       provider,
       voteAccount: voteAccount1,
       validatorIdentity,
-    }))
+    })
     ;({ settlementAccount } = await executeInitSettlement({
       config: configAccount,
       program,
       provider,
       voteAccount: voteAccount1,
       operatorAuthority,
-      merkleRoot: MERKLE_ROOT_BUF,
+      merkleRoot: MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
       maxMerkleNodes: treeNodesVoteAccount1.length,
       maxTotalClaim: totalClaimVoteAccount1,
     }))
@@ -163,7 +162,6 @@ describe('Validator Bonds claim settlement', () => {
           treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority,
         stakeAccountWithdrawer:
           treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority,
-        voteAccount,
         claim: treeNodeVoteAccount1Withdrawer1.treeNode.data.claim,
       },
       program.programId
@@ -183,7 +181,6 @@ describe('Validator Bonds claim settlement', () => {
         treeNodeVoteAccount1Withdrawer1.treeNode.data.claim
       )
       expect(e.settlementMerkleNodesClaimed).toEqual(1)
-      expect(e.voteAccount).toEqual(voteAccount)
       expect(e.stakeAccountStaker).toEqual(
         treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority
       )
@@ -247,11 +244,6 @@ describe('Validator Bonds claim settlement', () => {
     expect(findSettlementList.length).toBeGreaterThanOrEqual(1)
     findSettlementList = await findSettlementClaims({
       program,
-      voteAccount,
-    })
-    expect(findSettlementList.length).toBeGreaterThanOrEqual(2)
-    findSettlementList = await findSettlementClaims({
-      program,
       stakeAccountWithdrawer: withdrawer1,
     })
     expect(findSettlementList.length).toEqual(1)
@@ -259,7 +251,6 @@ describe('Validator Bonds claim settlement', () => {
       program,
       settlement: settlementAccount,
       stakeAccountStaker: staker2,
-      voteAccount,
     })
     expect(findSettlementList.length).toBeGreaterThanOrEqual(1)
   })
@@ -290,7 +281,6 @@ describe('Validator Bonds claim settlement', () => {
     const [settlementClaimAccount] = settlementClaimAddress(
       {
         settlement: settlementAccount,
-        voteAccount,
         stakeAccountStaker:
           treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority,
         stakeAccountWithdrawer:

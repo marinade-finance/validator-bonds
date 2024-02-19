@@ -9,7 +9,6 @@ pub struct ClaimSettlementEvent {
     pub stake_account_to: Pubkey,
     pub stake_account_withdrawer: Pubkey,
     pub stake_account_staker: Pubkey,
-    pub vote_account: Pubkey,
     pub amount: u64,
     pub rent_collector: Pubkey,
     pub bump: u8,

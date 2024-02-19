@@ -41,7 +41,8 @@ import {
 } from '../utils/staking'
 import { signer, pubkey } from '@marinade.finance/web3js-common'
 import {
-  MERKLE_ROOT_BUF,
+  MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
+  MERKLE_ROOT_VOTE_ACCOUNT_2_BUF,
   configAccountKeypair,
   totalClaimVoteAccount1,
   totalClaimVoteAccount2,
@@ -125,7 +126,7 @@ describe('Validator Bonds claim settlement', () => {
       operatorAuthority,
       currentEpoch: settlementEpoch,
       rentCollector: rentCollector.publicKey,
-      merkleRoot: MERKLE_ROOT_BUF,
+      merkleRoot: MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
       maxMerkleNodes: 1,
       maxTotalClaim: totalClaimVoteAccount1,
     }))
@@ -136,7 +137,7 @@ describe('Validator Bonds claim settlement', () => {
       voteAccount: voteAccount2,
       operatorAuthority,
       currentEpoch: settlementEpoch,
-      merkleRoot: MERKLE_ROOT_BUF,
+      merkleRoot: MERKLE_ROOT_VOTE_ACCOUNT_2_BUF,
       // wrongly setup to be able to get errors from contract
       maxMerkleNodes: 1,
       maxTotalClaim: 100, // has to be lower than 111111
@@ -311,7 +312,6 @@ describe('Validator Bonds claim settlement', () => {
     const [settlementClaimAddr, bump] = settlementClaimAddress(
       {
         settlement: settlementAccount1,
-        voteAccount: voteAccount1,
         stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
         stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
         claim: treeNode1Withdrawer1.treeNode.data.claim,
@@ -335,7 +335,6 @@ describe('Validator Bonds claim settlement', () => {
     expect(settlementClaim.stakeAccountWithdrawer).toEqual(
       treeNode1Withdrawer1.treeNode.withdrawAuthority
     )
-    expect(settlementClaim.voteAccount).toEqual(pubkey(voteAccount1))
     const settlementClaimAccountInfo = await provider.connection.getAccountInfo(
       settlementClaimAccount
     )
@@ -376,7 +375,6 @@ describe('Validator Bonds claim settlement', () => {
         stakeAccountTo: stakeAccountToWrongBump,
         stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
         stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
-        voteAccount: voteAccount1,
       })
       await provider.sendIx([signer(rentPayer)], wrongBumpIx, instruction)
       throw new Error('should have failed; already claimed')
@@ -521,7 +519,6 @@ describe('Validator Bonds claim settlement', () => {
     stakeAccountTo,
     stakeAccountStaker,
     stakeAccountWithdrawer,
-    voteAccount,
   }: {
     proof: number[][]
     claim: BN | number
@@ -532,13 +529,11 @@ describe('Validator Bonds claim settlement', () => {
     stakeAccountTo: PublicKey
     stakeAccountStaker: PublicKey
     stakeAccountWithdrawer: PublicKey
-    voteAccount: PublicKey
   }) {
     let [, bump] = settlementClaimAddress(
       {
         settlement: settlementAccount,
         stakeAccountStaker,
-        voteAccount,
         stakeAccountWithdrawer,
         claim,
       },
@@ -548,7 +543,6 @@ describe('Validator Bonds claim settlement', () => {
     const treeNodeHash = MerkleTreeNode.hash({
       stakeAuthority: stakeAccountStaker,
       withdrawAuthority: stakeAccountWithdrawer,
-      voteAccount: voteAccount,
       claim: claim,
     })
     const seeds = [

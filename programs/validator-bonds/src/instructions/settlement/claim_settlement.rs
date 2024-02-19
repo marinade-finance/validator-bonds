@@ -136,7 +136,6 @@ impl<'info> ClaimSettlement<'info> {
         let tree_node = TreeNode {
             stake_authority: stake_account_staker,
             withdraw_authority: stake_account_withdrawer.key(),
-            vote_account: self.bond.vote_account.key(),
             claim,
             proof: None,
         };
@@ -239,7 +238,6 @@ impl<'info> ClaimSettlement<'info> {
             stake_account_to: self.stake_account_to.key(),
             stake_account_staker,
             stake_account_withdrawer,
-            vote_account: self.bond.vote_account.key(),
             amount: claim,
             bump: settlement_claim_bump,
             rent_collector: self.rent_payer.key(),
@@ -275,7 +273,6 @@ impl<'info> ClaimSettlement<'info> {
             stake_account_to: self.settlement_claim.stake_account_to,
             settlement_lamports_claimed: self.settlement.lamports_claimed,
             settlement_merkle_nodes_claimed: self.settlement.merkle_nodes_claimed,
-            vote_account: self.settlement_claim.vote_account,
             stake_account_staker: self.settlement_claim.stake_account_staker,
             stake_account_withdrawer: self.settlement_claim.stake_account_withdrawer,
             amount: self.settlement_claim.amount,

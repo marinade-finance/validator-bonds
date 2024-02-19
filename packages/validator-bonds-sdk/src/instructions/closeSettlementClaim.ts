@@ -12,7 +12,6 @@ export async function closeSettlementClaimInstruction({
   settlementClaimAccount,
   rentCollector,
   configAccount,
-  voteAccount,
   withdrawer,
   claimAmount,
 }: {
@@ -30,7 +29,6 @@ export async function closeSettlementClaimInstruction({
   if (
     settlementClaimAccount === undefined &&
     configAccount &&
-    voteAccount &&
     withdrawer &&
     claimAmount
   ) {
@@ -42,7 +40,6 @@ export async function closeSettlementClaimInstruction({
       {
         settlement: settlementAccount,
         stakeAccountStaker: bondsWithdrawerAuthority,
-        voteAccount,
         stakeAccountWithdrawer: withdrawer,
         claim: claimAmount,
       },

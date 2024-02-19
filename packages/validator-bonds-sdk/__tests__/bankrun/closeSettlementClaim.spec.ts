@@ -31,7 +31,7 @@ import {
 } from '../utils/staking'
 import { signer } from '@marinade.finance/web3js-common'
 import {
-  MERKLE_ROOT_BUF,
+  MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
   configAccountKeypair,
   totalClaimVoteAccount1,
   treeNodeBy,
@@ -92,7 +92,7 @@ describe('Validator Bonds close settlement claim', () => {
       voteAccount: voteAccount1,
       operatorAuthority,
       currentEpoch: settlementEpoch,
-      merkleRoot: MERKLE_ROOT_BUF,
+      merkleRoot: MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
       maxMerkleNodes: treeNodesVoteAccount1.length,
       maxTotalClaim: totalClaimVoteAccount1,
     }))

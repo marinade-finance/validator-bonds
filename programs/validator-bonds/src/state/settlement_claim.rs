@@ -17,8 +17,6 @@ pub struct SettlementClaim {
     pub stake_account_staker: Pubkey,
     /// withdrawer authority as part of the merkle proof for this claim
     pub stake_account_withdrawer: Pubkey,
-    /// vote account as part of the merkle proof for this claim
-    pub vote_account: Pubkey,
     /// claim amount
     pub amount: u64,
     /// PDA account bump, one claim per settlement
@@ -38,7 +36,6 @@ impl SettlementClaim {
                 TreeNode {
                     stake_authority: self.stake_account_staker,
                     withdraw_authority: self.stake_account_withdrawer,
-                    vote_account: self.vote_account,
                     claim: self.amount,
                     proof: None,
                 }

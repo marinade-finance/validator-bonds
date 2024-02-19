@@ -3,8 +3,16 @@ import { MerkleTreeNode } from '../../src'
 import { Keypair, PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
 
-export const MERKLE_PROOF = '7iF4883Y16rWHqYrtdmn6ykvV7NvGsbibnmZwBanojZD'
-export const MERKLE_ROOT_BUF = bs58.decode(MERKLE_PROOF)
+export const MERKLE_PROOF_VOTE_ACCOUNT_1 =
+  'EnBJg4qV4GjH3Sgigsi8wkWz966QYgSQkgPMCmWto51f'
+export const MERKLE_ROOT_VOTE_ACCOUNT_1_BUF = bs58.decode(
+  MERKLE_PROOF_VOTE_ACCOUNT_1
+)
+export const MERKLE_PROOF_VOTE_ACCOUNT_2 =
+  'Asi9uVpB3Tx29L17X3Z46jrPizKywTRttqsvnLTzgh27'
+export const MERKLE_ROOT_VOTE_ACCOUNT_2_BUF = bs58.decode(
+  MERKLE_PROOF_VOTE_ACCOUNT_2
+)
 
 export const configAccount = new PublicKey(
   '4wQELTA1RMEM3cKN7gjbiNN247e3GY9Sga7MKpNV38kL'
@@ -108,30 +116,28 @@ export const staker3Keypair = Keypair.fromSecretKey(
   ])
 )
 
-export const ITEMS: { treeNode: MerkleTreeNode; proof: number[][] }[] = [
+export type MerkleTreeNodeWithProof = {
+  treeNode: MerkleTreeNode
+  proof: number[][]
+}
+
+export const ITEMS_VOTE_ACCOUNT_1: MerkleTreeNodeWithProof[] = [
   {
     // tree node hash: 2dGWvEq6Pan1RrZEmZ4rHLGYNp1UKnjPGdFJN3RNBdaS
     treeNode: new MerkleTreeNode({
       withdrawAuthority: withdrawer1,
       stakeAuthority: staker1,
-      voteAccount: voteAccount1,
       claim: 1234,
     }),
     proof: [
       [
-        169, 26, 178, 243, 186, 171, 226, 253, 126, 24, 48, 24, 87, 176, 105,
-        156, 88, 12, 166, 157, 3, 129, 113, 187, 112, 251, 157, 67, 123, 111,
-        11, 42,
+        71, 3, 238, 36, 44, 63, 252, 186, 190, 117, 55, 1, 74, 130, 163, 47, 15,
+        108, 104, 68, 176, 233, 152, 64, 34, 167, 84, 90, 65, 102, 170, 109,
       ],
       [
-        160, 80, 88, 229, 37, 37, 166, 177, 134, 144, 148, 221, 108, 200, 28,
-        117, 46, 163, 221, 16, 166, 40, 23, 122, 236, 212, 191, 161, 0, 96, 197,
-        41,
-      ],
-      [
-        50, 84, 55, 143, 145, 207, 177, 140, 121, 48, 154, 231, 228, 146, 128,
-        129, 109, 238, 21, 147, 193, 20, 211, 35, 91, 110, 234, 233, 216, 242,
-        115, 139,
+        84, 75, 193, 1, 167, 55, 248, 48, 129, 33, 198, 240, 33, 229, 57, 27,
+        194, 110, 52, 184, 244, 142, 198, 188, 161, 150, 177, 49, 26, 123, 214,
+        187,
       ],
     ],
   },
@@ -140,24 +146,17 @@ export const ITEMS: { treeNode: MerkleTreeNode; proof: number[][] }[] = [
     treeNode: new MerkleTreeNode({
       withdrawAuthority: withdrawer2,
       stakeAuthority: staker1,
-      voteAccount: voteAccount1,
       claim: 99999,
     }),
     proof: [
       [
-        119, 156, 202, 137, 163, 63, 23, 86, 50, 219, 67, 8, 215, 146, 238, 35,
-        131, 195, 214, 123, 186, 22, 211, 75, 139, 20, 176, 104, 252, 249, 60,
-        217,
+        103, 169, 245, 71, 96, 235, 19, 74, 8, 98, 146, 214, 49, 193, 63, 248,
+        55, 244, 31, 206, 177, 91, 206, 203, 184, 48, 99, 76, 163, 203, 232, 44,
       ],
       [
-        160, 80, 88, 229, 37, 37, 166, 177, 134, 144, 148, 221, 108, 200, 28,
-        117, 46, 163, 221, 16, 166, 40, 23, 122, 236, 212, 191, 161, 0, 96, 197,
-        41,
-      ],
-      [
-        50, 84, 55, 143, 145, 207, 177, 140, 121, 48, 154, 231, 228, 146, 128,
-        129, 109, 238, 21, 147, 193, 20, 211, 35, 91, 110, 234, 233, 216, 242,
-        115, 139,
+        84, 75, 193, 1, 167, 55, 248, 48, 129, 33, 198, 240, 33, 229, 57, 27,
+        194, 110, 52, 184, 244, 142, 198, 188, 161, 150, 177, 49, 26, 123, 214,
+        187,
       ],
     ],
   },
@@ -166,48 +165,34 @@ export const ITEMS: { treeNode: MerkleTreeNode; proof: number[][] }[] = [
     treeNode: new MerkleTreeNode({
       withdrawAuthority: withdrawer3,
       stakeAuthority: staker2,
-      voteAccount: voteAccount1,
       claim: 212121,
     }),
     proof: [
       [
-        105, 141, 203, 134, 62, 190, 81, 135, 124, 70, 230, 140, 228, 49, 6, 99,
-        193, 37, 218, 255, 253, 241, 17, 169, 68, 85, 16, 86, 195, 120, 82, 207,
+        166, 246, 173, 43, 141, 45, 116, 63, 47, 72, 233, 142, 194, 147, 46, 95,
+        230, 82, 47, 160, 178, 230, 171, 35, 23, 110, 28, 124, 156, 30, 183,
+        213,
       ],
       [
-        142, 87, 6, 188, 247, 130, 118, 126, 114, 53, 119, 53, 122, 77, 255,
-        252, 245, 144, 152, 115, 162, 1, 194, 60, 56, 132, 11, 133, 160, 91,
-        142, 32,
-      ],
-      [
-        50, 84, 55, 143, 145, 207, 177, 140, 121, 48, 154, 231, 228, 146, 128,
-        129, 109, 238, 21, 147, 193, 20, 211, 35, 91, 110, 234, 233, 216, 242,
-        115, 139,
+        146, 196, 239, 63, 54, 200, 90, 234, 50, 1, 61, 217, 219, 111, 207, 131,
+        119, 168, 107, 251, 218, 240, 133, 67, 116, 40, 11, 109, 116, 34, 154,
+        73,
       ],
     ],
   },
+]
+export const ITEMS_VOTE_ACCOUNT_2: MerkleTreeNodeWithProof[] = [
   {
     // tree node hash: 2g6GGBps8fTTq9DvJHwBxNC57k5REDFbjebWYyw9qDYQ
     treeNode: new MerkleTreeNode({
       withdrawAuthority: withdrawer1,
       stakeAuthority: staker2,
-      voteAccount: voteAccount2,
       claim: 69,
     }),
     proof: [
       [
-        43, 115, 25, 67, 8, 94, 86, 102, 222, 131, 96, 254, 188, 172, 164, 179,
-        156, 92, 79, 248, 195, 120, 183, 106, 96, 38, 120, 23, 59, 195, 169,
-        208,
-      ],
-      [
-        159, 219, 61, 246, 151, 49, 200, 46, 195, 10, 112, 214, 44, 95, 201, 51,
-        28, 38, 135, 106, 58, 162, 239, 247, 191, 121, 138, 103, 191, 34, 100,
-        153,
-      ],
-      [
-        96, 247, 12, 68, 67, 41, 253, 26, 149, 121, 158, 236, 188, 56, 19, 184,
-        242, 63, 242, 61, 147, 50, 119, 26, 21, 76, 36, 242, 151, 143, 142, 182,
+        16, 219, 27, 0, 11, 79, 28, 196, 63, 139, 175, 99, 74, 209, 251, 106,
+        140, 44, 154, 15, 12, 234, 135, 101, 17, 239, 22, 155, 21, 139, 212, 31,
       ],
     ],
   },
@@ -216,37 +201,24 @@ export const ITEMS: { treeNode: MerkleTreeNode; proof: number[][] }[] = [
     treeNode: new MerkleTreeNode({
       withdrawAuthority: withdrawer2,
       stakeAuthority: staker3,
-      voteAccount: voteAccount2,
       claim: 111111,
     }),
     proof: [
       [
-        219, 108, 143, 16, 1, 187, 27, 244, 73, 6, 252, 226, 137, 13, 210, 10,
-        113, 66, 22, 31, 9, 23, 170, 45, 164, 229, 135, 182, 130, 139, 181, 214,
-      ],
-      [
-        74, 28, 21, 109, 68, 162, 237, 114, 228, 131, 232, 33, 131, 96, 69, 2,
-        11, 214, 66, 255, 130, 139, 179, 101, 48, 83, 161, 26, 22, 8, 181, 47,
-      ],
-      [
-        176, 158, 184, 236, 180, 37, 222, 250, 206, 40, 15, 165, 108, 179, 63,
-        73, 247, 165, 233, 98, 240, 90, 209, 68, 208, 232, 13, 183, 48, 14, 147,
-        6,
+        245, 60, 45, 210, 173, 189, 121, 115, 156, 166, 90, 8, 24, 102, 217,
+        217, 177, 135, 83, 7, 150, 22, 184, 83, 71, 126, 39, 173, 241, 24, 242,
+        18,
       ],
     ],
   },
 ]
 
-export const treeNodesVoteAccount1 = ITEMS.filter(item =>
-  item.treeNode.data.voteAccount.equals(voteAccount1)
-)
+export const treeNodesVoteAccount1 = ITEMS_VOTE_ACCOUNT_1
 export const totalClaimVoteAccount1 = treeNodesVoteAccount1.reduce(
   (acc, item) => acc.add(item.treeNode.data.claim),
   new BN(0)
 )
-export const treeNodesVoteAccount2 = ITEMS.filter(item =>
-  item.treeNode.data.voteAccount.equals(voteAccount2)
-)
+export const treeNodesVoteAccount2 = ITEMS_VOTE_ACCOUNT_2
 export const totalClaimVoteAccount2 = treeNodesVoteAccount2.reduce(
   (acc, item) => acc.add(item.treeNode.data.claim),
   new BN(0)
@@ -255,16 +227,21 @@ export const totalClaimVoteAccount2 = treeNodesVoteAccount2.reduce(
 export function treeNodeBy(
   voteAccount: PublicKey,
   withdrawer: PublicKey
-): {
-  treeNode: MerkleTreeNode
-  proof: number[][]
-} {
-  const treeNodesFiltered = ITEMS.filter(item =>
-    item.treeNode.data.voteAccount.equals(voteAccount)
-  )
-  const treeNodesByWithdrawer = treeNodesFiltered.filter(r =>
-    r.treeNode.data.withdrawAuthority.equals(withdrawer)
-  )
-  expect(treeNodesByWithdrawer.length).toBe(1)
-  return treeNodesByWithdrawer[0]
+): MerkleTreeNodeWithProof {
+  let treeNodesByWithdrawer: MerkleTreeNodeWithProof | undefined
+  if (voteAccount.equals(voteAccount1)) {
+    treeNodesByWithdrawer = ITEMS_VOTE_ACCOUNT_1.find(item =>
+      item.treeNode.data.withdrawAuthority.equals(withdrawer)
+    )
+  } else if (voteAccount.equals(voteAccount2)) {
+    treeNodesByWithdrawer = ITEMS_VOTE_ACCOUNT_2.find(item =>
+      item.treeNode.data.withdrawAuthority.equals(withdrawer)
+    )
+  }
+  if (!treeNodesByWithdrawer) {
+    throw new Error(
+      `tree node for vote account ${voteAccount.toBase58()} and withdrawer ${withdrawer.toBase58()} not found`
+    )
+  }
+  return treeNodesByWithdrawer
 }

@@ -25,7 +25,6 @@ export type MerkleTreeNodeEncoded = {
 type MerkleTreeNodeDataInput = {
   stakeAuthority: PublicKey
   withdrawAuthority: PublicKey
-  voteAccount: PublicKey
   claim: BN | number
 }
 
@@ -45,18 +44,15 @@ export class MerkleTreeNode {
   public static fromString({
     stakeAuthority,
     withdrawAuthority,
-    voteAccount,
     claim,
   }: {
     stakeAuthority: string
     withdrawAuthority: string
-    voteAccount: string
     claim: BN | number
   }): MerkleTreeNode {
     return new MerkleTreeNode({
       stakeAuthority: new PublicKey(stakeAuthority),
       withdrawAuthority: new PublicKey(withdrawAuthority),
-      voteAccount: new PublicKey(voteAccount),
       claim,
     })
   }
@@ -77,25 +73,18 @@ export class MerkleTreeNode {
     return new PublicKey(this.data.withdrawAuthority)
   }
 
-  get voteAccount(): PublicKey {
-    return new PublicKey(this.data.voteAccount)
-  }
-
   public static hashFromString({
     stakeAuthority,
     withdrawAuthority,
-    voteAccount,
     claim,
   }: {
     stakeAuthority: string
     withdrawAuthority: string
-    voteAccount: string
     claim: BN | number
   }): MerkleTreeNodeEncoded {
     return MerkleTreeNode.fromString({
       stakeAuthority,
       withdrawAuthority,
-      voteAccount,
       claim,
     }).hash()
   }
@@ -115,13 +104,11 @@ export class MerkleTreeNode {
   public static hash({
     stakeAuthority,
     withdrawAuthority,
-    voteAccount,
     claim,
   }: MerkleTreeNodeDataInput): MerkleTreeNodeEncoded {
     const sha256 = CryptoJS.algo.SHA256.create()
     sha256.update(pubkeyToWordArray(stakeAuthority))
     sha256.update(pubkeyToWordArray(withdrawAuthority))
-    sha256.update(pubkeyToWordArray(voteAccount))
     claim = new BN(claim)
     sha256.update(
       CryptoJS.enc.Hex.parse(claim.toBuffer('le', 8).toString('hex'))
@@ -133,13 +120,11 @@ export class MerkleTreeNode {
   public static hashLeafNode({
     stakeAuthority,
     withdrawAuthority,
-    voteAccount,
     claim,
   }: MerkleTreeNodeDataInput): MerkleTreeNodeEncoded {
     const resultHash = MerkleTreeNode.hash({
       stakeAuthority,
       withdrawAuthority,
-      voteAccount,
       claim,
     })
     return MerkleTreeNode.hashLeafNodeFromBuffer(resultHash)
