@@ -31,7 +31,7 @@ import {
 import { getRentExempt } from '../utils/helpers'
 import assert from 'assert'
 import { pubkey, signer } from '@marinade.finance/web3js-common'
-import { verifyError } from '@marinade.finance/anchor-common'
+import { checkErrorMessage, verifyError } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds close settlement', () => {
   const epochsToClaimSettlement = 1
@@ -226,9 +226,9 @@ describe('Validator Bonds close settlement', () => {
     })
     try {
       await provider.sendIx([], ixWrongStake)
-      throw new Error('error expected; wrong stake account')
+      throw new Error('error expected; stake account is not deactivated')
     } catch (e) {
-      verifyError(e, Errors, 6036, 'not funded under the settlement')
+      expect(checkErrorMessage(e, 'insufficient funds')).toBeTruthy()
     }
 
     const { instruction: ixWrongCollector } = await closeSettlementInstruction({

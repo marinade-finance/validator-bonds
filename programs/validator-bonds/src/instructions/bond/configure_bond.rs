@@ -64,17 +64,14 @@ impl<'info> ConfigureBond<'info> {
                 new: authority,
             }
         });
-        let cpmpe_change = match cpmpe {
-            Some(new_cpmpe) => {
-                let old = self.bond.cpmpe;
-                self.bond.cpmpe = new_cpmpe;
-                Some(U64ValueChange {
-                    old,
-                    new: new_cpmpe,
-                })
+        let cpmpe_change = cpmpe.map(|new_cpmpe| {
+            let old = self.bond.cpmpe;
+            self.bond.cpmpe = new_cpmpe;
+            U64ValueChange {
+                old,
+                new: new_cpmpe,
             }
-            None => None,
-        };
+        });
 
         emit!(ConfigureBondEvent {
             bond_authority: bond_authority_change,

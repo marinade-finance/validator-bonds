@@ -55,7 +55,6 @@ pub struct FundSettlement<'info> {
     )]
     settlement: Account<'info, Settlement>,
 
-    // TODO: verify with lj how we want to manage this
     /// operator signer authority is allowed to fund the settlement account
     /// (making this operation permission-ed, at least for the first version of the contract)
     operator_authority: Signer<'info>,

@@ -74,8 +74,6 @@ pub fn check_bond_change_permitted(
     bond_account: &Bond,
     vote_account: &UncheckedAccount,
 ) -> bool {
-    // TODO: is possible to sign with default Pubkey? Should be Pubkey::default() defined as disabled bound authority?
-    // TODO: consider use the map_or_else to return the error
     if authority == &bond_account.authority.key() {
         true
     } else {
@@ -126,8 +124,6 @@ pub fn check_stake_is_not_locked(
     stake_account_attribute_name: &str,
 ) -> Result<()> {
     if let Some(stake_lockup) = stake_account.lockup() {
-        // TODO: consider working with custodian, would need to be passed from the caller
-        //       and on authorize withdrawer we would need to change the lockup to the new custodian
         if stake_lockup.is_in_force(clock, None) {
             msg!("Stake account is locked: {:?}", stake_account.deref());
             return Err(
@@ -153,12 +149,9 @@ pub fn check_stake_exist_and_fully_activated(
             effective,
             activating,
             deactivating,
-        } = stake.delegation.stake_activating_and_deactivating(
-            epoch,
-            Some(stake_history),
-            // TODO: what is for the new rate activation epoch?
-            None,
-        );
+        } = stake
+            .delegation
+            .stake_activating_and_deactivating(epoch, Some(stake_history), None);
         if activating + deactivating > 0 || effective == 0 {
             msg!(
                 "Stake account is not activated: {:?}",

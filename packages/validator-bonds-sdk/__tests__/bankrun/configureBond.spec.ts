@@ -123,8 +123,6 @@ describe('Validator Bonds configure bond account', () => {
     }
   })
 
-  // TODO: add a test that fails when configuring with a wrong validator identity
-
   it('fails to configure with a random authority', async () => {
     const newBondAuthority = Keypair.generate()
     const { instruction } = await configureBondInstruction({

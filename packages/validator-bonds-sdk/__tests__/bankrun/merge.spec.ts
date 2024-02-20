@@ -36,13 +36,7 @@ import {
 import { pubkey } from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
 
-// -------------------
-/// TODO:
-//   - missing handling for settlement authority
-//   - add a test for lockup checks
-// ------------------
-
-describe('Validator Bonds fund bond account', () => {
+describe('Staking merge verification/investigation', () => {
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
   let config: ProgramAccount<Config>

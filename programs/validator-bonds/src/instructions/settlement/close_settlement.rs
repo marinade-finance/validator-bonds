@@ -88,18 +88,11 @@ impl<'info> CloseSettlement<'info> {
         if self.settlement.split_rent_collector.is_some() {
             let stake_account = deserialize_stake_account(&self.split_rent_refund_account)?;
             // stake account is managed by bonds program
-            let stake_meta = check_stake_is_initialized_with_withdrawer_authority(
+            check_stake_is_initialized_with_withdrawer_authority(
                 &stake_account,
                 &self.bonds_withdrawer_authority.key(),
                 "stake_account",
             )?;
-            // TODO: could be stake account only under bonds? do we need to have here settlement stake account?
-            // stake account must be attached to the settlement, i.e., staker == settlement staker authority
-            require_keys_eq!(
-                stake_meta.authorized.staker,
-                self.settlement.authority,
-                ErrorCode::StakeAccountNotFundedToSettlement,
-            );
             // stake account is delegated to bond's validator vote account
             check_stake_valid_delegation(&stake_account, &self.bond.vote_account)?;
 
