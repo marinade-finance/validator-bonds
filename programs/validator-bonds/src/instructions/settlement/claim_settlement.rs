@@ -182,6 +182,7 @@ impl<'info> ClaimSettlement<'info> {
             self.settlement.authority,
             ErrorCode::StakeAccountNotFundedToSettlement,
         );
+        // TODO: delegation is not needed to be checked
         // stake account is delegated (deposited by) the bond validator
         check_stake_valid_delegation(&self.stake_account_from, &self.bond.vote_account)?;
         // stake account cannot be locked (constraints do not permit a correctly set-up account being locked)

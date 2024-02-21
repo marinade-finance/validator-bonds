@@ -36,6 +36,8 @@ declare_id!("vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4");
 //       - verify that really every input account is checked for owner program!
 //       - consider use the map_or_else to return the error
 //       - fund_settlement is now operator based, consider if it should be permission-less
+//       - consider https://www.soldev.app/course/duplicate-mutable-accounts to check on #[account(constraint = user_a.key() != user_b.key())]
+//       - recheck CPI program calls https://www.soldev.app/course/arbitrary-cpi
 
 fn check_context<T: Bumps>(ctx: &Context<T>) -> Result<()> {
     if !check_id(ctx.program_id) {

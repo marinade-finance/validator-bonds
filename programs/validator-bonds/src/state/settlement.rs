@@ -73,6 +73,7 @@ impl Settlement {
     }
 }
 
+// TODO: find authority for both settlement and bonds withdrawer
 pub fn find_settlement_authority(settlement_address: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(
         &[SETTLEMENT_AUTHORITY_SEED, &settlement_address.as_ref()],

@@ -15,6 +15,7 @@ use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 
+// TODO:
 /// Resetting stake authority of a funded stake account belonging to removed settlement.
 /// I.e., for provided stake account it changes the stake authority from settlement stake authority to bonds withdrawer authority.
 #[derive(Accounts)]
@@ -122,6 +123,7 @@ impl<'info> ResetStake<'info> {
             None,
         )?;
 
+        // TODO: can we fail on not possible to delegate?
         // activate the stake, i.e., resetting delegation to the validator again
         let delegate_instruction = &stake::instruction::delegate_stake(
             &self.stake_account.key(),

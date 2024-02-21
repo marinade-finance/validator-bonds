@@ -222,6 +222,7 @@ impl<'info> FundSettlement<'info> {
                 (lamports_to_fund, true)
             };
 
+        // TODO: what if the stake account is already deactivated by slashing?
         // deactivating stake to be withdraw-able on claim_settlement instruction
         deactivate_stake(CpiContext::new_with_signer(
             self.stake_program.to_account_info(),
