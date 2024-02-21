@@ -1,11 +1,9 @@
 import {
   Bond,
-  Config,
   Errors,
   ValidatorBondsProgram,
   cancelWithdrawRequestInstruction,
   getBond,
-  getConfig,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -32,7 +30,7 @@ import { verifyError } from '@marinade.finance/anchor-common'
 describe('Validator Bonds cancel withdraw request', () => {
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
-  let config: ProgramAccount<Config>
+  let configAccount: PublicKey
   let bond: ProgramAccount<Bond>
   let bondAuthority: Keypair
   let validatorIdentity: Keypair
@@ -45,14 +43,10 @@ describe('Validator Bonds cancel withdraw request', () => {
   })
 
   beforeEach(async () => {
-    const { configAccount } = await executeInitConfigInstruction({
+    ;({ configAccount } = await executeInitConfigInstruction({
       program,
       provider,
-    })
-    config = {
-      publicKey: configAccount,
-      account: await getConfig(program, configAccount),
-    }
+    }))
     const {
       bondAccount,
       validatorIdentity: nodeIdentity,
@@ -60,7 +54,7 @@ describe('Validator Bonds cancel withdraw request', () => {
     } = await executeInitBondInstruction({
       program,
       provider,
-      config: config.publicKey,
+      configAccount,
     })
     bondAuthority = bondAuth
     validatorIdentity = nodeIdentity
@@ -131,7 +125,7 @@ describe('Validator Bonds cancel withdraw request', () => {
     } = await executeNewWithdrawRequest({
       program,
       provider,
-      configAccount: config.publicKey,
+      configAccount,
     })
     let { instruction } = await cancelWithdrawRequestInstruction({
       program,
@@ -143,7 +137,7 @@ describe('Validator Bonds cancel withdraw request', () => {
       await executeNewWithdrawRequest({
         program,
         provider,
-        configAccount: config.publicKey,
+        configAccount,
       }))
     ;({ instruction } = await cancelWithdrawRequestInstruction({
       program,
@@ -159,7 +153,7 @@ describe('Validator Bonds cancel withdraw request', () => {
     } = await executeNewWithdrawRequest({
       program,
       provider,
-      configAccount: config.publicKey,
+      configAccount,
     }))
     ;({ instruction } = await cancelWithdrawRequestInstruction({
       program,
@@ -176,12 +170,12 @@ describe('Validator Bonds cancel withdraw request', () => {
     } = await executeNewWithdrawRequest({
       program,
       provider,
-      configAccount: config.publicKey,
+      configAccount,
     }))
     ;({ instruction } = await cancelWithdrawRequestInstruction({
       program,
       bondAccount,
-      configAccount: config.publicKey,
+      configAccount,
     }))
     await provider.sendIx([bondIdent!], instruction)
     await assertNotExist(provider, withdrawRequest)
@@ -192,12 +186,12 @@ describe('Validator Bonds cancel withdraw request', () => {
     } = await executeNewWithdrawRequest({
       program,
       provider,
-      configAccount: config.publicKey,
+      configAccount,
     }))
     ;({ instruction } = await cancelWithdrawRequestInstruction({
       program,
       bondAccount,
-      configAccount: config.publicKey,
+      configAccount,
       authority: valIdent,
     }))
     await provider.sendIx([valIdent!], instruction)
@@ -210,12 +204,12 @@ describe('Validator Bonds cancel withdraw request', () => {
     } = await executeNewWithdrawRequest({
       program,
       provider,
-      configAccount: config.publicKey,
+      configAccount,
     }))
     ;({ instruction } = await cancelWithdrawRequestInstruction({
       program,
       bondAccount,
-      configAccount: config.publicKey,
+      configAccount,
       authority: valIdent,
       voteAccount,
     }))
@@ -228,11 +222,11 @@ describe('Validator Bonds cancel withdraw request', () => {
     } = await executeNewWithdrawRequest({
       program,
       provider,
-      configAccount: config.publicKey,
+      configAccount,
     }))
     ;({ instruction } = await cancelWithdrawRequestInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       voteAccount,
     }))
     await provider.sendIx([bondIdent!], instruction)

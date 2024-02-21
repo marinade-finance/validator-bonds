@@ -46,7 +46,7 @@ pub struct Bumps {
 }
 
 impl Settlement {
-    pub fn find_address(&self) -> Result<Pubkey> {
+    pub fn address(&self) -> Result<Pubkey> {
         Pubkey::create_program_address(
             &[
                 SETTLEMENT_SEED,
@@ -60,7 +60,7 @@ impl Settlement {
         .map_err(|_| ErrorCode::InvalidSettlementAddress.into())
     }
 
-    pub fn authority_address(&self, settlement_address: &Pubkey) -> Result<Pubkey> {
+    pub fn settlement_staker_authority(&self, settlement_address: &Pubkey) -> Result<Pubkey> {
         Pubkey::create_program_address(
             &[
                 SETTLEMENT_AUTHORITY_SEED,
@@ -73,8 +73,19 @@ impl Settlement {
     }
 }
 
-// TODO: find authority for both settlement and bonds withdrawer
-pub fn find_settlement_authority(settlement_address: &Pubkey) -> (Pubkey, u8) {
+pub fn find_settlement_address(bond: &Pubkey, merkle_root: &[u8; 32], epoch: u64) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            SETTLEMENT_SEED,
+            bond.as_ref(),
+            merkle_root,
+            &epoch.to_le_bytes(),
+        ],
+        &ID,
+    )
+}
+
+pub fn find_settlement_staker_authority(settlement_address: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(
         &[SETTLEMENT_AUTHORITY_SEED, &settlement_address.as_ref()],
         &ID,

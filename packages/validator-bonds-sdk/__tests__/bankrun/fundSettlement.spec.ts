@@ -1,5 +1,4 @@
 import {
-  Config,
   Errors,
   U64_MAX,
   ValidatorBondsProgram,
@@ -7,6 +6,8 @@ import {
   fundSettlementInstruction,
   getConfig,
   getSettlement,
+  settlementAuthority,
+  withdrawerAuthority,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -24,13 +25,14 @@ import {
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { ProgramAccount } from '@coral-xyz/anchor'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import { Keypair, LAMPORTS_PER_SOL, PublicKey, StakeProgram } from '@solana/web3.js'
 import {
   StakeStates,
+  authorizeStakeAccount,
   createBondsFundedStakeAccount,
-  createSettlementFundedStakeAccount,
+  createSettlementFundedDelegatedStake,
   createVoteAccount,
+  delegatedStakeAccount,
   getAndCheckStakeAccount,
   getRentExemptStake,
 } from '../utils/staking'
@@ -41,7 +43,7 @@ describe('Validator Bonds fund settlement', () => {
   const epochsToClaimSettlement = 3
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
-  let config: ProgramAccount<Config>
+  let configAccount: PublicKey
   let operatorAuthority: Keypair
   let validatorIdentity: Keypair
   let bondAccount: PublicKey
@@ -57,37 +59,35 @@ describe('Validator Bonds fund settlement', () => {
   })
 
   beforeEach(async () => {
-    const { configAccount, operatorAuthority: operatorAuth } =
-      await executeInitConfigInstruction({
+    ;({ configAccount, operatorAuthority } = await executeInitConfigInstruction(
+      {
         program,
         provider,
         epochsToClaimSettlement,
-      })
-    config = {
-      publicKey: configAccount,
-      account: await getConfig(program, configAccount),
-    }
-    operatorAuthority = operatorAuth
+      }
+    ))
+    const config = await getConfig(program, configAccount)
+
     ;({ voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
     }))
     ;({ bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      config: config.publicKey,
+      configAccount,
       voteAccount,
       validatorIdentity,
     }))
     settlementEpoch = await currentEpoch(provider)
     rentCollector = Keypair.generate()
     stakeAccountMinimalAmount =
-      rentExemptStake + config.account.minimumStakeLamports.toNumber()
+      rentExemptStake + config.minimumStakeLamports.toNumber()
   })
 
   it('fund settlement fully with precise amount', async () => {
     const maxTotalClaim = LAMPORTS_PER_SOL * 10
     const { settlementAccount } = await executeInitSettlement({
-      config: config.publicKey,
+      configAccount,
       program,
       provider,
       voteAccount,
@@ -197,7 +197,7 @@ describe('Validator Bonds fund settlement', () => {
   it('fund fully without split as not split-able', async () => {
     const maxTotalClaim = LAMPORTS_PER_SOL * 2
     const { settlementAccount } = await executeInitSettlement({
-      config: config.publicKey,
+      configAccount,
       program,
       provider,
       voteAccount,
@@ -250,7 +250,7 @@ describe('Validator Bonds fund settlement', () => {
   it('fund settlement with split', async () => {
     const maxTotalClaim = LAMPORTS_PER_SOL * 2
     const { settlementAccount } = await executeInitSettlement({
-      config: config.publicKey,
+      configAccount,
       program,
       provider,
       voteAccount,
@@ -344,7 +344,7 @@ describe('Validator Bonds fund settlement', () => {
       bond: bondAccount,
     })
     const { settlementAccount } = await executeInitSettlement({
-      config: config.publicKey,
+      configAccount,
       program,
       provider,
       voteAccount,
@@ -377,9 +377,46 @@ describe('Validator Bonds fund settlement', () => {
     await assertNotExist(provider, pubkey(splitStakeAccount))
   })
 
+
+  it.only('fund settlement with deactivated stake', async () => {
+    const maxTotalClaim = LAMPORTS_PER_SOL * 2
+    const { settlementAccount } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount,
+      operatorAuthority,
+      currentEpoch: await currentEpoch(provider),
+      maxTotalClaim,
+    })
+    const { stakeAccount, staker, withdrawer } =
+    await delegatedStakeAccount({
+      provider,
+      voteAccountToDelegate: voteAccount,
+    })
+    const deactivateIx = StakeProgram.deactivate({
+      stakePubkey: stakeAccount,
+      authorizedPubkey: staker.publicKey,
+    })
+    await provider.sendIx([staker], deactivateIx)
+    const [bondAuth] = withdrawerAuthority(configAccount, program.programId)
+    const [settlementAuth] = settlementAuthority(settlementAccount, program.programId)
+    await authorizeStakeAccount({provider, stakeAccount, authority: withdrawer, staker: settlementAuth, withdrawer: bondAuth})
+
+    const { instruction, splitStakeAccount } = await fundSettlementInstruction({
+      program,
+      settlementAccount,
+      stakeAccount,
+    })
+    await provider.sendIx(
+      [signer(splitStakeAccount), operatorAuthority],
+      instruction
+    )
+  })
+
   it('cannot fund closed settlement', async () => {
     const { settlementAccount } = await executeInitSettlement({
-      config: config.publicKey,
+      configAccount,
       program,
       provider,
       voteAccount,
@@ -407,7 +444,7 @@ describe('Validator Bonds fund settlement', () => {
         program,
         settlementAccount,
         stakeAccount,
-        configAccount: config.publicKey,
+        configAccount,
         bondAccount,
         operatorAuthority,
         voteAccount,
@@ -429,7 +466,7 @@ describe('Validator Bonds fund settlement', () => {
   it('cannot fund settlement with wrong authority', async () => {
     const wrongOperator = Keypair.generate()
     const { settlementAccount } = await executeInitSettlement({
-      config: config.publicKey,
+      configAccount,
       program,
       provider,
       voteAccount,
@@ -469,7 +506,7 @@ describe('Validator Bonds fund settlement', () => {
   it('cannot fund already funded', async () => {
     const maxTotalClaim = 3 * LAMPORTS_PER_SOL
     const { settlementAccount } = await executeInitSettlement({
-      config: config.publicKey,
+      configAccount,
       program,
       provider,
       voteAccount,
@@ -528,7 +565,7 @@ describe('Validator Bonds fund settlement', () => {
         stakeAccount: manuallyCreated,
         operatorAuthority,
         bondAccount,
-        configAccount: config.publicKey,
+        configAccount,
         splitStakeAccount: splitStakeAccount,
       })
 
@@ -552,7 +589,7 @@ describe('Validator Bonds fund settlement', () => {
       provider,
       voteAccount,
       lamports,
-      configAccount: config.publicKey,
+      configAccount,
     })
     await warpToNextEpoch(provider)
     return sa
@@ -562,12 +599,12 @@ describe('Validator Bonds fund settlement', () => {
     lamports: number,
     settlementAccount: PublicKey
   ): Promise<PublicKey> {
-    const sa = await createSettlementFundedStakeAccount({
+    const sa = await createSettlementFundedDelegatedStake({
       program,
       provider,
       voteAccount,
       lamports,
-      configAccount: config.publicKey,
+      configAccount,
       settlementAccount: settlementAccount,
     })
     await warpToNextEpoch(provider)

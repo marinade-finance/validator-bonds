@@ -199,21 +199,21 @@ describe('Solana stake account behavior verification', () => {
     const staker = Keypair.generate()
     const withdrawer = Keypair.generate()
     const stakeAccount1Epoch = Number(epoch) + 20
-    const { stakeAccount: stakeAccount1 } = await initializedStakeAccount(
+    const { stakeAccount: stakeAccount1 } = await initializedStakeAccount({
       provider,
-      new Lockup(0, stakeAccount1Epoch, PublicKey.default),
-      rentExemptStake,
+      lockup: new Lockup(0, stakeAccount1Epoch, PublicKey.default),
+      rentExempt: rentExemptStake,
       staker,
-      withdrawer
-    )
+      withdrawer,
+    })
     const custodian2 = Keypair.generate()
-    const { stakeAccount: stakeAccount2 } = await initializedStakeAccount(
+    const { stakeAccount: stakeAccount2 } = await initializedStakeAccount({
       provider,
-      new Lockup(0, -1, custodian2.publicKey), // max possible epoch lockup
-      rentExemptStake,
+      lockup: new Lockup(0, -1, custodian2.publicKey), // max possible epoch lockup
+      rentExempt: rentExemptStake,
       staker,
-      withdrawer
-    )
+      withdrawer,
+    })
     const mergeTx = StakeProgram.merge({
       stakePubkey: stakeAccount2,
       sourceStakePubKey: stakeAccount1,
@@ -322,13 +322,13 @@ describe('Solana stake account behavior verification', () => {
       '5. MERGE of inactive LOCKUP to active lockup is not possible without custodian'
     )
     const { stakeAccount: stakeAccountInactive } =
-      await initializedStakeAccount(
+      await initializedStakeAccount({
         provider,
-        new Lockup(0, 0, PublicKey.default),
-        rentExemptStake,
+        lockup: new Lockup(0, 0, PublicKey.default),
+        rentExempt: rentExemptStake,
         staker,
-        withdrawer
-      )
+        withdrawer,
+      })
     // merging stakeAccountInactive -> stakeAccount2
     const mergeTxInactive = StakeProgram.merge({
       stakePubkey: stakeAccount2,
@@ -351,20 +351,20 @@ describe('Solana stake account behavior verification', () => {
     const custodianWallet = provider.wallet
     const unixTimestampLockup = Number(clock.unixTimestamp) + 1000
     const lockup = new Lockup(unixTimestampLockup, 0, custodianWallet.publicKey)
-    const { stakeAccount: stakeAccount1 } = await initializedStakeAccount(
+    const { stakeAccount: stakeAccount1 } = await initializedStakeAccount({
       provider,
       lockup,
-      rentExemptStake,
+      rentExempt: rentExemptStake,
       staker,
-      withdrawer
-    )
-    const { stakeAccount: stakeAccount2 } = await initializedStakeAccount(
+      withdrawer,
+    })
+    const { stakeAccount: stakeAccount2 } = await initializedStakeAccount({
       provider,
       lockup,
-      rentExemptStake,
+      rentExempt: rentExemptStake,
       staker,
-      withdrawer
-    )
+      withdrawer,
+    })
 
     console.log('1. AUTHORIZE STAKER is possible when lockup is running')
     const newStaker = Keypair.generate()
@@ -677,7 +677,7 @@ describe('Solana stake account behavior verification', () => {
    * What happens when lockup account is merged with non-lockup account?
    * - that's not possible, either lockup metadata matches or both are non-lockup
    * May be two deactivated stake accounts delegated to different vote accounts merged together?
-   *  - yes, they could be merged together
+   *  - YES, they could be merged together (https://github.com/solana-labs/solana/blob/v1.18.2/programs/stake/src/stake_state.rs#L882)
    *
    */
   it('merging non-locked delegated stake accounts', async () => {
@@ -817,6 +817,15 @@ describe('Solana stake account behavior verification', () => {
     )
     // warping to next epoch to be sure the deactivation is done
     warpToEpoch(provider, Number(clock.epoch) + 2)
+    // double deactivation is NOT possible
+    // https://github.com/solana-labs/solana/blob/v1.18.2/programs/stake/src/stake_state.rs#L636
+    await verifyErrorMessage(
+      provider,
+      '3.b',
+      'custom program error: 0x2', // AlreadyDeactivated
+      [provider.wallet, staker],
+      deactivateIx1
+    )
     const [deactivatedAccount1Data] = await getAndCheckStakeAccount(
       provider,
       stakeAccount1

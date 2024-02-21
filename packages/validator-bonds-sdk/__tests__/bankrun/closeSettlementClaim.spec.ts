@@ -1,12 +1,10 @@
 import {
-  Config,
   Errors,
   ValidatorBondsProgram,
   claimSettlementInstruction,
   closeSettlementClaimInstruction,
   closeSettlementInstruction,
   fundSettlementInstruction,
-  getConfig,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -17,12 +15,10 @@ import {
   warpToNextEpoch,
 } from './bankrun'
 import {
-  createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { ProgramAccount } from '@coral-xyz/anchor'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   createBondsFundedStakeAccount,
@@ -33,14 +29,12 @@ import { signer } from '@marinade.finance/web3js-common'
 import {
   MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
   configAccountKeypair,
+  createWithdrawerUsers,
   totalClaimVoteAccount1,
   treeNodeBy,
   treeNodesVoteAccount1,
   voteAccount1Keypair,
   withdrawer1,
-  withdrawer1Keypair,
-  withdrawer2Keypair,
-  withdrawer3Keypair,
 } from '../utils/merkleTreeTestData'
 import { verifyError } from '@marinade.finance/anchor-common'
 
@@ -48,7 +42,6 @@ describe('Validator Bonds close settlement claim', () => {
   const epochsToClaimSettlement = 3
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
-  let config: ProgramAccount<Config>
   let operatorAuthority: Keypair
   let validatorIdentity1: Keypair
   let voteAccount1: PublicKey
@@ -67,10 +60,6 @@ describe('Validator Bonds close settlement claim', () => {
         configAccountKeypair: configAccountKeypair,
       })
     operatorAuthority = operatorAuth
-    config = {
-      publicKey: configAccount,
-      account: await getConfig(program, configAccount),
-    }
     ;({ voteAccount: voteAccount1, validatorIdentity: validatorIdentity1 } =
       await createVoteAccount({
         voteAccount: voteAccount1Keypair,
@@ -79,14 +68,14 @@ describe('Validator Bonds close settlement claim', () => {
     await executeInitBondInstruction({
       program,
       provider,
-      config: config.publicKey,
+      configAccount,
       voteAccount: voteAccount1,
       validatorIdentity: validatorIdentity1,
     })
 
     settlementEpoch = await currentEpoch(provider)
     ;({ settlementAccount: settlementAccount1 } = await executeInitSettlement({
-      config: config.publicKey,
+      configAccount,
       program,
       provider,
       voteAccount: voteAccount1,
@@ -99,7 +88,7 @@ describe('Validator Bonds close settlement claim', () => {
     stakeAccount1 = await createBondsFundedStakeAccount({
       program,
       provider,
-      configAccount: config.publicKey,
+      configAccount,
       voteAccount: voteAccount1,
       lamports: totalClaimVoteAccount1.toNumber() + LAMPORTS_PER_SOL * 5,
     })
@@ -113,11 +102,7 @@ describe('Validator Bonds close settlement claim', () => {
         stakeAccount: stakeAccount1,
       })
     await provider.sendIx([signer(split1), operatorAuthority], fundIx1)
-    if ((await provider.context.banksClient.getAccount(withdrawer1)) === null) {
-      await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer1Keypair)
-      await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer2Keypair)
-      await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer3Keypair)
-    }
+    await createWithdrawerUsers(provider)
   })
 
   it('close settlement claim', async () => {
@@ -156,7 +141,7 @@ describe('Validator Bonds close settlement claim', () => {
       await provider.sendIx([], closeIx)
       throw new Error('Failure expected; the settlement has not been closed')
     } catch (e) {
-      verifyError(e, Errors, 6027, 'settlement to be closed')
+      verifyError(e, Errors, 6027, 'Settlement has to be closed')
     }
 
     await warpToNotBeClaimable() // we can close settlement here

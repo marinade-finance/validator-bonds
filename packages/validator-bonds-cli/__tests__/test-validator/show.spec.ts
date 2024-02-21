@@ -225,7 +225,7 @@ describe('Show command using CLI', () => {
     const { bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      config: configAccount,
+      configAccount,
       bondAuthority,
       voteAccount,
       validatorIdentity,

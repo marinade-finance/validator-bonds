@@ -1,10 +1,8 @@
 import {
   Bond,
-  Config,
   Errors,
   ValidatorBondsProgram,
   getBond,
-  getConfig,
   getWithdrawRequest,
   initWithdrawRequestInstruction,
   withdrawRequestAddress,
@@ -21,7 +19,7 @@ import {
   executeInitWithdrawRequestInstruction,
 } from '../utils/testTransactions'
 import { ProgramAccount } from '@coral-xyz/anchor'
-import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import { createVoteAccount } from '../utils/staking'
 
 import { pubkey, signer } from '@marinade.finance/web3js-common'
@@ -30,7 +28,7 @@ import { verifyError } from '@marinade.finance/anchor-common'
 describe('Validator Bonds init withdraw request', () => {
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
-  let config: ProgramAccount<Config>
+  let configAccount: PublicKey
   let bond: ProgramAccount<Bond>
   let bondAuthority: Keypair
   let validatorIdentity: Keypair
@@ -47,14 +45,10 @@ describe('Validator Bonds init withdraw request', () => {
   })
 
   beforeEach(async () => {
-    const { configAccount } = await executeInitConfigInstruction({
+    ;({ configAccount } = await executeInitConfigInstruction({
       program,
       provider,
-    })
-    config = {
-      publicKey: configAccount,
-      account: await getConfig(program, configAccount),
-    }
+    }))
     const { voteAccount, validatorIdentity: nodeIdentity } =
       await createVoteAccount({ provider })
     validatorIdentity = nodeIdentity
@@ -62,7 +56,7 @@ describe('Validator Bonds init withdraw request', () => {
     const { bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      config: config.publicKey,
+      configAccount,
       bondAuthority,
       voteAccount,
       validatorIdentity,

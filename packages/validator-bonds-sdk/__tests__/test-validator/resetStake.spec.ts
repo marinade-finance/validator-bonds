@@ -1,11 +1,11 @@
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
-  RESET_EVENT,
-  ResetEvent,
+  RESET_STAKE_EVENT,
+  ResetStakeEvent,
   U64_MAX,
   ValidatorBondsProgram,
   getStakeAccount,
-  resetInstruction,
+  resetStakeInstruction,
   settlementAuthority,
   withdrawerAuthority,
 } from '../../src'
@@ -16,7 +16,7 @@ import {
 } from '../utils/testTransactions'
 import { ExtendedProvider } from '../utils/provider'
 import {
-  createSettlementFundedStakeAccount,
+  createSettlementFundedDelegatedStake,
   createVoteAccount,
 } from '../utils/staking'
 
@@ -47,22 +47,25 @@ describe('Validator Bonds reset settlement stake account', () => {
     ;({ bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      config: configAccount,
+      configAccount: configAccount,
       voteAccount,
       validatorIdentity,
     }))
   })
 
-  it('reset', async () => {
-    const event = new Promise<ResetEvent>(resolve => {
-      const listener = program.addEventListener(RESET_EVENT, async event => {
-        await program.removeEventListener(listener)
-        resolve(event)
-      })
+  it('reset stake', async () => {
+    const event = new Promise<ResetStakeEvent>(resolve => {
+      const listener = program.addEventListener(
+        RESET_STAKE_EVENT,
+        async event => {
+          await program.removeEventListener(listener)
+          resolve(event)
+        }
+      )
     })
 
     const fakeSettlement = Keypair.generate().publicKey
-    const stakeAccount = await createSettlementFundedStakeAccount({
+    const stakeAccount = await createSettlementFundedDelegatedStake({
       program,
       provider,
       configAccount: configAccount,
@@ -84,7 +87,7 @@ describe('Validator Bonds reset settlement stake account', () => {
     expect(stakeAccountData.staker).toEqual(settlementAuth)
     expect(stakeAccountData.withdrawer).toEqual(bondWithdrawer)
 
-    const { instruction } = await resetInstruction({
+    const { instruction } = await resetStakeInstruction({
       program,
       configAccount,
       stakeAccount,

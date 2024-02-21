@@ -1325,7 +1325,7 @@ export type ValidatorBonds = {
       ]
     },
     {
-      "name": "merge",
+      "name": "mergeStake",
       "accounts": [
         {
           "name": "config",
@@ -1373,13 +1373,13 @@ export type ValidatorBonds = {
         {
           "name": "mergeArgs",
           "type": {
-            "defined": "MergeArgs"
+            "defined": "MergeStakeArgs"
           }
         }
       ]
     },
     {
-      "name": "reset",
+      "name": "resetStake",
       "accounts": [
         {
           "name": "config",
@@ -1423,7 +1423,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "settlment account used to derive settlement authority which cannot exists"
+            "settlement account used to derive settlement authority which cannot exists"
           ]
         },
         {
@@ -1431,7 +1431,7 @@ export type ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "stake account belonging to authority of the settlement"
+            "stake account belonging under the settlement by staker authority"
           ]
         },
         {
@@ -1470,6 +1470,91 @@ export type ValidatorBonds = {
         },
         {
           "name": "stakeConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "clock",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "withdrawStake",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "the config root account under which the bond was created"
+          ],
+          "relations": [
+            "operator_authority"
+          ]
+        },
+        {
+          "name": "operatorAuthority",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "operator authority is allowed to reset the non-delegated stake accounts"
+          ]
+        },
+        {
+          "name": "settlement",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "settlement account used to derive settlement authority which cannot exists"
+          ]
+        },
+        {
+          "name": "stakeAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "stake account where staker authority is of the settlement"
+          ]
+        },
+        {
+          "name": "bondsWithdrawerAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "bonds withdrawer authority",
+            "to cancel settlement funding of the stake account changing staker authority to address"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bonds_authority"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "withdrawTo",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "stakeHistory",
           "isMut": false,
           "isSigner": false
         },
@@ -2217,7 +2302,7 @@ export type ValidatorBonds = {
       }
     },
     {
-      "name": "MergeArgs",
+      "name": "MergeStakeArgs",
       "type": {
         "kind": "struct",
         "fields": [
@@ -2826,7 +2911,7 @@ export type ValidatorBonds = {
       ]
     },
     {
-      "name": "MergeEvent",
+      "name": "MergeStakeEvent",
       "fields": [
         {
           "name": "config",
@@ -2869,7 +2954,7 @@ export type ValidatorBonds = {
       ]
     },
     {
-      "name": "ResetEvent",
+      "name": "ResetStakeEvent",
       "fields": [
         {
           "name": "config",
@@ -2899,6 +2984,46 @@ export type ValidatorBonds = {
         {
           "name": "settlementAuthority",
           "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "WithdrawStakeEvent",
+      "fields": [
+        {
+          "name": "config",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "operatorAuthority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "settlement",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "stakeAccount",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "withdrawTo",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "settlementAuthority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "withdrawnAmount",
+          "type": "u64",
           "index": false
         }
       ]
@@ -3049,7 +3174,7 @@ export type ValidatorBonds = {
     {
       "code": 6005,
       "name": "InvalidStakeAccountState",
-      "msg": "Provided vote account is trouble to deserialize"
+      "msg": "Fail to deserialize the stake account"
     },
     {
       "code": 6006,
@@ -3159,7 +3284,7 @@ export type ValidatorBonds = {
     {
       "code": 6027,
       "name": "SettlementNotClosed",
-      "msg": "Required settlement to be closed"
+      "msg": "Settlement has to be closed"
     },
     {
       "code": 6028,
@@ -3300,6 +3425,16 @@ export type ValidatorBonds = {
       "code": 6055,
       "name": "InvalidPauseAuthority",
       "msg": "Invalid pause authority"
+    },
+    {
+      "code": 6056,
+      "name": "MergeMismatchSameSourceDestination",
+      "msg": "Source and destination cannot be the same for merge operation"
+    },
+    {
+      "code": 6057,
+      "name": "WrongStakeAccountState",
+      "msg": "Wrong state of the stake account"
     }
   ]
 };
@@ -4631,7 +4766,7 @@ export const IDL: ValidatorBonds = {
       ]
     },
     {
-      "name": "merge",
+      "name": "mergeStake",
       "accounts": [
         {
           "name": "config",
@@ -4679,13 +4814,13 @@ export const IDL: ValidatorBonds = {
         {
           "name": "mergeArgs",
           "type": {
-            "defined": "MergeArgs"
+            "defined": "MergeStakeArgs"
           }
         }
       ]
     },
     {
-      "name": "reset",
+      "name": "resetStake",
       "accounts": [
         {
           "name": "config",
@@ -4729,7 +4864,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "settlment account used to derive settlement authority which cannot exists"
+            "settlement account used to derive settlement authority which cannot exists"
           ]
         },
         {
@@ -4737,7 +4872,7 @@ export const IDL: ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "stake account belonging to authority of the settlement"
+            "stake account belonging under the settlement by staker authority"
           ]
         },
         {
@@ -4776,6 +4911,91 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "stakeConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "clock",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "withdrawStake",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "the config root account under which the bond was created"
+          ],
+          "relations": [
+            "operator_authority"
+          ]
+        },
+        {
+          "name": "operatorAuthority",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "operator authority is allowed to reset the non-delegated stake accounts"
+          ]
+        },
+        {
+          "name": "settlement",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "settlement account used to derive settlement authority which cannot exists"
+          ]
+        },
+        {
+          "name": "stakeAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "stake account where staker authority is of the settlement"
+          ]
+        },
+        {
+          "name": "bondsWithdrawerAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "bonds withdrawer authority",
+            "to cancel settlement funding of the stake account changing staker authority to address"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bonds_authority"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "withdrawTo",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "stakeHistory",
           "isMut": false,
           "isSigner": false
         },
@@ -5523,7 +5743,7 @@ export const IDL: ValidatorBonds = {
       }
     },
     {
-      "name": "MergeArgs",
+      "name": "MergeStakeArgs",
       "type": {
         "kind": "struct",
         "fields": [
@@ -6132,7 +6352,7 @@ export const IDL: ValidatorBonds = {
       ]
     },
     {
-      "name": "MergeEvent",
+      "name": "MergeStakeEvent",
       "fields": [
         {
           "name": "config",
@@ -6175,7 +6395,7 @@ export const IDL: ValidatorBonds = {
       ]
     },
     {
-      "name": "ResetEvent",
+      "name": "ResetStakeEvent",
       "fields": [
         {
           "name": "config",
@@ -6205,6 +6425,46 @@ export const IDL: ValidatorBonds = {
         {
           "name": "settlementAuthority",
           "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "WithdrawStakeEvent",
+      "fields": [
+        {
+          "name": "config",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "operatorAuthority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "settlement",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "stakeAccount",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "withdrawTo",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "settlementAuthority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "withdrawnAmount",
+          "type": "u64",
           "index": false
         }
       ]
@@ -6355,7 +6615,7 @@ export const IDL: ValidatorBonds = {
     {
       "code": 6005,
       "name": "InvalidStakeAccountState",
-      "msg": "Provided vote account is trouble to deserialize"
+      "msg": "Fail to deserialize the stake account"
     },
     {
       "code": 6006,
@@ -6465,7 +6725,7 @@ export const IDL: ValidatorBonds = {
     {
       "code": 6027,
       "name": "SettlementNotClosed",
-      "msg": "Required settlement to be closed"
+      "msg": "Settlement has to be closed"
     },
     {
       "code": 6028,
@@ -6606,6 +6866,16 @@ export const IDL: ValidatorBonds = {
       "code": 6055,
       "name": "InvalidPauseAuthority",
       "msg": "Invalid pause authority"
+    },
+    {
+      "code": 6056,
+      "name": "MergeMismatchSameSourceDestination",
+      "msg": "Source and destination cannot be the same for merge operation"
+    },
+    {
+      "code": 6057,
+      "name": "WrongStakeAccountState",
+      "msg": "Wrong state of the stake account"
     }
   ]
 };

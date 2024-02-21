@@ -13,6 +13,7 @@ import {
   Transaction,
   StakeAuthorizationLayout,
   LAMPORTS_PER_SOL,
+  Signer,
 } from '@solana/web3.js'
 import { ExtendedProvider } from './provider'
 import {
@@ -20,7 +21,11 @@ import {
   STAKE_STATE_BORSH_SCHEMA,
 } from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
 import assert from 'assert'
-import { pubkey } from '@marinade.finance/web3js-common'
+import {
+  pubkey,
+  signer,
+  Wallet as WalletInterface,
+} from '@marinade.finance/web3js-common'
 import {
   ValidatorBondsProgram,
   settlementAuthority,
@@ -257,7 +262,7 @@ export async function authorizeStakeAccount({
 }: {
   provider: ExtendedProvider
   stakeAccount: PublicKey
-  authority: Keypair
+  authority: WalletInterface | Signer
   staker?: PublicKey
   withdrawer?: PublicKey
 }) {
@@ -369,7 +374,7 @@ export async function createBondsFundedStakeAccount({
   })
 }
 
-export async function createSettlementFundedStakeAccount({
+export async function createSettlementFundedDelegatedStake({
   program,
   provider,
   configAccount,
@@ -396,6 +401,40 @@ export async function createSettlementFundedStakeAccount({
     newWithdrawerAuthority: bondsAuth,
     newStakerAuthority: settlementAuth,
   })
+}
+
+export async function createSettlementFundedInitializedStake({
+  program,
+  provider,
+  configAccount,
+  settlementAccount,
+  lamports = LAMPORTS_PER_SOL,
+}: {
+  program: ValidatorBondsProgram
+  provider: ExtendedProvider
+  configAccount: PublicKey
+  settlementAccount: PublicKey
+  lamports?: number
+}): Promise<PublicKey> {
+  const [bondsAuth] = withdrawerAuthority(configAccount, program.programId)
+  const [settlementAuth] = settlementAuthority(
+    settlementAccount,
+    program.programId
+  )
+
+  const { stakeAccount, withdrawer } = await initializedStakeAccount({
+    provider,
+    rentExempt: lamports,
+  })
+  await authorizeStakeAccount({
+    provider,
+    stakeAccount,
+    withdrawer: bondsAuth,
+    authority: signer(withdrawer),
+    staker: settlementAuth,
+  })
+
+  return stakeAccount
 }
 
 export async function createStakeAccount({
@@ -449,13 +488,19 @@ type InitializedStakeAccount = {
   withdrawer: Keypair | PublicKey
 }
 
-export async function initializedStakeAccount(
-  provider: ExtendedProvider,
-  lockup?: Lockup,
-  rentExempt?: number,
-  staker: Keypair | PublicKey = Keypair.generate(),
-  withdrawer: Keypair | PublicKey = Keypair.generate()
-): Promise<InitializedStakeAccount> {
+export async function initializedStakeAccount({
+  provider,
+  lockup,
+  rentExempt,
+  staker = Keypair.generate(),
+  withdrawer = Keypair.generate(),
+}: {
+  provider: ExtendedProvider
+  lockup?: Lockup
+  rentExempt?: number
+  staker?: Keypair | PublicKey
+  withdrawer?: Keypair | PublicKey
+}): Promise<InitializedStakeAccount> {
   const stakeAccount = Keypair.generate()
   rentExempt = await getRentExemptStake(provider, rentExempt)
 

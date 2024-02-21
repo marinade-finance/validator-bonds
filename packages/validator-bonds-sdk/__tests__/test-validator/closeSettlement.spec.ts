@@ -42,7 +42,7 @@ describe('Validator Bonds close settlement', () => {
       }
     ))
     ;({ voteAccount, bondAccount } = await executeInitBondInstruction({
-      config: configAccount,
+      configAccount,
       program,
       provider,
       validatorIdentity,
@@ -53,7 +53,7 @@ describe('Validator Bonds close settlement', () => {
     const rentCollector = Keypair.generate()
     const { settlementAccount, epoch, maxMerkleNodes, maxTotalClaim } =
       await executeInitSettlement({
-        config: configAccount,
+        configAccount,
         program,
         provider,
         voteAccount,

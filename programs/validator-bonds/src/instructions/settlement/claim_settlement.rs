@@ -1,7 +1,4 @@
-use crate::checks::{
-    check_stake_is_initialized_with_withdrawer_authority, check_stake_is_not_locked,
-    check_stake_valid_delegation,
-};
+use crate::checks::check_stake_is_initialized_with_withdrawer_authority;
 use crate::constants::BONDS_AUTHORITY_SEED;
 use crate::error::ErrorCode;
 use crate::events::settlement_claim::ClaimSettlementEvent;
@@ -182,11 +179,6 @@ impl<'info> ClaimSettlement<'info> {
             self.settlement.authority,
             ErrorCode::StakeAccountNotFundedToSettlement,
         );
-        // TODO: delegation is not needed to be checked
-        // stake account is delegated (deposited by) the bond validator
-        check_stake_valid_delegation(&self.stake_account_from, &self.bond.vote_account)?;
-        // stake account cannot be locked (constraints do not permit a correctly set-up account being locked)
-        check_stake_is_not_locked(&self.stake_account_from, &self.clock, "stake_account")?;
 
         // stake account "to" for withdrawing funds to has to match merkle proof data
         let stake_to_meta = check_stake_is_initialized_with_withdrawer_authority(

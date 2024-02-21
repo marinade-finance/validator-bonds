@@ -59,7 +59,7 @@ describe('Configure bond account using CLI', () => {
     ;({ bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      config: configAccount,
+      configAccount,
       bondAuthority: bondAuthorityKeypair,
       voteAccount,
       validatorIdentity,

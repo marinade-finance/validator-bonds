@@ -57,20 +57,20 @@ export class MerkleTreeNode {
     })
   }
 
-  public hash(): MerkleTreeNodeEncoded {
-    return MerkleTreeNode.hash(this.data)
-  }
-
-  public hashLeafNode(): MerkleTreeNodeEncoded {
-    return MerkleTreeNode.hashLeafNode(this.data)
-  }
-
   get stakeAuthority(): PublicKey {
     return new PublicKey(this.data.stakeAuthority)
   }
 
   get withdrawAuthority(): PublicKey {
     return new PublicKey(this.data.withdrawAuthority)
+  }
+
+  public hash(): MerkleTreeNodeEncoded {
+    return MerkleTreeNode.hash(this.data)
+  }
+
+  public hashLeafNode(): MerkleTreeNodeEncoded {
+    return MerkleTreeNode.hashLeafNode(this.data)
   }
 
   public static hashFromString({
@@ -87,18 +87,6 @@ export class MerkleTreeNode {
       withdrawAuthority,
       claim,
     }).hash()
-  }
-
-  get stakeAuthority(): PublicKey {
-    return new PublicKey(this.data.stakeAuthority)
-  }
-
-  get withdrawAuthority(): PublicKey {
-    return new PublicKey(this.data.withdrawAuthority)
-  }
-
-  get voteAccount(): PublicKey {
-    return new PublicKey(this.data.voteAccount)
   }
 
   public static hash({

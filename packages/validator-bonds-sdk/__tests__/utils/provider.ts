@@ -1,6 +1,7 @@
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import { Provider } from '@coral-xyz/anchor'
 import {
+  Keypair,
   PublicKey,
   Signer,
   Transaction,
@@ -8,9 +9,11 @@ import {
   TransactionInstructionCtorFields,
 } from '@solana/web3.js'
 
+export type SignerType = Keypair | Signer | WalletInterface
+
 export interface ExtendedProvider extends Provider {
   sendIx(
-    signers: (WalletInterface | Signer)[],
+    signers: SignerType[],
     ...ixes: (
       | Transaction
       | TransactionInstruction

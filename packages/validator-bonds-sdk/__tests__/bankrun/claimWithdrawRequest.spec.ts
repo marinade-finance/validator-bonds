@@ -1,11 +1,9 @@
 import {
   Bond,
-  Config,
   Errors,
   ValidatorBondsProgram,
   cancelWithdrawRequestInstruction,
   getBond,
-  getConfig,
   getWithdrawRequest,
   settlementAuthority,
   withdrawerAuthority,
@@ -34,7 +32,6 @@ import {
   deserializeStakeState,
   initializedStakeAccount,
 } from '../utils/staking'
-
 import assert from 'assert'
 import BN from 'bn.js'
 import { pubkey, signer } from '@marinade.finance/web3js-common'
@@ -45,7 +42,7 @@ import { verifyError } from '@marinade.finance/anchor-common'
 describe('Validator Bonds claim withdraw request', () => {
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
-  let config: ProgramAccount<Config>
+  let configAccount: PublicKey
   let bond: ProgramAccount<Bond>
   let validatorIdentity: Keypair
   let bondAuthority: Keypair
@@ -59,15 +56,11 @@ describe('Validator Bonds claim withdraw request', () => {
   })
 
   beforeEach(async () => {
-    const { configAccount } = await executeInitConfigInstruction({
+    ;({ configAccount } = await executeInitConfigInstruction({
       program,
       provider,
       withdrawLockupEpochs,
-    })
-    config = {
-      publicKey: configAccount,
-      account: await getConfig(program, configAccount),
-    }
+    }))
     const {
       bondAccount,
       validatorIdentity: nodeIdentity,
@@ -76,7 +69,7 @@ describe('Validator Bonds claim withdraw request', () => {
     } = await executeInitBondInstruction({
       program,
       provider,
-      config: config.publicKey,
+      configAccount,
     })
     voteAccount = voteAcc
     bondAuthority = bondAuth
@@ -184,7 +177,7 @@ describe('Validator Bonds claim withdraw request', () => {
     assert(splitStakeAccountInfo !== null, 'split stake account not found')
 
     const [bondsAuthority] = withdrawerAuthority(
-      config.publicKey,
+      configAccount,
       program.programId
     )
     const splitStakeAccountData = deserializeStakeState(
@@ -318,7 +311,7 @@ describe('Validator Bonds claim withdraw request', () => {
         withdrawRequestAccount: withdrawRequest,
         bondAccount: bond.publicKey,
         stakeAccount,
-        configAccount: config.publicKey,
+        configAccount,
         splitStakeRentPayer: rentPayerUser,
         voteAccount,
         withdrawer: pubkey(withdrawer),
@@ -546,7 +539,7 @@ describe('Validator Bonds claim withdraw request', () => {
 
   it('cannot claim with non-delegated stake account', async () => {
     const { stakeAccount: nonDelegatedStakeAccount } =
-      await initializedStakeAccount(provider)
+      await initializedStakeAccount({ provider })
     const { withdrawRequest } = await initWithdrawRequest(2 * LAMPORTS_PER_SOL)
     await warpToUnlockClaiming()
     const { instruction, splitStakeAccount } =
@@ -586,14 +579,6 @@ describe('Validator Bonds claim withdraw request', () => {
 
     try {
       await provider.sendIx([splitStakeAccount, validatorIdentity], instruction)
-      throw new Error('failure expected as not activated')
-    } catch (e) {
-      verifyError(e, Errors, 6025, 'not fully activated')
-    }
-
-    await warpToNextEpoch(provider)
-    try {
-      await provider.sendIx([splitStakeAccount, validatorIdentity], instruction)
       throw new Error('failure expected as delegated to wrong validator')
     } catch (e) {
       verifyError(e, Errors, 6020, 'delegated to a wrong validator')
@@ -603,7 +588,7 @@ describe('Validator Bonds claim withdraw request', () => {
   it('cannot claim with wrong stake account authority', async () => {
     const stakeAccountStaker = new Keypair()
     const stakeAccountWithdrawer = new Keypair()
-    const [bondsAuth] = withdrawerAuthority(config.publicKey, program.programId)
+    const [bondsAuth] = withdrawerAuthority(configAccount, program.programId)
     const [settlementAuth] = settlementAuthority(
       new Keypair().publicKey,
       program.programId
@@ -661,41 +646,6 @@ describe('Validator Bonds claim withdraw request', () => {
       throw new Error('failure expected; wrong staker')
     } catch (e) {
       verifyError(e, Errors, 6028, 'already funded to a settlement')
-    }
-  })
-
-  it('cannot claim with lockup delegation', async () => {
-    const futureEpoch =
-      Number((await provider.context.banksClient.getClock()).epoch) + 10
-    const { stakeAccount } = await delegatedStakeAccount({
-      provider,
-      lamports: LAMPORTS_PER_SOL * 2,
-      voteAccountToDelegate: bond.account.voteAccount,
-      lockup: {
-        custodian: Keypair.generate().publicKey,
-        // locked up epoch is bigger than to one we will warp to
-        epoch: futureEpoch + 1,
-        unixTimestamp: 0,
-      },
-    })
-    const { withdrawRequest } = await initWithdrawRequest(33 * LAMPORTS_PER_SOL)
-    await warpToUnlockClaiming()
-
-    const { instruction, splitStakeAccount } =
-      await claimWithdrawRequestInstruction({
-        program,
-        authority: validatorIdentity,
-        withdrawRequestAccount: withdrawRequest,
-        bondAccount: bond.publicKey,
-        stakeAccount,
-      })
-
-    warpToEpoch(provider, futureEpoch)
-    try {
-      await provider.sendIx([splitStakeAccount, validatorIdentity], instruction)
-      throw new Error('failure expected as should be locked')
-    } catch (e) {
-      verifyError(e, Errors, 6030, 'stake account is locked-up')
     }
   })
 

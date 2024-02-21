@@ -1,8 +1,8 @@
 use crate::constants::{BONDS_AUTHORITY_SEED, SETTLEMENT_AUTHORITY_SEED};
 use crate::error::ErrorCode;
-use crate::events::stake::MergeEvent;
+use crate::events::stake::MergeStakeEvent;
 use crate::state::config::{find_bonds_withdrawer_authority, Config};
-use crate::state::settlement::find_settlement_authority;
+use crate::state::settlement::find_settlement_staker_authority;
 use anchor_lang::{
     prelude::*,
     solana_program::{program::invoke_signed, stake::instruction::merge, sysvar::stake_history},
@@ -10,17 +10,20 @@ use anchor_lang::{
 use anchor_spl::stake::{Stake, StakeAccount};
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
-pub struct MergeArgs {
+pub struct MergeStakeArgs {
     pub settlement: Pubkey,
 }
 
 #[derive(Accounts)]
-pub struct Merge<'info> {
+pub struct MergeStake<'info> {
     /// the config root account under which the bond was created
     #[account()]
     config: Account<'info, Config>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = source_stake.key() != destination_stake.key() @ ErrorCode::MergeMismatchSameSourceDestination
+    )]
     source_stake: Account<'info, StakeAccount>,
 
     #[account(mut)]
@@ -40,8 +43,8 @@ pub struct Merge<'info> {
     stake_program: Program<'info, Stake>,
 }
 
-impl<'info> Merge<'info> {
-    pub fn process(&mut self, MergeArgs { settlement }: MergeArgs) -> Result<()> {
+impl<'info> MergeStake<'info> {
+    pub fn process(&mut self, MergeStakeArgs { settlement }: MergeStakeArgs) -> Result<()> {
         require!(!self.config.paused, ErrorCode::ProgramIsPaused);
 
         let destination_meta = self
@@ -99,7 +102,7 @@ impl<'info> Merge<'info> {
                 .with_account_name("source_stake/destination_stake"));
         }
 
-        let (settlement_authority, settlement_bump) = find_settlement_authority(&settlement);
+        let (settlement_authority, settlement_bump) = find_settlement_staker_authority(&settlement);
 
         let merge_instruction = &merge(
             &self.destination_stake.key(),
@@ -146,7 +149,7 @@ impl<'info> Merge<'info> {
             );
         };
 
-        emit!(MergeEvent {
+        emit!(MergeStakeEvent {
             config: self.config.key(),
             staker_authority: self.staker_authority.key(),
             destination_stake: self.destination_stake.key(),

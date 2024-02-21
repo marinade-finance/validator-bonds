@@ -1,11 +1,9 @@
 import {
   Bond,
-  Config,
   Errors,
   ValidatorBondsProgram,
   fundBondInstruction,
   getBond,
-  getConfig,
   withdrawerAuthority,
 } from '../../src'
 import {
@@ -35,7 +33,7 @@ import { verifyError } from '@marinade.finance/anchor-common'
 describe('Validator Bonds fund bond account', () => {
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
-  let config: ProgramAccount<Config>
+  let configAccount: PublicKey
   let bond: ProgramAccount<Bond>
   let bondAuthority: Keypair
   const startUpEpoch = Math.floor(Math.random() * 100) + 100
@@ -46,14 +44,10 @@ describe('Validator Bonds fund bond account', () => {
   })
 
   beforeEach(async () => {
-    const { configAccount } = await executeInitConfigInstruction({
+    ;({ configAccount } = await executeInitConfigInstruction({
       program,
       provider,
-    })
-    config = {
-      publicKey: configAccount,
-      account: await getConfig(program, configAccount),
-    }
+    }))
     const { voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
     })
@@ -61,7 +55,7 @@ describe('Validator Bonds fund bond account', () => {
     const { bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      config: config.publicKey,
+      configAccount,
       bondAuthority,
       voteAccount,
       validatorIdentity,
@@ -75,10 +69,10 @@ describe('Validator Bonds fund bond account', () => {
 
   it('cannot fund with non-delegated stake account', async () => {
     const { stakeAccount: nonDelegatedStakeAccount, withdrawer } =
-      await initializedStakeAccount(provider)
+      await initializedStakeAccount({ provider })
     const { instruction } = await fundBondInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       bondAccount: bond.publicKey,
       stakeAccount: nonDelegatedStakeAccount,
       stakeAccountAuthority: withdrawer,
@@ -99,7 +93,7 @@ describe('Validator Bonds fund bond account', () => {
     })
     const { instruction } = await fundBondInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       bondAccount: bond.publicKey,
       stakeAccount,
       stakeAccountAuthority: withdrawer,
@@ -136,7 +130,7 @@ describe('Validator Bonds fund bond account', () => {
 
     const { instruction } = await fundBondInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       bondAccount: bond.publicKey,
       stakeAccount,
       stakeAccountAuthority: withdrawer,
@@ -158,7 +152,7 @@ describe('Validator Bonds fund bond account', () => {
       voteAccountToDelegate: bond.account.voteAccount,
     })
     const [bondWithdrawer] = withdrawerAuthority(
-      config.publicKey,
+      configAccount,
       program.programId
     )
 
@@ -176,7 +170,7 @@ describe('Validator Bonds fund bond account', () => {
 
     const { instruction } = await fundBondInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       bondAccount: bond.publicKey,
       stakeAccount,
       stakeAccountAuthority: withdrawer,

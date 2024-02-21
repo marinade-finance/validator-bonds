@@ -1,5 +1,4 @@
 import {
-  Config,
   Errors,
   ValidatorBondsProgram,
   bondAddress,
@@ -13,35 +12,30 @@ import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { ProgramAccount } from '@coral-xyz/anchor'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import { createVoteAccount } from '../utils/staking'
-
 import { pubkey, signer } from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds init bond account', () => {
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
-  let config: ProgramAccount<Config>
+  let configAccount: PublicKey
 
   beforeAll(async () => {
     ;({ provider, program } = await initBankrunTest())
   })
 
   beforeEach(async () => {
-    const { configAccount } = await executeInitConfigInstruction({
+    ;({ configAccount } = await executeInitConfigInstruction({
       program,
       provider,
       epochsToClaimSettlement: 1,
       withdrawLockupEpochs: 2,
-    })
-    config = {
-      publicKey: configAccount,
-      account: await getConfig(program, configAccount),
-    }
-    expect(config.account.epochsToClaimSettlement).toEqual(1)
-    expect(config.account.withdrawLockupEpochs).toEqual(2)
+    }))
+    const config = await getConfig(program, configAccount)
+    expect(config.epochsToClaimSettlement).toEqual(1)
+    expect(config.withdrawLockupEpochs).toEqual(2)
   })
 
   it('init bond', async () => {
@@ -52,7 +46,7 @@ describe('Validator Bonds init bond account', () => {
     const rentWallet = await createUserAndFund(provider, LAMPORTS_PER_SOL)
     const { instruction, bondAccount } = await initBondInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       bondAuthority: bondAuthority.publicKey,
       cpmpe: 30,
       voteAccount: voteAccount,
@@ -81,9 +75,9 @@ describe('Validator Bonds init bond account', () => {
     const bondData = await getBond(program, bondAccount)
     expect(bondData.authority).toEqual(bondAuthority.publicKey)
     expect(bondData.bump).toEqual(
-      bondAddress(config.publicKey, voteAccount, program.programId)[1]
+      bondAddress(configAccount, voteAccount, program.programId)[1]
     )
-    expect(bondData.config).toEqual(config.publicKey)
+    expect(bondData.config).toEqual(configAccount)
     expect(bondData.cpmpe).toEqual(30)
     expect(bondData.voteAccount).toEqual(voteAccount)
   })
@@ -95,7 +89,7 @@ describe('Validator Bonds init bond account', () => {
     })
     const { instruction, bondAccount } = await initBondInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       bondAuthority: bondAuthority.publicKey,
       cpmpe: 88,
       voteAccount,
@@ -105,9 +99,9 @@ describe('Validator Bonds init bond account', () => {
     const bondData = await getBond(program, bondAccount)
     expect(bondData.authority).toEqual(validatorIdentity.publicKey)
     expect(bondData.bump).toEqual(
-      bondAddress(config.publicKey, voteAccount, program.programId)[1]
+      bondAddress(configAccount, voteAccount, program.programId)[1]
     )
-    expect(bondData.config).toEqual(config.publicKey)
+    expect(bondData.config).toEqual(configAccount)
     expect(bondData.cpmpe).toEqual(0)
     expect(bondData.voteAccount).toEqual(voteAccount)
   })
@@ -121,7 +115,7 @@ describe('Validator Bonds init bond account', () => {
     try {
       const { instruction } = await initBondInstruction({
         program,
-        configAccount: config.publicKey,
+        configAccount,
         bondAuthority: bondAuthority.publicKey,
         cpmpe: 30,
         voteAccount: voteAccount,
@@ -144,7 +138,7 @@ describe('Validator Bonds init bond account', () => {
       await executeInitBondInstruction({
         program,
         provider,
-        config: config.publicKey,
+        configAccount,
       })
     expect(
       provider.connection.getAccountInfo(bondAccount)
@@ -153,7 +147,7 @@ describe('Validator Bonds init bond account', () => {
     try {
       const { instruction } = await initBondInstruction({
         program,
-        configAccount: config.publicKey,
+        configAccount,
         bondAuthority: PublicKey.default,
         cpmpe: 30,
         voteAccount: voteAccount,

@@ -57,7 +57,7 @@ describe('Validator Bonds init withdraw request', () => {
     ;({ bondAccount, bondAuthority } = await executeInitBondInstruction({
       program,
       provider,
-      config: configAccount,
+      configAccount,
       voteAccount,
       validatorIdentity,
     }))

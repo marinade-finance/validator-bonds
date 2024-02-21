@@ -111,11 +111,17 @@ export const CLOSE_SETTLEMENT_EVENT = 'CloseSettlementEvent'
 export type CloseSettlementEvent =
   IdlEvents<ValidatorBonds>[typeof CLOSE_SETTLEMENT_EVENT]
 
-export const MERGE_EVENT = 'MergeEvent'
-export type MergeEvent = IdlEvents<ValidatorBonds>[typeof MERGE_EVENT]
+export const MERGE_STAKE_EVENT = 'MergeStakeEvent'
+export type MergeStakeEvent =
+  IdlEvents<ValidatorBonds>[typeof MERGE_STAKE_EVENT]
 
-export const RESET_EVENT = 'ResetEvent'
-export type ResetEvent = IdlEvents<ValidatorBonds>[typeof RESET_EVENT]
+export const RESET_STAKE_EVENT = 'ResetStakeEvent'
+export type ResetStakeEvent =
+  IdlEvents<ValidatorBonds>[typeof RESET_STAKE_EVENT]
+
+export const WITHDRAW_STAKE_EVENT = 'WithdrawStakeEvent'
+export type WithdrawStakeEvent =
+  IdlEvents<ValidatorBonds>[typeof WITHDRAW_STAKE_EVENT]
 
 export const INIT_WITHDRAW_REQUEST_EVENT = 'InitWithdrawRequestEvent'
 export type InitWithdrawRequestEvent =

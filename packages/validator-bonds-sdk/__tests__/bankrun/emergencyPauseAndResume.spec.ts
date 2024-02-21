@@ -15,8 +15,8 @@ import {
   initBondInstruction,
   initSettlementInstruction,
   initWithdrawRequestInstruction,
-  mergeInstruction,
-  resetInstruction,
+  mergeStakeInstruction,
+  resetStakeInstruction,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -25,10 +25,7 @@ import {
   warpOffsetEpoch,
   warpToNextEpoch,
 } from './bankrun'
-import {
-  createUserAndFund,
-  executeInitConfigInstruction,
-} from '../utils/testTransactions'
+import { executeInitConfigInstruction } from '../utils/testTransactions'
 import {
   Keypair,
   LAMPORTS_PER_SOL,
@@ -40,7 +37,7 @@ import {
 } from '@solana/web3.js'
 import {
   createBondsFundedStakeAccount,
-  createSettlementFundedStakeAccount,
+  createSettlementFundedDelegatedStake,
   createStakeAccount,
   createVoteAccount,
   delegatedStakeAccount,
@@ -49,13 +46,13 @@ import { Wallet, signer } from '@marinade.finance/web3js-common'
 import {
   MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
   configAccountKeypair,
+  createWithdrawerUsers,
   totalClaimVoteAccount1,
   treeNodeBy,
   treeNodesVoteAccount1,
   voteAccount1,
   voteAccount1Keypair,
   withdrawer1,
-  withdrawer1Keypair,
 } from '../utils/merkleTreeTestData'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { claimWithdrawRequestInstruction } from '../../src/instructions/claimWithdrawRequest'
@@ -165,7 +162,7 @@ describe('Validator Bonds pause&resume', () => {
     })
 
     await pause()
-    const { instruction: mergeIx } = await mergeInstruction({
+    const { instruction: mergeIx } = await mergeStakeInstruction({
       program,
       configAccount,
       sourceStakeAccount: stakeToMerge,
@@ -263,9 +260,7 @@ describe('Validator Bonds pause&resume', () => {
     )
 
     await pause()
-    if ((await provider.context.banksClient.getAccount(withdrawer1)) === null) {
-      await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer1Keypair)
-    }
+    await createWithdrawerUsers(provider)
     const treeNode1Withdrawer1 = treeNodeBy(voteAccount1, withdrawer1)
     const stakeAccountSettlementWithdrawer = await createStakeAccount({
       provider,
@@ -326,7 +321,7 @@ describe('Validator Bonds pause&resume', () => {
     // this instruction is just not paused
     await provider.sendIx([], closeSettlementClaimIx)
 
-    await createSettlementFundedStakeAccount({
+    await createSettlementFundedDelegatedStake({
       program,
       provider,
       lamports: LAMPORTS_PER_SOL * 2,
@@ -334,7 +329,7 @@ describe('Validator Bonds pause&resume', () => {
       configAccount,
       settlementAccount: settlementAccount,
     })
-    const { instruction: resetIx } = await resetInstruction({
+    const { instruction: resetIx } = await resetStakeInstruction({
       program,
       configAccount,
       bondAccount,

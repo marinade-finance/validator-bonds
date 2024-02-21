@@ -50,7 +50,7 @@ describe('Validator Bonds init settlement', () => {
       }
     ))
     ;({ voteAccount, bondAccount } = await executeInitBondInstruction({
-      config: configAccount,
+      configAccount,
       program,
       provider,
       validatorIdentity,
@@ -74,7 +74,7 @@ describe('Validator Bonds init settlement', () => {
     const { settlementAccount, rentCollector } = await executeInitSettlement({
       program,
       provider,
-      config: configAccount,
+      configAccount,
       operatorAuthority,
       voteAccount,
       currentEpoch,

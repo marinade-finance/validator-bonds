@@ -71,14 +71,14 @@ describe('Validator Bonds claim settlement', () => {
       validatorIdentity,
     })
     await executeInitBondInstruction({
-      config: configAccount,
+      configAccount,
       program,
       provider,
       voteAccount: voteAccount1,
       validatorIdentity,
     })
     ;({ settlementAccount } = await executeInitSettlement({
-      config: configAccount,
+      configAccount,
       program,
       provider,
       voteAccount: voteAccount1,

@@ -137,12 +137,17 @@ pub mod validator_bonds {
             .process(claim_settlement_args, ctx.bumps.settlement_claim)
     }
 
-    pub fn merge(ctx: Context<Merge>, merge_args: MergeArgs) -> Result<()> {
+    pub fn merge_stake(ctx: Context<MergeStake>, merge_args: MergeStakeArgs) -> Result<()> {
         check_context(&ctx)?;
         ctx.accounts.process(merge_args)
     }
 
-    pub fn reset(ctx: Context<ResetStake>) -> Result<()> {
+    pub fn reset_stake(ctx: Context<ResetStake>) -> Result<()> {
+        check_context(&ctx)?;
+        ctx.accounts.process()
+    }
+
+    pub fn withdraw_stake(ctx: Context<WithdrawStake>) -> Result<()> {
         check_context(&ctx)?;
         ctx.accounts.process()
     }

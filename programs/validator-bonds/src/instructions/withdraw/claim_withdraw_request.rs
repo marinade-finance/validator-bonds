@@ -1,6 +1,5 @@
 use crate::checks::{
-    check_bond_change_permitted, check_stake_exist_and_fully_activated,
-    check_stake_is_initialized_with_withdrawer_authority, check_stake_is_not_locked,
+    check_bond_change_permitted, check_stake_is_initialized_with_withdrawer_authority,
     check_stake_valid_delegation,
 };
 use crate::constants::BONDS_AUTHORITY_SEED;
@@ -126,13 +125,6 @@ impl<'info> ClaimWithdrawRequest<'info> {
             ErrorCode::InvalidWithdrawRequestAuthority
         );
 
-        // whoever can provide us with the stake account of any configuration, requiring the same constraints as for funding
-        check_stake_is_not_locked(&self.stake_account, &self.clock, "stake_account")?;
-        check_stake_exist_and_fully_activated(
-            &self.stake_account,
-            self.clock.epoch,
-            &self.stake_history,
-        )?;
         // stake account is delegated to the validator vote account associated with the bond
         check_stake_valid_delegation(&self.stake_account, &self.bond.vote_account)?;
 
@@ -142,7 +134,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
             &self.bonds_withdrawer_authority.key(),
             "stake_account",
         )?;
-        // stake account is not funded to settlement and is still under bonds program
+        // stake account is NOT funded to settlement
         require_keys_eq!(
             stake_meta.authorized.staker,
             self.bonds_withdrawer_authority.key(),

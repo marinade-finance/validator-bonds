@@ -6,18 +6,20 @@ import {
 } from '@solana/web3.js'
 import { ValidatorBondsProgram, withdrawerAuthority } from '../sdk'
 
-export async function mergeInstruction({
+export async function mergeStakeInstruction({
   program,
   configAccount,
   sourceStakeAccount,
   destinationStakeAccount,
   settlementAccount = PublicKey.default,
+  stakerAuthority,
 }: {
   program: ValidatorBondsProgram
   configAccount: PublicKey
   sourceStakeAccount: PublicKey
   destinationStakeAccount: PublicKey
   settlementAccount?: PublicKey
+  stakerAuthority?: PublicKey
 }): Promise<{
   instruction: TransactionInstruction
 }> {
@@ -26,17 +28,17 @@ export async function mergeInstruction({
   //       stake account staker authority can be either bond managed or settlement managed
   //       it would be good to check settlements automatically by searching all settlements of the bond and validator
   //       and make sdk to find the right settlement to use when the settlement pubkey is not provided as param
-  const [bondsWithdrawerAuthority] = withdrawerAuthority(configAccount)
+  stakerAuthority = stakerAuthority ?? withdrawerAuthority(configAccount)[0]
 
   const instruction = await program.methods
-    .merge({
+    .mergeStake({
       settlement: settlementAccount,
     })
     .accounts({
       config: configAccount,
       sourceStake: sourceStakeAccount,
       destinationStake: destinationStakeAccount,
-      stakerAuthority: bondsWithdrawerAuthority,
+      stakerAuthority,
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
       stakeProgram: StakeProgram.programId,
     })

@@ -1,10 +1,8 @@
 import {
   Bond,
-  Config,
   Errors,
   ValidatorBondsProgram,
   getBond,
-  getConfig,
   getSettlement,
   initSettlementInstruction,
   settlementAddress,
@@ -28,7 +26,7 @@ import { verifyError } from '@marinade.finance/anchor-common'
 describe('Validator Bonds init settlement', () => {
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
-  let config: ProgramAccount<Config>
+  let configAccount: PublicKey
   let bond: ProgramAccount<Bond>
   let operatorAuthority: Keypair
   let validatorIdentity: Keypair
@@ -39,23 +37,19 @@ describe('Validator Bonds init settlement', () => {
   })
 
   beforeEach(async () => {
-    const { configAccount, operatorAuthority: operatorAuth } =
-      await executeInitConfigInstruction({
+    ;({ configAccount, operatorAuthority } = await executeInitConfigInstruction(
+      {
         program,
         provider,
-      })
-    config = {
-      publicKey: configAccount,
-      account: await getConfig(program, configAccount),
-    }
-    operatorAuthority = operatorAuth
+      }
+    ))
     ;({ voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
     }))
     const { bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      config: config.publicKey,
+      configAccount,
       voteAccount,
       validatorIdentity,
     })
@@ -81,7 +75,7 @@ describe('Validator Bonds init settlement', () => {
         maxTotalClaim: 3,
         voteAccount,
         epoch: epochNow,
-        configAccount: config.publicKey,
+        configAccount,
         rentCollector,
       })
     await provider.sendIx([operatorAuthority], instruction)
@@ -137,7 +131,7 @@ describe('Validator Bonds init settlement', () => {
       maxMerkleNodes: 1,
       maxTotalClaim: 3,
       voteAccount,
-      configAccount: config.publicKey,
+      configAccount,
       epoch: await currentEpoch(provider),
     })
     try {
@@ -163,7 +157,7 @@ describe('Validator Bonds init settlement', () => {
       maxMerkleNodes: 1,
       maxTotalClaim: 3,
       voteAccount,
-      configAccount: config.publicKey,
+      configAccount,
       epoch: futureEpoch,
     })
     await provider.sendIx([operatorAuthority], instruction)
@@ -184,7 +178,7 @@ describe('Validator Bonds init settlement', () => {
       maxTotalClaim: 3,
       voteAccount,
       epoch: await currentEpoch(provider),
-      configAccount: config.publicKey,
+      configAccount,
     })
     try {
       await provider.sendIx([wrongOperator], instruction)

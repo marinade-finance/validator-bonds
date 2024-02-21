@@ -14,7 +14,7 @@ import { getBond, getWithdrawRequest } from '../api'
 import assert from 'assert'
 import { StakeAccountParsed, findStakeAccount } from '../web3.js/stakeAccount'
 import BN from 'bn.js'
-import { mergeInstruction } from '../instructions/merge'
+import { mergeStakeInstruction } from '../instructions/mergeStake'
 import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRequest'
 import { anchorProgramWalletPubkey } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
@@ -125,7 +125,7 @@ export async function orchestrateWithdrawDeposit({
     ) {
       const sourceStakeAccount =
         stakeAccountsToWithdraw[1][mergeIndex].publicKey
-      const mergeIx = await mergeInstruction({
+      const mergeIx = await mergeStakeInstruction({
         program,
         configAccount,
         sourceStakeAccount,

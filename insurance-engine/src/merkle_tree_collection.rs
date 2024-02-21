@@ -156,7 +156,7 @@ mod tests {
                 proof: None,
             },
             TreeNode {
-                stake_authority: Pubkey::from_str("612S5jWDKhCxdzugJ6JED5whc1dCkZBPrer3mx3D2V5J")
+                stake_authority: Pubkey::from_str("82ewSU2zNH87PajZHf7betFbZAaGR8bwDp8azSHNCAnA")
                     .unwrap(),
                 withdraw_authority: Pubkey::from_str(
                     "DBnWKq1Ln9y8HtGwYxFMqMWLY1Ld9xpB28ayKfHejiTs",
@@ -166,7 +166,7 @@ mod tests {
                 proof: None,
             },
             TreeNode {
-                stake_authority: Pubkey::from_str("612S5jWDKhCxdzugJ6JED5whc1dCkZBPrer3mx3D2V5J")
+                stake_authority: Pubkey::from_str("yrWTX1AuJRqziVpdhg3eAWYhDcY6z1kmEaG4sn1uDDj")
                     .unwrap(),
                 withdraw_authority: Pubkey::from_str(
                     "CgoqXy3e1hsnuNw6bJ8iuzqZwr93CA4jsRa1AnsseJ53",
@@ -178,7 +178,7 @@ mod tests {
         ];
         let mut items_vote_account2: Vec<TreeNode> = vec![
             TreeNode {
-                stake_authority: Pubkey::from_str("612S5jWDKhCxdzugJ6JED5whc1dCkZBPrer3mx3D2V5J")
+                stake_authority: Pubkey::from_str("yrWTX1AuJRqziVpdhg3eAWYhDcY6z1kmEaG4sn1uDDj")
                     .unwrap(),
                 withdraw_authority: Pubkey::from_str(
                     "3vGstFWWyQbDknu9WKr9vbTn2Kw5qgorP7UkRXVrfe9t",
@@ -195,6 +195,28 @@ mod tests {
                 )
                 .unwrap(),
                 claim: 111111,
+                proof: None,
+            },
+        ];
+        let mut items_operator: Vec<TreeNode> = vec![
+            TreeNode {
+                stake_authority: Pubkey::from_str("yrWTX1AuJRqziVpdhg3eAWYhDcY6z1kmEaG4sn1uDDj")
+                    .unwrap(),
+                withdraw_authority: Pubkey::from_str(
+                    "DBnWKq1Ln9y8HtGwYxFMqMWLY1Ld9xpB28ayKfHejiTs",
+                )
+                .unwrap(),
+                claim: 556677,
+                proof: None,
+            },
+            TreeNode {
+                stake_authority: Pubkey::from_str("121WqnefAgXvLZdW42LsGUbkFjv7LVUqvcpkskxyVgeu")
+                    .unwrap(),
+                withdraw_authority: Pubkey::from_str(
+                    "CgoqXy3e1hsnuNw6bJ8iuzqZwr93CA4jsRa1AnsseJ53",
+                )
+                .unwrap(),
+                claim: 996677,
                 proof: None,
             },
         ];
@@ -254,5 +276,26 @@ mod tests {
             item_vote_account2_hashes.get(1).unwrap().to_string(),
             "4WmpRvgW6HdHW4bPVEqPVJXyF2mVG9wpH5mGpgzjmJGY"
         );
+
+        let item_operator_hashes = items_operator
+            .clone()
+            .iter()
+            .map(|n| n.hash())
+            .collect::<Vec<_>>();
+        let merkle_tree_operator = MerkleTree::new(&item_operator_hashes[..], true);
+        let merkle_tree_operator_root = merkle_tree_operator.get_root().unwrap();
+        println!("merkle tree root operator: {}", merkle_tree_operator_root);
+        assert_eq!(
+            merkle_tree_operator_root.to_string(),
+            "D8rFThGJXYVFcKdqovz3VMA1nALNugHzvGYhSn8dLwip"
+        );
+        for (i, tree_node) in items_operator.iter_mut().enumerate() {
+            tree_node.proof = Some(get_proof(&merkle_tree_operator, i));
+            println!(
+                "operator: proof: {:?}, hash tree node: {}",
+                tree_node.proof,
+                tree_node.hash()
+            )
+        }
     }
 }

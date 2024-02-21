@@ -2,7 +2,7 @@ use crate::error::ErrorCode;
 use crate::events::settlement::InitSettlementEvent;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
-use crate::state::settlement::{find_settlement_authority, Bumps, Settlement};
+use crate::state::settlement::{find_settlement_staker_authority, Bumps, Settlement};
 
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::system_program;
@@ -90,7 +90,7 @@ impl<'info> InitSettlement<'info> {
             )));
         }
 
-        let (authority, authority_bump) = find_settlement_authority(&self.settlement.key());
+        let (authority, authority_bump) = find_settlement_staker_authority(&self.settlement.key());
         self.settlement.set_inner(Settlement {
             bond: self.bond.key(),
             authority,

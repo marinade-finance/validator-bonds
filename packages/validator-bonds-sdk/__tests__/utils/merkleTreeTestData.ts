@@ -1,7 +1,9 @@
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import { MerkleTreeNode } from '../../src'
-import { Keypair, PublicKey } from '@solana/web3.js'
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
+import { ExtendedProvider } from './provider'
+import { createUserAndFund } from './testTransactions'
 
 export const MERKLE_PROOF_VOTE_ACCOUNT_1 =
   'EnBJg4qV4GjH3Sgigsi8wkWz966QYgSQkgPMCmWto51f'
@@ -13,6 +15,9 @@ export const MERKLE_PROOF_VOTE_ACCOUNT_2 =
 export const MERKLE_ROOT_VOTE_ACCOUNT_2_BUF = bs58.decode(
   MERKLE_PROOF_VOTE_ACCOUNT_2
 )
+export const MERKLE_PROOF_OPERATOR =
+  'D8rFThGJXYVFcKdqovz3VMA1nALNugHzvGYhSn8dLwip'
+export const MERKLE_ROOT_VOTE_OPERATOR_BUF = bs58.decode(MERKLE_PROOF_OPERATOR)
 
 export const configAccount = new PublicKey(
   '4wQELTA1RMEM3cKN7gjbiNN247e3GY9Sga7MKpNV38kL'
@@ -123,7 +128,7 @@ export type MerkleTreeNodeWithProof = {
 
 export const ITEMS_VOTE_ACCOUNT_1: MerkleTreeNodeWithProof[] = [
   {
-    // tree node hash: 2dGWvEq6Pan1RrZEmZ4rHLGYNp1UKnjPGdFJN3RNBdaS
+    // tree node hash: 3tSbFBfFg83LCgVneuENUFs8hKgsdTKvfVV6Cqz3q6RT
     treeNode: new MerkleTreeNode({
       withdrawAuthority: withdrawer1,
       stakeAuthority: staker1,
@@ -142,7 +147,7 @@ export const ITEMS_VOTE_ACCOUNT_1: MerkleTreeNodeWithProof[] = [
     ],
   },
   {
-    // tree node hash: ESMSf44cswZvXejW8dVhsjyyULW5nSzTHBmuMNFvg2vk
+    // tree node hash: AQT4KsCwXci528hys9WgWcURigR4TiNKDsCV9iEmVZ1P
     treeNode: new MerkleTreeNode({
       withdrawAuthority: withdrawer2,
       stakeAuthority: staker1,
@@ -161,7 +166,7 @@ export const ITEMS_VOTE_ACCOUNT_1: MerkleTreeNodeWithProof[] = [
     ],
   },
   {
-    // tree node hash: HCRaDeQzb2vj4TAws7CeovFFuzwBRPCzkywMxBb1JNuv
+    // tree node hash: 8dvRJGLNRPo1arYFQmyCQXCBELitRr9ofEMFc1sWJkT3
     treeNode: new MerkleTreeNode({
       withdrawAuthority: withdrawer3,
       stakeAuthority: staker2,
@@ -183,7 +188,7 @@ export const ITEMS_VOTE_ACCOUNT_1: MerkleTreeNodeWithProof[] = [
 ]
 export const ITEMS_VOTE_ACCOUNT_2: MerkleTreeNodeWithProof[] = [
   {
-    // tree node hash: 2g6GGBps8fTTq9DvJHwBxNC57k5REDFbjebWYyw9qDYQ
+    // tree node hash: 2niLq4dRayu3GE5KWuBUR4hAjSikubd1hmGKLJ56ZzUP
     treeNode: new MerkleTreeNode({
       withdrawAuthority: withdrawer1,
       stakeAuthority: staker2,
@@ -197,7 +202,7 @@ export const ITEMS_VOTE_ACCOUNT_2: MerkleTreeNodeWithProof[] = [
     ],
   },
   {
-    // tree node hash: FacAU7ukxtPkBfNWb73ehLWDfA5cVf7DdahcCZypsJVg
+    // tree node hash: 4WmpRvgW6HdHW4bPVEqPVJXyF2mVG9wpH5mGpgzjmJGY
     treeNode: new MerkleTreeNode({
       withdrawAuthority: withdrawer2,
       stakeAuthority: staker3,
@@ -208,6 +213,36 @@ export const ITEMS_VOTE_ACCOUNT_2: MerkleTreeNodeWithProof[] = [
         245, 60, 45, 210, 173, 189, 121, 115, 156, 166, 90, 8, 24, 102, 217,
         217, 177, 135, 83, 7, 150, 22, 184, 83, 71, 126, 39, 173, 241, 24, 242,
         18,
+      ],
+    ],
+  },
+]
+export const ITEMS_OPERATOR: MerkleTreeNodeWithProof[] = [
+  {
+    // tree node hash: C8ZfYuKidJa8EGF4YF5Xou3icvqqGQ6fJBE6SN3ixT1w
+    treeNode: new MerkleTreeNode({
+      withdrawAuthority: withdrawer1,
+      stakeAuthority: staker2,
+      claim: 556677,
+    }),
+    proof: [
+      [
+        114, 203, 9, 47, 201, 96, 238, 219, 33, 102, 140, 80, 223, 86, 48, 16,
+        64, 99, 249, 31, 149, 206, 129, 57, 137, 107, 46, 191, 2, 60, 178, 134,
+      ],
+    ],
+  },
+  {
+    // tree node hash: AuSbVtXRJwt7ch9ESqMatVrLdJCXCcAFfX5aYSfD8Aq7
+    treeNode: new MerkleTreeNode({
+      withdrawAuthority: withdrawer2,
+      stakeAuthority: staker3,
+      claim: 996677,
+    }),
+    proof: [
+      [
+        18, 245, 29, 35, 129, 16, 97, 65, 136, 147, 235, 130, 40, 114, 206, 62,
+        14, 78, 151, 58, 189, 18, 192, 239, 240, 174, 45, 119, 149, 131, 85, 92,
       ],
     ],
   },
@@ -228,20 +263,42 @@ export function treeNodeBy(
   voteAccount: PublicKey,
   withdrawer: PublicKey
 ): MerkleTreeNodeWithProof {
-  let treeNodesByWithdrawer: MerkleTreeNodeWithProof | undefined
   if (voteAccount.equals(voteAccount1)) {
-    treeNodesByWithdrawer = ITEMS_VOTE_ACCOUNT_1.find(item =>
-      item.treeNode.data.withdrawAuthority.equals(withdrawer)
-    )
+    return treeNodeByWithdrawer(ITEMS_VOTE_ACCOUNT_1, withdrawer)
   } else if (voteAccount.equals(voteAccount2)) {
-    treeNodesByWithdrawer = ITEMS_VOTE_ACCOUNT_2.find(item =>
-      item.treeNode.data.withdrawAuthority.equals(withdrawer)
+    return treeNodeByWithdrawer(ITEMS_VOTE_ACCOUNT_2, withdrawer)
+  } else {
+    throw new Error(
+      `tree node for vote account ${voteAccount.toBase58()} not found`
     )
   }
+}
+
+export function treeNodeByWithdrawer(
+  treeNodeList: MerkleTreeNodeWithProof[],
+  withdrawer: PublicKey
+): MerkleTreeNodeWithProof {
+  const treeNodesByWithdrawer = treeNodeList.find(item =>
+    item.treeNode.data.withdrawAuthority.equals(withdrawer)
+  )
   if (!treeNodesByWithdrawer) {
     throw new Error(
-      `tree node for vote account ${voteAccount.toBase58()} and withdrawer ${withdrawer.toBase58()} not found`
+      `tree node for withdrawer ${withdrawer.toBase58()} not found`
     )
   }
   return treeNodesByWithdrawer
+}
+
+export async function createWithdrawerUsers(provider: ExtendedProvider) {
+  let exists = false
+  try {
+    exists = (await provider.connection.getAccountInfo(withdrawer1)) !== null
+  } catch (e) {
+    exists = false
+  }
+  if (exists === false) {
+    await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer1Keypair)
+    await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer2Keypair)
+    await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer3Keypair)
+  }
 }

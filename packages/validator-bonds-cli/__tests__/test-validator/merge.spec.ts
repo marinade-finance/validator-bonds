@@ -48,7 +48,7 @@ describe('Merge stake accounts using CLI', () => {
     const { stakeAccount1, stakeAccount2 } = await createMergeStakeAccounts({
       provider,
       programId: program.programId,
-      config: configAccount,
+      configAccount,
       lamports1: LAMPORTS_PER_SOL * 2,
       lamports2: LAMPORTS_PER_SOL * 3,
     })
@@ -94,7 +94,7 @@ describe('Merge stake accounts using CLI', () => {
     const { stakeAccount1, stakeAccount2 } = await createMergeStakeAccounts({
       provider,
       programId: program.programId,
-      config: configAccount,
+      configAccount,
     })
 
     await (

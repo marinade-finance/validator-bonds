@@ -1,10 +1,10 @@
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
-  MERGE_EVENT,
-  MergeEvent,
+  MERGE_STAKE_EVENT,
+  MergeStakeEvent,
   ValidatorBondsProgram,
   getStakeAccount,
-  mergeInstruction,
+  mergeStakeInstruction,
   withdrawerAuthority,
 } from '../../src'
 import { initTest, waitForNextEpoch } from './testValidator'
@@ -33,12 +33,15 @@ describe('Validator Bonds fund bond', () => {
     }))
   })
 
-  it('merge', async () => {
-    const event = new Promise<MergeEvent>(resolve => {
-      const listener = program.addEventListener(MERGE_EVENT, async event => {
-        await program.removeEventListener(listener)
-        resolve(event)
-      })
+  it('merge stake', async () => {
+    const event = new Promise<MergeStakeEvent>(resolve => {
+      const listener = program.addEventListener(
+        MERGE_STAKE_EVENT,
+        async event => {
+          await program.removeEventListener(listener)
+          resolve(event)
+        }
+      )
     })
 
     // we want to be at the beginning of the epoch
@@ -81,7 +84,7 @@ describe('Validator Bonds fund bond', () => {
       withdrawer: bondWithdrawer,
     })
 
-    const { instruction } = await mergeInstruction({
+    const { instruction } = await mergeStakeInstruction({
       program,
       configAccount,
       sourceStakeAccount: stakeAccount2,

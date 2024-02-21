@@ -71,7 +71,7 @@ describe('Validator Bonds init bond', () => {
 
     const bondsDataFromList = await findBonds({
       program,
-      config: configAccount,
+      configAccount,
       voteAccount,
       bondAuthority,
     })
@@ -160,7 +160,7 @@ describe('Validator Bonds init bond', () => {
     bondDataFromList = await findBonds({
       program,
       bondAuthority,
-      config: configAccount,
+      configAccount,
     })
     expect(bondDataFromList.length).toEqual(numberOfBonds)
   })

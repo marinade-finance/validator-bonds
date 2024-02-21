@@ -28,7 +28,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn bonds_withdrawer_authority_address(&self, config_address: &Pubkey) -> Result<Pubkey> {
+    pub fn bonds_withdrawer_authority(&self, config_address: &Pubkey) -> Result<Pubkey> {
         Pubkey::create_program_address(
             &[
                 BONDS_AUTHORITY_SEED,

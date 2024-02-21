@@ -28,7 +28,7 @@ pub struct Bond {
 }
 
 impl Bond {
-    pub fn find_address(&self) -> Result<Pubkey> {
+    pub fn address(&self) -> Result<Pubkey> {
         Pubkey::create_program_address(
             &[
                 BOND_SEED,

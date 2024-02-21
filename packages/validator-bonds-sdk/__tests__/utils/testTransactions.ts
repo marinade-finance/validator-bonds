@@ -139,7 +139,7 @@ export async function executeInitConfigInstruction({
 export async function executeInitBondInstruction({
   program,
   provider,
-  config,
+  configAccount,
   bondAuthority,
   voteAccount,
   validatorIdentity,
@@ -147,7 +147,7 @@ export async function executeInitBondInstruction({
 }: {
   program: ValidatorBondsProgram
   provider: ExtendedProvider
-  config: PublicKey
+  configAccount: PublicKey
   bondAuthority?: Keypair
   voteAccount?: PublicKey
   validatorIdentity?: Keypair
@@ -178,7 +178,7 @@ export async function executeInitBondInstruction({
   }
   const { instruction, bondAccount } = await initBondInstruction({
     program,
-    configAccount: config,
+    configAccount: configAccount,
     bondAuthority: bondAuthority.publicKey,
     cpmpe,
     voteAccount,
@@ -194,7 +194,7 @@ export async function executeInitBondInstruction({
       `executeInitBondInstruction: bond account ${pubkey(
         bondAccount
       ).toBase58()}, ` +
-        `config: ${pubkey(config).toBase58()}, ` +
+        `config: ${pubkey(configAccount).toBase58()}, ` +
         `bondAuthority: ${pubkey(bondAuthority).toBase58()}, ` +
         `voteAccount: ${pubkey(voteAccount).toBase58()}, ` +
         `validatorIdentity: ${pubkey(validatorIdentity).toBase58()}`,
@@ -241,7 +241,11 @@ export async function executeFundBondInstruction({
       }))
     }
     ;({ bondAccount, bondAuthority, voteAccount } =
-      await executeInitBondInstruction({ program, provider, config }))
+      await executeInitBondInstruction({
+        program,
+        provider,
+        configAccount: config,
+      }))
   } else {
     const bondData = await getBond(program, bondAccount)
     bondAuthority = bondData.authority
@@ -323,7 +327,7 @@ export async function executeInitWithdrawRequestInstruction({
       await executeInitBondInstruction({
         program,
         provider,
-        config: configAccount,
+        configAccount: configAccount,
       }))
   } else {
     const bondData = await getBond(program, bondAccount)
@@ -444,7 +448,7 @@ export async function executeCancelWithdrawRequestInstruction(
 export async function executeInitSettlement({
   program,
   provider,
-  config,
+  configAccount,
   bondAccount,
   voteAccount,
   operatorAuthority,
@@ -458,7 +462,7 @@ export async function executeInitSettlement({
 }: {
   program: ValidatorBondsProgram
   provider: ExtendedProvider
-  config: PublicKey
+  configAccount: PublicKey
   voteAccount?: PublicKey
   bondAccount?: PublicKey
   operatorAuthority: Keypair
@@ -481,7 +485,7 @@ export async function executeInitSettlement({
     epoch: settlementEpoch,
   } = await initSettlementInstruction({
     program,
-    configAccount: config,
+    configAccount: configAccount,
     operatorAuthority,
     merkleRoot,
     maxMerkleNodes,

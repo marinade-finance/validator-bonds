@@ -9,9 +9,9 @@ import {
 import { ValidatorBondsProgram } from '../sdk'
 import { checkAndGetBondAddress } from '../utils'
 import { getBond } from '../api'
-import { getStakeAccount } from '../web3.js'
+import { getStakeAccount } from '../web3.js/index'
 
-export async function resetInstruction({
+export async function resetStakeInstruction({
   program,
   stakeAccount,
   settlementAccount,
@@ -49,7 +49,7 @@ export async function resetInstruction({
   }
 
   const instruction = await program.methods
-    .reset()
+    .resetStake()
     .accounts({
       config: configAccount,
       bond: bondAccount,

@@ -21,7 +21,6 @@ import {
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { ProgramAccount } from '@coral-xyz/anchor'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   createBondsFundedStakeAccount,
@@ -37,7 +36,8 @@ describe('Validator Bonds close settlement', () => {
   const epochsToClaimSettlement = 1
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
-  let config: ProgramAccount<Config>
+  let configAccount: PublicKey
+  let config: Config
   let operatorAuthority: Keypair
   let validatorIdentity: Keypair
   let voteAccount: PublicKey
@@ -50,31 +50,28 @@ describe('Validator Bonds close settlement', () => {
   })
 
   beforeEach(async () => {
-    const { configAccount, operatorAuthority: operatorAuth } =
-      await executeInitConfigInstruction({
+    ;({ configAccount, operatorAuthority } = await executeInitConfigInstruction(
+      {
         program,
         provider,
         epochsToClaimSettlement,
-      })
-    config = {
-      publicKey: configAccount,
-      account: await getConfig(program, configAccount),
-    }
-    operatorAuthority = operatorAuth
+      }
+    ))
+    config = await getConfig(program, configAccount)
     ;({ voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
     }))
     const { bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      config: config.publicKey,
+      configAccount,
       voteAccount,
       validatorIdentity,
     })
     settlementEpoch = await currentEpoch(provider)
     rentCollector = Keypair.generate()
     ;({ settlementAccount } = await executeInitSettlement({
-      config: config.publicKey,
+      configAccount,
       program,
       provider,
       voteAccount,
@@ -160,7 +157,7 @@ describe('Validator Bonds close settlement', () => {
     const stakeAccount = await createBondsFundedStakeAccount({
       program,
       provider,
-      configAccount: config.publicKey,
+      configAccount,
       voteAccount,
       lamports: lamportsToFund,
     })
@@ -196,7 +193,7 @@ describe('Validator Bonds close settlement', () => {
     ).toEqual(
       settlementData.maxTotalClaim.toNumber() +
         2 * rentExemptStake +
-        config.account.minimumStakeLamports.toNumber()
+        config.minimumStakeLamports.toNumber()
     )
 
     const { instruction } = await closeSettlementInstruction({
@@ -261,7 +258,7 @@ describe('Validator Bonds close settlement', () => {
     ).toEqual(
       settlementData.maxTotalClaim.toNumber() +
         rentExemptStake +
-        config.account.minimumStakeLamports.toNumber()
+        config.minimumStakeLamports.toNumber()
     )
   })
 

@@ -42,7 +42,7 @@ describe('Validator Bonds fund bond', () => {
     ;({ bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      config: configAccount,
+      configAccount,
       voteAccount,
       validatorIdentity,
     }))

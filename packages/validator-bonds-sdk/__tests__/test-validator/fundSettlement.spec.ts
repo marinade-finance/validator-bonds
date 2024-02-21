@@ -50,7 +50,7 @@ describe('Validator Bonds fund settlement', () => {
       }
     ))
     ;({ voteAccount, bondAccount } = await executeInitBondInstruction({
-      config: configAccount,
+      configAccount,
       program,
       provider,
       validatorIdentity,
@@ -60,7 +60,7 @@ describe('Validator Bonds fund settlement', () => {
   it('fund settlement', async () => {
     const rentCollector = Keypair.generate()
     const { settlementAccount } = await executeInitSettlement({
-      config: configAccount,
+      configAccount,
       program,
       provider,
       voteAccount,

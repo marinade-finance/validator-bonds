@@ -28,7 +28,7 @@ pub struct SettlementClaim {
 }
 
 impl SettlementClaim {
-    pub fn find_address(&self) -> Result<Pubkey> {
+    pub fn address(&self) -> Result<Pubkey> {
         Pubkey::create_program_address(
             &[
                 SETTLEMENT_CLAIM_SEED,

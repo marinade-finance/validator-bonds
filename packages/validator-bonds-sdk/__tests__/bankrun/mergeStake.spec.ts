@@ -1,10 +1,8 @@
 import {
-  Config,
   Errors,
   ValidatorBondsProgram,
   bondAddress,
-  getConfig,
-  mergeInstruction,
+  mergeStakeInstruction,
   settlementAddress,
   settlementAuthority,
   withdrawerAuthority,
@@ -19,7 +17,6 @@ import {
   executeInitConfigInstruction,
   executeWithdraw,
 } from '../utils/testTransactions'
-import { ProgramAccount } from '@coral-xyz/anchor'
 import {
   LAMPORTS_PER_SOL,
   PublicKey,
@@ -32,14 +29,13 @@ import {
   delegatedStakeAccount,
   initializedStakeAccount,
 } from '../utils/staking'
-
 import { pubkey } from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
 
 describe('Staking merge verification/investigation', () => {
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
-  let config: ProgramAccount<Config>
+  let configAccount: PublicKey
   const startUpEpoch = Math.floor(Math.random() * 100) + 100
 
   beforeAll(async () => {
@@ -48,27 +44,23 @@ describe('Staking merge verification/investigation', () => {
   })
 
   beforeEach(async () => {
-    const { configAccount } = await executeInitConfigInstruction({
+    ;({ configAccount } = await executeInitConfigInstruction({
       program,
       provider,
-    })
-    config = {
-      publicKey: configAccount,
-      account: await getConfig(program, configAccount),
-    }
+    }))
   })
 
-  it('cannot merge with staker authority not belonging to bonds', async () => {
+  it('cannot merge with withdrawer authority not belonging to bonds', async () => {
     const { stakeAccount: nonDelegatedStakeAccount, staker } =
-      await initializedStakeAccount(provider)
+      await initializedStakeAccount({ provider })
     const { stakeAccount: nonDelegatedStakeAccount2 } =
-      await initializedStakeAccount(provider, undefined, undefined, staker)
+      await initializedStakeAccount({ provider, staker })
     const instruction = await program.methods
-      .merge({
+      .mergeStake({
         settlement: PublicKey.default,
       })
       .accounts({
-        config: config.publicKey,
+        configAccount,
         sourceStake: nonDelegatedStakeAccount2,
         destinationStake: nonDelegatedStakeAccount,
         stakerAuthority: pubkey(staker),
@@ -86,65 +78,88 @@ describe('Staking merge verification/investigation', () => {
     }
   })
 
-  it('cannot merge with wrong withdrawer authorities not belonging to bonds', async () => {
+  it('cannot merge same and with wrong withdrawer authorities', async () => {
     const [bondWithdrawer] = withdrawerAuthority(
-      config.publicKey,
+      configAccount,
       program.programId
     )
-    const { stakeAccount: nonDelegatedStakeAccount } =
-      await initializedStakeAccount(
+    const { stakeAccount: nonDelegatedStakeAccount, staker } =
+      await initializedStakeAccount({
         provider,
-        undefined,
-        undefined,
-        bondWithdrawer
-      )
+        withdrawer: bondWithdrawer,
+      })
     const { stakeAccount: nonDelegatedStakeAccount2 } =
-      await initializedStakeAccount(
+      await initializedStakeAccount({
         provider,
-        undefined,
-        undefined,
-        bondWithdrawer
-      )
-    const { instruction } = await mergeInstruction({
+        withdrawer: bondWithdrawer,
+        staker,
+      })
+    const { instruction: ixSameAccounts } = await mergeStakeInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
+      sourceStakeAccount: nonDelegatedStakeAccount,
+      destinationStakeAccount: nonDelegatedStakeAccount,
+    })
+    try {
+      await provider.sendIx([], ixSameAccounts)
+      throw new Error('failure expected; trying to merge the same accounts')
+    } catch (e) {
+      verifyError(e, Errors, 6056, 'Source and destination cannot be the same')
+    }
+
+    const { instruction: ixWrongStaker } = await mergeStakeInstruction({
+      program,
+      configAccount,
       sourceStakeAccount: nonDelegatedStakeAccount2,
       destinationStakeAccount: nonDelegatedStakeAccount,
     })
     try {
-      await provider.sendIx([], instruction)
-      throw new Error(
-        'failure expected as accounts are not owned by bonds program'
-      )
+      await provider.sendIx([], ixWrongStaker)
+      throw new Error('failure expected; wrong staker authority setup')
     } catch (e) {
-      verifyError(e, Errors, 6045, 'does not belong to bonds program')
+      verifyError(e, Errors, 6044, 'staker does not match')
+    }
+
+    const { instruction: ixNonBondSTaker } = await mergeStakeInstruction({
+      program,
+      configAccount,
+      sourceStakeAccount: nonDelegatedStakeAccount2,
+      destinationStakeAccount: nonDelegatedStakeAccount,
+      stakerAuthority: pubkey(staker),
+    })
+    try {
+      await provider.sendIx([], ixNonBondSTaker)
+      throw new Error('failure expected; non bond staker')
+    } catch (e) {
+      verifyError(
+        e,
+        Errors,
+        6047,
+        'Delegation of provided stake account mismatches'
+      )
     }
   })
 
   it('cannot merge with non delegated stake state', async () => {
     const [bondWithdrawer] = withdrawerAuthority(
-      config.publicKey,
+      configAccount,
       program.programId
     )
     const { stakeAccount: nonDelegatedStakeAccount } =
-      await initializedStakeAccount(
+      await initializedStakeAccount({
         provider,
-        undefined,
-        undefined,
-        bondWithdrawer,
-        bondWithdrawer
-      )
+        withdrawer: bondWithdrawer,
+        staker: bondWithdrawer,
+      })
     const { stakeAccount: nonDelegatedStakeAccount2 } =
-      await initializedStakeAccount(
+      await initializedStakeAccount({
         provider,
-        undefined,
-        undefined,
-        bondWithdrawer,
-        bondWithdrawer
-      )
-    const { instruction } = await mergeInstruction({
+        withdrawer: bondWithdrawer,
+        staker: bondWithdrawer,
+      })
+    const { instruction } = await mergeStakeInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       sourceStakeAccount: nonDelegatedStakeAccount,
       destinationStakeAccount: nonDelegatedStakeAccount2,
     })
@@ -163,7 +178,7 @@ describe('Staking merge verification/investigation', () => {
 
   it('cannot merge different delegation', async () => {
     const [bondWithdrawer] = withdrawerAuthority(
-      config.publicKey,
+      configAccount,
       program.programId
     )
     const { stakeAccount: stakeAccount1, withdrawer: withdrawer1 } =
@@ -194,9 +209,9 @@ describe('Staking merge verification/investigation', () => {
       withdrawer: bondWithdrawer,
     })
 
-    const { instruction } = await mergeInstruction({
+    const { instruction } = await mergeStakeInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       sourceStakeAccount: stakeAccount2,
       destinationStakeAccount: stakeAccount1,
     })
@@ -211,9 +226,9 @@ describe('Staking merge verification/investigation', () => {
         'Delegation of provided stake account mismatches'
       )
     }
-    const { instruction: instruction2 } = await mergeInstruction({
+    const { instruction: instruction2 } = await mergeStakeInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       sourceStakeAccount: stakeAccount1,
       destinationStakeAccount: stakeAccount2,
     })
@@ -232,7 +247,7 @@ describe('Staking merge verification/investigation', () => {
 
   it('cannot merge different deactivated delegation', async () => {
     const [bondWithdrawer] = withdrawerAuthority(
-      config.publicKey,
+      configAccount,
       program.programId
     )
     const {
@@ -314,9 +329,9 @@ describe('Staking merge verification/investigation', () => {
       withdrawer: bondWithdrawer,
     })
 
-    const { instruction } = await mergeInstruction({
+    const { instruction } = await mergeStakeInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       sourceStakeAccount: stakeAccount2,
       destinationStakeAccount: stakeAccount1,
     })
@@ -331,9 +346,9 @@ describe('Staking merge verification/investigation', () => {
         'Delegation of provided stake account mismatches'
       )
     }
-    const { instruction: instruction2 } = await mergeInstruction({
+    const { instruction: instruction2 } = await mergeStakeInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       sourceStakeAccount: stakeAccount1,
       destinationStakeAccount: stakeAccount2,
     })
@@ -353,11 +368,11 @@ describe('Staking merge verification/investigation', () => {
   it('cannot merge settlement and bond authority', async () => {
     const voteAccount = (await createVoteAccount({ provider })).voteAccount
     const [bondWithdrawer] = withdrawerAuthority(
-      config.publicKey,
+      configAccount,
       program.programId
     )
     const currentEpoch = (await provider.context.banksClient.getClock()).epoch
-    const [bond] = bondAddress(config.publicKey, program.programId)
+    const [bond] = bondAddress(configAccount, program.programId)
     const [settlement] = settlementAddress(
       bond,
       Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
@@ -398,9 +413,9 @@ describe('Staking merge verification/investigation', () => {
       staker: settlementStaker,
     })
 
-    const { instruction } = await mergeInstruction({
+    const { instruction } = await mergeStakeInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       sourceStakeAccount: stakeAccount2,
       destinationStakeAccount: stakeAccount1,
     })
@@ -410,9 +425,9 @@ describe('Staking merge verification/investigation', () => {
     } catch (e) {
       verifyError(e, Errors, 6044, 'staker does not match')
     }
-    const { instruction: instruction2 } = await mergeInstruction({
+    const { instruction: instruction2 } = await mergeStakeInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       sourceStakeAccount: stakeAccount1,
       destinationStakeAccount: stakeAccount2,
     })
@@ -426,7 +441,7 @@ describe('Staking merge verification/investigation', () => {
 
   it('merging', async () => {
     const [bondWithdrawer] = withdrawerAuthority(
-      config.publicKey,
+      configAccount,
       program.programId
     )
     const {
@@ -460,9 +475,9 @@ describe('Staking merge verification/investigation', () => {
       staker: bondWithdrawer,
       withdrawer: bondWithdrawer,
     })
-    const { instruction } = await mergeInstruction({
+    const { instruction } = await mergeStakeInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       sourceStakeAccount: stakeAccount2,
       destinationStakeAccount: stakeAccount1,
     })

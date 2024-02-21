@@ -17,7 +17,7 @@ pub enum ErrorCode {
     #[msg("Provided vote account is not owned by the validator vote program")]
     InvalidVoteAccountProgramId, // 6004 0x1774
 
-    #[msg("Provided vote account is trouble to deserialize")]
+    #[msg("Fail to deserialize the stake account")]
     InvalidStakeAccountState, // 6005 0x1775
 
     #[msg("Provided stake account is not owned by the stake account program")]
@@ -86,7 +86,7 @@ pub enum ErrorCode {
     #[msg("Instruction context was provided with unexpected set of remaining accounts")]
     UnexpectedRemainingAccounts, // 6026 0x178a
 
-    #[msg("Required settlement to be closed")]
+    #[msg("Settlement has to be closed")]
     SettlementNotClosed, // 6027 0x178b
 
     #[msg("Provided stake account has been already funded to a settlement")]
@@ -172,4 +172,10 @@ pub enum ErrorCode {
 
     #[msg("Invalid pause authority")]
     InvalidPauseAuthority, // 6055 0x17a7
+
+    #[msg("Source and destination cannot be the same for merge operation")]
+    MergeMismatchSameSourceDestination, // 6056 0x17a8
+
+    #[msg("Wrong state of the stake account")]
+    WrongStakeAccountState, // 6057 0x17a9
 }

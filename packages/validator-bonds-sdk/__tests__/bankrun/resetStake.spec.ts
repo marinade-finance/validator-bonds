@@ -1,10 +1,8 @@
 import {
-  Config,
   Errors,
   U64_MAX,
   ValidatorBondsProgram,
-  getConfig,
-  resetInstruction,
+  resetStakeInstruction,
   withdrawerAuthority,
 } from '../../src'
 import {
@@ -17,21 +15,21 @@ import {
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { ProgramAccount } from '@coral-xyz/anchor'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   StakeStates,
   createBondsFundedStakeAccount,
-  createSettlementFundedStakeAccount,
+  createSettlementFundedDelegatedStake,
+  createSettlementFundedInitializedStake,
   createVoteAccount,
   getAndCheckStakeAccount,
 } from '../utils/staking'
 import { verifyError } from '@marinade.finance/anchor-common'
 
-describe('Validator Bonds reset', () => {
+describe('Validator Bonds reset stake', () => {
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
-  let config: ProgramAccount<Config>
+  let configAccount: PublicKey
   let operatorAuthority: Keypair
   let validatorIdentity: Keypair
   let voteAccount: PublicKey
@@ -41,23 +39,19 @@ describe('Validator Bonds reset', () => {
   })
 
   beforeEach(async () => {
-    const { configAccount, operatorAuthority: operatorAuth } =
-      await executeInitConfigInstruction({
+    ;({ configAccount, operatorAuthority } = await executeInitConfigInstruction(
+      {
         program,
         provider,
-      })
-    config = {
-      publicKey: configAccount,
-      account: await getConfig(program, configAccount),
-    }
-    operatorAuthority = operatorAuth
+      }
+    ))
     ;({ voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
     }))
     await executeInitBondInstruction({
       program,
       provider,
-      config: config.publicKey,
+      configAccount,
       voteAccount,
       validatorIdentity,
     })
@@ -65,18 +59,18 @@ describe('Validator Bonds reset', () => {
 
   it('reset settlement stake account', async () => {
     const fakeSettlement = Keypair.generate().publicKey
-    const stakeAccount = await createSettlementFundedStakeAccount({
+    const stakeAccount = await createSettlementFundedDelegatedStake({
       program,
       provider,
-      configAccount: config.publicKey,
+      configAccount,
       settlementAccount: fakeSettlement,
       voteAccount,
       lamports: LAMPORTS_PER_SOL * 5,
     })
 
-    const { instruction } = await resetInstruction({
+    const { instruction } = await resetStakeInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       stakeAccount,
       voteAccount,
       settlementAccount: fakeSettlement,
@@ -84,7 +78,7 @@ describe('Validator Bonds reset', () => {
     await provider.sendIx([], instruction)
 
     const epochNow = await currentEpoch(provider)
-    const [bondsAuth] = withdrawerAuthority(config.publicKey, program.programId)
+    const [bondsAuth] = withdrawerAuthority(configAccount, program.programId)
     const [stakeAccountData] = await getAndCheckStakeAccount(
       provider,
       stakeAccount,
@@ -105,19 +99,43 @@ describe('Validator Bonds reset', () => {
     )
   })
 
+  it('cannot reset stake when not delegated', async () => {
+    const fakeSettlement = Keypair.generate().publicKey
+    const stakeAccount = await createSettlementFundedInitializedStake({
+      program,
+      provider,
+      configAccount,
+      settlementAccount: fakeSettlement,
+      lamports: LAMPORTS_PER_SOL * 2,
+    })
+    const { instruction } = await resetStakeInstruction({
+      program,
+      configAccount,
+      stakeAccount,
+      voteAccount,
+      settlementAccount: fakeSettlement,
+    })
+    try {
+      await provider.sendIx([], instruction)
+      throw new Error('Expected error; stake is not delegated')
+    } catch (e) {
+      verifyError(e, Errors, 6019, 'not delegated')
+    }
+  })
+
   it('cannot reset stake account not funded to a settlement', async () => {
     const fakeSettlement = Keypair.generate().publicKey
     const stakeAccount = await createBondsFundedStakeAccount({
       program,
       provider,
-      configAccount: config.publicKey,
+      configAccount,
       voteAccount,
       lamports: LAMPORTS_PER_SOL * 5,
     })
 
-    const { instruction } = await resetInstruction({
+    const { instruction } = await resetStakeInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       stakeAccount,
       voteAccount,
       settlementAccount: fakeSettlement,
@@ -134,25 +152,25 @@ describe('Validator Bonds reset', () => {
 
   it('cannot reset with existing settlement', async () => {
     const { settlementAccount } = await executeInitSettlement({
-      config: config.publicKey,
+      configAccount: configAccount,
       program,
       provider,
       voteAccount,
       operatorAuthority,
       currentEpoch: await currentEpoch(provider),
     })
-    const stakeAccount = await createSettlementFundedStakeAccount({
+    const stakeAccount = await createSettlementFundedDelegatedStake({
       program,
       provider,
-      configAccount: config.publicKey,
+      configAccount,
       settlementAccount: settlementAccount,
       voteAccount,
       lamports: LAMPORTS_PER_SOL * 5,
     })
 
-    const { instruction } = await resetInstruction({
+    const { instruction } = await resetStakeInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       stakeAccount,
       voteAccount,
       settlementAccount,
@@ -161,7 +179,7 @@ describe('Validator Bonds reset', () => {
       await provider.sendIx([], instruction)
       throw new Error('Expected error; settlement account exists')
     } catch (e) {
-      verifyError(e, Errors, 6027, 'settlement to be closed')
+      verifyError(e, Errors, 6027, 'Settlement has to be closed')
     }
   })
 })

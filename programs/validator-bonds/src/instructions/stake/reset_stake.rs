@@ -3,19 +3,17 @@ use crate::checks::{
 };
 use crate::constants::BONDS_AUTHORITY_SEED;
 use crate::error::ErrorCode;
-use crate::events::stake::ResetEvent;
+use crate::events::stake::ResetStakeEvent;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
-use crate::state::settlement::find_settlement_authority;
+use crate::state::settlement::find_settlement_staker_authority;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
-use anchor_lang::solana_program::stake;
-use anchor_lang::solana_program::stake::state::StakeAuthorize;
-use anchor_lang::solana_program::sysvar::stake_history;
+use anchor_lang::solana_program::system_program::ID as system_program_id;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
+use anchor_lang::solana_program::{stake, stake::state::StakeAuthorize, sysvar::stake_history};
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 
-// TODO:
 /// Resetting stake authority of a funded stake account belonging to removed settlement.
 /// I.e., for provided stake account it changes the stake authority from settlement stake authority to bonds withdrawer authority.
 #[derive(Accounts)]
@@ -37,10 +35,10 @@ pub struct ResetStake<'info> {
     bond: Account<'info, Bond>,
 
     /// CHECK: cannot exist
-    /// settlment account used to derive settlement authority which cannot exists
+    /// settlement account used to derive settlement authority which cannot exists
     settlement: UncheckedAccount<'info>,
 
-    /// stake account belonging to authority of the settlement
+    /// stake account belonging under the settlement by staker authority
     #[account(mut)]
     stake_account: Account<'info, StakeAccount>,
 
@@ -85,6 +83,11 @@ impl<'info> ResetStake<'info> {
             0,
             ErrorCode::SettlementNotClosed
         );
+        require_eq!(
+            *self.settlement.owner,
+            system_program_id,
+            ErrorCode::SettlementNotClosed
+        );
 
         // stake account is managed by bonds program and belongs under bond validator
         let stake_meta = check_stake_is_initialized_with_withdrawer_authority(
@@ -94,8 +97,8 @@ impl<'info> ResetStake<'info> {
         )?;
         // a bond account is tightly coupled to a vote account, this stake account belongs to bond
         check_stake_valid_delegation(&self.stake_account, &self.bond.vote_account)?;
-        // stake account is funded to particular settlement
-        let settlement_authority = find_settlement_authority(&self.settlement.key()).0;
+        // stake account is funded to removed settlement
+        let settlement_authority = find_settlement_staker_authority(&self.settlement.key()).0;
         require_eq!(
             stake_meta.authorized.staker,
             settlement_authority,
@@ -123,7 +126,6 @@ impl<'info> ResetStake<'info> {
             None,
         )?;
 
-        // TODO: can we fail on not possible to delegate?
         // activate the stake, i.e., resetting delegation to the validator again
         let delegate_instruction = &stake::instruction::delegate_stake(
             &self.stake_account.key(),
@@ -148,7 +150,7 @@ impl<'info> ResetStake<'info> {
             ]],
         )?;
 
-        emit!(ResetEvent {
+        emit!(ResetStakeEvent {
             config: self.config.key(),
             bond: self.bond.key(),
             settlement: self.settlement.key(),

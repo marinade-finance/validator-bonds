@@ -40,7 +40,7 @@ describe('Validator Bonds configure bond', () => {
     const { bondAccount, bondAuthority } = await executeInitBondInstruction({
       program,
       provider,
-      config: configAccount,
+      configAccount,
       validatorIdentity,
       cpmpe: 22,
     })

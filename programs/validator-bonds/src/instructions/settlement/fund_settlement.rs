@@ -12,10 +12,12 @@ use crate::state::settlement::Settlement;
 use crate::utils::{minimal_size_stake_account, return_unused_split_stake_account_rent};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
-use anchor_lang::solana_program::stake;
-use anchor_lang::solana_program::stake::state::{StakeAuthorize, StakeStateV2};
 use anchor_lang::solana_program::system_program;
 use anchor_lang::solana_program::sysvar::stake_history;
+use anchor_lang::solana_program::{
+    stake,
+    stake::state::{StakeAuthorize, StakeStateV2},
+};
 use anchor_spl::stake::{
     authorize, deactivate_stake, Authorize, DeactivateStake, Stake, StakeAccount,
 };
@@ -151,7 +153,8 @@ impl<'info> FundSettlement<'info> {
             ErrorCode::StakeAccountIsFundedToSettlement,
         );
         // only stake account delegated to (i.e., funded by) the bond validator vote account
-        check_stake_valid_delegation(&self.stake_account, &self.bond.vote_account)?;
+        let stake_delegation =
+            check_stake_valid_delegation(&self.stake_account, &self.bond.vote_account)?;
 
         // funded stake account cannot be locked as we want to deactivate&withdraw
         check_stake_is_not_locked(&self.stake_account, &self.clock, "stake_account")?;
@@ -222,21 +225,23 @@ impl<'info> FundSettlement<'info> {
                 (lamports_to_fund, true)
             };
 
-        // TODO: what if the stake account is already deactivated by slashing?
         // deactivating stake to be withdraw-able on claim_settlement instruction
-        deactivate_stake(CpiContext::new_with_signer(
-            self.stake_program.to_account_info(),
-            DeactivateStake {
-                stake: self.stake_account.to_account_info(),
-                staker: self.bonds_withdrawer_authority.to_account_info(),
-                clock: self.clock.to_account_info(),
-            },
-            &[&[
-                BONDS_AUTHORITY_SEED,
-                &self.config.key().as_ref(),
-                &[self.config.bonds_withdrawer_authority_bump],
-            ]],
-        ))?;
+        // NOTE: do not deactivate when already deactivated (deactivated: deactivation_epoch != u64::MAX)
+        if stake_delegation.deactivation_epoch == u64::MAX {
+            deactivate_stake(CpiContext::new_with_signer(
+                self.stake_program.to_account_info(),
+                DeactivateStake {
+                    stake: self.stake_account.to_account_info(),
+                    staker: self.bonds_withdrawer_authority.to_account_info(),
+                    clock: self.clock.to_account_info(),
+                },
+                &[&[
+                    BONDS_AUTHORITY_SEED,
+                    &self.config.key().as_ref(),
+                    &[self.config.bonds_withdrawer_authority_bump],
+                ]],
+            ))?;
+        }
         // moving stake account from bond authority to settlement authority to differentiate funded and non-funded stake accounts
         authorize(
             CpiContext::new_with_signer(

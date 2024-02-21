@@ -56,7 +56,7 @@ describe('Fund bond account using CLI', () => {
     ;({ bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      config: configAccount,
+      configAccount,
       voteAccount,
       validatorIdentity,
       cpmpe: 123,

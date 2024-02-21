@@ -24,7 +24,7 @@ pub struct WithdrawRequest {
 }
 
 impl WithdrawRequest {
-    pub fn find_address(&self) -> Result<Pubkey> {
+    pub fn address(&self) -> Result<Pubkey> {
         Pubkey::create_program_address(
             &[
                 WITHDRAW_REQUEST_SEED,
@@ -35,4 +35,8 @@ impl WithdrawRequest {
         )
         .map_err(|_| ErrorCode::InvalidWithdrawRequestAddress.into())
     }
+}
+
+pub fn find_withdraw_request_address(bond: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[WITHDRAW_REQUEST_SEED, bond.as_ref()], &ID)
 }

@@ -40,7 +40,7 @@ fn main() -> anyhow::Result<()> {
     let mut builder = Builder::from_env(Env::default().default_filter_or("info"));
     builder.init();
 
-    info!("Starting insurance engine...");
+    info!("Starting insurance engine... changed");
     let args: Args = Args::parse();
 
     if let Some(whitelisted_stake_authorities) = &args.whitelist_stake_authority {
@@ -63,11 +63,13 @@ fn main() -> anyhow::Result<()> {
         validator_meta_collection,
         args.low_rewards_threshold_pct,
     );
+    info!("Generating insured event collection... writing to json");
     write_to_json_file(
         &insured_event_collection,
         &args.output_insured_event_collection,
     )?;
 
+    info!("Generating insured event collection... stake meta {:?}", args.whitelist_stake_authority);
     let stake_meta_filter = args
         .whitelist_stake_authority
         .map(|whitelisted_stake_authorities| {

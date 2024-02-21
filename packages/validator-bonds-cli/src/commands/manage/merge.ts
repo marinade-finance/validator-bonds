@@ -5,7 +5,7 @@ import { setProgramIdByOwner } from '../../context'
 import { Wallet, executeTx, transaction } from '@marinade.finance/web3js-common'
 import {
   CONFIG_ADDRESS,
-  mergeInstruction,
+  mergeStakeInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 
 export function installMerge(program: Command) {
@@ -82,7 +82,7 @@ async function manageMerge({
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]
 
-  const { instruction } = await mergeInstruction({
+  const { instruction } = await mergeStakeInstruction({
     program,
     sourceStakeAccount: source,
     destinationStakeAccount: destination,

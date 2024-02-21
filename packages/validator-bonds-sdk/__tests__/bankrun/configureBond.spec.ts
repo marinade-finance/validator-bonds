@@ -1,11 +1,9 @@
 import {
   Bond,
-  Config,
   Errors,
   ValidatorBondsProgram,
   configureBondInstruction,
   getBond,
-  getConfig,
   initBondInstruction,
 } from '../../src'
 import { BankrunExtendedProvider, initBankrunTest } from './bankrun'
@@ -21,7 +19,7 @@ import { verifyError } from '@marinade.finance/anchor-common'
 describe('Validator Bonds configure bond account', () => {
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
-  let config: ProgramAccount<Config>
+  let configAccount: PublicKey
   let bond: ProgramAccount<Bond>
   let bondAuthority: Keypair
   let validatorIdentity: Keypair
@@ -32,14 +30,10 @@ describe('Validator Bonds configure bond account', () => {
   })
 
   beforeEach(async () => {
-    const { configAccount } = await executeInitConfigInstruction({
+    ;({ configAccount } = await executeInitConfigInstruction({
       program,
       provider,
-    })
-    config = {
-      publicKey: configAccount,
-      account: await getConfig(program, configAccount),
-    }
+    }))
     const {
       voteAccount,
       validatorIdentity: nodePubkey,
@@ -49,7 +43,7 @@ describe('Validator Bonds configure bond account', () => {
     const { bondAccount } = await executeInitBondInstruction({
       program,
       provider,
-      config: config.publicKey,
+      configAccount,
       bondAuthority,
       voteAccount,
       validatorIdentity: nodePubkey,
@@ -75,7 +69,7 @@ describe('Validator Bonds configure bond account', () => {
     await provider.sendIx([bondAuthority], ix1)
 
     let bondData = await getBond(program, bond.publicKey)
-    expect(bondData.config).toEqual(config.publicKey)
+    expect(bondData.config).toEqual(configAccount)
     expect(bondData.authority).toEqual(newBondAuthority.publicKey)
     expect(bondData.cpmpe).toEqual(321)
 
@@ -102,7 +96,7 @@ describe('Validator Bonds configure bond account', () => {
     await provider.sendIx([validatorIdentity], instruction)
 
     const bondData = await getBond(program, bond.publicKey)
-    expect(bondData.config).toEqual(config.publicKey)
+    expect(bondData.config).toEqual(configAccount)
     expect(bondData.authority).toEqual(newBondAuthority.publicKey)
   })
 
@@ -110,7 +104,7 @@ describe('Validator Bonds configure bond account', () => {
     const newBondAuthority = Keypair.generate()
     const { instruction } = await configureBondInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       voteAccount: bond.account.voteAccount,
       authority: voterAuthority,
       newBondAuthority: newBondAuthority.publicKey,
@@ -149,7 +143,7 @@ describe('Validator Bonds configure bond account', () => {
       bondAccount: permissionLessBondAccount,
     } = await initBondInstruction({
       program,
-      configAccount: config.publicKey,
+      configAccount,
       voteAccount,
     })
     await provider.sendIx([], createBondIx)
