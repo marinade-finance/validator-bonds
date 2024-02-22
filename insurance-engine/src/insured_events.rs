@@ -1,6 +1,6 @@
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
-
+use std::str::FromStr;
 use {
     serde::{Deserialize, Serialize},
     snapshot_parser::validator_meta::ValidatorMetaCollection,
@@ -42,7 +42,7 @@ impl InsuredEvent {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize, Debug)]
+#[derive(Clone, Debug)]
 pub struct InsuredEventCollection {
     pub epoch: u64,
     pub slot: u64,
@@ -54,6 +54,58 @@ impl InsuredEventCollection {
     pub fn events_by_validator(&self, vote_account: &Pubkey) -> Option<&Vec<InsuredEvent>> {
         self.events.get(vote_account)
     }
+}
+
+impl Serialize for InsuredEventCollection {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        InsuredEventCollectionJson::from(self.clone()).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for InsuredEventCollection {
+    fn deserialize<D>(deserializer: D) -> Result<InsuredEventCollection, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        let iecj = InsuredEventCollectionJson::deserialize(deserializer)?;
+        Ok(InsuredEventCollection {
+            epoch: iecj.epoch,
+            slot: iecj.slot,
+            low_rewards_threshold_pct: iecj.low_rewards_threshold_pct,
+            events: iecj
+                .events
+                .into_iter()
+                .map(|(k, v)| (Pubkey::from_str(&k).unwrap(), v))
+                .collect(),
+        })
+    }
+}
+
+impl From<InsuredEventCollection> for InsuredEventCollectionJson {
+    fn from(iec: InsuredEventCollection) -> Self {
+        InsuredEventCollectionJson {
+            epoch: iec.epoch,
+            slot: iec.slot,
+            low_rewards_threshold_pct: iec.low_rewards_threshold_pct,
+            // convert event keys to strings
+            events: iec
+                .events
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v))
+                .collect(),
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Serialize, Debug)]
+struct InsuredEventCollectionJson {
+    pub epoch: u64,
+    pub slot: u64,
+    pub low_rewards_threshold_pct: f64,
+    pub events: HashMap</* vote_account */ String, Vec<InsuredEvent>>,
 }
 
 pub fn generate_insured_event_collection(

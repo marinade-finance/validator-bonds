@@ -11,7 +11,7 @@ use {
     std::collections::HashMap,
 };
 
-#[derive(Clone, Deserialize, Serialize, Debug)]
+#[derive(Clone, Debug)]
 pub struct InsuranceClaim {
     pub withdraw_authority: Pubkey,
     pub stake_authority: Pubkey,
@@ -19,6 +19,63 @@ pub struct InsuranceClaim {
     pub stake_accounts: HashMap<Pubkey, u64>,
     pub stake: u64,
     pub claim: u64,
+}
+
+#[derive(Clone, Deserialize, Serialize, Debug)]
+struct InsuranceClaimJson {
+    pub withdraw_authority: Pubkey,
+    pub stake_authority: Pubkey,
+    pub vote_account: Pubkey,
+    pub stake_accounts: HashMap<String, u64>,
+    pub stake: u64,
+    pub claim: u64,
+}
+
+impl Serialize for InsuranceClaim {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        InsuranceClaimJson::from(self.clone()).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for InsuranceClaim {
+    fn deserialize<D>(deserializer: D) -> Result<InsuranceClaim, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        let iecj = InsuranceClaimJson::deserialize(deserializer)?;
+        Ok(InsuranceClaim {
+            withdraw_authority: iecj.withdraw_authority,
+            stake_authority: iecj.stake_authority,
+            vote_account: iecj.vote_account,
+            stake_accounts: iecj
+                .stake_accounts
+                .into_iter()
+                .map(|(k, v)| (k.parse().unwrap(), v))
+                .collect(),
+            stake: iecj.stake,
+            claim: iecj.claim,
+        })
+    }
+}
+
+impl From<InsuranceClaim> for InsuranceClaimJson {
+    fn from(iec: InsuranceClaim) -> Self {
+        InsuranceClaimJson {
+            withdraw_authority: iec.withdraw_authority,
+            stake_authority: iec.stake_authority,
+            vote_account: iec.vote_account,
+            stake_accounts: iec
+                .stake_accounts
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v))
+                .collect(),
+            stake: iec.stake,
+            claim: iec.claim,
+        }
+    }
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
