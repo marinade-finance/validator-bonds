@@ -28,8 +28,8 @@ import {
 } from '@marinade.finance/web3js-common'
 import {
   ValidatorBondsProgram,
-  settlementAuthority,
-  withdrawerAuthority,
+  settlementStakerAuthority,
+  bondsWithdrawerAuthority,
 } from '../../src'
 
 // Depending if new vote account feature-set is gated on.
@@ -315,7 +315,7 @@ export async function delegatedStakeAccount({
   withdrawer?: Keypair
 }): Promise<DelegatedStakeAccount> {
   const stakeAccount = Keypair.generate()
-  lamports = lamports ?? LAMPORTS_PER_SOL + 1
+  lamports = lamports ?? LAMPORTS_PER_SOL + (await getRentExemptStake(provider))
   rentExemptVote = await getRentExemptVote(provider, rentExemptVote)
 
   voteAccountToDelegate =
@@ -364,12 +364,12 @@ export async function createBondsFundedStakeAccount({
   lamports: number
   voteAccount: PublicKey
 }): Promise<PublicKey> {
-  const [bondsAuth] = withdrawerAuthority(configAccount, program.programId)
+  const [bondsAuth] = bondsWithdrawerAuthority(configAccount, program.programId)
   return await createStakeAccount({
     provider,
     voteAccount,
     lamports,
-    newWithdrawerAuthority: bondsAuth,
+    newbondsWithdrawerAuthority: bondsAuth,
     newStakerAuthority: bondsAuth,
   })
 }
@@ -389,8 +389,8 @@ export async function createSettlementFundedDelegatedStake({
   voteAccount: PublicKey
   lamports: number
 }): Promise<PublicKey> {
-  const [bondsAuth] = withdrawerAuthority(configAccount, program.programId)
-  const [settlementAuth] = settlementAuthority(
+  const [bondsAuth] = bondsWithdrawerAuthority(configAccount, program.programId)
+  const [settlementAuth] = settlementStakerAuthority(
     settlementAccount,
     program.programId
   )
@@ -398,7 +398,7 @@ export async function createSettlementFundedDelegatedStake({
     provider,
     voteAccount,
     lamports,
-    newWithdrawerAuthority: bondsAuth,
+    newbondsWithdrawerAuthority: bondsAuth,
     newStakerAuthority: settlementAuth,
   })
 }
@@ -416,8 +416,8 @@ export async function createSettlementFundedInitializedStake({
   settlementAccount: PublicKey
   lamports?: number
 }): Promise<PublicKey> {
-  const [bondsAuth] = withdrawerAuthority(configAccount, program.programId)
-  const [settlementAuth] = settlementAuthority(
+  const [bondsAuth] = bondsWithdrawerAuthority(configAccount, program.programId)
+  const [settlementAuth] = settlementStakerAuthority(
     settlementAccount,
     program.programId
   )
@@ -441,13 +441,13 @@ export async function createStakeAccount({
   provider,
   lamports,
   voteAccount,
-  newWithdrawerAuthority,
+  newbondsWithdrawerAuthority,
   newStakerAuthority,
 }: {
   provider: ExtendedProvider
   lamports: number
   voteAccount: PublicKey
-  newWithdrawerAuthority: PublicKey
+  newbondsWithdrawerAuthority: PublicKey
   newStakerAuthority: PublicKey
 }): Promise<PublicKey> {
   const { stakeAccount, withdrawer: initWithdrawer } =
@@ -460,7 +460,7 @@ export async function createStakeAccount({
     provider,
     authority: initWithdrawer,
     stakeAccount: stakeAccount,
-    withdrawer: newWithdrawerAuthority,
+    withdrawer: newbondsWithdrawerAuthority,
     staker: newStakerAuthority,
   })
   return stakeAccount

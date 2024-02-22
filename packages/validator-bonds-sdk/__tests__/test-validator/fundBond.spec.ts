@@ -5,7 +5,7 @@ import {
   ValidatorBondsProgram,
   fundBondInstruction,
   getStakeAccount,
-  withdrawerAuthority,
+  bondsWithdrawerAuthority,
 } from '../../src'
 import { initTest, waitForStakeAccountActivation } from './testValidator'
 import {
@@ -82,7 +82,7 @@ describe('Validator Bonds fund bond', () => {
     await provider.sendIx([withdrawer], instruction)
 
     const stakeAccountData = await getStakeAccount(provider, stakeAccount)
-    const [bondWithdrawer] = withdrawerAuthority(
+    const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
     )

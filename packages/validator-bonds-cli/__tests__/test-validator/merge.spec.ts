@@ -2,7 +2,7 @@ import { shellMatchers } from '@marinade.finance/jest-utils'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
-  withdrawerAuthority,
+  bondsWithdrawerAuthority,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
   AnchorExtendedProvider,
@@ -144,7 +144,7 @@ async function createMergeStakeAccounts({
   lamports1?: number
   lamports2?: number
 }): Promise<{ stakeAccount1: PublicKey; stakeAccount2: PublicKey }> {
-  const [bondWithdrawer] = withdrawerAuthority(config, programId)
+  const [bondWithdrawer] = bondsWithdrawerAuthority(config, programId)
   const {
     stakeAccount: stakeAccount1,
     withdrawer: withdrawer1,

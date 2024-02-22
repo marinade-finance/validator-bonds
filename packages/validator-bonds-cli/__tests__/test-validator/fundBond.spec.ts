@@ -4,7 +4,7 @@ import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
   getStakeAccount,
-  withdrawerAuthority,
+  bondsWithdrawerAuthority,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
   executeInitBondInstruction,
@@ -68,7 +68,7 @@ describe('Fund bond account using CLI', () => {
   })
 
   it('fund bond account', async () => {
-    const [bondWithdrawer] = withdrawerAuthority(
+    const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
     )

@@ -36,6 +36,7 @@ import {
   createSettlementFundedDelegatedStake,
   createStakeAccount,
   createVoteAccount,
+  getRentExemptStake,
 } from '../utils/staking'
 import { signer, pubkey } from '@marinade.finance/web3js-common'
 import {
@@ -179,7 +180,8 @@ describe('Validator Bonds claim settlement', () => {
       lamports: stakeAccountLamportsBefore,
       voteAccount: voteAccount1,
       newStakerAuthority: treeNode1Withdrawer1.treeNode.stakeAuthority,
-      newWithdrawerAuthority: treeNode1Withdrawer1.treeNode.withdrawAuthority,
+      newbondsWithdrawerAuthority:
+        treeNode1Withdrawer1.treeNode.withdrawAuthority,
     })
     const { instruction: ixWrongTreeNode } = await claimSettlementInstruction({
       program,
@@ -241,7 +243,8 @@ describe('Validator Bonds claim settlement', () => {
       lamports: 3 * LAMPORTS_PER_SOL,
       voteAccount: voteAccount1,
       newStakerAuthority: pubkey(notAStakeAccount),
-      newWithdrawerAuthority: treeNode1Withdrawer1.treeNode.withdrawAuthority,
+      newbondsWithdrawerAuthority:
+        treeNode1Withdrawer1.treeNode.withdrawAuthority,
     })
     const { instruction: ixWrongStaker } = await claimSettlementInstruction({
       program,
@@ -264,7 +267,7 @@ describe('Validator Bonds claim settlement', () => {
       lamports: 3 * LAMPORTS_PER_SOL,
       voteAccount: voteAccount1,
       newStakerAuthority: treeNode1Withdrawer1.treeNode.stakeAuthority,
-      newWithdrawerAuthority: pubkey(notAStakeAccount),
+      newbondsWithdrawerAuthority: pubkey(notAStakeAccount),
     })
     const { instruction: ixWrongWithdrawer } = await claimSettlementInstruction(
       {
@@ -285,32 +288,45 @@ describe('Validator Bonds claim settlement', () => {
       verifyError(e, Errors, 6012, 'Wrong withdrawer authority')
     }
 
-    const stakeAccountNotBigEnough = await createSettlementFundedDelegatedStake({
-      program,
-      provider,
-      configAccount,
-      settlementAccount: settlementAccount1,
-      lamports: new BN(LAMPORTS_PER_SOL).add(treeNode1Withdrawer1.treeNode.data.claim).subn(1).toNumber(),
-      voteAccount: voteAccount1,
-    })
-    deactivateStakeAccount(provider, stakeAccountNotBigEnough)
-    const { instruction: ixWrongStakeSize } = await claimSettlementInstruction(
+    const stakeAccountNotBigEnough = await createSettlementFundedDelegatedStake(
       {
         program,
-        claimAmount: treeNode1Withdrawer1.treeNode.data.claim,
-        merkleProof: treeNode1Withdrawer1.proof,
+        provider,
+        configAccount,
         settlementAccount: settlementAccount1,
-        stakeAccountFrom: stakeAccountNotBigEnough,
-        stakeAccountTo: stakeAccountWrongWithdrawer,
-        stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
-        stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
+        lamports: new BN(LAMPORTS_PER_SOL)
+          .add(new BN(await getRentExemptStake(provider)))
+          .add(treeNode1Withdrawer1.treeNode.data.claim)
+          .subn(1)
+          .toNumber(),
+        voteAccount: voteAccount1,
       }
     )
+    const { instruction: fundIxBit, splitStakeAccount } =
+      await fundSettlementInstruction({
+        program,
+        settlementAccount: settlementAccount1,
+        stakeAccount: stakeAccountNotBigEnough,
+      })
+    await provider.sendIx(
+      [operatorAuthority, signer(splitStakeAccount)],
+      fundIxBit
+    )
+    const { instruction: ixWrongStakeSize } = await claimSettlementInstruction({
+      program,
+      claimAmount: treeNode1Withdrawer1.treeNode.data.claim,
+      merkleProof: treeNode1Withdrawer1.proof,
+      settlementAccount: settlementAccount1,
+      stakeAccountFrom: stakeAccountNotBigEnough,
+      stakeAccountTo: stakeAccountTreeNode1Withdrawer1,
+      stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
+      stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
+    })
     try {
-      await provider.sendIx([], ixWrongWithdrawer)
+      await provider.sendIx([], ixWrongStakeSize)
       throw new Error('should have failed; wrong withdrawer')
     } catch (e) {
-      verifyError(e, Errors, 6012, 'Wrong withdrawer authority')
+      verifyError(e, Errors, 6035, 'has not enough lamports to cover')
     }
 
     warpToNextEpoch(provider) // deactivate stake account
@@ -378,7 +394,8 @@ describe('Validator Bonds claim settlement', () => {
       lamports: 233 * LAMPORTS_PER_SOL,
       voteAccount: voteAccount1,
       newStakerAuthority: treeNode1Withdrawer1.treeNode.stakeAuthority,
-      newWithdrawerAuthority: treeNode1Withdrawer1.treeNode.withdrawAuthority,
+      newbondsWithdrawerAuthority:
+        treeNode1Withdrawer1.treeNode.withdrawAuthority,
     })
     try {
       const wrongBumpIx = await claimSettlementWrongBump({
@@ -404,7 +421,8 @@ describe('Validator Bonds claim settlement', () => {
       lamports: 369 * LAMPORTS_PER_SOL,
       voteAccount: voteAccount1,
       newStakerAuthority: treeNode1Withdrawer2.treeNode.stakeAuthority,
-      newWithdrawerAuthority: treeNode1Withdrawer2.treeNode.withdrawAuthority,
+      newbondsWithdrawerAuthority:
+        treeNode1Withdrawer2.treeNode.withdrawAuthority,
     })
     const { instruction: ixWrongMerkleTreeNodes } =
       await claimSettlementInstruction({
@@ -430,7 +448,8 @@ describe('Validator Bonds claim settlement', () => {
       lamports: 32 * LAMPORTS_PER_SOL,
       voteAccount: voteAccount1,
       newStakerAuthority: treeNode2Withdrawer2.treeNode.stakeAuthority,
-      newWithdrawerAuthority: treeNode2Withdrawer2.treeNode.withdrawAuthority,
+      newbondsWithdrawerAuthority:
+        treeNode2Withdrawer2.treeNode.withdrawAuthority,
     })
     const { instruction: treeNode2Withdrawer2Ix } =
       await claimSettlementInstruction({
@@ -458,7 +477,8 @@ describe('Validator Bonds claim settlement', () => {
       lamports: 11 * LAMPORTS_PER_SOL,
       voteAccount: voteAccount1,
       newStakerAuthority: treeNode2Withdrawer1.treeNode.stakeAuthority,
-      newWithdrawerAuthority: treeNode2Withdrawer1.treeNode.withdrawAuthority,
+      newbondsWithdrawerAuthority:
+        treeNode2Withdrawer1.treeNode.withdrawAuthority,
     })
     const { instruction: ixWrongStakeAccount } =
       await claimSettlementInstruction({
@@ -499,7 +519,8 @@ describe('Validator Bonds claim settlement', () => {
       lamports: 11 * LAMPORTS_PER_SOL,
       voteAccount: voteAccount1,
       newStakerAuthority: treeNode1Withdrawer3.treeNode.stakeAuthority,
-      newWithdrawerAuthority: treeNode1Withdrawer3.treeNode.withdrawAuthority,
+      newbondsWithdrawerAuthority:
+        treeNode1Withdrawer3.treeNode.withdrawAuthority,
     })
     const { instruction: ixTooLate, settlementClaimAccount: accTooLate } =
       await claimSettlementInstruction({
@@ -590,7 +611,7 @@ describe('Validator Bonds claim settlement', () => {
         claim: new BN(claim),
       })
       .accounts({
-        configAccount,
+        config: configAccount,
         bond: bondAccount,
         settlement: settlementAccount,
         settlementClaim: settlementAccountWrongBump,

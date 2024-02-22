@@ -4,7 +4,7 @@ import {
   ValidatorBondsProgram,
   fundBondInstruction,
   getBond,
-  withdrawerAuthority,
+  bondsWithdrawerAuthority,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -151,7 +151,7 @@ describe('Validator Bonds fund bond account', () => {
       lamports: LAMPORTS_PER_SOL * 2,
       voteAccountToDelegate: bond.account.voteAccount,
     })
-    const [bondWithdrawer] = withdrawerAuthority(
+    const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
     )

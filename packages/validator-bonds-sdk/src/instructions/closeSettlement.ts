@@ -9,8 +9,8 @@ import {
 import {
   ValidatorBondsProgram,
   bondAddress,
-  settlementAuthority,
-  withdrawerAuthority,
+  settlementStakerAuthority,
+  bondsWithdrawerAuthority,
 } from '../sdk'
 import { getBond, getSettlement } from '../api'
 import { findStakeAccount } from '../web3.js'
@@ -63,7 +63,7 @@ export async function closeSettlementInstruction({
     voteAccount = bondData.voteAccount
   }
 
-  const [bondsAuth] = withdrawerAuthority(configAccount, program.programId)
+  const [bondsAuth] = bondsWithdrawerAuthority(configAccount, program.programId)
 
   // when split rent collector is null then there was no need for creation split stake account
   // in such case there is no splitRentCollector set and both, the splitRentCollector and stakeAccount
@@ -72,7 +72,7 @@ export async function closeSettlementInstruction({
     splitRentCollector = Keypair.generate().publicKey
     splitRentRefundAccount = splitRentRefundAccount || splitRentCollector
   } else if (splitRentRefundAccount === undefined) {
-    const [settlementAuth] = settlementAuthority(
+    const [settlementAuth] = settlementStakerAuthority(
       settlementAccount,
       program.programId
     )

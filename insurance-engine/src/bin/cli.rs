@@ -69,7 +69,10 @@ fn main() -> anyhow::Result<()> {
         &args.output_insured_event_collection,
     )?;
 
-    info!("Generating insured event collection... stake meta {:?}", args.whitelist_stake_authority);
+    info!(
+        "Generating insured event collection... stake meta {:?}",
+        args.whitelist_stake_authority
+    );
     let stake_meta_filter = args
         .whitelist_stake_authority
         .map(|whitelisted_stake_authorities| {

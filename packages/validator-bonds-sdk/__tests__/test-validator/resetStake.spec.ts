@@ -6,8 +6,8 @@ import {
   ValidatorBondsProgram,
   getStakeAccount,
   resetStakeInstruction,
-  settlementAuthority,
-  withdrawerAuthority,
+  settlementStakerAuthority,
+  bondsWithdrawerAuthority,
 } from '../../src'
 import { initTest } from './testValidator'
 import {
@@ -74,11 +74,11 @@ describe('Validator Bonds reset settlement stake account', () => {
       lamports: LAMPORTS_PER_SOL * 54,
     })
 
-    const [bondWithdrawer] = withdrawerAuthority(
+    const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
     )
-    const [settlementAuth] = settlementAuthority(
+    const [settlementAuth] = settlementStakerAuthority(
       fakeSettlement,
       program.programId
     )
@@ -112,7 +112,7 @@ describe('Validator Bonds reset settlement stake account', () => {
       expect(e.stakeAccount).toEqual(stakeAccount)
       expect(e.config).toEqual(configAccount)
       expect(e.settlement).toEqual(fakeSettlement)
-      expect(e.settlementAuthority).toEqual(settlementAuth)
+      expect(e.settlementStakerAuthority).toEqual(settlementAuth)
       expect(e.voteAccount).toEqual(voteAccount)
     })
   })

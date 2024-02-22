@@ -2,7 +2,7 @@ import { PublicKey, TransactionInstruction } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
   settlementClaimAddress,
-  withdrawerAuthority,
+  bondsWithdrawerAuthority,
 } from '../sdk'
 import { getSettlementClaim } from '../api'
 
@@ -32,14 +32,14 @@ export async function closeSettlementClaimInstruction({
     withdrawer &&
     claimAmount
   ) {
-    const [bondsWithdrawerAuthority] = withdrawerAuthority(
+    const [bondsWithdrawerAuth] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
     )
     settlementClaimAccount = settlementClaimAddress(
       {
         settlement: settlementAccount,
-        stakeAccountStaker: bondsWithdrawerAuthority,
+        stakeAccountStaker: bondsWithdrawerAuth,
         stakeAccountWithdrawer: withdrawer,
         claim: claimAmount,
       },

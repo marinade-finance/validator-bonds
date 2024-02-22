@@ -7,7 +7,7 @@ import {
   getSettlement,
   initSettlementInstruction,
   settlementAddress,
-  settlementAuthority,
+  settlementStakerAuthority,
 } from '../../src'
 import { getValidatorInfo, initTest } from './testValidator'
 import {
@@ -91,7 +91,7 @@ describe('Validator Bonds init settlement', () => {
       currentEpoch,
       program.programId
     )
-    const [settlementAuth, authorityBump] = settlementAuthority(
+    const [settlementAuth, authorityBump] = settlementStakerAuthority(
       settlementAccount,
       program.programId
     )

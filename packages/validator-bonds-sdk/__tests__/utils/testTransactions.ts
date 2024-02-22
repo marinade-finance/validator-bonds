@@ -7,7 +7,7 @@ import {
   initConfigInstruction,
   initSettlementInstruction,
   initWithdrawRequestInstruction,
-  withdrawerAuthority,
+  bondsWithdrawerAuthority,
 } from '../../src'
 import {
   ComputeBudgetProgram,
@@ -229,7 +229,7 @@ export async function executeFundBondInstruction({
   bondAccount: PublicKey
   bondAuthority: Keypair | PublicKey
   voteAccount: PublicKey
-  bondWithdrawerAuthority: PublicKey
+  bondbondsWithdrawerAuthority: PublicKey
 }> {
   let bondAuthority: Keypair | PublicKey
   let voteAccount: PublicKey
@@ -253,7 +253,7 @@ export async function executeFundBondInstruction({
     config = bondData.config
   }
 
-  const [bondWithdrawerAuthority] = withdrawerAuthority(
+  const [bondbondsWithdrawerAuthority] = bondsWithdrawerAuthority(
     config,
     program.programId
   )
@@ -288,7 +288,7 @@ export async function executeFundBondInstruction({
     bondAccount,
     bondAuthority,
     voteAccount,
-    bondWithdrawerAuthority,
+    bondbondsWithdrawerAuthority,
   }
 }
 

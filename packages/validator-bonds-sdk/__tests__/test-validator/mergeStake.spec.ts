@@ -5,7 +5,7 @@ import {
   ValidatorBondsProgram,
   getStakeAccount,
   mergeStakeInstruction,
-  withdrawerAuthority,
+  bondsWithdrawerAuthority,
 } from '../../src'
 import { initTest, waitForNextEpoch } from './testValidator'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
@@ -48,7 +48,7 @@ describe('Validator Bonds fund bond', () => {
     // otherwise the merge instruction could fail as the stake account is in transient state (0xc)
     // https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/instruction.rs#L39
     await waitForNextEpoch(provider.connection, 15)
-    const [bondWithdrawer] = withdrawerAuthority(
+    const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
     )

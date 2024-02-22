@@ -4,8 +4,8 @@ import {
   bondAddress,
   mergeStakeInstruction,
   settlementAddress,
-  settlementAuthority,
-  withdrawerAuthority,
+  settlementStakerAuthority,
+  bondsWithdrawerAuthority,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -79,7 +79,7 @@ describe('Staking merge verification/investigation', () => {
   })
 
   it('cannot merge same and with wrong withdrawer authorities', async () => {
-    const [bondWithdrawer] = withdrawerAuthority(
+    const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
     )
@@ -141,7 +141,7 @@ describe('Staking merge verification/investigation', () => {
   })
 
   it('cannot merge with non delegated stake state', async () => {
-    const [bondWithdrawer] = withdrawerAuthority(
+    const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
     )
@@ -177,7 +177,7 @@ describe('Staking merge verification/investigation', () => {
   })
 
   it('cannot merge different delegation', async () => {
-    const [bondWithdrawer] = withdrawerAuthority(
+    const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
     )
@@ -246,7 +246,7 @@ describe('Staking merge verification/investigation', () => {
   })
 
   it('cannot merge different deactivated delegation', async () => {
-    const [bondWithdrawer] = withdrawerAuthority(
+    const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
     )
@@ -367,7 +367,7 @@ describe('Staking merge verification/investigation', () => {
 
   it('cannot merge settlement and bond authority', async () => {
     const voteAccount = (await createVoteAccount({ provider })).voteAccount
-    const [bondWithdrawer] = withdrawerAuthority(
+    const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
     )
@@ -379,7 +379,7 @@ describe('Staking merge verification/investigation', () => {
       currentEpoch,
       program.programId
     )
-    const [settlementStaker] = settlementAuthority(
+    const [settlementStaker] = settlementStakerAuthority(
       settlement,
       program.programId
     )
@@ -440,7 +440,7 @@ describe('Staking merge verification/investigation', () => {
   })
 
   it('merging', async () => {
-    const [bondWithdrawer] = withdrawerAuthority(
+    const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
     )

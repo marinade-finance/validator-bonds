@@ -6,7 +6,7 @@ import {
   getSettlement,
   initSettlementInstruction,
   settlementAddress,
-  settlementAuthority,
+  settlementStakerAuthority,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -89,7 +89,7 @@ describe('Validator Bonds init settlement', () => {
       program.programId
     )
     expect(settlementAddr).toEqual(settlementAccount)
-    const [authorityAddr, authorityBump] = settlementAuthority(
+    const [authorityAddr, authorityBump] = settlementStakerAuthority(
       settlementAccount,
       program.programId
     )

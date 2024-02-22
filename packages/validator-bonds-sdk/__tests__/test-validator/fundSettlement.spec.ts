@@ -4,7 +4,7 @@ import {
   FundSettlementEvent,
   FUND_SETTLEMENT_EVENT,
   fundSettlementInstruction,
-  withdrawerAuthority,
+  bondsWithdrawerAuthority,
   getConfig,
 } from '../../src'
 import { getValidatorInfo, initTest } from './testValidator'
@@ -76,7 +76,10 @@ describe('Validator Bonds fund settlement', () => {
         voteAccountToDelegate: voteAccount,
       })
     // not needed to activate for this test case
-    const [bondsAuth] = withdrawerAuthority(configAccount, program.programId)
+    const [bondsAuth] = bondsWithdrawerAuthority(
+      configAccount,
+      program.programId
+    )
     await authorizeStakeAccount({
       provider,
       authority: initWithdrawer,

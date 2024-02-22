@@ -5,8 +5,8 @@ import {
   cancelWithdrawRequestInstruction,
   getBond,
   getWithdrawRequest,
-  settlementAuthority,
-  withdrawerAuthority,
+  settlementStakerAuthority,
+  bondsWithdrawerAuthority,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -176,7 +176,7 @@ describe('Validator Bonds claim withdraw request', () => {
     )
     assert(splitStakeAccountInfo !== null, 'split stake account not found')
 
-    const [bondsAuthority] = withdrawerAuthority(
+    const [bondsAuthority] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
     )
@@ -588,8 +588,11 @@ describe('Validator Bonds claim withdraw request', () => {
   it('cannot claim with wrong stake account authority', async () => {
     const stakeAccountStaker = new Keypair()
     const stakeAccountWithdrawer = new Keypair()
-    const [bondsAuth] = withdrawerAuthority(configAccount, program.programId)
-    const [settlementAuth] = settlementAuthority(
+    const [bondsAuth] = bondsWithdrawerAuthority(
+      configAccount,
+      program.programId
+    )
+    const [settlementAuth] = settlementStakerAuthority(
       new Keypair().publicKey,
       program.programId
     )

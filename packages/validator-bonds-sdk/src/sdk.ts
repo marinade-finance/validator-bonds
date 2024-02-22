@@ -215,7 +215,7 @@ export function bondAddress(
   )
 }
 
-export function withdrawerAuthority(
+export function bondsWithdrawerAuthority(
   config: PublicKey,
   validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
 ): [PublicKey, number] {
@@ -248,7 +248,7 @@ export function settlementAddress(
   )
 }
 
-export function settlementAuthority(
+export function settlementStakerAuthority(
   settlement: PublicKey,
   validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
 ): [PublicKey, number] {

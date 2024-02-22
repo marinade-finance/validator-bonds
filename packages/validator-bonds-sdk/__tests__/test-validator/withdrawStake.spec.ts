@@ -4,9 +4,9 @@ import {
   WITHDRAW_STAKE_EVENT,
   WithdrawStakeEvent,
   getStakeAccount,
-  settlementAuthority,
+  settlementStakerAuthority,
   withdrawStakeInstruction,
-  withdrawerAuthority,
+  bondsWithdrawerAuthority,
 } from '../../src'
 import { initTest } from './testValidator'
 import {
@@ -53,11 +53,11 @@ describe('Validator Bonds withdraw settlement stake account', () => {
     })
 
     const fakeSettlement = Keypair.generate().publicKey
-    const [bondWithdrawer] = withdrawerAuthority(
+    const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
     )
-    const [settlementAuth] = settlementAuthority(
+    const [settlementAuth] = settlementStakerAuthority(
       fakeSettlement,
       program.programId
     )
@@ -94,7 +94,7 @@ describe('Validator Bonds withdraw settlement stake account', () => {
       expect(e.stakeAccount).toEqual(stakeAccount)
       expect(e.config).toEqual(configAccount)
       expect(e.settlement).toEqual(fakeSettlement)
-      expect(e.settlementAuthority).toEqual(settlementAuth)
+      expect(e.settlementStakerAuthority).toEqual(settlementAuth)
       expect(e.operatorAuthority).toEqual(operatorAuthority.publicKey)
       expect(e.stakeAccount).toEqual(stakeAccount)
       expect(e.withdrawTo).toEqual(pubkey(user))

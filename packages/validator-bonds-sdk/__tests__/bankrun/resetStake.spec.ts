@@ -3,7 +3,7 @@ import {
   U64_MAX,
   ValidatorBondsProgram,
   resetStakeInstruction,
-  withdrawerAuthority,
+  bondsWithdrawerAuthority,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -78,7 +78,10 @@ describe('Validator Bonds reset stake', () => {
     await provider.sendIx([], instruction)
 
     const epochNow = await currentEpoch(provider)
-    const [bondsAuth] = withdrawerAuthority(configAccount, program.programId)
+    const [bondsAuth] = bondsWithdrawerAuthority(
+      configAccount,
+      program.programId
+    )
     const [stakeAccountData] = await getAndCheckStakeAccount(
       provider,
       stakeAccount,

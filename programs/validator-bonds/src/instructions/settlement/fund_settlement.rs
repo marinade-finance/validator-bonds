@@ -241,6 +241,11 @@ impl<'info> FundSettlement<'info> {
                     &[self.config.bonds_withdrawer_authority_bump],
                 ]],
             ))?;
+        } else {
+            msg!(
+                "Stake account {} is already deactivated",
+                self.stake_account.key()
+            );
         }
         // moving stake account from bond authority to settlement authority to differentiate funded and non-funded stake accounts
         authorize(

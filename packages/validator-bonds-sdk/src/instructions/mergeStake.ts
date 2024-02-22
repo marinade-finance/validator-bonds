@@ -4,7 +4,7 @@ import {
   StakeProgram,
   TransactionInstruction,
 } from '@solana/web3.js'
-import { ValidatorBondsProgram, withdrawerAuthority } from '../sdk'
+import { ValidatorBondsProgram, bondsWithdrawerAuthority } from '../sdk'
 
 export async function mergeStakeInstruction({
   program,
@@ -28,7 +28,8 @@ export async function mergeStakeInstruction({
   //       stake account staker authority can be either bond managed or settlement managed
   //       it would be good to check settlements automatically by searching all settlements of the bond and validator
   //       and make sdk to find the right settlement to use when the settlement pubkey is not provided as param
-  stakerAuthority = stakerAuthority ?? withdrawerAuthority(configAccount)[0]
+  stakerAuthority =
+    stakerAuthority ?? bondsWithdrawerAuthority(configAccount)[0]
 
   const instruction = await program.methods
     .mergeStake({

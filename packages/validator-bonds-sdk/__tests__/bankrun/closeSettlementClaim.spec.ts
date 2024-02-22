@@ -112,7 +112,8 @@ describe('Validator Bonds close settlement claim', () => {
       lamports: 123 * LAMPORTS_PER_SOL,
       voteAccount: voteAccount1,
       newStakerAuthority: treeNode1Withdrawer1.treeNode.stakeAuthority,
-      newWithdrawerAuthority: treeNode1Withdrawer1.treeNode.withdrawAuthority,
+      newbondsWithdrawerAuthority:
+        treeNode1Withdrawer1.treeNode.withdrawAuthority,
     })
     await warpToNextEpoch(provider)
     const { instruction: claimIx, settlementClaimAccount } =

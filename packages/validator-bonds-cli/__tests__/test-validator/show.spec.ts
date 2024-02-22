@@ -4,7 +4,7 @@ import {
   bondAddress,
   initConfigInstruction,
   ValidatorBondsProgram,
-  withdrawerAuthority,
+  bondsWithdrawerAuthority,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
   executeTxSimple,
@@ -54,7 +54,7 @@ describe('Show command using CLI', () => {
       configKeypair,
     ])
 
-    const [, bondsWithdrawerAuthorityBump] = withdrawerAuthority(
+    const [, bondsWithdrawerAuthorityBump] = bondsWithdrawerAuthority(
       configPubkey,
       program.programId
     )

@@ -6,7 +6,6 @@ import {
   getStakeAccount,
   getVoteAccount,
   getWithdrawRequest,
-  withdrawerAuthority,
 } from '../../src'
 import { initTest, waitForStakeAccountActivation } from './testValidator'
 import {
@@ -83,7 +82,7 @@ describe('Validator Bonds claim withdraw request', () => {
     })
 
     let stakeAccountData = await getStakeAccount(program, stakeAccount)
-    const [bondsWithdrawerAuthority] = withdrawerAuthority(
+    const [bondsWithdrawerAuthority] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
     )

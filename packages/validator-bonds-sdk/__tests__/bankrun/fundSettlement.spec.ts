@@ -6,8 +6,8 @@ import {
   fundSettlementInstruction,
   getConfig,
   getSettlement,
-  settlementAuthority,
-  withdrawerAuthority,
+  settlementStakerAuthority,
+  bondsWithdrawerAuthority,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -25,7 +25,12 @@ import {
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey, StakeProgram } from '@solana/web3.js'
+import {
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  StakeProgram,
+} from '@solana/web3.js'
 import {
   StakeStates,
   authorizeStakeAccount,
@@ -33,6 +38,7 @@ import {
   createSettlementFundedDelegatedStake,
   createVoteAccount,
   delegatedStakeAccount,
+  deserializeStakeState,
   getAndCheckStakeAccount,
   getRentExemptStake,
 } from '../utils/staking'
@@ -377,8 +383,7 @@ describe('Validator Bonds fund settlement', () => {
     await assertNotExist(provider, pubkey(splitStakeAccount))
   })
 
-
-  it.only('fund settlement with deactivated stake', async () => {
+  it('fund settlement with deactivated stake', async () => {
     const maxTotalClaim = LAMPORTS_PER_SOL * 2
     const { settlementAccount } = await executeInitSettlement({
       configAccount,
@@ -389,8 +394,7 @@ describe('Validator Bonds fund settlement', () => {
       currentEpoch: await currentEpoch(provider),
       maxTotalClaim,
     })
-    const { stakeAccount, staker, withdrawer } =
-    await delegatedStakeAccount({
+    const { stakeAccount, staker, withdrawer } = await delegatedStakeAccount({
       provider,
       voteAccountToDelegate: voteAccount,
     })
@@ -399,9 +403,26 @@ describe('Validator Bonds fund settlement', () => {
       authorizedPubkey: staker.publicKey,
     })
     await provider.sendIx([staker], deactivateIx)
-    const [bondAuth] = withdrawerAuthority(configAccount, program.programId)
-    const [settlementAuth] = settlementAuthority(settlementAccount, program.programId)
-    await authorizeStakeAccount({provider, stakeAccount, authority: withdrawer, staker: settlementAuth, withdrawer: bondAuth})
+    const [bondAuth] = bondsWithdrawerAuthority(
+      configAccount,
+      program.programId
+    )
+    const [settlementAuth] = settlementStakerAuthority(
+      settlementAccount,
+      program.programId
+    )
+    await authorizeStakeAccount({
+      provider,
+      stakeAccount,
+      authority: withdrawer,
+      staker: bondAuth,
+      withdrawer: bondAuth,
+    })
+    let stakeAccountInfo =
+      await provider.connection.getAccountInfo(stakeAccount)
+    let stakeAccountData = deserializeStakeState(stakeAccountInfo?.data)
+    expect(stakeAccountData.Stake?.meta.authorized.staker).toEqual(bondAuth)
+    expect(stakeAccountData.Stake?.meta.authorized.withdrawer).toEqual(bondAuth)
 
     const { instruction, splitStakeAccount } = await fundSettlementInstruction({
       program,
@@ -412,6 +433,16 @@ describe('Validator Bonds fund settlement', () => {
       [signer(splitStakeAccount), operatorAuthority],
       instruction
     )
+    const settlementData = await getSettlement(program, settlementAccount)
+    // nothing funded as the lamports of the stake account is exactly min lamports for stake account (1 SOL) + rent exempt
+    expect(settlementData.lamportsFunded).toEqual(0)
+    await assertNotExist(provider, pubkey(splitStakeAccount))
+    stakeAccountInfo = await provider.connection.getAccountInfo(stakeAccount)
+    stakeAccountData = deserializeStakeState(stakeAccountInfo?.data)
+    expect(stakeAccountData.Stake?.meta.authorized.staker).toEqual(
+      settlementAuth
+    )
+    expect(stakeAccountData.Stake?.meta.authorized.withdrawer).toEqual(bondAuth)
   })
 
   it('cannot fund closed settlement', async () => {
