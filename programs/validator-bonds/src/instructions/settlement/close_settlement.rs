@@ -2,7 +2,7 @@ use crate::checks::{
     check_stake_is_initialized_with_withdrawer_authority, check_stake_valid_delegation,
     deserialize_stake_account,
 };
-use crate::constants::BONDS_AUTHORITY_SEED;
+use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
 use crate::events::settlement::CloseSettlementEvent;
 use crate::state::bond::Bond;
@@ -107,7 +107,7 @@ impl<'info> CloseSettlement<'info> {
                         stake_history: self.stake_history.to_account_info(),
                     },
                     &[&[
-                        BONDS_AUTHORITY_SEED,
+                        BONDS_WITHDRAWER_AUTHORITY_SEED,
                         &self.config.key().as_ref(),
                         &[self.config.bonds_withdrawer_authority_bump],
                     ]],

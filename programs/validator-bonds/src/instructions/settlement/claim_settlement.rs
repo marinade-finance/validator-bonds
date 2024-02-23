@@ -1,5 +1,5 @@
 use crate::checks::check_stake_is_initialized_with_withdrawer_authority;
-use crate::constants::BONDS_AUTHORITY_SEED;
+use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
 use crate::events::settlement_claim::ClaimSettlementEvent;
 use crate::state::bond::Bond;
@@ -176,7 +176,7 @@ impl<'info> ClaimSettlement<'info> {
         // provided stake account "from" must be funded; staker == settlement staker authority
         require_keys_eq!(
             stake_from_meta.authorized.staker,
-            self.settlement.authority,
+            self.settlement.staker_authority,
             ErrorCode::StakeAccountNotFundedToSettlement,
         );
 
@@ -246,7 +246,7 @@ impl<'info> ClaimSettlement<'info> {
                     stake_history: self.stake_history.to_account_info(),
                 },
                 &[&[
-                    BONDS_AUTHORITY_SEED,
+                    BONDS_WITHDRAWER_AUTHORITY_SEED,
                     &self.config.key().as_ref(),
                     &[self.config.bonds_withdrawer_authority_bump],
                 ]],

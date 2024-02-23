@@ -369,7 +369,7 @@ export async function createBondsFundedStakeAccount({
     provider,
     voteAccount,
     lamports,
-    newbondsWithdrawerAuthority: bondsAuth,
+    newBondsWithdrawerAuthority: bondsAuth,
     newStakerAuthority: bondsAuth,
   })
 }
@@ -398,7 +398,7 @@ export async function createSettlementFundedDelegatedStake({
     provider,
     voteAccount,
     lamports,
-    newbondsWithdrawerAuthority: bondsAuth,
+    newBondsWithdrawerAuthority: bondsAuth,
     newStakerAuthority: settlementAuth,
   })
 }
@@ -441,13 +441,13 @@ export async function createStakeAccount({
   provider,
   lamports,
   voteAccount,
-  newbondsWithdrawerAuthority,
+  newBondsWithdrawerAuthority,
   newStakerAuthority,
 }: {
   provider: ExtendedProvider
   lamports: number
   voteAccount: PublicKey
-  newbondsWithdrawerAuthority: PublicKey
+  newBondsWithdrawerAuthority: PublicKey
   newStakerAuthority: PublicKey
 }): Promise<PublicKey> {
   const { stakeAccount, withdrawer: initWithdrawer } =
@@ -460,7 +460,7 @@ export async function createStakeAccount({
     provider,
     authority: initWithdrawer,
     stakeAccount: stakeAccount,
-    withdrawer: newbondsWithdrawerAuthority,
+    withdrawer: newBondsWithdrawerAuthority,
     staker: newStakerAuthority,
   })
   return stakeAccount

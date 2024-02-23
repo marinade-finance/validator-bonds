@@ -3,7 +3,7 @@ import { installInitConfig } from './initConfig'
 import { installConfigureConfig } from './configureConfig'
 import { installInitBond } from './initBond'
 import { installConfigureBond } from './configureBond'
-import { installMerge } from './merge'
+import { installStakeMerge } from './mergeStake'
 import { installFundBond } from './fundBond'
 import {
   installEmergencyPause,
@@ -15,7 +15,7 @@ export function installManage(program: Command) {
   installConfigureConfig(program)
   installInitBond(program)
   installConfigureBond(program)
-  installMerge(program)
+  installStakeMerge(program)
   installFundBond(program)
   installEmergencyPause(program)
   installEmergencyResume(program)

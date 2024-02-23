@@ -64,9 +64,11 @@ export const BOND_SEED = seedFromConstants('BOND_SEED')
 export const SETTLEMENT_SEED = seedFromConstants('SETTLEMENT_SEED')
 export const WITHDRAW_REQUEST_SEED = seedFromConstants('WITHDRAW_REQUEST_SEED')
 export const SETTLEMENT_CLAIM_SEED = seedFromConstants('SETTLEMENT_CLAIM_SEED')
-export const BONDS_AUTHORITY_SEED = seedFromConstants('BONDS_AUTHORITY_SEED')
-export const SETTLEMENT_AUTHORITY_SEED = seedFromConstants(
-  'SETTLEMENT_AUTHORITY_SEED'
+export const BONDS_WITHDRAWER_AUTHORITY_SEED = seedFromConstants(
+  'BONDS_WITHDRAWER_AUTHORITY_SEED'
+)
+export const SETTLEMENT_STAKER_AUTHORITY_SEED = seedFromConstants(
+  'SETTLEMENT_STAKER_AUTHORITY_SEED'
 )
 
 // --- EVENTS ---
@@ -220,7 +222,7 @@ export function bondsWithdrawerAuthority(
   validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
-    [BONDS_AUTHORITY_SEED, config.toBytes()],
+    [BONDS_WITHDRAWER_AUTHORITY_SEED, config.toBytes()],
     validatorBondsProgramId
   )
 }
@@ -253,7 +255,7 @@ export function settlementStakerAuthority(
   validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
-    [SETTLEMENT_AUTHORITY_SEED, settlement.toBytes()],
+    [SETTLEMENT_STAKER_AUTHORITY_SEED, settlement.toBytes()],
     validatorBondsProgramId
   )
 }

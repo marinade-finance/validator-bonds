@@ -8,9 +8,9 @@ import {
   mergeStakeInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 
-export function installMerge(program: Command) {
+export function installStakeMerge(program: Command) {
   program
-    .command('merge')
+    .command('merge-stake')
     .description('Merging stake accounts belonging to validator bonds program.')
     .requiredOption(
       '--source <pubkey>',

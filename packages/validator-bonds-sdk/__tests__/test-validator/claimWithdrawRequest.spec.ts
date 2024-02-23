@@ -3,6 +3,7 @@ import {
   CLAIM_WITHDRAW_REQUEST_EVENT,
   ClaimWithdrawRequestEvent,
   ValidatorBondsProgram,
+  bondsWithdrawerAuthority,
   getStakeAccount,
   getVoteAccount,
   getWithdrawRequest,
@@ -82,12 +83,12 @@ describe('Validator Bonds claim withdraw request', () => {
     })
 
     let stakeAccountData = await getStakeAccount(program, stakeAccount)
-    const [bondsWithdrawerAuthority] = bondsWithdrawerAuthority(
+    const [bondsWithdrawerAuth] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
     )
-    expect(stakeAccountData.staker).toEqual(bondsWithdrawerAuthority)
-    expect(stakeAccountData.withdrawer).toEqual(bondsWithdrawerAuthority)
+    expect(stakeAccountData.staker).toEqual(bondsWithdrawerAuth)
+    expect(stakeAccountData.withdrawer).toEqual(bondsWithdrawerAuth)
     const withdrawRequestData = await getWithdrawRequest(
       program,
       withdrawRequest

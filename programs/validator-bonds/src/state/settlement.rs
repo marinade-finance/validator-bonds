@@ -1,4 +1,4 @@
-use crate::constants::{SETTLEMENT_AUTHORITY_SEED, SETTLEMENT_SEED};
+use crate::constants::{SETTLEMENT_SEED, SETTLEMENT_STAKER_AUTHORITY_SEED};
 use crate::error::ErrorCode;
 use crate::ID;
 use anchor_lang::prelude::*;
@@ -13,7 +13,7 @@ pub struct Settlement {
     pub bond: Pubkey,
     /// settlement authority used as the 'staker' stake account authority
     /// of stake accounts funded to this settlement
-    pub authority: Pubkey,
+    pub staker_authority: Pubkey,
     /// 256-bit merkle root to check the claims against
     pub merkle_root: [u8; 32],
     /// maximum number of funds that can ever be claimed from this [Settlement]
@@ -42,7 +42,7 @@ pub struct Settlement {
 #[derive(AnchorDeserialize, AnchorSerialize, Clone, Debug, Default)]
 pub struct Bumps {
     pub pda: u8,
-    pub authority: u8,
+    pub staker_authority: u8,
 }
 
 impl Settlement {
@@ -63,9 +63,9 @@ impl Settlement {
     pub fn settlement_staker_authority(&self, settlement_address: &Pubkey) -> Result<Pubkey> {
         Pubkey::create_program_address(
             &[
-                SETTLEMENT_AUTHORITY_SEED,
+                SETTLEMENT_STAKER_AUTHORITY_SEED,
                 settlement_address.as_ref(),
-                &[self.bumps.authority],
+                &[self.bumps.staker_authority],
             ],
             &ID,
         )
@@ -87,7 +87,10 @@ pub fn find_settlement_address(bond: &Pubkey, merkle_root: &[u8; 32], epoch: u64
 
 pub fn find_settlement_staker_authority(settlement_address: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(
-        &[SETTLEMENT_AUTHORITY_SEED, &settlement_address.as_ref()],
+        &[
+            SETTLEMENT_STAKER_AUTHORITY_SEED,
+            &settlement_address.as_ref(),
+        ],
         &ID,
     )
 }

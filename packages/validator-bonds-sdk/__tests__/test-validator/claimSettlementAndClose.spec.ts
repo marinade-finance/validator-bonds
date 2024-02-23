@@ -139,7 +139,7 @@ describe('Validator Bonds claim settlement', () => {
         voteAccount: voteAccount1,
         newStakerAuthority:
           treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority,
-        newbondsWithdrawerAuthority:
+        newBondsWithdrawerAuthority:
           treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority,
       })
 
@@ -201,7 +201,7 @@ describe('Validator Bonds claim settlement', () => {
       lamports: 6 * LAMPORTS_PER_SOL,
       voteAccount: voteAccount1,
       newStakerAuthority: treeNodeWithdrawer2.treeNode.stakeAuthority,
-      newbondsWithdrawerAuthority:
+      newBondsWithdrawerAuthority:
         treeNodeWithdrawer2.treeNode.withdrawAuthority,
     })
     const { instruction: ix1 } = await claimSettlementInstruction({
@@ -219,7 +219,7 @@ describe('Validator Bonds claim settlement', () => {
       lamports: 7 * LAMPORTS_PER_SOL,
       voteAccount: voteAccount1,
       newStakerAuthority: treeNodeWithdrawer3.treeNode.stakeAuthority,
-      newbondsWithdrawerAuthority:
+      newBondsWithdrawerAuthority:
         treeNodeWithdrawer3.treeNode.withdrawAuthority,
     })
     const { instruction: ix2 } = await claimSettlementInstruction({

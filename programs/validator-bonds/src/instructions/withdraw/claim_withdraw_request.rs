@@ -2,7 +2,7 @@ use crate::checks::{
     check_bond_change_permitted, check_stake_is_initialized_with_withdrawer_authority,
     check_stake_valid_delegation,
 };
-use crate::constants::BONDS_AUTHORITY_SEED;
+use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
 use crate::events::withdraw::ClaimWithdrawRequestEvent;
 use crate::events::{SplitStakeData, U64ValueChange};
@@ -197,7 +197,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
                     self.split_stake_account.to_account_info(),
                 ],
                 &[&[
-                    BONDS_AUTHORITY_SEED,
+                    BONDS_WITHDRAWER_AUTHORITY_SEED,
                     &self.config.key().as_ref(),
                     &[self.config.bonds_withdrawer_authority_bump],
                 ]],
@@ -233,7 +233,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
                     clock: self.clock.to_account_info(),
                 },
                 &[&[
-                    BONDS_AUTHORITY_SEED,
+                    BONDS_WITHDRAWER_AUTHORITY_SEED,
                     &self.config.key().as_ref(),
                     &[self.config.bonds_withdrawer_authority_bump],
                 ]],
@@ -252,7 +252,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
                     clock: self.clock.to_account_info(),
                 },
                 &[&[
-                    BONDS_AUTHORITY_SEED,
+                    BONDS_WITHDRAWER_AUTHORITY_SEED,
                     &self.config.key().as_ref(),
                     &[self.config.bonds_withdrawer_authority_bump],
                 ]],

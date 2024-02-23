@@ -16,9 +16,9 @@ pub const WITHDRAW_REQUEST_SEED: &[u8] = b"withdraw_account";
 pub const SETTLEMENT_CLAIM_SEED: &[u8] = b"claim_account";
 
 #[constant]
-pub const BONDS_AUTHORITY_SEED: &[u8] = b"bonds_authority";
+pub const BONDS_WITHDRAWER_AUTHORITY_SEED: &[u8] = b"bonds_authority";
 
 #[constant]
-pub const SETTLEMENT_AUTHORITY_SEED: &[u8] = b"settlement_authority";
+pub const SETTLEMENT_STAKER_AUTHORITY_SEED: &[u8] = b"settlement_authority";
 
 pub const MIN_STAKE_LAMPORTS: u64 = 1_000_000_000;

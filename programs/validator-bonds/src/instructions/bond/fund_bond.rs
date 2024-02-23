@@ -10,7 +10,10 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::stake::state::StakeAuthorize;
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 
-/// Deposit stake account as validator bond record
+/// Funding stake account to the validator bond record.
+// This operation can be done in same way with manually changing the widhtrawer and staker
+// authorities of the stake account to the bonds withdrawer authority address.
+// While this transaction ensures the stake account is in state that is considered as properly funded.
 #[derive(Accounts)]
 pub struct FundBond<'info> {
     #[account()]

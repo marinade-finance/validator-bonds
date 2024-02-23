@@ -2,7 +2,7 @@ use crate::checks::{
     check_stake_is_initialized_with_withdrawer_authority, check_stake_is_not_locked,
     check_stake_valid_delegation,
 };
-use crate::constants::BONDS_AUTHORITY_SEED;
+use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
 use crate::events::settlement::FundSettlementEvent;
 use crate::events::SplitStakeData;
@@ -46,7 +46,7 @@ pub struct FundSettlement<'info> {
     #[account(
         mut,
         has_one = bond @ ErrorCode::BondAccountMismatch,
-        constraint = settlement.authority == settlement_authority.key() @ ErrorCode::SettlementAuthorityMismatch,
+        constraint = settlement.staker_authority == settlement_staker_authority.key() @ ErrorCode::SettlementAuthorityMismatch,
         seeds = [
             b"settlement_account",
             bond.key().as_ref(),
@@ -73,9 +73,9 @@ pub struct FundSettlement<'info> {
             b"settlement_authority",
             settlement.key().as_ref(),
         ],
-        bump = settlement.bumps.authority,
+        bump = settlement.bumps.staker_authority,
     )]
-    settlement_authority: UncheckedAccount<'info>,
+    settlement_staker_authority: UncheckedAccount<'info>,
 
     /// CHECK: PDA
     /// authority that manages (owns) all stakes account under the bonds program
@@ -165,7 +165,7 @@ impl<'info> FundSettlement<'info> {
         // note: we can over-fund the settlement when the stake account is in shape to not being possible to split it
         let amount_available = self.stake_account.get_lamports();
         // amount needed: "amount + rent exempt + minimal stake size" -> ensuring stake account may exist
-        // NOTE: once deactivated the balance may drop only to "rent exempt" and "minimal stake size" is not needed anymore
+        // NOTE: once deactivated the balance may drop only to "rent exempt" and "minimal stake size" is not needed anymore,
         //       but we want to re-activate later the left-over at the stake account thus needed to be funded with plus minimal stake size
         let amount_needed = self.settlement.max_total_claim - self.settlement.lamports_funded
             + stake_account_min_size;
@@ -212,7 +212,7 @@ impl<'info> FundSettlement<'info> {
                         self.bonds_withdrawer_authority.to_account_info(),
                     ],
                     &[&[
-                        BONDS_AUTHORITY_SEED,
+                        BONDS_WITHDRAWER_AUTHORITY_SEED,
                         &self.config.key().as_ref(),
                         &[self.config.bonds_withdrawer_authority_bump],
                     ]],
@@ -236,7 +236,7 @@ impl<'info> FundSettlement<'info> {
                     clock: self.clock.to_account_info(),
                 },
                 &[&[
-                    BONDS_AUTHORITY_SEED,
+                    BONDS_WITHDRAWER_AUTHORITY_SEED,
                     &self.config.key().as_ref(),
                     &[self.config.bonds_withdrawer_authority_bump],
                 ]],
@@ -254,11 +254,11 @@ impl<'info> FundSettlement<'info> {
                 Authorize {
                     stake: self.stake_account.to_account_info(),
                     authorized: self.bonds_withdrawer_authority.to_account_info(),
-                    new_authorized: self.settlement_authority.to_account_info(),
+                    new_authorized: self.settlement_staker_authority.to_account_info(),
                     clock: self.clock.to_account_info(),
                 },
                 &[&[
-                    BONDS_AUTHORITY_SEED,
+                    BONDS_WITHDRAWER_AUTHORITY_SEED,
                     &self.config.key().as_ref(),
                     &[self.config.bonds_withdrawer_authority_bump],
                 ]],

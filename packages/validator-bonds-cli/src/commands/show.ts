@@ -296,7 +296,7 @@ async function showBond({
     try {
       const foundData = await findBonds({
         program,
-        config,
+        configAccount: config,
         voteAccount,
         bondAuthority,
       })

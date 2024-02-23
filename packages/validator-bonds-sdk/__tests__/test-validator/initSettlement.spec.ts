@@ -99,14 +99,14 @@ describe('Validator Bonds init settlement', () => {
     expect(settlementData.bond).toEqual(bondAccount)
     expect(settlementData.bumps).toEqual({
       pda: bump,
-      authority: authorityBump,
+      stakerAuthority: authorityBump,
     })
     expect(settlementData.epochCreatedFor).toEqual(currentEpoch)
     expect(settlementData.maxMerkleNodes).toEqual(2)
     expect(settlementData.maxTotalClaim).toEqual(100)
     expect(settlementData.merkleRoot).toEqual(Array.from(merkleRoot))
     expect(settlementData.rentCollector).toEqual(rentCollector)
-    expect(settlementData.authority).toEqual(settlementAuth)
+    expect(settlementData.stakerAuthority).toEqual(settlementAuth)
     expect(settlementData.lamportsFunded).toEqual(0)
     expect(settlementData.lamportsClaimed).toEqual(0)
     expect(settlementData.merkleNodesClaimed).toEqual(0)
@@ -116,13 +116,13 @@ describe('Validator Bonds init settlement', () => {
     await event.then(e => {
       expect(e.bond).toEqual(bondAccount)
       expect(e.voteAccount).toEqual(voteAccount)
-      expect(e.bumps).toEqual({ pda: bump, authority: authorityBump })
+      expect(e.bumps).toEqual({ pda: bump, stakerAuthority: authorityBump })
       expect(e.epochCreatedFor).toEqual(currentEpoch)
       expect(e.maxMerkleNodes).toEqual(2)
       expect(e.maxTotalClaim).toEqual(100)
       expect(e.merkleRoot).toEqual(Array.from(merkleRoot))
       expect(e.rentCollector).toEqual(rentCollector)
-      expect(e.authority).toEqual(settlementAuth)
+      expect(e.stakerAuthority).toEqual(settlementAuth)
     })
   })
 

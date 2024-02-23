@@ -267,7 +267,7 @@ describe('Validator Bonds pause&resume', () => {
       lamports: 3 * LAMPORTS_PER_SOL,
       voteAccount: voteAccount1,
       newStakerAuthority: treeNode1Withdrawer1.treeNode.stakeAuthority,
-      newbondsWithdrawerAuthority:
+      newBondsWithdrawerAuthority:
         treeNode1Withdrawer1.treeNode.withdrawAuthority,
     })
     await warpToNextEpoch(provider)

@@ -1,4 +1,4 @@
-use crate::constants::BONDS_AUTHORITY_SEED;
+use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
 use crate::ID;
 use anchor_lang::prelude::*;
@@ -31,7 +31,7 @@ impl Config {
     pub fn bonds_withdrawer_authority(&self, config_address: &Pubkey) -> Result<Pubkey> {
         Pubkey::create_program_address(
             &[
-                BONDS_AUTHORITY_SEED,
+                BONDS_WITHDRAWER_AUTHORITY_SEED,
                 config_address.as_ref(),
                 &[self.bonds_withdrawer_authority_bump],
             ],
@@ -42,5 +42,8 @@ impl Config {
 }
 
 pub fn find_bonds_withdrawer_authority(config_address: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[BONDS_AUTHORITY_SEED, config_address.as_ref()], &ID)
+    Pubkey::find_program_address(
+        &[BONDS_WITHDRAWER_AUTHORITY_SEED, config_address.as_ref()],
+        &ID,
+    )
 }

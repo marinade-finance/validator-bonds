@@ -1,7 +1,7 @@
 #![allow(deprecated)]
 
 use crate::checks::check_stake_is_initialized_with_withdrawer_authority;
-use crate::constants::BONDS_AUTHORITY_SEED;
+use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
 use crate::events::stake::WithdrawStakeEvent;
 
@@ -99,10 +99,11 @@ impl<'info> WithdrawStake<'info> {
             ErrorCode::WrongStakeAccountWithdrawer
         );
         // stake account is funded to removed settlement
-        let settlement_authority = find_settlement_staker_authority(&self.settlement.key()).0;
+        let settlement_staker_authority =
+            find_settlement_staker_authority(&self.settlement.key()).0;
         require_eq!(
             stake_meta.authorized.staker,
-            settlement_authority,
+            settlement_staker_authority,
             ErrorCode::SettlementAuthorityMismatch
         );
 
@@ -118,7 +119,7 @@ impl<'info> WithdrawStake<'info> {
                     clock: self.clock.to_account_info(),
                 },
                 &[&[
-                    BONDS_AUTHORITY_SEED,
+                    BONDS_WITHDRAWER_AUTHORITY_SEED,
                     &self.config.key().as_ref(),
                     &[self.config.bonds_withdrawer_authority_bump],
                 ]],
@@ -133,7 +134,7 @@ impl<'info> WithdrawStake<'info> {
             settlement: self.settlement.key(),
             stake_account: self.stake_account.key(),
             withdraw_to: self.withdraw_to.key(),
-            settlement_authority,
+            settlement_staker_authority,
             withdrawn_amount,
         });
 

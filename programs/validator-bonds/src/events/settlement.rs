@@ -6,7 +6,7 @@ use anchor_lang::prelude::*;
 pub struct InitSettlementEvent {
     pub bond: Pubkey,
     pub vote_account: Pubkey,
-    pub authority: Pubkey,
+    pub staker_authority: Pubkey,
     pub merkle_root: [u8; 32],
     pub max_total_claim: u64,
     pub max_merkle_nodes: u64,

@@ -145,7 +145,10 @@ describe('Validator Bonds init bond', () => {
     let bondDataFromList = await findBonds({ program, bondAuthority })
     expect(bondDataFromList.length).toEqual(numberOfBonds)
 
-    bondDataFromList = await findBonds({ program, config: configAccount })
+    bondDataFromList = await findBonds({
+      program,
+      configAccount: configAccount,
+    })
     expect(bondDataFromList.length).toEqual(numberOfBonds)
 
     for (let i = 1; i <= numberOfBonds; i++) {

@@ -93,7 +93,7 @@ impl<'info> InitSettlement<'info> {
         let (authority, authority_bump) = find_settlement_staker_authority(&self.settlement.key());
         self.settlement.set_inner(Settlement {
             bond: self.bond.key(),
-            authority,
+            staker_authority: authority,
             merkle_root,
             max_total_claim,
             max_merkle_nodes,
@@ -106,14 +106,14 @@ impl<'info> InitSettlement<'info> {
             split_rent_amount: 0,
             bumps: Bumps {
                 pda: settlement_bump,
-                authority: authority_bump,
+                staker_authority: authority_bump,
             },
             reserved: [0; 99],
         });
         emit!(InitSettlementEvent {
             bond: self.settlement.bond,
             vote_account: self.bond.vote_account,
-            authority: self.settlement.authority,
+            staker_authority: self.settlement.staker_authority,
             merkle_root: self.settlement.merkle_root,
             max_total_claim: self.settlement.max_total_claim,
             max_merkle_nodes: self.settlement.max_merkle_nodes,

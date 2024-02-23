@@ -28,12 +28,12 @@ export type ValidatorBonds = {
       "value": "[99, 108, 97, 105, 109, 95, 97, 99, 99, 111, 117, 110, 116]"
     },
     {
-      "name": "BONDS_AUTHORITY_SEED",
+      "name": "BONDS_WITHDRAWER_AUTHORITY_SEED",
       "type": "bytes",
       "value": "[98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121]"
     },
     {
-      "name": "SETTLEMENT_AUTHORITY_SEED",
+      "name": "SETTLEMENT_STAKER_AUTHORITY_SEED",
       "type": "bytes",
       "value": "[115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121]"
     }
@@ -1015,7 +1015,7 @@ export type ValidatorBonds = {
           ]
         },
         {
-          "name": "settlementAuthority",
+          "name": "settlementStakerAuthority",
           "isMut": false,
           "isSigner": false,
           "docs": [
@@ -1840,7 +1840,7 @@ export type ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "authority",
+            "name": "stakerAuthority",
             "docs": [
               "settlement authority used as the 'staker' stake account authority",
               "of stake accounts funded to this settlement"
@@ -2335,7 +2335,7 @@ export type ValidatorBonds = {
             "type": "u8"
           },
           {
-            "name": "authority",
+            "name": "stakerAuthority",
             "type": "u8"
           }
         ]
@@ -2724,7 +2724,7 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "authority",
+          "name": "stakerAuthority",
           "type": "publicKey",
           "index": false
         },
@@ -2982,7 +2982,7 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "settlementAuthority",
+          "name": "settlementStakerAuthority",
           "type": "publicKey",
           "index": false
         }
@@ -3017,7 +3017,7 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "settlementAuthority",
+          "name": "settlementStakerAuthority",
           "type": "publicKey",
           "index": false
         },
@@ -3469,12 +3469,12 @@ export const IDL: ValidatorBonds = {
       "value": "[99, 108, 97, 105, 109, 95, 97, 99, 99, 111, 117, 110, 116]"
     },
     {
-      "name": "BONDS_AUTHORITY_SEED",
+      "name": "BONDS_WITHDRAWER_AUTHORITY_SEED",
       "type": "bytes",
       "value": "[98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121]"
     },
     {
-      "name": "SETTLEMENT_AUTHORITY_SEED",
+      "name": "SETTLEMENT_STAKER_AUTHORITY_SEED",
       "type": "bytes",
       "value": "[115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121]"
     }
@@ -4456,7 +4456,7 @@ export const IDL: ValidatorBonds = {
           ]
         },
         {
-          "name": "settlementAuthority",
+          "name": "settlementStakerAuthority",
           "isMut": false,
           "isSigner": false,
           "docs": [
@@ -5281,7 +5281,7 @@ export const IDL: ValidatorBonds = {
             "type": "publicKey"
           },
           {
-            "name": "authority",
+            "name": "stakerAuthority",
             "docs": [
               "settlement authority used as the 'staker' stake account authority",
               "of stake accounts funded to this settlement"
@@ -5776,7 +5776,7 @@ export const IDL: ValidatorBonds = {
             "type": "u8"
           },
           {
-            "name": "authority",
+            "name": "stakerAuthority",
             "type": "u8"
           }
         ]
@@ -6165,7 +6165,7 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "authority",
+          "name": "stakerAuthority",
           "type": "publicKey",
           "index": false
         },
@@ -6423,7 +6423,7 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "settlementAuthority",
+          "name": "settlementStakerAuthority",
           "type": "publicKey",
           "index": false
         }
@@ -6458,7 +6458,7 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "settlementAuthority",
+          "name": "settlementStakerAuthority",
           "type": "publicKey",
           "index": false
         },

@@ -62,7 +62,7 @@ describe('Merge stake accounts using CLI', () => {
           provider.connection.rpcEndpoint,
           '--program-id',
           program.programId.toBase58(),
-          'merge',
+          'merge-stake',
           '--source',
           stakeAccount1.toBase58(),
           '--destination',
@@ -106,7 +106,7 @@ describe('Merge stake accounts using CLI', () => {
           provider.connection.rpcEndpoint,
           '--program-id',
           program.programId.toBase58(),
-          'merge',
+          'merge-stake',
           '--source',
           stakeAccount1.toBase58(),
           '--destination',
@@ -133,18 +133,18 @@ describe('Merge stake accounts using CLI', () => {
 
 async function createMergeStakeAccounts({
   provider,
-  config,
+  configAccount,
   programId,
   lamports1 = LAMPORTS_PER_SOL * 2,
   lamports2 = LAMPORTS_PER_SOL * 2 + 1,
 }: {
   provider: ExtendedProvider
   programId: PublicKey
-  config: PublicKey
+  configAccount: PublicKey
   lamports1?: number
   lamports2?: number
 }): Promise<{ stakeAccount1: PublicKey; stakeAccount2: PublicKey }> {
-  const [bondWithdrawer] = bondsWithdrawerAuthority(config, programId)
+  const [bondWithdrawer] = bondsWithdrawerAuthority(configAccount, programId)
   const {
     stakeAccount: stakeAccount1,
     withdrawer: withdrawer1,

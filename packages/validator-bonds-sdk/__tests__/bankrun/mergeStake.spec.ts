@@ -60,7 +60,7 @@ describe('Staking merge verification/investigation', () => {
         settlement: PublicKey.default,
       })
       .accounts({
-        configAccount,
+        config: configAccount,
         sourceStake: nonDelegatedStakeAccount2,
         destinationStake: nonDelegatedStakeAccount,
         stakerAuthority: pubkey(staker),

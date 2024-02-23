@@ -18,7 +18,7 @@ pub struct ResetStakeEvent {
     pub settlement: Pubkey,
     pub stake_account: Pubkey,
     pub vote_account: Pubkey,
-    pub settlement_authority: Pubkey,
+    pub settlement_staker_authority: Pubkey,
 }
 
 #[event]
@@ -28,6 +28,6 @@ pub struct WithdrawStakeEvent {
     pub settlement: Pubkey,
     pub stake_account: Pubkey,
     pub withdraw_to: Pubkey,
-    pub settlement_authority: Pubkey,
+    pub settlement_staker_authority: Pubkey,
     pub withdrawn_amount: u64,
 }

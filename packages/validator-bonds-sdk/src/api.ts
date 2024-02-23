@@ -87,25 +87,29 @@ export async function getMultipleBonds({
 
 export async function findBonds({
   program,
-  config,
+  configAccount,
   voteAccount,
   bondAuthority,
 }: {
   program: ValidatorBondsProgram
-  config?: PublicKey
+  configAccount?: PublicKey
   voteAccount?: PublicKey
   bondAuthority?: PublicKey
 }): Promise<ProgramAccount<Bond>[]> {
-  if (config && voteAccount) {
-    const [bondAccount] = bondAddress(config, voteAccount, program.programId)
+  if (configAccount && voteAccount) {
+    const [bondAccount] = bondAddress(
+      configAccount,
+      voteAccount,
+      program.programId
+    )
     const bondData = await getBond(program, bondAccount)
     return [{ publicKey: bondAccount, account: bondData }]
   }
   const filters: GetProgramAccountsFilter[] = []
-  if (config) {
+  if (configAccount) {
     filters.push({
       memcmp: {
-        bytes: config.toBase58(),
+        bytes: configAccount.toBase58(),
         // 8 anchor offset
         offset: 8,
       },

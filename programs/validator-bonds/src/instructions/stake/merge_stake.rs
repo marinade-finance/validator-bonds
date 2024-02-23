@@ -1,4 +1,4 @@
-use crate::constants::{BONDS_AUTHORITY_SEED, SETTLEMENT_AUTHORITY_SEED};
+use crate::constants::{BONDS_WITHDRAWER_AUTHORITY_SEED, SETTLEMENT_STAKER_AUTHORITY_SEED};
 use crate::error::ErrorCode;
 use crate::events::stake::MergeStakeEvent;
 use crate::state::config::{find_bonds_withdrawer_authority, Config};
@@ -102,7 +102,8 @@ impl<'info> MergeStake<'info> {
                 .with_account_name("source_stake/destination_stake"));
         }
 
-        let (settlement_authority, settlement_bump) = find_settlement_staker_authority(&settlement);
+        let (settlement_staker_authority, settlement_bump) =
+            find_settlement_staker_authority(&settlement);
 
         let merge_instruction = &merge(
             &self.destination_stake.key(),
@@ -122,31 +123,33 @@ impl<'info> MergeStake<'info> {
                 merge_instruction,
                 merge_account_infos,
                 &[&[
-                    BONDS_AUTHORITY_SEED,
+                    BONDS_WITHDRAWER_AUTHORITY_SEED,
                     &self.config.key().as_ref(),
                     &[self.config.bonds_withdrawer_authority_bump],
                 ]],
             )?
-        } else if self.staker_authority.key() == settlement_authority {
+        } else if self.staker_authority.key() == settlement_staker_authority {
             invoke_signed(
                 merge_instruction,
                 merge_account_infos,
                 &[&[
-                    SETTLEMENT_AUTHORITY_SEED,
+                    SETTLEMENT_STAKER_AUTHORITY_SEED,
                     &self.config.key().as_ref(),
                     &[settlement_bump],
                 ]],
             )?
         } else {
-            msg!(
-                "Staker authority mismatch, staker_authority: {}, bonds_withdrawer_authority: {}, settlement_authority: {}",
-                self.staker_authority.key(),
-                bonds_withdrawer_authority,
-                settlement_authority
-                );
-            return Err(
-                error!(ErrorCode::StakerAuthorityMismatch).with_account_name("staker_authority")
-            );
+            return Err(error!(ErrorCode::StakerAuthorityMismatch)
+                .with_account_name("staker_authority")
+                .with_values((
+                    "staker_authority/bonds_withdrawer_authority/settlement_staker_authority",
+                    format!(
+                        "{}/{}/{}",
+                        self.staker_authority.key(),
+                        bonds_withdrawer_authority,
+                        settlement_staker_authority
+                    ),
+                )));
         };
 
         emit!(MergeStakeEvent {
