@@ -5,7 +5,8 @@ use std::collections::HashSet;
 use snapshot_parser::stake_meta::StakeMeta;
 
 use {
-    crate::{insured_events::InsuredEventCollection, utils::map_pubkey_string_conversion},
+    crate::insured_events::InsuredEventCollection,
+    merkle_tree::serde_serialize::{map_pubkey_string_conversion, pubkey_string_conversion},
     serde::{Deserialize, Serialize},
     snapshot_parser::stake_meta::StakeMetaCollection,
     std::collections::HashMap,
@@ -13,8 +14,11 @@ use {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct InsuranceClaim {
+    #[serde(with = "pubkey_string_conversion")]
     pub withdraw_authority: Pubkey,
+    #[serde(with = "pubkey_string_conversion")]
     pub stake_authority: Pubkey,
+    #[serde(with = "pubkey_string_conversion")]
     pub vote_account: Pubkey,
     #[serde(with = "map_pubkey_string_conversion")]
     pub stake_accounts: HashMap<Pubkey, u64>,

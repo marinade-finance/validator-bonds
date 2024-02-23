@@ -3,6 +3,7 @@
 use solana_program::hash::{hashv, Hash};
 
 pub mod psr_claim;
+pub mod serde_serialize;
 
 // We need to discern between leaf and intermediate nodes to prevent trivial second
 // pre-image attacks.

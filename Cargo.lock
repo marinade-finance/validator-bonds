@@ -4608,6 +4608,7 @@ dependencies = [
  "clap 4.4.8",
  "env_logger 0.10.1",
  "log",
+ "merkle-tree",
  "serde",
  "serde_json",
  "solana-accounts-db",

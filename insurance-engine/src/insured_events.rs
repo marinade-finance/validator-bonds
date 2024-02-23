@@ -1,9 +1,9 @@
-use crate::utils::map_pubkey_string_conversion;
-use solana_sdk::pubkey::Pubkey;
-use std::collections::HashMap;
 use {
+    merkle_tree::serde_serialize::map_pubkey_string_conversion,
     serde::{Deserialize, Serialize},
     snapshot_parser::validator_meta::ValidatorMetaCollection,
+    solana_sdk::pubkey::Pubkey,
+    std::collections::HashMap,
 };
 
 #[derive(Clone, Deserialize, Serialize, Debug)]

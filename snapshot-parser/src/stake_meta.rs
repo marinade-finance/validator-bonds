@@ -1,6 +1,7 @@
 use solana_program::pubkey::Pubkey;
 use {
     log::{error, info},
+    merkle_tree::serde_serialize::{option_pubkey_string_conversion, pubkey_string_conversion},
     serde::{Deserialize, Serialize},
     solana_accounts_db::accounts_index::ScanConfig,
     solana_program::{
@@ -18,13 +19,17 @@ use {
 
 #[derive(Clone, Deserialize, Serialize, Debug, Eq, PartialEq)]
 pub struct StakeMeta {
+    #[serde(with = "pubkey_string_conversion")]
     pub pubkey: Pubkey,
     pub balance_lamports: u64,
     pub active_delegation_lamports: u64,
     pub activating_delegation_lamports: u64,
     pub deactivating_delegation_lamports: u64,
+    #[serde(with = "option_pubkey_string_conversion")]
     pub validator: Option<Pubkey>,
+    #[serde(with = "pubkey_string_conversion")]
     pub stake_authority: Pubkey,
+    #[serde(with = "pubkey_string_conversion")]
     pub withdraw_authority: Pubkey,
 }
 

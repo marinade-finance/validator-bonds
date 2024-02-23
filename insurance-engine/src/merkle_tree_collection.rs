@@ -1,8 +1,7 @@
 use solana_sdk::pubkey::Pubkey;
 use {
     crate::insurance_claims::{InsuranceClaim, InsuranceClaimCollection},
-    merkle_tree::psr_claim::TreeNode,
-    merkle_tree::MerkleTree,
+    merkle_tree::{psr_claim::TreeNode, serde_serialize::pubkey_string_conversion, MerkleTree},
     serde::{Deserialize, Serialize},
     solana_sdk::hash::Hash,
     std::collections::HashMap,
@@ -10,6 +9,7 @@ use {
 
 #[derive(Default, Clone, Deserialize, Serialize)]
 pub struct ClaimLimit {
+    #[serde(with = "pubkey_string_conversion")]
     pub vote_account: Pubkey,
     pub max_total_claim_sum: u64,
     pub max_total_claims: usize,
