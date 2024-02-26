@@ -86,7 +86,7 @@ pnpm cli --help
      `StakeAccount` which is determined by merkle tree creditor record.
      Intentionally the claim instruction does not check what [state](https://github.com/solana-labs/solana/blob/v1.18.2/sdk/program/src/stake/state.rs#L138) is the `StakeAccount` in.
 
-5. There are few operations dedicated to `StakeAccount` management/
+5. There are few operations dedicated to `StakeAccount` management.
    - After closing the `Settlement` the un-claimed `StakeAccounts` may be
      - reset (in case of delegated ones); permission-less operation
      - withdrawn (in case of non-delegated in `Initialized` state ones); permissioned by operator authority
