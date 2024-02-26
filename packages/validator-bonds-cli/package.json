@@ -28,10 +28,10 @@
     "@coral-xyz/anchor": "^0.29.0",
     "@solana/web3.js": "^1.89.1",
     "@marinade.finance/ledger-utils": "^3.0.1",
-    "@marinade.finance/cli-common": "^2.2.2",
-    "@marinade.finance/anchor-common": "^2.2.2",
-    "@marinade.finance/web3js-common": "^2.2.2",
-    "@marinade.finance/ts-common": "^2.2.2",
+    "@marinade.finance/cli-common": "^2.2.3",
+    "@marinade.finance/anchor-common": "^2.2.3",
+    "@marinade.finance/web3js-common": "^2.2.3",
+    "@marinade.finance/ts-common": "^2.2.3",
     "bn.js": "^5.2.1",
     "jsbi": "^4.3.0",
     "commander": "^11.1.0",
@@ -41,6 +41,6 @@
     "yaml": "^2.3.4"
   },
   "devDependencies": {
-    "@marinade.finance/jest-utils": "^2.2.2"
+    "@marinade.finance/jest-utils": "^2.2.3"
   }
 }

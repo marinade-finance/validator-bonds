@@ -13,6 +13,11 @@ export type ValidatorBonds = {
       "value": "[98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]"
     },
     {
+      "name": "BOND_MINT_SEED",
+      "type": "bytes",
+      "value": "[98, 111, 110, 100, 95, 109, 105, 110, 116]"
+    },
+    {
       "name": "SETTLEMENT_SEED",
       "type": "bytes",
       "value": "[115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97, 99, 99, 111, 117, 110, 116]"
@@ -238,6 +243,188 @@ export type ValidatorBonds = {
           }
         }
       ]
+    },
+    {
+      "name": "configureBondWithMint",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "bond",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond.vote_account"
+              }
+            ]
+          },
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "mint",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_mint"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond"
+              }
+            ]
+          }
+        },
+        {
+          "name": "tokenAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "token account to burn bond mint configuration tokens from"
+          ]
+        },
+        {
+          "name": "tokenAuthority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "configureBondArgs",
+          "type": {
+            "defined": "ConfigureBondArgs"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mintBond",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "bond",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "path": "vote_account"
+              }
+            ]
+          },
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "mint",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_mint"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond"
+              }
+            ]
+          }
+        },
+        {
+          "name": "destinationAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "destinationTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "voteAccount",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rentPayer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "rent exempt payer of account creation"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
     },
     {
       "name": "fundBond",
@@ -2462,6 +2649,31 @@ export type ValidatorBonds = {
       ]
     },
     {
+      "name": "MintBondEvent",
+      "fields": [
+        {
+          "name": "bond",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "destinationTokenAccount",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "destinationAuthority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "rentPayer",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
       "name": "InitConfigEvent",
       "fields": [
         {
@@ -3435,6 +3647,11 @@ export type ValidatorBonds = {
       "code": 6057,
       "name": "WrongStakeAccountState",
       "msg": "Wrong state of the stake account"
+    },
+    {
+      "code": 6058,
+      "name": "InvalidBondMintToDestination",
+      "msg": "Wrong bond mint to authority"
     }
   ]
 };
@@ -3454,6 +3671,11 @@ export const IDL: ValidatorBonds = {
       "value": "[98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]"
     },
     {
+      "name": "BOND_MINT_SEED",
+      "type": "bytes",
+      "value": "[98, 111, 110, 100, 95, 109, 105, 110, 116]"
+    },
+    {
       "name": "SETTLEMENT_SEED",
       "type": "bytes",
       "value": "[115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97, 99, 99, 111, 117, 110, 116]"
@@ -3679,6 +3901,188 @@ export const IDL: ValidatorBonds = {
           }
         }
       ]
+    },
+    {
+      "name": "configureBondWithMint",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "bond",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond.vote_account"
+              }
+            ]
+          },
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "mint",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_mint"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond"
+              }
+            ]
+          }
+        },
+        {
+          "name": "tokenAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "token account to burn bond mint configuration tokens from"
+          ]
+        },
+        {
+          "name": "tokenAuthority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "configureBondArgs",
+          "type": {
+            "defined": "ConfigureBondArgs"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mintBond",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "bond",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "path": "vote_account"
+              }
+            ]
+          },
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "mint",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_mint"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond"
+              }
+            ]
+          }
+        },
+        {
+          "name": "destinationAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "destinationTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "voteAccount",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rentPayer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "rent exempt payer of account creation"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
     },
     {
       "name": "fundBond",
@@ -5903,6 +6307,31 @@ export const IDL: ValidatorBonds = {
       ]
     },
     {
+      "name": "MintBondEvent",
+      "fields": [
+        {
+          "name": "bond",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "destinationTokenAccount",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "destinationAuthority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "rentPayer",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
       "name": "InitConfigEvent",
       "fields": [
         {
@@ -6876,6 +7305,11 @@ export const IDL: ValidatorBonds = {
       "code": 6057,
       "name": "WrongStakeAccountState",
       "msg": "Wrong state of the stake account"
+    },
+    {
+      "code": 6058,
+      "name": "InvalidBondMintToDestination",
+      "msg": "Wrong bond mint to authority"
     }
   ]
 };

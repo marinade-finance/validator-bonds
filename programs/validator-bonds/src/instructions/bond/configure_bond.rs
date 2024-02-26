@@ -15,7 +15,7 @@ pub struct ConfigureBondArgs {
 /// Change parameters of validator bond account
 #[derive(Accounts)]
 pub struct ConfigureBond<'info> {
-    config: Account<'info, Config>,
+    pub config: Account<'info, Config>,
 
     #[account(
         mut,
@@ -42,13 +42,7 @@ pub struct ConfigureBond<'info> {
 }
 
 impl<'info> ConfigureBond<'info> {
-    pub fn process(
-        &mut self,
-        ConfigureBondArgs {
-            bond_authority,
-            cpmpe,
-        }: ConfigureBondArgs,
-    ) -> Result<()> {
+    pub fn process(&mut self, configure_bond_args: ConfigureBondArgs) -> Result<()> {
         require!(!self.config.paused, ErrorCode::ProgramIsPaused);
 
         require!(
@@ -56,22 +50,8 @@ impl<'info> ConfigureBond<'info> {
             ErrorCode::BondChangeNotPermitted
         );
 
-        let bond_authority_change = bond_authority.map(|authority| {
-            let old = self.bond.authority;
-            self.bond.authority = authority;
-            PubkeyValueChange {
-                old,
-                new: authority,
-            }
-        });
-        let cpmpe_change = cpmpe.map(|new_cpmpe| {
-            let old = self.bond.cpmpe;
-            self.bond.cpmpe = new_cpmpe;
-            U64ValueChange {
-                old,
-                new: new_cpmpe,
-            }
-        });
+        let (bond_authority_change, cpmpe_change) =
+            configure_bond(&mut self.bond, configure_bond_args);
 
         emit!(ConfigureBondEvent {
             bond_authority: bond_authority_change,
@@ -80,4 +60,27 @@ impl<'info> ConfigureBond<'info> {
 
         Ok(())
     }
+}
+
+pub(crate) fn configure_bond(
+    bond: &mut Bond,
+    configure_args: ConfigureBondArgs,
+) -> (Option<PubkeyValueChange>, Option<U64ValueChange>) {
+    let bond_authority_change = configure_args.bond_authority.map(|authority| {
+        let old = bond.authority;
+        bond.authority = authority;
+        PubkeyValueChange {
+            old,
+            new: authority,
+        }
+    });
+    let cpmpe_change = configure_args.cpmpe.map(|new_cpmpe| {
+        let old = bond.cpmpe;
+        bond.cpmpe = new_cpmpe;
+        U64ValueChange {
+            old,
+            new: new_cpmpe,
+        }
+    });
+    (bond_authority_change, cpmpe_change)
 }

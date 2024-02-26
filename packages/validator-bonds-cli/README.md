@@ -40,9 +40,15 @@ It can be created in two ways:
 
 * permission-ed: `--validator-identity <keypair-wallet>` signature is needed.
   One may then configure additional authority that permits future changes at the bond account
-  with argument `--bond-authority`.
+  with argument `--bond-authority` (the bond authority can be set at this point to anything).
 * permission-less: anybody may create the bond account. For any future configuration change
-  of bond account, or for withdrawal funds, the validator identity signature is needed.
+  of bond account, or for withdrawal funds, the validator identity signature is needed
+  (the bond authority is set to identity of the validator at this point).
+
+On the bond account:
+
+* there can be only one bond for a vote account
+* every bond is attached to a vote account
 
 ```sh
 # permission-ed: bond account at mainnet

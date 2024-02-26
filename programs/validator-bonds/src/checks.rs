@@ -32,6 +32,12 @@ pub fn get_validator_vote_account_validator_identity(
     get_from_validator_vote_account(vote_account, 4, "validator identity")
 }
 
+pub fn get_validator_vote_account_authorized_withdrawer(
+    vote_account: &UncheckedAccount,
+) -> Result<Pubkey> {
+    get_from_validator_vote_account(vote_account, 36, "authorized withdrawer")
+}
+
 fn get_from_validator_vote_account(
     vote_account: &UncheckedAccount,
     byte_position: usize,

@@ -61,6 +61,7 @@ function seedFromConstants(seedName: string): Uint8Array {
   return new Uint8Array(JSON.parse(constant.value))
 }
 export const BOND_SEED = seedFromConstants('BOND_SEED')
+export const BOND_MINT_SEED = seedFromConstants('BOND_MINT_SEED')
 export const SETTLEMENT_SEED = seedFromConstants('SETTLEMENT_SEED')
 export const WITHDRAW_REQUEST_SEED = seedFromConstants('WITHDRAW_REQUEST_SEED')
 export const SETTLEMENT_CLAIM_SEED = seedFromConstants('SETTLEMENT_CLAIM_SEED')
@@ -82,6 +83,9 @@ export type InitBondEvent = IdlEvents<ValidatorBonds>[typeof INIT_BOND_EVENT]
 export const CONFIGURE_BOND_EVENT = 'ConfigureBondEvent'
 export type ConfigureBondEvent =
   IdlEvents<ValidatorBonds>[typeof CONFIGURE_BOND_EVENT]
+
+export const MINT_BOND_EVENT = 'MintBondEvent'
+export type MintBondEvent = IdlEvents<ValidatorBonds>[typeof MINT_BOND_EVENT]
 
 export const CLOSE_BOND_EVENT = 'CloseBondEvent'
 export type CloseBondEvent = IdlEvents<ValidatorBonds>[typeof CLOSE_BOND_EVENT]
@@ -294,6 +298,16 @@ export function withdrawRequestAddress(
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [WITHDRAW_REQUEST_SEED, bond.toBytes()],
+    validatorBondsProgramId
+  )
+}
+
+export function bondMintAddress(
+  bond: PublicKey,
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [BOND_MINT_SEED, bond.toBytes()],
     validatorBondsProgramId
   )
 }

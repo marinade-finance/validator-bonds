@@ -34,3 +34,11 @@ pub struct FundBondEvent {
     pub stake_authority_signer: Pubkey,
     pub deposited_amount: u64,
 }
+
+#[event]
+pub struct MintBondEvent {
+    pub bond: Pubkey,
+    pub destination_token_account: Pubkey,
+    pub destination_authority: Pubkey,
+    pub rent_payer: Pubkey,
+}

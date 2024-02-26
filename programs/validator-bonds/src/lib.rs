@@ -38,6 +38,7 @@ declare_id!("vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4");
 //       - fund_settlement is now operator based, consider if it should be permission-less
 //       - consider https://www.soldev.app/course/duplicate-mutable-accounts to check on #[account(constraint = user_a.key() != user_b.key())]
 //       - recheck CPI program calls https://www.soldev.app/course/arbitrary-cpi
+//       - consider if the event data are needed to be storead as they are
 
 fn check_context<T: Bumps>(ctx: &Context<T>) -> Result<()> {
     if !check_id(ctx.program_id) {
@@ -78,6 +79,19 @@ pub mod validator_bonds {
     ) -> Result<()> {
         check_context(&ctx)?;
         ctx.accounts.process(configure_bond_args)
+    }
+
+    pub fn configure_bond_with_mint(
+        ctx: Context<ConfigureBondWithMint>,
+        configure_bond_args: ConfigureBondArgs,
+    ) -> Result<()> {
+        check_context(&ctx)?;
+        ctx.accounts.process(configure_bond_args)
+    }
+
+    pub fn mint_bond(ctx: Context<MintBond>) -> Result<()> {
+        check_context(&ctx)?;
+        ctx.accounts.process(ctx.bumps.mint)
     }
 
     pub fn fund_bond(ctx: Context<FundBond>) -> Result<()> {

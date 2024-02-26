@@ -1,4 +1,4 @@
-use crate::constants::BOND_SEED;
+use crate::constants::{BOND_MINT_SEED, BOND_SEED};
 use crate::error::ErrorCode;
 use crate::ID;
 use anchor_lang::prelude::*;
@@ -47,4 +47,8 @@ pub fn find_bond_address(config: &Pubkey, vote_account: &Pubkey) -> (Pubkey, u8)
         &[BOND_SEED, config.key().as_ref(), vote_account.as_ref()],
         &ID,
     )
+}
+
+pub fn find_bond_mint(bond_account: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[BOND_MINT_SEED, bond_account.as_ref()], &ID)
 }

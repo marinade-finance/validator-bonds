@@ -81,6 +81,8 @@ describe('Validator Bonds close settlement', () => {
     })
     tx.add(instruction)
     await waitForNextEpoch(provider.connection, 15)
+    const executionEpoch = (await program.provider.connection.getEpochInfo())
+      .epoch
     await provider.sendIx([], instruction)
     expect(
       provider.connection.getAccountInfo(settlementAccount)
@@ -89,7 +91,7 @@ describe('Validator Bonds close settlement', () => {
     await event.then(e => {
       expect(e.settlement).toEqual(settlementAccount)
       expect(e.bond).toEqual(bondAccount)
-      expect(e.currentEpoch).toEqual(epoch.addn(1))
+      expect(e.currentEpoch).toEqual(executionEpoch)
       expect(e.expirationEpoch).toEqual(epoch)
       expect(e.lamportsClaimed).toEqual(0)
       expect(e.lamportsFunded).toEqual(0)

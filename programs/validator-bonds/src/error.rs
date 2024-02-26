@@ -178,4 +178,7 @@ pub enum ErrorCode {
 
     #[msg("Wrong state of the stake account")]
     WrongStakeAccountState, // 6057 0x17a9
+
+    #[msg("Wrong bond mint to authority")]
+    InvalidBondMintToDestination, // 6058 0x17aa
 }

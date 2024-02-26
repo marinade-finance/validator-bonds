@@ -8,6 +8,9 @@ pub const PROGRAM_ID: &str = "vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4";
 
 #[constant]
 pub const BOND_SEED: &[u8] = b"bond_account";
+
+#[constant]
+pub const BOND_MINT_SEED: &[u8] = b"bond_mint";
 #[constant]
 pub const SETTLEMENT_SEED: &[u8] = b"settlement_account";
 #[constant]
