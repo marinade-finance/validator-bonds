@@ -1,5 +1,5 @@
 use crate::checks::{
-    check_bond_change_permitted, check_stake_is_initialized_with_withdrawer_authority,
+    check_bond_authority, check_stake_is_initialized_with_withdrawer_authority,
     check_stake_valid_delegation,
 };
 use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
@@ -121,7 +121,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
 
         // claim is permission-ed as the init withdraw request
         require!(
-            check_bond_change_permitted(&self.authority.key(), &self.bond, &self.vote_account),
+            check_bond_authority(&self.authority.key(), &self.bond, &self.vote_account),
             ErrorCode::InvalidWithdrawRequestAuthority
         );
 

@@ -1,6 +1,6 @@
 #![allow(deprecated)]
 
-use crate::checks::check_stake_is_initialized_with_withdrawer_authority;
+use crate::checks::{check_stake_is_initialized_with_withdrawer_authority, is_closed};
 use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
 use crate::events::stake::WithdrawStakeEvent;
@@ -9,7 +9,7 @@ use crate::state::config::Config;
 use crate::state::settlement::find_settlement_staker_authority;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::stake::state::StakeState;
-use anchor_lang::solana_program::system_program::ID as system_program_id;
+
 use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_spl::stake::{withdraw, Stake, StakeAccount, Withdraw};
 use std::ops::Deref;
@@ -65,16 +65,7 @@ impl<'info> WithdrawStake<'info> {
         require!(!self.config.paused, ErrorCode::ProgramIsPaused);
 
         // settlement account cannot exists
-        require_eq!(
-            self.settlement.lamports(),
-            0,
-            ErrorCode::SettlementNotClosed
-        );
-        require_eq!(
-            *self.settlement.owner,
-            system_program_id,
-            ErrorCode::SettlementNotClosed
-        );
+        require!(is_closed(&self.settlement), ErrorCode::SettlementNotClosed);
 
         // stake account is managed by bonds program and belongs under bond validator
         check_stake_is_initialized_with_withdrawer_authority(
@@ -98,6 +89,8 @@ impl<'info> WithdrawStake<'info> {
             self.bonds_withdrawer_authority.key(),
             ErrorCode::WrongStakeAccountWithdrawer
         );
+        // TODO: do we want to limit the operator stake account withdrawal only to settlement funded stake accounts?
+        //       could be reasonable to only check stake account state and bonds authority?
         // stake account is funded to removed settlement
         let settlement_staker_authority =
             find_settlement_staker_authority(&self.settlement.key()).0;

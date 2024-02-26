@@ -12,7 +12,7 @@ use crate::state::settlement::Settlement;
 use crate::utils::{minimal_size_stake_account, return_unused_split_stake_account_rent};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
-use anchor_lang::solana_program::system_program;
+use anchor_lang::solana_program::system_program::ID as system_program_id;
 use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_lang::solana_program::{
     stake,
@@ -106,7 +106,7 @@ pub struct FundSettlement<'info> {
     ///     then the rent payer is refunded when the settlement is closed
     #[account(
         mut,
-        owner = system_program::ID
+        owner = system_program_id,
     )]
     split_stake_rent_payer: Signer<'info>,
 

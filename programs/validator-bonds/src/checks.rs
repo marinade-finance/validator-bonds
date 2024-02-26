@@ -6,6 +6,7 @@ use anchor_lang::require_keys_eq;
 use anchor_lang::solana_program::stake::program::ID as stake_program_id;
 use anchor_lang::solana_program::stake::state::{Delegation, Meta, Stake};
 use anchor_lang::solana_program::stake_history::{Epoch, StakeHistoryEntry};
+use anchor_lang::solana_program::system_program::ID as system_program_id;
 use anchor_lang::solana_program::vote::program::id as vote_program_id;
 use anchor_spl::stake::StakeAccount;
 use std::ops::Deref;
@@ -69,7 +70,7 @@ fn get_from_validator_vote_account(
 }
 
 /// Bond account change is permitted to bond authority or validator vote account owner
-pub fn check_bond_change_permitted(
+pub fn check_bond_authority(
     authority: &Pubkey,
     bond_account: &Bond,
     vote_account: &UncheckedAccount,
@@ -185,6 +186,10 @@ pub fn deserialize_stake_account(account: &UncheckedAccount) -> Result<StakeAcco
     StakeAccount::try_deserialize(&mut stake_state.as_ref())
 }
 
+pub fn is_closed(account: &UncheckedAccount) -> bool {
+    account.try_lamports().unwrap_or(0) == 0 && account.owner == &system_program_id
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -273,17 +278,17 @@ mod tests {
         let unchecked_account = UncheckedAccount::try_from(&account);
 
         let bond_authority = Pubkey::new_unique();
-        assert!(check_bond_change_permitted(
+        assert!(check_bond_authority(
             &bond_authority,
             &test_bond_with_authority(bond_authority),
             &unchecked_account,
         ));
-        assert!(check_bond_change_permitted(
+        assert!(check_bond_authority(
             &vote_init.node_pubkey,
             &test_bond_with_authority(bond_authority),
             &unchecked_account,
         ));
-        assert!(!check_bond_change_permitted(
+        assert!(!check_bond_authority(
             &Pubkey::new_unique(),
             &test_bond_with_authority(bond_authority),
             &unchecked_account,

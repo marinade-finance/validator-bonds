@@ -87,19 +87,14 @@ impl<'info> MergeStake<'info> {
 
         let destination_delegation = self.destination_stake.delegation();
         let source_delegation = self.source_stake.delegation();
-        // the stakes have to be delegated to the same validator vote accounts
-        if destination_delegation.is_none()
-            || source_delegation.is_none()
-            || destination_delegation.unwrap().voter_pubkey
-                != source_delegation.unwrap().voter_pubkey
+        // the stakes have to be both non-delegated or both delegated to the same vote account
+        if destination_delegation.map_or_else(|| None, |p| Some(p.voter_pubkey))
+            != source_delegation.map_or_else(|| None, |p| Some(p.voter_pubkey))
         {
-            msg!(
-                "None or different stakes delegation, source: {:?}, destination: {:?}",
-                source_delegation,
-                destination_delegation
-            );
-            return Err(error!(ErrorCode::StakeDelegationMismatch)
-                .with_account_name("source_stake/destination_stake"));
+            return Err(error!(ErrorCode::StakeDelegationMismatch).with_values((
+                "source_stake/destination_stake",
+                format!("{:?}/{:?}", source_delegation, destination_delegation),
+            )));
         }
 
         let (settlement_staker_authority, settlement_bump) =

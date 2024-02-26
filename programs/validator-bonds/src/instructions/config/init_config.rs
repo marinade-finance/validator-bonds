@@ -2,7 +2,7 @@ use crate::constants::MIN_STAKE_LAMPORTS;
 use crate::events::config::InitConfigEvent;
 use crate::state::config::{find_bonds_withdrawer_authority, Config};
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::system_program;
+use anchor_lang::solana_program::system_program::ID as system_program_id;
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct InitConfigArgs {
@@ -26,7 +26,7 @@ pub struct InitConfig<'info> {
     /// rent exempt payer for the config (root) account
     #[account(
         mut,
-        owner = system_program::ID
+        owner = system_program_id
     )]
     rent_payer: Signer<'info>,
 

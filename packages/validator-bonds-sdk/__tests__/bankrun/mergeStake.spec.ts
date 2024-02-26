@@ -107,20 +107,7 @@ describe('Staking merge verification/investigation', () => {
       verifyError(e, Errors, 6056, 'Source and destination cannot be the same')
     }
 
-    const { instruction: ixWrongStaker } = await mergeStakeInstruction({
-      program,
-      configAccount,
-      sourceStakeAccount: nonDelegatedStakeAccount2,
-      destinationStakeAccount: nonDelegatedStakeAccount,
-    })
-    try {
-      await provider.sendIx([], ixWrongStaker)
-      throw new Error('failure expected; wrong staker authority setup')
-    } catch (e) {
-      verifyError(e, Errors, 6044, 'staker does not match')
-    }
-
-    const { instruction: ixNonBondSTaker } = await mergeStakeInstruction({
+    const { instruction: ixNonBondStaker } = await mergeStakeInstruction({
       program,
       configAccount,
       sourceStakeAccount: nonDelegatedStakeAccount2,
@@ -128,19 +115,14 @@ describe('Staking merge verification/investigation', () => {
       stakerAuthority: pubkey(staker),
     })
     try {
-      await provider.sendIx([], ixNonBondSTaker)
+      await provider.sendIx([], ixNonBondStaker)
       throw new Error('failure expected; non bond staker')
     } catch (e) {
-      verifyError(
-        e,
-        Errors,
-        6047,
-        'Delegation of provided stake account mismatches'
-      )
+      verifyError(e, Errors, 6044, 'staker does not match')
     }
   })
 
-  it('cannot merge with non delegated stake state', async () => {
+  it('merge possible when both is non delegated', async () => {
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
       program.programId
@@ -157,15 +139,28 @@ describe('Staking merge verification/investigation', () => {
         withdrawer: bondWithdrawer,
         staker: bondWithdrawer,
       })
-    const { instruction } = await mergeStakeInstruction({
-      program,
-      configAccount,
-      sourceStakeAccount: nonDelegatedStakeAccount,
-      destinationStakeAccount: nonDelegatedStakeAccount2,
+    const { stakeAccount: delegatedStake, withdrawer } =
+      await delegatedStakeAccount({
+        provider,
+      })
+    await authorizeStakeAccount({
+      provider,
+      authority: withdrawer,
+      stakeAccount: delegatedStake,
+      staker: bondWithdrawer,
+      withdrawer: bondWithdrawer,
     })
+
+    const { instruction: ixNonDelegatedAndDelegated } =
+      await mergeStakeInstruction({
+        program,
+        configAccount,
+        sourceStakeAccount: delegatedStake,
+        destinationStakeAccount: nonDelegatedStakeAccount2,
+      })
     try {
-      await provider.sendIx([], instruction)
-      throw new Error('failure expected; non delegated')
+      await provider.sendIx([], ixNonDelegatedAndDelegated)
+      throw new Error('failure expected; delegated and non-delegated')
     } catch (e) {
       verifyError(
         e,
@@ -174,6 +169,14 @@ describe('Staking merge verification/investigation', () => {
         'Delegation of provided stake account mismatches'
       )
     }
+
+    const { instruction: ixNonDelegated } = await mergeStakeInstruction({
+      program,
+      configAccount,
+      sourceStakeAccount: nonDelegatedStakeAccount,
+      destinationStakeAccount: nonDelegatedStakeAccount2,
+    })
+    await provider.sendIx([], ixNonDelegated)
   })
 
   it('cannot merge different delegation', async () => {

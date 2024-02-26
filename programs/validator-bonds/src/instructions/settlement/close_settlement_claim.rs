@@ -1,8 +1,8 @@
+use crate::checks::is_closed;
 use crate::error::ErrorCode;
 use crate::events::settlement_claim::CloseSettlementClaimEvent;
 use crate::state::settlement_claim::SettlementClaim;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::system_program::ID as system_program_id;
 
 // Closing settlement claim to get back rent for the account
 #[derive(Accounts)]
@@ -26,16 +26,7 @@ pub struct CloseSettlementClaim<'info> {
 impl<'info> CloseSettlementClaim<'info> {
     pub fn process(&mut self) -> Result<()> {
         // The rule is that the settlement claim can be closed only when settlement does not exist
-        require_eq!(
-            self.settlement.lamports(),
-            0,
-            ErrorCode::SettlementNotClosed
-        );
-        require_eq!(
-            *self.settlement.owner,
-            system_program_id,
-            ErrorCode::SettlementNotClosed
-        );
+        require!(is_closed(&self.settlement), ErrorCode::SettlementNotClosed);
 
         emit!(CloseSettlementClaimEvent {
             settlement: self.settlement.key(),

@@ -6,7 +6,7 @@ use crate::events::bond::InitBondEvent;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::system_program;
+use anchor_lang::solana_program::system_program::ID as system_program_id;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
@@ -49,7 +49,7 @@ pub struct InitBond<'info> {
     /// rent exempt payer of validator bond account creation
     #[account(
         mut,
-        owner = system_program::ID
+        owner = system_program_id
     )]
     rent_payer: Signer<'info>,
 

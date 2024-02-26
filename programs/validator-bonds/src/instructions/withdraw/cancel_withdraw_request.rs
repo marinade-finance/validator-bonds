@@ -1,4 +1,4 @@
-use crate::checks::check_bond_change_permitted;
+use crate::checks::check_bond_authority;
 use crate::error::ErrorCode;
 use crate::events::withdraw::CancelWithdrawRequestEvent;
 use crate::state::bond::Bond;
@@ -57,7 +57,7 @@ impl<'info> CancelWithdrawRequest<'info> {
         require!(!self.config.paused, ErrorCode::ProgramIsPaused);
 
         require!(
-            check_bond_change_permitted(&self.authority.key(), &self.bond, &self.vote_account),
+            check_bond_authority(&self.authority.key(), &self.bond, &self.vote_account),
             ErrorCode::InvalidWithdrawRequestAuthority
         );
 

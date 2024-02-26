@@ -1,5 +1,5 @@
 use crate::checks::{
-    check_stake_is_initialized_with_withdrawer_authority, check_stake_valid_delegation,
+    check_stake_is_initialized_with_withdrawer_authority, check_stake_valid_delegation, is_closed,
 };
 use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
@@ -9,7 +9,6 @@ use crate::state::config::Config;
 use crate::state::settlement::find_settlement_staker_authority;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
-use anchor_lang::solana_program::system_program::ID as system_program_id;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 use anchor_lang::solana_program::{stake, stake::state::StakeAuthorize, sysvar::stake_history};
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
@@ -78,16 +77,7 @@ impl<'info> ResetStake<'info> {
         require!(!self.config.paused, ErrorCode::ProgramIsPaused);
 
         // settlement account cannot exists
-        require_eq!(
-            self.settlement.lamports(),
-            0,
-            ErrorCode::SettlementNotClosed
-        );
-        require_eq!(
-            *self.settlement.owner,
-            system_program_id,
-            ErrorCode::SettlementNotClosed
-        );
+        require!(is_closed(&self.settlement), ErrorCode::SettlementNotClosed);
 
         // stake account is managed by bonds program and belongs under bond validator
         let stake_meta = check_stake_is_initialized_with_withdrawer_authority(

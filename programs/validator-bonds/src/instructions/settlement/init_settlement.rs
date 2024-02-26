@@ -3,9 +3,8 @@ use crate::events::settlement::InitSettlementEvent;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::settlement::{find_settlement_staker_authority, Bumps, Settlement};
-
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::system_program;
+use anchor_lang::solana_program::system_program::ID as system_program_id;
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct InitSettlementArgs {
@@ -62,7 +61,7 @@ pub struct InitSettlement<'info> {
     /// rent exempt payer of account creation
     #[account(
         mut,
-        owner = system_program::ID
+        owner = system_program_id,
     )]
     rent_payer: Signer<'info>,
 

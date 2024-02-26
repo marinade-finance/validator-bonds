@@ -1,11 +1,11 @@
-use crate::checks::check_bond_change_permitted;
+use crate::checks::check_bond_authority;
 use crate::error::ErrorCode;
 use crate::events::withdraw::InitWithdrawRequestEvent;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::withdraw_request::WithdrawRequest;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::system_program;
+use anchor_lang::solana_program::system_program::ID as system_program_id;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
@@ -13,7 +13,7 @@ pub struct InitWithdrawRequestArgs {
     pub amount: u64,
 }
 
-/// Creates a withdraw request of bond funds for a validator vote account
+/// Creates a withdrawal request of bond funds for a validator vote account
 #[derive(Accounts)]
 pub struct InitWithdrawRequest<'info> {
     /// the config root account under which the bond was created
@@ -57,7 +57,7 @@ pub struct InitWithdrawRequest<'info> {
     /// rent exempt payer of withdraw request account creation
     #[account(
         mut,
-        owner = system_program::ID
+        owner = system_program_id
     )]
     rent_payer: Signer<'info>,
 
@@ -75,7 +75,7 @@ impl<'info> InitWithdrawRequest<'info> {
         require!(!self.config.paused, ErrorCode::ProgramIsPaused);
 
         require!(
-            check_bond_change_permitted(&self.authority.key(), &self.bond, &self.vote_account),
+            check_bond_authority(&self.authority.key(), &self.bond, &self.vote_account),
             ErrorCode::InvalidWithdrawRequestAuthority
         );
 
