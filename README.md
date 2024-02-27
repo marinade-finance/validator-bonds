@@ -8,12 +8,12 @@ Mono repository for Validator Bonds product
 * [`packages/`](./packages/) - TypeScript packages related to on-chain program
   ([SDK](./packages/validator-bonds-sdk/), [CLI](./packages/validator-bonds-cli/))
 * [`api/`](./api/) - in Rust developed OpenAPI service that publishes bonds data ([API endpoint](https://validator-bonds-api.marinade.finance/docs))
-* [`.buildkite/`](./.buildkite/) - automated pipelines that prepares data for bonds claiming, updating API data and similar
-* [`insurance-engine/`](./insurance-engine/) - under command of creating protected event data that is published in form of JSON and packed as a settlement on-chain
+* [`.buildkite/`](./.buildkite/) - automated pipelines that prepare data for bonds claiming, updating API data and similar
+* [`insurance-engine/`](./insurance-engine/) - code for a CLI creating protected event data that is published in form of JSON and packed as a settlement on-chain
 * [`merkle-tree/`](./merkle-tree/) - generic Rust library implementing the merkle tree data structure management
 * [`migrations/`](./migrations/) - SQL scripts to prepare and change DB schemas
-* [`scripts/`](./scripts/) - as the name suggests, scripts used in pipeline and to manage and integrate various repository parts
-* [`snapshot-parser`](./snapshot-parser/) - a service in command to parse Solana snapshots and provides data processed by `insurance-engine`
+* [`scripts/`](./scripts/) - scripts used in pipeline and to manage and integrate various repository parts
+* [`snapshot-parser`](./snapshot-parser/) - a CLI for parsing Solana snapshots and providing data to be processed by `insurance-engine`
 * [`validator-bonds-cli`](./validator-bonds-cli/) - CLI used by operator to manage bonds (user related CLI is [packages/CLI](./packages/validator-bonds-cli/))
 
 ## User related CLI from source
@@ -70,7 +70,7 @@ pnpm cli --help
       - The funding instruction assigns the bonds funded `StakeAccounts` under `Settlement` by assigning their staker authority
         under derived `Settlement's` staker PDA.
       - `StakeAccounts` funded to a `Settlement` cannot be used for withdrawing funded `Bond`
-      - Funding `StakeAccount` to `Settlement` deactivates the `StakeAccount` to be possible withdraw the lamports
+      - Funding `StakeAccount` to `Settlement` deactivates the `StakeAccount` to make it possible to withdraw the lamports
       - *Expectation:* To fully used the whole amount of lamports funded under the bond program by the validator
         the operator is required to merge all the `StakeAccounts` of the validator (delegated to the same `VoteAccount`)
         first and then fund such `StakeAccount` into `Settlement`. And the instruction is then capable to split `StakeAccount`
