@@ -10,7 +10,7 @@ use anchor_spl::token::{burn, Burn, Token, TokenAccount};
 /// Change parameters of validator bond account with token burn
 #[derive(Accounts)]
 pub struct ConfigureBondWithMint<'info> {
-    config: Account<'info, Config>,
+    pub config: Account<'info, Config>,
 
     #[account(
         mut,
@@ -22,7 +22,7 @@ pub struct ConfigureBondWithMint<'info> {
         ],
         bump = bond.bump,
     )]
-    bond: Account<'info, Bond>,
+    pub bond: Account<'info, Bond>,
 
     #[account(
         mut,
@@ -33,7 +33,7 @@ pub struct ConfigureBondWithMint<'info> {
         bump,
         mint::authority = mint,
     )]
-    mint: Account<'info, Mint>,
+    pub mint: Account<'info, Mint>,
 
     /// token account to burn bond mint configuration tokens from
     #[account(
@@ -41,11 +41,11 @@ pub struct ConfigureBondWithMint<'info> {
         token::mint = mint,
         token::authority = token_authority,
     )]
-    token_account: Account<'info, TokenAccount>,
+    pub token_account: Account<'info, TokenAccount>,
 
-    token_authority: Signer<'info>,
+    pub token_authority: Signer<'info>,
 
-    token_program: Program<'info, Token>,
+    pub token_program: Program<'info, Token>,
 }
 
 impl<'info> ConfigureBondWithMint<'info> {

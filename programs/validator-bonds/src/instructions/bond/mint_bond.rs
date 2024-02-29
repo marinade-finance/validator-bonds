@@ -23,10 +23,9 @@ use anchor_spl::{
 /// Minting bond SPL token that can be used for configuring the bond account (see configure_mint_bond.rs)
 #[derive(Accounts)]
 pub struct MintBond<'info> {
-    config: Account<'info, Config>,
+    pub config: Account<'info, Config>,
 
     #[account(
-        mut,
         has_one = config @ ErrorCode::ConfigAccountMismatch,
         seeds = [
             b"bond_account",
@@ -35,7 +34,7 @@ pub struct MintBond<'info> {
         ],
         bump = bond.bump,
     )]
-    bond: Account<'info, Bond>,
+    pub bond: Account<'info, Bond>,
 
     #[account(
         init_if_needed,
@@ -48,10 +47,10 @@ pub struct MintBond<'info> {
         mint::decimals = 0,
         mint::authority = mint,
     )]
-    mint: Account<'info, Mint>,
+    pub mint: Account<'info, Mint>,
 
     /// CHECK: authority is checked to be related to the vote account in the code
-    destination_authority: UncheckedAccount<'info>,
+    pub destination_authority: UncheckedAccount<'info>,
 
     #[account(
         init_if_needed,
@@ -59,13 +58,13 @@ pub struct MintBond<'info> {
         associated_token::mint = mint,
         associated_token::authority = destination_authority,
     )]
-    destination_token_account: Account<'info, TokenAccount>,
+    pub destination_token_account: Account<'info, TokenAccount>,
 
     /// CHECK: check&deserialize the vote account in the code
     #[account(
         owner = vote_program_id @ ErrorCode::InvalidVoteAccountProgramId,
     )]
-    vote_account: UncheckedAccount<'info>,
+    pub vote_account: UncheckedAccount<'info>,
 
     /// CHECK: New metadata account to be possibly created
     #[account(mut)]
@@ -76,17 +75,17 @@ pub struct MintBond<'info> {
         mut,
         owner = system_program_id,
     )]
-    rent_payer: Signer<'info>,
+    pub rent_payer: Signer<'info>,
 
-    system_program: Program<'info, System>,
+    pub system_program: Program<'info, System>,
 
-    token_program: Program<'info, Token>,
+    pub token_program: Program<'info, Token>,
 
-    associated_token_program: Program<'info, AssociatedToken>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
 
-    metadata_program: Program<'info, Metadata>,
+    pub metadata_program: Program<'info, Metadata>,
 
-    rent: Sysvar<'info, Rent>,
+    pub rent: Sysvar<'info, Rent>,
 }
 
 impl<'info> MintBond<'info> {
@@ -133,37 +132,39 @@ impl<'info> MintBond<'info> {
             1,
         )?;
 
-        create_metadata_accounts_v3(
-            CpiContext::new_with_signer(
-                self.metadata_program.to_account_info(),
-                CreateMetadataAccountsV3 {
-                    mint: self.mint.to_account_info(),
-                    update_authority: self.mint.to_account_info(),
-                    mint_authority: self.mint.to_account_info(),
-                    payer: self.rent_payer.to_account_info(),
-                    metadata: self.metadata.to_account_info(),
-                    system_program: self.system_program.to_account_info(),
-                    rent: self.rent.to_account_info(),
+        if self.metadata.get_lamports() == 0 {
+            create_metadata_accounts_v3(
+                CpiContext::new_with_signer(
+                    self.metadata_program.to_account_info(),
+                    CreateMetadataAccountsV3 {
+                        mint: self.mint.to_account_info(),
+                        update_authority: self.mint.to_account_info(),
+                        mint_authority: self.mint.to_account_info(),
+                        payer: self.rent_payer.to_account_info(),
+                        metadata: self.metadata.to_account_info(),
+                        system_program: self.system_program.to_account_info(),
+                        rent: self.rent.to_account_info(),
+                    },
+                    &mint_signer,
+                ),
+                DataV2 {
+                    name: "Validator Bonds".to_string(),
+                    symbol: "VBOND".to_string(),
+                    uri: "https://github.com/marinade-finance/validator-bonds".to_string(),
+                    seller_fee_basis_points: 0,
+                    creators: Some(vec![Creator {
+                        address: self.bond.key(),
+                        verified: false,
+                        share: 100,
+                    }]),
+                    collection: None,
+                    uses: None,
                 },
-                &mint_signer,
-            ),
-            DataV2 {
-                name: "Validator Bonds".to_string(),
-                symbol: "VBOND".to_string(),
-                uri: "https://github.com/marinade-finance/validator-bonds".to_string(),
-                seller_fee_basis_points: 0,
-                creators: Some(vec![Creator {
-                    address: self.bond.key(),
-                    verified: false,
-                    share: 100,
-                }]),
-                collection: None,
-                uses: None,
-            },
-            false,
-            true,
-            None,
-        )?;
+                false,
+                true,
+                None,
+            )?;
+        }
 
         emit!(MintBondEvent {
             bond: self.bond.key(),

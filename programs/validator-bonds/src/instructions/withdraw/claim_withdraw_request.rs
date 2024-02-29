@@ -13,19 +13,19 @@ use crate::utils::{minimal_size_stake_account, return_unused_split_stake_account
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::stake::state::{StakeAuthorize, StakeStateV2};
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
-use anchor_lang::solana_program::{program::invoke_signed, stake, system_program};
+use anchor_lang::solana_program::{
+    program::invoke_signed, stake, system_program::ID as system_program_id,
+};
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 
-/// Withdrawing funds from a bond account, to proceed the withdraw one must create a withdraw request first.
+/// Withdrawing funds from a bond account, to proceed the withdrawal one must create a withdraw request first.
 /// Withdrawal takes StakeAccount that associated with bonds program and changes owner back to validator vote withdrawer.
 #[derive(Accounts)]
 pub struct ClaimWithdrawRequest<'info> {
     /// the config root configuration account
-    #[account()]
     config: Account<'info, Config>,
 
     #[account(
-        mut,
         has_one = config @ ErrorCode::ConfigAccountMismatch,
         has_one = vote_account @ ErrorCode::VoteAccountMismatch,
         seeds = [
@@ -35,17 +35,16 @@ pub struct ClaimWithdrawRequest<'info> {
         ],
         bump = bond.bump,
     )]
-    bond: Account<'info, Bond>,
+    pub bond: Account<'info, Bond>,
 
     /// CHECK: deserialization of the vote account in the code
     #[account(
         owner = vote_program_id @ ErrorCode::InvalidVoteAccountProgramId,
     )]
-    vote_account: UncheckedAccount<'info>,
+    pub vote_account: UncheckedAccount<'info>,
 
     /// validator vote account node identity or bond authority may claim
-    #[account()]
-    authority: Signer<'info>,
+    pub authority: Signer<'info>,
 
     #[account(
         mut,
@@ -58,7 +57,7 @@ pub struct ClaimWithdrawRequest<'info> {
         ],
         bump = withdraw_request.bump
     )]
-    withdraw_request: Account<'info, WithdrawRequest>,
+    pub withdraw_request: Account<'info, WithdrawRequest>,
 
     /// CHECK: PDA
     #[account(
@@ -68,17 +67,16 @@ pub struct ClaimWithdrawRequest<'info> {
         ],
         bump = config.bonds_withdrawer_authority_bump
     )]
-    bonds_withdrawer_authority: UncheckedAccount<'info>,
+    pub bonds_withdrawer_authority: UncheckedAccount<'info>,
 
     /// stake account to be used to withdraw the funds
     /// this stake account has to be delegated to the validator vote account associated to the bond
     #[account(mut)]
-    stake_account: Account<'info, StakeAccount>,
+    pub stake_account: Account<'info, StakeAccount>,
 
     /// CHECK: whatever address, authority signature states his intention to withdraw the funds
     /// New owner of the stake account, it will be accounted to the withdrawer authority
-    #[account()]
-    withdrawer: UncheckedAccount<'info>,
+    pub withdrawer: UncheckedAccount<'info>,
 
     /// this is a whatever address that does not exist
     /// when withdrawing needs to split the provided account this will be used as a new stake account
@@ -88,23 +86,23 @@ pub struct ClaimWithdrawRequest<'info> {
         space = std::mem::size_of::<StakeStateV2>(),
         owner = stake::program::ID,
     )]
-    split_stake_account: Account<'info, StakeAccount>,
+    pub split_stake_account: Account<'info, StakeAccount>,
 
     /// when the split_stake_account is created the rent for creation is taken from here
-    /// when the split_stake_account is not created then no rent is payed
+    /// when the split_stake_account is not created then no rent is paid
     #[account(
         mut,
-        owner = system_program::ID
+        owner = system_program_id
     )]
-    split_stake_rent_payer: Signer<'info>,
+    pub split_stake_rent_payer: Signer<'info>,
 
-    stake_program: Program<'info, Stake>,
+    pub stake_program: Program<'info, Stake>,
 
-    system_program: Program<'info, System>,
+    pub system_program: Program<'info, System>,
 
-    stake_history: Sysvar<'info, StakeHistory>,
+    pub stake_history: Sysvar<'info, StakeHistory>,
 
-    clock: Sysvar<'info, Clock>,
+    pub clock: Sysvar<'info, Clock>,
 }
 
 impl<'info> ClaimWithdrawRequest<'info> {
@@ -147,8 +145,8 @@ impl<'info> ClaimWithdrawRequest<'info> {
             .requested_amount
             .saturating_sub(self.withdraw_request.withdrawn_amount);
 
-        // when the stake account is bigger to the non withdrawn amount of the withdrawal request
-        // we need to split the stake account to parts and withdraw only the non withdrawn amount
+        // when the stake account is bigger to the non-withdrawn amount of the withdrawal request
+        // we need to split the stake account to parts and withdraw only the non-withdrawn amount
         let (withdrawing_amount, is_split) = if self.stake_account.get_lamports()
             > amount_to_fulfill_withdraw
         {
@@ -213,7 +211,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
                 &self.stake_history.to_account_info(),
             )?;
             // withdrawal amount is full stake account
-            (self.stake_account.to_account_info().lamports(), false)
+            (self.stake_account.get_lamports(), false)
         };
 
         let old_withdrawn_amount = self.withdraw_request.withdrawn_amount;

@@ -87,9 +87,6 @@ export type ConfigureBondEvent =
 export const MINT_BOND_EVENT = 'MintBondEvent'
 export type MintBondEvent = IdlEvents<ValidatorBonds>[typeof MINT_BOND_EVENT]
 
-export const CLOSE_BOND_EVENT = 'CloseBondEvent'
-export type CloseBondEvent = IdlEvents<ValidatorBonds>[typeof CLOSE_BOND_EVENT]
-
 export const FUND_BOND_EVENT = 'FundBondEvent'
 export type FundBondEvent = IdlEvents<ValidatorBonds>[typeof FUND_BOND_EVENT]
 
@@ -231,6 +228,18 @@ export function bondsWithdrawerAuthority(
   )
 }
 
+export function uintToBuffer(number: EpochInfo | number | BN | bigint): Buffer {
+  const uintLittleEndian = Buffer.alloc(8)
+  const epochBigint =
+    typeof number === 'number' ||
+    number instanceof BN ||
+    typeof number === 'bigint'
+      ? BigInt(number.toString())
+      : BigInt(number.epoch)
+  uintLittleEndian.writeBigUint64LE(epochBigint)
+  return uintLittleEndian
+}
+
 export function settlementAddress(
   bond: PublicKey,
   merkleRoot: Uint8Array | Buffer | number[],
@@ -240,16 +249,9 @@ export function settlementAddress(
   if (Array.isArray(merkleRoot)) {
     merkleRoot = new Uint8Array(merkleRoot)
   }
-  const epochLittleEndian = Buffer.alloc(8)
-  const epochBigint =
-    typeof epoch === 'number' ||
-    epoch instanceof BN ||
-    typeof epoch === 'bigint'
-      ? BigInt(epoch.toString())
-      : BigInt(epoch.epoch)
-  epochLittleEndian.writeBigInt64LE(epochBigint)
+  const epochBuffer = uintToBuffer(epoch)
   return PublicKey.findProgramAddressSync(
-    [SETTLEMENT_SEED, bond.toBytes(), merkleRoot, epochLittleEndian],
+    [SETTLEMENT_SEED, bond.toBytes(), merkleRoot, epochBuffer],
     validatorBondsProgramId
   )
 }

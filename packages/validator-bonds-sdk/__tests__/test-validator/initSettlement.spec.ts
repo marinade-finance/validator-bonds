@@ -114,9 +114,9 @@ describe('Validator Bonds init settlement', () => {
     expect(settlementData.splitRentCollector).toEqual(null)
 
     await event.then(e => {
+      expect(e.settlement).toEqual(settlementAccount)
       expect(e.bond).toEqual(bondAccount)
       expect(e.voteAccount).toEqual(voteAccount)
-      expect(e.bumps).toEqual({ pda: bump, stakerAuthority: authorityBump })
       expect(e.epochCreatedFor).toEqual(currentEpoch)
       expect(e.maxMerkleNodes).toEqual(2)
       expect(e.maxTotalClaim).toEqual(100)

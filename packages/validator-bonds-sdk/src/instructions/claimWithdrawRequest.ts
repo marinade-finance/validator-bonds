@@ -17,6 +17,13 @@ import { getVoteAccount } from '../web3.js/voteAccount'
 import { anchorProgramWalletPubkey } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
+/**
+ * Generate instruction to withdraw amount defined within the withdraw request.
+ * Only bond authority or validator identity of vote account voter pubkey can do this.
+ * Withdrawing requires stake account that is attributed to the withdrawer.
+ * Withdrawing is possible only when lockup time elapses (configured in config)
+ * from the withdraw request creation.
+ */
 export async function claimWithdrawRequestInstruction({
   program,
   withdrawRequestAccount,

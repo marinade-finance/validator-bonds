@@ -30,7 +30,7 @@ pub struct FundSettlement<'info> {
     #[account(
         has_one = operator_authority @ ErrorCode::InvalidOperatorAuthority,
     )]
-    config: Account<'info, Config>,
+    pub config: Account<'info, Config>,
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,
@@ -41,7 +41,7 @@ pub struct FundSettlement<'info> {
         ],
         bump = bond.bump,
     )]
-    bond: Account<'info, Bond>,
+    pub bond: Account<'info, Bond>,
 
     #[account(
         mut,
@@ -55,15 +55,15 @@ pub struct FundSettlement<'info> {
         ],
         bump = settlement.bumps.pda,
     )]
-    settlement: Account<'info, Settlement>,
+    pub settlement: Account<'info, Settlement>,
 
     /// operator signer authority is allowed to fund the settlement account
     /// (making this operation permission-ed, at least for the first version of the contract)
-    operator_authority: Signer<'info>,
+    pub operator_authority: Signer<'info>,
 
     /// stake account to be funded into the settlement
     #[account(mut)]
-    stake_account: Account<'info, StakeAccount>,
+    pub stake_account: Account<'info, StakeAccount>,
 
     /// CHECK: PDA
     /// settlement stake authority to differentiate deposited and funded stake accounts
@@ -75,7 +75,7 @@ pub struct FundSettlement<'info> {
         ],
         bump = settlement.bumps.staker_authority,
     )]
-    settlement_staker_authority: UncheckedAccount<'info>,
+    pub settlement_staker_authority: UncheckedAccount<'info>,
 
     /// CHECK: PDA
     /// authority that manages (owns) all stakes account under the bonds program
@@ -86,7 +86,7 @@ pub struct FundSettlement<'info> {
         ],
         bump = config.bonds_withdrawer_authority_bump
     )]
-    bonds_withdrawer_authority: UncheckedAccount<'info>,
+    pub bonds_withdrawer_authority: UncheckedAccount<'info>,
 
     /// an account that does not exist, it will be initialized as a stake account (the signature needed)
     /// the split_stake_account is needed when the provided stake_account is consists of more lamports
@@ -98,7 +98,7 @@ pub struct FundSettlement<'info> {
         space = std::mem::size_of::<StakeStateV2>(),
         owner = stake::program::ID,
     )]
-    split_stake_account: Account<'info, StakeAccount>,
+    pub split_stake_account: Account<'info, StakeAccount>,
 
     /// rent exempt payer of the split_stake_account creation
     /// if the split_stake_account is not needed (no left-over lamports on funding) then rent payer is refunded
@@ -108,19 +108,19 @@ pub struct FundSettlement<'info> {
         mut,
         owner = system_program_id,
     )]
-    split_stake_rent_payer: Signer<'info>,
+    pub split_stake_rent_payer: Signer<'info>,
 
-    system_program: Program<'info, System>,
+    pub system_program: Program<'info, System>,
 
     /// CHECK: have no CPU budget to parse
     #[account(address = stake_history::ID)]
-    stake_history: UncheckedAccount<'info>,
+    pub stake_history: UncheckedAccount<'info>,
 
-    clock: Sysvar<'info, Clock>,
+    pub clock: Sysvar<'info, Clock>,
 
-    rent: Sysvar<'info, Rent>,
+    pub rent: Sysvar<'info, Rent>,
 
-    stake_program: Program<'info, Stake>,
+    pub stake_program: Program<'info, Stake>,
 }
 
 impl<'info> FundSettlement<'info> {
@@ -159,7 +159,7 @@ impl<'info> FundSettlement<'info> {
         // funded stake account cannot be locked as we want to deactivate&withdraw
         check_stake_is_not_locked(&self.stake_account, &self.clock, "stake_account")?;
 
-        let split_stake_rent_exempt = self.split_stake_account.to_account_info().lamports();
+        let split_stake_rent_exempt = self.split_stake_account.get_lamports();
         let stake_account_min_size = minimal_size_stake_account(&stake_meta, &self.config);
 
         // note: we can over-fund the settlement when the stake account is in shape to not being possible to split it
@@ -247,7 +247,8 @@ impl<'info> FundSettlement<'info> {
                 self.stake_account.key()
             );
         }
-        // moving stake account from bond authority to settlement authority to differentiate funded and non-funded stake accounts
+        // moving stake account from bond authority to settlement authority
+        // to differentiate settlement funded and settlement non-funded stake accounts
         authorize(
             CpiContext::new_with_signer(
                 self.stake_program.to_account_info(),

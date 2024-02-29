@@ -93,9 +93,9 @@ describe('Validator Bonds init bond', () => {
 
     // Ensure the event listener was called
     await event.then(e => {
+      expect(e.bond).toEqual(bondAccount)
       expect(e.authority).toEqual(bondAuthority)
-      expect(e.bondBump).toEqual(bondBump)
-      expect(e.configAddress).toEqual(configAccount)
+      expect(e.config).toEqual(configAccount)
       expect(e.cpmpe).toEqual(22)
       expect(e.voteAccount).toEqual(voteAccount)
       expect(e.validatorIdentity).toEqual(validatorIdentity.publicKey)

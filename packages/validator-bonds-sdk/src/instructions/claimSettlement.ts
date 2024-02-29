@@ -23,6 +23,11 @@ import { getBond, getSettlement } from '../api'
 import { getStakeAccount } from '../web3.js'
 import { MerkleTreeNode } from '../merkleTree'
 
+/**
+ * Generate instruction to claim from settlement protected event.
+ * Permission-less operation. The legitimacy of the claim
+ * is verified against the merkle proof and the merkle root.
+ */
 export async function claimSettlementInstruction({
   program,
   claimAmount,

@@ -21,16 +21,16 @@ pub struct InitConfig<'info> {
         payer = rent_payer,
         space = 8 + std::mem::size_of::<Config>()
     )]
-    config: Account<'info, Config>,
+    pub config: Account<'info, Config>,
 
     /// rent exempt payer for the config (root) account
     #[account(
         mut,
         owner = system_program_id
     )]
-    rent_payer: Signer<'info>,
+    pub rent_payer: Signer<'info>,
 
-    system_program: Program<'info, System>,
+    pub system_program: Program<'info, System>,
 }
 
 impl<'info> InitConfig<'info> {
@@ -58,12 +58,12 @@ impl<'info> InitConfig<'info> {
         });
 
         emit!(InitConfigEvent {
+            config: self.config.key(),
             admin_authority: self.config.admin_authority,
             operator_authority: self.config.operator_authority,
             epochs_to_claim_settlement: self.config.epochs_to_claim_settlement,
             withdraw_lockup_epochs: self.config.withdraw_lockup_epochs,
             minimum_stake_lamports: self.config.minimum_stake_lamports,
-            bonds_withdrawer_authority_bump: self.config.bonds_withdrawer_authority_bump,
             bonds_withdrawer_authority,
         });
 

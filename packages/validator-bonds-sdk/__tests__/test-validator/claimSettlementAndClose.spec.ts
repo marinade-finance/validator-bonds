@@ -39,9 +39,10 @@ import {
 } from '../utils/merkleTreeTestData'
 import {
   createBondsFundedStakeAccount,
-  createStakeAccount,
+  createDelegatedStakeAccount,
   createVoteAccount,
 } from '../utils/staking'
+import BN from 'bn.js'
 
 // NOTE: order of tests need to be maintained
 describe('Validator Bonds claim settlement', () => {
@@ -133,14 +134,12 @@ describe('Validator Bonds claim settlement', () => {
       withdrawer1
     )
     const stakeAccountTreeNodeVoteAccount1Withdrawer1 =
-      await createStakeAccount({
+      await createDelegatedStakeAccount({
         provider,
         lamports: 4 * LAMPORTS_PER_SOL,
         voteAccount: voteAccount1,
-        newStakerAuthority:
-          treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority,
-        newBondsWithdrawerAuthority:
-          treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority,
+        staker: treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority,
+        withdrawer: treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority,
       })
 
     const { instruction, settlementClaimAccount } =
@@ -155,7 +154,7 @@ describe('Validator Bonds claim settlement', () => {
       })
     await provider.sendIx([fundSettlementRentPayer], instruction)
 
-    const [settlementClaimAddr, bumpSettlementClaim] = settlementClaimAddress(
+    const [settlementClaimAddr] = settlementClaimAddress(
       {
         settlement: settlementAccount,
         stakeAccountStaker:
@@ -173,11 +172,15 @@ describe('Validator Bonds claim settlement', () => {
       expect(e.amount).toEqual(
         treeNodeVoteAccount1Withdrawer1.treeNode.data.claim
       )
-      expect(e.bump).toEqual(bumpSettlementClaim)
       expect(e.rentCollector).toEqual(fundSettlementRentPayer.publicKey)
       expect(e.settlement).toEqual(settlementAccount)
       expect(e.settlementClaim).toEqual(settlementClaimAccount)
-      expect(e.settlementLamportsClaimed).toEqual(
+      expect(e.settlementLamportsClaimed.old).toEqual(
+        new BN(treeNodeVoteAccount1Withdrawer1.treeNode.data.claim).sub(
+          treeNodeVoteAccount1Withdrawer1.treeNode.data.claim
+        )
+      )
+      expect(e.settlementLamportsClaimed.new).toEqual(
         treeNodeVoteAccount1Withdrawer1.treeNode.data.claim
       )
       expect(e.settlementMerkleNodesClaimed).toEqual(1)
@@ -196,13 +199,12 @@ describe('Validator Bonds claim settlement', () => {
   it('find claim settlements', async () => {
     await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer2Keypair)
     const treeNodeWithdrawer2 = treeNodeBy(voteAccount1, withdrawer2)
-    const stakeAccountTreeNodeWithdrawer2 = await createStakeAccount({
+    const stakeAccountTreeNodeWithdrawer2 = await createDelegatedStakeAccount({
       provider,
       lamports: 6 * LAMPORTS_PER_SOL,
       voteAccount: voteAccount1,
-      newStakerAuthority: treeNodeWithdrawer2.treeNode.stakeAuthority,
-      newBondsWithdrawerAuthority:
-        treeNodeWithdrawer2.treeNode.withdrawAuthority,
+      staker: treeNodeWithdrawer2.treeNode.stakeAuthority,
+      withdrawer: treeNodeWithdrawer2.treeNode.withdrawAuthority,
     })
     const { instruction: ix1 } = await claimSettlementInstruction({
       program,
@@ -214,13 +216,12 @@ describe('Validator Bonds claim settlement', () => {
     })
     await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer3Keypair)
     const treeNodeWithdrawer3 = treeNodeBy(voteAccount1, withdrawer3)
-    const stakeAccountTreeNodeWithdrawer3 = await createStakeAccount({
+    const stakeAccountTreeNodeWithdrawer3 = await createDelegatedStakeAccount({
       provider,
       lamports: 7 * LAMPORTS_PER_SOL,
       voteAccount: voteAccount1,
-      newStakerAuthority: treeNodeWithdrawer3.treeNode.stakeAuthority,
-      newBondsWithdrawerAuthority:
-        treeNodeWithdrawer3.treeNode.withdrawAuthority,
+      staker: treeNodeWithdrawer3.treeNode.stakeAuthority,
+      withdrawer: treeNodeWithdrawer3.treeNode.withdrawAuthority,
     })
     const { instruction: ix2 } = await claimSettlementInstruction({
       program,

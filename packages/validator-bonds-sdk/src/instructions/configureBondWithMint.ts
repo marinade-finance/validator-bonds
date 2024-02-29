@@ -11,6 +11,10 @@ import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import { getAssociatedTokenAddressSync } from 'solana-spl-token-modern'
 import { getBond } from '../api'
 
+/**
+ * Generate instruction to configure bond account with ownership of bond minted token.
+ * Owner of the token has to sign the transaction and the token is burnt.
+ */
 export async function configureBondWithMintInstruction({
   program,
   bondAccount,

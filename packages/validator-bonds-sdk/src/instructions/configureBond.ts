@@ -10,6 +10,10 @@ import BN from 'bn.js'
 import { getBond } from '../api'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
+/**
+ * Generate instruction to configure bond account. Signature of validator identity of vote account
+ * voter pubkey OR bond authority is required.
+ */
 export async function configureBondInstruction({
   program,
   bondAccount,

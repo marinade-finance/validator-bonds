@@ -1,16 +1,14 @@
 #![allow(deprecated)]
+// allowing deprecation as anchor 0.29.0 works with old version of StakeState struct
 
 use crate::checks::{check_stake_is_initialized_with_withdrawer_authority, is_closed};
 use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
 use crate::events::stake::WithdrawStakeEvent;
-
 use crate::state::config::Config;
 use crate::state::settlement::find_settlement_staker_authority;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::stake::state::StakeState;
-
-use anchor_lang::solana_program::sysvar::stake_history;
+use anchor_lang::solana_program::{stake::state::StakeState, sysvar::stake_history};
 use anchor_spl::stake::{withdraw, Stake, StakeAccount, Withdraw};
 use std::ops::Deref;
 
@@ -22,22 +20,21 @@ pub struct WithdrawStake<'info> {
     #[account(
         has_one = operator_authority @ ErrorCode::InvalidOperatorAuthority,
     )]
-    config: Account<'info, Config>,
+    pub config: Account<'info, Config>,
 
     /// operator authority is allowed to reset the non-delegated stake accounts
-    operator_authority: Signer<'info>,
+    pub operator_authority: Signer<'info>,
 
-    /// CHECK: cannot exist
-    /// settlement account used to derive settlement authority which cannot exists
-    settlement: UncheckedAccount<'info>,
+    /// CHECK: in code
+    /// cannot exist; used to derive settlement authority
+    pub settlement: UncheckedAccount<'info>,
 
-    /// stake account where staker authority is of the settlement
+    /// stake account where staker authority is derived from settlement
     #[account(mut)]
-    stake_account: Account<'info, StakeAccount>,
+    pub stake_account: Account<'info, StakeAccount>,
 
     /// CHECK: PDA
-    /// bonds withdrawer authority
-    /// to cancel settlement funding of the stake account changing staker authority to address
+    /// bonds authority to withdraw the stake account
     #[account(
       seeds = [
           b"bonds_authority",
@@ -45,26 +42,26 @@ pub struct WithdrawStake<'info> {
       ],
       bump = config.bonds_withdrawer_authority_bump
     )]
-    bonds_withdrawer_authority: UncheckedAccount<'info>,
+    pub bonds_withdrawer_authority: UncheckedAccount<'info>,
 
+    /// CHECK: caller may define SystemAccount or any other
     #[account(mut)]
-    withdraw_to: SystemAccount<'info>,
+    pub withdraw_to: UncheckedAccount<'info>,
 
     /// CHECK: have no CPU budget to parse
     #[account(address = stake_history::ID)]
-    stake_history: UncheckedAccount<'info>,
+    pub stake_history: UncheckedAccount<'info>,
 
-    clock: Sysvar<'info, Clock>,
+    pub clock: Sysvar<'info, Clock>,
 
-    stake_program: Program<'info, Stake>,
+    pub stake_program: Program<'info, Stake>,
 }
 
 impl<'info> WithdrawStake<'info> {
     pub fn process(&mut self) -> Result<()> {
-        // TODO: may operator authority have chance to do this when paused?
         require!(!self.config.paused, ErrorCode::ProgramIsPaused);
 
-        // settlement account cannot exists
+        // The rule stipulates to withdraw only when the settlement does exist.
         require!(is_closed(&self.settlement), ErrorCode::SettlementNotClosed);
 
         // stake account is managed by bonds program and belongs under bond validator
@@ -89,9 +86,8 @@ impl<'info> WithdrawStake<'info> {
             self.bonds_withdrawer_authority.key(),
             ErrorCode::WrongStakeAccountWithdrawer
         );
-        // TODO: do we want to limit the operator stake account withdrawal only to settlement funded stake accounts?
-        //       could be reasonable to only check stake account state and bonds authority?
-        // stake account is funded to removed settlement
+
+        // check the stake account is funded to removed settlement
         let settlement_staker_authority =
             find_settlement_staker_authority(&self.settlement.key()).0;
         require_eq!(
@@ -100,7 +96,7 @@ impl<'info> WithdrawStake<'info> {
             ErrorCode::SettlementAuthorityMismatch
         );
 
-        let withdrawn_amount = self.stake_account.to_account_info().lamports();
+        let withdrawn_amount = self.stake_account.get_lamports();
         withdraw(
             CpiContext::new_with_signer(
                 self.stake_program.to_account_info(),

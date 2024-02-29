@@ -8,6 +8,10 @@ import { CONFIG_ADDRESS, ValidatorBondsProgram } from '../sdk'
 import { getConfig } from '../api'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
+/**
+ * Generate instruction to pause program.
+ * Admin only operation.
+ */
 export async function emergencyPauseInstruction({
   program,
   configAccount = CONFIG_ADDRESS,

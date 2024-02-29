@@ -3,27 +3,18 @@ use anchor_lang::prelude::*;
 
 #[event]
 pub struct InitBondEvent {
-    pub config_address: Pubkey,
+    pub bond: Pubkey,
+    pub config: Pubkey,
     pub vote_account: Pubkey,
     pub validator_identity: Pubkey,
     pub authority: Pubkey,
     pub cpmpe: u64,
-    pub bond_bump: u8,
 }
 
 #[event]
 pub struct ConfigureBondEvent {
     pub bond_authority: Option<PubkeyValueChange>,
     pub cpmpe: Option<U64ValueChange>,
-}
-
-#[event]
-pub struct CloseBondEvent {
-    pub config_address: Pubkey,
-    pub vote_account: Pubkey,
-    pub authority: Pubkey,
-    pub cpmpe: u64,
-    pub bump: u8,
 }
 
 #[event]

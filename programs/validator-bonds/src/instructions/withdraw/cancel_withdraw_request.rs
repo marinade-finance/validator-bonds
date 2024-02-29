@@ -11,10 +11,9 @@ use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 /// Only one withdraw request per bond. Cancelling makes a way for a new request with new amount.
 #[derive(Accounts)]
 pub struct CancelWithdrawRequest<'info> {
-    config: Account<'info, Config>,
+    pub config: Account<'info, Config>,
 
     #[account(
-        mut,
         has_one = vote_account @ ErrorCode::VoteAccountMismatch,
         has_one = config @ ErrorCode::ConfigAccountMismatch,
         seeds = [
@@ -24,16 +23,15 @@ pub struct CancelWithdrawRequest<'info> {
         ],
         bump = bond.bump,
     )]
-    bond: Account<'info, Bond>,
+    pub bond: Account<'info, Bond>,
 
     /// CHECK: check&deserialize of the vote account in the code
     #[account(
         owner = vote_program_id @ ErrorCode::InvalidVoteAccountProgramId,
     )]
-    vote_account: UncheckedAccount<'info>,
+    pub vote_account: UncheckedAccount<'info>,
 
     /// validator vote account validator identity or bond authority may ask for cancelling
-    #[account()]
     pub authority: Signer<'info>,
 
     #[account(
@@ -46,10 +44,11 @@ pub struct CancelWithdrawRequest<'info> {
         ],
         bump = withdraw_request.bump
     )]
-    withdraw_request: Account<'info, WithdrawRequest>,
+    pub withdraw_request: Account<'info, WithdrawRequest>,
 
+    /// CHECK: caller may define SystemAccount or any other
     #[account(mut)]
-    rent_collector: SystemAccount<'info>,
+    pub rent_collector: UncheckedAccount<'info>,
 }
 
 impl<'info> CancelWithdrawRequest<'info> {

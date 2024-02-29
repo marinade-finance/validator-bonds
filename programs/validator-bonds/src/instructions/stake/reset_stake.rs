@@ -18,8 +18,7 @@ use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 #[derive(Accounts)]
 pub struct ResetStake<'info> {
     /// the config root account under which the bond was created
-    #[account()]
-    config: Account<'info, Config>,
+    pub config: Account<'info, Config>,
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,
@@ -31,15 +30,15 @@ pub struct ResetStake<'info> {
         ],
         bump = bond.bump,
     )]
-    bond: Account<'info, Bond>,
+    pub bond: Account<'info, Bond>,
 
-    /// CHECK: cannot exist
-    /// settlement account used to derive settlement authority which cannot exists
-    settlement: UncheckedAccount<'info>,
+    /// CHECK: in code
+    /// cannot exist; used to derive settlement authority
+    pub settlement: UncheckedAccount<'info>,
 
     /// stake account belonging under the settlement by staker authority
     #[account(mut)]
-    stake_account: Account<'info, StakeAccount>,
+    pub stake_account: Account<'info, StakeAccount>,
 
     /// CHECK: PDA
     /// bonds withdrawer authority
@@ -51,32 +50,32 @@ pub struct ResetStake<'info> {
       ],
       bump = config.bonds_withdrawer_authority_bump
     )]
-    bonds_withdrawer_authority: UncheckedAccount<'info>,
+    pub bonds_withdrawer_authority: UncheckedAccount<'info>,
 
     /// CHECK: the validator vote account to which the stake account is delegated, check in code
     #[account(
         owner = vote_program_id @ ErrorCode::InvalidVoteAccountProgramId,
     )]
-    vote_account: UncheckedAccount<'info>,
+    pub vote_account: UncheckedAccount<'info>,
 
     /// CHECK: have no CPU budget to parse
     #[account(address = stake_history::ID)]
-    stake_history: UncheckedAccount<'info>,
+    pub stake_history: UncheckedAccount<'info>,
 
     /// CHECK: CPI
     #[account(address = stake::config::ID)]
-    stake_config: UncheckedAccount<'info>,
+    pub stake_config: UncheckedAccount<'info>,
 
-    clock: Sysvar<'info, Clock>,
+    pub clock: Sysvar<'info, Clock>,
 
-    stake_program: Program<'info, Stake>,
+    pub stake_program: Program<'info, Stake>,
 }
 
 impl<'info> ResetStake<'info> {
     pub fn process(&mut self) -> Result<()> {
         require!(!self.config.paused, ErrorCode::ProgramIsPaused);
 
-        // settlement account cannot exists
+        // The rule stipulates to reset only when the settlement does exist.
         require!(is_closed(&self.settlement), ErrorCode::SettlementNotClosed);
 
         // stake account is managed by bonds program and belongs under bond validator

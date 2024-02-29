@@ -11,12 +11,15 @@ import {
   settlementAddress,
   Settlement,
   SettlementClaim,
+  uintToBuffer,
 } from './sdk'
 import BN from 'bn.js'
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 
-// TODO:
-//   - users can create arbitrary stake accounts (even with lockups), sdk must be prepared for that when showing total usable deposits
+// TODO: users can create arbitrary stake accounts (even with lockups), sdk must be prepared for that when showing total usable deposits
+//       this is to check the non-locked, correctly delegated stake accounts, then not Settlement funded stake accounts
+//       then subtract the the amount of possible existing WithdrawRequest (only one request per Bond)
+//       alle this information should be printed in show command via CLI call
 
 export async function getConfig(
   program: ValidatorBondsProgram,
@@ -166,7 +169,7 @@ export async function findWithdrawRequests({
   program: ValidatorBondsProgram
   voteAccount?: PublicKey
   bond?: PublicKey
-  epoch?: number | BN
+  epoch?: EpochInfo | number | BN | bigint
 }): Promise<ProgramAccount<WithdrawRequest>[]> {
   if (bond) {
     const [withdrawRequestAccount] = withdrawRequestAddress(
@@ -192,7 +195,7 @@ export async function findWithdrawRequests({
   if (epoch) {
     filters.push({
       memcmp: {
-        bytes: bs58.encode(new BN(epoch).toArray('le', 8)), // TODO: consider to use the same number-to-bytes as in settlement address
+        bytes: bs58.encode(uintToBuffer(epoch)),
         // 8 anchor offset + 32B validator vote pubkey + 32B bond pubkey
         offset: 72,
       },

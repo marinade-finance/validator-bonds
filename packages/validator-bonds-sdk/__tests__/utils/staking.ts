@@ -365,12 +365,12 @@ export async function createBondsFundedStakeAccount({
   voteAccount: PublicKey
 }): Promise<PublicKey> {
   const [bondsAuth] = bondsWithdrawerAuthority(configAccount, program.programId)
-  return await createStakeAccount({
+  return await createDelegatedStakeAccount({
     provider,
     voteAccount,
     lamports,
-    newBondsWithdrawerAuthority: bondsAuth,
-    newStakerAuthority: bondsAuth,
+    withdrawer: bondsAuth,
+    staker: bondsAuth,
   })
 }
 
@@ -394,12 +394,12 @@ export async function createSettlementFundedDelegatedStake({
     settlementAccount,
     program.programId
   )
-  return await createStakeAccount({
+  return await createDelegatedStakeAccount({
     provider,
     voteAccount,
     lamports,
-    newBondsWithdrawerAuthority: bondsAuth,
-    newStakerAuthority: settlementAuth,
+    withdrawer: bondsAuth,
+    staker: settlementAuth,
   })
 }
 
@@ -422,7 +422,7 @@ export async function createSettlementFundedInitializedStake({
     program.programId
   )
 
-  const { stakeAccount, withdrawer } = await initializedStakeAccount({
+  const { stakeAccount, withdrawer } = await createInitializedStakeAccount({
     provider,
     rentExempt: lamports,
   })
@@ -437,18 +437,18 @@ export async function createSettlementFundedInitializedStake({
   return stakeAccount
 }
 
-export async function createStakeAccount({
+export async function createDelegatedStakeAccount({
   provider,
   lamports,
   voteAccount,
-  newBondsWithdrawerAuthority,
-  newStakerAuthority,
+  withdrawer,
+  staker,
 }: {
   provider: ExtendedProvider
   lamports: number
   voteAccount: PublicKey
-  newBondsWithdrawerAuthority: PublicKey
-  newStakerAuthority: PublicKey
+  withdrawer: PublicKey
+  staker: PublicKey
 }): Promise<PublicKey> {
   const { stakeAccount, withdrawer: initWithdrawer } =
     await delegatedStakeAccount({
@@ -460,8 +460,8 @@ export async function createStakeAccount({
     provider,
     authority: initWithdrawer,
     stakeAccount: stakeAccount,
-    withdrawer: newBondsWithdrawerAuthority,
-    staker: newStakerAuthority,
+    withdrawer,
+    staker,
   })
   return stakeAccount
 }
@@ -488,7 +488,7 @@ type InitializedStakeAccount = {
   withdrawer: Keypair | PublicKey
 }
 
-export async function initializedStakeAccount({
+export async function createInitializedStakeAccount({
   provider,
   lockup,
   rentExempt,

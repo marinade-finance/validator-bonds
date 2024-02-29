@@ -42,7 +42,7 @@ import {
   createBondsFundedStakeAccount,
   createSettlementFundedDelegatedStake,
   createSettlementFundedInitializedStake,
-  createStakeAccount,
+  createDelegatedStakeAccount,
   createVoteAccount,
   delegatedStakeAccount,
 } from '../utils/staking'
@@ -293,13 +293,12 @@ describe('Validator Bonds pause&resume', () => {
     await pause()
     await createWithdrawerUsers(provider)
     const treeNode1Withdrawer1 = treeNodeBy(voteAccount1, withdrawer1)
-    const stakeAccountSettlementWithdrawer = await createStakeAccount({
+    const stakeAccountSettlementWithdrawer = await createDelegatedStakeAccount({
       provider,
       lamports: 3 * LAMPORTS_PER_SOL,
       voteAccount: voteAccount1,
-      newStakerAuthority: treeNode1Withdrawer1.treeNode.stakeAuthority,
-      newBondsWithdrawerAuthority:
-        treeNode1Withdrawer1.treeNode.withdrawAuthority,
+      staker: treeNode1Withdrawer1.treeNode.stakeAuthority,
+      withdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
     })
     await warpToNextEpoch(provider)
     const { instruction: claimIx, settlementClaimAccount } =
@@ -375,7 +374,7 @@ describe('Validator Bonds pause&resume', () => {
     await provider.sendIx([], resetIx)
 
     await pause()
-    const initializedStakeAccount =
+    const createInitializedStakeAccount =
       await createSettlementFundedInitializedStake({
         program,
         provider,
@@ -386,7 +385,7 @@ describe('Validator Bonds pause&resume', () => {
     const { instruction: withdrawIx } = await withdrawStakeInstruction({
       program,
       configAccount,
-      stakeAccount: initializedStakeAccount,
+      stakeAccount: createInitializedStakeAccount,
       operatorAuthority: adminAuthority.publicKey,
       settlementAccount,
       withdrawTo: provider.walletPubkey,

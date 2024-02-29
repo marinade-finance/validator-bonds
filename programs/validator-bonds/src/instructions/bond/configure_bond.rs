@@ -28,17 +28,16 @@ pub struct ConfigureBond<'info> {
         ],
         bump = bond.bump,
     )]
-    bond: Account<'info, Bond>,
+    pub bond: Account<'info, Bond>,
 
     /// validator vote account validator identity or bond authority may change the account
-    #[account()]
-    authority: Signer<'info>,
+    pub authority: Signer<'info>,
 
     /// CHECK: check&deserialize the vote account in the code
     #[account(
         owner = vote_program_id @ ErrorCode::InvalidVoteAccountProgramId,
     )]
-    vote_account: UncheckedAccount<'info>,
+    pub vote_account: UncheckedAccount<'info>,
 }
 
 impl<'info> ConfigureBond<'info> {

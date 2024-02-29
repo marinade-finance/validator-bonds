@@ -15,8 +15,7 @@ use anchor_spl::stake::{withdraw, Stake, Withdraw};
 /// Closes the settlement account, whoever can close it when the epoch expires
 #[derive(Accounts)]
 pub struct CloseSettlement<'info> {
-    #[account()]
-    config: Account<'info, Config>,
+    pub config: Account<'info, Config>,
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,
@@ -27,7 +26,7 @@ pub struct CloseSettlement<'info> {
         ],
         bump = bond.bump,
     )]
-    bond: Account<'info, Bond>,
+    pub bond: Account<'info, Bond>,
 
     /// settlement to close when expired
     #[account(
@@ -45,7 +44,7 @@ pub struct CloseSettlement<'info> {
         ],
         bump = settlement.bumps.pda,
     )]
-    settlement: Account<'info, Settlement>,
+    pub settlement: Account<'info, Settlement>,
 
     /// CHECK: PDA
     #[account(
@@ -55,30 +54,29 @@ pub struct CloseSettlement<'info> {
         ],
         bump = config.bonds_withdrawer_authority_bump
     )]
-    bonds_withdrawer_authority: UncheckedAccount<'info>,
+    pub bonds_withdrawer_authority: UncheckedAccount<'info>,
 
     /// CHECK: verified at settlement #[account()]
     #[account(mut)]
-    rent_collector: UncheckedAccount<'info>,
+    pub rent_collector: UncheckedAccount<'info>,
 
     /// CHECK: verified at settlement #[account()]
     #[account(mut)]
-    split_rent_collector: UncheckedAccount<'info>,
+    pub split_rent_collector: UncheckedAccount<'info>,
 
     /// CHECK: deserialization in code only when needed
-    /// a stake account that was funded to the settlement credited to bond's validator vote account
-    /// lamports of the stake accounts are used to pay back rent exempt of the split_stake_account
-    /// that can be created on funding the settlement
+    /// The stake account funded to the settlement and credited to the bond's validator vote account.
+    /// The lamports are utilized to pay back the rent exempt of the split_stake_account, which can be created upon funding the settlement.
     #[account(mut)]
-    split_rent_refund_account: UncheckedAccount<'info>,
+    pub split_rent_refund_account: UncheckedAccount<'info>,
 
-    clock: Sysvar<'info, Clock>,
+    pub clock: Sysvar<'info, Clock>,
 
-    stake_program: Program<'info, Stake>,
+    pub stake_program: Program<'info, Stake>,
 
     /// CHECK: have no CPU budget to parse
     #[account(address = stake_history::ID)]
-    stake_history: UncheckedAccount<'info>,
+    pub stake_history: UncheckedAccount<'info>,
 }
 
 impl<'info> CloseSettlement<'info> {

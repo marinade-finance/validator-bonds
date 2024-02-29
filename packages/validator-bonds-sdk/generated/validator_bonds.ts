@@ -339,7 +339,7 @@ export type ValidatorBonds = {
         },
         {
           "name": "bond",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false,
           "pda": {
             "seeds": [
@@ -451,7 +451,7 @@ export type ValidatorBonds = {
         },
         {
           "name": "bond",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false,
           "docs": [
             "bond account to be deposited to with the provided stake account"
@@ -486,7 +486,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "new owner of the stake account, it's the bonds program PDA"
+            "new owner of the stake account, it's bonds withdrawer authority"
           ],
           "pda": {
             "seeds": [
@@ -649,7 +649,7 @@ export type ValidatorBonds = {
         },
         {
           "name": "bond",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false,
           "pda": {
             "seeds": [
@@ -733,7 +733,7 @@ export type ValidatorBonds = {
         },
         {
           "name": "bond",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false,
           "pda": {
             "seeds": [
@@ -849,7 +849,7 @@ export type ValidatorBonds = {
           "isSigner": true,
           "docs": [
             "when the split_stake_account is created the rent for creation is taken from here",
-            "when the split_stake_account is not created then no rent is payed"
+            "when the split_stake_account is not created then no rent is paid"
           ]
         },
         {
@@ -1096,9 +1096,8 @@ export type ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "a stake account that was funded to the settlement credited to bond's validator vote account",
-            "lamports of the stake accounts are used to pay back rent exempt of the split_stake_account",
-            "that can be created on funding the settlement"
+            "The stake account funded to the settlement and credited to the bond's validator vote account.",
+            "The lamports are utilized to pay back the rent exempt of the split_stake_account, which can be created upon funding the settlement."
           ]
         },
         {
@@ -1423,7 +1422,7 @@ export type ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "deduplication, one amount cannot be claimed twice"
+            "deduplication, one merkle tree record cannot be claimed twice"
           ],
           "pda": {
             "seeds": [
@@ -1625,7 +1624,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "settlement account used to derive settlement authority which cannot exists"
+            "cannot exist; used to derive settlement authority"
           ]
         },
         {
@@ -1715,7 +1714,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "settlement account used to derive settlement authority which cannot exists"
+            "cannot exist; used to derive settlement authority"
           ]
         },
         {
@@ -1723,7 +1722,7 @@ export type ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "stake account where staker authority is of the settlement"
+            "stake account where staker authority is derived from settlement"
           ]
         },
         {
@@ -1731,8 +1730,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "bonds withdrawer authority",
-            "to cancel settlement funding of the stake account changing staker authority to address"
+            "bonds authority to withdraw the stake account"
           ],
           "pda": {
             "seeds": [
@@ -2549,7 +2547,12 @@ export type ValidatorBonds = {
       "name": "InitBondEvent",
       "fields": [
         {
-          "name": "configAddress",
+          "name": "bond",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "config",
           "type": "publicKey",
           "index": false
         },
@@ -2571,11 +2574,6 @@ export type ValidatorBonds = {
         {
           "name": "cpmpe",
           "type": "u64",
-          "index": false
-        },
-        {
-          "name": "bondBump",
-          "type": "u8",
           "index": false
         }
       ]
@@ -2599,36 +2597,6 @@ export type ValidatorBonds = {
               "defined": "U64ValueChange"
             }
           },
-          "index": false
-        }
-      ]
-    },
-    {
-      "name": "CloseBondEvent",
-      "fields": [
-        {
-          "name": "configAddress",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "voteAccount",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "authority",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "cpmpe",
-          "type": "u64",
-          "index": false
-        },
-        {
-          "name": "bump",
-          "type": "u8",
           "index": false
         }
       ]
@@ -2692,6 +2660,11 @@ export type ValidatorBonds = {
       "name": "InitConfigEvent",
       "fields": [
         {
+          "name": "config",
+          "type": "publicKey",
+          "index": false
+        },
+        {
           "name": "adminAuthority",
           "type": "publicKey",
           "index": false
@@ -2719,11 +2692,6 @@ export type ValidatorBonds = {
         {
           "name": "bondsWithdrawerAuthority",
           "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "bondsWithdrawerAuthorityBump",
-          "type": "u8",
           "index": false
         }
       ]
@@ -2871,18 +2839,20 @@ export type ValidatorBonds = {
       "name": "ClaimSettlementEvent",
       "fields": [
         {
-          "name": "settlement",
-          "type": "publicKey",
-          "index": false
-        },
-        {
           "name": "settlementClaim",
           "type": "publicKey",
           "index": false
         },
         {
+          "name": "settlement",
+          "type": "publicKey",
+          "index": false
+        },
+        {
           "name": "settlementLamportsClaimed",
-          "type": "u64",
+          "type": {
+            "defined": "U64ValueChange"
+          },
           "index": false
         },
         {
@@ -2914,11 +2884,6 @@ export type ValidatorBonds = {
           "name": "rentCollector",
           "type": "publicKey",
           "index": false
-        },
-        {
-          "name": "bump",
-          "type": "u8",
-          "index": false
         }
       ]
     },
@@ -2940,6 +2905,11 @@ export type ValidatorBonds = {
     {
       "name": "InitSettlementEvent",
       "fields": [
+        {
+          "name": "settlement",
+          "type": "publicKey",
+          "index": false
+        },
         {
           "name": "bond",
           "type": "publicKey",
@@ -2983,13 +2953,6 @@ export type ValidatorBonds = {
         {
           "name": "rentCollector",
           "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "bumps",
-          "type": {
-            "defined": "Bumps"
-          },
           "index": false
         }
       ]
@@ -3271,11 +3234,6 @@ export type ValidatorBonds = {
         {
           "name": "voteAccount",
           "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "bump",
-          "type": "u8",
           "index": false
         },
         {
@@ -4017,7 +3975,7 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "bond",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false,
           "pda": {
             "seeds": [
@@ -4129,7 +4087,7 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "bond",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false,
           "docs": [
             "bond account to be deposited to with the provided stake account"
@@ -4164,7 +4122,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "new owner of the stake account, it's the bonds program PDA"
+            "new owner of the stake account, it's bonds withdrawer authority"
           ],
           "pda": {
             "seeds": [
@@ -4327,7 +4285,7 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "bond",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false,
           "pda": {
             "seeds": [
@@ -4411,7 +4369,7 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "bond",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false,
           "pda": {
             "seeds": [
@@ -4527,7 +4485,7 @@ export const IDL: ValidatorBonds = {
           "isSigner": true,
           "docs": [
             "when the split_stake_account is created the rent for creation is taken from here",
-            "when the split_stake_account is not created then no rent is payed"
+            "when the split_stake_account is not created then no rent is paid"
           ]
         },
         {
@@ -4774,9 +4732,8 @@ export const IDL: ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "a stake account that was funded to the settlement credited to bond's validator vote account",
-            "lamports of the stake accounts are used to pay back rent exempt of the split_stake_account",
-            "that can be created on funding the settlement"
+            "The stake account funded to the settlement and credited to the bond's validator vote account.",
+            "The lamports are utilized to pay back the rent exempt of the split_stake_account, which can be created upon funding the settlement."
           ]
         },
         {
@@ -5101,7 +5058,7 @@ export const IDL: ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "deduplication, one amount cannot be claimed twice"
+            "deduplication, one merkle tree record cannot be claimed twice"
           ],
           "pda": {
             "seeds": [
@@ -5303,7 +5260,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "settlement account used to derive settlement authority which cannot exists"
+            "cannot exist; used to derive settlement authority"
           ]
         },
         {
@@ -5393,7 +5350,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "settlement account used to derive settlement authority which cannot exists"
+            "cannot exist; used to derive settlement authority"
           ]
         },
         {
@@ -5401,7 +5358,7 @@ export const IDL: ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "stake account where staker authority is of the settlement"
+            "stake account where staker authority is derived from settlement"
           ]
         },
         {
@@ -5409,8 +5366,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "bonds withdrawer authority",
-            "to cancel settlement funding of the stake account changing staker authority to address"
+            "bonds authority to withdraw the stake account"
           ],
           "pda": {
             "seeds": [
@@ -6227,7 +6183,12 @@ export const IDL: ValidatorBonds = {
       "name": "InitBondEvent",
       "fields": [
         {
-          "name": "configAddress",
+          "name": "bond",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "config",
           "type": "publicKey",
           "index": false
         },
@@ -6249,11 +6210,6 @@ export const IDL: ValidatorBonds = {
         {
           "name": "cpmpe",
           "type": "u64",
-          "index": false
-        },
-        {
-          "name": "bondBump",
-          "type": "u8",
           "index": false
         }
       ]
@@ -6277,36 +6233,6 @@ export const IDL: ValidatorBonds = {
               "defined": "U64ValueChange"
             }
           },
-          "index": false
-        }
-      ]
-    },
-    {
-      "name": "CloseBondEvent",
-      "fields": [
-        {
-          "name": "configAddress",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "voteAccount",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "authority",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "cpmpe",
-          "type": "u64",
-          "index": false
-        },
-        {
-          "name": "bump",
-          "type": "u8",
           "index": false
         }
       ]
@@ -6370,6 +6296,11 @@ export const IDL: ValidatorBonds = {
       "name": "InitConfigEvent",
       "fields": [
         {
+          "name": "config",
+          "type": "publicKey",
+          "index": false
+        },
+        {
           "name": "adminAuthority",
           "type": "publicKey",
           "index": false
@@ -6397,11 +6328,6 @@ export const IDL: ValidatorBonds = {
         {
           "name": "bondsWithdrawerAuthority",
           "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "bondsWithdrawerAuthorityBump",
-          "type": "u8",
           "index": false
         }
       ]
@@ -6549,18 +6475,20 @@ export const IDL: ValidatorBonds = {
       "name": "ClaimSettlementEvent",
       "fields": [
         {
-          "name": "settlement",
-          "type": "publicKey",
-          "index": false
-        },
-        {
           "name": "settlementClaim",
           "type": "publicKey",
           "index": false
         },
         {
+          "name": "settlement",
+          "type": "publicKey",
+          "index": false
+        },
+        {
           "name": "settlementLamportsClaimed",
-          "type": "u64",
+          "type": {
+            "defined": "U64ValueChange"
+          },
           "index": false
         },
         {
@@ -6592,11 +6520,6 @@ export const IDL: ValidatorBonds = {
           "name": "rentCollector",
           "type": "publicKey",
           "index": false
-        },
-        {
-          "name": "bump",
-          "type": "u8",
-          "index": false
         }
       ]
     },
@@ -6618,6 +6541,11 @@ export const IDL: ValidatorBonds = {
     {
       "name": "InitSettlementEvent",
       "fields": [
+        {
+          "name": "settlement",
+          "type": "publicKey",
+          "index": false
+        },
         {
           "name": "bond",
           "type": "publicKey",
@@ -6661,13 +6589,6 @@ export const IDL: ValidatorBonds = {
         {
           "name": "rentCollector",
           "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "bumps",
-          "type": {
-            "defined": "Bumps"
-          },
           "index": false
         }
       ]
@@ -6949,11 +6870,6 @@ export const IDL: ValidatorBonds = {
         {
           "name": "voteAccount",
           "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "bump",
-          "type": "u8",
           "index": false
         },
         {

@@ -6,6 +6,12 @@ import {
 } from '../sdk'
 import { getSettlementClaim } from '../api'
 
+/**
+ * Generate instruction to close settlement claim.
+ * This is a permission-less operation,
+ * the settlement claim can be closed when the settlement account does not exist.
+ * Purpose is to gain back rent exempt of the settlement claim account.
+ */
 export async function closeSettlementClaimInstruction({
   program,
   settlementAccount,

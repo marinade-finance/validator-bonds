@@ -2,6 +2,7 @@ use crate::checks::check_stake_is_initialized_with_withdrawer_authority;
 use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
 use crate::events::settlement_claim::ClaimSettlementEvent;
+use crate::events::U64ValueChange;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::settlement::Settlement;
@@ -33,8 +34,7 @@ pub struct ClaimSettlementArgs {
 #[instruction(params: ClaimSettlementArgs)]
 pub struct ClaimSettlement<'info> {
     /// the config root account under which the settlement was created
-    #[account()]
-    config: Box<Account<'info, Config>>,
+    pub config: Box<Account<'info, Config>>,
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,
@@ -45,7 +45,7 @@ pub struct ClaimSettlement<'info> {
         ],
         bump = bond.bump,
     )]
-    bond: Account<'info, Bond>,
+    pub bond: Account<'info, Bond>,
 
     #[account(
         mut,
@@ -59,9 +59,9 @@ pub struct ClaimSettlement<'info> {
         ],
         bump = settlement.bumps.pda,
     )]
-    settlement: Account<'info, Settlement>,
+    pub settlement: Account<'info, Settlement>,
 
-    /// deduplication, one amount cannot be claimed twice
+    /// deduplication, one merkle tree record cannot be claimed twice
     #[account(
         init,
         payer = rent_payer,
@@ -73,15 +73,18 @@ pub struct ClaimSettlement<'info> {
         ],
         bump,
     )]
-    settlement_claim: Account<'info, SettlementClaim>,
+    pub settlement_claim: Account<'info, SettlementClaim>,
 
     /// a stake account which will be withdrawn
     #[account(mut)]
-    stake_account_from: Box<Account<'info, StakeAccount>>,
+    pub stake_account_from: Box<Account<'info, StakeAccount>>,
 
     /// a stake account that will receive the funds
-    #[account(mut)]
-    stake_account_to: Box<Account<'info, StakeAccount>>,
+    #[account(
+        mut,
+        constraint = stake_account_from.key() != stake_account_to.key() @ ErrorCode::MergeMismatchSameSourceDestination
+    )]
+    pub stake_account_to: Box<Account<'info, StakeAccount>>,
 
     /// CHECK: PDA
     /// authority that manages (owns == being withdrawer authority) all stakes account under the bonds program
@@ -92,7 +95,7 @@ pub struct ClaimSettlement<'info> {
         ],
         bump = config.bonds_withdrawer_authority_bump
     )]
-    bonds_withdrawer_authority: UncheckedAccount<'info>,
+    pub bonds_withdrawer_authority: UncheckedAccount<'info>,
 
     /// On claiming it's created a claim account that confirms the claim has happened
     /// when the settlement withdrawal window expires the claim account is closed and rent gets back
@@ -100,17 +103,17 @@ pub struct ClaimSettlement<'info> {
         mut,
         owner = system_program_id
     )]
-    rent_payer: Signer<'info>,
+    pub rent_payer: Signer<'info>,
 
-    system_program: Program<'info, System>,
+    pub system_program: Program<'info, System>,
 
     /// CHECK: have no CPU budget to parse
     #[account(address = stake_history::ID)]
-    stake_history: UncheckedAccount<'info>,
+    pub stake_history: UncheckedAccount<'info>,
 
-    clock: Sysvar<'info, Clock>,
+    pub clock: Sysvar<'info, Clock>,
 
-    stake_program: Program<'info, Stake>,
+    pub stake_program: Program<'info, Stake>,
 }
 
 impl<'info> ClaimSettlement<'info> {
@@ -148,7 +151,7 @@ impl<'info> ClaimSettlement<'info> {
             return Err(error!(ErrorCode::ClaimAmountExceedsMaxTotalClaim)
                 .with_account_name("settlement")
                 .with_values((
-                    "total_funds_claimed + claim_amount > max_total_claim",
+                    "lamports_claimed + claim > max_total_claim",
                     format!(
                         "{} + {} <= {}",
                         self.settlement.lamports_claimed, claim, self.settlement.max_total_claim
@@ -192,10 +195,10 @@ impl<'info> ClaimSettlement<'info> {
             ErrorCode::WrongStakeAccountStaker,
         );
 
-        // provided stake account has to be big enough to cover the claim and still be valid to exist
-        // responsibility of the SDK to merge the stake accounts if needed
-        //   - the invariant here is that the stake account will be always rent exempt + min size
-        //     this has to be ensured by fund_settlement instruction
+        // The provided stake account must be sufficiently large to cover the claim while remaining valid.
+        // It is the SDK's responsibility to merge stake accounts if necessary.
+        // - The invariant is that the stake account will always be rent-exempt + of minimum size.
+        //   This must be ensured by the fund_settlement instruction.
         if self.stake_account_from.get_lamports()
             < claim + minimal_size_stake_account(&stake_from_meta, &self.config)
         {
@@ -262,13 +265,15 @@ impl<'info> ClaimSettlement<'info> {
             settlement: self.settlement_claim.settlement,
             settlement_claim: self.settlement_claim.key(),
             stake_account_to: self.settlement_claim.stake_account_to,
-            settlement_lamports_claimed: self.settlement.lamports_claimed,
+            settlement_lamports_claimed: U64ValueChange {
+                old: self.settlement.lamports_claimed - claim,
+                new: self.settlement.lamports_claimed
+            },
             settlement_merkle_nodes_claimed: self.settlement.merkle_nodes_claimed,
             stake_account_staker: self.settlement_claim.stake_account_staker,
             stake_account_withdrawer: self.settlement_claim.stake_account_withdrawer,
             amount: self.settlement_claim.amount,
             rent_collector: self.settlement_claim.rent_collector,
-            bump: settlement_claim_bump,
         });
 
         Ok(())

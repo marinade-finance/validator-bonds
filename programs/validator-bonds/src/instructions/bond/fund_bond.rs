@@ -16,12 +16,10 @@ use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 // While this transaction ensures the stake account is in state that is considered as properly funded.
 #[derive(Accounts)]
 pub struct FundBond<'info> {
-    #[account()]
-    config: Account<'info, Config>,
+    pub config: Account<'info, Config>,
 
     /// bond account to be deposited to with the provided stake account
     #[account(
-        mut,
         has_one = config @ ErrorCode::ConfigAccountMismatch,
         seeds = [
             b"bond_account",
@@ -30,10 +28,10 @@ pub struct FundBond<'info> {
         ],
         bump = bond.bump,
     )]
-    bond: Account<'info, Bond>,
+    pub bond: Account<'info, Bond>,
 
     /// CHECK: PDA
-    /// new owner of the stake account, it's the bonds program PDA
+    /// new owner of the stake account, it's bonds withdrawer authority
     #[account(
         seeds = [
             b"bonds_authority",
@@ -41,21 +39,20 @@ pub struct FundBond<'info> {
         ],
         bump = config.bonds_withdrawer_authority_bump,
     )]
-    bonds_withdrawer_authority: UncheckedAccount<'info>,
+    pub bonds_withdrawer_authority: UncheckedAccount<'info>,
 
     /// stake account to be deposited
     #[account(mut)]
-    stake_account: Account<'info, StakeAccount>,
+    pub stake_account: Account<'info, StakeAccount>,
 
     /// authority signature permitting to change the stake_account authorities
-    #[account()]
-    stake_authority: Signer<'info>,
+    pub stake_authority: Signer<'info>,
 
-    clock: Sysvar<'info, Clock>,
+    pub clock: Sysvar<'info, Clock>,
 
-    stake_history: Sysvar<'info, StakeHistory>,
+    pub stake_history: Sysvar<'info, StakeHistory>,
 
-    stake_program: Program<'info, Stake>,
+    pub stake_program: Program<'info, Stake>,
 }
 
 impl<'info> FundBond<'info> {
@@ -71,13 +68,13 @@ impl<'info> FundBond<'info> {
         .is_ok()
         {
             msg!(
-                "Stake account {} is already owned by the bonds program",
+                "Stake account {} is already funded to the bonds program",
                 self.stake_account.key()
             );
             return Ok(());
         }
 
-        // check we've got signature of the stake account owner
+        // check current stake account withdrawer authority with permission to authorize
         check_stake_is_initialized_with_withdrawer_authority(
             &self.stake_account,
             &self.stake_authority.key(),

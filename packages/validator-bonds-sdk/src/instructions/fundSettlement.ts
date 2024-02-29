@@ -14,6 +14,13 @@ import { getBond, getConfig, getSettlement } from '../api'
 import { anchorProgramWalletPubkey } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
+/**
+ * Generate instruction to fund settlement protected event.
+ * Only operator authority is permitted to do this.
+ * Depositing the funded bond stake accounts to the settlement account.
+ * The stake account lamports covers the protected event
+ * and funds can be claimed from the accounts later.
+ */
 export async function fundSettlementInstruction({
   program,
   settlementAccount,

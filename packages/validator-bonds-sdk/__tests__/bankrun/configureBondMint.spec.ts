@@ -59,7 +59,7 @@ describe('Validator Bonds mint configure bond account', () => {
     }))
   })
 
-  it('mint and configure with identity bond', async () => {
+  it('mint and configure two times with identity bond', async () => {
     const {
       instruction: ixMint,
       bondMint,
@@ -85,8 +85,8 @@ describe('Validator Bonds mint configure bond account', () => {
     expect(mintData.supply).toEqual(1)
 
     expect(
-      provider.connection.getAccountInfo(tokenMetadataAccount)
-    ).resolves.not.toBeNull()
+      await provider.connection.getAccountInfo(tokenMetadataAccount)
+    ).not.toBeNull()
 
     const user = signer(await createUserAndFund(provider))
     const userTokenAccount = getAssociatedTokenAddressSync(
@@ -134,9 +134,24 @@ describe('Validator Bonds mint configure bond account', () => {
 
     bondData = await getBond(program, bondAccount)
     expect(bondData.authority).toEqual(user.publicKey)
+
+    warpToNextEpoch(provider)
+    await provider.sendIx([], ixMint)
+    const { instruction: ixConfigure2 } =
+      await configureBondWithMintInstruction({
+        newBondAuthority: PublicKey.default,
+        program,
+        bondAccount,
+        configAccount,
+        tokenAuthority: validatorIdentity,
+      })
+    await provider.sendIx([validatorIdentity], ixConfigure2)
+
+    bondData = await getBond(program, bondAccount)
+    expect(bondData.authority).toEqual(PublicKey.default)
   })
 
-  it('mint and configure with withdrawer authority', async () => {
+  it('mint with withdrawer authority', async () => {
     const {
       instruction: ixMint,
       bondMint,
@@ -195,7 +210,7 @@ describe('Validator Bonds mint configure bond account', () => {
     }
   })
 
-  it('multiple minting', async () => {
+  it('fail multiple minting', async () => {
     const { instruction: ixMint, bondMint } = await mintBondInstruction({
       program,
       bondAccount,

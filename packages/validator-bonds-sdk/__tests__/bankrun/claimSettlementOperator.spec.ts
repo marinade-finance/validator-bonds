@@ -24,7 +24,7 @@ import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   createSettlementFundedInitializedStake,
   createVoteAccount,
-  initializedStakeAccount,
+  createInitializedStakeAccount,
 } from '../utils/staking'
 import { pubkey } from '@marinade.finance/web3js-common'
 import {
@@ -104,7 +104,7 @@ describe('Validator Bonds claim settlement', () => {
 
     const stakeWithdrawerLamportsBefore = 14 * LAMPORTS_PER_SOL
     const { stakeAccount: stakeOperatorWithdrawer } =
-      await initializedStakeAccount({
+      await createInitializedStakeAccount({
         provider,
         rentExempt: stakeWithdrawerLamportsBefore,
         staker: treeNode1Withdrawer1.treeNode.stakeAuthority,

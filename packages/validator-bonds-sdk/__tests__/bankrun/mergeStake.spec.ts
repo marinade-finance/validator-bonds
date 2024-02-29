@@ -27,7 +27,9 @@ import {
   authorizeStakeAccount,
   createVoteAccount,
   delegatedStakeAccount,
-  initializedStakeAccount,
+  createInitializedStakeAccount,
+  getAndCheckStakeAccount,
+  StakeStates,
 } from '../utils/staking'
 import { pubkey } from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
@@ -52,9 +54,9 @@ describe('Staking merge verification/investigation', () => {
 
   it('cannot merge with withdrawer authority not belonging to bonds', async () => {
     const { stakeAccount: nonDelegatedStakeAccount, staker } =
-      await initializedStakeAccount({ provider })
+      await createInitializedStakeAccount({ provider })
     const { stakeAccount: nonDelegatedStakeAccount2 } =
-      await initializedStakeAccount({ provider, staker })
+      await createInitializedStakeAccount({ provider, staker })
     const instruction = await program.methods
       .mergeStake({
         settlement: PublicKey.default,
@@ -84,12 +86,12 @@ describe('Staking merge verification/investigation', () => {
       program.programId
     )
     const { stakeAccount: nonDelegatedStakeAccount, staker } =
-      await initializedStakeAccount({
+      await createInitializedStakeAccount({
         provider,
         withdrawer: bondWithdrawer,
       })
     const { stakeAccount: nonDelegatedStakeAccount2 } =
-      await initializedStakeAccount({
+      await createInitializedStakeAccount({
         provider,
         withdrawer: bondWithdrawer,
         staker,
@@ -128,13 +130,13 @@ describe('Staking merge verification/investigation', () => {
       program.programId
     )
     const { stakeAccount: nonDelegatedStakeAccount } =
-      await initializedStakeAccount({
+      await createInitializedStakeAccount({
         provider,
         withdrawer: bondWithdrawer,
         staker: bondWithdrawer,
       })
     const { stakeAccount: nonDelegatedStakeAccount2 } =
-      await initializedStakeAccount({
+      await createInitializedStakeAccount({
         provider,
         withdrawer: bondWithdrawer,
         staker: bondWithdrawer,
@@ -257,16 +259,17 @@ describe('Staking merge verification/investigation', () => {
       stakeAccount: stakeAccount1,
       withdrawer: withdrawer1,
       staker: staker1,
+      voteAccount: voteAccount1,
     } = await delegatedStakeAccount({
       provider,
       lamports: 6 * LAMPORTS_PER_SOL,
       lockup: undefined,
     })
-
     const {
       stakeAccount: stakeAccount2,
       withdrawer: withdrawer2,
       staker: staker2,
+      voteAccount: voteAccount2,
     } = await delegatedStakeAccount({
       provider,
       lamports: 3 * LAMPORTS_PER_SOL,
@@ -319,18 +322,35 @@ describe('Staking merge verification/investigation', () => {
 
     await authorizeStakeAccount({
       provider,
-      authority: withdrawer1,
       stakeAccount: stakeAccount1,
+      authority: withdrawer1,
       staker: bondWithdrawer,
       withdrawer: bondWithdrawer,
     })
     await authorizeStakeAccount({
       provider,
-      authority: withdrawer2,
       stakeAccount: stakeAccount2,
+      authority: withdrawer2,
       staker: bondWithdrawer,
       withdrawer: bondWithdrawer,
     })
+
+    const [stakeAccount1Data] = await getAndCheckStakeAccount(
+      provider,
+      stakeAccount1,
+      StakeStates.Delegated
+    )
+    expect(stakeAccount1Data.Stake?.stake.delegation.voterPubkey).toEqual(
+      voteAccount1
+    )
+    const [stakeAccount2Data] = await getAndCheckStakeAccount(
+      provider,
+      stakeAccount2,
+      StakeStates.Delegated
+    )
+    expect(stakeAccount2Data.Stake?.stake.delegation.voterPubkey).toEqual(
+      voteAccount2
+    )
 
     const { instruction } = await mergeStakeInstruction({
       program,

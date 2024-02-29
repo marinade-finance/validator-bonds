@@ -19,19 +19,17 @@ pub struct InitBondArgs {
 #[derive(Accounts)]
 pub struct InitBond<'info> {
     /// the config root account under which the bond is created
-    #[account()]
-    config: Account<'info, Config>,
+    pub config: Account<'info, Config>,
 
     /// CHECK: deserialization of the vote account in the code
     #[account(
         owner = vote_program_id @ ErrorCode::InvalidVoteAccountProgramId,
     )]
-    vote_account: UncheckedAccount<'info>,
+    pub vote_account: UncheckedAccount<'info>,
 
     /// when validator identity signs the instruction then configuration arguments are applied
     /// otherwise it's a permission-less operation that uses default init bond setup
-    #[account()]
-    validator_identity: Option<Signer<'info>>,
+    pub validator_identity: Option<Signer<'info>>,
 
     #[account(
         init,
@@ -44,16 +42,16 @@ pub struct InitBond<'info> {
         ],
         bump,
     )]
-    bond: Account<'info, Bond>,
+    pub bond: Account<'info, Bond>,
 
     /// rent exempt payer of validator bond account creation
     #[account(
         mut,
         owner = system_program_id
     )]
-    rent_payer: Signer<'info>,
+    pub rent_payer: Signer<'info>,
 
-    system_program: Program<'info, System>,
+    pub system_program: Program<'info, System>,
 }
 
 impl<'info> InitBond<'info> {
@@ -70,7 +68,7 @@ impl<'info> InitBond<'info> {
         let mut cpmpe = cpmpe;
         let mut bond_authority = bond_authority;
         let validator_identity = if let Some(validator_identity_info) = &self.validator_identity {
-            // permission-ed: verification of validator identity as a signer, config of bond account possible
+            // permission-ed: validator identity is signer, configuration is possible
             check_vote_account_validator_identity(
                 &self.vote_account,
                 &validator_identity_info.key(),
@@ -94,12 +92,12 @@ impl<'info> InitBond<'info> {
             reserved: [0; 142],
         });
         emit!(InitBondEvent {
-            config_address: self.bond.config,
+            bond: self.bond.key(),
+            config: self.bond.config,
             vote_account: self.bond.vote_account,
             validator_identity,
             authority: self.bond.authority,
             cpmpe: self.bond.cpmpe,
-            bond_bump: self.bond.bump,
         });
 
         Ok(())

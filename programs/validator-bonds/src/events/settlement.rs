@@ -1,9 +1,10 @@
 use crate::events::SplitStakeData;
-use crate::state::settlement::Bumps;
+
 use anchor_lang::prelude::*;
 
 #[event]
 pub struct InitSettlementEvent {
+    pub settlement: Pubkey,
     pub bond: Pubkey,
     pub vote_account: Pubkey,
     pub staker_authority: Pubkey,
@@ -12,7 +13,6 @@ pub struct InitSettlementEvent {
     pub max_merkle_nodes: u64,
     pub epoch_created_for: u64,
     pub rent_collector: Pubkey,
-    pub bumps: Bumps,
 }
 
 #[event]

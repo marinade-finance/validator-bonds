@@ -30,7 +30,7 @@ import {
   authorizeStakeAccount,
   delegatedStakeAccount,
   deserializeStakeState,
-  initializedStakeAccount,
+  createInitializedStakeAccount,
 } from '../utils/staking'
 import assert from 'assert'
 import BN from 'bn.js'
@@ -539,7 +539,7 @@ describe('Validator Bonds claim withdraw request', () => {
 
   it('cannot claim with non-delegated stake account', async () => {
     const { stakeAccount: nonDelegatedStakeAccount } =
-      await initializedStakeAccount({ provider })
+      await createInitializedStakeAccount({ provider })
     const { withdrawRequest } = await initWithdrawRequest(2 * LAMPORTS_PER_SOL)
     await warpToUnlockClaiming()
     const { instruction, splitStakeAccount } =

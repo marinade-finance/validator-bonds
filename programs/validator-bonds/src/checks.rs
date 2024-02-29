@@ -1,10 +1,13 @@
+#![allow(deprecated)]
+// allowing deprecation as anchor 0.29.0 works with old version of StakeState struct
+
 use crate::error::ErrorCode;
 use crate::state::bond::Bond;
 use anchor_lang::prelude::*;
 use anchor_lang::prelude::{msg, Pubkey};
 use anchor_lang::require_keys_eq;
 use anchor_lang::solana_program::stake::program::ID as stake_program_id;
-use anchor_lang::solana_program::stake::state::{Delegation, Meta, Stake};
+use anchor_lang::solana_program::stake::state::{Delegation, Meta, Stake, StakeState};
 use anchor_lang::solana_program::stake_history::{Epoch, StakeHistoryEntry};
 use anchor_lang::solana_program::system_program::ID as system_program_id;
 use anchor_lang::solana_program::vote::program::id as vote_program_id;
@@ -93,7 +96,7 @@ pub fn check_stake_valid_delegation(
     stake_account: &StakeAccount,
     vote_account: &Pubkey,
 ) -> Result<Delegation> {
-    if let Some(delegation) = stake_account.delegation() {
+    if let Some(delegation) = get_delegation(stake_account)? {
         require_keys_eq!(
             delegation.voter_pubkey,
             *vote_account,
@@ -106,6 +109,18 @@ pub fn check_stake_valid_delegation(
             stake_account.deref()
         );
         err!(ErrorCode::StakeNotDelegated)
+    }
+}
+
+/// the StakeAccount.delegation could be used but we want to verify
+/// the state of the stake account that is generally expected for the protocol
+pub fn get_delegation(stake_account: &StakeAccount) -> Result<Option<Delegation>> {
+    let stake_state = stake_account.deref();
+    match stake_state {
+        StakeState::Initialized(_meta) => Ok(None),
+        StakeState::Stake(_, stake) => Ok(Some(stake.delegation)),
+        _ => Err(error!(ErrorCode::WrongStakeAccountState)
+            .with_values(("stake_account", format!("{:?}", stake_state)))),
     }
 }
 
@@ -306,7 +321,7 @@ mod tests {
         let uninitialized_stake_account = get_stake_account(StakeStateV2::Uninitialized);
         assert_eq!(
             check_stake_valid_delegation(&uninitialized_stake_account, &Pubkey::default()),
-            Err(ErrorCode::StakeNotDelegated.into())
+            Err(ErrorCode::WrongStakeAccountState.into())
         );
 
         let initialized_stake_account =
@@ -319,7 +334,7 @@ mod tests {
         let rewards_pool_stake_account = get_stake_account(StakeStateV2::RewardsPool);
         assert_eq!(
             check_stake_valid_delegation(&rewards_pool_stake_account, &Pubkey::default()),
-            Err(ErrorCode::StakeNotDelegated.into())
+            Err(ErrorCode::WrongStakeAccountState.into())
         );
 
         let default_delegated_stake_account = get_stake_account(StakeStateV2::Stake(

@@ -22,7 +22,7 @@ import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
  * @param param {PublicKey} args.withdrawLockupEpochs - number of epochs after which withdraw can be executed (default: 0)
  * @type {Object} return - Return data of generated instruction
  * @return {TransactionInstruction} return.instruction - Instruction to init config
- * @return {Keypair|PublicKey} return.keypair - keypair of new account (when generated)
+ * @return {PublicKey|Keypair|Signer|WalletInterface} return.keypair - keypair of new account (when generated)
  */
 export async function initConfigInstruction({
   program,

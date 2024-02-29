@@ -6,7 +6,6 @@ pub struct InitWithdrawRequestEvent {
     pub withdraw_request: Pubkey,
     pub bond: Pubkey,
     pub vote_account: Pubkey,
-    pub bump: u8,
     pub epoch: u64,
     pub requested_amount: u64,
 }

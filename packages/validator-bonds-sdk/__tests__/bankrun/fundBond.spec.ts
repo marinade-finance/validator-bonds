@@ -24,7 +24,7 @@ import {
   createVoteAccount,
   delegatedStakeAccount,
   getAndCheckStakeAccount,
-  initializedStakeAccount,
+  createInitializedStakeAccount,
 } from '../utils/staking'
 import { BN } from 'bn.js'
 import { signer } from '@marinade.finance/web3js-common'
@@ -69,7 +69,7 @@ describe('Validator Bonds fund bond account', () => {
 
   it('cannot fund with non-delegated stake account', async () => {
     const { stakeAccount: nonDelegatedStakeAccount, withdrawer } =
-      await initializedStakeAccount({ provider })
+      await createInitializedStakeAccount({ provider })
     const { instruction } = await fundBondInstruction({
       program,
       configAccount,
@@ -205,7 +205,7 @@ describe('Validator Bonds fund bond account', () => {
     )
     expect(
       txRet.logMessages.find(m =>
-        m.includes('is already owned by the bonds program')
+        m.includes('is already funded to the bonds program')
       )
     ).toBeDefined()
   })

@@ -11,6 +11,12 @@ import { ValidatorBondsProgram } from '../sdk'
 import { getConfig } from '../api'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
+/**
+ * Generate instruction to withdraw lamports from stake accounts
+ * in `Initialized` state. Non-delegated initialized stake accounts
+ * are considered as operator owned.
+ * Only operator may call this operation.
+ */
 export async function withdrawStakeInstruction({
   program,
   stakeAccount,

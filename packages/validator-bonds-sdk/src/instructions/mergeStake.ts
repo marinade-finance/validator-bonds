@@ -6,6 +6,10 @@ import {
 } from '@solana/web3.js'
 import { ValidatorBondsProgram, bondsWithdrawerAuthority } from '../sdk'
 
+/**
+ * Generate instruction to merge two stake accounts belonging under bonds program.
+ * Only stake accounts delegating to the same vote account can be merged.
+ */
 export async function mergeStakeInstruction({
   program,
   configAccount,

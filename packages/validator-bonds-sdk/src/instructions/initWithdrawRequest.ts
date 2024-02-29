@@ -9,6 +9,14 @@ import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
 import BN from 'bn.js'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
+/**
+ * Generate instruction to create withdraw request for bond account.
+ * Only bond authority or validator identity of vote account voter pubkey can create this request.
+ * Only a single withdraw request per bond can be created.
+ * The amount can be withdrawn when lockup time elapses (configured in config).
+ * When created with a wrong amount then cancel first the request and init a new one.
+ * The amount in lamports subtracted from the calculated amount funded to bond.
+ */
 export async function initWithdrawRequestInstruction({
   program,
   bondAccount,

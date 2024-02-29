@@ -16,6 +16,10 @@ import {
 } from '../web3.js'
 import { getAssociatedTokenAddressSync } from 'solana-spl-token-modern'
 
+/**
+ * Generate instruction to mint configuration bond token. Permission-less operation.
+ * The token is minted either to validator identity pubkey or to withdrawer of vote account.
+ */
 export async function mintBondInstruction({
   program,
   destinationAuthority,

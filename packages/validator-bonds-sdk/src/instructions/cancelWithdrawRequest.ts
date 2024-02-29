@@ -14,6 +14,11 @@ import { anchorProgramWalletPubkey } from '../utils'
 import { getWithdrawRequest } from '../api'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
+/**
+ * Generate instruction to cancel withdraw request for bond account.
+ * This operation removes the withdraw request account from chain.
+ * Only bond authority or validator identity of vote account voter pubkey can do this.
+ */
 export async function cancelWithdrawRequestInstruction({
   program,
   withdrawRequestAccount,

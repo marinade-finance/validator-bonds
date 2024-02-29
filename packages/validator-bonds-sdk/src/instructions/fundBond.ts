@@ -11,6 +11,12 @@ import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
 import { getBond } from '../api'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
+/**
+ * Generate instruction to fund bond with a stake account.
+ * Permission-less operation, signature of stake account owner is required.
+ * The amount in lamports is the deposit that protects staking of the validator
+ * linked through the vote account defined in bond account.
+ */
 export async function fundBondInstruction({
   program,
   bondAccount,

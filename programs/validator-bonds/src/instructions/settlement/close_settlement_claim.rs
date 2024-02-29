@@ -7,8 +7,8 @@ use anchor_lang::prelude::*;
 // Closing settlement claim to get back rent for the account
 #[derive(Accounts)]
 pub struct CloseSettlementClaim<'info> {
-    /// CHECK: checking existence of the account, address verified by settlement claim PDA address
-    settlement: UncheckedAccount<'info>,
+    /// CHECK: code to check non-existence of the account
+    pub settlement: UncheckedAccount<'info>,
 
     #[account(
           mut,
@@ -16,16 +16,16 @@ pub struct CloseSettlementClaim<'info> {
           has_one = rent_collector @ ErrorCode::RentCollectorMismatch,
           has_one = settlement @ ErrorCode::SettlementAccountMismatch,
       )]
-    settlement_claim: Account<'info, SettlementClaim>,
+    pub settlement_claim: Account<'info, SettlementClaim>,
 
     /// CHECK: account rent except back to creator of the account, verified by settlement claim account
     #[account(mut)]
-    rent_collector: UncheckedAccount<'info>,
+    pub rent_collector: UncheckedAccount<'info>,
 }
 
 impl<'info> CloseSettlementClaim<'info> {
     pub fn process(&mut self) -> Result<()> {
-        // The rule is that the settlement claim can be closed only when settlement does not exist
+        // The rule stipulates that the settlement claim can only be closed when the settlement does exist.
         require!(is_closed(&self.settlement), ErrorCode::SettlementNotClosed);
 
         emit!(CloseSettlementClaimEvent {

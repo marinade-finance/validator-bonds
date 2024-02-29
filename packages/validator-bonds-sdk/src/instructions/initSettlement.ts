@@ -11,6 +11,12 @@ import BN from 'bn.js'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import { getBond, getConfig } from '../api'
 
+/**
+ * Generate instruction to initialize settlement protected event.
+ * Only operator authority is permitted to do this.
+ * This uploads merkle root and sets max total claim and max merkle nodes,
+ * these information is used when claim is settled.
+ */
 export async function initSettlementInstruction({
   program,
   merkleRoot,

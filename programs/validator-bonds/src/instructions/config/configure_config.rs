@@ -21,11 +21,10 @@ pub struct ConfigureConfig<'info> {
         mut,
         has_one = admin_authority @ ErrorCode::InvalidAdminAuthority,
     )]
-    config: Account<'info, Config>,
+    pub config: Account<'info, Config>,
 
     /// only the admin authority can change the config params
-    #[account()]
-    admin_authority: Signer<'info>,
+    pub admin_authority: Signer<'info>,
 }
 
 impl<'info> ConfigureConfig<'info> {

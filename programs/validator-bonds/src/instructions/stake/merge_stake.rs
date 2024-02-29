@@ -1,8 +1,10 @@
+use crate::checks::get_delegation;
 use crate::constants::{BONDS_WITHDRAWER_AUTHORITY_SEED, SETTLEMENT_STAKER_AUTHORITY_SEED};
 use crate::error::ErrorCode;
 use crate::events::stake::MergeStakeEvent;
 use crate::state::config::{find_bonds_withdrawer_authority, Config};
 use crate::state::settlement::find_settlement_staker_authority;
+
 use anchor_lang::{
     prelude::*,
     solana_program::{program::invoke_signed, stake::instruction::merge, sysvar::stake_history},
@@ -17,30 +19,28 @@ pub struct MergeStakeArgs {
 #[derive(Accounts)]
 pub struct MergeStake<'info> {
     /// the config root account under which the bond was created
-    #[account()]
-    config: Account<'info, Config>,
+    pub config: Account<'info, Config>,
 
     #[account(
         mut,
         constraint = source_stake.key() != destination_stake.key() @ ErrorCode::MergeMismatchSameSourceDestination
     )]
-    source_stake: Account<'info, StakeAccount>,
+    pub source_stake: Account<'info, StakeAccount>,
 
     #[account(mut)]
-    destination_stake: Account<'info, StakeAccount>,
+    pub destination_stake: Account<'info, StakeAccount>,
 
     /// CHECK: checked within the code
     /// bonds program authority PDA address: settlement staker or bonds withdrawer
-    #[account()]
-    staker_authority: UncheckedAccount<'info>,
+    pub staker_authority: UncheckedAccount<'info>,
 
     /// CHECK: have no CPU budget to parse
     #[account(address = stake_history::ID)]
-    stake_history: UncheckedAccount<'info>,
+    pub stake_history: UncheckedAccount<'info>,
 
-    clock: Sysvar<'info, Clock>,
+    pub clock: Sysvar<'info, Clock>,
 
-    stake_program: Program<'info, Stake>,
+    pub stake_program: Program<'info, Stake>,
 }
 
 impl<'info> MergeStake<'info> {
@@ -85,8 +85,8 @@ impl<'info> MergeStake<'info> {
                 );
         }
 
-        let destination_delegation = self.destination_stake.delegation();
-        let source_delegation = self.source_stake.delegation();
+        let destination_delegation = get_delegation(&self.destination_stake)?;
+        let source_delegation = get_delegation(&self.source_stake)?;
         // the stakes have to be both non-delegated or both delegated to the same vote account
         if destination_delegation.map_or_else(|| None, |p| Some(p.voter_pubkey))
             != source_delegation.map_or_else(|| None, |p| Some(p.voter_pubkey))

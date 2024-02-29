@@ -15,6 +15,11 @@ import {
 import { getBond, getSettlement } from '../api'
 import { findStakeAccount } from '../web3.js'
 
+/**
+ * Generate instruction to close settlement.
+ * This is a permission-less operation,
+ * the settlement can be closed when timeout elapses (configured in config).
+ */
 export async function closeSettlementInstruction({
   program,
   settlementAccount,

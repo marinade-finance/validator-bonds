@@ -70,7 +70,6 @@ describe('Validator Bonds cancel withdraw request', () => {
       expect(e.bond).toEqual(bondAccount)
       expect(e.authority).toEqual(validatorIdentity.publicKey)
       expect(e.requestedAmount).toEqual(requestedAmount)
-      // TODO: maybe(?) to add a test when something is withdrawn if this changes
       expect(e.withdrawnAmount).toEqual(0)
     })
   })

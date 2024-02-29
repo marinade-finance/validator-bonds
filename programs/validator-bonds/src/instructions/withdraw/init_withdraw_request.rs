@@ -17,8 +17,7 @@ pub struct InitWithdrawRequestArgs {
 #[derive(Accounts)]
 pub struct InitWithdrawRequest<'info> {
     /// the config root account under which the bond was created
-    #[account()]
-    config: Account<'info, Config>,
+    pub config: Account<'info, Config>,
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,
@@ -30,17 +29,16 @@ pub struct InitWithdrawRequest<'info> {
         ],
         bump = bond.bump,
     )]
-    bond: Account<'info, Bond>,
+    pub bond: Account<'info, Bond>,
 
     /// CHECK: check&deserialize of the validator vote account in the code
     #[account(
         owner = vote_program_id @ ErrorCode::InvalidVoteAccountProgramId,
     )]
-    vote_account: UncheckedAccount<'info>,
+    pub vote_account: UncheckedAccount<'info>,
 
     /// validator vote account node identity or bond authority may ask for the withdrawal
-    #[account()]
-    authority: Signer<'info>,
+    pub authority: Signer<'info>,
 
     #[account(
         init,
@@ -52,18 +50,18 @@ pub struct InitWithdrawRequest<'info> {
         ],
         bump,
     )]
-    withdraw_request: Account<'info, WithdrawRequest>,
+    pub withdraw_request: Account<'info, WithdrawRequest>,
 
     /// rent exempt payer of withdraw request account creation
     #[account(
         mut,
         owner = system_program_id
     )]
-    rent_payer: Signer<'info>,
+    pub rent_payer: Signer<'info>,
 
-    system_program: Program<'info, System>,
+    pub system_program: Program<'info, System>,
 
-    clock: Sysvar<'info, Clock>,
+    pub clock: Sysvar<'info, Clock>,
 }
 
 impl<'info> InitWithdrawRequest<'info> {
@@ -92,7 +90,6 @@ impl<'info> InitWithdrawRequest<'info> {
             withdraw_request: self.withdraw_request.key(),
             bond: self.withdraw_request.bond.key(),
             vote_account: self.withdraw_request.vote_account.key(),
-            bump: self.withdraw_request.bump,
             requested_amount: self.withdraw_request.requested_amount,
             epoch: self.withdraw_request.epoch,
         });

@@ -11,6 +11,12 @@ import { checkAndGetBondAddress } from '../utils'
 import { getBond } from '../api'
 import { getStakeAccount } from '../web3.js/index'
 
+/**
+ * Generate instruction to reset stake from closed settlement.
+ * This is a permission-less operation.
+ * When settlement was closed this brings the stake accounts back
+ * to state them being funded to bonds program.
+ */
 export async function resetStakeInstruction({
   program,
   stakeAccount,

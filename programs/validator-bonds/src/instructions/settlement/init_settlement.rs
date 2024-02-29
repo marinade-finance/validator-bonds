@@ -28,7 +28,7 @@ pub struct InitSettlement<'info> {
     #[account(
         has_one = operator_authority @ ErrorCode::InvalidOperatorAuthority,
     )]
-    config: Account<'info, Config>,
+    pub config: Account<'info, Config>,
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,
@@ -39,7 +39,7 @@ pub struct InitSettlement<'info> {
         ],
         bump = bond.bump,
     )]
-    bond: Account<'info, Bond>,
+    pub bond: Account<'info, Bond>,
 
     #[account(
         init,
@@ -53,19 +53,19 @@ pub struct InitSettlement<'info> {
         ],
         bump,
     )]
-    settlement: Account<'info, Settlement>,
+    pub settlement: Account<'info, Settlement>,
 
     /// operator signer authority that is allowed to create the settlement account
-    operator_authority: Signer<'info>,
+    pub operator_authority: Signer<'info>,
 
     /// rent exempt payer of account creation
     #[account(
         mut,
         owner = system_program_id,
     )]
-    rent_payer: Signer<'info>,
+    pub rent_payer: Signer<'info>,
 
-    system_program: Program<'info, System>,
+    pub system_program: Program<'info, System>,
 }
 
 impl<'info> InitSettlement<'info> {
@@ -110,6 +110,7 @@ impl<'info> InitSettlement<'info> {
             reserved: [0; 99],
         });
         emit!(InitSettlementEvent {
+            settlement: self.settlement.key(),
             bond: self.settlement.bond,
             vote_account: self.bond.vote_account,
             staker_authority: self.settlement.staker_authority,
@@ -118,7 +119,6 @@ impl<'info> InitSettlement<'info> {
             max_merkle_nodes: self.settlement.max_merkle_nodes,
             epoch_created_for: self.settlement.epoch_created_for,
             rent_collector: self.settlement.rent_collector,
-            bumps: self.settlement.bumps.clone(),
         });
 
         Ok(())

@@ -106,7 +106,6 @@ describe('Validator Bonds init withdraw request', () => {
     await event.then(e => {
       expect(e.withdrawRequest).toEqual(withdrawRequestAccount)
       expect(e.bond).toEqual(bondAccount)
-      expect(e.bump).toEqual(bump)
       expect(e.epoch).toEqual(epoch)
       expect(e.requestedAmount).toEqual(2 * LAMPORTS_PER_SOL)
       expect(e.voteAccount).toEqual(voteAccount)

@@ -22,7 +22,7 @@ import {
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   createBondsFundedStakeAccount,
-  createStakeAccount,
+  createDelegatedStakeAccount,
   createVoteAccount,
 } from '../utils/staking'
 import { signer } from '@marinade.finance/web3js-common'
@@ -107,13 +107,12 @@ describe('Validator Bonds close settlement claim', () => {
 
   it('close settlement claim', async () => {
     const treeNode1Withdrawer1 = treeNodeBy(voteAccount1, withdrawer1)
-    const stakeAccountTreeNode1Withdrawer1 = await createStakeAccount({
+    const stakeAccountTreeNode1Withdrawer1 = await createDelegatedStakeAccount({
       provider,
       lamports: 123 * LAMPORTS_PER_SOL,
       voteAccount: voteAccount1,
-      newStakerAuthority: treeNode1Withdrawer1.treeNode.stakeAuthority,
-      newBondsWithdrawerAuthority:
-        treeNode1Withdrawer1.treeNode.withdrawAuthority,
+      staker: treeNode1Withdrawer1.treeNode.stakeAuthority,
+      withdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
     })
     await warpToNextEpoch(provider)
     const { instruction: claimIx, settlementClaimAccount } =

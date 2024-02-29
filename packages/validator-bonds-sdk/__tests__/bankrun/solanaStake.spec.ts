@@ -23,7 +23,7 @@ import {
   getAndCheckStakeAccount,
   getRentExemptStake,
   getRentExemptVote,
-  initializedStakeAccount,
+  createInitializedStakeAccount,
   nonInitializedStakeAccount,
   setLockup,
 } from '../utils/staking'
@@ -199,21 +199,25 @@ describe('Solana stake account behavior verification', () => {
     const staker = Keypair.generate()
     const withdrawer = Keypair.generate()
     const stakeAccount1Epoch = Number(epoch) + 20
-    const { stakeAccount: stakeAccount1 } = await initializedStakeAccount({
-      provider,
-      lockup: new Lockup(0, stakeAccount1Epoch, PublicKey.default),
-      rentExempt: rentExemptStake,
-      staker,
-      withdrawer,
-    })
+    const { stakeAccount: stakeAccount1 } = await createInitializedStakeAccount(
+      {
+        provider,
+        lockup: new Lockup(0, stakeAccount1Epoch, PublicKey.default),
+        rentExempt: rentExemptStake,
+        staker,
+        withdrawer,
+      }
+    )
     const custodian2 = Keypair.generate()
-    const { stakeAccount: stakeAccount2 } = await initializedStakeAccount({
-      provider,
-      lockup: new Lockup(0, -1, custodian2.publicKey), // max possible epoch lockup
-      rentExempt: rentExemptStake,
-      staker,
-      withdrawer,
-    })
+    const { stakeAccount: stakeAccount2 } = await createInitializedStakeAccount(
+      {
+        provider,
+        lockup: new Lockup(0, -1, custodian2.publicKey), // max possible epoch lockup
+        rentExempt: rentExemptStake,
+        staker,
+        withdrawer,
+      }
+    )
     const mergeTx = StakeProgram.merge({
       stakePubkey: stakeAccount2,
       sourceStakePubKey: stakeAccount1,
@@ -322,7 +326,7 @@ describe('Solana stake account behavior verification', () => {
       '5. MERGE of inactive LOCKUP to active lockup is not possible without custodian'
     )
     const { stakeAccount: stakeAccountInactive } =
-      await initializedStakeAccount({
+      await createInitializedStakeAccount({
         provider,
         lockup: new Lockup(0, 0, PublicKey.default),
         rentExempt: rentExemptStake,
@@ -351,20 +355,24 @@ describe('Solana stake account behavior verification', () => {
     const custodianWallet = provider.wallet
     const unixTimestampLockup = Number(clock.unixTimestamp) + 1000
     const lockup = new Lockup(unixTimestampLockup, 0, custodianWallet.publicKey)
-    const { stakeAccount: stakeAccount1 } = await initializedStakeAccount({
-      provider,
-      lockup,
-      rentExempt: rentExemptStake,
-      staker,
-      withdrawer,
-    })
-    const { stakeAccount: stakeAccount2 } = await initializedStakeAccount({
-      provider,
-      lockup,
-      rentExempt: rentExemptStake,
-      staker,
-      withdrawer,
-    })
+    const { stakeAccount: stakeAccount1 } = await createInitializedStakeAccount(
+      {
+        provider,
+        lockup,
+        rentExempt: rentExemptStake,
+        staker,
+        withdrawer,
+      }
+    )
+    const { stakeAccount: stakeAccount2 } = await createInitializedStakeAccount(
+      {
+        provider,
+        lockup,
+        rentExempt: rentExemptStake,
+        staker,
+        withdrawer,
+      }
+    )
 
     console.log('1. AUTHORIZE STAKER is possible when lockup is running')
     const newStaker = Keypair.generate()
