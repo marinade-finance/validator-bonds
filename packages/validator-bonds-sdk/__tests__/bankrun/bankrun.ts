@@ -4,7 +4,12 @@ import {
   checkAndGetBondAddress,
   getProgram,
 } from '../../src'
-import { BanksTransactionMeta, startAnchor } from 'solana-bankrun'
+import {
+  BanksTransactionMeta,
+  startAnchor,
+  AddedAccount,
+  AccountInfoBytes,
+} from 'solana-bankrun'
 import { BankrunProvider } from 'anchor-bankrun'
 import {
   Keypair,
@@ -18,6 +23,15 @@ import { instanceOfWallet } from '@marinade.finance/web3js-common'
 import { ExtendedProvider } from '../utils/provider'
 import { delegatedStakeAccount } from '../utils/staking'
 import { executeFundBondInstruction } from '../utils/testTransactions'
+import 'reflect-metadata'
+import {
+  Expose, // eslint-disable-line @typescript-eslint/no-unused-vars
+  Transform, // eslint-disable-line @typescript-eslint/no-unused-vars
+  Type, // eslint-disable-line @typescript-eslint/no-unused-vars
+  plainToInstance,
+} from 'class-transformer'
+import { readdirSync, readFileSync } from 'fs'
+import path from 'path'
 
 export class BankrunExtendedProvider
   extends BankrunProvider
@@ -41,11 +55,75 @@ export class BankrunExtendedProvider
   }
 }
 
+// note: VsCode error:
+//       https://github.com/microsoft/TypeScript/issues/52396#issuecomment-1409152884
+//       https://bobbyhadz.com/blog/typescript-experimental-support-for-decorators-warning#solve-the-error-in-visual-studio-code
+export class JsonAccountData {
+  @Expose()
+  @Transform(({ value }) => Number(value))
+  lamports!: number
+
+  @Expose()
+  data!: string[]
+
+  @Expose()
+  @Transform(({ value }) => new PublicKey(value))
+  owner!: PublicKey
+
+  @Expose()
+  @Transform(({ value }) => Boolean(value))
+  executable!: boolean
+
+  @Expose()
+  @Transform(({ value }) => Number(value))
+  rentEpoch!: number
+}
+export class JsonAccount {
+  @Expose()
+  @Transform(({ value }) => new PublicKey(value))
+  pubkey!: PublicKey
+
+  @Expose()
+  @Type(() => JsonAccountData)
+  account!: JsonAccountData
+}
+
+function toAccountInfoBytes(jsonAccount: JsonAccount): AccountInfoBytes {
+  const dataField = jsonAccount.account.data
+  return {
+    executable: jsonAccount.account.executable,
+    owner: jsonAccount.account.owner,
+    lamports: jsonAccount.account.lamports,
+    data: Buffer.from(dataField[0], dataField[1] as BufferEncoding),
+    rentEpoch: jsonAccount.account.rentEpoch,
+  }
+}
+
+function loadAccountsFromJson(directory: string): AddedAccount[] {
+  const accounts: JsonAccount[] = []
+  for (const jsonFile of readdirSync(directory).filter(f =>
+    f.endsWith('.json')
+  )) {
+    const jsonPath = path.join(directory, jsonFile)
+    const fileBuffer = readFileSync(jsonPath)
+    const parsedData = JSON.parse(fileBuffer.toString())
+    const jsonAccount: JsonAccount = plainToInstance(JsonAccount, parsedData)
+    accounts.push(jsonAccount)
+  }
+  return accounts.map(jsonAccount => {
+    return {
+      address: jsonAccount.pubkey,
+      info: toAccountInfoBytes(jsonAccount),
+    }
+  })
+}
+
 export async function initBankrunTest(programId?: PublicKey): Promise<{
   program: ValidatorBondsProgram
   provider: BankrunExtendedProvider
 }> {
-  const context = await startAnchor('./', [], [])
+  const additionalAccounts = loadAccountsFromJson('./fixtures/accounts/')
+  const context = await startAnchor('./', [], additionalAccounts)
   const provider = new BankrunExtendedProvider(context)
   return {
     program: getProgram({ connection: provider, programId }),

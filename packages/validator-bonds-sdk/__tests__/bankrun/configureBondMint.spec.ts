@@ -64,6 +64,7 @@ describe('Validator Bonds mint configure bond account', () => {
       instruction: ixMint,
       bondMint,
       associatedTokenAccount: validatorIdentityTokenAccount,
+      tokenMetadataAccount,
     } = await mintBondInstruction({
       program,
       bondAccount,
@@ -82,6 +83,10 @@ describe('Validator Bonds mint configure bond account', () => {
     expect(validatorIdentityTokenData.mint).toEqual(bondMint)
     const mintData = await getMint(provider.connection, bondMint)
     expect(mintData.supply).toEqual(1)
+
+    expect(
+      provider.connection.getAccountInfo(tokenMetadataAccount)
+    ).resolves.not.toBeNull()
 
     const user = signer(await createUserAndFund(provider))
     const userTokenAccount = getAssociatedTokenAddressSync(
@@ -197,12 +202,16 @@ describe('Validator Bonds mint configure bond account', () => {
       configAccount,
       destinationAuthority: validatorIdentity.publicKey,
     })
-    const providedSupply = 10
-    for (let i = 1; i <= providedSupply; i++) {
-      await provider.sendIx([], ixMint)
-      await warpToNextEpoch(provider)
-    }
+
+    await provider.sendIx([], ixMint)
     const mintData = await getMint(provider.connection, bondMint)
-    expect(mintData.supply).toEqual(providedSupply)
+    expect(mintData.supply).toEqual(1)
+
+    await warpToNextEpoch(provider)
+    try {
+      await provider.sendIx([], ixMint)
+    } catch (e) {
+      verifyError(e, Errors, 6059, 'permits only a single token')
+    }
   })
 })

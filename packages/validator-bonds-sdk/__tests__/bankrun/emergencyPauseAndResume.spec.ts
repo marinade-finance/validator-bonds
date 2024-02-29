@@ -17,6 +17,9 @@ import {
   initWithdrawRequestInstruction,
   mergeStakeInstruction,
   resetStakeInstruction,
+  mintBondInstruction,
+  configureBondWithMintInstruction,
+  withdrawStakeInstruction,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -38,6 +41,7 @@ import {
 import {
   createBondsFundedStakeAccount,
   createSettlementFundedDelegatedStake,
+  createSettlementFundedInitializedStake,
   createStakeAccount,
   createVoteAccount,
   delegatedStakeAccount,
@@ -131,6 +135,33 @@ describe('Validator Bonds pause&resume', () => {
 
     await resume()
     await provider.sendIx([validatorIdentity], configBondIx)
+
+    await pause()
+    const { instruction: mintBondIx } = await mintBondInstruction({
+      program,
+      destinationAuthority: validatorIdentity.publicKey,
+      bondAccount,
+      configAccount,
+      voteAccount: voteAccount1Keypair.publicKey,
+    })
+    await verifyIsPaused([], mintBondIx)
+
+    await resume()
+    await provider.sendIx([], mintBondIx)
+
+    await pause()
+    const { instruction: configureMintBondIx } =
+      await configureBondWithMintInstruction({
+        program,
+        bondAccount,
+        configAccount,
+        tokenAuthority: validatorIdentity,
+        newBondAuthority: adminAuthority.publicKey,
+      })
+    await verifyIsPaused([validatorIdentity], configureMintBondIx)
+
+    await resume()
+    await provider.sendIx([validatorIdentity], configureMintBondIx)
 
     const { stakeAccount: stakeAccountBond, withdrawer } =
       await delegatedStakeAccount({
@@ -342,6 +373,28 @@ describe('Validator Bonds pause&resume', () => {
 
     await resume()
     await provider.sendIx([], resetIx)
+
+    await pause()
+    const initializedStakeAccount =
+      await createSettlementFundedInitializedStake({
+        program,
+        provider,
+        configAccount,
+        settlementAccount: settlementAccount,
+        lamports: LAMPORTS_PER_SOL,
+      })
+    const { instruction: withdrawIx } = await withdrawStakeInstruction({
+      program,
+      configAccount,
+      stakeAccount: initializedStakeAccount,
+      operatorAuthority: adminAuthority.publicKey,
+      settlementAccount,
+      withdrawTo: provider.walletPubkey,
+    })
+    await verifyIsPaused([adminAuthority], withdrawIx)
+
+    await resume()
+    await provider.sendIx([adminAuthority], withdrawIx)
   })
 
   async function pause(isWarp = true): Promise<Config> {

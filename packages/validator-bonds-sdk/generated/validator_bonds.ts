@@ -401,6 +401,11 @@ export type ValidatorBonds = {
           "isSigner": false
         },
         {
+          "name": "metadata",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
           "name": "rentPayer",
           "isMut": true,
           "isSigner": true,
@@ -420,6 +425,16 @@ export type ValidatorBonds = {
         },
         {
           "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "metadataProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
           "isMut": false,
           "isSigner": false
         }
@@ -2667,7 +2682,7 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "rentPayer",
+          "name": "tokenMetadata",
           "type": "publicKey",
           "index": false
         }
@@ -3652,6 +3667,11 @@ export type ValidatorBonds = {
       "code": 6058,
       "name": "InvalidBondMintToDestination",
       "msg": "Wrong bond mint to authority"
+    },
+    {
+      "code": 6059,
+      "name": "InvalidBondMintSupply",
+      "msg": "Bond mint permits only a single token to exist"
     }
   ]
 };
@@ -4059,6 +4079,11 @@ export const IDL: ValidatorBonds = {
           "isSigner": false
         },
         {
+          "name": "metadata",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
           "name": "rentPayer",
           "isMut": true,
           "isSigner": true,
@@ -4078,6 +4103,16 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "metadataProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
           "isMut": false,
           "isSigner": false
         }
@@ -6325,7 +6360,7 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "rentPayer",
+          "name": "tokenMetadata",
           "type": "publicKey",
           "index": false
         }
@@ -7310,6 +7345,11 @@ export const IDL: ValidatorBonds = {
       "code": 6058,
       "name": "InvalidBondMintToDestination",
       "msg": "Wrong bond mint to authority"
+    },
+    {
+      "code": 6059,
+      "name": "InvalidBondMintSupply",
+      "msg": "Bond mint permits only a single token to exist"
     }
   ]
 };

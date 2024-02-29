@@ -40,5 +40,5 @@ pub struct MintBondEvent {
     pub bond: Pubkey,
     pub destination_token_account: Pubkey,
     pub destination_authority: Pubkey,
-    pub rent_payer: Pubkey,
+    pub token_metadata: Pubkey,
 }

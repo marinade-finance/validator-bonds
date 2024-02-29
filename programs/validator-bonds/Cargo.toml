@@ -22,7 +22,7 @@ bincode = { workspace = true }
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
-anchor-spl = { workspace = true, features = ["stake", "mint", "token", "associated_token", "token_2022"] }
+anchor-spl = { workspace = true, features = ["stake", "mint", "token", "associated_token", "token_2022", "metadata"] }
 solana-security-txt = { workspace = true }
 default-env = { workspace = true }
 merkle-tree = { workspace = true }

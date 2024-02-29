@@ -5,3 +5,7 @@ test = "pnpm _test"
 
 [test.validator]
 slots_per_epoch = "32"
+
+[[test.validator.account_dir]]
+directory = "fixtures/accounts"
+

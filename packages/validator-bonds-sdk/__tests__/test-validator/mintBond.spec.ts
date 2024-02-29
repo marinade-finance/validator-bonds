@@ -12,6 +12,9 @@ import {
 } from '../utils/testTransactions'
 import { ExtendedProvider } from '../utils/provider'
 import { getAccount as getTokenAccount } from 'solana-spl-token-modern'
+import { fetchMetadata } from '@metaplex-foundation/mpl-token-metadata'
+import { isSome } from '@metaplex-foundation/umi-options'
+import { getUmi, toUmiPubkey } from '../utils/umi'
 
 describe('Validator Bonds mint bond', () => {
   let provider: ExtendedProvider
@@ -54,11 +57,12 @@ describe('Validator Bonds mint bond', () => {
       )
     })
 
-    const { instruction, associatedTokenAccount } = await mintBondInstruction({
-      program,
-      bondAccount,
-      destinationAuthority: validatorIdentity.publicKey,
-    })
+    const { instruction, associatedTokenAccount, tokenMetadataAccount } =
+      await mintBondInstruction({
+        program,
+        bondAccount,
+        destinationAuthority: validatorIdentity.publicKey,
+      })
     await provider.sendIx([], instruction)
 
     const tokenData = await getTokenAccount(
@@ -66,12 +70,25 @@ describe('Validator Bonds mint bond', () => {
       associatedTokenAccount
     )
     expect(tokenData.amount).toEqual(1)
+    const metadata = await fetchMetadata(
+      getUmi(provider),
+      toUmiPubkey(tokenMetadataAccount)
+    )
+    expect(isSome(metadata.creators)).toBeTruthy()
+    if (isSome(metadata.creators)) {
+      expect(metadata.creators.value.length).toEqual(1)
+      expect(metadata.creators.value[0].address.toString()).toEqual(
+        bondAccount.toBase58()
+      )
+    } else {
+      throw new Error('metadata.creators is not defined')
+    }
 
     await event.then(e => {
       expect(e.bond).toEqual(bondAccount)
       expect(e.destinationAuthority).toEqual(validatorIdentity.publicKey)
       expect(e.destinationTokenAccount).toEqual(associatedTokenAccount)
-      expect(e.rentPayer).toEqual(provider.walletPubkey)
+      expect(e.tokenMetadata).toEqual(tokenMetadataAccount)
     })
   })
 })

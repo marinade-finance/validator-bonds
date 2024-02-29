@@ -1,6 +1,7 @@
 import {
   Keypair,
   PublicKey,
+  SYSVAR_RENT_PUBKEY,
   Signer,
   TransactionInstruction,
 } from '@solana/web3.js'
@@ -8,7 +9,11 @@ import { ValidatorBondsProgram, bondMintAddress } from '../sdk'
 import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
 import { getBond } from '../api'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { getVoteAccount } from '../web3.js'
+import {
+  getVoteAccount,
+  MPL_TOKEN_METADATA_PROGRAM_ID,
+  tokenMetadataAddress,
+} from '../web3.js'
 import { getAssociatedTokenAddressSync } from 'solana-spl-token-modern'
 
 export async function mintBondInstruction({
@@ -17,6 +22,7 @@ export async function mintBondInstruction({
   bondAccount,
   configAccount,
   voteAccount,
+  metadataAccount,
   rentPayer = anchorProgramWalletPubkey(program),
 }: {
   program: ValidatorBondsProgram
@@ -24,11 +30,13 @@ export async function mintBondInstruction({
   bondAccount?: PublicKey
   configAccount?: PublicKey
   voteAccount?: PublicKey
+  metadataAccount?: PublicKey
   rentPayer?: PublicKey | Keypair | Signer | WalletInterface // signer
 }): Promise<{
   bondAccount: PublicKey
   bondMint: PublicKey
   associatedTokenAccount: PublicKey
+  tokenMetadataAccount: PublicKey
   instruction: TransactionInstruction
 }> {
   bondAccount = checkAndGetBondAddress(
@@ -58,6 +66,10 @@ export async function mintBondInstruction({
     true
   )
 
+  if (metadataAccount === undefined) {
+    ;[metadataAccount] = tokenMetadataAddress(bondMint)
+  }
+
   const instruction = await program.methods
     .mintBond()
     .accounts({
@@ -65,15 +77,19 @@ export async function mintBondInstruction({
       config: configAccount,
       voteAccount,
       mint: bondMint,
+      metadata: metadataAccount,
       destinationAuthority,
       destinationTokenAccount,
       rentPayer: renPayerPubkey,
+      rent: SYSVAR_RENT_PUBKEY,
+      metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
     })
     .instruction()
   return {
     bondAccount,
     bondMint,
     associatedTokenAccount: destinationTokenAccount,
+    tokenMetadataAccount: metadataAccount,
     instruction,
   }
 }

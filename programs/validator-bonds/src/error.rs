@@ -181,4 +181,7 @@ pub enum ErrorCode {
 
     #[msg("Wrong bond mint to authority")]
     InvalidBondMintToDestination, // 6058 0x17aa
+
+    #[msg("Bond mint permits only a single token to exist")]
+    InvalidBondMintSupply, // 6059 0x17ab
 }
