@@ -18,7 +18,7 @@ pub struct MergeStakeArgs {
 
 #[derive(Accounts)]
 pub struct MergeStake<'info> {
-    /// the config root account under which the bond was created
+    /// the config account under which the bond was created
     pub config: Account<'info, Config>,
 
     #[account(
@@ -71,7 +71,7 @@ impl<'info> MergeStake<'info> {
                 .with_pubkeys((source_meta.authorized.staker, self.staker_authority.key())));
         }
 
-        // withdrawer authorities must belongs to the bonds program (bonds program ownership)
+        // withdrawer authorities must belong to the bonds program (bonds program ownership)
         let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(&self.config.key());
         if source_meta.authorized.withdrawer != bonds_withdrawer_authority
             || destination_meta.authorized.withdrawer != bonds_withdrawer_authority

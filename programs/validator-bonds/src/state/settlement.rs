@@ -9,29 +9,30 @@ use std::fmt::Debug;
 #[account]
 #[derive(Debug)]
 pub struct Settlement {
-    /// this settlement belongs under particular bond, i.e., under particular validator vote account
+    /// the settlement belongs under this bond, i.e., under a particular validator vote account
     pub bond: Pubkey,
     /// settlement authority used as the 'staker' stake account authority
     /// of stake accounts funded to this settlement
     pub staker_authority: Pubkey,
     /// 256-bit merkle root to check the claims against
     pub merkle_root: [u8; 32],
-    /// maximum number of funds that can ever be claimed from this [Settlement]
+    /// maximum number of funds that can ever be claimed
     pub max_total_claim: u64,
-    /// maximum number of merkle tree nodes that can ever be claimed from this [Settlement]
+    /// maximum number of merkle tree nodes that can ever be claimed
     pub max_merkle_nodes: u64,
-    /// total lamports funded to this [Settlement]
+    /// total lamports funded
     pub lamports_funded: u64,
-    /// total lamports that have been claimed from this [Settlement]
+    /// total lamports that have been claimed
     pub lamports_claimed: u64,
-    /// number of nodes that have been claimed from this [Settlement]
+    /// number of nodes that have been claimed
     pub merkle_nodes_claimed: u64,
-    /// what epoch the [Settlement] has been created for
+    /// what epoch the Settlement has been created for
     pub epoch_created_for: u64,
-    /// address that collects the rent exempt from the [Settlement] account when closed
+    /// address that collects the rent exempt from the Settlement account when closed
     pub rent_collector: Pubkey,
-    /// address claiming the rent exempt for "split stake account" created on funding settlement
+    /// address that collects rent exempt for "split stake account" possibly created on funding settlement
     pub split_rent_collector: Option<Pubkey>,
+    /// amount of lamports that are collected for rent exempt for "split stake account"
     pub split_rent_amount: u64,
     /// PDA bumps
     pub bumps: Bumps,

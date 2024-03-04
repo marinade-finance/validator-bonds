@@ -11,7 +11,6 @@ use crate::utils::{merkle_proof, minimal_size_stake_account};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::hash::hashv;
 use anchor_lang::solana_program::sysvar::stake_history;
-use anchor_lang::system_program::ID as system_program_id;
 use anchor_spl::stake::{withdraw, Stake, StakeAccount, Withdraw};
 use merkle_tree::psr_claim::TreeNode;
 use merkle_tree::{hash_leaf, LEAF_PREFIX};
@@ -30,10 +29,11 @@ pub struct ClaimSettlementArgs {
     pub claim: u64,
 }
 
+/// Claims a settlement by withdrawing settlement funded stake account
 #[derive(Accounts)]
 #[instruction(params: ClaimSettlementArgs)]
 pub struct ClaimSettlement<'info> {
-    /// the config root account under which the settlement was created
+    /// the config account under which the settlement was created
     pub config: Box<Account<'info, Config>>,
 
     #[account(
@@ -61,7 +61,7 @@ pub struct ClaimSettlement<'info> {
     )]
     pub settlement: Account<'info, Settlement>,
 
-    /// deduplication, one merkle tree record cannot be claimed twice
+    /// deduplication, merkle tree record cannot be claimed twice
     #[account(
         init,
         payer = rent_payer,
@@ -75,7 +75,7 @@ pub struct ClaimSettlement<'info> {
     )]
     pub settlement_claim: Account<'info, SettlementClaim>,
 
-    /// a stake account which will be withdrawn
+    /// a stake account that will be withdrawn
     #[account(mut)]
     pub stake_account_from: Box<Account<'info, StakeAccount>>,
 
@@ -87,7 +87,7 @@ pub struct ClaimSettlement<'info> {
     pub stake_account_to: Box<Account<'info, StakeAccount>>,
 
     /// CHECK: PDA
-    /// authority that manages (owns == being withdrawer authority) all stakes account under the bonds program
+    /// authority that manages (owns == by being withdrawer authority) all stakes account under the bonds program
     #[account(
         seeds = [
             b"bonds_authority",
@@ -97,11 +97,11 @@ pub struct ClaimSettlement<'info> {
     )]
     pub bonds_withdrawer_authority: UncheckedAccount<'info>,
 
-    /// On claiming it's created a claim account that confirms the claim has happened
-    /// when the settlement withdrawal window expires the claim account is closed and rent gets back
+    /// upon claiming, a claim account is created to confirm the occurrence of the claim
+    /// when the settlement withdrawal window expires, the claim account is closed, and the rent is refunded here
     #[account(
         mut,
-        owner = system_program_id
+        owner = system_program.key()
     )]
     pub rent_payer: Signer<'info>,
 
@@ -197,7 +197,7 @@ impl<'info> ClaimSettlement<'info> {
 
         // The provided stake account must be sufficiently large to cover the claim while remaining valid.
         // It is the SDK's responsibility to merge stake accounts if necessary.
-        // - The invariant is that the stake account will always be rent-exempt + of minimum size.
+        // - The invariant is that the stake account will always be rent-exempt and of minimum size.
         //   This must be ensured by the fund_settlement instruction.
         if self.stake_account_from.get_lamports()
             < claim + minimal_size_stake_account(&stake_from_meta, &self.config)

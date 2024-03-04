@@ -7,7 +7,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::Mint;
 use anchor_spl::token::{burn, Burn, Token, TokenAccount};
 
-/// Change parameters of validator bond account with token burn
+/// Change parameters of validator bond account with token burning
 #[derive(Accounts)]
 pub struct ConfigureBondWithMint<'info> {
     pub config: Account<'info, Config>,

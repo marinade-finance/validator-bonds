@@ -6,7 +6,6 @@ use crate::events::bond::InitBondEvent;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::system_program::ID as system_program_id;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
@@ -18,7 +17,7 @@ pub struct InitBondArgs {
 /// Creates new validator bond account based on the validator vote address
 #[derive(Accounts)]
 pub struct InitBond<'info> {
-    /// the config root account under which the bond is created
+    /// the config account under which the bond is created
     pub config: Account<'info, Config>,
 
     /// CHECK: deserialization of the vote account in the code
@@ -27,8 +26,8 @@ pub struct InitBond<'info> {
     )]
     pub vote_account: UncheckedAccount<'info>,
 
-    /// when validator identity signs the instruction then configuration arguments are applied
-    /// otherwise it's a permission-less operation that uses default init bond setup
+    /// permission-ed: the validator identity signs the instruction, InitBondArgs applied
+    /// permission-less: no signature, default init bond configuration
     pub validator_identity: Option<Signer<'info>>,
 
     #[account(
@@ -47,7 +46,7 @@ pub struct InitBond<'info> {
     /// rent exempt payer of validator bond account creation
     #[account(
         mut,
-        owner = system_program_id
+        owner = system_program.key()
     )]
     pub rent_payer: Signer<'info>,
 

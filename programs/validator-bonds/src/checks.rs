@@ -112,7 +112,7 @@ pub fn check_stake_valid_delegation(
     }
 }
 
-/// the StakeAccount.delegation could be used but we want to verify
+/// the StakeAccount.delegation could be used, but we want to verify
 /// the state of the stake account that is generally expected for the protocol
 pub fn get_delegation(stake_account: &StakeAccount) -> Result<Option<Delegation>> {
     let stake_state = stake_account.deref();

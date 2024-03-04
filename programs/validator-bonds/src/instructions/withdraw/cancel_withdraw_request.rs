@@ -7,8 +7,9 @@ use crate::state::withdraw_request::WithdrawRequest;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 
-/// Cancelling validator bond withdraw request.
-/// Only one withdraw request per bond. Cancelling makes a way for a new request with new amount.
+/// Cancelling a validator bond withdrawal request.
+/// Only one withdrawal request per bond is permitted.
+/// Cancelling makes way for a new request with a new amount.
 #[derive(Accounts)]
 pub struct CancelWithdrawRequest<'info> {
     pub config: Account<'info, Config>,

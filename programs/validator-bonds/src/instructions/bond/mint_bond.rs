@@ -8,7 +8,6 @@ use crate::state::bond::Bond;
 use crate::state::config::Config;
 use anchor_lang::prelude::*;
 
-use anchor_lang::solana_program::system_program::ID as system_program_id;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 use anchor_spl::{
     associated_token::AssociatedToken,
@@ -20,7 +19,8 @@ use anchor_spl::{
     token::{mint_to, Mint, MintTo, Token, TokenAccount},
 };
 
-/// Minting bond SPL token that can be used for configuring the bond account (see configure_mint_bond.rs)
+/// Minting a bond SPL token that can be used for configuring the bond account.
+// see configure_mint_bond.rs
 #[derive(Accounts)]
 pub struct MintBond<'info> {
     pub config: Account<'info, Config>,
@@ -49,7 +49,7 @@ pub struct MintBond<'info> {
     )]
     pub mint: Account<'info, Mint>,
 
-    /// CHECK: authority is checked to be related to the vote account in the code
+    /// CHECK: verified to be associated with the vote account in the code
     pub destination_authority: UncheckedAccount<'info>,
 
     #[account(
@@ -66,14 +66,14 @@ pub struct MintBond<'info> {
     )]
     pub vote_account: UncheckedAccount<'info>,
 
-    /// CHECK: New metadata account to be possibly created
+    /// CHECK: new token metadata to be possibly created
     #[account(mut)]
     pub metadata: UncheckedAccount<'info>,
 
     /// rent exempt payer of account creation
     #[account(
         mut,
-        owner = system_program_id,
+        owner = system_program.key(),
     )]
     pub rent_payer: Signer<'info>,
 

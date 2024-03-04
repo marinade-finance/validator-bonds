@@ -42,6 +42,7 @@ describe('Validator Bonds mint configure bond account', () => {
   })
 
   beforeEach(async () => {
+    await warpToNextEpoch(provider)
     ;({ configAccount } = await executeInitConfigInstruction({
       program,
       provider,

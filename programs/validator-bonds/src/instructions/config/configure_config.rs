@@ -16,7 +16,6 @@ pub struct ConfigureConfigArgs {
 /// Configures bond program with the config root account params
 #[derive(Accounts)]
 pub struct ConfigureConfig<'info> {
-    /// config root account that will be configured
     #[account(
         mut,
         has_one = admin_authority @ ErrorCode::InvalidAdminAuthority,

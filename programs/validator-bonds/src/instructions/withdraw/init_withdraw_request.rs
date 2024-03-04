@@ -5,7 +5,6 @@ use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::withdraw_request::WithdrawRequest;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::system_program::ID as system_program_id;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
@@ -13,10 +12,10 @@ pub struct InitWithdrawRequestArgs {
     pub amount: u64,
 }
 
-/// Creates a withdrawal request of bond funds for a validator vote account
+/// Creates a withdrawal request when validator wants to withdraw the bond
 #[derive(Accounts)]
 pub struct InitWithdrawRequest<'info> {
-    /// the config root account under which the bond was created
+    /// the config account under which the bond was created
     pub config: Account<'info, Config>,
 
     #[account(
@@ -55,7 +54,7 @@ pub struct InitWithdrawRequest<'info> {
     /// rent exempt payer of withdraw request account creation
     #[account(
         mut,
-        owner = system_program_id
+        owner = system_program.key()
     )]
     pub rent_payer: Signer<'info>,
 

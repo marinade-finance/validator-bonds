@@ -7,8 +7,8 @@ use anchor_lang::prelude::*;
 #[account]
 #[derive(Debug)]
 pub struct Bond {
-    /// Contract root config address. Validator bond is created for this config as PDA
-    /// but saving the address here for easier access with getProgramAccounts call
+    /// Program root config address. Validator bond is created for this config as PDA
+    // saving the address here for easier access with getProgramAccounts call
     pub config: Pubkey,
     /// Validator vote address that this bond account is crated for
     /// INVARIANTS:

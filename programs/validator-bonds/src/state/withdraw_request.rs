@@ -3,15 +3,15 @@ use crate::error::ErrorCode;
 use crate::ID;
 use anchor_lang::prelude::*;
 
-/// Request from a validator to withdraw their bond
+/// Request from a validator to withdraw the bond
 #[account]
 #[derive(Debug)]
 pub struct WithdrawRequest {
-    /// Validator vote account that requested the withdraw
+    /// Validator vote account that requested the withdrawal
     pub vote_account: Pubkey,
     /// Bond account that the withdraw request is for (has to match with vote_account)
     pub bond: Pubkey,
-    /// Epoch when the withdraw was requested, i.e., when this "ticket" is created
+    /// Epoch when the withdrawal was requested, i.e., when this "ticket" is created
     pub epoch: u64,
     /// Amount of lamports to withdraw
     pub requested_amount: u64,

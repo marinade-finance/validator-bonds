@@ -13,11 +13,11 @@ use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 use anchor_lang::solana_program::{stake, stake::state::StakeAuthorize, sysvar::stake_history};
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 
-/// Resetting stake authority of a funded stake account belonging to removed settlement.
-/// I.e., for provided stake account it changes the stake authority from settlement stake authority to bonds withdrawer authority.
+/// Resetting the stake authority of a funded stake account belonging to a removed settlement.
+/// I.e., for the provided stake account, it changes the stake authority from the settlement stake authority to the bonds withdrawer authority.
 #[derive(Accounts)]
 pub struct ResetStake<'info> {
-    /// the config root account under which the bond was created
+    /// the config account under which the bond was created
     pub config: Account<'info, Config>,
 
     #[account(

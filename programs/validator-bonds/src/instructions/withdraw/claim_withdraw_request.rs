@@ -13,13 +13,12 @@ use crate::utils::{minimal_size_stake_account, return_unused_split_stake_account
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::stake::state::{StakeAuthorize, StakeStateV2};
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
-use anchor_lang::solana_program::{
-    program::invoke_signed, stake, system_program::ID as system_program_id,
-};
+use anchor_lang::solana_program::{program::invoke_signed, stake};
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 
-/// Withdrawing funds from a bond account, to proceed the withdrawal one must create a withdraw request first.
-/// Withdrawal takes StakeAccount that associated with bonds program and changes owner back to validator vote withdrawer.
+/// Withdrawing funds from a bond account requires creating a withdrawal request first.
+/// The withdrawal process involves taking a StakeAccount associated with the bonds program
+/// and changing its owner (withdrawer and staker authorities) back to the validator vote withdrawer.
 #[derive(Accounts)]
 pub struct ClaimWithdrawRequest<'info> {
     /// the config root configuration account
@@ -84,7 +83,7 @@ pub struct ClaimWithdrawRequest<'info> {
         init,
         payer = split_stake_rent_payer,
         space = std::mem::size_of::<StakeStateV2>(),
-        owner = stake::program::ID,
+        owner = stake_program.key(),
     )]
     pub split_stake_account: Account<'info, StakeAccount>,
 
@@ -92,7 +91,7 @@ pub struct ClaimWithdrawRequest<'info> {
     /// when the split_stake_account is not created then no rent is paid
     #[account(
         mut,
-        owner = system_program_id
+        owner = system_program.key()
     )]
     pub split_stake_rent_payer: Signer<'info>,
 

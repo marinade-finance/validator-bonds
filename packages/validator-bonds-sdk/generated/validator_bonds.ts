@@ -50,17 +50,14 @@ export type ValidatorBonds = {
         {
           "name": "config",
           "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "config root account to init"
-          ]
+          "isSigner": true
         },
         {
           "name": "rentPayer",
           "isMut": true,
           "isSigner": true,
           "docs": [
-            "rent exempt payer for the config (root) account"
+            "rent exempt payer for the config account"
           ]
         },
         {
@@ -85,9 +82,6 @@ export type ValidatorBonds = {
           "name": "config",
           "isMut": true,
           "isSigner": false,
-          "docs": [
-            "config root account that will be configured"
-          ],
           "relations": [
             "admin_authority"
           ]
@@ -118,7 +112,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "the config root account under which the bond is created"
+            "the config account under which the bond is created"
           ]
         },
         {
@@ -132,8 +126,8 @@ export type ValidatorBonds = {
           "isSigner": true,
           "isOptional": true,
           "docs": [
-            "when validator identity signs the instruction then configuration arguments are applied",
-            "otherwise it's a permission-less operation that uses default init bond setup"
+            "permission-ed: the validator identity signs the instruction, InitBondArgs applied",
+            "permission-less: no signature, default init bond configuration"
           ]
         },
         {
@@ -486,7 +480,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "new owner of the stake account, it's bonds withdrawer authority"
+            "new owner of the stake_account, it's the bonds withdrawer authority"
           ],
           "pda": {
             "seeds": [
@@ -546,7 +540,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "the config root account under which the bond was created"
+            "the config account under which the bond was created"
           ]
         },
         {
@@ -1096,8 +1090,8 @@ export type ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "The stake account funded to the settlement and credited to the bond's validator vote account.",
-            "The lamports are utilized to pay back the rent exempt of the split_stake_account, which can be created upon funding the settlement."
+            "The stake account is funded to the settlement and credited to the bond's validator vote account.",
+            "The lamports are utilized to pay back the rent exemption of the split_stake_account, which can be created upon funding the settlement."
           ]
         },
         {
@@ -1203,8 +1197,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": true,
           "docs": [
-            "operator signer authority is allowed to fund the settlement account",
-            "(making this operation permission-ed, at least for the first version of the contract)"
+            "operator signer authority is allowed to fund the settlement account"
           ]
         },
         {
@@ -1220,8 +1213,8 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "settlement stake authority to differentiate deposited and funded stake accounts",
-            "deposited has got bonds_withdrawer_authority, whilst funded has got the settlement authority"
+            "the settlement stake authority differentiates between deposited and funded stake accounts",
+            "deposited accounts have the bonds_withdrawer_authority, while funded accounts have the settlement_staker_authority"
           ],
           "pda": {
             "seeds": [
@@ -1267,10 +1260,10 @@ export type ValidatorBonds = {
           "isMut": true,
           "isSigner": true,
           "docs": [
-            "an account that does not exist, it will be initialized as a stake account (the signature needed)",
-            "the split_stake_account is needed when the provided stake_account is consists of more lamports",
-            "than the amount needed to fund the settlement, the left-over lamports from the stake account is split",
-            "into the new split_stake_account; when the split_stake_account is not needed, the rent payer is refunded"
+            "if an account that does not exist is provided, it will be initialized as a stake account (with the necessary signature)",
+            "the split_stake_account is required when the provided stake_account contains more lamports than necessary to fund the settlement",
+            "in this case, the excess lamports from the stake account are split into the new split_stake_account,",
+            "if the split_stake_account is not needed, the rent payer is refunded back within tx"
           ]
         },
         {
@@ -1278,9 +1271,9 @@ export type ValidatorBonds = {
           "isMut": true,
           "isSigner": true,
           "docs": [
-            "rent exempt payer of the split_stake_account creation",
-            "if the split_stake_account is not needed (no left-over lamports on funding) then rent payer is refunded",
-            "it the split_stake_account is needed to spill out over funding of the settlement",
+            "the rent exempt payer of the split_stake_account creation",
+            "if the split_stake_account is not needed (no leftover lamports on funding), then the rent payer is refunded",
+            "if the split_stake_account is needed to spill out over funding of the settlement,",
             "then the rent payer is refunded when the settlement is closed"
           ]
         },
@@ -1345,7 +1338,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "the config root account under which the settlement was created"
+            "the config account under which the settlement was created"
           ]
         },
         {
@@ -1422,7 +1415,7 @@ export type ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "deduplication, one merkle tree record cannot be claimed twice"
+            "deduplication, merkle tree record cannot be claimed twice"
           ],
           "pda": {
             "seeds": [
@@ -1452,7 +1445,7 @@ export type ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "a stake account which will be withdrawn"
+            "a stake account that will be withdrawn"
           ]
         },
         {
@@ -1468,7 +1461,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "authority that manages (owns == being withdrawer authority) all stakes account under the bonds program"
+            "authority that manages (owns == by being withdrawer authority) all stakes account under the bonds program"
           ],
           "pda": {
             "seeds": [
@@ -1491,8 +1484,8 @@ export type ValidatorBonds = {
           "isMut": true,
           "isSigner": true,
           "docs": [
-            "On claiming it's created a claim account that confirms the claim has happened",
-            "when the settlement withdrawal window expires the claim account is closed and rent gets back"
+            "upon claiming, a claim account is created to confirm the occurrence of the claim",
+            "when the settlement withdrawal window expires, the claim account is closed, and the rent is refunded here"
           ]
         },
         {
@@ -1533,7 +1526,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "the config root account under which the bond was created"
+            "the config account under which the bond was created"
           ]
         },
         {
@@ -1587,7 +1580,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "the config root account under which the bond was created"
+            "the config account under which the bond was created"
           ]
         },
         {
@@ -1695,7 +1688,7 @@ export type ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "the config root account under which the bond was created"
+            "the config account under which the bond was created"
           ],
           "relations": [
             "operator_authority"
@@ -1822,8 +1815,7 @@ export type ValidatorBonds = {
           {
             "name": "config",
             "docs": [
-              "Contract root config address. Validator bond is created for this config as PDA",
-              "but saving the address here for easier access with getProgramAccounts call"
+              "Program root config address. Validator bond is created for this config as PDA"
             ],
             "type": "publicKey"
           },
@@ -1953,8 +1945,8 @@ export type ValidatorBonds = {
     {
       "name": "settlementClaim",
       "docs": [
-        "Settlement claim serves for deduplication purposes to not allow",
-        "claiming the same settlement with the same claiming data twice."
+        "The settlement claim serves for deduplication purposes,",
+        "preventing the same settlement from being claimed multiple times with the same claiming data"
       ],
       "type": {
         "kind": "struct",
@@ -2035,7 +2027,7 @@ export type ValidatorBonds = {
           {
             "name": "bond",
             "docs": [
-              "this settlement belongs under particular bond, i.e., under particular validator vote account"
+              "the settlement belongs under this bond, i.e., under a particular validator vote account"
             ],
             "type": "publicKey"
           },
@@ -2062,56 +2054,56 @@ export type ValidatorBonds = {
           {
             "name": "maxTotalClaim",
             "docs": [
-              "maximum number of funds that can ever be claimed from this [Settlement]"
+              "maximum number of funds that can ever be claimed"
             ],
             "type": "u64"
           },
           {
             "name": "maxMerkleNodes",
             "docs": [
-              "maximum number of merkle tree nodes that can ever be claimed from this [Settlement]"
+              "maximum number of merkle tree nodes that can ever be claimed"
             ],
             "type": "u64"
           },
           {
             "name": "lamportsFunded",
             "docs": [
-              "total lamports funded to this [Settlement]"
+              "total lamports funded"
             ],
             "type": "u64"
           },
           {
             "name": "lamportsClaimed",
             "docs": [
-              "total lamports that have been claimed from this [Settlement]"
+              "total lamports that have been claimed"
             ],
             "type": "u64"
           },
           {
             "name": "merkleNodesClaimed",
             "docs": [
-              "number of nodes that have been claimed from this [Settlement]"
+              "number of nodes that have been claimed"
             ],
             "type": "u64"
           },
           {
             "name": "epochCreatedFor",
             "docs": [
-              "what epoch the [Settlement] has been created for"
+              "what epoch the Settlement has been created for"
             ],
             "type": "u64"
           },
           {
             "name": "rentCollector",
             "docs": [
-              "address that collects the rent exempt from the [Settlement] account when closed"
+              "address that collects the rent exempt from the Settlement account when closed"
             ],
             "type": "publicKey"
           },
           {
             "name": "splitRentCollector",
             "docs": [
-              "address claiming the rent exempt for \"split stake account\" created on funding settlement"
+              "address that collects rent exempt for \"split stake account\" possibly created on funding settlement"
             ],
             "type": {
               "option": "publicKey"
@@ -2119,6 +2111,9 @@ export type ValidatorBonds = {
           },
           {
             "name": "splitRentAmount",
+            "docs": [
+              "amount of lamports that are collected for rent exempt for \"split stake account\""
+            ],
             "type": "u64"
           },
           {
@@ -2148,7 +2143,7 @@ export type ValidatorBonds = {
     {
       "name": "withdrawRequest",
       "docs": [
-        "Request from a validator to withdraw their bond"
+        "Request from a validator to withdraw the bond"
       ],
       "type": {
         "kind": "struct",
@@ -2156,7 +2151,7 @@ export type ValidatorBonds = {
           {
             "name": "voteAccount",
             "docs": [
-              "Validator vote account that requested the withdraw"
+              "Validator vote account that requested the withdrawal"
             ],
             "type": "publicKey"
           },
@@ -2170,7 +2165,7 @@ export type ValidatorBonds = {
           {
             "name": "epoch",
             "docs": [
-              "Epoch when the withdraw was requested, i.e., when this \"ticket\" is created"
+              "Epoch when the withdrawal was requested, i.e., when this \"ticket\" is created"
             ],
             "type": "u64"
           },
@@ -3686,17 +3681,14 @@ export const IDL: ValidatorBonds = {
         {
           "name": "config",
           "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "config root account to init"
-          ]
+          "isSigner": true
         },
         {
           "name": "rentPayer",
           "isMut": true,
           "isSigner": true,
           "docs": [
-            "rent exempt payer for the config (root) account"
+            "rent exempt payer for the config account"
           ]
         },
         {
@@ -3721,9 +3713,6 @@ export const IDL: ValidatorBonds = {
           "name": "config",
           "isMut": true,
           "isSigner": false,
-          "docs": [
-            "config root account that will be configured"
-          ],
           "relations": [
             "admin_authority"
           ]
@@ -3754,7 +3743,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "the config root account under which the bond is created"
+            "the config account under which the bond is created"
           ]
         },
         {
@@ -3768,8 +3757,8 @@ export const IDL: ValidatorBonds = {
           "isSigner": true,
           "isOptional": true,
           "docs": [
-            "when validator identity signs the instruction then configuration arguments are applied",
-            "otherwise it's a permission-less operation that uses default init bond setup"
+            "permission-ed: the validator identity signs the instruction, InitBondArgs applied",
+            "permission-less: no signature, default init bond configuration"
           ]
         },
         {
@@ -4122,7 +4111,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "new owner of the stake account, it's bonds withdrawer authority"
+            "new owner of the stake_account, it's the bonds withdrawer authority"
           ],
           "pda": {
             "seeds": [
@@ -4182,7 +4171,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "the config root account under which the bond was created"
+            "the config account under which the bond was created"
           ]
         },
         {
@@ -4732,8 +4721,8 @@ export const IDL: ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "The stake account funded to the settlement and credited to the bond's validator vote account.",
-            "The lamports are utilized to pay back the rent exempt of the split_stake_account, which can be created upon funding the settlement."
+            "The stake account is funded to the settlement and credited to the bond's validator vote account.",
+            "The lamports are utilized to pay back the rent exemption of the split_stake_account, which can be created upon funding the settlement."
           ]
         },
         {
@@ -4839,8 +4828,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": true,
           "docs": [
-            "operator signer authority is allowed to fund the settlement account",
-            "(making this operation permission-ed, at least for the first version of the contract)"
+            "operator signer authority is allowed to fund the settlement account"
           ]
         },
         {
@@ -4856,8 +4844,8 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "settlement stake authority to differentiate deposited and funded stake accounts",
-            "deposited has got bonds_withdrawer_authority, whilst funded has got the settlement authority"
+            "the settlement stake authority differentiates between deposited and funded stake accounts",
+            "deposited accounts have the bonds_withdrawer_authority, while funded accounts have the settlement_staker_authority"
           ],
           "pda": {
             "seeds": [
@@ -4903,10 +4891,10 @@ export const IDL: ValidatorBonds = {
           "isMut": true,
           "isSigner": true,
           "docs": [
-            "an account that does not exist, it will be initialized as a stake account (the signature needed)",
-            "the split_stake_account is needed when the provided stake_account is consists of more lamports",
-            "than the amount needed to fund the settlement, the left-over lamports from the stake account is split",
-            "into the new split_stake_account; when the split_stake_account is not needed, the rent payer is refunded"
+            "if an account that does not exist is provided, it will be initialized as a stake account (with the necessary signature)",
+            "the split_stake_account is required when the provided stake_account contains more lamports than necessary to fund the settlement",
+            "in this case, the excess lamports from the stake account are split into the new split_stake_account,",
+            "if the split_stake_account is not needed, the rent payer is refunded back within tx"
           ]
         },
         {
@@ -4914,9 +4902,9 @@ export const IDL: ValidatorBonds = {
           "isMut": true,
           "isSigner": true,
           "docs": [
-            "rent exempt payer of the split_stake_account creation",
-            "if the split_stake_account is not needed (no left-over lamports on funding) then rent payer is refunded",
-            "it the split_stake_account is needed to spill out over funding of the settlement",
+            "the rent exempt payer of the split_stake_account creation",
+            "if the split_stake_account is not needed (no leftover lamports on funding), then the rent payer is refunded",
+            "if the split_stake_account is needed to spill out over funding of the settlement,",
             "then the rent payer is refunded when the settlement is closed"
           ]
         },
@@ -4981,7 +4969,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "the config root account under which the settlement was created"
+            "the config account under which the settlement was created"
           ]
         },
         {
@@ -5058,7 +5046,7 @@ export const IDL: ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "deduplication, one merkle tree record cannot be claimed twice"
+            "deduplication, merkle tree record cannot be claimed twice"
           ],
           "pda": {
             "seeds": [
@@ -5088,7 +5076,7 @@ export const IDL: ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "a stake account which will be withdrawn"
+            "a stake account that will be withdrawn"
           ]
         },
         {
@@ -5104,7 +5092,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "authority that manages (owns == being withdrawer authority) all stakes account under the bonds program"
+            "authority that manages (owns == by being withdrawer authority) all stakes account under the bonds program"
           ],
           "pda": {
             "seeds": [
@@ -5127,8 +5115,8 @@ export const IDL: ValidatorBonds = {
           "isMut": true,
           "isSigner": true,
           "docs": [
-            "On claiming it's created a claim account that confirms the claim has happened",
-            "when the settlement withdrawal window expires the claim account is closed and rent gets back"
+            "upon claiming, a claim account is created to confirm the occurrence of the claim",
+            "when the settlement withdrawal window expires, the claim account is closed, and the rent is refunded here"
           ]
         },
         {
@@ -5169,7 +5157,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "the config root account under which the bond was created"
+            "the config account under which the bond was created"
           ]
         },
         {
@@ -5223,7 +5211,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "the config root account under which the bond was created"
+            "the config account under which the bond was created"
           ]
         },
         {
@@ -5331,7 +5319,7 @@ export const IDL: ValidatorBonds = {
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "the config root account under which the bond was created"
+            "the config account under which the bond was created"
           ],
           "relations": [
             "operator_authority"
@@ -5458,8 +5446,7 @@ export const IDL: ValidatorBonds = {
           {
             "name": "config",
             "docs": [
-              "Contract root config address. Validator bond is created for this config as PDA",
-              "but saving the address here for easier access with getProgramAccounts call"
+              "Program root config address. Validator bond is created for this config as PDA"
             ],
             "type": "publicKey"
           },
@@ -5589,8 +5576,8 @@ export const IDL: ValidatorBonds = {
     {
       "name": "settlementClaim",
       "docs": [
-        "Settlement claim serves for deduplication purposes to not allow",
-        "claiming the same settlement with the same claiming data twice."
+        "The settlement claim serves for deduplication purposes,",
+        "preventing the same settlement from being claimed multiple times with the same claiming data"
       ],
       "type": {
         "kind": "struct",
@@ -5671,7 +5658,7 @@ export const IDL: ValidatorBonds = {
           {
             "name": "bond",
             "docs": [
-              "this settlement belongs under particular bond, i.e., under particular validator vote account"
+              "the settlement belongs under this bond, i.e., under a particular validator vote account"
             ],
             "type": "publicKey"
           },
@@ -5698,56 +5685,56 @@ export const IDL: ValidatorBonds = {
           {
             "name": "maxTotalClaim",
             "docs": [
-              "maximum number of funds that can ever be claimed from this [Settlement]"
+              "maximum number of funds that can ever be claimed"
             ],
             "type": "u64"
           },
           {
             "name": "maxMerkleNodes",
             "docs": [
-              "maximum number of merkle tree nodes that can ever be claimed from this [Settlement]"
+              "maximum number of merkle tree nodes that can ever be claimed"
             ],
             "type": "u64"
           },
           {
             "name": "lamportsFunded",
             "docs": [
-              "total lamports funded to this [Settlement]"
+              "total lamports funded"
             ],
             "type": "u64"
           },
           {
             "name": "lamportsClaimed",
             "docs": [
-              "total lamports that have been claimed from this [Settlement]"
+              "total lamports that have been claimed"
             ],
             "type": "u64"
           },
           {
             "name": "merkleNodesClaimed",
             "docs": [
-              "number of nodes that have been claimed from this [Settlement]"
+              "number of nodes that have been claimed"
             ],
             "type": "u64"
           },
           {
             "name": "epochCreatedFor",
             "docs": [
-              "what epoch the [Settlement] has been created for"
+              "what epoch the Settlement has been created for"
             ],
             "type": "u64"
           },
           {
             "name": "rentCollector",
             "docs": [
-              "address that collects the rent exempt from the [Settlement] account when closed"
+              "address that collects the rent exempt from the Settlement account when closed"
             ],
             "type": "publicKey"
           },
           {
             "name": "splitRentCollector",
             "docs": [
-              "address claiming the rent exempt for \"split stake account\" created on funding settlement"
+              "address that collects rent exempt for \"split stake account\" possibly created on funding settlement"
             ],
             "type": {
               "option": "publicKey"
@@ -5755,6 +5742,9 @@ export const IDL: ValidatorBonds = {
           },
           {
             "name": "splitRentAmount",
+            "docs": [
+              "amount of lamports that are collected for rent exempt for \"split stake account\""
+            ],
             "type": "u64"
           },
           {
@@ -5784,7 +5774,7 @@ export const IDL: ValidatorBonds = {
     {
       "name": "withdrawRequest",
       "docs": [
-        "Request from a validator to withdraw their bond"
+        "Request from a validator to withdraw the bond"
       ],
       "type": {
         "kind": "struct",
@@ -5792,7 +5782,7 @@ export const IDL: ValidatorBonds = {
           {
             "name": "voteAccount",
             "docs": [
-              "Validator vote account that requested the withdraw"
+              "Validator vote account that requested the withdrawal"
             ],
             "type": "publicKey"
           },
@@ -5806,7 +5796,7 @@ export const IDL: ValidatorBonds = {
           {
             "name": "epoch",
             "docs": [
-              "Epoch when the withdraw was requested, i.e., when this \"ticket\" is created"
+              "Epoch when the withdrawal was requested, i.e., when this \"ticket\" is created"
             ],
             "type": "u64"
           },

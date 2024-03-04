@@ -65,8 +65,8 @@ pub struct CloseSettlement<'info> {
     pub split_rent_collector: UncheckedAccount<'info>,
 
     /// CHECK: deserialization in code only when needed
-    /// The stake account funded to the settlement and credited to the bond's validator vote account.
-    /// The lamports are utilized to pay back the rent exempt of the split_stake_account, which can be created upon funding the settlement.
+    /// The stake account is funded to the settlement and credited to the bond's validator vote account.
+    /// The lamports are utilized to pay back the rent exemption of the split_stake_account, which can be created upon funding the settlement.
     #[account(mut)]
     pub split_rent_refund_account: UncheckedAccount<'info>,
 

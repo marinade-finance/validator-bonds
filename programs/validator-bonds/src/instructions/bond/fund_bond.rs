@@ -10,10 +10,10 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::stake::state::StakeAuthorize;
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 
-/// Funding stake account to the validator bond record.
-// This operation can be done in same way with manually changing the widhtrawer and staker
-// authorities of the stake account to the bonds withdrawer authority address.
-// While this transaction ensures the stake account is in state that is considered as properly funded.
+/// Funds the stake account to the validator bond record.
+// The same operation can be performed by manually changing the withdrawer and staker
+// authorities of the stake account to match the bond's withdrawer authority address.
+// This transaction ensures the stake account is in a state considered properly funded.
 #[derive(Accounts)]
 pub struct FundBond<'info> {
     pub config: Account<'info, Config>,
@@ -31,7 +31,7 @@ pub struct FundBond<'info> {
     pub bond: Account<'info, Bond>,
 
     /// CHECK: PDA
-    /// new owner of the stake account, it's bonds withdrawer authority
+    /// new owner of the stake_account, it's the bonds withdrawer authority
     #[account(
         seeds = [
             b"bonds_authority",
@@ -59,7 +59,7 @@ impl<'info> FundBond<'info> {
     pub fn process(&mut self) -> Result<()> {
         require!(!self.config.paused, ErrorCode::ProgramIsPaused);
 
-        // when the stake account is already "owned" by the bonds program, let's just return OK
+        // when the stake account is already "owned" by the bonds program, return OK
         if check_stake_is_initialized_with_withdrawer_authority(
             &self.stake_account,
             &self.bonds_withdrawer_authority.key(),

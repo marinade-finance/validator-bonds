@@ -13,10 +13,10 @@ use anchor_spl::stake::{withdraw, Stake, StakeAccount, Withdraw};
 use std::ops::Deref;
 
 /// Withdrawing funded stake account belonging to removed settlement that has not been delegated (it's in Initialized state).
-/// Such a stake account is considered belonging to operator of the config account.
+/// Such a stake account is considered belonging to the operator of the config account.
 #[derive(Accounts)]
 pub struct WithdrawStake<'info> {
-    /// the config root account under which the bond was created
+    /// the config account under which the bond was created
     #[account(
         has_one = operator_authority @ ErrorCode::InvalidOperatorAuthority,
     )]

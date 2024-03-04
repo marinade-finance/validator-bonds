@@ -4,8 +4,8 @@ use crate::ID;
 use anchor_lang::prelude::*;
 use merkle_tree::psr_claim::TreeNode;
 
-/// Settlement claim serves for deduplication purposes to not allow
-/// claiming the same settlement with the same claiming data twice.
+/// The settlement claim serves for deduplication purposes,
+/// preventing the same settlement from being claimed multiple times with the same claiming data
 #[account]
 #[derive(Debug)]
 pub struct SettlementClaim {
