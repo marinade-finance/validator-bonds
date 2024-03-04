@@ -1,11 +1,11 @@
 import { Keypair, PublicKey } from '@solana/web3.js'
 import {
-  CONFIGURE_BOND_EVENT,
-  ConfigureBondEvent,
   ValidatorBondsProgram,
   configureBondWithMintInstruction,
   getBond,
   mintBondInstruction,
+  CONFIGURE_BOND_WITH_MINT_EVENT,
+  ConfigureBondWithMintEvent,
 } from '../../src'
 import { getValidatorInfo, initTest } from './testValidator'
 import {
@@ -47,9 +47,9 @@ describe('Validator Bonds configure bond with mint', () => {
     })
     const oldBondData = await getBond(program, bondAccount)
 
-    const event = new Promise<ConfigureBondEvent>(resolve => {
+    const event = new Promise<ConfigureBondWithMintEvent>(resolve => {
       const listener = program.addEventListener(
-        CONFIGURE_BOND_EVENT,
+        CONFIGURE_BOND_WITH_MINT_EVENT,
         async event => {
           await program.removeEventListener(listener)
           resolve(event)
@@ -57,11 +57,11 @@ describe('Validator Bonds configure bond with mint', () => {
       )
     })
 
-    const { instruction: ixMint, associatedTokenAccount } =
+    const { instruction: ixMint, validatorIdentityTokenAccount } =
       await mintBondInstruction({
         program,
         bondAccount,
-        destinationAuthority: validatorIdentity.publicKey,
+        validatorIdentity: validatorIdentity.publicKey,
       })
     const newBondAuthority = PublicKey.unique()
     const newCpmpe = 1000
@@ -76,7 +76,7 @@ describe('Validator Bonds configure bond with mint', () => {
 
     const tokenData = await getTokenAccount(
       provider.connection,
-      associatedTokenAccount
+      validatorIdentityTokenAccount
     )
     expect(tokenData.amount).toEqual(0) // burnt
     const bondData = await getBond(program, bondAccount)
@@ -84,6 +84,7 @@ describe('Validator Bonds configure bond with mint', () => {
     expect(bondData.cpmpe).toEqual(newCpmpe)
 
     await event.then(e => {
+      expect(e.validatorIdentity).toEqual(validatorIdentity.publicKey)
       expect(e.bondAuthority).toEqual({
         old: oldBondData.authority,
         new: newBondAuthority,

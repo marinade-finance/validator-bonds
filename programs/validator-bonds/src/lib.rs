@@ -73,10 +73,10 @@ pub mod validator_bonds {
 
     pub fn configure_bond_with_mint(
         ctx: Context<ConfigureBondWithMint>,
-        configure_bond_args: ConfigureBondArgs,
+        args: ConfigureBondWithMintArgs,
     ) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.process(configure_bond_args)
+        ctx.accounts.process(args)
     }
 
     pub fn mint_bond(ctx: Context<MintBond>) -> Result<()> {

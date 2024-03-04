@@ -179,8 +179,8 @@ pub enum ErrorCode {
     #[msg("Wrong state of the stake account")]
     WrongStakeAccountState, // 6057 0x17a9
 
-    #[msg("Wrong bond mint to authority")]
-    InvalidBondMintToDestination, // 6058 0x17aa
+    #[msg("Validator identity mismatch for bond mint")]
+    ValidatorIdentityBondMintMismatch, // 6058 0x17aa
 
     #[msg("Bond mint permits only a single token to exist")]
     InvalidBondMintSupply, // 6059 0x17ab

@@ -18,6 +18,13 @@ pub struct ConfigureBondEvent {
 }
 
 #[event]
+pub struct ConfigureBondWithMintEvent {
+    pub validator_identity: Pubkey,
+    pub bond_authority: Option<PubkeyValueChange>,
+    pub cpmpe: Option<U64ValueChange>,
+}
+
+#[event]
 pub struct FundBondEvent {
     pub bond: Pubkey,
     pub vote_account: Pubkey,
@@ -29,7 +36,7 @@ pub struct FundBondEvent {
 #[event]
 pub struct MintBondEvent {
     pub bond: Pubkey,
-    pub destination_token_account: Pubkey,
-    pub destination_authority: Pubkey,
+    pub validator_identity: Pubkey,
+    pub validator_identity_token_account: Pubkey,
     pub token_metadata: Pubkey,
 }

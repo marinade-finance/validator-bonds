@@ -77,6 +77,10 @@ export const INIT_CONFIG_EVENT = 'InitConfigEvent'
 export type InitConfigEvent =
   IdlEvents<ValidatorBonds>[typeof INIT_CONFIG_EVENT]
 
+export const CONFIGURE_CONFIG_EVENT = 'ConfigureConfigEvent'
+export type ConfigureConfigEvent =
+  IdlEvents<ValidatorBonds>[typeof CONFIGURE_CONFIG_EVENT]
+
 export const INIT_BOND_EVENT = 'InitBondEvent'
 export type InitBondEvent = IdlEvents<ValidatorBonds>[typeof INIT_BOND_EVENT]
 
@@ -84,15 +88,15 @@ export const CONFIGURE_BOND_EVENT = 'ConfigureBondEvent'
 export type ConfigureBondEvent =
   IdlEvents<ValidatorBonds>[typeof CONFIGURE_BOND_EVENT]
 
+export const CONFIGURE_BOND_WITH_MINT_EVENT = 'ConfigureBondWithMintEvent'
+export type ConfigureBondWithMintEvent =
+  IdlEvents<ValidatorBonds>[typeof CONFIGURE_BOND_WITH_MINT_EVENT]
+
 export const MINT_BOND_EVENT = 'MintBondEvent'
 export type MintBondEvent = IdlEvents<ValidatorBonds>[typeof MINT_BOND_EVENT]
 
 export const FUND_BOND_EVENT = 'FundBondEvent'
 export type FundBondEvent = IdlEvents<ValidatorBonds>[typeof FUND_BOND_EVENT]
-
-export const CONFIGURE_CONFIG_EVENT = 'ConfigureConfigEvent'
-export type ConfigureConfigEvent =
-  IdlEvents<ValidatorBonds>[typeof CONFIGURE_CONFIG_EVENT]
 
 export const FUND_SETTLEMENT_EVENT = 'FundSettlementEvent'
 export type FundSettlementEvent =
@@ -306,10 +310,11 @@ export function withdrawRequestAddress(
 
 export function bondMintAddress(
   bond: PublicKey,
+  validatorIdentity: PublicKey,
   validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
-    [BOND_MINT_SEED, bond.toBytes()],
+    [BOND_MINT_SEED, bond.toBytes(), validatorIdentity.toBytes()],
     validatorBondsProgramId
   )
 }

@@ -31,6 +31,12 @@ import {
   settlementStakerAuthority,
   bondsWithdrawerAuthority,
 } from '../../src'
+import * as BufferLayout from '@solana/buffer-layout'
+import {
+  encodeData,
+  IInstructionInputData,
+  InstructionType,
+} from './web3jsimport/instruction'
 
 // Depending if new vote account feature-set is gated on.
 // It can be 3762 or 3736
@@ -141,6 +147,52 @@ export async function getRentExemptStake(
       StakeProgram.space
     ))
   )
+}
+
+export type VoteInstructionTypeBonds = 'UpdateValidatorIdentity'
+
+// https://github.com/solana-labs/solana-web3.js/blob/v1.90.1/packages/library-legacy/src/programs/vote.ts#L270
+type VoteInstructionInputDataBonds = {
+  UpdateValidatorIdentity: IInstructionInputData
+}
+
+// https://github.com/solana-labs/solana-web3.js/blob/v1.90.1/packages/library-legacy/src/programs/vote.ts#L291
+const VOTE_INSTRUCTION_LAYOUTS_BONDS = Object.freeze<{
+  [Instruction in VoteInstructionTypeBonds]: InstructionType<
+    VoteInstructionInputDataBonds[Instruction]
+  >
+}>({
+  UpdateValidatorIdentity: {
+    index: 4,
+    layout: BufferLayout.struct<
+      VoteInstructionInputDataBonds['UpdateValidatorIdentity']
+    >([BufferLayout.u32('instruction')]),
+  },
+})
+
+// https://github.com/solana-labs/solana/blob/v1.18.4/sdk/program/src/vote/instruction.rs#L381
+export type UpdateValidatorIdentityParams = {
+  votePubkey: PublicKey // writable, no-signer
+  authorizedWithdrawerPubkey: PublicKey // read-only, signer
+  nodePubkey: PublicKey // read-only, signer
+}
+
+export function updateValidatorIdentity(
+  params: UpdateValidatorIdentityParams
+): Transaction {
+  const { votePubkey, authorizedWithdrawerPubkey, nodePubkey } = params
+  const type = VOTE_INSTRUCTION_LAYOUTS_BONDS.UpdateValidatorIdentity
+  const data = encodeData(type)
+  const keys = [
+    { pubkey: votePubkey, isSigner: false, isWritable: true },
+    { pubkey: nodePubkey, isSigner: true, isWritable: false },
+    { pubkey: authorizedWithdrawerPubkey, isSigner: true, isWritable: false },
+  ]
+  return new Transaction().add({
+    keys,
+    programId: VoteProgram.programId,
+    data,
+  })
 }
 
 export enum StakeStates {

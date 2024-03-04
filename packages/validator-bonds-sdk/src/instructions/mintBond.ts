@@ -22,7 +22,7 @@ import { getAssociatedTokenAddressSync } from 'solana-spl-token-modern'
  */
 export async function mintBondInstruction({
   program,
-  destinationAuthority,
+  validatorIdentity,
   bondAccount,
   configAccount,
   voteAccount,
@@ -30,7 +30,7 @@ export async function mintBondInstruction({
   rentPayer = anchorProgramWalletPubkey(program),
 }: {
   program: ValidatorBondsProgram
-  destinationAuthority?: PublicKey
+  validatorIdentity?: PublicKey
   bondAccount?: PublicKey
   configAccount?: PublicKey
   voteAccount?: PublicKey
@@ -39,7 +39,7 @@ export async function mintBondInstruction({
 }): Promise<{
   bondAccount: PublicKey
   bondMint: PublicKey
-  associatedTokenAccount: PublicKey
+  validatorIdentityTokenAccount: PublicKey
   tokenMetadataAccount: PublicKey
   instruction: TransactionInstruction
 }> {
@@ -58,15 +58,19 @@ export async function mintBondInstruction({
     voteAccount = bondData.voteAccount
   }
   // when destination is not defined, the destination is the vote account validator identity
-  if (destinationAuthority === undefined) {
+  if (validatorIdentity === undefined) {
     const voteAccountData = await getVoteAccount(program, voteAccount)
-    destinationAuthority = voteAccountData.account.data.nodePubkey
+    validatorIdentity = voteAccountData.account.data.nodePubkey
   }
 
-  const [bondMint] = bondMintAddress(bondAccount, program.programId)
-  const destinationTokenAccount = getAssociatedTokenAddressSync(
+  const [bondMint] = bondMintAddress(
+    bondAccount,
+    validatorIdentity,
+    program.programId
+  )
+  const validatorIdentityTokenAccount = getAssociatedTokenAddressSync(
     bondMint,
-    destinationAuthority,
+    validatorIdentity,
     true
   )
 
@@ -82,8 +86,8 @@ export async function mintBondInstruction({
       voteAccount,
       mint: bondMint,
       metadata: metadataAccount,
-      destinationAuthority,
-      destinationTokenAccount,
+      validatorIdentity,
+      validatorIdentityTokenAccount,
       rentPayer: renPayerPubkey,
       rent: SYSVAR_RENT_PUBKEY,
       metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
@@ -92,7 +96,7 @@ export async function mintBondInstruction({
   return {
     bondAccount,
     bondMint,
-    associatedTokenAccount: destinationTokenAccount,
+    validatorIdentityTokenAccount,
     tokenMetadataAccount: metadataAccount,
     instruction,
   }

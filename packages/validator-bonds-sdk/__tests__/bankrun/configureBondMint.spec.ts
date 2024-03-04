@@ -4,6 +4,7 @@ import {
   configureBondWithMintInstruction,
   getBond,
   mintBondInstruction,
+  getVoteAccount,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -16,7 +17,7 @@ import {
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
 import { Keypair, PublicKey } from '@solana/web3.js'
-import { createVoteAccount } from '../utils/staking'
+import { createVoteAccount, updateValidatorIdentity } from '../utils/staking'
 import {
   createAssociatedTokenAccountInstruction,
   createTransferInstruction,
@@ -25,7 +26,7 @@ import {
   getAssociatedTokenAddressSync,
 } from 'solana-spl-token-modern'
 import { signer } from '@marinade.finance/web3js-common'
-import { verifyError } from '@marinade.finance/anchor-common'
+import { checkErrorMessage, verifyError } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds mint configure bond account', () => {
   let provider: BankrunExtendedProvider
@@ -33,9 +34,9 @@ describe('Validator Bonds mint configure bond account', () => {
   let configAccount: PublicKey
   let bondAccount: PublicKey
   let validatorIdentity: Keypair
-  let authorizedWithdrawer: Keypair
   let voteAccount: PublicKey
   let bondAuthority: Keypair
+  let authorizedWithdrawer: Keypair
 
   beforeAll(async () => {
     ;({ provider, program } = await initBankrunTest())
@@ -64,13 +65,13 @@ describe('Validator Bonds mint configure bond account', () => {
     const {
       instruction: ixMint,
       bondMint,
-      associatedTokenAccount: validatorIdentityTokenAccount,
+      validatorIdentityTokenAccount,
       tokenMetadataAccount,
     } = await mintBondInstruction({
       program,
       bondAccount,
       configAccount,
-      destinationAuthority: validatorIdentity.publicKey,
+      validatorIdentity: validatorIdentity.publicKey,
     })
     await provider.sendIx([], ixMint)
 
@@ -152,25 +153,20 @@ describe('Validator Bonds mint configure bond account', () => {
     expect(bondData.authority).toEqual(PublicKey.default)
   })
 
-  it('mint with withdrawer authority', async () => {
+  it('fail to bond mint with changed validator identity', async () => {
     const {
       instruction: ixMint,
       bondMint,
-      associatedTokenAccount: withdrawerTokenAccount,
+      validatorIdentityTokenAccount,
     } = await mintBondInstruction({
       program,
       bondAccount,
       configAccount,
-      destinationAuthority: authorizedWithdrawer.publicKey,
+      validatorIdentity: validatorIdentity.publicKey,
     })
     await provider.sendIx([], ixMint)
-
-    const withdrawerTokenData = await getTokenAccount(
-      provider.connection,
-      withdrawerTokenAccount
-    )
-    expect(withdrawerTokenData.amount).toEqual(1)
-    expect(withdrawerTokenData.mint).toEqual(bondMint)
+    await warpToNextEpoch(provider)
+    await provider.sendIx([], ixMint)
 
     const user = signer(await createUserAndFund(provider))
     const userTokenAccount = getAssociatedTokenAddressSync(
@@ -184,16 +180,99 @@ describe('Validator Bonds mint configure bond account', () => {
       bondMint
     )
     const ixTransfer = createTransferInstruction(
-      withdrawerTokenAccount,
+      validatorIdentityTokenAccount,
       userTokenAccount,
-      authorizedWithdrawer.publicKey,
+      validatorIdentity.publicKey,
+      1
+    )
+    await provider.sendIx([validatorIdentity], ixCreateTokenAccount, ixTransfer)
+
+    // configuration possible
+    const { instruction: ixConfigure } = await configureBondWithMintInstruction(
+      {
+        newBondAuthority: user.publicKey,
+        program,
+        bondAccount,
+        configAccount,
+        tokenAuthority: user,
+      }
+    )
+    let mintData = await getMint(provider.connection, bondMint)
+    expect(mintData.supply).toEqual(2)
+    await provider.sendIx([user], ixConfigure)
+    mintData = await getMint(provider.connection, bondMint)
+    expect(mintData.supply).toEqual(1)
+
+    // minting with changed validator identity
+    const validatorIdentityNew = Keypair.generate()
+    const ixUpdateValidatorIdentity = updateValidatorIdentity({
+      votePubkey: voteAccount,
+      nodePubkey: validatorIdentityNew.publicKey,
+      authorizedWithdrawerPubkey: authorizedWithdrawer.publicKey,
+    })
+    await provider.sendIx(
+      [authorizedWithdrawer, validatorIdentityNew],
+      ixUpdateValidatorIdentity
+    )
+    expect(
+      (await getVoteAccount(provider, voteAccount)).account.data.nodePubkey
+    ).toEqual(validatorIdentityNew.publicKey)
+
+    warpToNextEpoch(provider)
+    try {
+      await provider.sendIx([user], ixConfigure)
+      throw new Error('failure expected; wrong validator identity')
+    } catch (e) {
+      // ConstraintSeeds = 2006,
+      checkErrorMessage(e, 'custom program error: 0x7d6')
+    }
+
+    // transfer to same user but new token
+    const {
+      instruction: ixMintNew,
+      bondMint: bondMintNew,
+      validatorIdentityTokenAccount: newValidatorIdentityTokenAccount,
+    } = await mintBondInstruction({
+      program,
+      bondAccount,
+      configAccount,
+      validatorIdentity: validatorIdentityNew.publicKey,
+    })
+    const userTokenAccountNew = getAssociatedTokenAddressSync(
+      bondMintNew,
+      user.publicKey
+    )
+    const ixCreateTokenAccountNew = createAssociatedTokenAccountInstruction(
+      provider.wallet.publicKey,
+      userTokenAccountNew,
+      user.publicKey,
+      bondMintNew
+    )
+    const ixTransferNew = createTransferInstruction(
+      newValidatorIdentityTokenAccount,
+      userTokenAccountNew,
+      validatorIdentityNew.publicKey,
       1
     )
     await provider.sendIx(
-      [authorizedWithdrawer],
-      ixCreateTokenAccount,
-      ixTransfer
+      [validatorIdentityNew],
+      ixMintNew,
+      ixCreateTokenAccountNew,
+      ixTransferNew
     )
+
+    // the same user can configure now
+    const { instruction: ixConfigureNew } =
+      await configureBondWithMintInstruction({
+        newCpmpe: 1,
+        program,
+        bondAccount,
+        configAccount,
+        tokenAuthority: user,
+      })
+    await provider.sendIx([user], ixConfigureNew)
+
+    expect((await getBond(program, bondAccount)).cpmpe).toEqual(1)
   })
 
   it('fail minting for a random authority and configure with withdrawer authority', async () => {
@@ -202,32 +281,50 @@ describe('Validator Bonds mint configure bond account', () => {
       program,
       bondAccount,
       configAccount,
-      destinationAuthority: randomGuy.publicKey,
+      validatorIdentity: randomGuy.publicKey,
     })
     try {
       await provider.sendIx([], ixMint)
+      throw new Error('failure expected; wrong validator identity')
     } catch (e) {
-      verifyError(e, Errors, 6058, 'Wrong bond mint')
+      verifyError(e, Errors, 6058, 'Validator identity mismatch for bond mint')
     }
   })
 
-  it('fail multiple minting', async () => {
+  it('fail minting for a wrong vote account', async () => {
+    const randomKeypair = Keypair.generate()
+    const { instruction: ixMint } = await mintBondInstruction({
+      program,
+      bondAccount,
+      configAccount,
+      validatorIdentity: validatorIdentity.publicKey,
+      voteAccount: randomKeypair.publicKey,
+    })
+    try {
+      await provider.sendIx([], ixMint)
+      throw new Error('failure expected; wrong vote account seed')
+    } catch (e) {
+      // ConstraintSeeds = 2006,
+      checkErrorMessage(e, 'custom program error: 0x7d6')
+    }
+  })
+
+  it('no trouble with multiple minting', async () => {
     const { instruction: ixMint, bondMint } = await mintBondInstruction({
       program,
       bondAccount,
       configAccount,
-      destinationAuthority: validatorIdentity.publicKey,
+      validatorIdentity: validatorIdentity.publicKey,
     })
 
     await provider.sendIx([], ixMint)
-    const mintData = await getMint(provider.connection, bondMint)
+    let mintData = await getMint(provider.connection, bondMint)
     expect(mintData.supply).toEqual(1)
 
     await warpToNextEpoch(provider)
-    try {
-      await provider.sendIx([], ixMint)
-    } catch (e) {
-      verifyError(e, Errors, 6059, 'permits only a single token')
-    }
+    await provider.sendIx([], ixMint)
+
+    mintData = await getMint(provider.connection, bondMint)
+    expect(mintData.supply).toEqual(2)
   })
 })

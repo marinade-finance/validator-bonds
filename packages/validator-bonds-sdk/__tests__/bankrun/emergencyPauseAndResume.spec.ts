@@ -139,7 +139,7 @@ describe('Validator Bonds pause&resume', () => {
     await pause()
     const { instruction: mintBondIx } = await mintBondInstruction({
       program,
-      destinationAuthority: validatorIdentity.publicKey,
+      validatorIdentity: validatorIdentity.publicKey,
       bondAccount,
       configAccount,
       voteAccount: voteAccount1Keypair.publicKey,

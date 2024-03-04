@@ -1,6 +1,4 @@
-use crate::checks::{
-    get_validator_vote_account_authorized_withdrawer, get_validator_vote_account_validator_identity,
-};
+use crate::checks::get_validator_vote_account_validator_identity;
 use crate::constants::BOND_MINT_SEED;
 use crate::error::ErrorCode;
 use crate::events::bond::MintBondEvent;
@@ -27,6 +25,7 @@ pub struct MintBond<'info> {
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,
+        has_one = vote_account @ ErrorCode::VoteAccountMismatch,
         seeds = [
             b"bond_account",
             config.key().as_ref(),
@@ -41,6 +40,7 @@ pub struct MintBond<'info> {
         seeds = [
             b"bond_mint",
             bond.key().as_ref(),
+            validator_identity.key().as_ref(),
         ],
         bump,
         payer = rent_payer,
@@ -50,15 +50,15 @@ pub struct MintBond<'info> {
     pub mint: Account<'info, Mint>,
 
     /// CHECK: verified to be associated with the vote account in the code
-    pub destination_authority: UncheckedAccount<'info>,
+    pub validator_identity: UncheckedAccount<'info>,
 
     #[account(
         init_if_needed,
         payer = rent_payer,
         associated_token::mint = mint,
-        associated_token::authority = destination_authority,
+        associated_token::authority = validator_identity,
     )]
-    pub destination_token_account: Account<'info, TokenAccount>,
+    pub validator_identity_token_account: Account<'info, TokenAccount>,
 
     /// CHECK: check&deserialize the vote account in the code
     #[account(
@@ -92,39 +92,28 @@ impl<'info> MintBond<'info> {
     pub fn process(&mut self, mint_bond_bump: u8) -> Result<()> {
         require!(!self.config.paused, ErrorCode::ProgramIsPaused);
 
-        if self.mint.supply != 0 {
-            return Err(error!(ErrorCode::InvalidBondMintSupply)
-                .with_values(("mint_supply", self.mint.supply)));
-        }
-
-        let validator_identity = get_validator_vote_account_validator_identity(&self.vote_account)?;
-        let authorized_withdrawer =
-            get_validator_vote_account_authorized_withdrawer(&self.vote_account)?;
-        if self.destination_authority.key() != validator_identity
-            && self.destination_authority.key() != authorized_withdrawer
-        {
-            return Err(
-                error!(ErrorCode::InvalidBondMintToDestination).with_values((
-                    "destination_authority/validator_identity/authorized_withdrawer",
-                    format!(
-                        "{}/{}/{}",
-                        self.destination_authority.key(),
-                        validator_identity,
-                        authorized_withdrawer
-                    ),
-                )),
-            );
-        }
+        let validator_identity_vote_account =
+            get_validator_vote_account_validator_identity(&self.vote_account)?;
+        require_keys_eq!(
+            self.validator_identity.key(),
+            validator_identity_vote_account,
+            ErrorCode::ValidatorIdentityBondMintMismatch
+        );
 
         let bond_pubkey = self.bond.key();
-        let mint_signer_seeds = &[BOND_MINT_SEED, &bond_pubkey.as_ref(), &[mint_bond_bump]];
+        let mint_signer_seeds = &[
+            BOND_MINT_SEED,
+            &bond_pubkey.as_ref(),
+            &validator_identity_vote_account.as_ref(),
+            &[mint_bond_bump],
+        ];
         let mint_signer = [&mint_signer_seeds[..]];
         mint_to(
             CpiContext::new_with_signer(
                 self.token_program.to_account_info(),
                 MintTo {
                     authority: self.mint.to_account_info(),
-                    to: self.destination_token_account.to_account_info(),
+                    to: self.validator_identity_token_account.to_account_info(),
                     mint: self.mint.to_account_info(),
                 },
                 &mint_signer,
@@ -168,8 +157,8 @@ impl<'info> MintBond<'info> {
 
         emit!(MintBondEvent {
             bond: self.bond.key(),
-            destination_token_account: self.destination_token_account.key(),
-            destination_authority: self.destination_authority.key(),
+            validator_identity_token_account: self.validator_identity_token_account.key(),
+            validator_identity: self.validator_identity.key(),
             token_metadata: self.metadata.key(),
         });
 

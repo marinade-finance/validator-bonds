@@ -266,13 +266,13 @@ export type ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "account": "Bond",
-                "path": "bond.vote_account"
+                "path": "vote_account"
               }
             ]
           },
           "relations": [
-            "config"
+            "config",
+            "vote_account"
           ]
         },
         {
@@ -291,9 +291,21 @@ export type ValidatorBonds = {
                 "type": "publicKey",
                 "account": "Bond",
                 "path": "bond"
+              },
+              {
+                "kind": "arg",
+                "type": {
+                  "defined": "ConfigureBondWithMintArgs"
+                },
+                "path": "params.validator_identity"
               }
             ]
           }
+        },
+        {
+          "name": "voteAccount",
+          "isMut": false,
+          "isSigner": false
         },
         {
           "name": "tokenAccount",
@@ -316,9 +328,9 @@ export type ValidatorBonds = {
       ],
       "args": [
         {
-          "name": "configureBondArgs",
+          "name": "args",
           "type": {
-            "defined": "ConfigureBondArgs"
+            "defined": "ConfigureBondWithMintArgs"
           }
         }
       ]
@@ -356,7 +368,8 @@ export type ValidatorBonds = {
             ]
           },
           "relations": [
-            "config"
+            "config",
+            "vote_account"
           ]
         },
         {
@@ -375,17 +388,22 @@ export type ValidatorBonds = {
                 "type": "publicKey",
                 "account": "Bond",
                 "path": "bond"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "path": "validator_identity"
               }
             ]
           }
         },
         {
-          "name": "destinationAuthority",
+          "name": "validatorIdentity",
           "isMut": false,
           "isSigner": false
         },
         {
-          "name": "destinationTokenAccount",
+          "name": "validatorIdentityTokenAccount",
           "isMut": true,
           "isSigner": false
         },
@@ -2292,6 +2310,39 @@ export type ValidatorBonds = {
       }
     },
     {
+      "name": "ConfigureBondWithMintArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bondAuthority",
+            "docs": [
+              "new bond authority"
+            ],
+            "type": {
+              "option": "publicKey"
+            }
+          },
+          {
+            "name": "cpmpe",
+            "docs": [
+              "new cpmpe value"
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "validatorIdentity",
+            "docs": [
+              "validator identity configured within the vote account"
+            ],
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
       "name": "ConfigureBondArgs",
       "type": {
         "kind": "struct",
@@ -2597,6 +2648,34 @@ export type ValidatorBonds = {
       ]
     },
     {
+      "name": "ConfigureBondWithMintEvent",
+      "fields": [
+        {
+          "name": "validatorIdentity",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "bondAuthority",
+          "type": {
+            "option": {
+              "defined": "PubkeyValueChange"
+            }
+          },
+          "index": false
+        },
+        {
+          "name": "cpmpe",
+          "type": {
+            "option": {
+              "defined": "U64ValueChange"
+            }
+          },
+          "index": false
+        }
+      ]
+    },
+    {
       "name": "FundBondEvent",
       "fields": [
         {
@@ -2635,12 +2714,12 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "destinationTokenAccount",
+          "name": "validatorIdentity",
           "type": "publicKey",
           "index": false
         },
         {
-          "name": "destinationAuthority",
+          "name": "validatorIdentityTokenAccount",
           "type": "publicKey",
           "index": false
         },
@@ -3618,8 +3697,8 @@ export type ValidatorBonds = {
     },
     {
       "code": 6058,
-      "name": "InvalidBondMintToDestination",
-      "msg": "Wrong bond mint to authority"
+      "name": "ValidatorIdentityBondMintMismatch",
+      "msg": "Validator identity mismatch for bond mint"
     },
     {
       "code": 6059,
@@ -3897,13 +3976,13 @@ export const IDL: ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "account": "Bond",
-                "path": "bond.vote_account"
+                "path": "vote_account"
               }
             ]
           },
           "relations": [
-            "config"
+            "config",
+            "vote_account"
           ]
         },
         {
@@ -3922,9 +4001,21 @@ export const IDL: ValidatorBonds = {
                 "type": "publicKey",
                 "account": "Bond",
                 "path": "bond"
+              },
+              {
+                "kind": "arg",
+                "type": {
+                  "defined": "ConfigureBondWithMintArgs"
+                },
+                "path": "params.validator_identity"
               }
             ]
           }
+        },
+        {
+          "name": "voteAccount",
+          "isMut": false,
+          "isSigner": false
         },
         {
           "name": "tokenAccount",
@@ -3947,9 +4038,9 @@ export const IDL: ValidatorBonds = {
       ],
       "args": [
         {
-          "name": "configureBondArgs",
+          "name": "args",
           "type": {
-            "defined": "ConfigureBondArgs"
+            "defined": "ConfigureBondWithMintArgs"
           }
         }
       ]
@@ -3987,7 +4078,8 @@ export const IDL: ValidatorBonds = {
             ]
           },
           "relations": [
-            "config"
+            "config",
+            "vote_account"
           ]
         },
         {
@@ -4006,17 +4098,22 @@ export const IDL: ValidatorBonds = {
                 "type": "publicKey",
                 "account": "Bond",
                 "path": "bond"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "path": "validator_identity"
               }
             ]
           }
         },
         {
-          "name": "destinationAuthority",
+          "name": "validatorIdentity",
           "isMut": false,
           "isSigner": false
         },
         {
-          "name": "destinationTokenAccount",
+          "name": "validatorIdentityTokenAccount",
           "isMut": true,
           "isSigner": false
         },
@@ -5923,6 +6020,39 @@ export const IDL: ValidatorBonds = {
       }
     },
     {
+      "name": "ConfigureBondWithMintArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bondAuthority",
+            "docs": [
+              "new bond authority"
+            ],
+            "type": {
+              "option": "publicKey"
+            }
+          },
+          {
+            "name": "cpmpe",
+            "docs": [
+              "new cpmpe value"
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "validatorIdentity",
+            "docs": [
+              "validator identity configured within the vote account"
+            ],
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
       "name": "ConfigureBondArgs",
       "type": {
         "kind": "struct",
@@ -6228,6 +6358,34 @@ export const IDL: ValidatorBonds = {
       ]
     },
     {
+      "name": "ConfigureBondWithMintEvent",
+      "fields": [
+        {
+          "name": "validatorIdentity",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "bondAuthority",
+          "type": {
+            "option": {
+              "defined": "PubkeyValueChange"
+            }
+          },
+          "index": false
+        },
+        {
+          "name": "cpmpe",
+          "type": {
+            "option": {
+              "defined": "U64ValueChange"
+            }
+          },
+          "index": false
+        }
+      ]
+    },
+    {
       "name": "FundBondEvent",
       "fields": [
         {
@@ -6266,12 +6424,12 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "destinationTokenAccount",
+          "name": "validatorIdentity",
           "type": "publicKey",
           "index": false
         },
         {
-          "name": "destinationAuthority",
+          "name": "validatorIdentityTokenAccount",
           "type": "publicKey",
           "index": false
         },
@@ -7249,8 +7407,8 @@ export const IDL: ValidatorBonds = {
     },
     {
       "code": 6058,
-      "name": "InvalidBondMintToDestination",
-      "msg": "Wrong bond mint to authority"
+      "name": "ValidatorIdentityBondMintMismatch",
+      "msg": "Validator identity mismatch for bond mint"
     },
     {
       "code": 6059,

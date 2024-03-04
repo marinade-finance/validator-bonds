@@ -57,17 +57,17 @@ describe('Validator Bonds mint bond', () => {
       )
     })
 
-    const { instruction, associatedTokenAccount, tokenMetadataAccount } =
+    const { instruction, validatorIdentityTokenAccount, tokenMetadataAccount } =
       await mintBondInstruction({
         program,
         bondAccount,
-        destinationAuthority: validatorIdentity.publicKey,
+        validatorIdentity: validatorIdentity.publicKey,
       })
     await provider.sendIx([], instruction)
 
     const tokenData = await getTokenAccount(
       provider.connection,
-      associatedTokenAccount
+      validatorIdentityTokenAccount
     )
     expect(tokenData.amount).toEqual(1)
     const metadata = await fetchMetadata(
@@ -86,8 +86,10 @@ describe('Validator Bonds mint bond', () => {
 
     await event.then(e => {
       expect(e.bond).toEqual(bondAccount)
-      expect(e.destinationAuthority).toEqual(validatorIdentity.publicKey)
-      expect(e.destinationTokenAccount).toEqual(associatedTokenAccount)
+      expect(e.validatorIdentity).toEqual(validatorIdentity.publicKey)
+      expect(e.validatorIdentityTokenAccount).toEqual(
+        validatorIdentityTokenAccount
+      )
       expect(e.tokenMetadata).toEqual(tokenMetadataAccount)
     })
   })
