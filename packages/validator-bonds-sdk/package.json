@@ -34,7 +34,7 @@
     "@marinade.finance/web3js-common": "^2.2.3",
     "@solana/buffer-layout": "^4.0.1",
     "bs58": "^5.0.0",
-    "@solana/web3.js": "^1.89.1",
+    "@solana/web3.js": "^1.91.0",
     "@types/crypto-js": "^4.2.1",
     "anchor-bankrun": "^0.3.0",
     "bn.js": "^5.2.1",
@@ -52,7 +52,7 @@
   "peerDependencies": {
     "@coral-xyz/anchor": "^0.29.0",
     "@solana/buffer-layout": "^4.0.1",
-    "@solana/web3.js": "^1.89.1",
+    "@solana/web3.js": "^1.91.0",
     "@marinade.finance/ts-common": "^2.2.3",
     "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
     "crypto-js": "^4.2.0",

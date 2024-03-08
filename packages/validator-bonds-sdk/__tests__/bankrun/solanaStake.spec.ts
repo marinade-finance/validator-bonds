@@ -896,17 +896,25 @@ describe('Solana stake account behavior verification', () => {
     const stakeAccount2 = Keypair.generate()
     const spitLamports = LAMPORTS_PER_SOL * 2
     expect(spitLamports).toBeLessThan(lamports)
-    const splitIx = StakeProgram.split({
-      stakePubkey: stakeAccount1,
-      authorizedPubkey: staker.publicKey,
-      splitStakePubkey: stakeAccount2.publicKey,
-      lamports: spitLamports,
-    })
-    await bankrunExecuteIx(
-      provider,
-      [provider.wallet, staker, stakeAccount2],
-      splitIx
+    const splitIx = StakeProgram.split(
+      {
+        stakePubkey: stakeAccount1,
+        authorizedPubkey: staker.publicKey,
+        splitStakePubkey: stakeAccount2.publicKey,
+        lamports: spitLamports,
+      },
+      0
     )
+    try {
+      await bankrunExecuteIx(
+        provider,
+        [provider.wallet, staker, stakeAccount2],
+        splitIx
+      )
+    } catch (e) {
+      console.error(e)
+      throw e
+    }
     const [stakeAccount1Data, stakeAccount1Info] =
       await getAndCheckStakeAccount(
         provider,

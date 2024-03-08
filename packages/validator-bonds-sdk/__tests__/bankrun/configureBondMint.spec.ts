@@ -16,8 +16,8 @@ import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { Keypair, PublicKey } from '@solana/web3.js'
-import { createVoteAccount, updateValidatorIdentity } from '../utils/staking'
+import { Keypair, PublicKey, VoteProgram } from '@solana/web3.js'
+import { createVoteAccount } from '../utils/staking'
 import {
   createAssociatedTokenAccountInstruction,
   createTransferInstruction,
@@ -205,7 +205,7 @@ describe('Validator Bonds mint configure bond account', () => {
 
     // minting with changed validator identity
     const validatorIdentityNew = Keypair.generate()
-    const ixUpdateValidatorIdentity = updateValidatorIdentity({
+    const ixUpdateValidatorIdentity = VoteProgram.updateValidatorIdentity({
       votePubkey: voteAccount,
       nodePubkey: validatorIdentityNew.publicKey,
       authorizedWithdrawerPubkey: authorizedWithdrawer.publicKey,
