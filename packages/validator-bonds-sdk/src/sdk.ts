@@ -12,12 +12,10 @@ import {
 } from '@coral-xyz/anchor'
 import { Wallet as AnchorWalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import {
-  AccountInfo,
   ConfirmOptions,
   Connection,
   EpochInfo,
   Keypair,
-  ParsedAccountData,
   PublicKey,
 } from '@solana/web3.js'
 import BN from 'bn.js'
@@ -151,19 +149,6 @@ export type EmergencyResumeEvent =
   IdlEvents<ValidatorBonds>[typeof EMERGENCY_RESUME_EVENT]
 
 export const Errors = parseIdlErrors(generated.IDL)
-
-export type ProgramAccountInfo<T> = {
-  publicKey: PublicKey
-  account: AccountInfo<T>
-}
-
-export function programAccountInfo<T>(
-  publicKey: PublicKey,
-  account: AccountInfo<Buffer | ParsedAccountData>,
-  data: T
-): ProgramAccountInfo<T> {
-  return { publicKey, account: { ...account, data } }
-}
 
 /**
  * Creating Anchor program instance of the Validator Bonds contract.

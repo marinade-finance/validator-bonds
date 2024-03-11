@@ -1,6 +1,10 @@
 import { ProgramAccount } from '@coral-xyz/anchor'
-import { EpochInfo, GetProgramAccountsFilter, PublicKey } from '@solana/web3.js'
-import { chunkArray } from '@marinade.finance/ts-common'
+import {
+  AccountInfo,
+  EpochInfo,
+  GetProgramAccountsFilter,
+  PublicKey,
+} from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
   Config,
@@ -15,6 +19,25 @@ import {
 } from './sdk'
 import BN from 'bn.js'
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
+import {
+  getAccountAddresses,
+  getMultipleAccounts,
+  ProgramAccountWithInfoNullable,
+} from './web3.js/accounts'
+
+// const CONFIG_ACCOUNT_DISCRIMINATOR = bs58.encode([155, 12, 170, 224, 30, 250, 204, 130])
+const BOND_ACCOUNT_DISCRIMINATOR = bs58.encode([
+  224, 128, 48, 251, 182, 246, 111, 196,
+])
+const WITHDRAW_REQUEST_ACCOUNT_DISCRIMINATOR = bs58.encode([
+  186, 239, 174, 191, 189, 13, 47, 196,
+])
+const SETTLEMENT_ACCOUNT_DISCRIMINATOR = bs58.encode([
+  55, 11, 219, 33, 36, 136, 40, 182,
+])
+const SETTLEMENT_CLAIM_ACCOUNT_DISCRIMINATOR = bs58.encode([
+  216, 103, 231, 246, 171, 99, 124, 133,
+])
 
 // TODO: users can create arbitrary stake accounts (even with lockups), sdk must be prepared for that when showing total usable deposits
 //       this is to check the non-locked, correctly delegated stake accounts, then not Settlement funded stake accounts
@@ -72,20 +95,20 @@ export async function getMultipleBonds({
 }: {
   program: ValidatorBondsProgram
   addresses: PublicKey[]
-}): Promise<ProgramAccountNullable<Bond>[]> {
-  const result: ProgramAccountNullable<Bond>[] = []
-  // getMultipleAccounts should limit by 100 of addresses, see doc https://solana.com/docs/rpc/http/getmultipleaccounts
-  for (const addressesChunked of chunkArray(addresses, 100)) {
-    const fetchedRecords =
-      await program.account.bond.fetchMultiple(addressesChunked)
-    for (const [index, fetchedRecord] of fetchedRecords.entries()) {
-      result.push({
-        publicKey: addressesChunked[index],
-        account: fetchedRecord,
-      })
-    }
-  }
-  return result
+}): Promise<ProgramAccountWithInfoNullable<Bond>[]> {
+  return (
+    await getMultipleAccounts({
+      connection: program,
+      addresses,
+    })
+  ).map(({ publicKey, account: accountInfo }) =>
+    mapAccountInfoToProgramAccount<Bond>(
+      program,
+      accountInfo,
+      publicKey,
+      program.account.bond.idlAccount.name
+    )
+  )
 }
 
 export async function findBonds({
@@ -105,8 +128,8 @@ export async function findBonds({
       voteAccount,
       program.programId
     )
-    const bondData = await getBond(program, bondAccount)
-    return [{ publicKey: bondAccount, account: bondData }]
+    const bondData = await program.account.bond.fetch(bondAccount)
+    return bondData ? [{ publicKey: bondAccount, account: bondData }] : []
   }
   const filters: GetProgramAccountsFilter[] = []
   if (configAccount) {
@@ -137,20 +160,15 @@ export async function findBonds({
     })
   }
 
-  const bondDiscriminator = bs58.encode([224, 128, 48, 251, 182, 246, 111, 196])
-  filters.push({ memcmp: { bytes: bondDiscriminator, offset: 0 } })
-  const bondAccounts = await program.provider.connection.getProgramAccounts(
-    program.programId,
-    {
-      dataSlice: { offset: 0, length: 0 },
-      filters,
-      commitment: program.provider.connection.commitment,
-    }
-  )
-  const bondPublicKeys = bondAccounts.map(account => account.pubkey)
-  return (
-    await getMultipleBonds({ program, addresses: bondPublicKeys })
-  ).filter(account => account !== null) as ProgramAccount<Bond>[]
+  filters.push({ memcmp: { bytes: BOND_ACCOUNT_DISCRIMINATOR, offset: 0 } })
+  const addresses = await getAccountAddresses({
+    connection: program,
+    programId: program.programId,
+    filters,
+  })
+  return (await getMultipleBonds({ program, addresses }))
+    .filter(d => d.account !== null)
+    .map(d => d as ProgramAccount<Bond>)
 }
 
 export async function getWithdrawRequest(
@@ -158,6 +176,28 @@ export async function getWithdrawRequest(
   address: PublicKey
 ): Promise<WithdrawRequest> {
   return program.account.withdrawRequest.fetch(address)
+}
+
+export async function getMultipleWithdrawRequests({
+  program,
+  addresses,
+}: {
+  program: ValidatorBondsProgram
+  addresses: PublicKey[]
+}): Promise<ProgramAccountWithInfoNullable<WithdrawRequest>[]> {
+  return (
+    await getMultipleAccounts({
+      connection: program,
+      addresses,
+    })
+  ).map(({ publicKey, account: accountInfo }) =>
+    mapAccountInfoToProgramAccount<WithdrawRequest>(
+      program,
+      accountInfo,
+      publicKey,
+      program.account.withdrawRequest.idlAccount.name
+    )
+  )
 }
 
 export async function findWithdrawRequests({
@@ -176,11 +216,13 @@ export async function findWithdrawRequests({
       bond,
       program.programId
     )
-    const withdrawRequestData = await getWithdrawRequest(
-      program,
-      withdrawRequestAccount
-    )
-    return [{ publicKey: withdrawRequestAccount, account: withdrawRequestData }]
+    const withdrawRequestData =
+      await program.account.withdrawRequest.fetchNullable(
+        withdrawRequestAccount
+      )
+    return withdrawRequestData
+      ? [{ publicKey: withdrawRequestAccount, account: withdrawRequestData }]
+      : []
   }
   const filters = []
   if (voteAccount) {
@@ -201,7 +243,17 @@ export async function findWithdrawRequests({
       },
     })
   }
-  return await program.account.withdrawRequest.all(filters)
+  filters.push({
+    memcmp: { bytes: WITHDRAW_REQUEST_ACCOUNT_DISCRIMINATOR, offset: 0 },
+  })
+  const addresses = await getAccountAddresses({
+    connection: program,
+    programId: program.programId,
+    filters,
+  })
+  return (await getMultipleWithdrawRequests({ program, addresses }))
+    .filter(d => d.account !== null)
+    .map(d => d as ProgramAccount<WithdrawRequest>)
 }
 
 export async function getSettlement(
@@ -209,6 +261,28 @@ export async function getSettlement(
   address: PublicKey
 ): Promise<Settlement> {
   return program.account.settlement.fetch(address)
+}
+
+export async function getMultipleSettlements({
+  program,
+  addresses,
+}: {
+  program: ValidatorBondsProgram
+  addresses: PublicKey[]
+}): Promise<ProgramAccountWithInfoNullable<Settlement>[]> {
+  return (
+    await getMultipleAccounts({
+      connection: program,
+      addresses,
+    })
+  ).map(({ publicKey, account: accountInfo }) =>
+    mapAccountInfoToProgramAccount<Settlement>(
+      program,
+      accountInfo,
+      publicKey,
+      program.account.settlement.idlAccount.name
+    )
+  )
 }
 
 export async function findSettlements({
@@ -229,8 +303,11 @@ export async function findSettlements({
       epoch,
       program.programId
     )
-    const settlementData = await getSettlement(program, settlementAccount)
-    return [{ publicKey: settlementAccount, account: settlementData }]
+    const settlementData =
+      await program.account.settlement.fetchNullable(settlementAccount)
+    return settlementData
+      ? [{ publicKey: settlementAccount, account: settlementData }]
+      : []
   }
   const filters = []
   if (bond) {
@@ -251,7 +328,17 @@ export async function findSettlements({
       },
     })
   }
-  return await program.account.settlement.all(filters)
+  filters.push({
+    memcmp: { bytes: SETTLEMENT_ACCOUNT_DISCRIMINATOR, offset: 0 },
+  })
+  const addresses = await getAccountAddresses({
+    connection: program,
+    programId: program.programId,
+    filters,
+  })
+  return (await getMultipleSettlements({ program, addresses }))
+    .filter(d => d.account !== null)
+    .map(d => d as ProgramAccount<Settlement>)
 }
 
 export async function getSettlementClaim(
@@ -259,6 +346,28 @@ export async function getSettlementClaim(
   address: PublicKey
 ): Promise<SettlementClaim> {
   return program.account.settlementClaim.fetch(address)
+}
+
+export async function getMultipleSettlementClaims({
+  program,
+  addresses,
+}: {
+  program: ValidatorBondsProgram
+  addresses: PublicKey[]
+}): Promise<ProgramAccountWithInfoNullable<SettlementClaim>[]> {
+  return (
+    await getMultipleAccounts({
+      connection: program,
+      addresses,
+    })
+  ).map(({ publicKey, account: accountInfo }) =>
+    mapAccountInfoToProgramAccount<SettlementClaim>(
+      program,
+      accountInfo,
+      publicKey,
+      program.account.settlementClaim.idlAccount.name
+    )
+  )
 }
 
 export async function findSettlementClaims({
@@ -300,11 +409,31 @@ export async function findSettlementClaims({
       },
     })
   }
-  return await program.account.settlementClaim.all(filters)
+
+  filters.push({
+    memcmp: { bytes: SETTLEMENT_CLAIM_ACCOUNT_DISCRIMINATOR, offset: 0 },
+  })
+  const addresses = await getAccountAddresses({
+    connection: program,
+    programId: program.programId,
+    filters,
+  })
+  return (await getMultipleSettlementClaims({ program, addresses }))
+    .filter(d => d.account !== null)
+    .map(d => d as ProgramAccount<SettlementClaim>)
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type ProgramAccountNullable<T = any> = {
-  publicKey: PublicKey
-  account: T | null
+function mapAccountInfoToProgramAccount<T>(
+  program: ValidatorBondsProgram,
+  accountInfo: AccountInfo<Buffer> | null,
+  publicKey: PublicKey,
+  programAccountName: string
+): ProgramAccountWithInfoNullable<T> {
+  return {
+    publicKey,
+    account: accountInfo
+      ? program.coder.accounts.decode<T>(programAccountName, accountInfo.data)
+      : null,
+    accountInfo,
+  }
 }

@@ -1,18 +1,45 @@
 import { Idl, Program, Provider } from '@coral-xyz/anchor'
 import {
-  AccountInfo,
   Connection,
   GetProgramAccountsFilter,
-  ParsedAccountData,
   PublicKey,
   StakeProgram,
 } from '@solana/web3.js'
+import { deserializeUnchecked } from 'borsh'
+import {
+  Meta,
+  StakeState,
+  STAKE_STATE_BORSH_SCHEMA,
+} from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
 import assert from 'assert'
 import BN from 'bn.js'
-import { ProgramAccountInfo, programAccountInfo } from '../sdk'
+import {
+  getAccountAddresses,
+  getMultipleAccounts,
+  ProgramAccountInfo,
+  programAccountInfo,
+} from '../web3.js/accounts'
 import { getConnection } from '.'
 
 export const U64_MAX = new BN('ffffffffffffffff', 16)
+
+// borrowed from https://github.com/marinade-finance/marinade-ts-sdk/blob/v5.0.6/src/marinade-state/marinade-state.ts#L234
+export function deserializeStakeState(data: Buffer | undefined): StakeState {
+  if (data === null || data === undefined) {
+    throw new Error('StakeState data buffer is missing')
+  }
+  // The data's first 4 bytes are: u8 0x0 0x0 0x0 but borsh uses only the first byte to find the enum's value index.
+  // The next 3 bytes are unused and we need to get rid of them (or somehow fix the BORSH schema?)
+  const adjustedData = Buffer.concat([
+    data.subarray(0, 1), // the first byte indexing the enum
+    data.subarray(4, data.length), // the first byte indexing the enum
+  ])
+  return deserializeUnchecked(
+    STAKE_STATE_BORSH_SCHEMA,
+    StakeState,
+    adjustedData
+  )
+}
 
 export type StakeAccountParsed = {
   address: PublicKey
@@ -29,61 +56,54 @@ export type StakeAccountParsed = {
   currentTimestamp: number
 }
 
+function getMeta(
+  stakeAccountInfo: ProgramAccountInfo<StakeState>
+): Meta | undefined {
+  return (
+    stakeAccountInfo.account.data.Stake?.meta ||
+    stakeAccountInfo.account.data.Initialized?.meta
+  )
+}
+
 async function parseStakeAccountData(
   connection: Connection,
-  address: PublicKey,
-  stakeAccountInfo: AccountInfo<ParsedAccountData>,
-  currentEpoch?: number
+  stakeAccountInfo: ProgramAccountInfo<StakeState>,
+  currentEpoch?: BN | number
 ): Promise<StakeAccountParsed> {
-  const parsedData = stakeAccountInfo.data.parsed
-  const activationEpoch = bnOrNull(
-    parsedData?.info?.stake?.delegation?.activationEpoch ?? null
-  )
-  const deactivationEpoch = bnOrNull(
-    parsedData?.info?.stake?.delegation?.deactivationEpoch ?? null
-  )
-  const lockup = parsedData?.info?.meta?.lockup
-  const balanceLamports = bnOrNull(stakeAccountInfo.lamports)
-  const stakedLamports = bnOrNull(
-    parsedData?.info?.stake?.delegation.stake ?? null
-  )
+  const meta = getMeta(stakeAccountInfo)
+  const delegation = stakeAccountInfo.account.data.Stake?.stake.delegation
+
+  const activationEpoch = bnOrNull(delegation?.activationEpoch ?? null)
+  const deactivationEpoch = bnOrNull(delegation?.deactivationEpoch ?? null)
+  const lockup = meta?.lockup
+  const balanceLamports = bnOrNull(stakeAccountInfo.account.lamports)
+  const stakedLamports = bnOrNull(delegation?.stake ?? null)
   if (currentEpoch === undefined) {
     ;({ epoch: currentEpoch } = await connection.getEpochInfo())
   }
+  currentEpoch = new BN(currentEpoch).toNumber()
   const currentTimestamp = Date.now() / 1000
 
   return {
-    address: address,
-    withdrawer: pubkeyOrNull(parsedData?.info?.meta?.authorized?.withdrawer),
-    staker: pubkeyOrNull(parsedData?.info?.meta?.authorized?.staker),
-    voter: pubkeyOrNull(parsedData?.info?.stake?.delegation?.voter),
-
+    address: stakeAccountInfo.publicKey,
+    withdrawer: pubkeyOrNull(meta?.authorized?.withdrawer),
+    staker: pubkeyOrNull(meta?.authorized?.staker),
+    voter: pubkeyOrNull(delegation?.voterPubkey),
     activationEpoch,
     deactivationEpoch,
     isCoolingDown: deactivationEpoch ? !deactivationEpoch.eq(U64_MAX) : false,
     isLockedUp:
-      lockup?.custodian &&
-      lockup?.custodian !== '' &&
-      (lockup?.epoch > currentEpoch ||
-        lockup?.unixTimestamp > currentTimestamp),
+      lockup !== undefined &&
+      lockup.custodian &&
+      lockup.custodian !== undefined &&
+      lockup.custodian !== PublicKey.default &&
+      (lockup?.epoch.gt(new BN(currentEpoch)) ||
+        lockup?.unixTimestamp.gtn(currentTimestamp)),
     balanceLamports,
     stakedLamports,
     currentEpoch,
     currentTimestamp,
   }
-}
-
-function isAccountInfoParsedData(
-  data: AccountInfo<Buffer | ParsedAccountData> | null
-): data is AccountInfo<ParsedAccountData> {
-  if (data === null) {
-    return false
-  }
-  return (
-    data.data &&
-    !(data.data instanceof Buffer) &&
-    data.data.parsed !== undefined
-  )
 }
 
 export async function getStakeAccount<IDL extends Idl = Idl>(
@@ -92,33 +112,32 @@ export async function getStakeAccount<IDL extends Idl = Idl>(
   currentEpoch?: number
 ): Promise<StakeAccountParsed> {
   connection = getConnection(connection)
-  const { value: stakeAccountInfo } =
-    await connection.getParsedAccountInfo(address)
+  const accountInfo = await connection.getAccountInfo(address)
 
-  if (!stakeAccountInfo) {
+  if (!accountInfo) {
     throw new Error(
       `Failed to find the stake account ${address.toBase58()}` +
         `at ${connection.rpcEndpoint}`
     )
   }
-  if (!stakeAccountInfo.owner.equals(StakeProgram.programId)) {
+  if (!accountInfo.owner.equals(StakeProgram.programId)) {
     throw new Error(
       `${address.toBase58()} is not a stake account because owner is ${
-        stakeAccountInfo.owner
+        accountInfo.owner
       } at ${connection.rpcEndpoint}`
     )
   }
-  if (!isAccountInfoParsedData(stakeAccountInfo)) {
-    throw new Error(
-      `Failed to parse the stake account ${address.toBase58()} data` +
-        `at ${connection.rpcEndpoint}`
-    )
-  }
+  const stakeState = deserializeStakeState(accountInfo.data)
 
   return await parseStakeAccountData(
     connection,
-    address,
-    stakeAccountInfo,
+    {
+      publicKey: address,
+      account: {
+        ...accountInfo,
+        data: stakeState,
+      },
+    },
     currentEpoch
   )
 }
@@ -168,33 +187,28 @@ export async function findStakeAccount<IDL extends Idl = Idl>({
     })
   }
 
-  const parsedStakeAccounts = await innerConnection.getParsedProgramAccounts(
-    StakeProgram.programId,
-    {
-      filters,
-    }
+  const addresses = await getAccountAddresses({
+    connection: innerConnection,
+    programId: StakeProgram.programId,
+    filters,
+  })
+  const accounts = (
+    await getMultipleAccounts({ connection: innerConnection, addresses })
   )
-
-  const parsedPromises = parsedStakeAccounts
-    .filter(({ pubkey, account }) => {
-      if (!isAccountInfoParsedData(account)) {
-        console.error(
-          `Failed to parse the stake account ${pubkey.toBase58()} data` +
-            `at ${innerConnection.rpcEndpoint}`
-        )
-        return false
-      }
-      return true
-    })
-    .map(async ({ pubkey, account }) => {
-      assert(isAccountInfoParsedData(account), 'already filtered out')
+    .filter(d => d.account !== null)
+    .map(async d => {
+      assert(d.account !== null, 'findStakeAccount: already filtered out')
+      const stakeState = deserializeStakeState(d.account.data)
       return programAccountInfo(
-        pubkey,
-        account,
-        await parseStakeAccountData(innerConnection, pubkey, account)
+        d.publicKey,
+        d.account,
+        await parseStakeAccountData(innerConnection, {
+          publicKey: d.publicKey,
+          account: { ...d.account, data: stakeState },
+        })
       )
     })
-  return Promise.all(parsedPromises)
+  return Promise.all(accounts)
 }
 
 function pubkeyOrNull(

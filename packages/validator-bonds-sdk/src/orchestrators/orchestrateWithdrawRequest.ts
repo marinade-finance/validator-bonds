@@ -5,7 +5,6 @@ import {
   TransactionInstruction,
 } from '@solana/web3.js'
 import {
-  ProgramAccountInfo,
   ValidatorBondsProgram,
   WithdrawRequest,
   withdrawRequestAddress,
@@ -19,6 +18,7 @@ import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRe
 import { anchorProgramWalletPubkey } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import { getVoteAccount } from '../web3.js/index'
+import { ProgramAccountInfo } from '../web3.js/accounts'
 
 /**
  * Returning the instructions for withdrawing the deposit (on top of the withdraw request)

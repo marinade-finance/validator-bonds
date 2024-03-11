@@ -10,7 +10,7 @@ import {
   PriorVoter,
   AccountInfo,
 } from '@solana/web3.js'
-import { ProgramAccountInfo, programAccountInfo } from '../sdk'
+import { ProgramAccountInfo, programAccountInfo } from '../web3.js/accounts'
 import { getConnection } from '.'
 import { Idl, Program, Provider } from '@coral-xyz/anchor'
 

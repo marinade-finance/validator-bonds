@@ -21,6 +21,9 @@ import {
   findConfigs,
   getConfig,
   getVoteAccountFromData,
+  findWithdrawRequests,
+  WithdrawRequest,
+  findStakeAccount,
 } from '@marinade.finance/validator-bonds-sdk'
 import { ProgramAccount } from '@coral-xyz/anchor'
 
@@ -99,6 +102,12 @@ export function installShowBond(program: Command) {
       '--bond-authority <pubkey>',
       'Bond authority to filter the bond accounts with',
       parsePubkeyOrPubkeyFromWallet
+    )
+    .option(
+      '--with-funding',
+      'Show bond accounts with data about its funding. This option is automatically ' +
+        'switched-on when the command is provided with [address] of one bond account. ' +
+        +'For the search queries this option has to be switched-on manually with this option.'
     )
     .option(
       `-f, --format <${FORMAT_TYPE_DEF.join('|')}>`,
@@ -204,6 +213,10 @@ async function showConfig({
   print_data(reformatted, format)
 }
 
+type BondShow<T> = ProgramAccountWithProgramId<T> & {
+  withdrawRequest?: ProgramAccount<WithdrawRequest>
+}
+
 async function showBond({
   address,
   config,
@@ -221,9 +234,7 @@ async function showBond({
   let program = cliContext.program
   const logger = cliContext.logger
 
-  let data:
-    | ProgramAccountWithProgramId<Bond>
-    | ProgramAccountWithProgramId<Bond>[]
+  let data: BondShow<Bond> | BondShow<Bond>[]
   if (address) {
     // Check if address exists as an account on-chain
     let accountInfo = await program.provider.connection.getAccountInfo(address)
@@ -286,10 +297,19 @@ async function showBond({
       })
     }
 
+    const withdrawRequest = (
+      await findWithdrawRequests({ program, bond: address })
+    ).find(withdrawRequest => withdrawRequest)
+    const bondStakeAccounts = await findStakeAccount({
+      connection: program,
+      bond: address,
+    })
+
     data = {
       programId: program.programId,
       publicKey: address,
       account: bondData,
+      withdrawRequest,
     }
   } else {
     // CLI did not provide an address, we will search for accounts based on filter parameters
