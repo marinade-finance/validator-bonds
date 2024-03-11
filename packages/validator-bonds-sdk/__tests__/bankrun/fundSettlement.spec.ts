@@ -8,6 +8,7 @@ import {
   getSettlement,
   settlementStakerAuthority,
   bondsWithdrawerAuthority,
+  deserializeStakeState,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -38,7 +39,6 @@ import {
   createSettlementFundedDelegatedStake,
   createVoteAccount,
   delegatedStakeAccount,
-  deserializeStakeState,
   getAndCheckStakeAccount,
   getRentExemptStake,
 } from '../utils/staking'

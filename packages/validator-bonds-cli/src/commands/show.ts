@@ -21,11 +21,11 @@ import {
   findConfigs,
   getConfig,
   getVoteAccountFromData,
-  findWithdrawRequests,
   WithdrawRequest,
-  findStakeAccount,
+  getBondFunding,
 } from '@marinade.finance/validator-bonds-sdk'
 import { ProgramAccount } from '@coral-xyz/anchor'
+import BN from 'bn.js'
 
 export type ProgramAccountWithProgramId<T> = ProgramAccount<T> & {
   programId: PublicKey
@@ -214,6 +214,8 @@ async function showConfig({
 }
 
 type BondShow<T> = ProgramAccountWithProgramId<T> & {
+  bondFunded?: BN
+  atStakeAccounts?: BN
   withdrawRequest?: ProgramAccount<WithdrawRequest>
 }
 
@@ -287,7 +289,10 @@ async function showBond({
     // Decode data from the account info
     let bondData
     try {
-      bondData = program.coder.accounts.decode<Bond>('bond', accountInfo.data)
+      bondData = program.coder.accounts.decode<Bond>(
+        program.account.bond.idlAccount.name,
+        accountInfo.data
+      )
     } catch (e) {
       throw new CliCommandError({
         valueName: '[address]',
@@ -297,18 +302,16 @@ async function showBond({
       })
     }
 
-    const withdrawRequest = (
-      await findWithdrawRequests({ program, bond: address })
-    ).find(withdrawRequest => withdrawRequest)
-    const bondStakeAccounts = await findStakeAccount({
-      connection: program,
-      bond: address,
-    })
+    const configAccount = config ?? bondData.config
+    const { amountBond, amountAtStakeAccounts, withdrawRequest } =
+      await getBondFunding({ program, configAccount, bondAccount: address })
 
     data = {
       programId: program.programId,
       publicKey: address,
       account: bondData,
+      bondFunded: amountBond,
+      atStakeAccounts: amountAtStakeAccounts,
       withdrawRequest,
     }
   } else {

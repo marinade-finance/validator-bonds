@@ -9,6 +9,25 @@ import {
 } from '@solana/web3.js'
 import { getConnection } from '.'
 
+export type AccountInfoNoData = AccountInfo<void> &
+  Omit<AccountInfo<void>, 'data'>
+
+export function isWithPublicKey(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  account: any
+): account is { publicKey: PublicKey } {
+  return (
+    account !== undefined &&
+    account.publicKey !== undefined &&
+    account.publicKey !== null
+  )
+}
+
+export type ProgramAccountInfoNoData = {
+  publicKey: PublicKey
+  account: AccountInfoNoData
+}
+
 export type ProgramAccountInfo<T> = {
   publicKey: PublicKey
   account: AccountInfo<T>
@@ -56,7 +75,33 @@ export async function getMultipleAccounts<IDL extends Idl = Idl>({
   return result
 }
 
-export async function getAccountAddresses<IDL extends Idl = Idl>({
+export async function getAccountInfoNoData<IDL extends Idl = Idl>({
+  connection,
+  programId,
+  filters,
+}: {
+  connection: Program<IDL> | Connection | Provider
+  programId: PublicKey
+  filters?: GetProgramAccountsFilter[] | undefined
+}): Promise<ProgramAccountInfoNoData[]> {
+  connection = getConnection(connection)
+  const accounts = await connection.getProgramAccounts(programId, {
+    dataSlice: { length: 0, offset: 0 },
+    filters,
+  })
+  return accounts.map(d => ({
+    publicKey: d.pubkey,
+    account: {
+      executable: d.account.executable,
+      owner: d.account.owner,
+      lamports: d.account.lamports,
+      rentEpoch: d.account.rentEpoch,
+      data: undefined,
+    },
+  }))
+}
+
+export async function getAccountInfoAddresses<IDL extends Idl = Idl>({
   connection,
   programId,
   filters,
@@ -65,10 +110,10 @@ export async function getAccountAddresses<IDL extends Idl = Idl>({
   programId: PublicKey
   filters?: GetProgramAccountsFilter[] | undefined
 }): Promise<PublicKey[]> {
-  connection = getConnection(connection)
-  const accounts = await connection.getProgramAccounts(programId, {
-    dataSlice: { length: 0, offset: 0 },
+  const accounts = await getAccountInfoNoData({
+    connection,
+    programId,
     filters,
   })
-  return accounts.map(account => account.pubkey)
+  return accounts.map(d => d.publicKey)
 }

@@ -7,6 +7,7 @@ import {
   getWithdrawRequest,
   settlementStakerAuthority,
   bondsWithdrawerAuthority,
+  deserializeStakeState,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -29,7 +30,6 @@ import { claimWithdrawRequestInstruction } from '../../src/instructions/claimWit
 import {
   authorizeStakeAccount,
   delegatedStakeAccount,
-  deserializeStakeState,
   createInitializedStakeAccount,
 } from '../utils/staking'
 import assert from 'assert'

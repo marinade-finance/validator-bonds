@@ -13,7 +13,7 @@ import {
   bondsWithdrawerAuthority,
 } from '../sdk'
 import { getBond, getSettlement } from '../api'
-import { findStakeAccount } from '../web3.js'
+import { findStakeAccounts } from '../web3.js'
 
 /**
  * Generate instruction to close settlement.
@@ -81,7 +81,7 @@ export async function closeSettlementInstruction({
       settlementAccount,
       program.programId
     )
-    const stakeAccounts = await findStakeAccount({
+    const stakeAccounts = await findStakeAccounts({
       connection: program,
       staker: settlementAuth,
       withdrawer: bondsAuth,

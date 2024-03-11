@@ -11,7 +11,7 @@ import {
 } from '../sdk'
 import { getBond, getWithdrawRequest } from '../api'
 import assert from 'assert'
-import { StakeAccountParsed, findStakeAccount } from '../web3.js/stakeAccount'
+import { StakeAccountParsed, findStakeAccounts } from '../web3.js/stakeAccount'
 import BN from 'bn.js'
 import { mergeStakeInstruction } from '../instructions/mergeStake'
 import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRequest'
@@ -87,7 +87,7 @@ export async function orchestrateWithdrawDeposit({
   amountToWithdraw =
     amountToWithdraw <= new BN(0) ? new BN(0) : amountToWithdraw
   const stakeAccountsToWithdraw = (
-    await findStakeAccount({
+    await findStakeAccounts({
       connection: program,
       staker: withdrawer,
       withdrawer,

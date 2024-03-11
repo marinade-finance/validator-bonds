@@ -16,14 +16,17 @@ import {
   Settlement,
   SettlementClaim,
   uintToBuffer,
+  bondsWithdrawerAuthority,
 } from './sdk'
 import BN from 'bn.js'
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import {
-  getAccountAddresses,
+  getAccountInfoAddresses,
   getMultipleAccounts,
+  ProgramAccountInfoNoData,
   ProgramAccountWithInfoNullable,
 } from './web3.js/accounts'
+import { findStakeAccountNoDataInfos } from './web3.js'
 
 // const CONFIG_ACCOUNT_DISCRIMINATOR = bs58.encode([155, 12, 170, 224, 30, 250, 204, 130])
 const BOND_ACCOUNT_DISCRIMINATOR = bs58.encode([
@@ -161,7 +164,7 @@ export async function findBonds({
   }
 
   filters.push({ memcmp: { bytes: BOND_ACCOUNT_DISCRIMINATOR, offset: 0 } })
-  const addresses = await getAccountAddresses({
+  const addresses = await getAccountInfoAddresses({
     connection: program,
     programId: program.programId,
     filters,
@@ -246,7 +249,7 @@ export async function findWithdrawRequests({
   filters.push({
     memcmp: { bytes: WITHDRAW_REQUEST_ACCOUNT_DISCRIMINATOR, offset: 0 },
   })
-  const addresses = await getAccountAddresses({
+  const addresses = await getAccountInfoAddresses({
     connection: program,
     programId: program.programId,
     filters,
@@ -331,7 +334,7 @@ export async function findSettlements({
   filters.push({
     memcmp: { bytes: SETTLEMENT_ACCOUNT_DISCRIMINATOR, offset: 0 },
   })
-  const addresses = await getAccountAddresses({
+  const addresses = await getAccountInfoAddresses({
     connection: program,
     programId: program.programId,
     filters,
@@ -413,7 +416,7 @@ export async function findSettlementClaims({
   filters.push({
     memcmp: { bytes: SETTLEMENT_CLAIM_ACCOUNT_DISCRIMINATOR, offset: 0 },
   })
-  const addresses = await getAccountAddresses({
+  const addresses = await getAccountInfoAddresses({
     connection: program,
     programId: program.programId,
     filters,
@@ -421,6 +424,111 @@ export async function findSettlementClaims({
   return (await getMultipleSettlementClaims({ program, addresses }))
     .filter(d => d.account !== null)
     .map(d => d as ProgramAccount<SettlementClaim>)
+}
+
+async function findStakeAccountsHelper({
+  program,
+  bondAccount,
+  configAccount,
+  voteAccount,
+  withdrawer,
+  staker,
+}: {
+  program: ValidatorBondsProgram
+  configAccount: PublicKey
+  bondAccount?: PublicKey
+  voteAccount?: PublicKey
+  withdrawer?: PublicKey
+  staker?: PublicKey
+}): Promise<ProgramAccountInfoNoData[]> {
+  if (!bondAccount && voteAccount) {
+    bondAccount = bondAddress(configAccount, voteAccount, program.programId)[0]
+  } else if (!bondAccount) {
+    throw new Error(
+      'getBondData: bondAccount or (voteAccount and configAccount) must be provided'
+    )
+  }
+  if (withdrawer === undefined) {
+    ;[withdrawer] = bondsWithdrawerAuthority(configAccount, program.programId)
+  }
+  if (voteAccount === undefined) {
+    const bondData = await getBond(program, bondAccount)
+    voteAccount = bondData.voteAccount
+  }
+  return await findStakeAccountNoDataInfos({
+    connection: program,
+    withdrawer,
+    staker,
+    voter: voteAccount,
+  })
+}
+
+export async function findBondStakeAccounts(args: {
+  program: ValidatorBondsProgram
+  configAccount: PublicKey
+  bondAccount?: PublicKey
+  voteAccount?: PublicKey
+}): Promise<ProgramAccountInfoNoData[]> {
+  return findStakeAccountsHelper(args)
+}
+
+export async function findBondNonSettlementStakeAccounts(args: {
+  program: ValidatorBondsProgram
+  configAccount: PublicKey
+  bondAccount?: PublicKey
+  voteAccount?: PublicKey
+}): Promise<ProgramAccountInfoNoData[]> {
+  const [withdrawerAuthority] = bondsWithdrawerAuthority(
+    args.configAccount,
+    args.program.programId
+  )
+  return findStakeAccountsHelper({ ...args, staker: withdrawerAuthority })
+}
+
+export async function getBondFunding({
+  program,
+  configAccount,
+  bondAccount,
+  voteAccount,
+}: {
+  program: ValidatorBondsProgram
+  configAccount: PublicKey
+  bondAccount?: PublicKey
+  voteAccount?: PublicKey
+}): Promise<{
+  amountBond: BN
+  amountAtStakeAccounts: BN
+  bondNonSettlementStakeAccounts: ProgramAccountInfoNoData[]
+  withdrawRequest: ProgramAccount<WithdrawRequest> | undefined
+}> {
+  const bondNonSettlementStakeAccounts =
+    await findBondNonSettlementStakeAccounts({
+      program,
+      configAccount,
+      bondAccount,
+      voteAccount,
+    })
+  const amountAtStakeAccounts = bondNonSettlementStakeAccounts.reduce(
+    (sum, { account }) => sum.addn(account.lamports),
+    new BN(0)
+  )
+  const withdrawRequest = (
+    await findWithdrawRequests({ program, bond: bondAccount })
+  ).find(withdrawRequest => withdrawRequest)
+
+  let amountBond = amountAtStakeAccounts
+  if (withdrawRequest !== undefined) {
+    amountBond = amountAtStakeAccounts
+      .sub(withdrawRequest.account.requestedAmount)
+      .add(withdrawRequest.account.withdrawnAmount)
+  }
+
+  return {
+    amountBond,
+    amountAtStakeAccounts,
+    bondNonSettlementStakeAccounts,
+    withdrawRequest,
+  }
 }
 
 function mapAccountInfoToProgramAccount<T>(

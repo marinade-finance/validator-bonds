@@ -14,10 +14,12 @@ import {
 import assert from 'assert'
 import BN from 'bn.js'
 import {
-  getAccountAddresses,
+  getAccountInfoNoData,
   getMultipleAccounts,
+  isWithPublicKey,
   ProgramAccountInfo,
   programAccountInfo,
+  ProgramAccountInfoNoData,
 } from '../web3.js/accounts'
 import { getConnection } from '.'
 
@@ -148,7 +150,7 @@ const WITHDRAWER_OFFSET = 44 // 4 + 8 + staker pubkey
 // https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/state.rs#L414
 const VOTER_PUBKEY_OFFSET = 124 // 4 for enum + 120 for Meta
 
-export async function findStakeAccount<IDL extends Idl = Idl>({
+export async function findStakeAccountNoDataInfos<IDL extends Idl = Idl>({
   connection,
   staker,
   withdrawer,
@@ -158,7 +160,7 @@ export async function findStakeAccount<IDL extends Idl = Idl>({
   staker?: PublicKey
   withdrawer?: PublicKey
   voter?: PublicKey
-}): Promise<ProgramAccountInfo<StakeAccountParsed>[]> {
+}): Promise<ProgramAccountInfoNoData[]> {
   const innerConnection = getConnection(connection)
 
   const filters: GetProgramAccountsFilter[] = []
@@ -187,17 +189,33 @@ export async function findStakeAccount<IDL extends Idl = Idl>({
     })
   }
 
-  const addresses = await getAccountAddresses({
+  return await getAccountInfoNoData({
     connection: innerConnection,
     programId: StakeProgram.programId,
     filters,
   })
+}
+
+export async function getStakeAccounts<IDL extends Idl = Idl>({
+  connection,
+  addresses,
+}: {
+  connection: Provider | Connection | Program<IDL>
+  addresses: PublicKey[] | ProgramAccountInfoNoData[]
+}): Promise<ProgramAccountInfo<StakeAccountParsed>[]> {
+  const innerConnection = getConnection(connection)
+  if (addresses.length === 0) {
+    return []
+  }
+  addresses = addresses
+    .map(d => (isWithPublicKey(d) ? d.publicKey : d))
+    .map(d => d as PublicKey)
   const accounts = (
     await getMultipleAccounts({ connection: innerConnection, addresses })
   )
     .filter(d => d.account !== null)
     .map(async d => {
-      assert(d.account !== null, 'findStakeAccount: already filtered out')
+      assert(d.account !== null, 'findStakeAccounts: already filtered out')
       const stakeState = deserializeStakeState(d.account.data)
       return programAccountInfo(
         d.publicKey,
@@ -209,6 +227,30 @@ export async function findStakeAccount<IDL extends Idl = Idl>({
       )
     })
   return Promise.all(accounts)
+}
+
+export async function findStakeAccounts<IDL extends Idl = Idl>({
+  connection,
+  staker,
+  withdrawer,
+  voter,
+}: {
+  connection: Provider | Connection | Program<IDL>
+  staker?: PublicKey
+  withdrawer?: PublicKey
+  voter?: PublicKey
+}): Promise<ProgramAccountInfo<StakeAccountParsed>[]> {
+  const innerConnection = getConnection(connection)
+  const accountInfos = await findStakeAccountNoDataInfos({
+    connection: innerConnection,
+    staker,
+    withdrawer,
+    voter,
+  })
+  return await getStakeAccounts({
+    connection: innerConnection,
+    addresses: accountInfos,
+  })
 }
 
 function pubkeyOrNull(
