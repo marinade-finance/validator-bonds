@@ -23,6 +23,7 @@ import {
   getVoteAccountFromData,
   WithdrawRequest,
   getBondFunding,
+  getBondsFunding,
 } from '@marinade.finance/validator-bonds-sdk'
 import { ProgramAccount } from '@coral-xyz/anchor'
 import BN from 'bn.js'
@@ -107,7 +108,8 @@ export function installShowBond(program: Command) {
       '--with-funding',
       'Show bond accounts with data about its funding. This option is automatically ' +
         'switched-on when the command is provided with [address] of one bond account. ' +
-        +'For the search queries this option has to be switched-on manually with this option.'
+        +'For the search queries this option has to be switched-on manually with this option.',
+      false
     )
     .option(
       `-f, --format <${FORMAT_TYPE_DEF.join('|')}>`,
@@ -121,11 +123,13 @@ export function installShowBond(program: Command) {
           config,
           voteAccount,
           bondAuthority,
+          withFunding,
           format,
         }: {
           config?: Promise<PublicKey>
           voteAccount?: Promise<PublicKey>
           bondAuthority?: Promise<PublicKey>
+          withFunding: boolean
           format: FormatType
         }
       ) => {
@@ -134,6 +138,7 @@ export function installShowBond(program: Command) {
           config: await config,
           voteAccount: await voteAccount,
           bondAuthority: await bondAuthority,
+          withFunding,
           format,
         })
       }
@@ -215,7 +220,7 @@ async function showConfig({
 
 type BondShow<T> = ProgramAccountWithProgramId<T> & {
   bondFunded?: BN
-  atStakeAccounts?: BN
+  stakeAccountsFunded?: BN
   withdrawRequest?: ProgramAccount<WithdrawRequest>
 }
 
@@ -224,12 +229,14 @@ async function showBond({
   config,
   voteAccount,
   bondAuthority,
+  withFunding,
   format,
 }: {
   address?: PublicKey
   config?: PublicKey
   voteAccount?: PublicKey
   bondAuthority?: PublicKey
+  withFunding: boolean
   format: FormatType
 }) {
   const cliContext = getCliContext()
@@ -303,31 +310,58 @@ async function showBond({
     }
 
     const configAccount = config ?? bondData.config
-    const { amountBond, amountAtStakeAccounts, withdrawRequest } =
-      await getBondFunding({ program, configAccount, bondAccount: address })
+    const {
+      amount: amountBond,
+      atStakeAccounts: amountAtStakeAccounts,
+      withdrawRequest,
+    } = await getBondFunding({ program, configAccount, bondAccount: address })
 
     data = {
       programId: program.programId,
       publicKey: address,
       account: bondData,
       bondFunded: amountBond,
-      atStakeAccounts: amountAtStakeAccounts,
+      stakeAccountsFunded: amountAtStakeAccounts,
       withdrawRequest,
     }
   } else {
     // CLI did not provide an address, we will search for accounts based on filter parameters
     try {
-      const foundData = await findBonds({
+      const bondDataArray = await findBonds({
         program,
         configAccount: config,
         voteAccount,
         bondAuthority,
       })
-      data = foundData.map(bondData => ({
+      data = bondDataArray.map(bondData => ({
         programId: program.programId,
         publicKey: bondData.publicKey,
         account: bondData.account,
       }))
+
+      if (withFunding && bondDataArray.length > 0) {
+        const configAccount = config ?? bondDataArray[0].account.config
+        const bondAccounts = bondDataArray.map(bondData => bondData.publicKey)
+        const voteAccounts = bondDataArray.map(
+          bondData => bondData.account.voteAccount
+        )
+        const bondsFunding = await getBondsFunding({
+          program,
+          configAccount,
+          bondAccounts,
+          voteAccounts,
+        })
+        for (let i = 0; i < data.length; i++) {
+          const bond = data[i]
+          const bondFunding = bondsFunding.find(bondFunding =>
+            bondFunding.bondAccount.equals(bond.publicKey)
+          )
+          data[i].bondFunded = bondFunding?.amount
+          data[i].bondFunded = bondFunding?.amount
+          data[i].stakeAccountsFunded = bondFunding?.atStakeAccounts
+          data[i].withdrawRequest = bondFunding?.withdrawRequest
+        }
+      }
     } catch (err) {
       throw new CliCommandError({
         valueName: '--config|--vote-account|--bond-authority',

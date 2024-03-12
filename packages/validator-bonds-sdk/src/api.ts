@@ -23,10 +23,12 @@ import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import {
   getAccountInfoAddresses,
   getMultipleAccounts,
+  ProgramAccountInfo,
   ProgramAccountInfoNoData,
   ProgramAccountWithInfoNullable,
 } from './web3.js/accounts'
-import { findStakeAccountNoDataInfos } from './web3.js'
+import { findStakeAccounts, StakeAccountParsed } from './web3.js'
+import assert from 'assert'
 
 // const CONFIG_ACCOUNT_DISCRIMINATOR = bs58.encode([155, 12, 170, 224, 30, 250, 204, 130])
 const BOND_ACCOUNT_DISCRIMINATOR = bs58.encode([
@@ -42,10 +44,9 @@ const SETTLEMENT_CLAIM_ACCOUNT_DISCRIMINATOR = bs58.encode([
   216, 103, 231, 246, 171, 99, 124, 133,
 ])
 
-// TODO: users can create arbitrary stake accounts (even with lockups), sdk must be prepared for that when showing total usable deposits
-//       this is to check the non-locked, correctly delegated stake accounts, then not Settlement funded stake accounts
-//       then subtract the the amount of possible existing WithdrawRequest (only one request per Bond)
-//       alle this information should be printed in show command via CLI call
+const ZERO_BN = new BN(0)
+
+// TODO: CHECK about non-locked stake accounts!!!
 
 export async function getConfig(
   program: ValidatorBondsProgram,
@@ -426,7 +427,41 @@ export async function findSettlementClaims({
     .map(d => d as ProgramAccount<SettlementClaim>)
 }
 
-async function findStakeAccountsHelper({
+function parseNotLocked(
+  stakeAccounts: ProgramAccountInfo<StakeAccountParsed>[]
+): ProgramAccountInfo<StakeAccountParsed>[] {
+  return stakeAccounts.filter(
+    stakeAccount => !stakeAccount.account.data.isLockedUp
+  )
+}
+
+export async function findConfigStakeAccounts({
+  program,
+  configAccount,
+  withdrawer,
+}: {
+  program: ValidatorBondsProgram
+  configAccount?: PublicKey
+  withdrawer?: PublicKey
+}): Promise<ProgramAccountInfo<StakeAccountParsed>[]> {
+  if (withdrawer === undefined && configAccount === undefined) {
+    throw new Error(
+      'findConfigStakeAccounts: configAccount or withdrawer must be provided'
+    )
+  }
+  if (withdrawer === undefined) {
+    assert(configAccount !== undefined, 'configAccount is known here')
+    ;[withdrawer] = bondsWithdrawerAuthority(configAccount, program.programId)
+  }
+  const stakeAccounts = await findStakeAccounts({
+    connection: program,
+    withdrawer,
+  })
+  // for stake accounts considered to be under the bond, we consider it cannot be locked
+  return parseNotLocked(stakeAccounts)
+}
+
+async function findBondStakeAccountsHelper({
   program,
   bondAccount,
   configAccount,
@@ -440,7 +475,7 @@ async function findStakeAccountsHelper({
   voteAccount?: PublicKey
   withdrawer?: PublicKey
   staker?: PublicKey
-}): Promise<ProgramAccountInfoNoData[]> {
+}): Promise<ProgramAccountInfo<StakeAccountParsed>[]> {
   if (!bondAccount && voteAccount) {
     bondAccount = bondAddress(configAccount, voteAccount, program.programId)[0]
   } else if (!bondAccount) {
@@ -455,12 +490,14 @@ async function findStakeAccountsHelper({
     const bondData = await getBond(program, bondAccount)
     voteAccount = bondData.voteAccount
   }
-  return await findStakeAccountNoDataInfos({
+  const stakeAccounts = await findStakeAccounts({
     connection: program,
     withdrawer,
     staker,
     voter: voteAccount,
   })
+  // for stake accounts considered to be under the bond, we consider it cannot be locked
+  return parseNotLocked(stakeAccounts)
 }
 
 export async function findBondStakeAccounts(args: {
@@ -468,8 +505,8 @@ export async function findBondStakeAccounts(args: {
   configAccount: PublicKey
   bondAccount?: PublicKey
   voteAccount?: PublicKey
-}): Promise<ProgramAccountInfoNoData[]> {
-  return findStakeAccountsHelper(args)
+}): Promise<ProgramAccountInfo<StakeAccountParsed>[]> {
+  return findBondStakeAccountsHelper(args)
 }
 
 export async function findBondNonSettlementStakeAccounts(args: {
@@ -477,12 +514,21 @@ export async function findBondNonSettlementStakeAccounts(args: {
   configAccount: PublicKey
   bondAccount?: PublicKey
   voteAccount?: PublicKey
-}): Promise<ProgramAccountInfoNoData[]> {
+}): Promise<ProgramAccountInfo<StakeAccountParsed>[]> {
   const [withdrawerAuthority] = bondsWithdrawerAuthority(
     args.configAccount,
     args.program.programId
   )
-  return findStakeAccountsHelper({ ...args, staker: withdrawerAuthority })
+  return findBondStakeAccountsHelper({ ...args, staker: withdrawerAuthority })
+}
+
+export type BondFunding = {
+  bondAccount: PublicKey
+  voteAccount: PublicKey
+  amount: BN
+  atStakeAccounts: BN
+  nonSettlementStakeAccounts: ProgramAccountInfo<StakeAccountParsed>[]
+  withdrawRequest: ProgramAccount<WithdrawRequest> | undefined
 }
 
 export async function getBondFunding({
@@ -495,12 +541,20 @@ export async function getBondFunding({
   configAccount: PublicKey
   bondAccount?: PublicKey
   voteAccount?: PublicKey
-}): Promise<{
-  amountBond: BN
-  amountAtStakeAccounts: BN
-  bondNonSettlementStakeAccounts: ProgramAccountInfoNoData[]
-  withdrawRequest: ProgramAccount<WithdrawRequest> | undefined
-}> {
+}): Promise<BondFunding> {
+  if (voteAccount !== undefined && bondAccount === undefined) {
+    bondAccount = bondAddress(configAccount, voteAccount, program.programId)[0]
+  }
+  if (bondAccount === undefined) {
+    throw new Error(
+      'getBondFunding: bondAccount or voteAccount must be provided'
+    )
+  }
+  if (voteAccount === undefined) {
+    const bondData = await getBond(program, bondAccount)
+    voteAccount = bondData.voteAccount
+  }
+
   const bondNonSettlementStakeAccounts =
     await findBondNonSettlementStakeAccounts({
       program,
@@ -509,26 +563,170 @@ export async function getBondFunding({
       voteAccount,
     })
   const amountAtStakeAccounts = bondNonSettlementStakeAccounts.reduce(
-    (sum, { account }) => sum.addn(account.lamports),
-    new BN(0)
+    (sum, { account }) => sum.add(new BN(account.lamports)),
+    ZERO_BN
   )
   const withdrawRequest = (
     await findWithdrawRequests({ program, bond: bondAccount })
   ).find(withdrawRequest => withdrawRequest)
 
-  let amountBond = amountAtStakeAccounts
-  if (withdrawRequest !== undefined) {
-    amountBond = amountAtStakeAccounts
-      .sub(withdrawRequest.account.requestedAmount)
-      .add(withdrawRequest.account.withdrawnAmount)
-  }
+  const { amount: amountBond } = calculateFundedAmount(
+    bondNonSettlementStakeAccounts,
+    withdrawRequest
+  )
 
   return {
-    amountBond,
-    amountAtStakeAccounts,
-    bondNonSettlementStakeAccounts,
+    bondAccount,
+    voteAccount,
+    amount: amountBond,
+    atStakeAccounts: amountAtStakeAccounts,
+    nonSettlementStakeAccounts: bondNonSettlementStakeAccounts,
     withdrawRequest,
   }
+}
+
+function calculateFundedAmount(
+  stakeAccounts:
+    | ProgramAccountInfoNoData[]
+    | ProgramAccountInfo<StakeAccountParsed>[],
+  withdrawRequest: ProgramAccount<WithdrawRequest> | undefined
+): { stakeAccountsAmount: BN; withdrawRequestAmount: BN; amount: BN } {
+  const stakeAccountsAmount = stakeAccounts
+    .map(stakeAccount => stakeAccount.account.lamports)
+    .reduce((sum, lamports) => sum.add(new BN(lamports)), ZERO_BN)
+  const withdrawRequestAmount = (
+    withdrawRequest?.account.requestedAmount ?? ZERO_BN
+  ).sub(withdrawRequest?.account.withdrawnAmount ?? ZERO_BN)
+  const amount = stakeAccountsAmount.sub(withdrawRequestAmount)
+  return { stakeAccountsAmount, withdrawRequestAmount, amount }
+}
+
+export async function getBondsFunding({
+  program,
+  configAccount,
+  bondAccounts,
+  voteAccounts,
+}: {
+  program: ValidatorBondsProgram
+  configAccount: PublicKey
+  bondAccounts: (PublicKey | undefined)[]
+  voteAccounts: (PublicKey | undefined)[]
+}): Promise<BondFunding[]> {
+  if (bondAccounts.length !== voteAccounts.length) {
+    throw new Error('getBondsFunding: bondAccounts and voteAccounts must match')
+  }
+  for (let i = 0; i < bondAccounts.length; i++) {
+    if (bondAccounts[i] === undefined && voteAccounts[i] === undefined) {
+      throw new Error(
+        'getBondsFunding: bondAccounts or voteAccounts must be provided for every record'
+      )
+    }
+  }
+  const inputData: Map<
+    PublicKey,
+    {
+      voteAccount: PublicKey
+      withdrawRequest?: ProgramAccount<WithdrawRequest>
+    }
+  > = new Map()
+  // derive all bond addresses
+  for (let i = 0; i < bondAccounts.length; i++) {
+    let bondAccountAddress = bondAccounts[i]
+    const voteAccountAddress = voteAccounts[i]
+    if (bondAccounts[i] === undefined && voteAccountAddress !== undefined) {
+      bondAccountAddress = bondAddress(
+        configAccount,
+        voteAccountAddress,
+        program.programId
+      )[0]
+    }
+    assert(
+      bondAccountAddress !== undefined,
+      'bond account address is known here'
+    )
+    inputData.set(bondAccountAddress, {
+      voteAccount: voteAccountAddress ?? PublicKey.default,
+    })
+  }
+
+  // searching for all vote accounts for each bond
+  const bondsWithUnknownVoteAccount = Array.from(inputData.values())
+    .filter(({ voteAccount }) => voteAccount.equals(PublicKey.default))
+    .map(({ voteAccount }) => voteAccount)
+  const bondsDataWithUnknownVoteAccount = await getMultipleBonds({
+    program,
+    addresses: bondsWithUnknownVoteAccount,
+  })
+  for (const bondData of bondsDataWithUnknownVoteAccount) {
+    if (bondData.account === null) {
+      throw new Error(
+        'getBondsFunding: cannot get bond data for bond address ' +
+          bondData.publicKey.toBase58() +
+          '; required for vote account derivation'
+      )
+    }
+    const bondInnerSetData = inputData.get(bondData.publicKey)
+    assert(bondInnerSetData !== undefined, 'bondInnerSetData is known here')
+    bondInnerSetData.voteAccount = bondData.account.voteAccount
+  }
+  // getting info on withdraw requests for each bond (maybe it does not exist)
+  const withdrawRequestAddresses = Array.from(inputData.keys()).map(
+    bondAccount => withdrawRequestAddress(bondAccount, program.programId)[0]
+  )
+  const withdrawRequestsData = await getMultipleWithdrawRequests({
+    program,
+    addresses: withdrawRequestAddresses,
+  })
+  for (const withdrawRequestData of withdrawRequestsData) {
+    if (withdrawRequestData.account === null) {
+      continue
+    }
+    const bondInnerSetData = inputData.get(withdrawRequestData.account.bond)
+    assert(bondInnerSetData !== undefined, 'bondInnerSetData is known here')
+    // we know the account is not null, i.e., we can set it as ProgramAccount instead of ProgramAccountNullable
+    bondInnerSetData.withdrawRequest =
+      withdrawRequestData as ProgramAccount<WithdrawRequest>
+  }
+  // get bond related stake accounts to find the funding
+  const allStakeAccounts = await findConfigStakeAccounts({
+    program,
+    configAccount,
+  })
+  const allStakeAccountsMap: Map<
+    PublicKey,
+    ProgramAccountInfo<StakeAccountParsed>[]
+  > = allStakeAccounts
+    // filter out(!) the stake accounts that are in a settlement
+    .filter(
+      stakeAccount =>
+        stakeAccount.account.data.withdrawer !== null &&
+        stakeAccount.account.data.staker !== null &&
+        stakeAccount.account.data.withdrawer.equals(
+          stakeAccount.account.data.staker
+        )
+    )
+    // group by vote account
+    .reduce((acc, obj) => acc.set(obj.account.data.voter, obj), new Map())
+
+  return Array.from(inputData.entries()).map(
+    ([bondAccount, { voteAccount, withdrawRequest }]) => {
+      const bondStakeAccounts =
+        allStakeAccountsMap.get(voteAccount) ??
+        ([] as ProgramAccountInfo<StakeAccountParsed>[])
+      const { amount, stakeAccountsAmount } = calculateFundedAmount(
+        bondStakeAccounts,
+        withdrawRequest
+      )
+      return {
+        bondAccount,
+        voteAccount,
+        amount,
+        atStakeAccounts: stakeAccountsAmount,
+        nonSettlementStakeAccounts: bondStakeAccounts,
+        withdrawRequest,
+      }
+    }
+  )
 }
 
 function mapAccountInfoToProgramAccount<T>(

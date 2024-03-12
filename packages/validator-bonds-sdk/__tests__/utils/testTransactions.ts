@@ -229,7 +229,7 @@ export async function executeFundBondInstruction({
   bondAccount: PublicKey
   bondAuthority: Keypair | PublicKey
   voteAccount: PublicKey
-  bondbondsWithdrawerAuthority: PublicKey
+  bondWithdrawerAuth: PublicKey
 }> {
   let bondAuthority: Keypair | PublicKey
   let voteAccount: PublicKey
@@ -253,7 +253,7 @@ export async function executeFundBondInstruction({
     config = bondData.config
   }
 
-  const [bondbondsWithdrawerAuthority] = bondsWithdrawerAuthority(
+  const [bondWithdrawerAuth] = bondsWithdrawerAuthority(
     config,
     program.programId
   )
@@ -288,7 +288,7 @@ export async function executeFundBondInstruction({
     bondAccount,
     bondAuthority,
     voteAccount,
-    bondbondsWithdrawerAuthority,
+    bondWithdrawerAuth,
   }
 }
 

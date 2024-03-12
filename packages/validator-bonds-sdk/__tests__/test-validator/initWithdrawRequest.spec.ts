@@ -195,7 +195,7 @@ describe('Validator Bonds init withdraw request', () => {
       expect(withdrawRequestList.length).toEqual(1)
       withdrawRequestList = await findWithdrawRequests({
         program,
-        voteAccount: voteAccount,
+        voteAccount,
       })
       expect(withdrawRequestList.length).toEqual(1)
     }

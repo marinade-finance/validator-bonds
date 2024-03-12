@@ -67,7 +67,7 @@ describe('Validator Bonds claim settlement', () => {
       program,
       provider,
       configAccount,
-      voteAccount: voteAccount,
+      voteAccount,
       validatorIdentity: validatorIdentity,
     }))
 

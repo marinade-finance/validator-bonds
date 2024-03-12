@@ -49,7 +49,7 @@ describe('Validator Bonds init bond account', () => {
       configAccount,
       bondAuthority: bondAuthority.publicKey,
       cpmpe: 30,
-      voteAccount: voteAccount,
+      voteAccount,
       validatorIdentity: validatorIdentity.publicKey,
       rentPayer: pubkey(rentWallet),
     })
@@ -118,7 +118,7 @@ describe('Validator Bonds init bond account', () => {
         configAccount,
         bondAuthority: bondAuthority.publicKey,
         cpmpe: 30,
-        voteAccount: voteAccount,
+        voteAccount,
         validatorIdentity: authorizedWithdrawer.publicKey,
       })
       await provider.sendIx([authorizedWithdrawer], instruction)
@@ -150,7 +150,7 @@ describe('Validator Bonds init bond account', () => {
         configAccount,
         bondAuthority: PublicKey.default,
         cpmpe: 30,
-        voteAccount: voteAccount,
+        voteAccount,
         validatorIdentity: validatorIdentity.publicKey,
       })
       await provider.sendIx([validatorIdentity], instruction)

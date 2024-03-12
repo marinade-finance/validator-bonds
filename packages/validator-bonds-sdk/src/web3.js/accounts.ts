@@ -1,4 +1,4 @@
-import { Idl, Program, Provider } from '@coral-xyz/anchor'
+import { Idl, Program, Provider, ProgramAccount } from '@coral-xyz/anchor'
 import { chunkArray } from '@marinade.finance/ts-common'
 import {
   AccountInfo,
@@ -8,9 +8,6 @@ import {
   PublicKey,
 } from '@solana/web3.js'
 import { getConnection } from '.'
-
-export type AccountInfoNoData = AccountInfo<void> &
-  Omit<AccountInfo<void>, 'data'>
 
 export function isWithPublicKey(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,15 +20,10 @@ export function isWithPublicKey(
   )
 }
 
-export type ProgramAccountInfoNoData = {
-  publicKey: PublicKey
-  account: AccountInfoNoData
-}
-
-export type ProgramAccountInfo<T> = {
-  publicKey: PublicKey
-  account: AccountInfo<T>
-}
+export type ProgramAccountInfo<T> = ProgramAccount<AccountInfo<T>>
+export type ProgramAccountInfoNullable<T> =
+  ProgramAccount<AccountInfo<T> | null>
+export type ProgramAccountInfoNoData = ProgramAccount<AccountInfo<undefined>>
 
 export function programAccountInfo<T>(
   publicKey: PublicKey,
@@ -39,11 +31,6 @@ export function programAccountInfo<T>(
   data: T
 ): ProgramAccountInfo<T> {
   return { publicKey, account: { ...account, data } }
-}
-
-export type ProgramAccountNullable<T> = {
-  publicKey: PublicKey
-  account: T | null
 }
 
 export type ProgramAccountWithInfoNullable<T> = {
@@ -58,9 +45,12 @@ export async function getMultipleAccounts<IDL extends Idl = Idl>({
 }: {
   connection: Program<IDL> | Connection | Provider
   addresses: PublicKey[]
-}): Promise<ProgramAccountNullable<AccountInfo<Buffer> | null>[]> {
+}): Promise<ProgramAccountInfoNullable<Buffer>[]> {
+  if (addresses === undefined || addresses.length === 0) {
+    return []
+  }
   connection = getConnection(connection)
-  const result: ProgramAccountNullable<AccountInfo<Buffer> | null>[] = []
+  const result: ProgramAccountInfoNullable<Buffer>[] = []
   // getMultipleAccounts should limit by 100 of addresses, see doc https://solana.com/docs/rpc/http/getmultipleaccounts
   for (const addressesChunked of chunkArray(addresses, 100)) {
     const fetchedRecords =

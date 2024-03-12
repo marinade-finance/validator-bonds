@@ -84,7 +84,7 @@ async function parseStakeAccountData(
     ;({ epoch: currentEpoch } = await connection.getEpochInfo())
   }
   currentEpoch = new BN(currentEpoch).toNumber()
-  const currentTimestamp = Date.now() / 1000
+  const currentTimestamp = new BN(Date.now() / 1000)
 
   return {
     address: stakeAccountInfo.publicKey,
@@ -100,11 +100,11 @@ async function parseStakeAccountData(
       lockup.custodian !== undefined &&
       lockup.custodian !== PublicKey.default &&
       (lockup?.epoch.gt(new BN(currentEpoch)) ||
-        lockup?.unixTimestamp.gtn(currentTimestamp)),
+        lockup?.unixTimestamp.gt(currentTimestamp)),
     balanceLamports,
     stakedLamports,
     currentEpoch,
-    currentTimestamp,
+    currentTimestamp: currentTimestamp.toNumber(),
   }
 }
 
@@ -196,7 +196,7 @@ export async function findStakeAccountNoDataInfos<IDL extends Idl = Idl>({
   })
 }
 
-export async function getStakeAccounts<IDL extends Idl = Idl>({
+export async function loadStakeAccounts<IDL extends Idl = Idl>({
   connection,
   addresses,
 }: {
@@ -247,7 +247,7 @@ export async function findStakeAccounts<IDL extends Idl = Idl>({
     withdrawer,
     voter,
   })
-  return await getStakeAccounts({
+  return await loadStakeAccounts({
     connection: innerConnection,
     addresses: accountInfos,
   })
