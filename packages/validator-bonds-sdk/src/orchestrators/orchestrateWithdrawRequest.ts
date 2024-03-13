@@ -36,12 +36,15 @@ export async function orchestrateWithdrawDeposit({
   splitStakeRentPayer?: PublicKey | Keypair | Signer | WalletInterface // signer
 }): Promise<{
   instructions: TransactionInstruction[]
-  splitStakeAccount: Keypair | undefined // signer
+  splitStakeAccount: Keypair // signer
+  withdrawRequestAccount: PublicKey
+  stakeAccount: PublicKey
 }> {
   let withdrawRequestData: WithdrawRequest | undefined
   if (bondAccount === undefined && withdrawRequestAccount === undefined) {
     throw new Error(
-      'bondAccount and withdrawRequestAccount not provided, at least one has to be provided'
+      'orchestrateWithdrawDeposit: bondAccount and withdrawRequestAccount not provided, ' +
+        'at least one has to be provided'
     )
   } else if (
     bondAccount === undefined &&
@@ -86,6 +89,7 @@ export async function orchestrateWithdrawDeposit({
   )
   amountToWithdraw =
     amountToWithdraw <= new BN(0) ? new BN(0) : amountToWithdraw
+  // calculating what are the stake accounts we need to merge to easily withdraw the deposit
   const stakeAccountsToWithdraw = (
     await findStakeAccounts({
       connection: program,
@@ -100,31 +104,37 @@ export async function orchestrateWithdrawDeposit({
         ? -1
         : 0
     )
-    .reduce<[BN, ProgramAccountInfo<StakeAccountParsed>[]]>(
+    .reduce<{
+      stakesAmount: BN
+      accounts: ProgramAccountInfo<StakeAccountParsed>[]
+    }>(
       (acc, accountInfo) => {
-        if (acc[0] < amountToWithdraw) {
-          acc[0].add(new BN(accountInfo.account.lamports))
-          acc[1].push(accountInfo)
+        if (acc.stakesAmount < amountToWithdraw) {
+          acc.stakesAmount.add(new BN(accountInfo.account.lamports))
+          acc.accounts.push(accountInfo)
         }
         return acc
       },
-      [new BN(0), []]
+      {
+        stakesAmount: new BN(0),
+        accounts: [] as ProgramAccountInfo<StakeAccountParsed>[],
+      }
     )
 
   const instructions: TransactionInstruction[] = []
-  let splitStakeAccount: Keypair | undefined = undefined
 
   // there are some stake accounts to withdraw from
-  if (stakeAccountsToWithdraw[1].length > 0) {
-    const destinationStakeAccount = stakeAccountsToWithdraw[1][0].publicKey
+  if (stakeAccountsToWithdraw.accounts.length > 0) {
+    const destinationStakeAccount =
+      stakeAccountsToWithdraw.accounts[0].publicKey
     // going through from the second item that we want to merge all to the first one
     for (
       let mergeIndex = 1;
-      mergeIndex < stakeAccountsToWithdraw.length;
+      mergeIndex < stakeAccountsToWithdraw.accounts.length;
       mergeIndex++
     ) {
       const sourceStakeAccount =
-        stakeAccountsToWithdraw[1][mergeIndex].publicKey
+        stakeAccountsToWithdraw.accounts[mergeIndex].publicKey
       const mergeIx = await mergeStakeInstruction({
         program,
         configAccount,
@@ -144,11 +154,17 @@ export async function orchestrateWithdrawDeposit({
       withdrawer,
     })
     instructions.push(withdrawDeposit.instruction)
-    splitStakeAccount = withdrawDeposit.splitStakeAccount
-  }
 
-  return {
-    instructions,
-    splitStakeAccount, // needed as a signer for the transaction
+    return {
+      instructions,
+      // needed as a signer for the transaction from method caller
+      splitStakeAccount: withdrawDeposit.splitStakeAccount,
+      withdrawRequestAccount,
+      stakeAccount: destinationStakeAccount,
+    }
+  } else {
+    throw new Error(
+      'orchestrateWithdrawDeposit: cannot find any stake accounts to withdraw from'
+    )
   }
 }

@@ -1,10 +1,8 @@
 import { shellMatchers } from '@marinade.finance/jest-utils'
 import YAML from 'yaml'
 import {
-  bondAddress,
   initConfigInstruction,
   ValidatorBondsProgram,
-  bondsWithdrawerAuthority,
   getWithdrawRequest,
   cancelWithdrawRequestInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
@@ -60,10 +58,6 @@ describe('Show command using CLI', () => {
       configKeypair,
     ])
 
-    const [, bondsWithdrawerAuthorityBump] = bondsWithdrawerAuthority(
-      configPubkey,
-      program.programId
-    )
     await (
       expect([
         'pnpm',
@@ -94,7 +88,6 @@ describe('Show command using CLI', () => {
           epochsToClaimSettlement: 101,
           withdrawLockupEpochs: 102,
           minimumStakeLamports: LAMPORTS_PER_SOL,
-          bondsWithdrawerAuthorityBump,
           pauseAuthority: admin.toBase58(),
           paused: false,
           reserved: [479],
@@ -137,7 +130,6 @@ describe('Show command using CLI', () => {
             epochsToClaimSettlement: 101,
             withdrawLockupEpochs: 102,
             minimumStakeLamports: LAMPORTS_PER_SOL,
-            bondsWithdrawerAuthorityBump,
             pauseAuthority: admin.toBase58(),
             paused: false,
             reserved: [479],
@@ -204,7 +196,6 @@ describe('Show command using CLI', () => {
             epochsToClaimSettlement: 101,
             withdrawLockupEpochs: 102,
             minimumStakeLamports: LAMPORTS_PER_SOL,
-            bondsWithdrawerAuthorityBump,
             pauseAuthority: admin.toBase58(),
             paused: false,
             reserved: [479],
@@ -237,7 +228,6 @@ describe('Show command using CLI', () => {
       validatorIdentity,
       cpmpe: 222,
     })
-    const [, bump] = bondAddress(configAccount, voteAccount, program.programId)
 
     const expectedDataNoFunding = {
       programId: program.programId,
@@ -246,13 +236,13 @@ describe('Show command using CLI', () => {
         config: configAccount.toBase58(),
         voteAccount: voteAccount.toBase58(),
         authority: bondAuthority.publicKey.toBase58(),
-        bump,
       },
     }
     const expectedData = {
       ...expectedDataNoFunding,
-      bondFunded: 0,
-      stakeAccountsFunded: 0,
+      amountActive: 0,
+      amountAtSettlements: 0,
+      amountToWithdraw: 0,
     }
 
     await (
@@ -475,7 +465,6 @@ describe('Show command using CLI', () => {
       provider,
     })
     const bondAuthority = Keypair.generate()
-    const [, bump] = bondAddress(configAccount, voteAccount, program.programId)
     const { bondAccount } = await executeInitBondInstruction({
       program,
       provider,
@@ -501,18 +490,19 @@ describe('Show command using CLI', () => {
 
     const expectedDataNoFunding = {
       programId: program.programId,
-      publicKey: bondAccount.toBase58(),
+      publicKey: bondAccount,
       account: {
-        config: configAccount.toBase58(),
-        voteAccount: voteAccount.toBase58(),
-        authority: bondAuthority.publicKey.toBase58(),
-        bump,
+        config: configAccount,
+        voteAccount: voteAccount,
+        authority: bondAuthority.publicKey,
       },
     }
     const expectedData = {
       ...expectedDataNoFunding,
-      bondFunded: 0,
-      stakeAccountsFunded: 0,
+      amountActive: 0,
+      amountAtSettlements: 0,
+      amountToWithdraw: 0,
+      withdrawRequest: undefined,
     }
 
     await (
@@ -538,8 +528,7 @@ describe('Show command using CLI', () => {
       // stderr: '',
       stdout: YAML.stringify({
         ...expectedData,
-        bondFunded: sumLamports,
-        stakeAccountsFunded: sumLamports,
+        amountActive: sumLamports,
       }),
     })
 
@@ -581,8 +570,8 @@ describe('Show command using CLI', () => {
       // stderr: '',
       stdout: YAML.stringify({
         ...expectedData,
-        bondFunded: sumLamports - withdrawRequestAmount,
-        stakeAccountsFunded: sumLamports,
+        amountActive: sumLamports - withdrawRequestAmount,
+        amountToWithdraw: withdrawRequestAmount,
         withdrawRequest: {
           publicKey: withdrawRequest.toBase58(),
           account: {
@@ -591,7 +580,6 @@ describe('Show command using CLI', () => {
             epoch,
             requestedAmount: withdrawRequestAmount,
             withdrawnAmount: 0,
-            bump: withdrawRequestData.bump,
           },
         },
       }),
@@ -628,8 +616,7 @@ describe('Show command using CLI', () => {
       // stderr: '',
       stdout: YAML.stringify({
         ...expectedData,
-        bondFunded: sumLamports,
-        stakeAccountsFunded: sumLamports,
+        amountActive: sumLamports,
       }),
     })
   })

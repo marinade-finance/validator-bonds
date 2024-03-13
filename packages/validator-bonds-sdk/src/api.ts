@@ -525,64 +525,10 @@ export async function findBondNonSettlementStakeAccounts(args: {
 export type BondFunding = {
   bondAccount: PublicKey
   voteAccount: PublicKey
-  amount: BN
-  atStakeAccounts: BN
-  nonSettlementStakeAccounts: ProgramAccountInfo<StakeAccountParsed>[]
+  amountActive: BN
+  amountAtSettlements: BN
+  amountToWithdraw: BN
   withdrawRequest: ProgramAccount<WithdrawRequest> | undefined
-}
-
-export async function getBondFunding({
-  program,
-  configAccount,
-  bondAccount,
-  voteAccount,
-}: {
-  program: ValidatorBondsProgram
-  configAccount: PublicKey
-  bondAccount?: PublicKey
-  voteAccount?: PublicKey
-}): Promise<BondFunding> {
-  if (voteAccount !== undefined && bondAccount === undefined) {
-    bondAccount = bondAddress(configAccount, voteAccount, program.programId)[0]
-  }
-  if (bondAccount === undefined) {
-    throw new Error(
-      'getBondFunding: bondAccount or voteAccount must be provided'
-    )
-  }
-  if (voteAccount === undefined) {
-    const bondData = await getBond(program, bondAccount)
-    voteAccount = bondData.voteAccount
-  }
-
-  const bondNonSettlementStakeAccounts =
-    await findBondNonSettlementStakeAccounts({
-      program,
-      configAccount,
-      bondAccount,
-      voteAccount,
-    })
-  const amountAtStakeAccounts = bondNonSettlementStakeAccounts.reduce(
-    (sum, { account }) => sum.add(new BN(account.lamports)),
-    ZERO_BN
-  )
-  const withdrawRequest = (
-    await findWithdrawRequests({ program, bond: bondAccount })
-  ).find(withdrawRequest => withdrawRequest)
-
-  const { amount: amountBond } = calculateFundedAmount(
-    bondNonSettlementStakeAccounts,
-    withdrawRequest
-  )
-
-  return {
-    bondAccount,
-    voteAccount,
-    amount: amountBond,
-    atStakeAccounts: amountAtStakeAccounts,
-    nonSettlementStakeAccounts: bondNonSettlementStakeAccounts,
-    withdrawRequest,
-  }
 }
 
 function calculateFundedAmount(
@@ -679,7 +625,10 @@ export async function getBondsFunding({
     addresses: withdrawRequestAddresses,
   })
   for (const withdrawRequestData of withdrawRequestsData) {
-    if (withdrawRequestData.account === null) {
+    if (
+      withdrawRequestData.account === null ||
+      withdrawRequestData.accountInfo === null
+    ) {
       continue
     }
     const bondInnerSetData = inputData.get(
@@ -687,19 +636,23 @@ export async function getBondsFunding({
     )
     assert(bondInnerSetData !== undefined, 'bondInnerSetData is known here')
     // we know the account is not null, i.e., we can set it as ProgramAccount instead of ProgramAccountNullable
-    bondInnerSetData.withdrawRequest =
-      withdrawRequestData as ProgramAccount<WithdrawRequest>
+    bondInnerSetData.withdrawRequest = {
+      publicKey: withdrawRequestData.publicKey,
+      account: withdrawRequestData.account,
+    }
   }
   // get bond related stake accounts to find the funding
   const allStakeAccounts = await findConfigStakeAccounts({
     program,
     configAccount,
   })
-  const allStakeAccountsMap: Map<
-    string,
-    ProgramAccountInfo<StakeAccountParsed>[]
-  > = allStakeAccounts
-    // filter out(!) the stake accounts that are in a settlement
+  // const allStakeAccountsMap: Map<
+  //   string,
+  //   ProgramAccountInfo<StakeAccountParsed>[]
+  // > =
+
+  const bondFundedStakeAccounts = allStakeAccounts
+    // filter OUT the stake accounts that are in a settlement
     .filter(
       stakeAccount =>
         stakeAccount.account.data.voter !== null &&
@@ -709,37 +662,61 @@ export async function getBondsFunding({
           stakeAccount.account.data.staker
         )
     )
-    // group by vote account
-    .reduce((acc, obj) => {
-      const voter = obj.account.data.voter! // voter is known here, filtered above
-      const stakeAccounts = acc.get(voter.toBase58())
-      if (stakeAccounts === undefined) {
-        acc.set(voter.toBase58(), [obj])
-      } else {
-        stakeAccounts.push(obj)
-      }
-      return acc
-    }, new Map())
+  const settlementsStakeAccounts = allStakeAccounts
+    // filter for the stake accounts that are IN a settlement
+    .filter(
+      stakeAccount =>
+        stakeAccount.account.data.withdrawer !== null &&
+        stakeAccount.account.data.staker !== null &&
+        !stakeAccount.account.data.withdrawer.equals(
+          stakeAccount.account.data.staker
+        )
+    )
+  const bondFundedStakeAccountsMap = groupByVoter(bondFundedStakeAccounts)
+  const settlementsStakeAccountsMap = groupByVoter(settlementsStakeAccounts)
 
   return Array.from(inputData.entries()).map(
     ([bondAccount, { voteAccount, withdrawRequest }]) => {
-      const bondStakeAccounts =
-        allStakeAccountsMap.get(voteAccount.toBase58()) ??
+      const bondFunded =
+        bondFundedStakeAccountsMap.get(voteAccount.toBase58()) ??
         ([] as ProgramAccountInfo<StakeAccountParsed>[])
-      const { amount, stakeAccountsAmount } = calculateFundedAmount(
-        bondStakeAccounts,
-        withdrawRequest
+      const settlementFunded =
+        settlementsStakeAccountsMap.get(voteAccount.toBase58()) ??
+        ([] as ProgramAccountInfo<StakeAccountParsed>[])
+
+      const { amount: amountActive, withdrawRequestAmount: amountToWithdraw } =
+        calculateFundedAmount(bondFunded, withdrawRequest)
+      const { amount: amountAtSettlements } = calculateFundedAmount(
+        settlementFunded,
+        undefined
       )
+
       return {
         bondAccount: new PublicKey(bondAccount),
         voteAccount,
-        amount,
-        atStakeAccounts: stakeAccountsAmount,
-        nonSettlementStakeAccounts: bondStakeAccounts,
+        amountActive,
+        amountAtSettlements,
+        amountToWithdraw,
         withdrawRequest,
       }
     }
   )
+}
+
+function groupByVoter(
+  stakeAccounts: ProgramAccountInfo<StakeAccountParsed>[]
+): Map<string, ProgramAccountInfo<StakeAccountParsed>[]> {
+  // group by vote account
+  return stakeAccounts.reduce((acc, obj) => {
+    const voter = obj.account.data.voter! // voter is known here, filtered above
+    const stakeAccounts = acc.get(voter.toBase58())
+    if (stakeAccounts === undefined) {
+      acc.set(voter.toBase58(), [obj])
+    } else {
+      stakeAccounts.push(obj)
+    }
+    return acc
+  }, new Map())
 }
 
 function mapAccountInfoToProgramAccount<T>(

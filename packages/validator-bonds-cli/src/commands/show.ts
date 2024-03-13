@@ -19,12 +19,10 @@ import {
   findBonds,
   findConfigs,
   getConfig,
-  WithdrawRequest,
-  getBondFunding,
   getBondsFunding,
+  BondFunding,
 } from '@marinade.finance/validator-bonds-sdk'
 import { ProgramAccount } from '@coral-xyz/anchor'
-import BN from 'bn.js'
 import { getBondFromAddress } from './utils'
 
 export type ProgramAccountWithProgramId<T> = ProgramAccount<T> & {
@@ -213,15 +211,12 @@ async function showConfig({
     }
   }
 
-  const reformatted = reformat(data, reformatReserved)
+  const reformatted = reformat(data, reformatConfig)
   print_data(reformatted, format)
 }
 
-type BondShow<T> = ProgramAccountWithProgramId<T> & {
-  bondFunded?: BN
-  stakeAccountsFunded?: BN
-  withdrawRequest?: ProgramAccount<WithdrawRequest>
-}
+export type BondShow<T> = ProgramAccountWithProgramId<T> &
+  Partial<Omit<BondFunding, 'voteAccount' | 'bondAccount'>>
 
 async function showBond({
   address,
@@ -253,19 +248,28 @@ async function showBond({
     address = bondData.publicKey
 
     const configAccount = config ?? bondData.account.data.config
-    const {
-      amount: amountBond,
-      atStakeAccounts: amountAtStakeAccounts,
-      withdrawRequest,
-    } = await getBondFunding({ program, configAccount, bondAccount: address })
+    const bondFunding = await getBondsFunding({
+      program,
+      configAccount,
+      bondAccounts: [address],
+      voteAccounts: [bondData.account.data.voteAccount],
+    })
+    if (bondFunding.length !== 1) {
+      throw new CliCommandError({
+        valueName: '[address]',
+        value: address.toBase58(),
+        msg: 'Failed to fetch bond account funding data',
+      })
+    }
 
     data = {
       programId: program.programId,
       publicKey: address,
       account: bondData.account.data,
-      bondFunded: amountBond,
-      stakeAccountsFunded: amountAtStakeAccounts,
-      withdrawRequest,
+      amountActive: bondFunding[0].amountActive,
+      amountAtSettlements: bondFunding[0].amountAtSettlements,
+      amountToWithdraw: bondFunding[0].amountToWithdraw,
+      withdrawRequest: bondFunding[0].withdrawRequest,
     }
   } else {
     // CLI did not provide an address, we will search for accounts based on filter parameters
@@ -299,9 +303,9 @@ async function showBond({
           const bondFunding = bondsFunding.find(bondFunding =>
             bondFunding.bondAccount.equals(bond.publicKey)
           )
-          data[i].bondFunded = bondFunding?.amount
-          data[i].bondFunded = bondFunding?.amount
-          data[i].stakeAccountsFunded = bondFunding?.atStakeAccounts
+          data[i].amountActive = bondFunding?.amountActive
+          data[i].amountAtSettlements = bondFunding?.amountAtSettlements
+          data[i].amountToWithdraw = bondFunding?.amountToWithdraw
           data[i].withdrawRequest = bondFunding?.withdrawRequest
         }
       }
@@ -315,7 +319,7 @@ async function showBond({
     }
   }
 
-  const reformatted = reformat(data, reformatBonds)
+  const reformatted = reformat(data, reformatBond)
   print_data(reformatted, format)
 }
 
@@ -328,7 +332,7 @@ async function showEvent({ eventData }: { eventData: string }) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function reformatBonds(key: string, value: any): ReformatAction {
+function reformatBond(key: string, value: any): ReformatAction {
   if (
     typeof key === 'string' &&
     (key as string).startsWith('reserved') &&
@@ -339,5 +343,21 @@ function reformatBonds(key: string, value: any): ReformatAction {
   if (key.toLowerCase() === 'cpmpe') {
     return { type: 'Remove' }
   }
+  if (key.toLowerCase().includes('bump')) {
+    return { type: 'Remove' }
+  }
   return { type: 'UsePassThrough' }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function reformatConfig(key: string, value: any): ReformatAction {
+  const reserveReformatted = reformatReserved(key, value)
+  if (reserveReformatted.type === 'UsePassThrough') {
+    if (key.toLowerCase().includes('bump')) {
+      return { type: 'Remove' }
+    }
+    return { type: 'UsePassThrough' }
+  } else {
+    return reserveReformatted
+  }
 }

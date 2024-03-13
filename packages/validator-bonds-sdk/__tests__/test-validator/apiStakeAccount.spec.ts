@@ -9,6 +9,7 @@ import {
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
+  executeInitSettlement,
   executeInitWithdrawRequestInstruction,
 } from '../utils/testTransactions'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
@@ -18,6 +19,7 @@ import {
   createInitializedStakeAccount,
   delegatedStakeAccount,
   setLockup,
+  createSettlementFundedDelegatedStake,
 } from '../utils/staking'
 import { ExtendedProvider } from '../utils/provider'
 import { initTest, waitForNextEpoch } from './testValidator'
@@ -32,6 +34,7 @@ describe('Validator Bonds api call to stake accounts', () => {
   let provider: ExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
+  let operatorAuthority: Keypair
   const withdrawLockupEpochs = 1
 
   beforeAll(async () => {
@@ -39,11 +42,13 @@ describe('Validator Bonds api call to stake accounts', () => {
   })
 
   beforeEach(async () => {
-    ;({ configAccount } = await executeInitConfigInstruction({
-      program,
-      provider,
-      withdrawLockupEpochs,
-    }))
+    ;({ configAccount, operatorAuthority } = await executeInitConfigInstruction(
+      {
+        program,
+        provider,
+        withdrawLockupEpochs,
+      }
+    ))
   })
 
   it(
@@ -189,16 +194,16 @@ describe('Validator Bonds api call to stake accounts', () => {
       expect(bondsFunding.length).toEqual(bondAccounts.length)
       expect(bondsFunding.length).toEqual(NUMBER_OF_BONDS)
 
-      const bondsFundedLamports = bondsFunding.reduce(
-        (acc, { amount }) => acc.add(amount),
-        new BN(0)
-      )
-      const bondsAtStakeAccountsLamports = bondsFunding.reduce(
-        (acc, { atStakeAccounts }) => acc.add(atStakeAccounts),
-        new BN(0)
-      )
-      expect(bondsFundedLamports).toEqual(lamportsStakeAccounts)
-      expect(bondsAtStakeAccountsLamports).toEqual(lamportsStakeAccounts)
+      let { amountActive, amountAtSettlements, amountToWithdraw } =
+        await calculateFunding(
+          program,
+          configAccount,
+          bondAccounts,
+          voteAccounts
+        )
+      expect(amountActive).toEqual(lamportsStakeAccounts)
+      expect(amountToWithdraw).toEqual(0)
+      expect(amountAtSettlements).toEqual(0)
 
       const withdrawRequests: { withdrawRequest: PublicKey; amount: number }[] =
         []
@@ -219,28 +224,76 @@ describe('Validator Bonds api call to stake accounts', () => {
         totalWithdrawRequestAmount += amount
       }
 
-      const bondsFundingWithWithdraws = await getBondsFunding({
-        program,
-        configAccount,
-        bondAccounts,
-        voteAccounts,
-      })
-      const bondsFundedLamportsWithWithdraws = bondsFundingWithWithdraws.reduce(
-        (acc, { amount }) => acc.add(amount),
-        new BN(0)
-      )
-      const bondsAtStakeAccountsLamportsWithWithdraws =
-        bondsFundingWithWithdraws.reduce(
-          (acc, { atStakeAccounts }) => acc.add(atStakeAccounts),
-          new BN(0)
-        )
-      expect(bondsFundedLamportsWithWithdraws).toEqual(
+      ;({ amountActive, amountAtSettlements, amountToWithdraw } =
+        await calculateFunding(
+          program,
+          configAccount,
+          bondAccounts,
+          voteAccounts
+        ))
+      expect(amountActive).toEqual(
         lamportsStakeAccounts - totalWithdrawRequestAmount
       )
-      expect(bondsAtStakeAccountsLamportsWithWithdraws).toEqual(
-        lamportsStakeAccounts
+      expect(amountToWithdraw).toEqual(totalWithdrawRequestAmount)
+      expect(amountAtSettlements).toEqual(0)
+
+      const { settlementAccount } = await executeInitSettlement({
+        program,
+        provider,
+        voteAccount: randomStakeAccount.voter!,
+        configAccount,
+        bondAccount: inputData[randomIndex].bondAccount,
+        operatorAuthority,
+      })
+      const settlementLamports = 10 * LAMPORTS_PER_SOL
+      await createSettlementFundedDelegatedStake({
+        program,
+        provider,
+        configAccount,
+        settlementAccount,
+        voteAccount: randomStakeAccount.voter!,
+        lamports: settlementLamports,
+      })
+      ;({ amountActive, amountAtSettlements, amountToWithdraw } =
+        await calculateFunding(
+          program,
+          configAccount,
+          bondAccounts,
+          voteAccounts
+        ))
+      expect(amountActive).toEqual(
+        lamportsStakeAccounts - totalWithdrawRequestAmount
       )
+      expect(amountToWithdraw).toEqual(totalWithdrawRequestAmount)
+      expect(amountAtSettlements).toEqual(settlementLamports)
     },
     TEST_TIMEOUT
   )
 })
+
+async function calculateFunding(
+  program: ValidatorBondsProgram,
+  configAccount: PublicKey,
+  bondAccounts: PublicKey[],
+  voteAccounts: PublicKey[]
+) {
+  const bondsFundingWithWithdraws = await getBondsFunding({
+    program,
+    configAccount,
+    bondAccounts,
+    voteAccounts,
+  })
+  const amountActive = bondsFundingWithWithdraws.reduce(
+    (acc, { amountActive }) => acc.add(amountActive),
+    new BN(0)
+  )
+  const amountToWithdraw = bondsFundingWithWithdraws.reduce(
+    (acc, { amountToWithdraw }) => acc.add(amountToWithdraw),
+    new BN(0)
+  )
+  const amountAtSettlements = bondsFundingWithWithdraws.reduce(
+    (acc, { amountAtSettlements }) => acc.add(amountAtSettlements),
+    new BN(0)
+  )
+  return { amountActive, amountToWithdraw, amountAtSettlements }
+}

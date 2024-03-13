@@ -20,7 +20,7 @@ import {
   delegatedStakeAccount,
 } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 
-describe('Fund bond account using CLI', () => {
+describe('Init withdraw request using CLI', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
@@ -67,7 +67,7 @@ describe('Fund bond account using CLI', () => {
     await stakeWithdrawerCleanup()
   })
 
-  it('fund bond account', async () => {
+  it('init withdraw request', async () => {
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
       program.programId

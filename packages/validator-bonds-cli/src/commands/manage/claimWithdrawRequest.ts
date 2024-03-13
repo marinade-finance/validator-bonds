@@ -11,11 +11,13 @@ import {
   instanceOfWallet,
   transaction,
 } from '@marinade.finance/web3js-common'
-import { MARINADE_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
+import {
+  MARINADE_CONFIG_ADDRESS,
+  orchestrateWithdrawDeposit,
+} from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { getWithdrawRequestFromAddress } from '../utils'
-import { claimWithdrawRequestInstruction } from '@marinade.finance/validator-bonds-sdk/src/instructions/claimWithdrawRequest'
 
 export function installClaimWithdrawRequest(program: Command) {
   program
@@ -53,12 +55,6 @@ export function installClaimWithdrawRequest(program: Command) {
         '(default: wallet keypair)',
       parseWalletOrPubkey
     )
-    .requiredOption(
-      '--stake-account <pubkey>',
-      'Stake account that is used to withdraw funds from the bond account. ' +
-        'The withdrawn amount is limited to the amount of lamports defined within the existing withdraw request account.',
-      parsePubkeyOrPubkeyFromWallet
-    )
     .option(
       '--split-stake-rent-payer <keypair_or_ledger_or_pubkey>',
       'Rent payer for the split stake account creation. ' +
@@ -76,13 +72,11 @@ export function installClaimWithdrawRequest(program: Command) {
           config,
           voteAccount,
           authority,
-          stakeAccount,
           splitStakeRentPayer,
         }: {
           config?: Promise<PublicKey>
           voteAccount?: Promise<PublicKey>
           authority?: Promise<WalletInterface | PublicKey>
-          stakeAccount: Promise<PublicKey>
           splitStakeRentPayer?: Promise<WalletInterface | PublicKey>
         }
       ) => {
@@ -92,7 +86,6 @@ export function installClaimWithdrawRequest(program: Command) {
           config: await config,
           voteAccount: await voteAccount,
           authority: await authority,
-          stakeAccount: await stakeAccount,
           splitStakeRentPayer: await splitStakeRentPayer,
         })
       }
@@ -104,14 +97,12 @@ async function manageClaimWithdrawRequest({
   config,
   voteAccount,
   authority,
-  stakeAccount,
   splitStakeRentPayer,
 }: {
   withdrawRequestOrBondOrVoteAccountAddress?: PublicKey
   config?: PublicKey
   voteAccount?: PublicKey
   authority?: WalletInterface | PublicKey
-  stakeAccount: PublicKey
   splitStakeRentPayer?: WalletInterface | PublicKey
 }) {
   const {
@@ -152,18 +143,19 @@ async function manageClaimWithdrawRequest({
     bondAccount = withdrawRequestAccountData.account.data.bond
   }
 
-  const { instruction, withdrawRequestAccount } =
-    await claimWithdrawRequestInstruction({
-      program,
-      withdrawRequestAccount: withdrawRequestAddress,
-      bondAccount,
-      configAccount: config,
-      voteAccount,
-      authority,
-      stakeAccount,
-      splitStakeRentPayer,
-    })
-  tx.add(instruction)
+  const {
+    instructions,
+    withdrawRequestAccount,
+    stakeAccount,
+    splitStakeAccount,
+  } = await orchestrateWithdrawDeposit({
+    program,
+    withdrawRequestAccount: withdrawRequestAddress,
+    bondAccount,
+    splitStakeRentPayer,
+  })
+  signers.push(splitStakeAccount)
+  tx.add(...instructions)
 
   logger.info(
     `Claiming withdraw request account ${withdrawRequestAccount.toBase58()} ` +
