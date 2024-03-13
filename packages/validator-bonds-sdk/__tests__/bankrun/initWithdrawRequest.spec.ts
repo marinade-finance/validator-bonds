@@ -163,17 +163,18 @@ describe('Validator Bonds init withdraw request', () => {
   })
 
   it('cannot init new withdraw request if there is one already', async () => {
-    const { withdrawRequest } = await executeInitWithdrawRequestInstruction({
-      program,
-      provider,
-      bondAccount: bond.publicKey,
-      validatorIdentity,
-    })
+    const { withdrawRequestAccount } =
+      await executeInitWithdrawRequestInstruction({
+        program,
+        provider,
+        bondAccount: bond.publicKey,
+        validatorIdentity,
+      })
     const [withdrawRequestAddr] = withdrawRequestAddress(
       bond.publicKey,
       program.programId
     )
-    expect(withdrawRequest).toEqual(withdrawRequestAddr)
+    expect(withdrawRequestAccount).toEqual(withdrawRequestAddr)
 
     try {
       const { instruction } = await initWithdrawRequestInstruction({
@@ -188,7 +189,7 @@ describe('Validator Bonds init withdraw request', () => {
       if (!(e as Error).message.includes('custom program error: 0x0')) {
         console.error(
           'Expected existence of the init withdraw request account ' +
-            `${withdrawRequest.toBase58()} and only one withdraw request per bond account may exist`
+            `${withdrawRequestAccount.toBase58()} and only one withdraw request per bond account may exist`
         )
         throw e
       }

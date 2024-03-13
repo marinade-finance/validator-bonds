@@ -19,16 +19,16 @@ export function installMintBond(program: Command) {
   program
     .command('mint-bond')
     .description(
-      'Mint a Validator Bond token that provides a way to configure the bond account ' +
-        'without direct signature of the on-chain transaction.' +
-        'Workflow is following: using "mint-bond" to mint a bond token to validator identity pubkey, ' +
-        'then transferring the token to whatever account, then using command "configure-bond --with-token" ' +
-        'to configure the bond account.'
+      'Mint a Validator Bond token, providing a means to configure the bond account ' +
+        'without requiring a direct signature for the on-chain transaction. ' +
+        'The workflow is as follows: first, use this "mint-bond" to mint a bond token ' +
+        'to the validator identity public key. Next, transfer the token to any account desired. ' +
+        'Finally, utilize the command "configure-bond --with-token" to configure the bond account.'
     )
     .argument(
-      '[bond-or-vote-account-address]',
-      'Address of the bond account to configure. ' +
-        'When not provided the command requires defined --config and --vote-account options',
+      '[address]',
+      'Address of the bond account to configure. Provide: bond or vote account address. ' +
+        'When the [address] is not provided, both the --config and --vote-account options are required.',
       parsePubkey
     )
     .option(
@@ -51,7 +51,7 @@ export function installMintBond(program: Command) {
     )
     .action(
       async (
-        bondOrVoteAccountAddress: Promise<PublicKey | undefined>,
+        address: Promise<PublicKey | undefined>,
         {
           config,
           voteAccount,
@@ -63,7 +63,7 @@ export function installMintBond(program: Command) {
         }
       ) => {
         await manageMintBond({
-          bondOrVoteAccountAddress: await bondOrVoteAccountAddress,
+          address: await address,
           config: await config,
           voteAccount: await voteAccount,
           rentPayer: await rentPayer,
@@ -73,12 +73,12 @@ export function installMintBond(program: Command) {
 }
 
 async function manageMintBond({
-  bondOrVoteAccountAddress,
+  address,
   config = MARINADE_CONFIG_ADDRESS,
   voteAccount,
   rentPayer,
 }: {
-  bondOrVoteAccountAddress?: PublicKey
+  address?: PublicKey
   config?: PublicKey
   voteAccount?: PublicKey
   rentPayer?: WalletInterface | PublicKey
@@ -102,11 +102,11 @@ async function manageMintBond({
     rentPayer = rentPayer.publicKey
   }
 
-  let bondAccountAddress = bondOrVoteAccountAddress
-  if (bondOrVoteAccountAddress !== undefined) {
+  let bondAccountAddress = address
+  if (address !== undefined) {
     const bondAccountData = await getBondFromAddress({
       program,
-      address: bondOrVoteAccountAddress,
+      address: address,
       config,
       logger,
     })

@@ -25,9 +25,9 @@ export function installConfigureBond(program: Command) {
     .command('configure-bond')
     .description('Configure existing bond account.')
     .argument(
-      '[bond-or-vote-account-address]',
-      'Address of the bond account to configure. ' +
-        'When not provided the command requires defined --config and --vote-account options',
+      '[address]',
+      'Address of the bond account to configure. Provide: bond or vote account address. ' +
+        'When the [address] is not provided, both the --config and --vote-account options are required.',
       parsePubkey
     )
     .option(
@@ -53,9 +53,8 @@ export function installConfigureBond(program: Command) {
     )
     .option(
       '--with-token',
-      'Use the bond token to authorize the transaction. ' +
-        'If this options is configured then it takes the "--authority" being the owner of the bond token ' +
-        'and possession of the bond token at the ATA account is required. ',
+      'Use the bond token to authorize the transaction. If this option is enabled, ' +
+        'it requires the "--authority" to be the owner of the bond token and possession of the bond token at the ATA account.',
       false
     )
     .option(
@@ -66,7 +65,7 @@ export function installConfigureBond(program: Command) {
 
     .action(
       async (
-        bondOrVoteAccountAddress: Promise<PublicKey | undefined>,
+        address: Promise<PublicKey | undefined>,
         {
           config,
           voteAccount,
@@ -82,7 +81,7 @@ export function installConfigureBond(program: Command) {
         }
       ) => {
         await manageConfigureBond({
-          bondOrVoteAccountAddress: await bondOrVoteAccountAddress,
+          address: await address,
           config: await config,
           voteAccount: await voteAccount,
           authority: await authority,
@@ -94,14 +93,14 @@ export function installConfigureBond(program: Command) {
 }
 
 async function manageConfigureBond({
-  bondOrVoteAccountAddress,
+  address,
   config = MARINADE_CONFIG_ADDRESS,
   voteAccount,
   authority,
   withToken,
   newBondAuthority,
 }: {
-  bondOrVoteAccountAddress?: PublicKey
+  address?: PublicKey
   config?: PublicKey
   voteAccount?: PublicKey
   authority?: WalletInterface | PublicKey
@@ -127,11 +126,11 @@ async function manageConfigureBond({
     authority = authority.publicKey
   }
 
-  let bondAccountAddress = bondOrVoteAccountAddress
-  if (bondOrVoteAccountAddress !== undefined) {
+  let bondAccountAddress = address
+  if (address !== undefined) {
     const bondAccountData = await getBondFromAddress({
       program,
-      address: bondOrVoteAccountAddress,
+      address: address,
       config,
       logger,
     })

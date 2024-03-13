@@ -28,6 +28,7 @@ import {
   bondsWithdrawerAuthority,
   deserializeStakeState,
 } from '../../src'
+import BN from 'bn.js'
 
 // Depending if new vote account feature-set is gated on.
 // It can be 3762 or 3736
@@ -295,7 +296,7 @@ export async function delegatedStakeAccount({
   provider: ExtendedProvider
   voteAccountToDelegate?: PublicKey
   lockup?: Lockup
-  lamports?: number
+  lamports?: number | BN
   rentExemptVote?: number
   staker?: Keypair
   withdrawer?: Keypair
@@ -315,7 +316,7 @@ export async function delegatedStakeAccount({
     fromPubkey: provider.walletPubkey,
     stakePubkey: stakeAccount.publicKey,
     authorized: new Authorized(staker.publicKey, withdrawer.publicKey),
-    lamports,
+    lamports: new BN(lamports).toNumber(),
     lockup,
   })
   // error 0xc on 'Instruction 2' means not enough SOL to delegate the account
@@ -355,7 +356,7 @@ export async function createBondsFundedStakeAccount({
   program: ValidatorBondsProgram
   provider: ExtendedProvider
   configAccount: PublicKey
-  lamports: number
+  lamports: number | BN
   voteAccount: PublicKey
 }): Promise<PublicKey> {
   const [bondsAuth] = bondsWithdrawerAuthority(configAccount, program.programId)
@@ -439,7 +440,7 @@ export async function createDelegatedStakeAccount({
   staker,
 }: {
   provider: ExtendedProvider
-  lamports: number
+  lamports: number | BN
   voteAccount: PublicKey
   withdrawer: PublicKey
   staker: PublicKey

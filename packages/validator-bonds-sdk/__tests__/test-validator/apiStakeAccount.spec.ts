@@ -205,22 +205,23 @@ describe('Validator Bonds api call to stake accounts', () => {
       expect(amountToWithdraw).toEqual(0)
       expect(amountAtSettlements).toEqual(0)
 
-      const withdrawRequests: { withdrawRequest: PublicKey; amount: number }[] =
-        []
+      const withdrawRequests: {
+        withdrawRequestAccount: PublicKey
+        amount: number
+      }[] = []
       let totalWithdrawRequestAmount = 0
       for (let i = 0; i < inputData.length; i += 2) {
         const amount = rand(100) * LAMPORTS_PER_SOL
-        const { withdrawRequest } = await executeInitWithdrawRequestInstruction(
-          {
+        const { withdrawRequestAccount } =
+          await executeInitWithdrawRequestInstruction({
             program,
             provider,
             configAccount,
             bondAccount: inputData[i].bondAccount,
             validatorIdentity: inputData[i].validatorIdentity,
             amount,
-          }
-        )
-        withdrawRequests.push({ withdrawRequest, amount })
+          })
+        withdrawRequests.push({ withdrawRequestAccount, amount })
         totalWithdrawRequestAmount += amount
       }
 

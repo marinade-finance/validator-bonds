@@ -677,18 +677,19 @@ describe('Validator Bonds claim withdraw request', () => {
   async function initWithdrawRequest(
     initWithdrawAmount: number
   ): Promise<{ withdrawRequest: PublicKey }> {
-    const { withdrawRequest } = await executeInitWithdrawRequestInstruction({
-      program,
-      provider,
-      bondAccount: bond.publicKey,
-      validatorIdentity,
-      amount: initWithdrawAmount,
-    })
+    const { withdrawRequestAccount } =
+      await executeInitWithdrawRequestInstruction({
+        program,
+        provider,
+        bondAccount: bond.publicKey,
+        validatorIdentity,
+        amount: initWithdrawAmount,
+      })
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequest
+      withdrawRequestAccount
     )
     expect(withdrawRequestData.voteAccount).toEqual(voteAccount)
-    return { withdrawRequest }
+    return { withdrawRequest: withdrawRequestAccount }
   }
 })

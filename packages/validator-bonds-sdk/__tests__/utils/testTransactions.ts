@@ -303,9 +303,9 @@ export async function executeInitWithdrawRequestInstruction({
   bondAccount?: PublicKey
   configAccount?: PublicKey
   validatorIdentity?: Keypair
-  amount?: number
+  amount?: number | BN
 }): Promise<{
-  withdrawRequest: PublicKey
+  withdrawRequestAccount: PublicKey
   validatorIdentity?: Keypair
   configAccount: PublicKey
   bondAccount: PublicKey
@@ -343,7 +343,7 @@ export async function executeInitWithdrawRequestInstruction({
       'executeInitWithdrawRequestInstruction: bond not to be created in method, requiring validatorIdentity'
     )
   }
-  const { instruction, withdrawRequestAccount: withdrawRequest } =
+  const { instruction, withdrawRequestAccount } =
     await initWithdrawRequestInstruction({
       program,
       bondAccount,
@@ -364,10 +364,10 @@ export async function executeInitWithdrawRequestInstruction({
     throw e
   }
   expect(
-    provider.connection.getAccountInfo(withdrawRequest)
+    provider.connection.getAccountInfo(withdrawRequestAccount)
   ).resolves.not.toBeNull()
   return {
-    withdrawRequest,
+    withdrawRequestAccount,
     bondAccount,
     validatorIdentity,
     bondAuthority,
@@ -387,14 +387,14 @@ export async function executeNewWithdrawRequest({
   configAccount: PublicKey
   amount?: number
 }): Promise<{
-  withdrawRequest: PublicKey
+  withdrawRequestAccount: PublicKey
   bondAuthority: Keypair
   validatorIdentity: Keypair
   bondAccount: PublicKey
   voteAccount: PublicKey
 }> {
   const {
-    withdrawRequest,
+    withdrawRequestAccount,
     bondAuthority,
     validatorIdentity,
     bondAccount,
@@ -412,7 +412,7 @@ export async function executeNewWithdrawRequest({
     throw new Error('Expected validator identity to be a keypair')
   }
   return {
-    withdrawRequest,
+    withdrawRequestAccount,
     bondAuthority,
     validatorIdentity,
     bondAccount,

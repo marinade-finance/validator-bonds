@@ -23,26 +23,25 @@ export function installCancelWithdrawRequest(program: Command) {
   program
     .command('cancel-withdraw-request')
     .description(
-      'Initialization withdrawing by creating a request ticket. ' +
-        'The request ticket is used to withdraw lamports from a funded stake account after the lockup period elapses.'
+      'Cancelling the withdraw request account, which is the withdrawal request ticket, ' +
+        'by removing the account from the chain.'
     )
     .argument(
-      '[withdraw-request-or-bond-or-vote-account-address]',
-      'Address of the bond account to withdraw funds from. ' +
-        'When the address is not provided then this command requires ' +
-        '--config and --vote-account options to be defined',
+      '[address]',
+      'Withdraw request account to be cancelled. Provide: withdraw request, bond or vote account address. ' +
+        'When the [address] is not provided, both the --config and --vote-account options are required.',
       parsePubkey
     )
     .option(
       '--config <pubkey>',
-      '(optional when the argument "withdraw-request-or-bond-or-vote-account-address" is NOT provided, ' +
+      '(optional when the argument "address" is NOT provided, ' +
         'used to derive the withdraw request address) ' +
         `The config account that the bond is created under (default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey
     )
     .option(
       '--vote-account <pubkey>',
-      '(optional when the argument "withdraw-request-or-bond-or-vote-account-address" is NOT provided, ' +
+      '(optional when the argument "address" is NOT provided, ' +
         'used to derive the withdraw request address) ' +
         'Validator vote account that the bond is bound to',
       parsePubkeyOrPubkeyFromWallet
@@ -62,9 +61,7 @@ export function installCancelWithdrawRequest(program: Command) {
     )
     .action(
       async (
-        withdrawRequestOrBondOrVoteAccountAddress: Promise<
-          PublicKey | undefined
-        >,
+        address: Promise<PublicKey | undefined>,
         {
           config,
           voteAccount,
@@ -78,8 +75,7 @@ export function installCancelWithdrawRequest(program: Command) {
         }
       ) => {
         await manageCancelWithdrawRequest({
-          withdrawRequestOrBondOrVoteAccountAddress:
-            await withdrawRequestOrBondOrVoteAccountAddress,
+          address: await address,
           config: await config,
           voteAccount: await voteAccount,
           authority: await authority,
@@ -90,13 +86,13 @@ export function installCancelWithdrawRequest(program: Command) {
 }
 
 async function manageCancelWithdrawRequest({
-  withdrawRequestOrBondOrVoteAccountAddress,
+  address,
   config,
   voteAccount,
   authority,
   rentCollector,
 }: {
-  withdrawRequestOrBondOrVoteAccountAddress?: PublicKey
+  address?: PublicKey
   config?: PublicKey
   voteAccount?: PublicKey
   authority?: WalletInterface | PublicKey
@@ -122,11 +118,11 @@ async function manageCancelWithdrawRequest({
   }
 
   let bondAccount: PublicKey | undefined = undefined
-  let withdrawRequestAddress = withdrawRequestOrBondOrVoteAccountAddress
-  if (withdrawRequestOrBondOrVoteAccountAddress !== undefined) {
+  let withdrawRequestAddress = address
+  if (address !== undefined) {
     const withdrawRequestAccountData = await getWithdrawRequestFromAddress({
       program,
-      address: withdrawRequestOrBondOrVoteAccountAddress,
+      address: address,
       config,
       logger,
     })

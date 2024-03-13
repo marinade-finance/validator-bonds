@@ -7,9 +7,9 @@ import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
   Wallet,
-  executeTx,
   instanceOfWallet,
   transaction,
+  splitAndExecuteTx,
 } from '@marinade.finance/web3js-common'
 import {
   MARINADE_CONFIG_ADDRESS,
@@ -23,26 +23,27 @@ export function installClaimWithdrawRequest(program: Command) {
   program
     .command('claim-withdraw-request')
     .description(
-      'Claiming an existing withdraw request (proven as an existing account on-chain) ' +
-        'that the lockup period time elapses after its creation.'
+      'Claiming an existing withdrawal request for an existing on-chain account, ' +
+        'where the lockup period has expired. Withdrawing funds involves transferring ownership ' +
+        'of a funded stake account to the specified "--withdrawer" public key. ' +
+        'To withdraw, the authority signature of the bond account is required, specified by the "--authority" parameter (default wallet).'
     )
     .argument(
-      '[withdraw-request-or-bond-or-vote-account-address]',
-      'Address of the bond account to withdraw funds from. ' +
-        'When the address is not provided then this command requires ' +
-        '--config and --vote-account options to be defined',
+      '[address]',
+      'Address of the withdrawal request account to claim. Provide: withdraw request or bond or vote account address.' +
+        'When the [address] is not provided, both the --config and --vote-account options are required.',
       parsePubkey
     )
     .option(
       '--config <pubkey>',
-      '(optional when the argument "withdraw-request-or-bond-or-vote-account-address" is NOT provided, ' +
+      '(optional when the argument "address" is NOT provided, ' +
         'used to derive the withdraw request address) ' +
         `The config account that the bond is created under (default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey
     )
     .option(
       '--vote-account <pubkey>',
-      '(optional when the argument "withdraw-request-or-bond-or-vote-account-address" is NOT provided, ' +
+      '(optional when the argument "address" is NOT provided, ' +
         'used to derive the withdraw request address) ' +
         'Validator vote account that the bond is bound to',
       parsePubkeyOrPubkeyFromWallet
@@ -56,6 +57,12 @@ export function installClaimWithdrawRequest(program: Command) {
       parseWalletOrPubkey
     )
     .option(
+      '--withdrawer <pubkey>',
+      'Pubkey to be new owner (withdrawer authority) ' +
+        'of the stake accounts that are taken out of the Validator Bonds (default: wallet publickey)',
+      parsePubkey
+    )
+    .option(
       '--split-stake-rent-payer <keypair_or_ledger_or_pubkey>',
       'Rent payer for the split stake account creation. ' +
         'The split stake account is needed when the amount of lamports in the --stake-account ' +
@@ -65,27 +72,27 @@ export function installClaimWithdrawRequest(program: Command) {
     )
     .action(
       async (
-        withdrawRequestOrBondOrVoteAccountAddress: Promise<
-          PublicKey | undefined
-        >,
+        address: Promise<PublicKey | undefined>,
         {
           config,
           voteAccount,
           authority,
+          withdrawer,
           splitStakeRentPayer,
         }: {
           config?: Promise<PublicKey>
           voteAccount?: Promise<PublicKey>
           authority?: Promise<WalletInterface | PublicKey>
+          withdrawer?: Promise<PublicKey>
           splitStakeRentPayer?: Promise<WalletInterface | PublicKey>
         }
       ) => {
         await manageClaimWithdrawRequest({
-          withdrawRequestOrBondOrVoteAccountAddress:
-            await withdrawRequestOrBondOrVoteAccountAddress,
+          address: await address,
           config: await config,
           voteAccount: await voteAccount,
           authority: await authority,
+          withdrawer: await withdrawer,
           splitStakeRentPayer: await splitStakeRentPayer,
         })
       }
@@ -93,16 +100,18 @@ export function installClaimWithdrawRequest(program: Command) {
 }
 
 async function manageClaimWithdrawRequest({
-  withdrawRequestOrBondOrVoteAccountAddress,
+  address,
   config,
   voteAccount,
   authority,
+  withdrawer,
   splitStakeRentPayer,
 }: {
-  withdrawRequestOrBondOrVoteAccountAddress?: PublicKey
+  address?: PublicKey
   config?: PublicKey
   voteAccount?: PublicKey
   authority?: WalletInterface | PublicKey
+  withdrawer?: PublicKey
   splitStakeRentPayer?: WalletInterface | PublicKey
 }) {
   const {
@@ -129,12 +138,14 @@ async function manageClaimWithdrawRequest({
     authority = authority.publicKey
   }
 
+  withdrawer = withdrawer ?? wallet.publicKey
+
   let bondAccount: PublicKey | undefined = undefined
-  let withdrawRequestAddress = withdrawRequestOrBondOrVoteAccountAddress
-  if (withdrawRequestOrBondOrVoteAccountAddress !== undefined) {
+  let withdrawRequestAddress = address
+  if (address !== undefined) {
     const withdrawRequestAccountData = await getWithdrawRequestFromAddress({
       program,
-      address: withdrawRequestOrBondOrVoteAccountAddress,
+      address: address,
       config,
       logger,
     })
@@ -152,16 +163,24 @@ async function manageClaimWithdrawRequest({
     program,
     withdrawRequestAccount: withdrawRequestAddress,
     bondAccount,
+    voteAccount,
+    configAccount: config,
+    authority,
+    withdrawer,
     splitStakeRentPayer,
   })
   signers.push(splitStakeAccount)
   tx.add(...instructions)
+  console.log(
+    'signers',
+    signers.map(s => s.publicKey.toBase58())
+  )
 
   logger.info(
     `Claiming withdraw request account ${withdrawRequestAccount.toBase58()} ` +
       `for bond account ${bondAccount?.toBase58()} with stake account ${stakeAccount.toBase58()}`
   )
-  await executeTx({
+  await splitAndExecuteTx({
     connection: provider.connection,
     transaction: tx,
     errMessage: `Failed to claim withdraw request ${withdrawRequestAccount.toBase58()}`,

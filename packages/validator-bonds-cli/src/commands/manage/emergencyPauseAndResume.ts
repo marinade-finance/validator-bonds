@@ -20,7 +20,7 @@ export function installEmergencyPause(program: Command) {
     .command('pause')
     .description('Pausing Validator Bond contract for config account')
     .argument(
-      '[config-account-address]',
+      '[address]',
       'Address of the validator bonds config account to be paused ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey
@@ -32,7 +32,7 @@ export function installEmergencyPause(program: Command) {
     )
     .action(
       async (
-        configAccountAddress: Promise<undefined | PublicKey>,
+        address: Promise<undefined | PublicKey>,
         {
           authority,
         }: {
@@ -41,7 +41,7 @@ export function installEmergencyPause(program: Command) {
       ) => {
         await manageEmergencyPauseAndResume({
           action: 'pause',
-          address: await configAccountAddress,
+          address: await address,
           authority: await authority,
         })
       }
@@ -53,7 +53,7 @@ export function installEmergencyResume(program: Command) {
     .command('resume')
     .description('Resuming Validator Bond contract for config account')
     .argument(
-      '[config-account-address]',
+      '[address]',
       'Address of the validator bonds config account to be resumed ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey
@@ -65,7 +65,7 @@ export function installEmergencyResume(program: Command) {
     )
     .action(
       async (
-        configAccountAddress: Promise<undefined | PublicKey>,
+        address: Promise<undefined | PublicKey>,
         {
           authority,
         }: {
@@ -74,7 +74,7 @@ export function installEmergencyResume(program: Command) {
       ) => {
         await manageEmergencyPauseAndResume({
           action: 'resume',
-          address: await configAccountAddress,
+          address: await address,
           authority: await authority,
         })
       }

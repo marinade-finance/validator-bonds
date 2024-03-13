@@ -269,6 +269,9 @@ async function showBond({
       amountActive: bondFunding[0].amountActive,
       amountAtSettlements: bondFunding[0].amountAtSettlements,
       amountToWithdraw: bondFunding[0].amountToWithdraw,
+      amountActiveStakeAccounts: bondFunding[0].amountActiveStakeAccounts,
+      amountSettlementStakeAccounts:
+        bondFunding[0].amountSettlementStakeAccounts,
       withdrawRequest: bondFunding[0].withdrawRequest,
     }
   } else {
@@ -306,7 +309,11 @@ async function showBond({
           data[i].amountActive = bondFunding?.amountActive
           data[i].amountAtSettlements = bondFunding?.amountAtSettlements
           data[i].amountToWithdraw = bondFunding?.amountToWithdraw
-          data[i].withdrawRequest = bondFunding?.withdrawRequest
+          ;(data[i].amountActiveStakeAccounts =
+            bondFunding?.amountActiveStakeAccounts),
+            (data[i].amountSettlementStakeAccounts =
+              bondFunding?.amountSettlementStakeAccounts),
+            (data[i].withdrawRequest = bondFunding?.withdrawRequest)
         }
       }
     } catch (err) {

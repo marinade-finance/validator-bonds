@@ -24,6 +24,8 @@ import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
  * Withdrawing requires stake account that is attributed to the withdrawer.
  * Withdrawing is possible only when lockup time elapses (configured in config)
  * from the withdraw request creation.
+ *
+ * Default withdrawer is validator identity pubkey of the vote account.
  */
 export async function claimWithdrawRequestInstruction({
   program,

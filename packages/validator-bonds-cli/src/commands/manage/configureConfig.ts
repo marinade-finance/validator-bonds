@@ -23,8 +23,8 @@ export function installConfigureConfig(program: Command) {
     .command('configure-config')
     .description('Configure existing config account.')
     .argument(
-      '[config-account-address]',
-      'Address of the validator bonds config account to configure ' +
+      '[address]',
+      'Address of the validator bonds config account ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey
     )
@@ -65,7 +65,7 @@ export function installConfigureConfig(program: Command) {
     )
     .action(
       async (
-        configAccountAddress: Promise<undefined | PublicKey>,
+        address: Promise<undefined | PublicKey>,
         {
           adminAuthority,
           admin,
@@ -85,7 +85,7 @@ export function installConfigureConfig(program: Command) {
         }
       ) => {
         await manageConfigureConfig({
-          address: await configAccountAddress,
+          address: await address,
           adminAuthority: await adminAuthority,
           admin: await admin,
           operator: await operator,

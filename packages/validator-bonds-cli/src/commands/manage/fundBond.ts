@@ -26,10 +26,9 @@ export function installFundBond(program: Command) {
       'Funding a bond account with amount of SOL within a stake account.'
     )
     .argument(
-      '[bond-or-vote-account-address]',
-      'Address of the bond account to be funded. ' +
-        'When the address is not provided then this command requires ' +
-        '--config and --vote-account options to be defined',
+      '[address]',
+      'Address of the bond account to be funded. Provide: bond or vote account address. ' +
+        'When the [address] is not provided, both the --config and --vote-account options are required.',
       parsePubkey
     )
     .option(
@@ -58,7 +57,7 @@ export function installFundBond(program: Command) {
     )
     .action(
       async (
-        bondOrVoteAccountAddress: Promise<PublicKey | undefined>,
+        address: Promise<PublicKey | undefined>,
         {
           config,
           voteAccount,
@@ -72,7 +71,7 @@ export function installFundBond(program: Command) {
         }
       ) => {
         await manageFundBond({
-          bondOrVoteAccountAddress: await bondOrVoteAccountAddress,
+          address: await address,
           config: await config,
           voteAccount: await voteAccount,
           stakeAccount: await stakeAccount,
@@ -83,13 +82,13 @@ export function installFundBond(program: Command) {
 }
 
 async function manageFundBond({
-  bondOrVoteAccountAddress,
+  address,
   config,
   voteAccount,
   stakeAccount,
   stakeAuthority,
 }: {
-  bondOrVoteAccountAddress?: PublicKey
+  address?: PublicKey
   config?: PublicKey
   voteAccount?: PublicKey
   stakeAccount: PublicKey
@@ -114,11 +113,11 @@ async function manageFundBond({
     stakeAuthority = stakeAuthority.publicKey
   }
 
-  let bondAccountAddress = bondOrVoteAccountAddress
-  if (bondOrVoteAccountAddress !== undefined) {
+  let bondAccountAddress = address
+  if (address !== undefined) {
     const bondAccountData = await getBondFromAddress({
       program,
-      address: bondOrVoteAccountAddress,
+      address: address,
       config,
       logger,
     })

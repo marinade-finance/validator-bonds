@@ -528,6 +528,8 @@ export type BondFunding = {
   amountActive: BN
   amountAtSettlements: BN
   amountToWithdraw: BN
+  amountActiveStakeAccounts: number
+  amountSettlementStakeAccounts: number
   withdrawRequest: ProgramAccount<WithdrawRequest> | undefined
 }
 
@@ -555,19 +557,33 @@ export async function getBondsFunding({
 }: {
   program: ValidatorBondsProgram
   configAccount: PublicKey
-  bondAccounts: (PublicKey | undefined)[]
-  voteAccounts: (PublicKey | undefined)[]
+  bondAccounts?: (PublicKey | undefined)[]
+  voteAccounts?: (PublicKey | undefined)[]
 }): Promise<BondFunding[]> {
+  const maxLength = Math.max(
+    bondAccounts?.length ?? 0,
+    voteAccounts?.length ?? 0
+  )
+  bondAccounts = bondAccounts?.length
+    ? bondAccounts
+    : Array(maxLength).fill(undefined)
+  voteAccounts = voteAccounts?.length
+    ? voteAccounts
+    : Array(maxLength).fill(undefined)
   if (bondAccounts.length !== voteAccounts.length) {
     throw new Error('getBondsFunding: bondAccounts and voteAccounts must match')
   }
-  for (let i = 0; i < bondAccounts.length; i++) {
-    if (bondAccounts[i] === undefined && voteAccounts[i] === undefined) {
-      throw new Error(
-        'getBondsFunding: bondAccounts or voteAccounts must be provided for every record'
-      )
-    }
+  if (
+    bondAccounts.some(
+      (bondAccount, i) =>
+        bondAccount === undefined && voteAccounts![i] === undefined
+    )
+  ) {
+    throw new Error(
+      'getBondsFunding: bondAccounts or voteAccounts must be provided for every record'
+    )
   }
+
   const inputData: Map<
     string,
     {
@@ -596,9 +612,9 @@ export async function getBondsFunding({
   }
 
   // searching for all vote accounts for each bond
-  const bondsWithUnknownVoteAccount = Array.from(inputData.values())
-    .filter(({ voteAccount }) => voteAccount.equals(PublicKey.default))
-    .map(({ voteAccount }) => voteAccount)
+  const bondsWithUnknownVoteAccount = Array.from(inputData.entries())
+    .filter(([, { voteAccount }]) => voteAccount.equals(PublicKey.default))
+    .map(([bondAccount]) => new PublicKey(bondAccount))
   const bondsDataWithUnknownVoteAccount = await getMultipleBonds({
     program,
     addresses: bondsWithUnknownVoteAccount,
@@ -697,6 +713,8 @@ export async function getBondsFunding({
         amountActive,
         amountAtSettlements,
         amountToWithdraw,
+        amountActiveStakeAccounts: bondFunded.length,
+        amountSettlementStakeAccounts: settlementFunded.length,
         withdrawRequest,
       }
     }

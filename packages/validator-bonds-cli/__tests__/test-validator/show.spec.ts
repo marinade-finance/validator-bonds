@@ -243,6 +243,8 @@ describe('Show command using CLI', () => {
       amountActive: 0,
       amountAtSettlements: 0,
       amountToWithdraw: 0,
+      amountActiveStakeAccounts: 0,
+      amountSettlementStakeAccounts: 0,
     }
 
     await (
@@ -502,6 +504,8 @@ describe('Show command using CLI', () => {
       amountActive: 0,
       amountAtSettlements: 0,
       amountToWithdraw: 0,
+      amountActiveStakeAccounts: stakeAccountLamports.length,
+      amountSettlementStakeAccounts: 0,
       withdrawRequest: undefined,
     }
 
@@ -532,17 +536,18 @@ describe('Show command using CLI', () => {
       }),
     })
 
-    const { withdrawRequest } = await executeInitWithdrawRequestInstruction({
-      program,
-      provider,
-      configAccount,
-      bondAccount,
-      validatorIdentity,
-      amount: LAMPORTS_PER_SOL * 2,
-    })
+    const { withdrawRequestAccount } =
+      await executeInitWithdrawRequestInstruction({
+        program,
+        provider,
+        configAccount,
+        bondAccount,
+        validatorIdentity,
+        amount: LAMPORTS_PER_SOL * 2,
+      })
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequest
+      withdrawRequestAccount
     )
     const withdrawRequestAmount = withdrawRequestData.requestedAmount.toNumber()
 
@@ -573,7 +578,7 @@ describe('Show command using CLI', () => {
         amountActive: sumLamports - withdrawRequestAmount,
         amountToWithdraw: withdrawRequestAmount,
         withdrawRequest: {
-          publicKey: withdrawRequest.toBase58(),
+          publicKey: withdrawRequestAccount.toBase58(),
           account: {
             voteAccount: withdrawRequestData.voteAccount.toBase58(),
             bond: bondAccount.toBase58(),
@@ -587,7 +592,7 @@ describe('Show command using CLI', () => {
 
     const { instruction: ixCancel } = await cancelWithdrawRequestInstruction({
       program,
-      withdrawRequestAccount: withdrawRequest,
+      withdrawRequestAccount,
       authority: validatorIdentity,
       bondAccount,
       voteAccount,

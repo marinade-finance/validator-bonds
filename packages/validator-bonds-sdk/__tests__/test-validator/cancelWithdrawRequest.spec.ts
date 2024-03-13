@@ -17,7 +17,7 @@ describe('Validator Bonds cancel withdraw request', () => {
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let bondAccount: PublicKey
-  let withdrawRequest: PublicKey
+  let withdrawRequestAccount: PublicKey
   let validatorIdentity: Keypair
   const requestedAmount = 2 * LAMPORTS_PER_SOL
 
@@ -35,7 +35,7 @@ describe('Validator Bonds cancel withdraw request', () => {
       program,
       provider,
     }))
-    ;({ withdrawRequest, validatorIdentity, bondAccount } =
+    ;({ withdrawRequestAccount, validatorIdentity, bondAccount } =
       await executeNewWithdrawRequest({
         program,
         provider,
@@ -57,16 +57,16 @@ describe('Validator Bonds cancel withdraw request', () => {
 
     const { instruction } = await cancelWithdrawRequestInstruction({
       program,
-      withdrawRequestAccount: withdrawRequest,
+      withdrawRequestAccount,
       authority: validatorIdentity.publicKey,
     })
     await provider.sendIx([validatorIdentity], instruction)
     expect(
-      provider.connection.getAccountInfo(withdrawRequest)
+      provider.connection.getAccountInfo(withdrawRequestAccount)
     ).resolves.toBeNull()
 
     await event.then(e => {
-      expect(e.withdrawRequest).toEqual(withdrawRequest)
+      expect(e.withdrawRequest).toEqual(withdrawRequestAccount)
       expect(e.bond).toEqual(bondAccount)
       expect(e.authority).toEqual(validatorIdentity.publicKey)
       expect(e.requestedAmount).toEqual(requestedAmount)

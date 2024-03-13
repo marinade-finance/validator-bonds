@@ -5,6 +5,8 @@ import {
   TransactionInstruction,
 } from '@solana/web3.js'
 import {
+  bondAddress,
+  bondsWithdrawerAuthority,
   ValidatorBondsProgram,
   WithdrawRequest,
   withdrawRequestAddress,
@@ -17,7 +19,6 @@ import { mergeStakeInstruction } from '../instructions/mergeStake'
 import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRequest'
 import { anchorProgramWalletPubkey } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { getVoteAccount } from '../web3.js/index'
 import { ProgramAccountInfo } from '../web3.js/accounts'
 
 /**
@@ -28,11 +29,19 @@ export async function orchestrateWithdrawDeposit({
   program,
   withdrawRequestAccount,
   bondAccount,
+  configAccount,
+  voteAccount,
+  withdrawer,
+  authority,
   splitStakeRentPayer = anchorProgramWalletPubkey(program),
 }: {
   program: ValidatorBondsProgram
   withdrawRequestAccount?: PublicKey
   bondAccount?: PublicKey
+  configAccount?: PublicKey
+  voteAccount?: PublicKey
+  withdrawer?: PublicKey
+  authority?: PublicKey | Keypair | Signer | WalletInterface // signer
   splitStakeRentPayer?: PublicKey | Keypair | Signer | WalletInterface // signer
 }): Promise<{
   instructions: TransactionInstruction[]
@@ -40,6 +49,13 @@ export async function orchestrateWithdrawDeposit({
   withdrawRequestAccount: PublicKey
   stakeAccount: PublicKey
 }> {
+  if (
+    configAccount !== undefined &&
+    voteAccount !== undefined &&
+    bondAccount === undefined
+  ) {
+    bondAccount = bondAddress(configAccount, voteAccount, program.programId)[0]
+  }
   let withdrawRequestData: WithdrawRequest | undefined
   if (bondAccount === undefined && withdrawRequestAccount === undefined) {
     throw new Error(
@@ -73,16 +89,14 @@ export async function orchestrateWithdrawDeposit({
     'this should not happen; bondAccount is undefined'
   )
 
+  if (configAccount === undefined) {
+    const bondData = await getBond(program, bondAccount)
+    configAccount = bondData.config
+  }
+
   withdrawRequestData =
     withdrawRequestData ??
     (await getWithdrawRequest(program, withdrawRequestAccount))
-  const bondData = await getBond(program, bondAccount)
-  const voteAccountData = await getVoteAccount(
-    program,
-    withdrawRequestData.voteAccount
-  )
-  const withdrawer = voteAccountData.account.data.nodePubkey
-  const configAccount = bondData.config
 
   let amountToWithdraw = withdrawRequestData.requestedAmount.sub(
     withdrawRequestData.withdrawnAmount
@@ -90,11 +104,15 @@ export async function orchestrateWithdrawDeposit({
   amountToWithdraw =
     amountToWithdraw <= new BN(0) ? new BN(0) : amountToWithdraw
   // calculating what are the stake accounts we need to merge to easily withdraw the deposit
+  const [bondWithdrawerAuthority] = bondsWithdrawerAuthority(
+    configAccount,
+    program.programId
+  )
   const stakeAccountsToWithdraw = (
     await findStakeAccounts({
       connection: program,
-      staker: withdrawer,
-      withdrawer,
+      staker: bondWithdrawerAuthority,
+      withdrawer: bondWithdrawerAuthority,
     })
   )
     .sort((x, y) =>
@@ -149,6 +167,7 @@ export async function orchestrateWithdrawDeposit({
       withdrawRequestAccount,
       bondAccount,
       stakeAccount: destinationStakeAccount,
+      authority,
       voteAccount: withdrawRequestData.voteAccount,
       splitStakeRentPayer,
       withdrawer,

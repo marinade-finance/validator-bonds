@@ -25,7 +25,7 @@ export function installInitBond(program: Command) {
     .description('Create a new bond account.')
     .option(
       '--config <pubkey>',
-      'Validator Bond config account that the bond is created under ' +
+      'The config account that the bond is created under. ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey
     )

@@ -53,7 +53,7 @@ describe('Validator Bonds claim withdraw request', () => {
       )
     })
 
-    const { withdrawRequest, bondAccount, voteAccount, bondAuthority } =
+    const { withdrawRequestAccount, bondAccount, voteAccount, bondAuthority } =
       await executeNewWithdrawRequest({
         program,
         provider,
@@ -90,7 +90,7 @@ describe('Validator Bonds claim withdraw request', () => {
     expect(stakeAccountData.withdrawer).toEqual(bondsWithdrawerAuth)
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequest
+      withdrawRequestAccount
     )
     expect(withdrawRequestData.bond).toEqual(bondAccount)
     expect(withdrawRequestData.withdrawnAmount).toEqual(0)
@@ -99,7 +99,7 @@ describe('Validator Bonds claim withdraw request', () => {
       await claimWithdrawRequestInstruction({
         program,
         authority: bondAuthority,
-        withdrawRequestAccount: withdrawRequest,
+        withdrawRequestAccount,
         bondAccount,
         stakeAccount,
       })
@@ -117,7 +117,7 @@ describe('Validator Bonds claim withdraw request', () => {
 
     const withdrawRequestDataAfter = await getWithdrawRequest(
       program,
-      withdrawRequest
+      withdrawRequestAccount
     )
     expect(withdrawRequestDataAfter.withdrawnAmount).toEqual(requestedAmount)
     expect(withdrawRequestDataAfter.requestedAmount).toEqual(requestedAmount)
@@ -134,7 +134,7 @@ describe('Validator Bonds claim withdraw request', () => {
       expect(e.splitStake?.amount).toEqual(splitStakeLamports)
       expect(e.splitStake?.address).toEqual(splitStakeAccount.publicKey)
       expect(e.voteAccount).toEqual(voteAccount)
-      expect(e.withdrawRequest).toEqual(withdrawRequest)
+      expect(e.withdrawRequest).toEqual(withdrawRequestAccount)
       expect(e.withdrawingAmount).toEqual(requestedAmount)
       expect(e.withdrawnAmount).toEqual({
         old: new BN(0),
