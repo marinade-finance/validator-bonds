@@ -5,7 +5,7 @@ import {
   TransactionInstruction,
 } from '@solana/web3.js'
 import {
-  CONFIG_ADDRESS,
+  MARINADE_CONFIG_ADDRESS,
   ConfigureConfigArgs,
   ValidatorBondsProgram,
 } from '../sdk'
@@ -31,7 +31,7 @@ import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
  */
 export async function configureConfigInstruction({
   program,
-  configAccount = CONFIG_ADDRESS,
+  configAccount = MARINADE_CONFIG_ADDRESS,
   adminAuthority,
   newAdmin,
   newOperator,

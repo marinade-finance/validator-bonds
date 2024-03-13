@@ -12,7 +12,7 @@ import {
   transaction,
 } from '@marinade.finance/web3js-common'
 import {
-  CONFIG_ADDRESS,
+  MARINADE_CONFIG_ADDRESS,
   getVoteAccount,
   initBondInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
@@ -26,7 +26,7 @@ export function installInitBond(program: Command) {
     .option(
       '--config <pubkey>',
       'Validator Bond config account that the bond is created under ' +
-        `(default: ${CONFIG_ADDRESS.toBase58()})`,
+        `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey
     )
     .requiredOption(
@@ -79,7 +79,7 @@ export function installInitBond(program: Command) {
 }
 
 async function manageInitBond({
-  config = CONFIG_ADDRESS,
+  config = MARINADE_CONFIG_ADDRESS,
   voteAccount,
   validatorIdentity,
   bondAuthority,

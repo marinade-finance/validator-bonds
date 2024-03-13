@@ -1,9 +1,5 @@
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import {
-  findStakeAccount,
-  StakeAccountParsed,
-  ProgramAccountInfo,
-} from '../../src'
+import { findStakeAccounts, StakeAccountParsed } from '../../src'
 import { initTest } from './testValidator'
 import { ExtendedProvider } from '../utils/provider'
 import {
@@ -11,6 +7,7 @@ import {
   createDelegatedStakeAccount,
   createVoteAccount,
 } from '../utils/staking'
+import { ProgramAccountInfo } from '../../src/web3.js/accounts'
 
 describe('Find stake account', () => {
   let provider: ExtendedProvider
@@ -51,7 +48,7 @@ describe('Find stake account', () => {
       lamports: LAMPORTS_PER_SOL * 19,
     })
 
-    const stakeAccounts1 = await findStakeAccount({
+    const stakeAccounts1 = await findStakeAccounts({
       connection: provider,
       staker: staker1,
     })
@@ -60,21 +57,21 @@ describe('Find stake account', () => {
     expect(includesPubkey(stakeAccounts1, initialized2)).toBeTruthy()
     expect(includesPubkey(stakeAccounts1, delegated1)).toBeTruthy()
 
-    const stakeAccounts2 = await findStakeAccount({
+    const stakeAccounts2 = await findStakeAccounts({
       connection: provider,
       staker: staker2,
     })
     expect(stakeAccounts2.length).toBe(1)
     expect(includesPubkey(stakeAccounts2, delegated2)).toBeTruthy()
 
-    const stakeAccounts3 = await findStakeAccount({
+    const stakeAccounts3 = await findStakeAccounts({
       connection: provider,
       withdrawer: withdrawer1,
     })
     expect(stakeAccounts3.length).toBe(1)
     expect(includesPubkey(stakeAccounts3, initialized1)).toBeTruthy()
 
-    const stakeAccounts4 = await findStakeAccount({
+    const stakeAccounts4 = await findStakeAccounts({
       connection: provider,
       withdrawer: withdrawer2,
       staker: staker1,
@@ -83,7 +80,7 @@ describe('Find stake account', () => {
     expect(includesPubkey(stakeAccounts4, initialized2)).toBeTruthy()
     expect(includesPubkey(stakeAccounts4, delegated1)).toBeTruthy()
 
-    const stakeAccounts5 = await findStakeAccount({
+    const stakeAccounts5 = await findStakeAccounts({
       connection: provider,
       voter: voteAccount,
     })
@@ -91,7 +88,7 @@ describe('Find stake account', () => {
     expect(includesPubkey(stakeAccounts5, delegated1)).toBeTruthy()
     expect(includesPubkey(stakeAccounts5, delegated2)).toBeTruthy()
 
-    const stakeAccounts6 = await findStakeAccount({
+    const stakeAccounts6 = await findStakeAccounts({
       connection: provider,
       voter: voteAccount,
       staker: staker2,

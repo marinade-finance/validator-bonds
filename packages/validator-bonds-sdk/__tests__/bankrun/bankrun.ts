@@ -258,7 +258,7 @@ export async function delegateAndFund({
     lamports,
     voteAccountToDelegate: voteAccount,
   })
-  if (bondAccount) {
+  if (bondAccount && configAccount) {
     const bondToCheck = checkAndGetBondAddress(
       undefined,
       configAccount,

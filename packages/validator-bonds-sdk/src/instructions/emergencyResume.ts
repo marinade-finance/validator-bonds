@@ -4,7 +4,7 @@ import {
   Signer,
   TransactionInstruction,
 } from '@solana/web3.js'
-import { CONFIG_ADDRESS, ValidatorBondsProgram } from '../sdk'
+import { MARINADE_CONFIG_ADDRESS, ValidatorBondsProgram } from '../sdk'
 import { getConfig } from '../api'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
@@ -14,7 +14,7 @@ import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
  */
 export async function emergencyResumeInstruction({
   program,
-  configAccount = CONFIG_ADDRESS,
+  configAccount = MARINADE_CONFIG_ADDRESS,
   pauseAuthority,
 }: {
   program: ValidatorBondsProgram

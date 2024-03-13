@@ -4,7 +4,11 @@ import {
   Signer,
   TransactionInstruction,
 } from '@solana/web3.js'
-import { CONFIG_ADDRESS, ValidatorBondsProgram, bondAddress } from '../sdk'
+import {
+  MARINADE_CONFIG_ADDRESS,
+  ValidatorBondsProgram,
+  bondAddress,
+} from '../sdk'
 import { anchorProgramWalletPubkey } from '../utils'
 import BN from 'bn.js'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
@@ -17,7 +21,7 @@ import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
  */
 export async function initBondInstruction({
   program,
-  configAccount = CONFIG_ADDRESS,
+  configAccount = MARINADE_CONFIG_ADDRESS,
   voteAccount,
   validatorIdentity,
   bondAuthority = anchorProgramWalletPubkey(program),

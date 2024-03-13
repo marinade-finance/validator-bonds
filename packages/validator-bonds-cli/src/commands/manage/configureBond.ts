@@ -13,7 +13,7 @@ import {
   transaction,
 } from '@marinade.finance/web3js-common'
 import {
-  CONFIG_ADDRESS,
+  MARINADE_CONFIG_ADDRESS,
   configureBondInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
@@ -32,7 +32,7 @@ export function installConfigureBond(program: Command) {
       '--config <pubkey>',
       '(optional when the argument bond-account-address is provided) ' +
         'The config account that the bond is created under ' +
-        `(default: ${CONFIG_ADDRESS.toBase58()})`,
+        `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey
     )
     .option(
@@ -83,7 +83,7 @@ export function installConfigureBond(program: Command) {
 
 async function manageConfigureBond({
   bondAccountAddress,
-  config = CONFIG_ADDRESS,
+  config = MARINADE_CONFIG_ADDRESS,
   voteAccount,
   authority,
   newBondAuthority,

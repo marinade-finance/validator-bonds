@@ -11,10 +11,11 @@ import {
   WithdrawRequest,
   bondAddress,
   withdrawRequestAddress,
+  MARINADE_CONFIG_ADDRESS,
 } from '../sdk'
-import { getWithdrawRequest } from '../api'
+import { getBond, getWithdrawRequest } from '../api'
 import { getVoteAccount } from '../web3.js/voteAccount'
-import { anchorProgramWalletPubkey } from '../utils'
+import { anchorProgramWalletPubkey, checkAndGetBondAddress } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
 /**
@@ -47,6 +48,7 @@ export async function claimWithdrawRequestInstruction({
 }): Promise<{
   instruction: TransactionInstruction
   splitStakeAccount: Keypair
+  withdrawRequestAccount: PublicKey
 }> {
   if (
     configAccount !== undefined &&
@@ -77,16 +79,31 @@ export async function claimWithdrawRequestInstruction({
     bondAccount !== undefined &&
     (voteAccount === undefined || configAccount === undefined)
   ) {
-    const bondData = await program.account.bond.fetch(bondAccount)
+    const bondData = await getBond(program, bondAccount)
     voteAccount = voteAccount ?? bondData.voteAccount
     configAccount = configAccount ?? bondData.config
   }
 
-  if (withdrawRequestAccount === undefined) {
+  if (voteAccount === undefined) {
     throw new Error(
-      'withdrawRequestAccount not provided and could not be derived from other parameters'
+      'voteAccount not provided and could not be derived from other parameters'
     )
   }
+  if (withdrawRequestAccount === undefined) {
+    throw new Error(
+      'claimWithdrawRequest: ' +
+        'withdrawRequestAccount not provided and could not be derived from other parameters'
+    )
+  }
+  if (!bondAccount && !configAccount) {
+    configAccount = MARINADE_CONFIG_ADDRESS
+  }
+  bondAccount = checkAndGetBondAddress(
+    bondAccount,
+    configAccount,
+    voteAccount,
+    program.programId
+  )
 
   if (withdrawer === undefined) {
     withdrawRequestData =
@@ -124,6 +141,7 @@ export async function claimWithdrawRequestInstruction({
     .instruction()
   return {
     instruction,
+    withdrawRequestAccount,
     splitStakeAccount,
   }
 }

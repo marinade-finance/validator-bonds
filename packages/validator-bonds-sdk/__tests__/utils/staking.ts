@@ -238,12 +238,14 @@ export async function authorizeStakeAccount({
   authority,
   staker,
   withdrawer,
+  custodian,
 }: {
   provider: ExtendedProvider
   stakeAccount: PublicKey
   authority: WalletInterface | Signer
   staker?: PublicKey
   withdrawer?: PublicKey
+  custodian?: WalletInterface | Signer
 }) {
   const ixes: Transaction[] = []
   if (staker) {
@@ -252,7 +254,7 @@ export async function authorizeStakeAccount({
       authorizedPubkey: authority.publicKey,
       newAuthorizedPubkey: staker,
       stakeAuthorizationType: StakeAuthorizationLayout.Staker,
-      custodianPubkey: undefined,
+      custodianPubkey: custodian ? custodian.publicKey : undefined,
     })
     ixes.push(ix)
   }
@@ -262,11 +264,15 @@ export async function authorizeStakeAccount({
       authorizedPubkey: authority.publicKey,
       newAuthorizedPubkey: withdrawer,
       stakeAuthorizationType: StakeAuthorizationLayout.Withdrawer,
-      custodianPubkey: undefined,
+      custodianPubkey: custodian ? custodian.publicKey : undefined,
     })
     ixes.push(ix)
   }
-  await provider.sendIx([authority], ...ixes)
+  const signers = [authority]
+  if (custodian) {
+    signers.push(custodian)
+  }
+  await provider.sendIx(signers, ...ixes)
 }
 
 type DelegatedStakeAccount = {
@@ -296,10 +302,11 @@ export async function delegatedStakeAccount({
 }): Promise<DelegatedStakeAccount> {
   const stakeAccount = Keypair.generate()
   lamports = lamports ?? LAMPORTS_PER_SOL + (await getRentExemptStake(provider))
-  rentExemptVote = await getRentExemptVote(provider, rentExemptVote)
 
   let validatorIdentity: Keypair | undefined = undefined
   if (voteAccountToDelegate === undefined) {
+    rentExemptVote =
+      rentExemptVote ?? (await getRentExemptVote(provider, rentExemptVote))
     ;({ voteAccount: voteAccountToDelegate, validatorIdentity } =
       await createVoteAccount({ provider, rentExempt: rentExemptVote }))
   }

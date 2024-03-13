@@ -4,10 +4,15 @@ import {
   Signer,
   TransactionInstruction,
 } from '@solana/web3.js'
-import { ValidatorBondsProgram, withdrawRequestAddress } from '../sdk'
+import {
+  MARINADE_CONFIG_ADDRESS,
+  ValidatorBondsProgram,
+  withdrawRequestAddress,
+} from '../sdk'
 import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
 import BN from 'bn.js'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import { getBond } from '../api'
 
 /**
  * Generate instruction to create withdraw request for bond account.
@@ -35,8 +40,12 @@ export async function initWithdrawRequestInstruction({
   amount: BN | number
 }): Promise<{
   instruction: TransactionInstruction
+  bondAccount: PublicKey
   withdrawRequestAccount: PublicKey
 }> {
+  if (!bondAccount && !configAccount && voteAccount) {
+    configAccount = MARINADE_CONFIG_ADDRESS
+  }
   bondAccount = checkAndGetBondAddress(
     bondAccount,
     configAccount,
@@ -44,7 +53,7 @@ export async function initWithdrawRequestInstruction({
     program.programId
   )
   if (!voteAccount || !configAccount) {
-    const bondData = await program.account.bond.fetch(bondAccount)
+    const bondData = await getBond(program, bondAccount)
     voteAccount = voteAccount ?? bondData.voteAccount
     configAccount = configAccount ?? bondData.config
   }
@@ -70,6 +79,7 @@ export async function initWithdrawRequestInstruction({
     })
     .instruction()
   return {
+    bondAccount,
     withdrawRequestAccount: withdrawRequest,
     instruction,
   }

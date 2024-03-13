@@ -73,7 +73,7 @@ describe('Validator Bonds claim withdraw request', () => {
     })
     voteAccount = voteAcc
     bondAuthority = bondAuth
-    validatorIdentity = nodeIdentity
+    validatorIdentity = nodeIdentity!
     bond = {
       publicKey: bondAccount,
       account: await getBond(program, bondAccount),
@@ -360,14 +360,14 @@ describe('Validator Bonds claim withdraw request', () => {
       provider,
       lamports: 2 * LAMPORTS_PER_SOL,
       voteAccount,
-      bond: bond.publicKey,
+      bondAccount: bond.publicKey,
     })
     const { stakeAccount: stakeAccountCannotSplit2 } = await delegateAndFund({
       program,
       provider,
       lamports: 3 * LAMPORTS_PER_SOL,
       voteAccount,
-      bond: bond.publicKey,
+      bondAccount: bond.publicKey,
     })
     await warpToUnlockClaiming()
 
@@ -452,14 +452,14 @@ describe('Validator Bonds claim withdraw request', () => {
       provider,
       lamports: stake2Amount,
       voteAccount,
-      bond: bond.publicKey,
+      bondAccount: bond.publicKey,
     })
     const { stakeAccount: stakeAccount3 } = await delegateAndFund({
       program,
       provider,
       lamports: stake3Amount,
       voteAccount,
-      bond: bond.publicKey,
+      bondAccount: bond.publicKey,
     })
 
     const { instruction: ix1, splitStakeAccount: split1 } =
@@ -668,7 +668,7 @@ describe('Validator Bonds claim withdraw request', () => {
       provider,
       lamports: fundStakeLamports,
       voteAccount,
-      bond: bond.publicKey,
+      bondAccount: bond.publicKey,
     })
     const { withdrawRequest } = await initWithdrawRequest(initWithdrawAmount)
     return { withdrawRequest, stakeAccount }

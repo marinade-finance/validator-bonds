@@ -151,9 +151,9 @@ describe('Validator Bonds init bond account', () => {
         bondAuthority: PublicKey.default,
         cpmpe: 30,
         voteAccount,
-        validatorIdentity: validatorIdentity.publicKey,
+        validatorIdentity: validatorIdentity!.publicKey,
       })
-      await provider.sendIx([validatorIdentity], instruction)
+      await provider.sendIx([validatorIdentity!], instruction)
       throw new Error('Should have failed as bond already exists')
     } catch (e) {
       if (!(e as Error).message.includes('custom program error: 0x0')) {

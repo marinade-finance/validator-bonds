@@ -4,7 +4,7 @@ import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import { Wallet, executeTx, transaction } from '@marinade.finance/web3js-common'
 import {
-  CONFIG_ADDRESS,
+  MARINADE_CONFIG_ADDRESS,
   mergeStakeInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 
@@ -28,7 +28,7 @@ export function installStakeMerge(program: Command) {
       '--config <pubkey>',
       'Config account address used to derive stake accounts authority ' +
         'related to the validator bonds program instance.' +
-        `(default: ${CONFIG_ADDRESS.toBase58()})`,
+        `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey
     )
     .option(
@@ -61,7 +61,7 @@ export function installStakeMerge(program: Command) {
 async function manageMerge({
   source,
   destination,
-  config = CONFIG_ADDRESS,
+  config = MARINADE_CONFIG_ADDRESS,
   settlement = PublicKey.default,
 }: {
   source: PublicKey

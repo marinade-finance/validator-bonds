@@ -9,9 +9,10 @@ import {
   WithdrawRequest,
   bondAddress,
   withdrawRequestAddress,
+  MARINADE_CONFIG_ADDRESS,
 } from '../sdk'
-import { anchorProgramWalletPubkey } from '../utils'
-import { getWithdrawRequest } from '../api'
+import { anchorProgramWalletPubkey, checkAndGetBondAddress } from '../utils'
+import { getBond, getWithdrawRequest } from '../api'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 
 /**
@@ -37,6 +38,8 @@ export async function cancelWithdrawRequestInstruction({
   rentCollector?: PublicKey
 }): Promise<{
   instruction: TransactionInstruction
+  bondAccount: PublicKey
+  withdrawRequestAccount: PublicKey
 }> {
   let withdrawRequestData: WithdrawRequest | undefined
   if (
@@ -67,8 +70,8 @@ export async function cancelWithdrawRequestInstruction({
     bondAccount !== undefined &&
     (voteAccount === undefined || authority === undefined)
   ) {
-    const bondData = await program.account.bond.fetch(bondAccount)
-    voteAccount = bondData.voteAccount
+    const bondData = await getBond(program, bondAccount)
+    voteAccount = voteAccount ?? bondData.voteAccount
     authority = authority ?? bondData.authority
   }
   authority = authority ?? anchorProgramWalletPubkey(program)
@@ -76,9 +79,19 @@ export async function cancelWithdrawRequestInstruction({
 
   if (withdrawRequestAccount === undefined) {
     throw new Error(
-      'withdrawRequestAccount not provided and could not be derived from other parameters'
+      'cancelWithdrawRequestInstruction: ' +
+        'withdrawRequestAccount not provided and could not be derived from other parameters'
     )
   }
+  if (!bondAccount && !configAccount) {
+    configAccount = MARINADE_CONFIG_ADDRESS
+  }
+  bondAccount = checkAndGetBondAddress(
+    bondAccount,
+    configAccount,
+    voteAccount,
+    program.programId
+  )
 
   const instruction = await program.methods
     .cancelWithdrawRequest()
@@ -92,5 +105,7 @@ export async function cancelWithdrawRequestInstruction({
     .instruction()
   return {
     instruction,
+    withdrawRequestAccount,
+    bondAccount,
   }
 }

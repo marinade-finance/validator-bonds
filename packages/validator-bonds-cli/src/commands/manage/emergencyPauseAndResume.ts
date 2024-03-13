@@ -10,7 +10,7 @@ import {
 } from '@marinade.finance/web3js-common'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import {
-  CONFIG_ADDRESS,
+  MARINADE_CONFIG_ADDRESS,
   emergencyPauseInstruction,
   emergencyResumeInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
@@ -22,7 +22,7 @@ export function installEmergencyPause(program: Command) {
     .argument(
       '[config-account-address]',
       'Address of the validator bonds config account to be paused ' +
-        `(default: ${CONFIG_ADDRESS.toBase58()})`,
+        `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey
     )
     .option(
@@ -55,7 +55,7 @@ export function installEmergencyResume(program: Command) {
     .argument(
       '[config-account-address]',
       'Address of the validator bonds config account to be resumed ' +
-        `(default: ${CONFIG_ADDRESS.toBase58()})`,
+        `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey
     )
     .option(
@@ -83,7 +83,7 @@ export function installEmergencyResume(program: Command) {
 
 async function manageEmergencyPauseAndResume({
   action,
-  address = CONFIG_ADDRESS,
+  address = MARINADE_CONFIG_ADDRESS,
   authority,
 }: {
   action: 'pause' | 'resume'

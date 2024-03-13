@@ -1,4 +1,8 @@
-import { parsePubkey, parseWalletOrPubkey } from '@marinade.finance/cli-common'
+import {
+  parsePubkey,
+  parsePubkeyOrPubkeyFromWallet,
+  parseWalletOrPubkey,
+} from '@marinade.finance/cli-common'
 import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
@@ -7,9 +11,13 @@ import {
   instanceOfWallet,
   transaction,
 } from '@marinade.finance/web3js-common'
-import { fundBondInstruction } from '@marinade.finance/validator-bonds-sdk'
+import {
+  fundBondInstruction,
+  MARINADE_CONFIG_ADDRESS,
+} from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
+import { getBondFromAddress } from '../utils'
 
 export function installFundBond(program: Command) {
   program
@@ -18,7 +26,7 @@ export function installFundBond(program: Command) {
       'Funding a bond account with amount of SOL within a stake account.'
     )
     .argument(
-      '[bond-account-address]',
+      '[bond-or-vote-account-address]',
       'Address of the bond account to be funded. ' +
         'When the address is not provided then this command requires ' +
         '--config and --vote-account options to be defined',
@@ -27,19 +35,19 @@ export function installFundBond(program: Command) {
     .option(
       '--config <pubkey>',
       '(optional when the argument bond-account-address is NOT provided, used to derive the bond address) ' +
-        'The config account that the bond is created under.',
+        `The config account that the bond is created under (default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey
     )
     .option(
       '--vote-account <pubkey>',
       '(optional when the argument bond-account-address is NOT provided, used to derive the bond address) ' +
         'Validator vote account that the bond is bound to',
-      parsePubkey
+      parsePubkeyOrPubkeyFromWallet
     )
     .requiredOption(
       '--stake-account <pubkey>',
       'Stake account that is used to fund the bond account',
-      parsePubkey
+      parsePubkeyOrPubkeyFromWallet
     )
     .option(
       '--stake-authority <keypair_or_ledger_or_pubkey>',
@@ -50,7 +58,7 @@ export function installFundBond(program: Command) {
     )
     .action(
       async (
-        bondAccountAddress: Promise<PublicKey | undefined>,
+        bondOrVoteAccountAddress: Promise<PublicKey | undefined>,
         {
           config,
           voteAccount,
@@ -64,7 +72,7 @@ export function installFundBond(program: Command) {
         }
       ) => {
         await manageFundBond({
-          bondAccountAddress: await bondAccountAddress,
+          bondOrVoteAccountAddress: await bondOrVoteAccountAddress,
           config: await config,
           voteAccount: await voteAccount,
           stakeAccount: await stakeAccount,
@@ -75,13 +83,13 @@ export function installFundBond(program: Command) {
 }
 
 async function manageFundBond({
-  bondAccountAddress,
+  bondOrVoteAccountAddress,
   config,
   voteAccount,
   stakeAccount,
   stakeAuthority,
 }: {
-  bondAccountAddress?: PublicKey
+  bondOrVoteAccountAddress?: PublicKey
   config?: PublicKey
   voteAccount?: PublicKey
   stakeAccount: PublicKey
@@ -104,6 +112,19 @@ async function manageFundBond({
   if (instanceOfWallet(stakeAuthority)) {
     signers.push(stakeAuthority)
     stakeAuthority = stakeAuthority.publicKey
+  }
+
+  let bondAccountAddress = bondOrVoteAccountAddress
+  if (bondOrVoteAccountAddress !== undefined) {
+    const bondAccountData = await getBondFromAddress({
+      program,
+      address: bondOrVoteAccountAddress,
+      config,
+      logger,
+    })
+    bondAccountAddress = bondAccountData.publicKey
+    config = bondAccountData.account.data.config
+    voteAccount = bondAccountData.account.data.voteAccount
   }
 
   const { instruction, bondAccount } = await fundBondInstruction({

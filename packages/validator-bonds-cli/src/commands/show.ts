@@ -14,19 +14,18 @@ import { Command } from 'commander'
 import { getCliContext, setProgramIdByOwner } from '../context'
 import {
   Bond,
-  CONFIG_ADDRESS,
+  MARINADE_CONFIG_ADDRESS,
   Config,
-  bondAddress,
   findBonds,
   findConfigs,
   getConfig,
-  getVoteAccountFromData,
   WithdrawRequest,
   getBondFunding,
   getBondsFunding,
 } from '@marinade.finance/validator-bonds-sdk'
 import { ProgramAccount } from '@coral-xyz/anchor'
 import BN from 'bn.js'
+import { getBondFromAddress } from './utils'
 
 export type ProgramAccountWithProgramId<T> = ProgramAccount<T> & {
   programId: PublicKey
@@ -91,7 +90,7 @@ export function installShowBond(program: Command) {
     .option(
       '--config <pubkey>',
       'Config account to filter the bond accounts with ' +
-        `(NO default, e.g., the Marinade config is: ${CONFIG_ADDRESS.toBase58()})`,
+        `(NO default, e.g., the Marinade config is: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkeyOrPubkeyFromWallet
     )
     .option(
@@ -240,76 +239,20 @@ async function showBond({
   format: FormatType
 }) {
   const cliContext = getCliContext()
-  let program = cliContext.program
+  const program = cliContext.program
   const logger = cliContext.logger
 
   let data: BondShow<Bond> | BondShow<Bond>[]
   if (address) {
-    // Check if address exists as an account on-chain
-    let accountInfo = await program.provider.connection.getAccountInfo(address)
-    if (accountInfo === null) {
-      throw new CliCommandError({
-        valueName: '[address]',
-        value: address.toBase58(),
-        msg: 'Account not found',
-      })
-    }
+    const bondData = await getBondFromAddress({
+      program,
+      address,
+      logger,
+      config,
+    })
+    address = bondData.publicKey
 
-    // Check if the address is a vote account
-    let voteAccountAddress = null
-    try {
-      const voteAccount = await getVoteAccountFromData(address, accountInfo)
-      voteAccountAddress = voteAccount.publicKey
-    } catch (e) {
-      // Ignore error, we will try to fetch the address as the bond account data
-      logger.debug(
-        'Address is not a vote account, considering being it as a bond',
-        e
-      )
-      ;({ program } = await setProgramIdByOwner(address))
-    }
-
-    // If the address is a vote account, derive the bond account address from it
-    if (voteAccountAddress !== null) {
-      if (config === undefined) {
-        config = CONFIG_ADDRESS
-      }
-      ;[address] = bondAddress(config, voteAccountAddress, program.programId)
-      accountInfo = await program.provider.connection.getAccountInfo(address)
-      if (accountInfo === null) {
-        throw new CliCommandError({
-          valueName: '[vote account address]:[bond account address]',
-          value: voteAccountAddress.toBase58() + ':' + address.toBase58(),
-          msg: 'Bond account address derived from provided vote account not found',
-        })
-      }
-    }
-
-    if (accountInfo === null) {
-      throw new CliCommandError({
-        valueName: '[address]',
-        value: address.toBase58(),
-        msg: 'Address is neither a vote account nor a bond account',
-      })
-    }
-
-    // Decode data from the account info
-    let bondData
-    try {
-      bondData = program.coder.accounts.decode<Bond>(
-        program.account.bond.idlAccount.name,
-        accountInfo.data
-      )
-    } catch (e) {
-      throw new CliCommandError({
-        valueName: '[address]',
-        value: address.toBase58(),
-        msg: 'Failed to fetch bond account data',
-        cause: e as Error,
-      })
-    }
-
-    const configAccount = config ?? bondData.config
+    const configAccount = config ?? bondData.account.data.config
     const {
       amount: amountBond,
       atStakeAccounts: amountAtStakeAccounts,
@@ -319,7 +262,7 @@ async function showBond({
     data = {
       programId: program.programId,
       publicKey: address,
-      account: bondData,
+      account: bondData.account.data,
       bondFunded: amountBond,
       stakeAccountsFunded: amountAtStakeAccounts,
       withdrawRequest,

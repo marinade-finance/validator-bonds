@@ -5,6 +5,9 @@ import { installInitBond } from './initBond'
 import { installConfigureBond } from './configureBond'
 import { installStakeMerge } from './mergeStake'
 import { installFundBond } from './fundBond'
+import { installInitWithdrawRequest } from './initWithdrawRequest'
+import { installCancelWithdrawRequest } from './cancelWithdrawRequest'
+import { installClaimWithdrawRequest } from './claimWithdrawRequest'
 import {
   installEmergencyPause,
   installEmergencyResume,
@@ -17,6 +20,9 @@ export function installManage(program: Command) {
   installConfigureBond(program)
   installStakeMerge(program)
   installFundBond(program)
+  installInitWithdrawRequest(program)
+  installCancelWithdrawRequest(program)
+  installClaimWithdrawRequest(program)
   installEmergencyPause(program)
   installEmergencyResume(program)
 }

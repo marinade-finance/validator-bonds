@@ -346,8 +346,8 @@ describe('Validator Bonds fund settlement', () => {
       program,
       provider,
       voteAccount,
+      bondAccount,
       lamports: maxTotalClaim,
-      bond: bondAccount,
     })
     const { settlementAccount } = await executeInitSettlement({
       configAccount,
@@ -467,8 +467,8 @@ describe('Validator Bonds fund settlement', () => {
       program,
       provider,
       voteAccount,
+      bondAccount,
       lamports: 3 * LAMPORTS_PER_SOL,
-      bond: bondAccount,
     })
     const { instruction: fundIx, splitStakeAccount } =
       await fundSettlementInstruction({
@@ -509,8 +509,8 @@ describe('Validator Bonds fund settlement', () => {
       program,
       provider,
       voteAccount,
+      bondAccount,
       lamports: 3 * LAMPORTS_PER_SOL,
-      bond: bondAccount,
     })
 
     const { instruction, splitStakeAccount } = await fundSettlementInstruction({
@@ -550,8 +550,8 @@ describe('Validator Bonds fund settlement', () => {
       program,
       provider,
       voteAccount,
+      bondAccount,
       lamports: 2 * LAMPORTS_PER_SOL,
-      bond: bondAccount,
     })
 
     const { instruction, splitStakeAccount } = await fundSettlementInstruction({

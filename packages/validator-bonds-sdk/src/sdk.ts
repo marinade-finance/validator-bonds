@@ -21,7 +21,7 @@ import {
 import BN from 'bn.js'
 import { MerkleTreeNode } from './merkleTree'
 
-export const CONFIG_ADDRESS = new PublicKey(
+export const MARINADE_CONFIG_ADDRESS = new PublicKey(
   'vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU'
 )
 

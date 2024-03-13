@@ -6,7 +6,7 @@ import {
   StakeProgram,
   TransactionInstruction,
 } from '@solana/web3.js'
-import { ValidatorBondsProgram } from '../sdk'
+import { MARINADE_CONFIG_ADDRESS, ValidatorBondsProgram } from '../sdk'
 import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
 import { getBond } from '../api'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
@@ -35,6 +35,9 @@ export async function fundBondInstruction({
   instruction: TransactionInstruction
   bondAccount: PublicKey
 }> {
+  if (!bondAccount && !configAccount && voteAccount) {
+    configAccount = MARINADE_CONFIG_ADDRESS
+  }
   bondAccount = checkAndGetBondAddress(
     bondAccount,
     configAccount,

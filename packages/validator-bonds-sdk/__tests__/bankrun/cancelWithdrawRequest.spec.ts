@@ -57,7 +57,7 @@ describe('Validator Bonds cancel withdraw request', () => {
       configAccount,
     })
     bondAuthority = bondAuth
-    validatorIdentity = nodeIdentity
+    validatorIdentity = nodeIdentity!
     bond = {
       publicKey: bondAccount,
       account: await getBond(program, bondAccount),

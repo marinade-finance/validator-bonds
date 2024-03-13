@@ -14,7 +14,7 @@ import {
 } from '@marinade.finance/web3js-common'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import {
-  CONFIG_ADDRESS,
+  MARINADE_CONFIG_ADDRESS,
   configureConfigInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 
@@ -25,7 +25,7 @@ export function installConfigureConfig(program: Command) {
     .argument(
       '[config-account-address]',
       'Address of the validator bonds config account to configure ' +
-        `(default: ${CONFIG_ADDRESS.toBase58()})`,
+        `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey
     )
     .option(
@@ -99,7 +99,7 @@ export function installConfigureConfig(program: Command) {
 }
 
 async function manageConfigureConfig({
-  address = CONFIG_ADDRESS,
+  address = MARINADE_CONFIG_ADDRESS,
   adminAuthority,
   admin,
   operator,
