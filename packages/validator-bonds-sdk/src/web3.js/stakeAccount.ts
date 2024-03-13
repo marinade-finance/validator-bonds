@@ -161,8 +161,6 @@ export async function findStakeAccountNoDataInfos<IDL extends Idl = Idl>({
   withdrawer?: PublicKey
   voter?: PublicKey
 }): Promise<ProgramAccountInfoNoData[]> {
-  const innerConnection = getConnection(connection)
-
   const filters: GetProgramAccountsFilter[] = []
   if (staker) {
     filters.push({
@@ -190,7 +188,7 @@ export async function findStakeAccountNoDataInfos<IDL extends Idl = Idl>({
   }
 
   return await getAccountInfoNoData({
-    connection: innerConnection,
+    connection,
     programId: StakeProgram.programId,
     filters,
   })
@@ -240,15 +238,14 @@ export async function findStakeAccounts<IDL extends Idl = Idl>({
   withdrawer?: PublicKey
   voter?: PublicKey
 }): Promise<ProgramAccountInfo<StakeAccountParsed>[]> {
-  const innerConnection = getConnection(connection)
   const accountInfos = await findStakeAccountNoDataInfos({
-    connection: innerConnection,
+    connection,
     staker,
     withdrawer,
     voter,
   })
   return await loadStakeAccounts({
-    connection: innerConnection,
+    connection,
     addresses: accountInfos,
   })
 }

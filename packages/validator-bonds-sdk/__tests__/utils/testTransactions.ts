@@ -156,7 +156,7 @@ export async function executeInitBondInstruction({
   bondAccount: PublicKey
   bondAuthority: Keypair
   voteAccount: PublicKey
-  validatorIdentity: Keypair
+  validatorIdentity: Keypair | undefined
 }> {
   bondAuthority = bondAuthority ?? Keypair.generate()
   if (!voteAccount) {
@@ -171,21 +171,19 @@ export async function executeInitBondInstruction({
       }))
     }
   }
-  if (validatorIdentity === undefined) {
-    throw new Error(
-      'executeInitBondInstruction: vote account not to be created in method, requiring validatorIdentity'
-    )
-  }
   const { instruction, bondAccount } = await initBondInstruction({
     program,
     configAccount: configAccount,
     bondAuthority: bondAuthority.publicKey,
     cpmpe,
     voteAccount,
-    validatorIdentity: validatorIdentity.publicKey,
+    validatorIdentity: validatorIdentity?.publicKey,
   })
   try {
-    await provider.sendIx([validatorIdentity], instruction)
+    await provider.sendIx(
+      validatorIdentity ? [validatorIdentity] : [],
+      instruction
+    )
     expect(
       provider.connection.getAccountInfo(bondAccount)
     ).resolves.not.toBeNull()

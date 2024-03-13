@@ -272,6 +272,7 @@ export async function authorizeStakeAccount({
 type DelegatedStakeAccount = {
   stakeAccount: PublicKey
   voteAccount: PublicKey
+  validatorIdentity: Keypair | undefined
   staker: Keypair
   withdrawer: Keypair
 }
@@ -297,10 +298,11 @@ export async function delegatedStakeAccount({
   lamports = lamports ?? LAMPORTS_PER_SOL + (await getRentExemptStake(provider))
   rentExemptVote = await getRentExemptVote(provider, rentExemptVote)
 
-  voteAccountToDelegate =
-    voteAccountToDelegate ??
-    (await createVoteAccount({ provider, rentExempt: rentExemptVote }))
-      .voteAccount
+  let validatorIdentity: Keypair | undefined = undefined
+  if (voteAccountToDelegate === undefined) {
+    ;({ voteAccount: voteAccountToDelegate, validatorIdentity } =
+      await createVoteAccount({ provider, rentExempt: rentExemptVote }))
+  }
 
   const createStakeAccountIx = StakeProgram.createAccount({
     fromPubkey: provider.walletPubkey,
@@ -316,15 +318,21 @@ export async function delegatedStakeAccount({
     authorizedPubkey: staker.publicKey,
     votePubkey: voteAccountToDelegate,
   })
-  await provider.sendIx(
-    [stakeAccount, staker],
-    createStakeAccountIx,
-    delegateStakeAccountIx
-  )
+  try {
+    await provider.sendIx(
+      [stakeAccount, staker],
+      createStakeAccountIx,
+      delegateStakeAccountIx
+    )
+  } catch (e) {
+    console.error(e)
+    throw new Error('Failed to delegate stake account')
+  }
 
   return {
     stakeAccount: stakeAccount.publicKey,
     voteAccount: voteAccountToDelegate,
+    validatorIdentity,
     staker,
     withdrawer,
   }

@@ -102,7 +102,7 @@ export async function getMultipleBonds({
 }): Promise<ProgramAccountWithInfoNullable<Bond>[]> {
   return (
     await getMultipleAccounts({
-      connection: program,
+      connection: program.provider.connection,
       addresses,
     })
   ).map(({ publicKey, account: accountInfo }) =>
@@ -166,7 +166,7 @@ export async function findBonds({
 
   filters.push({ memcmp: { bytes: BOND_ACCOUNT_DISCRIMINATOR, offset: 0 } })
   const addresses = await getAccountInfoAddresses({
-    connection: program,
+    connection: program.provider.connection,
     programId: program.programId,
     filters,
   })
@@ -191,7 +191,7 @@ export async function getMultipleWithdrawRequests({
 }): Promise<ProgramAccountWithInfoNullable<WithdrawRequest>[]> {
   return (
     await getMultipleAccounts({
-      connection: program,
+      connection: program.provider.connection,
       addresses,
     })
   ).map(({ publicKey, account: accountInfo }) =>
@@ -251,7 +251,7 @@ export async function findWithdrawRequests({
     memcmp: { bytes: WITHDRAW_REQUEST_ACCOUNT_DISCRIMINATOR, offset: 0 },
   })
   const addresses = await getAccountInfoAddresses({
-    connection: program,
+    connection: program.provider.connection,
     programId: program.programId,
     filters,
   })
@@ -276,7 +276,7 @@ export async function getMultipleSettlements({
 }): Promise<ProgramAccountWithInfoNullable<Settlement>[]> {
   return (
     await getMultipleAccounts({
-      connection: program,
+      connection: program.provider.connection,
       addresses,
     })
   ).map(({ publicKey, account: accountInfo }) =>
@@ -336,7 +336,7 @@ export async function findSettlements({
     memcmp: { bytes: SETTLEMENT_ACCOUNT_DISCRIMINATOR, offset: 0 },
   })
   const addresses = await getAccountInfoAddresses({
-    connection: program,
+    connection: program.provider.connection,
     programId: program.programId,
     filters,
   })
@@ -361,7 +361,7 @@ export async function getMultipleSettlementClaims({
 }): Promise<ProgramAccountWithInfoNullable<SettlementClaim>[]> {
   return (
     await getMultipleAccounts({
-      connection: program,
+      connection: program.provider.connection,
       addresses,
     })
   ).map(({ publicKey, account: accountInfo }) =>
@@ -418,7 +418,7 @@ export async function findSettlementClaims({
     memcmp: { bytes: SETTLEMENT_CLAIM_ACCOUNT_DISCRIMINATOR, offset: 0 },
   })
   const addresses = await getAccountInfoAddresses({
-    connection: program,
+    connection: program.provider.connection,
     programId: program.programId,
     filters,
   })
@@ -454,7 +454,7 @@ export async function findConfigStakeAccounts({
     ;[withdrawer] = bondsWithdrawerAuthority(configAccount, program.programId)
   }
   const stakeAccounts = await findStakeAccounts({
-    connection: program,
+    connection: program.provider.connection,
     withdrawer,
   })
   // for stake accounts considered to be under the bond, we consider it cannot be locked
@@ -491,7 +491,7 @@ async function findBondStakeAccountsHelper({
     voteAccount = bondData.voteAccount
   }
   const stakeAccounts = await findStakeAccounts({
-    connection: program,
+    connection: program.provider.connection,
     withdrawer,
     staker,
     voter: voteAccount,

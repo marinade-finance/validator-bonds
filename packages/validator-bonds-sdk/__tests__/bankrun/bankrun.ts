@@ -22,7 +22,10 @@ import {
 import { instanceOfWallet } from '@marinade.finance/web3js-common'
 import { ExtendedProvider } from '../utils/provider'
 import { delegatedStakeAccount } from '../utils/staking'
-import { executeFundBondInstruction } from '../utils/testTransactions'
+import {
+  executeFundBondInstruction,
+  executeInitBondInstruction,
+} from '../utils/testTransactions'
 import 'reflect-metadata'
 import {
   Expose, // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -219,36 +222,79 @@ export async function currentEpoch(provider: BankrunProvider): Promise<number> {
   return Number((await provider.context.banksClient.getClock()).epoch)
 }
 
+export async function warpToNextSlot(provider: BankrunProvider) {
+  const currentSlot = (await provider.context.banksClient.getClock()).slot
+  provider.context.warpToSlot(currentSlot + BigInt(1))
+}
+
 // this cannot be in generic testTransactions.ts because of warping requires BankrunProvider
 export async function delegateAndFund({
   program,
   provider,
   lamports,
   voteAccount,
-  bond,
-  config,
+  bondAccount,
+  configAccount,
 }: {
   program: ValidatorBondsProgram
   provider: BankrunExtendedProvider
   lamports: number
+  voteAccount?: PublicKey
+  bondAccount?: PublicKey
+  configAccount?: PublicKey
+}): Promise<{
+  stakeAccount: PublicKey
+  bondAccount: PublicKey
   voteAccount: PublicKey
-  bond?: PublicKey
-  config?: PublicKey
-}): Promise<{ stakeAccount: PublicKey }> {
-  const { stakeAccount, withdrawer: stakeAccountWithdrawer } =
-    await delegatedStakeAccount({
+  validatorIdentity: Keypair | undefined
+}> {
+  const {
+    stakeAccount,
+    withdrawer,
+    voteAccount: voteAccountDelegated,
+    validatorIdentity,
+  } = await delegatedStakeAccount({
+    provider,
+    lamports,
+    voteAccountToDelegate: voteAccount,
+  })
+  if (bondAccount) {
+    const bondToCheck = checkAndGetBondAddress(
+      undefined,
+      configAccount,
+      voteAccountDelegated,
+      program.programId
+    )
+    expect(bondAccount).toEqual(bondToCheck)
+  }
+  if (
+    bondAccount === undefined ||
+    (await provider.connection.getAccountInfo(bondAccount)) === null
+  ) {
+    if (configAccount === undefined) {
+      throw new Error('delegateAndFund: configAccount is required')
+    }
+    ;({ bondAccount } = await executeInitBondInstruction({
+      program,
       provider,
-      lamports,
-      voteAccountToDelegate: voteAccount,
-    })
-  bond = checkAndGetBondAddress(bond, config, voteAccount, program.programId)
+      voteAccount: voteAccountDelegated,
+      validatorIdentity,
+      configAccount,
+    }))
+  }
+
   await warpToNextEpoch(provider) // activating stake account
   await executeFundBondInstruction({
     program,
     provider,
-    bondAccount: bond,
+    bondAccount: bondAccount,
     stakeAccount,
-    stakeAccountAuthority: stakeAccountWithdrawer,
+    stakeAccountAuthority: withdrawer,
   })
-  return { stakeAccount }
+  return {
+    stakeAccount,
+    bondAccount,
+    voteAccount: voteAccountDelegated,
+    validatorIdentity,
+  }
 }
