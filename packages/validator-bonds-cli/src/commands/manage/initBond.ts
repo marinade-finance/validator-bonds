@@ -52,7 +52,6 @@ export function installInitBond(program: Command) {
       'Rent payer for the account creation (default: wallet keypair)',
       parseWalletOrPubkey
     )
-
     .action(
       async ({
         config,

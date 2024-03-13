@@ -43,6 +43,7 @@ export async function configureBondWithMintInstruction({
   newCpmpe?: BN | number
 }): Promise<{
   instruction: TransactionInstruction
+  bondAccount: PublicKey
 }> {
   bondAccount = checkAndGetBondAddress(
     bondAccount,
@@ -91,5 +92,6 @@ export async function configureBondWithMintInstruction({
     .instruction()
   return {
     instruction,
+    bondAccount,
   }
 }

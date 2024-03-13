@@ -39,6 +39,7 @@ export async function mintBondInstruction({
 }): Promise<{
   bondAccount: PublicKey
   bondMint: PublicKey
+  validatorIdentity: PublicKey
   validatorIdentityTokenAccount: PublicKey
   tokenMetadataAccount: PublicKey
   instruction: TransactionInstruction
@@ -96,6 +97,7 @@ export async function mintBondInstruction({
   return {
     bondAccount,
     bondMint,
+    validatorIdentity,
     validatorIdentityTokenAccount,
     tokenMetadataAccount: metadataAccount,
     instruction,

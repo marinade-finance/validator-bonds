@@ -1,9 +1,5 @@
-import {
-  parsePubkey,
-  parsePubkeyOrPubkeyFromWallet,
-  parseWalletOrPubkey,
-} from '@marinade.finance/cli-common'
-import { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
+import { parsePubkey, parseWalletOrPubkey } from '@marinade.finance/cli-common'
+import { PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
@@ -14,16 +10,21 @@ import {
 } from '@marinade.finance/web3js-common'
 import {
   MARINADE_CONFIG_ADDRESS,
-  configureBondInstruction,
-  configureBondWithMintInstruction,
+  mintBondInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { getBondFromAddress } from '../utils'
 
-export function installConfigureBond(program: Command) {
+export function installMintBond(program: Command) {
   program
-    .command('configure-bond')
-    .description('Configure existing bond account.')
+    .command('mint-bond')
+    .description(
+      'Mint a Validator Bond token that provides a way to configure the bond account ' +
+        'without direct signature of the on-chain transaction.' +
+        'Workflow is following: using "mint-bond" to mint a bond token to validator identity pubkey, ' +
+        'then transferring the token to whatever account, then using command "configure-bond --with-token" ' +
+        'to configure the bond account.'
+    )
     .argument(
       '[bond-or-vote-account-address]',
       'Address of the bond account to configure. ' +
@@ -44,69 +45,43 @@ export function installConfigureBond(program: Command) {
       parsePubkey
     )
     .option(
-      '--authority <keypair_or_ledger_or_pubkey>',
-      'Authority that is permitted to do changes in bonds account. ' +
-        'It is either the authority defined in bonds account OR ' +
-        'vote account validator identity OR owner of bond configuration token (see "mint-bond" command). ' +
-        '(default: wallet keypair)',
+      '--rent-payer <keypair_or_ledger_or_pubkey>',
+      'Rent payer for the mint token account creation (default: wallet keypair)',
       parseWalletOrPubkey
     )
-    .option(
-      '--with-token',
-      'Use the bond token to authorize the transaction. ' +
-        'If this options is configured then it takes the "--authority" being the owner of the bond token ' +
-        'and possession of the bond token at the ATA account is required. ',
-      false
-    )
-    .option(
-      '--bond-authority <pubkey>',
-      'New value of "bond authority" that is permitted to operate with the bond account.',
-      parsePubkeyOrPubkeyFromWallet
-    )
-
     .action(
       async (
         bondOrVoteAccountAddress: Promise<PublicKey | undefined>,
         {
           config,
           voteAccount,
-          authority,
-          withToken,
-          bondAuthority,
+          rentPayer,
         }: {
           config?: Promise<PublicKey>
           voteAccount?: Promise<PublicKey>
-          authority?: Promise<WalletInterface | PublicKey>
-          withToken: boolean
-          bondAuthority?: Promise<PublicKey>
+          rentPayer?: Promise<WalletInterface | PublicKey>
         }
       ) => {
-        await manageConfigureBond({
+        await manageMintBond({
           bondOrVoteAccountAddress: await bondOrVoteAccountAddress,
           config: await config,
           voteAccount: await voteAccount,
-          authority: await authority,
-          withToken,
-          newBondAuthority: await bondAuthority,
+          rentPayer: await rentPayer,
         })
       }
     )
 }
 
-async function manageConfigureBond({
+async function manageMintBond({
   bondOrVoteAccountAddress,
   config = MARINADE_CONFIG_ADDRESS,
   voteAccount,
-  authority,
-  withToken,
-  newBondAuthority,
+  rentPayer,
 }: {
   bondOrVoteAccountAddress?: PublicKey
   config?: PublicKey
   voteAccount?: PublicKey
-  authority?: WalletInterface | PublicKey
-  withToken: boolean
-  newBondAuthority?: PublicKey
+  rentPayer?: WalletInterface | PublicKey
 }) {
   const {
     program,
@@ -121,10 +96,10 @@ async function manageConfigureBond({
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]
 
-  authority = authority ?? wallet.publicKey
-  if (instanceOfWallet(authority)) {
-    signers.push(authority)
-    authority = authority.publicKey
+  rentPayer = rentPayer ?? wallet.publicKey
+  if (instanceOfWallet(rentPayer)) {
+    signers.push(rentPayer)
+    rentPayer = rentPayer.publicKey
   }
 
   let bondAccountAddress = bondOrVoteAccountAddress
@@ -140,41 +115,31 @@ async function manageConfigureBond({
     voteAccount = bondAccountData.account.data.voteAccount
   }
 
-  let bondAccount: PublicKey
-  let instruction: TransactionInstruction
-  if (withToken) {
-    ;({ instruction, bondAccount } = await configureBondWithMintInstruction({
+  const { instruction, bondAccount, validatorIdentity, bondMint } =
+    await mintBondInstruction({
       program,
       bondAccount: bondAccountAddress,
       configAccount: config,
       voteAccount,
-      tokenAuthority: authority,
-      newBondAuthority,
-    }))
-  } else {
-    ;({ instruction, bondAccount } = await configureBondInstruction({
-      program,
-      bondAccount: bondAccountAddress,
-      configAccount: config,
-      voteAccount,
-      authority,
-      newBondAuthority,
-    }))
-  }
+      rentPayer,
+    })
   tx.add(instruction)
 
   logger.info(
-    `Configuring bond account ${bondAccount.toBase58()} (finalization may take seconds)`
+    `Mint bond ${bondAccount.toBase58()} token ${bondMint.toBase58()} ` +
+      `for validator identity ${validatorIdentity.toBase58()}`
   )
   await executeTx({
     connection: provider.connection,
     transaction: tx,
-    errMessage: `'Failed to configure bond account ${bondAccount.toBase58()}`,
+    errMessage: `'Failed to mint token for bond ${bondAccount.toBase58()}`,
     signers,
     logger,
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,
   })
-  logger.info(`Bond account ${bondAccount.toBase58()} successfully configured`)
+  logger.info(
+    `Bond ${bondAccount.toBase58()} token ${bondMint.toBase58()} was minted successfully`
+  )
 }
