@@ -13,12 +13,12 @@ import {
   getBond,
 } from '@marinade.finance/validator-bonds-sdk'
 import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import {
   AnchorExtendedProvider,
-  getValidatorInfo,
-  initTest,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
-import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
+  getAnchorValidatorInfo,
+} from '@marinade.finance/anchor-common'
 
 describe('Init bond account using CLI', () => {
   let provider: AnchorExtendedProvider
@@ -52,9 +52,8 @@ describe('Init bond account using CLI', () => {
     expect(
       provider.connection.getAccountInfo(configAccount)
     ).resolves.not.toBeNull()
-    ;({ validatorIdentity, validatorIdentityPath } = await getValidatorInfo(
-      provider.connection
-    ))
+    ;({ validatorIdentity, validatorIdentityPath } =
+      await getAnchorValidatorInfo(provider.connection))
     ;({ voteAccount } = await createVoteAccountWithIdentity(
       provider,
       validatorIdentity

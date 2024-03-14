@@ -12,14 +12,11 @@ import {
 import {
   BankrunExtendedProvider,
   assertNotExist,
-  delegateAndFund,
-  initBankrunTest,
   warpOffsetEpoch,
   warpToEpoch,
   warpToNextEpoch,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import {
-  createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitWithdrawRequestInstruction,
@@ -34,8 +31,13 @@ import {
 } from '../utils/staking'
 import assert from 'assert'
 import BN from 'bn.js'
-import { pubkey, signer } from '@marinade.finance/web3js-common'
+import {
+  createUserAndFund,
+  pubkey,
+  signer,
+} from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
+import { initBankrunTest, delegateAndFund } from './bankrun'
 
 // TODO: test the merging stake accounts through the orchestrate withdraw request, i.e., test orchestrators/orchestrateWithdrawRequest.ts
 
@@ -302,8 +304,14 @@ describe('Validator Bonds claim withdraw request', () => {
         stakeAccountAmount,
         requestedAmount
       )
-    const rentPayerUser = await createUserAndFund(provider, LAMPORTS_PER_SOL)
-    const withdrawer = await createUserAndFund(provider, LAMPORTS_PER_SOL)
+    const rentPayerUser = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+    })
+    const withdrawer = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+    })
     const { instruction, splitStakeAccount } =
       await claimWithdrawRequestInstruction({
         program,

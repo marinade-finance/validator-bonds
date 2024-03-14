@@ -7,9 +7,12 @@ import {
   mergeStakeInstruction,
   bondsWithdrawerAuthority,
 } from '../../src'
-import { initTest, waitForNextEpoch } from './testValidator'
+import { initTest } from './testValidator'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
-import { ExtendedProvider } from '../utils/provider'
+import {
+  ExtendedProvider,
+  waitForNextEpoch,
+} from '@marinade.finance/web3js-common'
 import { authorizeStakeAccount, delegatedStakeAccount } from '../utils/staking'
 
 describe('Validator Bonds fund bond', () => {

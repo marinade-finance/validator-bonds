@@ -9,10 +9,9 @@ import {
 import {
   BankrunExtendedProvider,
   bankrunExecuteIx,
-  initBankrunTest,
   warpToEpoch,
   warpToNextEpoch,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
@@ -29,6 +28,7 @@ import {
 import { BN } from 'bn.js'
 import { signer } from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
+import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds fund bond account', () => {
   let provider: BankrunExtendedProvider

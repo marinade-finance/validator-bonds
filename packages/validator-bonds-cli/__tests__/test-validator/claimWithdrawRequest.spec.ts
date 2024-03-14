@@ -1,4 +1,9 @@
-import { createTempFileKeypair, pubkey } from '@marinade.finance/web3js-common'
+import {
+  createTempFileKeypair,
+  createUserAndFund,
+  pubkey,
+  waitForNextEpoch,
+} from '@marinade.finance/web3js-common'
 import { shellMatchers } from '@marinade.finance/jest-utils'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
@@ -9,21 +14,17 @@ import {
   getWithdrawRequest,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
-  createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitWithdrawRequestInstruction,
 } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import {
-  AnchorExtendedProvider,
-  initTest,
-  waitForNextEpoch,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
 import {
   createBondsFundedStakeAccount,
   createVoteAccount,
 } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import { rand } from '@marinade.finance/ts-common'
+import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import BN from 'bn.js'
 
 describe('Claim withdraw request using CLI', () => {
@@ -114,7 +115,7 @@ describe('Claim withdraw request using CLI', () => {
       .sub(withdrawRequestLamports)
     expect(expectedActive).toEqual(bondsFunding[0].amountActive)
 
-    const user = await createUserAndFund(provider)
+    const user = await createUserAndFund({ provider })
 
     // waiting for next epoch, otherwise the merge fails as stake accounts are in different states (0x6)
     await waitForNextEpoch(provider.connection, 15)
@@ -162,7 +163,7 @@ describe('Claim withdraw request using CLI', () => {
     expect(withdrawRequestData.withdrawnAmount).toEqual(withdrawRequestLamports)
   })
 
-  it('init withdraw request in print-only mode', async () => {
+  it('claim withdraw request in print-only mode', async () => {
     await createBondsFundedStakeAccount({
       program,
       provider,

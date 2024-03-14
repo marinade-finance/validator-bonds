@@ -15,37 +15,12 @@ import {
   LAMPORTS_PER_SOL,
   PublicKey,
   StakeProgram,
-  SystemProgram,
 } from '@solana/web3.js'
-import { ExtendedProvider } from './provider'
+import { ExtendedProvider } from '@marinade.finance/web3js-common'
 import { createVoteAccount, createVoteAccountWithIdentity } from './staking'
 import BN from 'bn.js'
 import assert from 'assert'
 import { pubkey, signer } from '@marinade.finance/web3js-common'
-
-export async function createUserAndFund(
-  provider: ExtendedProvider,
-  lamports = LAMPORTS_PER_SOL,
-  user: Keypair | PublicKey = Keypair.generate()
-): Promise<Keypair | PublicKey> {
-  const instruction = SystemProgram.transfer({
-    fromPubkey: provider.walletPubkey,
-    toPubkey: pubkey(user),
-    lamports,
-  })
-  try {
-    await provider.sendIx([], instruction)
-  } catch (e) {
-    console.error(
-      `createUserAndFund: to fund ${pubkey(
-        user
-      ).toBase58()} with ${lamports} lamports`,
-      e
-    )
-    throw e
-  }
-  return user
-}
 
 export async function executeWithdraw(
   provider: ExtendedProvider,

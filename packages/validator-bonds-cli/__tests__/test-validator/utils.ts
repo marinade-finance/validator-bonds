@@ -1,5 +1,5 @@
-import { AnchorExtendedProvider } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
 import { createTempFileKeypair } from '@marinade.finance/web3js-common'
+import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import {
   Keypair,
   LAMPORTS_PER_SOL,

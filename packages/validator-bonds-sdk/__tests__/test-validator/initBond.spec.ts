@@ -8,7 +8,7 @@ import {
   getBond,
   initBondInstruction,
 } from '../../src'
-import { getValidatorInfo, initTest } from './testValidator'
+import { initTest } from './testValidator'
 import {
   Wallet,
   signer,
@@ -16,9 +16,10 @@ import {
   transaction,
 } from '@marinade.finance/web3js-common'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
-import { ExtendedProvider } from '../utils/provider'
+import { ExtendedProvider } from '@marinade.finance/web3js-common'
 import { createVoteAccountWithIdentity } from '../utils/staking'
 import { AnchorProvider } from '@coral-xyz/anchor'
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds init bond', () => {
   let provider: ExtendedProvider
@@ -28,7 +29,7 @@ describe('Validator Bonds init bond', () => {
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
-    ;({ validatorIdentity } = await getValidatorInfo(provider.connection))
+    ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 
   afterAll(async () => {

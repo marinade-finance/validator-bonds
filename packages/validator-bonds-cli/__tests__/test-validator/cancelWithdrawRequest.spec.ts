@@ -1,4 +1,8 @@
-import { createTempFileKeypair, pubkey } from '@marinade.finance/web3js-common'
+import {
+  createTempFileKeypair,
+  createUserAndFund,
+  pubkey,
+} from '@marinade.finance/web3js-common'
 import { shellMatchers } from '@marinade.finance/jest-utils'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
@@ -6,17 +10,14 @@ import {
   getWithdrawRequest,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
-  createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitWithdrawRequestInstruction,
 } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import {
-  AnchorExtendedProvider,
-  initTest,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
 import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import { rand } from '@marinade.finance/ts-common'
+import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
 describe('Cancel withdraw request using CLI', () => {
   let stakeAccountLamports: number
@@ -83,7 +84,7 @@ describe('Cancel withdraw request using CLI', () => {
       await provider.connection.getAccountInfo(withdrawRequestAccount)
     )?.lamports
     const userFunding = LAMPORTS_PER_SOL
-    const user = await createUserAndFund(provider, userFunding)
+    const user = await createUserAndFund({ provider, lamports: userFunding })
 
     await (
       expect([

@@ -12,10 +12,7 @@ import {
   transaction,
 } from '@marinade.finance/web3js-common'
 import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
-import {
-  AnchorExtendedProvider,
-  initTest,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
@@ -25,6 +22,7 @@ import {
   createBondsFundedStakeAccount,
   createVoteAccount,
 } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
+import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
 beforeAll(() => {
   shellMatchers()

@@ -9,19 +9,20 @@ import {
   settlementAddress,
   settlementStakerAuthority,
 } from '../../src'
-import { getValidatorInfo, initTest } from './testValidator'
+import { initTest } from './testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '../utils/provider'
+import { ExtendedProvider } from '@marinade.finance/web3js-common'
 import {
   transaction,
   Wallet,
   splitAndExecuteTx,
 } from '@marinade.finance/web3js-common'
 import { AnchorProvider } from '@coral-xyz/anchor'
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds init settlement', () => {
   let provider: ExtendedProvider
@@ -34,7 +35,7 @@ describe('Validator Bonds init settlement', () => {
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
-    ;({ validatorIdentity } = await getValidatorInfo(provider.connection))
+    ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 
   afterAll(async () => {

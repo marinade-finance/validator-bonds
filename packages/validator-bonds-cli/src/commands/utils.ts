@@ -2,7 +2,6 @@ import { CliCommandError } from '@marinade.finance/cli-common'
 import {
   Bond,
   bondAddress,
-  getVoteAccountFromData,
   MARINADE_CONFIG_ADDRESS,
   ValidatorBondsProgram,
   WithdrawRequest,
@@ -11,7 +10,8 @@ import {
 import {
   programAccountInfo,
   ProgramAccountInfo,
-} from '@marinade.finance/validator-bonds-sdk/src/web3.js/accounts'
+  getVoteAccountFromData,
+} from '@marinade.finance/web3js-common'
 import { AccountInfo, Connection, PublicKey } from '@solana/web3.js'
 import { Logger } from 'pino'
 import { setProgramIdByOwner } from '../context'

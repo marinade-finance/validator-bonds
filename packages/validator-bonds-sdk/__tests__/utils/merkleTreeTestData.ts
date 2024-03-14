@@ -2,8 +2,8 @@ import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import { MerkleTreeNode } from '../../src'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
-import { ExtendedProvider } from './provider'
-import { createUserAndFund } from './testTransactions'
+import { ExtendedProvider } from '@marinade.finance/web3js-common'
+import { createUserAndFund } from '@marinade.finance/web3js-common'
 
 export const MERKLE_PROOF_VOTE_ACCOUNT_1 =
   'EnBJg4qV4GjH3Sgigsi8wkWz966QYgSQkgPMCmWto51f'
@@ -297,8 +297,20 @@ export async function createWithdrawerUsers(provider: ExtendedProvider) {
     exists = false
   }
   if (exists === false) {
-    await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer1Keypair)
-    await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer2Keypair)
-    await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer3Keypair)
+    await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+      user: withdrawer1Keypair,
+    })
+    await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+      user: withdrawer2Keypair,
+    })
+    await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+      user: withdrawer3Keypair,
+    })
   }
 }

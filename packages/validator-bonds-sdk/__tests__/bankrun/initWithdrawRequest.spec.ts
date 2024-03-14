@@ -9,11 +9,9 @@ import {
 } from '../../src'
 import {
   BankrunExtendedProvider,
-  initBankrunTest,
   warpToEpoch,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import {
-  createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitWithdrawRequestInstruction,
@@ -21,9 +19,13 @@ import {
 import { ProgramAccount } from '@coral-xyz/anchor'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import { createVoteAccount } from '../utils/staking'
-
-import { pubkey, signer } from '@marinade.finance/web3js-common'
+import {
+  createUserAndFund,
+  pubkey,
+  signer,
+} from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
+import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds init withdraw request', () => {
   let provider: BankrunExtendedProvider
@@ -123,7 +125,10 @@ describe('Validator Bonds init withdraw request', () => {
   })
 
   it('init withdraw request withdrawer validator identity authority', async () => {
-    const rentWallet = await createUserAndFund(provider, LAMPORTS_PER_SOL)
+    const rentWallet = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+    })
 
     const { instruction, withdrawRequestAccount } =
       await initWithdrawRequestInstruction({

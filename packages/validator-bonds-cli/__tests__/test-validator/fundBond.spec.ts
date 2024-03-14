@@ -10,15 +10,15 @@ import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import {
-  AnchorExtendedProvider,
-  initTest,
-  waitForStakeAccountActivation,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
 import {
   createVoteAccount,
   delegatedStakeAccount,
 } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
+import {
+  AnchorExtendedProvider,
+  waitForStakeAccountActivation,
+} from '@marinade.finance/anchor-common'
 
 describe('Fund bond account using CLI', () => {
   let provider: AnchorExtendedProvider

@@ -1,4 +1,7 @@
-import { createTempFileKeypair } from '@marinade.finance/web3js-common'
+import {
+  createTempFileKeypair,
+  createUserAndFund,
+} from '@marinade.finance/web3js-common'
 import { shellMatchers } from '@marinade.finance/jest-utils'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
@@ -7,15 +10,12 @@ import {
   withdrawRequestAddress,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
-  createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import {
-  AnchorExtendedProvider,
-  initTest,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
 import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
+import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
 describe('Init withdraw request using CLI', () => {
   const stakeAccountLamports = LAMPORTS_PER_SOL * 88
@@ -73,7 +73,11 @@ describe('Init withdraw request using CLI', () => {
 
   it('init withdraw request', async () => {
     const userFunding = LAMPORTS_PER_SOL
-    await createUserAndFund(provider, userFunding, rentPayerKeypair)
+    await createUserAndFund({
+      provider,
+      lamports: userFunding,
+      user: rentPayerKeypair,
+    })
 
     await (
       expect([

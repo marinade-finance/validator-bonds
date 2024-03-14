@@ -17,7 +17,6 @@ import {
 
 export class ValidatorBondsCliContext extends Context {
   private bondsProgramId?: PublicKey
-  private computeUnitPrice: number
   readonly provider: Provider
 
   constructor({
@@ -50,11 +49,11 @@ export class ValidatorBondsCliContext extends Context {
       simulate,
       printOnly,
       commandName,
+      computeUnitPrice,
       confirmationFinality,
     })
     this.provider = provider
     this.bondsProgramId = programId
-    this.computeUnitPrice = computeUnitPrice
   }
 
   set programId(programId: PublicKey | undefined) {

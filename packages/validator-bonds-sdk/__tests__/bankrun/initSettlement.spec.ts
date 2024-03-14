@@ -12,8 +12,7 @@ import {
   BankrunExtendedProvider,
   assertNotExist,
   currentEpoch,
-  initBankrunTest,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
@@ -22,6 +21,7 @@ import { ProgramAccount } from '@coral-xyz/anchor'
 import { Keypair, PublicKey } from '@solana/web3.js'
 import { createVoteAccount } from '../utils/staking'
 import { verifyError } from '@marinade.finance/anchor-common'
+import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds init settlement', () => {
   let provider: BankrunExtendedProvider

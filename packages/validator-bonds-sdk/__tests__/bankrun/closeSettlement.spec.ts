@@ -11,12 +11,10 @@ import {
   BankrunExtendedProvider,
   assertNotExist,
   currentEpoch,
-  initBankrunTest,
   warpOffsetEpoch,
   warpToNextEpoch,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import {
-  createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
@@ -27,10 +25,15 @@ import {
   createVoteAccount,
   getRentExemptStake,
 } from '../utils/staking'
-import { getRentExempt } from '../utils/helpers'
+import { getRentExempt, executeTxWithError } from '../utils/helpers'
 import assert from 'assert'
-import { pubkey, signer } from '@marinade.finance/web3js-common'
-import { checkErrorMessage, verifyError } from '@marinade.finance/anchor-common'
+import {
+  createUserAndFund,
+  pubkey,
+  signer,
+} from '@marinade.finance/web3js-common'
+import { verifyError } from '@marinade.finance/anchor-common'
+import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds close settlement', () => {
   const epochsToClaimSettlement = 1
@@ -84,7 +87,11 @@ describe('Validator Bonds close settlement', () => {
   })
 
   it('close settlement', async () => {
-    await createUserAndFund(provider, LAMPORTS_PER_SOL, pubkey(rentCollector))
+    await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+      user: rentCollector,
+    })
     let rentCollectorInfo = await provider.connection.getAccountInfo(
       rentCollector.publicKey
     )
@@ -116,10 +123,10 @@ describe('Validator Bonds close settlement', () => {
   })
 
   it('cannot close settlement when permitted rent collector does not match', async () => {
-    const rentCollectorTest = await createUserAndFund(
+    const rentCollectorTest = await createUserAndFund({
       provider,
-      LAMPORTS_PER_SOL
-    )
+      lamports: LAMPORTS_PER_SOL,
+    })
     expect(pubkey(rentCollectorTest)).not.toEqual(rentCollector.publicKey)
     const { instruction } = await closeSettlementInstruction({
       program,
@@ -163,10 +170,10 @@ describe('Validator Bonds close settlement', () => {
     })
     await warpToNextEpoch(provider) // activate stake account
 
-    const splitStakeRentPayer = await createUserAndFund(
+    const splitStakeRentPayer = await createUserAndFund({
       provider,
-      LAMPORTS_PER_SOL
-    )
+      lamports: LAMPORTS_PER_SOL,
+    })
     const { instruction: fundIx, splitStakeAccount } =
       await fundSettlementInstruction({
         program,
@@ -221,12 +228,13 @@ describe('Validator Bonds close settlement', () => {
       settlementAccount,
       splitRentRefundAccount: pubkey(splitStakeAccount),
     })
-    try {
-      await provider.sendIx([], ixWrongStake)
-      throw new Error('error expected; stake account is not deactivated')
-    } catch (e) {
-      expect(checkErrorMessage(e, 'insufficient funds')).toBeTruthy()
-    }
+    await executeTxWithError(
+      provider,
+      '',
+      'insufficient funds',
+      [],
+      ixWrongStake
+    )
 
     const { instruction: ixWrongCollector } = await closeSettlementInstruction({
       program,

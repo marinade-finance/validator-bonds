@@ -8,12 +8,12 @@ import { setProgramIdByOwner } from '../../context'
 import {
   Wallet,
   executeTx,
+  getVoteAccount,
   instanceOfWallet,
   transaction,
 } from '@marinade.finance/web3js-common'
 import {
   MARINADE_CONFIG_ADDRESS,
-  getVoteAccount,
   initBondInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'

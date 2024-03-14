@@ -5,19 +5,22 @@ import {
   ValidatorBondsProgram,
   bondsWithdrawerAuthority,
   getStakeAccount,
-  getVoteAccount,
   getWithdrawRequest,
 } from '../../src'
-import { initTest, waitForStakeAccountActivation } from './testValidator'
+import { initTest } from './testValidator'
 import {
   executeFundBondInstruction,
   executeInitConfigInstruction,
   executeNewWithdrawRequest,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '../utils/provider'
 import { delegatedStakeAccount } from '../utils/staking'
 import { claimWithdrawRequestInstruction } from '../../src/instructions/claimWithdrawRequest'
 import BN from 'bn.js'
+import {
+  ExtendedProvider,
+  getVoteAccount,
+} from '@marinade.finance/web3js-common'
+import { waitForStakeAccountActivation } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds claim withdraw request', () => {
   let provider: ExtendedProvider

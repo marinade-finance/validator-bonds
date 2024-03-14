@@ -24,10 +24,9 @@ import {
 import {
   BankrunExtendedProvider,
   currentEpoch,
-  initBankrunTest,
   warpOffsetEpoch,
   warpToNextEpoch,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
 import {
   Keypair,
@@ -60,6 +59,7 @@ import {
 } from '../utils/merkleTreeTestData'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { claimWithdrawRequestInstruction } from '../../src/instructions/claimWithdrawRequest'
+import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds pause&resume', () => {
   const epochsToClaimSettlement = 23

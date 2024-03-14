@@ -7,13 +7,14 @@ import {
   CONFIGURE_BOND_WITH_MINT_EVENT,
   ConfigureBondWithMintEvent,
 } from '../../src'
-import { getValidatorInfo, initTest } from './testValidator'
+import { initTest } from './testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '../utils/provider'
+import { ExtendedProvider } from '@marinade.finance/web3js-common'
 import { getAccount as getTokenAccount } from 'solana-spl-token-modern'
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds configure bond with mint', () => {
   let provider: ExtendedProvider
@@ -23,7 +24,7 @@ describe('Validator Bonds configure bond with mint', () => {
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
-    ;({ validatorIdentity } = await getValidatorInfo(provider.connection))
+    ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 
   afterAll(async () => {

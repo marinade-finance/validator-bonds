@@ -6,16 +6,20 @@ import {
   getConfig,
   initBondInstruction,
 } from '../../src'
-import { BankrunExtendedProvider, initBankrunTest } from './bankrun'
+import { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import {
-  createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import { createVoteAccount } from '../utils/staking'
-import { pubkey, signer } from '@marinade.finance/web3js-common'
+import {
+  createUserAndFund,
+  pubkey,
+  signer,
+} from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
+import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds init bond account', () => {
   let provider: BankrunExtendedProvider
@@ -43,7 +47,10 @@ describe('Validator Bonds init bond account', () => {
     const { voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
     })
-    const rentWallet = await createUserAndFund(provider, LAMPORTS_PER_SOL)
+    const rentWallet = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+    })
     const { instruction, bondAccount } = await initBondInstruction({
       program,
       configAccount,
@@ -165,4 +172,24 @@ describe('Validator Bonds init bond account', () => {
       }
     }
   })
+
+  it('init bond for downloaded fixtures/accounts', async () => {
+    // VoteAccount 1.14.11
+    await initAndExpectExist('76sb4FZPwewvxtST5tJMp9N43jj4hDC5DQ7bv8kBi1rA')
+    // VoteAccount CURRENT
+    await initAndExpectExist('8PMeDKfxUKv4KJBBQJYPmfyZfoYYnMju6fnokRR9uT2w')
+  })
+
+  async function initAndExpectExist(pubkey: string) {
+    const voteAccount = new PublicKey(pubkey)
+    const { instruction: initCurrentTx } = await initBondInstruction({
+      program,
+      configAccount,
+      voteAccount: voteAccount,
+    })
+    await provider.sendIx([], initCurrentTx)
+    expect(
+      provider.connection.getAccountInfo(voteAccount)
+    ).resolves.not.toBeNull()
+  }
 })

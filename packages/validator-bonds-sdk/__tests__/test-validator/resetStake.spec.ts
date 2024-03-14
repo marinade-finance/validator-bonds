@@ -14,7 +14,7 @@ import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '../utils/provider'
+import { ExtendedProvider } from '@marinade.finance/web3js-common'
 import {
   createSettlementFundedDelegatedStake,
   createVoteAccount,

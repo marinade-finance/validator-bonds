@@ -1,10 +1,20 @@
-import { Idl, Program, Provider } from '@coral-xyz/anchor'
 import {
   Connection,
   GetProgramAccountsFilter,
   PublicKey,
   StakeProgram,
 } from '@solana/web3.js'
+import {
+  HasProvider,
+  ProgramAccountInfo,
+  ProgramAccountInfoNoData,
+  Provider,
+  getAccountInfoNoData,
+  getConnection,
+  getMultipleAccounts,
+  isWithPublicKey,
+  programAccountInfo,
+} from '@marinade.finance/web3js-common'
 import { deserializeUnchecked } from 'borsh'
 import {
   Meta,
@@ -13,15 +23,6 @@ import {
 } from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
 import assert from 'assert'
 import BN from 'bn.js'
-import {
-  getAccountInfoNoData,
-  getMultipleAccounts,
-  isWithPublicKey,
-  ProgramAccountInfo,
-  programAccountInfo,
-  ProgramAccountInfoNoData,
-} from '../web3.js/accounts'
-import { getConnection } from '.'
 
 export const U64_MAX = new BN('ffffffffffffffff', 16)
 
@@ -108,8 +109,8 @@ async function parseStakeAccountData(
   }
 }
 
-export async function getStakeAccount<IDL extends Idl = Idl>(
-  connection: Provider | Connection | Program<IDL>,
+export async function getStakeAccount(
+  connection: Provider | Connection | HasProvider,
   address: PublicKey,
   currentEpoch?: number
 ): Promise<StakeAccountParsed> {
@@ -150,13 +151,13 @@ const WITHDRAWER_OFFSET = 44 // 4 + 8 + staker pubkey
 // https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/state.rs#L414
 const VOTER_PUBKEY_OFFSET = 124 // 4 for enum + 120 for Meta
 
-export async function findStakeAccountNoDataInfos<IDL extends Idl = Idl>({
+export async function findStakeAccountNoDataInfos({
   connection,
   staker,
   withdrawer,
   voter,
 }: {
-  connection: Provider | Connection | Program<IDL>
+  connection: Provider | Connection | HasProvider
   staker?: PublicKey
   withdrawer?: PublicKey
   voter?: PublicKey
@@ -194,11 +195,11 @@ export async function findStakeAccountNoDataInfos<IDL extends Idl = Idl>({
   })
 }
 
-export async function loadStakeAccounts<IDL extends Idl = Idl>({
+export async function loadStakeAccounts({
   connection,
   addresses,
 }: {
-  connection: Provider | Connection | Program<IDL>
+  connection: Provider | Connection | HasProvider
   addresses: PublicKey[] | ProgramAccountInfoNoData[]
 }): Promise<ProgramAccountInfo<StakeAccountParsed>[]> {
   const innerConnection = getConnection(connection)
@@ -227,13 +228,13 @@ export async function loadStakeAccounts<IDL extends Idl = Idl>({
   return Promise.all(accounts)
 }
 
-export async function findStakeAccounts<IDL extends Idl = Idl>({
+export async function findStakeAccounts({
   connection,
   staker,
   withdrawer,
   voter,
 }: {
-  connection: Provider | Connection | Program<IDL>
+  connection: Provider | Connection | HasProvider
   staker?: PublicKey
   withdrawer?: PublicKey
   voter?: PublicKey

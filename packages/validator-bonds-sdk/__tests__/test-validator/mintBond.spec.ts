@@ -5,16 +5,17 @@ import {
   ValidatorBondsProgram,
   mintBondInstruction,
 } from '../../src'
-import { getValidatorInfo, initTest } from './testValidator'
+import { initTest } from './testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '../utils/provider'
+import { ExtendedProvider } from '@marinade.finance/web3js-common'
 import { getAccount as getTokenAccount } from 'solana-spl-token-modern'
 import { fetchMetadata } from '@metaplex-foundation/mpl-token-metadata'
 import { isSome } from '@metaplex-foundation/umi-options'
-import { getUmi, toUmiPubkey } from '../utils/umi'
+import { getUmi, toUmiPubkey } from '@marinade.finance/umi-utils'
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds mint bond', () => {
   let provider: ExtendedProvider
@@ -24,7 +25,7 @@ describe('Validator Bonds mint bond', () => {
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
-    ;({ validatorIdentity } = await getValidatorInfo(provider.connection))
+    ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 
   afterAll(async () => {

@@ -1,5 +1,5 @@
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { ExtendedProvider } from './provider'
+import { ExtendedProvider } from '@marinade.finance/web3js-common'
 import {
   PublicKey,
   Signer,
@@ -7,12 +7,12 @@ import {
   TransactionInstruction,
   TransactionInstructionCtorFields,
 } from '@solana/web3.js'
-import { checkErrorMessage } from '@marinade.finance/anchor-common'
+import { checkErrorMessage } from '@marinade.finance/ts-common'
 import assert from 'assert'
 
-export async function verifyErrorMessage(
+export async function executeTxWithError(
   provider: ExtendedProvider,
-  info: string,
+  info: string | undefined,
   checkMessage: string,
   signers: (WalletInterface | Signer)[],
   ...ixes: (
@@ -23,13 +23,16 @@ export async function verifyErrorMessage(
 ) {
   try {
     await provider.sendIx(signers, ...ixes)
-    throw new Error(`Expected failure ${info}, but it hasn't happened`)
+    throw new Error(
+      `Expected failure '${checkMessage}', but it hasn't happened`
+    )
   } catch (e) {
+    info = info ? info + ' ' : ''
     if (checkErrorMessage(e, checkMessage)) {
-      console.debug(`${info} expected error (check: '${checkMessage}')`, e)
+      console.debug(`${info}expected error (check: '${checkMessage}')`, e)
     } else {
       console.error(
-        `${info} wrong failure thrown, expected error: '${checkMessage}'`,
+        `${info}wrong failure thrown, expected error: '${checkMessage}'`,
         e
       )
       throw e

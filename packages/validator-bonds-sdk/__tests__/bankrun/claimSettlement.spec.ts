@@ -12,12 +12,10 @@ import {
   BankrunExtendedProvider,
   assertNotExist,
   currentEpoch,
-  initBankrunTest,
   warpOffsetEpoch,
   warpToNextEpoch,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import {
-  createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
@@ -38,7 +36,11 @@ import {
   createVoteAccount,
   getRentExemptStake,
 } from '../utils/staking'
-import { signer, pubkey } from '@marinade.finance/web3js-common'
+import {
+  signer,
+  pubkey,
+  createUserAndFund,
+} from '@marinade.finance/web3js-common'
 import {
   MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
   MERKLE_ROOT_VOTE_ACCOUNT_2_BUF,
@@ -53,8 +55,10 @@ import {
   withdrawer2,
   withdrawer3,
 } from '../utils/merkleTreeTestData'
-import { checkErrorMessage, verifyError } from '@marinade.finance/anchor-common'
+import { verifyError } from '@marinade.finance/anchor-common'
 import BN from 'bn.js'
+import { executeTxWithError } from '../utils/helpers'
+import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds claim settlement', () => {
   const epochsToClaimSettlement = 3
@@ -199,7 +203,10 @@ describe('Validator Bonds claim settlement', () => {
       verifyError(e, Errors, 6029, 'claim proof failed')
     }
 
-    const rentPayer = await createUserAndFund(provider, LAMPORTS_PER_SOL)
+    const rentPayer = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+    })
     const { instruction, settlementClaimAccount } =
       await claimSettlementInstruction({
         program,
@@ -212,14 +219,18 @@ describe('Validator Bonds claim settlement', () => {
         stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
         rentPayer: rentPayer,
       })
-    try {
-      await provider.sendIx([signer(rentPayer)], instruction)
-      throw new Error('should have failed; stake is not deactivated')
-    } catch (e) {
-      expect(checkErrorMessage(e, 'insufficient funds')).toBeTruthy()
-    }
+    await executeTxWithError(
+      provider,
+      '',
+      'insufficient funds',
+      [signer(rentPayer)],
+      instruction
+    )
 
-    const notAStakeAccount = await createUserAndFund(provider, LAMPORTS_PER_SOL)
+    const notAStakeAccount = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+    })
     const { instruction: ixWrongStakeAccountTo } =
       await claimSettlementInstruction({
         program,

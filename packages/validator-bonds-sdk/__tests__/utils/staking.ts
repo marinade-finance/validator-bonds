@@ -14,7 +14,7 @@ import {
   LAMPORTS_PER_SOL,
   Signer,
 } from '@solana/web3.js'
-import { ExtendedProvider } from './provider'
+import { ExtendedProvider } from '@marinade.finance/web3js-common'
 import { StakeState } from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
 import assert from 'assert'
 import {

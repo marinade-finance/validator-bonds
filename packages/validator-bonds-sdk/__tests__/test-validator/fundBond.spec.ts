@@ -7,13 +7,14 @@ import {
   getStakeAccount,
   bondsWithdrawerAuthority,
 } from '../../src'
-import { initTest, waitForStakeAccountActivation } from './testValidator'
+import { initTest } from './testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '../utils/provider'
+import { ExtendedProvider } from '@marinade.finance/web3js-common'
 import { createVoteAccount, delegatedStakeAccount } from '../utils/staking'
+import { waitForStakeAccountActivation } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds fund bond', () => {
   let provider: ExtendedProvider

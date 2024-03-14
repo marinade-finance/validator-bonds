@@ -8,12 +8,10 @@ import {
 import {
   BankrunExtendedProvider,
   assertNotExist,
-  initBankrunTest,
   warpToEpoch,
   warpToNextEpoch,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import {
-  createUserAndFund,
   executeCancelWithdrawRequestInstruction,
   executeInitBondInstruction,
   executeInitConfigInstruction,
@@ -24,8 +22,9 @@ import { ProgramAccount } from '@coral-xyz/anchor'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 
 import assert from 'assert'
-import { pubkey } from '@marinade.finance/web3js-common'
+import { createUserAndFund, pubkey } from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
+import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds cancel withdraw request', () => {
   let provider: BankrunExtendedProvider
@@ -71,7 +70,10 @@ describe('Validator Bonds cancel withdraw request', () => {
   })
 
   it('cancel withdraw request with bond authority', async () => {
-    const rentCollector = await createUserAndFund(provider, LAMPORTS_PER_SOL)
+    const rentCollector = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+    })
     let rentCollectorInfo = await provider.connection.getAccountInfo(
       pubkey(rentCollector)
     )

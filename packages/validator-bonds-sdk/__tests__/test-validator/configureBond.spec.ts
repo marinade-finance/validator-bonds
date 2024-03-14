@@ -6,12 +6,13 @@ import {
   configureBondInstruction,
   getBond,
 } from '../../src'
-import { getValidatorInfo, initTest } from './testValidator'
+import { initTest } from './testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '../utils/provider'
+import { ExtendedProvider } from '@marinade.finance/web3js-common'
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds configure bond', () => {
   let provider: ExtendedProvider
@@ -21,7 +22,7 @@ describe('Validator Bonds configure bond', () => {
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
-    ;({ validatorIdentity } = await getValidatorInfo(provider.connection))
+    ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 
   afterAll(async () => {

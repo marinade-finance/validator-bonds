@@ -8,10 +8,8 @@ import {
   BankrunExtendedProvider,
   assertNotExist,
   currentEpoch,
-  initBankrunTest,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import {
-  createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
@@ -24,8 +22,12 @@ import {
   createVoteAccount,
 } from '../utils/staking'
 import { verifyError } from '@marinade.finance/anchor-common'
-import { signer } from '@marinade.finance/web3js-common'
-import { SignerType } from '../utils/provider'
+import {
+  SignerType,
+  createUserAndFund,
+  signer,
+} from '@marinade.finance/web3js-common'
+import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds withdraw stake', () => {
   let provider: BankrunExtendedProvider
@@ -57,7 +59,9 @@ describe('Validator Bonds withdraw stake', () => {
       voteAccount,
       validatorIdentity,
     })
-    user = signer(await createUserAndFund(provider, LAMPORTS_PER_SOL))
+    user = signer(
+      await createUserAndFund({ provider, lamports: LAMPORTS_PER_SOL })
+    )
   })
 
   it('withdraw settlement operator stake account', async () => {

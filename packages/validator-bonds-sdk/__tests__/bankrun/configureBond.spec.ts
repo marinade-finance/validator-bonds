@@ -6,7 +6,7 @@ import {
   getBond,
   initBondInstruction,
 } from '../../src'
-import { BankrunExtendedProvider, initBankrunTest } from './bankrun'
+import { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
@@ -15,6 +15,7 @@ import { ProgramAccount } from '@coral-xyz/anchor'
 import { Keypair, PublicKey } from '@solana/web3.js'
 import { createVoteAccount } from '../utils/staking'
 import { verifyError } from '@marinade.finance/anchor-common'
+import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds configure bond account', () => {
   let provider: BankrunExtendedProvider

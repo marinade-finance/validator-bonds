@@ -26,12 +26,12 @@
   "dependencies": {
     "@marinade.finance/validator-bonds-sdk": "^1.1.12",
     "@coral-xyz/anchor": "^0.29.0",
-    "@solana/web3.js": "^1.91.0",
+    "@solana/web3.js": "^1.91.1",
     "@marinade.finance/ledger-utils": "^3.0.1",
-    "@marinade.finance/cli-common": "^2.2.3",
-    "@marinade.finance/anchor-common": "^2.2.3",
-    "@marinade.finance/web3js-common": "^2.2.3",
-    "@marinade.finance/ts-common": "^2.2.3",
+    "@marinade.finance/cli-common": "file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/cli-common",
+    "@marinade.finance/anchor-common": "file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/anchor-common",
+    "@marinade.finance/web3js-common": "file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/web3js-common",
+    "@marinade.finance/ts-common": "file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/ts-common",
     "bn.js": "^5.2.1",
     "jsbi": "^4.3.0",
     "commander": "^11.1.0",
@@ -41,6 +41,6 @@
     "yaml": "^2.3.4"
   },
   "devDependencies": {
-    "@marinade.finance/jest-utils": "^2.2.3"
+    "@marinade.finance/jest-utils": "file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/jest-utils"
   }
 }

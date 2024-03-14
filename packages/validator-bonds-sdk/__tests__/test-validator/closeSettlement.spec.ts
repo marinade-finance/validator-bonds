@@ -5,14 +5,18 @@ import {
   closeSettlementInstruction,
   CloseSettlementEvent,
 } from '../../src'
-import { getValidatorInfo, initTest, waitForNextEpoch } from './testValidator'
+import { initTest } from './testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '../utils/provider'
+import {
+  ExtendedProvider,
+  waitForNextEpoch,
+} from '@marinade.finance/web3js-common'
 import { transaction } from '@marinade.finance/web3js-common'
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds close settlement', () => {
   let provider: ExtendedProvider
@@ -25,7 +29,7 @@ describe('Validator Bonds close settlement', () => {
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
-    ;({ validatorIdentity } = await getValidatorInfo(provider.connection))
+    ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 
   afterAll(async () => {

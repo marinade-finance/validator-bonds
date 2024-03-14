@@ -12,9 +12,8 @@ import {
   BankrunExtendedProvider,
   assertNotExist,
   bankrunExecuteIx,
-  initBankrunTest,
   warpToEpoch,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import { StakeProgram } from '@solana/web3.js'
 import {
   StakeStates,
@@ -27,7 +26,8 @@ import {
   nonInitializedStakeAccount,
   setLockup,
 } from '../utils/staking'
-import { verifyErrorMessage } from '../utils/helpers'
+import { executeTxWithError } from '../utils/helpers'
+import { initBankrunTest } from './bankrun'
 
 describe('Solana stake account behavior verification', () => {
   let provider: BankrunExtendedProvider
@@ -68,7 +68,7 @@ describe('Solana stake account behavior verification', () => {
       authorizedPubkey: provider.wallet.publicKey,
     })
     // 1. CANNOT MERGE WHEN UNINITIALIZED
-    await verifyErrorMessage(
+    await executeTxWithError(
       provider,
       '1.',
       'invalid account data for instruction',
@@ -116,7 +116,7 @@ describe('Solana stake account behavior verification', () => {
       authorizedPubkey: sourceStaker.publicKey,
     })
     // 2. CANNOT MERGE WHEN HAVING DIFFERENT STAKER AUTHORITIES
-    await verifyErrorMessage(
+    await executeTxWithError(
       provider,
       '2.',
       'missing required signature for instruction',
@@ -150,7 +150,7 @@ describe('Solana stake account behavior verification', () => {
     })
     // 3. CANNOT MERGE WHEN HAVING DIFFERENT WITHDRAWER AUTHORITIES
     // https://github.com/solana-labs/solana/blob/v1.17.7/programs/stake/src/stake_state.rs#L1392
-    await verifyErrorMessage(
+    await executeTxWithError(
       provider,
       '3.',
       'custom program error: 0x6',
@@ -226,7 +226,7 @@ describe('Solana stake account behavior verification', () => {
     console.log(
       '1. CANNOT MERGE when active LOCKUP when meta data is different'
     )
-    await verifyErrorMessage(
+    await executeTxWithError(
       provider,
       '1.',
       'custom program error: 0x6',
@@ -253,7 +253,7 @@ describe('Solana stake account behavior verification', () => {
     console.log(
       '2. CANNOT MERGE EVEN WHEN active LOCKUP WHEN Lockup custodians are different'
     )
-    await verifyErrorMessage(
+    await executeTxWithError(
       provider,
       '2.',
       'custom program error: 0x6', // MergeMismatch
@@ -339,7 +339,7 @@ describe('Solana stake account behavior verification', () => {
       sourceStakePubKey: stakeAccountInactive,
       authorizedPubkey: staker.publicKey,
     })
-    await verifyErrorMessage(
+    await executeTxWithError(
       provider,
       '5.',
       'missing required signature for instruction',
@@ -406,7 +406,7 @@ describe('Solana stake account behavior verification', () => {
       stakeAuthorizationType: StakeAuthorizationLayout.Withdrawer,
       custodianPubkey: undefined,
     })
-    await verifyErrorMessage(
+    await executeTxWithError(
       provider,
       '2.',
       'custom program error: 0x7', // CustodianMissing
@@ -486,7 +486,7 @@ describe('Solana stake account behavior verification', () => {
       toPubkey: provider.wallet.publicKey,
       lamports: LAMPORTS_PER_SOL * 5,
     })
-    await verifyErrorMessage(
+    await executeTxWithError(
       provider,
       '3.',
       'custom program error: 0x1', // LockupInForce
@@ -567,7 +567,7 @@ describe('Solana stake account behavior verification', () => {
       sourceStakePubKey: stakeAccount2.stakeAccount,
       authorizedPubkey: staker.publicKey,
     })
-    await verifyErrorMessage(
+    await executeTxWithError(
       provider,
       '1.',
       'custom program error: 0x6', // MergeMismatch
@@ -618,7 +618,7 @@ describe('Solana stake account behavior verification', () => {
       sourceStakePubKey: stakeAccount3.stakeAccount,
       authorizedPubkey: staker.publicKey,
     })
-    await verifyErrorMessage(
+    await executeTxWithError(
       provider,
       '3.',
       'custom program error: 0x5', // MergeTransientStake
@@ -632,7 +632,7 @@ describe('Solana stake account behavior verification', () => {
     nextEpoch =
       Number((await provider.context.banksClient.getClock()).epoch) + 1
     warpToEpoch(provider, nextEpoch)
-    await verifyErrorMessage(
+    await executeTxWithError(
       provider,
       '4.',
       'custom program error: 0x6', // MergeMismatch
@@ -791,7 +791,7 @@ describe('Solana stake account behavior verification', () => {
       sourceStakePubKey: stakeAccountLocked,
       authorizedPubkey: staker.publicKey,
     })
-    await verifyErrorMessage(
+    await executeTxWithError(
       provider,
       '2.',
       'custom program error: 0x6', // MergeMismatch
@@ -827,7 +827,7 @@ describe('Solana stake account behavior verification', () => {
     warpToEpoch(provider, Number(clock.epoch) + 2)
     // double deactivation is NOT possible
     // https://github.com/solana-labs/solana/blob/v1.18.2/programs/stake/src/stake_state.rs#L636
-    await verifyErrorMessage(
+    await executeTxWithError(
       provider,
       '3.b',
       'custom program error: 0x2', // AlreadyDeactivated

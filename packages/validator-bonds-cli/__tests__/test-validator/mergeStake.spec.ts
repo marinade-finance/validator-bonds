@@ -4,17 +4,17 @@ import {
   ValidatorBondsProgram,
   bondsWithdrawerAuthority,
 } from '@marinade.finance/validator-bonds-sdk'
-import {
-  AnchorExtendedProvider,
-  initTest,
-  waitForNextEpoch,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
 import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import {
   authorizeStakeAccount,
   delegatedStakeAccount,
 } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
-import { ExtendedProvider } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/provider'
+import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import {
+  ExtendedProvider,
+  waitForNextEpoch,
+} from '@marinade.finance/web3js-common'
 
 describe('Merge stake accounts using CLI', () => {
   let provider: AnchorExtendedProvider

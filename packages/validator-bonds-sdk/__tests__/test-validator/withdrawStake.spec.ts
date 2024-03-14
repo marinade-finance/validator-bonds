@@ -9,13 +9,10 @@ import {
   bondsWithdrawerAuthority,
 } from '../../src'
 import { initTest } from './testValidator'
-import {
-  createUserAndFund,
-  executeInitConfigInstruction,
-} from '../utils/testTransactions'
-import { ExtendedProvider } from '../utils/provider'
+import { executeInitConfigInstruction } from '../utils/testTransactions'
+import { ExtendedProvider } from '@marinade.finance/web3js-common'
 import { createSettlementFundedInitializedStake } from '../utils/staking'
-import { pubkey } from '@marinade.finance/web3js-common'
+import { createUserAndFund, pubkey } from '@marinade.finance/web3js-common'
 
 describe('Validator Bonds withdraw settlement stake account', () => {
   let provider: ExtendedProvider
@@ -74,7 +71,10 @@ describe('Validator Bonds withdraw settlement stake account', () => {
     expect(stakeAccountData.staker).toEqual(settlementAuth)
     expect(stakeAccountData.withdrawer).toEqual(bondWithdrawer)
 
-    const user = await createUserAndFund(provider, LAMPORTS_PER_SOL)
+    const user = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+    })
 
     const { instruction } = await withdrawStakeInstruction({
       program,

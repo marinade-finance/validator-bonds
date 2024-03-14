@@ -4,15 +4,12 @@ import {
   configureBondWithMintInstruction,
   getBond,
   mintBondInstruction,
-  getVoteAccount,
 } from '../../src'
 import {
   BankrunExtendedProvider,
-  initBankrunTest,
   warpToNextEpoch,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import {
-  createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
@@ -25,8 +22,14 @@ import {
   getMint,
   getAssociatedTokenAddressSync,
 } from 'solana-spl-token-modern'
-import { signer } from '@marinade.finance/web3js-common'
-import { checkErrorMessage, verifyError } from '@marinade.finance/anchor-common'
+import {
+  createUserAndFund,
+  getVoteAccount,
+  signer,
+} from '@marinade.finance/web3js-common'
+import { verifyError } from '@marinade.finance/anchor-common'
+import { executeTxWithError } from '../utils/helpers'
+import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds mint configure bond account', () => {
   let provider: BankrunExtendedProvider
@@ -90,7 +93,7 @@ describe('Validator Bonds mint configure bond account', () => {
       await provider.connection.getAccountInfo(tokenMetadataAccount)
     ).not.toBeNull()
 
-    const user = signer(await createUserAndFund(provider))
+    const user = signer(await createUserAndFund({ provider }))
     const userTokenAccount = getAssociatedTokenAddressSync(
       bondMint,
       user.publicKey
@@ -168,7 +171,7 @@ describe('Validator Bonds mint configure bond account', () => {
     await warpToNextEpoch(provider)
     await provider.sendIx([], ixMint)
 
-    const user = signer(await createUserAndFund(provider))
+    const user = signer(await createUserAndFund({ provider }))
     const userTokenAccount = getAssociatedTokenAddressSync(
       bondMint,
       user.publicKey
@@ -223,8 +226,7 @@ describe('Validator Bonds mint configure bond account', () => {
       await provider.sendIx([user], ixConfigure)
       throw new Error('failure expected; wrong validator identity')
     } catch (e) {
-      // ConstraintSeeds = 2006,
-      checkErrorMessage(e, 'custom program error: 0x7d6')
+      verifyError(e, Errors, 6058, 'Validator identity mismatch for bond mint')
     }
 
     // transfer to same user but new token
@@ -300,13 +302,14 @@ describe('Validator Bonds mint configure bond account', () => {
       validatorIdentity: validatorIdentity.publicKey,
       voteAccount: randomKeypair.publicKey,
     })
-    try {
-      await provider.sendIx([], ixMint)
-      throw new Error('failure expected; wrong vote account seed')
-    } catch (e) {
-      // ConstraintSeeds = 2006,
-      checkErrorMessage(e, 'custom program error: 0x7d6')
-    }
+    // ConstraintSeeds = 2006,
+    await executeTxWithError(
+      provider,
+      '',
+      'custom program error: 0x7d6',
+      [],
+      ixMint
+    )
   })
 
   it('no trouble with multiple minting', async () => {

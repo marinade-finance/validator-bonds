@@ -19,7 +19,7 @@ import { mergeStakeInstruction } from '../instructions/mergeStake'
 import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRequest'
 import { anchorProgramWalletPubkey } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { ProgramAccountInfo } from '../web3.js/accounts'
+import { ProgramAccountInfo } from '@marinade.finance/web3js-common'
 
 /**
  * Returning the instructions for withdrawing the deposit (on top of the withdraw request)

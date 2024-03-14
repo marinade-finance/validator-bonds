@@ -13,7 +13,7 @@ import {
   getVoteAccount,
   MPL_TOKEN_METADATA_PROGRAM_ID,
   tokenMetadataAddress,
-} from '../web3.js'
+} from '@marinade.finance/web3js-common'
 import { getAssociatedTokenAddressSync } from 'solana-spl-token-modern'
 
 /**

@@ -10,9 +10,8 @@ import {
 import {
   BankrunExtendedProvider,
   assertNotExist,
-  initBankrunTest,
   warpToEpoch,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import {
   executeInitConfigInstruction,
   executeWithdraw,
@@ -33,6 +32,7 @@ import {
 } from '../utils/staking'
 import { pubkey } from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
+import { initBankrunTest } from './bankrun'
 
 describe('Staking merge verification/investigation', () => {
   let provider: BankrunExtendedProvider

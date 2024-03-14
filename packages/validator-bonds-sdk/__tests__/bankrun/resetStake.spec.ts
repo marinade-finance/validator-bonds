@@ -8,8 +8,7 @@ import {
 import {
   BankrunExtendedProvider,
   currentEpoch,
-  initBankrunTest,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
@@ -25,6 +24,7 @@ import {
   getAndCheckStakeAccount,
 } from '../utils/staking'
 import { verifyError } from '@marinade.finance/anchor-common'
+import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds reset stake', () => {
   let provider: BankrunExtendedProvider

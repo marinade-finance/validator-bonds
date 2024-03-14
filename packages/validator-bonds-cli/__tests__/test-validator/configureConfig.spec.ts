@@ -6,10 +6,8 @@ import {
   getConfig,
 } from '@marinade.finance/validator-bonds-sdk'
 import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import {
-  AnchorExtendedProvider,
-  initTest,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
 describe('Configure config account using CLI', () => {
   let provider: AnchorExtendedProvider

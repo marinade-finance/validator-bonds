@@ -12,15 +12,17 @@ import {
   closeSettlementInstruction,
   closeSettlementClaimInstruction,
 } from '../../src'
-import { getValidatorInfo, initTest, waitForNextEpoch } from './testValidator'
+import { initTest } from './testValidator'
 import {
-  createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '../utils/provider'
-import { signer } from '@marinade.finance/web3js-common'
+import {
+  ExtendedProvider,
+  waitForNextEpoch,
+} from '@marinade.finance/web3js-common'
+import { createUserAndFund, signer } from '@marinade.finance/web3js-common'
 import {
   MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
   configAccountKeypair,
@@ -43,6 +45,7 @@ import {
   createVoteAccount,
 } from '../utils/staking'
 import BN from 'bn.js'
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 
 // NOTE: order of tests need to be maintained
 describe('Validator Bonds claim settlement', () => {
@@ -57,7 +60,7 @@ describe('Validator Bonds claim settlement', () => {
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
-    ;({ validatorIdentity } = await getValidatorInfo(provider.connection))
+    ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
     ;({ configAccount, operatorAuthority } = await executeInitConfigInstruction(
       {
         program,
@@ -106,10 +109,10 @@ describe('Validator Bonds claim settlement', () => {
       fundIx
     )
     // will be used for rent payer of claim settlement
-    fundSettlementRentPayer = (await createUserAndFund(
+    fundSettlementRentPayer = (await createUserAndFund({
       provider,
-      LAMPORTS_PER_SOL
-    )) as Keypair
+      lamports: LAMPORTS_PER_SOL,
+    })) as Keypair
   })
 
   afterAll(async () => {
@@ -128,7 +131,11 @@ describe('Validator Bonds claim settlement', () => {
       )
     })
 
-    await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer1Keypair)
+    await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+      user: withdrawer1Keypair,
+    })
     const treeNodeVoteAccount1Withdrawer1 = treeNodeBy(
       voteAccount1,
       withdrawer1
@@ -197,7 +204,11 @@ describe('Validator Bonds claim settlement', () => {
   })
 
   it('find claim settlements', async () => {
-    await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer2Keypair)
+    await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+      user: withdrawer2Keypair,
+    })
     const treeNodeWithdrawer2 = treeNodeBy(voteAccount1, withdrawer2)
     const stakeAccountTreeNodeWithdrawer2 = await createDelegatedStakeAccount({
       provider,
@@ -214,7 +225,11 @@ describe('Validator Bonds claim settlement', () => {
       stakeAccountFrom: stakeAccount,
       stakeAccountTo: stakeAccountTreeNodeWithdrawer2,
     })
-    await createUserAndFund(provider, LAMPORTS_PER_SOL, withdrawer3Keypair)
+    await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+      user: withdrawer3Keypair,
+    })
     const treeNodeWithdrawer3 = treeNodeBy(voteAccount1, withdrawer3)
     const stakeAccountTreeNodeWithdrawer3 = await createDelegatedStakeAccount({
       provider,

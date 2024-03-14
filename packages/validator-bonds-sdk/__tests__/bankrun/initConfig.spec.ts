@@ -3,9 +3,10 @@ import {
   getConfig,
   initConfigInstruction,
 } from '../../src'
-import { BankrunExtendedProvider, initBankrunTest } from './bankrun'
+import { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
 import { Keypair } from '@solana/web3.js'
+import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds config account tests', () => {
   let provider: BankrunExtendedProvider

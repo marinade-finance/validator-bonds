@@ -2,6 +2,7 @@ import { Program, Idl } from '@coral-xyz/anchor'
 import { PublicKey } from '@solana/web3.js'
 import { bondAddress as sdkBondAddress } from './sdk'
 
+// available at @marinade.finance/anchor-common
 export function anchorProgramWalletPubkey<IDL extends Idl = Idl>(
   program: Program<IDL>
 ) {
@@ -29,13 +30,4 @@ export function checkAndGetBondAddress(
       'Either [bondAccount] or [voteAccount and configAccount] is required'
     )
   }
-}
-
-/**
- * Convert a number to a bps number which is 10000th of a percent.
- * It's 100th of the basic point number.
- * 1 HundredthBasisPoint = 0.0001%, 10_000 HundredthBasisPoint = 1%, 1_000_000 HundredthBasisPoint = 100%
- */
-export function toHundredsBps(value: number | string): number {
-  return Math.floor(parseFloat(value.toString()) * 10000)
 }

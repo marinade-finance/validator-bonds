@@ -15,13 +15,10 @@ import {
   assertNotExist,
   bankrunExecuteIx,
   currentEpoch,
-  delegateAndFund,
-  initBankrunTest,
   warpOffsetEpoch,
   warpToNextEpoch,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import {
-  createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
@@ -42,8 +39,13 @@ import {
   getAndCheckStakeAccount,
   getRentExemptStake,
 } from '../utils/staking'
-import { pubkey, signer } from '@marinade.finance/web3js-common'
+import {
+  createUserAndFund,
+  pubkey,
+  signer,
+} from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
+import { initBankrunTest, delegateAndFund } from './bankrun'
 
 describe('Validator Bonds fund settlement', () => {
   const epochsToClaimSettlement = 3
@@ -103,7 +105,10 @@ describe('Validator Bonds fund settlement', () => {
       maxTotalClaim,
     })
 
-    const splitRentPayer = await createUserAndFund(provider, LAMPORTS_PER_SOL)
+    const splitRentPayer = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+    })
     const lamportsToFund1 = maxTotalClaim / 2
     const lamportsToFund2 =
       maxTotalClaim - lamportsToFund1 + 2 * stakeAccountMinimalAmount
@@ -213,10 +218,10 @@ describe('Validator Bonds fund settlement', () => {
       maxTotalClaim,
     })
 
-    const splitStakeRentPayer = await createUserAndFund(
+    const splitStakeRentPayer = await createUserAndFund({
       provider,
-      LAMPORTS_PER_SOL
-    )
+      lamports: LAMPORTS_PER_SOL,
+    })
     const lamportsToFund = maxTotalClaim + LAMPORTS_PER_SOL
     const stakeAccount =
       await createBondsFundedStakeAccountActivated(lamportsToFund)
@@ -266,10 +271,10 @@ describe('Validator Bonds fund settlement', () => {
       maxTotalClaim,
     })
 
-    const splitStakeRentPayer = await createUserAndFund(
+    const splitStakeRentPayer = await createUserAndFund({
       provider,
-      LAMPORTS_PER_SOL
-    )
+      lamports: LAMPORTS_PER_SOL,
+    })
     const lamportsToFund = maxTotalClaim + 3 * LAMPORTS_PER_SOL
     const stakeAccount =
       await createBondsFundedStakeAccountActivated(lamportsToFund)

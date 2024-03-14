@@ -10,10 +10,9 @@ import {
   BankrunExtendedProvider,
   assertNotExist,
   currentEpoch,
-  initBankrunTest,
   warpOffsetEpoch,
   warpToNextEpoch,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
@@ -37,6 +36,7 @@ import {
   withdrawer1,
 } from '../utils/merkleTreeTestData'
 import { verifyError } from '@marinade.finance/anchor-common'
+import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds close settlement claim', () => {
   const epochsToClaimSettlement = 3

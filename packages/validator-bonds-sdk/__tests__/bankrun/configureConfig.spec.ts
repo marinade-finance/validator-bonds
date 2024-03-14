@@ -10,12 +10,12 @@ import {
   bankrunExecute,
   bankrunExecuteIx,
   bankrunTransaction,
-  initBankrunTest,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import { ProgramAccount } from '@coral-xyz/anchor'
 import { Keypair, PublicKey, Transaction } from '@solana/web3.js'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
 import { verifyError } from '@marinade.finance/anchor-common'
+import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds configure config tests', () => {
   let provider: BankrunExtendedProvider

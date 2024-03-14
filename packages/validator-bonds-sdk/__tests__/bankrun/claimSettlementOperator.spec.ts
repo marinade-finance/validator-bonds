@@ -10,12 +10,10 @@ import {
 import {
   BankrunExtendedProvider,
   currentEpoch,
-  initBankrunTest,
   warpOffsetEpoch,
   warpToNextEpoch,
-} from './bankrun'
+} from '@marinade.finance/bankrun-utils'
 import {
-  createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
@@ -26,7 +24,7 @@ import {
   createVoteAccount,
   createInitializedStakeAccount,
 } from '../utils/staking'
-import { pubkey } from '@marinade.finance/web3js-common'
+import { createUserAndFund, pubkey } from '@marinade.finance/web3js-common'
 import {
   ITEMS_VOTE_ACCOUNT_1,
   MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
@@ -37,6 +35,7 @@ import {
   withdrawer1,
 } from '../utils/merkleTreeTestData'
 import { verifyError } from '@marinade.finance/anchor-common'
+import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds claim settlement', () => {
   const epochsToClaimSettlement = 3
@@ -169,7 +168,7 @@ describe('Validator Bonds claim settlement', () => {
       verifyError(e, Errors, 6019, 'not delegated')
     }
     const withdrawToUser = pubkey(
-      await createUserAndFund(provider, LAMPORTS_PER_SOL)
+      await createUserAndFund({ provider, lamports: LAMPORTS_PER_SOL })
     )
     const { instruction: withdrawStakeIx } = await withdrawStakeInstruction({
       program,

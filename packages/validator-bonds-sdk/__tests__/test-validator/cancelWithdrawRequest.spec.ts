@@ -10,7 +10,7 @@ import {
   executeInitConfigInstruction,
   executeNewWithdrawRequest,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '../utils/provider'
+import { ExtendedProvider } from '@marinade.finance/web3js-common'
 
 describe('Validator Bonds cancel withdraw request', () => {
   let provider: ExtendedProvider

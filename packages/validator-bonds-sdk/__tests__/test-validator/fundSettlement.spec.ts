@@ -7,20 +7,24 @@ import {
   bondsWithdrawerAuthority,
   getConfig,
 } from '../../src'
-import { getValidatorInfo, initTest } from './testValidator'
+import { initTest } from './testValidator'
 import {
-  createUserAndFund,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '../utils/provider'
+import { ExtendedProvider } from '@marinade.finance/web3js-common'
 import {
   authorizeStakeAccount,
   delegatedStakeAccount,
   getRentExemptStake,
 } from '../utils/staking'
-import { pubkey, signer } from '@marinade.finance/web3js-common'
+import {
+  createUserAndFund,
+  pubkey,
+  signer,
+} from '@marinade.finance/web3js-common'
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds fund settlement', () => {
   let provider: ExtendedProvider
@@ -33,7 +37,7 @@ describe('Validator Bonds fund settlement', () => {
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
-    ;({ validatorIdentity } = await getValidatorInfo(provider.connection))
+    ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 
   afterAll(async () => {
@@ -98,7 +102,10 @@ describe('Validator Bonds fund settlement', () => {
       )
     })
 
-    const splitRentPayer = await createUserAndFund(provider, LAMPORTS_PER_SOL)
+    const splitRentPayer = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+    })
     const { instruction, splitStakeAccount } = await fundSettlementInstruction({
       program,
       settlementAccount,

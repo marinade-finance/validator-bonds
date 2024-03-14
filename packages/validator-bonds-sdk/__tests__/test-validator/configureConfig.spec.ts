@@ -8,9 +8,10 @@ import {
   getConfig,
 } from '../../src'
 import { ProgramAccount } from '@coral-xyz/anchor'
-import { AnchorExtendedProvider, initTest } from './testValidator'
+import { initTest } from './testValidator'
 import { executeTxSimple, transaction } from '@marinade.finance/web3js-common'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
+import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds configure config', () => {
   let provider: AnchorExtendedProvider
