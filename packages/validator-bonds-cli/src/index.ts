@@ -46,7 +46,7 @@ program
   )
   .option(
     '--skip-preflight',
-    'transaction execution flag "skip-preflight", see https://solanacookbook.com/guides/retrying-transactions.html#the-cost-of-skipping-preflight',
+    '|Transaction execution flag "skip-preflight", see https://solanacookbook.com/guides/retrying-transactions.html#the-cost-of-skipping-preflight',
     false
   )
   .option('--commitment <commitment>', 'Commitment', 'confirmed')
@@ -57,8 +57,14 @@ program
     'confirmed'
   )
   .option(
+    '--with-compute-unit-price <compute-unit-price>',
+    'Set compute unit price for transaction, in increments of 0.000001 lamports per compute unit.',
+    parseFloat,
+    10
+  )
+  .option(
     '-d, --debug',
-    'printing more detailed information of the CLI execution',
+    'Printing more detailed information of the CLI execution',
     false
   )
   .option('-v, --verbose', 'alias for --debug', false)
@@ -84,6 +90,7 @@ program
       skipPreflight: Boolean(command.opts().skipPreflight),
       commitment: command.opts().commitment,
       confirmationFinality: command.opts().confirmationFinality,
+      computeUnitPrice: command.opts().withComputeUnitPrice,
       logger,
       command: action.name(),
     })

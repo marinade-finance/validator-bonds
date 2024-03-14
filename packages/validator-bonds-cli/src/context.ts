@@ -17,6 +17,7 @@ import {
 
 export class ValidatorBondsCliContext extends Context {
   private bondsProgramId?: PublicKey
+  private computeUnitPrice: number
   readonly provider: Provider
 
   constructor({
@@ -28,6 +29,7 @@ export class ValidatorBondsCliContext extends Context {
     printOnly,
     skipPreflight,
     confirmationFinality,
+    computeUnitPrice,
     commandName,
   }: {
     programId?: PublicKey
@@ -38,6 +40,7 @@ export class ValidatorBondsCliContext extends Context {
     printOnly: boolean
     skipPreflight: boolean
     confirmationFinality: Finality
+    computeUnitPrice: number
     commandName: string
   }) {
     super({
@@ -51,6 +54,7 @@ export class ValidatorBondsCliContext extends Context {
     })
     this.provider = provider
     this.bondsProgramId = programId
+    this.computeUnitPrice = computeUnitPrice
   }
 
   set programId(programId: PublicKey | undefined) {
@@ -78,6 +82,7 @@ export function setValidatorBondsCliContext({
   skipPreflight,
   commitment,
   confirmationFinality,
+  computeUnitPrice,
   logger,
   command,
 }: {
@@ -89,6 +94,7 @@ export function setValidatorBondsCliContext({
   skipPreflight: boolean
   commitment: string
   confirmationFinality: string
+  computeUnitPrice: number
   logger: Logger
   command: string
 }) {
@@ -110,6 +116,7 @@ export function setValidatorBondsCliContext({
         printOnly,
         skipPreflight,
         confirmationFinality: parseConfirmationFinality(confirmationFinality),
+        computeUnitPrice,
         commandName: command,
       })
     )
