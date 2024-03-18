@@ -89,7 +89,7 @@ export function installShowBond(program: Command) {
       '--config <pubkey>',
       'Config account to filter the bond accounts with ' +
         `(NO default, e.g., the Marinade config is: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkeyOrPubkeyFromWallet
+      parsePubkey
     )
     .option(
       '--vote-account <pubkey>',

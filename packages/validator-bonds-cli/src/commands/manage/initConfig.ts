@@ -14,6 +14,7 @@ import {
 } from '@marinade.finance/web3js-common'
 import { initConfigInstruction } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+import { INIT_CONFIG_LIMIT_UNITS } from '../../computeUnits'
 
 export function installInitConfig(program: Command) {
   program
@@ -98,6 +99,7 @@ async function manageInitConfig({
     program,
     provider,
     logger,
+    computeUnitPrice,
     simulate,
     printOnly,
     wallet,
@@ -133,6 +135,8 @@ async function manageInitConfig({
     errMessage: `'Failed to create config account ${address.publicKey.toBase58()}`,
     signers,
     logger,
+    computeUnitLimit: INIT_CONFIG_LIMIT_UNITS,
+    computeUnitPrice,
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,

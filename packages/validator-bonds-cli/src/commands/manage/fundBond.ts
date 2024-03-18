@@ -18,6 +18,7 @@ import {
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { getBondFromAddress } from '../utils'
+import { FUND_BOND_LIMIT_UNITS } from '../../computeUnits'
 
 export function installFundBond(program: Command) {
   program
@@ -98,6 +99,7 @@ async function manageFundBond({
     program,
     provider,
     logger,
+    computeUnitPrice,
     simulate,
     printOnly,
     wallet,
@@ -143,6 +145,8 @@ async function manageFundBond({
     errMessage: `'Failed to fund bond account ${bondAccount.toBase58()}`,
     signers,
     logger,
+    computeUnitLimit: FUND_BOND_LIMIT_UNITS,
+    computeUnitPrice,
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,

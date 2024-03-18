@@ -14,6 +14,7 @@ import {
   emergencyPauseInstruction,
   emergencyResumeInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
+import { EMERGENCY_LIMIT_UNITS } from '../../computeUnits'
 
 export function installEmergencyPause(program: Command) {
   program
@@ -94,6 +95,7 @@ async function manageEmergencyPauseAndResume({
     program,
     provider,
     logger,
+    computeUnitPrice,
     simulate,
     printOnly,
     wallet,
@@ -131,6 +133,8 @@ async function manageEmergencyPauseAndResume({
     errMessage: `'Failed to ${action} validator bonds contract config account ${address.toBase58()}`,
     signers,
     logger,
+    computeUnitLimit: EMERGENCY_LIMIT_UNITS,
+    computeUnitPrice,
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,

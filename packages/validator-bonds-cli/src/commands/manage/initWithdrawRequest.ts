@@ -19,6 +19,7 @@ import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import BN from 'bn.js'
 import { getBondFromAddress } from '../utils'
+import { INIT_WITHDRAW_REQUEST_LIMIT_UNITS } from '../../computeUnits'
 
 export function installInitWithdrawRequest(program: Command) {
   program
@@ -112,6 +113,7 @@ async function manageInitWithdrawRequest({
     program,
     provider,
     logger,
+    computeUnitPrice,
     simulate,
     printOnly,
     wallet,
@@ -167,6 +169,8 @@ async function manageInitWithdrawRequest({
     errMessage: `Failed to initialize withdraw request ${withdrawRequestAccount.toBase58()}`,
     signers,
     logger,
+    computeUnitLimit: INIT_WITHDRAW_REQUEST_LIMIT_UNITS,
+    computeUnitPrice,
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,

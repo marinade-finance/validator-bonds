@@ -18,6 +18,7 @@ import {
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { getWithdrawRequestFromAddress } from '../utils'
+import { CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS } from '../../computeUnits'
 
 export function installCancelWithdrawRequest(program: Command) {
   program
@@ -106,6 +107,7 @@ async function manageCancelWithdrawRequest({
     printOnly,
     wallet,
     confirmationFinality,
+    computeUnitPrice,
   } = await setProgramIdByOwner(config)
 
   const tx = await transaction(provider)
@@ -153,6 +155,8 @@ async function manageCancelWithdrawRequest({
     errMessage: `Failed to cancel withdraw request ${withdrawRequestAccount.toBase58()}`,
     signers,
     logger,
+    computeUnitLimit: CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS,
+    computeUnitPrice,
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,

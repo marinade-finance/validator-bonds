@@ -19,6 +19,10 @@ import {
 } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { getBondFromAddress } from '../utils'
+import {
+  CONFIGURE_BOND_LIMIT_UNITS,
+  CONFIGURE_BOND_MINT_LIMIT_UNITS,
+} from '../../computeUnits'
 
 export function installConfigureBond(program: Command) {
   program
@@ -111,6 +115,7 @@ async function manageConfigureBond({
     program,
     provider,
     logger,
+    computeUnitPrice,
     simulate,
     printOnly,
     wallet,
@@ -141,7 +146,9 @@ async function manageConfigureBond({
 
   let bondAccount: PublicKey
   let instruction: TransactionInstruction
+  let computeUnitLimit: number
   if (withToken) {
+    computeUnitLimit = CONFIGURE_BOND_MINT_LIMIT_UNITS
     ;({ instruction, bondAccount } = await configureBondWithMintInstruction({
       program,
       bondAccount: bondAccountAddress,
@@ -151,6 +158,7 @@ async function manageConfigureBond({
       newBondAuthority,
     }))
   } else {
+    computeUnitLimit = CONFIGURE_BOND_LIMIT_UNITS
     ;({ instruction, bondAccount } = await configureBondInstruction({
       program,
       bondAccount: bondAccountAddress,
@@ -171,6 +179,8 @@ async function manageConfigureBond({
     errMessage: `'Failed to configure bond account ${bondAccount.toBase58()}`,
     signers,
     logger,
+    computeUnitLimit,
+    computeUnitPrice,
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,

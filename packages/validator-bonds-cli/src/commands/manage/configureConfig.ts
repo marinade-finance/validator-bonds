@@ -17,6 +17,7 @@ import {
   MARINADE_CONFIG_ADDRESS,
   configureConfigInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
+import { CONFIGURE_CONFIG_LIMIT_UNITS } from '../../computeUnits'
 
 export function installConfigureConfig(program: Command) {
   program
@@ -121,6 +122,7 @@ async function manageConfigureConfig({
     program,
     provider,
     logger,
+    computeUnitPrice,
     simulate,
     printOnly,
     wallet,
@@ -155,6 +157,8 @@ async function manageConfigureConfig({
     errMessage: `'Failed to create config account ${address.toBase58()}`,
     signers,
     logger,
+    computeUnitLimit: CONFIGURE_CONFIG_LIMIT_UNITS,
+    computeUnitPrice,
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,

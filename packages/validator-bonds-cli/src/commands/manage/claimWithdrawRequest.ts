@@ -18,6 +18,7 @@ import {
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { getWithdrawRequestFromAddress } from '../utils'
+import { CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS } from '../../computeUnits'
 
 export function installClaimWithdrawRequest(program: Command) {
   program
@@ -118,6 +119,7 @@ async function manageClaimWithdrawRequest({
     program,
     provider,
     logger,
+    computeUnitPrice,
     simulate,
     printOnly,
     wallet,
@@ -186,6 +188,8 @@ async function manageClaimWithdrawRequest({
     errMessage: `Failed to claim withdraw request ${withdrawRequestAccount.toBase58()}`,
     signers,
     logger,
+    computeUnitLimit: CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS,
+    computeUnitPrice,
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,

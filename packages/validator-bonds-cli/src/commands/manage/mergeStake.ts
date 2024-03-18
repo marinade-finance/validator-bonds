@@ -7,6 +7,7 @@ import {
   MARINADE_CONFIG_ADDRESS,
   mergeStakeInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
+import { MERGE_STAKE_LIMIT_UNITS } from '../../computeUnits'
 
 export function installStakeMerge(program: Command) {
   program
@@ -73,6 +74,7 @@ async function manageMerge({
     program,
     provider,
     logger,
+    computeUnitPrice,
     simulate,
     printOnly,
     wallet,
@@ -99,6 +101,8 @@ async function manageMerge({
       `[source: ${source.toBase58()}, destination: ${destination.toBase58()}]`,
     signers,
     logger,
+    computeUnitLimit: MERGE_STAKE_LIMIT_UNITS,
+    computeUnitPrice,
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,

@@ -14,6 +14,7 @@ import {
 } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { getBondFromAddress } from '../utils'
+import { MINT_BOND_LIMIT_UNITS } from '../../computeUnits'
 
 export function installMintBond(program: Command) {
   program
@@ -87,6 +88,7 @@ async function manageMintBond({
     program,
     provider,
     logger,
+    computeUnitPrice,
     simulate,
     printOnly,
     wallet,
@@ -135,6 +137,8 @@ async function manageMintBond({
     errMessage: `'Failed to mint token for bond ${bondAccount.toBase58()}`,
     signers,
     logger,
+    computeUnitLimit: MINT_BOND_LIMIT_UNITS,
+    computeUnitPrice,
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,

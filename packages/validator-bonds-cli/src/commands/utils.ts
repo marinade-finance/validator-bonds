@@ -54,7 +54,7 @@ export async function getBondFromAddress({
     if (config === undefined) {
       config = MARINADE_CONFIG_ADDRESS
     }
-    ;({ program } = await setProgramIdByOwner(address))
+    ;({ program } = await setProgramIdByOwner(config))
     ;[address] = bondAddress(config, voteAccountAddress, program.programId)
     const bondAccountInfo =
       await program.provider.connection.getAccountInfo(address)

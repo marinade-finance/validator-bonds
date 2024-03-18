@@ -18,6 +18,7 @@ import {
 } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
+import { INIT_BOND_LIMIT_UNITS } from '../../computeUnits'
 
 export function installInitBond(program: Command) {
   program
@@ -94,6 +95,7 @@ async function manageInitBond({
     program,
     provider,
     logger,
+    computeUnitPrice,
     simulate,
     printOnly,
     wallet,
@@ -140,6 +142,8 @@ async function manageInitBond({
       ` of config ${config.toBase58()}`,
     signers,
     logger,
+    computeUnitLimit: INIT_BOND_LIMIT_UNITS,
+    computeUnitPrice,
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,
