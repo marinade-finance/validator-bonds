@@ -53,7 +53,8 @@ program
   .option(
     '--confirmation-finality <confirmed|finalized>',
     'Confirmation finality of sent transaction. ' +
-      'Default is "confirmed" that means for full cluster finality that takes ~8 seconds.',
+      'Default is "confirmed" that means for majority of nodes confirms in cluster. ' +
+      '"finalized" stands for full cluster finality that takes ~8 seconds.',
     'confirmed'
   )
   .option(
@@ -100,10 +101,10 @@ installCommands(program)
 
 program.parseAsync(process.argv).then(
   () => {
-    logger.debug({ command: 'success', args: process.argv })
+    logger.debug({ resolution: 'Success', args: process.argv })
   },
   (err: unknown) => {
-    logger.error({ command: 'failed', err, args: process.argv })
+    logger.error({ resolution: 'Failure', err, args: process.argv })
     process.exit(200)
   }
 )

@@ -104,6 +104,7 @@ async function manageInitConfig({
     printOnly,
     wallet,
     confirmationFinality,
+    confirmWaitTime,
   } = getCliContext()
 
   const tx = await transaction(provider)
@@ -140,6 +141,7 @@ async function manageInitConfig({
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,
+    confirmWaitTime,
   })
   logger.info(
     `Config account ${address.publicKey.toBase58()} successfully created`

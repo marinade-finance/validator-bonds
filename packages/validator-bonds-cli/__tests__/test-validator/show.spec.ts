@@ -243,6 +243,7 @@ describe('Show command using CLI', () => {
       amountToWithdraw: 0,
       amountActiveStakeAccounts: 0,
       amountSettlementStakeAccounts: 0,
+      withdrawRequest: '<NOT EXISTING>',
     }
 
     await (
@@ -504,7 +505,7 @@ describe('Show command using CLI', () => {
       amountToWithdraw: 0,
       amountActiveStakeAccounts: stakeAccountLamports.length,
       amountSettlementStakeAccounts: 0,
-      withdrawRequest: undefined,
+      withdrawRequest: '<NOT EXISTING>',
     }
 
     await (

@@ -120,6 +120,7 @@ async function manageConfigureBond({
     printOnly,
     wallet,
     confirmationFinality,
+    confirmWaitTime,
   } = await setProgramIdByOwner(config)
 
   const tx = await transaction(provider)
@@ -184,6 +185,7 @@ async function manageConfigureBond({
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,
+    confirmWaitTime,
   })
   logger.info(`Bond account ${bondAccount.toBase58()} successfully configured`)
 }

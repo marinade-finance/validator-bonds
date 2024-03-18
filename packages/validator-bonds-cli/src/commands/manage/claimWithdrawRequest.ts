@@ -124,6 +124,7 @@ async function manageClaimWithdrawRequest({
     printOnly,
     wallet,
     confirmationFinality,
+    confirmWaitTime,
   } = await setProgramIdByOwner(config)
 
   const tx = await transaction(provider)
@@ -193,6 +194,7 @@ async function manageClaimWithdrawRequest({
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,
+    confirmWaitTime,
   })
   logger.info(
     `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +

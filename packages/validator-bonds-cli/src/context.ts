@@ -18,6 +18,7 @@ import {
 export class ValidatorBondsCliContext extends Context {
   private bondsProgramId?: PublicKey
   readonly provider: Provider
+  readonly confirmWaitTime: number
 
   constructor({
     programId,
@@ -29,6 +30,7 @@ export class ValidatorBondsCliContext extends Context {
     skipPreflight,
     confirmationFinality,
     computeUnitPrice,
+    confirmWaitTime,
     commandName,
   }: {
     programId?: PublicKey
@@ -40,6 +42,7 @@ export class ValidatorBondsCliContext extends Context {
     skipPreflight: boolean
     confirmationFinality: Finality
     computeUnitPrice: number
+    confirmWaitTime: number
     commandName: string
   }) {
     super({
@@ -54,6 +57,7 @@ export class ValidatorBondsCliContext extends Context {
     })
     this.provider = provider
     this.bondsProgramId = programId
+    this.confirmWaitTime = confirmWaitTime
   }
 
   set programId(programId: PublicKey | undefined) {
@@ -99,11 +103,13 @@ export function setValidatorBondsCliContext({
 }) {
   try {
     const parsedCommitment = parseCommitment(commitment)
-    const connection = new Connection(
-      parseClusterUrl(cluster),
-      parsedCommitment
-    )
+    const clusterUrl = parseClusterUrl(cluster)
+    const connection = new Connection(clusterUrl, parsedCommitment)
     const provider = new AnchorProvider(connection, wallet, { skipPreflight })
+
+    // this is kind of a workaround how to manage timeouts in the CLI
+    // for mainnet-beta public API, adding wait time for confirmation
+    const confirmWaitTime = clusterUrl.includes('api.mainnet') ? 4000 : 0
 
     setContext(
       new ValidatorBondsCliContext({
@@ -115,6 +121,7 @@ export function setValidatorBondsCliContext({
         printOnly,
         skipPreflight,
         confirmationFinality: parseConfirmationFinality(confirmationFinality),
+        confirmWaitTime,
         computeUnitPrice,
         commandName: command,
       })

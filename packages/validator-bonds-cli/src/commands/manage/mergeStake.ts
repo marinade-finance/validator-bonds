@@ -79,6 +79,7 @@ async function manageMerge({
     printOnly,
     wallet,
     confirmationFinality,
+    confirmWaitTime,
   } = await setProgramIdByOwner(config)
 
   const tx = await transaction(provider)
@@ -106,6 +107,7 @@ async function manageMerge({
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,
+    confirmWaitTime,
   })
   logger.info(
     `Stake account ${source.toBase58()} successfully merged to ${destination.toBase58()}`

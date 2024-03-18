@@ -127,6 +127,7 @@ async function manageConfigureConfig({
     printOnly,
     wallet,
     confirmationFinality,
+    confirmWaitTime,
   } = await setProgramIdByOwner(address)
 
   const tx = await transaction(provider)
@@ -162,6 +163,7 @@ async function manageConfigureConfig({
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,
+    confirmWaitTime,
   })
   logger.info(`Config account ${address.toBase58()} successfully configured`)
 }

@@ -100,6 +100,7 @@ async function manageEmergencyPauseAndResume({
     printOnly,
     wallet,
     confirmationFinality,
+    confirmWaitTime,
   } = await setProgramIdByOwner(address)
 
   const tx = await transaction(provider)
@@ -138,6 +139,7 @@ async function manageEmergencyPauseAndResume({
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,
+    confirmWaitTime,
   })
   logger.info(
     `Succeeded to ${action} validator bonds config account ${address.toBase58()}`

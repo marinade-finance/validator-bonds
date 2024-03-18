@@ -350,7 +350,7 @@ function reformatBond(key: string, value: any): ReformatAction {
   if (key.toLowerCase() === 'cpmpe' || key.toLowerCase().includes('bump')) {
     return { type: 'Remove' }
   }
-  if (key.toLocaleLowerCase() === 'withdrawrequest') {
+  if (key.toLocaleLowerCase() === 'withdrawrequest' && value === undefined) {
     return {
       type: 'UseExclusively',
       records: [{ key, value: '<NOT EXISTING>' }],

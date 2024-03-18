@@ -108,6 +108,7 @@ async function manageCancelWithdrawRequest({
     wallet,
     confirmationFinality,
     computeUnitPrice,
+    confirmWaitTime,
   } = await setProgramIdByOwner(config)
 
   const tx = await transaction(provider)
@@ -160,6 +161,7 @@ async function manageCancelWithdrawRequest({
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,
+    confirmWaitTime,
   })
   logger.info(
     `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +

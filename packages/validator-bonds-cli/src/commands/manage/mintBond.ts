@@ -93,6 +93,7 @@ async function manageMintBond({
     printOnly,
     wallet,
     confirmationFinality,
+    confirmWaitTime,
   } = await setProgramIdByOwner(config)
 
   const tx = await transaction(provider)
@@ -142,6 +143,7 @@ async function manageMintBond({
     simulate,
     printOnly,
     confirmOpts: confirmationFinality,
+    confirmWaitTime,
   })
   logger.info(
     `Bond ${bondAccount.toBase58()} token ${bondMint.toBase58()} was minted successfully`
