@@ -347,11 +347,14 @@ function reformatBond(key: string, value: any): ReformatAction {
   ) {
     return { type: 'Remove' }
   }
-  if (key.toLowerCase() === 'cpmpe') {
+  if (key.toLowerCase() === 'cpmpe' || key.toLowerCase().includes('bump')) {
     return { type: 'Remove' }
   }
-  if (key.toLowerCase().includes('bump')) {
-    return { type: 'Remove' }
+  if (key.toLocaleLowerCase() === 'withdrawrequest') {
+    return {
+      type: 'UseExclusively',
+      records: [{ key, value: '<NOT EXISTING>' }],
+    }
   }
   return { type: 'UsePassThrough' }
 }
