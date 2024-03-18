@@ -24,7 +24,7 @@
     },
     "devDependencies": {
         "@jest/globals": "^29.7.0",
-        "@marinade.finance/jest-utils": "file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/jest-utils",
+        "@marinade.finance/jest-utils": "^2.3.2",
         "@types/bn.js": "^5.1.5",
         "@types/jest": "^29.5.12",
         "@types/node": "^18.19.24",

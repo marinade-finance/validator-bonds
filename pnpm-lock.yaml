@@ -12,8 +12,8 @@ importers:
         specifier: ^29.7.0
         version: 29.7.0
       '@marinade.finance/jest-utils':
-        specifier: file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/jest-utils
-        version: file:../marinade-ts-cli/build/packages/lib/jest-utils(@jest/globals@29.7.0)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(jest-shell-matchers@1.0.2)
+        specifier: ^2.3.2
+        version: 2.3.2(@jest/globals@29.7.0)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(jest-shell-matchers@1.0.2)
       '@types/bn.js':
         specifier: ^5.1.5
         version: 5.1.5
@@ -45,23 +45,23 @@ importers:
         specifier: ^0.29.0
         version: 0.29.0
       '@marinade.finance/anchor-common':
-        specifier: file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/anchor-common
-        version: file:../marinade-ts-cli/build/packages/lib/anchor-common(@coral-xyz/anchor@0.29.0)(@marinade.finance/ts-common@2.3.2)(@marinade.finance/web3js-common@2.3.2)(@solana/web3.js@1.91.1)(bn.js@5.2.1)
+        specifier: ^2.3.2
+        version: 2.3.2(@coral-xyz/anchor@0.29.0)(@marinade.finance/ts-common@2.3.2)(@marinade.finance/web3js-common@2.3.2)(@solana/web3.js@1.91.1)(bn.js@5.2.1)
       '@marinade.finance/cli-common':
-        specifier: file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/cli-common
-        version: file:../marinade-ts-cli/build/packages/lib/cli-common(@marinade.finance/ledger-utils@3.0.1)(@marinade.finance/ts-common@2.3.2)(@marinade.finance/web3js-common@2.3.2)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)(expand-tilde@2.0.2)(pino@8.17.2)(yaml@2.3.4)
+        specifier: ^2.3.2
+        version: 2.3.2(@marinade.finance/ledger-utils@3.0.1)(@marinade.finance/ts-common@2.3.2)(@marinade.finance/web3js-common@2.3.2)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)(expand-tilde@2.0.2)(pino@8.17.2)(yaml@2.3.4)
       '@marinade.finance/ledger-utils':
         specifier: ^3.0.1
         version: 3.0.1(@ledgerhq/errors@6.16.2)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@2.3.2)(@solana/web3.js@1.91.1)
       '@marinade.finance/ts-common':
-        specifier: file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/ts-common
-        version: file:../marinade-ts-cli/build/packages/lib/ts-common
+        specifier: ^2.3.2
+        version: 2.3.2
       '@marinade.finance/validator-bonds-sdk':
         specifier: ^1.1.12
         version: link:../validator-bonds-sdk
       '@marinade.finance/web3js-common':
-        specifier: file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/web3js-common
-        version: file:../marinade-ts-cli/build/packages/lib/web3js-common(@marinade.finance/ts-common@2.3.2)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)
+        specifier: ^2.3.2
+        version: 2.3.2(@marinade.finance/ts-common@2.3.2)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)
       '@solana/web3.js':
         specifier: ^1.91.1
         version: 1.91.1
@@ -88,8 +88,8 @@ importers:
         version: 2.3.4
     devDependencies:
       '@marinade.finance/jest-utils':
-        specifier: file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/jest-utils
-        version: file:../marinade-ts-cli/build/packages/lib/jest-utils(@jest/globals@29.7.0)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(jest-shell-matchers@1.0.2)
+        specifier: ^2.3.2
+        version: 2.3.2(@jest/globals@29.7.0)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(jest-shell-matchers@1.0.2)
 
   packages/validator-bonds-sdk:
     dependencies:
@@ -101,23 +101,23 @@ importers:
         specifier: ^0.29.0
         version: 0.29.0
       '@marinade.finance/anchor-common':
-        specifier: file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/anchor-common
-        version: file:../marinade-ts-cli/build/packages/lib/anchor-common(@coral-xyz/anchor@0.29.0)(@marinade.finance/ts-common@2.3.2)(@marinade.finance/web3js-common@2.3.2)(@solana/web3.js@1.91.1)(bn.js@5.2.1)
+        specifier: ^2.3.2
+        version: 2.3.2(@coral-xyz/anchor@0.29.0)(@marinade.finance/ts-common@2.3.2)(@marinade.finance/web3js-common@2.3.2)(@solana/web3.js@1.91.1)(bn.js@5.2.1)
       '@marinade.finance/bankrun-utils':
-        specifier: file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/bankrun-utils
-        version: file:../marinade-ts-cli/build/packages/lib/bankrun-utils(@marinade.finance/web3js-common@2.3.2)(@solana/web3.js@1.91.1)(anchor-bankrun@0.3.0)(class-transformer@0.5.1)(solana-bankrun@0.2.0)
+        specifier: ^2.3.2
+        version: 2.3.2(@marinade.finance/web3js-common@2.3.2)(@solana/web3.js@1.91.1)(anchor-bankrun@0.3.0)(class-transformer@0.5.1)(solana-bankrun@0.2.0)
       '@marinade.finance/marinade-ts-sdk':
         specifier: ^5.0.10
         version: 5.0.10(@solana/web3.js@1.91.1)(bn.js@5.2.1)(fastestsmallesttextencoderdecoder@1.0.22)(jsbi@4.3.0)
       '@marinade.finance/ts-common':
-        specifier: file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/ts-common
-        version: file:../marinade-ts-cli/build/packages/lib/ts-common
+        specifier: ^2.3.2
+        version: 2.3.2
       '@marinade.finance/umi-utils':
-        specifier: file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/umi-utils
-        version: file:../marinade-ts-cli/build/packages/lib/umi-utils(@marinade.finance/web3js-common@2.3.2)(@metaplex-foundation/umi-bundle-defaults@0.9.1)(@metaplex-foundation/umi@0.9.1)(@solana/web3.js@1.91.1)
+        specifier: ^2.3.2
+        version: 2.3.2(@marinade.finance/web3js-common@2.3.2)(@metaplex-foundation/umi-bundle-defaults@0.9.1)(@metaplex-foundation/umi@0.9.1)(@solana/web3.js@1.91.1)
       '@marinade.finance/web3js-common':
-        specifier: file:/home/chalda/marinade/marinade-ts-cli/build/packages/lib/web3js-common
-        version: file:../marinade-ts-cli/build/packages/lib/web3js-common(@marinade.finance/ts-common@2.3.2)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)
+        specifier: ^2.3.2
+        version: 2.3.2(@marinade.finance/ts-common@2.3.2)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)
       '@metaplex-foundation/mpl-token-metadata':
         specifier: ^3.2.0
         version: 3.2.0(@metaplex-foundation/umi@0.9.1)
@@ -988,6 +988,65 @@ packages:
     resolution: {integrity: sha512-ExDoj1QV5eC6TEbMdLUMMk9cfvNKhhv5gXol4SmULRVCx/3iyCPhJ74nsb3S0Vb+/f+XujBEj3vQn5+cwS0fNA==}
     dev: false
 
+  /@marinade.finance/anchor-common@2.3.2(@coral-xyz/anchor@0.29.0)(@marinade.finance/ts-common@2.3.2)(@marinade.finance/web3js-common@2.3.2)(@solana/web3.js@1.91.1)(bn.js@5.2.1):
+    resolution: {integrity: sha512-pKknY1MiaAEU+qbW+9pd8A+Ro2RtONqKRlVQW5wC5jOLQdNIuEzzdO4mhDMQqDp5ecKvV+i7zKaUWe2xJNaolg==}
+    peerDependencies:
+      '@coral-xyz/anchor': ^0.29.0 || 0.29
+      '@marinade.finance/ts-common': 2.3.2
+      '@marinade.finance/web3js-common': 2.3.2
+      '@solana/web3.js': ^1.91.1
+      bn.js: ^5.2.1
+    dependencies:
+      '@coral-xyz/anchor': 0.29.0
+      '@marinade.finance/ts-common': 2.3.2
+      '@marinade.finance/web3js-common': 2.3.2(@marinade.finance/ts-common@2.3.2)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)
+      '@solana/web3.js': 1.91.1
+      bn.js: 5.2.1
+
+  /@marinade.finance/bankrun-utils@2.3.2(@marinade.finance/web3js-common@2.3.2)(@solana/web3.js@1.91.1)(anchor-bankrun@0.3.0)(class-transformer@0.5.1)(solana-bankrun@0.2.0):
+    resolution: {integrity: sha512-PGyzktTM3Od/xiI40lOP/Dv3J9qUEx6qPKf15z8gtatHEDVt3NEkmFy8uqgV2U5KYVcUJVQ1cVGt8cCb1CpYzA==}
+    engines: {node: '>=16.0.0'}
+    peerDependencies:
+      '@marinade.finance/web3js-common': 2.3.2
+      '@solana/web3.js': ^1.91.1
+      anchor-bankrun: ^0.3.0
+      class-transformer: ^0.5.1
+      solana-bankrun: ^0.2.0
+    dependencies:
+      '@marinade.finance/web3js-common': 2.3.2(@marinade.finance/ts-common@2.3.2)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)
+      '@solana/web3.js': 1.91.1
+      anchor-bankrun: 0.3.0(@coral-xyz/anchor@0.29.0)(@solana/web3.js@1.91.1)(solana-bankrun@0.2.0)
+      class-transformer: 0.5.1
+      solana-bankrun: 0.2.0
+    dev: true
+
+  /@marinade.finance/cli-common@2.3.2(@marinade.finance/ledger-utils@3.0.1)(@marinade.finance/ts-common@2.3.2)(@marinade.finance/web3js-common@2.3.2)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)(expand-tilde@2.0.2)(pino@8.17.2)(yaml@2.3.4):
+    resolution: {integrity: sha512-FETaGYEdgJeITK9Rz0zi2Z/PpB1n5Y+McUzNvmJm+3Ch3+GuNFyJhDiblPOGlcOclfDxGzWoQHFEgAvBAvFvcw==}
+    engines: {node: '>=16.0.0'}
+    peerDependencies:
+      '@marinade.finance/ledger-utils': ^3.0.1
+      '@marinade.finance/ts-common': 2.3.2
+      '@marinade.finance/web3js-common': 2.3.2
+      '@solana/web3.js': ^1.91.1
+      bn.js: ^5.2.1
+      borsh: ^0.7.0
+      bs58: ^5.0.0
+      expand-tilde: ^2.0.2
+      pino: ^8.15.1
+      yaml: ^2.3.2
+    dependencies:
+      '@marinade.finance/ledger-utils': 3.0.1(@ledgerhq/errors@6.16.2)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@2.3.2)(@solana/web3.js@1.91.1)
+      '@marinade.finance/ts-common': 2.3.2
+      '@marinade.finance/web3js-common': 2.3.2(@marinade.finance/ts-common@2.3.2)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)
+      '@solana/web3.js': 1.91.1
+      bn.js: 5.2.1
+      borsh: 0.7.0
+      bs58: 5.0.0
+      expand-tilde: 2.0.2
+      pino: 8.17.2
+      yaml: 2.3.4
+    dev: false
+
   /@marinade.finance/directed-stake-sdk@0.1.0(@solana/web3.js@1.91.1)(bn.js@5.2.1)(jsbi@4.3.0):
     resolution: {integrity: sha512-jpdz5XYMa/5tTe5W2isUWT8P38X49KeFNrqYlzPouhYPxqjdt4a/aSzuMqhP5s1xILFxRmqpZIv02iYeH0xjiA==}
     engines: {node: '>10'}
@@ -1007,6 +1066,20 @@ packages:
       - utf-8-validate
     dev: true
 
+  /@marinade.finance/jest-utils@2.3.2(@jest/globals@29.7.0)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(jest-shell-matchers@1.0.2):
+    resolution: {integrity: sha512-1eOC5FSKqTsmj81RNX9f81b3LfmaDO1zkegvmF7HR572lWMAr3e2j5UKL42GIz4/rNPMUuMCEyF1L2auKHSevw==}
+    peerDependencies:
+      '@jest/globals': ^29.7.0
+      '@solana/web3.js': ^1.91.1
+      bn.js: ^5.2.1
+      jest-shell-matchers: ^1.0.2
+    dependencies:
+      '@jest/globals': 29.7.0
+      '@solana/web3.js': 1.91.1
+      bn.js: 5.2.1
+      jest-shell-matchers: 1.0.2(jest@29.7.0)
+    dev: true
+
   /@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.16.2)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@2.3.2)(@solana/web3.js@1.91.1):
     resolution: {integrity: sha512-EIklQpxQHJ8f/YpE/HVYz4b6097I0kFR2aAZpgHocagSHuERRhXxoI46Ge7iDkLPnkjOaYOUtMxTdm2a1Hc4Wg==}
     peerDependencies:
@@ -1019,7 +1092,7 @@ packages:
       '@ledgerhq/errors': 6.16.2
       '@ledgerhq/hw-app-solana': 7.1.4
       '@ledgerhq/hw-transport-node-hid-noevents': 6.29.4
-      '@marinade.finance/ts-common': file:../marinade-ts-cli/build/packages/lib/ts-common
+      '@marinade.finance/ts-common': 2.3.2
       '@solana/web3.js': 1.91.1
     dev: false
 
@@ -1055,6 +1128,42 @@ packages:
       - encoding
       - utf-8-validate
     dev: true
+
+  /@marinade.finance/ts-common@2.3.2:
+    resolution: {integrity: sha512-6IT0+eNuDndNbp6ZV7pzaltuFou+ii+L341Wxxyq5rL3lQh7rNvzQDahObzDkGFglJSkDPoELofXUzGzhNLusg==}
+
+  /@marinade.finance/umi-utils@2.3.2(@marinade.finance/web3js-common@2.3.2)(@metaplex-foundation/umi-bundle-defaults@0.9.1)(@metaplex-foundation/umi@0.9.1)(@solana/web3.js@1.91.1):
+    resolution: {integrity: sha512-IBiSjKqvy4g2p3khWjz4c/15C3KmNgykm0yrRXuNum63LxS0sJPwxSDJBETqYGPzHDk1Hd79rmF07d+fSoJuOg==}
+    engines: {node: '>=16.0.0'}
+    peerDependencies:
+      '@marinade.finance/web3js-common': 2.3.2
+      '@metaplex-foundation/umi': 0.9.1
+      '@metaplex-foundation/umi-bundle-defaults': 0.9.1
+      '@solana/web3.js': ^1.91.1
+    dependencies:
+      '@marinade.finance/web3js-common': 2.3.2(@marinade.finance/ts-common@2.3.2)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)
+      '@metaplex-foundation/umi': 0.9.1
+      '@metaplex-foundation/umi-bundle-defaults': 0.9.1(@metaplex-foundation/umi@0.9.1)(@solana/web3.js@1.91.1)
+      '@solana/web3.js': 1.91.1
+    dev: true
+
+  /@marinade.finance/web3js-common@2.3.2(@marinade.finance/ts-common@2.3.2)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0):
+    resolution: {integrity: sha512-loU59tWJqEh0hwpowmGxcJwZi/Hqb9vNoAq2rGvvXiasrPEIsWtqC++2+RGBBzooRXmjp45aQryo7NrlWsrqGg==}
+    engines: {node: '>=16.0.0'}
+    peerDependencies:
+      '@marinade.finance/ts-common': 2.3.2
+      '@solana/buffer-layout': ^4.0.1
+      '@solana/web3.js': ^1.91.1
+      bn.js: ^5.2.1
+      borsh: ^0.7.0
+      bs58: ^5.0.0
+    dependencies:
+      '@marinade.finance/ts-common': 2.3.2
+      '@solana/buffer-layout': 4.0.1
+      '@solana/web3.js': 1.91.1
+      bn.js: 5.2.1
+      borsh: 0.7.0
+      bs58: 5.0.0
 
   /@metaplex-foundation/mpl-token-metadata@3.2.0(@metaplex-foundation/umi@0.9.1):
     resolution: {integrity: sha512-IP+orxAIkQwSa9M+xsYi7IopV+/0od5rgXTxp0988cHeB0hR1RpXQT8RrcTH/PeOs/tPCU5HvU01NaavV9EEcw==}
@@ -5044,125 +5153,3 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
     dev: true
-
-  file:../marinade-ts-cli/build/packages/lib/anchor-common(@coral-xyz/anchor@0.29.0)(@marinade.finance/ts-common@2.3.2)(@marinade.finance/web3js-common@2.3.2)(@solana/web3.js@1.91.1)(bn.js@5.2.1):
-    resolution: {directory: ../marinade-ts-cli/build/packages/lib/anchor-common, type: directory}
-    id: file:../marinade-ts-cli/build/packages/lib/anchor-common
-    name: '@marinade.finance/anchor-common'
-    peerDependencies:
-      '@coral-xyz/anchor': ^0.29.0 || 0.29
-      '@marinade.finance/ts-common': 2.3.2
-      '@marinade.finance/web3js-common': 2.3.2
-      '@solana/web3.js': ^1.91.1
-      bn.js: ^5.2.1
-    dependencies:
-      '@coral-xyz/anchor': 0.29.0
-      '@marinade.finance/ts-common': file:../marinade-ts-cli/build/packages/lib/ts-common
-      '@marinade.finance/web3js-common': file:../marinade-ts-cli/build/packages/lib/web3js-common(@marinade.finance/ts-common@2.3.2)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)
-      '@solana/web3.js': 1.91.1
-      bn.js: 5.2.1
-
-  file:../marinade-ts-cli/build/packages/lib/bankrun-utils(@marinade.finance/web3js-common@2.3.2)(@solana/web3.js@1.91.1)(anchor-bankrun@0.3.0)(class-transformer@0.5.1)(solana-bankrun@0.2.0):
-    resolution: {directory: ../marinade-ts-cli/build/packages/lib/bankrun-utils, type: directory}
-    id: file:../marinade-ts-cli/build/packages/lib/bankrun-utils
-    name: '@marinade.finance/bankrun-utils'
-    engines: {node: '>=16.0.0'}
-    peerDependencies:
-      '@marinade.finance/web3js-common': 2.3.2
-      '@solana/web3.js': ^1.91.1
-      anchor-bankrun: ^0.3.0
-      class-transformer: ^0.5.1
-      solana-bankrun: ^0.2.0
-    dependencies:
-      '@marinade.finance/web3js-common': file:../marinade-ts-cli/build/packages/lib/web3js-common(@marinade.finance/ts-common@2.3.2)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)
-      '@solana/web3.js': 1.91.1
-      anchor-bankrun: 0.3.0(@coral-xyz/anchor@0.29.0)(@solana/web3.js@1.91.1)(solana-bankrun@0.2.0)
-      class-transformer: 0.5.1
-      solana-bankrun: 0.2.0
-    dev: true
-
-  file:../marinade-ts-cli/build/packages/lib/cli-common(@marinade.finance/ledger-utils@3.0.1)(@marinade.finance/ts-common@2.3.2)(@marinade.finance/web3js-common@2.3.2)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)(expand-tilde@2.0.2)(pino@8.17.2)(yaml@2.3.4):
-    resolution: {directory: ../marinade-ts-cli/build/packages/lib/cli-common, type: directory}
-    id: file:../marinade-ts-cli/build/packages/lib/cli-common
-    name: '@marinade.finance/cli-common'
-    engines: {node: '>=16.0.0'}
-    peerDependencies:
-      '@marinade.finance/ledger-utils': ^3.0.1
-      '@marinade.finance/ts-common': 2.3.2
-      '@marinade.finance/web3js-common': 2.3.2
-      '@solana/web3.js': ^1.91.1
-      bn.js: ^5.2.1
-      borsh: ^0.7.0
-      bs58: ^5.0.0
-      expand-tilde: ^2.0.2
-      pino: ^8.15.1
-      yaml: ^2.3.2
-    dependencies:
-      '@marinade.finance/ledger-utils': 3.0.1(@ledgerhq/errors@6.16.2)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@2.3.2)(@solana/web3.js@1.91.1)
-      '@marinade.finance/ts-common': file:../marinade-ts-cli/build/packages/lib/ts-common
-      '@marinade.finance/web3js-common': file:../marinade-ts-cli/build/packages/lib/web3js-common(@marinade.finance/ts-common@2.3.2)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)
-      '@solana/web3.js': 1.91.1
-      bn.js: 5.2.1
-      borsh: 0.7.0
-      bs58: 5.0.0
-      expand-tilde: 2.0.2
-      pino: 8.17.2
-      yaml: 2.3.4
-    dev: false
-
-  file:../marinade-ts-cli/build/packages/lib/jest-utils(@jest/globals@29.7.0)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(jest-shell-matchers@1.0.2):
-    resolution: {directory: ../marinade-ts-cli/build/packages/lib/jest-utils, type: directory}
-    id: file:../marinade-ts-cli/build/packages/lib/jest-utils
-    name: '@marinade.finance/jest-utils'
-    peerDependencies:
-      '@jest/globals': ^29.7.0
-      '@solana/web3.js': ^1.91.1
-      bn.js: ^5.2.1
-      jest-shell-matchers: ^1.0.2
-    dependencies:
-      '@jest/globals': 29.7.0
-      '@solana/web3.js': 1.91.1
-      bn.js: 5.2.1
-      jest-shell-matchers: 1.0.2(jest@29.7.0)
-    dev: true
-
-  file:../marinade-ts-cli/build/packages/lib/ts-common:
-    resolution: {directory: ../marinade-ts-cli/build/packages/lib/ts-common, type: directory}
-    name: '@marinade.finance/ts-common'
-
-  file:../marinade-ts-cli/build/packages/lib/umi-utils(@marinade.finance/web3js-common@2.3.2)(@metaplex-foundation/umi-bundle-defaults@0.9.1)(@metaplex-foundation/umi@0.9.1)(@solana/web3.js@1.91.1):
-    resolution: {directory: ../marinade-ts-cli/build/packages/lib/umi-utils, type: directory}
-    id: file:../marinade-ts-cli/build/packages/lib/umi-utils
-    name: '@marinade.finance/umi-utils'
-    engines: {node: '>=16.0.0'}
-    peerDependencies:
-      '@marinade.finance/web3js-common': 2.3.2
-      '@metaplex-foundation/umi': 0.9.1
-      '@metaplex-foundation/umi-bundle-defaults': 0.9.1
-      '@solana/web3.js': ^1.91.1
-    dependencies:
-      '@marinade.finance/web3js-common': file:../marinade-ts-cli/build/packages/lib/web3js-common(@marinade.finance/ts-common@2.3.2)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0)
-      '@metaplex-foundation/umi': 0.9.1
-      '@metaplex-foundation/umi-bundle-defaults': 0.9.1(@metaplex-foundation/umi@0.9.1)(@solana/web3.js@1.91.1)
-      '@solana/web3.js': 1.91.1
-    dev: true
-
-  file:../marinade-ts-cli/build/packages/lib/web3js-common(@marinade.finance/ts-common@2.3.2)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.91.1)(bn.js@5.2.1)(borsh@0.7.0)(bs58@5.0.0):
-    resolution: {directory: ../marinade-ts-cli/build/packages/lib/web3js-common, type: directory}
-    id: file:../marinade-ts-cli/build/packages/lib/web3js-common
-    name: '@marinade.finance/web3js-common'
-    engines: {node: '>=16.0.0'}
-    peerDependencies:
-      '@marinade.finance/ts-common': 2.3.2
-      '@solana/buffer-layout': ^4.0.1
-      '@solana/web3.js': ^1.91.1
-      bn.js: ^5.2.1
-      borsh: ^0.7.0
-      bs58: ^5.0.0
-    dependencies:
-      '@marinade.finance/ts-common': file:../marinade-ts-cli/build/packages/lib/ts-common
-      '@solana/buffer-layout': 4.0.1
-      '@solana/web3.js': 1.91.1
-      bn.js: 5.2.1
-      borsh: 0.7.0
-      bs58: 5.0.0
