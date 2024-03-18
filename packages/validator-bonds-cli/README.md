@@ -25,7 +25,7 @@ added 165 packages in 35s
 17 packages are looking for funding
   run `npm fund` for details
 
-# to verify installation run
+# to verify installed version
 validator-bonds --version
 1.1.12
 ```
@@ -81,7 +81,7 @@ The parameters and their meanings are explained in detail below:
 ### Show the bond account
 
 ```sh
-validator-bonds -um show-bond <bond-account-address> -f yaml
+validator-bonds -um show-bond <bond-or-vote-account-address> -f yaml
 
 # to check with vote account address
 validator-bonds -um show-bond --config vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU --validator-vote-account <vote-account-address>
@@ -103,7 +103,58 @@ validator-bonds -um show-bond ...
 }
 ```
 
-### Funding bond accounts
+### Bond account configuration
+
+The bond account configures the authority public key.
+To both fund the bond and withdraw the funds, either the authority signature
+or the validator identity (linked to the bond account's vote account) is required.
+
+When creating the bond account in a permission-ed manner (as described in [section Creating a Bond](#creating-a-bond)), the authority can be defined upfront. If one prefers not to sign the CLI transaction with the validator `identity key`, they can utilize the [*mint-configure*](#permission-less-mint---configure-workflow) workflow.
+
+When `authority` is configure then use
+
+```sh
+pnpm cli -um configure <bond-or-vote-account-address> \
+  --authority <authority-or-validator-identity.keypair> \
+  --bond-authority <new-bond-authority-pubkey>
+```
+
+#### Permission-less Mint - Configure workflow
+
+The owner of the `validator identity` key has permission to configure the bond account. To verify the ownership of the validator identity key without requiring the CLI-generated transaction signature and sending it on-chain, one can use Bond's token minting. Use the command `mint-bond`:
+
+```sh
+pnpm cli -um mint-bond <bond-or-vote-account-address>
+```
+
+After execution of this command a Bond program creates a SPL token
+that is transferred to wallet of the `validator identity`.
+The owner of the `validator identity` may transfer the token
+to whatever other account (by standard means).
+Later when she wants to configure the bonds account it's required verify
+ownership of the Bond's SPL token.
+The owner of the token (which can be different to original `validator identity`)
+has to sign the CLI command and the program burns the Bond's SPL token
+and permits configuration of the `authority`.
+
+After executing this command, the Bond program creates an SPL token that
+is transferred to the wallet of the `validator identity`.
+The owner of the `validator identity` keypair may transfer the token
+to any other account using standard means.
+Later, when they want to configure the bond account,
+it's required to verify ownership of the Bond's SPL token.
+The owner of the token signs the CLI generated transaction,
+and the Bonds program burns the Bond's SPL token, allowing configuration of the authority.
+
+```sh
+pnpm cli -um configure <bond-or-vote-account-address> \
+  --authority <spl-token-owner.keypair> \
+  --bond-authority <new-bond-authority-pubkey> \
+  --with-token
+```
+
+
+### Funding bond account
 
 The bond account exists to be funded, where the funds may be used to cover a protected event
 when a validator under-performs or experiences a serious issue.
@@ -116,12 +167,62 @@ then assigning ownership of the stake account to the Validator Bonds program usi
 All lamports held in the stake accounts are considered part of the protected stake amount.
 
 ```sh
-validator-bonds -um fund-bond <bond-address> \
+validator-bonds -um fund-bond <bond-or-vote-account-address> \
   --stake-account <stake-account-address> \
   --stake-authority <withdrawer-stake-account-authority>
-  --vote-account <vote-account-pubkey>
 ```
 
+### Withdrawing bond account
+
+When one does not want to participate in covering the [protected events](https://marinade.finance/blog/introducing-protected-staking-rewards/)
+she may withdraw the funds by assigning the ownership of the stake accounts
+back to the original owner.
+
+When someone chooses not to participate in covering the [protected events](https://marinade.finance/blog/introducing-protected-staking-rewards/),
+they can withdraw the funds by transferring the ownership of the stake accounts back to the original owner.
+
+This process involves two steps. First, create an initial *withdraw request*, which is an on-chain ticket (an account) informing the protected event system
+about the intention to withdraw funds. Only after the lockup time elapses
+(a configuration property defined in the Bonds configuration),
+one can call to claim the *withdraw request* and regain ownership of the funds held within the stake account.
+
+NOTE: The amount declared in the *withdraw request* is no longer considered as part of the funded bond amount.
+
+To check the Bonds configuration data use `show-config` command.
+et Marinade config account address is `vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU`
+and verify the value 'withdrawLockupEpochs' to find required number of epochs to have the *withdraw request* claimable.
+
+```sh
+pnpm cli -um show-config vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU
+```
+
+To initialize the *withdraw request* and later claim it,
+use the following CLI commands. Both commands require the signature of the Bond's authority.
+
+To initialize the *withdraw request*, one needs to define the maximum number of lamports that is requested to be withdrawn upon claiming.
+For claiming, one may define `--withdrawer` as the public key where the claimed stake accounts will be assigned
+(by withdrawer and staker authorities).
+
+```sh
+pnpm cli -um init-withdraw-request <bond-or-vote-account-address> \
+  --authority <bond-authority.keypair> \
+  --amount <number-of-requested-lamports-to-be-withdrawn>
+
+pnpm cli -um claim-withdraw-request <withdraw-request-or-bond-account-address> \
+  --authority <bond-authority.keypair> \
+  --withdrawer <user-pubkey>
+```
+
+
+The *withdraw request* can be cancelled at any time.
+
+If the Bond owner desires to change the withdrawal amount or wishes to return the amount to be considered as funded bonds again,
+they need to cancel the existing request and potentially create a new withdrawal request later on.
+
+```sh
+pnpm cli -um cancel-withdraw-request <withdraw-request-or-bond-account-address> \
+  --authority <bond-authority.keypair>
+```
 
 ## Support for Ledger signing
 
