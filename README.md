@@ -1,4 +1,6 @@
-# validator-bonds
+# Validator Bonds
+
+<a href="https://www.npmjs.com/package/@marinade.finance/validator-bonds-cli"><img src="https://img.shields.io/npm/v/%40marinade.finance%2Fvalidator-bonds-cli?logo=npm&color=377CC0" /></a>
 
 Mono repository for Validator Bonds product
 
