@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "api",
-    "insurance-engine",
+    "settlement-engine",
     "merkle-tree",
     "programs/*",
     "snapshot-parser",

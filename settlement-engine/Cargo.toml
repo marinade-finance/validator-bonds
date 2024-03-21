@@ -1,9 +1,9 @@
 [[bin]]
-name = "insurance-engine-cli"
+name = "settlement-engine-cli"
 path = "src/bin/cli.rs"
 
 [package]
-name = "insurance-engine"
+name = "settlement-engine"
 version = "0.0.0"
 edition = "2021"
 

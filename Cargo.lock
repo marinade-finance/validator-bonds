@@ -2498,23 +2498,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "insurance-engine"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "bincode",
- "clap 4.4.8",
- "env_logger 0.10.1",
- "log",
- "merkle-tree",
- "serde",
- "serde_json",
- "snapshot-parser",
- "solana-sdk",
- "tokio",
-]
-
-[[package]]
 name = "ipnet"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4462,6 +4445,23 @@ dependencies = [
  "ryu",
  "serde",
  "unsafe-libyaml",
+]
+
+[[package]]
+name = "settlement-engine"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "clap 4.4.8",
+ "env_logger 0.10.1",
+ "log",
+ "merkle-tree",
+ "serde",
+ "serde_json",
+ "snapshot-parser",
+ "solana-sdk",
+ "tokio",
 ]
 
 [[package]]

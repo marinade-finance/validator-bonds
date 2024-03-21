@@ -57,7 +57,7 @@ impl InsuredEventCollection {
     }
 }
 
-pub fn generate_insured_event_collection(
+pub fn generate_protected_event_collection(
     validator_meta_collection: ValidatorMetaCollection,
     low_rewards_threshold_pct: f64,
 ) -> InsuredEventCollection {

@@ -9,11 +9,11 @@ Mono repository for Validator Bonds product
   ([SDK](./packages/validator-bonds-sdk/), [CLI](./packages/validator-bonds-cli/))
 * [`api/`](./api/) - in Rust developed OpenAPI service that publishes bonds data ([API endpoint](https://validator-bonds-api.marinade.finance/docs))
 * [`.buildkite/`](./.buildkite/) - automated pipelines that prepare data for bonds claiming, updating API data and similar
-* [`insurance-engine/`](./insurance-engine/) - code for a CLI creating protected event data that is published in form of JSON and packed as a settlement on-chain
+* [`settlement-engine/`](./settlement-engine/) - code for a CLI creating protected event data that is published in form of JSON and packed as a settlement on-chain
 * [`merkle-tree/`](./merkle-tree/) - generic Rust library implementing the merkle tree data structure management
 * [`migrations/`](./migrations/) - SQL scripts to prepare and change DB schemas
 * [`scripts/`](./scripts/) - scripts used in pipeline and to manage and integrate various repository parts
-* [`snapshot-parser`](./snapshot-parser/) - a CLI for parsing Solana snapshots and providing data to be processed by `insurance-engine`
+* [`snapshot-parser`](./snapshot-parser/) - a CLI for parsing Solana snapshots and providing data to be processed by `settlement-engine`
 * [`validator-bonds-cli`](./validator-bonds-cli/) - CLI used by operator to manage bonds (user related CLI is [packages/CLI](./packages/validator-bonds-cli/))
 
 ## User related CLI from source

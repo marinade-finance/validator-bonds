@@ -5,10 +5,10 @@ steps:
   - label: ":hammer_and_wrench: :rust: Build"
     commands:
     - '. "$HOME/.cargo/env"'
-    - 'cargo build --release --bin snapshot-parser-cli --bin insurance-engine-cli'
+    - 'cargo build --release --bin snapshot-parser-cli --bin settlement-engine-cli'
     artifact_paths:
       - target/release/snapshot-parser-cli
-      - target/release/insurance-engine-cli
+      - target/release/settlement-engine-cli
 
   - input: "What is the snapshot directory?"
     fields:
@@ -54,28 +54,28 @@ steps:
       WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
-    - 'buildkite-agent artifact download --include-retried-jobs target/release/insurance-engine-cli .'
-    - 'chmod +x target/release/insurance-engine-cli'
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/settlement-engine-cli .'
+    - 'chmod +x target/release/settlement-engine-cli'
     - |
-      ./target/release/insurance-engine-cli \
+      ./target/release/settlement-engine-cli \
         --validator-meta-collection "$$snapshot_dir/validators.json" \
         --stake-meta-collection "$$snapshot_dir/stakes.json" \
-        --output-insured-event-collection "$$snapshot_dir/events.json" \
-        --output-insurance-claim-collection "$$snapshot_dir/claims.json" \
+        --output-protected-event-collection "$$snapshot_dir/events.json" \
+        --output-settlement-claim-collection "$$snapshot_dir/claims.json" \
         --output-merkle-tree-collection "$$snapshot_dir/claims_merkle.json" \
         --low-rewards-threshold-pct 0.9
 
   - label: ":scales: Evaluate All Insured Events"
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
-    - 'buildkite-agent artifact download --include-retried-jobs target/release/insurance-engine-cli .'
-    - 'chmod +x target/release/insurance-engine-cli'
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/settlement-engine-cli .'
+    - 'chmod +x target/release/settlement-engine-cli'
     - |
-      ./target/release/insurance-engine-cli \
+      ./target/release/settlement-engine-cli \
         --validator-meta-collection "$$snapshot_dir/validators.json" \
         --stake-meta-collection "$$snapshot_dir/stakes.json" \
-        --output-insured-event-collection "$$snapshot_dir/events_all.json" \
-        --output-insurance-claim-collection "$$snapshot_dir/claims_all.json" \
+        --output-protected-event-collection "$$snapshot_dir/events_all.json" \
+        --output-settlement-claim-collection "$$snapshot_dir/claims_all.json" \
         --output-merkle-tree-collection "$$snapshot_dir/claims_merkle_all.json" \
         --low-rewards-threshold-pct 0.9
 

@@ -1,6 +1,6 @@
 use solana_sdk::pubkey::Pubkey;
 use {
-    crate::insurance_claims::{InsuranceClaim, InsuranceClaimCollection},
+    crate::settlement_claims::{SettlementClaim, SettlementClaimCollection},
     merkle_tree::{psr_claim::TreeNode, serde_serialize::pubkey_string_conversion, MerkleTree},
     serde::{Deserialize, Serialize},
     solana_sdk::hash::Hash,
@@ -27,14 +27,14 @@ pub struct MerkleTreeCollection {
 }
 
 pub fn generate_merkle_tree_collection(
-    insurance_claims_collection: InsuranceClaimCollection,
+    settlement_claims_collection: SettlementClaimCollection,
 ) -> anyhow::Result<MerkleTreeCollection> {
-    let mut tree_nodes: Vec<_> = insurance_claims_collection
+    let mut tree_nodes: Vec<_> = settlement_claims_collection
         .claims
         .iter()
         .cloned()
         .map(
-            |InsuranceClaim {
+            |SettlementClaim {
                  withdraw_authority,
                  stake_authority,
                  claim,
@@ -48,13 +48,13 @@ pub fn generate_merkle_tree_collection(
         )
         .collect();
 
-    let claim_limits = insurance_claims_collection
+    let claim_limits = settlement_claims_collection
         .claims
         .iter()
         .fold(
             HashMap::default(),
             |mut claim_limits: HashMap<Pubkey, ClaimLimit>,
-             InsuranceClaim {
+             SettlementClaim {
                  vote_account,
                  claim,
                  ..
@@ -84,8 +84,8 @@ pub fn generate_merkle_tree_collection(
     }
 
     Ok(MerkleTreeCollection {
-        epoch: insurance_claims_collection.epoch,
-        slot: insurance_claims_collection.slot,
+        epoch: settlement_claims_collection.epoch,
+        slot: settlement_claims_collection.slot,
         merkle_root: merkle_tree.get_root().cloned(),
         max_total_claim_sum,
         max_total_claims: tree_nodes.len(),

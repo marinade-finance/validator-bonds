@@ -1,8 +1,8 @@
 use env_logger::{Builder, Env};
-use insurance_engine::insurance_claims::stake_authorities_filter;
-use insurance_engine::{
-    insurance_claims::generate_insurance_claim_collection,
-    insured_events::generate_insured_event_collection,
+use settlement_engine::settlement_claims::stake_authorities_filter;
+use settlement_engine::{
+    settlement_claims::generate_settlement_claim_collection,
+    protected_events::generate_protected_event_collection,
     merkle_tree_collection::generate_merkle_tree_collection,
     utils::{read_from_json_file, write_to_json_file},
 };
@@ -21,10 +21,10 @@ struct Args {
     stake_meta_collection: String,
 
     #[arg(long, env)]
-    output_insured_event_collection: String,
+    output_protected_event_collection: String,
 
     #[arg(long, env)]
-    output_insurance_claim_collection: String,
+    output_settlement_claim_collection: String,
 
     #[arg(long, env)]
     output_merkle_tree_collection: String,
@@ -40,7 +40,7 @@ fn main() -> anyhow::Result<()> {
     let mut builder = Builder::from_env(Env::default().default_filter_or("info"));
     builder.init();
 
-    info!("Starting insurance engine...");
+    info!("Starting settlement engine...");
     let args: Args = Args::parse();
 
     if let Some(whitelisted_stake_authorities) = &args.whitelist_stake_authority {
@@ -59,14 +59,14 @@ fn main() -> anyhow::Result<()> {
         read_from_json_file(&args.stake_meta_collection)?;
 
     info!("Generating insured event collection...");
-    let insured_event_collection = generate_insured_event_collection(
+    let protected_event_collection = generate_protected_event_collection(
         validator_meta_collection,
         args.low_rewards_threshold_pct,
     );
     info!("Writing insured events collection to json file");
     write_to_json_file(
-        &insured_event_collection,
-        &args.output_insured_event_collection,
+        &protected_event_collection,
+        &args.output_protected_event_collection,
     )?;
 
     info!(
@@ -79,19 +79,19 @@ fn main() -> anyhow::Result<()> {
             stake_authorities_filter(HashSet::from_iter(whitelisted_stake_authorities))
         });
 
-    info!("Generating insurance claim collection...");
-    let insurance_claim_collection = generate_insurance_claim_collection(
+    info!("Generating settlement claim collection...");
+    let settlement_claim_collection = generate_settlement_claim_collection(
         stake_meta_collection,
-        insured_event_collection,
+        protected_event_collection,
         stake_meta_filter,
     );
     write_to_json_file(
-        &insurance_claim_collection,
-        &args.output_insurance_claim_collection,
+        &settlement_claim_collection,
+        &args.output_settlement_claim_collection,
     )?;
 
     info!("Generating merkle tree collection...");
-    let merkle_tree_collection = generate_merkle_tree_collection(insurance_claim_collection)?;
+    let merkle_tree_collection = generate_merkle_tree_collection(settlement_claim_collection)?;
     write_to_json_file(&merkle_tree_collection, &args.output_merkle_tree_collection)?;
 
     info!("Finished.");

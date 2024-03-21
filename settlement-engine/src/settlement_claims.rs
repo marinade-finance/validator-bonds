@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use snapshot_parser::stake_meta::StakeMeta;
 
 use {
-    crate::insured_events::InsuredEventCollection,
+    crate::protected_events::InsuredEventCollection,
     merkle_tree::serde_serialize::{map_pubkey_string_conversion, pubkey_string_conversion},
     serde::{Deserialize, Serialize},
     snapshot_parser::stake_meta::StakeMetaCollection,
@@ -13,7 +13,7 @@ use {
 };
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct InsuranceClaim {
+pub struct SettlementClaim {
     #[serde(with = "pubkey_string_conversion")]
     pub withdraw_authority: Pubkey,
     #[serde(with = "pubkey_string_conversion")]
@@ -27,10 +27,10 @@ pub struct InsuranceClaim {
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
-pub struct InsuranceClaimCollection {
+pub struct SettlementClaimCollection {
     pub epoch: u64,
     pub slot: u64,
-    pub claims: Vec<InsuranceClaim>,
+    pub claims: Vec<SettlementClaim>,
 }
 
 pub fn stake_authorities_filter(whitelist: HashSet<Pubkey>) -> Box<dyn Fn(&StakeMeta) -> bool> {
@@ -41,13 +41,13 @@ fn no_filter() -> Box<dyn Fn(&StakeMeta) -> bool> {
     Box::new(|_| true)
 }
 
-pub fn generate_insurance_claim_collection(
+pub fn generate_settlement_claim_collection(
     stake_meta_collection: StakeMetaCollection,
-    insured_event_collection: InsuredEventCollection,
+    protected_event_collection: InsuredEventCollection,
     stake_meta_filter: Option<Box<dyn Fn(&StakeMeta) -> bool>>,
-) -> InsuranceClaimCollection {
-    assert_eq!(stake_meta_collection.epoch, insured_event_collection.epoch);
-    assert_eq!(stake_meta_collection.slot, insured_event_collection.slot);
+) -> SettlementClaimCollection {
+    assert_eq!(stake_meta_collection.epoch, protected_event_collection.epoch);
+    assert_eq!(stake_meta_collection.slot, protected_event_collection.slot);
 
     let stake_meta_filter = stake_meta_filter.unwrap_or_else(|| no_filter());
 
@@ -88,11 +88,11 @@ pub fn generate_insurance_claim_collection(
                     .map(|s| s.active_delegation_lamports)
                     .sum();
 
-                let claim: Option<u64> = insured_event_collection
+                let claim: Option<u64> = protected_event_collection
                     .events_by_validator(&vote_account)
                     .map(|events| events.iter().map(|e| e.claim_amount(stake)).sum());
 
-                claim.map(|claim| InsuranceClaim {
+                claim.map(|claim| SettlementClaim {
                     withdraw_authority,
                     stake_authority,
                     vote_account,
@@ -104,9 +104,9 @@ pub fn generate_insurance_claim_collection(
         )
         .collect();
 
-    InsuranceClaimCollection {
-        epoch: insured_event_collection.epoch,
-        slot: insured_event_collection.slot,
+    SettlementClaimCollection {
+        epoch: protected_event_collection.epoch,
+        slot: protected_event_collection.slot,
         claims,
     }
 }

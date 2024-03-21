@@ -31,7 +31,7 @@ type MerkleTreeNodeDataInput = {
 export type MerkleTreeNodeData = MerkleTreeNodeDataInput &
   Omit<MerkleTreeNodeDataInput, 'claim'> & { claim: BN }
 
-// see insurance_engine/src/merkle_tree_collection.rs
+// see settlement_engine/src/merkle_tree_collection.rs
 export class MerkleTreeNode {
   public data: MerkleTreeNodeData
   constructor(data: MerkleTreeNodeDataInput) {
