@@ -46,7 +46,10 @@ pub fn generate_settlement_claim_collection(
     protected_event_collection: InsuredEventCollection,
     stake_meta_filter: Option<Box<dyn Fn(&StakeMeta) -> bool>>,
 ) -> SettlementClaimCollection {
-    assert_eq!(stake_meta_collection.epoch, protected_event_collection.epoch);
+    assert_eq!(
+        stake_meta_collection.epoch,
+        protected_event_collection.epoch
+    );
     assert_eq!(stake_meta_collection.slot, protected_event_collection.slot);
 
     let stake_meta_filter = stake_meta_filter.unwrap_or_else(|| no_filter());
