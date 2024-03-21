@@ -1,9 +1,9 @@
 use env_logger::{Builder, Env};
 use settlement_engine::settlement_claims::stake_authorities_filter;
 use settlement_engine::{
-    settlement_claims::generate_settlement_claim_collection,
-    protected_events::generate_protected_event_collection,
     merkle_tree_collection::generate_merkle_tree_collection,
+    protected_events::generate_protected_event_collection,
+    settlement_claims::generate_settlement_claim_collection,
     utils::{read_from_json_file, write_to_json_file},
 };
 use snapshot_parser::{stake_meta::StakeMetaCollection, validator_meta::ValidatorMetaCollection};
