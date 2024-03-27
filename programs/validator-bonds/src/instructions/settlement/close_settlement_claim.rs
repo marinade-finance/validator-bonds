@@ -25,6 +25,9 @@ pub struct CloseSettlementClaim<'info> {
 
 impl<'info> CloseSettlementClaim<'info> {
     pub fn process(&mut self) -> Result<()> {
+        // NOTE: We intentionally do not check for the paused state here.
+        //       This instruction only allows returning rent and has no crucial impact on the system.
+
         // The rule stipulates that the settlement claim can only be closed when the settlement does exist.
         require!(is_closed(&self.settlement), ErrorCode::SettlementNotClosed);
 
