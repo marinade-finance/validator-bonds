@@ -59,21 +59,6 @@ impl<'info> FundBond<'info> {
     pub fn process(&mut self) -> Result<()> {
         require!(!self.config.paused, ErrorCode::ProgramIsPaused);
 
-        // when the stake account is already "owned" by the bonds program, return OK
-        if check_stake_is_initialized_with_withdrawer_authority(
-            &self.stake_account,
-            &self.bonds_withdrawer_authority.key(),
-            "stake_account",
-        )
-        .is_ok()
-        {
-            msg!(
-                "Stake account {} is already funded to the bonds program",
-                self.stake_account.key()
-            );
-            return Ok(());
-        }
-
         // check current stake account withdrawer authority with permission to authorize
         check_stake_is_initialized_with_withdrawer_authority(
             &self.stake_account,
@@ -88,6 +73,21 @@ impl<'info> FundBond<'info> {
             &self.stake_history,
         )?;
         check_stake_valid_delegation(&self.stake_account, &self.bond.vote_account)?;
+
+        // when the stake account is already "owned" by the bonds program, return OK
+        if check_stake_is_initialized_with_withdrawer_authority(
+            &self.stake_account,
+            &self.bonds_withdrawer_authority.key(),
+            "stake_account",
+        )
+        .is_ok()
+        {
+            msg!(
+                "Stake account {} is already funded to the bonds program",
+                self.stake_account.key()
+            );
+            return Ok(());
+        }
 
         authorize(
             CpiContext::new(

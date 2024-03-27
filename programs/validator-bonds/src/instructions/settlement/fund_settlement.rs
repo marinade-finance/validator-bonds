@@ -154,7 +154,6 @@ impl<'info> FundSettlement<'info> {
         // only stake account delegated to (i.e., funded by) the bond validator vote account
         let stake_delegation =
             check_stake_valid_delegation(&self.stake_account, &self.bond.vote_account)?;
-
         // funded stake account cannot be locked as we want to deactivate&withdraw
         check_stake_is_not_locked(&self.stake_account, &self.clock, "stake_account")?;
 

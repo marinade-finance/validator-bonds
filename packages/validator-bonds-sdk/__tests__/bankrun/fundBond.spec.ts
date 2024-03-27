@@ -8,7 +8,6 @@ import {
 } from '../../src'
 import {
   BankrunExtendedProvider,
-  bankrunExecuteIx,
   warpToEpoch,
   warpToNextEpoch,
 } from '@marinade.finance/bankrun-utils'
@@ -196,17 +195,13 @@ describe('Validator Bonds fund bond account', () => {
       unixTimestamp: new BN(0),
     })
 
-    // double funding the same account
+    // double funding the same account means error as the stake authorities changed
     await warpToNextEpoch(provider)
-    const txRet = await bankrunExecuteIx(
-      provider,
-      [provider.wallet, withdrawer],
-      instruction
-    )
-    expect(
-      txRet.logMessages.find(m =>
-        m.includes('is already funded to the bonds program')
-      )
-    ).toBeDefined()
+    try {
+      await provider.sendIx([provider.wallet, withdrawer], instruction)
+      throw new Error('failure expected; already funded account')
+    } catch (e) {
+      verifyError(e, Errors, 6012, 'Wrong withdrawer authority')
+    }
   })
 })
