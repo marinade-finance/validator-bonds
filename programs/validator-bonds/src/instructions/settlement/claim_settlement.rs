@@ -1,4 +1,6 @@
-use crate::checks::check_stake_is_initialized_with_withdrawer_authority;
+use crate::checks::{
+    check_stake_is_initialized_with_withdrawer_authority, check_stake_is_not_locked,
+};
 use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
 use crate::events::settlement_claim::ClaimSettlementEvent;
@@ -194,6 +196,9 @@ impl<'info> ClaimSettlement<'info> {
             stake_account_staker,
             ErrorCode::WrongStakeAccountStaker,
         );
+        // an attacker could create a locked stake account with the victims stake/withdraw authorities,
+        // then claiming the settlement, and extort the victim to unlock the stake account
+        check_stake_is_not_locked(&self.stake_account_to, &self.clock, "stake_account_to")?;
 
         // The provided stake account must be sufficiently large to cover the claim while remaining valid.
         // It is the SDK's responsibility to merge stake accounts if necessary.
