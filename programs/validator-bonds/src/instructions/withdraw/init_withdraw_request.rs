@@ -13,6 +13,7 @@ pub struct InitWithdrawRequestArgs {
 }
 
 /// Creates a withdrawal request when validator wants to withdraw the bond
+#[event_cpi]
 #[derive(Accounts)]
 pub struct InitWithdrawRequest<'info> {
     /// the config account under which the bond was created
@@ -63,33 +64,36 @@ pub struct InitWithdrawRequest<'info> {
 
 impl<'info> InitWithdrawRequest<'info> {
     pub fn process(
-        &mut self,
+        ctx: Context<InitWithdrawRequest>,
         InitWithdrawRequestArgs { amount }: InitWithdrawRequestArgs,
-        withdraw_request_bump: u8,
     ) -> Result<()> {
-        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+        require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
         require!(
-            check_bond_authority(&self.authority.key(), &self.bond, &self.vote_account),
+            check_bond_authority(
+                &ctx.accounts.authority.key(),
+                &ctx.accounts.bond,
+                &ctx.accounts.vote_account
+            ),
             ErrorCode::InvalidWithdrawRequestAuthority
         );
 
         let clock = Clock::get()?;
-        self.withdraw_request.set_inner(WithdrawRequest {
-            bond: self.bond.key(),
-            vote_account: self.bond.vote_account.key(),
-            bump: withdraw_request_bump,
+        ctx.accounts.withdraw_request.set_inner(WithdrawRequest {
+            bond: ctx.accounts.bond.key(),
+            vote_account: ctx.accounts.bond.vote_account.key(),
+            bump: ctx.bumps.withdraw_request,
             epoch: clock.epoch,
             withdrawn_amount: 0,
             requested_amount: amount,
             reserved: [0; 93],
         });
-        emit!(InitWithdrawRequestEvent {
-            withdraw_request: self.withdraw_request.key(),
-            bond: self.withdraw_request.bond.key(),
-            vote_account: self.withdraw_request.vote_account.key(),
-            requested_amount: self.withdraw_request.requested_amount,
-            epoch: self.withdraw_request.epoch,
+        emit_cpi!(InitWithdrawRequestEvent {
+            withdraw_request: ctx.accounts.withdraw_request.key(),
+            bond: ctx.accounts.withdraw_request.bond.key(),
+            vote_account: ctx.accounts.withdraw_request.vote_account.key(),
+            requested_amount: ctx.accounts.withdraw_request.requested_amount,
+            epoch: ctx.accounts.withdraw_request.epoch,
         });
 
         Ok(())

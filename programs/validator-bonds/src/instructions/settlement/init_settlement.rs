@@ -22,6 +22,7 @@ pub struct InitSettlementArgs {
 
 /// Creates settlement account for the bond.
 /// Permission-ed for operator authority.
+#[event_cpi]
 #[derive(Accounts)]
 #[instruction(params: InitSettlementArgs)]
 pub struct InitSettlement<'info> {
@@ -70,7 +71,7 @@ pub struct InitSettlement<'info> {
 
 impl<'info> InitSettlement<'info> {
     pub fn process(
-        &mut self,
+        ctx: Context<InitSettlement>,
         InitSettlementArgs {
             merkle_root,
             rent_collector,
@@ -78,9 +79,8 @@ impl<'info> InitSettlement<'info> {
             max_merkle_nodes,
             epoch,
         }: InitSettlementArgs,
-        settlement_bump: u8,
     ) -> Result<()> {
-        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+        require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
         if max_total_claim == 0 || max_merkle_nodes == 0 {
             return Err(error!(ErrorCode::EmptySettlementMerkleTree).with_values((
@@ -89,9 +89,10 @@ impl<'info> InitSettlement<'info> {
             )));
         }
 
-        let (authority, authority_bump) = find_settlement_staker_authority(&self.settlement.key());
-        self.settlement.set_inner(Settlement {
-            bond: self.bond.key(),
+        let (authority, authority_bump) =
+            find_settlement_staker_authority(&ctx.accounts.settlement.key());
+        ctx.accounts.settlement.set_inner(Settlement {
+            bond: ctx.accounts.bond.key(),
             staker_authority: authority,
             merkle_root,
             max_total_claim,
@@ -104,21 +105,21 @@ impl<'info> InitSettlement<'info> {
             split_rent_collector: None,
             split_rent_amount: 0,
             bumps: Bumps {
-                pda: settlement_bump,
+                pda: ctx.bumps.settlement,
                 staker_authority: authority_bump,
             },
             reserved: [0; 99],
         });
-        emit!(InitSettlementEvent {
-            settlement: self.settlement.key(),
-            bond: self.settlement.bond,
-            vote_account: self.bond.vote_account,
-            staker_authority: self.settlement.staker_authority,
-            merkle_root: self.settlement.merkle_root,
-            max_total_claim: self.settlement.max_total_claim,
-            max_merkle_nodes: self.settlement.max_merkle_nodes,
-            epoch_created_for: self.settlement.epoch_created_for,
-            rent_collector: self.settlement.rent_collector,
+        emit_cpi!(InitSettlementEvent {
+            settlement: ctx.accounts.settlement.key(),
+            bond: ctx.accounts.settlement.bond,
+            vote_account: ctx.accounts.bond.vote_account,
+            staker_authority: ctx.accounts.settlement.staker_authority,
+            merkle_root: ctx.accounts.settlement.merkle_root,
+            max_total_claim: ctx.accounts.settlement.max_total_claim,
+            max_merkle_nodes: ctx.accounts.settlement.max_merkle_nodes,
+            epoch_created_for: ctx.accounts.settlement.epoch_created_for,
+            rent_collector: ctx.accounts.settlement.rent_collector,
         });
 
         Ok(())

@@ -15,6 +15,7 @@ use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 
 /// Resetting the stake authority of a funded stake account belonging to a removed settlement.
 /// I.e., for the provided stake account, it changes the stake authority from the settlement stake authority to the bonds withdrawer authority.
+#[event_cpi]
 #[derive(Accounts)]
 pub struct ResetStake<'info> {
     /// the config account under which the bond was created
@@ -72,23 +73,26 @@ pub struct ResetStake<'info> {
 }
 
 impl<'info> ResetStake<'info> {
-    pub fn process(&mut self) -> Result<()> {
-        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+    pub fn process(ctx: Context<ResetStake>) -> Result<()> {
+        require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
         // The rule stipulates to reset only when the settlement does exist.
-        require!(is_closed(&self.settlement), ErrorCode::SettlementNotClosed);
+        require!(
+            is_closed(&ctx.accounts.settlement),
+            ErrorCode::SettlementNotClosed
+        );
 
         // stake account is managed by bonds program and belongs under bond validator
         let stake_meta = check_stake_is_initialized_with_withdrawer_authority(
-            &self.stake_account,
-            &self.bonds_withdrawer_authority.key(),
+            &ctx.accounts.stake_account,
+            &ctx.accounts.bonds_withdrawer_authority.key(),
             "stake_account",
         )?;
         // a bond account is tightly coupled to a vote account, this stake account belongs to bond
-        check_stake_valid_delegation(&self.stake_account, &self.bond.vote_account)?;
+        check_stake_valid_delegation(&ctx.accounts.stake_account, &ctx.accounts.bond.vote_account)?;
         // stake account is funded to removed settlement
         let settlement_staker_authority =
-            find_settlement_staker_authority(&self.settlement.key()).0;
+            find_settlement_staker_authority(&ctx.accounts.settlement.key()).0;
         require_eq!(
             stake_meta.authorized.staker,
             settlement_staker_authority,
@@ -99,17 +103,17 @@ impl<'info> ResetStake<'info> {
         // https://github.com/solana-labs/solana/blob/v1.17.10/sdk/program/src/stake/state.rs#L312
         authorize(
             CpiContext::new_with_signer(
-                self.stake_program.to_account_info(),
+                ctx.accounts.stake_program.to_account_info(),
                 Authorize {
-                    stake: self.stake_account.to_account_info(),
-                    authorized: self.bonds_withdrawer_authority.to_account_info(),
-                    new_authorized: self.bonds_withdrawer_authority.to_account_info(),
-                    clock: self.clock.to_account_info(),
+                    stake: ctx.accounts.stake_account.to_account_info(),
+                    authorized: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                    new_authorized: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                    clock: ctx.accounts.clock.to_account_info(),
                 },
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &self.config.key().as_ref(),
-                    &[self.config.bonds_withdrawer_authority_bump],
+                    &ctx.accounts.config.key().as_ref(),
+                    &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             ),
             StakeAuthorize::Staker,
@@ -118,34 +122,34 @@ impl<'info> ResetStake<'info> {
 
         // activate the stake, i.e., resetting delegation to the validator again
         let delegate_instruction = &stake::instruction::delegate_stake(
-            &self.stake_account.key(),
-            &self.bonds_withdrawer_authority.key(),
-            &self.bond.vote_account,
+            &ctx.accounts.stake_account.key(),
+            &ctx.accounts.bonds_withdrawer_authority.key(),
+            &ctx.accounts.bond.vote_account,
         );
         invoke_signed(
             delegate_instruction,
             &[
-                self.stake_program.to_account_info(),
-                self.stake_account.to_account_info(),
-                self.bonds_withdrawer_authority.to_account_info(),
-                self.vote_account.to_account_info(),
-                self.clock.to_account_info(),
-                self.stake_history.to_account_info(),
-                self.stake_config.to_account_info(),
+                ctx.accounts.stake_program.to_account_info(),
+                ctx.accounts.stake_account.to_account_info(),
+                ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                ctx.accounts.vote_account.to_account_info(),
+                ctx.accounts.clock.to_account_info(),
+                ctx.accounts.stake_history.to_account_info(),
+                ctx.accounts.stake_config.to_account_info(),
             ],
             &[&[
                 BONDS_WITHDRAWER_AUTHORITY_SEED,
-                &self.config.key().as_ref(),
-                &[self.config.bonds_withdrawer_authority_bump],
+                &ctx.accounts.config.key().as_ref(),
+                &[ctx.accounts.config.bonds_withdrawer_authority_bump],
             ]],
         )?;
 
-        emit!(ResetStakeEvent {
-            config: self.config.key(),
-            bond: self.bond.key(),
-            settlement: self.settlement.key(),
-            stake_account: self.stake_account.key(),
-            vote_account: self.vote_account.key(),
+        emit_cpi!(ResetStakeEvent {
+            config: ctx.accounts.config.key(),
+            bond: ctx.accounts.bond.key(),
+            settlement: ctx.accounts.settlement.key(),
+            stake_account: ctx.accounts.stake_account.key(),
+            vote_account: ctx.accounts.vote_account.key(),
             settlement_staker_authority,
         });
 

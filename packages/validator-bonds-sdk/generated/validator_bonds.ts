@@ -64,6 +64,25 @@ export type ValidatorBonds = {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": [
@@ -93,6 +112,25 @@ export type ValidatorBonds = {
           "docs": [
             "only the admin authority can change the config params"
           ]
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": [
@@ -167,6 +205,25 @@ export type ValidatorBonds = {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": [
@@ -225,6 +282,25 @@ export type ValidatorBonds = {
         },
         {
           "name": "voteAccount",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
           "isMut": false,
           "isSigner": false
         }
@@ -322,6 +398,25 @@ export type ValidatorBonds = {
         },
         {
           "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
           "isMut": false,
           "isSigner": false
         }
@@ -449,6 +544,25 @@ export type ValidatorBonds = {
           "name": "rent",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -546,6 +660,25 @@ export type ValidatorBonds = {
           "name": "stakeProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -635,6 +768,25 @@ export type ValidatorBonds = {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": [
@@ -722,6 +874,25 @@ export type ValidatorBonds = {
         {
           "name": "rentCollector",
           "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
           "isSigner": false
         }
       ],
@@ -878,6 +1049,25 @@ export type ValidatorBonds = {
           "name": "clock",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -974,6 +1164,25 @@ export type ValidatorBonds = {
         },
         {
           "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
           "isMut": false,
           "isSigner": false
         }
@@ -1119,6 +1328,25 @@ export type ValidatorBonds = {
         },
         {
           "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
           "isMut": false,
           "isSigner": false
         }
@@ -1314,6 +1542,25 @@ export type ValidatorBonds = {
           "name": "stakeProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -1338,6 +1585,25 @@ export type ValidatorBonds = {
         {
           "name": "rentCollector",
           "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
           "isSigner": false
         }
       ],
@@ -1520,6 +1786,25 @@ export type ValidatorBonds = {
           "name": "stakeProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": [
@@ -1572,6 +1857,25 @@ export type ValidatorBonds = {
         },
         {
           "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
           "isMut": false,
           "isSigner": false
         }
@@ -1689,6 +1993,25 @@ export type ValidatorBonds = {
           "name": "stakeProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -1773,6 +2096,25 @@ export type ValidatorBonds = {
           "name": "stakeProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -1792,6 +2134,25 @@ export type ValidatorBonds = {
           "name": "pauseAuthority",
           "isMut": false,
           "isSigner": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -1811,6 +2172,25 @@ export type ValidatorBonds = {
           "name": "pauseAuthority",
           "isMut": false,
           "isSigner": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -2975,12 +3355,12 @@ export type ValidatorBonds = {
       "name": "InitSettlementEvent",
       "fields": [
         {
-          "name": "settlement",
+          "name": "bond",
           "type": "publicKey",
           "index": false
         },
         {
-          "name": "bond",
+          "name": "settlement",
           "type": "publicKey",
           "index": false
         },
@@ -3112,12 +3492,17 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "voteAccount",
+          "name": "settlement",
           "type": "publicKey",
           "index": false
         },
         {
-          "name": "settlement",
+          "name": "fundingAmount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "stakeAccount",
           "type": "publicKey",
           "index": false
         },
@@ -3134,11 +3519,6 @@ export type ValidatorBonds = {
         {
           "name": "merkleNodesClaimed",
           "type": "u64",
-          "index": false
-        },
-        {
-          "name": "stakeAccount",
-          "type": "publicKey",
           "index": false
         },
         {
@@ -3159,11 +3539,6 @@ export type ValidatorBonds = {
         },
         {
           "name": "splitRentAmount",
-          "type": "u64",
-          "index": false
-        },
-        {
-          "name": "fundingAmount",
           "type": "u64",
           "index": false
         }
@@ -3769,6 +4144,25 @@ export const IDL: ValidatorBonds = {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": [
@@ -3798,6 +4192,25 @@ export const IDL: ValidatorBonds = {
           "docs": [
             "only the admin authority can change the config params"
           ]
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": [
@@ -3872,6 +4285,25 @@ export const IDL: ValidatorBonds = {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": [
@@ -3930,6 +4362,25 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "voteAccount",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
           "isMut": false,
           "isSigner": false
         }
@@ -4027,6 +4478,25 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
           "isMut": false,
           "isSigner": false
         }
@@ -4154,6 +4624,25 @@ export const IDL: ValidatorBonds = {
           "name": "rent",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -4251,6 +4740,25 @@ export const IDL: ValidatorBonds = {
           "name": "stakeProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -4340,6 +4848,25 @@ export const IDL: ValidatorBonds = {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": [
@@ -4427,6 +4954,25 @@ export const IDL: ValidatorBonds = {
         {
           "name": "rentCollector",
           "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
           "isSigner": false
         }
       ],
@@ -4583,6 +5129,25 @@ export const IDL: ValidatorBonds = {
           "name": "clock",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -4679,6 +5244,25 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
           "isMut": false,
           "isSigner": false
         }
@@ -4824,6 +5408,25 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
           "isMut": false,
           "isSigner": false
         }
@@ -5019,6 +5622,25 @@ export const IDL: ValidatorBonds = {
           "name": "stakeProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -5043,6 +5665,25 @@ export const IDL: ValidatorBonds = {
         {
           "name": "rentCollector",
           "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
           "isSigner": false
         }
       ],
@@ -5225,6 +5866,25 @@ export const IDL: ValidatorBonds = {
           "name": "stakeProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": [
@@ -5277,6 +5937,25 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
           "isMut": false,
           "isSigner": false
         }
@@ -5394,6 +6073,25 @@ export const IDL: ValidatorBonds = {
           "name": "stakeProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -5478,6 +6176,25 @@ export const IDL: ValidatorBonds = {
           "name": "stakeProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -5497,6 +6214,25 @@ export const IDL: ValidatorBonds = {
           "name": "pauseAuthority",
           "isMut": false,
           "isSigner": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -5516,6 +6252,25 @@ export const IDL: ValidatorBonds = {
           "name": "pauseAuthority",
           "isMut": false,
           "isSigner": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
@@ -6680,12 +7435,12 @@ export const IDL: ValidatorBonds = {
       "name": "InitSettlementEvent",
       "fields": [
         {
-          "name": "settlement",
+          "name": "bond",
           "type": "publicKey",
           "index": false
         },
         {
-          "name": "bond",
+          "name": "settlement",
           "type": "publicKey",
           "index": false
         },
@@ -6817,12 +7572,17 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "voteAccount",
+          "name": "settlement",
           "type": "publicKey",
           "index": false
         },
         {
-          "name": "settlement",
+          "name": "fundingAmount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "stakeAccount",
           "type": "publicKey",
           "index": false
         },
@@ -6839,11 +7599,6 @@ export const IDL: ValidatorBonds = {
         {
           "name": "merkleNodesClaimed",
           "type": "u64",
-          "index": false
-        },
-        {
-          "name": "stakeAccount",
-          "type": "publicKey",
           "index": false
         },
         {
@@ -6864,11 +7619,6 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "splitRentAmount",
-          "type": "u64",
-          "index": false
-        },
-        {
-          "name": "fundingAmount",
           "type": "u64",
           "index": false
         }

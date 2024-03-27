@@ -19,6 +19,7 @@ use anchor_spl::{
 
 /// Minting a bond SPL token that can be used for configuring the bond account.
 // see configure_mint_bond.rs
+#[event_cpi]
 #[derive(Accounts)]
 pub struct MintBond<'info> {
     pub config: Account<'info, Config>,
@@ -47,7 +48,7 @@ pub struct MintBond<'info> {
         mint::decimals = 0,
         mint::authority = mint,
     )]
-    pub mint: Account<'info, Mint>,
+    pub mint: Box<Account<'info, Mint>>,
 
     /// CHECK: verified to be associated with the vote account in the code
     pub validator_identity: UncheckedAccount<'info>,
@@ -58,7 +59,7 @@ pub struct MintBond<'info> {
         associated_token::mint = mint,
         associated_token::authority = validator_identity,
     )]
-    pub validator_identity_token_account: Account<'info, TokenAccount>,
+    pub validator_identity_token_account: Box<Account<'info, TokenAccount>>,
 
     /// CHECK: check&deserialize the vote account in the code
     #[account(
@@ -89,50 +90,53 @@ pub struct MintBond<'info> {
 }
 
 impl<'info> MintBond<'info> {
-    pub fn process(&mut self, mint_bond_bump: u8) -> Result<()> {
-        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+    pub fn process(ctx: Context<MintBond>) -> Result<()> {
+        require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
         let validator_identity_vote_account =
-            get_validator_vote_account_validator_identity(&self.vote_account)?;
+            get_validator_vote_account_validator_identity(&ctx.accounts.vote_account)?;
         require_keys_eq!(
-            self.validator_identity.key(),
+            ctx.accounts.validator_identity.key(),
             validator_identity_vote_account,
             ErrorCode::ValidatorIdentityBondMintMismatch
         );
 
-        let bond_pubkey = self.bond.key();
+        let bond_pubkey = ctx.accounts.bond.key();
         let mint_signer_seeds = &[
             BOND_MINT_SEED,
             &bond_pubkey.as_ref(),
             &validator_identity_vote_account.as_ref(),
-            &[mint_bond_bump],
+            &[ctx.bumps.mint],
         ];
         let mint_signer = [&mint_signer_seeds[..]];
         mint_to(
             CpiContext::new_with_signer(
-                self.token_program.to_account_info(),
+                ctx.accounts.token_program.to_account_info(),
                 MintTo {
-                    authority: self.mint.to_account_info(),
-                    to: self.validator_identity_token_account.to_account_info(),
-                    mint: self.mint.to_account_info(),
+                    authority: ctx.accounts.mint.to_account_info(),
+                    to: ctx
+                        .accounts
+                        .validator_identity_token_account
+                        .to_account_info(),
+                    mint: ctx.accounts.mint.to_account_info(),
                 },
                 &mint_signer,
             ),
             1,
         )?;
 
-        if self.metadata.get_lamports() == 0 {
+        if ctx.accounts.metadata.get_lamports() == 0 {
             create_metadata_accounts_v3(
                 CpiContext::new_with_signer(
-                    self.metadata_program.to_account_info(),
+                    ctx.accounts.metadata_program.to_account_info(),
                     CreateMetadataAccountsV3 {
-                        mint: self.mint.to_account_info(),
-                        update_authority: self.mint.to_account_info(),
-                        mint_authority: self.mint.to_account_info(),
-                        payer: self.rent_payer.to_account_info(),
-                        metadata: self.metadata.to_account_info(),
-                        system_program: self.system_program.to_account_info(),
-                        rent: self.rent.to_account_info(),
+                        mint: ctx.accounts.mint.to_account_info(),
+                        update_authority: ctx.accounts.mint.to_account_info(),
+                        mint_authority: ctx.accounts.mint.to_account_info(),
+                        payer: ctx.accounts.rent_payer.to_account_info(),
+                        metadata: ctx.accounts.metadata.to_account_info(),
+                        system_program: ctx.accounts.system_program.to_account_info(),
+                        rent: ctx.accounts.rent.to_account_info(),
                     },
                     &mint_signer,
                 ),
@@ -142,7 +146,7 @@ impl<'info> MintBond<'info> {
                     uri: "https://github.com/marinade-finance/validator-bonds".to_string(),
                     seller_fee_basis_points: 0,
                     creators: Some(vec![Creator {
-                        address: self.bond.key(),
+                        address: ctx.accounts.bond.key(),
                         verified: false,
                         share: 100,
                     }]),
@@ -155,11 +159,11 @@ impl<'info> MintBond<'info> {
             )?;
         }
 
-        emit!(MintBondEvent {
-            bond: self.bond.key(),
-            validator_identity_token_account: self.validator_identity_token_account.key(),
-            validator_identity: self.validator_identity.key(),
-            token_metadata: self.metadata.key(),
+        emit_cpi!(MintBondEvent {
+            bond: ctx.accounts.bond.key(),
+            validator_identity_token_account: ctx.accounts.validator_identity_token_account.key(),
+            validator_identity: ctx.accounts.validator_identity.key(),
+            token_metadata: ctx.accounts.metadata.key(),
         });
 
         Ok(())

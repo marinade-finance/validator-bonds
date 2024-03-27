@@ -13,6 +13,7 @@ use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_spl::stake::{withdraw, Stake, Withdraw};
 
 /// Closes the settlement account, whoever can close it when the epoch expires
+#[event_cpi]
 #[derive(Accounts)]
 pub struct CloseSettlement<'info> {
     pub config: Account<'info, Config>,
@@ -80,56 +81,56 @@ pub struct CloseSettlement<'info> {
 }
 
 impl<'info> CloseSettlement<'info> {
-    pub fn process(&mut self) -> Result<()> {
-        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+    pub fn process(ctx: Context<CloseSettlement>) -> Result<()> {
+        require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
-        if self.settlement.split_rent_collector.is_some() {
-            let stake_account = deserialize_stake_account(&self.split_rent_refund_account)?;
+        if ctx.accounts.settlement.split_rent_collector.is_some() {
+            let stake_account = deserialize_stake_account(&ctx.accounts.split_rent_refund_account)?;
             // stake account is managed by bonds program
             check_stake_is_initialized_with_withdrawer_authority(
                 &stake_account,
-                &self.bonds_withdrawer_authority.key(),
+                &ctx.accounts.bonds_withdrawer_authority.key(),
                 "stake_account",
             )?;
             // stake account is delegated to bond's validator vote account
-            check_stake_valid_delegation(&stake_account, &self.bond.vote_account)?;
+            check_stake_valid_delegation(&stake_account, &ctx.accounts.bond.vote_account)?;
 
             withdraw(
                 CpiContext::new_with_signer(
-                    self.stake_program.to_account_info(),
+                    ctx.accounts.stake_program.to_account_info(),
                     Withdraw {
-                        stake: self.split_rent_refund_account.to_account_info(),
-                        withdrawer: self.bonds_withdrawer_authority.to_account_info(),
-                        to: self.split_rent_collector.to_account_info(),
-                        clock: self.clock.to_account_info(),
-                        stake_history: self.stake_history.to_account_info(),
+                        stake: ctx.accounts.split_rent_refund_account.to_account_info(),
+                        withdrawer: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                        to: ctx.accounts.split_rent_collector.to_account_info(),
+                        clock: ctx.accounts.clock.to_account_info(),
+                        stake_history: ctx.accounts.stake_history.to_account_info(),
                     },
                     &[&[
                         BONDS_WITHDRAWER_AUTHORITY_SEED,
-                        &self.config.key().as_ref(),
-                        &[self.config.bonds_withdrawer_authority_bump],
+                        &ctx.accounts.config.key().as_ref(),
+                        &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                     ]],
                 ),
-                self.settlement.split_rent_amount,
+                ctx.accounts.settlement.split_rent_amount,
                 None,
             )?;
         }
 
-        emit!(CloseSettlementEvent {
-            bond: self.settlement.bond.key(),
-            settlement: self.settlement.key(),
-            merkle_root: self.settlement.merkle_root,
-            max_total_claim: self.settlement.max_total_claim,
-            max_merkle_nodes: self.settlement.max_merkle_nodes,
-            lamports_funded: self.settlement.lamports_funded,
-            lamports_claimed: self.settlement.lamports_claimed,
-            merkle_nodes_claimed: self.settlement.merkle_nodes_claimed,
-            rent_collector: self.rent_collector.key(),
-            split_rent_collector: self.settlement.split_rent_collector,
-            split_rent_refund_account: self.split_rent_refund_account.key(),
-            expiration_epoch: self.settlement.epoch_created_for
-                + self.config.epochs_to_claim_settlement,
-            current_epoch: self.clock.epoch,
+        emit_cpi!(CloseSettlementEvent {
+            bond: ctx.accounts.settlement.bond.key(),
+            settlement: ctx.accounts.settlement.key(),
+            merkle_root: ctx.accounts.settlement.merkle_root,
+            max_total_claim: ctx.accounts.settlement.max_total_claim,
+            max_merkle_nodes: ctx.accounts.settlement.max_merkle_nodes,
+            lamports_funded: ctx.accounts.settlement.lamports_funded,
+            lamports_claimed: ctx.accounts.settlement.lamports_claimed,
+            merkle_nodes_claimed: ctx.accounts.settlement.merkle_nodes_claimed,
+            rent_collector: ctx.accounts.rent_collector.key(),
+            split_rent_collector: ctx.accounts.settlement.split_rent_collector,
+            split_rent_refund_account: ctx.accounts.split_rent_refund_account.key(),
+            expiration_epoch: ctx.accounts.settlement.epoch_created_for
+                + ctx.accounts.config.epochs_to_claim_settlement,
+            current_epoch: ctx.accounts.clock.epoch,
         });
 
         Ok(())

@@ -16,6 +16,7 @@ pub struct MergeStakeArgs {
     pub settlement: Pubkey,
 }
 
+#[event_cpi]
 #[derive(Accounts)]
 pub struct MergeStake<'info> {
     /// the config account under which the bond was created
@@ -44,35 +45,43 @@ pub struct MergeStake<'info> {
 }
 
 impl<'info> MergeStake<'info> {
-    pub fn process(&mut self, MergeStakeArgs { settlement }: MergeStakeArgs) -> Result<()> {
-        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+    pub fn process(
+        ctx: Context<MergeStake>,
+        MergeStakeArgs { settlement }: MergeStakeArgs,
+    ) -> Result<()> {
+        require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
-        let destination_meta = self
-            .destination_stake
-            .meta()
-            .ok_or(error!(ErrorCode::UninitializedStake).with_account_name("destination_stake"))?;
-        let source_meta = self
+        let destination_meta =
+            ctx.accounts.destination_stake.meta().ok_or(
+                error!(ErrorCode::UninitializedStake).with_account_name("destination_stake"),
+            )?;
+        let source_meta = ctx
+            .accounts
             .source_stake
             .meta()
             .ok_or(error!(ErrorCode::UninitializedStake).with_account_name("source_stake"))?;
 
         // staker authorities has to match each other, intentional not permitting to pass stake account merge authority
-        if destination_meta.authorized.staker != self.staker_authority.key() {
+        if destination_meta.authorized.staker != ctx.accounts.staker_authority.key() {
             return Err(error!(ErrorCode::StakerAuthorityMismatch)
                 .with_account_name("destination_stake")
                 .with_pubkeys((
                     destination_meta.authorized.staker,
-                    self.staker_authority.key(),
+                    ctx.accounts.staker_authority.key(),
                 )));
         }
-        if source_meta.authorized.staker != self.staker_authority.key() {
+        if source_meta.authorized.staker != ctx.accounts.staker_authority.key() {
             return Err(error!(ErrorCode::StakerAuthorityMismatch)
                 .with_account_name("source_stake")
-                .with_pubkeys((source_meta.authorized.staker, self.staker_authority.key())));
+                .with_pubkeys((
+                    source_meta.authorized.staker,
+                    ctx.accounts.staker_authority.key(),
+                )));
         }
 
         // withdrawer authorities must belong to the bonds program (bonds program ownership)
-        let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(&self.config.key());
+        let (bonds_withdrawer_authority, _) =
+            find_bonds_withdrawer_authority(&ctx.accounts.config.key());
         if source_meta.authorized.withdrawer != bonds_withdrawer_authority
             || destination_meta.authorized.withdrawer != bonds_withdrawer_authority
         {
@@ -85,8 +94,8 @@ impl<'info> MergeStake<'info> {
                 );
         }
 
-        let destination_delegation = get_delegation(&self.destination_stake)?;
-        let source_delegation = get_delegation(&self.source_stake)?;
+        let destination_delegation = get_delegation(&ctx.accounts.destination_stake)?;
+        let source_delegation = get_delegation(&ctx.accounts.source_stake)?;
         // the stakes have to be both non-delegated or both delegated to the same vote account
         if destination_delegation.map_or_else(|| None, |p| Some(p.voter_pubkey))
             != source_delegation.map_or_else(|| None, |p| Some(p.voter_pubkey))
@@ -101,35 +110,35 @@ impl<'info> MergeStake<'info> {
             find_settlement_staker_authority(&settlement);
 
         let merge_instruction = &merge(
-            &self.destination_stake.key(),
-            &self.source_stake.key(),
-            &self.staker_authority.key(),
+            &ctx.accounts.destination_stake.key(),
+            &ctx.accounts.source_stake.key(),
+            &ctx.accounts.staker_authority.key(),
         )[0];
         let merge_account_infos = &[
-            self.stake_program.to_account_info(),
-            self.destination_stake.to_account_info(),
-            self.source_stake.to_account_info(),
-            self.clock.to_account_info(),
-            self.stake_history.to_account_info(),
-            self.staker_authority.to_account_info(),
+            ctx.accounts.stake_program.to_account_info(),
+            ctx.accounts.destination_stake.to_account_info(),
+            ctx.accounts.source_stake.to_account_info(),
+            ctx.accounts.clock.to_account_info(),
+            ctx.accounts.stake_history.to_account_info(),
+            ctx.accounts.staker_authority.to_account_info(),
         ];
-        if self.staker_authority.key() == bonds_withdrawer_authority {
+        if ctx.accounts.staker_authority.key() == bonds_withdrawer_authority {
             invoke_signed(
                 merge_instruction,
                 merge_account_infos,
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &self.config.key().as_ref(),
-                    &[self.config.bonds_withdrawer_authority_bump],
+                    &ctx.accounts.config.key().as_ref(),
+                    &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             )?
-        } else if self.staker_authority.key() == settlement_staker_authority {
+        } else if ctx.accounts.staker_authority.key() == settlement_staker_authority {
             invoke_signed(
                 merge_instruction,
                 merge_account_infos,
                 &[&[
                     SETTLEMENT_STAKER_AUTHORITY_SEED,
-                    &self.config.key().as_ref(),
+                    &ctx.accounts.config.key().as_ref(),
                     &[settlement_bump],
                 ]],
             )?
@@ -140,19 +149,19 @@ impl<'info> MergeStake<'info> {
                     "staker_authority/bonds_withdrawer_authority/settlement_staker_authority",
                     format!(
                         "{}/{}/{}",
-                        self.staker_authority.key(),
+                        ctx.accounts.staker_authority.key(),
                         bonds_withdrawer_authority,
                         settlement_staker_authority
                     ),
                 )));
         };
 
-        emit!(MergeStakeEvent {
-            config: self.config.key(),
-            staker_authority: self.staker_authority.key(),
-            destination_stake: self.destination_stake.key(),
+        emit_cpi!(MergeStakeEvent {
+            config: ctx.accounts.config.key(),
+            staker_authority: ctx.accounts.staker_authority.key(),
+            destination_stake: ctx.accounts.destination_stake.key(),
             destination_delegation: destination_delegation.map(Into::into),
-            source_stake: self.source_stake.key(),
+            source_stake: ctx.accounts.source_stake.key(),
             source_delegation: source_delegation.map(Into::into),
         });
 

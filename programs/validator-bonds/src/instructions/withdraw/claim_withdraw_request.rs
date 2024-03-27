@@ -19,10 +19,11 @@ use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 /// Withdrawing funds from a bond account requires creating a withdrawal request first.
 /// The withdrawal process involves taking a StakeAccount associated with the bonds program
 /// and changing its owner (withdrawer and staker authorities) back to the validator vote withdrawer.
+#[event_cpi]
 #[derive(Accounts)]
 pub struct ClaimWithdrawRequest<'info> {
     /// the config root configuration account
-    config: Account<'info, Config>,
+    config: Box<Account<'info, Config>>,
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,
@@ -34,7 +35,7 @@ pub struct ClaimWithdrawRequest<'info> {
         ],
         bump = bond.bump,
     )]
-    pub bond: Account<'info, Bond>,
+    pub bond: Box<Account<'info, Bond>>,
 
     /// CHECK: deserialization of the vote account in the code
     #[account(
@@ -56,7 +57,7 @@ pub struct ClaimWithdrawRequest<'info> {
         ],
         bump = withdraw_request.bump
     )]
-    pub withdraw_request: Account<'info, WithdrawRequest>,
+    pub withdraw_request: Box<Account<'info, WithdrawRequest>>,
 
     /// CHECK: PDA
     #[account(
@@ -105,61 +106,69 @@ pub struct ClaimWithdrawRequest<'info> {
 }
 
 impl<'info> ClaimWithdrawRequest<'info> {
-    pub fn process(&mut self) -> Result<()> {
-        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+    pub fn process(ctx: Context<ClaimWithdrawRequest>) -> Result<()> {
+        require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
         require_gt!(
-            self.withdraw_request
+            ctx.accounts
+                .withdraw_request
                 .requested_amount
-                .saturating_sub(self.withdraw_request.withdrawn_amount),
+                .saturating_sub(ctx.accounts.withdraw_request.withdrawn_amount),
             0,
             ErrorCode::WithdrawRequestAlreadyFulfilled,
         );
 
         // claim is permission-ed as the init withdraw request
         require!(
-            check_bond_authority(&self.authority.key(), &self.bond, &self.vote_account),
+            check_bond_authority(
+                &ctx.accounts.authority.key(),
+                &ctx.accounts.bond,
+                &ctx.accounts.vote_account
+            ),
             ErrorCode::InvalidWithdrawRequestAuthority
         );
 
         // stake account is delegated to the validator vote account associated with the bond
-        check_stake_valid_delegation(&self.stake_account, &self.bond.vote_account)?;
+        check_stake_valid_delegation(&ctx.accounts.stake_account, &ctx.accounts.bond.vote_account)?;
 
         // stake account belongs under the bonds program
         let stake_meta = check_stake_is_initialized_with_withdrawer_authority(
-            &self.stake_account,
-            &self.bonds_withdrawer_authority.key(),
+            &ctx.accounts.stake_account,
+            &ctx.accounts.bonds_withdrawer_authority.key(),
             "stake_account",
         )?;
         // stake account is NOT funded to settlement
         require_keys_eq!(
             stake_meta.authorized.staker,
-            self.bonds_withdrawer_authority.key(),
+            ctx.accounts.bonds_withdrawer_authority.key(),
             ErrorCode::StakeAccountIsFundedToSettlement,
         );
 
         // the amount that has not yet been withdrawn from the request
-        let amount_to_fulfill_withdraw = self
+        let amount_to_fulfill_withdraw = ctx
+            .accounts
             .withdraw_request
             .requested_amount
-            .saturating_sub(self.withdraw_request.withdrawn_amount);
+            .saturating_sub(ctx.accounts.withdraw_request.withdrawn_amount);
 
         // when the stake account is bigger to the non-withdrawn amount of the withdrawal request
         // we need to split the stake account to parts and withdraw only the non-withdrawn amount
-        let (withdrawing_amount, is_split) = if self.stake_account.get_lamports()
+        let (withdrawing_amount, is_split) = if ctx.accounts.stake_account.get_lamports()
             > amount_to_fulfill_withdraw
         {
             // ensuring that splitting means stake accounts will be big enough
             // note: the rent exempt of the newly created split account has been already paid by the tx caller
-            let minimal_stake_size = minimal_size_stake_account(&stake_meta, &self.config);
-            if self.stake_account.get_lamports() - amount_to_fulfill_withdraw < minimal_stake_size {
+            let minimal_stake_size = minimal_size_stake_account(&stake_meta, &ctx.accounts.config);
+            if ctx.accounts.stake_account.get_lamports() - amount_to_fulfill_withdraw
+                < minimal_stake_size
+            {
                 return Err(error!(ErrorCode::StakeAccountNotBigEnoughToSplit)
                     .with_account_name("stake_account")
                     .with_values((
                         "stake_account_lamports - amount_to_fulfill_withdraw < minimal_stake_size",
                         format!(
                             "{} - {} < {}",
-                            self.stake_account.get_lamports(),
+                            ctx.accounts.stake_account.get_lamports(),
                             amount_to_fulfill_withdraw,
                             minimal_stake_size,
                         ),
@@ -175,12 +184,12 @@ impl<'info> ClaimWithdrawRequest<'info> {
             }
 
             let withdraw_split_leftover =
-                self.stake_account.get_lamports() - amount_to_fulfill_withdraw;
+                ctx.accounts.stake_account.get_lamports() - amount_to_fulfill_withdraw;
             let split_instruction = stake::instruction::split(
-                &self.stake_account.key(),
-                self.bonds_withdrawer_authority.key,
+                &ctx.accounts.stake_account.key(),
+                ctx.accounts.bonds_withdrawer_authority.key,
                 withdraw_split_leftover,
-                &self.split_stake_account.key(),
+                &ctx.accounts.split_stake_account.key(),
             )
             .last()
             .unwrap()
@@ -188,33 +197,34 @@ impl<'info> ClaimWithdrawRequest<'info> {
             invoke_signed(
                 &split_instruction,
                 &[
-                    self.stake_program.to_account_info(),
-                    self.stake_account.to_account_info(),
-                    self.bonds_withdrawer_authority.to_account_info(),
-                    self.split_stake_account.to_account_info(),
+                    ctx.accounts.stake_program.to_account_info(),
+                    ctx.accounts.stake_account.to_account_info(),
+                    ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                    ctx.accounts.split_stake_account.to_account_info(),
                 ],
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &self.config.key().as_ref(),
-                    &[self.config.bonds_withdrawer_authority_bump],
+                    &ctx.accounts.config.key().as_ref(),
+                    &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             )?;
             // the amount  is enough to fulfil the missing part of the withdrawal request
             (amount_to_fulfill_withdraw, true)
         } else {
             return_unused_split_stake_account_rent(
-                &self.stake_program,
-                &self.split_stake_account,
-                &self.split_stake_rent_payer,
-                &self.clock,
-                &self.stake_history.to_account_info(),
+                &ctx.accounts.stake_program,
+                &ctx.accounts.split_stake_account,
+                &ctx.accounts.split_stake_rent_payer,
+                &ctx.accounts.clock,
+                &ctx.accounts.stake_history.to_account_info(),
             )?;
             // withdrawal amount is full stake account
-            (self.stake_account.get_lamports(), false)
+            (ctx.accounts.stake_account.get_lamports(), false)
         };
 
-        let old_withdrawn_amount = self.withdraw_request.withdrawn_amount;
-        self.withdraw_request.withdrawn_amount = self
+        let old_withdrawn_amount = ctx.accounts.withdraw_request.withdrawn_amount;
+        ctx.accounts.withdraw_request.withdrawn_amount = ctx
+            .accounts
             .withdraw_request
             .withdrawn_amount
             .saturating_add(withdrawing_amount);
@@ -222,17 +232,17 @@ impl<'info> ClaimWithdrawRequest<'info> {
         // changing owner of the stake account to entity defined in this ix (via withdraw request)
         authorize(
             CpiContext::new_with_signer(
-                self.stake_program.to_account_info(),
+                ctx.accounts.stake_program.to_account_info(),
                 Authorize {
-                    stake: self.stake_account.to_account_info(),
-                    authorized: self.bonds_withdrawer_authority.to_account_info(),
-                    new_authorized: self.withdrawer.to_account_info(),
-                    clock: self.clock.to_account_info(),
+                    stake: ctx.accounts.stake_account.to_account_info(),
+                    authorized: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                    new_authorized: ctx.accounts.withdrawer.to_account_info(),
+                    clock: ctx.accounts.clock.to_account_info(),
                 },
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &self.config.key().as_ref(),
-                    &[self.config.bonds_withdrawer_authority_bump],
+                    &ctx.accounts.config.key().as_ref(),
+                    &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             ),
             // withdrawer authority (owner) is now the withdrawer authority defined by ix
@@ -241,47 +251,47 @@ impl<'info> ClaimWithdrawRequest<'info> {
         )?;
         authorize(
             CpiContext::new_with_signer(
-                self.stake_program.to_account_info(),
+                ctx.accounts.stake_program.to_account_info(),
                 Authorize {
-                    stake: self.stake_account.to_account_info(),
-                    authorized: self.bonds_withdrawer_authority.to_account_info(),
-                    new_authorized: self.withdrawer.to_account_info(),
-                    clock: self.clock.to_account_info(),
+                    stake: ctx.accounts.stake_account.to_account_info(),
+                    authorized: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                    new_authorized: ctx.accounts.withdrawer.to_account_info(),
+                    clock: ctx.accounts.clock.to_account_info(),
                 },
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &self.config.key().as_ref(),
-                    &[self.config.bonds_withdrawer_authority_bump],
+                    &ctx.accounts.config.key().as_ref(),
+                    &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             ),
             StakeAuthorize::Withdrawer,
             None,
         )?;
 
-        emit!(ClaimWithdrawRequestEvent {
-            bond: self.bond.key(),
-            vote_account: self.vote_account.key(),
-            withdraw_request: self.withdraw_request.key(),
-            stake_account: self.stake_account.key(),
+        emit_cpi!(ClaimWithdrawRequestEvent {
+            bond: ctx.accounts.bond.key(),
+            vote_account: ctx.accounts.vote_account.key(),
+            withdraw_request: ctx.accounts.withdraw_request.key(),
+            stake_account: ctx.accounts.stake_account.key(),
             split_stake: if is_split {
                 Some(SplitStakeData {
-                    address: self.split_stake_account.key(),
-                    amount: self.split_stake_account.get_lamports(),
+                    address: ctx.accounts.split_stake_account.key(),
+                    amount: ctx.accounts.split_stake_account.get_lamports(),
                 })
             } else {
                 None
             },
-            new_stake_account_owner: self.withdrawer.key(),
+            new_stake_account_owner: ctx.accounts.withdrawer.key(),
             withdrawing_amount,
             withdrawn_amount: U64ValueChange {
                 old: old_withdrawn_amount,
-                new: self.withdraw_request.withdrawn_amount,
+                new: ctx.accounts.withdraw_request.withdrawn_amount,
             },
         });
         msg!(
             "stake account {} claimed to {} with amount {}",
-            self.stake_account.key(),
-            self.withdrawer.key(),
+            ctx.accounts.stake_account.key(),
+            ctx.accounts.withdrawer.key(),
             withdrawing_amount
         );
 

@@ -32,6 +32,7 @@ pub struct ClaimSettlementArgs {
 }
 
 /// Claims a settlement by withdrawing settlement funded stake account
+#[event_cpi]
 #[derive(Accounts)]
 #[instruction(params: ClaimSettlementArgs)]
 pub struct ClaimSettlement<'info> {
@@ -120,7 +121,7 @@ pub struct ClaimSettlement<'info> {
 
 impl<'info> ClaimSettlement<'info> {
     pub fn process(
-        &mut self,
+        ctx: Context<ClaimSettlement>,
         ClaimSettlementArgs {
             proof,
             tree_node_hash: tree_node_hash_args,
@@ -128,9 +129,8 @@ impl<'info> ClaimSettlement<'info> {
             stake_account_staker,
             stake_account_withdrawer,
         }: ClaimSettlementArgs,
-        settlement_claim_bump: u8,
     ) -> Result<()> {
-        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+        require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
         // settlement_claim PDA address verification
         let tree_node = TreeNode {
@@ -149,45 +149,52 @@ impl<'info> ClaimSettlement<'info> {
             );
         }
 
-        if self.settlement.lamports_claimed + claim > self.settlement.max_total_claim {
+        if ctx.accounts.settlement.lamports_claimed + claim
+            > ctx.accounts.settlement.max_total_claim
+        {
             return Err(error!(ErrorCode::ClaimAmountExceedsMaxTotalClaim)
                 .with_account_name("settlement")
                 .with_values((
                     "lamports_claimed + claim > max_total_claim",
                     format!(
                         "{} + {} <= {}",
-                        self.settlement.lamports_claimed, claim, self.settlement.max_total_claim
+                        ctx.accounts.settlement.lamports_claimed,
+                        claim,
+                        ctx.accounts.settlement.max_total_claim
                     ),
                 )));
         }
-        if self.settlement.merkle_nodes_claimed + 1 > self.settlement.max_merkle_nodes {
+        if ctx.accounts.settlement.merkle_nodes_claimed + 1
+            > ctx.accounts.settlement.max_merkle_nodes
+        {
             return Err(error!(ErrorCode::ClaimCountExceedsMaxMerkleNodes)
                 .with_account_name("settlement")
                 .with_values((
                     "merkle_nodes_claimed + 1 > max_merkle_nodes",
                     format!(
                         "{} + 1 <= {}",
-                        self.settlement.merkle_nodes_claimed, self.settlement.max_merkle_nodes
+                        ctx.accounts.settlement.merkle_nodes_claimed,
+                        ctx.accounts.settlement.max_merkle_nodes
                     ),
                 )));
         }
 
         // stake account is managed by bonds program
         let stake_from_meta = check_stake_is_initialized_with_withdrawer_authority(
-            &self.stake_account_from,
-            &self.bonds_withdrawer_authority.key(),
+            &ctx.accounts.stake_account_from,
+            &ctx.accounts.bonds_withdrawer_authority.key(),
             "stake_account_from",
         )?;
         // provided stake account "from" must be funded; staker == settlement staker authority
         require_keys_eq!(
             stake_from_meta.authorized.staker,
-            self.settlement.staker_authority,
+            ctx.accounts.settlement.staker_authority,
             ErrorCode::StakeAccountNotFundedToSettlement,
         );
 
         // stake account "to" for withdrawing funds to has to match merkle proof data
         let stake_to_meta = check_stake_is_initialized_with_withdrawer_authority(
-            &self.stake_account_to,
+            &ctx.accounts.stake_account_to,
             &stake_account_withdrawer,
             "stake_account_to",
         )?;
@@ -198,14 +205,18 @@ impl<'info> ClaimSettlement<'info> {
         );
         // an attacker could create a locked stake account with the victims stake/withdraw authorities,
         // then claiming the settlement, and extort the victim to unlock the stake account
-        check_stake_is_not_locked(&self.stake_account_to, &self.clock, "stake_account_to")?;
+        check_stake_is_not_locked(
+            &ctx.accounts.stake_account_to,
+            &ctx.accounts.clock,
+            "stake_account_to",
+        )?;
 
         // The provided stake account must be sufficiently large to cover the claim while remaining valid.
         // It is the SDK's responsibility to merge stake accounts if necessary.
         // - The invariant is that the stake account will always be rent-exempt and of minimum size.
         //   This must be ensured by the fund_settlement instruction.
-        if self.stake_account_from.get_lamports()
-            < claim + minimal_size_stake_account(&stake_from_meta, &self.config)
+        if ctx.accounts.stake_account_from.get_lamports()
+            < claim + minimal_size_stake_account(&stake_from_meta, &ctx.accounts.config)
         {
             return Err(error!(ErrorCode::ClaimingStakeAccountLamportsInsufficient)
                 .with_account_name("stake_account_from")
@@ -213,9 +224,9 @@ impl<'info> ClaimSettlement<'info> {
                     "stake_account_from_lamports < claim_amount + minimal_size_stake_account",
                     format!(
                         "{} < {} + {}",
-                        self.stake_account_from.get_lamports(),
+                        ctx.accounts.stake_account_from.get_lamports(),
                         claim,
-                        minimal_size_stake_account(&stake_from_meta, &self.config)
+                        minimal_size_stake_account(&stake_from_meta, &ctx.accounts.config)
                     ),
                 )));
         }
@@ -223,7 +234,7 @@ impl<'info> ClaimSettlement<'info> {
         let tree_node_hash = tree_node.hash().to_bytes();
         if !merkle_proof::verify(
             proof,
-            self.settlement.merkle_root,
+            ctx.accounts.settlement.merkle_root,
             hash_leaf!(tree_node_hash).to_bytes(),
         ) {
             return Err(error!(ErrorCode::ClaimSettlementProofFailed).with_values((
@@ -232,53 +243,53 @@ impl<'info> ClaimSettlement<'info> {
             )));
         }
 
-        self.settlement_claim.set_inner(SettlementClaim {
-            settlement: self.settlement.key(),
-            stake_account_to: self.stake_account_to.key(),
+        ctx.accounts.settlement_claim.set_inner(SettlementClaim {
+            settlement: ctx.accounts.settlement.key(),
+            stake_account_to: ctx.accounts.stake_account_to.key(),
             stake_account_staker,
             stake_account_withdrawer,
             amount: claim,
-            bump: settlement_claim_bump,
-            rent_collector: self.rent_payer.key(),
+            bump: ctx.bumps.settlement_claim,
+            rent_collector: ctx.accounts.rent_payer.key(),
             reserved: [0; 93],
         });
 
         withdraw(
             CpiContext::new_with_signer(
-                self.stake_program.to_account_info(),
+                ctx.accounts.stake_program.to_account_info(),
                 Withdraw {
-                    stake: self.stake_account_from.to_account_info(),
-                    withdrawer: self.bonds_withdrawer_authority.to_account_info(),
-                    to: self.stake_account_to.to_account_info(),
-                    clock: self.clock.to_account_info(),
-                    stake_history: self.stake_history.to_account_info(),
+                    stake: ctx.accounts.stake_account_from.to_account_info(),
+                    withdrawer: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                    to: ctx.accounts.stake_account_to.to_account_info(),
+                    clock: ctx.accounts.clock.to_account_info(),
+                    stake_history: ctx.accounts.stake_history.to_account_info(),
                 },
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &self.config.key().as_ref(),
-                    &[self.config.bonds_withdrawer_authority_bump],
+                    &ctx.accounts.config.key().as_ref(),
+                    &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             ),
             claim,
             None,
         )?;
 
-        self.settlement.lamports_claimed += claim;
-        self.settlement.merkle_nodes_claimed += 1;
+        ctx.accounts.settlement.lamports_claimed += claim;
+        ctx.accounts.settlement.merkle_nodes_claimed += 1;
 
-        emit!(ClaimSettlementEvent {
-            settlement: self.settlement_claim.settlement,
-            settlement_claim: self.settlement_claim.key(),
-            stake_account_to: self.settlement_claim.stake_account_to,
+        emit_cpi!(ClaimSettlementEvent {
+            settlement: ctx.accounts.settlement_claim.settlement,
+            settlement_claim: ctx.accounts.settlement_claim.key(),
+            stake_account_to: ctx.accounts.settlement_claim.stake_account_to,
             settlement_lamports_claimed: U64ValueChange {
-                old: self.settlement.lamports_claimed - claim,
-                new: self.settlement.lamports_claimed
+                old: ctx.accounts.settlement.lamports_claimed - claim,
+                new: ctx.accounts.settlement.lamports_claimed
             },
-            settlement_merkle_nodes_claimed: self.settlement.merkle_nodes_claimed,
-            stake_account_staker: self.settlement_claim.stake_account_staker,
-            stake_account_withdrawer: self.settlement_claim.stake_account_withdrawer,
-            amount: self.settlement_claim.amount,
-            rent_collector: self.settlement_claim.rent_collector,
+            settlement_merkle_nodes_claimed: ctx.accounts.settlement.merkle_nodes_claimed,
+            stake_account_staker: ctx.accounts.settlement_claim.stake_account_staker,
+            stake_account_withdrawer: ctx.accounts.settlement_claim.stake_account_withdrawer,
+            amount: ctx.accounts.settlement_claim.amount,
+            rent_collector: ctx.accounts.settlement_claim.rent_collector,
         });
 
         Ok(())

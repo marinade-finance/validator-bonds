@@ -15,6 +15,7 @@ pub struct InitBondArgs {
 }
 
 /// Creates new validator bond account based on the validator vote address
+#[event_cpi]
 #[derive(Accounts)]
 pub struct InitBond<'info> {
     /// the config account under which the bond is created
@@ -55,48 +56,48 @@ pub struct InitBond<'info> {
 
 impl<'info> InitBond<'info> {
     pub fn process(
-        &mut self,
+        ctx: Context<InitBond>,
         InitBondArgs {
             bond_authority,
             cpmpe,
         }: InitBondArgs,
-        bond_bump: u8,
     ) -> Result<()> {
-        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+        require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
         let mut cpmpe = cpmpe;
         let mut bond_authority = bond_authority;
-        let validator_identity = if let Some(validator_identity_info) = &self.validator_identity {
-            // permission-ed: validator identity is signer, configuration is possible
-            check_vote_account_validator_identity(
-                &self.vote_account,
-                &validator_identity_info.key(),
-            )?;
-            validator_identity_info.key()
-        } else {
-            // permission-less: not possible to configure bond account
-            cpmpe = 0;
-            let validator_identity =
-                get_validator_vote_account_validator_identity(&self.vote_account)?;
-            bond_authority = validator_identity;
-            validator_identity
-        };
+        let validator_identity =
+            if let Some(validator_identity_info) = &ctx.accounts.validator_identity {
+                // permission-ed: validator identity is signer, configuration is possible
+                check_vote_account_validator_identity(
+                    &ctx.accounts.vote_account,
+                    &validator_identity_info.key(),
+                )?;
+                validator_identity_info.key()
+            } else {
+                // permission-less: not possible to configure bond account
+                cpmpe = 0;
+                let validator_identity =
+                    get_validator_vote_account_validator_identity(&ctx.accounts.vote_account)?;
+                bond_authority = validator_identity;
+                validator_identity
+            };
 
-        self.bond.set_inner(Bond {
-            config: self.config.key(),
-            vote_account: self.vote_account.key(),
+        ctx.accounts.bond.set_inner(Bond {
+            config: ctx.accounts.config.key(),
+            vote_account: ctx.accounts.vote_account.key(),
             authority: bond_authority,
             cpmpe,
-            bump: bond_bump,
+            bump: ctx.bumps.bond,
             reserved: [0; 142],
         });
-        emit!(InitBondEvent {
-            bond: self.bond.key(),
-            config: self.bond.config,
-            vote_account: self.bond.vote_account,
+        emit_cpi!(InitBondEvent {
+            bond: ctx.accounts.bond.key(),
+            config: ctx.accounts.bond.config,
+            vote_account: ctx.accounts.bond.vote_account,
             validator_identity,
-            authority: self.bond.authority,
-            cpmpe: self.bond.cpmpe,
+            authority: ctx.accounts.bond.authority,
+            cpmpe: ctx.accounts.bond.cpmpe,
         });
 
         Ok(())

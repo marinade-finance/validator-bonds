@@ -14,6 +14,7 @@ pub struct ConfigureConfigArgs {
 }
 
 /// Configures bond program with the config root account params
+#[event_cpi]
 #[derive(Accounts)]
 pub struct ConfigureConfig<'info> {
     #[account(
@@ -28,7 +29,7 @@ pub struct ConfigureConfig<'info> {
 
 impl<'info> ConfigureConfig<'info> {
     pub fn process(
-        &mut self,
+        ctx: Context<ConfigureConfig>,
         ConfigureConfigArgs {
             admin,
             operator,
@@ -39,20 +40,20 @@ impl<'info> ConfigureConfig<'info> {
         }: ConfigureConfigArgs,
     ) -> Result<()> {
         let admin_authority_change = admin.map(|admin| {
-            let old = self.config.admin_authority;
-            self.config.admin_authority = admin;
+            let old = ctx.accounts.config.admin_authority;
+            ctx.accounts.config.admin_authority = admin;
             PubkeyValueChange { old, new: admin }
         });
 
         let operator_authority_change = operator.map(|operator| {
-            let old = self.config.operator_authority;
-            self.config.operator_authority = operator;
+            let old = ctx.accounts.config.operator_authority;
+            ctx.accounts.config.operator_authority = operator;
             PubkeyValueChange { old, new: operator }
         });
 
         let pause_authority_change = pause_authority.map(|pause_authority| {
-            let old = self.config.pause_authority;
-            self.config.pause_authority = pause_authority;
+            let old = ctx.accounts.config.pause_authority;
+            ctx.accounts.config.pause_authority = pause_authority;
             PubkeyValueChange {
                 old,
                 new: pause_authority,
@@ -61,8 +62,8 @@ impl<'info> ConfigureConfig<'info> {
 
         let epochs_to_claim_settlement_change =
             epochs_to_claim_settlement.map(|claim_settlement| {
-                let old = self.config.epochs_to_claim_settlement;
-                self.config.epochs_to_claim_settlement = claim_settlement;
+                let old = ctx.accounts.config.epochs_to_claim_settlement;
+                ctx.accounts.config.epochs_to_claim_settlement = claim_settlement;
                 U64ValueChange {
                     old,
                     new: claim_settlement,
@@ -70,8 +71,8 @@ impl<'info> ConfigureConfig<'info> {
             });
 
         let withdraw_lockup_epochs_change = withdraw_lockup_epochs.map(|withdraw_lockup| {
-            let old = self.config.withdraw_lockup_epochs;
-            self.config.withdraw_lockup_epochs = withdraw_lockup;
+            let old = ctx.accounts.config.withdraw_lockup_epochs;
+            ctx.accounts.config.withdraw_lockup_epochs = withdraw_lockup;
             U64ValueChange {
                 old,
                 new: withdraw_lockup,
@@ -79,15 +80,15 @@ impl<'info> ConfigureConfig<'info> {
         });
 
         let minimum_stake_lamports_change = minimum_stake_lamports.map(|minimum_stake| {
-            let old = self.config.minimum_stake_lamports;
-            self.config.minimum_stake_lamports = minimum_stake;
+            let old = ctx.accounts.config.minimum_stake_lamports;
+            ctx.accounts.config.minimum_stake_lamports = minimum_stake;
             U64ValueChange {
                 old,
                 new: minimum_stake,
             }
         });
 
-        emit!(ConfigureConfigEvent {
+        emit_cpi!(ConfigureConfigEvent {
             admin_authority: admin_authority_change,
             operator_authority: operator_authority_change,
             pause_authority: pause_authority_change,

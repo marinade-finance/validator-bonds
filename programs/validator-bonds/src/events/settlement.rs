@@ -4,8 +4,8 @@ use anchor_lang::prelude::*;
 
 #[event]
 pub struct InitSettlementEvent {
-    pub settlement: Pubkey,
     pub bond: Pubkey,
+    pub settlement: Pubkey,
     pub vote_account: Pubkey,
     pub staker_authority: Pubkey,
     pub merkle_root: [u8; 32],
@@ -35,14 +35,13 @@ pub struct CloseSettlementEvent {
 #[event]
 pub struct FundSettlementEvent {
     pub bond: Pubkey,
-    pub vote_account: Pubkey,
     pub settlement: Pubkey,
+    pub funding_amount: u64,
+    pub stake_account: Pubkey,
     pub lamports_funded: u64,
     pub lamports_claimed: u64,
     pub merkle_nodes_claimed: u64,
-    pub stake_account: Pubkey,
     pub split_stake_account: Option<SplitStakeData>,
     pub split_rent_collector: Option<Pubkey>,
     pub split_rent_amount: u64,
-    pub funding_amount: u64,
 }

@@ -47,7 +47,7 @@ pub mod validator_bonds {
 
     pub fn init_config(ctx: Context<InitConfig>, init_config_args: InitConfigArgs) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.process(init_config_args)
+        InitConfig::process(ctx, init_config_args)
     }
 
     pub fn configure_config(
@@ -55,12 +55,12 @@ pub mod validator_bonds {
         configure_config_args: ConfigureConfigArgs,
     ) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.process(configure_config_args)
+        ConfigureConfig::process(ctx, configure_config_args)
     }
 
     pub fn init_bond(ctx: Context<InitBond>, init_bond_args: InitBondArgs) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.process(init_bond_args, ctx.bumps.bond)
+        InitBond::process(ctx, init_bond_args)
     }
 
     pub fn configure_bond(
@@ -68,7 +68,7 @@ pub mod validator_bonds {
         configure_bond_args: ConfigureBondArgs,
     ) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.process(configure_bond_args)
+        ConfigureBond::process(ctx, configure_bond_args)
     }
 
     pub fn configure_bond_with_mint(
@@ -76,17 +76,17 @@ pub mod validator_bonds {
         args: ConfigureBondWithMintArgs,
     ) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.process(args)
+        ConfigureBondWithMint::process(ctx, args)
     }
 
     pub fn mint_bond(ctx: Context<MintBond>) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.process(ctx.bumps.mint)
+        MintBond::process(ctx)
     }
 
     pub fn fund_bond(ctx: Context<FundBond>) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.process()
+        FundBond::process(ctx)
     }
 
     pub fn init_withdraw_request(
@@ -94,18 +94,17 @@ pub mod validator_bonds {
         create_withdraw_request_args: InitWithdrawRequestArgs,
     ) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts
-            .process(create_withdraw_request_args, ctx.bumps.withdraw_request)
+        InitWithdrawRequest::process(ctx, create_withdraw_request_args)
     }
 
     pub fn cancel_withdraw_request(ctx: Context<CancelWithdrawRequest>) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.process()
+        CancelWithdrawRequest::process(ctx)
     }
 
     pub fn claim_withdraw_request(ctx: Context<ClaimWithdrawRequest>) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.process()
+        ClaimWithdrawRequest::process(ctx)
     }
 
     pub fn init_settlement(
@@ -113,23 +112,22 @@ pub mod validator_bonds {
         init_settlement_args: InitSettlementArgs,
     ) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts
-            .process(init_settlement_args, ctx.bumps.settlement)
+        InitSettlement::process(ctx, init_settlement_args)
     }
 
     pub fn close_settlement(ctx: Context<CloseSettlement>) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.process()
+        CloseSettlement::process(ctx)
     }
 
     pub fn fund_settlement(ctx: Context<FundSettlement>) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.process()
+        FundSettlement::process(ctx)
     }
 
     pub fn close_settlement_claim(ctx: Context<CloseSettlementClaim>) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.process()
+        CloseSettlementClaim::process(ctx)
     }
 
     pub fn claim_settlement(
@@ -137,33 +135,32 @@ pub mod validator_bonds {
         claim_settlement_args: ClaimSettlementArgs,
     ) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts
-            .process(claim_settlement_args, ctx.bumps.settlement_claim)
+        ClaimSettlement::process(ctx, claim_settlement_args)
     }
 
     pub fn merge_stake(ctx: Context<MergeStake>, merge_args: MergeStakeArgs) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.process(merge_args)
+        MergeStake::process(ctx, merge_args)
     }
 
     pub fn reset_stake(ctx: Context<ResetStake>) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.process()
+        ResetStake::process(ctx)
     }
 
     pub fn withdraw_stake(ctx: Context<WithdrawStake>) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.process()
+        WithdrawStake::process(ctx)
     }
 
-    pub fn emergency_pause(ctx: Context<EmergencyPause>) -> Result<()> {
+    pub fn emergency_pause(ctx: Context<EmergencyPauseResume>) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.pause()
+        EmergencyPauseResume::pause(ctx)
     }
 
-    pub fn emergency_resume(ctx: Context<EmergencyPause>) -> Result<()> {
+    pub fn emergency_resume(ctx: Context<EmergencyPauseResume>) -> Result<()> {
         check_context(&ctx)?;
-        ctx.accounts.resume()
+        EmergencyPauseResume::resume(ctx)
     }
 }
 

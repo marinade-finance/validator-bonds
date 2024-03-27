@@ -20,6 +20,7 @@ pub struct ConfigureBondWithMintArgs {
 }
 
 /// Change parameters of validator bond account with token burning
+#[event_cpi]
 #[derive(Accounts)]
 #[instruction(params: ConfigureBondWithMintArgs)]
 pub struct ConfigureBondWithMint<'info> {
@@ -48,7 +49,7 @@ pub struct ConfigureBondWithMint<'info> {
         bump,
         mint::authority = mint,
     )]
-    pub mint: Account<'info, Mint>,
+    pub mint: Box<Account<'info, Mint>>,
 
     /// CHECK: check&deserialize the vote account in the code
     #[account(
@@ -62,7 +63,7 @@ pub struct ConfigureBondWithMint<'info> {
         token::mint = mint,
         token::authority = token_authority,
     )]
-    pub token_account: Account<'info, TokenAccount>,
+    pub token_account: Box<Account<'info, TokenAccount>>,
 
     pub token_authority: Signer<'info>,
 
@@ -70,11 +71,14 @@ pub struct ConfigureBondWithMint<'info> {
 }
 
 impl<'info> ConfigureBondWithMint<'info> {
-    pub fn process(&mut self, args: ConfigureBondWithMintArgs) -> Result<()> {
-        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+    pub fn process(
+        ctx: Context<ConfigureBondWithMint>,
+        args: ConfigureBondWithMintArgs,
+    ) -> Result<()> {
+        require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
         let validator_identity_vote_account =
-            get_validator_vote_account_validator_identity(&self.vote_account)?;
+            get_validator_vote_account_validator_identity(&ctx.accounts.vote_account)?;
         require_keys_eq!(
             args.validator_identity,
             validator_identity_vote_account,
@@ -82,7 +86,7 @@ impl<'info> ConfigureBondWithMint<'info> {
         );
 
         let (bond_authority_change, cpmpe_change) = configure_bond(
-            &mut self.bond,
+            &mut ctx.accounts.bond,
             ConfigureBondArgs {
                 bond_authority: args.bond_authority,
                 cpmpe: args.cpmpe,
@@ -91,17 +95,17 @@ impl<'info> ConfigureBondWithMint<'info> {
 
         burn(
             CpiContext::new(
-                self.token_program.to_account_info(),
+                ctx.accounts.token_program.to_account_info(),
                 Burn {
-                    mint: self.mint.to_account_info(),
-                    from: self.token_account.to_account_info(),
-                    authority: self.token_authority.to_account_info(),
+                    mint: ctx.accounts.mint.to_account_info(),
+                    from: ctx.accounts.token_account.to_account_info(),
+                    authority: ctx.accounts.token_authority.to_account_info(),
                 },
             ),
             1,
         )?;
 
-        emit!(ConfigureBondWithMintEvent {
+        emit_cpi!(ConfigureBondWithMintEvent {
             validator_identity: args.validator_identity,
             bond_authority: bond_authority_change,
             cpmpe: cpmpe_change,

@@ -24,6 +24,7 @@ use anchor_spl::stake::{
 /// Funding the settlement by providing a stake account delegated to a particular validator vote account based on the Merkle proof.
 /// The settlement has been previously created by the operator to fulfill some protected event (e.g., slashing).
 /// Permission-ed to operator authority.
+#[event_cpi]
 #[derive(Accounts)]
 pub struct FundSettlement<'info> {
     #[account(
@@ -40,7 +41,7 @@ pub struct FundSettlement<'info> {
         ],
         bump = bond.bump,
     )]
-    pub bond: Account<'info, Bond>,
+    pub bond: Box<Account<'info, Bond>>,
 
     #[account(
         mut,
@@ -54,7 +55,7 @@ pub struct FundSettlement<'info> {
         ],
         bump = settlement.bumps.pda,
     )]
-    pub settlement: Account<'info, Settlement>,
+    pub settlement: Box<Account<'info, Settlement>>,
 
     /// operator signer authority is allowed to fund the settlement account
     pub operator_authority: Signer<'info>,
@@ -122,25 +123,25 @@ pub struct FundSettlement<'info> {
 }
 
 impl<'info> FundSettlement<'info> {
-    pub fn process(&mut self) -> Result<()> {
-        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+    pub fn process(ctx: Context<FundSettlement>) -> Result<()> {
+        require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
-        if self.settlement.lamports_funded >= self.settlement.max_total_claim {
+        if ctx.accounts.settlement.lamports_funded >= ctx.accounts.settlement.max_total_claim {
             msg!("Settlement is already fully funded");
             return_unused_split_stake_account_rent(
-                &self.stake_program,
-                &self.split_stake_account,
-                &self.split_stake_rent_payer,
-                &self.clock,
-                &self.stake_history,
+                &ctx.accounts.stake_program,
+                &ctx.accounts.split_stake_account,
+                &ctx.accounts.split_stake_rent_payer,
+                &ctx.accounts.clock,
+                &ctx.accounts.stake_history,
             )?;
             return Ok(());
         }
 
         // stake account is managed by bonds program
         let stake_meta = check_stake_is_initialized_with_withdrawer_authority(
-            &self.stake_account,
-            &self.bonds_withdrawer_authority.key(),
+            &ctx.accounts.stake_account,
+            &ctx.accounts.bonds_withdrawer_authority.key(),
             "stake_account",
         )?;
         // the provided stake account must NOT have been used to fund settlement (but must be owned by the bonds program)
@@ -148,24 +149,31 @@ impl<'info> FundSettlement<'info> {
         // when funded to the settlement, the staker must be equal to the settlement staker authority
         require_keys_eq!(
             stake_meta.authorized.staker,
-            self.bonds_withdrawer_authority.key(),
+            ctx.accounts.bonds_withdrawer_authority.key(),
             ErrorCode::StakeAccountIsFundedToSettlement,
         );
         // only stake account delegated to (i.e., funded by) the bond validator vote account
-        let stake_delegation =
-            check_stake_valid_delegation(&self.stake_account, &self.bond.vote_account)?;
+        let stake_delegation = check_stake_valid_delegation(
+            &ctx.accounts.stake_account,
+            &ctx.accounts.bond.vote_account,
+        )?;
         // funded stake account cannot be locked as we want to deactivate&withdraw
-        check_stake_is_not_locked(&self.stake_account, &self.clock, "stake_account")?;
+        check_stake_is_not_locked(
+            &ctx.accounts.stake_account,
+            &ctx.accounts.clock,
+            "stake_account",
+        )?;
 
-        let split_stake_rent_exempt = self.split_stake_account.get_lamports();
-        let stake_account_min_size = minimal_size_stake_account(&stake_meta, &self.config);
+        let split_stake_rent_exempt = ctx.accounts.split_stake_account.get_lamports();
+        let stake_account_min_size = minimal_size_stake_account(&stake_meta, &ctx.accounts.config);
 
         // note: we can over-fund the settlement when the stake account is in shape to not being possible to split it
-        let amount_available = self.stake_account.get_lamports();
+        let amount_available = ctx.accounts.stake_account.get_lamports();
         // amount needed: "amount + rent exempt + minimal stake size" -> ensuring stake account may exist
         // NOTE: once deactivated the balance may drop only to "rent exempt" and "minimal stake size" is not needed anymore,
         //       but we want to re-activate later the left-over at the stake account thus needed to be funded with plus minimal stake size
-        let amount_needed = self.settlement.max_total_claim - self.settlement.lamports_funded
+        let amount_needed = ctx.accounts.settlement.max_total_claim
+            - ctx.accounts.settlement.lamports_funded
             + stake_account_min_size;
         // the left-over stake account has to be capable to exist after splitting
         let left_over_splittable = amount_available > amount_needed
@@ -175,28 +183,28 @@ impl<'info> FundSettlement<'info> {
             // no split needed or possible, whole stake account funded, still amount funded is subtracted off the min size
             // as after claiming the stake will be capable to exist
             if amount_available <= amount_needed || !left_over_splittable  {
-                let lamports_to_fund = self.stake_account.get_lamports() - stake_account_min_size;
+                let lamports_to_fund = ctx.accounts.stake_account.get_lamports() - stake_account_min_size;
 
                 // whole amount used, not split - closing and returning rent
                 return_unused_split_stake_account_rent(
-                    &self.stake_program,
-                    &self.split_stake_account,
-                    &self.split_stake_rent_payer,
-                    &self.clock,
-                    &self.stake_history,
+                    &ctx.accounts.stake_program,
+                    &ctx.accounts.split_stake_account,
+                    &ctx.accounts.split_stake_rent_payer,
+                    &ctx.accounts.clock,
+                    &ctx.accounts.stake_history,
                 )?;
                 (lamports_to_fund, false)
             } else {
                 let lamports_to_fund = amount_needed - stake_account_min_size;
                 // split gains what overflows from funding + amount needed to pay back to split rent payer on close
                 let fund_split_leftover =
-                    self.stake_account.get_lamports() - amount_needed - split_stake_rent_exempt;
+                    ctx.accounts.stake_account.get_lamports() - amount_needed - split_stake_rent_exempt;
 
                 let split_instruction = stake::instruction::split(
-                  self.stake_account.to_account_info().key,
-                  self.bonds_withdrawer_authority.key,
+                  ctx.accounts.stake_account.to_account_info().key,
+                  ctx.accounts.bonds_withdrawer_authority.key,
                   fund_split_leftover,
-                  &self.split_stake_account.key(),
+                  &ctx.accounts.split_stake_account.key(),
                 )
                 .last()
                 .unwrap()
@@ -204,21 +212,21 @@ impl<'info> FundSettlement<'info> {
                 invoke_signed(
                     &split_instruction,
                     &[
-                        self.stake_program.to_account_info(),
-                        self.stake_account.to_account_info(),
-                        self.split_stake_account.to_account_info(),
-                        self.bonds_withdrawer_authority.to_account_info(),
+                        ctx.accounts.stake_program.to_account_info(),
+                        ctx.accounts.stake_account.to_account_info(),
+                        ctx.accounts.split_stake_account.to_account_info(),
+                        ctx.accounts.bonds_withdrawer_authority.to_account_info(),
                     ],
                     &[&[
                         BONDS_WITHDRAWER_AUTHORITY_SEED,
-                        &self.config.key().as_ref(),
-                        &[self.config.bonds_withdrawer_authority_bump],
+                        &ctx.accounts.config.key().as_ref(),
+                        &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                     ]],
                 )?;
 
                 // the split rent collector will get back the rent on closing the settlement
-                self.settlement.split_rent_collector = Some(self.split_stake_rent_payer.key());
-                self.settlement.split_rent_amount = split_stake_rent_exempt;
+                ctx.accounts.settlement.split_rent_collector = Some(ctx.accounts.split_stake_rent_payer.key());
+                ctx.accounts.settlement.split_rent_amount = split_stake_rent_exempt;
 
                 (lamports_to_fund, true)
             };
@@ -227,65 +235,64 @@ impl<'info> FundSettlement<'info> {
         // NOTE: do not deactivate when already deactivated (deactivated: deactivation_epoch != u64::MAX)
         if stake_delegation.deactivation_epoch == u64::MAX {
             deactivate_stake(CpiContext::new_with_signer(
-                self.stake_program.to_account_info(),
+                ctx.accounts.stake_program.to_account_info(),
                 DeactivateStake {
-                    stake: self.stake_account.to_account_info(),
-                    staker: self.bonds_withdrawer_authority.to_account_info(),
-                    clock: self.clock.to_account_info(),
+                    stake: ctx.accounts.stake_account.to_account_info(),
+                    staker: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                    clock: ctx.accounts.clock.to_account_info(),
                 },
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &self.config.key().as_ref(),
-                    &[self.config.bonds_withdrawer_authority_bump],
+                    &ctx.accounts.config.key().as_ref(),
+                    &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             ))?;
         } else {
             msg!(
                 "Stake account {} is already deactivated",
-                self.stake_account.key()
+                ctx.accounts.stake_account.key()
             );
         }
         // funding, i.e., moving stake account from bond authority to settlement authority
         authorize(
             CpiContext::new_with_signer(
-                self.stake_program.to_account_info(),
+                ctx.accounts.stake_program.to_account_info(),
                 Authorize {
-                    stake: self.stake_account.to_account_info(),
-                    authorized: self.bonds_withdrawer_authority.to_account_info(),
-                    new_authorized: self.settlement_staker_authority.to_account_info(),
-                    clock: self.clock.to_account_info(),
+                    stake: ctx.accounts.stake_account.to_account_info(),
+                    authorized: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                    new_authorized: ctx.accounts.settlement_staker_authority.to_account_info(),
+                    clock: ctx.accounts.clock.to_account_info(),
                 },
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &self.config.key().as_ref(),
-                    &[self.config.bonds_withdrawer_authority_bump],
+                    &ctx.accounts.config.key().as_ref(),
+                    &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             ),
             StakeAuthorize::Staker,
             None,
         )?;
 
-        self.settlement.lamports_funded += funding_amount;
+        ctx.accounts.settlement.lamports_funded += funding_amount;
 
-        emit!(FundSettlementEvent {
-            bond: self.bond.key(),
-            vote_account: self.bond.vote_account,
-            settlement: self.settlement.key(),
+        emit_cpi!(FundSettlementEvent {
+            bond: ctx.accounts.bond.key(),
+            settlement: ctx.accounts.settlement.key(),
             funding_amount,
-            lamports_funded: self.settlement.lamports_funded,
-            lamports_claimed: self.settlement.lamports_claimed,
-            merkle_nodes_claimed: self.settlement.merkle_nodes_claimed,
-            stake_account: self.stake_account.key(),
+            stake_account: ctx.accounts.stake_account.key(),
+            lamports_funded: ctx.accounts.settlement.lamports_funded,
+            lamports_claimed: ctx.accounts.settlement.lamports_claimed,
+            merkle_nodes_claimed: ctx.accounts.settlement.merkle_nodes_claimed,
             split_stake_account: if is_split {
                 Some(SplitStakeData {
-                    address: self.split_stake_account.key(),
-                    amount: self.split_stake_account.get_lamports(),
+                    address: ctx.accounts.split_stake_account.key(),
+                    amount: ctx.accounts.split_stake_account.get_lamports(),
                 })
             } else {
                 None
             },
-            split_rent_collector: self.settlement.split_rent_collector,
-            split_rent_amount: self.settlement.split_rent_amount,
+            split_rent_collector: ctx.accounts.settlement.split_rent_collector,
+            split_rent_amount: ctx.accounts.settlement.split_rent_amount,
         });
 
         Ok(())

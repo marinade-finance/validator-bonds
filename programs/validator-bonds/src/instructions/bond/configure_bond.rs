@@ -13,6 +13,7 @@ pub struct ConfigureBondArgs {
 }
 
 /// Change parameters of validator bond account
+#[event_cpi]
 #[derive(Accounts)]
 pub struct ConfigureBond<'info> {
     pub config: Account<'info, Config>,
@@ -41,18 +42,25 @@ pub struct ConfigureBond<'info> {
 }
 
 impl<'info> ConfigureBond<'info> {
-    pub fn process(&mut self, configure_bond_args: ConfigureBondArgs) -> Result<()> {
-        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+    pub fn process(
+        ctx: Context<ConfigureBond>,
+        configure_bond_args: ConfigureBondArgs,
+    ) -> Result<()> {
+        require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
         require!(
-            check_bond_authority(&self.authority.key(), &self.bond, &self.vote_account),
+            check_bond_authority(
+                &ctx.accounts.authority.key(),
+                &ctx.accounts.bond,
+                &ctx.accounts.vote_account
+            ),
             ErrorCode::BondChangeNotPermitted
         );
 
         let (bond_authority_change, cpmpe_change) =
-            configure_bond(&mut self.bond, configure_bond_args);
+            configure_bond(&mut ctx.accounts.bond, configure_bond_args);
 
-        emit!(ConfigureBondEvent {
+        emit_cpi!(ConfigureBondEvent {
             bond_authority: bond_authority_change,
             cpmpe: cpmpe_change,
         });

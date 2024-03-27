@@ -10,6 +10,7 @@ use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 /// Cancelling a validator bond withdrawal request.
 /// Only one withdrawal request per bond is permitted.
 /// Cancelling makes way for a new request with a new amount.
+#[event_cpi]
 #[derive(Accounts)]
 pub struct CancelWithdrawRequest<'info> {
     pub config: Account<'info, Config>,
@@ -53,20 +54,24 @@ pub struct CancelWithdrawRequest<'info> {
 }
 
 impl<'info> CancelWithdrawRequest<'info> {
-    pub fn process(&mut self) -> Result<()> {
-        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+    pub fn process(ctx: Context<CancelWithdrawRequest>) -> Result<()> {
+        require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
         require!(
-            check_bond_authority(&self.authority.key(), &self.bond, &self.vote_account),
+            check_bond_authority(
+                &ctx.accounts.authority.key(),
+                &ctx.accounts.bond,
+                &ctx.accounts.vote_account
+            ),
             ErrorCode::InvalidWithdrawRequestAuthority
         );
 
-        emit!(CancelWithdrawRequestEvent {
-            withdraw_request: self.withdraw_request.key(),
-            bond: self.bond.key(),
-            authority: self.authority.key(),
-            requested_amount: self.withdraw_request.requested_amount,
-            withdrawn_amount: self.withdraw_request.withdrawn_amount,
+        emit_cpi!(CancelWithdrawRequestEvent {
+            withdraw_request: ctx.accounts.withdraw_request.key(),
+            bond: ctx.accounts.bond.key(),
+            authority: ctx.accounts.authority.key(),
+            requested_amount: ctx.accounts.withdraw_request.requested_amount,
+            withdrawn_amount: ctx.accounts.withdraw_request.withdrawn_amount,
         });
         Ok(())
     }

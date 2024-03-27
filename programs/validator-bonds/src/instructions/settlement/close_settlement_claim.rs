@@ -5,6 +5,7 @@ use crate::state::settlement_claim::SettlementClaim;
 use anchor_lang::prelude::*;
 
 // Closing settlement claim to get back rent for the account
+#[event_cpi]
 #[derive(Accounts)]
 pub struct CloseSettlementClaim<'info> {
     /// CHECK: code to check non-existence of the account
@@ -24,16 +25,19 @@ pub struct CloseSettlementClaim<'info> {
 }
 
 impl<'info> CloseSettlementClaim<'info> {
-    pub fn process(&mut self) -> Result<()> {
+    pub fn process(ctx: Context<CloseSettlementClaim>) -> Result<()> {
         // NOTE: We intentionally do not check for the paused state here.
         //       This instruction only allows returning rent and has no crucial impact on the system.
 
         // The rule stipulates that the settlement claim can only be closed when the settlement does exist.
-        require!(is_closed(&self.settlement), ErrorCode::SettlementNotClosed);
+        require!(
+            is_closed(&ctx.accounts.settlement),
+            ErrorCode::SettlementNotClosed
+        );
 
-        emit!(CloseSettlementClaimEvent {
-            settlement: self.settlement.key(),
-            rent_collector: self.rent_collector.key(),
+        emit_cpi!(CloseSettlementClaimEvent {
+            settlement: ctx.accounts.settlement.key(),
+            rent_collector: ctx.accounts.rent_collector.key(),
         });
 
         Ok(())

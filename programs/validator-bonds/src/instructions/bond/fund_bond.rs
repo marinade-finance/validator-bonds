@@ -14,6 +14,7 @@ use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 // The same operation can be performed by manually changing the withdrawer and staker
 // authorities of the stake account to match the bond's withdrawer authority address.
 // This transaction ensures the stake account is in a state considered properly funded.
+#[event_cpi]
 #[derive(Accounts)]
 pub struct FundBond<'info> {
     pub config: Account<'info, Config>,
@@ -56,47 +57,51 @@ pub struct FundBond<'info> {
 }
 
 impl<'info> FundBond<'info> {
-    pub fn process(&mut self) -> Result<()> {
-        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+    pub fn process(ctx: Context<FundBond>) -> Result<()> {
+        require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
         // check current stake account withdrawer authority with permission to authorize
         check_stake_is_initialized_with_withdrawer_authority(
-            &self.stake_account,
-            &self.stake_authority.key(),
+            &ctx.accounts.stake_account,
+            &ctx.accounts.stake_authority.key(),
             "stake_account",
         )?;
         // check the stake account is in valid state to be used for bonds
-        check_stake_is_not_locked(&self.stake_account, &self.clock, "stake_account")?;
-        check_stake_exist_and_fully_activated(
-            &self.stake_account,
-            self.clock.epoch,
-            &self.stake_history,
+        check_stake_is_not_locked(
+            &ctx.accounts.stake_account,
+            &ctx.accounts.clock,
+            "stake_account",
         )?;
-        check_stake_valid_delegation(&self.stake_account, &self.bond.vote_account)?;
+        check_stake_exist_and_fully_activated(
+            &ctx.accounts.stake_account,
+            ctx.accounts.clock.epoch,
+            &ctx.accounts.stake_history,
+        )?;
+        check_stake_valid_delegation(&ctx.accounts.stake_account, &ctx.accounts.bond.vote_account)?;
 
         // when the stake account is already "owned" by the bonds program, return OK
         if check_stake_is_initialized_with_withdrawer_authority(
-            &self.stake_account,
-            &self.bonds_withdrawer_authority.key(),
+            &ctx.accounts.stake_account,
+            &ctx.accounts.bonds_withdrawer_authority.key(),
             "stake_account",
         )
         .is_ok()
         {
             msg!(
                 "Stake account {} is already funded to the bonds program",
-                self.stake_account.key()
+                ctx.accounts.stake_account.key()
             );
             return Ok(());
         }
 
         authorize(
             CpiContext::new(
-                self.stake_program.to_account_info(),
+                ctx.accounts.stake_program.to_account_info(),
                 Authorize {
-                    stake: self.stake_account.to_account_info(),
-                    authorized: self.stake_authority.to_account_info(),
-                    new_authorized: self.bonds_withdrawer_authority.to_account_info(),
-                    clock: self.clock.to_account_info(),
+                    stake: ctx.accounts.stake_account.to_account_info(),
+                    authorized: ctx.accounts.stake_authority.to_account_info(),
+                    new_authorized: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                    clock: ctx.accounts.clock.to_account_info(),
                 },
             ),
             StakeAuthorize::Staker,
@@ -105,12 +110,12 @@ impl<'info> FundBond<'info> {
 
         authorize(
             CpiContext::new(
-                self.stake_program.to_account_info(),
+                ctx.accounts.stake_program.to_account_info(),
                 Authorize {
-                    stake: self.stake_account.to_account_info(),
-                    authorized: self.stake_authority.to_account_info(),
-                    new_authorized: self.bonds_withdrawer_authority.to_account_info(),
-                    clock: self.clock.to_account_info(),
+                    stake: ctx.accounts.stake_account.to_account_info(),
+                    authorized: ctx.accounts.stake_authority.to_account_info(),
+                    new_authorized: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                    clock: ctx.accounts.clock.to_account_info(),
                 },
             ),
             // withdrawer authority (owner) is the validator bonds program
@@ -118,12 +123,12 @@ impl<'info> FundBond<'info> {
             None,
         )?;
 
-        emit!(FundBondEvent {
-            bond: self.bond.key(),
-            vote_account: self.bond.vote_account.key(),
-            stake_account: self.stake_account.key(),
-            stake_authority_signer: self.stake_authority.key(),
-            deposited_amount: self.stake_account.get_lamports(),
+        emit_cpi!(FundBondEvent {
+            bond: ctx.accounts.bond.key(),
+            vote_account: ctx.accounts.bond.vote_account.key(),
+            stake_account: ctx.accounts.stake_account.key(),
+            stake_authority_signer: ctx.accounts.stake_authority.key(),
+            deposited_amount: ctx.accounts.stake_account.get_lamports(),
         });
 
         Ok(())

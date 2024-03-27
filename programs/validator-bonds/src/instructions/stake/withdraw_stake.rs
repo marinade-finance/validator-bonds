@@ -14,6 +14,7 @@ use std::ops::Deref;
 
 /// Withdrawing funded stake account belonging to removed settlement that has not been delegated (it's in Initialized state).
 /// Such a stake account is considered belonging to the operator of the config account.
+#[event_cpi]
 #[derive(Accounts)]
 pub struct WithdrawStake<'info> {
     /// the config account under which the bond was created
@@ -58,19 +59,22 @@ pub struct WithdrawStake<'info> {
 }
 
 impl<'info> WithdrawStake<'info> {
-    pub fn process(&mut self) -> Result<()> {
-        require!(!self.config.paused, ErrorCode::ProgramIsPaused);
+    pub fn process(ctx: Context<WithdrawStake>) -> Result<()> {
+        require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
         // The rule stipulates to withdraw only when the settlement does exist.
-        require!(is_closed(&self.settlement), ErrorCode::SettlementNotClosed);
+        require!(
+            is_closed(&ctx.accounts.settlement),
+            ErrorCode::SettlementNotClosed
+        );
 
         // stake account is managed by bonds program and belongs under bond validator
         check_stake_is_initialized_with_withdrawer_authority(
-            &self.stake_account,
-            &self.bonds_withdrawer_authority.key(),
+            &ctx.accounts.stake_account,
+            &ctx.accounts.bonds_withdrawer_authority.key(),
             "stake_account",
         )?;
-        let stake_state: &StakeState = self.stake_account.deref();
+        let stake_state: &StakeState = ctx.accounts.stake_account.deref();
         // operator is permitted to work only with Initialized non-delegated stake accounts
         let stake_meta = match stake_state {
             StakeState::Initialized(meta) => meta,
@@ -83,46 +87,46 @@ impl<'info> WithdrawStake<'info> {
         // stake account belongs under the bond config account
         require_eq!(
             stake_meta.authorized.withdrawer,
-            self.bonds_withdrawer_authority.key(),
+            ctx.accounts.bonds_withdrawer_authority.key(),
             ErrorCode::WrongStakeAccountWithdrawer
         );
 
         // check the stake account is funded to removed settlement
         let settlement_staker_authority =
-            find_settlement_staker_authority(&self.settlement.key()).0;
+            find_settlement_staker_authority(&ctx.accounts.settlement.key()).0;
         require_eq!(
             stake_meta.authorized.staker,
             settlement_staker_authority,
             ErrorCode::SettlementAuthorityMismatch
         );
 
-        let withdrawn_amount = self.stake_account.get_lamports();
+        let withdrawn_amount = ctx.accounts.stake_account.get_lamports();
         withdraw(
             CpiContext::new_with_signer(
-                self.stake_program.to_account_info(),
+                ctx.accounts.stake_program.to_account_info(),
                 Withdraw {
-                    stake: self.stake_account.to_account_info(),
-                    withdrawer: self.bonds_withdrawer_authority.to_account_info(),
-                    to: self.withdraw_to.to_account_info(),
-                    stake_history: self.stake_history.to_account_info(),
-                    clock: self.clock.to_account_info(),
+                    stake: ctx.accounts.stake_account.to_account_info(),
+                    withdrawer: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                    to: ctx.accounts.withdraw_to.to_account_info(),
+                    stake_history: ctx.accounts.stake_history.to_account_info(),
+                    clock: ctx.accounts.clock.to_account_info(),
                 },
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &self.config.key().as_ref(),
-                    &[self.config.bonds_withdrawer_authority_bump],
+                    &ctx.accounts.config.key().as_ref(),
+                    &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             ),
             withdrawn_amount,
             None,
         )?;
 
-        emit!(WithdrawStakeEvent {
-            config: self.config.key(),
-            operator_authority: self.operator_authority.key(),
-            settlement: self.settlement.key(),
-            stake_account: self.stake_account.key(),
-            withdraw_to: self.withdraw_to.key(),
+        emit_cpi!(WithdrawStakeEvent {
+            config: ctx.accounts.config.key(),
+            operator_authority: ctx.accounts.operator_authority.key(),
+            settlement: ctx.accounts.settlement.key(),
+            stake_account: ctx.accounts.stake_account.key(),
+            withdraw_to: ctx.accounts.withdraw_to.key(),
             settlement_staker_authority,
             withdrawn_amount,
         });
