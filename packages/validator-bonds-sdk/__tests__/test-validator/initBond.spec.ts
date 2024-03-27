@@ -1,28 +1,33 @@
 import { Keypair, PublicKey, Signer } from '@solana/web3.js'
 import {
   INIT_BOND_EVENT,
-  InitBondEvent,
   ValidatorBondsProgram,
+  assertEvent,
   bondAddress,
   findBonds,
   getBond,
   initBondInstruction,
+  parseCpiEvents,
 } from '../../src'
 import { initTest } from './testValidator'
 import {
   Wallet,
+  executeTxSimple,
   signer,
   splitAndExecuteTx,
   transaction,
 } from '@marinade.finance/web3js-common'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
-import { ExtendedProvider } from '@marinade.finance/web3js-common'
 import { createVoteAccountWithIdentity } from '../utils/staking'
-import { AnchorProvider } from '@coral-xyz/anchor'
-import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+
+import {
+  AnchorExtendedProvider,
+  getAnchorValidatorInfo,
+} from '@marinade.finance/anchor-common'
+import assert from 'assert'
 
 describe('Validator Bonds init bond', () => {
-  let provider: ExtendedProvider
+  let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
   let validatorIdentity: Keypair
   let configAccount: PublicKey
@@ -30,11 +35,6 @@ describe('Validator Bonds init bond', () => {
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
-  })
-
-  afterAll(async () => {
-    // workaround: "Jest has detected the following 1 open handle", see `initConfig.spec.ts`
-    await new Promise(resolve => setTimeout(resolve, 500))
   })
 
   beforeEach(async () => {
@@ -45,20 +45,13 @@ describe('Validator Bonds init bond', () => {
   })
 
   it('init bond', async () => {
-    const event = new Promise<InitBondEvent>(resolve => {
-      const listener = program.addEventListener(
-        INIT_BOND_EVENT,
-        async event => {
-          await program.removeEventListener(listener)
-          resolve(event)
-        }
-      )
-    })
-
     const { voteAccount } = await createVoteAccountWithIdentity(
       provider,
       validatorIdentity
     )
+
+    const tx = await transaction(provider)
+
     const bondAuthority = PublicKey.unique()
     const { instruction, bondAccount } = await initBondInstruction({
       program,
@@ -68,7 +61,11 @@ describe('Validator Bonds init bond', () => {
       voteAccount,
       validatorIdentity: validatorIdentity.publicKey,
     })
-    await provider.sendIx([validatorIdentity], instruction)
+    tx.add(instruction)
+    const executionReturn = await executeTxSimple(provider.connection, tx, [
+      provider.wallet,
+      validatorIdentity,
+    ])
 
     const bondsDataFromList = await findBonds({
       program,
@@ -92,24 +89,23 @@ describe('Validator Bonds init bond', () => {
     expect(bondData.cpmpe).toEqual(22)
     expect(bondData.voteAccount).toEqual(voteAccount)
 
-    // Ensure the event listener was called
-    await event.then(e => {
-      expect(e.bond).toEqual(bondAccount)
-      expect(e.authority).toEqual(bondAuthority)
-      expect(e.config).toEqual(configAccount)
-      expect(e.cpmpe).toEqual(22)
-      expect(e.voteAccount).toEqual(voteAccount)
-      expect(e.validatorIdentity).toEqual(validatorIdentity.publicKey)
-    })
+    const events = parseCpiEvents(program, executionReturn?.response)
+    const e = assertEvent(events, INIT_BOND_EVENT)
+    // Ensure the event was emitted
+    assert(e !== undefined)
+    expect(e.bond).toEqual(bondAccount)
+    expect(e.authority).toEqual(bondAuthority)
+    expect(e.config).toEqual(configAccount)
+    expect(e.cpmpe).toEqual(22)
+    expect(e.voteAccount).toEqual(voteAccount)
+    expect(e.validatorIdentity).toEqual(validatorIdentity.publicKey)
   })
 
   it('find bonds', async () => {
     const bondAuthority = Keypair.generate().publicKey
 
     const tx = await transaction(provider)
-    const signers: (Signer | Wallet)[] = [
-      (provider as unknown as AnchorProvider).wallet,
-    ]
+    const signers: (Signer | Wallet)[] = [provider.wallet]
 
     const numberOfBonds = 24
 

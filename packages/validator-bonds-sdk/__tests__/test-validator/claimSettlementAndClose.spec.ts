@@ -1,16 +1,16 @@
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
-  ClaimSettlementEvent,
   CLAIM_SETTLEMENT_EVENT,
   claimSettlementInstruction,
   fundSettlementInstruction,
   settlementClaimAddress,
   findSettlementClaims,
-  CloseSettlementClaimEvent,
-  CLOSE_SETTLEMENT_CLAIM_EVENT,
   closeSettlementInstruction,
   closeSettlementClaimInstruction,
+  parseCpiEvents,
+  assertEvent,
+  CLOSE_SETTLEMENT_CLAIM_EVENT,
 } from '../../src'
 import { initTest } from './testValidator'
 import {
@@ -19,7 +19,8 @@ import {
   executeInitSettlement,
 } from '../utils/testTransactions'
 import {
-  ExtendedProvider,
+  executeTxSimple,
+  transaction,
   waitForNextEpoch,
 } from '@marinade.finance/web3js-common'
 import { createUserAndFund, signer } from '@marinade.finance/web3js-common'
@@ -45,11 +46,16 @@ import {
   createVoteAccount,
 } from '../utils/staking'
 import BN from 'bn.js'
-import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+import {
+  AnchorExtendedProvider,
+  getAnchorValidatorInfo,
+} from '@marinade.finance/anchor-common'
+
+import assert from 'assert'
 
 // NOTE: order of tests need to be maintained
 describe('Validator Bonds claim settlement', () => {
-  let provider: ExtendedProvider
+  let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let operatorAuthority: Keypair
@@ -115,22 +121,7 @@ describe('Validator Bonds claim settlement', () => {
     })) as Keypair
   })
 
-  afterAll(async () => {
-    // workaround: "Jest has detected the following 1 open handle", see `initConfig.spec.ts`
-    await new Promise(resolve => setTimeout(resolve, 500))
-  })
-
   it('claim settlement', async () => {
-    const event = new Promise<ClaimSettlementEvent>(resolve => {
-      const listener = program.addEventListener(
-        CLAIM_SETTLEMENT_EVENT,
-        async event => {
-          await program.removeEventListener(listener)
-          resolve(event)
-        }
-      )
-    })
-
     await createUserAndFund({
       provider,
       lamports: LAMPORTS_PER_SOL,
@@ -149,6 +140,8 @@ describe('Validator Bonds claim settlement', () => {
         withdrawer: treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority,
       })
 
+    const tx = await transaction(provider)
+
     const { instruction, settlementClaimAccount } =
       await claimSettlementInstruction({
         program,
@@ -159,7 +152,11 @@ describe('Validator Bonds claim settlement', () => {
         stakeAccountTo: stakeAccountTreeNodeVoteAccount1Withdrawer1,
         rentPayer: fundSettlementRentPayer.publicKey,
       })
-    await provider.sendIx([fundSettlementRentPayer], instruction)
+    tx.add(instruction)
+    const executionReturn = await executeTxSimple(provider.connection, tx, [
+      provider.wallet,
+      fundSettlementRentPayer,
+    ])
 
     const [settlementClaimAddr] = settlementClaimAddress(
       {
@@ -174,33 +171,34 @@ describe('Validator Bonds claim settlement', () => {
     )
     expect(settlementClaimAccount).toEqual(settlementClaimAddr)
 
-    await event.then(e => {
-      expect(e.settlement).toEqual(settlementAccount)
-      expect(e.amount).toEqual(
+    const events = parseCpiEvents(program, executionReturn?.response)
+    const e = assertEvent(events, CLAIM_SETTLEMENT_EVENT)
+    assert(e !== undefined)
+    expect(e.settlement).toEqual(settlementAccount)
+    expect(e.amount).toEqual(
+      treeNodeVoteAccount1Withdrawer1.treeNode.data.claim
+    )
+    expect(e.rentCollector).toEqual(fundSettlementRentPayer.publicKey)
+    expect(e.settlement).toEqual(settlementAccount)
+    expect(e.settlementClaim).toEqual(settlementClaimAccount)
+    expect(e.settlementLamportsClaimed.old).toEqual(
+      new BN(treeNodeVoteAccount1Withdrawer1.treeNode.data.claim).sub(
         treeNodeVoteAccount1Withdrawer1.treeNode.data.claim
       )
-      expect(e.rentCollector).toEqual(fundSettlementRentPayer.publicKey)
-      expect(e.settlement).toEqual(settlementAccount)
-      expect(e.settlementClaim).toEqual(settlementClaimAccount)
-      expect(e.settlementLamportsClaimed.old).toEqual(
-        new BN(treeNodeVoteAccount1Withdrawer1.treeNode.data.claim).sub(
-          treeNodeVoteAccount1Withdrawer1.treeNode.data.claim
-        )
-      )
-      expect(e.settlementLamportsClaimed.new).toEqual(
-        treeNodeVoteAccount1Withdrawer1.treeNode.data.claim
-      )
-      expect(e.settlementMerkleNodesClaimed).toEqual(1)
-      expect(e.stakeAccountStaker).toEqual(
-        treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority
-      )
-      expect(e.stakeAccountWithdrawer).toEqual(
-        treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority
-      )
-      expect(e.stakeAccountTo).toEqual(
-        stakeAccountTreeNodeVoteAccount1Withdrawer1
-      )
-    })
+    )
+    expect(e.settlementLamportsClaimed.new).toEqual(
+      treeNodeVoteAccount1Withdrawer1.treeNode.data.claim
+    )
+    expect(e.settlementMerkleNodesClaimed).toEqual(1)
+    expect(e.stakeAccountStaker).toEqual(
+      treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority
+    )
+    expect(e.stakeAccountWithdrawer).toEqual(
+      treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority
+    )
+    expect(e.stakeAccountTo).toEqual(
+      stakeAccountTreeNodeVoteAccount1Withdrawer1
+    )
   })
 
   it('find claim settlements', async () => {
@@ -274,16 +272,6 @@ describe('Validator Bonds claim settlement', () => {
   })
 
   it('close settlement claim', async () => {
-    const event = new Promise<CloseSettlementClaimEvent>(resolve => {
-      const listener = program.addEventListener(
-        CLOSE_SETTLEMENT_CLAIM_EVENT,
-        async event => {
-          await program.removeEventListener(listener)
-          resolve(event)
-        }
-      )
-    })
-
     expect(
       (
         await provider.connection.getAccountInfo(
@@ -307,6 +295,7 @@ describe('Validator Bonds claim settlement', () => {
       },
       program.programId
     )
+    const tx = await transaction(provider)
     const { instruction: closeSettle1 } = await closeSettlementInstruction({
       program,
       settlementAccount,
@@ -318,9 +307,14 @@ describe('Validator Bonds claim settlement', () => {
       settlementClaimAccount,
       rentCollector: fundSettlementRentPayer.publicKey,
     })
-    await waitForNextEpoch(provider.connection, 15)
-    await waitForNextEpoch(provider.connection, 15)
-    await provider.sendIx([], closeSettle1, closeIx)
+    tx.add(closeSettle1, closeIx)
+
+    await waitForNextEpoch(provider.connection, 20)
+    await waitForNextEpoch(provider.connection, 20)
+
+    const executionReturn = await executeTxSimple(provider.connection, tx, [
+      provider.wallet,
+    ])
 
     expect(
       provider.connection.getAccountInfo(settlementClaimAccount)
@@ -336,9 +330,11 @@ describe('Validator Bonds claim settlement', () => {
       )?.lamports
     ).toEqual(LAMPORTS_PER_SOL)
 
-    await event.then(e => {
-      expect(e.settlement).toEqual(settlementAccount)
-      expect(e.rentCollector).toEqual(fundSettlementRentPayer.publicKey)
-    })
+    const events = parseCpiEvents(program, executionReturn?.response)
+    const e = assertEvent(events, CLOSE_SETTLEMENT_CLAIM_EVENT)
+    // Ensure the event was emitted
+    assert(e !== undefined)
+    expect(e.settlement).toEqual(settlementAccount)
+    expect(e.rentCollector).toEqual(fundSettlementRentPayer.publicKey)
   })
 })

@@ -1,24 +1,29 @@
 import { Keypair, PublicKey } from '@solana/web3.js'
 import {
   MINT_BOND_EVENT,
-  MintBondEvent,
   ValidatorBondsProgram,
+  assertEvent,
   mintBondInstruction,
+  parseCpiEvents,
 } from '../../src'
 import { initTest } from './testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '@marinade.finance/web3js-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-common'
 import { getAccount as getTokenAccount } from 'solana-spl-token-modern'
 import { fetchMetadata } from '@metaplex-foundation/mpl-token-metadata'
 import { isSome } from '@metaplex-foundation/umi-options'
 import { getUmi, toUmiPubkey } from '@marinade.finance/umi-utils'
-import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+import {
+  AnchorExtendedProvider,
+  getAnchorValidatorInfo,
+} from '@marinade.finance/anchor-common'
+import assert from 'assert'
 
 describe('Validator Bonds mint bond', () => {
-  let provider: ExtendedProvider
+  let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
   let validatorIdentity: Keypair
   let configAccount: PublicKey
@@ -26,11 +31,6 @@ describe('Validator Bonds mint bond', () => {
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
-  })
-
-  afterAll(async () => {
-    // workaround: "Jest has detected the following 1 open handle", see `initConfig.spec.ts`
-    await new Promise(resolve => setTimeout(resolve, 500))
   })
 
   beforeEach(async () => {
@@ -48,15 +48,7 @@ describe('Validator Bonds mint bond', () => {
       validatorIdentity,
     })
 
-    const event = new Promise<MintBondEvent>(resolve => {
-      const listener = program.addEventListener(
-        MINT_BOND_EVENT,
-        async event => {
-          await program.removeEventListener(listener)
-          resolve(event)
-        }
-      )
-    })
+    const tx = await transaction(provider)
 
     const { instruction, validatorIdentityTokenAccount, tokenMetadataAccount } =
       await mintBondInstruction({
@@ -64,7 +56,11 @@ describe('Validator Bonds mint bond', () => {
         bondAccount,
         validatorIdentity: validatorIdentity.publicKey,
       })
-    await provider.sendIx([], instruction)
+    tx.add(instruction)
+
+    const executionReturn = await executeTxSimple(provider.connection, tx, [
+      provider.wallet,
+    ])
 
     const tokenData = await getTokenAccount(
       provider.connection,
@@ -85,13 +81,14 @@ describe('Validator Bonds mint bond', () => {
       throw new Error('metadata.creators is not defined')
     }
 
-    await event.then(e => {
-      expect(e.bond).toEqual(bondAccount)
-      expect(e.validatorIdentity).toEqual(validatorIdentity.publicKey)
-      expect(e.validatorIdentityTokenAccount).toEqual(
-        validatorIdentityTokenAccount
-      )
-      expect(e.tokenMetadata).toEqual(tokenMetadataAccount)
-    })
+    const events = parseCpiEvents(program, executionReturn?.response)
+    const e = assertEvent(events, MINT_BOND_EVENT)
+    assert(e !== undefined)
+    expect(e.bond).toEqual(bondAccount)
+    expect(e.validatorIdentity).toEqual(validatorIdentity.publicKey)
+    expect(e.validatorIdentityTokenAccount).toEqual(
+      validatorIdentityTokenAccount
+    )
+    expect(e.tokenMetadata).toEqual(tokenMetadataAccount)
   })
 })

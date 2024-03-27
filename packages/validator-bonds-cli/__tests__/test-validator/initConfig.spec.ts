@@ -1,4 +1,3 @@
-import { AnchorProvider } from '@coral-xyz/anchor'
 import { createTempFileKeypair } from '@marinade.finance/web3js-common'
 import { shellMatchers } from '@marinade.finance/jest-utils'
 import {
@@ -12,9 +11,10 @@ import {
   getConfig,
 } from '@marinade.finance/validator-bonds-sdk'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
 describe('Init config account using CLI', () => {
-  let provider: AnchorProvider
+  let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
   let configPath: string
   let configKeypair: Keypair

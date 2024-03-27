@@ -1,13 +1,13 @@
 import { Keypair, Signer } from '@solana/web3.js'
 import {
   INIT_CONFIG_EVENT,
-  InitConfigEvent,
   ValidatorBondsProgram,
+  assertEvent,
   findConfigs,
   getConfig,
   initConfigInstruction,
+  parseCpiEvents,
 } from '../../src'
-import { AnchorProvider } from '@coral-xyz/anchor'
 import { initTest } from './testValidator'
 import {
   Wallet,
@@ -17,9 +17,11 @@ import {
   splitAndExecuteTx,
   transaction,
 } from '@marinade.finance/web3js-common'
+import assert from 'assert'
+import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds init config', () => {
-  let provider: AnchorProvider
+  let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
 
   beforeAll(async () => {
@@ -42,16 +44,6 @@ describe('Validator Bonds init config', () => {
     const operatorAuthority = Keypair.generate().publicKey
     expect(adminAuthority).not.toEqual(operatorAuthority)
 
-    const event = new Promise<InitConfigEvent>(resolve => {
-      const listener = program.addEventListener(
-        INIT_CONFIG_EVENT,
-        async event => {
-          await program.removeEventListener(listener)
-          resolve(event)
-        }
-      )
-    })
-
     const tx = await transaction(provider)
 
     const { configAccount, instruction } = await initConfigInstruction({
@@ -63,10 +55,11 @@ describe('Validator Bonds init config', () => {
     })
     tx.add(instruction)
     const [configSigner, configAddress] = signerWithPubkey(configAccount)
-    await executeTxSimple(provider.connection, tx, [
+    const executionReturn = await executeTxSimple(provider.connection, tx, [
       provider.wallet,
       configSigner,
     ])
+    console.log('ixes number', tx.instructions.length)
 
     // Ensure the account was created
     const configAccountAddress = configAddress
@@ -82,13 +75,14 @@ describe('Validator Bonds init config', () => {
     expect(configData.epochsToClaimSettlement).toEqual(1)
     expect(configData.withdrawLockupEpochs).toEqual(2)
 
-    // Ensure the event listener was called
-    await event.then(e => {
-      expect(e.adminAuthority).toEqual(adminAuthority)
-      expect(e.operatorAuthority).toEqual(operatorAuthority)
-      expect(e.epochsToClaimSettlement).toEqual(1)
-      expect(e.withdrawLockupEpochs).toEqual(2)
-    })
+    const events = parseCpiEvents(program, executionReturn?.response)
+    const e = assertEvent(events, INIT_CONFIG_EVENT)
+    // Ensure the event was emitted
+    assert(e !== undefined)
+    expect(e.adminAuthority).toEqual(adminAuthority)
+    expect(e.operatorAuthority).toEqual(operatorAuthority)
+    expect(e.epochsToClaimSettlement).toEqual(1)
+    expect(e.withdrawLockupEpochs).toEqual(2)
   })
 
   it('find configs', async () => {

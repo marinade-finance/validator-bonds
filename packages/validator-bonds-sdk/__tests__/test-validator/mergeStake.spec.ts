@@ -1,32 +1,32 @@
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   MERGE_STAKE_EVENT,
-  MergeStakeEvent,
   ValidatorBondsProgram,
   getStakeAccount,
   mergeStakeInstruction,
   bondsWithdrawerAuthority,
+  parseCpiEvents,
+  assertEvent,
 } from '../../src'
 import { initTest } from './testValidator'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
 import {
-  ExtendedProvider,
+  executeTxSimple,
+  transaction,
   waitForNextEpoch,
 } from '@marinade.finance/web3js-common'
 import { authorizeStakeAccount, delegatedStakeAccount } from '../utils/staking'
 
+import { assert } from 'console'
+import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+
 describe('Validator Bonds fund bond', () => {
-  let provider: ExtendedProvider
+  let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
-  })
-
-  afterAll(async () => {
-    // workaround: "Jest has detected the following 1 open handle", see `initConfig.spec.ts`
-    await new Promise(resolve => setTimeout(resolve, 500))
   })
 
   beforeEach(async () => {
@@ -37,16 +37,6 @@ describe('Validator Bonds fund bond', () => {
   })
 
   it('merge stake', async () => {
-    const event = new Promise<MergeStakeEvent>(resolve => {
-      const listener = program.addEventListener(
-        MERGE_STAKE_EVENT,
-        async event => {
-          await program.removeEventListener(listener)
-          resolve(event)
-        }
-      )
-    })
-
     // we want to be at the beginning of the epoch
     // otherwise the merge instruction could fail as the stake account is in transient state (0xc)
     // https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/instruction.rs#L39
@@ -87,13 +77,17 @@ describe('Validator Bonds fund bond', () => {
       withdrawer: bondWithdrawer,
     })
 
+    const tx = await transaction(provider)
     const { instruction } = await mergeStakeInstruction({
       program,
       configAccount,
       sourceStakeAccount: stakeAccount2,
       destinationStakeAccount: stakeAccount1,
     })
-    await provider.sendIx([], instruction)
+    tx.add(instruction)
+    const executionReturn = await executeTxSimple(provider.connection, tx, [
+      provider.wallet,
+    ])
 
     const stakeAccountData = await getStakeAccount(provider, stakeAccount1)
     expect(stakeAccountData.staker).toEqual(bondWithdrawer)
@@ -104,13 +98,14 @@ describe('Validator Bonds fund bond', () => {
       provider.connection.getAccountInfo(stakeAccount2)
     ).resolves.toBeNull()
 
-    await event.then(e => {
-      expect(e.config).toEqual(configAccount)
-      expect(e.destinationStake).toEqual(stakeAccount1)
-      expect(e.destinationDelegation?.voterPubkey).toEqual(voteAccount)
-      expect(e.sourceStake).toEqual(stakeAccount2)
-      expect(e.sourceDelegation?.voterPubkey).toEqual(voteAccount)
-      expect(e.stakerAuthority).toEqual(bondWithdrawer)
-    })
+    const events = parseCpiEvents(program, executionReturn?.response)
+    const e = assertEvent(events, MERGE_STAKE_EVENT)
+    assert(e !== undefined)
+    expect(e.config).toEqual(configAccount)
+    expect(e.destinationStake).toEqual(stakeAccount1)
+    expect(e.destinationDelegation?.voterPubkey).toEqual(voteAccount)
+    expect(e.sourceStake).toEqual(stakeAccount2)
+    expect(e.sourceDelegation?.voterPubkey).toEqual(voteAccount)
+    expect(e.stakerAuthority).toEqual(bondWithdrawer)
   })
 })

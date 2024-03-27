@@ -1,19 +1,22 @@
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   CANCEL_WITHDRAW_REQUEST_EVENT,
-  CancelWithdrawRequestEvent,
   ValidatorBondsProgram,
+  assertEvent,
   cancelWithdrawRequestInstruction,
+  parseCpiEvents,
 } from '../../src'
 import { initTest } from './testValidator'
 import {
   executeInitConfigInstruction,
   executeNewWithdrawRequest,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '@marinade.finance/web3js-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-common'
+import assert from 'assert'
+import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds cancel withdraw request', () => {
-  let provider: ExtendedProvider
+  let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let bondAccount: PublicKey
@@ -23,11 +26,6 @@ describe('Validator Bonds cancel withdraw request', () => {
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
-  })
-
-  afterAll(async () => {
-    // workaround: "Jest has detected the following 1 open handle", see `initConfig.spec.ts`
-    await new Promise(resolve => setTimeout(resolve, 500))
   })
 
   beforeEach(async () => {
@@ -45,32 +43,29 @@ describe('Validator Bonds cancel withdraw request', () => {
   })
 
   it('cancel withdraw request', async () => {
-    const event = new Promise<CancelWithdrawRequestEvent>(resolve => {
-      const listener = program.addEventListener(
-        CANCEL_WITHDRAW_REQUEST_EVENT,
-        async event => {
-          await program.removeEventListener(listener)
-          resolve(event)
-        }
-      )
-    })
-
+    const tx = await transaction(provider)
     const { instruction } = await cancelWithdrawRequestInstruction({
       program,
       withdrawRequestAccount,
       authority: validatorIdentity.publicKey,
     })
-    await provider.sendIx([validatorIdentity], instruction)
+    tx.add(instruction)
+    const executionReturn = await executeTxSimple(provider.connection, tx, [
+      provider.wallet,
+      validatorIdentity,
+    ])
     expect(
       provider.connection.getAccountInfo(withdrawRequestAccount)
     ).resolves.toBeNull()
 
-    await event.then(e => {
-      expect(e.withdrawRequest).toEqual(withdrawRequestAccount)
-      expect(e.bond).toEqual(bondAccount)
-      expect(e.authority).toEqual(validatorIdentity.publicKey)
-      expect(e.requestedAmount).toEqual(requestedAmount)
-      expect(e.withdrawnAmount).toEqual(0)
-    })
+    const events = parseCpiEvents(program, executionReturn?.response)
+    const e = assertEvent(events, CANCEL_WITHDRAW_REQUEST_EVENT)
+    // Ensure the event was emitted
+    assert(e !== undefined)
+    expect(e.withdrawRequest).toEqual(withdrawRequestAccount)
+    expect(e.bond).toEqual(bondAccount)
+    expect(e.authority).toEqual(validatorIdentity.publicKey)
+    expect(e.requestedAmount).toEqual(requestedAmount)
+    expect(e.withdrawnAmount).toEqual(0)
   })
 })

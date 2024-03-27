@@ -1,11 +1,12 @@
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   CLAIM_WITHDRAW_REQUEST_EVENT,
-  ClaimWithdrawRequestEvent,
   ValidatorBondsProgram,
+  assertEvent,
   bondsWithdrawerAuthority,
   getStakeAccount,
   getWithdrawRequest,
+  parseCpiEvents,
 } from '../../src'
 import { initTest } from './testValidator'
 import {
@@ -17,24 +18,25 @@ import { delegatedStakeAccount } from '../utils/staking'
 import { claimWithdrawRequestInstruction } from '../../src/instructions/claimWithdrawRequest'
 import BN from 'bn.js'
 import {
-  ExtendedProvider,
+  executeTxSimple,
   getVoteAccount,
+  transaction,
 } from '@marinade.finance/web3js-common'
-import { waitForStakeAccountActivation } from '@marinade.finance/anchor-common'
+import {
+  AnchorExtendedProvider,
+  waitForStakeAccountActivation,
+} from '@marinade.finance/anchor-common'
+
+import assert from 'assert'
 
 describe('Validator Bonds claim withdraw request', () => {
-  let provider: ExtendedProvider
+  let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   const requestedAmount = 2 * LAMPORTS_PER_SOL
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
-  })
-
-  afterAll(async () => {
-    // workaround: "Jest has detected the following 1 open handle", see `initConfig.spec.ts`
-    await new Promise(resolve => setTimeout(resolve, 500))
   })
 
   beforeEach(async () => {
@@ -46,16 +48,6 @@ describe('Validator Bonds claim withdraw request', () => {
   })
 
   it('claim withdraw request', async () => {
-    const event = new Promise<ClaimWithdrawRequestEvent>(resolve => {
-      const listener = program.addEventListener(
-        CLAIM_WITHDRAW_REQUEST_EVENT,
-        async event => {
-          await program.removeEventListener(listener)
-          resolve(event)
-        }
-      )
-    })
-
     const { withdrawRequestAccount, bondAccount, voteAccount, bondAuthority } =
       await executeNewWithdrawRequest({
         program,
@@ -106,8 +98,13 @@ describe('Validator Bonds claim withdraw request', () => {
         bondAccount,
         stakeAccount,
       })
-
-    await provider.sendIx([splitStakeAccount, bondAuthority], instruction)
+    const tx = await transaction(provider)
+    tx.add(instruction)
+    const executionReturn = await executeTxSimple(provider.connection, tx, [
+      provider.wallet,
+      splitStakeAccount,
+      bondAuthority,
+    ])
 
     stakeAccountData = await getStakeAccount(provider, stakeAccount)
     const voteAccountData = await getVoteAccount(provider, voteAccount)
@@ -128,21 +125,22 @@ describe('Validator Bonds claim withdraw request', () => {
       await provider.connection.getAccountInfo(splitStakeAccount.publicKey)
     )?.lamports
 
-    await event.then(e => {
-      expect(e.bond).toEqual(bondAccount)
-      expect(e.stakeAccount).toEqual(stakeAccount)
-      expect(e.newStakeAccountOwner).toEqual(
-        voteAccountData.account.data.nodePubkey
-      )
-      expect(e.splitStake?.amount).toEqual(splitStakeLamports)
-      expect(e.splitStake?.address).toEqual(splitStakeAccount.publicKey)
-      expect(e.voteAccount).toEqual(voteAccount)
-      expect(e.withdrawRequest).toEqual(withdrawRequestAccount)
-      expect(e.withdrawingAmount).toEqual(requestedAmount)
-      expect(e.withdrawnAmount).toEqual({
-        old: new BN(0),
-        new: requestedAmount,
-      })
+    const events = parseCpiEvents(program, executionReturn?.response)
+    const e = assertEvent(events, CLAIM_WITHDRAW_REQUEST_EVENT)
+    assert(e !== undefined)
+    expect(e.bond).toEqual(bondAccount)
+    expect(e.stakeAccount).toEqual(stakeAccount)
+    expect(e.newStakeAccountOwner).toEqual(
+      voteAccountData.account.data.nodePubkey
+    )
+    expect(e.splitStake?.amount).toEqual(splitStakeLamports)
+    expect(e.splitStake?.address).toEqual(splitStakeAccount.publicKey)
+    expect(e.voteAccount).toEqual(voteAccount)
+    expect(e.withdrawRequest).toEqual(withdrawRequestAccount)
+    expect(e.withdrawingAmount).toEqual(requestedAmount)
+    expect(e.withdrawnAmount).toEqual({
+      old: new BN(0),
+      new: requestedAmount,
     })
   })
 })

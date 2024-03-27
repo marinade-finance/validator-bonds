@@ -2,16 +2,18 @@ import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   CONFIGURE_CONFIG_EVENT,
   Config,
-  ConfigureConfigEvent,
   ValidatorBondsProgram,
+  assertEvent,
   configureConfigInstruction,
   getConfig,
+  parseCpiEvents,
 } from '../../src'
 import { ProgramAccount } from '@coral-xyz/anchor'
 import { initTest } from './testValidator'
 import { executeTxSimple, transaction } from '@marinade.finance/web3js-common'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import assert from 'assert'
 
 describe('Validator Bonds configure config', () => {
   let provider: AnchorExtendedProvider
@@ -21,11 +23,6 @@ describe('Validator Bonds configure config', () => {
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
-  })
-
-  afterAll(async () => {
-    // workaround: "Jest has detected the following 1 open handle", see `initConfig.spec.ts`
-    await new Promise(resolve => setTimeout(resolve, 500))
   })
 
   beforeEach(async () => {
@@ -53,16 +50,6 @@ describe('Validator Bonds configure config', () => {
     const newOperatorAuthority = PublicKey.unique()
     const newPauseAuthority = PublicKey.unique()
 
-    const event = new Promise<ConfigureConfigEvent>(resolve => {
-      const listener = program.addEventListener(
-        CONFIGURE_CONFIG_EVENT,
-        async event => {
-          await program.removeEventListener(listener)
-          resolve(event)
-        }
-      )
-    })
-
     const tx = await transaction(provider)
     const { instruction } = await configureConfigInstruction({
       program,
@@ -76,7 +63,7 @@ describe('Validator Bonds configure config', () => {
       newMinimumStakeLamports: 1001,
     })
     tx.add(instruction)
-    await executeTxSimple(provider.connection, tx, [
+    const executionReturn = await executeTxSimple(provider.connection, tx, [
       provider.wallet,
       adminAuthority,
     ])
@@ -90,31 +77,33 @@ describe('Validator Bonds configure config', () => {
     expect(configData.withdrawLockupEpochs).toEqual(103)
     expect(configData.minimumStakeLamports).toEqual(1001)
 
-    await event.then(e => {
-      expect(e.adminAuthority).toEqual({
-        old: adminAuthority.publicKey,
-        new: newAdminAuthority.publicKey,
-      })
-      expect(e.operatorAuthority).toEqual({
-        old: configInitialized.account.operatorAuthority,
-        new: newOperatorAuthority,
-      })
-      expect(e.pauseAuthority).toEqual({
-        old: configInitialized.account.pauseAuthority,
-        new: newPauseAuthority,
-      })
-      expect(e.epochsToClaimSettlement).toEqual({
-        old: configInitialized.account.epochsToClaimSettlement,
-        new: 100,
-      })
-      expect(e.withdrawLockupEpochs).toEqual({
-        old: configInitialized.account.withdrawLockupEpochs,
-        new: 103,
-      })
-      expect(e.minimumStakeLamports).toEqual({
-        old: LAMPORTS_PER_SOL,
-        new: 1001,
-      })
+    const events = parseCpiEvents(program, executionReturn?.response)
+    const e = assertEvent(events, CONFIGURE_CONFIG_EVENT)
+    // Ensure the event was emitted
+    assert(e !== undefined)
+    expect(e.adminAuthority).toEqual({
+      old: adminAuthority.publicKey,
+      new: newAdminAuthority.publicKey,
+    })
+    expect(e.operatorAuthority).toEqual({
+      old: configInitialized.account.operatorAuthority,
+      new: newOperatorAuthority,
+    })
+    expect(e.pauseAuthority).toEqual({
+      old: configInitialized.account.pauseAuthority,
+      new: newPauseAuthority,
+    })
+    expect(e.epochsToClaimSettlement).toEqual({
+      old: configInitialized.account.epochsToClaimSettlement,
+      new: 100,
+    })
+    expect(e.withdrawLockupEpochs).toEqual({
+      old: configInitialized.account.withdrawLockupEpochs,
+      new: 103,
+    })
+    expect(e.minimumStakeLamports).toEqual({
+      old: LAMPORTS_PER_SOL,
+      new: 1001,
     })
   })
 })

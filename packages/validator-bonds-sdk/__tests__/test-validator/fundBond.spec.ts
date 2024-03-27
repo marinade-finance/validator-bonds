@@ -1,23 +1,28 @@
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   FUND_BOND_EVENT,
-  FundBondEvent,
   ValidatorBondsProgram,
   fundBondInstruction,
   getStakeAccount,
   bondsWithdrawerAuthority,
+  parseCpiEvents,
+  assertEvent,
 } from '../../src'
 import { initTest } from './testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '@marinade.finance/web3js-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-common'
 import { createVoteAccount, delegatedStakeAccount } from '../utils/staking'
-import { waitForStakeAccountActivation } from '@marinade.finance/anchor-common'
+import {
+  AnchorExtendedProvider,
+  waitForStakeAccountActivation,
+} from '@marinade.finance/anchor-common'
+import assert from 'assert'
 
 describe('Validator Bonds fund bond', () => {
-  let provider: ExtendedProvider
+  let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let bondAccount: PublicKey
@@ -25,11 +30,6 @@ describe('Validator Bonds fund bond', () => {
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
-  })
-
-  afterAll(async () => {
-    // workaround: "Jest has detected the following 1 open handle", see `initConfig.spec.ts`
-    await new Promise(resolve => setTimeout(resolve, 500))
   })
 
   beforeEach(async () => {
@@ -50,16 +50,6 @@ describe('Validator Bonds fund bond', () => {
   })
 
   it('fund bond', async () => {
-    const event = new Promise<FundBondEvent>(resolve => {
-      const listener = program.addEventListener(
-        FUND_BOND_EVENT,
-        async event => {
-          await program.removeEventListener(listener)
-          resolve(event)
-        }
-      )
-    })
-
     const { stakeAccount, withdrawer } = await delegatedStakeAccount({
       provider,
       lamports: LAMPORTS_PER_SOL * 2,
@@ -73,6 +63,8 @@ describe('Validator Bonds fund bond', () => {
       connection: provider.connection,
     })
 
+    const tx = await transaction(provider)
+
     const { instruction } = await fundBondInstruction({
       program,
       bondAccount,
@@ -80,7 +72,11 @@ describe('Validator Bonds fund bond', () => {
       stakeAccount,
       stakeAccountAuthority: withdrawer,
     })
-    await provider.sendIx([withdrawer], instruction)
+    tx.add(instruction)
+    const executionReturn = await executeTxSimple(provider.connection, tx, [
+      provider.wallet,
+      withdrawer,
+    ])
 
     const stakeAccountData = await getStakeAccount(provider, stakeAccount)
     const [bondWithdrawer] = bondsWithdrawerAuthority(
@@ -91,12 +87,14 @@ describe('Validator Bonds fund bond', () => {
     expect(stakeAccountData.withdrawer).toEqual(bondWithdrawer)
     expect(stakeAccountData.isLockedUp).toBeFalsy()
 
-    await event.then(e => {
-      expect(e.bond).toEqual(bondAccount)
-      expect(e.depositedAmount).toEqual(2 * LAMPORTS_PER_SOL)
-      expect(e.stakeAccount).toEqual(stakeAccount)
-      expect(e.stakeAuthoritySigner).toEqual(withdrawer.publicKey)
-      expect(e.voteAccount).toEqual(voteAccount)
-    })
+    const events = parseCpiEvents(program, executionReturn?.response)
+    const e = assertEvent(events, FUND_BOND_EVENT)
+    // Ensure the event was emitted
+    assert(e !== undefined)
+    expect(e.bond).toEqual(bondAccount)
+    expect(e.depositedAmount).toEqual(2 * LAMPORTS_PER_SOL)
+    expect(e.stakeAccount).toEqual(stakeAccount)
+    expect(e.stakeAuthoritySigner).toEqual(withdrawer.publicKey)
+    expect(e.voteAccount).toEqual(voteAccount)
   })
 })

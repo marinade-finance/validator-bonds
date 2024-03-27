@@ -1,11 +1,12 @@
 import { Keypair, PublicKey, Signer } from '@solana/web3.js'
 import {
   INIT_SETTLEMENT_EVENT,
-  InitSettlementEvent,
   ValidatorBondsProgram,
+  assertEvent,
   findSettlements,
   getSettlement,
   initSettlementInstruction,
+  parseCpiEvents,
   settlementAddress,
   settlementStakerAuthority,
 } from '../../src'
@@ -13,19 +14,22 @@ import { initTest } from './testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
-  executeInitSettlement,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '@marinade.finance/web3js-common'
+import { executeTxSimple } from '@marinade.finance/web3js-common'
 import {
   transaction,
   Wallet,
   splitAndExecuteTx,
 } from '@marinade.finance/web3js-common'
-import { AnchorProvider } from '@coral-xyz/anchor'
-import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+
+import {
+  AnchorExtendedProvider,
+  getAnchorValidatorInfo,
+} from '@marinade.finance/anchor-common'
+import assert from 'assert'
 
 describe('Validator Bonds init settlement', () => {
-  let provider: ExtendedProvider
+  let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let operatorAuthority: Keypair
@@ -36,11 +40,6 @@ describe('Validator Bonds init settlement', () => {
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
-  })
-
-  afterAll(async () => {
-    // workaround: "Jest has detected the following 1 open handle", see `initConfig.spec.ts`
-    await new Promise(resolve => setTimeout(resolve, 500))
   })
 
   beforeEach(async () => {
@@ -59,30 +58,31 @@ describe('Validator Bonds init settlement', () => {
   })
 
   it('init settlement', async () => {
-    const event = new Promise<InitSettlementEvent>(resolve => {
-      const listener = program.addEventListener(
-        INIT_SETTLEMENT_EVENT,
-        async event => {
-          await program.removeEventListener(listener)
-          resolve(event)
-        }
-      )
-    })
-
     const currentEpoch = (await program.provider.connection.getEpochInfo())
       .epoch
     const merkleRoot = Buffer.alloc(32)
-    const { settlementAccount, rentCollector } = await executeInitSettlement({
+    const maxMerkleNodes = 2
+    const maxTotalClaim = 100
+    const rentCollector = Keypair.generate().publicKey
+    const { instruction, settlementAccount } = await initSettlementInstruction({
       program,
-      provider,
-      configAccount,
+      configAccount: configAccount,
       operatorAuthority,
-      voteAccount,
-      currentEpoch,
       merkleRoot,
-      maxMerkleNodes: 2,
-      maxTotalClaim: 100,
+      maxMerkleNodes,
+      maxTotalClaim,
+      voteAccount,
+      bondAccount,
+      epoch: currentEpoch,
+      rentCollector,
     })
+
+    const tx = await transaction(provider)
+    tx.add(instruction)
+    const executionReturn = await executeTxSimple(provider.connection, tx, [
+      provider.wallet,
+      operatorAuthority,
+    ])
 
     const settlementData = await getSettlement(program, settlementAccount)
 
@@ -114,25 +114,24 @@ describe('Validator Bonds init settlement', () => {
     expect(settlementData.splitRentAmount).toEqual(0)
     expect(settlementData.splitRentCollector).toEqual(null)
 
-    await event.then(e => {
-      expect(e.settlement).toEqual(settlementAccount)
-      expect(e.bond).toEqual(bondAccount)
-      expect(e.voteAccount).toEqual(voteAccount)
-      expect(e.epochCreatedFor).toEqual(currentEpoch)
-      expect(e.maxMerkleNodes).toEqual(2)
-      expect(e.maxTotalClaim).toEqual(100)
-      expect(e.merkleRoot).toEqual(Array.from(merkleRoot))
-      expect(e.rentCollector).toEqual(rentCollector)
-      expect(e.stakerAuthority).toEqual(settlementAuth)
-    })
+    const events = parseCpiEvents(program, executionReturn?.response)
+    const e = assertEvent(events, INIT_SETTLEMENT_EVENT)
+    // Ensure the event was emitted
+    assert(e !== undefined)
+    expect(e.settlement).toEqual(settlementAccount)
+    expect(e.bond).toEqual(bondAccount)
+    expect(e.voteAccount).toEqual(voteAccount)
+    expect(e.epochCreatedFor).toEqual(currentEpoch)
+    expect(e.maxMerkleNodes).toEqual(2)
+    expect(e.maxTotalClaim).toEqual(100)
+    expect(e.merkleRoot).toEqual(Array.from(merkleRoot))
+    expect(e.rentCollector).toEqual(rentCollector)
+    expect(e.stakerAuthority).toEqual(settlementAuth)
   })
 
   it('find settlement', async () => {
     const tx = await transaction(provider)
-    const signers: (Signer | Wallet)[] = [
-      (provider as unknown as AnchorProvider).wallet,
-      operatorAuthority,
-    ]
+    const signers: (Signer | Wallet)[] = [provider.wallet, operatorAuthority]
 
     const numberOfSettlements = 19
 

@@ -1,21 +1,26 @@
 import { Keypair, PublicKey } from '@solana/web3.js'
 import {
   CONFIGURE_BOND_EVENT,
-  ConfigureBondEvent,
   ValidatorBondsProgram,
+  assertEvent,
   configureBondInstruction,
   getBond,
+  parseCpiEvents,
 } from '../../src'
 import { initTest } from './testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '@marinade.finance/web3js-common'
-import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-common'
+import {
+  AnchorExtendedProvider,
+  getAnchorValidatorInfo,
+} from '@marinade.finance/anchor-common'
+import assert from 'assert'
 
 describe('Validator Bonds configure bond', () => {
-  let provider: ExtendedProvider
+  let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
   let validatorIdentity: Keypair
   let configAccount: PublicKey
@@ -23,11 +28,6 @@ describe('Validator Bonds configure bond', () => {
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
-  })
-
-  afterAll(async () => {
-    // workaround: "Jest has detected the following 1 open handle", see `initConfig.spec.ts`
-    await new Promise(resolve => setTimeout(resolve, 500))
   })
 
   beforeEach(async () => {
@@ -46,15 +46,7 @@ describe('Validator Bonds configure bond', () => {
       cpmpe: 22,
     })
 
-    const event = new Promise<ConfigureBondEvent>(resolve => {
-      const listener = program.addEventListener(
-        CONFIGURE_BOND_EVENT,
-        async event => {
-          await program.removeEventListener(listener)
-          resolve(event)
-        }
-      )
-    })
+    const tx = await transaction(provider)
 
     const newBondAuthority = Keypair.generate()
     const { instruction } = await configureBondInstruction({
@@ -64,7 +56,11 @@ describe('Validator Bonds configure bond', () => {
       newBondAuthority: newBondAuthority.publicKey,
       newCpmpe: 31,
     })
-    await provider.sendIx([bondAuthority], instruction)
+    tx.add(instruction)
+    const executionReturn = await executeTxSimple(provider.connection, tx, [
+      provider.wallet,
+      bondAuthority,
+    ])
 
     const bondData = await getBond(program, bondAccount)
     expect(bondData.authority).toEqual(newBondAuthority.publicKey)
@@ -72,15 +68,17 @@ describe('Validator Bonds configure bond', () => {
     expect(bondData.cpmpe).toEqual(31)
     expect(bondData.authority).toEqual(newBondAuthority.publicKey)
 
-    await event.then(e => {
-      expect(e.bondAuthority).toEqual({
-        old: bondAuthority.publicKey,
-        new: newBondAuthority.publicKey,
-      })
-      expect(e.cpmpe).toEqual({
-        old: 22,
-        new: 31,
-      })
+    const events = parseCpiEvents(program, executionReturn?.response)
+    const e = assertEvent(events, CONFIGURE_BOND_EVENT)
+    // Ensure the event was emitted
+    assert(e !== undefined)
+    expect(e.bondAuthority).toEqual({
+      old: bondAuthority.publicKey,
+      new: newBondAuthority.publicKey,
+    })
+    expect(e.cpmpe).toEqual({
+      old: 22,
+      new: 31,
     })
   })
 })

@@ -5,19 +5,24 @@ import {
   getBond,
   mintBondInstruction,
   CONFIGURE_BOND_WITH_MINT_EVENT,
-  ConfigureBondWithMintEvent,
+  parseCpiEvents,
+  assertEvent,
 } from '../../src'
 import { initTest } from './testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { ExtendedProvider } from '@marinade.finance/web3js-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-common'
 import { getAccount as getTokenAccount } from 'solana-spl-token-modern'
-import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+import {
+  AnchorExtendedProvider,
+  getAnchorValidatorInfo,
+} from '@marinade.finance/anchor-common'
+import assert from 'assert'
 
 describe('Validator Bonds configure bond with mint', () => {
-  let provider: ExtendedProvider
+  let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
   let validatorIdentity: Keypair
   let configAccount: PublicKey
@@ -25,11 +30,6 @@ describe('Validator Bonds configure bond with mint', () => {
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
-  })
-
-  afterAll(async () => {
-    // workaround: "Jest has detected the following 1 open handle", see `initConfig.spec.ts`
-    await new Promise(resolve => setTimeout(resolve, 500))
   })
 
   beforeEach(async () => {
@@ -48,15 +48,7 @@ describe('Validator Bonds configure bond with mint', () => {
     })
     const oldBondData = await getBond(program, bondAccount)
 
-    const event = new Promise<ConfigureBondWithMintEvent>(resolve => {
-      const listener = program.addEventListener(
-        CONFIGURE_BOND_WITH_MINT_EVENT,
-        async event => {
-          await program.removeEventListener(listener)
-          resolve(event)
-        }
-      )
-    })
+    const tx = await transaction(provider)
 
     const { instruction: ixMint, validatorIdentityTokenAccount } =
       await mintBondInstruction({
@@ -73,7 +65,11 @@ describe('Validator Bonds configure bond with mint', () => {
       newCpmpe,
       newBondAuthority,
     })
-    await provider.sendIx([validatorIdentity], ixMint, instruction)
+    tx.add(ixMint).add(instruction)
+    const executionReturn = await executeTxSimple(provider.connection, tx, [
+      provider.wallet,
+      validatorIdentity,
+    ])
 
     const tokenData = await getTokenAccount(
       provider.connection,
@@ -84,16 +80,18 @@ describe('Validator Bonds configure bond with mint', () => {
     expect(bondData.authority).toEqual(newBondAuthority)
     expect(bondData.cpmpe).toEqual(newCpmpe)
 
-    await event.then(e => {
-      expect(e.validatorIdentity).toEqual(validatorIdentity.publicKey)
-      expect(e.bondAuthority).toEqual({
-        old: oldBondData.authority,
-        new: newBondAuthority,
-      })
-      expect(e.cpmpe).toEqual({
-        old: oldBondData.cpmpe,
-        new: newCpmpe,
-      })
+    const events = parseCpiEvents(program, executionReturn?.response)
+    const e = assertEvent(events, CONFIGURE_BOND_WITH_MINT_EVENT)
+    // Ensure the event was emitted
+    assert(e !== undefined)
+    expect(e.validatorIdentity).toEqual(validatorIdentity.publicKey)
+    expect(e.bondAuthority).toEqual({
+      old: oldBondData.authority,
+      new: newBondAuthority,
+    })
+    expect(e.cpmpe).toEqual({
+      old: oldBondData.cpmpe,
+      new: newCpmpe,
     })
   })
 })

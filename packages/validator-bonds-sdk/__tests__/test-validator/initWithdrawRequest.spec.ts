@@ -1,12 +1,13 @@
 import { Keypair, LAMPORTS_PER_SOL, PublicKey, Signer } from '@solana/web3.js'
 import {
   INIT_WITHDRAW_REQUEST_EVENT,
-  InitWithdrawRequestEvent,
   ValidatorBondsProgram,
+  assertEvent,
   findWithdrawRequests,
   getWithdrawRequest,
   initBondInstruction,
   initWithdrawRequestInstruction,
+  parseCpiEvents,
   withdrawRequestAddress,
 } from '../../src'
 import { initTest } from './testValidator'
@@ -15,24 +16,28 @@ import {
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
 import {
-  ExtendedProvider,
+  executeTxSimple,
   waitForNextEpoch,
 } from '@marinade.finance/web3js-common'
 import {
   createVoteAccount,
   createVoteAccountWithIdentity,
 } from '../utils/staking'
-import { AnchorProvider } from '@coral-xyz/anchor'
+
 import {
   Wallet,
   splitAndExecuteTx,
   signer,
   transaction,
 } from '@marinade.finance/web3js-common'
-import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+import {
+  AnchorExtendedProvider,
+  getAnchorValidatorInfo,
+} from '@marinade.finance/anchor-common'
+import assert from 'assert'
 
 describe('Validator Bonds init withdraw request', () => {
-  let provider: ExtendedProvider
+  let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let bondAccount: PublicKey
@@ -43,11 +48,6 @@ describe('Validator Bonds init withdraw request', () => {
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
-  })
-
-  afterAll(async () => {
-    // workaround: "Jest has detected the following 1 open handle", see `initConfig.spec.ts`
-    await new Promise(resolve => setTimeout(resolve, 500))
   })
 
   beforeEach(async () => {
@@ -68,15 +68,7 @@ describe('Validator Bonds init withdraw request', () => {
   })
 
   it('init withdraw request', async () => {
-    const event = new Promise<InitWithdrawRequestEvent>(resolve => {
-      const listener = program.addEventListener(
-        INIT_WITHDRAW_REQUEST_EVENT,
-        async event => {
-          await program.removeEventListener(listener)
-          resolve(event)
-        }
-      )
-    })
+    const tx = await transaction(provider)
 
     const { instruction, withdrawRequestAccount } =
       await initWithdrawRequestInstruction({
@@ -86,7 +78,11 @@ describe('Validator Bonds init withdraw request', () => {
         authority: bondAuthority,
         amount: 2 * LAMPORTS_PER_SOL,
       })
-    await provider.sendIx([bondAuthority], instruction)
+    tx.add(instruction)
+    const executionReturn = await executeTxSimple(provider.connection, tx, [
+      provider.wallet,
+      bondAuthority,
+    ])
 
     const withdrawRequestList = await findWithdrawRequests({
       program,
@@ -107,20 +103,19 @@ describe('Validator Bonds init withdraw request', () => {
     expect(withdrawRequestData.voteAccount).toEqual(voteAccount)
     expect(withdrawRequestData.withdrawnAmount).toEqual(0)
 
-    await event.then(e => {
-      expect(e.withdrawRequest).toEqual(withdrawRequestAccount)
-      expect(e.bond).toEqual(bondAccount)
-      expect(e.epoch).toEqual(epoch)
-      expect(e.requestedAmount).toEqual(2 * LAMPORTS_PER_SOL)
-      expect(e.voteAccount).toEqual(voteAccount)
-    })
+    const events = parseCpiEvents(program, executionReturn?.response)
+    const e = assertEvent(events, INIT_WITHDRAW_REQUEST_EVENT)
+    assert(e !== undefined)
+    expect(e.withdrawRequest).toEqual(withdrawRequestAccount)
+    expect(e.bond).toEqual(bondAccount)
+    expect(e.epoch).toEqual(epoch)
+    expect(e.requestedAmount).toEqual(2 * LAMPORTS_PER_SOL)
+    expect(e.voteAccount).toEqual(voteAccount)
   })
 
   it('find withdraw request', async () => {
     const tx = await transaction(provider)
-    const signers: (Signer | Wallet)[] = [
-      (provider as unknown as AnchorProvider).wallet,
-    ]
+    const signers: (Signer | Wallet)[] = [provider.wallet]
 
     const numberOfBonds = 24
 
