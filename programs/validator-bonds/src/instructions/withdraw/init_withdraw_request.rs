@@ -59,8 +59,6 @@ pub struct InitWithdrawRequest<'info> {
     pub rent_payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
-
-    pub clock: Sysvar<'info, Clock>,
 }
 
 impl<'info> InitWithdrawRequest<'info> {
@@ -76,11 +74,12 @@ impl<'info> InitWithdrawRequest<'info> {
             ErrorCode::InvalidWithdrawRequestAuthority
         );
 
+        let clock = Clock::get()?;
         self.withdraw_request.set_inner(WithdrawRequest {
             bond: self.bond.key(),
             vote_account: self.bond.vote_account.key(),
             bump: withdraw_request_bump,
-            epoch: self.clock.epoch,
+            epoch: clock.epoch,
             withdrawn_amount: 0,
             requested_amount: amount,
             reserved: [0; 93],

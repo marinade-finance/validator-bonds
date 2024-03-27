@@ -635,11 +635,6 @@ export type ValidatorBonds = {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false
-        },
-        {
-          "name": "clock",
-          "isMut": false,
-          "isSigner": false
         }
       ],
       "args": [
@@ -4343,11 +4338,6 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "clock",
           "isMut": false,
           "isSigner": false
         }
