@@ -114,12 +114,12 @@ steps:
         ]
       }'
 
-  # - label: ":mega: PSR feed"
-  #   commands:
-  #   - |
-  #     snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)
-  #     report=$(cat "$$snapshot_dir/discord-public-report.txt")
-  #     curl "$$DISCORD_WEBHOOK_PSR_FEED" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": null, "attachments": []}')"
+  - label: ":mega: PSR feed"
+    commands:
+    - |
+      snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)
+      report=$(cat "$$snapshot_dir/discord-public-report.txt")
+      curl "$$DISCORD_WEBHOOK_PSR_FEED" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": null, "attachments": []}')"
 
   - wait: ~
 
