@@ -10,6 +10,7 @@ pub struct InitConfigEvent {
     pub epochs_to_claim_settlement: u64,
     pub minimum_stake_lamports: u64,
     pub bonds_withdrawer_authority: Pubkey,
+    pub slots_to_start_settlement_claiming: u64,
 }
 
 #[event]
@@ -20,6 +21,7 @@ pub struct ConfigureConfigEvent {
     pub epochs_to_claim_settlement: Option<U64ValueChange>,
     pub minimum_stake_lamports: Option<U64ValueChange>,
     pub withdraw_lockup_epochs: Option<U64ValueChange>,
+    pub slots_to_start_settlement_claiming: Option<U64ValueChange>,
 }
 
 #[event]

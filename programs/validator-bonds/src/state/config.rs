@@ -23,8 +23,10 @@ pub struct Config {
     pub pause_authority: Pubkey,
     // Defines if the program is paused
     pub paused: bool,
+    /// How many slots to wait before settlement is permitted to be claimed
+    pub slots_to_start_settlement_claiming: u64,
     /// reserved space for future changes
-    pub reserved: [u8; 479],
+    pub reserved: [u8; 471],
 }
 
 impl Config {

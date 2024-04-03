@@ -11,6 +11,7 @@ pub struct ConfigureConfigArgs {
     pub epochs_to_claim_settlement: Option<u64>,
     pub withdraw_lockup_epochs: Option<u64>,
     pub minimum_stake_lamports: Option<u64>,
+    pub slots_to_start_settlement_claiming: Option<u64>,
 }
 
 /// Configures bond program with the config root account params
@@ -37,6 +38,7 @@ impl<'info> ConfigureConfig<'info> {
             epochs_to_claim_settlement,
             withdraw_lockup_epochs,
             minimum_stake_lamports,
+            slots_to_start_settlement_claiming,
         }: ConfigureConfigArgs,
     ) -> Result<()> {
         let admin_authority_change = admin.map(|admin| {
@@ -88,6 +90,15 @@ impl<'info> ConfigureConfig<'info> {
             }
         });
 
+        let slots_to_start_settlement_claiming_change = slots_to_start_settlement_claiming.map(|slots_to_start| {
+            let old = ctx.accounts.config.slots_to_start_settlement_claiming;
+            ctx.accounts.config.slots_to_start_settlement_claiming = slots_to_start;
+            U64ValueChange {
+                old,
+                new: slots_to_start,
+            }
+        });
+
         emit_cpi!(ConfigureConfigEvent {
             admin_authority: admin_authority_change,
             operator_authority: operator_authority_change,
@@ -95,6 +106,7 @@ impl<'info> ConfigureConfig<'info> {
             epochs_to_claim_settlement: epochs_to_claim_settlement_change,
             withdraw_lockup_epochs: withdraw_lockup_epochs_change,
             minimum_stake_lamports: minimum_stake_lamports_change,
+            slots_to_start_settlement_claiming: slots_to_start_settlement_claiming_change,
         });
 
         Ok(())

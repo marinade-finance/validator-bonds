@@ -120,6 +120,11 @@ pub mod validator_bonds {
         CloseSettlement::process(ctx)
     }
 
+    pub fn cancel_settlement(ctx: Context<CancelSettlement>) -> Result<()> {
+        check_context(&ctx)?;
+        CancelSettlement::process(ctx)
+    }
+
     pub fn fund_settlement(ctx: Context<FundSettlement>) -> Result<()> {
         check_context(&ctx)?;
         FundSettlement::process(ctx)
