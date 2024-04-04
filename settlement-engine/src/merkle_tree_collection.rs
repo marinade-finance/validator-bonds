@@ -76,7 +76,7 @@ pub fn generate_merkle_tree_collection(
     let mut merkle_trees = vec![];
 
     for settlement in settlement_collection.settlements.iter() {
-        merkle_trees.push(generate_merkle_tree_meta(&settlement)?);
+        merkle_trees.push(generate_merkle_tree_meta(settlement)?);
     }
 
     Ok(MerkleTreeCollection {
