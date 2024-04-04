@@ -52,10 +52,35 @@ fn get_from_validator_vote_account(
         ErrorCode::InvalidVoteAccountProgramId
     );
     let validator_vote_data = &vote_account.data.borrow()[..];
+
+    // verification if the vote account data type is known one
+    // from the slice of the first 4 bytes getting the uint number that can be checked
+    let type_slice: [u8; 4] = validator_vote_data[0..4].try_into().map_err(|err| {
+        msg!(
+            "Cannot get vote account type of address {} data: {:?}",
+            vote_account.key,
+            err
+        );
+        error!(ErrorCode::FailedToDeserializeVoteAccount)
+            .with_values(("vote_account", vote_account.key()))
+    })?;
+    // https://github.com/solana-labs/solana/blob/v1.17.10/sdk/program/src/vote/state/vote_state_versions.rs#L4
+    // as of 1.17.10 the known state versions are: 0, 1, 2
+    let vote_state_type = u32::from_le_bytes(type_slice);
+    if vote_state_type > 2 {
+        msg!(
+            "Invalid vote account {} data type: {}",
+            vote_account.key,
+            vote_state_type,
+        );
+        return Err(error!(ErrorCode::InvalidVoteAccountType)
+            .with_values(("vote_account", vote_account.key())));
+    }
+
     // let's find position of the pubkey within the vote state account data
     // https://github.com/solana-labs/solana/pull/30515
     // https://github.com/solana-labs/solana/blob/v1.17.10/sdk/program/src/vote/state/mod.rs#L290
-    if validator_vote_data.len() < byte_position + 32 {
+    if byte_position < 4 || validator_vote_data.len() < byte_position + 32 {
         msg!(
             "Cannot get {} from vote account {} data",
             pubkey_name,
@@ -112,7 +137,7 @@ pub fn check_stake_valid_delegation(
     }
 }
 
-/// the StakeAccount.delegation could be used, but we want to verify
+/// the StakeAccount::delegation could be used, but we want to verify
 /// the state of the stake account that is generally expected for the protocol
 pub fn get_delegation(stake_account: &StakeAccount) -> Result<Option<Delegation>> {
     let stake_state = stake_account.deref();

@@ -184,4 +184,7 @@ pub enum ErrorCode {
 
     #[msg("Bond mint permits only a single token to exist")]
     InvalidBondMintSupply, // 6059 0x17ab
+
+    #[msg("Unsupported vote account type to deserialize")]
+    InvalidVoteAccountType, // 6062 0x17ae
 }
