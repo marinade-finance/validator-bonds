@@ -5,6 +5,7 @@ import {
   ValidatorBondsProgram,
   claimSettlementInstruction,
   fundSettlementInstruction,
+  getSettlement,
   getSettlementClaim,
   settlementClaimAddress,
 } from '../../src'
@@ -61,7 +62,11 @@ import { executeTxWithError } from '../utils/helpers'
 import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds claim settlement', () => {
-  const epochsToClaimSettlement = 3
+  const epochsToClaimSettlement = 4
+  // the test activates the stake account, we need to set slots to be
+  // after the start of the next epoch when the stake account is active as we warped there
+  let slotsToStartSettlementClaiming: number
+  let settlement1ClaimingExpires: bigint
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
@@ -80,11 +85,20 @@ describe('Validator Bonds claim settlement', () => {
 
   beforeAll(async () => {
     ;({ provider, program } = await initBankrunTest())
+    const epochNow = await currentEpoch(provider)
+    const firstSlotOfEpoch = await getFirstSlotOfEpoch(provider, epochNow)
+    const firstSlotOfNextEpoch = await getFirstSlotOfEpoch(
+      provider,
+      epochNow + 1
+    )
+    slotsToStartSettlementClaiming =
+      Number(firstSlotOfNextEpoch - firstSlotOfEpoch) + 3
     ;({ configAccount, operatorAuthority } = await executeInitConfigInstruction(
       {
         program,
         provider,
         epochsToClaimSettlement,
+        slotsToStartSettlementClaiming,
         configAccountKeypair: configAccountKeypair,
       }
     ))
@@ -127,6 +141,11 @@ describe('Validator Bonds claim settlement', () => {
       maxMerkleNodes: 1,
       maxTotalClaim: totalClaimVoteAccount1,
     }))
+    const settlement1Slot = (await getSettlement(program, settlementAccount1))
+      .slotCreatedAt
+    settlement1ClaimingExpires =
+      BigInt(settlement1Slot.toString()) +
+      BigInt(slotsToStartSettlementClaiming)
     ;({ settlementAccount: settlementAccount2 } = await executeInitSettlement({
       configAccount,
       program,
@@ -196,6 +215,26 @@ describe('Validator Bonds claim settlement', () => {
       stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
       stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
     })
+    try {
+      await provider.sendIx([], ixWrongTreeNode)
+      throw new Error(
+        'failure expected; slots to start settlement claiming not reached'
+      )
+    } catch (e) {
+      verifyError(e, Errors, 6061, 'slots to start claiming not expired yet')
+    }
+
+    provider.context.warpToSlot(settlement1ClaimingExpires - BigInt(1))
+    try {
+      await provider.sendIx([], ixWrongTreeNode)
+      throw new Error(
+        'failure expected; slots to start settlement claiming not reached'
+      )
+    } catch (e) {
+      verifyError(e, Errors, 6061, 'slots to start claiming not expired yet')
+    }
+    provider.context.warpToSlot(settlement1ClaimingExpires)
+
     try {
       await provider.sendIx([], ixWrongTreeNode)
       throw new Error('should have failed; wrong tree node proof')
@@ -605,7 +644,6 @@ describe('Validator Bonds claim settlement', () => {
         }
       }
     }
-    // console.log('correct claim settlement', correct, 'wrong bump', settlementAccountWrongBump?.toBase58(), 'with bump', bump)
     return await program.methods
       .claimSettlement({
         proof,
@@ -630,3 +668,23 @@ describe('Validator Bonds claim settlement', () => {
       .instruction()
   }
 })
+
+// https://github.com/solana-labs/solana/blob/v1.17.7/sdk/program/src/epoch_schedule.rs#L29C1-L29C45
+// https://github.com/solana-labs/solana/blob/v1.17.7/sdk/program/src/epoch_schedule.rs#L167
+async function getFirstSlotOfEpoch(
+  provider: BankrunExtendedProvider,
+  epoch: number
+): Promise<bigint> {
+  const epochBigInt = BigInt(epoch)
+  const { slotsPerEpoch, firstNormalEpoch, firstNormalSlot } =
+    provider.context.genesisConfig.epochSchedule
+  let firstEpochSlot: bigint
+  const MINIMUM_SLOTS_PER_EPOCH = 32
+  if (epochBigInt <= firstNormalEpoch) {
+    firstEpochSlot = BigInt((2 ** epoch - 1) * MINIMUM_SLOTS_PER_EPOCH)
+  } else {
+    firstEpochSlot =
+      (epochBigInt - firstNormalEpoch) * slotsPerEpoch + firstNormalSlot
+  }
+  return firstEpochSlot
+}

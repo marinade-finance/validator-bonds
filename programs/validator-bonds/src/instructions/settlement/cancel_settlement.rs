@@ -1,21 +1,22 @@
-use crate::checks::{
-    check_stake_is_initialized_with_withdrawer_authority, check_stake_valid_delegation,
-    deserialize_stake_account,
-};
-use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
-use crate::events::settlement::CloseSettlementEvent;
+use crate::events::settlement::CancelSettlementEvent;
+use crate::instructions::withdraw_refund_stake_account;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::settlement::Settlement;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::sysvar::stake_history;
-use anchor_spl::stake::{withdraw, Stake, Withdraw};
+use anchor_spl::stake::Stake;
 
 /// Closes the settlement account, whoever can close it when the epoch expires
 #[event_cpi]
 #[derive(Accounts)]
 pub struct CancelSettlement<'info> {
+    #[account(
+        mut,
+        constraint = config.operator_authority == authority.key() ||
+                     config.pause_authority == authority.key() @ ErrorCode::OperatorAndPauseAuthorityMismatch,
+    )]
     pub config: Account<'info, Config>,
 
     #[account(
@@ -45,6 +46,9 @@ pub struct CancelSettlement<'info> {
     )]
     pub settlement: Account<'info, Settlement>,
 
+    /// Cancelling is permitted only to emergency or operator authority
+    pub authority: Signer<'info>,
+
     /// CHECK: PDA
     #[account(
         seeds = [
@@ -65,7 +69,7 @@ pub struct CancelSettlement<'info> {
 
     /// CHECK: deserialization in code only when needed
     /// The stake account is funded to the settlement and credited to the bond's validator vote account.
-    /// The lamports are utilized to pay back the rent exemption of the split_stake_account, which can be created upon funding the settlement.
+    /// The lamports are utilized to pay back the rent exemption of the split_stake_account
     #[account(mut)]
     pub split_rent_refund_account: UncheckedAccount<'info>,
 
@@ -83,38 +87,20 @@ impl<'info> CancelSettlement<'info> {
         require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
         if ctx.accounts.settlement.split_rent_collector.is_some() {
-            let stake_account = deserialize_stake_account(&ctx.accounts.split_rent_refund_account)?;
-            // stake account is managed by bonds program
-            check_stake_is_initialized_with_withdrawer_authority(
-                &stake_account,
-                &ctx.accounts.bonds_withdrawer_authority.key(),
-                "stake_account",
-            )?;
-            // stake account is delegated to bond's validator vote account
-            check_stake_valid_delegation(&stake_account, &ctx.accounts.bond.vote_account)?;
-
-            withdraw(
-                CpiContext::new_with_signer(
-                    ctx.accounts.stake_program.to_account_info(),
-                    Withdraw {
-                        stake: ctx.accounts.split_rent_refund_account.to_account_info(),
-                        withdrawer: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
-                        to: ctx.accounts.split_rent_collector.to_account_info(),
-                        clock: ctx.accounts.clock.to_account_info(),
-                        stake_history: ctx.accounts.stake_history.to_account_info(),
-                    },
-                    &[&[
-                        BONDS_WITHDRAWER_AUTHORITY_SEED,
-                        &ctx.accounts.config.key().as_ref(),
-                        &[ctx.accounts.config.bonds_withdrawer_authority_bump],
-                    ]],
-                ),
+            withdraw_refund_stake_account(
+                &ctx.accounts.split_rent_refund_account,
+                &ctx.accounts.bonds_withdrawer_authority,
+                &ctx.accounts.bond,
+                &ctx.accounts.stake_program,
+                &ctx.accounts.split_rent_collector,
                 ctx.accounts.settlement.split_rent_amount,
-                None,
+                &ctx.accounts.clock,
+                &ctx.accounts.stake_history,
+                &ctx.accounts.config,
             )?;
         }
 
-        emit_cpi!(CloseSettlementEvent {
+        emit_cpi!(CancelSettlementEvent {
             bond: ctx.accounts.settlement.bond.key(),
             settlement: ctx.accounts.settlement.key(),
             merkle_root: ctx.accounts.settlement.merkle_root,
@@ -125,10 +111,12 @@ impl<'info> CancelSettlement<'info> {
             merkle_nodes_claimed: ctx.accounts.settlement.merkle_nodes_claimed,
             rent_collector: ctx.accounts.rent_collector.key(),
             split_rent_collector: ctx.accounts.settlement.split_rent_collector,
-            split_rent_refund_account: ctx.accounts.split_rent_refund_account.key(),
-            expiration_epoch: ctx.accounts.settlement.epoch_created_for
-                + ctx.accounts.config.epochs_to_claim_settlement,
-            current_epoch: ctx.accounts.clock.epoch,
+            split_rent_refund: ctx
+                .accounts
+                .settlement
+                .split_rent_collector
+                .map(|_| ctx.accounts.split_rent_refund_account.key()),
+            authority: ctx.accounts.authority.key(),
         });
 
         Ok(())

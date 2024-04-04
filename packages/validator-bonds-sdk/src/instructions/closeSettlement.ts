@@ -15,21 +15,7 @@ import {
 import { getBond, getSettlement } from '../api'
 import { findStakeAccounts } from '../web3.js'
 
-/**
- * Generate instruction to close settlement.
- * This is a permission-less operation,
- * the settlement can be closed when timeout elapses (configured in config).
- */
-export async function closeSettlementInstruction({
-  program,
-  settlementAccount,
-  configAccount,
-  bondAccount,
-  voteAccount,
-  rentCollector,
-  splitRentCollector,
-  splitRentRefundAccount,
-}: {
+export type CloseSettlementParams = {
   program: ValidatorBondsProgram
   settlementAccount: PublicKey
   configAccount?: PublicKey
@@ -38,8 +24,65 @@ export async function closeSettlementInstruction({
   rentCollector?: PublicKey
   splitRentCollector?: PublicKey | null
   splitRentRefundAccount?: PublicKey
-}): Promise<{
+}
+
+/**
+ * Generate instruction to close settlement.
+ * This is a permission-less operation,
+ * the settlement can be closed when timeout elapses (configured in config).
+ */
+export async function closeSettlementInstruction(
+  params: CloseSettlementParams
+): Promise<{
   instruction: TransactionInstruction
+}> {
+  const {
+    configAccount,
+    bondAccount,
+    settlementAccount,
+    rentCollector,
+    bondsAuth,
+    splitRentCollector,
+    splitRentRefundAccount,
+  } = await getCloseSettlementAccounts(params)
+
+  const instruction = await params.program.methods
+    .closeSettlement()
+    .accounts({
+      config: configAccount,
+      bond: bondAccount,
+      settlement: settlementAccount,
+      rentCollector,
+      splitRentCollector,
+      bondsWithdrawerAuthority: bondsAuth,
+      splitRentRefundAccount,
+      stakeProgram: StakeProgram.programId,
+      stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
+      clock: SYSVAR_CLOCK_PUBKEY,
+    })
+    .instruction()
+  return {
+    instruction,
+  }
+}
+
+export async function getCloseSettlementAccounts({
+  program,
+  settlementAccount,
+  configAccount,
+  bondAccount,
+  voteAccount,
+  rentCollector,
+  splitRentCollector,
+  splitRentRefundAccount,
+}: CloseSettlementParams): Promise<{
+  configAccount: PublicKey
+  bondAccount: PublicKey
+  settlementAccount: PublicKey
+  rentCollector: PublicKey
+  bondsAuth: PublicKey
+  splitRentCollector: PublicKey
+  splitRentRefundAccount: PublicKey
 }> {
   if (
     voteAccount !== undefined &&
@@ -96,22 +139,13 @@ export async function closeSettlementInstruction({
     splitRentRefundAccount = stakeAccounts[0].publicKey
   }
 
-  const instruction = await program.methods
-    .closeSettlement()
-    .accounts({
-      config: configAccount,
-      bond: bondAccount,
-      settlement: settlementAccount,
-      rentCollector,
-      splitRentCollector,
-      bondsWithdrawerAuthority: bondsAuth,
-      splitRentRefundAccount,
-      stakeProgram: StakeProgram.programId,
-      stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
-      clock: SYSVAR_CLOCK_PUBKEY,
-    })
-    .instruction()
   return {
-    instruction,
+    configAccount,
+    bondAccount,
+    settlementAccount,
+    rentCollector,
+    bondsAuth,
+    splitRentCollector,
+    splitRentRefundAccount,
   }
 }

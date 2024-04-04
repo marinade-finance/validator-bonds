@@ -90,14 +90,15 @@ impl<'info> ConfigureConfig<'info> {
             }
         });
 
-        let slots_to_start_settlement_claiming_change = slots_to_start_settlement_claiming.map(|slots_to_start| {
-            let old = ctx.accounts.config.slots_to_start_settlement_claiming;
-            ctx.accounts.config.slots_to_start_settlement_claiming = slots_to_start;
-            U64ValueChange {
-                old,
-                new: slots_to_start,
-            }
-        });
+        let slots_to_start_settlement_claiming_change =
+            slots_to_start_settlement_claiming.map(|slots_to_start| {
+                let old = ctx.accounts.config.slots_to_start_settlement_claiming;
+                ctx.accounts.config.slots_to_start_settlement_claiming = slots_to_start;
+                U64ValueChange {
+                    old,
+                    new: slots_to_start,
+                }
+            });
 
         emit_cpi!(ConfigureConfigEvent {
             admin_authority: admin_authority_change,

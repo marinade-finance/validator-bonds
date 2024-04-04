@@ -28,6 +28,8 @@ pub struct Settlement {
     pub merkle_nodes_claimed: u64,
     /// what epoch the Settlement has been created for
     pub epoch_created_for: u64,
+    /// when the Settlement was created
+    pub slot_created_at: u64,
     /// address that collects the rent exempt from the Settlement account when closed
     pub rent_collector: Pubkey,
     /// address that collects rent exempt for "split stake account" possibly created on funding settlement
@@ -37,7 +39,7 @@ pub struct Settlement {
     /// PDA bumps
     pub bumps: Bumps,
     /// reserve space for future extensions
-    pub reserved: [u8; 99],
+    pub reserved: [u8; 91],
 }
 
 #[derive(AnchorDeserialize, AnchorSerialize, Clone, Debug, Default)]

@@ -18,7 +18,8 @@ import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
  * @param param {PublicKey} args.admin - admin authority (default: provider wallet address)
  * @param param {PublicKey} args.operator - operator authority (default: adminAuthority)
  * @param param {PublicKey} args.rentPayer - rent exception payer [SIGNER] (default: provider wallet address)
- * @param param {PublicKey} args.claimSettlementAfterEpochs - number of epochs after which claim can be settled (default: 0)
+ * @param param {PublicKey} args.epochsToClaimSettlement - number of epochs until when the claim can be settled (default: 0)
+ * @param param {PublicKey} args.slotsToStartSettlementClaiming - number of slots that has to expire until when settlement can be claimed (default: 0)
  * @param param {PublicKey} args.withdrawLockupEpochs - number of epochs after which withdraw can be executed (default: 0)
  * @type {Object} return - Return data of generated instruction
  * @return {TransactionInstruction} return.instruction - Instruction to init config
@@ -31,6 +32,7 @@ export async function initConfigInstruction({
   operator = admin,
   rentPayer = anchorProgramWalletPubkey(program),
   epochsToClaimSettlement = 0,
+  slotsToStartSettlementClaiming = 0,
   withdrawLockupEpochs = 0,
 }: {
   program: ValidatorBondsProgram
@@ -39,6 +41,7 @@ export async function initConfigInstruction({
   operator?: PublicKey
   rentPayer?: PublicKey | Keypair | Signer | WalletInterface // signer
   epochsToClaimSettlement?: BN | number
+  slotsToStartSettlementClaiming?: BN | number
   withdrawLockupEpochs?: BN | number
 }): Promise<{
   configAccount: PublicKey | Keypair | Signer | WalletInterface
@@ -53,6 +56,7 @@ export async function initConfigInstruction({
       operatorAuthority: operator,
       epochsToClaimSettlement: new BN(epochsToClaimSettlement),
       withdrawLockupEpochs: new BN(withdrawLockupEpochs),
+      slotsToStartSettlementClaiming: new BN(slotsToStartSettlementClaiming),
     })
     .accounts({
       config: configAccountPubkey,

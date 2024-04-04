@@ -1,10 +1,10 @@
 import { Keypair, PublicKey } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
-  CLOSE_SETTLEMENT_EVENT,
-  closeSettlementInstruction,
   parseCpiEvents,
   assertEvent,
+  cancelSettlementInstruction,
+  CANCEL_SETTLEMENT_EVENT,
 } from '../../src'
 import { initTest } from './testValidator'
 import {
@@ -12,10 +12,7 @@ import {
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import {
-  executeTxSimple,
-  waitForNextEpoch,
-} from '@marinade.finance/web3js-common'
+import { executeTxSimple } from '@marinade.finance/web3js-common'
 import { transaction } from '@marinade.finance/web3js-common'
 import {
   AnchorExtendedProvider,
@@ -23,7 +20,7 @@ import {
 } from '@marinade.finance/anchor-common'
 import assert from 'assert'
 
-describe('Validator Bonds close settlement', () => {
+describe('Validator Bonds cancel settlement', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
@@ -42,7 +39,6 @@ describe('Validator Bonds close settlement', () => {
       {
         program,
         provider,
-        epochsToClaimSettlement: 0,
       }
     ))
     ;({ voteAccount, bondAccount } = await executeInitBondInstruction({
@@ -53,45 +49,37 @@ describe('Validator Bonds close settlement', () => {
     }))
   })
 
-  it('close settlement', async () => {
-    const rentCollector = Keypair.generate()
-    const { settlementAccount, epoch, maxMerkleNodes, maxTotalClaim } =
+  it('cancel settlement', async () => {
+    const { settlementAccount, rentCollector, maxMerkleNodes, maxTotalClaim } =
       await executeInitSettlement({
         configAccount,
         program,
         provider,
         voteAccount,
         operatorAuthority,
-        rentCollector: rentCollector.publicKey,
       })
 
-    const splitRentRefundAccount = Keypair.generate().publicKey
     const tx = await transaction(provider)
-    const { instruction } = await closeSettlementInstruction({
+    const { instruction } = await cancelSettlementInstruction({
       program,
       settlementAccount,
-      rentCollector: rentCollector.publicKey,
-      splitRentRefundAccount,
+      authority: operatorAuthority,
     })
     tx.add(instruction)
-    await waitForNextEpoch(provider.connection, 15)
-    const executionEpoch = (await program.provider.connection.getEpochInfo())
-      .epoch
     const executionReturn = await executeTxSimple(provider.connection, tx, [
       provider.wallet,
+      operatorAuthority,
     ])
     expect(
       provider.connection.getAccountInfo(settlementAccount)
     ).resolves.toBeNull()
 
     const events = parseCpiEvents(program, executionReturn?.response)
-    const e = assertEvent(events, CLOSE_SETTLEMENT_EVENT)
+    const e = assertEvent(events, CANCEL_SETTLEMENT_EVENT)
     // Ensure the event was emitted
     assert(e !== undefined)
     expect(e.settlement).toEqual(settlementAccount)
     expect(e.bond).toEqual(bondAccount)
-    expect(e.currentEpoch).toEqual(executionEpoch)
-    expect(e.expirationEpoch).toEqual(epoch)
     expect(e.lamportsClaimed).toEqual(0)
     expect(e.lamportsFunded).toEqual(0)
     expect(e.merkleNodesClaimed).toEqual(0)
@@ -99,6 +87,7 @@ describe('Validator Bonds close settlement', () => {
     expect(e.maxTotalClaim).toEqual(maxTotalClaim)
     expect(e.splitRentCollector).toEqual(null)
     expect(e.splitRentRefund).toEqual(null)
-    expect(e.rentCollector).toEqual(rentCollector.publicKey)
+    expect(e.rentCollector).toEqual(rentCollector)
+    expect(e.authority).toEqual(operatorAuthority.publicKey)
   })
 })

@@ -55,6 +55,11 @@ export function installConfigureConfig(program: Command) {
       parseFloat
     )
     .option(
+      '--slots-to-start-settlement-claiming <number>',
+      'number of slots after which settlement claim can be settled',
+      parseFloat
+    )
+    .option(
       '--withdraw-lockup-epochs <number>',
       'New number of epochs after which withdraw can be executed',
       parseFloat
@@ -73,6 +78,7 @@ export function installConfigureConfig(program: Command) {
           operator,
           pauseAuthority,
           epochsToClaimSettlement,
+          slotsToStartSettlementClaiming,
           withdrawLockupEpochs,
           minimumStakeLamports,
         }: {
@@ -81,6 +87,7 @@ export function installConfigureConfig(program: Command) {
           operator?: Promise<PublicKey>
           pauseAuthority?: Promise<PublicKey>
           epochsToClaimSettlement?: number
+          slotsToStartSettlementClaiming?: number
           withdrawLockupEpochs?: number
           minimumStakeLamports?: number
         }
@@ -92,6 +99,7 @@ export function installConfigureConfig(program: Command) {
           operator: await operator,
           pauseAuthority: await pauseAuthority,
           epochsToClaimSettlement,
+          slotsToStartSettlementClaiming,
           withdrawLockupEpochs,
           minimumStakeLamports,
         })
@@ -106,6 +114,7 @@ async function manageConfigureConfig({
   operator,
   pauseAuthority,
   epochsToClaimSettlement,
+  slotsToStartSettlementClaiming,
   withdrawLockupEpochs,
   minimumStakeLamports,
 }: {
@@ -115,6 +124,7 @@ async function manageConfigureConfig({
   operator?: PublicKey
   pauseAuthority?: PublicKey
   epochsToClaimSettlement?: number
+  slotsToStartSettlementClaiming?: number
   withdrawLockupEpochs?: number
   minimumStakeLamports?: number
 }) {
@@ -147,6 +157,7 @@ async function manageConfigureConfig({
     newOperator: operator,
     newPauseAuthority: pauseAuthority,
     newEpochsToClaimSettlement: epochsToClaimSettlement,
+    newSlotsToStartSettlementClaiming: slotsToStartSettlementClaiming,
     newWithdrawLockupEpochs: withdrawLockupEpochs,
     newMinimumStakeLamports: minimumStakeLamports,
   })

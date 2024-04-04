@@ -23,6 +23,7 @@ describe('Validator Bonds config account tests', () => {
         provider,
         epochsToClaimSettlement: 1,
         withdrawLockupEpochs: 2,
+        slotsToStartSettlementClaiming: 3,
       })
 
     const configData = await getConfig(program, configAccount)
@@ -30,6 +31,7 @@ describe('Validator Bonds config account tests', () => {
     expect(configData.operatorAuthority).toEqual(operatorAuthority.publicKey)
     expect(configData.epochsToClaimSettlement).toEqual(1)
     expect(configData.withdrawLockupEpochs).toEqual(2)
+    expect(configData.slotsToStartSettlementClaiming).toEqual(3)
 
     const configAccountInfo =
       await provider.connection.getAccountInfo(configAccount)
@@ -60,6 +62,7 @@ describe('Validator Bonds config account tests', () => {
         operator: operatorAuthority.publicKey,
         epochsToClaimSettlement: 1,
         withdrawLockupEpochs: 1,
+        slotsToStartSettlementClaiming: 1,
       })
       await provider.sendIx([configAccountKeypair], instruction)
       throw new Error('Should have failed as bond already exists')

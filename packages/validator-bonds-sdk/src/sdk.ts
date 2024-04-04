@@ -116,6 +116,10 @@ export const CLOSE_SETTLEMENT_EVENT = 'CloseSettlementEvent'
 export type CloseSettlementEvent =
   IdlEvents<ValidatorBonds>[typeof CLOSE_SETTLEMENT_EVENT]
 
+export const CANCEL_SETTLEMENT_EVENT = 'CancelSettlementEvent'
+export type CancelSettlementEvent =
+  IdlEvents<ValidatorBonds>[typeof CANCEL_SETTLEMENT_EVENT]
+
 export const MERGE_STAKE_EVENT = 'MergeStakeEvent'
 export type MergeStakeEvent =
   IdlEvents<ValidatorBonds>[typeof MERGE_STAKE_EVENT]

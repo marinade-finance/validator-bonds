@@ -103,6 +103,8 @@ describe('Init config account using CLI', () => {
             rentPayerPath,
             '--epochs-to-claim-settlement',
             42,
+            '--slots-to-start-settlement-claiming',
+            11,
             '--withdraw-lockup-epochs',
             43,
             '--confirmation-finality',
@@ -124,6 +126,7 @@ describe('Init config account using CLI', () => {
     expect(configData.adminAuthority).toEqual(admin)
     expect(configData.operatorAuthority).toEqual(operator)
     expect(configData.epochsToClaimSettlement).toEqual(42)
+    expect(configData.slotsToStartSettlementClaiming).toEqual(11)
     expect(configData.withdrawLockupEpochs).toEqual(43)
     await expect(
       provider.connection.getBalance(rentPayerKeypair.publicKey)

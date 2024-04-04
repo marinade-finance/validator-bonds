@@ -52,6 +52,7 @@ describe('Validator Bonds init config', () => {
       operator: operatorAuthority,
       epochsToClaimSettlement: 1,
       withdrawLockupEpochs: 2,
+      slotsToStartSettlementClaiming: 3,
     })
     tx.add(instruction)
     const [configSigner, configAddress] = signerWithPubkey(configAccount)
@@ -74,6 +75,7 @@ describe('Validator Bonds init config', () => {
     expect(configData.paused).toBeFalsy()
     expect(configData.epochsToClaimSettlement).toEqual(1)
     expect(configData.withdrawLockupEpochs).toEqual(2)
+    expect(configData.slotsToStartSettlementClaiming).toEqual(3)
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, INIT_CONFIG_EVENT)
@@ -83,6 +85,7 @@ describe('Validator Bonds init config', () => {
     expect(e.operatorAuthority).toEqual(operatorAuthority)
     expect(e.epochsToClaimSettlement).toEqual(1)
     expect(e.withdrawLockupEpochs).toEqual(2)
+    expect(e.slotsToStartSettlementClaiming).toEqual(3)
   })
 
   it('find configs', async () => {

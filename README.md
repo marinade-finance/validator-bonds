@@ -114,6 +114,18 @@ pnpm cli --help
 | Reset (on settlement close)            | Bonds withdrawer PDA  | Bonds withdrawer PDA  |
 | Settlement withdraw request claimed    | _validator authority_ | _validator authority_ |
 
+### Security concerns
+
+#### Operator authority has pretty much full control over the deposited funds
+
+To mitigate the potential misuse of funds by a malicious operator, we implement the following measure:
+
+The admin authority can utilize the `slots_to_start_settlement_claiming` option within the `Config` account to control when the claiming of settlements (i.e., withdrawing from settlements) may commence. This allows for the postponement of the claiming period for several slots after the settlement is created.
+
+In the event that the operator authority's hot wallet key is compromised, the admin authority gains time until the `slots_to_start_settlement_claiming` period elapses to switch the operator authority to another wallet and manage the cancellation of any unauthorized settlements.
+
+**IMPORTANT:** If the admin authority is held under a multisig or DAO management system, it must be positioned for immediate transaction execution to implement changes once all required signatures are obtained.
+
 
 ## Development
 

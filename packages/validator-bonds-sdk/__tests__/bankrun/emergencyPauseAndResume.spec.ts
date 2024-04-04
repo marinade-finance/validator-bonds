@@ -20,6 +20,7 @@ import {
   mintBondInstruction,
   configureBondWithMintInstruction,
   withdrawStakeInstruction,
+  cancelSettlementInstruction,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -334,6 +335,18 @@ describe('Validator Bonds pause&resume', () => {
       }
     )
     await verifyIsPaused([], closeSettlementIx)
+
+    const { instruction: cancelSettlementIx } =
+      await cancelSettlementInstruction({
+        program,
+        settlementAccount,
+        configAccount,
+        bondAccount,
+        voteAccount: voteAccount1,
+        splitRentRefundAccount: stakeAccount,
+        authority: adminAuthority,
+      })
+    await verifyIsPaused([adminAuthority], cancelSettlementIx)
 
     await resume()
     await provider.sendIx([], closeSettlementIx)

@@ -60,6 +60,7 @@ describe('Validator Bonds configure config tests', () => {
       adminAuthority: configInitialized.account.adminAuthority,
       newEpochsToClaimSettlement: 3,
       newAdmin: newAdminAuthority.publicKey,
+      newSlotsToStartSettlementClaiming: 10,
     })
     await bankrunExecuteIx(
       provider,
@@ -72,6 +73,7 @@ describe('Validator Bonds configure config tests', () => {
       configInitialized.account.operatorAuthority
     )
     expect(config.epochsToClaimSettlement).toEqual(3)
+    expect(config.slotsToStartSettlementClaiming).toEqual(10)
     expect(config.withdrawLockupEpochs).toEqual(
       configInitialized.account.withdrawLockupEpochs
     )
@@ -96,6 +98,7 @@ describe('Validator Bonds configure config tests', () => {
     expect(config2.pauseAuthority).toEqual(pauseAuthority)
     expect(config2.paused).toBeFalsy()
     expect(config2.epochsToClaimSettlement).toEqual(3)
+    expect(config2.slotsToStartSettlementClaiming).toEqual(10)
     expect(config2.withdrawLockupEpochs).toEqual(4)
   })
 

@@ -1354,6 +1354,171 @@ export type ValidatorBonds = {
       "args": []
     },
     {
+      "name": "cancelSettlement",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "bond",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond.vote_account"
+              }
+            ]
+          },
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "settlement",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "settlement to close when expired"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "settlement_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond"
+              },
+              {
+                "kind": "account",
+                "type": {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                "account": "Settlement",
+                "path": "settlement.merkle_root"
+              },
+              {
+                "kind": "account",
+                "type": "u64",
+                "account": "Settlement",
+                "path": "settlement.epoch_created_for"
+              }
+            ]
+          },
+          "relations": [
+            "bond",
+            "rent_collector"
+          ]
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Cancelling is permitted only to emergency or operator authority"
+          ]
+        },
+        {
+          "name": "bondsWithdrawerAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bonds_authority"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "rentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "splitRentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "splitRentRefundAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "The stake account is funded to the settlement and credited to the bond's validator vote account.",
+            "The lamports are utilized to pay back the rent exemption of the split_stake_account"
+          ]
+        },
+        {
+          "name": "clock",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "fundSettlement",
       "accounts": [
         {
@@ -2321,6 +2486,13 @@ export type ValidatorBonds = {
             "type": "bool"
           },
           {
+            "name": "slotsToStartSettlementClaiming",
+            "docs": [
+              "How many slots to wait before settlement is permitted to be claimed"
+            ],
+            "type": "u64"
+          },
+          {
             "name": "reserved",
             "docs": [
               "reserved space for future changes"
@@ -2328,7 +2500,7 @@ export type ValidatorBonds = {
             "type": {
               "array": [
                 "u8",
-                479
+                471
               ]
             }
           }
@@ -2487,6 +2659,13 @@ export type ValidatorBonds = {
             "type": "u64"
           },
           {
+            "name": "slotCreatedAt",
+            "docs": [
+              "when the Settlement was created"
+            ],
+            "type": "u64"
+          },
+          {
             "name": "rentCollector",
             "docs": [
               "address that collects the rent exempt from the Settlement account when closed"
@@ -2526,7 +2705,7 @@ export type ValidatorBonds = {
             "type": {
               "array": [
                 "u8",
-                99
+                91
               ]
             }
           }
@@ -2793,6 +2972,12 @@ export type ValidatorBonds = {
             "type": {
               "option": "u64"
             }
+          },
+          {
+            "name": "slotsToStartSettlementClaiming",
+            "type": {
+              "option": "u64"
+            }
           }
         ]
       }
@@ -2816,6 +3001,10 @@ export type ValidatorBonds = {
           },
           {
             "name": "withdrawLockupEpochs",
+            "type": "u64"
+          },
+          {
+            "name": "slotsToStartSettlementClaiming",
             "type": "u64"
           }
         ]
@@ -3142,6 +3331,11 @@ export type ValidatorBonds = {
           "name": "bondsWithdrawerAuthority",
           "type": "publicKey",
           "index": false
+        },
+        {
+          "name": "slotsToStartSettlementClaiming",
+          "type": "u64",
+          "index": false
         }
       ]
     },
@@ -3195,6 +3389,15 @@ export type ValidatorBonds = {
         },
         {
           "name": "withdrawLockupEpochs",
+          "type": {
+            "option": {
+              "defined": "U64ValueChange"
+            }
+          },
+          "index": false
+        },
+        {
+          "name": "slotsToStartSettlementClaiming",
           "type": {
             "option": {
               "defined": "U64ValueChange"
@@ -3400,6 +3603,11 @@ export type ValidatorBonds = {
           "index": false
         },
         {
+          "name": "slotCreatedAt",
+          "type": "u64",
+          "index": false
+        },
+        {
           "name": "rentCollector",
           "type": "publicKey",
           "index": false
@@ -3462,8 +3670,10 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "splitRentRefundAccount",
-          "type": "publicKey",
+          "name": "splitRentRefund",
+          "type": {
+            "option": "publicKey"
+          },
           "index": false
         },
         {
@@ -3479,6 +3689,80 @@ export type ValidatorBonds = {
         {
           "name": "currentEpoch",
           "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "CancelSettlementEvent",
+      "fields": [
+        {
+          "name": "bond",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "settlement",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "merkleRoot",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "maxTotalClaim",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "maxMerkleNodes",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "lamportsFunded",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "lamportsClaimed",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "merkleNodesClaimed",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "splitRentCollector",
+          "type": {
+            "option": "publicKey"
+          },
+          "index": false
+        },
+        {
+          "name": "splitRentRefund",
+          "type": {
+            "option": "publicKey"
+          },
+          "index": false
+        },
+        {
+          "name": "rentCollector",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "authority",
+          "type": "publicKey",
           "index": false
         }
       ]
@@ -4074,6 +4358,21 @@ export type ValidatorBonds = {
       "code": 6059,
       "name": "InvalidBondMintSupply",
       "msg": "Bond mint permits only a single token to exist"
+    },
+    {
+      "code": 6060,
+      "name": "OperatorAndPauseAuthorityMismatch",
+      "msg": "Operation permitted only to operator or pause authority"
+    },
+    {
+      "code": 6061,
+      "name": "SettlementNotReadyForClaiming",
+      "msg": "Settlement slots to start claiming not expired yet"
+    },
+    {
+      "code": 6062,
+      "name": "InvalidVoteAccountType",
+      "msg": "Unsupported vote account type to deserialize"
     }
   ]
 };
@@ -5434,6 +5733,171 @@ export const IDL: ValidatorBonds = {
       "args": []
     },
     {
+      "name": "cancelSettlement",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "bond",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond.vote_account"
+              }
+            ]
+          },
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "settlement",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "settlement to close when expired"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "settlement_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond"
+              },
+              {
+                "kind": "account",
+                "type": {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                "account": "Settlement",
+                "path": "settlement.merkle_root"
+              },
+              {
+                "kind": "account",
+                "type": "u64",
+                "account": "Settlement",
+                "path": "settlement.epoch_created_for"
+              }
+            ]
+          },
+          "relations": [
+            "bond",
+            "rent_collector"
+          ]
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Cancelling is permitted only to emergency or operator authority"
+          ]
+        },
+        {
+          "name": "bondsWithdrawerAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bonds_authority"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "rentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "splitRentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "splitRentRefundAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "The stake account is funded to the settlement and credited to the bond's validator vote account.",
+            "The lamports are utilized to pay back the rent exemption of the split_stake_account"
+          ]
+        },
+        {
+          "name": "clock",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "fundSettlement",
       "accounts": [
         {
@@ -6401,6 +6865,13 @@ export const IDL: ValidatorBonds = {
             "type": "bool"
           },
           {
+            "name": "slotsToStartSettlementClaiming",
+            "docs": [
+              "How many slots to wait before settlement is permitted to be claimed"
+            ],
+            "type": "u64"
+          },
+          {
             "name": "reserved",
             "docs": [
               "reserved space for future changes"
@@ -6408,7 +6879,7 @@ export const IDL: ValidatorBonds = {
             "type": {
               "array": [
                 "u8",
-                479
+                471
               ]
             }
           }
@@ -6567,6 +7038,13 @@ export const IDL: ValidatorBonds = {
             "type": "u64"
           },
           {
+            "name": "slotCreatedAt",
+            "docs": [
+              "when the Settlement was created"
+            ],
+            "type": "u64"
+          },
+          {
             "name": "rentCollector",
             "docs": [
               "address that collects the rent exempt from the Settlement account when closed"
@@ -6606,7 +7084,7 @@ export const IDL: ValidatorBonds = {
             "type": {
               "array": [
                 "u8",
-                99
+                91
               ]
             }
           }
@@ -6873,6 +7351,12 @@ export const IDL: ValidatorBonds = {
             "type": {
               "option": "u64"
             }
+          },
+          {
+            "name": "slotsToStartSettlementClaiming",
+            "type": {
+              "option": "u64"
+            }
           }
         ]
       }
@@ -6896,6 +7380,10 @@ export const IDL: ValidatorBonds = {
           },
           {
             "name": "withdrawLockupEpochs",
+            "type": "u64"
+          },
+          {
+            "name": "slotsToStartSettlementClaiming",
             "type": "u64"
           }
         ]
@@ -7222,6 +7710,11 @@ export const IDL: ValidatorBonds = {
           "name": "bondsWithdrawerAuthority",
           "type": "publicKey",
           "index": false
+        },
+        {
+          "name": "slotsToStartSettlementClaiming",
+          "type": "u64",
+          "index": false
         }
       ]
     },
@@ -7275,6 +7768,15 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "withdrawLockupEpochs",
+          "type": {
+            "option": {
+              "defined": "U64ValueChange"
+            }
+          },
+          "index": false
+        },
+        {
+          "name": "slotsToStartSettlementClaiming",
           "type": {
             "option": {
               "defined": "U64ValueChange"
@@ -7480,6 +7982,11 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
+          "name": "slotCreatedAt",
+          "type": "u64",
+          "index": false
+        },
+        {
           "name": "rentCollector",
           "type": "publicKey",
           "index": false
@@ -7542,8 +8049,10 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "splitRentRefundAccount",
-          "type": "publicKey",
+          "name": "splitRentRefund",
+          "type": {
+            "option": "publicKey"
+          },
           "index": false
         },
         {
@@ -7559,6 +8068,80 @@ export const IDL: ValidatorBonds = {
         {
           "name": "currentEpoch",
           "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "CancelSettlementEvent",
+      "fields": [
+        {
+          "name": "bond",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "settlement",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "merkleRoot",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "maxTotalClaim",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "maxMerkleNodes",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "lamportsFunded",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "lamportsClaimed",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "merkleNodesClaimed",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "splitRentCollector",
+          "type": {
+            "option": "publicKey"
+          },
+          "index": false
+        },
+        {
+          "name": "splitRentRefund",
+          "type": {
+            "option": "publicKey"
+          },
+          "index": false
+        },
+        {
+          "name": "rentCollector",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "authority",
+          "type": "publicKey",
           "index": false
         }
       ]
@@ -8154,6 +8737,21 @@ export const IDL: ValidatorBonds = {
       "code": 6059,
       "name": "InvalidBondMintSupply",
       "msg": "Bond mint permits only a single token to exist"
+    },
+    {
+      "code": 6060,
+      "name": "OperatorAndPauseAuthorityMismatch",
+      "msg": "Operation permitted only to operator or pause authority"
+    },
+    {
+      "code": 6061,
+      "name": "SettlementNotReadyForClaiming",
+      "msg": "Settlement slots to start claiming not expired yet"
+    },
+    {
+      "code": 6062,
+      "name": "InvalidVoteAccountType",
+      "msg": "Unsupported vote account type to deserialize"
     }
   ]
 };

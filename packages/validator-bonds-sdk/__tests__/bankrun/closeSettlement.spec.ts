@@ -149,11 +149,9 @@ describe('Validator Bonds close settlement', () => {
     })
     try {
       await provider.sendIx([], instruction)
-      throw new Error(
-        'failure expected as settlement claim has not expired yet'
-      )
+      throw new Error('failure expected; settlement has not expired yet')
     } catch (e) {
-      verifyError(e, Errors, 6022, 'has not expired yet')
+      verifyError(e, Errors, 6022, 'Settlement has not expired yet')
     }
   })
 

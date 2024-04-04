@@ -54,6 +54,7 @@ pub struct ClaimSettlement<'info> {
         mut,
         has_one = bond @ ErrorCode::BondAccountMismatch,
         constraint = settlement.epoch_created_for + config.epochs_to_claim_settlement >= clock.epoch @ ErrorCode::SettlementExpired,
+        constraint = settlement.slot_created_at + config.slots_to_start_settlement_claiming <= clock.slot @ ErrorCode::SettlementNotReadyForClaiming,
         seeds = [
             b"settlement_account",
             bond.key().as_ref(),

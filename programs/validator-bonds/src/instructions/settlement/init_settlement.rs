@@ -89,6 +89,8 @@ impl<'info> InitSettlement<'info> {
             )));
         }
 
+        let clock = Clock::get()?;
+
         let (authority, authority_bump) =
             find_settlement_staker_authority(&ctx.accounts.settlement.key());
         ctx.accounts.settlement.set_inner(Settlement {
@@ -101,6 +103,7 @@ impl<'info> InitSettlement<'info> {
             lamports_claimed: 0,
             merkle_nodes_claimed: 0,
             epoch_created_for: epoch,
+            slot_created_at: clock.slot,
             rent_collector,
             split_rent_collector: None,
             split_rent_amount: 0,
@@ -108,7 +111,7 @@ impl<'info> InitSettlement<'info> {
                 pda: ctx.bumps.settlement,
                 staker_authority: authority_bump,
             },
-            reserved: [0; 99],
+            reserved: [0; 91],
         });
         emit_cpi!(InitSettlementEvent {
             settlement: ctx.accounts.settlement.key(),
@@ -119,6 +122,7 @@ impl<'info> InitSettlement<'info> {
             max_total_claim: ctx.accounts.settlement.max_total_claim,
             max_merkle_nodes: ctx.accounts.settlement.max_merkle_nodes,
             epoch_created_for: ctx.accounts.settlement.epoch_created_for,
+            slot_created_at: ctx.accounts.settlement.slot_created_at,
             rent_collector: ctx.accounts.settlement.rent_collector,
         });
 

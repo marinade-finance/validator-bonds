@@ -35,6 +35,7 @@ describe('Configure config account using CLI', () => {
         provider,
         adminAuthority: adminKeypair,
         epochsToClaimSettlement: 1,
+        slotsToStartSettlementClaiming: 3,
         withdrawLockupEpochs: 2,
       }
     ))
@@ -93,6 +94,8 @@ describe('Configure config account using CLI', () => {
           PublicKey.default.toBase58(),
           '--epochs-to-claim-settlement',
           111,
+          '--slots-to-start-settlement-claiming',
+          143,
           '--withdraw-lockup-epochs',
           112,
           '--minimum-stake-lamports',
@@ -114,6 +117,7 @@ describe('Configure config account using CLI', () => {
     expect(configData.operatorAuthority).toEqual(PublicKey.default)
     expect(configData.pauseAuthority).toEqual(PublicKey.default)
     expect(configData.epochsToClaimSettlement).toEqual(111)
+    expect(configData.slotsToStartSettlementClaiming).toEqual(143)
     expect(configData.withdrawLockupEpochs).toEqual(112)
     expect(configData.minimumStakeLamports).toEqual(134)
   })

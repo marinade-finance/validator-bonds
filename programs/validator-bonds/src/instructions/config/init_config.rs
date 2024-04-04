@@ -41,7 +41,7 @@ impl<'info> InitConfig<'info> {
             operator_authority,
             epochs_to_claim_settlement,
             withdraw_lockup_epochs,
-            slots_to_start_settlement_claiming
+            slots_to_start_settlement_claiming,
         }: InitConfigArgs,
     ) -> Result<()> {
         let (bonds_withdrawer_authority, bonds_withdrawer_authority_bump) =
@@ -67,7 +67,10 @@ impl<'info> InitConfig<'info> {
             withdraw_lockup_epochs: ctx.accounts.config.withdraw_lockup_epochs,
             minimum_stake_lamports: ctx.accounts.config.minimum_stake_lamports,
             bonds_withdrawer_authority,
-            slots_to_start_settlement_claiming: ctx.accounts.config.slots_to_start_settlement_claiming,
+            slots_to_start_settlement_claiming: ctx
+                .accounts
+                .config
+                .slots_to_start_settlement_claiming,
         });
 
         Ok(())

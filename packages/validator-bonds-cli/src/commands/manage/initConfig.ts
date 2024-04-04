@@ -52,6 +52,12 @@ export function installInitConfig(program: Command) {
       parseFloat,
       3
     )
+    .option(
+      '--slots-to-start-settlement-claiming <number>',
+      'number of slots after which settlement claim can be settled',
+      parseFloat,
+      0
+    )
     .action(
       async ({
         address,
@@ -59,6 +65,7 @@ export function installInitConfig(program: Command) {
         operator,
         rentPayer,
         epochsToClaimSettlement,
+        slotsToStartSettlementClaiming,
         withdrawLockupEpochs,
       }: {
         address?: Promise<Keypair>
@@ -66,6 +73,7 @@ export function installInitConfig(program: Command) {
         operator?: Promise<PublicKey>
         rentPayer?: Promise<WalletInterface | PublicKey>
         epochsToClaimSettlement: number
+        slotsToStartSettlementClaiming: number
         withdrawLockupEpochs: number
       }) => {
         await manageInitConfig({
@@ -74,6 +82,7 @@ export function installInitConfig(program: Command) {
           operator: await operator,
           rentPayer: await rentPayer,
           epochsToClaimSettlement,
+          slotsToStartSettlementClaiming,
           withdrawLockupEpochs,
         })
       }
@@ -86,6 +95,7 @@ async function manageInitConfig({
   operator,
   rentPayer,
   epochsToClaimSettlement,
+  slotsToStartSettlementClaiming,
   withdrawLockupEpochs,
 }: {
   address?: Keypair
@@ -93,6 +103,7 @@ async function manageInitConfig({
   operator?: PublicKey
   rentPayer?: WalletInterface | PublicKey
   epochsToClaimSettlement: number
+  slotsToStartSettlementClaiming: number
   withdrawLockupEpochs: number
 }) {
   const {
@@ -125,6 +136,7 @@ async function manageInitConfig({
     admin,
     operator,
     epochsToClaimSettlement,
+    slotsToStartSettlementClaiming,
     withdrawLockupEpochs,
     rentPayer,
   })

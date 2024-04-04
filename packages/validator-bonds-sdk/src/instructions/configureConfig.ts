@@ -24,6 +24,7 @@ import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
  * @param param {PublicKey} args.newOperator - operator authority that will be set when field is used
  * @param param {PublicKey} args.newPauseAuthority - pause authority that will be set when field is used
  * @param param {PublicKey} args.newEpochsToClaimSettlement - number of epochs before settlement claiming timeouts that will be set when field is used
+ * @param param {PublicKey} args.newSlotsToStartSettlementClaiming - number of slots that has to expire until when settlement can be claimed
  * @param param {PublicKey} args.newWithdrawLockupEpochs - number of epochs after which withdraw can be executed that will be set when field is used
  * @param param {PublicKey} args.newMinimumStakeLamports - number of lamports as minimum stake account size that will be set when field is used
  * @type {Object} return - Return data of generated instruction
@@ -37,6 +38,7 @@ export async function configureConfigInstruction({
   newOperator,
   newPauseAuthority,
   newEpochsToClaimSettlement,
+  newSlotsToStartSettlementClaiming,
   newWithdrawLockupEpochs,
   newMinimumStakeLamports,
 }: {
@@ -47,6 +49,7 @@ export async function configureConfigInstruction({
   newOperator?: PublicKey
   newPauseAuthority?: PublicKey
   newEpochsToClaimSettlement?: BN | number
+  newSlotsToStartSettlementClaiming?: BN | number
   newWithdrawLockupEpochs?: BN | number
   newMinimumStakeLamports?: BN | number
 }): Promise<{
@@ -67,6 +70,9 @@ export async function configureConfigInstruction({
     pauseAuthority: newPauseAuthority ?? null,
     epochsToClaimSettlement: newEpochsToClaimSettlement
       ? new BN(newEpochsToClaimSettlement)
+      : null,
+    slotsToStartSettlementClaiming: newSlotsToStartSettlementClaiming
+      ? new BN(newSlotsToStartSettlementClaiming)
       : null,
     withdrawLockupEpochs: newWithdrawLockupEpochs
       ? new BN(newWithdrawLockupEpochs)

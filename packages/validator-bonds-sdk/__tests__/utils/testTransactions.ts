@@ -60,6 +60,7 @@ export async function executeInitConfigInstruction({
   program,
   provider,
   epochsToClaimSettlement = Math.floor(Math.random() * 10) + 1,
+  slotsToStartSettlementClaiming = 0,
   withdrawLockupEpochs = Math.floor(Math.random() * 10) + 1,
   adminAuthority,
   operatorAuthority,
@@ -68,6 +69,7 @@ export async function executeInitConfigInstruction({
   program: ValidatorBondsProgram
   provider: ExtendedProvider
   epochsToClaimSettlement?: number
+  slotsToStartSettlementClaiming?: number
   withdrawLockupEpochs?: number
   adminAuthority?: Keypair
   operatorAuthority?: Keypair
@@ -86,7 +88,9 @@ export async function executeInitConfigInstruction({
     configAccount: configAccountKeypair,
     admin: adminAuthority.publicKey,
     operator: operatorAuthority.publicKey,
+
     epochsToClaimSettlement,
+    slotsToStartSettlementClaiming,
     withdrawLockupEpochs,
   })
   const signerConfigAccount = signer(configAccount)

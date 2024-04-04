@@ -185,6 +185,12 @@ pub enum ErrorCode {
     #[msg("Bond mint permits only a single token to exist")]
     InvalidBondMintSupply, // 6059 0x17ab
 
+    #[msg("Operation permitted only to operator or pause authority")]
+    OperatorAndPauseAuthorityMismatch, // 6060 0x17ac
+
+    #[msg("Settlement slots to start claiming not expired yet")]
+    SettlementNotReadyForClaiming, // 6061 0x17ad
+
     #[msg("Unsupported vote account type to deserialize")]
     InvalidVoteAccountType, // 6062 0x17ae
 }
