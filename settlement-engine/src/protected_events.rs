@@ -141,7 +141,7 @@ pub fn collect_commission_increase_events(
         .iter()
         .map(|past_validator_meta| {
             (
-                past_validator_meta.vote_account.clone(),
+                past_validator_meta.vote_account,
                 past_validator_meta.clone(),
             )
         })
@@ -195,8 +195,8 @@ pub fn generate_protected_event_collection(
     let low_credits_events = collect_low_credits_events(&validator_meta_collection);
 
     let mut events: Vec<_> = Default::default();
-    events.extend(commission_increase_events.into_iter());
-    events.extend(low_credits_events.into_iter());
+    events.extend(commission_increase_events);
+    events.extend(low_credits_events);
 
     ProtectedEventCollection {
         epoch: validator_meta_collection.epoch,

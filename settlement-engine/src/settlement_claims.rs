@@ -63,7 +63,7 @@ pub struct SettlementCollection {
 pub fn generate_settlements(
     stake_meta_index: &StakeMetaIndex,
     protected_event_collection: &ProtectedEventCollection,
-    stake_authority_filter: &Box<dyn Fn(&Pubkey) -> bool>,
+    stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     settlement_config: &SettlementConfig,
 ) -> Vec<Settlement> {
     info!("Generating settlement claim collection {settlement_config:?}...");
@@ -76,7 +76,7 @@ pub fn generate_settlements(
         protected_event_collection.slot
     );
 
-    let protected_event_matcher = build_protected_event_matcher(&settlement_config);
+    let protected_event_matcher = build_protected_event_matcher(settlement_config);
     let matching_protected_events = protected_event_collection
         .events
         .iter()
@@ -91,7 +91,7 @@ pub fn generate_settlements(
             let mut claims = vec![];
             let mut claims_amount = 0;
             for ((withdraw_authority, stake_authority), stake_metas) in grouped_stake_metas {
-                if !stake_authority_filter(&stake_authority) {
+                if !stake_authority_filter(stake_authority) {
                     continue;
                 }
 
@@ -136,8 +136,8 @@ pub fn generate_settlements(
 pub fn generate_settlement_collection(
     stake_meta_index: &StakeMetaIndex,
     protected_event_collection: &ProtectedEventCollection,
-    stake_authority_filter: &Box<dyn Fn(&Pubkey) -> bool>,
-    settlement_configs: &Vec<SettlementConfig>,
+    stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+    settlement_configs: &[SettlementConfig],
 ) -> SettlementCollection {
     assert_eq!(
         stake_meta_index.stake_meta_collection.epoch, protected_event_collection.epoch,
@@ -150,15 +150,14 @@ pub fn generate_settlement_collection(
 
     let settlements: Vec<_> = settlement_configs
         .iter()
-        .map(|settlement_config| {
+        .flat_map(|settlement_config| {
             generate_settlements(
-                &stake_meta_index,
-                &protected_event_collection,
-                &stake_authority_filter,
+                stake_meta_index,
+                protected_event_collection,
+                stake_authority_filter,
                 settlement_config,
             )
         })
-        .flatten()
         .collect();
 
     SettlementCollection {

@@ -81,7 +81,7 @@ pub fn build_protected_event_matcher(
 }
 
 pub fn stake_authorities_filter(whitelist: HashSet<Pubkey>) -> Box<dyn Fn(&Pubkey) -> bool> {
-    Box::new(move |pubkey| whitelist.contains(&pubkey))
+    Box::new(move |pubkey| whitelist.contains(pubkey))
 }
 
 pub fn no_filter() -> Box<dyn Fn(&Pubkey) -> bool> {
