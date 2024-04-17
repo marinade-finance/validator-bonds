@@ -1,5 +1,6 @@
+use anchor_client::anchor_lang::AccountDeserialize;
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::{Client, ClientError, Cluster, DynSigner};
+use anchor_client::{Client, Cluster, DynSigner};
 use anyhow::anyhow;
 use clap::Parser;
 use env_logger::{Builder, Env};
@@ -9,18 +10,19 @@ use marinade_transactions::transaction_executors::execute_transaction_builder;
 use regex::Regex;
 use settlement_engine::merkle_tree_collection::MerkleTreeCollection;
 use settlement_engine::utils::read_from_json_file;
+use settlement_pipelines::constants::find_event_authority;
 use settlement_pipelines::{
     arguments::{load_keypair, GlobalOpts},
     constants::MARINADE_CONFIG_ADDRESS,
 };
-use solana_sdk::commitment_config::CommitmentConfig;
+use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::system_program;
 use std::path::Path;
+use std::rc::Rc;
 use std::str::FromStr;
-use std::sync::Arc;
 use validator_bonds::instructions::InitSettlementArgs;
-use validator_bonds::state::bond::find_event_authority;
+use validator_bonds::state::bond::Bond;
 use validator_bonds::state::settlement::Settlement;
 use validator_bonds::ID as validator_bonds_id;
 
@@ -89,7 +91,7 @@ fn main() -> anyhow::Result<()> {
     let epoch = args.epoch.map_or_else(|| {
         let merkle_file_name = Path::new(&args.input_merkle_tree_collection).file_name().unwrap()
             .to_str().ok_or(anyhow!("Cannot convert file name {} to string", args.input_merkle_tree_collection))?;
-        let re = Regex::new("^(.)").unwrap();
+        let re = Regex::new("^([0-9]+)").unwrap();
         let captures = re.captures(merkle_file_name);
         captures
             .and_then(|c| c.get(0))
@@ -97,15 +99,13 @@ fn main() -> anyhow::Result<()> {
             .ok_or(
                 anyhow!("--epoch not provided and cannot extract epoch number from input merkle tree collection file path '{}'", args.input_merkle_tree_collection)
             )
-    }, |v| Ok(v))?;
+    }, Ok)?;
 
     let fee_payer_pubkey = fee_payer_keypair.pubkey();
-    let anchor_client: Client<Arc<DynSigner>> = Client::new_with_options(
+    let anchor_client = Client::new_with_options(
         anchor_cluster,
-        Arc::new(DynSigner(fee_payer_keypair.clone())),
-        CommitmentConfig {
-            commitment: args.global_opts.commitment_level,
-        },
+        Rc::new(DynSigner(fee_payer_keypair.clone())),
+        CommitmentConfig::finalized(),
     );
     let program = anchor_client.program(validator_bonds_id)?;
 
@@ -113,84 +113,129 @@ fn main() -> anyhow::Result<()> {
     let mut transaction_builder = TransactionBuilder::limited(fee_payer_keypair.clone());
     transaction_builder.add_signer_checked(&operator_authority_keypair.clone());
 
-    for merkle_tree in merkle_tree_collection.merkle_trees {
-        let merkle_root = if let Some(merkle_root) = merkle_tree.merkle_root {
-            merkle_root
+    // verify what are the settlement accounts that we need to create
+    // (not to pushing many RPC calls to the network, squeezing them to less)
+    let mut creation_records: Vec<CreationRecord> = merkle_tree_collection
+        .merkle_trees
+        .iter()
+        .filter(|merkle_tree| {
+            if merkle_tree.merkle_root.is_some() {
+                true
+            } else {
+                error!(
+                    "Cannot create for vote account {} without a merkle root",
+                    merkle_tree.vote_account
+                );
+                false
+            }
+        })
+        .map(|merkle_tree| {
+            let merkle_root = merkle_tree.merkle_root.unwrap();
+            let vote_account_address = merkle_tree.vote_account;
+            let (bond_address, _) = validator_bonds::state::bond::find_bond_address(
+                &args.config,
+                &merkle_tree.vote_account,
+            );
+            let (settlement_address, _) =
+                validator_bonds::state::settlement::find_settlement_address(
+                    &bond_address,
+                    &merkle_root.to_bytes(),
+                    epoch,
+                );
+            CreationRecord {
+                vote_account_address,
+                bond_address,
+                settlement_address,
+                merkle_root: merkle_root.to_bytes(),
+                max_total_claim: merkle_tree.max_total_claim_sum,
+                max_merkle_nodes: merkle_tree.max_total_claims as u64,
+                settlement_account: None,
+                bond_account: None,
+            }
+        })
+        .collect();
+
+    // loading accounts from on-chain
+    let settlement_addresses: Vec<Pubkey> = creation_records
+        .iter()
+        .map(|d| d.settlement_address)
+        .collect();
+    let settlement_accounts = program.rpc().get_multiple_accounts(&settlement_addresses)?;
+    for (d, a) in creation_records.iter_mut().zip(settlement_accounts.iter()) {
+        let settlement_account = if let Some(account) = a {
+            let mut data: &[u8] = &account.data;
+            Settlement::try_deserialize(&mut data).map_or_else(
+                |e| {
+                    error!(
+                        "Cannot deserialize account data for settlement account {}: {}",
+                        d.settlement_address, e
+                    );
+                    None
+                },
+                Some,
+            )
         } else {
-            // TODO: is logging error the right thing to do here?
+            None
+        };
+        d.settlement_account = settlement_account;
+    }
+    let bonds_addresses: Vec<Pubkey> = creation_records.iter().map(|d| d.bond_address).collect();
+    let bond_accounts = program.rpc().get_multiple_accounts(&bonds_addresses)?;
+    for (d, a) in creation_records.iter_mut().zip(bond_accounts.iter()) {
+        let bond_account = if let Some(account) = a {
+            let mut data: &[u8] = &account.data;
+            Bond::try_deserialize(&mut data).map_or_else(
+                |e| {
+                    error!(
+                        "Cannot deserialize account data for bond account {}: {}",
+                        d.bond_address, e
+                    );
+                    None
+                },
+                Some,
+            )
+        } else {
+            None
+        };
+        d.bond_account = bond_account;
+    }
+
+    for creation_record in creation_records {
+        // TODO: what to do if bond account is not found?
+        if creation_record.bond_account.is_none() {
             error!(
-                "Cannot create for vote account {} without a merkle root",
-                merkle_tree.vote_account
+                "Cannot find bond account {} for vote account {}",
+                creation_record.bond_address, creation_record.vote_account_address
             );
             continue;
-        };
-
-        let (bond_address, _) = validator_bonds::state::bond::find_bond_address(
-            &args.config,
-            &merkle_tree.vote_account,
-        );
-        let (settlement_address, _) = validator_bonds::state::settlement::find_settlement_address(
-            &bond_address,
-            &merkle_root.to_bytes(),
-            epoch,
-        );
-
-        // let's verify existence of the settlement account
-        let settlement_data = program
-            .account::<Settlement>(settlement_address.clone())
-            .map_or_else(
-                |e| match e {
-                    ClientError::AccountNotFound => {
-                        debug!("Settlement account {} not found: {}", settlement_address, e);
-                        Ok(None)
-                    }
-                    _ => Err(anyhow!(
-                        "Cannot get account data for settlement account {}: {}",
-                        settlement_address,
-                        e
-                    )),
-                },
-                |a| Ok(Some(a)),
-            )?;
-
-        if let Some(settlement) = settlement_data {
-            if settlement.merkle_root != merkle_root.to_bytes()
-                || settlement.max_merkle_nodes != merkle_tree.max_total_claims as u64
-                || settlement.max_total_claim != merkle_tree.max_total_claim_sum
-            {
-                return Err(anyhow!(
-                    "Settlement account {} already exists but with different merkle data, json: [{:?}], on-chain: [{:?}]",
-                    settlement_address,
-                    (merkle_root.to_bytes(), merkle_tree.max_total_claims as u64, merkle_tree.max_total_claim_sum),
-                    (settlement.merkle_root, settlement.max_merkle_nodes, settlement.max_total_claim)
-                ));
-            }
+        }
+        if creation_record.settlement_account.is_some() {
             debug!(
                 "Settlement account {} already exists, skipping initialization",
-                settlement_address
+                creation_record.settlement_address
             );
             continue;
         }
 
-        vote_accounts.push(merkle_tree.vote_account);
+        vote_accounts.push(creation_record.vote_account_address);
         let req = program
             .request()
             .accounts(validator_bonds::accounts::InitSettlement {
                 config: args.config,
-                bond: bond_address,
+                bond: creation_record.bond_address,
                 operator_authority: operator_authority_keypair.pubkey(),
                 system_program: system_program::ID,
                 rent_payer: fee_payer_pubkey,
                 program: validator_bonds_id,
-                settlement: settlement_address,
+                settlement: creation_record.settlement_address,
                 event_authority: find_event_authority().0,
             })
             .args(validator_bonds::instruction::InitSettlement {
                 init_settlement_args: InitSettlementArgs {
-                    merkle_root: merkle_root.to_bytes(),
+                    merkle_root: creation_record.merkle_root,
                     rent_collector: fee_payer_pubkey,
-                    max_total_claim: merkle_tree.max_total_claim_sum,
-                    max_merkle_nodes: merkle_tree.max_total_claims as u64,
+                    max_total_claim: creation_record.max_total_claim,
+                    max_merkle_nodes: creation_record.max_merkle_nodes,
                     epoch,
                 },
             });
@@ -199,13 +244,14 @@ fn main() -> anyhow::Result<()> {
             .map_err(|e| anyhow!("Cannot add instruction to transaction builder: {}", e))?;
     }
 
-    if transaction_builder.instructions().len() == 0 {
+    if transaction_builder.instructions().is_empty() {
         info!("No InitSettlement instructions to execute");
         return Ok(());
     } else {
+        let execution_count = transaction_builder.instructions().len();
         info!(
             "Execution of {} InitSettlement instructions of vote accounts [{}]",
-            transaction_builder.instructions().len(),
+            execution_count,
             vote_accounts
                 .iter()
                 .map(|v| v.to_string())
@@ -219,12 +265,27 @@ fn main() -> anyhow::Result<()> {
                 skip_preflight: args.global_opts.skip_preflight,
                 ..RpcSendTransactionConfig::default()
             },
-            args.global_opts.commitment_level,
+            CommitmentLevel::Finalized,
             false,
             false,
-            Some(2),
+            None,
         )?;
+        info!(
+            "InitSettlement instructions {} executed successfully",
+            execution_count
+        );
     }
 
     Ok(())
+}
+
+struct CreationRecord {
+    vote_account_address: Pubkey,
+    bond_address: Pubkey,
+    settlement_address: Pubkey,
+    settlement_account: Option<Settlement>,
+    bond_account: Option<Bond>,
+    merkle_root: [u8; 32],
+    max_total_claim: u64,
+    max_merkle_nodes: u64,
 }

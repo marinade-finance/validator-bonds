@@ -52,9 +52,3 @@ pub fn find_bond_address(config: &Pubkey, vote_account: &Pubkey) -> (Pubkey, u8)
 pub fn find_bond_mint(bond_account: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[BOND_MINT_SEED, bond_account.as_ref()], &ID)
 }
-
-// TODO: cannot find in Anchor code to get this info elsewhere
-#[cfg(not(target_os = "solana"))]
-pub fn find_event_authority() -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[b"__event_authority"], &ID)
-}
