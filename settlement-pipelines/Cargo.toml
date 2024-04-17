@@ -1,0 +1,34 @@
+[package]
+name = "settlement-pipelines"
+version = "0.0.1"
+description = "Off-chain pipelines to Validator Bonds Program"
+edition = "2021"
+authors = ["Marinade.Finance"]
+
+[[bin]]
+name = "settlement"
+path = "src/bin/settlement.rs"
+
+#[[bin]]
+#name = "claim"
+#path = "src/bin/claim.rs"
+
+[dependencies]
+anchor-client = {workspace = true}
+anyhow = { workspace = true }
+bincode = { workspace = true }
+clap = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+marinade-common-cli = { workspace = true }
+marinade-transactions = { workspace = true }
+merkle-tree = { workspace = true }
+regex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+settlement-engine = { workspace = true }
+shellexpand = { workspace = true }
+solana-sdk = { workspace = true }
+validator-bonds = { workspace = true }
+
