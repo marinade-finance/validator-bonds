@@ -2815,7 +2815,7 @@ dependencies = [
 [[package]]
 name = "marinade-common-cli"
 version = "0.1.0"
-source = "git+https://github.com/marinade-finance/marinade-common-rs-cli/?branch=refactor-split-tx-and-marinade#b6b1f0d65aa6ee6c19c5a3fe5eb8217c188157b8"
+source = "git+https://github.com/marinade-finance/marinade-common-rs-cli?branch=refactor-split-tx-and-marinade#b6b1f0d65aa6ee6c19c5a3fe5eb8217c188157b8"
 dependencies = [
  "anyhow",
  "clap 2.34.0",
@@ -2830,7 +2830,7 @@ dependencies = [
 [[package]]
 name = "marinade-solana-common"
 version = "0.1.0"
-source = "git+https://github.com/marinade-finance/marinade-common-rs-cli/?branch=refactor-split-tx-and-marinade#b6b1f0d65aa6ee6c19c5a3fe5eb8217c188157b8"
+source = "git+https://github.com/marinade-finance/marinade-common-rs-cli?branch=refactor-split-tx-and-marinade#b6b1f0d65aa6ee6c19c5a3fe5eb8217c188157b8"
 dependencies = [
  "solana-sdk",
 ]
@@ -2838,7 +2838,7 @@ dependencies = [
 [[package]]
 name = "marinade-transactions"
 version = "1.0.0"
-source = "git+https://github.com/marinade-finance/marinade-common-rs-cli/?branch=refactor-split-tx-and-marinade#b6b1f0d65aa6ee6c19c5a3fe5eb8217c188157b8"
+source = "git+https://github.com/marinade-finance/marinade-common-rs-cli?branch=refactor-split-tx-and-marinade#b6b1f0d65aa6ee6c19c5a3fe5eb8217c188157b8"
 dependencies = [
  "anchor-client",
  "anyhow",
