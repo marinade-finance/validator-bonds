@@ -123,6 +123,24 @@ steps:
 
   - wait: ~
 
+  - label: ":gear: Setup process-claim trigger"
+    commands:
+    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
+    - 'epoch=$(buildkite-agent meta-data get epoch)'
+    - |
+      cat <<EOF | buildkite-agent pipeline upload
+      steps:
+        - trigger: "process-claims"
+          label: ":rocket: Trigger: Process claims ($$snapshot_dir)"
+          async: false
+          build:
+            branch: $$BUILDKITE_BRANCH
+            env:
+              SNAPSHOT_DIR: $$snapshot_dir
+      EOF
+
+  - wait: ~
+
   - label: "🗑️ Cleanup"
     commands:
     - 'snapshot_dir=${SNAPSHOT_DIR:-$(buildkite-agent meta-data get snapshot_dir)}'
