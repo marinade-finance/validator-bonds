@@ -10,6 +10,7 @@ use marinade_transactions::transaction_executors::execute_transaction_builder;
 use regex::Regex;
 use settlement_engine::merkle_tree_collection::MerkleTreeCollection;
 use settlement_engine::utils::read_from_json_file;
+use settlement_pipelines::arguments::load_default_keypair;
 use settlement_pipelines::constants::find_event_authority;
 use settlement_pipelines::{
     arguments::{load_keypair, GlobalOpts},
@@ -66,7 +67,13 @@ fn main() -> anyhow::Result<()> {
         args.input_merkle_tree_collection, args.config
     );
     let merkle_tree_collection: MerkleTreeCollection =
-        read_from_json_file(&args.input_merkle_tree_collection)?;
+        read_from_json_file(&args.input_merkle_tree_collection).map_err(|e| {
+            anyhow!(
+                "Cannot read merkle tree collection from file '{}': {}",
+                args.input_merkle_tree_collection,
+                e
+            )
+        })?;
 
     // Initialize the Anchor Solana client
     let rpc_url = args
@@ -76,20 +83,26 @@ fn main() -> anyhow::Result<()> {
     let anchor_cluster = Cluster::from_str(&rpc_url)
         .map_err(|e| anyhow!("Could not parse JSON RPC url `{:?}`: {}", rpc_url, e))?;
 
-    let keypair_keypair = load_keypair(&args.global_opts.keypair)?;
+    let default_keypair = load_default_keypair(args.global_opts.keypair.as_deref())?;
     let fee_payer_keypair = if let Some(fee_payer) = args.global_opts.fee_payer {
         load_keypair(&fee_payer)?
     } else {
-        keypair_keypair.clone()
+        default_keypair.clone().map_or(Err(anyhow!("Neither --fee-payer nor --keypair provided, no keypair to pay for transaction fees")), Ok)?
     };
     let operator_authority_keypair = if let Some(operator_authority) = args.operator_authority {
         load_keypair(&operator_authority)?
     } else {
-        keypair_keypair.clone()
+        default_keypair.clone().map_or(
+            Err(anyhow!(
+                "Neither --operator-authority nor --keypair provided, operator keypair required"
+            )),
+            Ok,
+        )?
     };
 
     let epoch = args.epoch.map_or_else(|| {
-        let merkle_file_name = Path::new(&args.input_merkle_tree_collection).file_name().unwrap()
+        let merkle_file_name = Path::new(&args.input_merkle_tree_collection).file_name().
+            ok_or(anyhow!("Cannot extract file name from input merkle tree collection file path '{}'", args.input_merkle_tree_collection))?
             .to_str().ok_or(anyhow!("Cannot convert file name {} to string", args.input_merkle_tree_collection))?;
         let re = Regex::new("^([0-9]+)").unwrap();
         let captures = re.captures(merkle_file_name);
@@ -115,7 +128,7 @@ fn main() -> anyhow::Result<()> {
 
     // verify what are the settlement accounts that we need to create
     // (not to pushing many RPC calls to the network, squeezing them to less)
-    let mut creation_records: Vec<CreationRecord> = merkle_tree_collection
+    let mut creation_records = merkle_tree_collection
         .merkle_trees
         .iter()
         .filter(|merkle_tree| {
@@ -130,7 +143,10 @@ fn main() -> anyhow::Result<()> {
             }
         })
         .map(|merkle_tree| {
-            let merkle_root = merkle_tree.merkle_root.unwrap();
+            let merkle_root = merkle_tree.merkle_root.ok_or(anyhow!(
+                "Cannot create for vote account {} without a merkle root",
+                merkle_tree.vote_account
+            ))?;
             let vote_account_address = merkle_tree.vote_account;
             let (bond_address, _) = validator_bonds::state::bond::find_bond_address(
                 &args.config,
@@ -142,7 +158,7 @@ fn main() -> anyhow::Result<()> {
                     &merkle_root.to_bytes(),
                     epoch,
                 );
-            CreationRecord {
+            Ok(CreationRecord {
                 vote_account_address,
                 bond_address,
                 settlement_address,
@@ -151,9 +167,9 @@ fn main() -> anyhow::Result<()> {
                 max_merkle_nodes: merkle_tree.max_total_claims as u64,
                 settlement_account: None,
                 bond_account: None,
-            }
+            })
         })
-        .collect();
+        .collect::<Result<Vec<CreationRecord>, anyhow::Error>>()?;
 
     // loading accounts from on-chain
     let settlement_addresses: Vec<Pubkey> = creation_records

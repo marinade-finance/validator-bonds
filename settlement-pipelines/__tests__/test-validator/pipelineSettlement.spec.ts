@@ -1,7 +1,10 @@
-import { createTempFileKeypair } from '@marinade.finance/web3js-common'
+import {
+  createTempFileKeypair,
+  createUserAndFund,
+} from '@marinade.finance/web3js-common'
 import { sleep } from '@marinade.finance/ts-common'
 import { shellMatchers } from '@marinade.finance/jest-utils'
-import { Keypair, PublicKey } from '@solana/web3.js'
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
   bondAddress,
@@ -140,6 +143,14 @@ describe('Cargo CLI: Pipeline Settlement', () => {
       maxTotalClaim: randomMerkleTree.max_total_claim,
     })
 
+    const feePayer = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL * 10_000,
+    })
+    const feePayerBase64 =
+      '[' + (feePayer as Keypair).secretKey.toString() + ']'
+
+    // TODO: remove this when using transaction executor in the CLI
     await sleep(12_000)
 
     const executionResultRegex = RegExp(
@@ -161,6 +172,8 @@ describe('Cargo CLI: Pipeline Settlement', () => {
           provider.connection.rpcEndpoint,
           '-i',
           testJsonPath,
+          '--fee-payer',
+          feePayerBase64,
         ],
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
