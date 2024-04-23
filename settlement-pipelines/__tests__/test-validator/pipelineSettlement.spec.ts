@@ -154,7 +154,7 @@ describe('Cargo CLI: Pipeline Settlement', () => {
     await sleep(12_000)
 
     const executionResultRegex = RegExp(
-      settlementAddresses.length - 1 + ' executed successfully'
+      '.*' + (settlementAddresses.length - 1) + ' executed successfully' + '.*'
     )
     await (
       expect([

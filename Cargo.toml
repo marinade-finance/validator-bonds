@@ -33,8 +33,6 @@ env_logger = "0.10.0"
 fast-math = "0.1.1"
 hex = "0.4.3"
 log = "0.4.14"
-marinade-transactions = { git = "https://github.com/marinade-finance/marinade-common-rs-cli", branch = "refactor-split-tx-and-marinade" }
-marinade-common-cli = { git = "https://github.com/marinade-finance/marinade-common-rs-cli", branch = "refactor-split-tx-and-marinade" }
 merkle-tree = { path = "./merkle-tree" }
 regex = "1.10.4"
 rust_decimal = { version = "1.26", features = ["db-postgres"] }
@@ -55,6 +53,9 @@ solana-runtime = "=1.17.22"
 solana-sdk = "=1.17.22"
 solana-accounts-db = "=1.17.22"
 solana-security-txt = "1.1.1"
+solana-transaction-executor = { git = "https://github.com/marinade-finance/solana-transaction-executor", branch = "master" }
+solana-transaction-builder = { git = "https://github.com/marinade-finance/solana-transaction-builder", branch = "main" }
+solana-transaction-builder-executor = { git = "https://github.com/marinade-finance/solana-transaction-builder", branch = "main" }
 structopt = "0.3.21"
 tokio = { version = "1", features = ["full"] }
 tokio-postgres = { version = "0.7.7", features = ["with-chrono-0_4"] }

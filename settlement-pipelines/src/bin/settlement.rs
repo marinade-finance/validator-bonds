@@ -1,27 +1,34 @@
 use anchor_client::anchor_lang::AccountDeserialize;
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::{Client, Cluster, DynSigner};
 use anyhow::anyhow;
 use clap::Parser;
 use env_logger::{Builder, Env};
 use log::{debug, error, info};
-use marinade_transactions::transaction_builder::TransactionBuilder;
-use marinade_transactions::transaction_executors::execute_transaction_builder;
 use regex::Regex;
 use settlement_engine::merkle_tree_collection::MerkleTreeCollection;
 use settlement_engine::utils::read_from_json_file;
+use settlement_pipelines::anchor::add_instructions_to_builder_from_anchor;
 use settlement_pipelines::arguments::load_default_keypair;
 use settlement_pipelines::constants::find_event_authority;
 use settlement_pipelines::{
     arguments::{load_keypair, GlobalOpts},
     constants::MARINADE_CONFIG_ADDRESS,
 };
-use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::system_program;
+use solana_transaction_builder::TransactionBuilder;
+use solana_transaction_builder_executor::{
+    execute_transactions_in_sequence, sip_up_builder_to_execution_data,
+};
+use solana_transaction_executor::{
+    PriorityFeePolicy, SendTransactionWithGrowingTipProvider, TipPolicy, TransactionExecutorBuilder,
+};
 use std::path::Path;
 use std::rc::Rc;
 use std::str::FromStr;
+use std::sync::Arc;
 use validator_bonds::instructions::InitSettlementArgs;
 use validator_bonds::state::bond::Bond;
 use validator_bonds::state::settlement::Settlement;
@@ -51,7 +58,8 @@ struct Args {
     global_opts: GlobalOpts,
 }
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     let args: Args = Args::parse();
 
     let verbosity = if args.global_opts.verbose {
@@ -113,6 +121,20 @@ fn main() -> anyhow::Result<()> {
                 anyhow!("--epoch not provided and cannot extract epoch number from input merkle tree collection file path '{}'", args.input_merkle_tree_collection)
             )
     }, Ok)?;
+
+    // let priority_fee_policy = PriorityFeePolicy {
+    //     micro_lamports_per_cu_min: options.micro_lamports_per_cu_min,
+    //     micro_lamports_per_cu_max: options.micro_lamports_per_cu_max,
+    //     multiplier_per_attempt: options.micro_lamport_multiplier,
+    // };
+    //
+    // let tip_policy = TipPolicy {
+    //     tip_min: options.tip_min,
+    //     tip_max: options.tip_max,
+    //     multiplier_per_attempt: options.tip_multiplier,
+    // };
+    let tip_fee_policy = PriorityFeePolicy::default();
+    let tip_policy = TipPolicy::default();
 
     let fee_payer_pubkey = fee_payer_keypair.pubkey();
     let anchor_client = Client::new_with_options(
@@ -255,8 +277,7 @@ fn main() -> anyhow::Result<()> {
                     epoch,
                 },
             });
-        transaction_builder
-            .add_instructions_from_builder(req)
+        add_instructions_to_builder_from_anchor(&mut transaction_builder, &req)
             .map_err(|e| anyhow!("Cannot add instruction to transaction builder: {}", e))?;
     }
 
@@ -274,18 +295,27 @@ fn main() -> anyhow::Result<()> {
                 .collect::<Vec<String>>()
                 .join(", ")
         );
-        execute_transaction_builder(
+
+        let non_blocking_rpc = Arc::new(RpcClient::new(rpc_url.clone()));
+        let transaction_executor_builder = TransactionExecutorBuilder::new()
+            .with_default_providers(non_blocking_rpc.clone())
+            .with_send_transaction_provider(SendTransactionWithGrowingTipProvider {
+                rpc_url: rpc_url.clone(),
+                query_param: "tip".into(),
+                tip_policy,
+            });
+
+        let transaction_executor = Arc::new(transaction_executor_builder.build());
+        let execution_data = sip_up_builder_to_execution_data(
+            rpc_url.clone(),
             &mut transaction_builder,
-            &program.rpc(),
-            RpcSendTransactionConfig {
-                skip_preflight: args.global_opts.skip_preflight,
-                ..RpcSendTransactionConfig::default()
-            },
-            CommitmentLevel::Finalized,
-            false,
-            false,
-            None,
-        )?;
+            Some(tip_fee_policy),
+        );
+        let _tx_uuids = execution_data
+            .iter()
+            .map(|builder| builder.tx_uuid.clone())
+            .collect::<Vec<_>>();
+        execute_transactions_in_sequence(transaction_executor, execution_data).await?;
         info!(
             "InitSettlement instructions {} executed successfully",
             execution_count
