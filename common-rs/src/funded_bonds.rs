@@ -39,7 +39,7 @@ pub async fn collect_validator_bonds_with_funds(
     log::info!("Found witdraw requests: {}", witdraw_requests.len());
     log::info!("Found settlements: {}", settlements.len());
 
-    for (pubkey, stake_account) in stake_accounts {
+    for (pubkey, _, stake_account) in stake_accounts {
         if let Some(lockup) = stake_account.lockup() {
             if lockup.is_in_force(&clock, None) {
                 log::warn!("Lockup is in force {pubkey}");

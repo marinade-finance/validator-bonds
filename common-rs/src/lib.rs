@@ -4,12 +4,13 @@ use solana_sdk::signature::Keypair;
 use std::{str::FromStr, sync::Arc};
 
 pub mod bonds;
+pub mod constants;
 pub mod funded_bonds;
 pub mod settlements;
 pub mod stake_accounts;
 pub mod witdraw_requests;
 
-pub fn get_anchor_client(
+pub fn get_validator_bonds_program(
     rpc_client: Arc<RpcClient>,
     payer: Option<Arc<DynSigner>>,
 ) -> anyhow::Result<Program<Arc<DynSigner>>> {
