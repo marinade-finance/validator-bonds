@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
     nonblocking::rpc_client::RpcClient,
@@ -12,6 +11,7 @@ use solana_sdk::{
     stake_history::StakeHistory,
     sysvar::{clock, stake_history},
 };
+use std::sync::Arc;
 
 pub async fn get_stake_history(rpc_client: Arc<RpcClient>) -> anyhow::Result<StakeHistory> {
     Ok(bincode::deserialize(
@@ -33,8 +33,6 @@ pub async fn collect_stake_accounts(
     const STAKE_AUTHORITY_OFFSET: usize = 4 + 8;
     const WITHDRAW_AUTHORITY_OFFSET: usize = 4 + 8 + 32;
     let mut filters = vec![];
-
-
 
     if let Some(stake_authority) = stake_authority {
         filters.push(RpcFilterType::Memcmp(Memcmp::new(
