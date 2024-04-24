@@ -10,4 +10,8 @@ pub struct ValidatorBondRecord {
     pub cpmpe: Decimal,
     pub updated_at: DateTime<Utc>,
     pub epoch: u64,
+    pub funded_amount: Decimal,
+    pub effective_amount: Decimal,
+    pub remaining_witdraw_request_amount: Decimal,
+    pub remainining_settlement_claim_amount: Decimal,
 }

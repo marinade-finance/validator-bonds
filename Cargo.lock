@@ -188,6 +188,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "anchor-client"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb48c4a7911038da546dc752655a29fa49f6bd50ebc1edca218bac8da1012acd"
+dependencies = [
+ "anchor-lang",
+ "anyhow",
+ "futures",
+ "regex",
+ "serde",
+ "solana-account-decoder",
+ "solana-client",
+ "solana-sdk",
+ "thiserror",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "anchor-derive-accounts"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2899,7 +2918,7 @@ version = "3.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba8ee05284d79b367ae8966d558e1a305a781fc80c9df51f37775169117ba64f"
 dependencies = [
- "borsh 0.9.3",
+ "borsh 0.10.3",
  "num-derive 0.3.3",
  "num-traits",
  "solana-program",
@@ -7014,6 +7033,28 @@ dependencies = [
  "tracing",
  "tracing-log 0.1.4",
  "tracing-subscriber",
+ "validator-bonds",
+ "validator-bonds-common",
+]
+
+[[package]]
+name = "validator-bonds-common"
+version = "0.0.0"
+dependencies = [
+ "anchor-client",
+ "anyhow",
+ "bincode",
+ "log",
+ "serde",
+ "serde_json",
+ "serde_yaml 0.8.26",
+ "solana-account-decoder",
+ "solana-clap-utils",
+ "solana-cli-config",
+ "solana-client",
+ "solana-logger",
+ "solana-program",
+ "solana-sdk",
  "validator-bonds",
 ]
 

@@ -32,6 +32,7 @@ solana-account-decoder = { workspace = true }
 solana-program = { workspace = true }
 rust_decimal = { workspace = true }
 validator-bonds = { workspace = true }
+validator-bonds-common = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-log = { workspace = true }

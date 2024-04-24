@@ -30,7 +30,7 @@ impl std::fmt::Debug for CustomError {
     get,
     tag = "Bonds",
     operation_id = "List validator bonds",
-    path = "/v1/bonds",
+    path = "/bonds",
     responses(
         (status = 200, body = BondsResponse),
     )
