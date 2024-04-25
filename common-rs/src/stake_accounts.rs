@@ -69,9 +69,9 @@ pub async fn collect_stake_accounts(
             (
                 pubkey,
                 account.lamports,
-                bincode::deserialize(&account.data).expect(
-                    format!("Failed to deserialize stake account data for {}", pubkey).as_str(),
-                ),
+                bincode::deserialize(&account.data).unwrap_or_else(|_| {
+                    panic!("Failed to deserialize stake account data for {}", pubkey)
+                }),
             )
         })
         .collect())
@@ -87,7 +87,7 @@ pub fn divide_delegated_stake_accounts(
             if let Some(delegated_stake) = stake.stake() {
                 let voter_pubkey = delegated_stake.delegation.voter_pubkey;
                 map.entry(voter_pubkey)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push((pubkey, lamports, stake));
             }
         }

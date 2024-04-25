@@ -14,9 +14,9 @@ pub async fn get_bonds(rpc_client: Arc<RpcClient>) -> anyhow::Result<Vec<(Pubkey
 
 pub async fn get_bonds_for_pubkeys(
     rpc_client: Arc<RpcClient>,
-    pubkeys: &Vec<Pubkey>,
+    pubkeys: &[Pubkey],
 ) -> anyhow::Result<Vec<(Pubkey, Option<Bond>)>> {
-    let bond_accounts = rpc_client.get_multiple_accounts(&pubkeys).await?;
+    let bond_accounts = rpc_client.get_multiple_accounts(pubkeys).await?;
     pubkeys
         .iter()
         .zip(bond_accounts.iter())

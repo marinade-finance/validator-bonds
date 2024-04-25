@@ -16,9 +16,9 @@ pub async fn get_settlements(
 
 pub async fn get_settlements_for_pubkeys(
     rpc_client: Arc<RpcClient>,
-    pubkeys: &Vec<Pubkey>,
+    pubkeys: &[Pubkey],
 ) -> anyhow::Result<Vec<(Pubkey, Option<Settlement>)>> {
-    let settlement_accounts = rpc_client.get_multiple_accounts(&pubkeys).await?;
+    let settlement_accounts = rpc_client.get_multiple_accounts(pubkeys).await?;
     pubkeys
         .iter()
         .zip(settlement_accounts.iter())
