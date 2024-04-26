@@ -10,5 +10,5 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
   },
-  "include": ["packages/*/package.json", "packages/*/src/**/*.ts", "packages/*/generated/**/*.ts"]
+  "include": ["packages/*/package.json", "packages/*/src/**/*.ts", "packages/*/generated/**/*.ts", "settlement-pipelines/package.json"]
 }

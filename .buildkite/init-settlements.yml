@@ -1,0 +1,107 @@
+agents:
+  queue: "snapshots"
+
+steps:
+   # epoch number is parsed from the snapshot directory when provided
+  - input: "What is the epoch to create claims / Settlement accounts for?"
+    fields:
+      - text: "Epoch number"
+        key: "epoch"
+    if: "build.env('SNAPSHOT_DIR') == null"
+
+  - command: "echo 'Snapshot dir: $$SNAPSHOT_DIR'"
+    if: "build.env('SNAPSHOT_DIR') != null"
+  - block: "Confirm to get processed claims"
+    prompt: "Please review the 'Unblock' if ready to proceed."
+    if: "build.env('SNAPSHOT_DIR') != null"
+
+  - label: ":hammer_and_wrench: :rust: Build"
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'cargo build --release --bin init-settlement'
+    artifact_paths:
+      - target/release/init-settlement
+
+  - wait: ~
+
+  - label: ":gear: Setup"
+    env:
+      target_dir: /mnt/storage-1/snapshots
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'snapshot_dir=${SNAPSHOT_DIR:-$(buildkite-agent meta-data get snapshot_dir 2> /dev/null)} || true'
+    - 'epoch=$(buildkite-agent meta-data get epoch 2> /dev/null) || true'
+    - |
+      if [[ -z "$$snapshot_dir" || ! -d "$$snapshot_dir" ]]; then
+        snapshot_dir=$(mktemp --directory -p "$$target_dir" "snapshot-$$epoch-$(date +%s)-XXXXXX")
+        buildkite-agent meta-data set snapshot_dir "$$snapshot_dir"
+        echo "Snapshot directory does not exist, creating a new $$snapshot_dir"
+        buildkite-agent meta-data set remove_snapshot_dir "true"
+      else
+        echo "Using existing snapshot directory $$snapshot_dir"
+        buildkite-agent meta-data set remove_snapshot_dir "false"
+        epoch=$(<<<"$$snapshot_dir" grep -oP "(?<=snapshot-)\d+" || exit 1)
+      fi
+    - 'echo "Epoch: $$epoch"'
+    - 'buildkite-agent meta-data set epoch "$$epoch"'
+    - 'buildkite-agent meta-data set snapshot_dir "$$snapshot_dir"'
+
+  - wait: ~
+
+  - command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/process-claims'
+    concurrency: 1
+
+  - wait: ~
+
+  - label: ":floppy_disk: :arrow_left: :cloud: Check settlement merkle trees"
+    env:
+      gs_bucket: gs://marinade-validator-bonds-mainnet
+    commands:
+    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
+    - 'epoch=$(buildkite-agent meta-data get epoch)'
+    - |
+      if [[ ! -f "$$snapshot_dir/settlement-merkle-trees.json" ]]; then
+        echo "settlement-merkle-trees.json does not exist in $$snapshot_dir, downloading..."
+        gcloud storage cp "$$gs_bucket/$$epoch/settlement-merkle-trees.json" "$$snapshot_dir/"
+        gcloud storage cp "$$gs_bucket/$$epoch/settlements.json" "$$snapshot_dir/"
+      else
+        echo "settlement-merkle-trees.json exists in $$snapshot_dir, skipping download"
+      fi
+  
+  - wait: ~
+
+  - label: ":campfire: Create settlements"
+    env:
+      RUST_LOG: trace
+      RUST_BACKTRACE: full
+    commands:
+    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
+    - 'epoch=$(buildkite-agent meta-data get epoch)'
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/init-settlement .'
+    - 'chmod +x target/release/init-settlement'
+    # TODO: MOVE api from devnet to rpc url
+    - |
+      ./target/release/init-settlement \
+        --rpc-url https://api.devnet.solana.com \
+        --input-merkle-tree-collection "$$snapshot_dir/settlement-merkle-trees.json" \
+        --input-settlement-collection "$$snapshot_dir/settlements.json" \
+        --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
+        --fee-payer "$$VALIDATOR_BONDS_FUNDING_WALLET" \
+        --epoch "$$epoch"
+
+  - wait: ~
+
+  - label: ":wastebasket: Cleanup"
+    commands:
+    - |
+      if [[ $(buildkite-agent meta-data get remove_snapshot_dir) == "true" ]]; then
+        rm -rf "$$snapshot_dir"
+        echo "Removed temporary snapshot directory $$snapshot_dir"
+      fi
+
+  - wait: ~
+
+  - command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/prepare-claims'
+    concurrency: 1

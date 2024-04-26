@@ -39,7 +39,7 @@ pub enum SettlementFunder {
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct SettlementMeta {
-    funder: SettlementFunder,
+    pub funder: SettlementFunder,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]

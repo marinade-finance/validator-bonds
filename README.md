@@ -19,6 +19,7 @@ Mono repository for Validator Bonds product
 * [`scripts/`](./scripts/) - scripts used in pipeline and to manage and integrate various repository parts
 * [`snapshot-parser`](./snapshot-parser/) - a CLI for parsing Solana snapshots and providing data to be processed by `settlement-engine`
 * [`validator-bonds-cli`](./validator-bonds-cli/) - CLI used by operator to manage bonds (user related CLI is [packages/CLI](./packages/validator-bonds-cli/))
+* [`settlement-pipelines`](./settlement-pipelines/) - a set of CLI binaries that works as a pipeline off-chain management for the Validator Bonds Program 
 
 ## Validator Bonds Programs Flow
 

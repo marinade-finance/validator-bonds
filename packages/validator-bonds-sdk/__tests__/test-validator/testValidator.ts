@@ -1,9 +1,9 @@
 import * as anchor from '@coral-xyz/anchor'
 import { ValidatorBondsProgram, getProgram } from '../../src'
-import { Connection } from '@solana/web3.js'
+import { Commitment, Connection } from '@solana/web3.js'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
-export async function initTest(): Promise<{
+export async function initTest(commitment?: Commitment): Promise<{
   program: ValidatorBondsProgram
   provider: AnchorExtendedProvider
 }> {
@@ -16,7 +16,12 @@ export async function initTest(): Promise<{
   ) {
     connection = new Connection(
       'http://127.0.0.1:8899',
-      anchorProvider.connection.commitment
+      commitment ?? anchorProvider.connection.commitment
+    )
+  } else {
+    connection = new Connection(
+      anchorProvider.connection.rpcEndpoint,
+      commitment ?? anchorProvider.connection.commitment
     )
   }
   const provider = new AnchorExtendedProvider(
