@@ -125,18 +125,17 @@ steps:
 
   - label: ":gear: Setup init-settlements trigger"
     commands:
-    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - 'epoch=$(buildkite-agent meta-data get epoch)'
     - |
       cat <<EOF | buildkite-agent pipeline upload
       steps:
         - trigger: "init-settlements"
-          label: ":rocket: Trigger: Init settlements ($$snapshot_dir)"
+          label: ":rocket: Trigger: Init settlements ($$epoch)"
           async: false
           build:
             branch: $$BUILDKITE_BRANCH
             env:
-              SNAPSHOT_DIR: $$snapshot_dir
+              EPOCH: $$epoch
       EOF
 
   - wait: ~
