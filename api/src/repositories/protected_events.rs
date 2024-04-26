@@ -8,12 +8,12 @@ use crate::dto::ProtectedEventRecord;
 const CACHE_UPDATE_INTERVAL: Duration = Duration::from_secs(3600);
 const CACHE_PURGE_INTERVAL: Duration = Duration::from_secs(24 * 3600);
 
-async fn get_settlements(
+async fn get_protected_events(
     gcp_sa_key: &str,
     project_id: &str,
     from_epoch: u64,
 ) -> anyhow::Result<Vec<ProtectedEventRecord>> {
-    log::info!("Fetching settlements from epoch {from_epoch}...");
+    log::info!("Fetching protected events from epoch {from_epoch}...");
     let client = gcp_bigquery_client::Client::from_service_account_key_file(gcp_sa_key).await?;
 
     let mut rs = client
@@ -66,7 +66,7 @@ pub fn spawn_protected_events_cache_purger(
         loop {
             sleep(CACHE_PURGE_INTERVAL).await;
 
-            match get_settlements(&gcp_sa_key, &project_id, 0).await {
+            match get_protected_events(&gcp_sa_key, &project_id, 0).await {
                 Ok(updated_protected_events) => {
                     log::info!(
                         "Successfully fetched the protected events ({})",
@@ -98,7 +98,7 @@ pub fn spawn_protected_events_cache_updater(
                     protected_event.epoch.max(max_loaded_epoch)
                 });
 
-            match get_settlements(&gcp_sa_key, &project_id, max_loaded_epoch).await {
+            match get_protected_events(&gcp_sa_key, &project_id, max_loaded_epoch).await {
                 Ok(updated_protected_events) => {
                     log::info!(
                         "Successfully fetched the protected events ({}) from epoch: {max_loaded_epoch}",
