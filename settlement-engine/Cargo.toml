@@ -20,3 +20,4 @@ serde_yaml = { workspace = true }
 snapshot-parser = { workspace = true }
 solana-sdk = { workspace = true }
 tokio = { workspace = true }
+utoipa = { workspace = true }

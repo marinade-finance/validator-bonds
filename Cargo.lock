@@ -4538,6 +4538,7 @@ dependencies = [
  "snapshot-parser",
  "solana-sdk",
  "tokio",
+ "utoipa",
 ]
 
 [[package]]

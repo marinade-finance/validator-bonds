@@ -8,7 +8,7 @@ use {
     std::collections::HashMap,
 };
 
-#[derive(Clone, Deserialize, Serialize, Debug)]
+#[derive(Clone, Deserialize, Serialize, Debug, utoipa::ToSchema)]
 pub enum ProtectedEvent {
     CommissionIncrease {
         #[serde(with = "pubkey_string_conversion")]
