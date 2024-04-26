@@ -374,31 +374,6 @@ describe('Show command using CLI', () => {
           '--program-id',
           program.programId.toBase58(),
           'show-bond',
-          '--vote-account',
-          voteAccount.toBase58(),
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
-      code: 0,
-      signal: '',
-      // stderr: '',
-      stdout: YAML.stringify([expectedDataNoFunding]),
-    })
-
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-bond',
           '--bond-authority',
           bondAuthority.publicKey.toBase58(),
           '-f',
@@ -426,8 +401,6 @@ describe('Show command using CLI', () => {
           'show-bond',
           '--config',
           configAccount.toBase58(),
-          '--vote-account',
-          voteAccount.toBase58(),
           '--bond-authority',
           bondAuthority.publicKey.toBase58(),
           '--with-funding',
@@ -454,7 +427,6 @@ describe('Show command using CLI', () => {
           '--program-id',
           program.programId.toBase58(),
           'show-bond',
-          '--vote-account',
           Keypair.generate().publicKey,
           '-f',
           'yaml',
@@ -462,10 +434,10 @@ describe('Show command using CLI', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 0,
+      code: 1,
       signal: '',
       // stderr: '',
-      stdout: YAML.stringify([]),
+      stdout: /Account of type bond or voteAccount was not found/,
     })
   })
 

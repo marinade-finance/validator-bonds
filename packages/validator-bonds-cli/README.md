@@ -34,6 +34,13 @@ validator-bonds --help
 
 **Requirements:** Node.js version 16 or higher.
 
+## Required steps for a validator to be eligible for stake distribution
+
+* [creating a bond](#creating-a-bond)
+* [funding the bond](#funding-bond-account)
+* [during the time of tracking, the bond is sufficiently funded](#show-the-bond-account)
+
+
 ### Creating a bond
 
 A bond account can be created for any validator.
@@ -91,16 +98,20 @@ validator-bonds -um show-bond <bond-or-vote-account-address> -f yaml
 Expected output on created bond is like
 
 ```
-validator-bonds -um show-bond ...
 {
   programId: 'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4',
   publicKey: '...',
   account: {
     config: 'vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU',
-    validatorVoteAccount: '...',
-    authority: '...',
-    bump: 255,
-  }
+    voteAccount: '...',
+    authority: '...'
+  },
+  amountActive: 10024261277,
+  amountAtSettlements: 0,
+  amountToWithdraw: 0,
+  numberActiveStakeAccounts: 1,
+  numberSettlementStakeAccounts: 0,
+  withdrawRequest: '<NOT EXISTING>'
 }
 ```
 
@@ -121,6 +132,10 @@ validator-bonds -um configure-bond <bond-or-vote-account-address> \
 ```
 
 #### Permission-less Mint - Configure workflow
+
+**An alternative step**, the permission-less mint workflow is available only for special
+purposes. For configuration, it is typically recommended to use the validator identity
+signature, as described in [bond account configuration](#bond-account-configuration).
 
 The owner of the `validator identity` key has permission to configure the bond account. To verify the ownership of the validator identity key without requiring the CLI-generated transaction signature and sending it on-chain, one can use Bond's token minting. Use the command `mint-bond`:
 

@@ -1,19 +1,22 @@
 use anchor_client::{Client, Cluster, DynSigner, Program};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::signature::Keypair;
+use std::rc::Rc;
 use std::{str::FromStr, sync::Arc};
 
 pub mod bonds;
+pub mod constants;
 pub mod funded_bonds;
 pub mod settlements;
 pub mod stake_accounts;
+pub mod utils;
 pub mod witdraw_requests;
 
-pub fn get_anchor_client(
+pub fn get_validator_bonds_program(
     rpc_client: Arc<RpcClient>,
-    payer: Option<Arc<DynSigner>>,
-) -> anyhow::Result<Program<Arc<DynSigner>>> {
-    let payer = payer.unwrap_or(Arc::new(DynSigner(Arc::new(Keypair::new()))));
+    payer: Option<Rc<DynSigner>>,
+) -> anyhow::Result<Program<Rc<DynSigner>>> {
+    let payer = payer.unwrap_or(Rc::new(DynSigner(Arc::new(Keypair::new()))));
 
     Ok(Client::new_with_options(
         Cluster::from_str(&rpc_client.url())?,

@@ -1,3 +1,4 @@
+use crate::utils::get_sysvar_clock;
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
     nonblocking::rpc_client::RpcClient,
@@ -11,6 +12,7 @@ use solana_sdk::{
     stake_history::StakeHistory,
     sysvar::{clock, stake_history},
 };
+use std::collections::HashMap;
 use std::sync::Arc;
 
 pub async fn get_stake_history(rpc_client: Arc<RpcClient>) -> anyhow::Result<StakeHistory> {
@@ -25,11 +27,13 @@ pub async fn get_clock(rpc_client: Arc<RpcClient>) -> anyhow::Result<Clock> {
     )?)
 }
 
+pub type CollectedStakeAccounts = Vec<(Pubkey, u64, StakeState)>;
+
 pub async fn collect_stake_accounts(
     rpc_client: Arc<RpcClient>,
     withdraw_authority: Option<Pubkey>,
     stake_authority: Option<Pubkey>,
-) -> anyhow::Result<Vec<(Pubkey, StakeState)>> {
+) -> anyhow::Result<CollectedStakeAccounts> {
     const STAKE_AUTHORITY_OFFSET: usize = 4 + 8;
     const WITHDRAW_AUTHORITY_OFFSET: usize = 4 + 8 + 32;
     let mut filters = vec![];
@@ -62,6 +66,34 @@ pub async fn collect_stake_accounts(
         .await?;
     Ok(accounts
         .into_iter()
-        .map(|(pubkey, account)| (pubkey, bincode::deserialize(&account.data).unwrap()))
+        .map(|(pubkey, account)| {
+            (
+                pubkey,
+                account.lamports,
+                bincode::deserialize(&account.data).unwrap_or_else(|_| {
+                    panic!("Failed to deserialize stake account data for {}", pubkey)
+                }),
+            )
+        })
         .collect())
+}
+
+pub async fn divide_delegated_stake_accounts(
+    stake_accounts: CollectedStakeAccounts,
+    rpc_client: Arc<RpcClient>,
+) -> anyhow::Result<HashMap<Pubkey, CollectedStakeAccounts>> {
+    let mut map: HashMap<Pubkey, CollectedStakeAccounts> = HashMap::new();
+    let clock: Clock = get_sysvar_clock(rpc_client).await?;
+    for (pubkey, lamports, stake) in stake_accounts {
+        // locked stake accounts are not correctly delegated to bonds
+        if stake.lockup().is_none() || !stake.lockup().unwrap().is_in_force(&clock, None) {
+            if let Some(delegated_stake) = stake.stake() {
+                let voter_pubkey = delegated_stake.delegation.voter_pubkey;
+                map.entry(voter_pubkey)
+                    .or_default()
+                    .push((pubkey, lamports, stake));
+            }
+        }
+    }
+    Ok(map)
 }

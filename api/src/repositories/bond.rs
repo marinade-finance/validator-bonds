@@ -28,14 +28,12 @@ pub async fn get_bonds(psql_client: &Client) -> anyhow::Result<Vec<ValidatorBond
             epoch: row.get::<_, i32>("epoch").try_into()?,
             cpmpe: row.get::<_, Decimal>("cpmpe"),
             updated_at: row.get("updated_at"),
-            funded_amount: row.get::<_, Decimal>("funded_amount").try_into()?,
-            effective_amount: row.get::<_, Decimal>("effective_amount").try_into()?,
+            funded_amount: row.get::<_, Decimal>("funded_amount"),
+            effective_amount: row.get::<_, Decimal>("effective_amount"),
             remaining_witdraw_request_amount: row
-                .get::<_, Decimal>("remaining_witdraw_request_amount")
-                .try_into()?,
+                .get::<_, Decimal>("remaining_witdraw_request_amount"),
             remainining_settlement_claim_amount: row
-                .get::<_, Decimal>("remainining_settlement_claim_amount")
-                .try_into()?,
+                .get::<_, Decimal>("remainining_settlement_claim_amount"),
         })
     }
 
@@ -102,7 +100,7 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
             SET vote_account = EXCLUDED.vote_account,
                 authority = EXCLUDED.authority,
                 updated_at = EXCLUDED.updated_at,
-                cpmpe = EXCLUDED.cpmpe
+                cpmpe = EXCLUDED.cpmpe,
                 funded_amount = EXCLUDED.funded_amount,
                 effective_amount = EXCLUDED.effective_amount,
                 remaining_witdraw_request_amount = EXCLUDED.remaining_witdraw_request_amount,

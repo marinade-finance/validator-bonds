@@ -4,6 +4,7 @@ use serde_yaml;
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 use std::sync::Arc;
+use validator_bonds_common::constants::MARINADE_CONFIG_ADDRESS;
 use validator_bonds_common::funded_bonds::collect_validator_bonds_with_funds;
 
 pub async fn collect_bonds(options: CommonCollectOptions) -> anyhow::Result<()> {
@@ -12,7 +13,7 @@ pub async fn collect_bonds(options: CommonCollectOptions) -> anyhow::Result<()> 
         options.commitment.to_string(),
     ));
 
-    let config_address = Pubkey::from_str("vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU")?;
+    let config_address = Pubkey::from_str(MARINADE_CONFIG_ADDRESS)?;
     let funded_bonds =
         collect_validator_bonds_with_funds(rpc_client.clone(), config_address).await?;
 

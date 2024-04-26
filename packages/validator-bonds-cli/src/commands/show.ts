@@ -93,11 +93,6 @@ export function installShowBond(program: Command) {
       parsePubkey
     )
     .option(
-      '--vote-account <pubkey>',
-      'Validator vote account to filter the bond accounts with',
-      parsePubkeyOrPubkeyFromWallet
-    )
-    .option(
       '--bond-authority <pubkey>',
       'Bond authority to filter the bond accounts with',
       parsePubkeyOrPubkeyFromWallet
@@ -119,13 +114,11 @@ export function installShowBond(program: Command) {
         address: Promise<PublicKey | undefined>,
         {
           config,
-          voteAccount,
           bondAuthority,
           withFunding,
           format,
         }: {
           config?: Promise<PublicKey>
-          voteAccount?: Promise<PublicKey>
           bondAuthority?: Promise<PublicKey>
           withFunding: boolean
           format: FormatType
@@ -134,7 +127,6 @@ export function installShowBond(program: Command) {
         await showBond({
           address: await address,
           config: await config,
-          voteAccount: await voteAccount,
           bondAuthority: await bondAuthority,
           withFunding,
           format,
