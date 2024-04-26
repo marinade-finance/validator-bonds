@@ -1,6 +1,7 @@
 use api::api_docs::ApiDoc;
 use api::context::{Context, WrappedContext};
-use api::handlers::{bonds, docs};
+use api::handlers::{bonds, docs, protected_events};
+use api::repositories::protected_events::spawn_protected_events_cache;
 use env_logger::Env;
 use log::{error, info};
 use std::convert::Infallible;
@@ -14,6 +15,12 @@ use warp::Filter;
 pub struct Params {
     #[structopt(long = "postgres-url")]
     pub postgres_url: String,
+
+    #[structopt(long = "gcp-project-id")]
+    pub gcp_project_id: Option<String>,
+
+    #[structopt(long = "gcp-sa-key")]
+    pub gcp_sa_key: Option<String>,
 
     #[structopt(long = "port", default_value = "8000")]
     pub port: u16,
@@ -33,7 +40,22 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    let context = Arc::new(RwLock::new(Context::new(psql_client)?));
+    let protected_event_records = Arc::new(RwLock::new(vec![]));
+    let context = Arc::new(RwLock::new(Context::new(
+        psql_client,
+        protected_event_records.clone(),
+    )?));
+
+    match (params.gcp_project_id, params.gcp_sa_key) {
+        (Some(gcp_project_id), Some(gcp_sa_key)) => {
+            error!("Spawning protected events cache.");
+            spawn_protected_events_cache(gcp_sa_key, gcp_project_id, protected_event_records).await;
+        }
+        (None, None) => {
+            error!("GCP parameters not provided, will not populate the protected events.")
+        }
+        _ => anyhow::bail!("All GCP parameters must be used together."),
+    };
 
     let cors = warp::cors()
         .allow_any_origin()
@@ -65,11 +87,20 @@ async fn main() -> anyhow::Result<()> {
         .and(with_context(context.clone()))
         .and_then(bonds::handler);
 
+    let route_protected_events = warp::path!("protected-events")
+        .and(warp::path::end())
+        .and(warp::get())
+        .and(warp::query::<protected_events::QueryParams>())
+        .and(with_context(context.clone()))
+        .and_then(protected_events::handler);
+
     let routes = top_level
         .or(route_api_docs_oas)
         .or(route_api_docs_html)
         .or(route_bonds)
-        .with(cors);
+        .or(route_protected_events)
+        .with(cors)
+        .with(warp::filters::compression::gzip());
 
     warp::serve(routes).run(([0, 0, 0, 0], params.port)).await;
 

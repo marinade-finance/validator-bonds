@@ -167,7 +167,7 @@ pub fn collect_commission_increase_events(
                             current_commission,
                             expected_epr: expected_epr_calculator(previous_commission),
                             actual_epr: expected_epr_calculator(current_commission),
-                            epr_loss_bps: bps((100 - current_commission).into(), (100 - previous_commission).into()),
+                            epr_loss_bps: 10000 - bps((100 - current_commission).into(), (100 - previous_commission).into()),
                             stake: lamports_to_sol(stake),
                         },
                     );

@@ -1,6 +1,6 @@
 use crate::{
     dto::ValidatorBondRecord,
-    handlers::{bonds, docs},
+    handlers::{bonds, docs, protected_events},
 };
 use utoipa::OpenApi;
 
@@ -14,7 +14,11 @@ use utoipa::OpenApi;
             url = "https://www.apache.org/licenses/LICENSE-2.0"
         )
     ),
-    components(schemas(ValidatorBondRecord), schemas(bonds::BondsResponse),),
-    paths(docs::handler, bonds::handler,)
+    components(
+        schemas(ValidatorBondRecord),
+        schemas(bonds::BondsResponse),
+        schemas(protected_events::ProtectedEventsResponse),
+    ),
+    paths(docs::handler, bonds::handler, protected_events::handler)
 )]
 pub struct ApiDoc;

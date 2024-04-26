@@ -97,7 +97,7 @@ fn main() -> anyhow::Result<()> {
                 stake_authorities_filter(HashSet::from_iter(whitelisted_stake_authorities))
             });
 
-    info!("Building stake meta collectio index...",);
+    info!("Building stake meta collection index...");
     let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
 
     info!("Generating settlement collection...");
