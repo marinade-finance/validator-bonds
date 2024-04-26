@@ -9,6 +9,7 @@ pub mod constants;
 pub mod funded_bonds;
 pub mod settlements;
 pub mod stake_accounts;
+pub mod utils;
 pub mod witdraw_requests;
 
 pub fn get_validator_bonds_program(

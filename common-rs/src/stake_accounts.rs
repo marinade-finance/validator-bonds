@@ -1,3 +1,4 @@
+use crate::utils::get_sysvar_clock;
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
     nonblocking::rpc_client::RpcClient,
@@ -77,13 +78,15 @@ pub async fn collect_stake_accounts(
         .collect())
 }
 
-pub fn divide_delegated_stake_accounts(
+pub async fn divide_delegated_stake_accounts(
     stake_accounts: CollectedStakeAccounts,
-) -> HashMap<Pubkey, CollectedStakeAccounts> {
+    rpc_client: Arc<RpcClient>,
+) -> anyhow::Result<HashMap<Pubkey, CollectedStakeAccounts>> {
     let mut map: HashMap<Pubkey, CollectedStakeAccounts> = HashMap::new();
+    let clock: Clock = get_sysvar_clock(rpc_client).await?;
     for (pubkey, lamports, stake) in stake_accounts {
         // locked stake accounts are not correctly delegated to bonds
-        if stake.lockup().is_none() {
+        if stake.lockup().is_none() || !stake.lockup().unwrap().is_in_force(&clock, None) {
             if let Some(delegated_stake) = stake.stake() {
                 let voter_pubkey = delegated_stake.delegation.voter_pubkey;
                 map.entry(voter_pubkey)
@@ -92,5 +95,5 @@ pub fn divide_delegated_stake_accounts(
             }
         }
     }
-    map
+    Ok(map)
 }
