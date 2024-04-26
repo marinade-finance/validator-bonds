@@ -131,7 +131,7 @@ steps:
       steps:
         - trigger: "init-settlements"
           label: ":rocket: Trigger: Init settlements ($$epoch)"
-          async: false
+          async: true
           build:
             branch: $$BUILDKITE_BRANCH
             env:

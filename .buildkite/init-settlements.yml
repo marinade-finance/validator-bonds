@@ -5,11 +5,12 @@ steps:
   # epoch number provided in env or prompted
   - input: "What is the epoch to init settlements for?"
     fields:
-      - text: "Epoch number"
+      - text: "Epoch"
         key: "epoch"
+        format: "[0-9]+"
     if: "build.env('EPOCH') == null"
 
-  - command: "echo 'Snapshot dir: $$EPOCH'"
+  - command: "echo 'Epoch is: $$EPOCH'"
     if: "build.env('EPOCH') != null"
   - block: "Confirm to get processed init settlements"
     prompt: "Please review the 'Unblock' if ready to proceed."
@@ -24,12 +25,26 @@ steps:
 
   - wait: ~
 
+  - label: ":mega: Notification initializing settlements"
+    commands:
+    - |
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" -H "Content-Type: application/json" -d '{
+        "embeds": [
+          {
+            "title": "Starting initializing settlements of Validator Bonds ('"$$epoch"').",
+            "url": "'"$$BUILDKITE_BUILD_URL"'",
+            "color": "8388863"
+          }
+        ]
+      }'
+
   - label: ":gear: Setup"
     env:
       target_dir: /mnt/storage-1/snapshots
     commands:
     - '. "$HOME/.cargo/env"'
-    - 'epoch=${EPOCH:-$(buildkite-agent meta-data get epoch 2> /dev/null)} || true'
+    - 'epoch=$(buildkite-agent meta-data get epoch)'
     - 'buildkite-agent meta-data set epoch "$$epoch"'
     - 'buildkite-agent meta-data set snapshot_dir "."'
     - 'echo "Epoch: $$epoch"'
@@ -51,6 +66,9 @@ steps:
     - |
       gcloud storage cp "$$gs_bucket/$$epoch/settlement-merkle-trees.json" "$$snapshot_dir"
       gcloud storage cp "$$gs_bucket/$$epoch/settlements.json" "$$snapshot_dir"
+    artifact_paths:
+      - "$$snapshot_dir/settlement-merkle-trees.json"
+      - "$$snapshot_dir/settlements.json"
   
   - wait: ~
 
@@ -62,6 +80,8 @@ steps:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - 'epoch=$(buildkite-agent meta-data get epoch)'
     - 'buildkite-agent artifact download --include-retried-jobs target/release/init-settlement .'
+    - 'buildkite-agent artifact download --include-retried-jobs $$snapshot_dir/settlement-merkle-trees.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs $$snapshot_dir/settlements.json .'
     - 'chmod +x target/release/init-settlement'
     # TODO: MOVE api from devnet to rpc url
     - |
