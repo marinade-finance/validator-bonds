@@ -21,7 +21,7 @@ steps:
     - 'buildkite-agent meta-data set epoch "$$epoch"'
     - 'echo "Epoch: $$epoch"'
     - |
-      echo "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" -H "Content-Type: application/json" -d '{
+      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" -H "Content-Type: application/json" -d '{
         "embeds": [
           {
             "title": "Confirm Settlements Initialization for Validator Bonds ('"$$epoch"').",
@@ -141,7 +141,7 @@ steps:
     - 'attempts_count=$(buildkite-agent meta-data get attempts_count)'
     - 'report=$(buildkite-agent meta-data get report)'
     - |
-        echo "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" -H "Content-Type: application/json" -d '{
+        curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" -H "Content-Type: application/json" -d '{
           "embeds": [
             {
               "title": "Initializing Settlements for Validator Bonds ('"$$epoch"') '"$$notification_result"' after '"$$attempts_count"' attempts.",
