@@ -107,6 +107,7 @@ steps:
     env:
       gs_bucket: gs://marinade-validator-bonds-mainnet
     commands:
+     - 'epoch=$(buildkite-agent meta-data get epoch)'
      - 'build_result=$(buildkite-agent step get "outcome" --step "init-settlement")'
      - |
         if [[ "$$build_result" =~ "failed" ]]; then
@@ -123,7 +124,7 @@ steps:
      - 'buildkite-agent artifact download --include-retried-jobs "build-report.*" ./reports/'
      - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
      - '[ -f "$$report_path" ] || echo "UNKNOWN ERROR" >> "$$report_path"'
-     - 'gcloud storage cp "$$report_path" "$$gs_bucket/$$epoch/"'
+     - 'gcloud storage cp "$$report_path" "$$gs_bucket/$$epoch/init-settlement-report.txt"'
      - 'buildkite-agent meta-data set attempts_count "$(grep -c "#ATTEMPT" "$$report_path")"'
      - 'buildkite-agent meta-data set report "$(cat "$$report_path")"'
     depends_on: "init-settlement"
