@@ -136,7 +136,7 @@ impl<'info> ClaimSettlement<'info> {
         // settlement_claim PDA address verification
         let tree_node = TreeNode {
             stake_authority: stake_account_staker,
-            withdraw_authority: stake_account_withdrawer.key(),
+            withdraw_authority: stake_account_withdrawer,
             claim,
             proof: None,
         };

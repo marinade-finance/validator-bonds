@@ -4,8 +4,10 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
+anchor-client = { workspace = true }
 anyhow = { workspace = true }
 bincode = { workspace = true }
+futures = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -17,5 +19,5 @@ solana-logger = { workspace = true }
 solana-cli-config = { workspace = true }
 solana-account-decoder = { workspace = true }
 solana-program = { workspace = true }
-anchor-client = { workspace = true }
+tokio = {workspace = true}
 validator-bonds = { workspace = true }

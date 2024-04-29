@@ -1,10 +1,8 @@
 use anyhow::anyhow;
 use clap::Parser;
 use log::{debug, error, info};
-use settlement_engine::merkle_tree_collection::{MerkleTreeCollection, MerkleTreeMeta};
-use settlement_engine::settlement_claims::{
-    Settlement as SettlementClaimsSettlement, SettlementCollection, SettlementFunder,
-};
+use settlement_engine::merkle_tree_collection::MerkleTreeCollection;
+use settlement_engine::settlement_claims::{SettlementCollection, SettlementFunder};
 use settlement_engine::utils::read_from_json_file;
 use settlement_pipelines::anchor::add_instructions_to_builder_from_anchor;
 use settlement_pipelines::arguments::GlobalOpts;
@@ -12,6 +10,7 @@ use settlement_pipelines::arguments::{
     init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
 };
 use settlement_pipelines::init::init_log;
+use settlement_pipelines::json_data::{resolve_combined, MerkleTreeMetaSettlement};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
@@ -25,7 +24,7 @@ use solana_sdk::sysvar::{
 };
 use solana_transaction_builder::TransactionBuilder;
 use solana_transaction_builder_executor::{
-    builder_to_execution_data, execute_transactions_in_sequence,
+    builder_to_execution_data, execute_transactions_in_parallel, execute_transactions_in_sequence,
 };
 use solana_transaction_executor::{
     SendTransactionWithGrowingTipProvider, TransactionExecutorBuilder,
@@ -73,7 +72,7 @@ struct Args {
     )]
     input_settlement_collection: String,
 
-    /// may override epoch from the settlement collection
+    /// forcing epoch, overriding from the settlement collection
     #[arg(long)]
     epoch: Option<u64>,
 
@@ -82,18 +81,6 @@ struct Args {
 
     #[clap(flatten)]
     tip_policy_opts: TipPolicyOpts,
-}
-
-#[derive(Clone)]
-pub struct MerkleTreeMetaSettlement {
-    pub merkle_tree: MerkleTreeMeta,
-    pub settlement: SettlementClaimsSettlement,
-}
-#[derive(Clone)]
-pub struct CombinedMerkleTreeSettlementCollections {
-    pub slot: u64,
-    pub epoch: u64,
-    pub merkle_tree_settlements: Vec<MerkleTreeMetaSettlement>,
 }
 
 #[tokio::main]
@@ -110,7 +97,7 @@ async fn main() -> anyhow::Result<()> {
         let merkle_tree_collection: MerkleTreeCollection =
             read_from_json_file(&args.input_merkle_tree_collection).map_err(|e| {
                 anyhow!(
-                    "Cannot read merkle tree collection from file '{}': {}",
+                    "Cannot read merkle tree collection from file '{}': {:?}",
                     args.input_merkle_tree_collection,
                     e
                 )
@@ -118,36 +105,12 @@ async fn main() -> anyhow::Result<()> {
         let settlement_collection: SettlementCollection =
             read_from_json_file(&args.input_settlement_collection).map_err(|e| {
                 anyhow!(
-                    "Cannot read settlement collection from file '{}': {}",
+                    "Cannot read settlement collection from file '{}': {:?}",
                     args.input_settlement_collection,
                     e
                 )
             })?;
-        if merkle_tree_collection.merkle_trees.len() != settlement_collection.settlements.len()
-            || merkle_tree_collection.epoch != settlement_collection.epoch
-            || merkle_tree_collection.slot != settlement_collection.slot
-        {
-            Err(anyhow!(
-            "Mismatched merkle tree and settlement collections: [array len: {} vs {}, epoch: {} vs {}, slot: {} vs {}]",
-            merkle_tree_collection.merkle_trees.len(),
-            settlement_collection.settlements.len(),
-            merkle_tree_collection.epoch, settlement_collection.epoch, merkle_tree_collection.slot, settlement_collection.slot
-        ))
-        } else {
-            Ok(CombinedMerkleTreeSettlementCollections {
-                slot: settlement_collection.slot,
-                epoch: settlement_collection.epoch,
-                merkle_tree_settlements: merkle_tree_collection
-                    .merkle_trees
-                    .into_iter()
-                    .zip(settlement_collection.settlements.into_iter())
-                    .map(|(merkle_tree, settlement)| MerkleTreeMetaSettlement {
-                        merkle_tree,
-                        settlement,
-                    })
-                    .collect(),
-            })
-        }
+        resolve_combined(merkle_tree_collection, settlement_collection)
     }?;
 
     let InitializedGlobalOpts {
@@ -173,14 +136,14 @@ async fn main() -> anyhow::Result<()> {
 
     let config: Config = program.account(config_address).await.map_err(|e| {
         anyhow!(
-            "Cannot load validator-bonds config account {}: {}",
+            "Cannot load validator-bonds config account {}: {:?}",
             config_address,
             e
         )
     })?;
     let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
 
-    let mut init_settlements_errors: Vec<String> = vec![];
+    let mut init_settlement_errors: Vec<String> = vec![];
 
     // verify what are the settlement accounts that we need to create
     // (not to pushing many RPC calls to the network, squeezing them to less)
@@ -265,7 +228,7 @@ async fn main() -> anyhow::Result<()> {
                 settlement_record.max_total_claim
             );
             error!("{}", err_msg);
-            init_settlements_errors.push(err_msg);
+            init_settlement_errors.push(err_msg);
             continue;
         }
         if settlement_record.settlement_account.is_some() {
@@ -299,7 +262,7 @@ async fn main() -> anyhow::Result<()> {
             add_instructions_to_builder_from_anchor(&mut transaction_builder, &req).map_err(
                 |e| {
                     anyhow!(
-                        "Cannot add init settlement instruction to transaction builder: {}",
+                        "Cannot add init settlement instruction to transaction builder: {:?}",
                         e
                     )
                 },
@@ -322,7 +285,7 @@ async fn main() -> anyhow::Result<()> {
         &mut transaction_builder,
         Some(priority_fee_policy.clone()),
     );
-    execute_transactions_in_sequence(transaction_executor.clone(), execution_data).await?;
+    execute_transactions_in_parallel(transaction_executor.clone(), execution_data).await?;
     info!(
         "InitSettlement instructions {} executed successfully of vote accounts [{}]",
         init_execution_count,
@@ -503,7 +466,7 @@ async fn main() -> anyhow::Result<()> {
                         add_instructions_to_builder_from_anchor(&mut transaction_builder, &req)
                             .map_err(|e| {
                                 anyhow!(
-                                    "Cannot add merge stake instruction to transaction builder: {}",
+                                    "Cannot add merge stake instruction to transaction builder: {:?}",
                                     e
                                 )
                             })?;
@@ -516,7 +479,7 @@ async fn main() -> anyhow::Result<()> {
                             lamports_available
                         );
                         error!("{}", err_msg);
-                        init_settlements_errors.push(err_msg);
+                        init_settlement_errors.push(err_msg);
                         funded_lamports_overall += lamports_available;
                     } else if lamports_available > amount_to_fund + minimal_stake_lamports {
                         // we are in situation that the stake account has got (or it will have after merging)
@@ -546,7 +509,7 @@ async fn main() -> anyhow::Result<()> {
                         settlement_record.settlement_address
                     );
                     error!("{}", err_msg);
-                    init_settlements_errors.push(err_msg);
+                    init_settlement_errors.push(err_msg);
                 }
             }
         }
@@ -638,7 +601,7 @@ async fn main() -> anyhow::Result<()> {
                 add_instructions_to_builder_from_anchor(&mut transaction_builder, &req).map_err(
                     |e| {
                         anyhow!(
-                            "Cannot add merge stake instruction to transaction builder: {}",
+                            "Cannot add merge stake instruction to transaction builder: {:?}",
                             e
                         )
                     },
@@ -671,18 +634,19 @@ async fn main() -> anyhow::Result<()> {
         "Expected to get all instructions from builder processed"
     );
 
-    println!("For epoch {epoch}: JSON loaded {} settlements with {} lamports, this run funded {} settlements with {} lamports",
+    println!("For epoch {epoch}: JSON loaded {} settlements with {} lamports, this run funded {} settlements with {} lamports, {} errors",
         settlement_records.len(),
         settlement_records.iter().map(|s| s.max_total_claim).sum::<u64>(),
         funded_settlements_overall,
-        funded_lamports_overall
+        funded_lamports_overall,
+        init_settlement_errors.len(),
     );
 
-    if !init_settlements_errors.is_empty() {
-        serde_json::to_writer(io::stdout(), &init_settlements_errors)?;
+    if !init_settlement_errors.is_empty() {
+        serde_json::to_writer(io::stdout(), &init_settlement_errors)?;
         return Err(anyhow!(
             "{} errors during initialization of settlements",
-            init_settlements_errors.len(),
+            init_settlement_errors.len(),
         ));
     }
 

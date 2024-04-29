@@ -4648,6 +4648,7 @@ dependencies = [
  "bincode",
  "clap 4.4.8",
  "env_logger 0.10.1",
+ "futures",
  "log",
  "merkle-tree",
  "regex",
@@ -4656,6 +4657,7 @@ dependencies = [
  "serde_yaml 0.8.26",
  "settlement-engine",
  "shellexpand",
+ "solana-account-decoder",
  "solana-client",
  "solana-sdk",
  "solana-transaction-builder",
@@ -5914,12 +5916,12 @@ dependencies = [
 [[package]]
 name = "solana-transaction-builder"
 version = "0.1.0"
-source = "git+https://github.com/marinade-finance/solana-transaction-builder?branch=main#30707c9ef2b946cd692ac996282682fc030d56a8"
+source = "git+https://github.com/marinade-finance/solana-transaction-builder?branch=main#7800d2c3a6a329fb1d5be575582f558511aca629"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
  "bincode",
- "borsh 0.10.3",
+ "borsh 0.9.3",
  "log",
  "once_cell",
  "solana-sdk",
@@ -5929,11 +5931,12 @@ dependencies = [
 [[package]]
 name = "solana-transaction-builder-executor"
 version = "0.1.0"
-source = "git+https://github.com/marinade-finance/solana-transaction-builder?branch=main#30707c9ef2b946cd692ac996282682fc030d56a8"
+source = "git+https://github.com/marinade-finance/solana-transaction-builder?branch=main#7800d2c3a6a329fb1d5be575582f558511aca629"
 dependencies = [
  "anyhow",
  "async-stream",
  "cached",
+ "futures",
  "log",
  "solana-client",
  "solana-sdk",
@@ -7294,6 +7297,7 @@ dependencies = [
  "anchor-client",
  "anyhow",
  "bincode",
+ "futures",
  "log",
  "serde",
  "serde_json",
@@ -7305,6 +7309,7 @@ dependencies = [
  "solana-logger",
  "solana-program",
  "solana-sdk",
+ "tokio",
  "validator-bonds",
 ]
 

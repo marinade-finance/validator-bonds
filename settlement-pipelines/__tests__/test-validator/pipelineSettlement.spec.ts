@@ -1,15 +1,25 @@
 import {
   createTempFileKeypair,
   createUserAndFund,
+  waitForNextEpoch,
 } from '@marinade.finance/web3js-common'
+import { sleep } from '@marinade.finance/ts-common'
 import { shellMatchers } from '@marinade.finance/jest-utils'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import {
+  Authorized,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  StakeProgram,
+  TransactionInstruction,
+} from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
   bondAddress,
   bondsWithdrawerAuthority,
   findConfigStakeAccounts,
   findSettlements,
+  findStakeAccountNoDataInfos,
   getMultipleSettlements,
   settlementAddress,
 } from '@marinade.finance/validator-bonds-sdk'
@@ -22,11 +32,13 @@ import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-v
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import fs from 'fs'
 import path from 'path'
-import { createDelegatedStakeAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
+import {
+  createDelegatedStakeAccount,
+  getRentExemptStake,
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import BN from 'bn.js'
-import { waitForNextEpoch } from '@marinade.finance/web3js-common'
 
-jest.setTimeout(360_000)
+jest.setTimeout(3000_000)
 
 const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
   new Uint8Array([
@@ -64,13 +76,16 @@ describe('Cargo CLI: Pipeline Settlement', () => {
     bondAccount: PublicKey
     bondAuthority: Keypair
   }[] = []
+  let merkleTreesDir: string
   let merkleTreeCollectionPath: string
   let settlementCollectionPath: string
   let currentEpoch: number
+  let stakeAccountsCreationFuture: Promise<void>
+  let stakeAccountsNumber: number
 
   beforeAll(async () => {
     shellMatchers()
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = await initTest('processed'))
     ;({
       path: operatorAuthorityPath,
       keypair: operatorAuthorityKeypair,
@@ -84,17 +99,14 @@ describe('Cargo CLI: Pipeline Settlement', () => {
 
     // Order of tests is important and all have to be run at once
     const fileEpoch = 601
+    merkleTreesDir = path.join(__dirname, '..', 'data')
     merkleTreeCollectionPath = path.join(
-      __dirname,
-      '..',
-      'data',
-      fileEpoch + '_settlement-merkle-tree.json'
+      merkleTreesDir,
+      fileEpoch + '_settlement-merkle-trees.json'
     )
     expect(fs.existsSync(merkleTreeCollectionPath)).toBeTruthy()
     settlementCollectionPath = path.join(
-      __dirname,
-      '..',
-      'data',
+      merkleTreesDir,
       fileEpoch + '_settlements.json'
     )
     expect(fs.existsSync(merkleTreeCollectionPath)).toBeTruthy()
@@ -104,13 +116,28 @@ describe('Cargo CLI: Pipeline Settlement', () => {
       program,
       provider,
       operatorAuthority: operatorAuthorityKeypair,
-      epochsToClaimSettlement: 7,
+      epochsToClaimSettlement: 100_000, // TODO: change to 100
       slotsToStartSettlementClaiming: 5,
       withdrawLockupEpochs: 0,
     }))
 
-    currentEpoch = (await program.provider.connection.getEpochInfo()).epoch
+    // preparing target stake accounts for all settlements claiming
+    const stakers: PublicKey[] = []
+    const withdrawers: PublicKey[] = []
+    for (const merkleTree of loadedJson.merkle_trees) {
+      for (const treeNode of merkleTree.tree_nodes) {
+        stakers.push(new PublicKey(treeNode.stake_authority))
+        withdrawers.push(new PublicKey(treeNode.withdraw_authority))
+      }
+    }
+    stakeAccountsCreationFuture = chunkedCreateInitializedStakeAccounts({
+      provider,
+      stakers,
+      withdrawers,
+    })
+    stakeAccountsNumber = stakers.length
 
+    const beforeEpoch = (await program.provider.connection.getEpochInfo()).epoch
     for (const merkleTree of loadedJson.merkle_trees) {
       const voteAccount = new PublicKey(merkleTree.vote_account)
       const [bondAccount] = bondAddress(
@@ -121,7 +148,7 @@ describe('Cargo CLI: Pipeline Settlement', () => {
       const [settlementAccount] = settlementAddress(
         bondAccount,
         merkleTree.merkle_root,
-        currentEpoch,
+        beforeEpoch,
         program.programId
       )
       settlementAddresses.push(settlementAccount)
@@ -188,7 +215,6 @@ describe('Cargo CLI: Pipeline Settlement', () => {
 
     // waiting for get data finalized on-chain
     await waitForNextEpoch(provider.connection, 15)
-    await waitForNextEpoch(provider.connection, 15)
 
     const executionResultRegex = RegExp(
       settlementAddresses.length -
@@ -227,15 +253,7 @@ describe('Cargo CLI: Pipeline Settlement', () => {
       stdout: /Cannot find stake account to fund settlement account/,
     })
 
-    const settlementsData = await getMultipleSettlements({
-      program,
-      addresses: settlementAddresses,
-    })
-    expect(settlementsData.length).toEqual(settlementAddresses.length)
-    // TODO: fixing the assertion in claiming pipeline test
-    // expect(settlementsData.filter(s => s.account !== null).length).toEqual(
-    //   settlementAddresses.length
-    // )
+    await waitForNextEpoch(provider.connection, 15)
 
     await (
       expect([
@@ -272,6 +290,23 @@ describe('Cargo CLI: Pipeline Settlement', () => {
       epoch: currentEpoch,
     })
     expect(createdSettlements.length).toEqual(settlementAddresses.length)
+    let settlementsData = await getMultipleSettlements({
+      program,
+      addresses: settlementAddresses,
+    })
+    expect(settlementsData.length).toEqual(settlementAddresses.length)
+    let counter = 0
+    while (
+      settlementsData.filter(s => s.account !== null).length !==
+        settlementAddresses.length &&
+      counter++ < 10
+    ) {
+      await sleep(1000)
+      settlementsData = await getMultipleSettlements({
+        program,
+        addresses: settlementAddresses,
+      })
+    }
 
     const [withdrawerAuthority] = bondsWithdrawerAuthority(
       configAccount,
@@ -369,4 +404,171 @@ describe('Cargo CLI: Pipeline Settlement', () => {
       stdout: stdoutRegExp,
     })
   })
+
+  it('list claimable epochs', async () => {
+    const epochRegexp = new RegExp('[' + currentEpoch + ']')
+    await (
+      expect([
+        'cargo',
+        [
+          'run',
+          '--bin',
+          'list-claimable-epoch',
+          '--',
+          '--config',
+          configAccount.toBase58(),
+          '--rpc-url',
+          provider.connection.rpcEndpoint,
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+      stdout: epochRegexp,
+    })
+  })
+
+  it('claim settlements', async () => {
+    const feePayer = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL * 100_000,
+    })
+    const feePayerBase64 =
+      '[' + (feePayer as Keypair).secretKey.toString() + ']'
+
+    console.log('Awaiting stake accounts creation to be finished...')
+    await stakeAccountsCreationFuture
+    const stakeAccounts = await findStakeAccountNoDataInfos({
+      connection: provider,
+    })
+    expect(stakeAccounts.length).toBeGreaterThanOrEqual(stakeAccountsNumber)
+
+    console.log(
+      `Claiming settlements;  epoch: ${currentEpoch}, config: ${configAccount.toBase58()} at ${
+        provider.connection.rpcEndpoint
+      }`
+    )
+    // TODO: for testing purposes, DELETE ME!
+    // console.log(
+    //   `Sleeping for ${
+    //     1000_000 / 1000 / 60
+    //   } minutes to allow stake accounts to be activated`
+    // )
+    // await sleep(1000_000)
+    // if (true === true) {
+    //   console.log('End of sleeping')
+    //   return
+    // }
+
+    const outRegExp = new RegExp(
+      `instructions ${stakeAccountsNumber} succeeded`
+    )
+    await (
+      expect([
+        'cargo',
+        [
+          'run',
+          '--bin',
+          'claim-settlement',
+          '--',
+          '--config',
+          configAccount.toBase58(),
+          '--rpc-url',
+          provider.connection.rpcEndpoint,
+          '-d',
+          merkleTreesDir,
+          '--epoch',
+          currentEpoch.toString(),
+          '--fee-payer',
+          feePayerBase64,
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+      stdout: outRegExp,
+    })
+
+    console.log('Rerunning when all is already claimed...')
+    await (
+      expect([
+        'cargo',
+        [
+          'run',
+          '--bin',
+          'claim-settlement',
+          '--',
+          '--config',
+          configAccount.toBase58(),
+          '--rpc-url',
+          provider.connection.rpcEndpoint,
+          '-d',
+          merkleTreesDir,
+          '--epoch',
+          currentEpoch.toString(),
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+      stdout: /0 errors/,
+    })
+  })
 })
+
+export async function chunkedCreateInitializedStakeAccounts({
+  provider,
+  stakers,
+  withdrawers,
+}: {
+  provider: AnchorExtendedProvider
+  stakers: PublicKey[]
+  withdrawers: PublicKey[]
+}): Promise<void> {
+  const rentExempt = await getRentExemptStake(provider)
+  expect(stakers.length).toEqual(withdrawers.length)
+  // const signers: (Wallet | Keypair | Signer)[] = stakers.map(() => Keypair.generate())
+
+  const combined = stakers.map((staker, index) => {
+    return {
+      staker,
+      withdrawer: withdrawers[index],
+      keypair: Keypair.generate(),
+    }
+  })
+
+  let ixes: TransactionInstruction[] = []
+  let signers: Keypair[] = []
+  let counter = 0
+  let futures: Promise<void>[] = []
+  for (const { staker, withdrawer, keypair } of combined) {
+    counter++
+    StakeProgram.createAccount({
+      fromPubkey: provider.walletPubkey,
+      stakePubkey: keypair.publicKey,
+      authorized: new Authorized(staker, withdrawer),
+      lamports: rentExempt,
+    }).instructions.forEach(ix => {
+      ixes.push(ix)
+    })
+    signers.push(keypair)
+    if (ixes.length >= 6) {
+      futures.push(provider.sendIx(signers, ...ixes))
+      ixes = []
+      signers = []
+    }
+    if (counter % 500 === 0) {
+      await Promise.all(futures)
+      futures = []
+    }
+    if (counter % 5000 === 0) {
+      console.log(`Stake accounts ${counter}/${combined.length} created`)
+    }
+  }
+  console.log(
+    `Waiting for counter stake accounts ${counter}/${combined.length} to be created`
+  )
+  if (futures.length > 0) {
+    await Promise.all(futures)
+  }
+}

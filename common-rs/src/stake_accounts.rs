@@ -1,14 +1,17 @@
 use crate::utils::get_sysvar_clock;
-use solana_account_decoder::UiAccountEncoding;
+use futures::future::join_all;
+use log::info;
+use solana_account_decoder::{UiAccountEncoding, UiDataSliceConfig};
 use solana_client::{
     nonblocking::rpc_client::RpcClient,
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
     rpc_filter::{Memcmp, RpcFilterType},
 };
+use solana_program::stake::state::StakeStateV2;
 use solana_sdk::{
     clock::Clock,
     pubkey::Pubkey,
-    stake::{self, state::StakeState},
+    stake::{self},
     stake_history::StakeHistory,
     sysvar::{clock, stake_history},
 };
@@ -29,7 +32,7 @@ pub async fn get_clock(rpc_client: Arc<RpcClient>) -> anyhow::Result<Clock> {
     )?)
 }
 
-pub type CollectedStakeAccounts = Vec<(Pubkey, u64, StakeState)>;
+pub type CollectedStakeAccounts = Vec<(Pubkey, u64, StakeStateV2)>;
 
 pub async fn collect_stake_accounts(
     rpc_client: Arc<RpcClient>,
@@ -102,7 +105,7 @@ pub async fn obtain_delegated_stake_accounts(
     Ok(vote_account_map)
 }
 
-fn is_locked(stake: &StakeState, clock: &Clock) -> bool {
+fn is_locked(stake: &StakeStateV2, clock: &Clock) -> bool {
     stake.lockup().is_some() && stake.lockup().unwrap().is_in_force(clock, None)
 }
 
@@ -118,6 +121,7 @@ pub async fn obtain_claimable_stake_accounts_for_settlement(
         .into_iter()
         .filter(|(_, _, stake)| {
             !is_locked(stake, &clock)
+                // stake account is initialized or delegated+deactivated
                 && (stake.delegation().is_none()
                     || stake.delegation().unwrap().deactivation_epoch <= clock.epoch)
         })
@@ -177,9 +181,99 @@ fn map_stake_accounts_to_settlement(
     }
     settlement_map
         .into_iter()
-        .map(|(k, v)| {
+        .map(|(k, mut v)| {
             let sum = v.iter().map(|(_, lamports, _)| *lamports).sum::<u64>();
+            // sorting stake accounts with delegation before those without it
+            v.sort_by(|(_, _, stake1), (_, _, stake2)| {
+                let ord1 = if let Some(_d) = stake1.delegation() {
+                    -1
+                } else {
+                    1
+                };
+                let ord2 = if let Some(_d) = stake2.delegation() {
+                    -1
+                } else {
+                    1
+                };
+                ord1.partial_cmp(&ord2).unwrap()
+            });
             (k, (sum, v))
         })
         .collect::<HashMap<_, _>>()
+}
+
+pub async fn get_stake_account_slices(
+    rpc_client: Arc<RpcClient>,
+    stake_authority: Option<Pubkey>,
+    slice: Option<(usize, usize)>,
+) -> anyhow::Result<Vec<(Pubkey, StakeStateV2)>> {
+    info!(
+        "Fetching stake account slices {:?} with stake authority: {:?}",
+        slice, stake_authority
+    );
+    let mut stake_accounts_count = 0;
+    let data_slice = slice.map(|(offset, length)| UiDataSliceConfig { offset, length });
+    let mut stake_accounts: Vec<(Pubkey, StakeStateV2)> = vec![];
+    let mut errors: Vec<String> = vec![];
+    let mut futures = vec![];
+
+    for page in 0..=u8::MAX {
+        let mut filters: Vec<RpcFilterType> = vec![RpcFilterType::DataSize(200)];
+        if let Some(stake_authority) = stake_authority {
+            filters.push(RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
+                4 + 8,
+                stake_authority.to_bytes().to_vec(),
+            )));
+        }
+        filters.push(RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
+            4 + 8 + 32,
+            vec![page],
+        )));
+        let future = rpc_client.get_program_accounts_with_config(
+            &stake::program::ID,
+            RpcProgramAccountsConfig {
+                filters: Some(filters.clone()),
+                account_config: RpcAccountInfoConfig {
+                    encoding: Some(UiAccountEncoding::Base64),
+                    commitment: Some(rpc_client.commitment()),
+                    data_slice,
+                    min_context_slot: None,
+                },
+                with_context: None,
+            },
+        );
+        futures.push(future);
+    }
+
+    let results = join_all(futures).await;
+
+    for result in results {
+        match result {
+            Ok(accounts) => {
+                stake_accounts_count += accounts.len();
+                for (pubkey, account) in accounts {
+                    let stake_state = bincode::deserialize(&account.data).unwrap_or_else(|_| {
+                        panic!("Failed to deserialize stake account data for {}", pubkey)
+                    });
+                    stake_accounts.push((pubkey, stake_state));
+                }
+            }
+            Err(err) => {
+                errors.push(format!("Failed to fetch stake accounts slice: {:?}", err));
+            }
+        };
+    }
+
+    info!(
+        "Loaded {} stake accounts with filter: {:?}",
+        stake_accounts_count,
+        (stake_authority, slice)
+    );
+    if !errors.is_empty() {
+        return Err(anyhow::anyhow!(
+            "Failed to fetch stake accounts: {:?}",
+            errors
+        ));
+    }
+    Ok(stake_accounts)
 }

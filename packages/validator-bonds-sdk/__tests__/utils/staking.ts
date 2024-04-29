@@ -477,7 +477,7 @@ export async function nonInitializedStakeAccount(
   return [accountKeypair.publicKey, accountKeypair]
 }
 
-type InitializedStakeAccount = {
+export type InitializedStakeAccount = {
   stakeAccount: PublicKey
   staker: Keypair | PublicKey
   withdrawer: Keypair | PublicKey
@@ -507,6 +507,7 @@ export async function createInitializedStakeAccount({
     lockup,
   })
   await provider.sendIx([stakeAccount], ix)
+  console.log(`Stake ${stakeAccount.publicKey.toBase58()} account created`)
   return {
     stakeAccount: stakeAccount.publicKey,
     staker,
