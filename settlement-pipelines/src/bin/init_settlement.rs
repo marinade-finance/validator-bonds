@@ -1,28 +1,23 @@
-use anchor_client::{Cluster, DynSigner};
 use anyhow::anyhow;
 use clap::Parser;
-use env_logger::{Builder, Env};
 use log::{debug, error, info};
-use regex::Regex;
 use settlement_engine::merkle_tree_collection::{MerkleTreeCollection, MerkleTreeMeta};
 use settlement_engine::settlement_claims::{
     Settlement as SettlementClaimsSettlement, SettlementCollection, SettlementFunder,
 };
 use settlement_engine::utils::read_from_json_file;
 use settlement_pipelines::anchor::add_instructions_to_builder_from_anchor;
+use settlement_pipelines::arguments::GlobalOpts;
 use settlement_pipelines::arguments::{
-    load_default_keypair, to_priority_fee_policy, to_tip_policy, PriorityFeePolicyOpts,
-    TipPolicyOpts,
+    init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
 };
-use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::commitment_config::CommitmentConfig;
+use settlement_pipelines::init::init_log;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
 use solana_sdk::stake::instruction::create_account as create_stake_account;
 use solana_sdk::stake::program::ID as stake_program_id;
-use solana_sdk::stake::state::{Authorized, Lockup, StakeState};
+use solana_sdk::stake::state::{Authorized, Lockup};
 use solana_sdk::system_program;
 use solana_sdk::sysvar::{
     clock::ID as clock_sysvar_id, rent::ID as rent_sysvar_id,
@@ -36,9 +31,8 @@ use solana_transaction_executor::{
     SendTransactionWithGrowingTipProvider, TransactionExecutorBuilder,
 };
 use std::collections::HashMap;
-use std::path::Path;
+use std::io;
 use std::rc::Rc;
-use std::str::FromStr;
 use std::sync::Arc;
 use validator_bonds::instructions::{InitSettlementArgs, MergeStakeArgs};
 use validator_bonds::state::bond::Bond;
@@ -49,9 +43,7 @@ use validator_bonds_common::stake_accounts::{
     collect_stake_accounts, divide_delegated_stake_accounts,
 };
 use validator_bonds_common::{
-    bonds::get_bonds_for_pubkeys,
-    constants::{find_event_authority, MARINADE_CONFIG_ADDRESS},
-    get_validator_bonds_program,
+    bonds::get_bonds_for_pubkeys, constants::find_event_authority,
     settlements::get_settlements_for_pubkeys,
 };
 
@@ -80,14 +72,9 @@ struct Args {
     )]
     input_settlement_collection: String,
 
-    #[arg(long, default_value = MARINADE_CONFIG_ADDRESS)]
-    config: Pubkey,
-
+    /// may override epoch from the settlement collection
     #[arg(long)]
     epoch: Option<u64>,
-
-    #[arg(short = 'o', long)]
-    operator_authority: Option<String>,
 
     #[clap(flatten)]
     priority_fee_policy_opts: PriorityFeePolicyOpts,
@@ -111,18 +98,12 @@ pub struct CombinedMerkleTreeSettlementCollections {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args: Args = Args::parse();
+    init_log(&args.global_opts);
 
-    let verbosity = if args.global_opts.verbose {
-        "debug"
-    } else {
-        "info"
-    };
-    let mut builder = Builder::from_env(Env::default().default_filter_or(verbosity));
-    builder.init();
-
+    let config_address = args.global_opts.config;
     info!(
         "Loading merkle tree at: '{}', validator-bonds config: {}",
-        args.input_merkle_tree_collection, args.config
+        args.input_merkle_tree_collection, config_address
     );
     let combined_collection = {
         let merkle_tree_collection: MerkleTreeCollection =
@@ -168,67 +149,37 @@ async fn main() -> anyhow::Result<()> {
         }
     }?;
 
-    // Initialize the Anchor Solana client
-    let rpc_url = args.global_opts.rpc_url.expect("RPC URL is required");
-    let anchor_cluster = Cluster::from_str(&rpc_url)
-        .map_err(|e| anyhow!("Could not parse JSON RPC url `{:?}`: {}", rpc_url, e))?;
+    let InitializedGlobalOpts {
+        rpc_url,
+        fee_payer_keypair,
+        fee_payer_pubkey,
+        operator_authority_keypair,
+        priority_fee_policy,
+        tip_policy,
+        rpc_client,
+        program,
+    } = init_from_opts(
+        &args.global_opts,
+        &args.priority_fee_policy_opts,
+        &args.tip_policy_opts,
+    )?;
 
-    let default_keypair = load_default_keypair(args.global_opts.keypair.as_deref())?;
-    let fee_payer_keypair = if let Some(fee_payer) = args.global_opts.fee_payer {
-        load_keypair(&fee_payer)?
-    } else {
-        default_keypair.clone().map_or(Err(anyhow!("Neither --fee-payer nor --keypair provided, no keypair to pay for transaction fees")), Ok)?
-    };
-    let operator_authority_keypair = if let Some(operator_authority) = args.operator_authority {
-        load_keypair(&operator_authority)?
-    } else {
-        default_keypair.map_or(
-            Err(anyhow!(
-                "Neither --operator-authority nor --keypair provided, operator keypair required"
-            )),
-            Ok,
-        )?
-    };
-
-    let epoch = args.epoch.map_or_else(|| {
-        let merkle_file_name = Path::new(&args.input_merkle_tree_collection).file_name().
-            ok_or(anyhow!("Cannot extract file name from input merkle tree collection file path '{}'", args.input_merkle_tree_collection))?
-            .to_str().ok_or(anyhow!("Cannot convert file name {} to string", args.input_merkle_tree_collection))?;
-        let re = Regex::new("^([0-9]+)").unwrap();
-        let captures = re.captures(merkle_file_name);
-        captures
-            .and_then(|c| c.get(0))
-            .and_then(|m| m.as_str().parse::<u64>().ok())
-            .ok_or(
-                anyhow!("--epoch not provided and cannot extract epoch number from input merkle tree collection file path '{}'", args.input_merkle_tree_collection)
-            )
-    }, Ok)?;
-
-    let priority_fee_policy = to_priority_fee_policy(&args.priority_fee_policy_opts);
-    let tip_policy = to_tip_policy(&args.tip_policy_opts);
-
-    let fee_payer_pubkey = fee_payer_keypair.pubkey();
-    let rpc_client = Arc::new(RpcClient::new_with_commitment(
-        anchor_cluster.to_string(),
-        CommitmentConfig {
-            commitment: args.global_opts.commitment,
-        },
-    ));
-    let dyn_fee_payer = Rc::new(DynSigner(Arc::new(fee_payer_keypair.clone())));
-    let program = get_validator_bonds_program(rpc_client.clone(), Some(dyn_fee_payer))?;
+    let epoch = args.epoch.unwrap_or(combined_collection.epoch);
 
     let mut vote_accounts: Vec<Pubkey> = Vec::new();
     let mut transaction_builder = TransactionBuilder::limited(fee_payer_keypair.clone());
     transaction_builder.add_signer_checked(&operator_authority_keypair.clone());
 
-    let config: Config = program.account(args.config).await.map_err(|e| {
+    let config: Config = program.account(config_address).await.map_err(|e| {
         anyhow!(
             "Cannot load validator-bonds config account {}: {}",
-            args.config,
+            config_address,
             e
         )
     })?;
     let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
+
+    let mut init_settlements_errors: Vec<String> = vec![];
 
     // verify what are the settlement accounts that we need to create
     // (not to pushing many RPC calls to the network, squeezing them to less)
@@ -253,7 +204,7 @@ async fn main() -> anyhow::Result<()> {
                 let merkle_root = merkle_tree.merkle_root.unwrap();
                 let vote_account_address = merkle_tree.vote_account;
                 let (bond_address, _) = validator_bonds::state::bond::find_bond_address(
-                    &args.config,
+                    &config_address,
                     &merkle_tree.vote_account,
                 );
                 let (settlement_address, _) =
@@ -306,11 +257,12 @@ async fn main() -> anyhow::Result<()> {
 
     for settlement_record in &mut settlement_records {
         if settlement_record.bond_account.is_none() {
-            // TODO: what to do if bond account is not found?
-            error!(
+            let err_msg = format!(
                 "Cannot find bond account {} for vote account {}",
                 settlement_record.bond_address, settlement_record.vote_account_address
             );
+            error!("{}", err_msg);
+            init_settlements_errors.push(err_msg);
             continue;
         }
         if settlement_record.settlement_account.is_some() {
@@ -323,7 +275,7 @@ async fn main() -> anyhow::Result<()> {
             let req = program
                 .request()
                 .accounts(validator_bonds::accounts::InitSettlement {
-                    config: args.config,
+                    config: config_address,
                     bond: settlement_record.bond_address,
                     operator_authority: operator_authority_keypair.pubkey(),
                     system_program: system_program::ID,
@@ -387,7 +339,7 @@ async fn main() -> anyhow::Result<()> {
     transaction_builder.add_signer_checked(&operator_authority_keypair.clone());
 
     // let's check how we are about settlement funding
-    let (withdrawer_authority, _) = find_bonds_withdrawer_authority(&args.config);
+    let (withdrawer_authority, _) = find_bonds_withdrawer_authority(&config_address);
     let stake_accounts = collect_stake_accounts(
         rpc_client.clone(),
         Some(withdrawer_authority),
@@ -497,7 +449,7 @@ async fn main() -> anyhow::Result<()> {
                 });
 
                 let stake_account_to_fund =
-                    if stake_accounts_to_fund.len() == 0 || lamports_available == 0 {
+                    if stake_accounts_to_fund.is_empty() || lamports_available == 0 {
                         None
                     } else {
                         Some(stake_accounts_to_fund.remove(0))
@@ -516,7 +468,7 @@ async fn main() -> anyhow::Result<()> {
                         let req = program
                             .request()
                             .accounts(validator_bonds::accounts::MergeStake {
-                                config: args.config,
+                                config: config_address,
                                 stake_history: stake_history_sysvar_id,
                                 clock: clock_sysvar_id,
                                 source_stake: merge_stake_account.stake_account,
@@ -540,18 +492,22 @@ async fn main() -> anyhow::Result<()> {
                             })?;
                     }
                     if lamports_available < amount_to_fund {
-                        error!(
+                        let err_msg = format!(
                             "Cannot fully fund settlement account {} with {} lamports as only {} lamports were found in stake accounts",
                             settlement_record.settlement_address,
                             amount_to_fund,
                             lamports_available
                         );
+                        error!("{}", err_msg);
+                        init_settlements_errors.push(err_msg);
                     } else if lamports_available > amount_to_fund + minimal_stake_lamports {
                         // we are in situation that the stake account has got (or it will have after merging)
                         // more lamports than needed for funding the settlement in current loop iteration,
                         // the rest of lamports from the stake account can be used for other settlements,
                         // the lamports will be available under split stake account after the stake account is funded (next for-loop section)
                         // let's use the split stake account as a source for funding of next settlement
+                        // NOTE: this process is "important" if the same vote account is used for multiple settlements,
+                        //       and we want to utilize the maximum funding spreading over multiple settlements
                         // WARN: this REQUIRES that the fund bond transactions are executed in sequence!
                         let lamports_available_after_split =
                             lamports_available - amount_to_fund - minimal_stake_lamports;
@@ -566,10 +522,12 @@ async fn main() -> anyhow::Result<()> {
                             stake_account_to_fund: destination_stake,
                         }))
                 } else {
-                    error!(
+                    let err_msg = format!(
                         "Cannot find stake account to fund settlement account {}",
                         settlement_record.settlement_address
                     );
+                    error!("{}", err_msg);
+                    init_settlements_errors.push(err_msg);
                 }
             }
         }
@@ -637,7 +595,7 @@ async fn main() -> anyhow::Result<()> {
                 let req = program
                     .request()
                     .accounts(validator_bonds::accounts::FundSettlement {
-                        config: args.config,
+                        config: config_address,
                         bond: settlement_record.bond_address,
                         stake_account: stake_account_to_fund,
                         bonds_withdrawer_authority: withdrawer_authority,
@@ -691,7 +649,15 @@ async fn main() -> anyhow::Result<()> {
         "Expected to get all instructions from builder processed"
     );
 
-    Ok(())
+    if !init_settlements_errors.is_empty() {
+        serde_json::to_writer(io::stdout(), &init_settlements_errors)?;
+        Err(anyhow!(
+            "{} errors during initialization of settlements",
+            init_settlements_errors.len(),
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 #[derive(Debug)]

@@ -1,11 +1,17 @@
+use anchor_client::anchor_lang::prelude::Pubkey;
+use anchor_client::{Cluster, DynSigner, Program};
 use anyhow::anyhow;
 use clap::Args;
 use log::debug;
-use solana_sdk::commitment_config::CommitmentLevel;
-use solana_sdk::signature::{read_keypair_file, Keypair};
-use solana_transaction_executor::TipPolicy;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
+use solana_sdk::signature::{read_keypair_file, Keypair, Signer};
+use solana_transaction_executor::{PriorityFeePolicy, TipPolicy};
 use std::path::Path;
 use std::rc::Rc;
+use std::str::FromStr;
+use std::sync::Arc;
+use validator_bonds_common::{constants::MARINADE_CONFIG_ADDRESS, get_validator_bonds_program};
 
 pub const DEFAULT_KEYPAIR_PATH: &str = "~/.config/solana/id.json";
 
@@ -27,6 +33,12 @@ pub struct GlobalOpts {
 
     #[arg(long)]
     pub fee_payer: Option<String>,
+
+    #[arg(long, default_value = MARINADE_CONFIG_ADDRESS)]
+    pub config: Pubkey,
+
+    #[arg(short = 'o', long)]
+    pub operator_authority: Option<String>,
 
     /// Logging to be verbose
     #[clap(long, short, global = true, default_value_t = false)]
@@ -130,4 +142,69 @@ pub fn to_priority_fee_policy(
             .micro_lamport_multiplier
             .unwrap_or(default.multiplier_per_attempt),
     }
+}
+
+pub struct InitializedGlobalOpts {
+    pub rpc_url: String,
+    pub fee_payer_keypair: Rc<Keypair>,
+    pub fee_payer_pubkey: Pubkey,
+    pub operator_authority_keypair: Rc<Keypair>,
+    pub priority_fee_policy: PriorityFeePolicy,
+    pub tip_policy: TipPolicy,
+    pub rpc_client: Arc<RpcClient>,
+    pub program: Program<Rc<DynSigner>>,
+}
+
+pub fn init_from_opts(
+    global_opts: &GlobalOpts,
+    priority_fee_policy_opts: &PriorityFeePolicyOpts,
+    tip_policy_opts: &TipPolicyOpts,
+) -> anyhow::Result<InitializedGlobalOpts> {
+    // Initialize the Anchor Solana client
+    let rpc_url = global_opts.rpc_url.clone().expect("RPC URL is required");
+    let anchor_cluster = Cluster::from_str(&rpc_url)
+        .map_err(|e| anyhow!("Could not parse JSON RPC url `{:?}`: {}", rpc_url, e))?;
+
+    let default_keypair = load_default_keypair(global_opts.keypair.as_deref())?;
+    let fee_payer_keypair = if let Some(fee_payer) = global_opts.fee_payer.clone() {
+        load_keypair(&fee_payer)?
+    } else {
+        default_keypair.clone().map_or(Err(anyhow!("Neither --fee-payer nor --keypair provided, no keypair to pay for transaction fees")), Ok)?
+    };
+    let operator_authority_keypair =
+        if let Some(operator_authority) = global_opts.operator_authority.clone() {
+            load_keypair(&operator_authority)?
+        } else {
+            default_keypair.map_or(
+                Err(anyhow!(
+                "Neither --operator-authority nor --keypair provided, operator keypair required"
+            )),
+                Ok,
+            )?
+        };
+
+    let priority_fee_policy = to_priority_fee_policy(priority_fee_policy_opts);
+    let tip_policy = to_tip_policy(tip_policy_opts);
+
+    let fee_payer_pubkey: Pubkey = fee_payer_keypair.pubkey();
+    let rpc_client = Arc::new(RpcClient::new_with_commitment(
+        anchor_cluster.to_string(),
+        CommitmentConfig {
+            commitment: global_opts.commitment,
+        },
+    ));
+    // TODO: need to work correctly with Rc Dynsigner; need to refactor the builder executor
+    let dyn_fee_payer = Rc::new(DynSigner(Arc::new(fee_payer_keypair.clone())));
+    let program = get_validator_bonds_program(rpc_client.clone(), Some(dyn_fee_payer))?;
+
+    Ok(InitializedGlobalOpts {
+        rpc_url,
+        fee_payer_keypair,
+        fee_payer_pubkey,
+        operator_authority_keypair,
+        priority_fee_policy,
+        tip_policy,
+        rpc_client,
+        program,
+    })
 }

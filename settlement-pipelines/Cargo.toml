@@ -9,6 +9,7 @@ authors = ["Marinade.Finance"]
 name = "init-settlement"
 path = "src/bin/init_settlement.rs"
 
+
 [dependencies]
 anchor-client = {workspace = true}
 anyhow = { workspace = true }

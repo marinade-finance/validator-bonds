@@ -22,7 +22,6 @@ import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-v
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import fs from 'fs'
 import path from 'path'
-import { sleep } from '@marinade.finance/ts-common'
 import { createDelegatedStakeAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import BN from 'bn.js'
 import { waitForNextEpoch } from '@marinade.finance/web3js-common'
@@ -56,6 +55,19 @@ describe('Cargo CLI: Pipeline Settlement', () => {
   let bondAuthorityKeypair: Keypair
   let bondAuthorityCleanup: () => Promise<void>
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let loadedJson: any
+  let configAccount: PublicKey
+  const settlementAddresses: PublicKey[] = []
+  const testData: {
+    voteAccount: PublicKey
+    bondAccount: PublicKey
+    bondAuthority: Keypair
+  }[] = []
+  let merkleTreeCollectionPath: string
+  let settlementCollectionPath: string
+  let currentEpoch: number
+
   beforeAll(async () => {
     shellMatchers()
     ;({ provider, program } = await initTest())
@@ -69,46 +81,36 @@ describe('Cargo CLI: Pipeline Settlement', () => {
       keypair: bondAuthorityKeypair,
       cleanup: bondAuthorityCleanup,
     } = await createTempFileKeypair())
-  })
 
-  afterAll(async () => {
-    await bondAuthorityCleanup()
-    await operatorAuthorityCleanup()
-  })
-
-  it('pipeline settlement', async () => {
-    const epoch = 601
-    const merkleTreeCollectionPath = path.join(
+    // Order of tests is important and all have to be run at once
+    const fileEpoch = 601
+    merkleTreeCollectionPath = path.join(
       __dirname,
       '..',
       'data',
-      epoch + '_settlement-merkle-tree.json'
+      fileEpoch + '_settlement-merkle-tree.json'
     )
     expect(fs.existsSync(merkleTreeCollectionPath)).toBeTruthy()
-    const settlementCollectionPath = path.join(
+    settlementCollectionPath = path.join(
       __dirname,
       '..',
       'data',
-      epoch + '_settlements.json'
+      fileEpoch + '_settlements.json'
     )
     expect(fs.existsSync(merkleTreeCollectionPath)).toBeTruthy()
     const fileBuffer = fs.readFileSync(merkleTreeCollectionPath)
-    const loadedJson = JSON.parse(fileBuffer.toString())
-
-    const { configAccount } = await executeInitConfigInstruction({
+    loadedJson = JSON.parse(fileBuffer.toString())
+    ;({ configAccount } = await executeInitConfigInstruction({
       program,
       provider,
       operatorAuthority: operatorAuthorityKeypair,
-      epochsToClaimSettlement: 0,
+      epochsToClaimSettlement: 7,
+      slotsToStartSettlementClaiming: 5,
       withdrawLockupEpochs: 0,
-    })
+    }))
 
-    const testData: {
-      voteAccount: PublicKey
-      bondAccount: PublicKey
-      bondAuthority: Keypair
-    }[] = []
-    const settlementAddresses: PublicKey[] = []
+    currentEpoch = (await program.provider.connection.getEpochInfo()).epoch
+
     for (const merkleTree of loadedJson.merkle_trees) {
       const voteAccount = new PublicKey(merkleTree.vote_account)
       const [bondAccount] = bondAddress(
@@ -119,7 +121,7 @@ describe('Cargo CLI: Pipeline Settlement', () => {
       const [settlementAccount] = settlementAddress(
         bondAccount,
         merkleTree.merkle_root,
-        epoch,
+        currentEpoch,
         program.programId
       )
       settlementAddresses.push(settlementAccount)
@@ -141,18 +143,37 @@ describe('Cargo CLI: Pipeline Settlement', () => {
         )
       }
     }
+  })
+
+  afterAll(async () => {
+    await bondAuthorityCleanup()
+    await operatorAuthorityCleanup()
+  })
+
+  it('pipeline settlement', async () => {
+    await // build the rust before running the tests
+    (
+      expect([
+        'cargo',
+        ['build'],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+    })
 
     const randomMerkleTree =
       loadedJson.merkle_trees[
         Math.floor(Math.random() * loadedJson.merkle_trees.length)
       ]
+    currentEpoch = (await program.provider.connection.getEpochInfo()).epoch
     await executeInitSettlement({
       program,
       provider,
       configAccount,
       voteAccount: new PublicKey(randomMerkleTree.vote_account),
       operatorAuthority: operatorAuthorityKeypair,
-      currentEpoch: epoch,
+      currentEpoch,
       merkleRoot: randomMerkleTree.merkle_root,
       maxMerkleNodes: randomMerkleTree.max_merkle_nodes,
       maxTotalClaim: randomMerkleTree.max_total_claim,
@@ -165,8 +186,9 @@ describe('Cargo CLI: Pipeline Settlement', () => {
     const feePayerBase64 =
       '[' + (feePayer as Keypair).secretKey.toString() + ']'
 
-    // wait for Solana finalization of setup above
-    await sleep(12_000)
+    // waiting for get data finalized on-chain
+    await waitForNextEpoch(provider.connection, 15)
+    await waitForNextEpoch(provider.connection, 15)
 
     const executionResultRegex = RegExp(
       settlementAddresses.length -
@@ -192,21 +214,24 @@ describe('Cargo CLI: Pipeline Settlement', () => {
           merkleTreeCollectionPath,
           '-s',
           settlementCollectionPath,
+          '--epoch',
+          currentEpoch.toString(),
           '--fee-payer',
           feePayerBase64,
         ],
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 0,
+      code: 1,
       stderr: executionResultRegex,
+      stdout: /Cannot find stake account to fund settlement account/,
     })
 
     const settlementsData = await getMultipleSettlements({
       program,
       addresses: settlementAddresses,
     })
-    expect(settlementsData.length).toBe(settlementAddresses.length)
+    expect(settlementsData.length).toEqual(settlementAddresses.length)
     expect(settlementsData.filter(s => s.account !== null).length).toEqual(
       settlementAddresses.length
     )
@@ -229,16 +254,22 @@ describe('Cargo CLI: Pipeline Settlement', () => {
           merkleTreeCollectionPath,
           '-s',
           settlementCollectionPath,
+          '--epoch',
+          currentEpoch.toString(),
         ],
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 0,
+      code: 1,
       stderr:
         /InitSettlement instructions 0(.|\n|\r)*already funded(.|\n|\r)*Stake accounts management instructions 0(.|\n|\r)*FundSettlement instructions 0/,
+      stdout: /Cannot find stake account to fund settlement account/,
     })
 
-    const createdSettlements = await findSettlements({ program, epoch })
+    const createdSettlements = await findSettlements({
+      program,
+      epoch: currentEpoch,
+    })
     expect(createdSettlements.length).toEqual(settlementAddresses.length)
 
     const [withdrawerAuthority] = bondsWithdrawerAuthority(
@@ -284,13 +315,15 @@ describe('Cargo CLI: Pipeline Settlement', () => {
           merkleTreeCollectionPath,
           '-s',
           settlementCollectionPath,
+          '--epoch',
+          currentEpoch.toString(),
         ],
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
       code: 0,
       stderr:
-        /InitSettlement instructions 0(.|\n|\r)*Stake accounts management instructions 2(.|\n|\r)*FundSettlement instructions 9/,
+        /InitSettlement instructions 0(.|\n|\r)*Stake accounts management instructions [2,3](.|\n|\r)*FundSettlement instructions 9/,
     })
 
     const allConfigStakeAccounts = await findConfigStakeAccounts({
