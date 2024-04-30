@@ -40,7 +40,8 @@ use validator_bonds::state::config::{find_bonds_withdrawer_authority, Config};
 use validator_bonds::state::settlement::{find_settlement_staker_authority, Settlement};
 use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::stake_accounts::{
-    collect_stake_accounts, divide_delegated_stake_accounts,
+    collect_stake_accounts, obtain_delegated_stake_accounts,
+    obtain_funded_stake_accounts_for_settlement, CollectedStakeAccounts,
 };
 use validator_bonds_common::{
     bonds::get_bonds_for_pubkeys, constants::find_event_authority,
@@ -340,14 +341,29 @@ async fn main() -> anyhow::Result<()> {
 
     // let's check how we are about settlement funding
     let (withdrawer_authority, _) = find_bonds_withdrawer_authority(&config_address);
-    let stake_accounts = collect_stake_accounts(
+    let stake_accounts =
+        collect_stake_accounts(rpc_client.clone(), Some(withdrawer_authority), None).await?;
+    let non_funded: CollectedStakeAccounts = stake_accounts
+        .clone()
+        .into_iter()
+        .filter(|(_, _, stake)| {
+            if let Some(authorized) = stake.authorized() {
+                authorized.staker == withdrawer_authority
+                    && authorized.withdrawer == withdrawer_authority
+            } else {
+                false
+            }
+        })
+        .collect();
+    let non_funded_delegated_stakes =
+        obtain_delegated_stake_accounts(non_funded, rpc_client.clone()).await?;
+    let funded_to_settlement_stakes = obtain_funded_stake_accounts_for_settlement(
+        stake_accounts,
+        &config_address,
+        settlement_addresses,
         rpc_client.clone(),
-        Some(withdrawer_authority),
-        Some(withdrawer_authority),
     )
     .await?;
-
-    let delegated = divide_delegated_stake_accounts(stake_accounts, rpc_client.clone()).await?;
     // creating a map of vote account to stake accounts3
     #[derive(Clone)]
     struct FundBondStakeAccount {
@@ -355,22 +371,23 @@ async fn main() -> anyhow::Result<()> {
         stake_account: Pubkey,
         split_stake_account: Rc<Keypair>,
     }
-    let mut fund_bond_stake_accounts: HashMap<Pubkey, Vec<FundBondStakeAccount>> = delegated
-        .into_iter()
-        .map(|(vote_account, stake_accounts)| {
-            (
-                vote_account,
-                stake_accounts
-                    .into_iter()
-                    .map(|(stake_account, lamports, _)| FundBondStakeAccount {
-                        lamports,
-                        stake_account,
-                        split_stake_account: Rc::new(Keypair::new()),
-                    })
-                    .collect(),
-            )
-        })
-        .collect();
+    let mut fund_bond_stake_accounts: HashMap<Pubkey, Vec<FundBondStakeAccount>> =
+        non_funded_delegated_stakes
+            .into_iter()
+            .map(|(vote_account, stake_accounts)| {
+                (
+                    vote_account,
+                    stake_accounts
+                        .into_iter()
+                        .map(|(stake_account, lamports, _)| FundBondStakeAccount {
+                            lamports,
+                            stake_account,
+                            split_stake_account: Rc::new(Keypair::new()),
+                        })
+                        .collect(),
+                )
+            })
+            .collect();
 
     // Merging stake accounts to fit for validator bonds funding
     for settlement_record in &mut settlement_records {
@@ -379,37 +396,24 @@ async fn main() -> anyhow::Result<()> {
             continue;
         }
 
-        let amount_to_fund = match settlement_record.funder {
-            SettlementFunderType::Marinade(_) => {
-                // marinade funding uses non-delegated settlements accounts, amount not settlement funded directly
-                let settlement_stake_accounts = collect_stake_accounts(
-                    rpc_client.clone(),
-                    Some(withdrawer_authority),
-                    Some(settlement_record.settlement_staker_authority),
-                )
-                .await?;
-                let amount_funded = settlement_stake_accounts
-                    .iter()
-                    .map(|(_, lamports, _)| *lamports)
-                    .sum::<u64>();
-                settlement_record
+        let settlement_amount_funded = funded_to_settlement_stakes
+            .get(&settlement_record.settlement_address)
+            .map_or(0, |(lamports_in_accounts, _)| *lamports_in_accounts);
+        let amount_to_fund = settlement_record.settlement_account.as_ref().map_or(
+            settlement_record.max_total_claim,
+            |settlement| {
+                settlement
                     .max_total_claim
-                    .saturating_sub(amount_funded)
-            }
-            SettlementFunderType::ValidatorBond(_) => settlement_record
-                .settlement_account
-                .as_ref()
-                .map_or(settlement_record.max_total_claim, |settlement| {
-                    settlement
-                        .max_total_claim
-                        .saturating_sub(settlement.lamports_funded)
-                }),
-        };
+                    .saturating_sub(settlement_amount_funded)
+            },
+        );
 
         if amount_to_fund == 0 {
             info!(
-                "Settlement account {}/{:?} already funded, skipping funding",
-                settlement_record.settlement_address, settlement_record.funder
+                "Settlement account {}/{:?} already funded by {}, skipping funding",
+                settlement_record.settlement_address,
+                settlement_record.funder,
+                settlement_amount_funded
             );
             settlement_record.state = SettlementRecordState::AlreadyFunded;
             continue;
@@ -418,8 +422,9 @@ async fn main() -> anyhow::Result<()> {
         match settlement_record.funder {
             SettlementFunderType::Marinade(_) => {
                 info!(
-                    "Settlement account {} is to be funded by Marinade from fee wallet",
-                    settlement_record.settlement_address
+                    "Settlement account {} is to be funded by Marinade from fee wallet by {} lamports",
+                    settlement_record.settlement_address,
+                    amount_to_fund
                 );
                 settlement_record.funder =
                     SettlementFunderType::Marinade(Some(SettlementFunderMarinade {
@@ -427,22 +432,26 @@ async fn main() -> anyhow::Result<()> {
                     }));
             }
             SettlementFunderType::ValidatorBond(_) => {
-                info!(
-                    "Settlement account {} is to be funded by validator from bond stake accounts",
-                    settlement_record.settlement_address
-                );
-
                 let mut empty_vec: Vec<FundBondStakeAccount> = vec![];
                 let funding_stake_accounts = fund_bond_stake_accounts
                     .get_mut(&settlement_record.vote_account_address)
                     .unwrap_or(&mut empty_vec);
+                info!(
+                    "Settlement account {} is to be funded by validator by {} lamports, stake accounts: {} with {} lamports",
+                    settlement_record.settlement_address, amount_to_fund,
+                                        funding_stake_accounts.len(),
+                    funding_stake_accounts
+                        .iter()
+                        .map(|s| s.lamports)
+                        .sum::<u64>()
+                );
                 let mut lamports_available: u64 = 0;
                 let mut stake_accounts_to_fund: Vec<FundBondStakeAccount> = vec![];
                 funding_stake_accounts.retain(|stake_account| {
                     if lamports_available < amount_to_fund + minimal_stake_lamports {
                         lamports_available += stake_account.lamports;
                         stake_accounts_to_fund.push(stake_account.clone());
-                        true // delete from the list, no awailable anymore, it will be funded
+                        true // delete from the list, no available anymore, it will be funded
                     } else {
                         false // do not delete, it can be used for other settlement
                     }
@@ -461,8 +470,10 @@ async fn main() -> anyhow::Result<()> {
                 }) = stake_account_to_fund
                 {
                     info!(
-                        "Settlement:{}, merging stake accounts to {}",
-                        settlement_record.settlement_address, destination_stake
+                        "Settlement: {} will be funded with {} stake accounts merged into {}",
+                        settlement_record.settlement_address,
+                        stake_accounts_to_fund.len() + 1,
+                        destination_stake
                     );
                     for merge_stake_account in stake_accounts_to_fund {
                         let req = program

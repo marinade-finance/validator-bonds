@@ -25,6 +25,7 @@ steps:
         "embeds": [
           {
             "title": "Confirm Settlements Initialization for Validator Bonds ('"$$epoch"').",
+            "description": "Please review the 'Unblock' if ready to proceed.",
             "url": "'"$$BUILDKITE_BUILD_URL"'",
             "color": "8388863"
           }

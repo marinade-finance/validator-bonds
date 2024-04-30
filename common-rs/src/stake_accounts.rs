@@ -14,6 +14,8 @@ use solana_sdk::{
 };
 use std::collections::HashMap;
 use std::sync::Arc;
+use validator_bonds::state::config::find_bonds_withdrawer_authority;
+use validator_bonds::state::settlement::find_settlement_staker_authority;
 
 pub async fn get_stake_history(rpc_client: Arc<RpcClient>) -> anyhow::Result<StakeHistory> {
     Ok(bincode::deserialize(
@@ -78,22 +80,106 @@ pub async fn collect_stake_accounts(
         .collect())
 }
 
-pub async fn divide_delegated_stake_accounts(
+// returns Map<voter_pubkey, Vec<stake_account_data>>
+pub async fn obtain_delegated_stake_accounts(
     stake_accounts: CollectedStakeAccounts,
     rpc_client: Arc<RpcClient>,
 ) -> anyhow::Result<HashMap<Pubkey, CollectedStakeAccounts>> {
-    let mut map: HashMap<Pubkey, CollectedStakeAccounts> = HashMap::new();
     let clock: Clock = get_sysvar_clock(rpc_client).await?;
+    let mut vote_account_map: HashMap<Pubkey, CollectedStakeAccounts> = HashMap::new();
     for (pubkey, lamports, stake) in stake_accounts {
         // locked stake accounts are not correctly delegated to bonds
-        if stake.lockup().is_none() || !stake.lockup().unwrap().is_in_force(&clock, None) {
+        if !is_locked(&stake, &clock) {
             if let Some(delegated_stake) = stake.stake() {
                 let voter_pubkey = delegated_stake.delegation.voter_pubkey;
-                map.entry(voter_pubkey)
+                vote_account_map
+                    .entry(voter_pubkey)
                     .or_default()
                     .push((pubkey, lamports, stake));
             }
         }
     }
-    Ok(map)
+    Ok(vote_account_map)
+}
+
+fn is_locked(stake: &StakeState, clock: &Clock) -> bool {
+    stake.lockup().is_some() && stake.lockup().unwrap().is_in_force(clock, None)
+}
+
+// returns Map<settlement_pubkey, Vec<stake_account_data>>
+pub async fn obtain_claimable_stake_accounts_for_settlement(
+    stake_accounts: CollectedStakeAccounts,
+    config_address: &Pubkey,
+    settlement_addresses: Vec<Pubkey>,
+    rpc_client: Arc<RpcClient>,
+) -> anyhow::Result<HashMap<Pubkey, (u64, CollectedStakeAccounts)>> {
+    let clock = get_sysvar_clock(rpc_client.clone()).await?;
+    let filtered_deactivated_stake_accounts: CollectedStakeAccounts = stake_accounts
+        .into_iter()
+        .filter(|(_, _, stake)| {
+            !is_locked(stake, &clock)
+                && (stake.delegation().is_none()
+                    || stake.delegation().unwrap().deactivation_epoch <= clock.epoch)
+        })
+        .collect();
+    let settlement_map = map_stake_accounts_to_settlement(
+        filtered_deactivated_stake_accounts,
+        config_address,
+        settlement_addresses,
+    );
+    Ok(settlement_map)
+}
+
+pub async fn obtain_funded_stake_accounts_for_settlement(
+    stake_accounts: CollectedStakeAccounts,
+    config_address: &Pubkey,
+    settlement_addresses: Vec<Pubkey>,
+    rpc_client: Arc<RpcClient>,
+) -> anyhow::Result<HashMap<Pubkey, (u64, CollectedStakeAccounts)>> {
+    let clock = get_sysvar_clock(rpc_client.clone()).await?;
+    let filtered_to_be_deactivated_stake_accounts: CollectedStakeAccounts = stake_accounts
+        .into_iter()
+        .filter(|(_, _, stake)| {
+            !is_locked(stake, &clock)
+                && (stake.delegation().is_none()
+                    || stake.delegation().unwrap().deactivation_epoch <= clock.epoch + 1)
+        })
+        .collect();
+    let settlement_map = map_stake_accounts_to_settlement(
+        filtered_to_be_deactivated_stake_accounts,
+        config_address,
+        settlement_addresses,
+    );
+    Ok(settlement_map)
+}
+
+fn map_stake_accounts_to_settlement(
+    stake_accounts: CollectedStakeAccounts,
+    config_address: &Pubkey,
+    settlement_addresses: Vec<Pubkey>,
+) -> HashMap<Pubkey, (u64, CollectedStakeAccounts)> {
+    let mut settlement_map: HashMap<Pubkey, CollectedStakeAccounts> = HashMap::new();
+    let (withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
+    for settlement_address in settlement_addresses {
+        let (staker_authority, _) = find_settlement_staker_authority(&settlement_address);
+        for (pubkey, lamports, stake) in stake_accounts.iter() {
+            if let Some(authorized) = stake.authorized() {
+                if authorized.staker == staker_authority
+                    && authorized.withdrawer == withdrawer_authority
+                {
+                    settlement_map
+                        .entry(settlement_address)
+                        .or_default()
+                        .push((*pubkey, *lamports, *stake))
+                }
+            }
+        }
+    }
+    settlement_map
+        .into_iter()
+        .map(|(k, v)| {
+            let sum = v.iter().map(|(_, lamports, _)| *lamports).sum::<u64>();
+            (k, (sum, v))
+        })
+        .collect::<HashMap<_, _>>()
 }
