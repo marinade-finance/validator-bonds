@@ -259,8 +259,10 @@ async fn main() -> anyhow::Result<()> {
     for settlement_record in &mut settlement_records {
         if settlement_record.bond_account.is_none() {
             let err_msg = format!(
-                "Cannot find bond account {} for vote account {}",
-                settlement_record.bond_address, settlement_record.vote_account_address
+                "Cannot find bond account {} for vote account {}, claim amount {}",
+                settlement_record.bond_address,
+                settlement_record.vote_account_address,
+                settlement_record.max_total_claim
             );
             error!("{}", err_msg);
             init_settlements_errors.push(err_msg);
@@ -389,6 +391,9 @@ async fn main() -> anyhow::Result<()> {
             })
             .collect();
 
+    // to print to std out at the end
+    let mut funded_lamports_overall: u64 = 0;
+
     // Merging stake accounts to fit for validator bonds funding
     for settlement_record in &mut settlement_records {
         if settlement_record.bond_account.is_none() {
@@ -430,6 +435,7 @@ async fn main() -> anyhow::Result<()> {
                     SettlementFunderType::Marinade(Some(SettlementFunderMarinade {
                         amount_to_fund,
                     }));
+                funded_lamports_overall += amount_to_fund;
             }
             SettlementFunderType::ValidatorBond(_) => {
                 let mut empty_vec: Vec<FundBondStakeAccount> = vec![];
@@ -511,6 +517,7 @@ async fn main() -> anyhow::Result<()> {
                         );
                         error!("{}", err_msg);
                         init_settlements_errors.push(err_msg);
+                        funded_lamports_overall += lamports_available;
                     } else if lamports_available > amount_to_fund + minimal_stake_lamports {
                         // we are in situation that the stake account has got (or it will have after merging)
                         // more lamports than needed for funding the settlement in current loop iteration,
@@ -527,6 +534,7 @@ async fn main() -> anyhow::Result<()> {
                             stake_account: destination_split_stake.pubkey(),
                             split_stake_account: Rc::new(Keypair::new()),
                         });
+                        funded_lamports_overall += amount_to_fund;
                     }
                     settlement_record.funder =
                         SettlementFunderType::ValidatorBond(Some(SettlementFunderValidatorBond {
@@ -565,6 +573,7 @@ async fn main() -> anyhow::Result<()> {
     transaction_builder.add_signer_checked(&operator_authority_keypair.clone());
 
     // Funding settlements
+    let mut funded_settlements_overall = 0u32;
     // WARN: the prior processing REQUIRES that the fund bond transactions are executed in sequence
     for settlement_record in &settlement_records {
         if !settlement_record.state.is_in_progress() {
@@ -596,6 +605,7 @@ async fn main() -> anyhow::Result<()> {
                 );
                 transaction_builder.add_instructions(instructions)?;
                 transaction_builder.finish_instruction_pack();
+                funded_settlements_overall += 1;
             }
             SettlementFunderType::ValidatorBond(Some(SettlementFunderValidatorBond {
                 stake_account_to_fund,
@@ -633,6 +643,7 @@ async fn main() -> anyhow::Result<()> {
                         )
                     },
                 )?;
+                funded_settlements_overall += 1;
             }
             _ => {
                 error!(
@@ -660,15 +671,22 @@ async fn main() -> anyhow::Result<()> {
         "Expected to get all instructions from builder processed"
     );
 
+    println!("For epoch {epoch}: JSON loaded {} settlements with {} lamports, this run funded {} settlements with {} lamports",
+        settlement_records.len(),
+        settlement_records.iter().map(|s| s.max_total_claim).sum::<u64>(),
+        funded_settlements_overall,
+        funded_lamports_overall
+    );
+
     if !init_settlements_errors.is_empty() {
         serde_json::to_writer(io::stdout(), &init_settlements_errors)?;
-        Err(anyhow!(
+        return Err(anyhow!(
             "{} errors during initialization of settlements",
             init_settlements_errors.len(),
-        ))
-    } else {
-        Ok(())
+        ));
     }
+
+    Ok(())
 }
 
 #[derive(Debug)]

@@ -336,6 +336,9 @@ describe('Cargo CLI: Pipeline Settlement', () => {
     )
     expect(fundedStakeAccounts.length).toEqual(settlementAddresses.length)
 
+    const stdoutRegExp = RegExp(
+      'JSON loaded ' + settlementAddresses.length + ' settlements'
+    )
     await (
       expect([
         'cargo',
@@ -363,7 +366,7 @@ describe('Cargo CLI: Pipeline Settlement', () => {
       code: 0,
       stderr:
         /InitSettlement instructions 0(.|\n|\r)*already funded(.|\n|\r)*Stake accounts management instructions 0(.|\n|\r)*FundSettlement instructions 0/,
-      stdout: "",
+      stdout: stdoutRegExp,
     })
   })
 })

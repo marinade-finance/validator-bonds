@@ -68,9 +68,9 @@ steps:
   - wait: ~
 
   - label: ":campfire: Create settlements"
-    env:
-      RUST_LOG: trace
-      RUST_BACKTRACE: full
+    # env:
+    #   RUST_LOG: trace
+    #   RUST_BACKTRACE: full
     commands:
     - '. "$HOME/.cargo/env"'
     - 'epoch=$(buildkite-agent meta-data get epoch)'
@@ -133,7 +133,6 @@ steps:
   - wait: ~
     continue_on_failure: true
 
-  # TODO: reporting data from create settlement has to be sent to discord
   - label: ":mega: Notification settlements initialized"
     commands:
     - 'epoch=$(buildkite-agent meta-data get epoch)'
@@ -142,17 +141,21 @@ steps:
     - 'attempts_count=$(buildkite-agent meta-data get attempts_count)'
     - 'report=$(buildkite-agent meta-data get report)'
     - |
-        curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" -H "Content-Type: application/json" -d '{
-          "embeds": [
-            {
-              "title": "Initializing Settlements for Validator Bonds ('"$$epoch"') '"$$notification_result"' after '"$$attempts_count"' attempts.",
-              "url": "'"$$BUILDKITE_BUILD_URL"'",
-              "color": "'"$$notification_color"'"
-            }
-          ],
-          "content": ("```\n'"$$report"'```"),
-          "attachments": []
-        }'
+      curl "$$DISCORD_WEBHOOK_PSR_FEED" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": null, "attachments": []}')"
+    # TODO: fix later how to work with embeds data and escaping properly
+    # - 'escaped_report=$(echo "$$report" | jq -Rs .)'
+    # - |
+    #     curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" -H "Content-Type: application/json" -d '{
+    #       "embeds": [
+    #         {
+    #           "title": "Initializing Settlements for Validator Bonds ('"$$epoch"') '"$$notification_result"' after '"$$attempts_count"' attempts.",
+    #           "url": "'"$$BUILDKITE_BUILD_URL"'",
+    #           "color": "'"$$notification_color"'"
+    #         }
+    #       ],
+    #       "content": "```\\n'$$escaped_report'```",
+    #       "attachments": []
+    #     }'
 
   - command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/init-settlements'
