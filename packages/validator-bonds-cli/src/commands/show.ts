@@ -142,11 +142,7 @@ export function installShowSettlement(program: Command) {
   program
     .command('show-settlement')
     .description('Showing data of settlement account(s)')
-    .argument(
-      '[address]',
-      'Address of the settlement account' +
-      parsePubkey
-    )
+    .argument('[address]', 'Address of the settlement account' + parsePubkey)
     .option(
       '--bond <pubkey>',
       'Bond account to filter settlements accounts. Provide bond account or vote account address.',
@@ -171,7 +167,7 @@ export function installShowSettlement(program: Command) {
           format,
         }: {
           bond?: Promise<PublicKey>
-          epoch?: number,
+          epoch?: number
           format: FormatType
         }
       ) => {
@@ -406,7 +402,7 @@ async function showSettlement({
     data = {
       programId: program.programId,
       publicKey: address,
-      account: settlementData
+      account: settlementData,
     }
   } else {
     try {
