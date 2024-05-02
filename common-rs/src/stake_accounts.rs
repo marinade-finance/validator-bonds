@@ -266,7 +266,7 @@ pub async fn get_stake_account_slices(
             4 + 8 + 32,
             vec![page],
         )));
-        let future = rpc_client.get_program_accounts_with_config(
+        let result = rpc_client.get_program_accounts_with_config(
             &stake::program::ID,
             RpcProgramAccountsConfig {
                 filters: Some(filters.clone()),
@@ -278,18 +278,7 @@ pub async fn get_stake_account_slices(
                 },
                 with_context: None,
             },
-        );
-        futures.push(future);
-
-        // pause between fetches to not overhelming the RPC with many requests
-        if let Some(fetch_pause) = fetch_pause_millis {
-            tokio::time::sleep(tokio::time::Duration::from_millis(fetch_pause)).await;
-        }
-    }
-
-    let results = join_all(futures).await;
-
-    for result in results {
+        ).await;
         match result {
             Ok(accounts) => {
                 stake_accounts_count += accounts.len();
@@ -304,6 +293,11 @@ pub async fn get_stake_account_slices(
                 errors.push(format!("Failed to fetch stake accounts slice: {:?}", err));
             }
         };
+
+        // pause between fetches to not overhelming the RPC with many requests
+        if let Some(fetch_pause) = fetch_pause_millis {
+            tokio::time::sleep(tokio::time::Duration::from_millis(fetch_pause)).await;
+        }
     }
 
     info!(
