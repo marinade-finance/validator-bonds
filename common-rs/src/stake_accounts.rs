@@ -1,5 +1,4 @@
 use crate::utils::get_sysvar_clock;
-use futures::future::join_all;
 use log::info;
 use solana_account_decoder::{UiAccountEncoding, UiDataSliceConfig};
 use solana_client::{
@@ -252,7 +251,6 @@ pub async fn get_stake_account_slices(
     let data_slice = slice.map(|(offset, length)| UiDataSliceConfig { offset, length });
     let mut stake_accounts: Vec<(Pubkey, StakeStateV2)> = vec![];
     let mut errors: Vec<String> = vec![];
-    let mut futures = vec![];
 
     for page in 0..=u8::MAX {
         let mut filters: Vec<RpcFilterType> = vec![RpcFilterType::DataSize(200)];
