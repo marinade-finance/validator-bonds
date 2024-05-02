@@ -74,7 +74,7 @@ steps:
         --merkle-trees-dir "./merkle-trees/" \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$VALIDATOR_BONDS_FUNDING_WALLET" \
-        --fetch-pause-millis 400
+        --fetch-pause-millis 500
 
   - wait: ~
 

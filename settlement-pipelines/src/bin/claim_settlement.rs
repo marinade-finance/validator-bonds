@@ -12,6 +12,7 @@ use settlement_pipelines::arguments::{
 use settlement_pipelines::init::init_log;
 use settlement_pipelines::json_data::resolve_combined_optional;
 use settlement_pipelines::settlements::list_claimable_settlements;
+use settlement_pipelines::STAKE_ACCOUNT_RENT_EXEMPTION;
 use solana_account_decoder::UiDataSliceConfig;
 use solana_client::rpc_config::RpcAccountInfoConfig;
 use solana_sdk::pubkey::Pubkey;
@@ -136,6 +137,7 @@ async fn main() -> anyhow::Result<()> {
         )
     })?;
     let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(&config_address);
+    let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
 
     let claiming_data = claiming_data
         .into_iter()
@@ -330,7 +332,9 @@ async fn main() -> anyhow::Result<()> {
                         .find(|(pubkey, lamports, _)| {
                             let utilized_lamports =
                                 claimed_stake_amounts.entry(*pubkey).or_insert(0);
-                            if *lamports - *utilized_lamports >= tree_node.claim {
+                            if *lamports - *utilized_lamports - minimal_stake_lamports
+                                >= tree_node.claim
+                            {
                                 claimed_stake_amounts
                                     .entry(*pubkey)
                                     .and_modify(|e| *e += tree_node.claim);
@@ -358,29 +362,25 @@ async fn main() -> anyhow::Result<()> {
                 .get(&tree_node.stake_authority)
                 .is_none()
             {
-                match get_stake_account_slices(
+                // it could be not all stake accounts were loaded here we can wait for next execution of script
+                let (stake_accounts, fetch_errors) = get_stake_account_slices(
                     rpc_client.clone(),
                     Some(tree_node.stake_authority),
                     None,
                     args.fetch_pause_millis,
                 )
-                .await
-                {
-                    Ok(stake_accounts) => {
-                        stake_accounts_per_staker_cache
-                            .insert(tree_node.stake_authority, stake_accounts);
-                    }
-                    Err(e) => {
-                        let error_msg = format!(
-                            "Error fetching stake accounts for staker {} for settlement {}, epoch {}: {}",
-                            tree_node.stake_authority,
-                            matching_settlement.settlement_address,
-                            settlement_epoch,
-                            e
-                        );
-                        error!("{}", error_msg);
-                        claim_settlement_errors.push(error_msg);
-                    }
+                .await;
+                stake_accounts_per_staker_cache.insert(tree_node.stake_authority, stake_accounts);
+                if let Some(fetch_errors) = fetch_errors {
+                    let error_msg = format!(
+                                "Error fetching stake accounts for staker {} for settlement {}, epoch {}: {}",
+                                tree_node.stake_authority,
+                                matching_settlement.settlement_address,
+                                settlement_epoch,
+                                fetch_errors
+                            );
+                    error!("{}", error_msg);
+                    claim_settlement_errors.push(error_msg);
                 }
             }
             let stake_account_to = if let Some(stake_accounts) =

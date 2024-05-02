@@ -60,7 +60,7 @@ const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
 // This test case runs really long as using data from epoch 601 and needs to setup
 // all parts and create 10K settlements. Run this manually when needed
 // FILE='settlement-pipelines/__tests__/test-validator/pipelineSettlement.spec.ts' pnpm test:validator
-describe.skip('Cargo CLI: Pipeline Settlement', () => {
+describe('Cargo CLI: Pipeline Settlement', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
 
@@ -119,7 +119,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       program,
       provider,
       operatorAuthority: operatorAuthorityKeypair,
-      epochsToClaimSettlement: 100_000, // TODO: change to 100
+      epochsToClaimSettlement: 100_000,
       slotsToStartSettlementClaiming: 5,
       withdrawLockupEpochs: 0,
     }))
@@ -439,6 +439,9 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     const feePayerBase64 =
       '[' + (feePayer as Keypair).secretKey.toString() + ']'
 
+    // waiting to next epoch having all stake accounts deactivated
+    await waitForNextEpoch(provider.connection, 15)
+
     console.log('Awaiting stake accounts creation to be finished...')
     await stakeAccountsCreationFuture
     const stakeAccounts = await findStakeAccountNoDataInfos({
@@ -466,7 +469,6 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
 
     // expecting some error as we have not fully funded settlements
     // the number of executed instructions is not clear here as some fails
-    const outRegExp = new RegExp('instructions 123[0-9][0-9].*1 errors')
     await (
       expect([
         'cargo',
@@ -490,9 +492,11 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       ]) as any
     ).toHaveMatchingSpawnOutput({
       code: 1,
-      stdout: outRegExp,
+      stdout:
+        /instructions 12[0-9][0-9][0-9] executed(.|\n|\r)*No stake account found with enough lamports/,
     })
 
+    // still expecting some error as we have not fully funded settlements
     console.log('Rerunning when all is already claimed...')
     await (
       expect([
@@ -515,7 +519,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       ]) as any
     ).toHaveMatchingSpawnOutput({
       code: 1,
-      stdout: /1 errors/,
+      stdout: /0 executed(.|\n|\r)*No stake account found with enough lamports/,
     })
   })
 })

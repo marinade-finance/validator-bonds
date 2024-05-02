@@ -11,6 +11,7 @@ use settlement_pipelines::arguments::{
 };
 use settlement_pipelines::init::init_log;
 use settlement_pipelines::json_data::{resolve_combined, MerkleTreeMetaSettlement};
+use settlement_pipelines::STAKE_ACCOUNT_RENT_EXEMPTION;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
@@ -46,9 +47,6 @@ use validator_bonds_common::{
     bonds::get_bonds_for_pubkeys, constants::find_event_authority,
     settlements::get_settlements_for_pubkeys,
 };
-
-// TODO: better to be loaded from chain
-const STAKE_ACCOUNT_RENT_EXEMPTION: u64 = 2282880;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

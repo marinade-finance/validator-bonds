@@ -8,6 +8,7 @@ use solana_client::{
     rpc_filter::{Memcmp, RpcFilterType},
 };
 use solana_program::stake::state::StakeStateV2;
+use solana_program::stake_history::StakeHistoryEntry;
 use solana_sdk::{
     clock::Clock,
     pubkey::Pubkey,
@@ -83,6 +84,8 @@ pub async fn collect_stake_accounts(
         .collect())
 }
 
+// Mapping provided stake accounts to the voter_pubkey,
+// i.e., to the vote account that the stake account is delegated to
 // returns Map<voter_pubkey, Vec<stake_account_data>>
 pub async fn obtain_delegated_stake_accounts(
     stake_accounts: CollectedStakeAccounts,
@@ -109,6 +112,8 @@ fn is_locked(stake: &StakeStateV2, clock: &Clock) -> bool {
     stake.lockup().is_some() && stake.lockup().unwrap().is_in_force(clock, None)
 }
 
+// All non locked stake accounts that are funded to the Settlement,
+// provided stake accounts are fully deactivated and whole lamports amount can be used for claiming
 // returns Map<settlement_pubkey, Vec<stake_account_data>>
 pub async fn obtain_claimable_stake_accounts_for_settlement(
     stake_accounts: CollectedStakeAccounts,
@@ -117,13 +122,24 @@ pub async fn obtain_claimable_stake_accounts_for_settlement(
     rpc_client: Arc<RpcClient>,
 ) -> anyhow::Result<HashMap<Pubkey, (u64, CollectedStakeAccounts)>> {
     let clock = get_sysvar_clock(rpc_client.clone()).await?;
+    let stake_history = get_stake_history(rpc_client.clone()).await?;
     let filtered_deactivated_stake_accounts: CollectedStakeAccounts = stake_accounts
         .into_iter()
         .filter(|(_, _, stake)| {
-            !is_locked(stake, &clock)
-                // stake account is initialized or delegated+deactivated
-                && (stake.delegation().is_none()
-                    || stake.delegation().unwrap().deactivation_epoch <= clock.epoch)
+            if is_locked(stake, &clock) {
+                // cannot use locked stake account
+                false
+            } else if let Some(delegation) = stake.delegation() {
+                // stake has got delegation but is fully deactivated
+                // https://github.com/marinade-finance/native-staking/blob/master/bot/src/utils/stakes.rs#L64C1-L64C113
+                delegation
+                    .stake_activating_and_deactivating(clock.epoch, Some(&stake_history), None)
+                    .effective
+                    == 0
+            } else {
+                // non-locked, non-delegated, only initialized
+                true
+            }
         })
         .collect();
     let settlement_map = map_stake_accounts_to_settlement(
@@ -134,6 +150,8 @@ pub async fn obtain_claimable_stake_accounts_for_settlement(
     Ok(settlement_map)
 }
 
+// All non locked stake accounts that are funded to the Settlement
+// Stake accounts are good to be claimed in near future (i.e., in next epoch, deactivated)
 pub async fn obtain_funded_stake_accounts_for_settlement(
     stake_accounts: CollectedStakeAccounts,
     config_address: &Pubkey,
@@ -141,12 +159,29 @@ pub async fn obtain_funded_stake_accounts_for_settlement(
     rpc_client: Arc<RpcClient>,
 ) -> anyhow::Result<HashMap<Pubkey, (u64, CollectedStakeAccounts)>> {
     let clock = get_sysvar_clock(rpc_client.clone()).await?;
+    let stake_history = get_stake_history(rpc_client.clone()).await?;
     let filtered_to_be_deactivated_stake_accounts: CollectedStakeAccounts = stake_accounts
         .into_iter()
         .filter(|(_, _, stake)| {
-            !is_locked(stake, &clock)
-                && (stake.delegation().is_none()
-                    || stake.delegation().unwrap().deactivation_epoch <= clock.epoch + 1)
+            if is_locked(stake, &clock) {
+                // cannot use locked stake account
+                false
+            } else if let Some(delegation) = stake.delegation() {
+                // fully deactivated or deactivating
+                let StakeHistoryEntry {
+                    effective,
+                    deactivating,
+                    activating: _,
+                } = delegation.stake_activating_and_deactivating(
+                    clock.epoch,
+                    Some(&stake_history),
+                    None,
+                );
+                effective == 0 || deactivating > 0
+            } else {
+                // non-locked, non-delegated, only initialized
+                true
+            }
         })
         .collect();
     let settlement_map = map_stake_accounts_to_settlement(
@@ -179,6 +214,7 @@ fn map_stake_accounts_to_settlement(
             }
         }
     }
+    // sorting stake accounts that the delegated ones are before the non-delegated ones
     settlement_map
         .into_iter()
         .map(|(k, mut v)| {
@@ -207,7 +243,7 @@ pub async fn get_stake_account_slices(
     stake_authority: Option<Pubkey>,
     slice: Option<(usize, usize)>,
     fetch_pause_millis: Option<u64>,
-) -> anyhow::Result<Vec<(Pubkey, StakeStateV2)>> {
+) -> (Vec<(Pubkey, StakeStateV2)>, Option<anyhow::Error>) {
     info!(
         "Fetching stake account slices {:?} with stake authority: {:?}",
         slice, stake_authority
@@ -275,11 +311,14 @@ pub async fn get_stake_account_slices(
         stake_accounts_count,
         (stake_authority, slice)
     );
-    if !errors.is_empty() {
-        return Err(anyhow::anyhow!(
+    let result_error = if errors.is_empty() {
+        None
+    } else {
+        Some(anyhow::anyhow!(
             "Failed to fetch stake accounts: {:?}",
             errors
-        ));
-    }
-    Ok(stake_accounts)
+        ))
+    };
+
+    (stake_accounts, result_error)
 }
