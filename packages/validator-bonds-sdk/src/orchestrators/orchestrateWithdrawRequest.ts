@@ -113,6 +113,7 @@ export async function orchestrateWithdrawDeposit({
       connection: program,
       staker: bondWithdrawerAuthority,
       withdrawer: bondWithdrawerAuthority,
+      voter: withdrawRequestData.voteAccount,
       currentEpoch: 0,
     })
   )

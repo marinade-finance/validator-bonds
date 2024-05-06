@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+
+## TS CLI&SDK [1.3.4](https://github.com/marinade-finance/validator-bonds/compare/v1.3.3...v1.3.4) (2024-05-06)
+
+### Fixes
+
+* CLI: fixing withdraw claim command that was wrongly filtering stake accounts possible for claiming
+
+
 ## TS CLI&SDK [1.3.3](https://github.com/marinade-finance/validator-bonds/compare/v1.3.2...v1.3.3) (2024-04-26)
 
 ### Fixes

@@ -5,6 +5,7 @@ SCRIPT_DIR=`dirname "$SCRIPT_PATH"`
 
 SDK_PACKAGE_JSON="$SCRIPT_DIR/../packages/validator-bonds-sdk/package.json"
 CLI_PACKAGE_JSON="$SCRIPT_DIR/../packages/validator-bonds-cli/package.json"
+PIPELINES_PACKAGE_JSON="$SCRIPT_DIR/../settlement-pipelines/package.json"
 CLI_INDEX="$SCRIPT_DIR/../packages/validator-bonds-cli/src/index.ts"
 README="$SCRIPT_DIR/../README.md"
 README_CLI="$SCRIPT_DIR/../packages/validator-bonds-cli//README.md"
@@ -16,7 +17,7 @@ NEW_VERSION=${1:-$NEW_VERSION}
 echo "Updating CLI version $VERSION to $NEW_VERSION"
 read -p "Press enter to continue"
 
-for I in "$SDK_PACKAGE_JSON" "$CLI_PACKAGE_JSON" "$CLI_INDEX" "$README" "$README_CLI"; do
+for I in "$SDK_PACKAGE_JSON" "$CLI_PACKAGE_JSON" "$PIPELINES_PACKAGE_JSON" "$CLI_INDEX" "$README" "$README_CLI"; do
     UPDATE_FILE=`readlink -f "$I"`
     echo "Updating ${UPDATE_FILE}"
     sed -i "s/$VERSION/$NEW_VERSION/" "$UPDATE_FILE"

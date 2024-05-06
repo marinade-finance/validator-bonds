@@ -20,7 +20,7 @@
         "lint": "pnpm lint:cargo && pnpm lint:ts",
         "publish:sdk": "pnpm build && pnpm publish build/packages/validator-bonds-sdk",
         "publish:cli": "pnpm build && pnpm publish build/packages/validator-bonds-cli",
-        "publish:all": "pnpm publish:sdk && pnpm publish:cli"
+        "publish:all": "pnpm publish -r --filter '@marinade.finance/validator-bonds*'"
     },
     "devDependencies": {
         "@jest/globals": "^29.7.0",

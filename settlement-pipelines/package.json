@@ -1,6 +1,6 @@
 {
     "name": "@marinade.finance/settlement-pipelines",
-    "version": "1.3.2",
+    "version": "1.3.4",
     "description": "Tests for settlement pipelines CLI",
     "repository": {
       "type": "git",
@@ -17,7 +17,7 @@
     "author": "Marinade.Finance",
     "license": "ISC",
     "devDependencies": {
-      "@marinade.finance/validator-bonds-sdk": "^1.3.2",
+      "@marinade.finance/validator-bonds-sdk": "workspace:^1.3.4",
       "@coral-xyz/anchor": "^0.29.0",
       "@solana/web3.js": "^1.91.1",
       "@marinade.finance/ledger-utils": "^3.0.1",

@@ -70,7 +70,7 @@ describe('Configure config account using CLI', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 1,
+      code: 200,
       // stderr: '',
       stdout: /No new config values provided/,
     })

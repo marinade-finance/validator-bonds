@@ -688,6 +688,7 @@ export async function getBondsFunding({
     // filter for the stake accounts that are IN a settlement
     .filter(
       stakeAccount =>
+        stakeAccount.account.data.voter !== null &&
         stakeAccount.account.data.withdrawer !== null &&
         stakeAccount.account.data.staker !== null &&
         !stakeAccount.account.data.withdrawer.equals(
@@ -732,7 +733,11 @@ function groupByVoter(
 ): Map<string, ProgramAccountInfo<StakeAccountParsed>[]> {
   // group by vote account
   return stakeAccounts.reduce((acc, obj) => {
-    const voter = obj.account.data.voter! // voter is known here, filtered above
+    assert(
+      obj.account.data.voter !== null,
+      'voter is known here, has to be filtered from functions above'
+    )
+    const voter = obj.account.data.voter
     const stakeAccounts = acc.get(voter.toBase58())
     if (stakeAccounts === undefined) {
       acc.set(voter.toBase58(), [obj])

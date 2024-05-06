@@ -17,7 +17,7 @@ export const logger: Logger = configureLogger()
 const program = new Command()
 
 program
-  .version('1.3.3')
+  .version('1.3.4')
   .allowExcessArguments(false)
   .configureHelp({ showGlobalOptions: true })
   .option(
