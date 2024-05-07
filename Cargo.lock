@@ -5916,7 +5916,7 @@ dependencies = [
 [[package]]
 name = "solana-transaction-builder"
 version = "0.1.0"
-source = "git+https://github.com/marinade-finance/solana-transaction-builder?branch=logging-adjust#03a5f88d38a305b8f78ffd0aadb2c62da2a796c8"
+source = "git+https://github.com/marinade-finance/solana-transaction-builder?branch=addition-info-on-execution#3a3748fa2e7624bb311cc35feb92c5fba5678518"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
@@ -5931,7 +5931,7 @@ dependencies = [
 [[package]]
 name = "solana-transaction-builder-executor"
 version = "0.1.0"
-source = "git+https://github.com/marinade-finance/solana-transaction-builder?branch=logging-adjust#03a5f88d38a305b8f78ffd0aadb2c62da2a796c8"
+source = "git+https://github.com/marinade-finance/solana-transaction-builder?branch=addition-info-on-execution#3a3748fa2e7624bb311cc35feb92c5fba5678518"
 dependencies = [
  "anyhow",
  "async-stream",

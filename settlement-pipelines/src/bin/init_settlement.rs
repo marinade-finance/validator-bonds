@@ -12,6 +12,7 @@ use settlement_pipelines::arguments::{
 use settlement_pipelines::init::init_log;
 use settlement_pipelines::json_data::{resolve_combined, MerkleTreeMetaSettlement};
 use settlement_pipelines::STAKE_ACCOUNT_RENT_EXEMPTION;
+use solana_sdk::native_token::lamports_to_sol;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
@@ -36,9 +37,10 @@ use std::rc::Rc;
 use std::sync::Arc;
 use validator_bonds::instructions::{InitSettlementArgs, MergeStakeArgs};
 use validator_bonds::state::bond::Bond;
-use validator_bonds::state::config::{find_bonds_withdrawer_authority, Config};
+use validator_bonds::state::config::find_bonds_withdrawer_authority;
 use validator_bonds::state::settlement::{find_settlement_staker_authority, Settlement};
 use validator_bonds::ID as validator_bonds_id;
+use validator_bonds_common::config::get_config;
 use validator_bonds_common::stake_accounts::{
     collect_stake_accounts, obtain_delegated_stake_accounts,
     obtain_funded_stake_accounts_for_settlement, CollectedStakeAccounts,
@@ -132,13 +134,7 @@ async fn main() -> anyhow::Result<()> {
     let mut transaction_builder = TransactionBuilder::limited(fee_payer_keypair.clone());
     transaction_builder.add_signer_checked(&operator_authority_keypair.clone());
 
-    let config: Config = program.account(config_address).await.map_err(|e| {
-        anyhow!(
-            "Cannot load validator-bonds config account {}: {:?}",
-            config_address,
-            e
-        )
-    })?;
+    let config = get_config(rpc_client.clone(), config_address).await?;
     let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
 
     let mut init_settlement_errors: Vec<String> = vec![];
@@ -290,11 +286,11 @@ async fn main() -> anyhow::Result<()> {
     )
     .await?;
     info!(
-        "InitSettlement instructions {} executed successfully of vote accounts [{}]",
+        "InitSettlement instructions {} executed successfully of settlement/vote_account [{}]",
         init_execution_count,
-        vote_accounts
+        settlement_records
             .iter()
-            .map(|v| v.to_string())
+            .map(|v| format!("{}/{}", v.settlement_address, v.vote_account_address))
             .collect::<Vec<String>>()
             .join(", ")
     );
@@ -381,8 +377,9 @@ async fn main() -> anyhow::Result<()> {
 
         if amount_to_fund == 0 {
             info!(
-                "Settlement account {}/{:?} already funded by {}, skipping funding",
+                "Settlement {} (vote account {}), funter {:?} already funded by {}, skipping funding",
                 settlement_record.settlement_address,
+                settlement_record.vote_account_address,
                 settlement_record.funder,
                 settlement_amount_funded
             );
@@ -393,9 +390,10 @@ async fn main() -> anyhow::Result<()> {
         match settlement_record.funder {
             SettlementFunderType::Marinade(_) => {
                 info!(
-                    "Settlement account {} is to be funded by Marinade from fee wallet by {} lamports",
+                    "Settlement {} (vote account {}) is to be funded by Marinade from fee wallet by {} SOLs",
                     settlement_record.settlement_address,
-                    amount_to_fund
+                    settlement_record.vote_account_address,
+                    lamports_to_sol(amount_to_fund)
                 );
                 settlement_record.funder =
                     SettlementFunderType::Marinade(Some(SettlementFunderMarinade {
@@ -409,13 +407,15 @@ async fn main() -> anyhow::Result<()> {
                     .get_mut(&settlement_record.vote_account_address)
                     .unwrap_or(&mut empty_vec);
                 info!(
-                    "Settlement account {} is to be funded by validator by {} lamports, stake accounts: {} with {} lamports",
-                    settlement_record.settlement_address, amount_to_fund,
-                                        funding_stake_accounts.len(),
-                    funding_stake_accounts
+                    "Settlement {} (vote account {}) is to be funded by validator by {} SOLs, stake accounts: {} with {} SOLs",
+                    settlement_record.settlement_address,
+                    settlement_record.vote_account_address,
+                    lamports_to_sol(amount_to_fund),
+                    funding_stake_accounts.len(),
+                    lamports_to_sol(funding_stake_accounts
                         .iter()
                         .map(|s| s.lamports)
-                        .sum::<u64>()
+                        .sum::<u64>())
                 );
                 let mut lamports_available: u64 = 0;
                 let mut stake_accounts_to_fund: Vec<FundBondStakeAccount> = vec![];
@@ -442,8 +442,9 @@ async fn main() -> anyhow::Result<()> {
                 }) = stake_account_to_fund
                 {
                     info!(
-                        "Settlement: {} will be funded with {} stake accounts merged into {}",
+                        "Settlement: {} (vote account {}) will be funded with {} stake accounts merged into {}",
                         settlement_record.settlement_address,
+                        settlement_record.vote_account_address,
                         stake_accounts_to_fund.len() + 1,
                         destination_stake
                     );
@@ -476,10 +477,11 @@ async fn main() -> anyhow::Result<()> {
                     }
                     if lamports_available < amount_to_fund {
                         let err_msg = format!(
-                            "Cannot fully fund settlement account {} with {} lamports as only {} lamports were found in stake accounts",
+                            "Cannot fully fund settlement {} (vote account {}) with {} SOLs as only {} SOLs were found in stake accounts",
                             settlement_record.settlement_address,
-                            amount_to_fund,
-                            lamports_available
+                            settlement_record.vote_account_address,
+                            lamports_to_sol(amount_to_fund),
+                            lamports_to_sol(lamports_available)
                         );
                         error!("{}", err_msg);
                         init_settlement_errors.push(err_msg);
@@ -508,8 +510,9 @@ async fn main() -> anyhow::Result<()> {
                         }))
                 } else {
                     let err_msg = format!(
-                        "Cannot find stake account to fund settlement account {}",
-                        settlement_record.settlement_address
+                        "Cannot find stake account to fund settlement {} of vote account {}",
+                        settlement_record.settlement_address,
+                        settlement_record.vote_account_address
                     );
                     error!("{}", err_msg);
                     init_settlement_errors.push(err_msg);
@@ -613,8 +616,10 @@ async fn main() -> anyhow::Result<()> {
             }
             _ => {
                 error!(
-                    "Not possible to fund settlement account {} with funder type {:?}",
-                    settlement_record.settlement_address, settlement_record.funder
+                    "Not possible to fund settlement {} (vote account {}) with funder type {:?}",
+                    settlement_record.settlement_address,
+                    settlement_record.vote_account_address,
+                    settlement_record.funder
                 );
             }
         }
@@ -637,11 +642,11 @@ async fn main() -> anyhow::Result<()> {
         "Expected to get all instructions from builder processed"
     );
 
-    println!("For epoch {epoch}: JSON loaded {} settlements with {} lamports, this run funded {} settlements with {} lamports, {} errors",
+    println!("For epoch {epoch}: JSON loaded {} settlements with {} SOLs, this run funded {} settlements with {} SOLs; {} errors",
         settlement_records.len(),
-        settlement_records.iter().map(|s| s.max_total_claim).sum::<u64>(),
+        lamports_to_sol(settlement_records.iter().map(|s| s.max_total_claim).sum::<u64>()),
         funded_settlements_overall,
-        funded_lamports_overall,
+        lamports_to_sol(funded_lamports_overall),
         init_settlement_errors.len(),
     );
 

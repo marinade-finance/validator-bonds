@@ -495,8 +495,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       ]) as any
     ).toHaveMatchingSpawnOutput({
       code: 1,
-      stderr:
-        /All stake accounts are locked/,
+      stderr: /All stake accounts are locked/,
       stdout:
         /instructions 12[0-9][0-9][0-9] executed(.|\n|\r)*No stake account found with enough lamports/,
     })

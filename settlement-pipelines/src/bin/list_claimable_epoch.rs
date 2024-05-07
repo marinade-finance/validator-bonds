@@ -11,7 +11,8 @@ use std::collections::HashSet;
 use std::io;
 use std::str::FromStr;
 use std::sync::Arc;
-use validator_bonds::state::config::Config;
+
+use validator_bonds_common::config::get_config;
 use validator_bonds_common::get_validator_bonds_program;
 
 // Printing on std out the list of epochs that contains
@@ -44,17 +45,11 @@ async fn main() -> anyhow::Result<()> {
         },
     ));
 
-    let program = get_validator_bonds_program(rpc_client.clone(), None)?;
-    let config: Config = program.account(config_address).await.map_err(|e| {
-        anyhow!(
-            "Cannot load validator-bonds config account {}: {:?}",
-            config_address,
-            e
-        )
-    })?;
+    let _program = get_validator_bonds_program(rpc_client.clone(), None)?;
+    let config = get_config(rpc_client.clone(), config_address).await?;
 
     let claimable_settlements =
-        list_claimable_settlements(&config_address, &config, rpc_client.clone()).await?;
+        list_claimable_settlements(rpc_client.clone(), &config_address, &config).await?;
 
     let claimable_epochs = claimable_settlements
         .iter()

@@ -1,9 +1,12 @@
 use crate::get_validator_bonds_program;
+
 use anyhow::anyhow;
 use solana_account_decoder::UiDataSliceConfig;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcAccountInfoConfig;
+use solana_client::rpc_filter::{Memcmp, RpcFilterType};
 use solana_program::pubkey::Pubkey;
+
 use std::sync::Arc;
 use validator_bonds::state::settlement_claim::SettlementClaim;
 
@@ -12,6 +15,19 @@ pub async fn get_settlement_claims(
 ) -> anyhow::Result<Vec<(Pubkey, SettlementClaim)>> {
     let program = get_validator_bonds_program(rpc_client, None)?;
     Ok(program.accounts(Default::default()).await?)
+}
+
+pub async fn get_settlement_claims_for_settlement(
+    rpc_client: Arc<RpcClient>,
+    settlement_address: &Pubkey,
+) -> anyhow::Result<Vec<(Pubkey, SettlementClaim)>> {
+    let program = get_validator_bonds_program(rpc_client, None)?;
+    Ok(program
+        .accounts(vec![RpcFilterType::Memcmp(Memcmp::new(
+            8,
+            solana_client::rpc_filter::MemcmpEncodedBytes::Base58(settlement_address.to_string()),
+        ))])
+        .await?)
 }
 
 pub async fn collect_existence_settlement_claims_from_addresses(

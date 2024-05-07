@@ -21,8 +21,7 @@ steps:
 
   - label: ":campfire: List claimable epochs"
     env:
-      # RUST_LOG: trace
-      # RUST_BACKTRACE: full
+      # RUST_LOG: debug
     commands:
     - '. "$HOME/.cargo/env"'
     - 'buildkite-agent artifact download --include-retried-jobs target/release/list-claimable-epoch .'
@@ -58,7 +57,7 @@ steps:
 
   - label: ":campfire: Claim settlements"
     env:
-      # RUST_LOG: trace
+      RUST_LOG: solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,claim_settlement=debug
       # RUST_BACKTRACE: full
     commands:
     - |
@@ -73,7 +72,28 @@ steps:
         --rpc-url $$RPC_URL \
         --merkle-trees-dir "./merkle-trees/" \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
-        --fee-payer "$$VALIDATOR_BONDS_FUNDING_WALLET"
+        --fee-payer "$$VALIDATOR_BONDS_FUNDING_WALLET" | tee ./claiming-report.txt
+    artifact_paths:
+    - "./claiming-report.txt"
+  
+  - wait: ~
+    continue_on_failure: true
+
+  - label: ":mega: Notification settlements claiming"
+    env:
+      DISCORD_WEBHOOK: $$DISCORD_WEBHOOK_VALIDATOR_BONDS
+    commands:
+    - 'buildkite-agent artifact download --include-retried-jobs claiming-report.txt .'
+    - 'claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json)'
+    - 'claimable_epochs=$(echo "$$claimable_epochs_json" | jq ".[]")'
+    - |
+      curl "$$DISCORD_WEBHOOK" \
+        -F 'payload_json={
+            "content": "Claimed Settlements for epochs: '"$$claimable_epochs"'",
+            "url": "'"$$BUILDKITE_BUILD_URL"'",
+            "color": "8388863"
+        }' \
+        -F "file1=@./claiming-report.txt"
 
   - wait: ~
 

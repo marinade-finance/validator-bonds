@@ -2,6 +2,7 @@ use log::info;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use std::sync::Arc;
+
 use validator_bonds::state::config::{find_bonds_withdrawer_authority, Config};
 use validator_bonds::state::settlement::Settlement;
 use validator_bonds_common::settlements::get_settlements;
@@ -18,9 +19,9 @@ pub struct ClaimableSettlementsReturn {
 }
 
 pub async fn list_claimable_settlements(
+    rpc_client: Arc<RpcClient>,
     config_address: &Pubkey,
     config: &Config,
-    rpc_client: Arc<RpcClient>,
 ) -> anyhow::Result<Vec<ClaimableSettlementsReturn>> {
     let clock = get_sysvar_clock(rpc_client.clone()).await?;
     let current_epoch = clock.epoch;
