@@ -36,8 +36,8 @@ pub type CollectedStakeAccounts = Vec<(Pubkey, u64, StakeStateV2)>;
 
 pub async fn collect_stake_accounts(
     rpc_client: Arc<RpcClient>,
-    withdraw_authority: Option<Pubkey>,
-    stake_authority: Option<Pubkey>,
+    withdraw_authority: Option<&Pubkey>,
+    stake_authority: Option<&Pubkey>,
 ) -> anyhow::Result<CollectedStakeAccounts> {
     const STAKE_AUTHORITY_OFFSET: usize = 4 + 8;
     const WITHDRAW_AUTHORITY_OFFSET: usize = 4 + 8 + 32;
@@ -214,25 +214,11 @@ fn map_stake_accounts_to_settlement(
             }
         }
     }
-    // sorting stake accounts for the delegated ones being before the non-delegated ones
+    // calculate sum of lamports for each settlement address
     settlement_map
         .into_iter()
-        .map(|(k, mut v)| {
+        .map(|(k, v)| {
             let sum = v.iter().map(|(_, lamports, _)| *lamports).sum::<u64>();
-            // sorting stake accounts with delegation before those without it
-            v.sort_by(|(_, _, stake1), (_, _, stake2)| {
-                let ord1 = if let Some(_d) = stake1.delegation() {
-                    -1
-                } else {
-                    1
-                };
-                let ord2 = if let Some(_d) = stake2.delegation() {
-                    -1
-                } else {
-                    1
-                };
-                ord1.partial_cmp(&ord2).unwrap()
-            });
             (k, (sum, v))
         })
         .collect::<HashMap<_, _>>()
@@ -295,7 +281,7 @@ pub async fn get_stake_account_slices(
             }
         };
 
-        // pause between fetches to not overhelming the RPC with many requests
+        // pause between fetches to not overwhelming the RPC with many requests
         if let Some(fetch_pause) = fetch_pause_millis {
             tokio::time::sleep(tokio::time::Duration::from_millis(fetch_pause)).await;
         }

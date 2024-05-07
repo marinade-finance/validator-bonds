@@ -29,7 +29,7 @@ pub async fn collect_validator_bonds_with_funds(
 
     let bonds: HashMap<_, _> = get_bonds(rpc_client.clone()).await?.into_iter().collect();
     let stake_accounts =
-        collect_stake_accounts(rpc_client.clone(), Some(withdraw_authority), None).await?;
+        collect_stake_accounts(rpc_client.clone(), Some(&withdraw_authority), None).await?;
     let witdraw_requests = get_withdraw_requests(rpc_client.clone()).await?;
     let settlements = get_settlements(rpc_client.clone()).await?;
     let clock = get_clock(rpc_client.clone()).await?;

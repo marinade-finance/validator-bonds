@@ -6,12 +6,27 @@ use solana_sdk::stake::state::StakeStateV2;
 use solana_sdk::stake_history::StakeHistory;
 use validator_bonds_common::stake_accounts::{is_locked, CollectedStakeAccounts};
 
+/// processed provided stake accounts and pick the one with the best priority for claiming
+pub fn pick_stake_for_claiming(
+    stake_accounts: &CollectedStakeAccounts,
+    clock: &Clock,
+    stake_history: &StakeHistory,
+) -> anyhow::Result<Option<Pubkey>> {
+    prioritize_for_claiming(stake_accounts, clock, stake_history).map_or_else(
+        |e| {
+            let error_msg = format!("No available stake account for claiming: {}", e);
+            Err(anyhow!("{}", error_msg))
+        },
+        |v| Ok(Some(v)),
+    )
+}
+
 // prioritize collected stake accounts by:
 // - 1. initialized, non-delegated
 // - 2. deactivating
 // - 3. any non-locked
 // - error if all are locked or no stake accounts
-pub fn prioritize_for_claiming(
+fn prioritize_for_claiming(
     stake_accounts: &CollectedStakeAccounts,
     clock: &Clock,
     stake_history: &StakeHistory,
@@ -20,10 +35,8 @@ pub fn prioritize_for_claiming(
         .iter()
         .filter(|(_pubkey, _, stake)| !is_locked(stake, clock))
         .collect::<Vec<_>>();
-    non_locked_stake_accounts.sort_by(|(_, _, stake_account1), (_, _, stake_account2)| {
-        priority_rating_non_locked(stake_account1, clock, stake_history).cmp(
-            &priority_rating_non_locked(stake_account2, clock, stake_history),
-        )
+    non_locked_stake_accounts.sort_by_cached_key(|(_, _, stake_account)| {
+        get_non_locked_priority_key(stake_account, clock, stake_history)
     });
     return if let Some((pubkey, _, _)) = non_locked_stake_accounts.first() {
         Ok(*pubkey)
@@ -38,7 +51,7 @@ pub fn prioritize_for_claiming(
     };
 }
 
-fn priority_rating_non_locked(
+fn get_non_locked_priority_key(
     stake_account: &StakeStateV2,
     clock: &Clock,
     stake_history: &StakeHistory,

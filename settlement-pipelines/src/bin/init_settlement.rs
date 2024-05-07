@@ -310,7 +310,7 @@ async fn main() -> anyhow::Result<()> {
     // let's check how we are about settlement funding
     let (withdrawer_authority, _) = find_bonds_withdrawer_authority(&config_address);
     let stake_accounts =
-        collect_stake_accounts(rpc_client.clone(), Some(withdrawer_authority), None).await?;
+        collect_stake_accounts(rpc_client.clone(), Some(&withdrawer_authority), None).await?;
     let non_funded: CollectedStakeAccounts = stake_accounts
         .clone()
         .into_iter()

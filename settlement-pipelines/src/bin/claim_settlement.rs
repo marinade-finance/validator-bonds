@@ -12,8 +12,8 @@ use settlement_pipelines::arguments::{
 use settlement_pipelines::init::init_log;
 use settlement_pipelines::json_data::resolve_combined_optional;
 use settlement_pipelines::settlements::list_claimable_settlements;
-use settlement_pipelines::stake_accounts::prioritize_for_claiming;
-use settlement_pipelines::stake_withdraw_pair::StakeWithdrawAuthorityPair;
+use settlement_pipelines::stake_accounts::pick_stake_for_claiming;
+use settlement_pipelines::stake_accounts_cache::StakeAccountsCache;
 use settlement_pipelines::STAKE_ACCOUNT_RENT_EXEMPTION;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::stake::program::ID as stake_program_id;
@@ -38,9 +38,7 @@ use validator_bonds::state::settlement_claim::find_settlement_claim_address;
 use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::constants::find_event_authority;
 use validator_bonds_common::settlement_claims::collect_existence_settlement_claims_from_addresses;
-use validator_bonds_common::stake_accounts::{
-    collect_stake_accounts, get_stake_history, CollectedStakeAccounts,
-};
+use validator_bonds_common::stake_accounts::{get_stake_history, CollectedStakeAccounts};
 use validator_bonds_common::utils::get_sysvar_clock;
 
 const SETTLEMENT_MERKLE_TREES_SUFFIX: &str = "settlement-merkle-trees.json";
@@ -181,8 +179,8 @@ async fn main() -> anyhow::Result<()> {
 
     // Assigning for each settlement the merkle tree data
     let mut claimed_stake_amounts: HashMap<Pubkey, u64> = HashMap::new();
-    let mut stake_accounts_to_cache: HashMap<StakeWithdrawAuthorityPair, Option<Pubkey>> =
-        HashMap::new();
+    let mut stake_accounts_to_cache = StakeAccountsCache::default();
+
     for claimable_settlement in claimable_settlements {
         let settlement_epoch = claimable_settlement.settlement.epoch_created_for;
         let settlement_merkle_tree =
@@ -339,50 +337,34 @@ async fn main() -> anyhow::Result<()> {
                 }
             };
 
-            let stake_withdraw_pair = StakeWithdrawAuthorityPair::new(
-                &tree_node.stake_authority,
-                &tree_node.withdraw_authority,
-            );
-            // when the cache contains the stake account, we can use it
-            let stake_account_to: Option<Pubkey> = if let Some(stake_account_to) =
-                stake_accounts_to_cache.get(&stake_withdraw_pair)
-            {
-                *stake_account_to
-            } else {
-                // not fetched yet, let's fetch
-                let stake_accounts = collect_stake_accounts(
-                        rpc_client.clone(),
-                        Some(tree_node.withdraw_authority),
-                        Some(tree_node.stake_authority),
-                    ).await.map_or_else(|e| {
-                        let err_msg = format!(
-                            "Failed to fetch and deserialize stake accounts for claiming of staker/withdraw authorities {}/{}: {:?}",
-                            tree_node.stake_authority,
-                            tree_node.withdraw_authority,
-                            e
-                        );
-                        error!("{}", err_msg);
-                        claim_settlement_errors.push(err_msg);
-                        vec![] as CollectedStakeAccounts
-                    }, |v| v);
-
-                // prioritize what stake account to use for claiming to
-                let stake_account_to =
-                    prioritize_for_claiming(&stake_accounts, &clock, &stake_history).map_or_else(
-                        |e| {
-                            let error_msg = format!(
-                                "No stake account for claiming of staker/withdraw authorities {}/{}: {}",
-                                tree_node.stake_authority, tree_node.withdraw_authority, e
-                            );
-                            error!("{}", error_msg);
-                            claim_settlement_errors.push(error_msg);
-                            None
-                        },
-                        Some,
-                    );
-                stake_accounts_to_cache.insert(stake_withdraw_pair, stake_account_to);
-                stake_account_to
-            };
+            let empty_stake_acounts: CollectedStakeAccounts = vec![];
+            let stake_accounts_to = stake_accounts_to_cache
+                .get(
+                    rpc_client.clone(),
+                    &tree_node.withdraw_authority,
+                    &tree_node.stake_authority,
+                )
+                .await
+                .map_or_else(
+                    |e| {
+                        claim_settlement_errors.push(format!("{:?}", e));
+                        &empty_stake_acounts
+                    },
+                    |v| v,
+                );
+            let stake_account_to = pick_stake_for_claiming(
+                stake_accounts_to,
+                &clock,
+                &stake_history,
+            ).map_or_else(|e| {
+                let error_msg = format!(
+                    "No available stake account for claiming of staker/withdraw authorities {}/{}: {}",
+                    tree_node.stake_authority, tree_node.withdraw_authority, e
+                );
+                error!("{}", error_msg);
+                claim_settlement_errors.push(error_msg);
+                None
+            }, |v| v);
             let stake_account_to: Pubkey = if let Some(stake_account_to) = stake_account_to {
                 stake_account_to
             } else {

@@ -52,7 +52,7 @@ pub async fn list_claimable_settlements(
         }).collect::<Vec<(Pubkey, Settlement)>>();
 
     let stake_accounts =
-        collect_stake_accounts(rpc_client.clone(), Some(withdraw_authority), None).await?;
+        collect_stake_accounts(rpc_client.clone(), Some(&withdraw_authority), None).await?;
     info!(
         "For config {} there are {} stake accounts",
         config_address,
