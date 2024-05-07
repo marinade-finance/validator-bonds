@@ -7,10 +7,11 @@ use std::{str::FromStr, sync::Arc};
 pub mod bonds;
 pub mod constants;
 pub mod funded_bonds;
+pub mod settlement_claims;
 pub mod settlements;
 pub mod stake_accounts;
 pub mod utils;
-pub mod witdraw_requests;
+pub mod withdraw_requests;
 
 pub fn get_validator_bonds_program(
     rpc_client: Arc<RpcClient>,

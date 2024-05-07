@@ -1,4 +1,4 @@
-use log::debug;
+use log::info;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use std::sync::Arc;
@@ -32,17 +32,20 @@ pub async fn list_claimable_settlements(
 
     let claimable_settlements = all_settlements
         .into_iter()
-        .filter(|(_, settlement)| {
+        .filter(|(settlement_address, settlement)| {
             let is_epoch_in_range = current_epoch <= settlement.epoch_created_for + config.epochs_to_claim_settlement;
             let is_slot_past_threshold = current_slot >= settlement.slot_created_at + config.slots_to_start_settlement_claiming;
 
-            debug!(
-                "Settlement epoch_created_for: {}, current_epoch: {}, epochs_to_claim_settlement: {}, slot_created_at: {}, slots_to_start_settlement_claiming: {}",
+            info!(
+                "Settlement {} epoch_created_for: {}, current_epoch: {}, epochs_to_claim_settlement: {}, slot_created_at: {}, slots_to_start_settlement_claiming: {}, is_epoch_in_range: {}, is_slot_past_threshold: {}",
+                settlement_address,
                 settlement.epoch_created_for,
                 current_epoch,
                 config.epochs_to_claim_settlement,
                 settlement.slot_created_at,
-                config.slots_to_start_settlement_claiming
+                config.slots_to_start_settlement_claiming,
+                is_epoch_in_range,
+                is_slot_past_threshold
             );
 
             is_epoch_in_range && is_slot_past_threshold
@@ -50,6 +53,11 @@ pub async fn list_claimable_settlements(
 
     let stake_accounts =
         collect_stake_accounts(rpc_client.clone(), Some(withdraw_authority), None).await?;
+    info!(
+        "For config {} there are {} stake accounts",
+        config_address,
+        stake_accounts.len()
+    );
 
     let claimable_stakes = obtain_claimable_stake_accounts_for_settlement(
         stake_accounts,

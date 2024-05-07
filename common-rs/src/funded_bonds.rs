@@ -7,7 +7,7 @@ use crate::{
     bonds::get_bonds,
     settlements::get_settlements,
     stake_accounts::{collect_stake_accounts, get_clock},
-    witdraw_requests::get_withdraw_requests,
+    withdraw_requests::get_withdraw_requests,
 };
 
 #[derive(Default, Clone, Debug)]

@@ -16,7 +16,7 @@ steps:
     artifact_paths:
       - target/release/list-claimable-epoch
       - target/release/claim-settlement
-  
+
   - wait: ~
 
   - label: ":campfire: List claimable epochs"
@@ -73,8 +73,7 @@ steps:
         --rpc-url $$RPC_URL \
         --merkle-trees-dir "./merkle-trees/" \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
-        --fee-payer "$$VALIDATOR_BONDS_FUNDING_WALLET" \
-        --fetch-pause-millis 500
+        --fee-payer "$$VALIDATOR_BONDS_FUNDING_WALLET"
 
   - wait: ~
 

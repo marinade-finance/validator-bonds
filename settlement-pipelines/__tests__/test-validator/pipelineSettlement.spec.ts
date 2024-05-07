@@ -9,6 +9,7 @@ import {
   Authorized,
   Keypair,
   LAMPORTS_PER_SOL,
+  Lockup,
   PublicKey,
   StakeProgram,
   TransactionInstruction,
@@ -38,7 +39,8 @@ import {
 } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import BN from 'bn.js'
 
-jest.setTimeout(3000_000)
+const JEST_TIMEOUT_MS = 3000_000
+jest.setTimeout(JEST_TIMEOUT_MS)
 
 const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
   new Uint8Array([
@@ -60,7 +62,7 @@ const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
 // This test case runs really long as using data from epoch 601 and needs to setup
 // all parts and create 10K settlements. Run this manually when needed
 // FILE='settlement-pipelines/__tests__/test-validator/pipelineSettlement.spec.ts' pnpm test:validator
-describe.skip('Cargo CLI: Pipeline Settlement', () => {
+describe('Cargo CLI: Pipeline Settlement', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
 
@@ -455,13 +457,14 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       }`
     )
 
-    // TESTING purposes to check state manually
+    // // TESTING purposes to check state manually
+    // // cargo run --bin claim-settlement -- --epoch <EPOCH> --config <CONFIG> --rpc-url http://127.0.0.1:8899  -d $PWD/settlement-pipelines/__tests__/data
     // console.log(
     //   `Sleeping for ${
-    //     1000_000 / 1000 / 60
-    //   } minutes to allow stake accounts to be activated`
+    //     JEST_TIMEOUT_MS / 1000 / 60
+    //   } minutes for manual testing...`
     // )
-    // await sleep(1000_000)
+    // await sleep(JEST_TIMEOUT_MS)
     // if (true === true) {
     //   console.log('End of sleeping')
     //   return
@@ -492,6 +495,8 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       ]) as any
     ).toHaveMatchingSpawnOutput({
       code: 1,
+      stderr:
+        /Claimable settlements: 10(.|\n|\r)*All stake accounts are locked/,
       stdout:
         /instructions 12[0-9][0-9][0-9] executed(.|\n|\r)*No stake account found with enough lamports/,
     })
@@ -549,13 +554,23 @@ export async function chunkedCreateInitializedStakeAccounts({
   let signers: Keypair[] = []
   let counter = 0
   let futures: Promise<void>[] = []
+  const lockedAccounts = Array.from(
+    { length: 10 },
+    () => Math.floor(Math.random() * combined.length) + 1
+  )
   for (const { staker, withdrawer, keypair } of combined) {
     counter++
+    let lockup: Lockup | undefined = undefined
+    if (lockedAccounts.includes(counter)) {
+      // some accounts will be locked
+      lockup = new Lockup(0, Number.MAX_SAFE_INTEGER, PublicKey.default)
+    }
     StakeProgram.createAccount({
       fromPubkey: provider.walletPubkey,
       stakePubkey: keypair.publicKey,
       authorized: new Authorized(staker, withdrawer),
       lamports: rentExempt,
+      lockup,
     }).instructions.forEach(ix => {
       ixes.push(ix)
     })

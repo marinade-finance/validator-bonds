@@ -57,8 +57,8 @@ solana-runtime = "=1.17.22"
 solana-sdk = "=1.17.22"
 solana-security-txt = "1.1.1"
 solana-transaction-executor = { git = "https://github.com/marinade-finance/solana-transaction-executor", branch = "master" }
-solana-transaction-builder = { git = "https://github.com/marinade-finance/solana-transaction-builder", branch = "main" }
-solana-transaction-builder-executor = { git = "https://github.com/marinade-finance/solana-transaction-builder", branch = "main" }
+solana-transaction-builder = { git = "https://github.com/marinade-finance/solana-transaction-builder", branch = "logging-adjust" }
+solana-transaction-builder-executor = { git = "https://github.com/marinade-finance/solana-transaction-builder", branch = "logging-adjust" }
 structopt = "0.3.21"
 tokio = { version = "1", features = ["full"] }
 tokio-postgres = { version = "0.7.7", features = ["with-chrono-0_4"] }

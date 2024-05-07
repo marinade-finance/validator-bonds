@@ -107,11 +107,12 @@ pub async fn obtain_delegated_stake_accounts(
     Ok(vote_account_map)
 }
 
-fn is_locked(stake: &StakeStateV2, clock: &Clock) -> bool {
+pub fn is_locked(stake: &StakeStateV2, clock: &Clock) -> bool {
     stake.lockup().is_some() && stake.lockup().unwrap().is_in_force(clock, None)
 }
 
-// All non locked stake accounts that are funded to the Settlement,
+// From provided stake accounts it filters out:
+// - all non-locked stake accounts that are funded to the Settlement
 // provided stake accounts are fully deactivated and whole lamports amount can be used for claiming
 // returns Map<settlement_pubkey, Vec<stake_account_data>>
 pub async fn obtain_claimable_stake_accounts_for_settlement(
@@ -136,7 +137,7 @@ pub async fn obtain_claimable_stake_accounts_for_settlement(
                     .effective
                     == 0
             } else {
-                // non-locked, non-delegated, only initialized
+                // non-locked, non-delegated, maybe initialized (more filtering under map_stake_accounts_to_settlement)
                 true
             }
         })
@@ -178,7 +179,7 @@ pub async fn obtain_funded_stake_accounts_for_settlement(
                 );
                 effective == 0 || deactivating > 0
             } else {
-                // non-locked, non-delegated, only initialized
+                // non-locked, non-delegated, maybe initialized (more filtering under map_stake_accounts_to_settlement)
                 true
             }
         })
@@ -213,7 +214,7 @@ fn map_stake_accounts_to_settlement(
             }
         }
     }
-    // sorting stake accounts that the delegated ones are before the non-delegated ones
+    // sorting stake accounts for the delegated ones being before the non-delegated ones
     settlement_map
         .into_iter()
         .map(|(k, mut v)| {

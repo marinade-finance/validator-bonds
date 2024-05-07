@@ -283,7 +283,12 @@ async fn main() -> anyhow::Result<()> {
         &mut transaction_builder,
         Some(priority_fee_policy.clone()),
     );
-    execute_transactions_in_parallel(transaction_executor.clone(), execution_data).await?;
+    execute_transactions_in_parallel(
+        transaction_executor.clone(),
+        execution_data,
+        Some(100_usize),
+    )
+    .await?;
     info!(
         "InitSettlement instructions {} executed successfully of vote accounts [{}]",
         init_execution_count,
