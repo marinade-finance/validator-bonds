@@ -63,7 +63,7 @@ struct Args {
         env,
         help = "Path to directory containing json files with tree collection files and settlement files"
     )]
-    merkle_trees_dir: String,
+    merkle_trees_dir: PathBuf,
 
     /// forcing epoch, overriding ones loaded from json files of merkle_trees_dir
     /// mostly useful for testing purposes
@@ -101,11 +101,8 @@ async fn main() -> anyhow::Result<()> {
         &args.tip_policy_opts,
     )?;
 
-    let merkle_trees_dir = args.merkle_trees_dir.clone();
-    let merkle_trees_dir = std::path::Path::new(&merkle_trees_dir);
-
     let mut json_data: HashMap<u64, MerkleTreeLoadedData> = HashMap::new();
-    for path in merkle_trees_dir.read_dir()?.filter_map(|entry| {
+    for path in args.merkle_trees_dir.read_dir()?.filter_map(|entry| {
         entry.ok().and_then(|e| {
             let path = e.path();
             debug!("Processing path: {:?}", path);
@@ -217,7 +214,7 @@ async fn main() -> anyhow::Result<()> {
                 settlement_merkle_tree
             } else {
                 let error_msg = format!(
-                    "No merkle tree data found for settlement epoch {} from dir {}",
+                    "No merkle tree data found for settlement epoch {} from dir {:?}",
                     settlement_epoch, args.merkle_trees_dir
                 );
                 error!("{}", error_msg);
@@ -375,7 +372,7 @@ async fn main() -> anyhow::Result<()> {
                 }
             };
 
-            let empty_stake_acounts: CollectedStakeAccounts = vec![];
+            let empty_stake_accounts: CollectedStakeAccounts = vec![];
             let stake_accounts_to = stake_accounts_to_cache
                 .get(
                     rpc_client.clone(),
@@ -386,7 +383,7 @@ async fn main() -> anyhow::Result<()> {
                 .map_or_else(
                     |e| {
                         claim_settlement_errors.push(format!("{:?}", e));
-                        &empty_stake_acounts
+                        &empty_stake_accounts
                     },
                     |v| v,
                 );
@@ -579,8 +576,8 @@ fn process_merkle_trees_file(
         let merkle_tree_collection: MerkleTreeCollection = read_from_json_file(path_string)
             .map_err(|e| {
                 anyhow!(
-                    "Cannot read merkle tree collection from directory {} as file '{:?}': {:?}",
-                    args.merkle_trees_dir.clone(),
+                    "Cannot read merkle tree collection from directory {:?} as file '{:?}': {:?}",
+                    args.merkle_trees_dir,
                     path,
                     e
                 )
@@ -591,8 +588,8 @@ fn process_merkle_trees_file(
         let settlement_collection: SettlementCollection = read_from_json_file(path_string)
             .map_err(|e| {
                 anyhow!(
-                    "Cannot read settlement collection from directory {} as file '{:?}': {:?}",
-                    args.merkle_trees_dir.clone(),
+                    "Cannot read settlement collection from directory {:?} as file '{:?}': {:?}",
+                    args.merkle_trees_dir,
                     path,
                     e
                 )

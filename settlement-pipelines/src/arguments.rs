@@ -68,7 +68,7 @@ pub struct TipPolicyOpts {
     tip_multiplier: Option<u64>,
 }
 
-pub fn load_default_keypair(s: Option<&str>) -> Result<Option<Rc<Keypair>>, anyhow::Error> {
+pub fn load_default_keypair(s: Option<&str>) -> anyhow::Result<Option<Rc<Keypair>>> {
     if s.is_none() || s.unwrap().is_empty() {
         load_keypair(DEFAULT_KEYPAIR_PATH).map_or_else(|_e| Ok(None), |keypair| Ok(Some(keypair)))
     } else {
@@ -76,7 +76,7 @@ pub fn load_default_keypair(s: Option<&str>) -> Result<Option<Rc<Keypair>>, anyh
     }
 }
 
-pub fn load_keypair(s: &str) -> Result<Rc<Keypair>, anyhow::Error> {
+pub fn load_keypair(s: &str) -> anyhow::Result<Rc<Keypair>> {
     // loading directly as the json keypair data (format [u8; 64])
     let parsed_json = parse_keypair_as_json_data(s);
     if let Ok(key_bytes) = parsed_json {
@@ -94,6 +94,21 @@ pub fn load_keypair(s: &str) -> Result<Rc<Keypair>, anyhow::Error> {
     let k = read_keypair_file(Path::new(&path.to_string()))
         .map_err(|e| anyhow!("Could not read keypair file from '{}': {}", s, e))?;
     Ok(Rc::new(k))
+}
+
+pub fn load_pubkey(s: &str) -> anyhow::Result<Pubkey> {
+    let parsed_keypair_data = parse_keypair_as_json_data(s);
+    if let Ok(keypair_data) = parsed_keypair_data {
+        if let Ok(keypair) = Keypair::from_bytes(&keypair_data) {
+            Ok(keypair.pubkey())
+        } else {
+            Err(anyhow!(
+                "Could not read pubkey from json data that seems to be a keypair"
+            ))
+        }
+    } else {
+        Pubkey::from_str(s).map_err(|e| anyhow!("Could not parse pubkey from '{}': {}", s, e))
+    }
 }
 
 fn create_clap_error(message: &str, context_value: &str) -> clap::Error {
@@ -127,11 +142,9 @@ pub fn to_tip_policy(opts: &TipPolicyOpts) -> TipPolicy {
     }
 }
 
-pub fn to_priority_fee_policy(
-    opts: &PriorityFeePolicyOpts,
-) -> solana_transaction_executor::PriorityFeePolicy {
-    let default = solana_transaction_executor::PriorityFeePolicy::default();
-    solana_transaction_executor::PriorityFeePolicy {
+pub fn to_priority_fee_policy(opts: &PriorityFeePolicyOpts) -> PriorityFeePolicy {
+    let default = PriorityFeePolicy::default();
+    PriorityFeePolicy {
         micro_lamports_per_cu_min: opts
             .micro_lamports_per_cu_min
             .unwrap_or(default.micro_lamports_per_cu_min),
@@ -155,15 +168,26 @@ pub struct InitializedGlobalOpts {
     pub program: Program<Rc<DynSigner>>,
 }
 
+/// Initialize the Anchor Solana client
+pub fn get_rpc_client(global_opts: &GlobalOpts) -> anyhow::Result<(Arc<RpcClient>, String)> {
+    let rpc_url = global_opts.rpc_url.clone().expect("RPC URL is required");
+    let anchor_cluster = Cluster::from_str(&rpc_url)
+        .map_err(|e| anyhow!("Could not parse JSON RPC url `{:?}`: {}", rpc_url, e))?;
+    let rpc_client = Arc::new(RpcClient::new_with_commitment(
+        anchor_cluster.to_string(),
+        CommitmentConfig {
+            commitment: CommitmentLevel::Confirmed,
+        },
+    ));
+    Ok((rpc_client, rpc_url))
+}
+
 pub fn init_from_opts(
     global_opts: &GlobalOpts,
     priority_fee_policy_opts: &PriorityFeePolicyOpts,
     tip_policy_opts: &TipPolicyOpts,
 ) -> anyhow::Result<InitializedGlobalOpts> {
-    // Initialize the Anchor Solana client
-    let rpc_url = global_opts.rpc_url.clone().expect("RPC URL is required");
-    let anchor_cluster = Cluster::from_str(&rpc_url)
-        .map_err(|e| anyhow!("Could not parse JSON RPC url `{:?}`: {}", rpc_url, e))?;
+    let (rpc_client, rpc_url) = get_rpc_client(global_opts)?;
 
     let default_keypair = load_default_keypair(global_opts.keypair.as_deref())?;
     let fee_payer_keypair = if let Some(fee_payer) = global_opts.fee_payer.clone() {
@@ -187,12 +211,6 @@ pub fn init_from_opts(
     let tip_policy = to_tip_policy(tip_policy_opts);
 
     let fee_payer_pubkey: Pubkey = fee_payer_keypair.pubkey();
-    let rpc_client = Arc::new(RpcClient::new_with_commitment(
-        anchor_cluster.to_string(),
-        CommitmentConfig {
-            commitment: global_opts.commitment,
-        },
-    ));
     // TODO: need to work correctly with Rc Dynsigner; need to refactor the builder executor
     let dyn_fee_payer = Rc::new(DynSigner(Arc::new(fee_payer_keypair.clone())));
     let program = get_validator_bonds_program(rpc_client.clone(), Some(dyn_fee_payer))?;

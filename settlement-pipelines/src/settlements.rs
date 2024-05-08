@@ -1,11 +1,11 @@
-use log::info;
+use log::{debug, info};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use std::sync::Arc;
 
 use validator_bonds::state::config::{find_bonds_withdrawer_authority, Config};
 use validator_bonds::state::settlement::Settlement;
-use validator_bonds_common::settlements::get_settlements;
+use validator_bonds_common::settlements::{get_bonds_for_settlements, get_settlements};
 use validator_bonds_common::stake_accounts::{
     collect_stake_accounts, obtain_claimable_stake_accounts_for_settlement, CollectedStakeAccounts,
 };
@@ -92,4 +92,41 @@ pub async fn list_claimable_settlements(
         .collect();
 
     Ok(results)
+}
+
+pub async fn list_expired_settlements(
+    rpc_client: Arc<RpcClient>,
+    config_address: &Pubkey,
+    config: &Config,
+) -> anyhow::Result<Vec<(Pubkey, Settlement)>> {
+    let clock = get_sysvar_clock(rpc_client.clone()).await?;
+    let current_epoch = clock.epoch;
+
+    let all_settlements = get_settlements(rpc_client.clone()).await?;
+
+    let bonds_for_settlements =
+        get_bonds_for_settlements(rpc_client.clone(), &all_settlements).await?;
+
+    assert_eq!(all_settlements.len(), bonds_for_settlements.len());
+
+    let filtered_settlements: (Vec<_>, Vec<_>) = all_settlements.into_iter().zip(bonds_for_settlements.into_iter())
+        .filter(|((settlement_address, settlement), (_, bond))| {
+            let is_for_config = bond.is_none() || bond.as_ref().unwrap().config == *config_address;
+            let is_expired = current_epoch > settlement.epoch_created_for + config.epochs_to_claim_settlement;
+
+        debug!(
+            "Settlement {} epoch_created_for: {}, current_epoch: {}, epochs_to_claim_settlement: {}, is_for_config: {}, is_expired: {}",
+            settlement_address,
+            settlement.epoch_created_for,
+            current_epoch,
+            config.epochs_to_claim_settlement,
+            is_for_config,
+            is_expired
+        );
+
+        is_for_config && is_expired
+    })
+        .unzip();
+
+    Ok(filtered_settlements.0)
 }

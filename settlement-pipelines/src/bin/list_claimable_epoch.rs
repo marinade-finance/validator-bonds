@@ -1,19 +1,11 @@
-use anchor_client::Cluster;
-use anyhow::anyhow;
 use clap::Parser;
 use log::info;
-use settlement_pipelines::arguments::GlobalOpts;
+use settlement_pipelines::arguments::{get_rpc_client, GlobalOpts};
 use settlement_pipelines::init::init_log;
 use settlement_pipelines::settlements::list_claimable_settlements;
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::commitment_config::CommitmentConfig;
 use std::collections::HashSet;
 use std::io;
-use std::str::FromStr;
-use std::sync::Arc;
-
 use validator_bonds_common::config::get_config;
-use validator_bonds_common::get_validator_bonds_program;
 
 // Printing on std out the list of epochs that contains
 // settlements that could be claimed
@@ -35,17 +27,7 @@ async fn main() -> anyhow::Result<()> {
         config_address
     );
 
-    let rpc_url = args.global_opts.rpc_url.expect("RPC URL is required");
-    let anchor_cluster = Cluster::from_str(&rpc_url)
-        .map_err(|e| anyhow!("Could not parse JSON RPC url {}: {:?}", rpc_url, e))?;
-    let rpc_client = Arc::new(RpcClient::new_with_commitment(
-        anchor_cluster.to_string(),
-        CommitmentConfig {
-            commitment: args.global_opts.commitment,
-        },
-    ));
-
-    let _program = get_validator_bonds_program(rpc_client.clone(), None)?;
+    let (rpc_client, _) = get_rpc_client(&args.global_opts)?;
     let config = get_config(rpc_client.clone(), config_address).await?;
 
     let claimable_settlements =

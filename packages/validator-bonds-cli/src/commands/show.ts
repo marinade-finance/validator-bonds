@@ -469,6 +469,9 @@ function reformatBond(key: string, value: any): ReformatAction {
   ) {
     return { type: 'Remove' }
   }
+  if (value === undefined) {
+    return { type: 'Remove' }
+  }
   if (key.toLowerCase() === 'cpmpe' || key.toLowerCase().includes('bump')) {
     return { type: 'Remove' }
   }

@@ -18,6 +18,7 @@ import {
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
 import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import { BN } from 'bn.js'
 
 describe('Init withdraw request using CLI', () => {
   const stakeAccountLamports = LAMPORTS_PER_SOL * 88

@@ -17,6 +17,14 @@ path = "src/bin/list_claimable_epoch.rs"
 name = "claim-settlement"
 path = "src/bin/claim_settlement.rs"
 
+[[bin]]
+name = "close-settlement"
+path = "src/bin/close_settlement.rs"
+
+[[bin]]
+name = "list-settlement"
+path = "src/bin/list_settlement.rs"
+
 [dependencies]
 anchor-client = {workspace = true}
 anyhow = { workspace = true }

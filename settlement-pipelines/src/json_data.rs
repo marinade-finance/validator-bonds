@@ -1,4 +1,7 @@
+use anchor_client::anchor_lang::prelude::Pubkey;
 use anyhow::anyhow;
+use merkle_tree::serde_serialize::pubkey_string_conversion;
+use serde::{Deserialize, Serialize};
 use settlement_engine::merkle_tree_collection::{MerkleTreeCollection, MerkleTreeMeta};
 use settlement_engine::settlement_claims::{Settlement, SettlementCollection};
 
@@ -12,6 +15,18 @@ pub struct CombinedMerkleTreeSettlementCollections {
     pub slot: u64,
     pub epoch: u64,
     pub merkle_tree_settlements: Vec<MerkleTreeMetaSettlement>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BondSettlement {
+    #[serde(with = "pubkey_string_conversion")]
+    pub bond_address: Pubkey,
+    #[serde(with = "pubkey_string_conversion")]
+    pub vote_account_address: Pubkey,
+    #[serde(with = "pubkey_string_conversion")]
+    pub settlement_address: Pubkey,
+    pub epoch: u64,
+    pub merkle_root: [u8; 32],
 }
 
 pub fn resolve_combined(

@@ -80,3 +80,20 @@ fn get_non_locked_priority_key(
         255
     }
 }
+
+pub fn filter_settlement_funded(
+    stake_accounts: CollectedStakeAccounts,
+    clock: &Clock,
+) -> CollectedStakeAccounts {
+    stake_accounts
+        .into_iter()
+        .filter(|(_, _, state)| {
+            let is_settlement_funded = if let Some(authorized) = state.authorized() {
+                authorized.staker != authorized.withdrawer
+            } else {
+                false
+            };
+            is_settlement_funded && !is_locked(state, clock)
+        })
+        .collect()
+}

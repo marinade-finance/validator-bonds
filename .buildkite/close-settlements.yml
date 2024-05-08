@@ -1,0 +1,107 @@
+agents:
+  queue: "snapshots"
+
+steps:
+  - command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/close-settlements'
+    concurrency: 1
+
+  - wait: ~
+
+  - label: ":hammer_and_wrench: :rust: Build"
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'cargo build --release --bin close-settlement'
+    - 'cargo build --release --bin list-settlement'
+    artifact_paths:
+      - target/release/close-settlement
+      - target/release/list-settlement
+
+  - label: " Loading past settlements data"
+    env:
+      gs_bucket: gs://marinade-validator-bonds-mainnet
+      config_epochs_non_closable: 3 # configured onchain in config
+      past_epochs_to_load: 5
+    commands:
+    - |
+      set -x
+      current_epoch=$(curl --silent "$$RPC_URL" -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1, "method":"getEpochInfo"}' | jq '.result.epoch')
+      epochs_end_index=$((current_epoch - config_epochs_non_closable))
+      epochs_start_index=$((epochs_end_index - past_epochs_to_load))
+    - 'mkdir ./merkle-trees/'
+    - |
+      if [[ $$epochs_start_index -lt 1 ]]; then
+        echo "No found any epoch to start to load settlement JSON files"
+        exit 1
+      fi
+    - |
+      set -x
+      for epoch in $(seq $$epochs_start_index $$epochs_end_index); do
+        gcloud storage cp "$$gs_bucket/$$epoch/settlement-merkle-trees.json" "./merkle-trees/$${epoch}_settlement-merkle-trees.json"
+      done
+    artifact_paths:
+      - "./merkle-trees/*"
+
+  - wait: ~
+
+  - label: ":campfire: List past settlements"
+    env:
+      RUST_LOG: solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,close_settlement=debug
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .'
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/list-settlement .'
+    - 'chmod +x target/release/list-settlement'
+    - './target/release/list-settlement -u $$RPC_URL -d ./merkle-trees/ --out ./past-settlements.json'
+    artifact_paths:
+      - "./past-settlements.json"
+
+  - wait: ~
+
+  - label: ":campfire: Close settlements"
+    key: 'close-settlement'
+    env:
+      RUST_LOG: solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,close_settlement=debug
+      # RUST_BACKTRACE: full
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/close-settlement .'
+    - 'buildkite-agent artifact download --include-retried-jobs past-settlements.json .'
+    - 'chmod +x target/release/close-settlement'
+    - |
+      echo ./target/release/close-settlement \
+        --rpc-url $$RPC_URL \
+        --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
+        --fee-payer "$$VALIDATOR_BONDS_FUNDING_WALLET" \
+        --marinade-wallet "$$VALIDATOR_BONDS_FUNDING_WALLET" \
+        --past-settlements ./past-settlements.json' \
+        2>&1 | tee closing-report.txt
+    artifact_paths:
+    - "./closing-settlement-report.txt"
+
+  # reporting discord only in case of failure => manual intervention is needed
+  - label: ":mega: Notification settlements closing"
+    commands:
+    - 'build_result=$(buildkite-agent step get "outcome" --step "close-settlement")'
+    - |
+        if [[ "$$build_result" =~ "failed" ]]; then
+          buildkite-agent artifact download --include-retried-jobs closing-report.txt .
+          echo "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
+            -F 'payload_json={
+                "content": "Claimed Settlements for epochs: '"$$claimable_epochs"'",
+                "url": "'"$$BUILDKITE_BUILD_URL"'",
+                "color": "8388863"
+            }' \
+            -F "file1=@./claiming-report.txt"
+        else
+          echo "No need to notify about closing settlements, all good"
+        fi
+
+    depends_on: "close-settlement"
+    allow_dependency_failure: true
+
+  - wait: ~
+
+  - command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/close-settlements'
+    concurrency: 1
