@@ -17,7 +17,7 @@ grep "$JSON_FILE" -e 'vote_account' -e 'max_total_claim_sum'
 # jq '.merkle_trees[] | {sum: .max_total_claim_sum, vote_account: .vote_account, claims: [.tree_nodes[].claim]}' "$JSON_FILE"
 
 # number of claims for a vote account
-FILE="./"$JSON_FILE""
+FILE="./$JSON_FILE"
 COUNT=$(jq '.merkle_trees | length'  "$FILE")
 echo "Number of merkle trees: $COUNT at $FILE"
 for I in $(seq 0 $((COUNT-1)) ); do
