@@ -255,7 +255,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     ).toHaveMatchingSpawnOutput({
       code: 1,
       stderr: executionResultRegex,
-      stdout: /Cannot find stake account to fund settlement account/,
+      stdout: /Cannot find stake account to fund settlement/,
     })
 
     await waitForNextEpoch(provider.connection, 15)
@@ -287,7 +287,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       code: 1,
       stderr:
         /InitSettlement instructions 0(.|\n|\r)*already funded(.|\n|\r)*Stake accounts management instructions 0(.|\n|\r)*FundSettlement instructions 0/,
-      stdout: /Cannot find stake account to fund settlement account/,
+      stdout: /Cannot find stake account to fund settlement/,
     })
 
     const createdSettlements = await findSettlements({
@@ -497,7 +497,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       code: 1,
       stderr: /All stake accounts are locked/,
       stdout:
-        /instructions 12[0-9][0-9][0-9] executed(.|\n|\r)*No stake account found with enough lamports/,
+        /instructions 12[0-9][0-9][0-9] executed(.|\n|\r)*No stake account found with enough SOL/,
     })
 
     // still expecting some error as we have not fully funded settlements
@@ -523,7 +523,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       ]) as any
     ).toHaveMatchingSpawnOutput({
       code: 1,
-      stdout: /0 executed(.|\n|\r)*No stake account found with enough lamports/,
+      stdout: /0 executed(.|\n|\r)*No stake account found with enough SOL/,
     })
   })
 })
