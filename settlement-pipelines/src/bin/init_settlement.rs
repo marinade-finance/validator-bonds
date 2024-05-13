@@ -11,6 +11,9 @@ use settlement_pipelines::arguments::{
 use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
 use settlement_pipelines::executor::{execute_in_sequence, execute_parallel};
 use settlement_pipelines::init::{get_executor, init_log};
+use settlement_pipelines::executor::{execute_in_sequence, execute_parallel};
+use settlement_pipelines::init::{get_executor, init_log};
+use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
 use settlement_pipelines::json_data::{resolve_combined, MerkleTreeMetaSettlement};
 use settlement_pipelines::stake_accounts::STAKE_ACCOUNT_RENT_EXEMPTION;
 use solana_sdk::native_token::lamports_to_sol;
@@ -294,7 +297,7 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
-    transaction_builder.add_signer_checked(&operator_authority.clone());
+    transaction_builder.add_signer_checked(&operator_authority);
 
     // let's check how we are about settlement funding
     let (withdrawer_authority, _) = find_bonds_withdrawer_authority(&config_address);
@@ -527,7 +530,7 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
-    transaction_builder.add_signer_checked(&operator_authority.clone());
+    transaction_builder.add_signer_checked(&operator_authority);
     transaction_builder.add_signer_checked(&rent_keypair);
     transaction_builder.add_signer_checked(&marinade_wallet);
 

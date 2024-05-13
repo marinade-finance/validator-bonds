@@ -5,12 +5,14 @@ use settlement_engine::utils::{read_from_json_file, write_to_json_file};
 use settlement_pipelines::arguments::GlobalOpts;
 use settlement_pipelines::init::init_log;
 use settlement_pipelines::json_data::BondSettlement;
-
 use std::path::PathBuf;
 use validator_bonds::state::bond::find_bond_address;
 use validator_bonds::state::settlement::find_settlement_address;
+use std::path::{Path, PathBuf};
+use validator_bonds::state::bond::find_bond_address;
+use validator_bonds::state::settlement::find_settlement_address;
 
-// Printing on std out the list settlements from JSON files
+// Printing on std out the list settlements from JSON files in a directory
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {

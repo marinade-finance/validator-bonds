@@ -22,6 +22,7 @@ use solana_sdk::pubkey::Pubkey;
 use anchor_client::{DynSigner, Program};
 use settlement_pipelines::reporting::{PrintReportable, ReportHandler};
 use solana_sdk::signature::Keypair;
+use settlement_pipelines::reporting::{PrintReportable, ReportHandler};
 use solana_sdk::signer::Signer;
 use solana_sdk::stake::config::ID as stake_config_id;
 use solana_sdk::stake::program::ID as stake_program_id;
@@ -34,6 +35,9 @@ use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
+use std::collections::{HashMap, HashSet};
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use validator_bonds::state::bond::Bond;
 use validator_bonds::state::config::{find_bonds_withdrawer_authority, Config};
@@ -353,7 +357,7 @@ async fn reset_stake_accounts(
         };
 
         if let StakeStateV2::Initialized(_) = stake_state {
-            transaction_builder.add_signer_checked(operator_authority_keypair);
+            transaction_builder.add_signer_checked(&operator_authority_keypair);
             // Initialized non-delegated can be withdrawn by operator
             let req = program
                 .request()
