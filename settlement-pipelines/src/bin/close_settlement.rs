@@ -1,18 +1,25 @@
 use anchor_client::anchor_lang::solana_program::stake::state::StakeStateV2;
 use anyhow::anyhow;
 use clap::Parser;
-use log::{error, info};
+use log::{debug, info};
 use settlement_engine::utils::read_from_json_file;
 use settlement_pipelines::anchor::add_instruction_to_builder_from_anchor_with_description;
 use settlement_pipelines::arguments::{
     init_from_opts, load_pubkey, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts,
     TipPolicyOpts,
 };
-use settlement_pipelines::init::init_log;
+use settlement_pipelines::executor::execute_parallel;
+use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::BondSettlement;
-use settlement_pipelines::settlements::list_expired_settlements;
+use settlement_pipelines::settlements::{
+    list_expired_settlements, obtain_settlement_closing_refunds, SettlementRefundPubkeys,
+    SETTLEMENT_CLAIM_ACCOUNT_SIZE,
+};
 use settlement_pipelines::stake_accounts::filter_settlement_funded;
+use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
+
+use settlement_pipelines::reporting::{PrintReportable, ReportHandler};
 use solana_sdk::signer::Signer;
 use solana_sdk::stake::config::ID as stake_config_id;
 use solana_sdk::stake::program::ID as stake_program_id;
@@ -20,16 +27,12 @@ use solana_sdk::sysvar::{
     clock::ID as clock_sysvar_id, stake_history::ID as stake_history_sysvar_id,
 };
 use solana_transaction_builder::TransactionBuilder;
-use solana_transaction_builder_executor::{
-    builder_to_execution_data, execute_transactions_in_parallel,
-};
-use solana_transaction_executor::{
-    SendTransactionWithGrowingTipProvider, TransactionExecutorBuilder,
-};
 use std::collections::{HashMap, HashSet};
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use validator_bonds::state::bond::Bond;
-use validator_bonds::state::config::find_bonds_withdrawer_authority;
+use validator_bonds::state::config::{find_bonds_withdrawer_authority, Config};
 use validator_bonds::state::settlement::{find_settlement_staker_authority, Settlement};
 use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::bonds::get_bonds_for_pubkeys;
@@ -66,10 +69,8 @@ async fn main() -> anyhow::Result<()> {
     init_log(&args.global_opts);
 
     let InitializedGlobalOpts {
-        rpc_url,
-        fee_payer_keypair,
-        fee_payer_pubkey,
-        operator_authority_keypair,
+        fee_payer: fee_payer_keypair,
+        operator_authority: operator_authority_keypair,
         priority_fee_policy,
         tip_policy,
         rpc_client,
@@ -87,91 +88,40 @@ async fn main() -> anyhow::Result<()> {
 
     let config_address = args.global_opts.config;
     info!(
-        "Closing Settlements and Settlement Claims for validator-bonds config: {}",
+        "Closing Settlements and Settlement Claims and Resetting Stake Accounts for validator-bonds config: {}",
         config_address
     );
     let config = get_config(rpc_client.clone(), config_address).await?;
     let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(&config_address);
 
-    let mut close_settlement_errors: Vec<String> = vec![];
+    let mut reporting = CloseSettlementReport::report_handler(rpc_client.clone(), marinade_wallet);
 
     let mut transaction_builder = TransactionBuilder::limited(fee_payer_keypair.clone());
+    let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
 
-    // Close Settlements
+    // --- Close Settlements ---
     let expired_settlements =
-        list_expired_settlements(rpc_client.clone(), &config_address, &config).await?;
-    let expired_settlements_bond_pubkeys = expired_settlements
-        .iter()
-        .map(|(_, settlement)| settlement.bond)
-        .collect::<HashSet<Pubkey>>()
-        .into_iter()
-        .collect::<Vec<Pubkey>>();
-    let bonds =
-        get_bonds_for_pubkeys(rpc_client.clone(), &expired_settlements_bond_pubkeys).await?;
-    let expired_settlements_closed = expired_settlements
-        .into_iter()
-        .map(|(pubkey, settlement)| {
-            let bond = bonds
-                .iter()
-                .find(|(bond_pubkey, _)| bond_pubkey == &settlement.bond)
-                .map_or_else(|| None, |(_, bond)| bond.clone());
-            (pubkey, settlement, bond)
-        })
-        .collect::<Vec<(Pubkey, Settlement, Option<Bond>)>>();
+        get_expired_settlements(rpc_client.clone(), &config_address, &config).await?;
 
-    // TODO: this HAS TO BE REFACTORED into function!
-    let transaction_executor_builder = TransactionExecutorBuilder::new()
-        .with_default_providers(rpc_client.clone())
-        .with_send_transaction_provider(SendTransactionWithGrowingTipProvider {
-            rpc_url: rpc_url.clone(),
-            query_param: "tip".into(),
-            tip_policy,
-        });
-    let transaction_executor = Arc::new(transaction_executor_builder.build());
-
-    for (settlement_address, settlement, _) in expired_settlements_closed.iter() {
-        let (settlement_staker_authority, _) = find_settlement_staker_authority(settlement_address);
-
-        // Finding rent collector and refund stake account for closing settlement
-        // TODO: refactor to a separate function
-        let (split_rent_collector, split_rent_refund_account) = {
-            if let Some(split_rent_collector) = settlement.split_rent_collector {
-                let split_rent_refund_accounts = collect_stake_accounts(
-                    rpc_client.clone(),
-                    Some(&bonds_withdrawer_authority),
-                    Some(&settlement_staker_authority),
-                )
-                .await;
-                let split_rent_refund_accounts = if let Err(e) = split_rent_refund_accounts {
-                    let error_msg = format!(
-                        "For closing settlement {} is required return rent as collector field is setup {}, but failed to list settlement funded stake account to use for returning rent: {:?}",
-                        settlement_address, split_rent_collector, e
-                    );
-                    error!("{}", error_msg);
-                    close_settlement_errors.push(error_msg);
+    for (settlement_address, settlement, _) in expired_settlements.iter() {
+        let (split_rent_collector, split_rent_refund_account) =
+            match obtain_settlement_closing_refunds(
+                rpc_client.clone(),
+                settlement_address,
+                settlement,
+                &bonds_withdrawer_authority,
+            )
+            .await
+            {
+                Ok(SettlementRefundPubkeys {
+                    split_rent_collector,
+                    split_rent_refund_account,
+                }) => (split_rent_collector, split_rent_refund_account),
+                Err(e) => {
+                    reporting.add_error(e);
                     continue;
-                } else {
-                    split_rent_refund_accounts?
-                };
-                let split_rent_refund_account = if let Some(first_account) =
-                    split_rent_refund_accounts.first()
-                {
-                    first_account.0
-                } else {
-                    let error_msg = format!(
-                        "For closing settlement {} is required return rent as collector field is setup {}, but no settlement funded stake account found to use for returning rent",
-                        settlement_address, split_rent_collector
-                    );
-                    error!("{}", error_msg);
-                    close_settlement_errors.push(error_msg);
-                    continue;
-                };
-                (split_rent_collector, split_rent_refund_account)
-            } else {
-                // whatever existing account, contract won't use it
-                (fee_payer_pubkey, fee_payer_pubkey)
-            }
-        };
+                }
+            };
 
         let req = program
             .request()
@@ -200,38 +150,39 @@ async fn main() -> anyhow::Result<()> {
         )?;
     }
 
-    let close_settlement_execution_count = transaction_builder.instructions().len();
-    let execution_data = builder_to_execution_data(
-        rpc_url.clone(),
-        &mut transaction_builder,
-        Some(priority_fee_policy.clone()),
-    );
-    execute_transactions_in_parallel(
+    let execution_result = execute_parallel(
+        rpc_client.clone(),
         transaction_executor.clone(),
-        execution_data,
-        Some(100_usize),
+        &mut transaction_builder,
+        &priority_fee_policy,
     )
-    .await?;
-    info!(
-        "CloseSettlement instructions {close_settlement_execution_count} executed successfully of settlements [{}]",
-        expired_settlements_closed
-            .iter()
-            .map(|(p,_, _)| p.to_string())
-            .collect::<Vec<String>>()
-            .join(", ")
+    .await;
+    reporting.reportable.set_settlements(&expired_settlements);
+    let settlements_list = reporting.reportable.list_closed_settlements();
+    reporting.add_execution_result(
+        execution_result,
+        format!("CloseSettlements [{settlements_list}]").as_str(),
     );
 
-    let existing_settlements_pubkeys = get_settlements(rpc_client.clone())
+    let existing_settlements_to_staker_authority = get_settlements(rpc_client.clone())
         .await?
         .into_iter()
         // settlement pubkey -> staker authority pubkey
-        .map(|(pubkey, _)| (pubkey, find_settlement_staker_authority(&pubkey).0))
+        .map(|(settlement_address, _)| {
+            let (settlement_staker_authority,_) = find_settlement_staker_authority(&settlement_address);
+            debug!("Existing Settlement: {settlement_address}, staker authority: {settlement_staker_authority}");
+            (
+                settlement_address,
+                settlement_staker_authority,
+            )
+        })
         .collect::<HashMap<Pubkey, Pubkey>>();
 
+    // --- Close SettlementClaims ---
     // Search for Settlement Claims that points to non-existing Settlements
     let settlement_claim_records = get_settlement_claims(rpc_client.clone()).await?;
     for (settlement_claim_address, settlement_claim) in settlement_claim_records {
-        if existing_settlements_pubkeys
+        if existing_settlements_to_staker_authority
             .get(&settlement_claim.settlement)
             .is_none()
         {
@@ -253,66 +204,43 @@ async fn main() -> anyhow::Result<()> {
                     settlement_claim.settlement
                 ),
             )?;
+            reporting
+                .reportable
+                .add_settlement_claim(settlement_claim_address);
         }
     }
 
-    // Verification of stake account existence that belongs to Settlements that does not exist
+    let execution_result = execute_parallel(
+        rpc_client.clone(),
+        transaction_executor.clone(),
+        &mut transaction_builder,
+        &priority_fee_policy,
+    )
+    .await;
+    reporting.add_execution_result(execution_result, "CloseSettlementClaim");
+
+    // --- Reset StakeAccounts ---
+    let non_existing_settlements_staker_authority = get_expired_stake_accounts(
+        &existing_settlements_to_staker_authority,
+        past_settlements,
+        expired_settlements,
+    );
+    let staker_authority_to_existing_settlements = existing_settlements_to_staker_authority
+        .iter()
+        .map(|(settlement, staker_authority)| (*staker_authority, *settlement))
+        .collect::<HashMap<Pubkey, Pubkey>>();
+    debug!(
+        "Non-existing Settlements staker authorities: {:?}",
+        non_existing_settlements_staker_authority
+            .iter()
+            .map(|(k, v)| (k, v.settlement))
+            .collect::<Vec<(&Pubkey, Pubkey)>>()
+    );
     let clock = get_sysvar_clock(rpc_client.clone()).await?;
     let all_stake_accounts =
         collect_stake_accounts(rpc_client.clone(), Some(&bonds_withdrawer_authority), None).await?;
     let settlement_funded_stake_accounts = filter_settlement_funded(all_stake_accounts, &clock);
-    let existing_settlements_staker_authorities = existing_settlements_pubkeys
-        .keys()
-        .map(|settlement_address| {
-            (
-                find_settlement_staker_authority(settlement_address).0,
-                existing_settlements_pubkeys
-                    .get(settlement_address)
-                    .is_some(),
-            )
-        })
-        .collect::<HashMap<Pubkey, bool>>();
-    // looking at list of provided settlement addresses from argument
-    // verification what of those are not existing anymore
-    let not_existing_past_settlements = past_settlements
-        .into_iter()
-        .filter(|data| {
-            existing_settlements_pubkeys
-                .get(&data.settlement_address)
-                .is_none()
-        })
-        .collect::<Vec<BondSettlement>>();
-    let non_existing_settlements_staker_authorities = expired_settlements_closed
-        .into_iter()
-        .map(|(settlement_address, settlement, bond)| {
-            (
-                settlement_address,
-                settlement.bond,
-                bond.map_or_else(|| None, |b| Some(b.vote_account)),
-            )
-        })
-        .chain(not_existing_past_settlements.into_iter().map(
-            |BondSettlement {
-                 bond_address,
-                 settlement_address,
-                 vote_account_address,
-                 merkle_root: _,
-                 epoch: _,
-             }| (settlement_address, bond_address, Some(vote_account_address)),
-        ))
-        .map(|(settlement, bond, vote_account)| {
-            (
-                find_settlement_staker_authority(&settlement).0,
-                ResetStakeData {
-                    vote_account,
-                    bond,
-                    settlement,
-                },
-            )
-        })
-        // staker authority -> (settlement address, bond address, bond address)
-        .collect::<HashMap<Pubkey, ResetStakeData>>();
-    for (stake_pubkey, _, stake_state) in settlement_funded_stake_accounts {
+    for (stake_pubkey, lamports, stake_state) in settlement_funded_stake_accounts {
         let staker_authority = if let Some(authorized) = stake_state.authorized() {
             authorized.staker
         } else {
@@ -321,23 +249,21 @@ async fn main() -> anyhow::Result<()> {
         };
         // there is a stake account that belongs to a settlement that does not exist
         let reset_data = if let Some(reset_data) =
-            non_existing_settlements_staker_authorities.get(&staker_authority)
+            non_existing_settlements_staker_authority.get(&staker_authority)
         {
             reset_data
         } else {
             // if the stake account does not belong to a non-existent settlement then it has to belongs
             // to an existing settlement, if not than we have dangling stake account that should be reported
-            if existing_settlements_staker_authorities
+            if staker_authority_to_existing_settlements
                 .get(&staker_authority)
                 .is_none()
             {
                 // -> not existing settlement for this stake account, and we know nothing is about
-                let error_msg = format!(
+                reporting.add_error_string(format!(
                     "For stake account {} (staker authority: {}) is required to know Settlement address but that was lost. Manual intervention needed.",
                     stake_pubkey, staker_authority
-                );
-                error!("{}", error_msg);
-                close_settlement_errors.push(error_msg);
+                ));
             }
             continue;
         };
@@ -369,6 +295,9 @@ async fn main() -> anyhow::Result<()> {
                     reset_data.settlement
                 ),
             )?;
+            reporting
+                .reportable
+                .add_withdraw_stake(stake_pubkey, lamports);
         } else if let Some(settlement_vote_account) = reset_data.vote_account {
             // Delegated stake account can be reset to a bond
             let req = program
@@ -396,40 +325,189 @@ async fn main() -> anyhow::Result<()> {
                     reset_data.settlement
                 ),
             )?;
+            reporting.reportable.add_reset_stake(stake_pubkey, lamports);
         } else {
-            let error_msg = format!(
+            reporting.add_error_string(format!(
                 "To reset stake account {} (bond: {}, staker authority: {}) is required to know vote account address but that was lost. Manual intervention needed.",
                 stake_pubkey, reset_data.bond, staker_authority
-            );
-            error!("{}", error_msg);
-            close_settlement_errors.push(error_msg);
+            ));
         }
     }
 
-    let reset_stake_accounts_execution_count = transaction_builder.instructions().len();
-    let execution_data = builder_to_execution_data(
-        rpc_url.clone(),
-        &mut transaction_builder,
-        Some(priority_fee_policy.clone()),
-    );
-    execute_transactions_in_parallel(
+    let execution_result = execute_parallel(
+        rpc_client.clone(),
         transaction_executor.clone(),
-        execution_data,
-        Some(100_usize),
+        &mut transaction_builder,
+        &priority_fee_policy,
     )
-    .await?;
-    info!("Reset and Withdraw StakeAccounts instructions {reset_stake_accounts_execution_count}",);
-    assert_eq!(
-        transaction_builder.instructions().len(),
-        0,
-        "Expected all instructions from builder are processed"
-    );
+    .await;
+    reporting.add_execution_result(execution_result, "Reset/WithdrawStakeAccounts");
 
-    Ok(())
+    reporting.report().await
+}
+
+pub async fn get_expired_settlements(
+    rpc_client: Arc<RpcClient>,
+    config_address: &Pubkey,
+    config: &Config,
+) -> anyhow::Result<Vec<(Pubkey, Settlement, Option<Bond>)>> {
+    let expired_settlements =
+        list_expired_settlements(rpc_client.clone(), config_address, config).await?;
+    let expired_settlements_bond_pubkeys = expired_settlements
+        .iter()
+        .map(|(_, settlement)| settlement.bond)
+        .collect::<HashSet<Pubkey>>()
+        .into_iter()
+        .collect::<Vec<Pubkey>>();
+    let bonds = get_bonds_for_pubkeys(rpc_client, &expired_settlements_bond_pubkeys).await?;
+    Ok(expired_settlements
+        .into_iter()
+        .map(|(pubkey, settlement)| {
+            let bond = bonds
+                .iter()
+                .find(|(bond_pubkey, _)| bond_pubkey == &settlement.bond)
+                .map_or_else(|| None, |(_, bond)| bond.clone());
+            (pubkey, settlement, bond)
+        })
+        .collect::<Vec<(Pubkey, Settlement, Option<Bond>)>>())
+}
+
+/// Verification of stake account existence that belongs to Settlements that does not exist
+/// Returns: Map: staker authority -> (settlement address, bond address, bond address)
+fn get_expired_stake_accounts(
+    existing_settlements: &HashMap<Pubkey, Pubkey>,
+    past_settlements: Vec<BondSettlement>,
+    expired_settlements: Vec<(Pubkey, Settlement, Option<Bond>)>,
+) -> HashMap<Pubkey, ResetStakeData> {
+    // settlement addresses from argument -> verification what are not existing
+    let not_existing_past_settlements = past_settlements
+        .into_iter()
+        .filter(|data| existing_settlements.get(&data.settlement_address).is_none())
+        .collect::<Vec<BondSettlement>>();
+    expired_settlements
+        .into_iter()
+        .map(|(settlement_address, settlement, bond)| {
+            (
+                settlement_address,
+                settlement.bond,
+                bond.map_or_else(|| None, |b| Some(b.vote_account)),
+            )
+        })
+        .chain(not_existing_past_settlements.into_iter().map(
+            |BondSettlement {
+                 bond_address,
+                 settlement_address,
+                 vote_account_address,
+                 merkle_root: _,
+                 epoch: _,
+             }| (settlement_address, bond_address, Some(vote_account_address)),
+        ))
+        .map(|(settlement, bond, vote_account)| {
+            (
+                find_settlement_staker_authority(&settlement).0,
+                ResetStakeData {
+                    vote_account,
+                    bond,
+                    settlement,
+                },
+            )
+        })
+        // staker authority -> (settlement address, bond address, bond address)
+        .collect::<HashMap<Pubkey, ResetStakeData>>()
 }
 
 struct ResetStakeData {
     bond: Pubkey,
     vote_account: Option<Pubkey>,
     settlement: Pubkey,
+}
+
+struct CloseSettlementReport {
+    rpc_client: Arc<RpcClient>,
+    withdraw_wallet: Pubkey,
+    /// settlement pubkey, bond account pubkey
+    closed_settlements: Vec<(Pubkey, Pubkey)>,
+    closed_settlement_claims: Vec<Pubkey>,
+    reset_stake: Vec<(Pubkey, u64)>,
+    withdraw_stake: Vec<(Pubkey, u64)>,
+}
+
+impl PrintReportable for CloseSettlementReport {
+    fn get_report(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + '_>> {
+        Box::pin(async {
+            let settlement_claim_rent = self
+                .rpc_client
+                .get_minimum_balance_for_rent_exemption(SETTLEMENT_CLAIM_ACCOUNT_SIZE)
+                .await
+                .unwrap();
+            vec![
+                format!(
+                    "Number of closed settlements: {}",
+                    self.closed_settlements.len()
+                ),
+                format!(
+                    "Number of closed settlement claims: {}, sum of returned rent {}",
+                    self.closed_settlement_claims.len(),
+                    self.closed_settlement_claims.len() as u64 * settlement_claim_rent
+                ),
+                format!("Number of reset stake accounts: {}, sum of reset lamports: {}", self.reset_stake.len(), self.reset_stake_lamports()),
+                format!("Number of withdraw stake accounts: {}, sum of withdrawn lamports: {} to wallet {}", self.reset_stake.len(), self.withdraw_stake_lamports(), self.withdraw_wallet),
+            ]
+        })
+    }
+}
+
+impl CloseSettlementReport {
+    fn report_handler(rpc_client: Arc<RpcClient>, withdraw_wallet: Pubkey) -> ReportHandler<Self> {
+        let close_settlement_report = Self {
+            rpc_client,
+            withdraw_wallet,
+            closed_settlements: vec![],
+            closed_settlement_claims: vec![],
+            reset_stake: vec![],
+            withdraw_stake: vec![],
+        };
+        ReportHandler::new(close_settlement_report)
+    }
+
+    fn set_settlements(&mut self, settlements: &[(Pubkey, Settlement, Option<Bond>)]) {
+        self.closed_settlements = settlements
+            .iter()
+            .map(|(p, s, _)| (*p, s.bond))
+            .collect::<Vec<(Pubkey, Pubkey)>>();
+    }
+
+    fn list_closed_settlements(&self) -> String {
+        self.closed_settlements
+            .iter()
+            .map(|(p, _)| p.to_string())
+            .collect::<Vec<String>>()
+            .join(",")
+    }
+
+    fn add_settlement_claim(&mut self, settlement_claim: Pubkey) {
+        self.closed_settlement_claims.push(settlement_claim);
+    }
+
+    fn add_reset_stake(&mut self, stake_pubkey: Pubkey, lamports: u64) {
+        self.reset_stake.push((stake_pubkey, lamports));
+    }
+
+    fn reset_stake_lamports(&self) -> u64 {
+        self.reset_stake
+            .iter()
+            .map(|(_, lamports)| lamports)
+            .sum::<u64>()
+    }
+
+    fn add_withdraw_stake(&mut self, stake_pubkey: Pubkey, lamports: u64) {
+        self.withdraw_stake.push((stake_pubkey, lamports));
+    }
+
+    fn withdraw_stake_lamports(&self) -> u64 {
+        self.withdraw_stake
+            .iter()
+            .map(|(_, lamports)| lamports)
+            .sum::<u64>()
+    }
 }

@@ -57,7 +57,7 @@ steps:
 
   - label: ":campfire: Claim settlements"
     env:
-      RUST_LOG: solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,claim_settlement=debug
+      RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,claim_settlement=debug
       # RUST_BACKTRACE: full
     commands:
     - |
@@ -69,6 +69,7 @@ steps:
     - 'chmod +x target/release/claim-settlement'
     - 'echo "UNKNOWN ERROR" > ./claiming-report.txt'
     - |
+      set -o pipefail
       ./target/release/claim-settlement \
         --rpc-url $$RPC_URL \
         --merkle-trees-dir "./merkle-trees/" \

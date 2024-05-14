@@ -75,7 +75,7 @@ steps:
 
   - label: ":campfire: Create settlements"
     env:
-      RUST_LOG: solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,init_settlement=debug
+      RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,init_settlement=debug
       #  RUST_BACKTRACE: full
     commands:
     - '. "$HOME/.cargo/env"'

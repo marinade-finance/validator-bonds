@@ -10,29 +10,23 @@ use settlement_pipelines::arguments::{
     init_from_opts, load_keypair, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts,
     TipPolicyOpts,
 };
-use settlement_pipelines::init::init_log;
+use settlement_pipelines::executor::execute_parallel;
+use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::resolve_combined_optional;
 use settlement_pipelines::settlements::list_claimable_settlements;
 use settlement_pipelines::stake_accounts::pick_stake_for_claiming;
+use settlement_pipelines::stake_accounts::STAKE_ACCOUNT_RENT_EXEMPTION;
 use settlement_pipelines::stake_accounts_cache::StakeAccountsCache;
-use settlement_pipelines::STAKE_ACCOUNT_RENT_EXEMPTION;
 use solana_sdk::native_token::lamports_to_sol;
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::signature::Signer;
+use solana_sdk::signer::Signer;
 use solana_sdk::stake::program::ID as stake_program_id;
 use solana_sdk::system_program;
 use solana_sdk::sysvar::{clock::ID as clock_id, stake_history::ID as stake_history_id};
 use solana_transaction_builder::TransactionBuilder;
-use solana_transaction_builder_executor::{
-    builder_to_execution_data, execute_transactions_in_parallel,
-};
-use solana_transaction_executor::{
-    SendTransactionWithGrowingTipProvider, TransactionExecutorBuilder,
-};
 use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
-use std::sync::Arc;
 use validator_bonds::instructions::ClaimSettlementArgs;
 use validator_bonds::state::bond::find_bond_address;
 use validator_bonds::state::config::find_bonds_withdrawer_authority;
@@ -87,10 +81,8 @@ async fn main() -> anyhow::Result<()> {
     init_log(&args.global_opts);
 
     let InitializedGlobalOpts {
-        rpc_url,
-        fee_payer_keypair,
-        fee_payer_pubkey: _,
-        operator_authority_keypair: _,
+        fee_payer,
+        operator_authority: _,
         priority_fee_policy,
         tip_policy,
         rpc_client,
@@ -100,6 +92,12 @@ async fn main() -> anyhow::Result<()> {
         &args.priority_fee_policy_opts,
         &args.tip_policy_opts,
     )?;
+
+    let config_address = args.global_opts.config;
+    info!(
+        "Claiming settlements for validator-bonds config: {}",
+        config_address
+    );
 
     let mut json_data: HashMap<u64, MerkleTreeLoadedData> = HashMap::new();
     for path in args.merkle_trees_dir.read_dir()?.filter_map(|entry| {
@@ -132,7 +130,7 @@ async fn main() -> anyhow::Result<()> {
     let rent_keypair = if let Some(rent_payer) = args.rent_payer.clone() {
         load_keypair(&rent_payer)?
     } else {
-        fee_payer_keypair.clone()
+        fee_payer.clone()
     };
 
     let config_address = args.global_opts.config;
@@ -197,8 +195,9 @@ async fn main() -> anyhow::Result<()> {
 
     let mut claim_settlement_errors: Vec<String> = vec![];
 
-    let mut transaction_builder = TransactionBuilder::limited(fee_payer_keypair.clone());
+    let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
     transaction_builder.add_signer_checked(&rent_keypair);
+    let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
 
     let clock = get_sysvar_clock(rpc_client.clone()).await?;
     let stake_history = get_stake_history(rpc_client.clone()).await?;
@@ -453,34 +452,23 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let transaction_executor_builder = TransactionExecutorBuilder::new()
-        .with_default_providers(rpc_client.clone())
-        .with_send_transaction_provider(SendTransactionWithGrowingTipProvider {
-            rpc_url: rpc_url.clone(),
-            query_param: "tip".into(),
-            tip_policy,
-        });
-    let transaction_executor = Arc::new(transaction_executor_builder.build());
-    let claim_ix_count = transaction_builder.instructions().len();
-    let execution_data = builder_to_execution_data(
-        rpc_url.clone(),
-        &mut transaction_builder,
-        Some(priority_fee_policy.clone()),
-    );
-    execute_transactions_in_parallel(
+    execute_parallel(
+        rpc_client.clone(),
         transaction_executor.clone(),
-        execution_data,
-        Some(100_usize),
+        &mut transaction_builder,
+        &priority_fee_policy,
     )
     .await
-    .unwrap_or_else(|e| {
-        let error_msg = format!("Error executing claim settlement instructions: {:?}", e);
-        error!("{}", error_msg);
-        claim_settlement_errors.push(error_msg);
-    });
-    println!("ClaimSettlement instructions {} executed", claim_ix_count,);
+    .map_or_else(
+        |e| {
+            let error_msg = format!("Error executing claim settlement instructions: {:?}", e);
+            error!("{}", error_msg);
+            claim_settlement_errors.push(error_msg);
+        },
+        |ix_count| info!("ClaimSettlement instructions {} executed", ix_count,),
+    );
 
-    // TODO: reporting
+    // TODO: better reporting
     let claimable_settlements_addresses: Vec<Pubkey> =
         settlements_claiming_before.clone().into_keys().collect();
     let claimable_settlements_after =

@@ -46,7 +46,7 @@ steps:
 
   - label: ":campfire: List past settlements"
     env:
-      RUST_LOG: solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,close_settlement=debug
+      RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,list_settlement=debug
     commands:
     - '. "$HOME/.cargo/env"'
     - 'buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .'
@@ -61,7 +61,7 @@ steps:
   - label: ":campfire: Close settlements"
     key: 'close-settlement'
     env:
-      RUST_LOG: solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,close_settlement=debug
+      RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,close_settlement=debug
       # RUST_BACKTRACE: full
     commands:
     - '. "$HOME/.cargo/env"'
@@ -69,32 +69,32 @@ steps:
     - 'buildkite-agent artifact download --include-retried-jobs past-settlements.json .'
     - 'chmod +x target/release/close-settlement'
     - |
-      echo ./target/release/close-settlement \
+      set -o pipefail
+      ./target/release/close-settlement \
         --rpc-url $$RPC_URL \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$VALIDATOR_BONDS_FUNDING_WALLET" \
         --marinade-wallet "$$VALIDATOR_BONDS_FUNDING_WALLET" \
-        --past-settlements ./past-settlements.json' \
-        2>&1 | tee closing-report.txt
+        --past-settlements ./past-settlements.json | tee close-settlement-report.txt
     artifact_paths:
-    - "./closing-settlement-report.txt"
+    - "./close-settlement-report.txt"
 
-  # reporting discord only in case of failure => manual intervention is needed
+  # discord reporting only in case of failure => manual intervention is needed
   - label: ":mega: Notification settlements closing"
     commands:
     - 'build_result=$(buildkite-agent step get "outcome" --step "close-settlement")'
     - |
         if [[ "$$build_result" =~ "failed" ]]; then
-          buildkite-agent artifact download --include-retried-jobs closing-report.txt .
-          echo "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
+          buildkite-agent artifact download --include-retried-jobs close-settlement-report.txt . || echo 'UNKNOWN ERROR' > './close-settlement-report.txt'
+          curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
             -F 'payload_json={
-                "content": "Claimed Settlements for epochs: '"$$claimable_epochs"'",
+                "content": "Closed Settlements FAILURE, epoch: '"$$claimable_epochs"'",
                 "url": "'"$$BUILDKITE_BUILD_URL"'",
-                "color": "8388863"
+                "color": "3158271"
             }' \
-            -F "file1=@./claiming-report.txt"
+            -F "file1=@./close-settlement-report.txt"
         else
-          echo "No need to notify about closing settlements, all good"
+          echo "No error, no need to notify about closing settlements, all good"
         fi
 
     depends_on: "close-settlement"

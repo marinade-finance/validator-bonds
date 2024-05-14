@@ -6,6 +6,9 @@ use solana_sdk::stake::state::StakeStateV2;
 use solana_sdk::stake_history::StakeHistory;
 use validator_bonds_common::stake_accounts::{is_locked, CollectedStakeAccounts};
 
+// TODO: better to be loaded from chain
+pub const STAKE_ACCOUNT_RENT_EXEMPTION: u64 = 2282880;
+
 /// processed provided stake accounts and pick the one with the best priority for claiming
 pub fn pick_stake_for_claiming(
     stake_accounts: &CollectedStakeAccounts,

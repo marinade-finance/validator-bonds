@@ -70,7 +70,14 @@ async fn main() -> anyhow::Result<()> {
         })
         .collect();
 
-    info!("Settlements: {:?}", bond_settlements);
+    info!(
+        "Settlements: {:?}",
+        bond_settlements
+            .iter()
+            .map(|s| s.settlement_address.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
     write_to_json_file(&bond_settlements, args.out.as_str())?;
     Ok(())
 }

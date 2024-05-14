@@ -158,10 +158,8 @@ pub fn to_priority_fee_policy(opts: &PriorityFeePolicyOpts) -> PriorityFeePolicy
 }
 
 pub struct InitializedGlobalOpts {
-    pub rpc_url: String,
-    pub fee_payer_keypair: Rc<Keypair>,
-    pub fee_payer_pubkey: Pubkey,
-    pub operator_authority_keypair: Rc<Keypair>,
+    pub fee_payer: Rc<Keypair>,
+    pub operator_authority: Rc<Keypair>,
     pub priority_fee_policy: PriorityFeePolicy,
     pub tip_policy: TipPolicy,
     pub rpc_client: Arc<RpcClient>,
@@ -187,7 +185,7 @@ pub fn init_from_opts(
     priority_fee_policy_opts: &PriorityFeePolicyOpts,
     tip_policy_opts: &TipPolicyOpts,
 ) -> anyhow::Result<InitializedGlobalOpts> {
-    let (rpc_client, rpc_url) = get_rpc_client(global_opts)?;
+    let (rpc_client, _) = get_rpc_client(global_opts)?;
 
     let default_keypair = load_default_keypair(global_opts.keypair.as_deref())?;
     let fee_payer_keypair = if let Some(fee_payer) = global_opts.fee_payer.clone() {
@@ -210,16 +208,13 @@ pub fn init_from_opts(
     let priority_fee_policy = to_priority_fee_policy(priority_fee_policy_opts);
     let tip_policy = to_tip_policy(tip_policy_opts);
 
-    let fee_payer_pubkey: Pubkey = fee_payer_keypair.pubkey();
     // TODO: need to work correctly with Rc Dynsigner; need to refactor the builder executor
     let dyn_fee_payer = Rc::new(DynSigner(Arc::new(fee_payer_keypair.clone())));
     let program = get_validator_bonds_program(rpc_client.clone(), Some(dyn_fee_payer))?;
 
     Ok(InitializedGlobalOpts {
-        rpc_url,
-        fee_payer_keypair,
-        fee_payer_pubkey,
-        operator_authority_keypair,
+        fee_payer: fee_payer_keypair,
+        operator_authority: operator_authority_keypair,
         priority_fee_policy,
         tip_policy,
         rpc_client,

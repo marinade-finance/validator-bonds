@@ -9,9 +9,10 @@ use settlement_pipelines::arguments::{
     init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
 };
 use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
-use settlement_pipelines::init::init_log;
+use settlement_pipelines::executor::{execute_in_sequence, execute_parallel};
+use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::{resolve_combined, MerkleTreeMetaSettlement};
-use settlement_pipelines::STAKE_ACCOUNT_RENT_EXEMPTION;
+use settlement_pipelines::stake_accounts::STAKE_ACCOUNT_RENT_EXEMPTION;
 use solana_sdk::native_token::lamports_to_sol;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
@@ -25,16 +26,9 @@ use solana_sdk::sysvar::{
     stake_history::ID as stake_history_sysvar_id,
 };
 use solana_transaction_builder::TransactionBuilder;
-use solana_transaction_builder_executor::{
-    builder_to_execution_data, execute_transactions_in_parallel, execute_transactions_in_sequence,
-};
-use solana_transaction_executor::{
-    SendTransactionWithGrowingTipProvider, TransactionExecutorBuilder,
-};
 use std::collections::HashMap;
 use std::io;
 use std::rc::Rc;
-use std::sync::Arc;
 use validator_bonds::instructions::{InitSettlementArgs, MergeStakeArgs};
 use validator_bonds::state::bond::Bond;
 use validator_bonds::state::config::find_bonds_withdrawer_authority;
@@ -92,6 +86,24 @@ async fn main() -> anyhow::Result<()> {
     let args: Args = Args::parse();
     init_log(&args.global_opts);
 
+    let InitializedGlobalOpts {
+        fee_payer,
+        operator_authority,
+        priority_fee_policy,
+        tip_policy,
+        rpc_client,
+        program,
+    } = init_from_opts(
+        &args.global_opts,
+        &args.priority_fee_policy_opts,
+        &args.tip_policy_opts,
+    )?;
+    let rent_keypair = if let Some(rent_payer) = args.rent_payer.clone() {
+        load_keypair(&rent_payer)?
+    } else {
+        fee_payer.clone()
+    };
+
     let config_address = args.global_opts.config;
     info!(
         "Loading merkle tree at: '{}', validator-bonds config: {}",
@@ -116,32 +128,13 @@ async fn main() -> anyhow::Result<()> {
             })?;
         resolve_combined(merkle_tree_collection, settlement_collection)
     }?;
-
-    let InitializedGlobalOpts {
-        rpc_url,
-        fee_payer_keypair,
-        fee_payer_pubkey: _,
-        operator_authority_keypair,
-        priority_fee_policy,
-        tip_policy,
-        rpc_client,
-        program,
-    } = init_from_opts(
-        &args.global_opts,
-        &args.priority_fee_policy_opts,
-        &args.tip_policy_opts,
-    )?;
-    let rent_keypair = if let Some(rent_payer) = args.rent_payer.clone() {
-        load_keypair(&rent_payer)?
-    } else {
-        fee_payer_keypair.clone()
-    };
-
     let epoch = args.epoch.unwrap_or(combined_collection.epoch);
 
+    let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
+
     let mut vote_accounts: Vec<Pubkey> = Vec::new();
-    let mut transaction_builder = TransactionBuilder::limited(fee_payer_keypair.clone());
-    transaction_builder.add_signer_checked(&operator_authority_keypair);
+    let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
+    transaction_builder.add_signer_checked(&operator_authority);
     transaction_builder.add_signer_checked(&rent_keypair);
 
     let config = get_config(rpc_client.clone(), config_address).await?;
@@ -247,7 +240,7 @@ async fn main() -> anyhow::Result<()> {
                 .accounts(validator_bonds::accounts::InitSettlement {
                     config: config_address,
                     bond: settlement_record.bond_address,
-                    operator_authority: operator_authority_keypair.pubkey(),
+                    operator_authority: operator_authority.pubkey(),
                     system_program: system_program::ID,
                     rent_payer: rent_keypair.pubkey(),
                     program: validator_bonds_id,
@@ -274,44 +267,25 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let transaction_executor_builder = TransactionExecutorBuilder::new()
-        .with_default_providers(rpc_client.clone())
-        .with_send_transaction_provider(SendTransactionWithGrowingTipProvider {
-            rpc_url: rpc_url.clone(),
-            query_param: "tip".into(),
-            tip_policy,
-        });
-    let transaction_executor = Arc::new(transaction_executor_builder.build());
-
-    let init_execution_count = transaction_builder.instructions().len();
-    let execution_data = builder_to_execution_data(
-        rpc_url.clone(),
-        &mut transaction_builder,
-        Some(priority_fee_policy.clone()),
-    );
-    execute_transactions_in_parallel(
+    let ix_count = execute_parallel(
+        rpc_client.clone(),
         transaction_executor.clone(),
-        execution_data,
-        Some(100_usize),
+        &mut transaction_builder,
+        &priority_fee_policy,
     )
     .await?;
     info!(
         "InitSettlement instructions {} executed successfully of settlement/vote_account [{}]",
-        init_execution_count,
+        ix_count,
         settlement_records
             .iter()
             .map(|v| format!("{}/{}", v.settlement_address, v.vote_account_address))
             .collect::<Vec<String>>()
             .join(", ")
     );
-    assert_eq!(
-        transaction_builder.instructions().len(),
-        0,
-        "Expected to get all instructions from builder processed"
-    );
 
-    let mut transaction_builder = TransactionBuilder::limited(fee_payer_keypair.clone());
-    transaction_builder.add_signer_checked(&operator_authority_keypair);
+    let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
+    transaction_builder.add_signer_checked(&operator_authority.clone());
 
     // let's check how we are about settlement funding
     let (withdrawer_authority, _) = find_bonds_withdrawer_authority(&config_address);
@@ -387,7 +361,7 @@ async fn main() -> anyhow::Result<()> {
 
         if amount_to_fund == 0 {
             info!(
-                "Settlement {} (vote account {}), funter {:?} already funded by {}, skipping funding",
+                "Settlement {} (vote account {}), funder {:?} already funded by {}, skipping funding",
                 settlement_record.settlement_address,
                 settlement_record.vote_account_address,
                 settlement_record.funder,
@@ -531,25 +505,20 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let merge_execution_count = transaction_builder.instructions().len();
-    let execution_data = builder_to_execution_data(
-        rpc_url.clone(),
+    let ix_count = execute_in_sequence(
+        rpc_client.clone(),
+        transaction_executor.clone(),
         &mut transaction_builder,
-        Some(priority_fee_policy.clone()),
-    );
-    execute_transactions_in_sequence(transaction_executor.clone(), execution_data).await?;
+        &priority_fee_policy,
+    )
+    .await?;
     info!(
         "Stake accounts management instructions {} executed successfully",
-        merge_execution_count
-    );
-    assert_eq!(
-        transaction_builder.instructions().len(),
-        0,
-        "Expected to get all instructions from builder processed"
+        ix_count
     );
 
-    let mut transaction_builder = TransactionBuilder::limited(fee_payer_keypair.clone());
-    transaction_builder.add_signer_checked(&operator_authority_keypair);
+    let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
+    transaction_builder.add_signer_checked(&operator_authority.clone());
     transaction_builder.add_signer_checked(&rent_keypair);
 
     // Funding settlements
@@ -569,7 +538,7 @@ async fn main() -> anyhow::Result<()> {
                     new_stake_account_keypair.pubkey()
                 );
                 let instructions = create_stake_account(
-                    &fee_payer_keypair.pubkey(),
+                    &fee_payer.pubkey(),
                     &new_stake_account_keypair.pubkey(),
                     &Authorized {
                         withdrawer: withdrawer_authority,
@@ -600,7 +569,7 @@ async fn main() -> anyhow::Result<()> {
                         bond: settlement_record.bond_address,
                         stake_account: stake_account_to_fund,
                         bonds_withdrawer_authority: withdrawer_authority,
-                        operator_authority: operator_authority_keypair.pubkey(),
+                        operator_authority: operator_authority.pubkey(),
                         settlement: settlement_record.settlement_address,
                         system_program: system_program::ID,
                         settlement_staker_authority: settlement_record.settlement_staker_authority,
@@ -636,21 +605,16 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let fund_settlement_execution_count = transaction_builder.instructions().len();
-    let execution_data = builder_to_execution_data(
-        rpc_url.clone(),
+    let ix_count = execute_in_sequence(
+        rpc_client.clone(),
+        transaction_executor.clone(),
         &mut transaction_builder,
-        Some(priority_fee_policy.clone()),
-    );
-    execute_transactions_in_sequence(transaction_executor.clone(), execution_data).await?;
+        &priority_fee_policy,
+    )
+    .await?;
     info!(
         "FundSettlement instructions {} executed successfully",
-        fund_settlement_execution_count
-    );
-    assert_eq!(
-        transaction_builder.instructions().len(),
-        0,
-        "Expected to get all instructions from builder processed"
+        ix_count
     );
 
     println!("For epoch {epoch}: JSON loaded {} settlements with {} SOLs, this run funded {} settlements with {} SOLs; {} errors",
