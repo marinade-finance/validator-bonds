@@ -126,7 +126,7 @@ async fn main() -> anyhow::Result<()> {
         claiming_data.keys().collect::<Vec<_>>()
     );
 
-    let rent_keypair = if let Some(rent_payer) = args.rent_payer.clone() {
+    let rent_payer = if let Some(rent_payer) = args.rent_payer.clone() {
         load_keypair(&rent_payer)?
     } else {
         fee_payer.clone()
@@ -195,7 +195,7 @@ async fn main() -> anyhow::Result<()> {
     let mut claim_settlement_errors: Vec<String> = vec![];
 
     let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
-    transaction_builder.add_signer_checked(&rent_keypair);
+    transaction_builder.add_signer_checked(&rent_payer);
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
 
     let clock = get_sysvar_clock(rpc_client.clone()).await?;
@@ -422,7 +422,7 @@ async fn main() -> anyhow::Result<()> {
                     bonds_withdrawer_authority,
                     stake_history: stake_history_id,
                     stake_program: stake_program_id,
-                    rent_payer: rent_keypair.pubkey(),
+                    rent_payer: rent_payer.pubkey(),
                     program: validator_bonds_id,
                     system_program: system_program::ID,
                     clock: clock_id,

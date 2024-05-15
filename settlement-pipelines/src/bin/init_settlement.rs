@@ -13,7 +13,6 @@ use settlement_pipelines::executor::{execute_in_sequence, execute_parallel};
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::executor::{execute_in_sequence, execute_parallel};
 use settlement_pipelines::init::{get_executor, init_log};
-use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
 use settlement_pipelines::json_data::{resolve_combined, MerkleTreeMetaSettlement};
 use settlement_pipelines::stake_accounts::STAKE_ACCOUNT_RENT_EXEMPTION;
 use solana_sdk::native_token::lamports_to_sol;
@@ -105,7 +104,8 @@ async fn main() -> anyhow::Result<()> {
         &args.priority_fee_policy_opts,
         &args.tip_policy_opts,
     )?;
-    let rent_keypair = if let Some(rent_payer) = args.rent_payer.clone() {
+
+    let rent_payer = if let Some(rent_payer) = args.rent_payer.clone() {
         load_keypair(&rent_payer)?
     } else {
         fee_payer.clone()
@@ -147,7 +147,7 @@ async fn main() -> anyhow::Result<()> {
     let mut vote_accounts: Vec<Pubkey> = Vec::new();
     let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
     transaction_builder.add_signer_checked(&operator_authority);
-    transaction_builder.add_signer_checked(&rent_keypair);
+    transaction_builder.add_signer_checked(&rent_payer);
 
     let config = get_config(rpc_client.clone(), config_address).await?;
     let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
@@ -254,7 +254,7 @@ async fn main() -> anyhow::Result<()> {
                     bond: settlement_record.bond_address,
                     operator_authority: operator_authority.pubkey(),
                     system_program: system_program::ID,
-                    rent_payer: rent_keypair.pubkey(),
+                    rent_payer: rent_payer.pubkey(),
                     program: validator_bonds_id,
                     settlement: settlement_record.settlement_address,
                     event_authority: find_event_authority().0,
@@ -262,7 +262,7 @@ async fn main() -> anyhow::Result<()> {
                 .args(validator_bonds::instruction::InitSettlement {
                     init_settlement_args: InitSettlementArgs {
                         merkle_root: settlement_record.merkle_root,
-                        rent_collector: rent_keypair.pubkey(),
+                        rent_collector: rent_payer.pubkey(),
                         max_total_claim: settlement_record.max_total_claim,
                         max_merkle_nodes: settlement_record.max_merkle_nodes,
                         epoch,
@@ -531,7 +531,7 @@ async fn main() -> anyhow::Result<()> {
 
     let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
     transaction_builder.add_signer_checked(&operator_authority);
-    transaction_builder.add_signer_checked(&rent_keypair);
+    transaction_builder.add_signer_checked(&rent_payer);
     transaction_builder.add_signer_checked(&marinade_wallet);
 
     // Funding settlements
@@ -588,7 +588,7 @@ async fn main() -> anyhow::Result<()> {
                         settlement_staker_authority: settlement_record.settlement_staker_authority,
                         rent: rent_sysvar_id,
                         split_stake_account: split_stake_account_keypair.pubkey(),
-                        split_stake_rent_payer: rent_keypair.pubkey(),
+                        split_stake_rent_payer: rent_payer.pubkey(),
                         stake_history: stake_history_sysvar_id,
                         clock: clock_sysvar_id,
                         stake_program: stake_program_id,
