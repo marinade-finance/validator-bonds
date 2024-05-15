@@ -67,12 +67,15 @@ steps:
     - '. "$HOME/.cargo/env"'
     - 'buildkite-agent artifact download --include-retried-jobs target/release/claim-settlement .'
     - 'chmod +x target/release/claim-settlement'
+    - 'echo "UNKNOWN ERROR" > ./claiming-report.txt'
     - |
       ./target/release/claim-settlement \
         --rpc-url $$RPC_URL \
         --merkle-trees-dir "./merkle-trees/" \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
-        --fee-payer "$$VALIDATOR_BONDS_FUNDING_WALLET" | tee ./claiming-report.txt
+        --fee-payer "$$VALIDATOR_BONDS_RANDOM_TX_FEE_PAYER" \
+        --rent-payer "$$VALIDATOR_BONDS_RANDOM_RENT_PAYER" \
+        | tee ./claiming-report.txt
     artifact_paths:
     - "./claiming-report.txt"
   

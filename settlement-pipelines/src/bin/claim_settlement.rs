@@ -7,7 +7,8 @@ use settlement_engine::settlement_claims::SettlementCollection;
 use settlement_engine::utils::read_from_json_file;
 use settlement_pipelines::anchor::add_instruction_to_builder_from_anchor_with_description;
 use settlement_pipelines::arguments::{
-    init_from_opts, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
+    init_from_opts, load_keypair, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts,
+    TipPolicyOpts,
 };
 use settlement_pipelines::init::init_log;
 use settlement_pipelines::json_data::resolve_combined_optional;
@@ -17,6 +18,7 @@ use settlement_pipelines::stake_accounts_cache::StakeAccountsCache;
 use settlement_pipelines::STAKE_ACCOUNT_RENT_EXEMPTION;
 use solana_sdk::native_token::lamports_to_sol;
 use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signature::Signer;
 use solana_sdk::stake::program::ID as stake_program_id;
 use solana_sdk::system_program;
 use solana_sdk::sysvar::{clock::ID as clock_id, stake_history::ID as stake_history_id};
@@ -73,6 +75,10 @@ struct Args {
 
     #[clap(flatten)]
     tip_policy_opts: TipPolicyOpts,
+
+    /// keypair payer for rent of accounts, if not provided, fee payer keypair is used
+    #[arg(long)]
+    rent_payer: Option<String>,
 }
 
 #[tokio::main]
@@ -83,7 +89,7 @@ async fn main() -> anyhow::Result<()> {
     let InitializedGlobalOpts {
         rpc_url,
         fee_payer_keypair,
-        fee_payer_pubkey,
+        fee_payer_pubkey: _,
         operator_authority_keypair: _,
         priority_fee_policy,
         tip_policy,
@@ -125,6 +131,12 @@ async fn main() -> anyhow::Result<()> {
         "Loaded json data for epochs: {:?}",
         claiming_data.keys().collect::<Vec<_>>()
     );
+
+    let rent_keypair = if let Some(rent_payer) = args.rent_payer.clone() {
+        load_keypair(&rent_payer)?
+    } else {
+        fee_payer_keypair.clone()
+    };
 
     let config_address = args.global_opts.config;
     info!(
@@ -189,6 +201,7 @@ async fn main() -> anyhow::Result<()> {
     let mut claim_settlement_errors: Vec<String> = vec![];
 
     let mut transaction_builder = TransactionBuilder::limited(fee_payer_keypair.clone());
+    transaction_builder.add_signer_checked(&rent_keypair);
 
     let clock = get_sysvar_clock(rpc_client.clone()).await?;
     let stake_history = get_stake_history(rpc_client.clone()).await?;
@@ -414,7 +427,7 @@ async fn main() -> anyhow::Result<()> {
                     bonds_withdrawer_authority,
                     stake_history: stake_history_id,
                     stake_program: stake_program_id,
-                    rent_payer: fee_payer_pubkey,
+                    rent_payer: rent_keypair.pubkey(),
                     program: validator_bonds_id,
                     system_program: system_program::ID,
                     clock: clock_id,

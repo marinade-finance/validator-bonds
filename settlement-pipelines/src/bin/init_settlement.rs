@@ -5,10 +5,10 @@ use settlement_engine::merkle_tree_collection::MerkleTreeCollection;
 use settlement_engine::settlement_claims::{SettlementCollection, SettlementFunder};
 use settlement_engine::utils::read_from_json_file;
 use settlement_pipelines::anchor::add_instructions_to_builder_from_anchor;
-use settlement_pipelines::arguments::GlobalOpts;
 use settlement_pipelines::arguments::{
     init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
 };
+use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
 use settlement_pipelines::init::init_log;
 use settlement_pipelines::json_data::{resolve_combined, MerkleTreeMetaSettlement};
 use settlement_pipelines::STAKE_ACCOUNT_RENT_EXEMPTION;
@@ -81,6 +81,10 @@ struct Args {
 
     #[clap(flatten)]
     tip_policy_opts: TipPolicyOpts,
+
+    /// keypair payer for rent of accounts, if not provided, fee payer keypair is used
+    #[arg(long)]
+    rent_payer: Option<String>,
 }
 
 #[tokio::main]
@@ -116,7 +120,7 @@ async fn main() -> anyhow::Result<()> {
     let InitializedGlobalOpts {
         rpc_url,
         fee_payer_keypair,
-        fee_payer_pubkey,
+        fee_payer_pubkey: _,
         operator_authority_keypair,
         priority_fee_policy,
         tip_policy,
@@ -127,12 +131,18 @@ async fn main() -> anyhow::Result<()> {
         &args.priority_fee_policy_opts,
         &args.tip_policy_opts,
     )?;
+    let rent_keypair = if let Some(rent_payer) = args.rent_payer.clone() {
+        load_keypair(&rent_payer)?
+    } else {
+        fee_payer_keypair.clone()
+    };
 
     let epoch = args.epoch.unwrap_or(combined_collection.epoch);
 
     let mut vote_accounts: Vec<Pubkey> = Vec::new();
     let mut transaction_builder = TransactionBuilder::limited(fee_payer_keypair.clone());
-    transaction_builder.add_signer_checked(&operator_authority_keypair.clone());
+    transaction_builder.add_signer_checked(&operator_authority_keypair);
+    transaction_builder.add_signer_checked(&rent_keypair);
 
     let config = get_config(rpc_client.clone(), config_address).await?;
     let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
@@ -239,7 +249,7 @@ async fn main() -> anyhow::Result<()> {
                     bond: settlement_record.bond_address,
                     operator_authority: operator_authority_keypair.pubkey(),
                     system_program: system_program::ID,
-                    rent_payer: fee_payer_pubkey,
+                    rent_payer: rent_keypair.pubkey(),
                     program: validator_bonds_id,
                     settlement: settlement_record.settlement_address,
                     event_authority: find_event_authority().0,
@@ -247,7 +257,7 @@ async fn main() -> anyhow::Result<()> {
                 .args(validator_bonds::instruction::InitSettlement {
                     init_settlement_args: InitSettlementArgs {
                         merkle_root: settlement_record.merkle_root,
-                        rent_collector: fee_payer_pubkey,
+                        rent_collector: rent_keypair.pubkey(),
                         max_total_claim: settlement_record.max_total_claim,
                         max_merkle_nodes: settlement_record.max_merkle_nodes,
                         epoch,
@@ -301,7 +311,7 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let mut transaction_builder = TransactionBuilder::limited(fee_payer_keypair.clone());
-    transaction_builder.add_signer_checked(&operator_authority_keypair.clone());
+    transaction_builder.add_signer_checked(&operator_authority_keypair);
 
     // let's check how we are about settlement funding
     let (withdrawer_authority, _) = find_bonds_withdrawer_authority(&config_address);
@@ -539,7 +549,8 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let mut transaction_builder = TransactionBuilder::limited(fee_payer_keypair.clone());
-    transaction_builder.add_signer_checked(&operator_authority_keypair.clone());
+    transaction_builder.add_signer_checked(&operator_authority_keypair);
+    transaction_builder.add_signer_checked(&rent_keypair);
 
     // Funding settlements
     let mut funded_settlements_overall = 0u32;
@@ -595,7 +606,7 @@ async fn main() -> anyhow::Result<()> {
                         settlement_staker_authority: settlement_record.settlement_staker_authority,
                         rent: rent_sysvar_id,
                         split_stake_account: split_stake_account_keypair.pubkey(),
-                        split_stake_rent_payer: fee_payer_pubkey,
+                        split_stake_rent_payer: rent_keypair.pubkey(),
                         stake_history: stake_history_sysvar_id,
                         clock: clock_sysvar_id,
                         stake_program: stake_program_id,

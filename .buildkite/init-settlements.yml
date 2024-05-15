@@ -97,7 +97,8 @@ steps:
         --input-merkle-tree-collection "./settlement-merkle-trees.json" \
         --input-settlement-collection "./settlements.json" \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
-        --fee-payer "$$VALIDATOR_BONDS_FUNDING_WALLET" \
+        --fee-payer "$$VALIDATOR_BONDS_MARINADE_TX_FEE_PAYER" \
+        --rent-payer "$$VALIDATOR_BONDS_MARINADE_RENT_PAYER" \
         --epoch "$$epoch" || true)
     - 'echo "$$report" | tee -a "./build-report.$$BUILDKITE_RETRY_COUNT"'
     - '[ -n "$$result_code" ] && echo "init-settlement command FAILED" && exit $$result_code'
