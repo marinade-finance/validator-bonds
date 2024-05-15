@@ -60,14 +60,22 @@ steps:
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,claim_settlement=debug
       # RUST_BACKTRACE: full
     commands:
+    - '. "$HOME/.cargo/env"'
     - |
       claimable_epochs_num=$(buildkite-agent meta-data get claimable_epochs_num)
-      [ "$$claimable_epochs_num" -eq 0 ] && echo 'No settlement to claim from' && exit 0
+      if [ "$$claimable_epochs_num" -eq 0 ]; then
+        echo 'No settlement to claim from' | tee ./claiming-report.txt
+        exit 0
+      fi
+    - 'prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))'
+    - 'buildkite-agent artifact download --include-retried-jobs build-report.$$prior_build_number . || true'
+    - |
+      cp "build-report.$$prior_build_number" "build-report.$$BUILDKITE_RETRY_COUNT" || true
+      rm -f "build-report.$$prior_build_number"
+      echo "#ATTEMPT $$BUILDKITE_RETRY_COUNT" | tee -a "./build-report.$$BUILDKITE_RETRY_COUNT"
     - 'buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .'
-    - '. "$HOME/.cargo/env"'
     - 'buildkite-agent artifact download --include-retried-jobs target/release/claim-settlement .'
     - 'chmod +x target/release/claim-settlement'
-    - 'echo "UNKNOWN ERROR" > ./claiming-report.txt'
     - |
       set -o pipefail
       ./target/release/claim-settlement \
@@ -76,24 +84,62 @@ steps:
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$VALIDATOR_BONDS_CLAIMING_WALLET" \
         --rent-payer "$$VALIDATOR_BONDS_CLAIMING_WALLET" \
-        | tee ./claiming-report.txt
+        | tee -a "./build-report.$$BUILDKITE_RETRY_COUNT"
+    key: 'claim-settlement'
+    artifact_paths:
+    - "./build-report.*"
+    retry:
+      automatic:
+        - exit_status: 100
+          limit: 10
+
+  - label: "Notification setup"
+    env:
+      gs_bucket: gs://marinade-validator-bonds-mainnet
+    commands:
+     - |
+       build_result=$(buildkite-agent step get "outcome" --step "claim-settlement")
+        if [[ "$$build_result" =~ "failed" ]]; then
+          notification_result="FAILED"
+          notification_color="15158332"
+        else
+          notification_result="SUCCEEDED"
+          notification_color="8388863"
+        fi
+     - 'buildkite-agent meta-data set notification_color "$$notification_color"'
+     - 'buildkite-agent meta-data set notification_result "$$notification_result"'
+     - 'echo "Notification result: $$notification_result, color: $$notification_color"'
+     - 'mkdir ./reports'
+     - 'buildkite-agent artifact download --include-retried-jobs "build-report.*" ./reports/'
+     - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
+     - '[ -f "$$report_path" ] || echo "No report generated; "UNKNOWN ERROR" >> "$$report_path"'
+     - 'cp "$$report_path" ./claiming-report.txt'
+     - 'claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json)'
+     - 'first_epoch=$(echo "$$claimable_epochs_json" | jq ".[0]")'
+     - '[[ -n "$$first_epoch" && "$$first_epoch" != "null" ]] && gcloud storage cp ./claiming-report.txt "$$gs_bucket/$$first_epoch/claiming-report.$(date +%s).txt"'
+     - 'buildkite-agent meta-data set attempts_count "$(grep -c "#ATTEMPT" ./claiming-report.txt)"'
     artifact_paths:
     - "./claiming-report.txt"
+    depends_on: "claim-settlement"
+    allow_dependency_failure: true
   
   - wait: ~
     continue_on_failure: true
 
   - label: ":mega: Notification settlements claiming"
     commands:
-    - 'buildkite-agent artifact download --include-retried-jobs claiming-report.txt .'
+    - 'notification_result=$(buildkite-agent meta-data get notification_result || echo "UNKNOWN")'
+    - 'notification_color=$(buildkite-agent meta-data get notification_color || echo "15158332")'
+    - 'attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")'
+    - 'buildkite-agent artifact download --include-retried-jobs claiming-report.txt . || echo "UNKNOWN ERROR" > claiming-report.txt'
     - 'claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json)'
     - |
       claimable_epochs=$(echo "$$claimable_epochs_json" | jq ". | join(\",\")" | tr -d '"')
       curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
         -F 'payload_json={
-            "content": "Claim Settlements for epochs: '"$$claimable_epochs"'",
+            "content": "Claim Settlements '"$notification_result"' for epochs: '"$$claimable_epochs"' after '"$$attempts_count"' attempts",
             "url": "'"$$BUILDKITE_BUILD_URL"'",
-            "color": "8388863"
+            "color": "'"$$notification_color"'"
         }' \
         -F "file1=@./claiming-report.txt"
 

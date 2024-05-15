@@ -12,11 +12,17 @@ use settlement_pipelines::arguments::{
 };
 use settlement_pipelines::executor::execute_parallel;
 use settlement_pipelines::init::{get_executor, init_log};
-use settlement_pipelines::json_data::resolve_combined_optional;
-use settlement_pipelines::settlements::list_claimable_settlements;
+use settlement_pipelines::json_data::{
+    resolve_combined_optional, CombinedMerkleTreeSettlementCollections,
+};
+use settlement_pipelines::reporting::{PrintReportable, ReportHandler};
+use settlement_pipelines::settlements::{
+    list_claimable_settlements, ClaimableSettlementsReturn, SETTLEMENT_CLAIM_ACCOUNT_SIZE,
+};
 use settlement_pipelines::stake_accounts::pick_stake_for_claiming;
 use settlement_pipelines::stake_accounts::STAKE_ACCOUNT_RENT_EXEMPTION;
 use settlement_pipelines::stake_accounts_cache::StakeAccountsCache;
+use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::native_token::lamports_to_sol;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
@@ -25,8 +31,10 @@ use solana_sdk::system_program;
 use solana_sdk::sysvar::{clock::ID as clock_id, stake_history::ID as stake_history_id};
 use solana_transaction_builder::TransactionBuilder;
 use std::collections::HashMap;
-use std::io;
-use std::path::PathBuf;
+use std::future::Future;
+use std::path::{Path, PathBuf};
+use std::pin::Pin;
+use std::sync::Arc;
 use validator_bonds::instructions::ClaimSettlementArgs;
 use validator_bonds::state::bond::find_bond_address;
 use validator_bonds::state::config::find_bonds_withdrawer_authority;
@@ -125,6 +133,7 @@ async fn main() -> anyhow::Result<()> {
         "Loaded json data for epochs: {:?}",
         claiming_data.keys().collect::<Vec<_>>()
     );
+    let json_loaded_claiming_data = load_json(&args.merkle_trees_dir, args.epoch)?;
 
     let rent_payer = if let Some(rent_payer) = args.rent_payer.clone() {
         load_keypair(&rent_payer)?
@@ -141,58 +150,19 @@ async fn main() -> anyhow::Result<()> {
     let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(&config_address);
     let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
 
-    let claiming_data = claiming_data
-        .into_iter()
-        .map(|(epoch, combined_data)| {
-            (
-                epoch,
-                combined_data
-                    .merkle_tree_settlements
-                    .into_iter()
-                    .filter(|d| d.merkle_tree.merkle_root.is_some())
-                    .map(|d| {
-                        assert_eq!(epoch, args.epoch.unwrap_or(combined_data.epoch));
-                        let merkle_root = d.merkle_tree.merkle_root.unwrap().to_bytes();
-                        let bond_address =
-                            find_bond_address(&config_address, &d.merkle_tree.vote_account).0;
-                        let settlement_address =
-                            find_settlement_address(&bond_address, &merkle_root, epoch).0;
-                        ClaimSettlementRecord {
-                            vote_account_address: d.merkle_tree.vote_account,
-                            max_total_claim_sum: d.merkle_tree.max_total_claim_sum,
-                            bond_address,
-                            settlement_address,
-                            merkle_root,
-                            tree_nodes: d.merkle_tree.tree_nodes,
-                        }
-                    })
-                    .collect::<Vec<_>>(),
-            )
-        })
-        .collect::<HashMap<u64, Vec<ClaimSettlementRecord>>>();
+    // loaded from json files
+    let json_per_epoch_claim_records = JsonClaimSettlementRecord::load_as_vec_per_epoch(
+        json_loaded_claiming_data,
+        config_address,
+        args.epoch,
+    );
 
+    // loaded from RPC on-chain data
     let claimable_settlements =
         list_claimable_settlements(rpc_client.clone(), &config_address, &config).await?;
-    info!("Claimable settlements: {}", claimable_settlements.len());
 
-    let settlements_claiming_before = claimable_settlements
-        .iter()
-        .map(|s| (s.settlement_address, s.settlement.lamports_claimed))
-        .collect::<HashMap<Pubkey, u64>>();
-    let mut settlements_claiming_no_stake_account_to = claimable_settlements
-        .iter()
-        .map(|s| (s.settlement_address, 0_u64))
-        .collect::<HashMap<Pubkey, u64>>();
-    let mut settlements_claiming_no_stake_account_from = claimable_settlements
-        .iter()
-        .map(|s| (s.settlement_address, 0_u64))
-        .collect::<HashMap<Pubkey, u64>>();
-    let mut settlements_claiming_nodes_claimed_before = claimable_settlements
-        .iter()
-        .map(|s| (s.settlement_address, None))
-        .collect::<HashMap<Pubkey, Option<u64>>>();
-
-    let mut claim_settlement_errors: Vec<String> = vec![];
+    let mut reporting = ClaimSettlementReport::report_handler(rpc_client.clone());
+    reporting.reportable.setup(&claimable_settlements);
 
     let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
     transaction_builder.add_signer_checked(&rent_payer);
@@ -201,8 +171,7 @@ async fn main() -> anyhow::Result<()> {
     let clock = get_sysvar_clock(rpc_client.clone()).await?;
     let stake_history = get_stake_history(rpc_client.clone()).await?;
 
-    // Assigning for each settlement the merkle tree data
-    let mut claimed_stake_amounts: HashMap<Pubkey, u64> = HashMap::new();
+    let mut settlement_claimed_amounts: HashMap<Pubkey, u64> = HashMap::new();
     let mut stake_accounts_to_cache = StakeAccountsCache::default();
 
     for claimable_settlement in claimable_settlements {
@@ -236,98 +205,58 @@ async fn main() -> anyhow::Result<()> {
             error!("{}", error_msg);
             claim_settlement_errors.push(error_msg);
             continue;
+        let json_matching_settlement = match get_settlement_from_json(
+            &json_per_epoch_claim_records,
+            &claimable_settlement,
+            &mut reporting,
+        ) {
+            Ok(json_record) => json_record,
+            Err(_) => continue,
         };
 
-        if claimable_settlement.settlement.max_total_claim
-            != matching_settlement.max_total_claim_sum
-            || claimable_settlement.settlement.merkle_root != matching_settlement.merkle_root
-        {
-            let error_msg = format!(
-                "Mismatch between claimable settlement and settlement from json file for settlement address {}, bond {} in epoch {}",
-                claimable_settlement.settlement_address,
-                claimable_settlement.settlement.bond,
-                settlement_epoch
-            );
-            error!("{}", error_msg);
-            claim_settlement_errors.push(error_msg);
-            continue;
-        }
-        if claimable_settlement.stake_accounts.is_empty() {
-            let error_msg = format!(
-                "No stake accounts found for settlement {}",
-                claimable_settlement.settlement_address
-            );
-            error!("{}", error_msg);
-            claim_settlement_errors.push(error_msg);
-            continue;
-        }
-
-        // let's check existence of the claim
-        let settlement_claim_addresses = matching_settlement
-            .tree_nodes
-            .iter()
-            .map(|tree_node| {
-                let tree_node_hash = get_tree_node_hash(tree_node);
-                find_settlement_claim_address(
-                    &matching_settlement.settlement_address,
-                    &tree_node_hash,
-                )
-                .0
-            })
-            .collect::<Vec<Pubkey>>();
-        let settlement_claims = collect_existence_settlement_claims_from_addresses(
+        // Loading SettlementClaim records for this settlement from RPC on-chain
+        let (settlement_claims, already_claimed_count) = match get_existence_of_settlement_claims(
             rpc_client.clone(),
-            &settlement_claim_addresses,
+            json_matching_settlement,
+            &mut reporting,
         )
         .await
-        .map_err(|e| {
-            anyhow!(
-                "Error fetching settlement claim accounts for settlement {}: {:?}",
-                matching_settlement.settlement_address,
-                e
-            )
-        })?;
-        let already_claimed_count = settlement_claims.iter().filter(|(_, b)| *b).count();
-        settlements_claiming_nodes_claimed_before.insert(
-            matching_settlement.settlement_address,
-            Some(already_claimed_count as u64),
-        );
+        {
+            Ok(settlement_claims) => settlement_claims,
+            Err(_) => continue,
+        };
 
-        // let's claim it
+        // Let's claim it
         info!(
             "Claiming settlement {}, vote account {}, claim amount {}, for epoch {}, number of stake accounts: {}, already claimed nodes: {}",
             claimable_settlement.settlement_address.clone(),
-            matching_settlement.vote_account_address,
-            matching_settlement.max_total_claim_sum,
+            json_matching_settlement.vote_account_address,
+            json_matching_settlement.max_total_claim_sum,
             settlement_epoch,
             claimable_settlement.stake_accounts.len(),
             already_claimed_count,
         );
-        assert_eq!(
-            matching_settlement.tree_nodes.len(),
-            settlement_claims.len()
-        );
-        for (tree_node, (settlement_claim_address, settlement_claim_exists)) in matching_settlement
-            .tree_nodes
-            .iter()
-            .zip(settlement_claims.into_iter())
+        let empty_stake_accounts: CollectedStakeAccounts = vec![];
+        for (tree_node, (settlement_claim_address, settlement_claim_exists)) in
+            json_matching_settlement
+                .tree_nodes
+                .iter()
+                .zip(settlement_claims.into_iter())
         {
             if settlement_claim_exists {
                 debug!("Settlement claim {} already exists for tree node stake:{}/withdrawer:{}/claim:{} for settlement {}",
                     settlement_claim_address, tree_node.stake_authority, tree_node.withdraw_authority, tree_node.claim,
-                    matching_settlement.settlement_address);
+                    json_matching_settlement.settlement_address);
                 continue;
             }
             let proof = if let Some(proof) = tree_node.proof.clone() {
                 proof
             } else {
-                let error_msg = format!(
+                reporting.add_error_string(format!(
                     "No proof found for tree node stake:{}/withdrawer:{}/claim:{} for settlement {}",
                     tree_node.stake_authority, tree_node.withdraw_authority, tree_node.claim,
-                    matching_settlement.settlement_address
-                );
-                error!("{}", error_msg);
-                claim_settlement_errors.push(error_msg);
+                    json_matching_settlement.settlement_address
+                ));
                 continue;
             };
 
@@ -338,11 +267,11 @@ async fn main() -> anyhow::Result<()> {
                         .iter()
                         .find(|(pubkey, lamports, _)| {
                             let utilized_lamports =
-                                claimed_stake_amounts.entry(*pubkey).or_insert(0);
+                                settlement_claimed_amounts.entry(*pubkey).or_insert(0);
                             if *lamports - *utilized_lamports - minimal_stake_lamports
                                 >= tree_node.claim
                             {
-                                claimed_stake_amounts
+                                settlement_claimed_amounts
                                     .entry(*pubkey)
                                     .and_modify(|e| *e += tree_node.claim);
                                 true
@@ -353,24 +282,20 @@ async fn main() -> anyhow::Result<()> {
                 if let Some((pubkey, _, _)) = stake_account_from {
                     *pubkey
                 } else {
-                    let err_msg = format!(
-                        "No stake account found with enough SOLs to claim {} for settlement {}, epoch {}",
+                    reporting.add_error_string(format!(
+                        "No stake account found with enough SOLs to claim {} from for settlement {}, epoch {}",
                         lamports_to_sol(tree_node.claim),
-                        matching_settlement.settlement_address,
+                        json_matching_settlement.settlement_address,
                         settlement_epoch
+                    ));
+                    reporting.reportable.update_no_account_from(
+                        &json_matching_settlement.settlement_address,
+                        tree_node.claim,
                     );
-                    error!("{}", err_msg);
-                    claim_settlement_errors.push(err_msg);
-                    if let Some(value) = settlements_claiming_no_stake_account_from
-                        .get_mut(&matching_settlement.settlement_address)
-                    {
-                        *value += tree_node.claim;
-                    }
                     continue;
                 }
             };
 
-            let empty_stake_accounts: CollectedStakeAccounts = vec![];
             let stake_accounts_to = stake_accounts_to_cache
                 .get(
                     rpc_client.clone(),
@@ -380,7 +305,7 @@ async fn main() -> anyhow::Result<()> {
                 .await
                 .map_or_else(
                     |e| {
-                        claim_settlement_errors.push(format!("{:?}", e));
+                        reporting.add_error(e);
                         &empty_stake_accounts
                     },
                     |v| v,
@@ -390,23 +315,20 @@ async fn main() -> anyhow::Result<()> {
                 &clock,
                 &stake_history,
             ).map_or_else(|e| {
-                let error_msg = format!(
-                    "No available stake account for claiming of staker/withdraw authorities {}/{}: {}",
+                reporting.add_error_string(format!(
+                    "No available stake account found where to claim into of staker/withdraw authorities {}/{}: {}",
                     tree_node.stake_authority, tree_node.withdraw_authority, e
-                );
-                error!("{}", error_msg);
-                claim_settlement_errors.push(error_msg);
+                ));
                 None
             }, |v| v);
             let stake_account_to: Pubkey = if let Some(stake_account_to) = stake_account_to {
                 stake_account_to
             } else {
-                // stake accounts for these authorities were not found in this or some prior run
-                if let Some(value) = settlements_claiming_no_stake_account_to
-                    .get_mut(&matching_settlement.settlement_address)
-                {
-                    *value += tree_node.claim;
-                }
+                // stake accounts for these authorities were not found in this or some prior run (error was already reported)
+                reporting.reportable.update_no_account_to(
+                    &json_matching_settlement.settlement_address,
+                    tree_node.claim,
+                );
                 continue;
             };
 
@@ -414,8 +336,8 @@ async fn main() -> anyhow::Result<()> {
                 .request()
                 .accounts(validator_bonds::accounts::ClaimSettlement {
                     config: config_address,
-                    bond: matching_settlement.bond_address,
-                    settlement: matching_settlement.settlement_address,
+                    bond: json_matching_settlement.bond_address,
+                    settlement: json_matching_settlement.settlement_address,
                     settlement_claim: settlement_claim_address,
                     stake_account_from,
                     stake_account_to,
@@ -443,7 +365,7 @@ async fn main() -> anyhow::Result<()> {
                 format!(
                     "Claim {} settlement {}, from {}, to {}",
                     settlement_claim_address,
-                    matching_settlement.settlement_address,
+                    json_matching_settlement.settlement_address,
                     stake_account_from,
                     stake_account_to
                 ),
@@ -451,102 +373,54 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    execute_parallel(
+    let execution_result = execute_parallel(
         rpc_client.clone(),
         transaction_executor.clone(),
         &mut transaction_builder,
         &priority_fee_policy,
     )
-    .await
-    .map_or_else(
-        |e| {
-            let error_msg = format!("Error executing claim settlement instructions: {:?}", e);
-            error!("{}", error_msg);
-            claim_settlement_errors.push(error_msg);
-        },
-        |ix_count| info!("ClaimSettlement instructions {} executed", ix_count,),
+    .await;
+    reporting.add_tx_execution_result(execution_result, "ClaimSettlement");
+
+    reporting.report_and_exit().await
+}
+
+fn load_json(
+    json_data_dir: &Path,
+    args_epoch: Option<u64>,
+) -> anyhow::Result<HashMap<u64, CombinedMerkleTreeSettlementCollections>> {
+    let mut json_data: HashMap<u64, MerkleTreeLoadedData> = HashMap::new();
+    for path in json_data_dir.read_dir()?.filter_map(|entry| {
+        entry.ok().and_then(|e| {
+            let path = e.path();
+            debug!("Processing path: {:?}", path);
+            if path.is_file() {
+                Some(path)
+            } else {
+                None
+            }
+        })
+    }) {
+        process_json_file(&path, &mut json_data, json_data_dir)?;
+    }
+    let claiming_data = json_data
+        .into_iter()
+        .map(|(epoch, data)| {
+            Ok((
+                args_epoch.unwrap_or(epoch),
+                resolve_combined_optional(data.merkle_tree_collection, data.settlement_collection)?,
+            ))
+        })
+        .collect::<anyhow::Result<HashMap<_, _>>>()?;
+    info!(
+        "Loaded json data from {:?} for epochs: {:?}",
+        json_data_dir,
+        claiming_data.keys().collect::<Vec<_>>()
     );
-
-    // TODO: better reporting
-    let claimable_settlements_addresses: Vec<Pubkey> =
-        settlements_claiming_before.clone().into_keys().collect();
-    let claimable_settlements_after =
-        get_settlements_for_pubkeys(rpc_client.clone(), &claimable_settlements_addresses)
-            .await
-            .map_or_else(
-                |e| {
-                    error!("Cannot report settlement claiming: {:?}", e);
-                    None
-                },
-                Some,
-            );
-    if let Some(claimable_settlements_after) = claimable_settlements_after {
-        for (settlement_address, settlement) in claimable_settlements_after {
-            let max_claimed = settlement.as_ref().map_or_else(|| 0, |s| s.max_total_claim);
-            let max_nodes = settlement
-                .as_ref()
-                .map_or_else(|| 0, |s| s.max_merkle_nodes);
-            let claimed_before = settlements_claiming_before
-                .get(&settlement_address)
-                .unwrap_or(&0);
-            let claimed_after = settlement
-                .as_ref()
-                .map_or_else(|| 0, |s| s.lamports_claimed);
-            let claimed_diff = claimed_after - claimed_before;
-            let stake_account_to = settlements_claiming_no_stake_account_to
-                .get(&settlement_address)
-                .unwrap_or(&0);
-            let stake_account_from = settlements_claiming_no_stake_account_from
-                .get(&settlement_address)
-                .unwrap_or(&0);
-            let nodes_claimed_before = settlements_claiming_nodes_claimed_before
-                .get(&settlement_address)
-                .unwrap_or(&None);
-            let nodes_claimed_after =
-                get_settlement_claims_for_settlement(rpc_client.clone(), &settlement_address)
-                    .await
-                    .map_or_else(
-                        |e| {
-                            error!("Cannot report settlement claiming: {:?}", e);
-                            0_u64
-                        },
-                        |s| s.len() as u64,
-                    );
-            let nodes_claimed_diff =
-                nodes_claimed_after - nodes_claimed_before.map_or_else(|| 0, |v| v);
-            println!(
-                "Settlement {} in sum claimed SOLs {}/{} SOLs, nodes {}/{}. This round claimed SOLs {}, nodes {} (not claimed reason: no target {}, no source: {})",
-                settlement_address,
-                lamports_to_sol(claimed_after),
-                lamports_to_sol(max_claimed),
-                nodes_claimed_after,
-                max_nodes,
-                lamports_to_sol(claimed_diff),
-                nodes_claimed_diff,
-                lamports_to_sol(*stake_account_to),
-                lamports_to_sol(*stake_account_from),
-            );
-        }
-    }
-
-    if !claim_settlement_errors.is_empty() {
-        serde_json::to_writer(io::stdout(), &claim_settlement_errors)?;
-        return Err(anyhow!(
-            "{} errors during settlements claiming",
-            claim_settlement_errors.len(),
-        ));
-    }
-
-    Ok(())
+    Ok(claiming_data)
 }
 
-fn get_tree_node_hash(tree_node: &TreeNode) -> [u8; 32] {
-    let mut no_proof_tree_node = tree_node.clone();
-    no_proof_tree_node.proof = None;
-    no_proof_tree_node.hash().to_bytes()
-}
-
-fn process_merkle_trees_file(
+fn process_json_file(
     path: &PathBuf,
     loaded_data: &mut HashMap<u64, MerkleTreeLoadedData>,
 ) -> anyhow::Result<()> {
@@ -582,6 +456,12 @@ fn process_merkle_trees_file(
     }
 
     Ok(())
+}
+
+fn get_tree_node_hash(tree_node: &TreeNode) -> [u8; 32] {
+    let mut no_proof_tree_node = tree_node.clone();
+    no_proof_tree_node.proof = None;
+    no_proof_tree_node.hash().to_bytes()
 }
 
 struct MerkleTreeLoadedData {
@@ -628,12 +508,346 @@ fn insert_merkle_tree_loaded_data(
     Ok(())
 }
 
-#[derive(Debug)]
-struct ClaimSettlementRecord {
+fn get_settlement_from_json<'a>(
+    json_per_epoch_claim_records: &'a HashMap<u64, Vec<JsonClaimSettlementRecord>>,
+    on_chain_settlement: &ClaimableSettlementsReturn,
+    reporting: &mut ReportHandler<ClaimSettlementReport>,
+) -> anyhow::Result<&'a JsonClaimSettlementRecord> {
+    let settlement_epoch = on_chain_settlement.settlement.epoch_created_for;
+    let settlement_merkle_tree =
+        if let Some(settlement_merkle_tree) = json_per_epoch_claim_records.get(&settlement_epoch) {
+            settlement_merkle_tree
+        } else {
+            let err_string = format!(
+                "No JSON merkle tree data found for settlement epoch {}",
+                settlement_epoch
+            );
+            reporting.add_error_string(err_string.clone());
+            return Err(anyhow!(err_string));
+        };
+
+    // find on-chain data match with json data
+    let matching_settlement = settlement_merkle_tree.iter().find(|settlement_from_json| {
+        settlement_from_json.settlement_address == on_chain_settlement.settlement_address
+    });
+    let matching_settlement = if let Some(settlement) = matching_settlement {
+        settlement
+    } else {
+        let err_string = format!(
+            "No matching JSON merkle-tree data has been found for on-chain settlement {}, bond {} in epoch {}",
+            on_chain_settlement.settlement_address,
+            on_chain_settlement.settlement.bond,
+            settlement_epoch
+        );
+        reporting.add_error_string(err_string.clone());
+        return Err(anyhow!(err_string));
+    };
+
+    if on_chain_settlement.settlement.max_total_claim != matching_settlement.max_total_claim_sum
+        || on_chain_settlement.settlement.merkle_root != matching_settlement.merkle_root
+    {
+        let err_string = format!(
+            "Mismatch between on-chain settlement and JSON data for settlement {}, bond {} in epoch {}",
+            on_chain_settlement.settlement_address,
+            on_chain_settlement.settlement.bond,
+            settlement_epoch
+        );
+        reporting.add_error_string(err_string.clone());
+        return Err(anyhow!(err_string));
+    }
+    if on_chain_settlement.stake_accounts.is_empty() {
+        let err_string = format!(
+            "No stake accounts found on-chain for settlement {}",
+            on_chain_settlement.settlement_address
+        );
+        reporting.add_error_string(err_string.clone());
+        return Err(anyhow!(err_string));
+    }
+    Ok(matching_settlement)
+}
+
+async fn get_existence_of_settlement_claims(
+    rpc_client: Arc<RpcClient>,
+    settlement_json_data: &JsonClaimSettlementRecord,
+    reporting: &mut ReportHandler<ClaimSettlementReport>,
+) -> anyhow::Result<(Vec<(Pubkey, bool)>, usize)> {
+    let settlement_claim_addresses = settlement_json_data
+        .tree_nodes
+        .iter()
+        .map(|tree_node| {
+            let tree_node_hash = get_tree_node_hash(tree_node);
+            find_settlement_claim_address(&settlement_json_data.settlement_address, &tree_node_hash)
+                .0
+        })
+        .collect::<Vec<Pubkey>>();
+    let settlement_claims = collect_existence_settlement_claims_from_addresses(
+        rpc_client.clone(),
+        &settlement_claim_addresses,
+    )
+    .await
+    .map_err(|e| {
+        let err_msg = format!(
+            "Error fetching settlement claim accounts for settlement {}: {:?}",
+            settlement_json_data.settlement_address, e
+        );
+        reporting.add_error_string(err_msg.clone());
+        anyhow!(err_msg)
+    })?;
+    let already_claimed = reporting
+        .reportable
+        .update_claim_records_before(&settlement_json_data.settlement_address, &settlement_claims);
+    assert_eq!(
+        // we searched for all the settlement claims addresses available in json
+        // all pubkeys should be present while account data is available only for subset
+        settlement_json_data.tree_nodes.len(),
+        settlement_claims.len()
+    );
+    Ok((settlement_claims, already_claimed))
+}
+
+#[derive(Debug, Clone)]
+struct JsonClaimSettlementRecord {
     vote_account_address: Pubkey,
     bond_address: Pubkey,
     settlement_address: Pubkey,
     merkle_root: [u8; 32],
     tree_nodes: Vec<TreeNode>,
     max_total_claim_sum: u64,
+}
+
+impl JsonClaimSettlementRecord {
+    fn load_as_vec_per_epoch(
+        json_loaded_claiming_data: HashMap<u64, CombinedMerkleTreeSettlementCollections>,
+        config_address: Pubkey,
+        args_epoch: Option<u64>,
+    ) -> HashMap<u64, Vec<JsonClaimSettlementRecord>> {
+        json_loaded_claiming_data
+            .into_iter()
+            .map(|(epoch, combined_data)| {
+                (
+                    epoch,
+                    combined_data
+                        .merkle_tree_settlements
+                        .into_iter()
+                        .filter(|d| d.merkle_tree.merkle_root.is_some())
+                        .map(|d| {
+                            assert_eq!(epoch, args_epoch.unwrap_or(combined_data.epoch));
+                            let merkle_root = d.merkle_tree.merkle_root.unwrap().to_bytes();
+                            let (bond_address, _) =
+                                find_bond_address(&config_address, &d.merkle_tree.vote_account);
+                            let (settlement_address, _) =
+                                find_settlement_address(&bond_address, &merkle_root, epoch);
+                            JsonClaimSettlementRecord {
+                                vote_account_address: d.merkle_tree.vote_account,
+                                max_total_claim_sum: d.merkle_tree.max_total_claim_sum,
+                                bond_address,
+                                settlement_address,
+                                merkle_root,
+                                tree_nodes: d.merkle_tree.tree_nodes,
+                            }
+                        })
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<HashMap<u64, Vec<JsonClaimSettlementRecord>>>()
+    }
+}
+
+struct ClaimSettlementReport {
+    rpc_client: Arc<RpcClient>,
+    settlements_claimable_before: HashMap<Pubkey, ClaimSettlementReportData>,
+    settlements_claimable_no_account_to: HashMap<Pubkey, u64>,
+    settlements_claimable_no_account_from: HashMap<Pubkey, u64>,
+}
+
+impl PrintReportable for ClaimSettlementReport {
+    fn get_report(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + '_>> {
+        Box::pin(async {
+            let claimable_settlements_addresses: Vec<Pubkey> =
+                self.settlements_claimable_before.keys().copied().collect();
+            let settlements_claimable_after = get_settlements_for_pubkeys(
+                self.rpc_client.clone(),
+                &claimable_settlements_addresses,
+            )
+            .await;
+            match settlements_claimable_after {
+                Ok(settlements_claimable_after) => {
+                    let settlement_claim_rent = self
+                        .rpc_client
+                        .get_minimum_balance_for_rent_exemption(SETTLEMENT_CLAIM_ACCOUNT_SIZE)
+                        .await
+                        .map_or_else(
+                            |e| {
+                                error!("Error fetching SettlementClaim account rent: {:?}", e);
+                                0_u64
+                            },
+                            |v| v,
+                        );
+                    let mut grouped_by_epoch: HashMap<_, Vec<_>> = HashMap::new();
+                    for (pubkey, settlement) in settlements_claimable_after {
+                        let epoch = settlement.as_ref().map_or(0, |s| s.epoch_created_for);
+                        grouped_by_epoch
+                            .entry(epoch)
+                            .or_insert_with(Vec::new)
+                            .push((pubkey, settlement));
+                    }
+                    let mut report: Vec<String> = vec![];
+                    let mut total_claimed: u64 = 0;
+                    for epoch in grouped_by_epoch.keys() {
+                        let settlements_claimable_after_group = grouped_by_epoch
+                            .get(epoch)
+                            .expect("Epoch key expected to exist when iterating over keys");
+                        let mut epoch_report: Vec<String> = vec![];
+                        for (settlement_address, settlement) in settlements_claimable_after_group {
+                            let max_claimed =
+                                settlement.as_ref().map_or_else(|| 0, |s| s.max_total_claim);
+                            let max_nodes = settlement
+                                .as_ref()
+                                .map_or_else(|| 0, |s| s.max_merkle_nodes);
+                            let claimed_before = self
+                                .settlements_claimable_before
+                                .get(settlement_address)
+                                .map_or_else(|| 0, |s| s.lamports_claimed);
+                            let claimed_after = settlement
+                                .as_ref()
+                                .map_or_else(|| 0, |s| s.lamports_claimed);
+                            let claimed_diff = claimed_after - claimed_before;
+                            let stake_account_to = self
+                                .settlements_claimable_no_account_to
+                                .get(settlement_address)
+                                .unwrap_or(&0);
+                            let stake_account_from = self
+                                .settlements_claimable_no_account_from
+                                .get(settlement_address)
+                                .unwrap_or(&0);
+                            let claim_accounts_count_before = self
+                                .settlements_claimable_before
+                                .get(settlement_address)
+                                .map_or_else(|| None, |d| Some(d.claim_records.len() as u64));
+                            let claim_accounts_count_after = get_settlement_claims_for_settlement(
+                                self.rpc_client.clone(),
+                                settlement_address,
+                            )
+                            .await
+                            .map_or_else(
+                                |e| {
+                                    error!("Cannot report settlement claiming: {:?}", e);
+                                    0_u64
+                                },
+                                |s| s.len() as u64,
+                            );
+                            let claim_accounts_count_diff = claim_accounts_count_after
+                                - claim_accounts_count_before.map_or_else(|| 0, |v| v);
+                            total_claimed += claimed_diff;
+                            epoch_report.push(format!(
+                                "  Settlement {} in sum claimed SOLs {}/{} SOLs, ClaimSettlement accounts {}/{}. \n    This time claimed SOLs {}, ClaimSettlement accounts {} (not claimed reason: no target {}, no source: {})",
+                                settlement_address,
+                                lamports_to_sol(claimed_after),
+                                lamports_to_sol(max_claimed),
+                                claim_accounts_count_after,
+                                max_nodes,
+                                lamports_to_sol(claimed_diff),
+                                claim_accounts_count_diff,
+                                lamports_to_sol(*stake_account_to),
+                                lamports_to_sol(*stake_account_from),
+                            ));
+                        }
+                        report.push(format!(
+                            "Epoch {}, this time created {} ClaimSettlement accounts in sum of rent {} SOL",
+                            epoch,
+                            total_claimed,
+                            lamports_to_sol(settlement_claim_rent * total_claimed)
+                        ));
+                        report.extend(epoch_report);
+                    }
+                    report
+                }
+                Err(e) => {
+                    vec![format!("Error reporting settlement claiming: {:?}", e)]
+                }
+            }
+        })
+    }
+}
+
+struct ClaimSettlementReportData {
+    lamports_claimed: u64,
+    claim_records: HashMap<Pubkey, Option<u64>>,
+}
+
+impl ClaimSettlementReport {
+    fn report_handler(rpc_client: Arc<RpcClient>) -> ReportHandler<Self> {
+        let close_settlement_report = Self {
+            rpc_client,
+            settlements_claimable_before: HashMap::new(),
+            settlements_claimable_no_account_to: HashMap::new(),
+            settlements_claimable_no_account_from: HashMap::new(),
+        };
+        ReportHandler::new(close_settlement_report)
+    }
+
+    fn setup(&mut self, claimable_settlements: &Vec<ClaimableSettlementsReturn>) {
+        info!(
+            "Number of claimable settlements: {}",
+            claimable_settlements.len()
+        );
+        self.settlements_claimable_before = claimable_settlements
+            .iter()
+            .map(|s| {
+                (
+                    s.settlement_address,
+                    ClaimSettlementReportData {
+                        lamports_claimed: s.stake_accounts_lamports,
+                        claim_records: HashMap::new(),
+                    },
+                )
+            })
+            .collect::<HashMap<Pubkey, ClaimSettlementReportData>>();
+        self.settlements_claimable_no_account_to = claimable_settlements
+            .iter()
+            .map(|s| (s.settlement_address, 0_u64))
+            .collect::<HashMap<Pubkey, u64>>();
+        self.settlements_claimable_no_account_from = claimable_settlements
+            .iter()
+            .map(|s| (s.settlement_address, 0_u64))
+            .collect::<HashMap<Pubkey, u64>>();
+    }
+
+    fn update_claim_records_before(
+        &mut self,
+        settlement_address: &Pubkey,
+        claim_records: &[(Pubkey, bool)],
+    ) -> usize {
+        let settlement_claim_account_count = claim_records.iter().filter(|(_, b)| *b).count();
+        if let Some(s) = self
+            .settlements_claimable_before
+            .get_mut(settlement_address)
+        {
+            s.claim_records.insert(
+                *settlement_address,
+                Some(settlement_claim_account_count as u64),
+            );
+        }
+        settlement_claim_account_count
+    }
+
+    /// issue of no stake account to claim from, adding to report
+    fn update_no_account_from(&mut self, settlement_address: &Pubkey, tree_node_claim: u64) {
+        if let Some(value) = self
+            .settlements_claimable_no_account_from
+            .get_mut(settlement_address)
+        {
+            *value += tree_node_claim;
+        }
+    }
+
+    /// issue of no stake account to claim to, adding to report
+    fn update_no_account_to(&mut self, settlement_address: &Pubkey, tree_node_claim: u64) {
+        if let Some(value) = self
+            .settlements_claimable_no_account_to
+            .get_mut(settlement_address)
+        {
+            *value += tree_node_claim;
+        }
+    }
 }

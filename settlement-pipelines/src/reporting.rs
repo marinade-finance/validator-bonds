@@ -1,4 +1,4 @@
-use log::{error, info, warn};
+use log::{error, info};
 use std::future::Future;
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
@@ -8,7 +8,7 @@ pub trait PrintReportable {
 }
 
 pub struct ReportHandler<T: PrintReportable> {
-    pub error_handler: ErrorHandler,
+    error_handler: ErrorHandler,
     pub reportable: T,
 }
 
@@ -20,11 +20,12 @@ impl<T: PrintReportable> ReportHandler<T> {
         }
     }
 
-    pub async fn report(&self) -> anyhow::Result<()> {
+    pub async fn report_and_exit(&self) -> anyhow::Result<()> {
         for report in self.reportable.get_report().await {
             println!("{}", report);
         }
-        self.error_handler.report()
+        self.error_handler.report_and_exit();
+        Ok(())
     }
 }
 
@@ -44,16 +45,11 @@ impl<T: PrintReportable> DerefMut for ReportHandler<T> {
 
 #[derive(Default)]
 pub struct ErrorHandler {
-    warnings: Vec<String>,
+    tx_errors: Vec<String>,
     errors: Vec<String>,
 }
 
 impl ErrorHandler {
-    pub fn add_warning(&mut self, warning: String) {
-        warn!("{}", warning);
-        self.warnings.push(warning);
-    }
-
     pub fn add_error_string(&mut self, error: String) {
         error!("{}", error);
         self.errors.push(error);
@@ -64,37 +60,54 @@ impl ErrorHandler {
         self.errors.push(format!("{:?}", error));
     }
 
-    pub fn add_execution_result(&mut self, execution_result: anyhow::Result<usize>, message: &str) {
+    pub fn add_tx_error(&mut self, error: anyhow::Error) {
+        error!("{:?}", error);
+        self.tx_errors.push(format!("{:?}", error));
+    }
+
+    pub fn add_tx_execution_result(
+        &mut self,
+        execution_result: anyhow::Result<usize>,
+        message: &str,
+    ) {
         match execution_result {
             Ok(ix_count) => {
                 info!("{message}: instructions {ix_count} executed succesfully")
             }
             Err(err) => {
-                error!("{message}: instructions execution failures");
-                self.add_error(err);
+                self.add_tx_error(err);
             }
         }
     }
 
-    fn report(&self) -> anyhow::Result<()> {
-        if !self.warnings.is_empty() {
-            println!("WARNINGS:");
-            for warning in &self.warnings {
-                println!("{}", warning);
-            }
-        }
+    fn report_and_exit(&self) {
+        let mut exit_code: i32 = 0;
 
         if !self.errors.is_empty() {
+            error!(
+                "Errors occurred during processing: {} errors",
+                self.errors.len()
+            );
             println!("ERRORS:");
             for error in &self.errors {
                 println!("{}", error);
             }
-            return Err(anyhow::anyhow!(
-                "Errors occurred during processing: {} errors",
-                self.errors.len()
-            ));
+            exit_code = 1;
         }
 
-        Ok(())
+        if !self.tx_errors.is_empty() {
+            error!(
+                "Errors occurred during transaction processing: {} errors",
+                self.tx_errors.len()
+            );
+            println!("TRANSACTION ERRORS:");
+            for error in &self.tx_errors {
+                println!("{}", error);
+            }
+            // expected this is a retryable error
+            exit_code = 100;
+        }
+
+        std::process::exit(exit_code);
     }
 }

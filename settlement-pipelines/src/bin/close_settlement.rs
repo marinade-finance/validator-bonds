@@ -1,7 +1,7 @@
 use anchor_client::anchor_lang::solana_program::stake::state::StakeStateV2;
 use anyhow::anyhow;
 use clap::Parser;
-use log::{debug, info};
+use log::{debug, error, info};
 use settlement_engine::utils::read_from_json_file;
 use settlement_pipelines::anchor::add_instruction_to_builder_from_anchor_with_description;
 use settlement_pipelines::arguments::{
@@ -18,10 +18,10 @@ use settlement_pipelines::settlements::{
 use settlement_pipelines::stake_accounts::filter_settlement_funded;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
-
 use anchor_client::{DynSigner, Program};
 use settlement_pipelines::reporting::{PrintReportable, ReportHandler};
 use solana_sdk::signature::Keypair;
+use anchor_client::anchor_lang::solana_program::native_token::lamports_to_sol;
 use settlement_pipelines::reporting::{PrintReportable, ReportHandler};
 use solana_sdk::signer::Signer;
 use solana_sdk::stake::config::ID as stake_config_id;
@@ -233,7 +233,7 @@ async fn close_settlements(
     .await;
     reporting.reportable.set_settlements(expired_settlements);
     let settlements_list = reporting.reportable.list_closed_settlements();
-    reporting.add_execution_result(
+    reporting.add_tx_execution_result(
         execution_result,
         format!("CloseSettlements [{settlements_list}]").as_str(),
     );
@@ -526,7 +526,13 @@ impl PrintReportable for CloseSettlementReport {
                 .rpc_client
                 .get_minimum_balance_for_rent_exemption(SETTLEMENT_CLAIM_ACCOUNT_SIZE)
                 .await
-                .unwrap();
+                .map_or_else(
+                    |e| {
+                        error!("Error fetching SettlementClaim account rent: {:?}", e);
+                        0_u64
+                    },
+                    |v| v,
+                );
             vec![
                 format!(
                     "Number of closed settlements: {}",
@@ -537,8 +543,17 @@ impl PrintReportable for CloseSettlementReport {
                     self.closed_settlement_claims.len(),
                     self.closed_settlement_claims.len() as u64 * settlement_claim_rent
                 ),
-                format!("Number of reset stake accounts: {}, sum of reset lamports: {}", self.reset_stake.len(), self.reset_stake_lamports()),
-                format!("Number of withdraw stake accounts: {}, sum of withdrawn lamports: {} to wallet {}", self.reset_stake.len(), self.withdraw_stake_lamports(), self.withdraw_wallet),
+                format!(
+                    "Number of reset stake accounts: {}, sum of reset SOL: {}",
+                    self.reset_stake.len(),
+                    lamports_to_sol(self.reset_stake_lamports())
+                ),
+                format!(
+                    "Number of withdraw stake accounts: {}, sum of withdrawn SOL: {} to wallet {}",
+                    self.reset_stake.len(),
+                    lamports_to_sol(self.withdraw_stake_lamports()),
+                    self.withdraw_wallet
+                ),
             ]
         })
     }

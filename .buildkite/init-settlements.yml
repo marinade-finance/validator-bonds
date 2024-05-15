@@ -83,32 +83,29 @@ steps:
     - 'prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))'
     - 'buildkite-agent artifact download --include-retried-jobs build-report.$$prior_build_number . || true'
     - |
-      echo "This is attempt number $$BUILDKITE_RETRY_COUNT"
       cp "build-report.$$prior_build_number" "build-report.$$BUILDKITE_RETRY_COUNT" || true
       rm -f "build-report.$$prior_build_number"
+      echo "#ATTEMPT $$BUILDKITE_RETRY_COUNT" | tee -a "./build-report.$$BUILDKITE_RETRY_COUNT"
     - 'buildkite-agent artifact download --include-retried-jobs target/release/init-settlement .'
     - 'buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .'
     - 'buildkite-agent artifact download --include-retried-jobs settlements.json .'
     - 'chmod +x target/release/init-settlement'
-    - 'echo "#ATTEMPT $$BUILDKITE_RETRY_COUNT" | tee -a "./build-report.$$BUILDKITE_RETRY_COUNT"'
     - |
-      report=$(./target/release/init-settlement \
+      set -o pipefail
+      ./target/release/init-settlement \
         --rpc-url $$RPC_URL \
         --input-merkle-tree-collection "./settlement-merkle-trees.json" \
         --input-settlement-collection "./settlements.json" \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$VALIDATOR_BONDS_SETTLEMENTS_WALLET" \
         --rent-payer "$$VALIDATOR_BONDS_SETTLEMENTS_WALLET" \
-        --marinade-wallet "$$VALIDATOR_BONDS_FUNDING_WALLET" \
-        --epoch "$$epoch" || true)
-    - 'echo "$$report" | tee -a "./build-report.$$BUILDKITE_RETRY_COUNT"'
-    - '[ -n "$$result_code" ] && echo "init-settlement command FAILED" && exit $$result_code'
+        --epoch "$$epoch" | tee -a "./build-report.$$BUILDKITE_RETRY_COUNT"
     key: 'init-settlement'
     artifact_paths:
     - "./build-report.*"
     retry:
       automatic:
-        - exit_status: '*'
+        - exit_status: 100
           limit: 10
 
   - label: "Notification setup"
@@ -116,8 +113,8 @@ steps:
       gs_bucket: gs://marinade-validator-bonds-mainnet
     commands:
      - 'epoch=$(buildkite-agent meta-data get epoch)'
-     - 'build_result=$(buildkite-agent step get "outcome" --step "init-settlement")'
      - |
+       build_result=$(buildkite-agent step get "outcome" --step "init-settlement")
         if [[ "$$build_result" =~ "failed" ]]; then
           notification_result="FAILED"
           notification_color="15158332"
@@ -131,12 +128,12 @@ steps:
      - 'mkdir ./reports'
      - 'buildkite-agent artifact download --include-retried-jobs "build-report.*" ./reports/'
      - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
-     - '[ -f "$$report_path" ] || echo "UNKNOWN ERROR" >> "$$report_path"'
-     - 'cp "$$report_path" ./init-settlement-report.txt'
-     - 'gcloud storage cp ./init-settlement-report.txt "$$gs_bucket/$$epoch/init-settlement-report.$(date +%s).txt"'
-     - 'buildkite-agent meta-data set attempts_count "$(grep -c "#ATTEMPT" "$$report_path")"'
+     - '[ -f "$$report_path" ] || echo "No report generated; "UNKNOWN ERROR" >> "$$report_path"'
+     - 'cp "$$report_path" ./init-report.txt'
+     - 'gcloud storage cp ./init-report.txt "$$gs_bucket/$$epoch/init-settlement-report.$(date +%s).txt"'
+     - 'buildkite-agent meta-data set attempts_count "$(grep -c "#ATTEMPT" ./init-report.txt)"'
     artifact_paths:
-    - "./init-settlement-report.txt"
+    - "./init-report.txt"
     depends_on: "init-settlement"
     allow_dependency_failure: true
 
@@ -146,18 +143,18 @@ steps:
   - label: ":mega: Notification settlements initialized"
     commands:
     - 'epoch=$(buildkite-agent meta-data get epoch)'
-    - 'notification_result=$(buildkite-agent meta-data get notification_result)'
-    - 'notification_color=$(buildkite-agent meta-data get notification_color)'
-    - 'attempts_count=$(buildkite-agent meta-data get attempts_count)'
-    - 'buildkite-agent artifact download --include-retried-jobs init-settlement-report.txt .'
+    - 'notification_result=$(buildkite-agent meta-data get notification_result || echo "UNKNOWN")'
+    - 'notification_color=$(buildkite-agent meta-data get notification_color || echo "15158332")'
+    - 'attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")'
+    - 'buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt'
     - |
         curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
         -F 'payload_json={
-            "content": "Init Settlements for Validator Bonds ('"$$epoch"') after '"$$attempts_count"' attempts.",
+            "content": "Init Settlements '"$notification_result"' for Validator Bonds ('"$$epoch"') after '"$$attempts_count"' attempts",
             "url": "'"$$BUILDKITE_BUILD_URL"'",
-            "color": "8388863"
+            "color": "'"$$notification_color"'"
         }' \
-        -F "file1=@./init-settlement-report.txt"
+        -F "file1=@./init-report.txt"
 
   - command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/init-settlements'

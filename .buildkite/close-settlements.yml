@@ -59,12 +59,17 @@ steps:
   - wait: ~
 
   - label: ":campfire: Close settlements"
-    key: 'close-settlement'
     env:
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,close_settlement=debug
       # RUST_BACKTRACE: full
     commands:
     - '. "$HOME/.cargo/env"'
+    - 'prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))'
+    - 'buildkite-agent artifact download --include-retried-jobs build-report.$$prior_build_number . || true'
+    - |
+      cp "build-report.$$prior_build_number" "build-report.$$BUILDKITE_RETRY_COUNT" || true
+      rm -f "build-report.$$prior_build_number"
+      echo "#ATTEMPT $$BUILDKITE_RETRY_COUNT" | tee -a "./build-report.$$BUILDKITE_RETRY_COUNT"
     - 'buildkite-agent artifact download --include-retried-jobs target/release/close-settlement .'
     - 'buildkite-agent artifact download --include-retried-jobs past-settlements.json .'
     - 'chmod +x target/release/close-settlement'
@@ -75,9 +80,32 @@ steps:
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$VALIDATOR_BONDS_SETTLEMENTS_WALLET" \
         --marinade-wallet "$$VALIDATOR_BONDS_FUNDING_WALLET" \
-        --past-settlements ./past-settlements.json | tee close-settlement-report.txt
+        --past-settlements ./past-settlements.json | tee -a "./build-report.$$BUILDKITE_RETRY_COUNT"
+    key: 'close-settlement'
     artifact_paths:
-    - "./close-settlement-report.txt"
+      - "./build-report.*"
+    retry:
+      automatic:
+        - exit_status: 100
+          limit: 10
+
+  - label: "Notification setup"
+    env:
+      gs_bucket: gs://marinade-validator-bonds-mainnet
+    commands:
+     - 'mkdir ./reports'
+     - 'buildkite-agent artifact download --include-retried-jobs "build-report.*" ./reports/'
+     - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
+     - '[ -f "$$report_path" ] || echo "No report generated; "UNKNOWN ERROR" >> "$$report_path"'
+     - 'cp "$$report_path" ./close-report.txt'
+     - 'buildkite-agent meta-data set attempts_count "$(grep -c "#ATTEMPT" ./close-report.txt)"'
+    artifact_paths:
+    - "./close-report.txt"
+    depends_on: "close-settlement"
+    allow_dependency_failure: true
+
+  - wait: ~
+    continue_on_failure: true
 
   # discord reporting only in case of failure => manual intervention is needed
   - label: ":mega: Notification settlements closing"
@@ -85,14 +113,15 @@ steps:
     - 'build_result=$(buildkite-agent step get "outcome" --step "close-settlement")'
     - |
         if [[ "$$build_result" =~ "failed" ]]; then
-          buildkite-agent artifact download --include-retried-jobs close-settlement-report.txt . || echo 'UNKNOWN ERROR' > './close-settlement-report.txt'
+          attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
+          buildkite-agent artifact download --include-retried-jobs close-report.txt . || echo 'UNKNOWN ERROR' > './close-report.txt'
           curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
             -F 'payload_json={
-                "content": "Closed Settlements FAILURE, epoch: '"$$claimable_epochs"'",
+                "content": "Closed Settlements FAILURE, epoch: '"$$claimable_epochs"', '"$$attempts_count"' attempts",
                 "url": "'"$$BUILDKITE_BUILD_URL"'",
-                "color": "3158271"
+                "color": "15158332"
             }' \
-            -F "file1=@./close-settlement-report.txt"
+            -F "file1=@./close-report.txt"
         else
           echo "No error, no need to notify about closing settlements, all good"
         fi

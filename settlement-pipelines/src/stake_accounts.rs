@@ -17,8 +17,10 @@ pub fn pick_stake_for_claiming(
 ) -> anyhow::Result<Option<Pubkey>> {
     prioritize_for_claiming(stake_accounts, clock, stake_history).map_or_else(
         |e| {
-            let error_msg = format!("No available stake account for claiming: {}", e);
-            Err(anyhow!("{}", error_msg))
+            Err(anyhow!(format!(
+                "No available stake account for claiming: {}",
+                e
+            )))
         },
         |v| Ok(Some(v)),
     )
