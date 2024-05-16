@@ -39,7 +39,7 @@ impl<'a> StakeAccountsCache<'a> {
             Ok(self
                 .cache
                 .get(&stake_withdraw_pair)
-                .expect("Cache 'contains_key' succeeded, but 'get' failed"))
+                .expect("HashMap 'contains_key' succeeded, but 'get' failed"))
         } else {
             // not fetched yet, let's fetch
             let stake_accounts = collect_stake_accounts(

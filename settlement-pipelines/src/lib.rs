@@ -1,5 +1,6 @@
 pub mod anchor;
 pub mod arguments;
+pub mod cli_result;
 pub mod executor;
 pub mod init;
 pub mod json_data;

@@ -1,26 +1,25 @@
-use anyhow::anyhow;
 use clap::Parser;
 use log::{debug, error, info};
 use merkle_tree::psr_claim::TreeNode;
 use settlement_engine::merkle_tree_collection::MerkleTreeCollection;
 use settlement_engine::settlement_claims::SettlementCollection;
 use settlement_engine::utils::read_from_json_file;
-use settlement_pipelines::anchor::add_instruction_to_builder_from_anchor_with_description;
+use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
     init_from_opts, load_keypair, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts,
     TipPolicyOpts,
 };
+use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::execute_parallel;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::{
     resolve_combined_optional, CombinedMerkleTreeSettlementCollections,
 };
-use settlement_pipelines::reporting::{PrintReportable, ReportHandler};
+use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
 use settlement_pipelines::settlements::{
     list_claimable_settlements, ClaimableSettlementsReturn, SETTLEMENT_CLAIM_ACCOUNT_SIZE,
 };
-use settlement_pipelines::stake_accounts::pick_stake_for_claiming;
-use settlement_pipelines::stake_accounts::STAKE_ACCOUNT_RENT_EXEMPTION;
+use settlement_pipelines::stake_accounts::{prioritize_for_claiming, STAKE_ACCOUNT_RENT_EXEMPTION};
 use settlement_pipelines::stake_accounts_cache::StakeAccountsCache;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::native_token::lamports_to_sol;
@@ -35,6 +34,7 @@ use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
+use tokio::time::sleep;
 use validator_bonds::instructions::ClaimSettlementArgs;
 use validator_bonds::state::bond::find_bond_address;
 use validator_bonds::state::config::find_bonds_withdrawer_authority;
@@ -85,7 +85,12 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> CliResult {
+    let mut reporting = ClaimSettlementReport::report_handler();
+    let result = real_main(&mut reporting).await;
+    with_reporting::<ClaimSettlementReport>(&reporting, result).await
+}
+async fn real_main(reporting: &mut ReportHandler<ClaimSettlementReport>) -> anyhow::Result<()> {
     let args: Args = Args::parse();
     init_log(&args.global_opts);
 
@@ -146,7 +151,9 @@ async fn main() -> anyhow::Result<()> {
         "Claiming settlements for validator-bonds config: {}",
         config_address
     );
-    let config = get_config(rpc_client.clone(), config_address).await?;
+    let config = get_config(rpc_client.clone(), config_address)
+        .await
+        .map_err(CliError::retry_able)?;
     let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(&config_address);
     let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
 
@@ -161,8 +168,9 @@ async fn main() -> anyhow::Result<()> {
     let claimable_settlements =
         list_claimable_settlements(rpc_client.clone(), &config_address, &config).await?;
 
-    let mut reporting = ClaimSettlementReport::report_handler(rpc_client.clone());
-    reporting.reportable.setup(&claimable_settlements);
+    reporting
+        .reportable
+        .init(rpc_client.clone(), &claimable_settlements);
 
     let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
     transaction_builder.add_signer_checked(&rent_payer);
@@ -208,7 +216,7 @@ async fn main() -> anyhow::Result<()> {
         let json_matching_settlement = match get_settlement_from_json(
             &json_per_epoch_claim_records,
             &claimable_settlement,
-            &mut reporting,
+            reporting,
         ) {
             Ok(json_record) => json_record,
             Err(_) => continue,
@@ -218,7 +226,7 @@ async fn main() -> anyhow::Result<()> {
         let (settlement_claims, already_claimed_count) = match get_existence_of_settlement_claims(
             rpc_client.clone(),
             json_matching_settlement,
-            &mut reporting,
+            reporting,
         )
         .await
         {
@@ -228,10 +236,10 @@ async fn main() -> anyhow::Result<()> {
 
         // Let's claim it
         info!(
-            "Claiming settlement {}, vote account {}, claim amount {}, for epoch {}, number of stake accounts: {}, already claimed nodes: {}",
+            "Claiming settlement {}, vote account {}, claim amount {}, for epoch {}, number of FROM stake accounts {}, already claimed nodes {}",
             claimable_settlement.settlement_address.clone(),
             json_matching_settlement.vote_account_address,
-            json_matching_settlement.max_total_claim_sum,
+            lamports_to_sol(json_matching_settlement.max_total_claim_sum),
             settlement_epoch,
             claimable_settlement.stake_accounts.len(),
             already_claimed_count,
@@ -244,8 +252,9 @@ async fn main() -> anyhow::Result<()> {
                 .zip(settlement_claims.into_iter())
         {
             if settlement_claim_exists {
-                debug!("Settlement claim {} already exists for tree node stake:{}/withdrawer:{}/claim:{} for settlement {}",
-                    settlement_claim_address, tree_node.stake_authority, tree_node.withdraw_authority, tree_node.claim,
+                debug!("Settlement claim {} already exists for tree node stake:{}/withdrawer:{}/claim:{}, settlement {}",
+                    settlement_claim_address, tree_node.stake_authority, tree_node.withdraw_authority,
+                    lamports_to_sol(tree_node.claim),
                     json_matching_settlement.settlement_address);
                 continue;
             }
@@ -253,8 +262,10 @@ async fn main() -> anyhow::Result<()> {
                 proof
             } else {
                 reporting.add_error_string(format!(
-                    "No proof found for tree node stake:{}/withdrawer:{}/claim:{} for settlement {}",
-                    tree_node.stake_authority, tree_node.withdraw_authority, tree_node.claim,
+                    "No proof found for tree node stake:{}/withdrawer:{}/claim:{}, settlement {}",
+                    tree_node.stake_authority,
+                    tree_node.withdraw_authority,
+                    lamports_to_sol(tree_node.claim),
                     json_matching_settlement.settlement_address
                 ));
                 continue;
@@ -268,7 +279,9 @@ async fn main() -> anyhow::Result<()> {
                         .find(|(pubkey, lamports, _)| {
                             let utilized_lamports =
                                 settlement_claimed_amounts.entry(*pubkey).or_insert(0);
-                            if *lamports - *utilized_lamports - minimal_stake_lamports
+                            if lamports
+                                .saturating_sub(*utilized_lamports)
+                                .saturating_sub(minimal_stake_lamports)
                                 >= tree_node.claim
                             {
                                 settlement_claimed_amounts
@@ -283,7 +296,7 @@ async fn main() -> anyhow::Result<()> {
                     *pubkey
                 } else {
                     reporting.add_error_string(format!(
-                        "No stake account found with enough SOLs to claim {} from for settlement {}, epoch {}",
+                        "No stake account found with enough SOLs to claim {} from, settlement {}, epoch {}",
                         lamports_to_sol(tree_node.claim),
                         json_matching_settlement.settlement_address,
                         settlement_epoch
@@ -310,17 +323,17 @@ async fn main() -> anyhow::Result<()> {
                     },
                     |v| v,
                 );
-            let stake_account_to = pick_stake_for_claiming(
+            let stake_account_to = prioritize_for_claiming(
                 stake_accounts_to,
                 &clock,
                 &stake_history,
             ).map_or_else(|e| {
                 reporting.add_error_string(format!(
-                    "No available stake account found where to claim into of staker/withdraw authorities {}/{}: {}",
+                    "No available stake account found where to claim into of staker/withdraw authorities {}/{}: {:?}",
                     tree_node.stake_authority, tree_node.withdraw_authority, e
                 ));
                 None
-            }, |v| v);
+            }, Some);
             let stake_account_to: Pubkey = if let Some(stake_account_to) = stake_account_to {
                 stake_account_to
             } else {
@@ -359,7 +372,7 @@ async fn main() -> anyhow::Result<()> {
                         tree_node_hash: get_tree_node_hash(tree_node),
                     },
                 });
-            add_instruction_to_builder_from_anchor_with_description(
+            add_instruction_to_builder(
                 &mut transaction_builder,
                 &req,
                 format!(
@@ -382,7 +395,7 @@ async fn main() -> anyhow::Result<()> {
     .await;
     reporting.add_tx_execution_result(execution_result, "ClaimSettlement");
 
-    reporting.report_and_exit().await
+    Ok(())
 }
 
 fn load_json(
@@ -424,9 +437,9 @@ fn process_json_file(
     path: &PathBuf,
     loaded_data: &mut HashMap<u64, MerkleTreeLoadedData>,
 ) -> anyhow::Result<()> {
-    let path_string = path
-        .to_str()
-        .ok_or_else(|| anyhow!("Could not convert path {:?} to string", path))?;
+    let path_string = path.to_str().ok_or_else(|| {
+        CliError::processing(format!("Could not convert path {:?} to string", path))
+    })?;
     // Handle different file types based on suffix
     if path_string.ends_with(SETTLEMENT_MERKLE_TREES_SUFFIX) {
         info!(
@@ -435,22 +448,20 @@ fn process_json_file(
         );
         let merkle_tree_collection: MerkleTreeCollection = read_from_json_file(path_string)
             .map_err(|e| {
-                anyhow!(
+                CliError::processing(format!(
                     "Cannot read merkle tree collection from file '{:?}': {:?}",
-                    path,
-                    e
-                )
+                    path, e
+                ))
             })?;
         insert_merkle_tree_loaded_data(loaded_data, Some(merkle_tree_collection), None)?;
     } else if path_string.ends_with(SETTLEMENTS_SUFFIX) {
         info!("path: {:?} ends with {}", path, SETTLEMENTS_SUFFIX);
         let settlement_collection: SettlementCollection = read_from_json_file(path_string)
             .map_err(|e| {
-                anyhow!(
-                    "Cannot read settlement collection from from file '{:?}': {:?}",
-                    path,
-                    e
-                )
+                CliError::processing(format!(
+                    "Cannot read settlement collection from file '{:?}': {:?}",
+                    path, e
+                ))
             })?;
         insert_merkle_tree_loaded_data(loaded_data, None, Some(settlement_collection))?;
     }
@@ -477,17 +488,16 @@ fn insert_merkle_tree_loaded_data(
     // Get the epoch and handle mismatches
     let epoch = match (&merkle_tree_collection, &settlement_collection) {
         (Some(mc), Some(sc)) if mc.epoch != sc.epoch => {
-            return Err(anyhow!(
+            return Err(CliError::processing(format!(
                 "Epoch mismatch between merkle tree collection and settlement collection: {} != {}",
-                mc.epoch,
-                sc.epoch
-            ));
+                mc.epoch, sc.epoch
+            )));
         }
         (Some(mc), _) => mc.epoch,
         (_, Some(sc)) => sc.epoch,
         _ => {
-            return Err(anyhow!(
-                "No epoch found in either merkle tree collection or settlement collection"
+            return Err(CliError::processing(
+                "No epoch found in either merkle tree collection or settlement collection",
             ));
         }
     };
@@ -523,7 +533,7 @@ fn get_settlement_from_json<'a>(
                 settlement_epoch
             );
             reporting.add_error_string(err_string.clone());
-            return Err(anyhow!(err_string));
+            return Err(CliError::processing(err_string));
         };
 
     // find on-chain data match with json data
@@ -540,7 +550,7 @@ fn get_settlement_from_json<'a>(
             settlement_epoch
         );
         reporting.add_error_string(err_string.clone());
-        return Err(anyhow!(err_string));
+        return Err(CliError::processing(err_string));
     };
 
     if on_chain_settlement.settlement.max_total_claim != matching_settlement.max_total_claim_sum
@@ -553,7 +563,7 @@ fn get_settlement_from_json<'a>(
             settlement_epoch
         );
         reporting.add_error_string(err_string.clone());
-        return Err(anyhow!(err_string));
+        return Err(CliError::processing(err_string));
     }
     if on_chain_settlement.stake_accounts.is_empty() {
         let err_string = format!(
@@ -561,7 +571,7 @@ fn get_settlement_from_json<'a>(
             on_chain_settlement.settlement_address
         );
         reporting.add_error_string(err_string.clone());
-        return Err(anyhow!(err_string));
+        return Err(CliError::processing(err_string));
     }
     Ok(matching_settlement)
 }
@@ -586,12 +596,12 @@ async fn get_existence_of_settlement_claims(
     )
     .await
     .map_err(|e| {
-        let err_msg = format!(
+        let err_string = format!(
             "Error fetching settlement claim accounts for settlement {}: {:?}",
             settlement_json_data.settlement_address, e
         );
-        reporting.add_error_string(err_msg.clone());
-        anyhow!(err_msg)
+        reporting.add_error_string(err_string.clone());
+        CliError::processing(err_string)
     })?;
     let already_claimed = reporting
         .reportable
@@ -654,8 +664,9 @@ impl JsonClaimSettlementRecord {
 }
 
 struct ClaimSettlementReport {
-    rpc_client: Arc<RpcClient>,
+    rpc_client: Option<Arc<RpcClient>>,
     settlements_claimable_before: HashMap<Pubkey, ClaimSettlementReportData>,
+    claimed_before: HashMap<Pubkey, u64>,
     settlements_claimable_no_account_to: HashMap<Pubkey, u64>,
     settlements_claimable_no_account_from: HashMap<Pubkey, u64>,
 }
@@ -663,17 +674,20 @@ struct ClaimSettlementReport {
 impl PrintReportable for ClaimSettlementReport {
     fn get_report(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + '_>> {
         Box::pin(async {
+            let rpc_client = if let Some(rpc_client) = &self.rpc_client {
+                rpc_client
+            } else {
+                return vec![];
+            };
             let claimable_settlements_addresses: Vec<Pubkey> =
                 self.settlements_claimable_before.keys().copied().collect();
-            let settlements_claimable_after = get_settlements_for_pubkeys(
-                self.rpc_client.clone(),
-                &claimable_settlements_addresses,
-            )
-            .await;
+            sleep(std::time::Duration::from_secs(8)).await; // wating for data finalization on-chain
+            let settlements_claimable_after =
+                get_settlements_for_pubkeys(rpc_client.clone(), &claimable_settlements_addresses)
+                    .await;
             match settlements_claimable_after {
                 Ok(settlements_claimable_after) => {
-                    let settlement_claim_rent = self
-                        .rpc_client
+                    let settlement_claim_rent = rpc_client
                         .get_minimum_balance_for_rent_exemption(SETTLEMENT_CLAIM_ACCOUNT_SIZE)
                         .await
                         .map_or_else(
@@ -692,7 +706,7 @@ impl PrintReportable for ClaimSettlementReport {
                             .push((pubkey, settlement));
                     }
                     let mut report: Vec<String> = vec![];
-                    let mut total_claimed: u64 = 0;
+                    let mut claim_settlemnts_accounts_created: u64 = 0;
                     for epoch in grouped_by_epoch.keys() {
                         let settlements_claimable_after_group = grouped_by_epoch
                             .get(epoch)
@@ -705,13 +719,13 @@ impl PrintReportable for ClaimSettlementReport {
                                 .as_ref()
                                 .map_or_else(|| 0, |s| s.max_merkle_nodes);
                             let claimed_before = self
-                                .settlements_claimable_before
+                                .claimed_before
                                 .get(settlement_address)
-                                .map_or_else(|| 0, |s| s.lamports_claimed);
+                                .map_or_else(|| 0, |claimed_before| *claimed_before);
                             let claimed_after = settlement
                                 .as_ref()
                                 .map_or_else(|| 0, |s| s.lamports_claimed);
-                            let claimed_diff = claimed_after - claimed_before;
+                            let claimed_diff = claimed_after.saturating_sub(claimed_before);
                             let stake_account_to = self
                                 .settlements_claimable_no_account_to
                                 .get(settlement_address)
@@ -725,7 +739,7 @@ impl PrintReportable for ClaimSettlementReport {
                                 .get(settlement_address)
                                 .map_or_else(|| None, |d| Some(d.claim_records.len() as u64));
                             let claim_accounts_count_after = get_settlement_claims_for_settlement(
-                                self.rpc_client.clone(),
+                                rpc_client.clone(),
                                 settlement_address,
                             )
                             .await
@@ -737,8 +751,10 @@ impl PrintReportable for ClaimSettlementReport {
                                 |s| s.len() as u64,
                             );
                             let claim_accounts_count_diff = claim_accounts_count_after
-                                - claim_accounts_count_before.map_or_else(|| 0, |v| v);
-                            total_claimed += claimed_diff;
+                                .saturating_sub(
+                                    claim_accounts_count_before.map_or_else(|| 0, |v| v),
+                                );
+                            claim_settlemnts_accounts_created += claim_accounts_count_diff;
                             epoch_report.push(format!(
                                 "  Settlement {} in sum claimed SOLs {}/{} SOLs, ClaimSettlement accounts {}/{}. \n    This time claimed SOLs {}, ClaimSettlement accounts {} (not claimed reason: no target {}, no source: {})",
                                 settlement_address,
@@ -755,8 +771,8 @@ impl PrintReportable for ClaimSettlementReport {
                         report.push(format!(
                             "Epoch {}, this time created {} ClaimSettlement accounts in sum of rent {} SOL",
                             epoch,
-                            total_claimed,
-                            lamports_to_sol(settlement_claim_rent * total_claimed)
+                            claim_settlemnts_accounts_created,
+                            lamports_to_sol(settlement_claim_rent * claim_settlemnts_accounts_created)
                         ));
                         report.extend(epoch_report);
                     }
@@ -771,33 +787,37 @@ impl PrintReportable for ClaimSettlementReport {
 }
 
 struct ClaimSettlementReportData {
-    lamports_claimed: u64,
     claim_records: HashMap<Pubkey, Option<u64>>,
 }
 
 impl ClaimSettlementReport {
-    fn report_handler(rpc_client: Arc<RpcClient>) -> ReportHandler<Self> {
-        let close_settlement_report = Self {
-            rpc_client,
+    fn report_handler() -> ReportHandler<Self> {
+        let reportable = Self {
+            rpc_client: None,
+            claimed_before: HashMap::new(),
             settlements_claimable_before: HashMap::new(),
             settlements_claimable_no_account_to: HashMap::new(),
             settlements_claimable_no_account_from: HashMap::new(),
         };
-        ReportHandler::new(close_settlement_report)
+        ReportHandler::new(reportable)
     }
 
-    fn setup(&mut self, claimable_settlements: &Vec<ClaimableSettlementsReturn>) {
+    fn init(
+        &mut self,
+        rpc_client: Arc<RpcClient>,
+        claimable_settlements: &Vec<ClaimableSettlementsReturn>,
+    ) {
         info!(
             "Number of claimable settlements: {}",
             claimable_settlements.len()
         );
+        self.rpc_client = Some(rpc_client);
         self.settlements_claimable_before = claimable_settlements
             .iter()
             .map(|s| {
                 (
                     s.settlement_address,
                     ClaimSettlementReportData {
-                        lamports_claimed: s.stake_accounts_lamports,
                         claim_records: HashMap::new(),
                     },
                 )
@@ -810,6 +830,10 @@ impl ClaimSettlementReport {
         self.settlements_claimable_no_account_from = claimable_settlements
             .iter()
             .map(|s| (s.settlement_address, 0_u64))
+            .collect::<HashMap<Pubkey, u64>>();
+        self.claimed_before = claimable_settlements
+            .iter()
+            .map(|s| (s.settlement_address, s.settlement.lamports_claimed))
             .collect::<HashMap<Pubkey, u64>>();
     }
 

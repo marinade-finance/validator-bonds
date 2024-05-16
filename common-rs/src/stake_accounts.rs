@@ -1,5 +1,5 @@
 use crate::utils::get_sysvar_clock;
-use log::info;
+use log::{info, warn};
 use solana_account_decoder::{UiAccountEncoding, UiDataSliceConfig};
 use solana_client::{
     nonblocking::rpc_client::RpcClient,
@@ -88,8 +88,8 @@ pub async fn collect_stake_accounts(
 // i.e., to the vote account that the stake account is delegated to
 // returns Map<voter_pubkey, Vec<stake_account_data>>
 pub async fn obtain_delegated_stake_accounts(
-    stake_accounts: CollectedStakeAccounts,
     rpc_client: Arc<RpcClient>,
+    stake_accounts: CollectedStakeAccounts,
 ) -> anyhow::Result<HashMap<Pubkey, CollectedStakeAccounts>> {
     let clock: Clock = get_sysvar_clock(rpc_client).await?;
     let mut vote_account_map: HashMap<Pubkey, CollectedStakeAccounts> = HashMap::new();
@@ -126,9 +126,19 @@ pub async fn obtain_claimable_stake_accounts_for_settlement(
     let stake_history = get_stake_history(rpc_client.clone()).await?;
     let filtered_deactivated_stake_accounts: CollectedStakeAccounts = stake_accounts
         .into_iter()
-        .filter(|(_, _, stake)| {
+        .filter(|(pubkey, _, stake)| {
             if is_locked(stake, &clock) {
                 // cannot use locked stake account
+                warn!(
+                    "Locked stake account {} found (withdrawer {}/staker {})",
+                    pubkey,
+                    stake
+                        .authorized()
+                        .map_or("None".to_string(), |a| a.withdrawer.to_string()),
+                    stake
+                        .authorized()
+                        .map_or("None".to_string(), |a| a.staker.to_string()),
+                );
                 false
             } else if let Some(delegation) = stake.delegation() {
                 // stake has got delegation but is fully deactivated
@@ -154,10 +164,10 @@ pub async fn obtain_claimable_stake_accounts_for_settlement(
 // All non locked stake accounts that are funded to the Settlement
 // Stake accounts are good to be claimed in near future (i.e., in next epoch, deactivated)
 pub async fn obtain_funded_stake_accounts_for_settlement(
+    rpc_client: Arc<RpcClient>,
     stake_accounts: CollectedStakeAccounts,
     config_address: &Pubkey,
     settlement_addresses: Vec<Pubkey>,
-    rpc_client: Arc<RpcClient>,
 ) -> anyhow::Result<HashMap<Pubkey, (u64, CollectedStakeAccounts)>> {
     let clock = get_sysvar_clock(rpc_client.clone()).await?;
     let stake_history = get_stake_history(rpc_client.clone()).await?;

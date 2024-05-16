@@ -4,14 +4,7 @@ use log::error;
 use solana_transaction_builder::TransactionBuilder;
 use std::rc::Rc;
 
-pub fn add_instructions_to_builder_from_anchor(
-    transaction_builder: &mut TransactionBuilder,
-    request_builder: &RequestBuilder<Rc<DynSigner>>,
-) -> anyhow::Result<()> {
-    add_instructions_to_builder_from_anchor_internal(transaction_builder, request_builder, None)
-}
-
-pub fn add_instruction_to_builder_from_anchor_with_description(
+pub fn add_instruction_to_builder(
     transaction_builder: &mut TransactionBuilder,
     request_builder: &RequestBuilder<Rc<DynSigner>>,
     description: String,

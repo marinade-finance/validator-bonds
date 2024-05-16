@@ -87,7 +87,7 @@ steps:
     retry:
       automatic:
         - exit_status: 100
-          limit: 10
+          limit: 5
 
   - label: "Notification setup"
     env:
@@ -96,37 +96,43 @@ steps:
      - 'mkdir ./reports'
      - 'buildkite-agent artifact download --include-retried-jobs "build-report.*" ./reports/'
      - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
-     - '[ -f "$$report_path" ] || echo "No report generated; "UNKNOWN ERROR" >> "$$report_path"'
+     - '[ -f "$$report_path" ] || echo "No report generated; UNKNOWN ERROR" >> "$$report_path"'
      - 'cp "$$report_path" ./close-report.txt'
-     - 'buildkite-agent meta-data set attempts_count "$(grep -c "#ATTEMPT" ./close-report.txt)"'
+     - 'buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./close-report.txt)"'
     artifact_paths:
     - "./close-report.txt"
+    key: 'notification'
     depends_on: "close-settlement"
     allow_dependency_failure: true
-
+  
   - wait: ~
-    continue_on_failure: true
 
-  # discord reporting only in case of failure => manual intervention is needed
   - label: ":mega: Notification settlements closing"
     commands:
     - 'build_result=$(buildkite-agent step get "outcome" --step "close-settlement")'
     - |
-        if [[ "$$build_result" =~ "failed" ]]; then
-          attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
-          buildkite-agent artifact download --include-retried-jobs close-report.txt . || echo 'UNKNOWN ERROR' > './close-report.txt'
-          curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
-            -F 'payload_json={
-                "content": "Closed Settlements FAILURE, epoch: '"$$claimable_epochs"', '"$$attempts_count"' attempts",
-                "url": "'"$$BUILDKITE_BUILD_URL"'",
-                "color": "15158332"
-            }' \
-            -F "file1=@./close-report.txt"
-        else
-          echo "No error, no need to notify about closing settlements, all good"
-        fi
-
-    depends_on: "close-settlement"
+      if [[ -z "$$build_result" || "$$build_result" =~ "failed" ]]; then
+        notification_result="FAILED"
+        notification_color="15158332"
+      else
+        notification_result="SUCCEEDED"
+        notification_color="8388863"
+      fi
+    - |
+      attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
+      buildkite-agent artifact download --include-retried-jobs close-report.txt . || echo 'UNKNOWN ERROR' > './close-report.txt'
+      # TODO: change the discord webhook here to the correct one
+      # curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
+      curl "https://discord.com/api/webhooks/1237762124114296923/O-Gv1aBiB4LZy87ppR-87LPVDCBz7591Kcse52GyRUmrU-Y8IVpAjnSuP-ZwpGDLLb88" \
+        -F 'payload_json={
+            "embeds":[{
+              "title": "Close Settlements '"$$notification_result"', '"$$attempts_count"' attempts",
+              "url": "'"$$BUILDKITE_BUILD_URL"'",
+              "color": "'"$$notification_color"'"
+            }]
+        }' \
+        -F "file1=@./close-report.txt"
+    depends_on: "notification"
     allow_dependency_failure: true
 
   - wait: ~

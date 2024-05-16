@@ -4,19 +4,23 @@ use log::{debug, error, info};
 use settlement_engine::merkle_tree_collection::MerkleTreeCollection;
 use settlement_engine::settlement_claims::{SettlementCollection, SettlementFunder};
 use settlement_engine::utils::read_from_json_file;
-use settlement_pipelines::anchor::add_instructions_to_builder_from_anchor;
+use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
     init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
 };
 use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
+use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::{execute_in_sequence, execute_parallel};
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::executor::{execute_in_sequence, execute_parallel};
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::{resolve_combined, MerkleTreeMetaSettlement};
-
+use settlement_pipelines::json_data::{
+    resolve_combined, CombinedMerkleTreeSettlementCollections, MerkleTreeMetaSettlement,
+};
+use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
 use settlement_pipelines::stake_accounts::STAKE_ACCOUNT_RENT_EXEMPTION;
-
+use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::native_token::lamports_to_sol;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
@@ -31,11 +35,10 @@ use solana_sdk::sysvar::{
 };
 use solana_transaction_builder::TransactionBuilder;
 use std::collections::HashMap;
-
-use std::io;
-
+use std::future::Future;
+use std::pin::Pin;
 use std::rc::Rc;
-
+use std::sync::Arc;
 use validator_bonds::instructions::{InitSettlementArgs, MergeStakeArgs};
 use validator_bonds::state::bond::Bond;
 use validator_bonds::state::config::find_bonds_withdrawer_authority;
@@ -93,7 +96,13 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> CliResult {
+    let mut reporting = InitSettlementReport::report_handler();
+    let result = real_main(&mut reporting).await;
+    with_reporting::<InitSettlementReport>(&reporting, result).await
+}
+
+async fn real_main(reporting: &mut ReportHandler<InitSettlementReport>) -> anyhow::Result<()> {
     let args: Args = Args::parse();
     init_log(&args.global_opts);
 
@@ -126,123 +135,39 @@ async fn main() -> anyhow::Result<()> {
         "Loading merkle tree at: '{}', validator-bonds config: {}",
         args.input_merkle_tree_collection, config_address
     );
-    let combined_collection = {
-        let merkle_tree_collection: MerkleTreeCollection =
-            read_from_json_file(&args.input_merkle_tree_collection).map_err(|e| {
-                anyhow!(
-                    "Cannot read merkle tree collection from file '{}': {:?}",
-                    args.input_merkle_tree_collection,
-                    e
-                )
-            })?;
-        let settlement_collection: SettlementCollection =
-            read_from_json_file(&args.input_settlement_collection).map_err(|e| {
-                anyhow!(
-                    "Cannot read settlement collection from file '{}': {:?}",
-                    args.input_settlement_collection,
-                    e
-                )
-            })?;
-        resolve_combined(merkle_tree_collection, settlement_collection)
-    }?;
-    let epoch = args.epoch.unwrap_or(combined_collection.epoch);
+    let json_data = load_json_data(
+        &args.input_merkle_tree_collection,
+        &args.input_settlement_collection,
+    )?;
+    let config = get_config(rpc_client.clone(), config_address)
+        .await
+        .map_err(CliError::retry_able)?;
 
-    let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
+    let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
+    let epoch = args.epoch.unwrap_or(json_data.epoch);
 
-    let mut vote_accounts: Vec<Pubkey> = Vec::new();
     let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
     transaction_builder.add_signer_checked(&operator_authority);
     transaction_builder.add_signer_checked(&rent_payer);
+    let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
 
-    let config = get_config(rpc_client.clone(), config_address).await?;
-    let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
+    // Load on-chain data for Settlement accounts that we need to create
+    let mut settlement_records =
+        load_on_chain_data(rpc_client.clone(), &json_data, &config_address, epoch).await?;
 
-    let mut init_settlement_errors: Vec<String> = vec![];
+    reporting
+        .reportable
+        .init(rpc_client.clone(), epoch, &settlement_records);
 
-    // verify what are the settlement accounts that we need to create
-    // (not to pushing many RPC calls to the network, squeezing them to less)
-    let mut settlement_records = combined_collection
-        .merkle_tree_settlements
-        .iter()
-        .filter(|MerkleTreeMetaSettlement { merkle_tree, .. }| {
-            if merkle_tree.merkle_root.is_some() {
-                true
-            } else {
-                panic!(
-                    "Cannot create settlement for vote account {} without a merkle root",
-                    merkle_tree.vote_account
-                );
-            }
-        })
-        .map(
-            |MerkleTreeMetaSettlement {
-                 merkle_tree,
-                 settlement,
-             }| {
-                let merkle_root = merkle_tree.merkle_root.unwrap();
-                let vote_account_address = merkle_tree.vote_account;
-                let (bond_address, _) = validator_bonds::state::bond::find_bond_address(
-                    &config_address,
-                    &merkle_tree.vote_account,
-                );
-                let (settlement_address, _) =
-                    validator_bonds::state::settlement::find_settlement_address(
-                        &bond_address,
-                        &merkle_root.to_bytes(),
-                        epoch,
-                    );
-                Ok(SettlementRecord {
-                    vote_account_address,
-                    bond_address,
-                    settlement_address,
-                    settlement_staker_authority: find_settlement_staker_authority(
-                        &settlement_address,
-                    )
-                    .0,
-                    merkle_root: merkle_root.to_bytes(),
-                    max_total_claim: merkle_tree.max_total_claim_sum,
-                    max_merkle_nodes: merkle_tree.max_total_claims as u64,
-                    funder: SettlementFunderType::new(&settlement.meta.funder),
-                    bond_account: None,
-                    settlement_account: None,
-                    state: SettlementRecordState::InProgress,
-                })
-            },
-        )
-        .collect::<Result<Vec<SettlementRecord>, anyhow::Error>>()?;
-
-    // loading accounts from on-chain
-    let settlement_addresses: Vec<Pubkey> = settlement_records
-        .iter()
-        .map(|d| d.settlement_address)
-        .collect();
-    let settlements =
-        get_settlements_for_pubkeys(rpc_client.clone(), &settlement_addresses).await?;
-    for (record, (pubkey, settlement)) in settlement_records.iter_mut().zip(settlements.into_iter())
-    {
-        assert_eq!(
-            record.settlement_address, pubkey,
-            "Mismatched settlement address"
-        ); // sanity check
-        record.settlement_account = settlement;
-    }
-    let bond_addresses: Vec<Pubkey> = settlement_records.iter().map(|d| d.bond_address).collect();
-    let bonds = get_bonds_for_pubkeys(rpc_client.clone(), &bond_addresses).await?;
-    for (record, (pubkey, bond)) in settlement_records.iter_mut().zip(bonds.into_iter()) {
-        assert_eq!(record.bond_address, pubkey, "Mismatched bond address"); // sanity check
-        record.bond_account = bond;
-    }
-
+    // --- Settlements Initialization ---
     for settlement_record in &mut settlement_records {
         if settlement_record.bond_account.is_none() {
-            let err_msg = format!(
+            reporting.add_error_string(format!(
                 "Cannot find bond account {} for vote account {}, claim amount {}",
                 settlement_record.bond_address,
                 settlement_record.vote_account_address,
                 settlement_record.max_total_claim
-            );
-            error!("{}", err_msg);
-            init_settlement_errors.push(err_msg);
+            ));
             continue;
         }
         if settlement_record.settlement_account.is_some() {
@@ -251,7 +176,6 @@ async fn main() -> anyhow::Result<()> {
                 settlement_record.settlement_address
             );
         } else {
-            vote_accounts.push(settlement_record.vote_account_address);
             let req = program
                 .request()
                 .accounts(validator_bonds::accounts::InitSettlement {
@@ -273,94 +197,64 @@ async fn main() -> anyhow::Result<()> {
                         epoch,
                     },
                 });
-            add_instructions_to_builder_from_anchor(&mut transaction_builder, &req).map_err(
-                |e| {
-                    anyhow!(
-                        "Cannot add init settlement instruction to transaction builder: {:?}",
-                        e
-                    )
-                },
+            add_instruction_to_builder(
+                &mut transaction_builder,
+                &req,
+                format!(
+                    "InitSettlement: {} (vote account {})",
+                    settlement_record.settlement_address, settlement_record.vote_account_address
+                ),
             )?;
+            reporting
+                .reportable
+                .add_created_settlement(settlement_record);
         }
     }
 
-    let ix_count = execute_parallel(
+    let (tx_count, ix_count) = execute_parallel(
         rpc_client.clone(),
         transaction_executor.clone(),
         &mut transaction_builder,
         &priority_fee_policy,
     )
-    .await?;
+    .await
+    .map_err(CliError::retry_able)?;
     info!(
-        "InitSettlement instructions {} executed successfully of settlement/vote_account [{}]",
-        ix_count,
-        settlement_records
-            .iter()
-            .map(|v| format!("{}/{}", v.settlement_address, v.vote_account_address))
-            .collect::<Vec<String>>()
-            .join(", ")
+        "InitSettlement [{}]: txes {tx_count}/ixes {ix_count} executed successfully",
+        reporting.reportable.list_created_settlements()
     );
 
+    // --- Settlements Funding ---
     let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
     transaction_builder.add_signer_checked(&operator_authority);
-
-    // let's check how we are about settlement funding
     let (withdrawer_authority, _) = find_bonds_withdrawer_authority(&config_address);
     let stake_accounts =
         collect_stake_accounts(rpc_client.clone(), Some(&withdrawer_authority), None).await?;
-    let non_funded: CollectedStakeAccounts = stake_accounts
-        .clone()
-        .into_iter()
-        .filter(|(_, _, stake)| {
-            if let Some(authorized) = stake.authorized() {
-                authorized.staker == withdrawer_authority
-                    && authorized.withdrawer == withdrawer_authority
-            } else {
-                false
-            }
-        })
+
+    let mut fund_bond_stake_accounts = get_on_chain_bond_stake_accounts(
+        rpc_client.clone(),
+        &stake_accounts,
+        &withdrawer_authority,
+    )
+    .await?;
+
+    let settlement_addresses: Vec<Pubkey> = settlement_records
+        .iter()
+        .map(|d| d.settlement_address)
         .collect();
-    let non_funded_delegated_stakes =
-        obtain_delegated_stake_accounts(non_funded, rpc_client.clone()).await?;
     let funded_to_settlement_stakes = obtain_funded_stake_accounts_for_settlement(
+        rpc_client.clone(),
         stake_accounts,
         &config_address,
         settlement_addresses,
-        rpc_client.clone(),
     )
-    .await?;
-    // creating a map of vote account to stake accounts3
-    #[derive(Clone)]
-    struct FundBondStakeAccount {
-        lamports: u64,
-        stake_account: Pubkey,
-        split_stake_account: Rc<Keypair>,
-    }
-    let mut fund_bond_stake_accounts: HashMap<Pubkey, Vec<FundBondStakeAccount>> =
-        non_funded_delegated_stakes
-            .into_iter()
-            .map(|(vote_account, stake_accounts)| {
-                (
-                    vote_account,
-                    stake_accounts
-                        .into_iter()
-                        .map(|(stake_account, lamports, _)| FundBondStakeAccount {
-                            lamports,
-                            stake_account,
-                            split_stake_account: Rc::new(Keypair::new()),
-                        })
-                        .collect(),
-                )
-            })
-            .collect();
-
-    // to print to std out at the end
-    let mut funded_lamports_overall: u64 = 0;
+    .await
+    .map_err(CliError::retry_able)?;
 
     // Merging stake accounts to fit for validator bonds funding
     for settlement_record in &mut settlement_records {
         if settlement_record.bond_account.is_none() {
-            // not bond account to work with
+            // not bond account to work with; already reported
             continue;
         }
 
@@ -385,6 +279,7 @@ async fn main() -> anyhow::Result<()> {
                 settlement_amount_funded
             );
             settlement_record.state = SettlementRecordState::AlreadyFunded;
+            reporting.reportable.funded_already += settlement_record.max_total_claim;
             continue;
         }
 
@@ -400,7 +295,7 @@ async fn main() -> anyhow::Result<()> {
                     SettlementFunderType::Marinade(Some(SettlementFunderMarinade {
                         amount_to_fund,
                     }));
-                funded_lamports_overall += amount_to_fund;
+                reporting.reportable.funded_overall += amount_to_fund;
             }
             SettlementFunderType::ValidatorBond(_) => {
                 let mut empty_vec: Vec<FundBondStakeAccount> = vec![];
@@ -468,25 +363,26 @@ async fn main() -> anyhow::Result<()> {
                                     settlement: settlement_record.settlement_address,
                                 },
                             });
-                        add_instructions_to_builder_from_anchor(&mut transaction_builder, &req)
-                            .map_err(|e| {
-                                anyhow!(
-                                    "Cannot add merge stake instruction to transaction builder: {:?}",
-                                    e
-                                )
-                            })?;
+                        add_instruction_to_builder(
+                            &mut transaction_builder,
+                            &req,
+                            format!(
+                                "MergeStake: {} -> {}",
+                                merge_stake_account.stake_account, destination_stake
+                            ),
+                        )?;
                     }
                     if lamports_available < amount_to_fund {
                         let err_msg = format!(
-                            "Cannot fully fund settlement {} (vote account {}) with {} SOLs as only {} SOLs were found in stake accounts",
+                            "Cannot fully fund settlement {} (vote account {}, funder {:?}) with {} SOLs as only {} SOLs were found in stake accounts",
                             settlement_record.settlement_address,
                             settlement_record.vote_account_address,
+                            settlement_record.funder,
                             lamports_to_sol(amount_to_fund),
                             lamports_to_sol(lamports_available)
                         );
-                        error!("{}", err_msg);
-                        init_settlement_errors.push(err_msg);
-                        funded_lamports_overall += lamports_available;
+                        reporting.add_error_string(err_msg);
+                        reporting.reportable.funded_overall += lamports_available;
                     } else if lamports_available > amount_to_fund + minimal_stake_lamports {
                         // we are in situation that the stake account has got (or it will have after merging)
                         // more lamports than needed for funding the settlement in current loop iteration,
@@ -496,14 +392,15 @@ async fn main() -> anyhow::Result<()> {
                         // NOTE: this process is "important" if the same vote account is used for multiple settlements,
                         //       and we want to utilize the maximum funding spreading over multiple settlements
                         // WARN: this REQUIRES that the fund bond transactions are executed in sequence!
-                        let lamports_available_after_split =
-                            lamports_available - amount_to_fund - minimal_stake_lamports;
+                        let lamports_available_after_split = lamports_available
+                            .saturating_sub(amount_to_fund)
+                            .saturating_sub(minimal_stake_lamports);
                         funding_stake_accounts.push(FundBondStakeAccount {
                             lamports: lamports_available_after_split,
                             stake_account: destination_split_stake.pubkey(),
                             split_stake_account: Rc::new(Keypair::new()),
                         });
-                        funded_lamports_overall += amount_to_fund;
+                        reporting.reportable.funded_overall += amount_to_fund;
                     }
                     settlement_record.funder =
                         SettlementFunderType::ValidatorBond(Some(SettlementFunderValidatorBond {
@@ -511,39 +408,39 @@ async fn main() -> anyhow::Result<()> {
                         }))
                 } else {
                     let err_msg = format!(
-                        "Cannot find stake account to fund settlement {} of vote account {}",
+                        "Cannot find stake account to fund settlement {} (vote account {}, funder {:?})",
                         settlement_record.settlement_address,
-                        settlement_record.vote_account_address
+                        settlement_record.vote_account_address,
+                        settlement_record.funder
                     );
-                    error!("{}", err_msg);
-                    init_settlement_errors.push(err_msg);
+                    reporting.add_error_string(err_msg);
                 }
+                reporting.reportable.funded_already += settlement_record
+                    .max_total_claim
+                    .saturating_sub(amount_to_fund);
             }
         }
     }
 
-    let ix_count = execute_in_sequence(
+    let (tx_count, ix_count) = execute_in_sequence(
         rpc_client.clone(),
         transaction_executor.clone(),
         &mut transaction_builder,
         &priority_fee_policy,
     )
-    .await?;
-    info!(
-        "Stake accounts management instructions {} executed successfully",
-        ix_count
-    );
+    .await
+    .map_err(CliError::retry_able)?;
+    info!("Stake accounts management txes {tx_count}/ixes {ix_count} executed successfully");
 
+    // --- Settlements Funding ---
     let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
     transaction_builder.add_signer_checked(&operator_authority);
     transaction_builder.add_signer_checked(&rent_payer);
     transaction_builder.add_signer_checked(&marinade_wallet);
 
-    // Funding settlements
-    let mut funded_settlements_overall = 0u32;
     // WARN: the prior processing REQUIRES that the fund bond transactions are executed in sequence
     for settlement_record in &settlement_records {
-        if !settlement_record.state.is_in_progress() {
+        if !settlement_record.state.is_in_progress(reporting) {
             continue;
         }
         match settlement_record.funder {
@@ -572,7 +469,7 @@ async fn main() -> anyhow::Result<()> {
                 );
                 transaction_builder.add_instructions(instructions)?;
                 transaction_builder.finish_instruction_pack();
-                funded_settlements_overall += 1;
+                reporting.reportable.funded_settlements_overall += 1;
             }
             SettlementFunderType::ValidatorBond(Some(SettlementFunderValidatorBond {
                 stake_account_to_fund,
@@ -602,17 +499,18 @@ async fn main() -> anyhow::Result<()> {
                     })
                     .args(validator_bonds::instruction::FundSettlement {});
                 transaction_builder.add_signer_checked(&split_stake_account_keypair);
-                add_instructions_to_builder_from_anchor(&mut transaction_builder, &req).map_err(
-                    |e| {
-                        anyhow!(
-                            "Cannot add merge stake instruction to transaction builder: {:?}",
-                            e
-                        )
-                    },
+                add_instruction_to_builder(
+                    &mut transaction_builder,
+                    &req,
+                    format!(
+                        "FundSettlement: {}, stake: {}",
+                        settlement_record.settlement_address, stake_account_to_fund,
+                    ),
                 )?;
-                funded_settlements_overall += 1;
+                reporting.reportable.funded_settlements_overall += 1;
             }
             _ => {
+                // reason should be already part of reporting here
                 error!(
                     "Not possible to fund settlement {} (vote account {}) with funder type {:?}",
                     settlement_record.settlement_address,
@@ -623,35 +521,175 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let ix_count = execute_in_sequence(
+    let execute_result = execute_in_sequence(
         rpc_client.clone(),
         transaction_executor.clone(),
         &mut transaction_builder,
         &priority_fee_policy,
     )
-    .await?;
-    info!(
-        "FundSettlement instructions {} executed successfully",
-        ix_count
-    );
-
-    println!("For epoch {epoch}: JSON loaded {} settlements with {} SOLs, this run funded {} settlements with {} SOLs; {} errors",
-        settlement_records.len(),
-        lamports_to_sol(settlement_records.iter().map(|s| s.max_total_claim).sum::<u64>()),
-        funded_settlements_overall,
-        lamports_to_sol(funded_lamports_overall),
-        init_settlement_errors.len(),
-    );
-
-    if !init_settlement_errors.is_empty() {
-        serde_json::to_writer(io::stdout(), &init_settlement_errors)?;
-        return Err(anyhow!(
-            "{} errors during initialization of settlements",
-            init_settlement_errors.len(),
-        ));
-    }
+    .await;
+    reporting.add_tx_execution_result(execute_result, "FundSettlement");
 
     Ok(())
+}
+
+fn load_json_data(
+    merkle_trees_path: &str,
+    settlements_path: &str,
+) -> anyhow::Result<CombinedMerkleTreeSettlementCollections> {
+    let merkle_tree_collection: MerkleTreeCollection = read_from_json_file(merkle_trees_path)
+        .map_err(|e| {
+            anyhow!(
+                "Cannot read merkle tree collection from file '{}': {:?}",
+                merkle_trees_path,
+                e
+            )
+        })?;
+    let settlement_collection: SettlementCollection = read_from_json_file(settlements_path)
+        .map_err(|e| {
+            anyhow!(
+                "Cannot read settlement collection from file '{}': {:?}",
+                settlements_path,
+                e
+            )
+        })?;
+    resolve_combined(merkle_tree_collection, settlement_collection)
+}
+
+/// Load on-chain data for Settlement accounts that we need to create
+async fn load_on_chain_data(
+    rpc_client: Arc<RpcClient>,
+    json_data: &CombinedMerkleTreeSettlementCollections,
+    config_address: &Pubkey,
+    epoch: u64,
+) -> Result<Vec<SettlementRecord>, CliError> {
+    // verify what are the settlement accounts that we need to create
+    // (not to pushing many RPC calls to the network, squeezing them to less)
+    let mut settlement_records = json_data
+        .merkle_tree_settlements
+        .iter()
+        .filter(|MerkleTreeMetaSettlement { merkle_tree, .. }| {
+            if merkle_tree.merkle_root.is_some() {
+                true
+            } else {
+                panic!(
+                    "Cannot create settlement for vote account {}, epoch {} without a merkle root",
+                    merkle_tree.vote_account, epoch
+                );
+            }
+        })
+        .map(
+            |MerkleTreeMetaSettlement {
+                 merkle_tree,
+                 settlement,
+             }| {
+                let merkle_root = merkle_tree.merkle_root.unwrap();
+                let vote_account_address = merkle_tree.vote_account;
+                let (bond_address, _) = validator_bonds::state::bond::find_bond_address(
+                    config_address,
+                    &merkle_tree.vote_account,
+                );
+                let (settlement_address, _) =
+                    validator_bonds::state::settlement::find_settlement_address(
+                        &bond_address,
+                        &merkle_root.to_bytes(),
+                        epoch,
+                    );
+                SettlementRecord {
+                    vote_account_address,
+                    bond_address,
+                    settlement_address,
+                    settlement_staker_authority: find_settlement_staker_authority(
+                        &settlement_address,
+                    )
+                    .0,
+                    merkle_root: merkle_root.to_bytes(),
+                    max_total_claim: merkle_tree.max_total_claim_sum,
+                    max_merkle_nodes: merkle_tree.max_total_claims as u64,
+                    funder: SettlementFunderType::new(&settlement.meta.funder),
+                    bond_account: None,
+                    settlement_account: None,
+                    state: SettlementRecordState::InProgress,
+                }
+            },
+        )
+        .collect::<Vec<SettlementRecord>>();
+
+    // Loading accounts from on-chain, trying to not pushing many RPC calls to the network
+    let settlement_addresses: Vec<Pubkey> = settlement_records
+        .iter()
+        .map(|d| d.settlement_address)
+        .collect();
+    let settlements = get_settlements_for_pubkeys(rpc_client.clone(), &settlement_addresses)
+        .await
+        .map_err(CliError::RetryAble)?;
+    for (record, (pubkey, settlement)) in settlement_records.iter_mut().zip(settlements.into_iter())
+    {
+        assert_eq!(
+            record.settlement_address, pubkey,
+            "Mismatched settlement address"
+        ); // sanity check
+        record.settlement_account = settlement;
+    }
+    let bond_addresses: Vec<Pubkey> = settlement_records.iter().map(|d| d.bond_address).collect();
+    let bonds = get_bonds_for_pubkeys(rpc_client.clone(), &bond_addresses)
+        .await
+        .map_err(CliError::RetryAble)?;
+    for (record, (pubkey, bond)) in settlement_records.iter_mut().zip(bonds.into_iter()) {
+        assert_eq!(record.bond_address, pubkey, "Mismatched bond address"); // sanity check
+        record.bond_account = bond;
+    }
+    Ok(settlement_records)
+}
+
+#[derive(Clone)]
+struct FundBondStakeAccount {
+    lamports: u64,
+    stake_account: Pubkey,
+    split_stake_account: Rc<Keypair>,
+}
+
+/// Filtering stake accounts and creating a Map of vote account to stake accounts
+async fn get_on_chain_bond_stake_accounts(
+    rpc_client: Arc<RpcClient>,
+    stake_accounts: &CollectedStakeAccounts,
+    withdrawer_authority: &Pubkey,
+) -> Result<HashMap<Pubkey, Vec<FundBondStakeAccount>>, CliError> {
+    let non_funded: CollectedStakeAccounts = stake_accounts
+        .clone()
+        .into_iter()
+        .filter(|(_, _, stake)| {
+            if let Some(authorized) = stake.authorized() {
+                authorized.staker == *withdrawer_authority
+                    && authorized.withdrawer == *withdrawer_authority
+            } else {
+                false
+            }
+        })
+        .collect();
+    let non_funded_delegated_stakes =
+        obtain_delegated_stake_accounts(rpc_client.clone(), non_funded)
+            .await
+            .map_err(CliError::RetryAble)?;
+
+    // creating a map of vote account to stake accounts
+    let result_map = non_funded_delegated_stakes
+        .into_iter()
+        .map(|(vote_account, stake_accounts)| {
+            (
+                vote_account,
+                stake_accounts
+                    .into_iter()
+                    .map(|(stake_account, lamports, _)| FundBondStakeAccount {
+                        lamports,
+                        stake_account,
+                        split_stake_account: Rc::new(Keypair::new()),
+                    })
+                    .collect(),
+            )
+        })
+        .collect::<HashMap<Pubkey, Vec<FundBondStakeAccount>>>();
+    Ok(result_map)
 }
 
 #[derive(Debug)]
@@ -686,8 +724,14 @@ enum SettlementRecordState {
 }
 
 impl SettlementRecordState {
-    fn is_in_progress(&self) -> bool {
-        matches!(self, SettlementRecordState::InProgress)
+    fn is_in_progress(&self, reporting: &mut ReportHandler<InitSettlementReport>) -> bool {
+        match self {
+            SettlementRecordState::InProgress => true,
+            SettlementRecordState::AlreadyFunded => {
+                reporting.reportable.funded_settlements_already += 1;
+                false
+            }
+        }
     }
 }
 
@@ -704,4 +748,91 @@ struct SettlementRecord {
     max_merkle_nodes: u64,
     funder: SettlementFunderType,
     state: SettlementRecordState,
+}
+
+struct InitSettlementReport {
+    rpc_client: Option<Arc<RpcClient>>,
+    json_settlements_count: u64,
+    json_settlements_max_claim_sum: u64,
+    // settlement_address, vote_account_address
+    created_settlements: Vec<(Pubkey, Pubkey)>,
+    epoch: u64,
+    funded_overall: u64,
+    funded_already: u64,
+    funded_settlements_overall: u64,
+    funded_settlements_already: u64,
+}
+
+impl PrintReportable for InitSettlementReport {
+    fn get_report(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + '_>> {
+        Box::pin(async {
+            let _rpc_client = if let Some(rpc_client) = &self.rpc_client {
+                rpc_client
+            } else {
+                return vec![];
+            };
+
+            vec![
+                format!(
+                    "InitSettlement (epoch: {}): created {} settlements of all {} settlements (the diff already exists)",
+                    self.epoch,
+                    self.created_settlements.len(),
+                    self.json_settlements_count
+                ),
+                format!("JSON loaded {} settlements with sum {} SOLs, this round funded {} settlements with {} SOLs (already existing #{}/SOLS:{}",
+                    self.json_settlements_count,
+                    lamports_to_sol(self.json_settlements_max_claim_sum),
+                    self.funded_settlements_overall,
+                    lamports_to_sol(self.funded_overall),
+                    self.funded_settlements_already,
+                    self.funded_already,
+                ),
+            ]
+        })
+    }
+}
+
+impl InitSettlementReport {
+    fn report_handler() -> ReportHandler<Self> {
+        let init_settlement_report = Self {
+            rpc_client: None,
+            created_settlements: vec![],
+            json_settlements_count: 0,
+            json_settlements_max_claim_sum: 0,
+            epoch: 0,
+            funded_overall: 0,
+            funded_already: 0,
+            funded_settlements_overall: 0,
+            funded_settlements_already: 0,
+        };
+        ReportHandler::new(init_settlement_report)
+    }
+
+    fn init(
+        &mut self,
+        rpc_client: Arc<RpcClient>,
+        epoch: u64,
+        json_settlements: &Vec<SettlementRecord>,
+    ) {
+        self.rpc_client = Some(rpc_client);
+        self.json_settlements_count = json_settlements.len() as u64;
+        self.json_settlements_max_claim_sum =
+            json_settlements.iter().map(|s| s.max_total_claim).sum();
+        self.epoch = epoch;
+    }
+
+    fn add_created_settlement(&mut self, settlement_record: &SettlementRecord) {
+        self.created_settlements.push((
+            settlement_record.settlement_address,
+            settlement_record.vote_account_address,
+        ));
+    }
+
+    fn list_created_settlements(&self) -> String {
+        self.created_settlements
+            .iter()
+            .map(|(s, v)| format!("{}/{}", s, v))
+            .collect::<Vec<String>>()
+            .join(", ")
+    }
 }

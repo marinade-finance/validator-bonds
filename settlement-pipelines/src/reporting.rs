@@ -1,3 +1,4 @@
+use crate::cli_result::{CliError, CliResult};
 use log::{error, info};
 use std::future::Future;
 use std::ops::{Deref, DerefMut};
@@ -20,12 +21,10 @@ impl<T: PrintReportable> ReportHandler<T> {
         }
     }
 
-    pub async fn report_and_exit(&self) -> anyhow::Result<()> {
+    pub async fn print_report(&self) {
         for report in self.reportable.get_report().await {
             println!("{}", report);
         }
-        self.error_handler.report_and_exit();
-        Ok(())
     }
 }
 
@@ -45,7 +44,7 @@ impl<T: PrintReportable> DerefMut for ReportHandler<T> {
 
 #[derive(Default)]
 pub struct ErrorHandler {
-    tx_errors: Vec<String>,
+    retry_able_errors: Vec<String>,
     errors: Vec<String>,
 }
 
@@ -57,57 +56,72 @@ impl ErrorHandler {
 
     pub fn add_error(&mut self, error: anyhow::Error) {
         error!("{:?}", error);
-        self.errors.push(format!("{:?}", error));
+        self.errors.push(format!("{}", error));
     }
 
-    pub fn add_tx_error(&mut self, error: anyhow::Error) {
+    pub fn add_retry_able_error(&mut self, error: anyhow::Error) {
         error!("{:?}", error);
-        self.tx_errors.push(format!("{:?}", error));
+        self.retry_able_errors.push(format!("{}", error));
     }
 
     pub fn add_tx_execution_result(
         &mut self,
-        execution_result: anyhow::Result<usize>,
+        execution_result: anyhow::Result<(usize, usize)>,
         message: &str,
     ) {
         match execution_result {
-            Ok(ix_count) => {
-                info!("{message}: instructions {ix_count} executed succesfully")
+            Ok((tx_count, ix_count)) => {
+                info!("{message}: txes {tx_count}/ixes {ix_count} executed successfully")
             }
             Err(err) => {
-                self.add_tx_error(err);
+                self.add_retry_able_error(err);
             }
         }
     }
 
-    fn report_and_exit(&self) {
-        let mut exit_code: i32 = 0;
+    pub fn finalize(&self) -> anyhow::Result<()> {
+        let mut result = anyhow::Ok(());
 
         if !self.errors.is_empty() {
-            error!(
-                "Errors occurred during processing: {} errors",
-                self.errors.len()
-            );
             println!("ERRORS:");
             for error in &self.errors {
                 println!("{}", error);
             }
-            exit_code = 1;
+            result = Err(CliError::processing(format!(
+                "Errors occurred during processing: {} errors",
+                self.errors.len()
+            )));
         }
 
-        if !self.tx_errors.is_empty() {
+        if !self.retry_able_errors.is_empty() {
             error!(
                 "Errors occurred during transaction processing: {} errors",
-                self.tx_errors.len()
+                self.retry_able_errors.len()
             );
             println!("TRANSACTION ERRORS:");
-            for error in &self.tx_errors {
+            for error in &self.retry_able_errors {
                 println!("{}", error);
             }
-            // expected this is a retryable error
-            exit_code = 100;
+            result = Err(CliError::retry_able(format!(
+                "Retry-able errors occurred: {} errors",
+                self.retry_able_errors.len()
+            )));
         }
 
-        std::process::exit(exit_code);
+        result
+    }
+}
+
+pub async fn with_reporting<T: PrintReportable>(
+    report_handler: &ReportHandler<T>,
+    main_result: anyhow::Result<()>,
+) -> CliResult {
+    // print report in whatever case
+    report_handler.print_report().await;
+    match main_result {
+        // when Ok is returned we consult the reality with report handler
+        Ok(_) => CliResult(report_handler.finalize()),
+        // when main returned some error we pass it to terminate with it
+        Err(err) => CliResult(Err(err)),
     }
 }

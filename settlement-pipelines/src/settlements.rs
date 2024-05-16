@@ -4,6 +4,7 @@ use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use std::sync::Arc;
 
+use crate::cli_result::CliError;
 use validator_bonds::state::config::{find_bonds_withdrawer_authority, Config};
 use validator_bonds::state::settlement::{find_settlement_staker_authority, Settlement};
 use validator_bonds::state::settlement_claim::SettlementClaim;
@@ -26,21 +27,24 @@ pub async fn list_claimable_settlements(
     rpc_client: Arc<RpcClient>,
     config_address: &Pubkey,
     config: &Config,
-) -> anyhow::Result<Vec<ClaimableSettlementsReturn>> {
-    let clock = get_sysvar_clock(rpc_client.clone()).await?;
+) -> Result<Vec<ClaimableSettlementsReturn>, CliError> {
+    let clock = get_sysvar_clock(rpc_client.clone())
+        .await
+        .map_err(CliError::RetryAble)?;
     let current_epoch = clock.epoch;
     let current_slot = clock.slot;
 
     let (withdraw_authority, _) = find_bonds_withdrawer_authority(config_address);
 
-    let all_settlements = get_settlements(rpc_client.clone()).await?;
+    let all_settlements = get_settlements(rpc_client.clone())
+        .await
+        .map_err(CliError::RetryAble)?;
 
     let claimable_settlements = all_settlements
         .into_iter()
         .filter(|(settlement_address, settlement)| {
             let is_epoch_in_range = current_epoch <= settlement.epoch_created_for + config.epochs_to_claim_settlement;
             let is_slot_past_threshold = current_slot >= settlement.slot_created_at + config.slots_to_start_settlement_claiming;
-
             info!(
                 "Settlement {} epoch_created_for: {}, current_epoch: {}, epochs_to_claim_settlement: {}, slot_created_at: {}, slots_to_start_settlement_claiming: {}, is_epoch_in_range: {}, is_slot_past_threshold: {}",
                 settlement_address,
@@ -57,7 +61,9 @@ pub async fn list_claimable_settlements(
         }).collect::<Vec<(Pubkey, Settlement)>>();
 
     let stake_accounts =
-        collect_stake_accounts(rpc_client.clone(), Some(&withdraw_authority), None).await?;
+        collect_stake_accounts(rpc_client.clone(), Some(&withdraw_authority), None)
+            .await
+            .map_err(CliError::RetryAble)?;
     info!(
         "For config {} there are {} stake accounts",
         config_address,
@@ -73,7 +79,8 @@ pub async fn list_claimable_settlements(
             .collect(),
         rpc_client.clone(),
     )
-    .await?;
+    .await
+    .map_err(CliError::RetryAble)?;
 
     let results = claimable_settlements
         .into_iter()
@@ -98,7 +105,7 @@ pub async fn list_claimable_settlements(
     Ok(results)
 }
 
-pub async fn list_expired_settlements(
+pub async fn load_expired_settlements(
     rpc_client: Arc<RpcClient>,
     config_address: &Pubkey,
     config: &Config,

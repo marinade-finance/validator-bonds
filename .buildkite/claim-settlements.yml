@@ -91,7 +91,7 @@ steps:
     retry:
       automatic:
         - exit_status: 100
-          limit: 10
+          limit: 5
 
   - label: "Notification setup"
     env:
@@ -99,7 +99,7 @@ steps:
     commands:
      - |
        build_result=$(buildkite-agent step get "outcome" --step "claim-settlement")
-        if [[ "$$build_result" =~ "failed" ]]; then
+        if [[ -z "$$build_result" || "$$build_result" =~ "failed" ]]; then
           notification_result="FAILED"
           notification_color="15158332"
         else
@@ -112,19 +112,19 @@ steps:
      - 'mkdir ./reports'
      - 'buildkite-agent artifact download --include-retried-jobs "build-report.*" ./reports/'
      - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
-     - '[ -f "$$report_path" ] || echo "No report generated; "UNKNOWN ERROR" >> "$$report_path"'
+     - '[ -f "$$report_path" ] || echo "No report generated; UNKNOWN ERROR" >> "$$report_path"'
      - 'cp "$$report_path" ./claiming-report.txt'
      - 'claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json)'
      - 'first_epoch=$(echo "$$claimable_epochs_json" | jq ".[0]")'
      - '[[ -n "$$first_epoch" && "$$first_epoch" != "null" ]] && gcloud storage cp ./claiming-report.txt "$$gs_bucket/$$first_epoch/claiming-report.$(date +%s).txt"'
-     - 'buildkite-agent meta-data set attempts_count "$(grep -c "#ATTEMPT" ./claiming-report.txt)"'
+     - 'buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./claiming-report.txt)"'
     artifact_paths:
     - "./claiming-report.txt"
+    key: 'notification'
     depends_on: "claim-settlement"
     allow_dependency_failure: true
   
   - wait: ~
-    continue_on_failure: true
 
   - label: ":mega: Notification settlements claiming"
     commands:
@@ -137,11 +137,17 @@ steps:
       claimable_epochs=$(echo "$$claimable_epochs_json" | jq ". | join(\",\")" | tr -d '"')
       curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
         -F 'payload_json={
-            "content": "Claim Settlements '"$notification_result"' for epochs: '"$$claimable_epochs"' after '"$$attempts_count"' attempts",
-            "url": "'"$$BUILDKITE_BUILD_URL"'",
-            "color": "'"$$notification_color"'"
+            "embeds":[{
+              "title": "Claim Settlements '"$$notification_result"' for epochs: '"$$claimable_epochs"' after '"$$attempts_count"' attempts",
+              "url": "'"$$BUILDKITE_BUILD_URL"'",
+              "color": "'"$$notification_color"'"
+            }]
         }' \
         -F "file1=@./claiming-report.txt"
+    - |
+      build_result=$(buildkite-agent step get "outcome" --step "claim-settlement")
+    depends_on: "notification"
+    allow_dependency_failure: true
 
   - wait: ~
 

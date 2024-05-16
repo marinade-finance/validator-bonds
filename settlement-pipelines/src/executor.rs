@@ -13,10 +13,11 @@ pub async fn execute_parallel(
     executor: Arc<TransactionExecutor>,
     builder: &mut TransactionBuilder,
     priority_fee_policy: &PriorityFeePolicy,
-) -> anyhow::Result<usize> {
+) -> anyhow::Result<(usize, usize)> {
     let executed_instruction_count = builder.instructions().len();
     let execution_data =
         builder_to_execution_data(rpc_client.url(), builder, Some(priority_fee_policy.clone()));
+    let executed_transaction_count = execution_data.len();
     execute_transactions_in_parallel(
         executor.clone(),
         execution_data,
@@ -29,7 +30,7 @@ pub async fn execute_parallel(
         0,
         "execute_parallel: expected to get all instructions from builder processed"
     );
-    Ok(executed_instruction_count)
+    Ok((executed_transaction_count, executed_instruction_count))
 }
 
 pub async fn execute_in_sequence(
@@ -37,10 +38,11 @@ pub async fn execute_in_sequence(
     executor: Arc<TransactionExecutor>,
     builder: &mut TransactionBuilder,
     priority_fee_policy: &PriorityFeePolicy,
-) -> anyhow::Result<usize> {
+) -> anyhow::Result<(usize, usize)> {
     let executed_instruction_count = builder.instructions().len();
     let execution_data =
         builder_to_execution_data(rpc_client.url(), builder, Some(priority_fee_policy.clone()));
+    let executed_transaction_count = execution_data.len();
     execute_transactions_in_sequence(executor.clone(), execution_data).await?;
     // when all executed successfully then builder should be empty
     assert_eq!(
@@ -48,5 +50,5 @@ pub async fn execute_in_sequence(
         0,
         "execute_in_sequence: expected to get all instructions from builder processed"
     );
-    Ok(executed_instruction_count)
+    Ok((executed_transaction_count, executed_instruction_count))
 }
