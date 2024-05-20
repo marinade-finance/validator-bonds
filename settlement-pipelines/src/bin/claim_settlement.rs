@@ -706,7 +706,7 @@ impl PrintReportable for ClaimSettlementReport {
                             .push((pubkey, settlement));
                     }
                     let mut report: Vec<String> = vec![];
-                    let mut claim_settlemnts_accounts_created: u64 = 0;
+                    let mut claim_settlements_accounts_created: u64 = 0;
                     for epoch in grouped_by_epoch.keys() {
                         let settlements_claimable_after_group = grouped_by_epoch
                             .get(epoch)
@@ -737,7 +737,17 @@ impl PrintReportable for ClaimSettlementReport {
                             let claim_accounts_count_before = self
                                 .settlements_claimable_before
                                 .get(settlement_address)
-                                .map_or_else(|| None, |d| Some(d.claim_records.len() as u64));
+                                .map_or_else(
+                                    || None,
+                                    |d| {
+                                        Some(
+                                            d.claim_records
+                                                .values()
+                                                .map(|v| v.map_or_else(|| 0_u64, |v| v))
+                                                .sum::<u64>(),
+                                        )
+                                    },
+                                );
                             let claim_accounts_count_after = get_settlement_claims_for_settlement(
                                 rpc_client.clone(),
                                 settlement_address,
@@ -754,7 +764,7 @@ impl PrintReportable for ClaimSettlementReport {
                                 .saturating_sub(
                                     claim_accounts_count_before.map_or_else(|| 0, |v| v),
                                 );
-                            claim_settlemnts_accounts_created += claim_accounts_count_diff;
+                            claim_settlements_accounts_created += claim_accounts_count_diff;
                             epoch_report.push(format!(
                                 "  Settlement {} in sum claimed SOLs {}/{} SOLs, ClaimSettlement accounts {}/{}. \n    This time claimed SOLs {}, ClaimSettlement accounts {} (not claimed reason: no target {}, no source: {})",
                                 settlement_address,
@@ -771,8 +781,8 @@ impl PrintReportable for ClaimSettlementReport {
                         report.push(format!(
                             "Epoch {}, this time created {} ClaimSettlement accounts in sum of rent {} SOL",
                             epoch,
-                            claim_settlemnts_accounts_created,
-                            lamports_to_sol(settlement_claim_rent * claim_settlemnts_accounts_created)
+                            claim_settlements_accounts_created,
+                            lamports_to_sol(settlement_claim_rent * claim_settlements_accounts_created)
                         ));
                         report.extend(epoch_report);
                     }

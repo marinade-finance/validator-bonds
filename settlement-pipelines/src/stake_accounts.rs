@@ -21,7 +21,7 @@ pub fn prioritize_for_claiming(
 ) -> anyhow::Result<Pubkey> {
     let mut non_locked_stake_accounts = stake_accounts
         .iter()
-        .filter(|(_pubkey, _, stake)| !is_locked(stake, clock))
+        .filter(|(_, _, stake)| !is_locked(stake, clock))
         .collect::<Vec<_>>();
     non_locked_stake_accounts.sort_by_cached_key(|(_, _, stake_account)| {
         get_non_locked_priority_key(stake_account, clock, stake_history)
@@ -29,7 +29,7 @@ pub fn prioritize_for_claiming(
     return if let Some((pubkey, _, _)) = non_locked_stake_accounts.first() {
         Ok(*pubkey)
     } else if !stake_accounts.is_empty() {
-        // there is no non-locked stake accounts but there are some available, i.e., all locked
+        // NO non-locked stake accounts but(!) some exists, i.e., all available locked
         Err(anyhow!(
             "All stake accounts are locked for claiming ({})",
             stake_accounts.len()

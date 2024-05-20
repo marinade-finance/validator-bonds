@@ -513,8 +513,8 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       ]) as any
     ).toHaveMatchingSpawnOutput({
       code: 2,
-      stderr:
-        /All stake accounts are locked(.|\n|\r)*ClaimSettlement: txes 12[0-9][0-9][0-9]/,
+      stderr: /All stake accounts are locked for claiming/,
+      stdout: /created 12[0-9][0-9][0-9] ClaimSettlement accounts/,
     })
 
     // still expecting some error as we have not fully funded settlements
@@ -574,7 +574,7 @@ export async function chunkedCreateInitializedStakeAccounts({
   let counter = 0
   let futures: Promise<void>[] = []
   const lockedAccounts = Array.from(
-    { length: 10 },
+    { length: 20 },
     () => Math.floor(Math.random() * combined.length) + 1
   )
   for (const { staker, withdrawer, keypair } of combined) {
