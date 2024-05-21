@@ -72,7 +72,7 @@ steps:
       set -o pipefail
       ./target/release/claim-settlement \
         --rpc-url $$RPC_URL \
-        --merkle-trees-dir "./merkle-trees/" \
+        --settlement-json-files ./merkle-trees/* \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$VALIDATOR_BONDS_RANDOM_TX_FEE_PAYER" \
         --rent-payer "$$VALIDATOR_BONDS_RANDOM_RENT_PAYER" \

@@ -51,15 +51,16 @@ struct Args {
     #[clap(flatten)]
     global_opts: GlobalOpts,
 
+    /// List of JSON files with tree collection and settlements
     #[arg(
-        short = 'd',
+        short = 's',
         long,
-        env,
-        help = "Path to directory containing json files with tree collection files and settlement files"
+        value_delimiter = ' ',
+        num_args(1..),
     )]
-    merkle_trees_dir: PathBuf,
+    settlement_json_files: Vec<PathBuf>,
 
-    /// forcing epoch, overriding ones loaded from json files of merkle_trees_dir
+    /// forcing epoch, overriding ones loaded from json files of settlement_json_files
     /// mostly useful for testing purposes
     #[arg(long)]
     epoch: Option<u64>,
@@ -100,18 +101,16 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let mut json_data: HashMap<u64, MerkleTreeLoadedData> = HashMap::new();
-    for path in args.merkle_trees_dir.read_dir()?.filter_map(|entry| {
-        entry.ok().and_then(|e| {
-            let path = e.path();
-            debug!("Processing path: {:?}", path);
-            if path.is_file() {
-                Some(path)
-            } else {
-                None
-            }
-        })
+    for path in args.settlement_json_files.iter().filter(|path| {
+        if path.is_file() {
+            debug!("Processing file: {:?}", path);
+            true
+        } else {
+            debug!("Skipping file: {:?}, as it's not a file", path);
+            false
+        }
     }) {
-        process_merkle_trees_file(&path, &mut json_data, &args)?;
+        process_merkle_trees_file(path, &mut json_data)?;
     }
     let claiming_data = json_data
         .into_iter()
@@ -213,8 +212,8 @@ async fn main() -> anyhow::Result<()> {
                 settlement_merkle_tree
             } else {
                 let error_msg = format!(
-                    "No merkle tree data found for settlement epoch {} from dir {:?}",
-                    settlement_epoch, args.merkle_trees_dir
+                    "No merkle tree data found for settlement epoch {} of files {:?}",
+                    settlement_epoch, args.settlement_json_files
                 );
                 error!("{}", error_msg);
                 claim_settlement_errors.push(error_msg);
@@ -550,7 +549,6 @@ fn get_tree_node_hash(tree_node: &TreeNode) -> [u8; 32] {
 fn process_merkle_trees_file(
     path: &PathBuf,
     loaded_data: &mut HashMap<u64, MerkleTreeLoadedData>,
-    args: &Args,
 ) -> anyhow::Result<()> {
     let path_string = path
         .to_str()
@@ -564,8 +562,7 @@ fn process_merkle_trees_file(
         let merkle_tree_collection: MerkleTreeCollection = read_from_json_file(path_string)
             .map_err(|e| {
                 anyhow!(
-                    "Cannot read merkle tree collection from directory {:?} as file '{:?}': {:?}",
-                    args.merkle_trees_dir,
+                    "Cannot read merkle tree collection from file '{:?}': {:?}",
                     path,
                     e
                 )
@@ -576,8 +573,7 @@ fn process_merkle_trees_file(
         let settlement_collection: SettlementCollection = read_from_json_file(path_string)
             .map_err(|e| {
                 anyhow!(
-                    "Cannot read settlement collection from directory {:?} as file '{:?}': {:?}",
-                    args.merkle_trees_dir,
+                    "Cannot read settlement collection from from file '{:?}': {:?}",
                     path,
                     e
                 )

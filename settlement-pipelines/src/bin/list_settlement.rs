@@ -6,20 +6,20 @@ use settlement_pipelines::arguments::GlobalOpts;
 use settlement_pipelines::init::init_log;
 use settlement_pipelines::json_data::BondSettlement;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use validator_bonds::state::bond::find_bond_address;
 use validator_bonds::state::settlement::find_settlement_address;
 
-// Printing on std out the list settlements from JSON files in a directory
+// Printing on std out the list settlements from JSON files
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     #[clap(flatten)]
     global_opts: GlobalOpts,
 
-    /// Path to directory containing json files with tree collection files and settlement files
-    #[arg(short = 'd', long)]
-    merkle_trees_dir: PathBuf,
+    /// Paths to json files with tree collection
+    #[arg(short = 'm', value_delimiter = ' ', num_args(1..))]
+    merkle_tree_files: Vec<PathBuf>,
 
     /// File where the list of settlements will be written to in JSON format
     #[arg(long)]
@@ -33,11 +33,11 @@ async fn main() -> anyhow::Result<()> {
 
     let config_address = args.global_opts.config;
     info!(
-        "Listing settlements from JSON files in directory {:?} for validator-bonds config: {}",
-        args.merkle_trees_dir, config_address
+        "Listing settlements from JSON files {:?} for validator-bonds config: {}",
+        args.merkle_tree_files, config_address
     );
 
-    let merkle_tree_collection = load_merkle_tree_files(&args.merkle_trees_dir)?;
+    let merkle_tree_collection = load_merkle_tree_files(&args.merkle_tree_files)?;
 
     let bond_settlements: Vec<BondSettlement> = merkle_tree_collection
         .iter()
@@ -82,19 +82,18 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn load_merkle_tree_files(merkle_tree_dir: &Path) -> anyhow::Result<Vec<MerkleTreeCollection>> {
+fn load_merkle_tree_files(
+    merkle_tree_files: &[PathBuf],
+) -> anyhow::Result<Vec<MerkleTreeCollection>> {
     let mut merkle_trees: Vec<MerkleTreeCollection> = vec![];
-    for path in merkle_tree_dir.read_dir()?.filter_map(|entry| {
-        entry.ok().and_then(|e| {
-            let path = e.path();
-            debug!("Processing path: {:?}", path);
-            if path.is_file() {
-                Some(path)
-            } else {
-                debug!("Skipping path: {:?} as not a file", path);
-                None
-            }
-        })
+    for path in merkle_tree_files.iter().filter(|path| {
+        if path.is_file() {
+            debug!("Processing file: {:?}", path);
+            true
+        } else {
+            debug!("Skipping path: {:?} as not a file", path);
+            false
+        }
     }) {
         let file_path_str = path.to_str();
         if let Some(file_path_str) = file_path_str {

@@ -23,7 +23,7 @@ pub struct GlobalOpts {
         env,
         default_value = "https://api.mainnet-beta.solana.com"
     )]
-    pub rpc_url: Option<String>,
+    pub rpc_url: String,
 
     #[arg(long = "commitment", default_value = "confirmed")]
     pub commitment: CommitmentLevel,
@@ -168,7 +168,7 @@ pub struct InitializedGlobalOpts {
 
 /// Initialize the Anchor Solana client
 pub fn get_rpc_client(global_opts: &GlobalOpts) -> anyhow::Result<(Arc<RpcClient>, String)> {
-    let rpc_url = global_opts.rpc_url.clone().expect("RPC URL is required");
+    let rpc_url = global_opts.rpc_url.clone();
     let anchor_cluster = Cluster::from_str(&rpc_url)
         .map_err(|e| anyhow!("Could not parse JSON RPC url `{:?}`: {}", rpc_url, e))?;
     let rpc_client = Arc::new(RpcClient::new_with_commitment(

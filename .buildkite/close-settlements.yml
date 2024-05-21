@@ -52,7 +52,7 @@ steps:
     - 'buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .'
     - 'buildkite-agent artifact download --include-retried-jobs target/release/list-settlement .'
     - 'chmod +x target/release/list-settlement'
-    - './target/release/list-settlement -u $$RPC_URL -d ./merkle-trees/ --out ./past-settlements.json'
+    - './target/release/list-settlement -u $$RPC_URL -m ./merkle-trees/* --out ./past-settlements.json'
     artifact_paths:
       - "./past-settlements.json"
 
