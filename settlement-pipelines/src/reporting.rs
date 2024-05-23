@@ -1,5 +1,6 @@
 use crate::cli_result::{CliError, CliResult};
 use log::{error, info};
+use std::fmt::Display;
 use std::future::Future;
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
@@ -49,9 +50,9 @@ pub struct ErrorHandler {
 }
 
 impl ErrorHandler {
-    pub fn add_error_string(&mut self, error: String) {
+    pub fn add_error_string<D: Display>(&mut self, error: D) {
         error!("{}", error);
-        self.errors.push(error);
+        self.errors.push(error.to_string());
     }
 
     pub fn add_error(&mut self, error: anyhow::Error) {
@@ -64,10 +65,18 @@ impl ErrorHandler {
         self.retry_able_errors.push(format!("{}", error));
     }
 
-    pub fn add_tx_execution_result(
+    pub fn add_cli_error(&mut self, error: CliError) {
+        error!("{:?}", error);
+        match error {
+            CliError::Processing(err) => self.add_error(err),
+            CliError::RetryAble(err) => self.add_retry_able_error(err),
+        }
+    }
+
+    pub fn add_tx_execution_result<D: Display>(
         &mut self,
         execution_result: anyhow::Result<(usize, usize)>,
-        message: &str,
+        message: D,
     ) {
         match execution_result {
             Ok((tx_count, ix_count)) => {

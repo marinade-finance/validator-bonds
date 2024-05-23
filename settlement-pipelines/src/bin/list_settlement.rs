@@ -8,9 +8,6 @@ use settlement_pipelines::json_data::BondSettlement;
 use std::path::PathBuf;
 use validator_bonds::state::bond::find_bond_address;
 use validator_bonds::state::settlement::find_settlement_address;
-use std::path::{Path, PathBuf};
-use validator_bonds::state::bond::find_bond_address;
-use validator_bonds::state::settlement::find_settlement_address;
 
 // Printing on std out the list settlements from JSON files in a directory
 #[derive(Parser, Debug)]
@@ -97,20 +94,15 @@ fn load_merkle_tree_files(
             false
         }
     }) {
-        let file_path_str = path.to_str();
-        if let Some(file_path_str) = file_path_str {
-            read_from_json_file(file_path_str).map_or_else(
-                |e| {
-                    warn!(
-                        "Cannot load file {} as MerkleTreeCollection: {:?}",
-                        file_path_str, e
-                    )
-                },
-                |s| merkle_trees.push(s),
-            );
-        } else {
-            warn!("Could not convert path {:?} to string, skipping", path);
-        }
+        read_from_json_file(path).map_or_else(
+            |e| {
+                warn!(
+                    "Cannot load file '{:?}' as MerkleTreeCollection: {:?}",
+                    path, e
+                )
+            },
+            |s| merkle_trees.push(s),
+        );
     }
 
     Ok(merkle_trees)

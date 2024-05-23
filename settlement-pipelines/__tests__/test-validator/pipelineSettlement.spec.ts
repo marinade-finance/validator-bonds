@@ -237,7 +237,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       settlementAddresses.length -
         1 +
         ' executed successfully(.|\n|\r)*' +
-        'Stake accounts management txes 0(.|\n|\r)*FundSettlement: txes 1'
+        'Stake accounts management txes 0(.|\n|\r)*FundSettlements: txes 1'
     )
     await (
       expect([
@@ -298,7 +298,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     ).toHaveMatchingSpawnOutput({
       code: 2,
       stderr:
-        /InitSettlement ... txes 0(.|\n|\r)*already funded(.|\n|\r)*Stake accounts management txes 0(.|\n|\r)*FundSettlement: txes 0/,
+        /InitSettlement ... txes 0(.|\n|\r)*already funded(.|\n|\r)*Stake accounts management txes 0(.|\n|\r)*FundSettlements: txes 0/,
       stdout: /Cannot find stake account to fund settlement/,
     })
 
@@ -376,7 +376,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     ).toHaveMatchingSpawnOutput({
       code: 0,
       stderr:
-        /InitSettlement ... txes 0(.|\n|\r)*Stake accounts management txes 1(.|\n|\r)*FundSettlement.*ixes 9 executed/,
+        /InitSettlement ... txes 0(.|\n|\r)*Stake accounts management txes 1(.|\n|\r)*FundSettlements:.*ixes 9 executed/,
       stdout: /JSON loaded 10 settlements/,
     })
 
@@ -418,7 +418,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     ).toHaveMatchingSpawnOutput({
       code: 0,
       stderr:
-        /InitSettlement ... txes 0(.|\n|\r)*already funded(.|\n|\r)*Stake accounts management txes 0(.|\n|\r)*FundSettlement: txes 0/,
+        /InitSettlement ... txes 0(.|\n|\r)*already funded(.|\n|\r)*Stake accounts management txes 0(.|\n|\r)*FundSettlements: txes 0/,
       stdout: stdoutRegExp,
     })
     previousTest = TestNames.InitSettlement

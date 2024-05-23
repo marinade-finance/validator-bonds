@@ -1,4 +1,6 @@
+use anchor_client::anchor_lang::solana_program::native_token::lamports_to_sol;
 use anchor_client::anchor_lang::solana_program::stake::state::StakeStateV2;
+use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
 use clap::Parser;
 use log::{debug, error, info};
@@ -8,9 +10,11 @@ use settlement_pipelines::arguments::{
     init_from_opts, load_pubkey, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts,
     TipPolicyOpts,
 };
+use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::execute_parallel;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::BondSettlement;
+use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
 use settlement_pipelines::settlements::{
     load_expired_settlements, obtain_settlement_closing_refunds, SettlementRefundPubkeys,
     SETTLEMENT_CLAIM_ACCOUNT_SIZE,
@@ -18,12 +22,7 @@ use settlement_pipelines::settlements::{
 use settlement_pipelines::stake_accounts::filter_settlement_funded;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
-use anchor_client::{DynSigner, Program};
-use settlement_pipelines::reporting::{PrintReportable, ReportHandler};
 use solana_sdk::signature::Keypair;
-use anchor_client::anchor_lang::solana_program::native_token::lamports_to_sol;
-use settlement_pipelines::cli_result::{CliError, CliResult};
-use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
 use solana_sdk::signer::Signer;
 use solana_sdk::stake::config::ID as stake_config_id;
 use solana_sdk::stake::program::ID as stake_program_id;
@@ -34,11 +33,9 @@ use solana_transaction_builder::TransactionBuilder;
 use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
+use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
-use std::collections::{HashMap, HashSet};
-use std::future::Future;
-use std::pin::Pin;
 use std::sync::Arc;
 use tokio::time::sleep;
 use validator_bonds::state::bond::Bond;
@@ -70,7 +67,7 @@ struct Args {
     marinade_wallet: String,
 
     #[clap(long)]
-    past_settlements: String,
+    past_settlements: PathBuf,
 }
 
 #[tokio::main]
@@ -99,7 +96,7 @@ async fn real_main(reporting: &mut ReportHandler<CloseSettlementReport>) -> anyh
 
     let marinade_wallet = load_pubkey(&args.marinade_wallet)
         .map_err(|e| anyhow!("Failed to load --marinade-wallet: {:?}", e))?;
-    let past_settlements: Vec<BondSettlement> = read_from_json_file(args.past_settlements.as_str())
+    let past_settlements: Vec<BondSettlement> = read_from_json_file(&args.past_settlements)
         .map_err(|e| anyhow!("Failed to load --past-settlements: {:?}", e))?;
 
     let config_address = args.global_opts.config;
@@ -110,7 +107,6 @@ async fn real_main(reporting: &mut ReportHandler<CloseSettlementReport>) -> anyh
     let config = get_config(rpc_client.clone(), config_address)
         .await
         .map_err(CliError::retry_able)?;
-    let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(&config_address);
 
     reporting
         .reportable
@@ -130,7 +126,7 @@ async fn real_main(reporting: &mut ReportHandler<CloseSettlementReport>) -> anyh
         &expired_settlements,
         &config_address,
         &priority_fee_policy,
-        &mut reporting,
+        reporting,
     )
     .await?;
 
@@ -155,7 +151,7 @@ async fn real_main(reporting: &mut ReportHandler<CloseSettlementReport>) -> anyh
         transaction_executor.clone(),
         &mapping_settlements_to_staker_authority,
         &priority_fee_policy,
-        &mut reporting,
+        reporting,
     )
     .await?;
 
@@ -171,11 +167,11 @@ async fn real_main(reporting: &mut ReportHandler<CloseSettlementReport>) -> anyh
         &operator_authority_keypair,
         &marinade_wallet,
         &priority_fee_policy,
-        &mut reporting,
+        reporting,
     )
     .await?;
 
-    reporting.report().await
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -228,7 +224,7 @@ async fn close_settlements(
             })
             .args(validator_bonds::instruction::CloseSettlement {});
         add_instruction_to_builder(
-            &mut transaction_builder,
+            transaction_builder,
             &req,
             format!(
                 "Close Settlement {settlement_address} with refund account {}",
@@ -284,7 +280,7 @@ async fn close_settlement_claims(
                 })
                 .args(validator_bonds::instruction::CloseSettlementClaim {});
             add_instruction_to_builder(
-                &mut transaction_builder,
+                transaction_builder,
                 &req,
                 format!(
                     "Close Settlement Claim {settlement_claim_address} of settlement {}",
@@ -304,7 +300,7 @@ async fn close_settlement_claims(
         priority_fee_policy,
     )
     .await;
-    reporting.add_execution_result(execution_result, "CloseSettlementClaim");
+    reporting.add_tx_execution_result(execution_result, "CloseSettlementClaim");
     Ok(())
 }
 
@@ -377,7 +373,7 @@ async fn reset_stake_accounts(
         };
 
         if let StakeStateV2::Initialized(_) = stake_state {
-            transaction_builder.add_signer_checked(&operator_authority_keypair);
+            transaction_builder.add_signer_checked(operator_authority_keypair);
             // Initialized non-delegated can be withdrawn by operator
             let req = program
                 .request()
@@ -396,7 +392,7 @@ async fn reset_stake_accounts(
                 })
                 .args(validator_bonds::instruction::WithdrawStake {});
             add_instruction_to_builder(
-                &mut transaction_builder,
+                transaction_builder,
                 &req,
                 format!(
                     "Withdraw un-claimed stake account {stake_pubkey} for settlement {}",
@@ -426,7 +422,7 @@ async fn reset_stake_accounts(
                 })
                 .args(validator_bonds::instruction::ResetStake {});
             add_instruction_to_builder(
-                &mut transaction_builder,
+                transaction_builder,
                 &req,
                 format!(
                     "Reset un-claimed stake account {stake_pubkey} for settlement {}",
@@ -581,7 +577,7 @@ impl PrintReportable for CloseSettlementReport {
                 ),
                 format!(
                     "Number of withdraw stake accounts: {}, sum of withdrawn SOL: {} to wallet {}",
-                    self.reset_stake.len(),
+                    self.withdraw_stake.len(),
                     lamports_to_sol(self.withdraw_stake_lamports()),
                     self.withdraw_wallet
                 ),
