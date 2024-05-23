@@ -100,11 +100,11 @@ steps:
      - |
        build_result=$(buildkite-agent step get "outcome" --step "claim-settlement")
         if [[ -z "$$build_result" || "$$build_result" =~ "failed" ]]; then
-          notification_result="FAILED"
-          notification_color="15158332"
+          notification_result="finished with WARNINGS"
+          notification_color="16355909"
         else
           notification_result="SUCCEEDED"
-          notification_color="8388863"
+          notification_color="52224"
         fi
      - 'buildkite-agent meta-data set notification_color "$$notification_color"'
      - 'buildkite-agent meta-data set notification_result "$$notification_result"'

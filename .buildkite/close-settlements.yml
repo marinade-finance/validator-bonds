@@ -116,7 +116,7 @@ steps:
         notification_color="15158332"
       else
         notification_result="SUCCEEDED"
-        notification_color="8388863"
+        notification_color="52224"
       fi
     - |
       attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")

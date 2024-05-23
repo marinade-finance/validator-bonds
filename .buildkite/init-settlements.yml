@@ -120,7 +120,7 @@ steps:
           notification_color="15158332"
         else
           notification_result="SUCCEEDED"
-          notification_color="8388863"
+          notification_color="52224"
         fi
      - 'buildkite-agent meta-data set notification_color "$$notification_color"'
      - 'buildkite-agent meta-data set notification_result "$$notification_result"'
