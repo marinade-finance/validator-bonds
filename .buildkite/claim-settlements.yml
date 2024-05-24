@@ -63,7 +63,7 @@ steps:
     - '. "$HOME/.cargo/env"'
     - |
       claimable_epochs_num=$(buildkite-agent meta-data get claimable_epochs_num)
-      if [ "$$claimable_epochs_num" -eq 0 ]; then
+      if [[ $$claimable_epochs_num -eq 0 ]]; then
         echo 'No settlement to claim from' | tee ./claiming-report.txt
         exit 0
       fi
@@ -112,7 +112,7 @@ steps:
      - 'mkdir ./reports'
      - 'buildkite-agent artifact download --include-retried-jobs "build-report.*" ./reports/'
      - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
-     - '[ -f "$$report_path" ] || echo "No report generated; UNKNOWN ERROR" >> "$$report_path"'
+     - '[[ -f "$$report_path" ]] || echo "No report generated; UNKNOWN ERROR" >> "$$report_path"'
      - 'cp "$$report_path" ./claiming-report.txt'
      - 'claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json)'
      - 'first_epoch=$(echo "$$claimable_epochs_json" | jq ".[0]")'
