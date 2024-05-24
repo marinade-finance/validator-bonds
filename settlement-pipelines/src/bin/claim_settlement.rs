@@ -56,9 +56,6 @@ use validator_bonds_common::settlements::get_settlements_for_pubkeys;
 use validator_bonds_common::stake_accounts::{get_stake_history, CollectedStakeAccounts};
 use validator_bonds_common::utils::get_sysvar_clock;
 
-const SETTLEMENT_MERKLE_TREES_SUFFIX: &str = "settlement-merkle-trees.json";
-const SETTLEMENTS_SUFFIX: &str = "settlements.json";
-
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -233,7 +230,7 @@ fn load_json(
             false
         }
     }) {
-        process_json_file(path, &mut json_data)?;
+        load_json_data_to_merkle_tree(path, &mut json_data)?;
     }
     let claiming_data = json_data
         .into_iter()
@@ -255,48 +252,23 @@ fn load_json(
     Ok(claiming_data)
 }
 
-fn process_json_file(
+fn load_json_data_to_merkle_tree(
     path: &PathBuf,
     loaded_data: &mut HashMap<u64, MerkleTreeLoadedData>,
-) -> anyhow::Result<()> {
-    let file_name = path
-        .file_name()
-        .ok_or(CliError::processing(format!(
-            "Cannot get file name from path: {:?}",
-            path
-        )))?
-        .to_str()
-        .ok_or(CliError::processing(format!(
-            "Cannot convert file name to string: {:?}",
-            path
-        )))?;
-    // Handle different file types based on suffix
-    if file_name.ends_with(SETTLEMENT_MERKLE_TREES_SUFFIX) {
-        info!(
-            "path: {:?} ends with {}",
-            path, SETTLEMENT_MERKLE_TREES_SUFFIX
-        );
-        let merkle_tree_collection: MerkleTreeCollection =
-            read_from_json_file(path).map_err(|e| {
-                CliError::processing(format!(
-                    "Cannot read merkle tree collection from file '{:?}': {:?}",
-                    path, e
-                ))
-            })?;
-        insert_merkle_tree_loaded_data(loaded_data, Some(merkle_tree_collection), None)?;
-    } else if file_name.ends_with(SETTLEMENTS_SUFFIX) {
-        info!("path: {:?} ends with {}", path, SETTLEMENTS_SUFFIX);
-        let settlement_collection: SettlementCollection =
-            read_from_json_file(path).map_err(|e| {
-                CliError::processing(format!(
-                    "Cannot read settlement collection from file '{:?}': {:?}",
-                    path, e
-                ))
-            })?;
-        insert_merkle_tree_loaded_data(loaded_data, None, Some(settlement_collection))?;
-    }
+) -> Result<(), CliError> {
+    debug!("Loading data from file: {:?}", path);
+    let json_loading_result = if let Ok(merkle_tree_collection) = read_from_json_file(path) {
+        insert_merkle_tree_loaded_data(loaded_data, Some(merkle_tree_collection), None)
+    } else if let Ok(settlement_collection) = read_from_json_file(path) {
+        insert_merkle_tree_loaded_data(loaded_data, None, Some(settlement_collection))
+    } else {
+        Err(anyhow!("Cannot load JSON data from file: {:?}", path))
+    };
 
-    Ok(())
+    json_loading_result.map_err(|e| {
+        error!("Error loading JSON data from file: {:?}, {:?}", path, e);
+        CliError::Processing(e)
+    })
 }
 
 #[allow(clippy::too_many_arguments)]

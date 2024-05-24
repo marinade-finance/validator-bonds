@@ -17,6 +17,7 @@ use settlement_pipelines::json_data::{
     resolve_combined, CombinedMerkleTreeSettlementCollections, MerkleTreeMetaSettlement,
 };
 use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
+use settlement_pipelines::settlements::SETTLEMENT_CLAIM_ACCOUNT_SIZE;
 use settlement_pipelines::stake_accounts::STAKE_ACCOUNT_RENT_EXEMPTION;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::native_token::lamports_to_sol;
@@ -842,6 +843,7 @@ struct InitSettlementReport {
     rpc_client: Option<Arc<RpcClient>>,
     json_settlements_count: u64,
     json_settlements_max_claim_sum: u64,
+    json_max_merkle_nodes_sum: u64,
     // settlement_address, vote_account_address
     created_settlements: Vec<(Pubkey, Pubkey)>,
     epoch: u64,
@@ -854,26 +856,40 @@ struct InitSettlementReport {
 impl PrintReportable for InitSettlementReport {
     fn get_report(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + '_>> {
         Box::pin(async {
-            let _rpc_client = if let Some(rpc_client) = &self.rpc_client {
+            let rpc_client = if let Some(rpc_client) = &self.rpc_client {
                 rpc_client
             } else {
                 return vec![];
             };
+            let settlement_claim_rent = rpc_client
+                .get_minimum_balance_for_rent_exemption(SETTLEMENT_CLAIM_ACCOUNT_SIZE)
+                .await
+                .map_or_else(
+                    |e| {
+                        error!("Error fetching SettlementClaim account rent: {:?}", e);
+                        0_u64
+                    },
+                    |v| v,
+                );
 
             vec![
                 format!(
-                    "InitSettlement (epoch: {}): created {} settlements of all {} settlements (the diff already exists)",
+                    "InitSettlement (epoch: {}): created {}/{} settlements",
                     self.epoch,
                     self.created_settlements.len(),
                     self.json_settlements_count
                 ),
-                format!("JSON loaded {} settlements with sum {} SOLs, this round funded {} settlements with {} SOLs (already existing #{}/SOLS:{}",
-                    self.json_settlements_count,
-                    lamports_to_sol(self.json_settlements_max_claim_sum),
+                format!("InitSettlement funded {}/{} settlements with {}/{} SOLs (before this already funded {} settlements with {} SOLs)",
                     self.funded_settlements_overall,
+                    self.json_settlements_count,
                     lamports_to_sol(self.funded_overall),
+                    lamports_to_sol(self.json_settlements_max_claim_sum),
                     self.funded_settlements_already,
                     self.funded_already,
+                ),
+                format!("InitSettlement number of loaded settlements merkle nodes {}, expected rent for settlement claims {} SOLs",
+                    self.json_max_merkle_nodes_sum,
+                    lamports_to_sol(self.json_max_merkle_nodes_sum * settlement_claim_rent),
                 ),
             ]
         })
@@ -887,6 +903,7 @@ impl InitSettlementReport {
             created_settlements: vec![],
             json_settlements_count: 0,
             json_settlements_max_claim_sum: 0,
+            json_max_merkle_nodes_sum: 0,
             epoch: 0,
             funded_overall: 0,
             funded_already: 0,
@@ -906,6 +923,7 @@ impl InitSettlementReport {
         self.json_settlements_count = json_settlements.len() as u64;
         self.json_settlements_max_claim_sum =
             json_settlements.iter().map(|s| s.max_total_claim).sum();
+        self.json_max_merkle_nodes_sum = json_settlements.iter().map(|s| s.max_merkle_nodes).sum();
         self.epoch = epoch;
     }
 
