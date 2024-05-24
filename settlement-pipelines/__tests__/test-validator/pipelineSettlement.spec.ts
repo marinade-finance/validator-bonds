@@ -63,7 +63,7 @@ const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
 // This test case runs really long as using data from epoch 601 and needs to setup
 // all parts and create 10K settlements. Run this manually when needed
 // FILE='settlement-pipelines/__tests__/test-validator/pipelineSettlement.spec.ts' pnpm test:validator
-describe.skip('Cargo CLI: Pipeline Settlement', () => {
+describe('Cargo CLI: Pipeline Settlement', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
 
@@ -350,6 +350,10 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     // activating stake accounts
     await waitForNextEpoch(provider.connection, 15)
 
+    const stdoutRegExp = RegExp(
+      settlementAddresses.length + ' settlements'
+    )
+
     await (
       expect([
         'cargo',
@@ -377,7 +381,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       code: 0,
       stderr:
         /InitSettlement ... txes 0(.|\n|\r)*Stake accounts management txes 1(.|\n|\r)*FundSettlements:.*ixes 9 executed/,
-      stdout: /JSON loaded 10 settlements/,
+      stdout: stdoutRegExp,
     })
 
     const allConfigStakeAccounts = await findConfigStakeAccounts({
@@ -389,9 +393,6 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     )
     expect(fundedStakeAccounts.length).toEqual(settlementAddresses.length)
 
-    const stdoutRegExp = RegExp(
-      'JSON loaded ' + settlementAddresses.length + ' settlements'
-    )
     await (
       expect([
         'cargo',
