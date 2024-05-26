@@ -64,6 +64,7 @@ steps:
 
   - block: "Confirm to get processed init settlements"
     prompt: "Please review the 'Unblock' if ready to proceed."
+    blocked_state: running
 
   - wait: ~
 
