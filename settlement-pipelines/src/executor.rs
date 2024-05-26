@@ -6,13 +6,30 @@ use solana_transaction_builder_executor::{
 use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
 use std::sync::Arc;
 
-const PARALLEL_EXECUTION_RATE: usize = 100;
+const PARALLEL_EXECUTION_RATE_DEFAULT: usize = 100;
 
 pub async fn execute_parallel(
     rpc_client: Arc<RpcClient>,
     executor: Arc<TransactionExecutor>,
     builder: &mut TransactionBuilder,
     priority_fee_policy: &PriorityFeePolicy,
+) -> anyhow::Result<(usize, usize)> {
+    execute_parallel_with_rate(
+        rpc_client,
+        executor,
+        builder,
+        priority_fee_policy,
+        PARALLEL_EXECUTION_RATE_DEFAULT,
+    )
+    .await
+}
+
+pub async fn execute_parallel_with_rate(
+    rpc_client: Arc<RpcClient>,
+    executor: Arc<TransactionExecutor>,
+    builder: &mut TransactionBuilder,
+    priority_fee_policy: &PriorityFeePolicy,
+    parallel_execution_rate: usize,
 ) -> anyhow::Result<(usize, usize)> {
     let executed_instruction_count = builder.instructions().len();
     let execution_data =
@@ -21,7 +38,7 @@ pub async fn execute_parallel(
     execute_transactions_in_parallel(
         executor.clone(),
         execution_data,
-        Some(PARALLEL_EXECUTION_RATE),
+        Some(parallel_execution_rate),
     )
     .await?;
     // when all executed successfully then builder should be empty

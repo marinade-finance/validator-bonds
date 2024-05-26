@@ -12,7 +12,7 @@ use settlement_pipelines::arguments::{
     TipPolicyOpts,
 };
 use settlement_pipelines::cli_result::{CliError, CliResult};
-use settlement_pipelines::executor::execute_parallel;
+use settlement_pipelines::executor::execute_parallel_with_rate;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::{
     resolve_combined_optional, CombinedMerkleTreeSettlementCollections,
@@ -181,6 +181,8 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementReport>) -> anyh
                     continue;
                 }
             };
+
+        // TODO: before claiming there should be a check for merging stake accounts
 
         info!(
             "Claiming settlement {}, vote account {}, claim amount {}, for epoch {}, number of FROM stake accounts {}, already claimed nodes {}",
@@ -430,11 +432,12 @@ async fn claim_settlement<'a>(
         )?;
     }
 
-    let execution_result = execute_parallel(
+    let execution_result = execute_parallel_with_rate(
         rpc_client.clone(),
         transaction_executor.clone(),
         transaction_builder,
         priority_fee_policy,
+        300,
     )
     .await;
     reporting.add_tx_execution_result(
