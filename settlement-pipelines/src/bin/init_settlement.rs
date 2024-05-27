@@ -38,7 +38,6 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
-use std::rc::Rc;
 use std::sync::Arc;
 use validator_bonds::instructions::{InitSettlementArgs, MergeStakeArgs};
 use validator_bonds::state::bond::Bond;
@@ -309,14 +308,14 @@ async fn load_on_chain_data(
 
 #[allow(clippy::too_many_arguments)]
 async fn init_settlements(
-    program: &Program<Rc<DynSigner>>,
+    program: &Program<Arc<DynSigner>>,
     rpc_client: Arc<RpcClient>,
     transaction_executor: Arc<TransactionExecutor>,
     settlement_records: &mut Vec<SettlementRecord>,
     config_address: &Pubkey,
-    fee_payer: Rc<Keypair>,
-    operator_authority: Rc<Keypair>,
-    rent_payer: Rc<Keypair>,
+    fee_payer: Arc<Keypair>,
+    operator_authority: Arc<Keypair>,
+    rent_payer: Arc<Keypair>,
     epoch: u64,
     priority_fee_policy: &PriorityFeePolicy,
     reporting: &mut ReportHandler<InitSettlementReport>,
@@ -393,13 +392,13 @@ async fn init_settlements(
 
 #[allow(clippy::too_many_arguments)]
 async fn merge_settlement_stake_accounts(
-    program: &Program<Rc<DynSigner>>,
+    program: &Program<Arc<DynSigner>>,
     rpc_client: Arc<RpcClient>,
     transaction_executor: Arc<TransactionExecutor>,
     settlement_records: &mut Vec<SettlementRecord>,
     config_address: &Pubkey,
-    fee_payer: Rc<Keypair>,
-    operator_authority: Rc<Keypair>,
+    fee_payer: Arc<Keypair>,
+    operator_authority: Arc<Keypair>,
     minimal_stake_lamports: u64,
     priority_fee_policy: &PriorityFeePolicy,
     reporting: &mut ReportHandler<InitSettlementReport>,
@@ -577,7 +576,7 @@ async fn merge_settlement_stake_accounts(
                         funding_stake_accounts.push(FundBondStakeAccount {
                             lamports: lamports_available_after_split,
                             stake_account: destination_split_stake.pubkey(),
-                            split_stake_account: Rc::new(Keypair::new()),
+                            split_stake_account: Arc::new(Keypair::new()),
                         });
                         reporting.reportable.funded_overall += amount_to_fund;
                     }
@@ -616,15 +615,15 @@ async fn merge_settlement_stake_accounts(
 
 #[allow(clippy::too_many_arguments)]
 async fn fund_settlements(
-    program: &Program<Rc<DynSigner>>,
+    program: &Program<Arc<DynSigner>>,
     rpc_client: Arc<RpcClient>,
     transaction_executor: Arc<TransactionExecutor>,
     settlement_records: &mut Vec<SettlementRecord>,
     config_address: &Pubkey,
-    fee_payer: Rc<Keypair>,
-    operator_authority: Rc<Keypair>,
-    marinade_wallet: Rc<Keypair>,
-    rent_payer: Rc<Keypair>,
+    fee_payer: Arc<Keypair>,
+    operator_authority: Arc<Keypair>,
+    marinade_wallet: Arc<Keypair>,
+    rent_payer: Arc<Keypair>,
     minimal_stake_lamports: u64,
     priority_fee_policy: &PriorityFeePolicy,
     reporting: &mut ReportHandler<InitSettlementReport>,
@@ -643,7 +642,7 @@ async fn fund_settlements(
         }
         match settlement_record.funder {
             SettlementFunderType::Marinade(Some(SettlementFunderMarinade { amount_to_fund })) => {
-                let new_stake_account_keypair = Rc::new(Keypair::new());
+                let new_stake_account_keypair = Arc::new(Keypair::new());
                 transaction_builder.add_signer_checked(&new_stake_account_keypair);
                 info!(
                     "Settlement:{}, creating marinade stake account {}",
@@ -674,7 +673,7 @@ async fn fund_settlements(
                 ..
             })) => {
                 // Settlement funding could be of two types: from validator bond or from operator wallet
-                let split_stake_account_keypair = Rc::new(Keypair::new());
+                let split_stake_account_keypair = Arc::new(Keypair::new());
                 let req = program
                     .request()
                     .accounts(validator_bonds::accounts::FundSettlement {
@@ -735,7 +734,7 @@ async fn fund_settlements(
 struct FundBondStakeAccount {
     lamports: u64,
     stake_account: Pubkey,
-    split_stake_account: Rc<Keypair>,
+    split_stake_account: Arc<Keypair>,
 }
 
 /// Filtering stake accounts and creating a Map of vote account to stake accounts
@@ -772,7 +771,7 @@ async fn get_on_chain_bond_stake_accounts(
                     .map(|(stake_account, lamports, _)| FundBondStakeAccount {
                         lamports,
                         stake_account,
-                        split_stake_account: Rc::new(Keypair::new()),
+                        split_stake_account: Arc::new(Keypair::new()),
                     })
                     .collect(),
             )

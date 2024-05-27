@@ -8,7 +8,6 @@ use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::signature::{read_keypair_file, Keypair, Signer};
 use solana_transaction_executor::{PriorityFeePolicy, TipPolicy};
 use std::path::Path;
-use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::Arc;
 use validator_bonds_common::{constants::MARINADE_CONFIG_ADDRESS, get_validator_bonds_program};
@@ -68,7 +67,7 @@ pub struct TipPolicyOpts {
     tip_multiplier: Option<u64>,
 }
 
-pub fn load_default_keypair(s: Option<&str>) -> anyhow::Result<Option<Rc<Keypair>>> {
+pub fn load_default_keypair(s: Option<&str>) -> anyhow::Result<Option<Arc<Keypair>>> {
     if s.is_none() || s.unwrap().is_empty() {
         load_keypair(DEFAULT_KEYPAIR_PATH).map_or_else(|_e| Ok(None), |keypair| Ok(Some(keypair)))
     } else {
@@ -76,13 +75,13 @@ pub fn load_default_keypair(s: Option<&str>) -> anyhow::Result<Option<Rc<Keypair
     }
 }
 
-pub fn load_keypair(s: &str) -> anyhow::Result<Rc<Keypair>> {
+pub fn load_keypair(s: &str) -> anyhow::Result<Arc<Keypair>> {
     // loading directly as the json keypair data (format [u8; 64])
     let parsed_json = parse_keypair_as_json_data(s);
     if let Ok(key_bytes) = parsed_json {
         let k = Keypair::from_bytes(&key_bytes)
             .map_err(|e| anyhow!("Could not read keypair from json data: {}", e))?;
-        return Ok(Rc::new(k));
+        return Ok(Arc::new(k));
     } else {
         debug!(
             "Could not parse keypair as json data: '{:?}'",
@@ -93,7 +92,7 @@ pub fn load_keypair(s: &str) -> anyhow::Result<Rc<Keypair>> {
     let path = shellexpand::tilde(s);
     let k = read_keypair_file(Path::new(&path.to_string()))
         .map_err(|e| anyhow!("Could not read keypair file from '{}': {}", s, e))?;
-    Ok(Rc::new(k))
+    Ok(Arc::new(k))
 }
 
 pub fn load_pubkey(s: &str) -> anyhow::Result<Pubkey> {
@@ -158,12 +157,12 @@ pub fn to_priority_fee_policy(opts: &PriorityFeePolicyOpts) -> PriorityFeePolicy
 }
 
 pub struct InitializedGlobalOpts {
-    pub fee_payer: Rc<Keypair>,
-    pub operator_authority: Rc<Keypair>,
+    pub fee_payer: Arc<Keypair>,
+    pub operator_authority: Arc<Keypair>,
     pub priority_fee_policy: PriorityFeePolicy,
     pub tip_policy: TipPolicy,
     pub rpc_client: Arc<RpcClient>,
-    pub program: Program<Rc<DynSigner>>,
+    pub program: Program<Arc<DynSigner>>,
 }
 
 /// Initialize the Anchor Solana client
@@ -208,8 +207,7 @@ pub fn init_from_opts(
     let priority_fee_policy = to_priority_fee_policy(priority_fee_policy_opts);
     let tip_policy = to_tip_policy(tip_policy_opts);
 
-    // TODO: need to work correctly with Rc Dynsigner; need to refactor the builder executor
-    let dyn_fee_payer = Rc::new(DynSigner(Arc::new(fee_payer_keypair.clone())));
+    let dyn_fee_payer = Arc::new(DynSigner(Arc::new(fee_payer_keypair.clone())));
     let program = get_validator_bonds_program(rpc_client.clone(), Some(dyn_fee_payer))?;
 
     Ok(InitializedGlobalOpts {

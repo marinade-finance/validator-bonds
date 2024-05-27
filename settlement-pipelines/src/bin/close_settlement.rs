@@ -35,7 +35,6 @@ use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
-use std::rc::Rc;
 use std::sync::Arc;
 use tokio::time::sleep;
 use validator_bonds::state::bond::Bond;
@@ -176,7 +175,7 @@ async fn real_main(reporting: &mut ReportHandler<CloseSettlementReport>) -> anyh
 
 #[allow(clippy::too_many_arguments)]
 async fn close_settlements(
-    program: &Program<Rc<DynSigner>>,
+    program: &Program<Arc<DynSigner>>,
     rpc_client: Arc<RpcClient>,
     transaction_builder: &mut TransactionBuilder,
     transaction_executor: Arc<TransactionExecutor>,
@@ -251,7 +250,7 @@ async fn close_settlements(
 }
 
 async fn close_settlement_claims(
-    program: &Program<Rc<DynSigner>>,
+    program: &Program<Arc<DynSigner>>,
     rpc_client: Arc<RpcClient>,
     transaction_builder: &mut TransactionBuilder,
     transaction_executor: Arc<TransactionExecutor>,
@@ -306,7 +305,7 @@ async fn close_settlement_claims(
 
 #[allow(clippy::too_many_arguments)]
 async fn reset_stake_accounts(
-    program: &Program<Rc<DynSigner>>,
+    program: &Program<Arc<DynSigner>>,
     rpc_client: Arc<RpcClient>,
     transaction_builder: &mut TransactionBuilder,
     transaction_executor: Arc<TransactionExecutor>,
@@ -314,7 +313,7 @@ async fn reset_stake_accounts(
     expired_settlements: Vec<(Pubkey, Settlement, Option<Bond>)>,
     past_settlements: Vec<BondSettlement>,
     config_address: &Pubkey,
-    operator_authority_keypair: &Rc<Keypair>,
+    operator_authority_keypair: &Arc<Keypair>,
     marinade_wallet: &Pubkey,
     priority_fee_policy: &PriorityFeePolicy,
     reporting: &mut ReportHandler<CloseSettlementReport>,

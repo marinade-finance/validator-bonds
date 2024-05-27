@@ -38,7 +38,6 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
-use std::rc::Rc;
 use std::sync::Arc;
 use tokio::time::sleep;
 use validator_bonds::instructions::ClaimSettlementArgs;
@@ -275,7 +274,7 @@ fn load_json_data_to_merkle_tree(
 
 #[allow(clippy::too_many_arguments)]
 async fn claim_settlement<'a>(
-    program: &Program<Rc<DynSigner>>,
+    program: &Program<Arc<DynSigner>>,
     rpc_client: Arc<RpcClient>,
     transaction_builder: &mut TransactionBuilder,
     transaction_executor: Arc<TransactionExecutor>,
