@@ -46,8 +46,7 @@ use validator_bonds_common::config::get_config;
 use validator_bonds_common::constants::find_event_authority;
 use validator_bonds_common::settlement_claims::get_settlement_claims;
 use validator_bonds_common::settlements::get_settlements;
-use validator_bonds_common::stake_accounts::collect_stake_accounts;
-use validator_bonds_common::utils::get_sysvar_clock;
+use validator_bonds_common::stake_accounts::{collect_stake_accounts, get_clock};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -335,7 +334,7 @@ async fn reset_stake_accounts(
             .map(|(k, v)| (k, v.settlement))
             .collect::<Vec<(&Pubkey, Pubkey)>>()
     );
-    let clock = get_sysvar_clock(rpc_client.clone())
+    let clock = get_clock(rpc_client.clone())
         .await
         .map_err(CliError::retry_able)?;
     let all_stake_accounts =

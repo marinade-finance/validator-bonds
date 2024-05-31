@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use log::error;
 use std::fmt;
 use std::fmt::Debug;
 use std::process::{ExitCode, Termination};
@@ -62,8 +63,14 @@ impl From<CliError> for ExitCode {
     fn from(err: CliError) -> ExitCode {
         match err {
             // default exit code for failure is 1
-            CliError::Processing(_) => ExitCode::from(2),
-            CliError::RetryAble(_) => ExitCode::from(100),
+            CliError::Processing(e) => {
+                error!("{:?}", e);
+                ExitCode::from(2)
+            }
+            CliError::RetryAble(e) => {
+                error!("{:?}", e);
+                ExitCode::from(100)
+            }
         }
     }
 }

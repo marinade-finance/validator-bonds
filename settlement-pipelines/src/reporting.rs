@@ -132,7 +132,7 @@ pub async fn with_reporting<T: PrintReportable>(
         Ok(_) => CliResult(report_handler.finalize()),
         // when main returned some error we pass it to terminate with it
         Err(err) => {
-            println!("ERROR: {:?}", err);
+            println!("ERROR: {}", err);
             CliResult(Err(err))
         }
     }

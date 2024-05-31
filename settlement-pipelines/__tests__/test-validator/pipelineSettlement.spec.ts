@@ -63,7 +63,7 @@ const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
 // This test case runs really long as using data from epoch 601 and needs to setup
 // all parts and create 10K settlements. Run this manually when needed
 // FILE='settlement-pipelines/__tests__/test-validator/pipelineSettlement.spec.ts' pnpm test:validator
-describe('Cargo CLI: Pipeline Settlement', () => {
+describe.skip('Cargo CLI: Pipeline Settlement', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
 
@@ -237,7 +237,7 @@ describe('Cargo CLI: Pipeline Settlement', () => {
       settlementAddresses.length -
         1 +
         ' executed successfully(.|\n|\r)*' +
-        'Stake accounts management txes 0(.|\n|\r)*FundSettlements: txes 1'
+        'Stake accounts management: txes 0(.|\n|\r)*FundSettlements: txes 1'
     )
     await (
       expect([
@@ -298,7 +298,7 @@ describe('Cargo CLI: Pipeline Settlement', () => {
     ).toHaveMatchingSpawnOutput({
       code: 2,
       stderr:
-        /InitSettlement ... txes 0(.|\n|\r)*already funded(.|\n|\r)*Stake accounts management txes 0(.|\n|\r)*FundSettlements: txes 0/,
+        /InitSettlement ... txes 0(.|\n|\r)*already funded(.|\n|\r)*Stake accounts management: txes 0(.|\n|\r)*FundSettlements: txes 0/,
       stdout: /Cannot find stake account to fund settlement/,
     })
 
@@ -378,7 +378,7 @@ describe('Cargo CLI: Pipeline Settlement', () => {
     ).toHaveMatchingSpawnOutput({
       code: 0,
       stderr:
-        /InitSettlement ... txes 0(.|\n|\r)*Stake accounts management txes 1(.|\n|\r)*FundSettlements:.*ixes 9 executed/,
+        /InitSettlement ... txes 0(.|\n|\r)*Stake accounts management: txes 1(.|\n|\r)*FundSettlements:.*ixes 9 executed/,
       stdout: stdoutRegExp,
     })
 
@@ -417,7 +417,7 @@ describe('Cargo CLI: Pipeline Settlement', () => {
     ).toHaveMatchingSpawnOutput({
       code: 0,
       stderr:
-        /InitSettlement ... txes 0(.|\n|\r)*already funded(.|\n|\r)*Stake accounts management txes 0(.|\n|\r)*FundSettlements: txes 0/,
+        /InitSettlement ... txes 0(.|\n|\r)*already funded(.|\n|\r)*Stake accounts management: txes 0(.|\n|\r)*FundSettlements: txes 0/,
       stdout: stdoutRegExp,
     })
     previousTest = TestNames.InitSettlement

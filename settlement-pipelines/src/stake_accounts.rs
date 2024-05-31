@@ -39,14 +39,24 @@ pub fn prioritize_for_claiming(
     };
 }
 
-fn get_non_locked_priority_key(
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum StakeAccountStateType {
+    DelegatedAndDeactivating,
+    DelegatedAndActivating,
+    DelegatedAndEffective,
+    DelegatedAndActive,
+    Initialized,
+    Locked,
+}
+
+pub fn get_stake_state_type(
     stake_account: &StakeStateV2,
     clock: &Clock,
     stake_history: &StakeHistory,
-) -> u8 {
+) -> StakeAccountStateType {
     if let StakeStateV2::Initialized(_) = stake_account {
         // stake account is initialized and not delegated, it can be delegated just now
-        0
+        StakeAccountStateType::Initialized
     } else if let Some(delegation) = stake_account.delegation() {
         // stake account was delegated, verification of the delegation state
         let StakeHistoryEntry {
@@ -56,16 +66,34 @@ fn get_non_locked_priority_key(
         } = delegation.stake_activating_and_deactivating(clock.epoch, Some(stake_history), None);
         if effective == 0 && activating == 0 {
             // all available for immediate delegation
-            1
+            StakeAccountStateType::DelegatedAndEffective
         } else if deactivating > 0 {
             // stake is deactivating, possible to delegate in the next epoch
-            2
+            StakeAccountStateType::DelegatedAndDeactivating
+        } else if activating > 0 {
+            // activating thus not possible to delegate soon (first need to un-delegate and then delegate)
+            StakeAccountStateType::DelegatedAndActivating
         } else {
-            // delegated thus not possible to delegate soon (first need to un-delegate and then delegate)
-            3
+            // delegated and active, we need to deactivate and wait for next epoch to delegate
+            StakeAccountStateType::DelegatedAndActive
         }
     } else {
-        255
+        StakeAccountStateType::Locked
+    }
+}
+
+fn get_non_locked_priority_key(
+    stake_account: &StakeStateV2,
+    clock: &Clock,
+    stake_history: &StakeHistory,
+) -> u8 {
+    match get_stake_state_type(stake_account, clock, stake_history) {
+        StakeAccountStateType::Initialized => 0,
+        StakeAccountStateType::DelegatedAndEffective => 1,
+        StakeAccountStateType::DelegatedAndDeactivating => 2,
+        StakeAccountStateType::DelegatedAndActive => 3,
+        StakeAccountStateType::DelegatedAndActivating => 4,
+        StakeAccountStateType::Locked => 255,
     }
 }
 

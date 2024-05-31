@@ -1,7 +1,7 @@
 use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
 use clap::Parser;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use settlement_engine::merkle_tree_collection::MerkleTreeCollection;
 use settlement_engine::settlement_claims::{SettlementCollection, SettlementFunder};
 use settlement_engine::utils::read_from_json_file;
@@ -18,7 +18,9 @@ use settlement_pipelines::json_data::{
 };
 use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
 use settlement_pipelines::settlements::SETTLEMENT_CLAIM_ACCOUNT_SIZE;
-use settlement_pipelines::stake_accounts::STAKE_ACCOUNT_RENT_EXEMPTION;
+use settlement_pipelines::stake_accounts::{
+    get_stake_state_type, StakeAccountStateType, STAKE_ACCOUNT_RENT_EXEMPTION,
+};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::native_token::lamports_to_sol;
 use solana_sdk::pubkey::Pubkey;
@@ -26,7 +28,7 @@ use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
 use solana_sdk::stake::instruction::create_account as create_stake_account;
 use solana_sdk::stake::program::ID as stake_program_id;
-use solana_sdk::stake::state::{Authorized, Lockup};
+use solana_sdk::stake::state::{Authorized, Lockup, StakeStateV2};
 use solana_sdk::system_program;
 use solana_sdk::sysvar::{
     clock::ID as clock_sysvar_id, rent::ID as rent_sysvar_id,
@@ -34,7 +36,7 @@ use solana_sdk::sysvar::{
 };
 use solana_transaction_builder::TransactionBuilder;
 use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -46,7 +48,7 @@ use validator_bonds::state::settlement::{find_settlement_staker_authority, Settl
 use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::config::get_config;
 use validator_bonds_common::stake_accounts::{
-    collect_stake_accounts, obtain_delegated_stake_accounts,
+    collect_stake_accounts, get_clock, get_stake_history, obtain_delegated_stake_accounts,
     obtain_funded_stake_accounts_for_settlement, CollectedStakeAccounts,
 };
 use validator_bonds_common::{
@@ -270,7 +272,7 @@ async fn load_on_chain_data(
                     merkle_root: merkle_root.to_bytes(),
                     max_total_claim: merkle_tree.max_total_claim_sum,
                     max_merkle_nodes: merkle_tree.max_total_claims as u64,
-                    funder: SettlementFunderType::new(&settlement.meta.funder),
+                    funders: vec![SettlementFunderType::new(&settlement.meta.funder)],
                     bond_account: None,
                     settlement_account: None,
                     state: SettlementRecordState::InProgress,
@@ -429,6 +431,13 @@ async fn merge_settlement_stake_accounts(
     .await
     .map_err(CliError::retry_able)?;
 
+    let clock = get_clock(rpc_client.clone())
+        .await
+        .map_err(CliError::retry_able)?;
+    let stake_history = get_stake_history(rpc_client.clone())
+        .await
+        .map_err(CliError::retry_able)?;
+
     // Merging stake accounts to fit for validator bonds funding
     for settlement_record in settlement_records {
         if settlement_record.bond_account.is_none() {
@@ -450,10 +459,10 @@ async fn merge_settlement_stake_accounts(
 
         if amount_to_fund == 0 {
             info!(
-                "Settlement {} (vote account {}), funder {:?} already funded by {}, skipping funding",
+                "Settlement {} (vote account {}), funders {:?} already funded by {}, skipping funding",
                 settlement_record.settlement_address,
                 settlement_record.vote_account_address,
-                settlement_record.funder,
+                settlement_record.funders,
                 settlement_amount_funded
             );
             settlement_record.state = SettlementRecordState::AlreadyFunded;
@@ -461,26 +470,28 @@ async fn merge_settlement_stake_accounts(
             continue;
         }
 
-        match settlement_record.funder {
-            SettlementFunderType::Marinade(_) => {
-                info!(
+        // if there is no possible to merge stake accounts under one single account
+        // we gather all those non-mergable and then added them to list of funders for the settlement
+        let mut additional_funders: Vec<SettlementFunderType> = vec![];
+
+        for funder in &mut settlement_record.funders {
+            match funder {
+                SettlementFunderType::Marinade(marinade_funder) => {
+                    info!(
                     "Settlement {} (vote account {}) is to be funded by Marinade from fee wallet by {} SOLs",
                     settlement_record.settlement_address,
                     settlement_record.vote_account_address,
                     lamports_to_sol(amount_to_fund)
                 );
-                settlement_record.funder =
-                    SettlementFunderType::Marinade(Some(SettlementFunderMarinade {
-                        amount_to_fund,
-                    }));
-                reporting.reportable.funded_overall += amount_to_fund;
-            }
-            SettlementFunderType::ValidatorBond(_) => {
-                let mut empty_vec: Vec<FundBondStakeAccount> = vec![];
-                let funding_stake_accounts = fund_bond_stake_accounts
-                    .get_mut(&settlement_record.vote_account_address)
-                    .unwrap_or(&mut empty_vec);
-                info!(
+                    *marinade_funder = Some(SettlementFunderMarinade { amount_to_fund });
+                    reporting.reportable.funded_overall += amount_to_fund;
+                }
+                SettlementFunderType::ValidatorBond(validator_bond_funder) => {
+                    let mut empty_vec: Vec<FundBondStakeAccount> = vec![];
+                    let funding_stake_accounts = fund_bond_stake_accounts
+                        .get_mut(&settlement_record.vote_account_address)
+                        .unwrap_or(&mut empty_vec);
+                    info!(
                     "Settlement {} (vote account {}) is to be funded by validator by {} SOLs, stake accounts: {} with {} SOLs",
                     settlement_record.settlement_address,
                     settlement_record.vote_account_address,
@@ -491,124 +502,161 @@ async fn merge_settlement_stake_accounts(
                     .map(|s| s.lamports)
                     .sum::<u64>())
                 );
-                let mut lamports_available: u64 = 0;
-                let mut stake_accounts_to_fund: Vec<FundBondStakeAccount> = vec![];
-                funding_stake_accounts.retain(|stake_account| {
-                    if lamports_available < amount_to_fund + minimal_stake_lamports {
-                        lamports_available += stake_account.lamports;
-                        stake_accounts_to_fund.push(stake_account.clone());
-                        true // delete from the list, no available anymore, it will be funded
-                    } else {
-                        false // do not delete, it can be used for other settlement
-                    }
-                });
+                    let mut lamports_available: u64 = 0;
+                    let mut stake_accounts_to_fund: Vec<FundBondStakeAccount> = vec![];
+                    funding_stake_accounts.retain(|stake_account| {
+                        if lamports_available < amount_to_fund + minimal_stake_lamports {
+                            lamports_available += stake_account.lamports;
+                            stake_accounts_to_fund.push(stake_account.clone());
+                            true // delete from the list, no available anymore, it will be funded
+                        } else {
+                            false // do not delete, it can be used for other settlement
+                        }
+                    });
 
-                let stake_account_to_fund =
-                    if stake_accounts_to_fund.is_empty() || lamports_available == 0 {
+                    let stake_account_to_fund: Option<(
+                        FundBondStakeAccount,
+                        StakeAccountStateType,
+                    )> = if stake_accounts_to_fund.is_empty() || lamports_available == 0 {
                         None
                     } else {
-                        Some(stake_accounts_to_fund.remove(0))
+                        let account = stake_accounts_to_fund.remove(0);
+                        let stake_type =
+                            get_stake_state_type(&account.state, &clock, &stake_history);
+                        Some((account, stake_type))
                     };
-                if let Some(FundBondStakeAccount {
-                    stake_account: destination_stake,
-                    split_stake_account: destination_split_stake,
-                    ..
-                }) = stake_account_to_fund
-                {
-                    info!(
-                        "Settlement: {} (vote account {}) will be funded with {} stake accounts merged into {}",
-                        settlement_record.settlement_address,
-                        settlement_record.vote_account_address,
-                        stake_accounts_to_fund.len() + 1,
-                        destination_stake
-                    );
-                    for merge_stake_account in stake_accounts_to_fund {
-                        let req = program
-                            .request()
-                            .accounts(validator_bonds::accounts::MergeStake {
-                                config: *config_address,
-                                stake_history: stake_history_sysvar_id,
-                                clock: clock_sysvar_id,
-                                source_stake: merge_stake_account.stake_account,
-                                destination_stake,
-                                staker_authority: withdrawer_authority,
-                                stake_program: stake_program_id,
-                                program: validator_bonds_id,
-                                event_authority: find_event_authority().0,
-                            })
-                            .args(validator_bonds::instruction::MergeStake {
-                                merge_args: MergeStakeArgs {
-                                    settlement: settlement_record.settlement_address,
-                                },
-                            });
-                        add_instruction_to_builder(
-                            &mut transaction_builder,
-                            &req,
-                            format!(
-                                "MergeStake: {} -> {}",
-                                merge_stake_account.stake_account, destination_stake
-                            ),
-                        )?;
-                    }
-                    if lamports_available < amount_to_fund {
-                        let err_msg = format!(
-                            "Cannot fully fund settlement {} (vote account {}, funder {:?}) with {} SOLs as only {} SOLs were found in stake accounts",
+                    if let Some((
+                        FundBondStakeAccount {
+                            stake_account: destination_stake,
+                            split_stake_account: destination_split_stake,
+                            state: destination_stake_state,
+                            ..
+                        },
+                        destination_stake_state_type,
+                    )) = stake_account_to_fund
+                    {
+                        info!(
+                            "Settlement: {} (vote account {}) will be funded with {} stake accounts merged into {}",
                             settlement_record.settlement_address,
                             settlement_record.vote_account_address,
-                            settlement_record.funder,
-                            lamports_to_sol(amount_to_fund),
-                            lamports_to_sol(lamports_available)
+                            stake_accounts_to_fund.len() + 1,
+                            destination_stake
+                        );
+
+                        // can we merge stake accounts? (stake accounts can be merged only when both in the same state)
+                        for stake_account_to_merge in stake_accounts_to_fund {
+                            let stake_account_to_merge_state_type = get_stake_state_type(
+                                &stake_account_to_merge.state,
+                                &clock,
+                                &stake_history,
+                            );
+                            if stake_account_to_merge_state_type != destination_stake_state_type {
+                                // will be funded each separately
+                                warn!(
+                                    "Cannot merge stake accounts {} and {} for funding settlement {} (vote account {}) as they are in different states",
+                                    stake_account_to_merge.stake_account,
+                                    destination_stake,
+                                    settlement_record.settlement_address,
+                                    settlement_record.vote_account_address
+                                );
+                                additional_funders.push(SettlementFunderType::ValidatorBond(Some(
+                                    SettlementFunderValidatorBond {
+                                        stake_account_to_fund: stake_account_to_merge.stake_account,
+                                    },
+                                )));
+                            } else {
+                                // will be funded as one merged account
+                                let req = program
+                                    .request()
+                                    .accounts(validator_bonds::accounts::MergeStake {
+                                        config: *config_address,
+                                        stake_history: stake_history_sysvar_id,
+                                        clock: clock_sysvar_id,
+                                        source_stake: stake_account_to_merge.stake_account,
+                                        destination_stake,
+                                        staker_authority: withdrawer_authority,
+                                        stake_program: stake_program_id,
+                                        program: validator_bonds_id,
+                                        event_authority: find_event_authority().0,
+                                    })
+                                    .args(validator_bonds::instruction::MergeStake {
+                                        merge_args: MergeStakeArgs {
+                                            settlement: settlement_record.settlement_address,
+                                        },
+                                    });
+                                add_instruction_to_builder(
+                                    &mut transaction_builder,
+                                    &req,
+                                    format!(
+                                        "MergeStake: {} -> {}",
+                                        stake_account_to_merge.stake_account, destination_stake
+                                    ),
+                                )?;
+                            }
+                        }
+
+                        if lamports_available < amount_to_fund {
+                            let err_msg = format!(
+                                "Cannot fully fund settlement {} (vote account {}, funder {:?}) with {} SOLs as only {} SOLs were found in stake accounts",
+                                settlement_record.settlement_address,
+                                settlement_record.vote_account_address,
+                                validator_bond_funder,
+                                lamports_to_sol(amount_to_fund),
+                                lamports_to_sol(lamports_available)
+                            );
+                            reporting.add_error_string(err_msg);
+                            reporting.reportable.funded_overall += lamports_available;
+                        } else if lamports_available > amount_to_fund + minimal_stake_lamports {
+                            // we are in situation that the stake account has got (or it will have after merging)
+                            // more lamports than needed for funding the settlement in current loop iteration,
+                            // the rest of lamports from the stake account can be used for other settlements,
+                            // the lamports will be available under split stake account after the stake account is funded (next for-loop section)
+                            // let's use the split stake account as a source for funding of next settlement
+                            // NOTE: this process is "important" if the same vote account is used for multiple settlements,
+                            //       and we want to utilize the maximum funding spreading over multiple settlements
+                            // WARN: this REQUIRES that the fund bond transactions are executed in sequence!
+                            let lamports_available_after_split = lamports_available
+                                .saturating_sub(amount_to_fund)
+                                .saturating_sub(minimal_stake_lamports);
+                            funding_stake_accounts.push(FundBondStakeAccount {
+                                lamports: lamports_available_after_split,
+                                stake_account: destination_split_stake.pubkey(),
+                                split_stake_account: Arc::new(Keypair::new()),
+                                state: destination_stake_state,
+                            });
+                            reporting.reportable.funded_overall += amount_to_fund;
+                        }
+                        *validator_bond_funder = Some(SettlementFunderValidatorBond {
+                            stake_account_to_fund: destination_stake,
+                        });
+                    } else {
+                        let err_msg = format!(
+                            "Cannot find stake account to fund settlement {} (vote account {}, funder {:?})",
+                            settlement_record.settlement_address,
+                            settlement_record.vote_account_address,
+                            validator_bond_funder
                         );
                         reporting.add_error_string(err_msg);
-                        reporting.reportable.funded_overall += lamports_available;
-                    } else if lamports_available > amount_to_fund + minimal_stake_lamports {
-                        // we are in situation that the stake account has got (or it will have after merging)
-                        // more lamports than needed for funding the settlement in current loop iteration,
-                        // the rest of lamports from the stake account can be used for other settlements,
-                        // the lamports will be available under split stake account after the stake account is funded (next for-loop section)
-                        // let's use the split stake account as a source for funding of next settlement
-                        // NOTE: this process is "important" if the same vote account is used for multiple settlements,
-                        //       and we want to utilize the maximum funding spreading over multiple settlements
-                        // WARN: this REQUIRES that the fund bond transactions are executed in sequence!
-                        let lamports_available_after_split = lamports_available
-                            .saturating_sub(amount_to_fund)
-                            .saturating_sub(minimal_stake_lamports);
-                        funding_stake_accounts.push(FundBondStakeAccount {
-                            lamports: lamports_available_after_split,
-                            stake_account: destination_split_stake.pubkey(),
-                            split_stake_account: Arc::new(Keypair::new()),
-                        });
-                        reporting.reportable.funded_overall += amount_to_fund;
                     }
-                    settlement_record.funder =
-                        SettlementFunderType::ValidatorBond(Some(SettlementFunderValidatorBond {
-                            stake_account_to_fund: destination_stake,
-                        }))
-                } else {
-                    let err_msg = format!(
-                        "Cannot find stake account to fund settlement {} (vote account {}, funder {:?})",
-                        settlement_record.settlement_address,
-                        settlement_record.vote_account_address,
-                        settlement_record.funder
-                    );
-                    reporting.add_error_string(err_msg);
+                    reporting.reportable.funded_already += settlement_record
+                        .max_total_claim
+                        .saturating_sub(amount_to_fund);
                 }
-                reporting.reportable.funded_already += settlement_record
-                    .max_total_claim
-                    .saturating_sub(amount_to_fund);
             }
         }
+
+        // when the processing decided there are more funders for the settlement we are placing here for later funding
+        settlement_record.funders.extend(additional_funders);
     }
 
-    let (tx_count, ix_count) = execute_in_sequence(
+    let execution_result = execute_in_sequence(
         rpc_client.clone(),
         transaction_executor.clone(),
         &mut transaction_builder,
         priority_fee_policy,
     )
-    .await
-    .map_err(CliError::retry_able)?;
-    info!("Stake accounts management txes {tx_count}/ixes {ix_count} executed successfully");
+    .await;
+    reporting.add_tx_execution_result(execution_result, "Stake accounts management");
 
     Ok(())
 }
@@ -640,80 +688,91 @@ async fn fund_settlements(
         if !settlement_record.state.is_in_progress(reporting) {
             continue;
         }
-        match settlement_record.funder {
-            SettlementFunderType::Marinade(Some(SettlementFunderMarinade { amount_to_fund })) => {
-                let new_stake_account_keypair = Arc::new(Keypair::new());
-                transaction_builder.add_signer_checked(&new_stake_account_keypair);
-                info!(
-                    "Settlement:{}, creating marinade stake account {}",
-                    settlement_record.settlement_address,
-                    new_stake_account_keypair.pubkey()
-                );
-                let instructions = create_stake_account(
-                    &marinade_wallet.pubkey(),
-                    &new_stake_account_keypair.pubkey(),
-                    &Authorized {
-                        withdrawer: withdrawer_authority,
-                        staker: settlement_record.settlement_staker_authority,
-                    },
-                    &Lockup {
-                        unix_timestamp: 0,
-                        epoch: 0,
-                        custodian: withdrawer_authority,
-                    },
-                    // after claiming the rest has to be still living stake account
-                    amount_to_fund + minimal_stake_lamports,
-                );
-                transaction_builder.add_instructions(instructions)?;
-                transaction_builder.finish_instruction_pack();
-                reporting.reportable.funded_settlements_overall += 1;
-            }
-            SettlementFunderType::ValidatorBond(Some(SettlementFunderValidatorBond {
-                stake_account_to_fund,
-                ..
-            })) => {
-                // Settlement funding could be of two types: from validator bond or from operator wallet
-                let split_stake_account_keypair = Arc::new(Keypair::new());
-                let req = program
-                    .request()
-                    .accounts(validator_bonds::accounts::FundSettlement {
-                        config: *config_address,
-                        bond: settlement_record.bond_address,
-                        stake_account: stake_account_to_fund,
-                        bonds_withdrawer_authority: withdrawer_authority,
-                        operator_authority: operator_authority.pubkey(),
-                        settlement: settlement_record.settlement_address,
-                        system_program: system_program::ID,
-                        settlement_staker_authority: settlement_record.settlement_staker_authority,
-                        rent: rent_sysvar_id,
-                        split_stake_account: split_stake_account_keypair.pubkey(),
-                        split_stake_rent_payer: rent_payer.pubkey(),
-                        stake_history: stake_history_sysvar_id,
-                        clock: clock_sysvar_id,
-                        stake_program: stake_program_id,
-                        program: validator_bonds_id,
-                        event_authority: find_event_authority().0,
-                    })
-                    .args(validator_bonds::instruction::FundSettlement {});
-                transaction_builder.add_signer_checked(&split_stake_account_keypair);
-                add_instruction_to_builder(
-                    &mut transaction_builder,
-                    &req,
-                    format!(
-                        "FundSettlement: {}, stake: {}",
-                        settlement_record.settlement_address, stake_account_to_fund,
-                    ),
-                )?;
-                reporting.reportable.funded_settlements_overall += 1;
-            }
-            _ => {
-                // reason should be already part of reporting here
-                error!(
+        for funder in &settlement_record.funders {
+            match funder {
+                SettlementFunderType::Marinade(Some(SettlementFunderMarinade {
+                    amount_to_fund,
+                })) => {
+                    let new_stake_account_keypair = Arc::new(Keypair::new());
+                    transaction_builder.add_signer_checked(&new_stake_account_keypair);
+                    info!(
+                        "Settlement:{}, creating marinade stake account {}",
+                        settlement_record.settlement_address,
+                        new_stake_account_keypair.pubkey()
+                    );
+                    let instructions = create_stake_account(
+                        &marinade_wallet.pubkey(),
+                        &new_stake_account_keypair.pubkey(),
+                        &Authorized {
+                            withdrawer: withdrawer_authority,
+                            staker: settlement_record.settlement_staker_authority,
+                        },
+                        &Lockup {
+                            unix_timestamp: 0,
+                            epoch: 0,
+                            custodian: withdrawer_authority,
+                        },
+                        // after claiming the rest has to be still living stake account
+                        amount_to_fund + minimal_stake_lamports,
+                    );
+                    transaction_builder.add_instructions(instructions)?;
+                    transaction_builder.finish_instruction_pack();
+                    reporting
+                        .reportable
+                        .funded_settlements_overall
+                        .insert(settlement_record.settlement_address);
+                }
+                SettlementFunderType::ValidatorBond(Some(SettlementFunderValidatorBond {
+                    stake_account_to_fund,
+                    ..
+                })) => {
+                    // Settlement funding could be of two types: from validator bond or from operator wallet
+                    let split_stake_account_keypair = Arc::new(Keypair::new());
+                    let req = program
+                        .request()
+                        .accounts(validator_bonds::accounts::FundSettlement {
+                            config: *config_address,
+                            bond: settlement_record.bond_address,
+                            stake_account: *stake_account_to_fund,
+                            bonds_withdrawer_authority: withdrawer_authority,
+                            operator_authority: operator_authority.pubkey(),
+                            settlement: settlement_record.settlement_address,
+                            system_program: system_program::ID,
+                            settlement_staker_authority: settlement_record
+                                .settlement_staker_authority,
+                            rent: rent_sysvar_id,
+                            split_stake_account: split_stake_account_keypair.pubkey(),
+                            split_stake_rent_payer: rent_payer.pubkey(),
+                            stake_history: stake_history_sysvar_id,
+                            clock: clock_sysvar_id,
+                            stake_program: stake_program_id,
+                            program: validator_bonds_id,
+                            event_authority: find_event_authority().0,
+                        })
+                        .args(validator_bonds::instruction::FundSettlement {});
+                    transaction_builder.add_signer_checked(&split_stake_account_keypair);
+                    add_instruction_to_builder(
+                        &mut transaction_builder,
+                        &req,
+                        format!(
+                            "FundSettlement: {}, stake: {}",
+                            settlement_record.settlement_address, stake_account_to_fund,
+                        ),
+                    )?;
+                    reporting
+                        .reportable
+                        .funded_settlements_overall
+                        .insert(settlement_record.settlement_address);
+                }
+                _ => {
+                    // reason should be already part of reporting here
+                    error!(
                     "Not possible to fund settlement {} (vote account {}) with funder type {:?}",
                     settlement_record.settlement_address,
                     settlement_record.vote_account_address,
-                    settlement_record.funder
+                    funder
                 );
+                }
             }
         }
     }
@@ -735,6 +794,7 @@ struct FundBondStakeAccount {
     lamports: u64,
     stake_account: Pubkey,
     split_stake_account: Arc<Keypair>,
+    state: StakeStateV2,
 }
 
 /// Filtering stake accounts and creating a Map of vote account to stake accounts
@@ -768,10 +828,11 @@ async fn get_on_chain_bond_stake_accounts(
                 vote_account,
                 stake_accounts
                     .into_iter()
-                    .map(|(stake_account, lamports, _)| FundBondStakeAccount {
+                    .map(|(stake_account, lamports, state)| FundBondStakeAccount {
                         lamports,
                         stake_account,
                         split_stake_account: Arc::new(Keypair::new()),
+                        state,
                     })
                     .collect(),
             )
@@ -834,7 +895,7 @@ struct SettlementRecord {
     merkle_root: [u8; 32],
     max_total_claim: u64,
     max_merkle_nodes: u64,
-    funder: SettlementFunderType,
+    funders: Vec<SettlementFunderType>,
     state: SettlementRecordState,
 }
 
@@ -848,7 +909,7 @@ struct InitSettlementReport {
     epoch: u64,
     funded_overall: u64,
     funded_already: u64,
-    funded_settlements_overall: u64,
+    funded_settlements_overall: HashSet<Pubkey>,
     funded_settlements_already: u64,
 }
 
@@ -879,7 +940,7 @@ impl PrintReportable for InitSettlementReport {
                     self.json_settlements_count
                 ),
                 format!("InitSettlement funded {}/{} settlements with {}/{} SOLs (before this already funded {} settlements with {} SOLs)",
-                    self.funded_settlements_overall,
+                    self.funded_settlements_overall.len(),
                     self.json_settlements_count,
                     lamports_to_sol(self.funded_overall),
                     lamports_to_sol(self.json_settlements_max_claim_sum),
@@ -906,7 +967,7 @@ impl InitSettlementReport {
             epoch: 0,
             funded_overall: 0,
             funded_already: 0,
-            funded_settlements_overall: 0,
+            funded_settlements_overall: HashSet::new(),
             funded_settlements_already: 0,
         };
         ReportHandler::new(init_settlement_report)

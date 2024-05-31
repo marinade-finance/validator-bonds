@@ -10,9 +10,9 @@ use validator_bonds::state::settlement::{find_settlement_staker_authority, Settl
 use validator_bonds::state::settlement_claim::SettlementClaim;
 use validator_bonds_common::settlements::{get_bonds_for_settlements, get_settlements};
 use validator_bonds_common::stake_accounts::{
-    collect_stake_accounts, obtain_claimable_stake_accounts_for_settlement, CollectedStakeAccounts,
+    collect_stake_accounts, get_clock, obtain_claimable_stake_accounts_for_settlement,
+    CollectedStakeAccounts,
 };
-use validator_bonds_common::utils::get_sysvar_clock;
 
 pub const SETTLEMENT_CLAIM_ACCOUNT_SIZE: usize = 8 + std::mem::size_of::<SettlementClaim>();
 
@@ -28,7 +28,7 @@ pub async fn list_claimable_settlements(
     config_address: &Pubkey,
     config: &Config,
 ) -> Result<Vec<ClaimableSettlementsReturn>, CliError> {
-    let clock = get_sysvar_clock(rpc_client.clone())
+    let clock = get_clock(rpc_client.clone())
         .await
         .map_err(CliError::RetryAble)?;
     let current_epoch = clock.epoch;
@@ -110,7 +110,7 @@ pub async fn load_expired_settlements(
     config_address: &Pubkey,
     config: &Config,
 ) -> anyhow::Result<Vec<(Pubkey, Settlement)>> {
-    let clock = get_sysvar_clock(rpc_client.clone()).await?;
+    let clock = get_clock(rpc_client.clone()).await?;
     let current_epoch = clock.epoch;
 
     let all_settlements = get_settlements(rpc_client.clone()).await?;

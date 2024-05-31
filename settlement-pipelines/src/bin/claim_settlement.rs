@@ -52,8 +52,9 @@ use validator_bonds_common::settlement_claims::{
     collect_existence_settlement_claims_from_addresses, get_settlement_claims_for_settlement,
 };
 use validator_bonds_common::settlements::get_settlements_for_pubkeys;
-use validator_bonds_common::stake_accounts::{get_stake_history, CollectedStakeAccounts};
-use validator_bonds_common::utils::get_sysvar_clock;
+use validator_bonds_common::stake_accounts::{
+    get_clock, get_stake_history, CollectedStakeAccounts,
+};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -147,8 +148,12 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementReport>) -> anyh
     transaction_builder.add_signer_checked(&rent_payer);
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
 
-    let clock = get_sysvar_clock(rpc_client.clone()).await?;
-    let stake_history = get_stake_history(rpc_client.clone()).await?;
+    let clock = get_clock(rpc_client.clone())
+        .await
+        .map_err(CliError::retry_able)?;
+    let stake_history = get_stake_history(rpc_client.clone())
+        .await
+        .map_err(CliError::retry_able)?;
 
     let mut settlement_claimed_amounts: HashMap<Pubkey, u64> = HashMap::new();
     let mut stake_accounts_to_cache = StakeAccountsCache::default();

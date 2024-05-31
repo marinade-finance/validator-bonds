@@ -3,15 +3,10 @@ use anyhow::anyhow;
 use log::error;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcAccountInfoConfig;
-use solana_program::clock::Clock;
-use solana_program::pubkey::Pubkey;
-use solana_program::sysvar::clock;
-use std::sync::Arc;
 
-pub async fn get_sysvar_clock(client: Arc<RpcClient>) -> anyhow::Result<Clock> {
-    let clock = client.get_account(&clock::ID).await?;
-    bincode::deserialize(&clock.data).map_err(Into::into)
-}
+use solana_program::pubkey::Pubkey;
+
+use std::sync::Arc;
 
 pub async fn get_accounts_for_pubkeys<T: AccountDeserialize>(
     rpc_client: Arc<RpcClient>,

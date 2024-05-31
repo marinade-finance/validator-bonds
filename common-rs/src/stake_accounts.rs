@@ -1,4 +1,3 @@
-use crate::utils::get_sysvar_clock;
 use log::{info, warn};
 use solana_account_decoder::{UiAccountEncoding, UiDataSliceConfig};
 use solana_client::{
@@ -91,7 +90,7 @@ pub async fn obtain_delegated_stake_accounts(
     rpc_client: Arc<RpcClient>,
     stake_accounts: CollectedStakeAccounts,
 ) -> anyhow::Result<HashMap<Pubkey, CollectedStakeAccounts>> {
-    let clock: Clock = get_sysvar_clock(rpc_client).await?;
+    let clock: Clock = get_clock(rpc_client).await?;
     let mut vote_account_map: HashMap<Pubkey, CollectedStakeAccounts> = HashMap::new();
     for (pubkey, lamports, stake) in stake_accounts {
         // locked stake accounts are not correctly delegated to bonds
@@ -122,7 +121,7 @@ pub async fn obtain_claimable_stake_accounts_for_settlement(
     settlement_addresses: Vec<Pubkey>,
     rpc_client: Arc<RpcClient>,
 ) -> anyhow::Result<HashMap<Pubkey, (u64, CollectedStakeAccounts)>> {
-    let clock = get_sysvar_clock(rpc_client.clone()).await?;
+    let clock = get_clock(rpc_client.clone()).await?;
     let stake_history = get_stake_history(rpc_client.clone()).await?;
     let filtered_deactivated_stake_accounts: CollectedStakeAccounts = stake_accounts
         .into_iter()
@@ -169,7 +168,7 @@ pub async fn obtain_funded_stake_accounts_for_settlement(
     config_address: &Pubkey,
     settlement_addresses: Vec<Pubkey>,
 ) -> anyhow::Result<HashMap<Pubkey, (u64, CollectedStakeAccounts)>> {
-    let clock = get_sysvar_clock(rpc_client.clone()).await?;
+    let clock = get_clock(rpc_client.clone()).await?;
     let stake_history = get_stake_history(rpc_client.clone()).await?;
     let filtered_to_be_deactivated_stake_accounts: CollectedStakeAccounts = stake_accounts
         .into_iter()
