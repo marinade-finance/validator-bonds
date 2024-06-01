@@ -12,7 +12,7 @@ use settlement_pipelines::arguments::{
     TipPolicyOpts,
 };
 use settlement_pipelines::cli_result::{CliError, CliResult};
-use settlement_pipelines::executor::execute_parallel_with_rate;
+use settlement_pipelines::executor::{execute_parallel, execute_parallel_with_rate};
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::{
     resolve_combined_optional, CombinedMerkleTreeSettlementCollections,
@@ -21,7 +21,10 @@ use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHan
 use settlement_pipelines::settlements::{
     list_claimable_settlements, ClaimableSettlementsReturn, SETTLEMENT_CLAIM_ACCOUNT_SIZE,
 };
-use settlement_pipelines::stake_accounts::{prioritize_for_claiming, STAKE_ACCOUNT_RENT_EXEMPTION};
+use settlement_pipelines::stake_accounts::{
+    get_stake_state_type, prepare_merge_instructions, prioritize_for_claiming,
+    STAKE_ACCOUNT_RENT_EXEMPTION,
+};
 use settlement_pipelines::stake_accounts_cache::StakeAccountsCache;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::clock::Clock;
@@ -34,7 +37,7 @@ use solana_sdk::system_program;
 use solana_sdk::sysvar::{clock::ID as clock_id, stake_history::ID as stake_history_id};
 use solana_transaction_builder::TransactionBuilder;
 use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -43,7 +46,9 @@ use tokio::time::sleep;
 use validator_bonds::instructions::ClaimSettlementArgs;
 use validator_bonds::state::bond::find_bond_address;
 use validator_bonds::state::config::find_bonds_withdrawer_authority;
-use validator_bonds::state::settlement::find_settlement_address;
+use validator_bonds::state::settlement::{
+    find_settlement_address, find_settlement_staker_authority,
+};
 use validator_bonds::state::settlement_claim::find_settlement_claim_address;
 use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::config::get_config;
@@ -53,7 +58,7 @@ use validator_bonds_common::settlement_claims::{
 };
 use validator_bonds_common::settlements::get_settlements_for_pubkeys;
 use validator_bonds_common::stake_accounts::{
-    get_clock, get_stake_history, CollectedStakeAccounts,
+    collect_stake_accounts, get_clock, get_stake_history, CollectedStakeAccounts,
 };
 
 #[derive(Parser, Debug)]
@@ -137,7 +142,7 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementReport>) -> anyh
     );
 
     // loaded from RPC on-chain data
-    let claimable_settlements =
+    let mut claimable_settlements =
         list_claimable_settlements(rpc_client.clone(), &config_address, &config).await?;
 
     reporting
@@ -154,6 +159,20 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementReport>) -> anyh
     let stake_history = get_stake_history(rpc_client.clone())
         .await
         .map_err(CliError::retry_able)?;
+
+    merge_stake_accounts(
+        &mut claimable_settlements,
+        &program,
+        &config_address,
+        &mut transaction_builder,
+        &clock,
+        &stake_history,
+        rpc_client.clone(),
+        transaction_executor.clone(),
+        &priority_fee_policy,
+        reporting,
+    )
+    .await?;
 
     let mut settlement_claimed_amounts: HashMap<Pubkey, u64> = HashMap::new();
     let mut stake_accounts_to_cache = StakeAccountsCache::default();
@@ -185,8 +204,6 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementReport>) -> anyh
                     continue;
                 }
             };
-
-        // TODO: before claiming there should be a check for merging stake accounts
 
         info!(
             "Claiming settlement {}, vote account {}, claim amount {}, for epoch {}, number of FROM stake accounts {}, already claimed nodes {}",
@@ -275,6 +292,78 @@ fn load_json_data_to_merkle_tree(
         error!("Error loading JSON data from file: {:?}, {:?}", path, e);
         CliError::Processing(e)
     })
+}
+
+/// process merging stake accounts (that is to be claimed) if possible
+#[allow(clippy::too_many_arguments)]
+async fn merge_stake_accounts(
+    claimable_settlements: &mut Vec<ClaimableSettlementsReturn>,
+    program: &Program<Arc<DynSigner>>,
+    config_address: &Pubkey,
+    transaction_builder: &mut TransactionBuilder,
+    clock: &Clock,
+    stake_history: &StakeHistory,
+    rpc_client: Arc<RpcClient>,
+    transaction_executor: Arc<TransactionExecutor>,
+    priority_fee_policy: &PriorityFeePolicy,
+    reporting: &mut ReportHandler<ClaimSettlementReport>,
+) -> anyhow::Result<()> {
+    let mut settlements_with_merge_operation: HashSet<Pubkey> = HashSet::new();
+    for claimable_settlement in claimable_settlements.iter() {
+        let mergeable_stake_accounts = if claimable_settlement.stake_accounts.len() > 1 {
+            let destination_stake = claimable_settlement.stake_accounts[0];
+            let destination_type = get_stake_state_type(&destination_stake.2, clock, stake_history);
+            let possible_to_merge = claimable_settlement.stake_accounts.iter().skip(1).collect();
+            settlements_with_merge_operation.insert(claimable_settlement.settlement_address);
+            Some((destination_stake.0, destination_type, possible_to_merge))
+        } else {
+            None
+        };
+        if let Some((destination_stake, destination_type, possible_to_merge)) =
+            mergeable_stake_accounts
+        {
+            prepare_merge_instructions(
+                possible_to_merge,
+                destination_stake,
+                destination_type,
+                &claimable_settlement.settlement_address,
+                None,
+                program,
+                config_address,
+                &find_settlement_staker_authority(&claimable_settlement.settlement_address).0,
+                transaction_builder,
+                clock,
+                stake_history,
+            )
+            .await?;
+        }
+    }
+    let execution_result = execute_parallel(
+        rpc_client.clone(),
+        transaction_executor.clone(),
+        transaction_builder,
+        priority_fee_policy,
+    )
+    .await;
+    reporting.add_tx_execution_result(execution_result, "MergeSettlementStakeAccounts");
+    // after execution let's consult which stake accounts were not merged
+    let (withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
+    for settlement_address in settlements_with_merge_operation {
+        let (stake_authority, _) = find_settlement_staker_authority(&settlement_address);
+        for s in claimable_settlements
+            .iter_mut()
+            .filter(|s| s.settlement_address == settlement_address)
+        {
+            let stake_accounts = collect_stake_accounts(
+                rpc_client.clone(),
+                Some(&withdrawer_authority),
+                Some(&stake_authority),
+            )
+            .await?;
+            s.stake_accounts = stake_accounts;
+        }
+    }
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]

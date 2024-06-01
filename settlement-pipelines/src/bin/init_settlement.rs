@@ -1,7 +1,7 @@
 use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
 use clap::Parser;
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use settlement_engine::merkle_tree_collection::MerkleTreeCollection;
 use settlement_engine::settlement_claims::{SettlementCollection, SettlementFunder};
 use settlement_engine::utils::read_from_json_file;
@@ -19,10 +19,10 @@ use settlement_pipelines::json_data::{
 use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
 use settlement_pipelines::settlements::SETTLEMENT_CLAIM_ACCOUNT_SIZE;
 use settlement_pipelines::stake_accounts::{
-    get_stake_state_type, StakeAccountStateType, STAKE_ACCOUNT_RENT_EXEMPTION,
+    get_stake_state_type, prepare_merge_instructions, StakeAccountStateType,
+    STAKE_ACCOUNT_RENT_EXEMPTION,
 };
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::clock::Clock;
 use solana_sdk::native_token::lamports_to_sol;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
@@ -30,7 +30,6 @@ use solana_sdk::signer::Signer;
 use solana_sdk::stake::instruction::create_account as create_stake_account;
 use solana_sdk::stake::program::ID as stake_program_id;
 use solana_sdk::stake::state::{Authorized, Lockup, StakeStateV2};
-use solana_sdk::stake_history::StakeHistory;
 use solana_sdk::system_program;
 use solana_sdk::sysvar::{
     clock::ID as clock_sysvar_id, rent::ID as rent_sysvar_id,
@@ -45,7 +44,7 @@ use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
-use validator_bonds::instructions::{InitSettlementArgs, MergeStakeArgs};
+use validator_bonds::instructions::InitSettlementArgs;
 use validator_bonds::state::bond::Bond;
 use validator_bonds::state::config::find_bonds_withdrawer_authority;
 use validator_bonds::state::settlement::{find_settlement_staker_authority, Settlement};
@@ -53,7 +52,7 @@ use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::config::get_config;
 use validator_bonds_common::stake_accounts::{
     collect_stake_accounts, get_clock, get_stake_history, obtain_delegated_stake_accounts,
-    obtain_funded_stake_accounts_for_settlement, CollectedStakeAccounts,
+    obtain_funded_stake_accounts_for_settlement, CollectedStakeAccount, CollectedStakeAccounts,
 };
 use validator_bonds_common::{
     bonds::get_bonds_for_pubkeys, constants::find_event_authority,
@@ -521,6 +520,7 @@ async fn merge_settlement_stake_accounts(
                     }
                 });
 
+                // for the found and fitting stake accounts: taking first one and trying to merge other ones into it
                 let stake_account_to_fund: Option<(FundBondStakeAccount, StakeAccountStateType)> =
                     if stake_accounts_to_fund.is_empty() || lamports_available == 0 {
                         None
@@ -551,22 +551,29 @@ async fn merge_settlement_stake_accounts(
                     validator_bonds_funders.push(SettlementFunderValidatorBond {
                         stake_account_to_fund: destination_stake,
                     });
-
-                    prepare_merge_instructions(
-                        stake_accounts_to_fund,
+                    let possible_to_merge = stake_accounts_to_fund
+                        .iter()
+                        .map(|f| f.into())
+                        .collect::<Vec<CollectedStakeAccount>>();
+                    let non_mergeable = prepare_merge_instructions(
+                        possible_to_merge.iter().collect(),
                         destination_stake,
                         destination_stake_state_type,
                         &settlement_record.settlement_address,
-                        &settlement_record.vote_account_address,
+                        Some(&settlement_record.vote_account_address),
                         program,
                         config_address,
                         &withdrawer_authority,
                         &mut transaction_builder,
                         &clock,
                         &stake_history,
-                        validator_bonds_funders,
                     )
                     .await?;
+                    validator_bonds_funders.extend(non_mergeable.into_iter().map(
+                        |stake_account_address| SettlementFunderValidatorBond {
+                            stake_account_to_fund: stake_account_address,
+                        },
+                    ));
 
                     if lamports_available < amount_to_fund {
                         let err_msg = format!(
@@ -622,70 +629,6 @@ async fn merge_settlement_stake_accounts(
     .await;
     reporting.add_tx_execution_result(execution_result, "Stake accounts management");
 
-    Ok(())
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn prepare_merge_instructions(
-    stake_accounts_to_fund: Vec<FundBondStakeAccount>,
-    destination_stake: Pubkey,
-    destination_stake_state_type: StakeAccountStateType,
-    settlement_address: &Pubkey,
-    vote_account_address: &Pubkey,
-    program: &Program<Arc<DynSigner>>,
-    config_address: &Pubkey,
-    withdrawer_authority: &Pubkey,
-    transaction_builder: &mut TransactionBuilder,
-    clock: &Clock,
-    stake_history: &StakeHistory,
-    validator_bonds_funders: &mut Vec<SettlementFunderValidatorBond>,
-) -> anyhow::Result<()> {
-    // can we merge stake accounts? (stake accounts can be merged only when both in the same state)
-    for stake_account_to_merge in stake_accounts_to_fund {
-        let stake_account_to_merge_state_type =
-            get_stake_state_type(&stake_account_to_merge.state, clock, stake_history);
-        if stake_account_to_merge_state_type != destination_stake_state_type {
-            // will be funded each separately
-            warn!(
-                "Cannot merge stake accounts {} and {} for funding settlement {} (vote account {}) as they are in different states",
-                stake_account_to_merge.stake_account,
-                destination_stake,
-                settlement_address,
-                vote_account_address
-            );
-            validator_bonds_funders.push(SettlementFunderValidatorBond {
-                stake_account_to_fund: stake_account_to_merge.stake_account,
-            });
-        } else {
-            // will be funded as one merged account
-            let req = program
-                .request()
-                .accounts(validator_bonds::accounts::MergeStake {
-                    config: *config_address,
-                    stake_history: stake_history_sysvar_id,
-                    clock: clock_sysvar_id,
-                    source_stake: stake_account_to_merge.stake_account,
-                    destination_stake,
-                    staker_authority: *withdrawer_authority,
-                    stake_program: stake_program_id,
-                    program: validator_bonds_id,
-                    event_authority: find_event_authority().0,
-                })
-                .args(validator_bonds::instruction::MergeStake {
-                    merge_args: MergeStakeArgs {
-                        settlement: *settlement_address,
-                    },
-                });
-            add_instruction_to_builder(
-                transaction_builder,
-                &req,
-                format!(
-                    "MergeStake: {} -> {}",
-                    stake_account_to_merge.stake_account, destination_stake
-                ),
-            )?;
-        }
-    }
     Ok(())
 }
 
@@ -822,6 +765,16 @@ struct FundBondStakeAccount {
     stake_account: Pubkey,
     split_stake_account: Arc<Keypair>,
     state: StakeStateV2,
+}
+
+impl From<&FundBondStakeAccount> for CollectedStakeAccount {
+    fn from(fund_bond_stake_account: &FundBondStakeAccount) -> Self {
+        (
+            fund_bond_stake_account.stake_account,
+            fund_bond_stake_account.lamports,
+            fund_bond_stake_account.state,
+        )
+    }
 }
 
 /// Filtering stake accounts and creating a Map of vote account to stake accounts

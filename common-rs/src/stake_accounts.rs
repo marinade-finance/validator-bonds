@@ -32,7 +32,9 @@ pub async fn get_clock(rpc_client: Arc<RpcClient>) -> anyhow::Result<Clock> {
 }
 
 /// stake account pubkey, lamports in account, stake state
-pub type CollectedStakeAccounts = Vec<(Pubkey, u64, StakeStateV2)>;
+
+pub type CollectedStakeAccount = (Pubkey, u64, StakeStateV2);
+pub type CollectedStakeAccounts = Vec<CollectedStakeAccount>;
 
 pub async fn collect_stake_accounts(
     rpc_client: Arc<RpcClient>,
