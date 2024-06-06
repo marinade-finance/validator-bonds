@@ -12,6 +12,7 @@ pub struct TreeNode {
     #[serde(with = "pubkey_string_conversion")]
     pub withdraw_authority: Pubkey,
     pub claim: u64,
+    pub index: u64,
     pub proof: Option<Vec<[u8; 32]>>,
 }
 
@@ -21,6 +22,7 @@ impl TreeNode {
         hasher.hash(self.stake_authority.as_ref());
         hasher.hash(self.withdraw_authority.as_ref());
         hasher.hash(self.claim.to_le_bytes().as_ref());
+        hasher.hash(self.index.to_le_bytes().as_ref());
         hasher.result()
     }
 }

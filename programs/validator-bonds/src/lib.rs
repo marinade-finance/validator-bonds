@@ -115,6 +115,11 @@ pub mod validator_bonds {
         InitSettlement::process(ctx, init_settlement_args)
     }
 
+    pub fn upsize_settlement_claims(ctx: Context<UpsizeSettlementClaims>) -> Result<()> {
+        check_context(&ctx)?;
+        UpsizeSettlementClaims::process(ctx)
+    }
+
     pub fn close_settlement(ctx: Context<CloseSettlement>) -> Result<()> {
         check_context(&ctx)?;
         CloseSettlement::process(ctx)
@@ -128,11 +133,6 @@ pub mod validator_bonds {
     pub fn fund_settlement(ctx: Context<FundSettlement>) -> Result<()> {
         check_context(&ctx)?;
         FundSettlement::process(ctx)
-    }
-
-    pub fn close_settlement_claim(ctx: Context<CloseSettlementClaim>) -> Result<()> {
-        check_context(&ctx)?;
-        CloseSettlementClaim::process(ctx)
     }
 
     pub fn claim_settlement(
@@ -166,6 +166,17 @@ pub mod validator_bonds {
     pub fn emergency_resume(ctx: Context<EmergencyPauseResume>) -> Result<()> {
         check_context(&ctx)?;
         EmergencyPauseResume::resume(ctx)
+    }
+
+    // ---- V1: closing Settlements of older version ----
+    pub fn close_settlement_v1(ctx: Context<CloseSettlementV1>) -> Result<()> {
+        check_context(&ctx)?;
+        CloseSettlementV1::process(ctx)
+    }
+
+    pub fn close_settlement_claim_v1(ctx: Context<CloseSettlementClaimV1>) -> Result<()> {
+        check_context(&ctx)?;
+        CloseSettlementClaimV1::process(ctx)
     }
 }
 

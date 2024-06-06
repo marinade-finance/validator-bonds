@@ -1,0 +1,8 @@
+[package]
+name = "fuzz-testing"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+honggfuzz = { workspace = true }
+validator-bonds = { workspace = true }

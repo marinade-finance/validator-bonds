@@ -7,14 +7,14 @@ use std::sync::Arc;
 use crate::cli_result::CliError;
 use validator_bonds::state::config::{find_bonds_withdrawer_authority, Config};
 use validator_bonds::state::settlement::{find_settlement_staker_authority, Settlement};
-use validator_bonds::state::settlement_claim::SettlementClaim;
+use validator_bonds::state::settlement_claims::SettlementClaims;
 use validator_bonds_common::settlements::{get_bonds_for_settlements, get_settlements};
 use validator_bonds_common::stake_accounts::{
     collect_stake_accounts, get_clock, obtain_claimable_stake_accounts_for_settlement,
     CollectedStakeAccounts,
 };
 
-pub const SETTLEMENT_CLAIM_ACCOUNT_SIZE: usize = 8 + std::mem::size_of::<SettlementClaim>();
+pub const SETTLEMENT_CLAIM_ACCOUNT_SIZE: usize = 8 + std::mem::size_of::<SettlementClaims>();
 
 pub struct ClaimableSettlementsReturn {
     pub settlement_address: Pubkey,

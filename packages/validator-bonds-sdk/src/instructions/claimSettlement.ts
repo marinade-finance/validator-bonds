@@ -1,12 +1,9 @@
 import {
   EpochInfo,
-  Keypair,
   PublicKey,
   SYSVAR_CLOCK_PUBKEY,
   SYSVAR_STAKE_HISTORY_PUBKEY,
-  Signer,
   StakeProgram,
-  SystemProgram,
   TransactionInstruction,
 } from '@solana/web3.js'
 import {
@@ -14,11 +11,9 @@ import {
   ValidatorBondsProgram,
   bondAddress,
   settlementAddress,
-  settlementClaimAddress,
+  settlementClaimsAddress,
 } from '../sdk'
-import { anchorProgramWalletPubkey } from '../utils'
 import BN from 'bn.js'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import { getBond, getSettlement } from '../api'
 import { getStakeAccount } from '../web3.js'
 import { MerkleTreeNode } from '../merkleTree'
@@ -31,6 +26,7 @@ import { MerkleTreeNode } from '../merkleTree'
 export async function claimSettlementInstruction({
   program,
   claimAmount,
+  index,
   merkleProof,
   stakeAccountFrom,
   stakeAccountTo,
@@ -42,10 +38,10 @@ export async function claimSettlementInstruction({
   configAccount,
   bondAccount,
   voteAccount,
-  rentPayer = anchorProgramWalletPubkey(program),
 }: {
   program: ValidatorBondsProgram
   claimAmount: number | BN
+  index: number | BN
   merkleProof: (number[] | Uint8Array | Buffer)[]
   stakeAccountFrom: PublicKey
   stakeAccountTo: PublicKey
@@ -57,15 +53,11 @@ export async function claimSettlementInstruction({
   configAccount?: PublicKey
   bondAccount?: PublicKey
   voteAccount?: PublicKey
-  rentPayer?: PublicKey | Keypair | Signer | WalletInterface // signer
 }): Promise<{
   instruction: TransactionInstruction
-  settlementClaimAccount: PublicKey
   settlementAccount: PublicKey
+  settlementClaimsAccount: PublicKey
 }> {
-  const renPayerPubkey =
-    rentPayer instanceof PublicKey ? rentPayer : rentPayer.publicKey
-
   let settlementData: undefined | Settlement
   if (settlementAccount !== undefined) {
     settlementData = await getSettlement(program, settlementAccount)
@@ -108,6 +100,11 @@ export async function claimSettlementInstruction({
     )
   }
 
+  const [settlementClaimsAccount] = settlementClaimsAddress(
+    settlementAccount,
+    program.programId
+  )
+
   const merkleProofNumbers = merkleProof.map(proofPathRecord => {
     if (Array.isArray(proofPathRecord)) {
       return proofPathRecord
@@ -134,20 +131,11 @@ export async function claimSettlementInstruction({
       stakeAccountWithdrawer || stakeAccountToData.withdrawer
   }
 
-  const [settlementClaimAccount] = settlementClaimAddress(
-    {
-      settlement: settlementAccount,
-      stakeAccountStaker,
-      stakeAccountWithdrawer,
-      claim: claimAmount,
-    },
-    program.programId
-  )
-
   const treeNodeHash = MerkleTreeNode.hash({
     stakeAuthority: stakeAccountStaker,
     withdrawAuthority: stakeAccountWithdrawer,
     claim: claimAmount,
+    index,
   }).words
 
   const instruction = await program.methods
@@ -157,16 +145,15 @@ export async function claimSettlementInstruction({
       claim: new BN(claimAmount),
       stakeAccountStaker,
       stakeAccountWithdrawer,
+      index: new BN(index),
     })
     .accounts({
       config: configAccount,
       bond: bondAccount,
       settlement: settlementAccount,
-      settlementClaim: settlementClaimAccount,
+      settlementClaims: settlementClaimsAccount,
       stakeAccountFrom,
       stakeAccountTo,
-      rentPayer: renPayerPubkey,
-      systemProgram: SystemProgram.programId,
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
       clock: SYSVAR_CLOCK_PUBKEY,
       stakeProgram: StakeProgram.programId,
@@ -174,7 +161,7 @@ export async function claimSettlementInstruction({
     .instruction()
   return {
     instruction,
-    settlementClaimAccount,
     settlementAccount,
+    settlementClaimsAccount,
   }
 }

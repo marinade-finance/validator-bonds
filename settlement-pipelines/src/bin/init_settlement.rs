@@ -30,6 +30,11 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 use validator_bonds::instructions::InitSettlementArgs;
+use validator_bonds::state::bond::Bond;
+use validator_bonds::state::config::find_bonds_withdrawer_authority;
+use validator_bonds::state::settlement::{
+    find_settlement_claims_address, find_settlement_staker_authority, Settlement,
+};
 use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::constants::find_event_authority;
 
@@ -207,6 +212,10 @@ async fn init_settlements(
                     rent_payer: rent_payer.pubkey(),
                     program: validator_bonds_id,
                     settlement: record.settlement_address,
+                    settlement_claims: find_settlement_claims_address(
+                        &settlement_record.settlement_address,
+                    )
+                    .0,
                     event_authority: find_event_authority().0,
                 })
                 .args(validator_bonds::instruction::InitSettlement {

@@ -407,6 +407,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arbitrary"
+version = "1.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d5a26814d8dcb93b0e5a0ff3c6d80a8843bafb21b39e8e18a6f05471870e110"
+
+[[package]]
 name = "arc-swap"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -918,7 +924,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4114279215a005bc675e386011e594e1d9b800918cea18fcadadcce864a2046b"
 dependencies = [
  "borsh-derive 0.10.3",
- "hashbrown 0.12.3",
+ "hashbrown 0.13.2",
 ]
 
 [[package]]
@@ -2145,6 +2151,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "fuzz-testing"
+version = "0.0.1"
+dependencies = [
+ "honggfuzz",
+ "validator-bonds",
+]
+
+[[package]]
 name = "gcp-bigquery-client"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2420,6 +2434,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5444c27eef6923071f7ebcc33e3444508466a76f7a2b93da00ed6e19f30c1ddb"
 dependencies = [
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "honggfuzz"
+version = "0.5.56"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c76b6234c13c9ea73946d1379d33186151148e0da231506b964b44f3d023505"
+dependencies = [
+ "arbitrary",
+ "lazy_static",
+ "memmap2 0.9.3",
+ "rustc_version",
 ]
 
 [[package]]
@@ -2944,6 +2970,15 @@ name = "memmap2"
 version = "0.5.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83faa42c0a078c393f6b29d5db232d8be22776a891f8f56e5284faee4a20b327"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "memmap2"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45fd3a57831bf88bc63f8cebc0cf956116276e97fef3966103e96416209f7c92"
 dependencies = [
  "libc",
 ]
@@ -4919,7 +4954,7 @@ dependencies = [
  "lazy_static",
  "log",
  "lz4",
- "memmap2",
+ "memmap2 0.5.10",
  "modular-bitfield",
  "num-derive 0.3.3",
  "num-traits",
@@ -5003,7 +5038,7 @@ dependencies = [
  "bv",
  "bytemuck",
  "log",
- "memmap2",
+ "memmap2 0.5.10",
  "modular-bitfield",
  "num_enum 0.6.1",
  "rand 0.8.5",
@@ -5188,7 +5223,7 @@ dependencies = [
  "im",
  "lazy_static",
  "log",
- "memmap2",
+ "memmap2 0.5.10",
  "rustc_version",
  "serde",
  "serde_bytes",
@@ -5639,7 +5674,7 @@ dependencies = [
  "log",
  "lru",
  "lz4",
- "memmap2",
+ "memmap2 0.5.10",
  "modular-bitfield",
  "num-derive 0.3.3",
  "num-traits",
@@ -5715,7 +5750,7 @@ dependencies = [
  "lazy_static",
  "libsecp256k1",
  "log",
- "memmap2",
+ "memmap2 0.5.10",
  "num-derive 0.3.3",
  "num-traits",
  "num_enum 0.6.1",
@@ -5916,12 +5951,12 @@ dependencies = [
 [[package]]
 name = "solana-transaction-builder"
 version = "0.1.0"
-source = "git+https://github.com/marinade-finance/solana-transaction-builder?branch=main#05b471e70d6ea44acf560ad98e1ce7289b002045"
+source = "git+https://github.com/marinade-finance/solana-transaction-builder?branch=arc-instead-of-rc#ea9fd7997c05e442ac3f1af6cfe29d3a62fff81f"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
  "bincode",
- "borsh 0.9.3",
+ "borsh 0.10.3",
  "log",
  "once_cell",
  "solana-sdk",
@@ -5931,7 +5966,7 @@ dependencies = [
 [[package]]
 name = "solana-transaction-builder-executor"
 version = "0.1.0"
-source = "git+https://github.com/marinade-finance/solana-transaction-builder?branch=main#05b471e70d6ea44acf560ad98e1ce7289b002045"
+source = "git+https://github.com/marinade-finance/solana-transaction-builder?branch=arc-instead-of-rc#ea9fd7997c05e442ac3f1af6cfe29d3a62fff81f"
 dependencies = [
  "anyhow",
  "async-stream",

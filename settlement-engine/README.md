@@ -8,6 +8,7 @@ epoch=592
 bucket=marinade-validator-bonds-mainnet
 gcloud storage cp "gs://$bucket/$epoch/stakes.json" "gs://$bucket/$epoch/validators.json" .
 gcloud storage cp "gs://$bucket/$((epoch - 1))/validators.json" "past-validators.json"
+gcloud storage cp "gs://$bucket/$epoch/stakes.json" "stakes.json"
 
 # Build & run
 cargo run --release --bin settlement-engine-cli -- \

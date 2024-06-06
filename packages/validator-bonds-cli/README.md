@@ -255,8 +255,8 @@ The meanings of parameters are as follows:
 - `<bond-or-vote-account-address>`: bond account that will be funded by the amount of
   lamports from the stake account.
 - `--stake-account`: address of the stake account that will be assigned under the bonds program.
-- `--stake-authority`: signature of the stake account authority that permits to change the
-  stake account authorities
+- `--stake-authority`: signature of the stake account authority (probably withdrawer)
+  that permits to change the stake account authorities
 
 #### How to add more funds under the bond?
 

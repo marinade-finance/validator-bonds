@@ -89,6 +89,8 @@ pnpm build
 
 # testing the SDK+CLI against the bankrun and local validator
 pnpm test
+# running single cargo test
+cargo test --package settlement-engine ts_cross_check_hash_generate
 # bankrun part of the tests
 pnpm test:bankrun
 # local validator part of the tests

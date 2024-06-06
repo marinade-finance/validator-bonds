@@ -14,6 +14,17 @@ import { setValidatorBondsCliContext } from './context'
 import { VALIDATOR_BONDS_PROGRAM_ID } from '@marinade.finance/validator-bonds-sdk'
 import { ExecutionError } from '@marinade.finance/web3js-common'
 import { compareVersions, fetchLatestVersionInNpmRegistry } from './npmRegistry'
+import { setGlobalDispatcher, Agent } from "undici";
+
+// https://solana.stackexchange.com/questions/10368/typeerror-fetch-failed-while-trying-to-use-connection-in-web3-js
+setGlobalDispatcher(
+  new Agent({
+    connections: 1000,
+  })
+);
+// new https.Agent({
+//   maxSockets: 50,
+// });
 
 export const logger: Logger = configureLogger()
 logger.level = 'debug'
@@ -110,6 +121,7 @@ program.parseAsync(process.argv).then(
     logger.debug({ resolution: 'Success', args: process.argv })
   },
   (err: Error) => {
+    logger.error('err instanceof ExecutionError' + (err instanceof ExecutionError ? 'TRUE ' + err.cause : 'FALSE'))
     logger.error(
       err instanceof ExecutionError
         ? err.messageWithTransactionError()

@@ -8,6 +8,7 @@ use crate::events::settlement::CloseSettlementEvent;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::settlement::Settlement;
+use crate::state::settlement_claims::SettlementClaims;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_spl::stake::{withdraw, Stake, Withdraw};
@@ -46,6 +47,18 @@ pub struct CloseSettlement<'info> {
         bump = settlement.bumps.pda,
     )]
     pub settlement: Account<'info, Settlement>,
+
+    #[account(
+        mut,
+        close = rent_collector,
+        has_one = settlement @ ErrorCode::BondAccountMismatch,
+        seeds = [
+            b"claims_account",
+            settlement.key().as_ref(),
+        ],
+        bump = settlement.bumps.settlement_claims,
+    )]
+    pub settlement_claims: Account<'info, SettlementClaims>,
 
     /// CHECK: PDA
     #[account(

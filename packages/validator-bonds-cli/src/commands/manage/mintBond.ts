@@ -15,6 +15,17 @@ import {
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { getBondFromAddress } from '../utils'
 import { MINT_BOND_LIMIT_UNITS } from '../../computeUnits'
+import { sleep } from '@marinade.finance/ts-common'
+
+import { setGlobalDispatcher, Agent } from "undici";
+
+// https://solana.stackexchange.com/questions/10368/typeerror-fetch-failed-while-trying-to-use-connection-in-web3-js
+setGlobalDispatcher(
+  new Agent({
+    connections: 100,
+  })
+);
+
 
 export function installMintBond(program: Command) {
   program
@@ -120,9 +131,11 @@ async function manageMintBond({
   tx.add(instruction)
 
   logger.info(
-    `Mint bond ${bondAccount.toBase58()} token ${bondMint.toBase58()} ` +
+    `Minting bond ${bondAccount.toBase58()} token ${bondMint.toBase58()} ` +
       `for validator identity ${validatorIdentity.toBase58()}`
   )
+  // logger.info("Sleeping for 30 seconds to allow for finalization of previous transactions")
+  // await sleep(30 * 1000)
   await executeTx({
     connection: provider.connection,
     transaction: tx,

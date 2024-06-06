@@ -3,6 +3,7 @@ use crate::events::settlement::InitSettlementEvent;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::settlement::{find_settlement_staker_authority, Bumps, Settlement};
+use crate::state::settlement_claims::{account_initialization_size, SettlementClaims};
 use anchor_lang::prelude::*;
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
@@ -55,6 +56,19 @@ pub struct InitSettlement<'info> {
         bump,
     )]
     pub settlement: Account<'info, Settlement>,
+
+    // Solana maximum allocation size in one instruction is 10KB (~80K records)
+    #[account(
+        init,
+        payer = rent_payer,
+        space = account_initialization_size(params.max_merkle_nodes)?,
+        seeds = [
+            b"claims_account",
+            settlement.key().as_ref(),
+        ],
+        bump,
+    )]
+    pub settlement_claims: Account<'info, SettlementClaims>,
 
     /// operator signer authority that is allowed to create the settlement account
     pub operator_authority: Signer<'info>,
@@ -110,8 +124,14 @@ impl<'info> InitSettlement<'info> {
             bumps: Bumps {
                 pda: ctx.bumps.settlement,
                 staker_authority: authority_bump,
+                settlement_claims: ctx.bumps.settlement_claims,
             },
-            reserved: [0; 91],
+            reserved: [0; 90],
+        });
+        ctx.accounts.settlement_claims.set_inner(SettlementClaims {
+            settlement: ctx.accounts.settlement.key(),
+            version: 0,
+            max_records: max_merkle_nodes,
         });
         emit_cpi!(InitSettlementEvent {
             settlement: ctx.accounts.settlement.key(),

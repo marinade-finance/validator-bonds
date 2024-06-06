@@ -45,6 +45,7 @@ describe('Validator Bonds close settlement', () => {
   let validatorIdentity: Keypair
   let voteAccount: PublicKey
   let settlementAccount: PublicKey
+  let settlementClaimsAccount: PublicKey
   let settlementEpoch: number
   let rentCollector: Keypair
 
@@ -73,15 +74,16 @@ describe('Validator Bonds close settlement', () => {
     })
     settlementEpoch = await currentEpoch(provider)
     rentCollector = Keypair.generate()
-    ;({ settlementAccount } = await executeInitSettlement({
-      configAccount,
-      program,
-      provider,
-      voteAccount,
-      operatorAuthority,
-      currentEpoch: settlementEpoch,
-      rentCollector: rentCollector.publicKey,
-    }))
+    ;({ settlementAccount, settlementClaimsAccount } =
+      await executeInitSettlement({
+        configAccount,
+        program,
+        provider,
+        voteAccount,
+        operatorAuthority,
+        currentEpoch: settlementEpoch,
+        rentCollector: rentCollector.publicKey,
+      }))
     const settlementData = await getSettlement(program, settlementAccount)
     expect(bondAccount).toEqual(settlementData.bond)
   })
@@ -101,6 +103,10 @@ describe('Validator Bonds close settlement', () => {
       provider,
       settlementAccount
     )
+    const rentExemptSettlementClaims = await getRentExempt(
+      provider,
+      settlementClaimsAccount
+    )
 
     const { instruction } = await closeSettlementInstruction({
       program,
@@ -118,7 +124,7 @@ describe('Validator Bonds close settlement', () => {
     expect(rentCollectorInfo).not.toBeNull()
     assert(rentCollectorInfo !== null)
     expect(rentCollectorInfo.lamports).toEqual(
-      LAMPORTS_PER_SOL + rentExemptSettlement
+      LAMPORTS_PER_SOL + rentExemptSettlement + rentExemptSettlementClaims
     )
   })
 

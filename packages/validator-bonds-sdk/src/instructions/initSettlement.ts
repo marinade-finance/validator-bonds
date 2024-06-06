@@ -5,7 +5,12 @@ import {
   Signer,
   TransactionInstruction,
 } from '@solana/web3.js'
-import { ValidatorBondsProgram, bondAddress, settlementAddress } from '../sdk'
+import {
+  ValidatorBondsProgram,
+  bondAddress,
+  settlementAddress,
+  settlementClaimsAddress,
+} from '../sdk'
 import { anchorProgramWalletPubkey } from '../utils'
 import BN from 'bn.js'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
@@ -44,6 +49,7 @@ export async function initSettlementInstruction({
 }): Promise<{
   instruction: TransactionInstruction
   settlementAccount: PublicKey
+  settlementClaimsAccount: PublicKey
   epoch: BN
 }> {
   const renPayerPubkey =
@@ -84,6 +90,10 @@ export async function initSettlementInstruction({
     epoch,
     program.programId
   )
+  const [settlementClaimsAccount] = settlementClaimsAddress(
+    settlementAccount,
+    program.programId
+  )
 
   merkleRoot = Array.isArray(merkleRoot) ? merkleRoot : Array.from(merkleRoot)
   const instruction = await program.methods
@@ -98,12 +108,14 @@ export async function initSettlementInstruction({
       config: configAccount,
       bond: bondAccount,
       settlement: settlementAccount,
+      settlementClaims: settlementClaimsAccount,
       operatorAuthority: operatorAuthorityPubkey,
       rentPayer: renPayerPubkey,
     })
     .instruction()
   return {
     settlementAccount,
+    settlementClaimsAccount,
     instruction,
     epoch: epochAsBn(epoch),
   }

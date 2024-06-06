@@ -25,6 +25,7 @@ import {
 } from '../../computeUnits'
 import BN from 'bn.js'
 
+
 export function installConfigureBond(program: Command) {
   program
     .command('configure-bond')
@@ -187,7 +188,7 @@ async function manageConfigureBond({
   tx.add(instruction)
 
   logger.info(
-    `Configuring bond account ${bondAccount.toBase58()} (finalization may take seconds)`
+    `Configuring bond account ${bondAccount.toBase58()} with authority ${authority.toBase58()} (finalization may take seconds)`
   )
   await executeTx({
     connection: provider.connection,

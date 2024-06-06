@@ -1,65 +1,39 @@
-use crate::get_validator_bonds_program;
-
+use anchor_client::anchor_lang::AccountDeserialize;
 use anyhow::anyhow;
-use solana_account_decoder::UiDataSliceConfig;
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_client::rpc_config::RpcAccountInfoConfig;
-use solana_client::rpc_filter::{Memcmp, RpcFilterType};
-use solana_program::pubkey::Pubkey;
+use solana_sdk::account::Account;
+use validator_bonds::state::settlement_claims::SettlementClaims;
+use validator_bonds::utils::BitmapProjection;
 
-use std::sync::Arc;
-use validator_bonds::state::settlement_claim::SettlementClaim;
-
-pub async fn get_settlement_claims(
-    rpc_client: Arc<RpcClient>,
-) -> anyhow::Result<Vec<(Pubkey, SettlementClaim)>> {
-    let program = get_validator_bonds_program(rpc_client, None)?;
-    Ok(program.accounts(Default::default()).await?)
+pub struct SettlementClaimsBitmap {
+    data: Vec<u8>,
+    bitmap_projection: BitmapProjection,
 }
 
-pub async fn get_settlement_claims_for_settlement(
-    rpc_client: Arc<RpcClient>,
-    settlement_address: &Pubkey,
-) -> anyhow::Result<Vec<(Pubkey, SettlementClaim)>> {
-    let program = get_validator_bonds_program(rpc_client, None)?;
-    Ok(program
-        .accounts(vec![RpcFilterType::Memcmp(Memcmp::new(
-            8,
-            solana_client::rpc_filter::MemcmpEncodedBytes::Base58(settlement_address.to_string()),
-        ))])
-        .await?)
-}
-
-pub async fn collect_existence_settlement_claims_from_addresses(
-    rpc_client: Arc<RpcClient>,
-    settlement_claim_addresses: &[Pubkey],
-) -> anyhow::Result<Vec<(Pubkey, bool)>> {
-    let settlement_claim_addresses_chunked = settlement_claim_addresses
-        // permitted to fetch 100 accounts at once; https://solana.com/docs/rpc/http/getmultipleaccounts
-        .chunks(100)
-        .collect::<Vec<&[Pubkey]>>();
-    let mut settlement_claims: Vec<(Pubkey, bool)> = vec![];
-    for address_chunk in settlement_claim_addresses_chunked.iter() {
-        let accounts = rpc_client
-            .get_multiple_accounts_with_config(
-                address_chunk,
-                RpcAccountInfoConfig {
-                    data_slice: Some(UiDataSliceConfig {
-                        offset: 0,
-                        length: 0,
-                    }),
-                    ..RpcAccountInfoConfig::default()
-                },
-            )
-            .await
-            .map_err(|e| anyhow!("Error fetching settlement claim accounts: {:?}", e))?;
-        accounts
-            .value
-            .iter()
-            .zip(address_chunk.iter())
-            .for_each(|(a, p)| {
-                settlement_claims.push((*p, a.is_some()));
-            });
+impl SettlementClaimsBitmap {
+    pub fn new(account: Account) -> anyhow::Result<Self> {
+        let data = account.data.to_vec();
+        let settlement_claims = SettlementClaims::try_deserialize(&mut data.as_slice())
+            .map_or_else(
+                |e| Err(anyhow!("Cannot deserialize SettlementClaims data: {}", e)),
+                Ok,
+            )?;
+        BitmapProjection::check_size(settlement_claims.max_records, &data)?;
+        let bitmap_projection = BitmapProjection(settlement_claims.max_records);
+        Ok(Self {
+            data,
+            bitmap_projection,
+        })
     }
-    Ok(settlement_claims)
+
+    pub fn is_set(&self, index: u64) -> bool {
+        self.bitmap_projection
+            .is_set(index, &self.data)
+            .expect("BitmapProjection should be initialized, checked in new()")
+    }
+
+    pub fn number_of_set_bits(&mut self) -> u64 {
+        self.bitmap_projection
+            .number_of_bits(&self.data)
+            .expect("SettlementClaimsBitmap should be initialized, checked in new()")
+    }
 }

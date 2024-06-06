@@ -196,4 +196,22 @@ pub enum ErrorCode {
 
     #[msg("Max stake wanted value is lower to minimum configured value")]
     MaxStakeWantedTooLow, // 6063 0x17af
+
+    #[msg("Data size mismatch for the bitmap")]
+    BitmapSizeMismatch, // 6064 0x17b0
+
+    #[msg("Bitmap index out of bounds")]
+    BitmapIndexOutOfBonds, // 6065 0x17b1
+
+    #[msg("SettlementClaims account not fully initialized, missing data size")]
+    SettlementClaimsNotInitialized, // 6066 0x17b2
+
+    #[msg("SettlementClaims records exceed maximum to fit Solana account size")]
+    SettlementClaimsTooManyRecords, // 6067 0x17b3
+
+    #[msg("SettlementClaims already initialized, no need to increase account size")]
+    SettlementClaimsAlreadyInitialized, // 6068 0x17b4
+
+    #[msg("Settlement has been already claimed")]
+    SettlementAlreadyClaimed, // 6069 0x17b5
 }
