@@ -329,15 +329,23 @@ async fn init_settlements(
     transaction_builder.add_signer_checked(&rent_payer);
 
     for settlement_record in settlement_records {
-        if settlement_record.bond_account.is_none() {
+        if settlement_record.bond_account.is_none() && settlement_record.funder.is_marinade() {
+            info!(
+                "No bond for vote account {} but the Settlement {} is to be funded by Marinade by {} SOLs",
+                settlement_record.vote_account_address,
+                settlement_record.settlement_address,
+                lamports_to_sol(settlement_record.max_total_claim)
+            );
+        } else if settlement_record.bond_account.is_none() {
             reporting.add_error_string(format!(
-                "Cannot find bond account {} for vote account {}, claim amount {}",
+                "Cannot find bond account {} for vote account {}, claim amount {} SOLs",
                 settlement_record.bond_address,
                 settlement_record.vote_account_address,
-                settlement_record.max_total_claim
+                lamports_to_sol(settlement_record.max_total_claim)
             ));
             continue;
         }
+
         if settlement_record.settlement_account.is_some() {
             debug!(
                 "Settlement account {} already exists, skipping initialization",
@@ -883,6 +891,10 @@ impl SettlementFunderType {
             SettlementFunder::Marinade => SettlementFunderType::Marinade(None),
             SettlementFunder::ValidatorBond => SettlementFunderType::ValidatorBond(vec![]),
         }
+    }
+
+    fn is_marinade(&self) -> bool {
+        matches!(self, SettlementFunderType::Marinade(_))
     }
 }
 
