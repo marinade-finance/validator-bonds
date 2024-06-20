@@ -1,0 +1,1 @@
+ALTER TABLE bonds ADD COLUMN max_stake_wanted NUMERIC NOT NULL DEFAULT 0;
