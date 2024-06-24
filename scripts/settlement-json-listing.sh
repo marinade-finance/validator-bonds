@@ -27,7 +27,7 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 if [ -z "$SETTLEMENTS_JSON_FILE" ] || [ -z "$MERKLE_TREES_JSON_FILE" ]; then
-    echo "Both --settlements and --merkle-tree parameters are required"
+    echo "Both --settlements and --merkle-trees parameters are required"
     exit 1
 fi
 
@@ -50,7 +50,7 @@ NUMBER_OF_CLAIMS=$(jq '.merkle_trees[].tree_nodes | length'  "$MERKLE_TREES_JSON
 RENT=$(echo "scale=4; $NUMBER_OF_CLAIMS * $CLAIM_ACCOUNT_DATA_RENT" | bc)
 echo "Number of all claims: $NUMBER_OF_CLAIMS, expected rent for newly created: $RENT"
 COUNT=$(jq '.merkle_trees | length'  "$MERKLE_TREES_JSON_FILE")
-echo "Number of merkle trees: $COUNT at $MERKLE_TREES_JSON_FILE"
+echo "Number of merkle trees: $COUNT"
 echo '----------------'
 
 # listing data of claims
@@ -58,22 +58,35 @@ echo '----------------'
 # grep "$MERKLE_TREES_JSON_FILE" -e 'vote_account' -e 'max_total_claim_sum'
 # jq '.merkle_trees[] | {sum: .max_total_claim_sum, vote_account: .vote_account, claims: [.tree_nodes[].claim]}' "$MERKLE_TREES_JSON_FILE"
 
+declare -A claims
+
+
 for I in $(seq 0 $((COUNT-1)) ); do
   echo "Index: $I"
   VOTE_ACCOUNT=$(jq   ".merkle_trees[$I] | .vote_account" "$MERKLE_TREES_JSON_FILE")
   echo "Vote account: $VOTE_ACCOUNT"
-  echo -n 'Max claim sum: '
-  LAMPORTS=$(jq   ".merkle_trees[$I] | .max_total_claim_sum" "$MERKLE_TREES_JSON_FILE")
-  solsdecimal $LAMPORTS
+  LAMPORTS_MAX=$(jq   ".merkle_trees[$I] | .max_total_claim_sum" "$MERKLE_TREES_JSON_FILE")
+  MAX_CLAIM_SUM=$(solsdecimal $LAMPORTS_MAX)
+  LAMPORTS_SUM=$(jq ".merkle_trees[$I] | .tree_nodes[].claim" "$MERKLE_TREES_JSON_FILE" | paste -s -d+ | bc)
+  CLAIMS_SUM=$(solsdecimal $LAMPORTS_SUM)
+  echo "Max claim sum/Claims sum: ${MAX_CLAIM_SUM}/${CLAIMS_SUM}"
   echo -n 'Number of claims: '
-  jq   ".merkle_trees[$I] | .tree_nodes | length" "$MERKLE_TREES_JSON_FILE"
-  echo -n 'Claims sum: '
-  LAMPORTS=$(jq ".merkle_trees[$I] | .tree_nodes[].claim" "$MERKLE_TREES_JSON_FILE" | paste -s -d+ | bc)
-  solsdecimal $LAMPORTS
-  echo -n 'Funder: '
-  jq -c '.settlements[] | select (.vote_account == '$VOTE_ACCOUNT') | .meta.funder' "$SETTLEMENTS_JSON_FILE"
+  jq ".merkle_trees[$I] | .tree_nodes | length" "$MERKLE_TREES_JSON_FILE"
+  FUNDER=$(jq -c '.settlements[] | select ((.vote_account == '$VOTE_ACCOUNT') and (.claims_amount == '$LAMPORTS_MAX')) | .meta.funder' "$SETTLEMENTS_JSON_FILE")
+  echo "Funder: ${FUNDER:-<UNKNOWN>}"
+  current_sum=${claims[$FUNDER]}
+  claims[$FUNDER]=$(($current_sum+$LAMPORTS_MAX))
   echo '----------------'
 done
+
+echo
+echo '========================='
+echo 'Summary of claims:'
+for FUNDER in "${!claims[@]}"; do
+  echo -n "Funder '$FUNDER', sum of claims: "
+  solsdecimal ${claims[$FUNDER]}
+done
+echo '========================='
 
 
 # TODO: utilize nodejs CLI to get the data
