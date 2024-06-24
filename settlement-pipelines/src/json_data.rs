@@ -171,7 +171,8 @@ fn resolve_combined_optional(
         )
     }
 }
-pub fn resolve_combined(
+
+fn resolve_combined(
     merkle_tree_collection: MerkleTreeCollection,
     settlement_collection: SettlementCollection,
 ) -> anyhow::Result<CombinedMerkleTreeSettlementCollections> {

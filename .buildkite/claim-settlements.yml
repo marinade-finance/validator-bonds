@@ -2,13 +2,14 @@ agents:
   queue: "snapshots"
 
 steps:
-  - command: echo "--> Start of concurrency gate"
+  - label: ":closed_lock_with_key: Concurrency gate lock"
+    command: echo "--> Start of concurrency gate"
     concurrency_group: 'validator-bonds/claim-settlements'
     concurrency: 1
 
   - wait: ~
 
-  - label: ":hammer_and_wrench: :rust: Build"
+  - label: ":hammer_and_wrench: :rust: Build claim-settlement"
     commands:
     - '. "$HOME/.cargo/env"'
     - 'cargo build --release --bin list-claimable-epoch'
@@ -55,7 +56,15 @@ steps:
 
   - wait: ~
 
-  - label: ":campfire: Claim settlements"
+  # We need to wait for the fund-settlements trigger to get finished before we can proceed
+  - label: ":gear: Upload and trigger fund-settlements pipeline"
+    commands:
+      - 'buildkite-agent pipeline upload .buildkite/fund-settlements.yml'
+
+  - wait: ~
+    continue_on_failure: true
+
+  - label: ":campfire::arrow_right: Claim settlements"
     env:
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,claim_settlement=debug
       # RUST_BACKTRACE: full
@@ -68,11 +77,11 @@ steps:
         exit 0
       fi
     - 'prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))'
-    - 'buildkite-agent artifact download --include-retried-jobs build-report.$$prior_build_number . || true'
+    - 'buildkite-agent artifact download --include-retried-jobs claim-execution-report.$$prior_build_number . || true'
     - |
-      cp "build-report.$$prior_build_number" "build-report.$$BUILDKITE_RETRY_COUNT" || true
-      rm -f "build-report.$$prior_build_number"
-      echo "#ATTEMPT $$BUILDKITE_RETRY_COUNT" | tee -a "./build-report.$$BUILDKITE_RETRY_COUNT"
+      cp "claim-execution-report.$$prior_build_number" "claim-execution-report.$$BUILDKITE_RETRY_COUNT" || true
+      rm -f "claim-execution-report.$$prior_build_number"
+      echo "#ATTEMPT $$BUILDKITE_RETRY_COUNT" | tee -a "./claim-execution-report.$$BUILDKITE_RETRY_COUNT"
     - 'buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .'
     - 'buildkite-agent artifact download --include-retried-jobs target/release/claim-settlement .'
     - 'chmod +x target/release/claim-settlement'
@@ -84,16 +93,16 @@ steps:
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$VALIDATOR_BONDS_CLAIMING_WALLET" \
         --rent-payer "$$VALIDATOR_BONDS_CLAIMING_WALLET" \
-        | tee -a "./build-report.$$BUILDKITE_RETRY_COUNT"
+        | tee -a "./claim-execution-report.$$BUILDKITE_RETRY_COUNT"
     key: 'claim-settlement'
     artifact_paths:
-    - "./build-report.*"
+    - "./claim-execution-report.*"
     retry:
       automatic:
         - exit_status: 100
           limit: 5
 
-  - label: "Notification setup"
+  - label: ":memo: Notification setup: Claim Settlements"
     env:
       gs_bucket: gs://marinade-validator-bonds-mainnet
     commands:
@@ -110,7 +119,7 @@ steps:
      - 'buildkite-agent meta-data set notification_result "$$notification_result"'
      - 'echo "Notification result: $$notification_result, color: $$notification_color"'
      - 'mkdir ./reports'
-     - 'buildkite-agent artifact download --include-retried-jobs "build-report.*" ./reports/ || echo "No report ERROR" > ./reports/build-report.error'
+     - 'buildkite-agent artifact download --include-retried-jobs "claim-execution-report.*" ./reports/ || echo "No report ERROR" > ./reports/claim-execution-report.error'
      - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
      - 'cp "$$report_path" ./claiming-report.txt'
      - 'claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json)'
@@ -119,13 +128,13 @@ steps:
      - 'buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./claiming-report.txt)"'
     artifact_paths:
     - "./claiming-report.txt"
-    key: 'notification'
+    key: 'notification-setup-claim'
     depends_on: "claim-settlement"
     allow_dependency_failure: true
-  
+
   - wait: ~
 
-  - label: ":mega: Notification settlements claiming"
+  - label: ":mega: Notification Claiming"
     commands:
     - 'notification_result=$(buildkite-agent meta-data get notification_result || echo "UNKNOWN")'
     - 'notification_color=$(buildkite-agent meta-data get notification_color || echo "15158332")'
@@ -134,7 +143,8 @@ steps:
     - 'claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json)'
     - |
       claimable_epochs=$(echo "$$claimable_epochs_json" | jq ". | join(\",\")" | tr -d '"')
-      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
+      # curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
+      curl https://discord.com/api/webhooks/1237762124114296923/O-Gv1aBiB4LZy87ppR-87LPVDCBz7591Kcse52GyRUmrU-Y8IVpAjnSuP-ZwpGDLLb88 \
         -F 'payload_json={
             "embeds":[{
               "title": "Claim Settlements '"$$notification_result"' for epochs: '"$$claimable_epochs"' after '"$$attempts_count"' attempts",
@@ -145,11 +155,12 @@ steps:
         -F "file1=@./claiming-report.txt"
     - |
       build_result=$(buildkite-agent step get "outcome" --step "claim-settlement")
-    depends_on: "notification"
+    depends_on: "notification-setup-claim"
     allow_dependency_failure: true
 
   - wait: ~
 
-  - command: echo "End of concurrency gate <--"
+  - label: ":unlock: Concurrency gate unlock"
+    command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/claim-settlements'
     concurrency: 1
