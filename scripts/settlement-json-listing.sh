@@ -1,7 +1,7 @@
 #!/bin/bash
 
-### ---- Call with argumetn merkle trees json
-# settlement-json-listing.sh ""$JSON_FILE""
+### ---- Call with json file arguments
+# settlement-json-listing.sh --settlements 1_settlements.json --merkle-trees 1_settlement-merkle-trees.json
 ### ----
 
 solsdecimal() {
@@ -33,6 +33,9 @@ fi
 
 # 272 bytes
 CLAIM_ACCOUNT_DATA_RENT=0.002784
+# stake account minimal size (1 SOL is hardcoded here but can be dfferent based on Config)
+STAKE_ACCOUNT_MINIMAL_SIZE=$((1000000000 + 2282880))
+
 
 SETTLEMENTS_EPOCH=$(jq '.epoch' "$SETTLEMENTS_JSON_FILE")
 MERKLE_TREES_EPOCH=$(jq '.epoch' "$MERKLE_TREES_JSON_FILE")
@@ -58,8 +61,8 @@ echo '----------------'
 # grep "$MERKLE_TREES_JSON_FILE" -e 'vote_account' -e 'max_total_claim_sum'
 # jq '.merkle_trees[] | {sum: .max_total_claim_sum, vote_account: .vote_account, claims: [.tree_nodes[].claim]}' "$MERKLE_TREES_JSON_FILE"
 
-declare -A claims
-
+declare -A claims_amounts
+declare -A claims_number
 
 for I in $(seq 0 $((COUNT-1)) ); do
   echo "Index: $I"
@@ -74,17 +77,22 @@ for I in $(seq 0 $((COUNT-1)) ); do
   jq ".merkle_trees[$I] | .tree_nodes | length" "$MERKLE_TREES_JSON_FILE"
   FUNDER=$(jq -c '.settlements[] | select ((.vote_account == '$VOTE_ACCOUNT') and (.claims_amount == '$LAMPORTS_MAX')) | .meta.funder' "$SETTLEMENTS_JSON_FILE")
   echo "Funder: ${FUNDER:-<UNKNOWN>}"
-  current_sum=${claims[$FUNDER]}
-  claims[$FUNDER]=$(($current_sum+$LAMPORTS_MAX))
+
+  current_sum=${claims_amounts[$FUNDER]}
+  claims_amounts[$FUNDER]=$(($current_sum+$LAMPORTS_MAX))
+  current_number=${claims_number[$FUNDER]}
+  claims_number[$FUNDER]=$((current_number+1))
   echo '----------------'
 done
 
 echo
 echo '========================='
 echo 'Summary of claims:'
-for FUNDER in "${!claims[@]}"; do
-  echo -n "Funder '$FUNDER', sum of claims: "
-  solsdecimal ${claims[$FUNDER]}
+for FUNDER in "${!claims_amounts[@]}"; do
+  RENT=$(echo "scale=4; ${claims_number[$FUNDER]} * $STAKE_ACCOUNT_MINIMAL_SIZE" | bc)
+  RENT=$(solsdecimal $RENT)
+  echo -n "Funder $FUNDER, sum of ${claims_number[$FUNDER]} claims (+/- stake 'rent': ${RENT}): "
+  solsdecimal ${claims_amounts[$FUNDER]}
 done
 echo '========================='
 
