@@ -28,3 +28,7 @@ docker-target/
 .coderrect/
 .idea/
 .vscode/
+
+# Fuzz attempts
+fuzz/
+hfuzz*
