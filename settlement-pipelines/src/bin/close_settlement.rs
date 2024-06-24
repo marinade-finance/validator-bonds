@@ -603,7 +603,7 @@ impl PrintReportable for CloseSettlementReport {
                     )
                 ),
                 format!(
-                    "Number of reset stake accounts (returned to validators): {}, sum of reset SOL: {} (all: {})",
+                    "Number of reset stake accounts (returned to validators): {}, sum of reset SOL: {} (with rent: {})",
                     reset_stake_number,
                     lamports_to_sol(
                         reset_stake_lamports -
@@ -612,7 +612,7 @@ impl PrintReportable for CloseSettlementReport {
                     lamports_to_sol(reset_stake_lamports),
                 ),
                 format!(
-                    "Number of withdraw stake accounts (returned to Marinade DAO {}): {}, sum of withdrawn SOL: {} (all: {})",
+                    "Number of withdraw stake accounts (returned to Marinade DAO {}): {}, sum of withdrawn SOL: {} (with rent: {})",
                     self.withdraw_wallet,
                     withdrawn_stake_number,
                     lamports_to_sol(

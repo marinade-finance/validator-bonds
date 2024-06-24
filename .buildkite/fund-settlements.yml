@@ -1,0 +1,127 @@
+agents:
+  queue: "snapshots"
+
+steps:
+  - label: ":closed_lock_with_key: Concurrency gate lock"
+    command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/fund-settlements'
+    concurrency: 1
+
+  - wait: ~
+
+  - label: ":hammer_and_wrench: :rust: Build fund-settlement"
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'cargo build --release --bin fund-settlement'
+    artifact_paths:
+      - target/release/fund-settlement
+
+  - label: " Loading json settlements data"
+    env:
+      gs_bucket: gs://marinade-validator-bonds-mainnet
+      past_epochs_to_load: 4
+    commands:
+    - |
+      set -x
+      merkle_trees=$(buildkite-agent artifact search "merkle-trees/*" || echo "")
+      if [[ "x$$merkle_trees" != "x" && ! "$$merkle_trees" =~ 'fatal' ]]; then
+        echo "Merkle trees already downloaded"
+        exit 0
+      fi
+    - |
+      set -x
+      current_epoch=$(curl --silent "$$RPC_URL" -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1, "method":"getEpochInfo"}' | jq '.result.epoch')
+      epochs_start_index=$((current_epoch - past_epochs_to_load))
+    - 'mkdir ./merkle-trees/'
+    - |
+      set -x
+      for epoch in $(seq $$epochs_start_index $$current_epoch); do
+        gcloud storage cp "$$gs_bucket/$$epoch/settlement-merkle-trees.json" "./merkle-trees/$${epoch}_settlement-merkle-trees.json" || true
+        gcloud storage cp "$$gs_bucket/$$epoch/settlements.json" "./merkle-trees/$${epoch}_settlements.json" || true
+      done
+    artifact_paths:
+      - "./merkle-trees/*"
+
+  - wait: ~
+
+  - label: ":campfire::arrow_right: Fund settlements"
+    env:
+      RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,fund_settlement=debug
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))'
+    - 'buildkite-agent artifact download --include-retried-jobs fund-execution-report.$$prior_build_number . || true'
+    - |
+      cp "fund-execution-report.$$prior_build_number" "fund-execution-report.$$BUILDKITE_RETRY_COUNT" || true
+      rm -f "fund-execution-report.$$prior_build_number"
+      echo "#ATTEMPT $$BUILDKITE_RETRY_COUNT" | tee -a "./fund-execution-report.$$BUILDKITE_RETRY_COUNT"
+    - 'buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .'
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/fund-settlement .'
+    - 'chmod +x target/release/fund-settlement'
+    - |
+      set -o pipefail
+      ./target/release/fund-settlement \
+        --rpc-url $$RPC_URL \
+        --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
+        --fee-payer "$$VALIDATOR_BONDS_SETTLEMENTS_WALLET" \
+        --marinade-wallet "$$VALIDATOR_BONDS_FUNDING_WALLET" \
+        --rent-payer "$$VALIDATOR_BONDS_SETTLEMENTS_WALLET" \
+        --settlement-json-files ./merkle-trees/* | tee -a "./fund-execution-report.$$BUILDKITE_RETRY_COUNT"
+    key: 'fund-settlement'
+    artifact_paths:
+      - "./fund-execution-report.*"
+    retry:
+      automatic:
+        - exit_status: 100
+          limit: 5
+
+  - label: ":memo: Notification setup: Fund Settlements"
+    env:
+      gs_bucket: gs://marinade-validator-bonds-mainnet
+    commands:
+     - 'mkdir ./reports'
+     - 'buildkite-agent artifact download --include-retried-jobs "fund-execution-report.*" ./reports/ || echo "No report ERROR" > ./reports/fund-execution-report.error'
+     - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
+     - 'cp "$$report_path" ./fund-report.txt'
+     - 'buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./fund-report.txt)"'
+    artifact_paths:
+    - "./fund-report.txt"
+    key: 'notification-setup-funding'
+    depends_on: "fund-settlement"
+    allow_dependency_failure: true
+
+  - wait: ~
+
+  - label: ":mega: Notification Funding"
+    commands:
+    - 'build_result=$(buildkite-agent step get "outcome" --step "fund-settlement")'
+    - |
+      if [[ -z "$$build_result" || "$$build_result" =~ "failed" ]]; then
+        notification_result="finished with WARNINGS"
+        notification_color="16355909"
+      else
+        notification_result="SUCCEEDED"
+        notification_color="52224"
+      fi
+    - |
+      attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
+      buildkite-agent artifact download --include-retried-jobs fund-report.txt . || echo 'UNKNOWN ERROR' > './fund-report.txt'
+      # curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
+      curl https://discord.com/api/webhooks/1237762124114296923/O-Gv1aBiB4LZy87ppR-87LPVDCBz7591Kcse52GyRUmrU-Y8IVpAjnSuP-ZwpGDLLb88 \
+        -F 'payload_json={
+            "embeds":[{
+              "title": "Fund Settlements '"$$notification_result"', '"$$attempts_count"' attempts",
+              "url": "'"$$BUILDKITE_BUILD_URL"'",
+              "color": "'"$$notification_color"'"
+            }]
+        }' \
+        -F "file1=@./fund-report.txt"
+    depends_on: "notification-setup-funding"
+    allow_dependency_failure: true
+
+  - wait: ~
+
+  - label: ":unlock: Concurrency gate unlock"
+    command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/fund-settlements'
+    concurrency: 1

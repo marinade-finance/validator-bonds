@@ -10,6 +10,10 @@ name = "init-settlement"
 path = "src/bin/init_settlement.rs"
 
 [[bin]]
+name = "fund-settlement"
+path = "src/bin/fund_settlement.rs"
+
+[[bin]]
 name = "list-claimable-epoch"
 path = "src/bin/list_claimable_epoch.rs"
 

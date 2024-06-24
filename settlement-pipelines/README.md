@@ -17,7 +17,7 @@ management of the [Validator Bonds Program](../programs/validator-bonds/README.m
 
 ## Pipeline Usage
 
-There are 3 pipelines used for the binary commands.
+There are 4 pipelines used for the binary commands.
 
 * [init-settlements](../.buildkite/init-settlements.yml): Initializes settlements for an epoch based on generated JSON files.
   This pipeline is expected to be called after the JSON files are generated at [prepare-claims](../.buildkite/prepare-claims.yml).
