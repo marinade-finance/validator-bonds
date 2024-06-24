@@ -11,6 +11,9 @@ management of the [Validator Bonds Program](../programs/validator-bonds/README.m
 * [list-settlement](./src/bin/list_settlement.rs): Derives `Settlement` account addresses from the provided JSON files and prints them.
 * [close-settlement](./src/bin/close_settlement.rs): Checks the chain for `Settlement`s that can be closed and resets stake accounts,
   using the provided list of `Settlement` addresses to search for the settlement stake authorities.
+* [verify-settlement](./src/bin/verify_settlement.rs): Load all available `Settlement`'s on-chain
+  and compares them to provided list of Settlement addresses (expected they were loaded from gcloud).
+  It returns a list of Settlements found on-chain but not available from the gcloud listing.
 
 ## Pipeline Usage
 
@@ -24,6 +27,9 @@ There are 3 pipelines used for the binary commands.
 * [close-settlements](../.buildkite/close-settlements.yml): Closes `Settlement` accounts, `SettlementClaim` accounts,
   and resets the state of stake accounts to be associated back to the validator `Bond` when not claimed.
   It verifies the on-chain state to see if the settlement has expired and if any `SettlementClaim` can be closed.
+* [verify-settlements](../.buildkite/verify-settlements.yml): Loading `Settlement` merkle tree data
+  from gcloud and do if the on-chain state does not contain some unknown `Settlement` in comparison
+  to gcloud list.
 
 
 ## Usage

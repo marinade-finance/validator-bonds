@@ -98,7 +98,7 @@ steps:
       gs_bucket: gs://marinade-validator-bonds-mainnet
     commands:
      - |
-       build_result=$(buildkite-agent step get "outcome" --step "claim-settlement")
+        build_result=$(buildkite-agent step get "outcome" --step "claim-settlement")
         if [[ -z "$$build_result" || "$$build_result" =~ "failed" ]]; then
           notification_result="finished with WARNINGS"
           notification_color="16355909"
@@ -110,9 +110,8 @@ steps:
      - 'buildkite-agent meta-data set notification_result "$$notification_result"'
      - 'echo "Notification result: $$notification_result, color: $$notification_color"'
      - 'mkdir ./reports'
-     - 'buildkite-agent artifact download --include-retried-jobs "build-report.*" ./reports/'
+     - 'buildkite-agent artifact download --include-retried-jobs "build-report.*" ./reports/ || echo "No report ERROR" > ./reports/build-report.error'
      - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
-     - '[[ -f "$$report_path" ]] || echo "No report generated; UNKNOWN ERROR" >> "$$report_path"'
      - 'cp "$$report_path" ./claiming-report.txt'
      - 'claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json)'
      - 'first_epoch=$(echo "$$claimable_epochs_json" | jq ".[0]")'
