@@ -8,7 +8,8 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_spl::stake::Stake;
 
-/// Closes the settlement account, whoever can close it when the epoch expires
+/// Cancel Settlement by closing the settlement account.
+/// Whoever can close Settlement by 'close_settlement' when the epoch expires.
 #[event_cpi]
 #[derive(Accounts)]
 pub struct CancelSettlement<'info> {
@@ -30,7 +31,7 @@ pub struct CancelSettlement<'info> {
     )]
     pub bond: Account<'info, Bond>,
 
-    /// settlement to close when expired
+    /// settlement to close
     #[account(
         mut,
         close = rent_collector,

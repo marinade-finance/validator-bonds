@@ -1,0 +1,144 @@
+agents:
+  queue: "snapshots"
+
+# This pipeline is responsible for verifying the settlements of the past epochs
+# It will download the past settlements from gcloud and checks their existence on-chain
+# If unknown Settlement is found it may mean a mallicious actor stolen operator keypair and tries to withdraw funds.
+# If that happens we need to act fast as the Validator Bonds emergency or operator authority may cancel any Settlement at any time.
+# The Settlement cannot be claimed immediately but it takes several slots (~ 1/2 of epoch) to get it permitted for claiming.
+# See
+#  * Config.slots_to_start_settlement_claiming
+#  * programs/validator-bonds/src/instructions/settlement/claim_settlement.rs
+#  * programs/validator-bonds/src/instructions/settlement/cancel_settlement.rs
+
+steps:
+  - command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/verify-settlements'
+    concurrency: 1
+
+  - wait: ~
+
+  - label: ":hammer_and_wrench: :rust: Build"
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'cargo build --release --bin list-settlement'
+    - 'cargo build --release --bin verify-settlement'
+    artifact_paths:
+      - target/release/verify-settlement
+      - target/release/list-settlement
+
+  - label: " Loading past settlements json files"
+    env:
+      gs_bucket: gs://marinade-validator-bonds-mainnet
+      past_epochs_to_load: 10
+    commands:
+    - |
+      current_epoch=$(curl --silent "$$RPC_URL" -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1, "method":"getEpochInfo"}' | jq '.result.epoch')
+      start_epoch=$((current_epoch - past_epochs_to_load))
+    - 'mkdir ./merkle-trees/'
+    - |
+      echo "Sequence printing: $(seq $$start_epoch $$current_epoch)"
+      for epoch in $(seq $$start_epoch $$current_epoch); do
+        gcloud storage cp "$$gs_bucket/$$epoch/settlement-merkle-trees.json" "./merkle-trees/$${epoch}_settlement-merkle-trees.json" || echo "No gcloud data found for epoch $$epoch"
+      done
+    artifact_paths:
+      - "./merkle-trees/*"
+
+  - wait: ~
+
+  - label: ":campfire: List past settlements"
+    env:
+      RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,list_settlement=debug
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .'
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/list-settlement .'
+    - 'chmod +x target/release/list-settlement'
+    - './target/release/list-settlement -u $$RPC_URL -m ./merkle-trees/* --out ./past-settlements.json'
+    artifact_paths:
+      - "./past-settlements.json"
+
+  - wait: ~
+
+  - label: ":campfire: Verify settlements"
+    env:
+      RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,verify_settlement=debug
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - |
+      
+      echo "#ATTEMPT $((BUILDKITE_RETRY_COUNT+1))" | tee -a "./build-report.$$BUILDKITE_RETRY_COUNT"
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/verify-settlement .'
+    - 'buildkite-agent artifact download --include-retried-jobs past-settlements.json .'
+    - 'chmod +x target/release/verify-settlement'
+    - |
+      set -o pipefail
+      ./target/release/verify-settlement \
+        --rpc-url $$RPC_URL \
+        --past-settlements ./past-settlements.json | tee -a "./build-report.$$BUILDKITE_RETRY_COUNT"
+    key: 'verify-settlement'
+    artifact_paths:
+      - "./build-report.*"
+    retry:
+      automatic:
+        - exit_status: 100
+          limit: 3
+
+  - label: "Notification setup"
+    commands:
+     - 'mkdir ./reports'
+     - 'buildkite-agent artifact download --include-retried-jobs "build-report.*" ./reports/ || echo "[\"No report ERROR\"]" > ./reports/build-report.error'
+     - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
+     - |
+       ATTEMPT_COUNT=$(grep -c ATTEMPT "$$report_path" | sed 's/.*ATTEMPT //g')
+       buildkite-agent meta-data set attempts_count "$${ATTEMPT_COUNT:-0}"
+     - 'cat "$$report_path" | grep -v "ATTEMPT" > ./verify-report.json'
+    artifact_paths:
+    - "./verify-report.json"
+    key: 'notification'
+    depends_on: "verify-settlement"
+    allow_dependency_failure: true
+
+  - wait: ~
+
+  - label: ":mega: Notification settlements verification"
+    commands:
+    - 'buildkite-agent artifact download --include-retried-jobs verify-report.json .'
+    - 'build_result=$(buildkite-agent step get "outcome" --step "verify-settlement")'
+    - |
+      if [[ -z "$$build_result" || "$$build_result" =~ "failed" ]]; then
+        echo "Failure at process of settlements verification"
+        cat ./verify-report.json
+        exit 42
+      fi
+    - 'echo "--- Verify report: ---"'
+    - 'cat ./verify-report.json'
+    - |
+      number_unknown_settlements=$(jq '. | length' ./verify-report.json)
+      if [ $$number_unknown_settlements -gt 0 ]; then
+        echo " => $$number_unknown_settlements unknown Settlements found"
+        unknown_settlements=$(jq -rc '. | join(", ")' ./verify-report.json)
+        set -x
+        curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
+          -F 'payload_json={
+              "embeds":[{
+                "title": "🚨❗🚨 Unknown settlements :: <<'"$$number_unknown_settlements"'>>",
+                "url": "'"$$BUILDKITE_BUILD_URL"'",
+                "color": "15158332",
+                "fields": [{
+                  "name": "Unknown settlements",
+                  "value": "'"$$unknown_settlements"'",
+                  "inline": true
+                }]
+              }]
+          }'
+        exit 2
+      fi
+    depends_on: "notification"
+    allow_dependency_failure: true
+
+  - wait: ~
+
+  - command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/verify-settlements'
+    concurrency: 1

@@ -25,6 +25,10 @@ path = "src/bin/close_settlement.rs"
 name = "list-settlement"
 path = "src/bin/list_settlement.rs"
 
+[[bin]]
+name = "verify-settlement"
+path = "src/bin/verify_settlement.rs"
+
 [dependencies]
 anchor-client = {workspace = true}
 anyhow = { workspace = true }

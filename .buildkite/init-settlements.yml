@@ -118,7 +118,7 @@ steps:
     commands:
      - 'epoch=$(buildkite-agent meta-data get epoch)'
      - |
-       build_result=$(buildkite-agent step get "outcome" --step "init-settlement")
+        build_result=$(buildkite-agent step get "outcome" --step "init-settlement")
         if [[ -z "$$build_result" || "$$build_result" =~ "failed" ]]; then
           notification_result="FAILED"
           notification_color="15158332"
@@ -130,9 +130,8 @@ steps:
      - 'buildkite-agent meta-data set notification_result "$$notification_result"'
      - 'echo "Notification result: $$notification_result, color: $$notification_color"'
      - 'mkdir ./reports'
-     - 'buildkite-agent artifact download --include-retried-jobs "build-report.*" ./reports/'
+     - 'buildkite-agent artifact download --include-retried-jobs "build-report.*" ./reports/ || echo "No report ERROR" > ./reports/build-report.error'
      - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
-     - '[[ -f "$$report_path" ]] || echo "No report generated; UNKNOWN ERROR" >> "$$report_path"'
      - 'cp "$$report_path" ./init-report.txt'
      - 'gcloud storage cp ./init-report.txt "$$gs_bucket/$$epoch/init-settlement-report.$(date +%s).txt"'
      - 'buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./init-report.txt)"'
