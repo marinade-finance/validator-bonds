@@ -676,6 +676,18 @@ Commands:
   node --version
   ```
 
+* **DeprecationWarning: The punycode module is deprecated. Please use a userland alternative instead.**
+
+  **Explanation**
+
+  This is an issue with the core Typescript dependency solana-web3.js (https://github.com/solana-labs/solana-web3.js/issues/2781).
+  The CLI is awaiting the official release of a new major version of the web3.js
+  library that fixes this flaw.
+
+  **Solution**
+
+  No functionality issue. The CLI can be used as is with this warning displayed.
+
 * **WithdrawRequestNotReady ... Withdraw request has not elapsed the epoch lockup period yet.**
 
   ```
