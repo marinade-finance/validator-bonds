@@ -43,7 +43,7 @@ pub async fn get_bonds(psql_client: &Client) -> anyhow::Result<Vec<ValidatorBond
 
 pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
     const CHUNK_SIZE: usize = 512;
-    const PARAMS_PER_INSERT: usize = 10;
+    const PARAMS_PER_INSERT: usize = 11;
 
     let (psql_client, psql_conn) = tokio_postgres::connect(&options.postgres_url, NoTls).await?;
 
