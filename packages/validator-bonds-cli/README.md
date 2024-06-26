@@ -273,7 +273,7 @@ back to the (original) owner.
 This process involves two steps:
 
 1. Initialize a withdrawal request, which means creating an on-chain account (a ticket) informing the protected event system about the intention to withdraw funds.
-2. Only after the lockup time elapses (a program configuration property) can one call to claim the withdrawal request and regain ownership of the funds held within the stake account.
+2. Only after the lockup period elapses — currently after 3 epochs — can one claim the withdrawal request and regain ownership of the funds held in the stake account.
 
 **NOTE:** The amount declared in the withdrawal request ticket account is no longer
           considered as part of the funded bond amount.
@@ -314,11 +314,12 @@ The meanings of parameters are as follows:
 
 #### Technical details on creating withdraw request and claiming
 
-When creating a withdraw request, a specific number of lamports is designated for withdrawal after the delayed claiming period.
-This represents the maximum amount that can be withdrawn once the period elapses.
-However, during this time, staking rewards may accrue, resulting in a discrepancy between the requested withdrawal amount
-and the actual available lamports in stake accounts.
-The system only allows withdrawal of the specified amount in the withdraw request.
+When creating a withdrawal request, a specific number of lamports is designated for withdrawal after the delayed claiming period (3 epochs).
+This represents the maximum amount that can be withdrawn.
+However, during the delayed claiming period, staking rewards may accrue,
+resulting in a discrepancy between the requested withdrawal amount
+and the actual available lamports in the stake accounts.
+The system only allows withdrawal of the specified amount in the withdrawal request.
 
 At time of withdrawal (`claim-withdraw-request`), one must specify the stake account from which the amount
 will be taken. This typically results in __splitting the stake account__,
