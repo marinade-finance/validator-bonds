@@ -13,7 +13,7 @@ pub async fn get_bonds(psql_client: &Client) -> anyhow::Result<Vec<ValidatorBond
             "
             WITH cluster AS (SELECT MAX(epoch) as last_epoch FROM bonds)
             SELECT
-                pubkey, vote_account, authority, cpmpe, updated_at, epoch, funded_amount, effective_amount, remaining_witdraw_request_amount, remainining_settlement_claim_amount
+                pubkey, vote_account, authority, cpmpe, max_stake_wanted, updated_at, epoch, funded_amount, effective_amount, remaining_witdraw_request_amount, remainining_settlement_claim_amount
             FROM bonds, cluster WHERE epoch = cluster.last_epoch",
             &[],
         )
@@ -27,6 +27,7 @@ pub async fn get_bonds(psql_client: &Client) -> anyhow::Result<Vec<ValidatorBond
             authority: row.get("authority"),
             epoch: row.get::<_, i32>("epoch").try_into()?,
             cpmpe: row.get::<_, Decimal>("cpmpe"),
+            max_stake_wanted: row.get::<_, Decimal>("max_stake_wanted"),
             updated_at: row.get("updated_at"),
             funded_amount: row.get::<_, Decimal>("funded_amount"),
             effective_amount: row.get::<_, Decimal>("effective_amount"),
@@ -42,7 +43,7 @@ pub async fn get_bonds(psql_client: &Client) -> anyhow::Result<Vec<ValidatorBond
 
 pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
     const CHUNK_SIZE: usize = 512;
-    const PARAMS_PER_INSERT: usize = 10;
+    const PARAMS_PER_INSERT: usize = 11;
 
     let (psql_client, psql_conn) = tokio_postgres::connect(&options.postgres_url, NoTls).await?;
 
@@ -84,6 +85,7 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
             params.push(Box::new(epoch));
             params.push(Box::new(bond.updated_at));
             params.push(Box::new(bond.cpmpe));
+            params.push(Box::new(bond.max_stake_wanted));
             params.push(Box::new(bond.funded_amount));
             params.push(Box::new(bond.effective_amount));
             params.push(Box::new(bond.remaining_witdraw_request_amount));
@@ -94,13 +96,14 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
 
         let query = format!(
             "
-            INSERT INTO bonds (pubkey, vote_account, authority, epoch, updated_at, cpmpe, funded_amount, effective_amount, remaining_witdraw_request_amount, remainining_settlement_claim_amount)
+            INSERT INTO bonds (pubkey, vote_account, authority, epoch, updated_at, cpmpe, max_stake_wanted, funded_amount, effective_amount, remaining_witdraw_request_amount, remainining_settlement_claim_amount)
             VALUES {}
             ON CONFLICT (pubkey, epoch) DO UPDATE
             SET vote_account = EXCLUDED.vote_account,
                 authority = EXCLUDED.authority,
                 updated_at = EXCLUDED.updated_at,
                 cpmpe = EXCLUDED.cpmpe,
+                max_stake_wanted = EXCLUDED.max_stake_wanted,
                 funded_amount = EXCLUDED.funded_amount,
                 effective_amount = EXCLUDED.effective_amount,
                 remaining_witdraw_request_amount = EXCLUDED.remaining_witdraw_request_amount,
