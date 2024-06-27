@@ -297,7 +297,7 @@ fn load_json_data_to_merkle_tree(
 /// process merging stake accounts (that is to be claimed) if possible
 #[allow(clippy::too_many_arguments)]
 async fn merge_stake_accounts(
-    claimable_settlements: &mut Vec<ClaimableSettlementsReturn>,
+    claimable_settlements: &mut [ClaimableSettlementsReturn],
     program: &Program<Arc<DynSigner>>,
     config_address: &Pubkey,
     transaction_builder: &mut TransactionBuilder,
@@ -878,7 +878,7 @@ impl ClaimSettlementReport {
     fn init(
         &mut self,
         rpc_client: Arc<RpcClient>,
-        claimable_settlements: &Vec<ClaimableSettlementsReturn>,
+        claimable_settlements: &[ClaimableSettlementsReturn],
     ) {
         info!(
             "Number of claimable settlements: {}",
