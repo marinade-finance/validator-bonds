@@ -121,7 +121,7 @@ program.parseAsync(process.argv).then(
     fetchLatestVersionInNpmRegistry(logger).then(latestVersion => {
       if (compareVersions(program.version() ?? '0.0.0', latestVersion) < 0) {
         logger.error(
-          `Current CLI version ${program.version()} is lower than the latest version: ${latestVersion}. Please update using:\n` +
+          `CLI version ${program.version()} is lower than the latest available version: ${latestVersion}. Please consider updating it:\n` +
             '  npm install -g @marinade.finance/validator-bonds-cli'
         )
       }
