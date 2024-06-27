@@ -16,6 +16,7 @@ import { ExecutionError } from '@marinade.finance/web3js-common'
 import { compareVersions, fetchLatestVersionInNpmRegistry } from './npmRegistry'
 
 export const logger: Logger = configureLogger()
+logger.level = 'debug'
 const program = new Command()
 
 program
@@ -75,6 +76,8 @@ program
   .hook('preAction', async (command: Command, action: Command) => {
     if (command.opts().debug || command.opts().verbose) {
       logger.level = 'debug'
+    } else {
+      logger.level = 'info' // Default level
     }
 
     const printOnly = Boolean(command.opts().printOnly)
@@ -112,6 +115,8 @@ program.parseAsync(process.argv).then(
         ? err.messageWithTransactionError()
         : err.message
     )
+    logger.debug({ resolution: 'Failure', err, args: process.argv })
+
     // Check for the latest version to inform user to update
     fetchLatestVersionInNpmRegistry(logger).then(latestVersion => {
       if (compareVersions(program.version() ?? '0.0.0', latestVersion) < 0) {
@@ -121,7 +126,7 @@ program.parseAsync(process.argv).then(
         )
       }
     })
-    logger.debug({ resolution: 'Failure', err, args: process.argv })
+
     process.exitCode = 200
   }
 )

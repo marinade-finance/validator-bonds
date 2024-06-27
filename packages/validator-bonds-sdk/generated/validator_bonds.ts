@@ -1395,7 +1395,7 @@ export type ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "settlement to close when expired"
+            "settlement to close"
           ],
           "pda": {
             "seeds": [
@@ -5873,7 +5873,7 @@ export const IDL: ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "settlement to close when expired"
+            "settlement to close"
           ],
           "pda": {
             "seeds": [

@@ -276,7 +276,7 @@ describe('Show command using CLI', () => {
         voteAccount: voteAccount.toBase58(),
         authority: bondAuthority.publicKey.toBase58(),
         costPerMillePerEpoch: '222 lamports',
-        maxStakeWanted: '2000 SOLs',
+        maxStakeWanted: '2000.000000000 SOLs',
       },
     }
     const expectedDataFundingSingleItem = {
@@ -523,7 +523,7 @@ describe('Show command using CLI', () => {
         voteAccount: voteAccount,
         authority: bondAuthority.publicKey,
         costPerMillePerEpoch: '1 lamport',
-        maxStakeWanted: '0 SOL',
+        maxStakeWanted: '0.000000000 SOL',
       },
     }
     const voteAccountShow = await loadTestingVoteAccount(

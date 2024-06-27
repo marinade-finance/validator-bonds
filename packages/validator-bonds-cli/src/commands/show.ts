@@ -9,7 +9,7 @@ import {
   reformatReserved,
   ReformatAction,
 } from '@marinade.finance/cli-common'
-import { AccountInfo, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import { AccountInfo, PublicKey } from '@solana/web3.js'
 import { Command } from 'commander'
 import { getCliContext, setProgramIdByOwner } from '../context'
 import {
@@ -511,21 +511,11 @@ function reformatBond(key: string, value: any): ReformatAction {
       ],
     }
   }
-  if (key.toLocaleLowerCase().startsWith('maxstake')) {
-    return {
-      type: 'UseExclusively',
-      records: [
-        {
-          key,
-          value:
-            new BN(value).divRound(new BN(LAMPORTS_PER_SOL)).toString() +
-            ' ' +
-            formatUnit(value, 'SOL'),
-        },
-      ],
-    }
-  }
-  if (key.startsWith('amount') || key.includes('Amount')) {
+  if (
+    key.startsWith('amount') ||
+    key.includes('Amount') ||
+    key.startsWith('max')
+  ) {
     return format_sol_exclusive(key, value)
   }
   if (key.toLocaleLowerCase() === 'withdrawrequest' && value === undefined) {

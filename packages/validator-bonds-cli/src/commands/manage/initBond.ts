@@ -17,7 +17,7 @@ import {
   initBondInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
-import { LAMPORTS_PER_SOL, PublicKey, Signer } from '@solana/web3.js'
+import { PublicKey, Signer } from '@solana/web3.js'
 import { INIT_BOND_LIMIT_UNITS } from '../../computeUnits'
 import BN from 'bn.js'
 
@@ -57,12 +57,12 @@ export function installInitBond(program: Command) {
     .option(
       '--cpmpe <number>',
       'Cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch. (default: 0)',
-      value => new BN(value, 10)
+      value => new BN(value.replace(/_/g, ''), 10)
     )
     .option(
       '--max-stake-wanted <number>',
-      'The maximum stake amount, in SOL, that the validator wants to be delegated to them (default: 0).',
-      value => new BN(value, 10)
+      'The maximum stake amount, in lamports, that the validator wants to be delegated to them (default: 0).',
+      value => new BN(value.replace(/_/g, ''), 10)
     )
     .action(
       async ({
@@ -152,7 +152,7 @@ async function manageInitBond({
     validatorIdentity,
     rentPayer,
     cpmpe,
-    maxStakeWanted: maxStakeWanted.mul(new BN(LAMPORTS_PER_SOL)),
+    maxStakeWanted,
   })
   tx.add(instruction)
 
