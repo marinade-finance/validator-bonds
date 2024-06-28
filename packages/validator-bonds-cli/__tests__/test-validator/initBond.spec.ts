@@ -12,9 +12,9 @@ import {
   bondAddress,
   getBond,
 } from '@marinade.finance/validator-bonds-sdk'
-import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
-import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
+import { executeInitConfigInstruction } from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
+import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { createVoteAccountWithIdentity } from '../../../validator-bonds-sdk/__tests__/utils/staking'
 import {
   AnchorExtendedProvider,
   getAnchorValidatorInfo,

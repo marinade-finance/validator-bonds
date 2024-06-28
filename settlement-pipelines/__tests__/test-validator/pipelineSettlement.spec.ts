@@ -29,12 +29,12 @@ import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
+} from '../../../packages/validator-bonds-sdk/__tests__/utils/testTransactions'
+import { initTest } from '../../../packages/validator-bonds-sdk/__tests__/test-validator/testValidator'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import fs from 'fs'
 import path from 'path'
-import { createDelegatedStakeAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
+import { createDelegatedStakeAccount } from '../../../packages/validator-bonds-sdk/__tests__/utils/staking'
 import BN from 'bn.js'
 import assert from 'assert'
 

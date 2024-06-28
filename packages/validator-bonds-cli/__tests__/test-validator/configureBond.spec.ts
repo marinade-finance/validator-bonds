@@ -14,13 +14,13 @@ import {
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
+} from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
+import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
 import {
   AnchorExtendedProvider,
   getAnchorValidatorInfo,
 } from '@marinade.finance/anchor-common'
-import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
+import { createVoteAccountWithIdentity } from '../../../validator-bonds-sdk/__tests__/utils/staking'
 import {
   createAssociatedTokenAccountInstruction,
   createTransferInstruction,

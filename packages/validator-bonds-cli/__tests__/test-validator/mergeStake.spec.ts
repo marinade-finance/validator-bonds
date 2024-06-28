@@ -4,12 +4,12 @@ import {
   ValidatorBondsProgram,
   bondsWithdrawerAuthority,
 } from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
-import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
+import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { executeInitConfigInstruction } from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
 import {
   authorizeStakeAccount,
   delegatedStakeAccount,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
+} from '../../../validator-bonds-sdk/__tests__/utils/staking'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import {
   ExtendedProvider,

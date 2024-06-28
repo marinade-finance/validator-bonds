@@ -5,8 +5,8 @@ import {
   ValidatorBondsProgram,
   getConfig,
 } from '@marinade.finance/validator-bonds-sdk'
-import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { executeInitConfigInstruction } from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
+import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
 describe('Configure config account using CLI', () => {

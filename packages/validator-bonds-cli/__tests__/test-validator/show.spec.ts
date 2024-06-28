@@ -19,17 +19,17 @@ import {
   LAMPORTS_PER_SOL,
   PublicKey,
 } from '@solana/web3.js'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
 import {
   executeConfigureConfigInstruction,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitWithdrawRequestInstruction,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
+} from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
 import {
   createBondsFundedStakeAccount,
   createVoteAccount,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
+} from '../../../validator-bonds-sdk/__tests__/utils/staking'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import { VoteAccountShow } from '../../src/commands/show'
 
