@@ -250,7 +250,7 @@ function formatLamportsToSol(value: BN | number | BigInt): string {
   const { div, mod } = new BN(value).divmod(new BN(LAMPORTS_PER_SOL))
   return `${div.toString()}.${mod
     .toString()
-    .padEnd(Math.log10(LAMPORTS_PER_SOL), '0')}`
+    .padStart(Math.log10(LAMPORTS_PER_SOL), '0')}`
 }
 
 export function formatUnit(value: BN | number | BigInt, unit: string): string {

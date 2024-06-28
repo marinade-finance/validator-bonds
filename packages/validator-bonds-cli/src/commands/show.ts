@@ -24,6 +24,7 @@ import {
   bondsWithdrawerAuthority,
   getSettlement,
   findSettlements,
+  findStakeAccounts,
 } from '@marinade.finance/validator-bonds-sdk'
 import { ProgramAccount } from '@coral-xyz/anchor'
 import { getBondFromAddress, formatToSol, formatUnit } from './utils'
@@ -442,10 +443,38 @@ async function showSettlement({
 
   if (address !== undefined) {
     const settlementData = await getSettlement(program, address)
+
+    let stakeAccountsDisplay:
+      | { pubkey: PublicKey; amount: number }[]
+      | undefined = undefined
+    if (cliContext.logger.isLevelEnabled('debug')) {
+      const bondData = await getBondFromAddress({
+        program,
+        address: settlementData.bond,
+        logger,
+        config: undefined,
+      })
+      const [withdrawalAuth] = bondsWithdrawerAuthority(
+        bondData.account.data.config,
+        program.programId
+      )
+      const stakeAccounts = await findStakeAccounts({
+        connection: program,
+        staker: settlementData.stakerAuthority,
+        withdrawer: withdrawalAuth,
+        currentEpoch: 0,
+      })
+      stakeAccountsDisplay = stakeAccounts.map(stakeAccount => ({
+        pubkey: stakeAccount.publicKey,
+        amount: stakeAccount.account.lamports,
+      }))
+    }
+
     data = {
       programId: program.programId,
       publicKey: address,
       account: settlementData,
+      stakeAccounts: stakeAccountsDisplay,
     }
   } else {
     try {
