@@ -1,6 +1,6 @@
 {
   "name": "@marinade.finance/validator-bonds-cli",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "description": "CLI of the validator bonds contract",
   "repository": {
     "type": "git",
@@ -24,7 +24,7 @@
   ],
   "main": "src/index",
   "dependencies": {
-    "@marinade.finance/validator-bonds-sdk": " workspace: ^1.5.2",
+    "@marinade.finance/validator-bonds-sdk": "  ^1.5.3",
     "@coral-xyz/anchor": "^0.29.0",
     "@solana/web3.js": "^1.93.0",
     "@marinade.finance/ledger-utils": "^3.0.1",

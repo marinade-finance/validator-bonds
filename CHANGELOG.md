@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## TS CLI&SDK [1.5.3](https://github.com/marinade-finance/validator-bonds/compare/v1.5.2...v1.5.3) (2024-06-30)
+
+### Fixes
+
+* `show-bond` fix on SOL units formatting 
+
+## TS CLI&SDK [1.5.2](https://github.com/marinade-finance/validator-bonds/compare/v1.5.1...v1.5.2) (2024-06-27)
+
+### Updates
+
+* `init-bond` and `configure-bond` `--max-stake-wanted` works with lamports (not SOLs)
+
+## TS CLI&SDK [1.5.1](https://github.com/marinade-finance/validator-bonds/compare/v1.5.0...v1.5.1) (2024-06-17)
+
+### Updates
+
+* `show-bond` to simplify printing vote account data
+* `init-withdraw-request` to limit the creation of the withdraw request to the minimal size of the stake account
+
 ## contract release v1.5.0 (2024-06-14)
 
 * address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
