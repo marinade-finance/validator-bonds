@@ -89,14 +89,13 @@ pub async fn collect_stake_accounts(
 // i.e., to the vote account that the stake account is delegated to
 // returns Map<voter_pubkey, Vec<stake_account_data>>
 pub async fn obtain_delegated_stake_accounts(
-    rpc_client: Arc<RpcClient>,
     stake_accounts: CollectedStakeAccounts,
+    clock: &Clock,
 ) -> anyhow::Result<HashMap<Pubkey, CollectedStakeAccounts>> {
-    let clock: Clock = get_clock(rpc_client).await?;
     let mut vote_account_map: HashMap<Pubkey, CollectedStakeAccounts> = HashMap::new();
     for (pubkey, lamports, stake) in stake_accounts {
         // locked stake accounts are not correctly delegated to bonds
-        if !is_locked(&stake, &clock) {
+        if !is_locked(&stake, clock) {
             if let Some(delegated_stake) = stake.stake() {
                 let voter_pubkey = delegated_stake.delegation.voter_pubkey;
                 vote_account_map
@@ -113,10 +112,11 @@ pub fn is_locked(stake: &StakeStateV2, clock: &Clock) -> bool {
     stake.lockup().is_some() && stake.lockup().unwrap().is_in_force(clock, None)
 }
 
-// From provided stake accounts it filters out:
-// - all non-locked stake accounts that are funded to the Settlement
-// provided stake accounts are fully deactivated and whole lamports amount can be used for claiming
-// returns Map<settlement_pubkey, Vec<stake_account_data>>
+// From provided stake accounts it filters for:
+// - all non-locked stake accounts that are funded to a Settlement
+// That means the returned Stake Accounts are fully deactivated
+// and their whole lamports amount can be used for claiming
+// - Returns Map<settlement_pubkey, Vec<stake_account_data>>
 pub async fn obtain_claimable_stake_accounts_for_settlement(
     stake_accounts: CollectedStakeAccounts,
     config_address: &Pubkey,
@@ -165,17 +165,16 @@ pub async fn obtain_claimable_stake_accounts_for_settlement(
 // All non locked stake accounts that are funded to the Settlement
 // Stake accounts are good to be claimed in near future (i.e., in next epoch, deactivated)
 pub async fn obtain_funded_stake_accounts_for_settlement(
-    rpc_client: Arc<RpcClient>,
     stake_accounts: CollectedStakeAccounts,
     config_address: &Pubkey,
     settlement_addresses: Vec<Pubkey>,
+    clock: &Clock,
+    stake_history: &StakeHistory,
 ) -> anyhow::Result<HashMap<Pubkey, (u64, CollectedStakeAccounts)>> {
-    let clock = get_clock(rpc_client.clone()).await?;
-    let stake_history = get_stake_history(rpc_client.clone()).await?;
     let filtered_to_be_deactivated_stake_accounts: CollectedStakeAccounts = stake_accounts
         .into_iter()
         .filter(|(_, _, stake)| {
-            if is_locked(stake, &clock) {
+            if is_locked(stake, clock) {
                 // cannot use locked stake account
                 false
             } else if let Some(delegation) = stake.delegation() {
@@ -186,7 +185,7 @@ pub async fn obtain_funded_stake_accounts_for_settlement(
                     activating: _,
                 } = delegation.stake_activating_and_deactivating(
                     clock.epoch,
-                    Some(&stake_history),
+                    Some(stake_history),
                     None,
                 );
                 effective == 0 || deactivating > 0

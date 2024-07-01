@@ -23,6 +23,7 @@ use settlement_pipelines::stake_accounts::{
     STAKE_ACCOUNT_RENT_EXEMPTION,
 };
 use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::clock::Clock;
 use solana_sdk::native_token::lamports_to_sol;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
@@ -418,22 +419,28 @@ async fn merge_settlement_stake_accounts(
     let stake_accounts =
         collect_stake_accounts(rpc_client.clone(), Some(&withdrawer_authority), None).await?;
 
-    let mut fund_bond_stake_accounts = get_on_chain_bond_stake_accounts(
-        rpc_client.clone(),
-        &stake_accounts,
-        &withdrawer_authority,
-    )
-    .await?;
+    let clock = get_clock(rpc_client.clone())
+        .await
+        .map_err(CliError::retry_able)?;
+    let mut fund_bond_stake_accounts =
+        get_on_chain_bond_stake_accounts(&stake_accounts, &withdrawer_authority, &clock).await?;
 
     let settlement_addresses: Vec<Pubkey> = settlement_records
         .iter()
         .map(|d| d.settlement_address)
         .collect();
+    let clock = get_clock(rpc_client.clone())
+        .await
+        .map_err(CliError::retry_able)?;
+    let stake_history = get_stake_history(rpc_client.clone())
+        .await
+        .map_err(CliError::retry_able)?;
     let funded_to_settlement_stakes = obtain_funded_stake_accounts_for_settlement(
-        rpc_client.clone(),
         stake_accounts,
         config_address,
         settlement_addresses,
+        &clock,
+        &stake_history,
     )
     .await
     .map_err(CliError::retry_able)?;
@@ -779,9 +786,9 @@ impl From<&FundBondStakeAccount> for CollectedStakeAccount {
 
 /// Filtering stake accounts and creating a Map of vote account to stake accounts
 async fn get_on_chain_bond_stake_accounts(
-    rpc_client: Arc<RpcClient>,
     stake_accounts: &CollectedStakeAccounts,
     withdrawer_authority: &Pubkey,
+    clock: &Clock,
 ) -> Result<HashMap<Pubkey, Vec<FundBondStakeAccount>>, CliError> {
     let non_funded: CollectedStakeAccounts = stake_accounts
         .clone()
@@ -795,10 +802,9 @@ async fn get_on_chain_bond_stake_accounts(
             }
         })
         .collect();
-    let non_funded_delegated_stakes =
-        obtain_delegated_stake_accounts(rpc_client.clone(), non_funded)
-            .await
-            .map_err(CliError::RetryAble)?;
+    let non_funded_delegated_stakes = obtain_delegated_stake_accounts(non_funded, clock)
+        .await
+        .map_err(CliError::RetryAble)?;
 
     // creating a map of vote account to stake accounts
     let result_map = non_funded_delegated_stakes
@@ -961,7 +967,7 @@ impl InitSettlementReport {
         &mut self,
         rpc_client: Arc<RpcClient>,
         epoch: u64,
-        json_settlements: &Vec<SettlementRecord>,
+        json_settlements: &[SettlementRecord],
     ) {
         self.rpc_client = Some(rpc_client);
         self.json_settlements_count = json_settlements.len() as u64;

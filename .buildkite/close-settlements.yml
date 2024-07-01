@@ -14,8 +14,8 @@ steps:
     - 'cargo build --release --bin list-settlement'
     - 'cargo build --release --bin close-settlement'
     artifact_paths:
-      - target/release/close-settlement
       - target/release/list-settlement
+      - target/release/close-settlement
 
   - label: " Loading past settlements data"
     env:
@@ -106,7 +106,7 @@ steps:
 
   - wait: ~
 
-  - label: ":mega: Notification settlements closing"
+  - label: ":mega: Notification Closing"
     commands:
     - 'build_result=$(buildkite-agent step get "outcome" --step "close-settlement")'
     - |
