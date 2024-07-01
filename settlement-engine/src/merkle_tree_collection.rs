@@ -106,6 +106,7 @@ mod tests {
     use super::*;
     use solana_sdk::bs58;
     use solana_sdk::hash::hashv;
+    use solana_sdk::native_token::LAMPORTS_PER_SOL;
     use solana_sdk::pubkey::Pubkey;
     use std::str::FromStr;
 
@@ -136,78 +137,69 @@ mod tests {
     // TS cross-check constant test
     #[test]
     pub fn ts_cross_check_merkle_proof() {
+        let staker1 = Pubkey::from_str("82ewSU2zNH87PajZHf7betFbZAaGR8bwDp8azSHNCAnA").unwrap();
+        let staker2 = Pubkey::from_str("yrWTX1AuJRqziVpdhg3eAWYhDcY6z1kmEaG4sn1uDDj").unwrap();
+        let staker3 = Pubkey::from_str("121WqnefAgXvLZdW42LsGUbkFjv7LVUqvcpkskxyVgeu").unwrap();
+        let withdrawer1 = Pubkey::from_str("3vGstFWWyQbDknu9WKr9vbTn2Kw5qgorP7UkRXVrfe9t").unwrap();
+        let withdrawer2 = Pubkey::from_str("DBnWKq1Ln9y8HtGwYxFMqMWLY1Ld9xpB28ayKfHejiTs").unwrap();
+        let withdrawer3 = Pubkey::from_str("CgoqXy3e1hsnuNw6bJ8iuzqZwr93CA4jsRa1AnsseJ53").unwrap();
+        let withdrawer4 = Pubkey::from_str("DdWhr91hqajDZRaRVt4QhD5yJasjmyeweST5VUbfCKGy").unwrap();
         let mut items_vote_account1: Vec<TreeNode> = vec![
             TreeNode {
-                stake_authority: Pubkey::from_str("82ewSU2zNH87PajZHf7betFbZAaGR8bwDp8azSHNCAnA")
-                    .unwrap(),
-                withdraw_authority: Pubkey::from_str(
-                    "3vGstFWWyQbDknu9WKr9vbTn2Kw5qgorP7UkRXVrfe9t",
-                )
-                .unwrap(),
+                stake_authority: staker1,
+                withdraw_authority: withdrawer1,
                 claim: 1234,
                 proof: None,
             },
             TreeNode {
-                stake_authority: Pubkey::from_str("82ewSU2zNH87PajZHf7betFbZAaGR8bwDp8azSHNCAnA")
-                    .unwrap(),
-                withdraw_authority: Pubkey::from_str(
-                    "DBnWKq1Ln9y8HtGwYxFMqMWLY1Ld9xpB28ayKfHejiTs",
-                )
-                .unwrap(),
+                stake_authority: staker1,
+                withdraw_authority: withdrawer2,
                 claim: 99999,
                 proof: None,
             },
             TreeNode {
-                stake_authority: Pubkey::from_str("yrWTX1AuJRqziVpdhg3eAWYhDcY6z1kmEaG4sn1uDDj")
-                    .unwrap(),
-                withdraw_authority: Pubkey::from_str(
-                    "CgoqXy3e1hsnuNw6bJ8iuzqZwr93CA4jsRa1AnsseJ53",
-                )
-                .unwrap(),
+                stake_authority: staker2,
+                withdraw_authority: withdrawer3,
                 claim: 212121,
+                proof: None,
+            },
+            TreeNode {
+                stake_authority: staker2,
+                withdraw_authority: withdrawer4,
+                claim: LAMPORTS_PER_SOL,
+                proof: None,
+            },
+            TreeNode {
+                stake_authority: staker3,
+                withdraw_authority: withdrawer4,
+                claim: LAMPORTS_PER_SOL * 42,
                 proof: None,
             },
         ];
         let mut items_vote_account2: Vec<TreeNode> = vec![
             TreeNode {
-                stake_authority: Pubkey::from_str("yrWTX1AuJRqziVpdhg3eAWYhDcY6z1kmEaG4sn1uDDj")
-                    .unwrap(),
-                withdraw_authority: Pubkey::from_str(
-                    "3vGstFWWyQbDknu9WKr9vbTn2Kw5qgorP7UkRXVrfe9t",
-                )
-                .unwrap(),
+                stake_authority: staker2,
+                withdraw_authority: withdrawer1,
                 claim: 69,
                 proof: None,
             },
             TreeNode {
-                stake_authority: Pubkey::from_str("121WqnefAgXvLZdW42LsGUbkFjv7LVUqvcpkskxyVgeu")
-                    .unwrap(),
-                withdraw_authority: Pubkey::from_str(
-                    "DBnWKq1Ln9y8HtGwYxFMqMWLY1Ld9xpB28ayKfHejiTs",
-                )
-                .unwrap(),
+                stake_authority: staker3,
+                withdraw_authority: withdrawer2,
                 claim: 111111,
                 proof: None,
             },
         ];
         let mut items_operator: Vec<TreeNode> = vec![
             TreeNode {
-                stake_authority: Pubkey::from_str("yrWTX1AuJRqziVpdhg3eAWYhDcY6z1kmEaG4sn1uDDj")
-                    .unwrap(),
-                withdraw_authority: Pubkey::from_str(
-                    "DBnWKq1Ln9y8HtGwYxFMqMWLY1Ld9xpB28ayKfHejiTs",
-                )
-                .unwrap(),
+                stake_authority: staker2,
+                withdraw_authority: withdrawer2,
                 claim: 556677,
                 proof: None,
             },
             TreeNode {
-                stake_authority: Pubkey::from_str("121WqnefAgXvLZdW42LsGUbkFjv7LVUqvcpkskxyVgeu")
-                    .unwrap(),
-                withdraw_authority: Pubkey::from_str(
-                    "CgoqXy3e1hsnuNw6bJ8iuzqZwr93CA4jsRa1AnsseJ53",
-                )
-                .unwrap(),
+                stake_authority: staker3,
+                withdraw_authority: withdrawer3,
                 claim: 996677,
                 proof: None,
             },
@@ -226,12 +218,13 @@ mod tests {
         );
         assert_eq!(
             merkle_tree_vote_account1_root.to_string(),
-            "EnBJg4qV4GjH3Sgigsi8wkWz966QYgSQkgPMCmWto51f"
+            "6H5xisVj8r1aYRX2B2PyeG62ofF9aUiy8qHzwwkJCqqH"
         );
         for (i, tree_node) in items_vote_account1.iter_mut().enumerate() {
             tree_node.proof = Some(get_proof(&merkle_tree_vote_account1, i));
             println!(
-                "vote account1: proof: {:?}, hash tree node: {}",
+                "vote account1[claim:{}]: proof: {:?}, hash tree node: {}",
+                tree_node.claim,
                 tree_node.proof,
                 tree_node.hash()
             )
@@ -259,7 +252,8 @@ mod tests {
         for (i, tree_node) in items_vote_account2.iter_mut().enumerate() {
             tree_node.proof = Some(get_proof(&merkle_tree_vote_account2, i));
             println!(
-                "vote account2: proof: {:?}, hash tree node: {}",
+                "vote account2[claim:{}]: proof: {:?}, hash tree node: {}",
+                tree_node.claim,
                 tree_node.proof,
                 tree_node.hash()
             )
