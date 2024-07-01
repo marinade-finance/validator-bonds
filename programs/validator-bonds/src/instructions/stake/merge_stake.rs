@@ -138,7 +138,7 @@ impl<'info> MergeStake<'info> {
                 merge_account_infos,
                 &[&[
                     SETTLEMENT_STAKER_AUTHORITY_SEED,
-                    &ctx.accounts.config.key().as_ref(),
+                    &settlement.as_ref(),
                     &[settlement_bump],
                 ]],
             )?
@@ -146,9 +146,9 @@ impl<'info> MergeStake<'info> {
             return Err(error!(ErrorCode::StakerAuthorityMismatch)
                 .with_account_name("staker_authority")
                 .with_values((
-                    "staker_authority/bonds_withdrawer_authority/settlement_staker_authority",
+                    "accounts.staker_authority [bonds_withdrawer_authority/settlement_staker_authority]",
                     format!(
-                        "{}/{}/{}",
+                        "{} [{}/{}]",
                         ctx.accounts.staker_authority.key(),
                         bonds_withdrawer_authority,
                         settlement_staker_authority
