@@ -5,20 +5,6 @@ import BN from 'bn.js'
 import { ExtendedProvider } from '@marinade.finance/web3js-common'
 import { createUserAndFund } from '@marinade.finance/web3js-common'
 
-export const MERKLE_PROOF_VOTE_ACCOUNT_1 =
-  'EnBJg4qV4GjH3Sgigsi8wkWz966QYgSQkgPMCmWto51f'
-export const MERKLE_ROOT_VOTE_ACCOUNT_1_BUF = bs58.decode(
-  MERKLE_PROOF_VOTE_ACCOUNT_1
-)
-export const MERKLE_PROOF_VOTE_ACCOUNT_2 =
-  'Asi9uVpB3Tx29L17X3Z46jrPizKywTRttqsvnLTzgh27'
-export const MERKLE_ROOT_VOTE_ACCOUNT_2_BUF = bs58.decode(
-  MERKLE_PROOF_VOTE_ACCOUNT_2
-)
-export const MERKLE_PROOF_OPERATOR =
-  'D8rFThGJXYVFcKdqovz3VMA1nALNugHzvGYhSn8dLwip'
-export const MERKLE_ROOT_VOTE_OPERATOR_BUF = bs58.decode(MERKLE_PROOF_OPERATOR)
-
 export const configAccount = new PublicKey(
   '4wQELTA1RMEM3cKN7gjbiNN247e3GY9Sga7MKpNV38kL'
 )
@@ -87,6 +73,18 @@ export const withdrawer3Keypair = Keypair.fromSecretKey(
     101, 205, 13, 212, 139, 234, 174, 137, 193, 203, 120, 62, 72, 48, 54,
   ])
 )
+export const withdrawer4 = new PublicKey(
+  'DdWhr91hqajDZRaRVt4QhD5yJasjmyeweST5VUbfCKGy'
+)
+export const withdrawer4Keypair = Keypair.fromSecretKey(
+  new Uint8Array([
+    137, 198, 40, 27, 37, 227, 249, 231, 34, 199, 32, 244, 110, 23, 214, 53, 74,
+    169, 123, 60, 47, 124, 240, 31, 152, 202, 22, 22, 219, 120, 37, 14, 187,
+    166, 189, 44, 111, 242, 7, 250, 248, 14, 163, 244, 255, 202, 153, 170, 45,
+    159, 43, 102, 71, 254, 58, 222, 149, 1, 233, 215, 141, 139, 98, 62,
+  ])
+)
+
 export const staker1 = new PublicKey(
   '82ewSU2zNH87PajZHf7betFbZAaGR8bwDp8azSHNCAnA'
 )
@@ -126,6 +124,11 @@ export type MerkleTreeNodeWithProof = {
   proof: number[][]
 }
 
+export const MERKLE_PROOF_VOTE_ACCOUNT_1 =
+  '6H5xisVj8r1aYRX2B2PyeG62ofF9aUiy8qHzwwkJCqqH'
+export const MERKLE_ROOT_VOTE_ACCOUNT_1_BUF = bs58.decode(
+  MERKLE_PROOF_VOTE_ACCOUNT_1
+)
 export const ITEMS_VOTE_ACCOUNT_1: MerkleTreeNodeWithProof[] = [
   {
     // tree node hash: 3tSbFBfFg83LCgVneuENUFs8hKgsdTKvfVV6Cqz3q6RT
@@ -140,9 +143,12 @@ export const ITEMS_VOTE_ACCOUNT_1: MerkleTreeNodeWithProof[] = [
         108, 104, 68, 176, 233, 152, 64, 34, 167, 84, 90, 65, 102, 170, 109,
       ],
       [
-        84, 75, 193, 1, 167, 55, 248, 48, 129, 33, 198, 240, 33, 229, 57, 27,
-        194, 110, 52, 184, 244, 142, 198, 188, 161, 150, 177, 49, 26, 123, 214,
-        187,
+        242, 32, 26, 226, 118, 158, 156, 230, 202, 164, 42, 249, 57, 87, 29, 89,
+        247, 47, 67, 135, 233, 170, 92, 204, 187, 9, 203, 71, 176, 249, 129, 21,
+      ],
+      [
+        100, 183, 165, 4, 15, 25, 171, 235, 171, 51, 238, 200, 78, 13, 144, 57,
+        166, 114, 241, 15, 80, 249, 164, 234, 94, 171, 12, 64, 164, 69, 112, 50,
       ],
     ],
   },
@@ -159,9 +165,12 @@ export const ITEMS_VOTE_ACCOUNT_1: MerkleTreeNodeWithProof[] = [
         55, 244, 31, 206, 177, 91, 206, 203, 184, 48, 99, 76, 163, 203, 232, 44,
       ],
       [
-        84, 75, 193, 1, 167, 55, 248, 48, 129, 33, 198, 240, 33, 229, 57, 27,
-        194, 110, 52, 184, 244, 142, 198, 188, 161, 150, 177, 49, 26, 123, 214,
-        187,
+        242, 32, 26, 226, 118, 158, 156, 230, 202, 164, 42, 249, 57, 87, 29, 89,
+        247, 47, 67, 135, 233, 170, 92, 204, 187, 9, 203, 71, 176, 249, 129, 21,
+      ],
+      [
+        100, 183, 165, 4, 15, 25, 171, 235, 171, 51, 238, 200, 78, 13, 144, 57,
+        166, 114, 241, 15, 80, 249, 164, 234, 94, 171, 12, 64, 164, 69, 112, 50,
       ],
     ],
   },
@@ -174,6 +183,30 @@ export const ITEMS_VOTE_ACCOUNT_1: MerkleTreeNodeWithProof[] = [
     }),
     proof: [
       [
+        153, 210, 192, 197, 37, 37, 63, 137, 37, 158, 9, 107, 244, 72, 195, 21,
+        115, 61, 19, 35, 188, 142, 139, 64, 251, 216, 66, 116, 222, 158, 212,
+        34,
+      ],
+      [
+        146, 196, 239, 63, 54, 200, 90, 234, 50, 1, 61, 217, 219, 111, 207, 131,
+        119, 168, 107, 251, 218, 240, 133, 67, 116, 40, 11, 109, 116, 34, 154,
+        73,
+      ],
+      [
+        100, 183, 165, 4, 15, 25, 171, 235, 171, 51, 238, 200, 78, 13, 144, 57,
+        166, 114, 241, 15, 80, 249, 164, 234, 94, 171, 12, 64, 164, 69, 112, 50,
+      ],
+    ],
+  },
+  {
+    // tree node hash: CzTkYPYkzXstjNTaqPfWMQDQESnPDrRBK2SjRac8kDYs
+    treeNode: new MerkleTreeNode({
+      withdrawAuthority: withdrawer4,
+      stakeAuthority: staker2,
+      claim: LAMPORTS_PER_SOL,
+    }),
+    proof: [
+      [
         166, 246, 173, 43, 141, 45, 116, 63, 47, 72, 233, 142, 194, 147, 46, 95,
         230, 82, 47, 160, 178, 230, 171, 35, 23, 110, 28, 124, 156, 30, 183,
         213,
@@ -183,9 +216,42 @@ export const ITEMS_VOTE_ACCOUNT_1: MerkleTreeNodeWithProof[] = [
         119, 168, 107, 251, 218, 240, 133, 67, 116, 40, 11, 109, 116, 34, 154,
         73,
       ],
+      [
+        100, 183, 165, 4, 15, 25, 171, 235, 171, 51, 238, 200, 78, 13, 144, 57,
+        166, 114, 241, 15, 80, 249, 164, 234, 94, 171, 12, 64, 164, 69, 112, 50,
+      ],
+    ],
+  },
+  {
+    // tree node hash: GFn1wci7vwUfPgq4C9vYRYRn8UgTE1i2qVdE3raabvoK
+    treeNode: new MerkleTreeNode({
+      withdrawAuthority: withdrawer4,
+      stakeAuthority: staker3,
+      claim: 42 * LAMPORTS_PER_SOL,
+    }),
+    proof: [
+      [
+        65, 32, 94, 245, 186, 250, 39, 41, 113, 203, 105, 228, 195, 14, 19, 171,
+        171, 3, 51, 176, 218, 36, 182, 71, 65, 5, 255, 231, 202, 30, 200, 169,
+      ],
+      [
+        145, 10, 181, 241, 68, 0, 136, 90, 81, 187, 131, 86, 95, 194, 24, 193,
+        160, 42, 141, 227, 199, 253, 222, 96, 80, 73, 248, 1, 109, 42, 6, 62,
+      ],
+      [
+        174, 148, 230, 241, 186, 94, 91, 190, 170, 56, 66, 207, 104, 237, 226,
+        1, 103, 251, 185, 246, 22, 235, 238, 29, 118, 132, 60, 5, 61, 15, 25,
+        43,
+      ],
     ],
   },
 ]
+
+export const MERKLE_PROOF_VOTE_ACCOUNT_2 =
+  'Asi9uVpB3Tx29L17X3Z46jrPizKywTRttqsvnLTzgh27'
+export const MERKLE_ROOT_VOTE_ACCOUNT_2_BUF = bs58.decode(
+  MERKLE_PROOF_VOTE_ACCOUNT_2
+)
 export const ITEMS_VOTE_ACCOUNT_2: MerkleTreeNodeWithProof[] = [
   {
     // tree node hash: 2niLq4dRayu3GE5KWuBUR4hAjSikubd1hmGKLJ56ZzUP
@@ -217,6 +283,10 @@ export const ITEMS_VOTE_ACCOUNT_2: MerkleTreeNodeWithProof[] = [
     ],
   },
 ]
+
+export const MERKLE_PROOF_OPERATOR =
+  'D8rFThGJXYVFcKdqovz3VMA1nALNugHzvGYhSn8dLwip'
+export const MERKLE_ROOT_VOTE_OPERATOR_BUF = bs58.decode(MERKLE_PROOF_OPERATOR)
 export const ITEMS_OPERATOR: MerkleTreeNodeWithProof[] = [
   {
     // tree node hash: C8ZfYuKidJa8EGF4YF5Xou3icvqqGQ6fJBE6SN3ixT1w
