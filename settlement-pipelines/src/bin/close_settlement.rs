@@ -19,7 +19,9 @@ use settlement_pipelines::settlements::{
     load_expired_settlements, obtain_settlement_closing_refunds, SettlementRefundPubkeys,
     SETTLEMENT_CLAIM_ACCOUNT_SIZE,
 };
-use settlement_pipelines::stake_accounts::filter_settlement_funded;
+use settlement_pipelines::stake_accounts::{
+    filter_settlement_funded, STAKE_ACCOUNT_RENT_EXEMPTION,
+};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
@@ -108,7 +110,7 @@ async fn real_main(reporting: &mut ReportHandler<CloseSettlementReport>) -> anyh
 
     reporting
         .reportable
-        .init(rpc_client.clone(), marinade_wallet);
+        .init(rpc_client.clone(), marinade_wallet, &config);
 
     let mut transaction_builder = TransactionBuilder::limited(fee_payer_keypair.clone());
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
@@ -149,6 +151,7 @@ async fn real_main(reporting: &mut ReportHandler<CloseSettlementReport>) -> anyh
         transaction_executor.clone(),
         &mapping_settlements_to_staker_authority,
         &priority_fee_policy,
+        &past_settlements,
         reporting,
     )
     .await?;
@@ -160,7 +163,7 @@ async fn real_main(reporting: &mut ReportHandler<CloseSettlementReport>) -> anyh
         transaction_executor.clone(),
         &mapping_settlements_to_staker_authority,
         expired_settlements,
-        past_settlements,
+        &past_settlements,
         &config_address,
         &operator_authority_keypair,
         &marinade_wallet,
@@ -238,16 +241,16 @@ async fn close_settlements(
         priority_fee_policy,
     )
     .await;
-    reporting.reportable.set_settlements(expired_settlements);
-    let settlements_list = reporting.reportable.list_closed_settlements();
-    reporting.add_tx_execution_result(
-        execution_result,
-        format!("CloseSettlements [{settlements_list}]").as_str(),
-    );
+    reporting
+        .reportable
+        .set_closed_settlements(expired_settlements);
+
+    reporting.add_tx_execution_result(execution_result, "CloseSettlements");
 
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn close_settlement_claims(
     program: &Program<Arc<DynSigner>>,
     rpc_client: Arc<RpcClient>,
@@ -255,6 +258,7 @@ async fn close_settlement_claims(
     transaction_executor: Arc<TransactionExecutor>,
     mapping_settlements_to_staker_authority: &HashMap<Pubkey, Pubkey>,
     priority_fee_policy: &PriorityFeePolicy,
+    past_settlements: &[BondSettlement],
     reporting: &mut ReportHandler<CloseSettlementReport>,
 ) -> anyhow::Result<()> {
     // Search for Settlement Claims that points to non-existing Settlements
@@ -285,9 +289,13 @@ async fn close_settlement_claims(
                     settlement_claim.settlement
                 ),
             )?;
+            let settlement_epoch = past_settlements
+                .iter()
+                .find(|s| s.settlement_address == settlement_claim.settlement)
+                .map_or_else(|| 0_u64, |s| s.epoch);
             reporting
                 .reportable
-                .add_settlement_claim(settlement_claim_address);
+                .add_closed_settlement_claim(settlement_claim.settlement, settlement_epoch);
         }
     }
 
@@ -310,7 +318,7 @@ async fn reset_stake_accounts(
     transaction_executor: Arc<TransactionExecutor>,
     mapping_settlements_to_staker_authority: &HashMap<Pubkey, Pubkey>,
     expired_settlements: Vec<(Pubkey, Settlement, Option<Bond>)>,
-    past_settlements: Vec<BondSettlement>,
+    past_settlements: &[BondSettlement],
     config_address: &Pubkey,
     operator_authority_keypair: &Arc<Keypair>,
     marinade_wallet: &Pubkey,
@@ -318,7 +326,9 @@ async fn reset_stake_accounts(
     reporting: &mut ReportHandler<CloseSettlementReport>,
 ) -> anyhow::Result<()> {
     let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
-    let non_existing_settlements_staker_authority = get_expired_stake_accounts(
+    // settlements that does not exist on-chain, but they were loaded from JSON files
+    // we calculate mapping the settlement pubkey to the staker authority
+    let non_existing_settlement_to_staker_authority = get_expired_stake_accounts(
         mapping_settlements_to_staker_authority,
         past_settlements,
         expired_settlements,
@@ -329,7 +339,7 @@ async fn reset_stake_accounts(
         .collect::<HashMap<Pubkey, Pubkey>>();
     debug!(
         "Non-existing Settlements staker authorities: {:?}",
-        non_existing_settlements_staker_authority
+        non_existing_settlement_to_staker_authority
             .iter()
             .map(|(k, v)| (k, v.settlement))
             .collect::<Vec<(&Pubkey, Pubkey)>>()
@@ -351,7 +361,7 @@ async fn reset_stake_accounts(
         };
         // there is a stake account that belongs to a settlement that does not exist
         let reset_data = if let Some(reset_data) =
-            non_existing_settlements_staker_authority.get(&staker_authority)
+            non_existing_settlement_to_staker_authority.get(&staker_authority)
         {
             reset_data
         } else {
@@ -397,9 +407,11 @@ async fn reset_stake_accounts(
                     reset_data.settlement
                 ),
             )?;
-            reporting
-                .reportable
-                .add_withdraw_stake(stake_pubkey, lamports);
+            reporting.reportable.add_withdraw_stake(
+                reset_data.settlement,
+                reset_data.epoch,
+                lamports,
+            );
         } else if let Some(settlement_vote_account) = reset_data.vote_account {
             // Delegated stake account can be reset to a bond
             let req = program
@@ -427,7 +439,9 @@ async fn reset_stake_accounts(
                     reset_data.settlement
                 ),
             )?;
-            reporting.reportable.add_reset_stake(stake_pubkey, lamports);
+            reporting
+                .reportable
+                .add_reset_stake(reset_data.settlement, reset_data.epoch, lamports);
         } else {
             reporting.add_error_string(format!(
                 "To reset stake account {} (bond: {}, staker authority: {}) is required to know vote account address but that was lost. Manual intervention needed.",
@@ -481,39 +495,48 @@ async fn get_expired_settlements(
 /// Returns: Map: staker authority -> (settlement address, bond address, bond address)
 fn get_expired_stake_accounts(
     existing_settlements: &HashMap<Pubkey, Pubkey>,
-    past_settlements: Vec<BondSettlement>,
+    past_settlements: &[BondSettlement],
     expired_settlements: Vec<(Pubkey, Settlement, Option<Bond>)>,
 ) -> HashMap<Pubkey, ResetStakeData> {
     // settlement addresses from argument -> verification what are not existing
     let not_existing_past_settlements = past_settlements
-        .into_iter()
+        .iter()
         .filter(|data| existing_settlements.get(&data.settlement_address).is_none())
-        .collect::<Vec<BondSettlement>>();
+        .collect::<Vec<&BondSettlement>>();
     expired_settlements
         .into_iter()
         .map(|(settlement_address, settlement, bond)| {
             (
                 settlement_address,
+                settlement.epoch_created_for,
                 settlement.bond,
                 bond.map_or_else(|| None, |b| Some(b.vote_account)),
             )
         })
         .chain(not_existing_past_settlements.into_iter().map(
-            |BondSettlement {
+            |&BondSettlement {
                  bond_address,
                  settlement_address,
                  vote_account_address,
                  merkle_root: _,
-                 epoch: _,
-             }| (settlement_address, bond_address, Some(vote_account_address)),
+                 epoch,
+             }| {
+                (
+                    settlement_address,
+                    epoch,
+                    bond_address,
+                    Some(vote_account_address),
+                )
+            },
         ))
-        .map(|(settlement, bond, vote_account)| {
+        .map(|(settlement, epoch, bond, vote_account)| {
             (
                 find_settlement_staker_authority(&settlement).0,
                 ResetStakeData {
                     vote_account,
                     bond,
                     settlement,
+                    epoch,
                 },
             )
         })
@@ -525,27 +548,34 @@ struct ResetStakeData {
     bond: Pubkey,
     vote_account: Option<Pubkey>,
     settlement: Pubkey,
+    epoch: u64,
 }
 
 struct CloseSettlementReport {
     rpc_client: Option<Arc<RpcClient>>,
+    config: Option<Config>,
     withdraw_wallet: Pubkey,
-    /// settlement pubkey, bond account pubkey
-    closed_settlements: Vec<(Pubkey, Pubkey)>,
-    closed_settlement_claims: Vec<Pubkey>,
-    reset_stake: Vec<(Pubkey, u64)>,
-    withdraw_stake: Vec<(Pubkey, u64)>,
+    /// settlement pubkey, settlement account
+    closed_settlements: Vec<(Pubkey, Settlement)>,
+
+    // epoch -> settlement -> number of claims
+    closed_settlement_claims_grouped: HashMap<u64, HashMap<Pubkey, u64>>,
+    // epoch -> settlement -> number of stake accounts that were reset, lamports
+    reset_stake_grouped: HashMap<u64, HashMap<Pubkey, (u64, u64)>>,
+    // epoch -> settlement -> number of stake accounts that were withdrawn, lamports
+    withdrawn_stake_grouped: HashMap<u64, HashMap<Pubkey, (u64, u64)>>,
 }
 
 impl PrintReportable for CloseSettlementReport {
     fn get_report(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + '_>> {
         Box::pin(async {
-            let rpc_client = if let Some(rpc_client) = &self.rpc_client {
-                rpc_client
-            } else {
-                // not initialized, no reporting
-                return vec![];
-            };
+            let (rpc_client, config) =
+                if let (Some(rpc_client), Some(config)) = (&self.rpc_client, &self.config) {
+                    (rpc_client, config)
+                } else {
+                    // not initialized, no reporting
+                    return vec![];
+                };
             let settlement_claim_rent = rpc_client
                 .get_minimum_balance_for_rent_exemption(SETTLEMENT_CLAIM_ACCOUNT_SIZE)
                 .await
@@ -556,30 +586,102 @@ impl PrintReportable for CloseSettlementReport {
                     },
                     |v| v,
                 );
-            vec![
+            let minimal_stake_account_lamports =
+                config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
+
+            let closed_settlement_claims_number = self.closed_settlement_claims_total();
+            let (reset_stake_number, reset_stake_lamports) = self.reset_stake_total();
+            let (withdrawn_stake_number, withdrawn_stake_lamports) = self.withdrawn_stake_total();
+
+            let mut report = vec![
                 format!(
-                    "Number of closed settlements: {}",
-                    self.closed_settlements.len()
-                ),
-                format!(
-                    "Number of closed settlement claims: {}, sum of returned rent {} SOLs",
-                    self.closed_settlement_claims.len(),
+                    "Number of closed settlements: {}, closed setlement claims: {}, returned rent for claims accounts: {} SOLs",
+                    self.closed_settlements.len(),
+                    closed_settlement_claims_number,
                     lamports_to_sol(
-                        self.closed_settlement_claims.len() as u64 * settlement_claim_rent
+                        closed_settlement_claims_number * settlement_claim_rent
                     )
                 ),
                 format!(
-                    "Number of reset stake accounts: {}, sum of reset SOL: {}",
-                    self.reset_stake.len(),
-                    lamports_to_sol(self.reset_stake_lamports())
+                    "Number of reset stake accounts (returned to validators): {}, sum of reset SOL: {} (all: {})",
+                    reset_stake_number,
+                    lamports_to_sol(
+                        reset_stake_lamports -
+                            (reset_stake_number * minimal_stake_account_lamports)
+                    ),
+                    lamports_to_sol(reset_stake_lamports),
                 ),
                 format!(
-                    "Number of withdraw stake accounts: {}, sum of withdrawn SOL: {} to wallet {}",
-                    self.withdraw_stake.len(),
-                    lamports_to_sol(self.withdraw_stake_lamports()),
-                    self.withdraw_wallet
+                    "Number of withdraw stake accounts (returned to Marinade DAO {}): {}, sum of withdrawn SOL: {} (all: {})",
+                    self.withdraw_wallet,
+                    withdrawn_stake_number,
+                    lamports_to_sol(
+                        withdrawn_stake_lamports -
+                            (withdrawn_stake_number * minimal_stake_account_lamports)
+                    ),
+                    lamports_to_sol(withdrawn_stake_lamports),
                 ),
-            ]
+            ];
+            let settlement_grouped_by_epoch = self
+                .closed_settlements
+                .iter()
+                .map(|(pubkey, s)| (pubkey, s.epoch_created_for))
+                .fold(HashMap::new(), |mut acc, (pubkey, epoch)| {
+                    let pubkeys: &mut Vec<Pubkey> = acc.entry(epoch).or_default();
+                    pubkeys.push(*pubkey);
+                    acc
+                });
+            let mut all_epochs = settlement_grouped_by_epoch
+                .keys()
+                .chain(self.reset_stake_grouped.keys())
+                .chain(self.withdrawn_stake_grouped.keys())
+                .cloned()
+                .collect::<HashSet<u64>>()
+                .into_iter()
+                .collect::<Vec<u64>>();
+            all_epochs.sort();
+            for epoch in all_epochs {
+                let settlements = settlement_grouped_by_epoch
+                    .get(&epoch)
+                    .map_or_else(|| 0, |v| v.len());
+                let reset = self
+                    .reset_stake_grouped
+                    .get(&epoch)
+                    .map_or_else(HashMap::new, |v| v.clone());
+                let withdrawn = self
+                    .withdrawn_stake_grouped
+                    .get(&epoch)
+                    .map_or_else(HashMap::new, |v| v.clone());
+                let reset_per_epoch = Self::total_number_and_lamports_single(&reset);
+                let withdrawn_per_epoch = Self::total_number_and_lamports_single(&withdrawn);
+                let report_string = format!(
+                    "Epoch: {}, closed settlements: {}, reset stake accounts: [#{},{} SOLs], withdraw stake accounts: [#{}, {} SOLs]",
+                    epoch,
+                    settlements,
+                    reset_per_epoch.0,
+                    lamports_to_sol(reset_per_epoch.1),
+                    withdrawn_per_epoch.0,
+                    lamports_to_sol(withdrawn_per_epoch.1)
+                );
+                report.push(report_string);
+                for (settlement, num, lamports) in Self::flat_settlement_map(&reset) {
+                    report.push(format!(
+                        "  Reset stake account for settlement {}: {}, {} SOLs",
+                        settlement,
+                        num,
+                        lamports_to_sol(lamports)
+                    ));
+                }
+                for (settlement, num, lamports) in Self::flat_settlement_map(&withdrawn) {
+                    report.push(format!(
+                        "  Withdraw stake account for settlement {}: {}, {} SOLs",
+                        settlement,
+                        num,
+                        lamports_to_sol(lamports)
+                    ));
+                }
+            }
+            report
         })
     }
 }
@@ -588,58 +690,88 @@ impl CloseSettlementReport {
     fn report_handler() -> ReportHandler<Self> {
         let reportable = Self {
             rpc_client: None,
+            config: None,
             withdraw_wallet: Pubkey::default(),
             closed_settlements: vec![],
-            closed_settlement_claims: vec![],
-            reset_stake: vec![],
-            withdraw_stake: vec![],
+            closed_settlement_claims_grouped: HashMap::new(),
+            reset_stake_grouped: HashMap::new(),
+            withdrawn_stake_grouped: HashMap::new(),
         };
         ReportHandler::new(reportable)
     }
 
-    fn init(&mut self, rpc_client: Arc<RpcClient>, withdraw_wallet: Pubkey) {
+    fn init(&mut self, rpc_client: Arc<RpcClient>, withdraw_wallet: Pubkey, config: &Config) {
         self.rpc_client = Some(rpc_client);
+        self.config = Some(config.clone());
         self.withdraw_wallet = withdraw_wallet;
     }
 
-    fn set_settlements(&mut self, settlements: &[(Pubkey, Settlement, Option<Bond>)]) {
+    fn set_closed_settlements(&mut self, settlements: &[(Pubkey, Settlement, Option<Bond>)]) {
         self.closed_settlements = settlements
             .iter()
-            .map(|(p, s, _)| (*p, s.bond))
-            .collect::<Vec<(Pubkey, Pubkey)>>();
+            .map(|(p, s, _)| (*p, s.clone()))
+            .collect::<Vec<(Pubkey, Settlement)>>();
     }
 
-    fn list_closed_settlements(&self) -> String {
-        self.closed_settlements
-            .iter()
-            .map(|(p, _)| p.to_string())
-            .collect::<Vec<String>>()
-            .join(",")
+    fn add_closed_settlement_claim(&mut self, settlement: Pubkey, settlement_epoch: u64) {
+        let record = self
+            .closed_settlement_claims_grouped
+            .entry(settlement_epoch)
+            .or_default();
+        *record.entry(settlement).or_insert(0_u64) += 1;
     }
 
-    fn add_settlement_claim(&mut self, settlement_claim: Pubkey) {
-        self.closed_settlement_claims.push(settlement_claim);
+    fn add_reset_stake(&mut self, settlement: Pubkey, settlement_epoch: u64, lamports: u64) {
+        let record = self
+            .reset_stake_grouped
+            .entry(settlement_epoch)
+            .or_default();
+        let data = record.entry(settlement).or_insert((0_u64, 0_u64));
+        *data = (data.0 + 1, data.1 + lamports);
     }
 
-    fn add_reset_stake(&mut self, stake_pubkey: Pubkey, lamports: u64) {
-        self.reset_stake.push((stake_pubkey, lamports));
+    fn add_withdraw_stake(&mut self, settlement: Pubkey, settlement_epoch: u64, lamports: u64) {
+        let record = self
+            .withdrawn_stake_grouped
+            .entry(settlement_epoch)
+            .or_default();
+        let data = record.entry(settlement).or_insert((0_u64, 0_u64));
+        *data = (data.0 + 1, data.1 + lamports);
     }
 
-    fn reset_stake_lamports(&self) -> u64 {
-        self.reset_stake
-            .iter()
-            .map(|(_, lamports)| lamports)
-            .sum::<u64>()
+    fn closed_settlement_claims_total(&self) -> u64 {
+        self.closed_settlement_claims_grouped
+            .values()
+            .flat_map(|v| v.iter())
+            .map(|(_, v)| v)
+            .sum()
     }
 
-    fn add_withdraw_stake(&mut self, stake_pubkey: Pubkey, lamports: u64) {
-        self.withdraw_stake.push((stake_pubkey, lamports));
+    fn reset_stake_total(&self) -> (u64, u64) {
+        Self::total_number_and_lamports(&self.reset_stake_grouped)
     }
 
-    fn withdraw_stake_lamports(&self) -> u64 {
-        self.withdraw_stake
-            .iter()
-            .map(|(_, lamports)| lamports)
-            .sum::<u64>()
+    fn withdrawn_stake_total(&self) -> (u64, u64) {
+        Self::total_number_and_lamports(&self.withdrawn_stake_grouped)
+    }
+
+    fn total_number_and_lamports(map: &HashMap<u64, HashMap<Pubkey, (u64, u64)>>) -> (u64, u64) {
+        map.values()
+            .flat_map(|v| v.values())
+            .fold((0_u64, 0_u64), |acc, (num, lamports)| {
+                (acc.0 + num, acc.1 + lamports)
+            })
+    }
+
+    fn total_number_and_lamports_single(map: &HashMap<Pubkey, (u64, u64)>) -> (u64, u64) {
+        map.values().fold((0_u64, 0_u64), |acc, (num, lamports)| {
+            (acc.0 + num, acc.1 + lamports)
+        })
+    }
+
+    fn flat_settlement_map(map: &HashMap<Pubkey, (u64, u64)>) -> Vec<(Pubkey, u64, u64)> {
+        map.iter()
+            .map(|(settlement, (num, lamports))| (*settlement, *num, *lamports))
+            .collect::<Vec<(Pubkey, u64, u64)>>()
     }
 }

@@ -5,6 +5,7 @@ pub mod executor;
 pub mod init;
 pub mod json_data;
 pub mod reporting;
+pub mod settlement_data;
 pub mod settlements;
 pub mod stake_accounts;
 pub mod stake_accounts_cache;

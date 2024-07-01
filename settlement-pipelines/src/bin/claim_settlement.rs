@@ -3,9 +3,6 @@ use anyhow::anyhow;
 use clap::Parser;
 use log::{debug, error, info};
 use merkle_tree::psr_claim::TreeNode;
-use settlement_engine::merkle_tree_collection::MerkleTreeCollection;
-use settlement_engine::settlement_claims::SettlementCollection;
-use settlement_engine::utils::read_from_json_file;
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
     init_from_opts, load_keypair, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts,
@@ -14,10 +11,9 @@ use settlement_pipelines::arguments::{
 use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::{execute_parallel, execute_parallel_with_rate};
 use settlement_pipelines::init::{get_executor, init_log};
-use settlement_pipelines::json_data::{
-    resolve_combined_optional, CombinedMerkleTreeSettlementCollections,
-};
+use settlement_pipelines::json_data::load_json;
 use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
+use settlement_pipelines::settlement_data::{parse_settlements_from_json, SettlementRecord};
 use settlement_pipelines::settlements::{
     list_claimable_settlements, ClaimableSettlementsReturn, SETTLEMENT_CLAIM_ACCOUNT_SIZE,
 };
@@ -44,11 +40,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tokio::time::sleep;
 use validator_bonds::instructions::ClaimSettlementArgs;
-use validator_bonds::state::bond::find_bond_address;
 use validator_bonds::state::config::find_bonds_withdrawer_authority;
-use validator_bonds::state::settlement::{
-    find_settlement_address, find_settlement_staker_authority,
-};
+use validator_bonds::state::settlement::find_settlement_staker_authority;
 use validator_bonds::state::settlement_claim::find_settlement_claim_address;
 use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::config::get_config;
@@ -124,7 +117,7 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementReport>) -> anyh
         .await
         .map_err(CliError::retry_able)?;
 
-    let json_loaded_claiming_data = load_json(&args.settlement_json_files, args.epoch)?;
+    let mut json_data = load_json(&args.settlement_json_files)?;
 
     let rent_payer = if let Some(rent_payer) = args.rent_payer.clone() {
         load_keypair(&rent_payer)?
@@ -134,12 +127,9 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementReport>) -> anyh
 
     let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
 
-    // loaded from json files
-    let json_per_epoch_claim_records = JsonClaimSettlementRecord::load_as_vec_per_epoch(
-        json_loaded_claiming_data,
-        config_address,
-        args.epoch,
-    );
+    let settlement_records =
+        parse_settlements_from_json(&mut json_data, &config_address, args.epoch)
+            .map_err(CliError::processing)?;
 
     // loaded from RPC on-chain data
     let mut claimable_settlements =
@@ -179,7 +169,7 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementReport>) -> anyh
 
     for claimable_settlement in claimable_settlements {
         let json_matching_settlement =
-            match get_settlement_from_json(&json_per_epoch_claim_records, &claimable_settlement) {
+            match get_settlement_from_json(&settlement_records, &claimable_settlement) {
                 Ok(json_record) => json_record,
                 Err(e) => {
                     reporting.add_cli_error(e);
@@ -237,61 +227,6 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementReport>) -> anyh
     }
 
     Ok(())
-}
-
-fn load_json(
-    settlement_json_files: &[PathBuf],
-    args_epoch: Option<u64>,
-) -> anyhow::Result<HashMap<u64, CombinedMerkleTreeSettlementCollections>> {
-    let mut json_data: HashMap<u64, MerkleTreeLoadedData> = HashMap::new();
-    for path in settlement_json_files.iter().filter(|path| {
-        if path.is_file() {
-            debug!("Processing file: {:?}", path);
-            true
-        } else {
-            debug!("Skipping file: {:?}, as it's not a file", path);
-            false
-        }
-    }) {
-        load_json_data_to_merkle_tree(path, &mut json_data)?;
-    }
-    let claiming_data = json_data
-        .into_iter()
-        .map(|(epoch, data)| {
-            Ok((
-                args_epoch.unwrap_or(epoch),
-                resolve_combined_optional(data.merkle_tree_collection, data.settlement_collection)?,
-            ))
-        })
-        .collect::<anyhow::Result<HashMap<_, _>>>()?;
-    info!(
-        "Loaded json data from {:?} for epochs: {:?}",
-        settlement_json_files
-            .iter()
-            .map(|p| p.to_str())
-            .collect::<Vec<_>>(),
-        claiming_data.keys().collect::<Vec<_>>()
-    );
-    Ok(claiming_data)
-}
-
-fn load_json_data_to_merkle_tree(
-    path: &PathBuf,
-    loaded_data: &mut HashMap<u64, MerkleTreeLoadedData>,
-) -> Result<(), CliError> {
-    debug!("Loading data from file: {:?}", path);
-    let json_loading_result = if let Ok(merkle_tree_collection) = read_from_json_file(path) {
-        insert_merkle_tree_loaded_data(loaded_data, Some(merkle_tree_collection), None)
-    } else if let Ok(settlement_collection) = read_from_json_file(path) {
-        insert_merkle_tree_loaded_data(loaded_data, None, Some(settlement_collection))
-    } else {
-        Err(anyhow!("Cannot load JSON data from file: {:?}", path))
-    };
-
-    json_loading_result.map_err(|e| {
-        error!("Error loading JSON data from file: {:?}, {:?}", path, e);
-        CliError::Processing(e)
-    })
 }
 
 /// process merging stake accounts (that is to be claimed) if possible
@@ -373,7 +308,7 @@ async fn claim_settlement<'a>(
     transaction_builder: &mut TransactionBuilder,
     transaction_executor: Arc<TransactionExecutor>,
     claimable_settlement: ClaimableSettlementsReturn,
-    settlement_json_data: &'a JsonClaimSettlementRecord,
+    settlement_json_data: &'a SettlementRecord,
     settlement_claims: Vec<(Pubkey, bool)>,
     config_address: &Pubkey,
     rent_payer: &Pubkey,
@@ -550,56 +485,13 @@ fn get_tree_node_hash(tree_node: &TreeNode) -> [u8; 32] {
     no_proof_tree_node.hash().to_bytes()
 }
 
-struct MerkleTreeLoadedData {
-    merkle_tree_collection: Option<MerkleTreeCollection>,
-    settlement_collection: Option<SettlementCollection>,
-}
-
-fn insert_merkle_tree_loaded_data(
-    loaded_data: &mut HashMap<u64, MerkleTreeLoadedData>,
-    merkle_tree_collection: Option<MerkleTreeCollection>,
-    settlement_collection: Option<SettlementCollection>,
-) -> anyhow::Result<()> {
-    // Get the epoch and handle mismatches
-    let epoch = match (&merkle_tree_collection, &settlement_collection) {
-        (Some(mc), Some(sc)) if mc.epoch != sc.epoch => {
-            return Err(CliError::processing(format!(
-                "Epoch mismatch between merkle tree collection and settlement collection: {} != {}",
-                mc.epoch, sc.epoch
-            )));
-        }
-        (Some(mc), _) => mc.epoch,
-        (_, Some(sc)) => sc.epoch,
-        _ => {
-            return Err(CliError::processing(
-                "No epoch found in either merkle tree collection or settlement collection",
-            ));
-        }
-    };
-
-    let record = loaded_data
-        .entry(epoch)
-        .or_insert_with(|| MerkleTreeLoadedData {
-            merkle_tree_collection: None,
-            settlement_collection: None,
-        });
-    if record.merkle_tree_collection.is_none() {
-        record.merkle_tree_collection = merkle_tree_collection;
-    }
-    if record.settlement_collection.is_none() {
-        record.settlement_collection = settlement_collection;
-    }
-
-    Ok(())
-}
-
 fn get_settlement_from_json<'a>(
-    json_per_epoch_claim_records: &'a HashMap<u64, Vec<JsonClaimSettlementRecord>>,
+    per_epoch_settlement_records: &'a HashMap<u64, Vec<SettlementRecord>>,
     on_chain_settlement: &ClaimableSettlementsReturn,
-) -> Result<&'a JsonClaimSettlementRecord, CliError> {
+) -> Result<&'a SettlementRecord, CliError> {
     let settlement_epoch = on_chain_settlement.settlement.epoch_created_for;
     let settlement_merkle_tree =
-        if let Some(settlement_merkle_tree) = json_per_epoch_claim_records.get(&settlement_epoch) {
+        if let Some(settlement_merkle_tree) = per_epoch_settlement_records.get(&settlement_epoch) {
             settlement_merkle_tree
         } else {
             return Err(CliError::Processing(anyhow!(
@@ -644,15 +536,14 @@ fn get_settlement_from_json<'a>(
 
 async fn get_existence_of_settlement_claims(
     rpc_client: Arc<RpcClient>,
-    settlement_json_data: &JsonClaimSettlementRecord,
+    settlement_record: &SettlementRecord,
 ) -> Result<Vec<(Pubkey, bool)>, CliError> {
-    let settlement_claim_addresses = settlement_json_data
+    let settlement_claim_addresses = settlement_record
         .tree_nodes
         .iter()
         .map(|tree_node| {
             let tree_node_hash = get_tree_node_hash(tree_node);
-            find_settlement_claim_address(&settlement_json_data.settlement_address, &tree_node_hash)
-                .0
+            find_settlement_claim_address(&settlement_record.settlement_address, &tree_node_hash).0
         })
         .collect::<Vec<Pubkey>>();
     let settlement_claims = collect_existence_settlement_claims_from_addresses(
@@ -663,65 +554,17 @@ async fn get_existence_of_settlement_claims(
     .map_err(|e| {
         CliError::Processing(anyhow!(
             "Error fetching settlement claim accounts for settlement {}: {:?}",
-            settlement_json_data.settlement_address,
+            settlement_record.settlement_address,
             e
         ))
     })?;
     assert_eq!(
         // we searched for all the settlement claims addresses available in json
         // all pubkeys should be present while account data is available only for subset
-        settlement_json_data.tree_nodes.len(),
+        settlement_record.tree_nodes.len(),
         settlement_claims.len()
     );
     Ok(settlement_claims)
-}
-
-#[derive(Debug, Clone)]
-struct JsonClaimSettlementRecord {
-    vote_account_address: Pubkey,
-    bond_address: Pubkey,
-    settlement_address: Pubkey,
-    merkle_root: [u8; 32],
-    tree_nodes: Vec<TreeNode>,
-    max_total_claim_sum: u64,
-}
-
-impl JsonClaimSettlementRecord {
-    fn load_as_vec_per_epoch(
-        json_loaded_claiming_data: HashMap<u64, CombinedMerkleTreeSettlementCollections>,
-        config_address: Pubkey,
-        args_epoch: Option<u64>,
-    ) -> HashMap<u64, Vec<JsonClaimSettlementRecord>> {
-        json_loaded_claiming_data
-            .into_iter()
-            .map(|(epoch, combined_data)| {
-                (
-                    epoch,
-                    combined_data
-                        .merkle_tree_settlements
-                        .into_iter()
-                        .filter(|d| d.merkle_tree.merkle_root.is_some())
-                        .map(|d| {
-                            assert_eq!(epoch, args_epoch.unwrap_or(combined_data.epoch));
-                            let merkle_root = d.merkle_tree.merkle_root.unwrap().to_bytes();
-                            let (bond_address, _) =
-                                find_bond_address(&config_address, &d.merkle_tree.vote_account);
-                            let (settlement_address, _) =
-                                find_settlement_address(&bond_address, &merkle_root, epoch);
-                            JsonClaimSettlementRecord {
-                                vote_account_address: d.merkle_tree.vote_account,
-                                max_total_claim_sum: d.merkle_tree.max_total_claim_sum,
-                                bond_address,
-                                settlement_address,
-                                merkle_root,
-                                tree_nodes: d.merkle_tree.tree_nodes,
-                            }
-                        })
-                        .collect::<Vec<_>>(),
-                )
-            })
-            .collect::<HashMap<u64, Vec<JsonClaimSettlementRecord>>>()
-    }
 }
 
 struct ClaimSettlementReport {
