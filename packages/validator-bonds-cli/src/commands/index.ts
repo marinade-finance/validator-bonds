@@ -6,6 +6,7 @@ import {
   installShowBond,
   installShowSettlement,
 } from './show'
+import { installShowBondAddress } from './address'
 
 export * from './utils'
 
@@ -15,4 +16,5 @@ export function installCommands(program: Command) {
   installShowEvent(program)
   installShowBond(program)
   installShowSettlement(program)
+  installShowBondAddress(program)
 }

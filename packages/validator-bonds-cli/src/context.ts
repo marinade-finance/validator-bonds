@@ -11,6 +11,7 @@ import {
 } from '@marinade.finance/cli-common'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import {
+  VALIDATOR_BONDS_PROGRAM_ID,
   ValidatorBondsProgram,
   getProgram as getValidatorBondsProgram,
 } from '@marinade.finance/validator-bonds-sdk'
@@ -151,6 +152,14 @@ export async function setProgramIdByOwner(
       )
     }
     cliContext.programId = accountInfo.owner
+  }
+  return cliContext
+}
+
+export function setProgramIdOrDefault(): ValidatorBondsCliContext {
+  const cliContext = getCliContext()
+  if (cliContext.programId === undefined) {
+    cliContext.programId = VALIDATOR_BONDS_PROGRAM_ID
   }
   return cliContext
 }
