@@ -3,12 +3,14 @@ import {
   MerkleTreeNode,
   SETTLEMENT_CLAIM_SEED,
   ValidatorBondsProgram,
+  bondsWithdrawerAuthority,
   claimSettlementInstruction,
   fundSettlementInstruction,
   getRentExemptStake,
   getSettlement,
   getSettlementClaim,
   settlementClaimAddress,
+  settlementStakerAuthority,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -36,6 +38,7 @@ import {
   createSettlementFundedDelegatedStake,
   createDelegatedStakeAccount,
   createVoteAccount,
+  createInitializedStakeAccount,
 } from '../utils/staking'
 import {
   signer,
@@ -50,16 +53,19 @@ import {
   totalClaimVoteAccount1,
   totalClaimVoteAccount2,
   treeNodeBy,
+  treeNodesVoteAccount1,
   voteAccount1Keypair,
   voteAccount2Keypair,
   withdrawer1,
   withdrawer2,
   withdrawer3,
+  withdrawer4,
 } from '../utils/merkleTreeTestData'
 import { verifyError } from '@marinade.finance/anchor-common'
 import BN from 'bn.js'
 import { executeTxWithError } from '../utils/helpers'
 import { initBankrunTest } from './bankrun'
+import assert from 'assert'
 
 describe('Validator Bonds claim settlement', () => {
   const epochsToClaimSettlement = 4
@@ -85,6 +91,7 @@ describe('Validator Bonds claim settlement', () => {
 
   beforeAll(async () => {
     ;({ provider, program } = await initBankrunTest())
+
     const epochNow = await currentEpoch(provider)
     const firstSlotOfEpoch = await getFirstSlotOfEpoch(provider, epochNow)
     const firstSlotOfNextEpoch = await getFirstSlotOfEpoch(
@@ -126,7 +133,9 @@ describe('Validator Bonds claim settlement', () => {
       voteAccount: voteAccount2,
       validatorIdentity: validatorIdentity2,
     }))
+  })
 
+  async function initVariousTest() {
     rentCollector = Keypair.generate()
     settlementEpoch = await currentEpoch(provider)
     ;({ settlementAccount: settlementAccount1 } = await executeInitSettlement({
@@ -193,9 +202,11 @@ describe('Validator Bonds claim settlement', () => {
       fundIx2
     )
     await createWithdrawerUsers(provider)
-  })
+  }
 
   it('claim settlement various', async () => {
+    await initVariousTest()
+
     const treeNode1Withdrawer1 = treeNodeBy(voteAccount1, withdrawer1)
     const stakeAccountLamportsBefore = 123 * LAMPORTS_PER_SOL
     const stakeAccountTreeNode1Withdrawer1 = await createDelegatedStakeAccount({
@@ -583,6 +594,108 @@ describe('Validator Bonds claim settlement', () => {
       verifyError(e, Errors, 6023, 'already expired')
     }
     assertNotExist(provider, accTooLate)
+  })
+
+  it('claim settlement with exact match on stake account size', async () => {
+    await warpToNextEpoch(provider) // we want to have different settlement account address
+
+    settlementEpoch = await currentEpoch(provider)
+    const maxTotalClaim = treeNodesVoteAccount1
+      .map(t => t.treeNode.data.claim)
+      .reduce((a, b) => a.add(b))
+    const { settlementAccount } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount: voteAccount1,
+      operatorAuthority,
+      currentEpoch: settlementEpoch,
+      merkleRoot: MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
+      maxMerkleNodes: treeNodesVoteAccount1.length,
+      maxTotalClaim,
+    })
+    const [withdrawAuth] = bondsWithdrawerAuthority(
+      configAccount,
+      program.programId
+    )
+    const [stakeAuth] = settlementStakerAuthority(
+      settlementAccount,
+      program.programId
+    )
+
+    const amount1 = LAMPORTS_PER_SOL * 1
+    const amount2 = LAMPORTS_PER_SOL * 42
+
+    const treeNode1Withdrawer4 = treeNodesVoteAccount1.filter(t =>
+      t.treeNode.data.withdrawAuthority.equals(withdrawer4)
+    )
+    expect(treeNode1Withdrawer4.length).toEqual(2)
+    const treeNode1OneLamport = treeNode1Withdrawer4.find(
+      t => t.treeNode.data.claim.toNumber() === amount1
+    )
+    assert(treeNode1OneLamport !== undefined)
+    const { stakeAccount: stakeAccountOneLamportFrom } =
+      await createInitializedStakeAccount({
+        provider,
+        rentExempt: amount1,
+        staker: stakeAuth,
+        withdrawer: withdrawAuth,
+      })
+    const treeNode42Lamports = treeNode1Withdrawer4.find(
+      t => t.treeNode.data.claim.toNumber() === amount2
+    )
+    assert(treeNode42Lamports !== undefined)
+    const { stakeAccount: stakeAccount42LamportsFrom } =
+      await createInitializedStakeAccount({
+        provider,
+        rentExempt: amount2,
+        staker: stakeAuth,
+        withdrawer: withdrawAuth,
+      })
+
+    const stakeAccountOneLamportTo = await createDelegatedStakeAccount({
+      provider,
+      lamports: 10 * LAMPORTS_PER_SOL,
+      voteAccount: voteAccount1,
+      staker: treeNode1OneLamport.treeNode.stakeAuthority,
+      withdrawer: treeNode1OneLamport.treeNode.withdrawAuthority,
+    })
+    const stakeAccount42LamportsTo = await createDelegatedStakeAccount({
+      provider,
+      lamports: 10 * LAMPORTS_PER_SOL,
+      voteAccount: voteAccount1,
+      staker: treeNode42Lamports.treeNode.stakeAuthority,
+      withdrawer: treeNode42Lamports.treeNode.withdrawAuthority,
+    })
+
+    // warp to be able to claim (see slotsToStartSettlementClaiming)
+    warpToNextEpoch(provider)
+
+    const { instruction: ix1 } = await claimSettlementInstruction({
+      program,
+      claimAmount: amount1,
+      merkleProof: treeNode1OneLamport.proof,
+      settlementAccount: settlementAccount,
+      stakeAccountFrom: stakeAccountOneLamportFrom,
+      stakeAccountTo: stakeAccountOneLamportTo,
+      stakeAccountStaker: treeNode1OneLamport.treeNode.stakeAuthority,
+      stakeAccountWithdrawer: treeNode1OneLamport.treeNode.withdrawAuthority,
+    })
+    await provider.sendIx([], ix1)
+    assertNotExist(provider, stakeAccountOneLamportFrom)
+
+    const { instruction: ix2 } = await claimSettlementInstruction({
+      program,
+      claimAmount: amount2,
+      merkleProof: treeNode42Lamports.proof,
+      settlementAccount: settlementAccount,
+      stakeAccountFrom: stakeAccount42LamportsFrom,
+      stakeAccountTo: stakeAccount42LamportsTo,
+      stakeAccountStaker: treeNode42Lamports.treeNode.stakeAuthority,
+      stakeAccountWithdrawer: treeNode42Lamports.treeNode.withdrawAuthority,
+    })
+    await provider.sendIx([], ix2)
+    assertNotExist(provider, stakeAccount42LamportsFrom)
   })
 
   async function warpToNotBeClaimable() {

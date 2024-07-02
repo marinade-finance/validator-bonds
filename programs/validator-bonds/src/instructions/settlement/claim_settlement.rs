@@ -213,11 +213,13 @@ impl<'info> ClaimSettlement<'info> {
         )?;
 
         // The provided stake account must be sufficiently large to cover the claim while remaining valid.
-        // It is the SDK's responsibility to merge stake accounts if necessary.
+        // It is the caller's responsibility to merge stake accounts if necessary.
         // - The invariant is that the stake account will always be rent-exempt and of minimum size.
         //   This must be ensured by the fund_settlement instruction.
         if ctx.accounts.stake_account_from.get_lamports()
-            < claim + minimal_size_stake_account(&stake_from_meta, &ctx.accounts.config)
+            < claim + minimal_size_stake_account(&stake_from_meta, &ctx.accounts.config) &&
+            // on perfect match when stake account lamports is equal to the claim amount we can withdraw all
+            ctx.accounts.stake_account_from.get_lamports() != claim
         {
             return Err(error!(ErrorCode::ClaimingStakeAccountLamportsInsufficient)
                 .with_account_name("stake_account_from")
@@ -240,7 +242,7 @@ impl<'info> ClaimSettlement<'info> {
         ) {
             return Err(error!(ErrorCode::ClaimSettlementProofFailed).with_values((
                 "Merkle proof verification failed",
-                format!("Tree node: {:?}", tree_node),
+                format!("Tree node: {:?}, hash: {:?}", tree_node, tree_node_hash),
             )));
         }
 
