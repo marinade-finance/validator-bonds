@@ -5,7 +5,7 @@ import {
 } from '@marinade.finance/cli-common'
 import { PublicKey } from '@solana/web3.js'
 import { Command } from 'commander'
-import { setProgramIdByOwner, setProgramIdOrDefault } from '../context'
+import { setProgramIdOrDefault } from '../context'
 import {
   MARINADE_CONFIG_ADDRESS,
   bondAddress,
