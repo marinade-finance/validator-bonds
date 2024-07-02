@@ -61,7 +61,7 @@ const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
 // This test case runs really long as using data from epoch 601 and needs to setup
 // all parts and create 10K settlements. Run this manually when needed
 // FILE='settlement-pipelines/__tests__/test-validator/pipelineSettlement.spec.ts' pnpm test:validator
-describe('Cargo CLI: Pipeline Settlement', () => {
+describe.skip('Cargo CLI: Pipeline Settlement', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
 
@@ -231,11 +231,8 @@ describe('Cargo CLI: Pipeline Settlement', () => {
     // waiting for get data finalized on-chain
     await waitForNextEpoch(provider.connection, 15)
 
-    const executionResultRegex = RegExp(
-      settlementAddresses.length -
-        1 +
-        ' executed successfully(.|\n|\r)*' +
-        'Stake accounts management: txes 0(.|\n|\r)*FundSettlements: txes 1'
+    const stdErrExecutionResult = RegExp(
+      settlementAddresses.length - 1 + ' executed successfully'
     )
     await (
       expect([
@@ -263,12 +260,40 @@ describe('Cargo CLI: Pipeline Settlement', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 2,
-      stderr: executionResultRegex,
-      stdout: /Cannot find stake account to fund settlement/,
+      code: 0,
+      stdout: /merkle nodes 12397/,
+      stderr: stdErrExecutionResult,
     })
 
-    await waitForNextEpoch(provider.connection, 15)
+    await (
+      expect([
+        'cargo',
+        [
+          'run',
+          '--bin',
+          'fund-settlement',
+          '--',
+          '--operator-authority',
+          operatorAuthorityPath,
+          '--config',
+          configAccount.toBase58(),
+          '--rpc-url',
+          provider.connection.rpcEndpoint,
+          '-s',
+          settlementCollectionPath,
+          merkleTreeCollectionPath,
+          '--epoch',
+          currentEpoch.toString(),
+          '--fee-payer',
+          feePayerBase64,
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 2,
+      stdout: /funded 1.10 settlements/,
+      stderr: /no stake account available/,
+    })
 
     await (
       expect([
@@ -290,14 +315,77 @@ describe('Cargo CLI: Pipeline Settlement', () => {
           settlementCollectionPath,
           '--epoch',
           currentEpoch.toString(),
+          '--fee-payer',
+          feePayerBase64,
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+      stdout: /created 0.10 settlements/,
+      stderr: /0 executed successfully/,
+    })
+
+    await (
+      expect([
+        'cargo',
+        [
+          'run',
+          '--bin',
+          'fund-settlement',
+          '--',
+          '--operator-authority',
+          operatorAuthorityPath,
+          '--config',
+          configAccount.toBase58(),
+          '--rpc-url',
+          provider.connection.rpcEndpoint,
+          '-s',
+          settlementCollectionPath,
+          merkleTreeCollectionPath,
+          '--epoch',
+          currentEpoch.toString(),
+          '--fee-payer',
+          feePayerBase64,
         ],
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
       code: 2,
-      stderr:
-        /InitSettlement ... txes 0(.|\n|\r)*already funded(.|\n|\r)*Stake accounts management: txes 0(.|\n|\r)*FundSettlements: txes 0/,
-      stdout: /Cannot find stake account to fund settlement/,
+      stdout: /funded 0.10 settlements/,
+      stderr: /no stake account available/,
+    })
+
+    await waitForNextEpoch(provider.connection, 15)
+
+    await (
+      expect([
+        'cargo',
+        [
+          'run',
+          '--bin',
+          'fund-settlement',
+          '--',
+          '--operator-authority',
+          operatorAuthorityPath,
+          '--config',
+          configAccount.toBase58(),
+          '--rpc-url',
+          provider.connection.rpcEndpoint,
+          '-s',
+          settlementCollectionPath,
+          merkleTreeCollectionPath,
+          '--epoch',
+          currentEpoch.toString(),
+          '--fee-payer',
+          feePayerBase64,
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 2,
+      stdout: /funded 0.10 settlements/,
+      stderr: /no stake account available/,
     })
 
     const createdSettlements = await findSettlements({
@@ -356,7 +444,7 @@ describe('Cargo CLI: Pipeline Settlement', () => {
         [
           'run',
           '--bin',
-          'init-settlement',
+          'fund-settlement',
           '--',
           '--operator-authority',
           operatorAuthorityPath,
@@ -364,20 +452,21 @@ describe('Cargo CLI: Pipeline Settlement', () => {
           configAccount.toBase58(),
           '--rpc-url',
           provider.connection.rpcEndpoint,
-          '-m',
-          merkleTreeCollectionPath,
           '-s',
           settlementCollectionPath,
+          merkleTreeCollectionPath,
           '--epoch',
           currentEpoch.toString(),
+          '--fee-payer',
+          feePayerBase64,
         ],
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
       code: 0,
+      stdout: /funded 9.10 settlements/,
       stderr:
-        /InitSettlement ... txes 0(.|\n|\r)*Stake accounts management: txes 1(.|\n|\r)*FundSettlements:.*ixes 9 executed/,
-      stdout: stdoutRegExp,
+        /will be funded with 2 stake accounts(.|\n|\r)*9 executed successfully/,
     })
 
     const allConfigStakeAccounts = await findConfigStakeAccounts({
@@ -395,7 +484,7 @@ describe('Cargo CLI: Pipeline Settlement', () => {
         [
           'run',
           '--bin',
-          'init-settlement',
+          'fund-settlement',
           '--',
           '--operator-authority',
           operatorAuthorityPath,
@@ -403,20 +492,20 @@ describe('Cargo CLI: Pipeline Settlement', () => {
           configAccount.toBase58(),
           '--rpc-url',
           provider.connection.rpcEndpoint,
-          '-m',
-          merkleTreeCollectionPath,
           '-s',
           settlementCollectionPath,
+          merkleTreeCollectionPath,
           '--epoch',
           currentEpoch.toString(),
+          '--fee-payer',
+          feePayerBase64,
         ],
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
       code: 0,
-      stderr:
-        /InitSettlement ... txes 0(.|\n|\r)*already funded(.|\n|\r)*Stake accounts management: txes 0(.|\n|\r)*FundSettlements: txes 0/,
-      stdout: stdoutRegExp,
+      stdout: /funded 0.10 settlements/,
+      stderr: /already funded(.|\n|\r)*0 executed successfully/,
     })
     previousTest = TestNames.InitSettlement
   })
