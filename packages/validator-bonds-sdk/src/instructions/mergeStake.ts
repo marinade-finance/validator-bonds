@@ -32,8 +32,20 @@ export async function mergeStakeInstruction({
   //       stake account staker authority can be either bond managed or settlement managed
   //       it would be good to check settlements automatically by searching all settlements of the bond and validator
   //       and make sdk to find the right settlement to use when the settlement pubkey is not provided as param
-  stakerAuthority =
-    stakerAuthority ?? bondsWithdrawerAuthority(configAccount)[0]
+
+  const bondsWithdrawer = bondsWithdrawerAuthority(configAccount)[0]
+  if (
+    stakerAuthority !== undefined &&
+    settlementAccount.equals(PublicKey.default)
+  ) {
+    if (!bondsWithdrawer.equals(stakerAuthority)) {
+      throw new Error(
+        'When stakerAuthority provided, please, provide the Settlement account address as well.' +
+          ' Contract requires the Settlement address to derive the correct merge authority.'
+      )
+    }
+  }
+  stakerAuthority = stakerAuthority ?? bondsWithdrawer
 
   const instruction = await program.methods
     .mergeStake({
