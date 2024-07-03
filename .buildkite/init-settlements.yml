@@ -21,8 +21,7 @@ steps:
     - 'buildkite-agent meta-data set epoch "$$epoch"'
     - 'echo "Epoch: $$epoch"'
     - |
-      # curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
-      curl https://discord.com/api/webhooks/1237762124114296923/O-Gv1aBiB4LZy87ppR-87LPVDCBz7591Kcse52GyRUmrU-Y8IVpAjnSuP-ZwpGDLLb88 \
+      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
         -H "Content-Type: application/json" -d '{
         "embeds": [
           {
@@ -152,8 +151,7 @@ steps:
     - 'attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")'
     - 'buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt'
     - |
-        # curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
-        curl https://discord.com/api/webhooks/1237762124114296923/O-Gv1aBiB4LZy87ppR-87LPVDCBz7591Kcse52GyRUmrU-Y8IVpAjnSuP-ZwpGDLLb88 \
+        curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
         -F 'payload_json={
             "embeds":[{
               "title": "Init Settlements '"$notification_result"' for Validator Bonds ('"$$epoch"') after '"$$attempts_count"' attempts",

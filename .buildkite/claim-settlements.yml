@@ -143,8 +143,7 @@ steps:
     - 'claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json)'
     - |
       claimable_epochs=$(echo "$$claimable_epochs_json" | jq ". | join(\",\")" | tr -d '"')
-      # curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
-      curl https://discord.com/api/webhooks/1237762124114296923/O-Gv1aBiB4LZy87ppR-87LPVDCBz7591Kcse52GyRUmrU-Y8IVpAjnSuP-ZwpGDLLb88 \
+      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
         -F 'payload_json={
             "embeds":[{
               "title": "Claim Settlements '"$$notification_result"' for epochs: '"$$claimable_epochs"' after '"$$attempts_count"' attempts",

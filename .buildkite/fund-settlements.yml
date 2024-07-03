@@ -106,8 +106,7 @@ steps:
     - |
       attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
       buildkite-agent artifact download --include-retried-jobs fund-report.txt . || echo 'UNKNOWN ERROR' > './fund-report.txt'
-      # curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
-      curl https://discord.com/api/webhooks/1237762124114296923/O-Gv1aBiB4LZy87ppR-87LPVDCBz7591Kcse52GyRUmrU-Y8IVpAjnSuP-ZwpGDLLb88 \
+      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
         -F 'payload_json={
             "embeds":[{
               "title": "Fund Settlements '"$$notification_result"', '"$$attempts_count"' attempts",

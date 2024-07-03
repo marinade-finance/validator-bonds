@@ -436,8 +436,6 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     // activating stake accounts
     await waitForNextEpoch(provider.connection, 15)
 
-    const stdoutRegExp = RegExp(settlementAddresses.length + ' settlements')
-
     await (
       expect([
         'cargo',
