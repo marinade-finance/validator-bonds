@@ -697,13 +697,14 @@ impl PrintReportable for FundSettlementReport {
             sorted_by_epoch.sort_by_key(|(a, _)| *a);
             for (epoch, funded_data) in sorted_by_epoch {
                 report.push(format!(
-                    "Epoch {} funded {}/{} settlements with {}/{} SOLs (before this already funded {} settlements with {} SOLs)",
+                    "Epoch {} funded {}/{} settlements with {}/{} SOLs (before this already funded {}/{} settlements with {} SOLs)",
                     epoch,
                     funded_data.funded_settlements.len(),
                     funded_data.json_settlements_count,
                     lamports_to_sol(funded_data.funded_amount),
                     lamports_to_sol(funded_data.json_settlements_max_claim_sum),
                     funded_data.funded_settlements_count_before,
+                    funded_data.json_settlements_count,
                     lamports_to_sol(funded_data.funded_amount_before),
                 ));
                 if funded_data.not_funded_by_validator_bond_count > 0 {
