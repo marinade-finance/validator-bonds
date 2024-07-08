@@ -3,7 +3,7 @@ use anchor_client::anchor_lang::solana_program::stake::state::{Authorized, Locku
 use anchor_client::anchor_lang::solana_program::system_program;
 use anchor_client::{DynSigner, Program};
 use clap::Parser;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
     init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
@@ -236,10 +236,10 @@ async fn prepare_funding(
             continue;
         }
         if epoch + config.epochs_to_claim_settlement < clock.epoch {
-            reporting.add_error_string(format!(
+            warn!(
                 "Settlement {} (vote account {}) at epoch {} is too old to be funded, skipping funding",
                 settlement_record.settlement_address, epoch, settlement_record.vote_account_address,
-            ));
+            );
             continue;
         }
         if settlement_record.bond_account.is_none() {
