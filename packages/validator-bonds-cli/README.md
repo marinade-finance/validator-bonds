@@ -229,6 +229,8 @@ validator-bonds -um configure-bond <bond-or-vote-account-address> \
 
 **! NEVER fund a bond with a SOL transfer. Bond funding happens by assigning a stake account to the `Bond`.** 
 
+**! NEVER fund a bond by manually assigning the [withdraw authority](https://solana.com/docs/economics/staking/stake-accounts#understanding-account-authorities) under the Bond PDA. Funding a `Bond` should be done using the [`fund_bond`](https://github.com/marinade-finance/validator-bonds/blob/main/programs/validator-bonds/src/instructions/bond/fund_bond.rs#L13) instruction.**
+
 The bond account exists to be funded, where the funds may be used to cover a protected event
 when a validator under-performs or experiences a serious issue.
 "Funding the bond" consists of two steps:
