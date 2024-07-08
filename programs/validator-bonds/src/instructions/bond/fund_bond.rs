@@ -1,6 +1,6 @@
 use crate::checks::{
-    check_stake_exist_and_fully_activated, check_stake_is_initialized_with_withdrawer_authority,
-    check_stake_is_not_locked, check_stake_valid_delegation,
+    check_stake_is_initialized_with_withdrawer_authority, check_stake_is_not_locked,
+    check_stake_valid_delegation,
 };
 use crate::error::ErrorCode;
 use crate::events::bond::FundBondEvent;
@@ -72,11 +72,9 @@ impl<'info> FundBond<'info> {
             &ctx.accounts.clock,
             "stake_account",
         )?;
-        check_stake_exist_and_fully_activated(
-            &ctx.accounts.stake_account,
-            ctx.accounts.clock.epoch,
-            &ctx.accounts.stake_history,
-        )?;
+        if ctx.accounts.stake_account.delegation().is_none() {
+            return Err(error!(ErrorCode::StakeNotDelegated).with_account_name("stake_account"));
+        }
         check_stake_valid_delegation(&ctx.accounts.stake_account, &ctx.accounts.bond.vote_account)?;
 
         // when the stake account is already "owned" by the bonds program, return OK

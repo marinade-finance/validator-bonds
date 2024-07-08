@@ -80,6 +80,7 @@ pub enum ErrorCode {
     #[msg("Stake is not initialized")]
     UninitializedStake, // 6024 0x1788
 
+    /// Deprecated
     #[msg("Stake account is not fully activated")]
     NoStakeOrNotFullyActivated, // 6025 0x1789
 

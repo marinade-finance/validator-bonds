@@ -7,8 +7,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::prelude::{msg, Pubkey};
 use anchor_lang::require_keys_eq;
 use anchor_lang::solana_program::stake::program::ID as stake_program_id;
-use anchor_lang::solana_program::stake::state::{Delegation, Meta, Stake, StakeState};
-use anchor_lang::solana_program::stake_history::{Epoch, StakeHistoryEntry};
+use anchor_lang::solana_program::stake::state::{Delegation, Meta, StakeState};
 use anchor_lang::solana_program::system_program::ID as system_program_id;
 use anchor_lang::solana_program::vote::program::id as vote_program_id;
 use anchor_spl::stake::StakeAccount;
@@ -181,44 +180,6 @@ pub fn check_stake_is_not_locked(
     Ok(())
 }
 
-/// Verification of the stake account state that's
-///   - stake account is delegated
-///   - stake account has got some delegated amount (effective is greater than 0)
-///   - stake state is not changing
-// implementation from https://github.com/marinade-finance/native-staking/blob/master/bot/src/utils/stakes.rs#L48
-pub fn check_stake_exist_and_fully_activated(
-    stake_account: &StakeAccount,
-    epoch: Epoch,
-    stake_history: &StakeHistory,
-) -> Result<Stake> {
-    if let Some(stake) = stake_account.stake() {
-        let StakeHistoryEntry {
-            effective,
-            activating,
-            deactivating,
-        } = stake
-            .delegation
-            .stake_activating_and_deactivating(epoch, Some(stake_history), None);
-        if activating + deactivating > 0 || effective == 0 {
-            msg!(
-                "Stake account is not activated: {:?}",
-                stake_account.deref()
-            );
-            return Err(error!(ErrorCode::NoStakeOrNotFullyActivated).with_values((
-                "effective/activating/deactivating",
-                format!("{}/{}/{}", effective, activating, deactivating),
-            )));
-        }
-        Ok(stake)
-    } else {
-        msg!(
-            "Stake account is not delegated: {:?}",
-            stake_account.deref()
-        );
-        err!(ErrorCode::StakeNotDelegated)
-    }
-}
-
 pub fn deserialize_stake_account(account: &UncheckedAccount) -> Result<StakeAccount> {
     require_keys_eq!(
         *account.owner,
@@ -241,7 +202,7 @@ mod tests {
     use super::*;
     use anchor_lang::prelude::{AccountInfo, Clock, Pubkey, UncheckedAccount};
     use anchor_lang::solana_program::stake::stake_flags::StakeFlags;
-    use anchor_lang::solana_program::stake::state::{Authorized, Lockup, StakeStateV2};
+    use anchor_lang::solana_program::stake::state::{Authorized, Lockup, Stake, StakeStateV2};
     use anchor_lang::solana_program::vote::state::{VoteInit, VoteState, VoteStateVersions};
     use std::ops::DerefMut;
 
@@ -543,116 +504,6 @@ mod tests {
         assert_eq!(
             check_stake_is_not_locked(&unix_locked_stake_account, &clock, ""),
             Err(ErrorCode::StakeLockedUp.into())
-        );
-    }
-
-    #[test]
-    pub fn stake_is_activated_check() {
-        let clock = get_clock();
-        let stake_history = StakeHistory::default();
-
-        // no stake delegation
-        let no_stake_stake_account = get_stake_account(StakeStateV2::Uninitialized);
-        assert_eq!(
-            check_stake_exist_and_fully_activated(
-                &no_stake_stake_account,
-                clock.epoch,
-                &stake_history
-            ),
-            Err(ErrorCode::StakeNotDelegated.into())
-        );
-        let rewards_pool_stake_account = get_stake_account(StakeStateV2::RewardsPool);
-        assert_eq!(
-            check_stake_exist_and_fully_activated(
-                &rewards_pool_stake_account,
-                clock.epoch,
-                &stake_history
-            ),
-            Err(ErrorCode::StakeNotDelegated.into())
-        );
-        let initialized_stake_account =
-            get_stake_account(StakeStateV2::Initialized(Meta::default()));
-        assert_eq!(
-            check_stake_exist_and_fully_activated(
-                &initialized_stake_account,
-                clock.epoch,
-                &stake_history
-            ),
-            Err(ErrorCode::StakeNotDelegated.into())
-        );
-        // delegated but no stake
-        let delegated_stake_account = get_stake_account(StakeStateV2::Stake(
-            Meta::default(),
-            Stake::default(),
-            StakeFlags::empty(),
-        ));
-        assert_eq!(
-            check_stake_exist_and_fully_activated(
-                &delegated_stake_account,
-                clock.epoch,
-                &stake_history
-            ),
-            Err(ErrorCode::NoStakeOrNotFullyActivated.into())
-        );
-
-        // requirements for the mocked clock instance
-        assert!(clock.epoch > 0);
-
-        // stake, but not activated
-        let stake = Stake {
-            delegation: Delegation {
-                stake: 100,
-                activation_epoch: clock.epoch,
-                ..Delegation::default()
-            },
-            ..Stake::default()
-        };
-        let stake_account = get_stake_account(StakeStateV2::Stake(
-            Meta::default(),
-            stake,
-            StakeFlags::empty(),
-        ));
-        assert_eq!(
-            check_stake_exist_and_fully_activated(&stake_account, clock.epoch, &stake_history),
-            Err(ErrorCode::NoStakeOrNotFullyActivated.into())
-        );
-        // stake, but deactivated
-        let stake = Stake {
-            delegation: Delegation {
-                stake: 100,
-                activation_epoch: clock.epoch - 1,
-                deactivation_epoch: clock.epoch,
-                ..Delegation::default()
-            },
-            ..Stake::default()
-        };
-        let stake_account = get_stake_account(StakeStateV2::Stake(
-            Meta::default(),
-            stake,
-            StakeFlags::empty(),
-        ));
-        assert_eq!(
-            check_stake_exist_and_fully_activated(&stake_account, clock.epoch, &stake_history),
-            Err(ErrorCode::NoStakeOrNotFullyActivated.into())
-        );
-
-        let stake = Stake {
-            delegation: Delegation {
-                stake: 100,
-                activation_epoch: clock.epoch - 1,
-                deactivation_epoch: u64::MAX,
-                ..Delegation::default()
-            },
-            ..Stake::default()
-        };
-        let stake_account = get_stake_account(StakeStateV2::Stake(
-            Meta::default(),
-            stake,
-            StakeFlags::empty(),
-        ));
-        assert_eq!(
-            check_stake_exist_and_fully_activated(&stake_account, clock.epoch, &stake_history),
-            Ok(stake)
         );
     }
 

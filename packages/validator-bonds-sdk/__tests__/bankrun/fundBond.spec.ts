@@ -16,18 +16,27 @@ import {
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
 import { ProgramAccount } from '@coral-xyz/anchor'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import {
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  StakeProgram,
+} from '@solana/web3.js'
+import BN from 'bn.js'
+import { signer } from '@marinade.finance/web3js-common'
+import { verifyError } from '@marinade.finance/anchor-common'
+import {
+  StakeActivationState,
+  initBankrunTest,
+  stakeActivation,
+} from './bankrun'
 import {
   StakeStates,
+  createInitializedStakeAccount,
   createVoteAccount,
   delegatedStakeAccount,
   getAndCheckStakeAccount,
-  createInitializedStakeAccount,
 } from '../utils/staking'
-import { BN } from 'bn.js'
-import { signer } from '@marinade.finance/web3js-common'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds fund bond account', () => {
   let provider: BankrunExtendedProvider
@@ -35,6 +44,7 @@ describe('Validator Bonds fund bond account', () => {
   let configAccount: PublicKey
   let bond: ProgramAccount<Bond>
   let bondAuthority: Keypair
+  let bondWithdrawAuthority: PublicKey
   const startUpEpoch = Math.floor(Math.random() * 100) + 100
 
   beforeAll(async () => {
@@ -64,6 +74,10 @@ describe('Validator Bonds fund bond account', () => {
       publicKey: bondAccount,
       account: await getBond(program, bondAccount),
     }
+    bondWithdrawAuthority = bondsWithdrawerAuthority(
+      configAccount,
+      program.programId
+    )[0]
   })
 
   it('cannot fund with non-delegated stake account', async () => {
@@ -84,11 +98,12 @@ describe('Validator Bonds fund bond account', () => {
     }
   })
 
-  it('cannot fund bond non activated with wrong delegation', async () => {
+  it('cannot fund wrong delegation', async () => {
     // random vote account is generated on the call of method delegatedStakeAccount
+    const stakeAccountLamports = LAMPORTS_PER_SOL * 2
     const { stakeAccount, withdrawer } = await delegatedStakeAccount({
       provider,
-      lamports: LAMPORTS_PER_SOL * 2,
+      lamports: stakeAccountLamports,
     })
     const { instruction } = await fundBondInstruction({
       program,
@@ -97,20 +112,113 @@ describe('Validator Bonds fund bond account', () => {
       stakeAccount,
       stakeAccountAuthority: withdrawer,
     })
-    try {
-      await provider.sendIx([withdrawer], instruction)
-      throw new Error('failure expected as not activated')
-    } catch (e) {
-      verifyError(e, Errors, 6025, 'Stake account is not fully activated')
-    }
 
-    await warpToNextEpoch(provider)
+    // activating, wrongly delegated
+    expect(await stakeActivation(provider, stakeAccount)).toEqual(
+      StakeActivationState.Activating
+    )
     try {
       await provider.sendIx([withdrawer], instruction)
       throw new Error('failure expected as delegated to wrong validator')
     } catch (e) {
       verifyError(e, Errors, 6020, 'delegated to a wrong validator')
     }
+
+    await warpToNextEpoch(provider)
+    // activated, still wrongly delegated
+    expect(await stakeActivation(provider, stakeAccount)).toEqual(
+      StakeActivationState.Activated
+    )
+    try {
+      await provider.sendIx([withdrawer], instruction)
+      throw new Error('failure expected as delegated to wrong validator')
+    } catch (e) {
+      verifyError(e, Errors, 6020, 'delegated to a wrong validator')
+    }
+  })
+
+  it('fund deactivated', async () => {
+    const { stakeAccount, withdrawer, staker } = await delegatedStakeAccount({
+      provider,
+      lamports: LAMPORTS_PER_SOL * 2,
+      voteAccountToDelegate: bond.account.voteAccount,
+    })
+    expect(await stakeActivation(provider, stakeAccount)).toEqual(
+      StakeActivationState.Activating
+    )
+
+    const deactivateIx = StakeProgram.deactivate({
+      stakePubkey: stakeAccount,
+      authorizedPubkey: staker.publicKey,
+    })
+    await provider.sendIx([provider.wallet, staker], deactivateIx)
+
+    const { instruction } = await fundBondInstruction({
+      program,
+      configAccount,
+      bondAccount: bond.publicKey,
+      stakeAccount,
+      stakeAccountAuthority: withdrawer,
+    })
+    await provider.sendIx([withdrawer], instruction)
+
+    await checkStakeFundedToBond(stakeAccount)
+  })
+
+  it('fund deactivating', async () => {
+    const { stakeAccount, withdrawer, staker } = await delegatedStakeAccount({
+      provider,
+      lamports: LAMPORTS_PER_SOL * 2,
+      voteAccountToDelegate: bond.account.voteAccount,
+    })
+    expect(await stakeActivation(provider, stakeAccount)).toEqual(
+      StakeActivationState.Activating
+    )
+    warpToNextEpoch(provider)
+    expect(await stakeActivation(provider, stakeAccount)).toEqual(
+      StakeActivationState.Activated
+    )
+    const deactivateIx = StakeProgram.deactivate({
+      stakePubkey: stakeAccount,
+      authorizedPubkey: staker.publicKey,
+    })
+    await provider.sendIx([provider.wallet, staker], deactivateIx)
+    expect(await stakeActivation(provider, stakeAccount)).toEqual(
+      StakeActivationState.Deactivating
+    )
+
+    const { instruction } = await fundBondInstruction({
+      program,
+      configAccount,
+      bondAccount: bond.publicKey,
+      stakeAccount,
+      stakeAccountAuthority: withdrawer,
+    })
+    await provider.sendIx([withdrawer], instruction)
+
+    await checkStakeFundedToBond(stakeAccount)
+  })
+
+  it('fund stake just created', async () => {
+    const { stakeAccount, withdrawer } = await delegatedStakeAccount({
+      provider,
+      lamports: LAMPORTS_PER_SOL * 2,
+      voteAccountToDelegate: bond.account.voteAccount,
+    })
+
+    const { instruction } = await fundBondInstruction({
+      program,
+      configAccount,
+      bondAccount: bond.publicKey,
+      stakeAccount,
+      stakeAccountAuthority: withdrawer,
+    })
+    await provider.sendIx([withdrawer], instruction)
+
+    expect(await stakeActivation(provider, stakeAccount)).toEqual(
+      StakeActivationState.Activating
+    )
+    await checkStakeFundedToBond(stakeAccount)
   })
 
   it('cannot fund bond with lockup delegation', async () => {
@@ -204,4 +312,18 @@ describe('Validator Bonds fund bond account', () => {
       verifyError(e, Errors, 6012, 'Wrong withdrawer authority')
     }
   })
+
+  async function checkStakeFundedToBond(stakeAccount: PublicKey) {
+    const [stakeAccountDataFunded] = await getAndCheckStakeAccount(
+      provider,
+      stakeAccount,
+      StakeStates.Delegated
+    )
+    expect(stakeAccountDataFunded.Stake?.meta.authorized.withdrawer).toEqual(
+      bondWithdrawAuthority
+    )
+    expect(stakeAccountDataFunded.Stake?.meta.authorized.staker).toEqual(
+      bondWithdrawAuthority
+    )
+  }
 })
