@@ -110,9 +110,9 @@ export function installShowBond(program: Command) {
     )
     .option(
       '--with-funding',
-      'Show bond accounts with data about its funding. This option is automatically ' +
-        'switched-on when the command is provided with [address] of one bond account. ' +
-        +'For the search queries this option has to be switched-on manually with this option.',
+      'Show information about funding of the Bond account. This option requires a query search ' +
+        'for stake accounts at the RPC, which is rate-limited by some operators, especially public RPC endpoints. ' +
+        "If you receive the error '429 Too Many Requests,' consider using a private RPC node.",
       false
     )
     .option(
@@ -308,21 +308,6 @@ async function showBond({
     })
     address = bondData.publicKey
 
-    const configAccount = config ?? bondData.account.data.config
-    const bondFunding = await getBondsFunding({
-      program,
-      configAccount,
-      bondAccounts: [address],
-      voteAccounts: [bondData.account.data.voteAccount],
-    })
-    if (bondFunding.length !== 1) {
-      throw new CliCommandError({
-        valueName: '[vote account address]|[bond address]',
-        value: `${bondData.account.data.voteAccount}|${address.toBase58()}`,
-        msg: 'Failed to fetch stake accounts to check bond funding',
-      })
-    }
-
     let voteAccount: VoteAccountShow | undefined = undefined
     const voteAccounts = await loadVoteAccounts([
       bondData.account.data.voteAccount,
@@ -347,22 +332,38 @@ async function showBond({
       publicKey: address,
       account: bondData.account.data,
       voteAccount,
-      amountActive: bondFunding[0].amountActive,
-      amountAtSettlements: bondFunding[0].amountAtSettlements,
-      amountToWithdraw: bondFunding[0].amountToWithdraw,
-      numberActiveStakeAccounts: bondFunding[0].numberActiveStakeAccounts,
-      numberSettlementStakeAccounts:
-        bondFunding[0].numberSettlementStakeAccounts,
-      withdrawRequest: bondFunding[0].withdrawRequest,
-      bondFundedStakeAccounts: cliContext.logger.isLevelEnabled('debug')
-        ? bondFunding[0].bondFundedStakeAccounts
-        : undefined,
-      settlementFundedStakeAccounts: cliContext.logger.isLevelEnabled('debug')
-        ? bondFunding[0].settlementFundedStakeAccounts
-        : undefined,
+    }
+
+    if (withFunding) {
+      const configAccount = config ?? bondData.account.data.config
+      const bondFunding = await getBondsFunding({
+        program,
+        configAccount,
+        bondAccounts: [address],
+        voteAccounts: [bondData.account.data.voteAccount],
+      })
+      if (bondFunding.length !== 1) {
+        throw new CliCommandError({
+          valueName: '[vote account address]|[bond address]',
+          value: `${bondData.account.data.voteAccount}|${address.toBase58()}`,
+          msg: 'For argument "--with-funding", failed to fetch stake accounts to check evaluate',
+        })
+      }
+      data.amountActive = bondFunding[0].amountActive
+      data.amountAtSettlements = bondFunding[0].amountAtSettlements
+      data.amountToWithdraw = bondFunding[0].amountToWithdraw
+      data.numberActiveStakeAccounts = bondFunding[0].numberActiveStakeAccounts
+      data.numberSettlementStakeAccounts =
+        bondFunding[0].numberSettlementStakeAccounts
+      data.withdrawRequest = bondFunding[0].withdrawRequest
+      if (cliContext.logger.isLevelEnabled('debug')) {
+        data.bondFundedStakeAccounts = bondFunding[0].bondFundedStakeAccounts
+        data.settlementFundedStakeAccounts =
+          bondFunding[0].settlementFundedStakeAccounts
+      }
     }
   } else {
-    // CLI did not provide an address, we will search for accounts based on filter parameters
+    // CLI did not provide an address, searching for accounts based on filter parameters
     try {
       const bondDataArray = await findBonds({
         program,
@@ -591,24 +592,44 @@ async function loadVoteAccounts(
   addresses: PublicKey[]
 ): Promise<ProgramAccountInfoNullable<VoteAccount>[] | undefined> {
   const { provider, logger } = getCliContext()
+
+  const toVoteAccount = (
+    publicKey: PublicKey,
+    account: AccountInfo<Buffer> | null
+  ) => {
+    if (account === null) {
+      return {
+        publicKey,
+        account: null,
+      } as ProgramAccountInfoNullable<VoteAccount>
+    } else {
+      return getVoteAccountFromData(publicKey, account)
+    }
+  }
+
+  if (addresses.length === 0) {
+    return []
+  } else if (addresses.length === 1) {
+    try {
+      const account = await provider.connection.getAccountInfo(addresses[0])
+      return [toVoteAccount(addresses[0], account)]
+    } catch (e) {
+      logger.debug(
+        `Failed to fetch vote account ${addresses[0].toBase58()} data: ${e}`
+      )
+      return undefined
+    }
+  }
   try {
     const voteAccounts: Promise<
       ProgramAccount<AccountInfo<VoteAccount> | null>
     >[] = (
       await getMultipleAccounts({ connection: provider.connection, addresses })
-    ).map(async ({ publicKey, account }) => {
-      if (account === null) {
-        return {
-          publicKey,
-          account: null,
-        } as ProgramAccountInfoNullable<VoteAccount>
-      } else {
-        return getVoteAccountFromData(publicKey, account)
-      }
-    })
+    ).map(async ({ publicKey, account }) => toVoteAccount(publicKey, account))
     return Promise.all(voteAccounts)
   } catch (e) {
-    logger.debug(`Failed to fetch vote account data: ${e}`)
+    const voteAccounts = addresses.map(address => address.toBase58()).join(', ')
+    logger.debug(`Failed to fetch vote accounts [${voteAccounts}] data: ${e}`)
     return undefined
   }
 }

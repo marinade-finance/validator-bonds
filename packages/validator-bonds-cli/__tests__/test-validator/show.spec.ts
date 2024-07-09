@@ -8,6 +8,7 @@ import {
   bondsWithdrawerAuthority,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
+  U64_MAX,
   executeTxSimple,
   getVoteAccountFromData,
   signerWithPubkey,
@@ -32,6 +33,7 @@ import {
 } from '../../../validator-bonds-sdk/__tests__/utils/staking'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import { VoteAccountShow } from '../../src/commands/show'
+import BN from 'bn.js'
 
 beforeAll(() => {
   shellMatchers()
@@ -311,6 +313,7 @@ describe('Show command using CLI', () => {
           program.programId.toBase58(),
           'show-bond',
           bondAccount.toBase58(),
+          '--with-funding',
           '-f',
           'yaml',
         ],
@@ -336,6 +339,7 @@ describe('Show command using CLI', () => {
           '--config',
           configAccount.toBase58(),
           voteAccount.toBase58(),
+          '--with-funding',
           '-f',
           'yaml',
         ],
@@ -483,7 +487,7 @@ describe('Show command using CLI', () => {
       program,
       provider,
       epochsToClaimSettlement: 1,
-      withdrawLockupEpochs: 2,
+      withdrawLockupEpochs: 0,
     })
     expect(
       provider.connection.getAccountInfo(configAccount)
@@ -553,6 +557,7 @@ describe('Show command using CLI', () => {
           program.programId.toBase58(),
           'show-bond',
           bondAccount.toBase58(),
+          '--with-funding',
           '-f',
           'yaml',
         ],
@@ -596,6 +601,7 @@ describe('Show command using CLI', () => {
           program.programId.toBase58(),
           'show-bond',
           bondAccount.toBase58(),
+          '--with-funding',
           '-f',
           'yaml',
         ],
@@ -648,6 +654,7 @@ describe('Show command using CLI', () => {
           program.programId.toBase58(),
           'show-bond',
           bondAccount.toBase58(),
+          '--with-funding',
           '-f',
           'yaml',
         ],
@@ -662,6 +669,68 @@ describe('Show command using CLI', () => {
         amountActive: `${sumLamports / LAMPORTS_PER_SOL}.${
           sumLamports % LAMPORTS_PER_SOL
         }00000000 SOLs`,
+      }),
+    })
+
+    // withdraw what's possible, i.e., ALL
+    const epoch2 = (await provider.connection.getEpochInfo()).epoch
+    const bnLamportsPerSol = new BN(LAMPORTS_PER_SOL)
+    const { div: activeDiv, mod: activeMod } = new BN(sumLamports)
+      .sub(U64_MAX)
+      .divmod(bnLamportsPerSol)
+    const { div: requestedDiv, mod: requestedMod } = new BN(U64_MAX).divmod(
+      bnLamportsPerSol
+    )
+    await executeInitWithdrawRequestInstruction({
+      program,
+      provider,
+      configAccount,
+      bondAccount,
+      validatorIdentity,
+      amount: U64_MAX,
+    })
+    await (
+      expect([
+        'pnpm',
+        [
+          '--silent',
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          'show-bond',
+          bondAccount.toBase58(),
+          '--with-funding',
+          '-f',
+          'yaml',
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+      signal: '',
+      // stderr: '',
+      stdout: YAML.stringify({
+        ...expectedData,
+        amountActive: `${activeDiv.toString()}.${activeMod
+          .toString()
+          .padStart(9, '0')} SOLs`,
+        amountToWithdraw: `${requestedDiv.toString()}.${requestedMod
+          .toString()
+          .padStart(9, '0')} SOLs`,
+        withdrawRequest: {
+          publicKey: withdrawRequestAccount.toBase58(),
+          account: {
+            voteAccount: withdrawRequestData.voteAccount.toBase58(),
+            bond: bondAccount.toBase58(),
+            epoch: epoch2,
+            requestedAmount: `${requestedDiv.toString()}.${requestedMod
+              .toString()
+              .padStart(9, '0')} SOLs`,
+            withdrawnAmount: '0.000000000 SOL',
+          },
+        },
       }),
     })
   })
