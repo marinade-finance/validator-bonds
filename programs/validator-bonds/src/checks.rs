@@ -6,8 +6,10 @@ use crate::state::bond::Bond;
 use anchor_lang::prelude::*;
 use anchor_lang::prelude::{msg, Pubkey};
 use anchor_lang::require_keys_eq;
+use anchor_lang::solana_program::clock::Epoch;
 use anchor_lang::solana_program::stake::program::ID as stake_program_id;
-use anchor_lang::solana_program::stake::state::{Delegation, Meta, StakeState};
+use anchor_lang::solana_program::stake::state::{Delegation, Meta, Stake, StakeState};
+use anchor_lang::solana_program::stake_history::StakeHistoryEntry;
 use anchor_lang::solana_program::system_program::ID as system_program_id;
 use anchor_lang::solana_program::vote::program::id as vote_program_id;
 use anchor_spl::stake::StakeAccount;
@@ -178,6 +180,45 @@ pub fn check_stake_is_not_locked(
         }
     }
     Ok(())
+}
+
+/// Verification of the stake account state that's
+///   - stake account is delegated
+///   - stake state is either activating or activated
+// implementation from https://github.com/marinade-finance/native-staking/blob/master/bot/src/utils/stakes.rs#L48
+pub fn check_stake_exist_and_activating_or_activated(
+    stake_account: &StakeAccount,
+    epoch: Epoch,
+    stake_history: &StakeHistory,
+) -> Result<Stake> {
+    if let Some(stake) = stake_account.stake() {
+        let StakeHistoryEntry {
+            effective,
+            activating,
+            deactivating,
+        } = stake
+            .delegation
+            .stake_activating_and_deactivating(epoch, Some(stake_history), None);
+        if deactivating > 0 || effective == 0 {
+            msg!(
+                "Stake account is neither activating nor activated: {:?}",
+                stake_account.deref()
+            );
+            return Err(
+                error!(ErrorCode::NoStakeOrNotActivatingOrActivated).with_values((
+                    "effective/activating/deactivating",
+                    format!("{}/{}/{}", effective, activating, deactivating),
+                )),
+            );
+        }
+        Ok(stake)
+    } else {
+        msg!(
+            "Stake account is not delegated: {:?}",
+            stake_account.deref()
+        );
+        err!(ErrorCode::StakeNotDelegated)
+    }
 }
 
 pub fn deserialize_stake_account(account: &UncheckedAccount) -> Result<StakeAccount> {

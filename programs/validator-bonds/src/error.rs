@@ -197,4 +197,7 @@ pub enum ErrorCode {
 
     #[msg("Max stake wanted value is lower to minimum configured value")]
     MaxStakeWantedTooLow, // 6063 0x17af
+
+    #[msg("Stake account is not activating or activated")]
+    NoStakeOrNotActivatingOrActivated, // 6026 0x178a
 }
