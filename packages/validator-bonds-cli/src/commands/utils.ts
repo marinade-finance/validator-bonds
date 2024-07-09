@@ -249,6 +249,7 @@ function formatLamportsToSol(value: BN | number | BigInt): string {
   value = new BN(value.toString())
   const { div, mod } = new BN(value).divmod(new BN(LAMPORTS_PER_SOL))
   return `${div.toString()}.${mod
+    .abs()
     .toString()
     .padStart(Math.log10(LAMPORTS_PER_SOL), '0')}`
 }

@@ -13,6 +13,7 @@ import {
   getVoteAccountFromData,
   signerWithPubkey,
   transaction,
+  waitForNextEpoch,
 } from '@marinade.finance/web3js-common'
 import {
   Connection,
@@ -34,6 +35,7 @@ import {
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import { VoteAccountShow } from '../../src/commands/show'
 import BN from 'bn.js'
+import { claimWithdrawRequestInstruction } from '@marinade.finance/validator-bonds-sdk/src/instructions/claimWithdrawRequest'
 
 beforeAll(() => {
   shellMatchers()
@@ -508,9 +510,10 @@ describe('Show command using CLI', () => {
     const stakeAccountLamports: number[] = [3, 10, 23].map(
       l => l * LAMPORTS_PER_SOL
     )
+    let lastStakeAccount: PublicKey
     const sumLamports = stakeAccountLamports.reduce((a, b) => a + b, 0)
     for (const lamports of stakeAccountLamports) {
-      await createBondsFundedStakeAccount({
+      lastStakeAccount = await createBondsFundedStakeAccount({
         program,
         provider,
         configAccount,
@@ -681,14 +684,33 @@ describe('Show command using CLI', () => {
     const { div: requestedDiv, mod: requestedMod } = new BN(U64_MAX).divmod(
       bnLamportsPerSol
     )
-    await executeInitWithdrawRequestInstruction({
-      program,
-      provider,
-      configAccount,
-      bondAccount,
-      validatorIdentity,
-      amount: U64_MAX,
-    })
+    const withdrawingAmount =
+      stakeAccountLamports[stakeAccountLamports.length - 1]
+    const { div: withdrawingDiv, mod: withdrawingMod } = new BN(
+      withdrawingAmount
+    ).divmod(bnLamportsPerSol)
+    const { div: toWithdrawDiv, mod: toWithdrawMod } = new BN(U64_MAX)
+      .sub(new BN(withdrawingAmount))
+      .divmod(bnLamportsPerSol)
+    const { withdrawRequestAccount: toWithdrawRequestAcc } =
+      await executeInitWithdrawRequestInstruction({
+        program,
+        provider,
+        configAccount,
+        bondAccount,
+        validatorIdentity,
+        amount: U64_MAX,
+      })
+    await waitForNextEpoch(provider.connection, 15)
+    const { instruction, splitStakeAccount } =
+      await claimWithdrawRequestInstruction({
+        program,
+        authority: bondAuthority,
+        withdrawRequestAccount: toWithdrawRequestAcc,
+        bondAccount,
+        stakeAccount: lastStakeAccount!,
+      })
+    provider.sendIx([bondAuthority, splitStakeAccount], instruction)
     await (
       expect([
         'pnpm',
@@ -714,11 +736,13 @@ describe('Show command using CLI', () => {
       stdout: YAML.stringify({
         ...expectedData,
         amountActive: `${activeDiv.toString()}.${activeMod
+          .muln(-1)
           .toString()
           .padStart(9, '0')} SOLs`,
-        amountToWithdraw: `${requestedDiv.toString()}.${requestedMod
+        amountToWithdraw: `${toWithdrawDiv.toString()}.${toWithdrawMod
           .toString()
           .padStart(9, '0')} SOLs`,
+        numberActiveStakeAccounts: stakeAccountLamports.length - 1,
         withdrawRequest: {
           publicKey: withdrawRequestAccount.toBase58(),
           account: {
@@ -728,7 +752,9 @@ describe('Show command using CLI', () => {
             requestedAmount: `${requestedDiv.toString()}.${requestedMod
               .toString()
               .padStart(9, '0')} SOLs`,
-            withdrawnAmount: '0.000000000 SOL',
+            withdrawnAmount: `${withdrawingDiv.toString()}.${withdrawingMod
+              .toString()
+              .padStart(9, '0')} SOLs`,
           },
         },
       }),
