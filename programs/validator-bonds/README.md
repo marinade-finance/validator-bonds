@@ -2,7 +2,7 @@
 
 ## Workflow and on-chain data
 
-![Solana Accounts used within the contract](./resources/diagram/accounts.png)
+![Solana Accounts used within the contract](../../resources/diagram/accounts.png)
 
 ### Detailed description
 
