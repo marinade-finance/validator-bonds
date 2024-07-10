@@ -24,9 +24,8 @@ There are 4 pipelines used for the binary commands.
 * [claim-settlements](../.buildkite/claim-settlements.yml): Claims settlements when possible.
   It is executed as a cron job once at a set interval. It checks the on-chain state to see if any settlements can be claimed.
   The settlement can be claimed within the time range of `Settlement Creation + non-claimable slots` to `Settlement Creation Epoch - Config claimable epoch`.
-* [close-settlements](../.buildkite/close-settlements.yml): Closes `Settlement` accounts, `SettlementClaim` accounts,
+* [close-settlements](../.buildkite/close-settlements.yml): Closes `Settlement` and `SettlementClaims` accounts,
   and resets the state of stake accounts to be associated back to the validator `Bond` when not claimed.
-  It verifies the on-chain state to see if the settlement has expired and if any `SettlementClaim` can be closed.
 * [verify-settlements](../.buildkite/verify-settlements.yml): Loading `Settlement` merkle tree data
   from gcloud and do if the on-chain state does not contain some unknown `Settlement` in comparison
   to gcloud list.
