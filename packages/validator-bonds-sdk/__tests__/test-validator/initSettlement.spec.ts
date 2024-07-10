@@ -8,6 +8,7 @@ import {
   initSettlementInstruction,
   parseCpiEvents,
   settlementAddress,
+  settlementClaimsAddress,
   settlementStakerAuthority,
 } from '../../src'
 import { initTest } from './testValidator'
@@ -96,10 +97,15 @@ describe('Validator Bonds init settlement', () => {
       settlementAccount,
       program.programId
     )
+    const [, settlementClaimsBump] = settlementClaimsAddress(
+      settlementAccount,
+      program.programId
+    )
 
     expect(settlementData.bond).toEqual(bondAccount)
     expect(settlementData.bumps).toEqual({
       pda: bump,
+      settlementClaims: settlementClaimsBump,
       stakerAuthority: authorityBump,
     })
     expect(settlementData.epochCreatedFor).toEqual(currentEpoch)

@@ -511,6 +511,7 @@ export async function executeInitSettlement({
   maxTotalClaim?: number | BN
 }): Promise<{
   settlementAccount: PublicKey
+  settlementClaimsAccount: PublicKey
   epoch: BN
   rentCollector: PublicKey
   merkleRoot: number[] | Uint8Array | Buffer
@@ -520,6 +521,7 @@ export async function executeInitSettlement({
   const {
     instruction,
     settlementAccount,
+    settlementClaimsAccount,
     epoch: settlementEpoch,
   } = await initSettlementInstruction({
     program,
@@ -539,6 +541,7 @@ export async function executeInitSettlement({
   ).resolves.not.toBeNull()
   return {
     settlementAccount,
+    settlementClaimsAccount,
     epoch: settlementEpoch,
     rentCollector,
     merkleRoot,

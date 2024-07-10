@@ -1,6 +1,7 @@
 use crate::bonds::get_bonds_for_pubkeys;
 use crate::get_validator_bonds_program;
-use crate::utils::get_accounts_for_pubkeys;
+use crate::settlement_claims::SettlementClaimsBitmap;
+use crate::utils::{get_account_infos_for_pubkeys, get_accounts_for_pubkeys};
 use anyhow::anyhow;
 use log::{debug, error};
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -8,7 +9,7 @@ use solana_sdk::pubkey::Pubkey;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use validator_bonds::state::bond::Bond;
-use validator_bonds::state::settlement::Settlement;
+use validator_bonds::state::settlement::{find_settlement_claims_address, Settlement};
 
 pub async fn get_settlements(
     rpc_client: Arc<RpcClient>,
@@ -80,6 +81,46 @@ pub async fn get_settlements_for_pubkeys(
     pubkeys: &[Pubkey],
 ) -> anyhow::Result<Vec<(Pubkey, Option<Settlement>)>> {
     get_accounts_for_pubkeys(rpc_client, pubkeys).await
+}
+
+pub async fn get_settlement_claims_for_settlement_pubkeys(
+    rpc_client: Arc<RpcClient>,
+    settlement_pubkeys: &[Pubkey],
+) -> anyhow::Result<Vec<(Pubkey, Pubkey, Option<SettlementClaimsBitmap>)>> {
+    let settlement_claims_pubkeys = settlement_pubkeys
+        .iter()
+        .map(|settlement_pubkey| find_settlement_claims_address(settlement_pubkey).0)
+        .collect::<Vec<Pubkey>>();
+    let settlement_claims = get_account_infos_for_pubkeys(rpc_client, &settlement_claims_pubkeys)
+        .await?
+        .into_iter()
+        .map(|(pubkey, account)| {
+            if let Some(account) = account {
+                Ok((pubkey, Some(SettlementClaimsBitmap::new(account)?)))
+            } else {
+                Ok((pubkey, None))
+            }
+        })
+        .collect::<anyhow::Result<
+            Vec<(
+                Pubkey,
+                Option<crate::settlement_claims::SettlementClaimsBitmap>,
+            )>,
+        >>()?;
+    let result = settlement_pubkeys
+        .iter()
+        .zip(settlement_claims.into_iter())
+        .map(
+            |(settlement_pubkey, (settlement_claims_pubkey, settlement_claims))| {
+                (
+                    *settlement_pubkey,
+                    settlement_claims_pubkey,
+                    settlement_claims,
+                )
+            },
+        )
+        .collect::<Vec<(Pubkey, Pubkey, Option<SettlementClaimsBitmap>)>>();
+    Ok(result)
 }
 
 pub async fn get_bonds_for_settlements(

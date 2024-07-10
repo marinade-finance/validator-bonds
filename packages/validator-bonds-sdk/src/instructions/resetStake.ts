@@ -9,7 +9,7 @@ import {
 import { ValidatorBondsProgram } from '../sdk'
 import { checkAndGetBondAddress } from '../utils'
 import { getBond } from '../api'
-import { getStakeAccount } from '../web3.js/index'
+import { getStakeAccount } from '../web3.js'
 
 /**
  * Generate instruction to reset stake from closed settlement.

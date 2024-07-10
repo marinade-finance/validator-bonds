@@ -14,9 +14,9 @@ import {
   withdrawRequestAddress,
   settlementAddress,
   Settlement,
-  SettlementClaim,
   uintToBuffer,
   bondsWithdrawerAuthority,
+  settlementClaimsAddress,
 } from './sdk'
 import BN from 'bn.js'
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
@@ -29,6 +29,10 @@ import {
 } from '@marinade.finance/web3js-common'
 import { findStakeAccounts, StakeAccountParsed } from './web3.js'
 import assert from 'assert'
+import {
+  SettlementClaimsBitmap,
+  decodeSettlementClaimsData,
+} from './settlementClaims'
 
 // const CONFIG_ACCOUNT_DISCRIMINATOR = bs58.encode([155, 12, 170, 224, 30, 250, 204, 130])
 const BOND_ACCOUNT_DISCRIMINATOR = bs58.encode([
@@ -40,8 +44,8 @@ const WITHDRAW_REQUEST_ACCOUNT_DISCRIMINATOR = bs58.encode([
 const SETTLEMENT_ACCOUNT_DISCRIMINATOR = bs58.encode([
   55, 11, 219, 33, 36, 136, 40, 182,
 ])
-const SETTLEMENT_CLAIM_ACCOUNT_DISCRIMINATOR = bs58.encode([
-  216, 103, 231, 246, 171, 99, 124, 133,
+const SETTLEMENT_CLAIMS_ACCOUNT_DISCRIMINATOR = bs58.encode([
+  32, 130, 62, 175, 231, 54, 170, 114,
 ])
 
 const ZERO_BN = new BN(0)
@@ -343,11 +347,37 @@ export async function findSettlements({
     .map(d => d as ProgramAccount<Settlement>)
 }
 
-export async function getSettlementClaim(
+export async function getSettlementClaims(
   program: ValidatorBondsProgram,
   address: PublicKey
-): Promise<SettlementClaim> {
-  return program.account.settlementClaim.fetch(address)
+): Promise<SettlementClaimsBitmap> {
+  const account = await program.provider.connection.getAccountInfo(address)
+  if (account === null) {
+    throw new Error(
+      `getSettlementClaims: account ${address} not found at ${program.provider.connection.rpcEndpoint}`
+    )
+  }
+  return decodeSettlementClaimsData(program, account)
+}
+
+export async function getSettlementClaimsBySettlement(
+  program: ValidatorBondsProgram,
+  settlement: PublicKey
+): Promise<SettlementClaimsBitmap> {
+  const [address] = settlementClaimsAddress(settlement, program.programId)
+  return await getSettlementClaims(program, address)
+}
+
+export async function isClaimed(
+  program: ValidatorBondsProgram,
+  settlement: PublicKey,
+  index: number | BN
+): Promise<boolean> {
+  const settlementClaims = await getSettlementClaimsBySettlement(
+    program,
+    settlement
+  )
+  return settlementClaims.bitmap.isSet(index)
 }
 
 export async function getMultipleSettlementClaims({
@@ -356,33 +386,32 @@ export async function getMultipleSettlementClaims({
 }: {
   program: ValidatorBondsProgram
   addresses: PublicKey[]
-}): Promise<ProgramAccountWithInfoNullable<SettlementClaim>[]> {
+}): Promise<ProgramAccountWithInfoNullable<SettlementClaimsBitmap>[]> {
   return (
     await getMultipleAccounts({
       connection: program.provider.connection,
       addresses,
     })
-  ).map(({ publicKey, account: accountInfo }) =>
-    mapAccountInfoToProgramAccount<SettlementClaim>(
-      program,
-      accountInfo,
-      publicKey,
-      program.account.settlementClaim.idlAccount.name
-    )
-  )
+  ).map(({ publicKey, account: accountInfo }) => {
+    if (accountInfo === null) {
+      return { publicKey, account: null, accountInfo: null }
+    } else {
+      return {
+        publicKey,
+        account: decodeSettlementClaimsData(program, accountInfo),
+        accountInfo,
+      }
+    }
+  })
 }
 
 export async function findSettlementClaims({
   program,
   settlement,
-  stakeAccountStaker,
-  stakeAccountWithdrawer,
 }: {
   program: ValidatorBondsProgram
   settlement?: PublicKey
-  stakeAccountStaker?: PublicKey
-  stakeAccountWithdrawer?: PublicKey
-}): Promise<ProgramAccount<SettlementClaim>[]> {
+}): Promise<ProgramAccount<SettlementClaimsBitmap>[]> {
   const filters = []
   if (settlement) {
     filters.push({
@@ -393,27 +422,9 @@ export async function findSettlementClaims({
       },
     })
   }
-  if (stakeAccountStaker) {
-    filters.push({
-      memcmp: {
-        bytes: stakeAccountStaker.toBase58(),
-        // 8 anchor offset + settlement 32B + stake account to 32B
-        offset: 72,
-      },
-    })
-  }
-  if (stakeAccountWithdrawer) {
-    filters.push({
-      memcmp: {
-        bytes: stakeAccountWithdrawer.toBase58(),
-        // 8 anchor offset + 32B settlement + stake acc. to 32B + 32B staker
-        offset: 104,
-      },
-    })
-  }
 
   filters.push({
-    memcmp: { bytes: SETTLEMENT_CLAIM_ACCOUNT_DISCRIMINATOR, offset: 0 },
+    memcmp: { bytes: SETTLEMENT_CLAIMS_ACCOUNT_DISCRIMINATOR, offset: 0 },
   })
   const addresses = await getAccountInfoAddresses({
     connection: program.provider.connection,
@@ -422,7 +433,7 @@ export async function findSettlementClaims({
   })
   return (await getMultipleSettlementClaims({ program, addresses }))
     .filter(d => d.account !== null)
-    .map(d => d as ProgramAccount<SettlementClaim>)
+    .map(d => d as ProgramAccount<SettlementClaimsBitmap>)
 }
 
 function parseNotLocked(

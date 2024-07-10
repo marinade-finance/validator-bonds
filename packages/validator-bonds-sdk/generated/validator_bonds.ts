@@ -1,5 +1,5 @@
 export type ValidatorBonds = {
-  "version": "1.5.0",
+  "version": "2.0.0",
   "name": "validator_bonds",
   "constants": [
     {
@@ -28,11 +28,6 @@ export type ValidatorBonds = {
       "value": "[119, 105, 116, 104, 100, 114, 97, 119, 95, 97, 99, 99, 111, 117, 110, 116]"
     },
     {
-      "name": "SETTLEMENT_CLAIM_SEED",
-      "type": "bytes",
-      "value": "[99, 108, 97, 105, 109, 95, 97, 99, 99, 111, 117, 110, 116]"
-    },
-    {
       "name": "BONDS_WITHDRAWER_AUTHORITY_SEED",
       "type": "bytes",
       "value": "[98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121]"
@@ -41,6 +36,21 @@ export type ValidatorBonds = {
       "name": "SETTLEMENT_STAKER_AUTHORITY_SEED",
       "type": "bytes",
       "value": "[115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121]"
+    },
+    {
+      "name": "SETTLEMENT_CLAIMS_SEED",
+      "type": "bytes",
+      "value": "[99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110, 116]"
+    },
+    {
+      "name": "SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE",
+      "type": "u8",
+      "value": "56"
+    },
+    {
+      "name": "SETTLEMENT_CLAIM_SEED",
+      "type": "bytes",
+      "value": "[99, 108, 97, 105, 109, 95, 97, 99, 99, 111, 117, 110, 116]"
     }
   ],
   "instructions": [
@@ -1147,6 +1157,26 @@ export type ValidatorBonds = {
           }
         },
         {
+          "name": "settlementClaims",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "claims_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Settlement",
+                "path": "settlement"
+              }
+            ]
+          }
+        },
+        {
           "name": "operatorAuthority",
           "isMut": false,
           "isSigner": true,
@@ -1197,156 +1227,38 @@ export type ValidatorBonds = {
       ]
     },
     {
-      "name": "closeSettlement",
+      "name": "upsizeSettlementClaims",
       "accounts": [
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "bond",
-          "isMut": false,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "bond_account"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Config",
-                "path": "config"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Bond",
-                "path": "bond.vote_account"
-              }
-            ]
-          },
-          "relations": [
-            "config"
-          ]
-        },
-        {
-          "name": "settlement",
+          "name": "settlementClaims",
           "isMut": true,
           "isSigner": false,
-          "docs": [
-            "settlement to close when expired"
-          ],
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "type": "string",
-                "value": "settlement_account"
+                "value": "claims_account"
               },
               {
                 "kind": "account",
                 "type": "publicKey",
-                "account": "Bond",
-                "path": "bond"
-              },
-              {
-                "kind": "account",
-                "type": {
-                  "array": [
-                    "u8",
-                    32
-                  ]
-                },
-                "account": "Settlement",
-                "path": "settlement.merkle_root"
-              },
-              {
-                "kind": "account",
-                "type": "u64",
-                "account": "Settlement",
-                "path": "settlement.epoch_created_for"
-              }
-            ]
-          },
-          "relations": [
-            "bond",
-            "rent_collector"
-          ]
-        },
-        {
-          "name": "bondsWithdrawerAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "bonds_authority"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Config",
-                "path": "config"
+                "account": "SettlementClaims",
+                "path": "settlement_claims.settlement"
               }
             ]
           }
         },
         {
-          "name": "rentCollector",
+          "name": "rentPayer",
           "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "splitRentCollector",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "splitRentRefundAccount",
-          "isMut": true,
-          "isSigner": false,
+          "isSigner": true,
           "docs": [
-            "The stake account is funded to the settlement and credited to the bond's validator vote account.",
-            "The lamports are utilized to pay back the rent exemption of the split_stake_account, which can be created upon funding the settlement."
+            "rent exempt payer of account reallocation"
           ]
         },
         {
-          "name": "clock",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "stakeProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "stakeHistory",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "__event_authority"
-              }
-            ]
-          }
-        },
-        {
-          "name": "program",
+          "name": "systemProgram",
           "isMut": false,
           "isSigner": false
         }
@@ -1395,7 +1307,7 @@ export type ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "settlement to close"
+            "settlement to close whenever the operator decides"
           ],
           "pda": {
             "seeds": [
@@ -1432,6 +1344,29 @@ export type ValidatorBonds = {
           "relations": [
             "bond",
             "rent_collector"
+          ]
+        },
+        {
+          "name": "settlementClaims",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "claims_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Settlement",
+                "path": "settlement"
+              }
+            ]
+          },
+          "relations": [
+            "settlement"
           ]
         },
         {
@@ -1729,257 +1664,6 @@ export type ValidatorBonds = {
         }
       ],
       "args": []
-    },
-    {
-      "name": "closeSettlementClaim",
-      "accounts": [
-        {
-          "name": "settlement",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "settlementClaim",
-          "isMut": true,
-          "isSigner": false,
-          "relations": [
-            "rent_collector",
-            "settlement"
-          ]
-        },
-        {
-          "name": "rentCollector",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "__event_authority"
-              }
-            ]
-          }
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "claimSettlement",
-      "accounts": [
-        {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "the config account under which the settlement was created"
-          ]
-        },
-        {
-          "name": "bond",
-          "isMut": false,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "bond_account"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Config",
-                "path": "config"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Bond",
-                "path": "bond.vote_account"
-              }
-            ]
-          },
-          "relations": [
-            "config"
-          ]
-        },
-        {
-          "name": "settlement",
-          "isMut": true,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "settlement_account"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Bond",
-                "path": "bond"
-              },
-              {
-                "kind": "account",
-                "type": {
-                  "array": [
-                    "u8",
-                    32
-                  ]
-                },
-                "account": "Settlement",
-                "path": "settlement.merkle_root"
-              },
-              {
-                "kind": "account",
-                "type": "u64",
-                "account": "Settlement",
-                "path": "settlement.epoch_created_for"
-              }
-            ]
-          },
-          "relations": [
-            "bond"
-          ]
-        },
-        {
-          "name": "settlementClaim",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "deduplication, merkle tree record cannot be claimed twice"
-          ],
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "claim_account"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Settlement",
-                "path": "settlement"
-              },
-              {
-                "kind": "arg",
-                "type": {
-                  "defined": "ClaimSettlementArgs"
-                },
-                "path": "params.tree_node_hash"
-              }
-            ]
-          }
-        },
-        {
-          "name": "stakeAccountFrom",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "a stake account that will be withdrawn"
-          ]
-        },
-        {
-          "name": "stakeAccountTo",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "a stake account that will receive the funds"
-          ]
-        },
-        {
-          "name": "bondsWithdrawerAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "authority that manages (owns == by being withdrawer authority) all stakes account under the bonds program"
-          ],
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "bonds_authority"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Config",
-                "path": "config"
-              }
-            ]
-          }
-        },
-        {
-          "name": "rentPayer",
-          "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "upon claiming, a claim account is created to confirm the occurrence of the claim",
-            "when the settlement withdrawal window expires, the claim account is closed, and the rent is refunded here"
-          ]
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "stakeHistory",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "clock",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "stakeProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "__event_authority"
-              }
-            ]
-          }
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "claimSettlementArgs",
-          "type": {
-            "defined": "ClaimSettlementArgs"
-          }
-        }
-      ]
     },
     {
       "name": "mergeStake",
@@ -2359,9 +2043,859 @@ export type ValidatorBonds = {
         }
       ],
       "args": []
+    },
+    {
+      "name": "closeSettlementV2",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "bond",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond.vote_account"
+              }
+            ]
+          },
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "settlement",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "settlement to close when expired"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "settlement_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond"
+              },
+              {
+                "kind": "account",
+                "type": {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                "account": "Settlement",
+                "path": "settlement.merkle_root"
+              },
+              {
+                "kind": "account",
+                "type": "u64",
+                "account": "Settlement",
+                "path": "settlement.epoch_created_for"
+              }
+            ]
+          },
+          "relations": [
+            "bond",
+            "rent_collector"
+          ]
+        },
+        {
+          "name": "settlementClaims",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "claims_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Settlement",
+                "path": "settlement"
+              }
+            ]
+          },
+          "relations": [
+            "settlement"
+          ]
+        },
+        {
+          "name": "bondsWithdrawerAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bonds_authority"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "rentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "splitRentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "splitRentRefundAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "The stake account is funded to the settlement and credited to the bond's validator vote account.",
+            "The lamports are utilized to pay back the rent exemption of the split_stake_account, which can be created upon funding the settlement."
+          ]
+        },
+        {
+          "name": "clock",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claimSettlementV2",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "the config account under which the settlement was created"
+          ]
+        },
+        {
+          "name": "bond",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond.vote_account"
+              }
+            ]
+          },
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "settlement",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "settlement_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond"
+              },
+              {
+                "kind": "account",
+                "type": {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                "account": "Settlement",
+                "path": "settlement.merkle_root"
+              },
+              {
+                "kind": "account",
+                "type": "u64",
+                "account": "Settlement",
+                "path": "settlement.epoch_created_for"
+              }
+            ]
+          },
+          "relations": [
+            "bond"
+          ]
+        },
+        {
+          "name": "settlementClaims",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "deduplication, merkle tree record cannot be claimed twice"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "claims_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Settlement",
+                "path": "settlement"
+              }
+            ]
+          },
+          "relations": [
+            "settlement"
+          ]
+        },
+        {
+          "name": "stakeAccountFrom",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "a stake account that will be withdrawn"
+          ]
+        },
+        {
+          "name": "stakeAccountTo",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "a stake account that will receive the funds"
+          ]
+        },
+        {
+          "name": "bondsWithdrawerAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "authority that manages (owns == by being withdrawer authority) all stakes account under the bonds program"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bonds_authority"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "clock",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "claimSettlementArgs",
+          "type": {
+            "defined": "ClaimSettlementV2Args"
+          }
+        }
+      ]
+    },
+    {
+      "name": "closeSettlement",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "bond",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond.vote_account"
+              }
+            ]
+          },
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "settlement",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "settlement to close when expired"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "settlement_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond"
+              },
+              {
+                "kind": "account",
+                "type": {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                "account": "Settlement",
+                "path": "settlement.merkle_root"
+              },
+              {
+                "kind": "account",
+                "type": "u64",
+                "account": "Settlement",
+                "path": "settlement.epoch_created_for"
+              }
+            ]
+          },
+          "relations": [
+            "bond",
+            "rent_collector"
+          ]
+        },
+        {
+          "name": "bondsWithdrawerAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bonds_authority"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "rentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "splitRentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "splitRentRefundAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "The stake account is funded to the settlement and credited to the bond's validator vote account.",
+            "The lamports are utilized to pay back the rent exemption of the split_stake_account, which can be created upon funding the settlement."
+          ]
+        },
+        {
+          "name": "clock",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "closeSettlementClaim",
+      "accounts": [
+        {
+          "name": "settlement",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "settlementClaim",
+          "isMut": true,
+          "isSigner": false,
+          "relations": [
+            "rent_collector",
+            "settlement"
+          ]
+        },
+        {
+          "name": "rentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claimSettlement",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "the config account under which the settlement was created"
+          ]
+        },
+        {
+          "name": "bond",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond.vote_account"
+              }
+            ]
+          },
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "settlement",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "settlement_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond"
+              },
+              {
+                "kind": "account",
+                "type": {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                "account": "Settlement",
+                "path": "settlement.merkle_root"
+              },
+              {
+                "kind": "account",
+                "type": "u64",
+                "account": "Settlement",
+                "path": "settlement.epoch_created_for"
+              }
+            ]
+          },
+          "relations": [
+            "bond"
+          ]
+        },
+        {
+          "name": "settlementClaim",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "deduplication, merkle tree record cannot be claimed twice"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "claim_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Settlement",
+                "path": "settlement"
+              },
+              {
+                "kind": "arg",
+                "type": {
+                  "defined": "ClaimSettlementArgs"
+                },
+                "path": "params.tree_node_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stakeAccountFrom",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "a stake account that will be withdrawn"
+          ]
+        },
+        {
+          "name": "stakeAccountTo",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "a stake account that will receive the funds"
+          ]
+        },
+        {
+          "name": "bondsWithdrawerAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "authority that manages (owns == by being withdrawer authority) all stakes account under the bonds program"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bonds_authority"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "rentPayer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "upon claiming, a claim account is created to confirm the occurrence of the claim",
+            "when the settlement withdrawal window expires, the claim account is closed, and the rent is refunded here"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "clock",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "claimSettlementArgs",
+          "type": {
+            "defined": "ClaimSettlementArgs"
+          }
+        }
+      ]
     }
   ],
   "accounts": [
+    {
+      "name": "settlementClaim",
+      "docs": [
+        "The settlement claim serves for deduplication purposes,",
+        "preventing the same settlement from being claimed multiple times with the same claiming data"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "settlement",
+            "docs": [
+              "settlement account this claim belongs under"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "stakeAccountTo",
+            "docs": [
+              "stake account to which the claim has been withdrawn to"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "stakeAccountStaker",
+            "docs": [
+              "staker authority as part of the merkle proof for this claim"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "stakeAccountWithdrawer",
+            "docs": [
+              "withdrawer authority as part of the merkle proof for this claim"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "amount",
+            "docs": [
+              "claim amount"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA account bump, one claim per settlement"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "rentCollector",
+            "docs": [
+              "rent collector account to get the rent back for claim account creation"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "reserved",
+            "docs": [
+              "reserve space for future extensions"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                93
+              ]
+            }
+          }
+        ]
+      }
+    },
     {
       "name": "bond",
       "docs": [
@@ -2532,74 +3066,24 @@ export type ValidatorBonds = {
       }
     },
     {
-      "name": "settlementClaim",
+      "name": "settlementClaims",
       "docs": [
-        "The settlement claim serves for deduplication purposes,",
-        "preventing the same settlement from being claimed multiple times with the same claiming data"
+        "Account serving to deduplicate claiming, consists of anchor data as metaata header and bitmap in the remaining space."
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "settlement",
-            "docs": [
-              "settlement account this claim belongs under"
-            ],
             "type": "publicKey"
           },
           {
-            "name": "stakeAccountTo",
-            "docs": [
-              "stake account to which the claim has been withdrawn to"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "stakeAccountStaker",
-            "docs": [
-              "staker authority as part of the merkle proof for this claim"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "stakeAccountWithdrawer",
-            "docs": [
-              "withdrawer authority as part of the merkle proof for this claim"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "amount",
-            "docs": [
-              "claim amount"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "bump",
-            "docs": [
-              "PDA account bump, one claim per settlement"
-            ],
+            "name": "version",
             "type": "u8"
           },
           {
-            "name": "rentCollector",
-            "docs": [
-              "rent collector account to get the rent back for claim account creation"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "reserved",
-            "docs": [
-              "reserve space for future extensions"
-            ],
-            "type": {
-              "array": [
-                "u8",
-                93
-              ]
-            }
+            "name": "maxRecords",
+            "type": "u64"
           }
         ]
       }
@@ -2729,7 +3213,7 @@ export type ValidatorBonds = {
             "type": {
               "array": [
                 "u8",
-                91
+                90
               ]
             }
           }
@@ -3073,7 +3557,7 @@ export type ValidatorBonds = {
       }
     },
     {
-      "name": "ClaimSettlementArgs",
+      "name": "ClaimSettlementV2Args",
       "type": {
         "kind": "struct",
         "fields": [
@@ -3118,6 +3602,13 @@ export type ValidatorBonds = {
             "name": "claim",
             "docs": [
               "claim amount; merkle root verification"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "index",
+            "docs": [
+              "index, ordered claim record in the settlement list; merkle root verification"
             ],
             "type": "u64"
           }
@@ -3186,6 +3677,58 @@ export type ValidatorBonds = {
       }
     },
     {
+      "name": "ClaimSettlementArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "proof",
+            "docs": [
+              "proof that the claim is appropriate"
+            ],
+            "type": {
+              "vec": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            }
+          },
+          {
+            "name": "treeNodeHash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "stakeAccountStaker",
+            "docs": [
+              "staker authority of the stake_account_to; merkle root verification"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "stakeAccountWithdrawer",
+            "docs": [
+              "withdrawer authority of the stake_account_to; merkle root verification"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "claim",
+            "docs": [
+              "claim amount; merkle root verification"
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "InitWithdrawRequestArgs",
       "type": {
         "kind": "struct",
@@ -3208,6 +3751,10 @@ export type ValidatorBonds = {
           },
           {
             "name": "stakerAuthority",
+            "type": "u8"
+          },
+          {
+            "name": "settlementClaims",
             "type": "u8"
           }
         ]
@@ -3582,13 +4129,8 @@ export type ValidatorBonds = {
       ]
     },
     {
-      "name": "ClaimSettlementEvent",
+      "name": "ClaimSettlementV2Event",
       "fields": [
-        {
-          "name": "settlementClaim",
-          "type": "publicKey",
-          "index": false
-        },
         {
           "name": "settlement",
           "type": "publicKey",
@@ -3627,23 +4169,8 @@ export type ValidatorBonds = {
           "index": false
         },
         {
-          "name": "rentCollector",
-          "type": "publicKey",
-          "index": false
-        }
-      ]
-    },
-    {
-      "name": "CloseSettlementClaimEvent",
-      "fields": [
-        {
-          "name": "settlement",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "rentCollector",
-          "type": "publicKey",
+          "name": "index",
+          "type": "u64",
           "index": false
         }
       ]
@@ -4150,6 +4677,58 @@ export type ValidatorBonds = {
           "index": false
         }
       ]
+    },
+    {
+      "name": "ClaimSettlementEvent",
+      "fields": [
+        {
+          "name": "settlementClaim",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "settlement",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "settlementLamportsClaimed",
+          "type": {
+            "defined": "U64ValueChange"
+          },
+          "index": false
+        },
+        {
+          "name": "settlementMerkleNodesClaimed",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "stakeAccountTo",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "stakeAccountWithdrawer",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "stakeAccountStaker",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "rentCollector",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
     }
   ],
   "errors": [
@@ -4477,12 +5056,42 @@ export type ValidatorBonds = {
       "code": 6064,
       "name": "NoStakeOrNotActivatingOrActivated",
       "msg": "Stake account is not activating or activated"
+    },
+    {
+      "code": 6065,
+      "name": "BitmapSizeMismatch",
+      "msg": "Data size mismatch for the bitmap"
+    },
+    {
+      "code": 6066,
+      "name": "BitmapIndexOutOfBonds",
+      "msg": "Bitmap index out of bounds"
+    },
+    {
+      "code": 6067,
+      "name": "SettlementClaimsNotInitialized",
+      "msg": "SettlementClaims account not fully initialized, missing data size"
+    },
+    {
+      "code": 6068,
+      "name": "SettlementClaimsTooManyRecords",
+      "msg": "SettlementClaims records exceed maximum to fit Solana account size"
+    },
+    {
+      "code": 6069,
+      "name": "SettlementClaimsAlreadyInitialized",
+      "msg": "SettlementClaims already initialized, no need to increase account size"
+    },
+    {
+      "code": 6070,
+      "name": "SettlementAlreadyClaimed",
+      "msg": "Settlement has been already claimed"
     }
   ]
 };
 
 export const IDL: ValidatorBonds = {
-  "version": "1.5.0",
+  "version": "2.0.0",
   "name": "validator_bonds",
   "constants": [
     {
@@ -4511,11 +5120,6 @@ export const IDL: ValidatorBonds = {
       "value": "[119, 105, 116, 104, 100, 114, 97, 119, 95, 97, 99, 99, 111, 117, 110, 116]"
     },
     {
-      "name": "SETTLEMENT_CLAIM_SEED",
-      "type": "bytes",
-      "value": "[99, 108, 97, 105, 109, 95, 97, 99, 99, 111, 117, 110, 116]"
-    },
-    {
       "name": "BONDS_WITHDRAWER_AUTHORITY_SEED",
       "type": "bytes",
       "value": "[98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121]"
@@ -4524,6 +5128,21 @@ export const IDL: ValidatorBonds = {
       "name": "SETTLEMENT_STAKER_AUTHORITY_SEED",
       "type": "bytes",
       "value": "[115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121]"
+    },
+    {
+      "name": "SETTLEMENT_CLAIMS_SEED",
+      "type": "bytes",
+      "value": "[99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110, 116]"
+    },
+    {
+      "name": "SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE",
+      "type": "u8",
+      "value": "56"
+    },
+    {
+      "name": "SETTLEMENT_CLAIM_SEED",
+      "type": "bytes",
+      "value": "[99, 108, 97, 105, 109, 95, 97, 99, 99, 111, 117, 110, 116]"
     }
   ],
   "instructions": [
@@ -5630,6 +6249,26 @@ export const IDL: ValidatorBonds = {
           }
         },
         {
+          "name": "settlementClaims",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "claims_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Settlement",
+                "path": "settlement"
+              }
+            ]
+          }
+        },
+        {
           "name": "operatorAuthority",
           "isMut": false,
           "isSigner": true,
@@ -5680,156 +6319,38 @@ export const IDL: ValidatorBonds = {
       ]
     },
     {
-      "name": "closeSettlement",
+      "name": "upsizeSettlementClaims",
       "accounts": [
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "bond",
-          "isMut": false,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "bond_account"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Config",
-                "path": "config"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Bond",
-                "path": "bond.vote_account"
-              }
-            ]
-          },
-          "relations": [
-            "config"
-          ]
-        },
-        {
-          "name": "settlement",
+          "name": "settlementClaims",
           "isMut": true,
           "isSigner": false,
-          "docs": [
-            "settlement to close when expired"
-          ],
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "type": "string",
-                "value": "settlement_account"
+                "value": "claims_account"
               },
               {
                 "kind": "account",
                 "type": "publicKey",
-                "account": "Bond",
-                "path": "bond"
-              },
-              {
-                "kind": "account",
-                "type": {
-                  "array": [
-                    "u8",
-                    32
-                  ]
-                },
-                "account": "Settlement",
-                "path": "settlement.merkle_root"
-              },
-              {
-                "kind": "account",
-                "type": "u64",
-                "account": "Settlement",
-                "path": "settlement.epoch_created_for"
-              }
-            ]
-          },
-          "relations": [
-            "bond",
-            "rent_collector"
-          ]
-        },
-        {
-          "name": "bondsWithdrawerAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "bonds_authority"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Config",
-                "path": "config"
+                "account": "SettlementClaims",
+                "path": "settlement_claims.settlement"
               }
             ]
           }
         },
         {
-          "name": "rentCollector",
+          "name": "rentPayer",
           "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "splitRentCollector",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "splitRentRefundAccount",
-          "isMut": true,
-          "isSigner": false,
+          "isSigner": true,
           "docs": [
-            "The stake account is funded to the settlement and credited to the bond's validator vote account.",
-            "The lamports are utilized to pay back the rent exemption of the split_stake_account, which can be created upon funding the settlement."
+            "rent exempt payer of account reallocation"
           ]
         },
         {
-          "name": "clock",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "stakeProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "stakeHistory",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "__event_authority"
-              }
-            ]
-          }
-        },
-        {
-          "name": "program",
+          "name": "systemProgram",
           "isMut": false,
           "isSigner": false
         }
@@ -5878,7 +6399,7 @@ export const IDL: ValidatorBonds = {
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "settlement to close"
+            "settlement to close whenever the operator decides"
           ],
           "pda": {
             "seeds": [
@@ -5915,6 +6436,29 @@ export const IDL: ValidatorBonds = {
           "relations": [
             "bond",
             "rent_collector"
+          ]
+        },
+        {
+          "name": "settlementClaims",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "claims_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Settlement",
+                "path": "settlement"
+              }
+            ]
+          },
+          "relations": [
+            "settlement"
           ]
         },
         {
@@ -6212,257 +6756,6 @@ export const IDL: ValidatorBonds = {
         }
       ],
       "args": []
-    },
-    {
-      "name": "closeSettlementClaim",
-      "accounts": [
-        {
-          "name": "settlement",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "settlementClaim",
-          "isMut": true,
-          "isSigner": false,
-          "relations": [
-            "rent_collector",
-            "settlement"
-          ]
-        },
-        {
-          "name": "rentCollector",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "__event_authority"
-              }
-            ]
-          }
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "claimSettlement",
-      "accounts": [
-        {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "the config account under which the settlement was created"
-          ]
-        },
-        {
-          "name": "bond",
-          "isMut": false,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "bond_account"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Config",
-                "path": "config"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Bond",
-                "path": "bond.vote_account"
-              }
-            ]
-          },
-          "relations": [
-            "config"
-          ]
-        },
-        {
-          "name": "settlement",
-          "isMut": true,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "settlement_account"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Bond",
-                "path": "bond"
-              },
-              {
-                "kind": "account",
-                "type": {
-                  "array": [
-                    "u8",
-                    32
-                  ]
-                },
-                "account": "Settlement",
-                "path": "settlement.merkle_root"
-              },
-              {
-                "kind": "account",
-                "type": "u64",
-                "account": "Settlement",
-                "path": "settlement.epoch_created_for"
-              }
-            ]
-          },
-          "relations": [
-            "bond"
-          ]
-        },
-        {
-          "name": "settlementClaim",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "deduplication, merkle tree record cannot be claimed twice"
-          ],
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "claim_account"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Settlement",
-                "path": "settlement"
-              },
-              {
-                "kind": "arg",
-                "type": {
-                  "defined": "ClaimSettlementArgs"
-                },
-                "path": "params.tree_node_hash"
-              }
-            ]
-          }
-        },
-        {
-          "name": "stakeAccountFrom",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "a stake account that will be withdrawn"
-          ]
-        },
-        {
-          "name": "stakeAccountTo",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "a stake account that will receive the funds"
-          ]
-        },
-        {
-          "name": "bondsWithdrawerAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "authority that manages (owns == by being withdrawer authority) all stakes account under the bonds program"
-          ],
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "bonds_authority"
-              },
-              {
-                "kind": "account",
-                "type": "publicKey",
-                "account": "Config",
-                "path": "config"
-              }
-            ]
-          }
-        },
-        {
-          "name": "rentPayer",
-          "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "upon claiming, a claim account is created to confirm the occurrence of the claim",
-            "when the settlement withdrawal window expires, the claim account is closed, and the rent is refunded here"
-          ]
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "stakeHistory",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "clock",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "stakeProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "type": "string",
-                "value": "__event_authority"
-              }
-            ]
-          }
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "claimSettlementArgs",
-          "type": {
-            "defined": "ClaimSettlementArgs"
-          }
-        }
-      ]
     },
     {
       "name": "mergeStake",
@@ -6842,9 +7135,859 @@ export const IDL: ValidatorBonds = {
         }
       ],
       "args": []
+    },
+    {
+      "name": "closeSettlementV2",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "bond",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond.vote_account"
+              }
+            ]
+          },
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "settlement",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "settlement to close when expired"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "settlement_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond"
+              },
+              {
+                "kind": "account",
+                "type": {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                "account": "Settlement",
+                "path": "settlement.merkle_root"
+              },
+              {
+                "kind": "account",
+                "type": "u64",
+                "account": "Settlement",
+                "path": "settlement.epoch_created_for"
+              }
+            ]
+          },
+          "relations": [
+            "bond",
+            "rent_collector"
+          ]
+        },
+        {
+          "name": "settlementClaims",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "claims_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Settlement",
+                "path": "settlement"
+              }
+            ]
+          },
+          "relations": [
+            "settlement"
+          ]
+        },
+        {
+          "name": "bondsWithdrawerAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bonds_authority"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "rentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "splitRentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "splitRentRefundAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "The stake account is funded to the settlement and credited to the bond's validator vote account.",
+            "The lamports are utilized to pay back the rent exemption of the split_stake_account, which can be created upon funding the settlement."
+          ]
+        },
+        {
+          "name": "clock",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claimSettlementV2",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "the config account under which the settlement was created"
+          ]
+        },
+        {
+          "name": "bond",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond.vote_account"
+              }
+            ]
+          },
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "settlement",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "settlement_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond"
+              },
+              {
+                "kind": "account",
+                "type": {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                "account": "Settlement",
+                "path": "settlement.merkle_root"
+              },
+              {
+                "kind": "account",
+                "type": "u64",
+                "account": "Settlement",
+                "path": "settlement.epoch_created_for"
+              }
+            ]
+          },
+          "relations": [
+            "bond"
+          ]
+        },
+        {
+          "name": "settlementClaims",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "deduplication, merkle tree record cannot be claimed twice"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "claims_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Settlement",
+                "path": "settlement"
+              }
+            ]
+          },
+          "relations": [
+            "settlement"
+          ]
+        },
+        {
+          "name": "stakeAccountFrom",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "a stake account that will be withdrawn"
+          ]
+        },
+        {
+          "name": "stakeAccountTo",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "a stake account that will receive the funds"
+          ]
+        },
+        {
+          "name": "bondsWithdrawerAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "authority that manages (owns == by being withdrawer authority) all stakes account under the bonds program"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bonds_authority"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "clock",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "claimSettlementArgs",
+          "type": {
+            "defined": "ClaimSettlementV2Args"
+          }
+        }
+      ]
+    },
+    {
+      "name": "closeSettlement",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "bond",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond.vote_account"
+              }
+            ]
+          },
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "settlement",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "settlement to close when expired"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "settlement_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond"
+              },
+              {
+                "kind": "account",
+                "type": {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                "account": "Settlement",
+                "path": "settlement.merkle_root"
+              },
+              {
+                "kind": "account",
+                "type": "u64",
+                "account": "Settlement",
+                "path": "settlement.epoch_created_for"
+              }
+            ]
+          },
+          "relations": [
+            "bond",
+            "rent_collector"
+          ]
+        },
+        {
+          "name": "bondsWithdrawerAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bonds_authority"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "rentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "splitRentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "splitRentRefundAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "The stake account is funded to the settlement and credited to the bond's validator vote account.",
+            "The lamports are utilized to pay back the rent exemption of the split_stake_account, which can be created upon funding the settlement."
+          ]
+        },
+        {
+          "name": "clock",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "closeSettlementClaim",
+      "accounts": [
+        {
+          "name": "settlement",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "settlementClaim",
+          "isMut": true,
+          "isSigner": false,
+          "relations": [
+            "rent_collector",
+            "settlement"
+          ]
+        },
+        {
+          "name": "rentCollector",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claimSettlement",
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "the config account under which the settlement was created"
+          ]
+        },
+        {
+          "name": "bond",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bond_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond.vote_account"
+              }
+            ]
+          },
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "settlement",
+          "isMut": true,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "settlement_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Bond",
+                "path": "bond"
+              },
+              {
+                "kind": "account",
+                "type": {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                "account": "Settlement",
+                "path": "settlement.merkle_root"
+              },
+              {
+                "kind": "account",
+                "type": "u64",
+                "account": "Settlement",
+                "path": "settlement.epoch_created_for"
+              }
+            ]
+          },
+          "relations": [
+            "bond"
+          ]
+        },
+        {
+          "name": "settlementClaim",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "deduplication, merkle tree record cannot be claimed twice"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "claim_account"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Settlement",
+                "path": "settlement"
+              },
+              {
+                "kind": "arg",
+                "type": {
+                  "defined": "ClaimSettlementArgs"
+                },
+                "path": "params.tree_node_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stakeAccountFrom",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "a stake account that will be withdrawn"
+          ]
+        },
+        {
+          "name": "stakeAccountTo",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "a stake account that will receive the funds"
+          ]
+        },
+        {
+          "name": "bondsWithdrawerAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "authority that manages (owns == by being withdrawer authority) all stakes account under the bonds program"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "bonds_authority"
+              },
+              {
+                "kind": "account",
+                "type": "publicKey",
+                "account": "Config",
+                "path": "config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "rentPayer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "upon claiming, a claim account is created to confirm the occurrence of the claim",
+            "when the settlement withdrawal window expires, the claim account is closed, and the rent is refunded here"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "clock",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "type": "string",
+                "value": "__event_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "claimSettlementArgs",
+          "type": {
+            "defined": "ClaimSettlementArgs"
+          }
+        }
+      ]
     }
   ],
   "accounts": [
+    {
+      "name": "settlementClaim",
+      "docs": [
+        "The settlement claim serves for deduplication purposes,",
+        "preventing the same settlement from being claimed multiple times with the same claiming data"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "settlement",
+            "docs": [
+              "settlement account this claim belongs under"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "stakeAccountTo",
+            "docs": [
+              "stake account to which the claim has been withdrawn to"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "stakeAccountStaker",
+            "docs": [
+              "staker authority as part of the merkle proof for this claim"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "stakeAccountWithdrawer",
+            "docs": [
+              "withdrawer authority as part of the merkle proof for this claim"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "amount",
+            "docs": [
+              "claim amount"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA account bump, one claim per settlement"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "rentCollector",
+            "docs": [
+              "rent collector account to get the rent back for claim account creation"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "reserved",
+            "docs": [
+              "reserve space for future extensions"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                93
+              ]
+            }
+          }
+        ]
+      }
+    },
     {
       "name": "bond",
       "docs": [
@@ -7015,74 +8158,24 @@ export const IDL: ValidatorBonds = {
       }
     },
     {
-      "name": "settlementClaim",
+      "name": "settlementClaims",
       "docs": [
-        "The settlement claim serves for deduplication purposes,",
-        "preventing the same settlement from being claimed multiple times with the same claiming data"
+        "Account serving to deduplicate claiming, consists of anchor data as metaata header and bitmap in the remaining space."
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "settlement",
-            "docs": [
-              "settlement account this claim belongs under"
-            ],
             "type": "publicKey"
           },
           {
-            "name": "stakeAccountTo",
-            "docs": [
-              "stake account to which the claim has been withdrawn to"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "stakeAccountStaker",
-            "docs": [
-              "staker authority as part of the merkle proof for this claim"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "stakeAccountWithdrawer",
-            "docs": [
-              "withdrawer authority as part of the merkle proof for this claim"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "amount",
-            "docs": [
-              "claim amount"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "bump",
-            "docs": [
-              "PDA account bump, one claim per settlement"
-            ],
+            "name": "version",
             "type": "u8"
           },
           {
-            "name": "rentCollector",
-            "docs": [
-              "rent collector account to get the rent back for claim account creation"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "reserved",
-            "docs": [
-              "reserve space for future extensions"
-            ],
-            "type": {
-              "array": [
-                "u8",
-                93
-              ]
-            }
+            "name": "maxRecords",
+            "type": "u64"
           }
         ]
       }
@@ -7212,7 +8305,7 @@ export const IDL: ValidatorBonds = {
             "type": {
               "array": [
                 "u8",
-                91
+                90
               ]
             }
           }
@@ -7556,7 +8649,7 @@ export const IDL: ValidatorBonds = {
       }
     },
     {
-      "name": "ClaimSettlementArgs",
+      "name": "ClaimSettlementV2Args",
       "type": {
         "kind": "struct",
         "fields": [
@@ -7601,6 +8694,13 @@ export const IDL: ValidatorBonds = {
             "name": "claim",
             "docs": [
               "claim amount; merkle root verification"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "index",
+            "docs": [
+              "index, ordered claim record in the settlement list; merkle root verification"
             ],
             "type": "u64"
           }
@@ -7669,6 +8769,58 @@ export const IDL: ValidatorBonds = {
       }
     },
     {
+      "name": "ClaimSettlementArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "proof",
+            "docs": [
+              "proof that the claim is appropriate"
+            ],
+            "type": {
+              "vec": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            }
+          },
+          {
+            "name": "treeNodeHash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "stakeAccountStaker",
+            "docs": [
+              "staker authority of the stake_account_to; merkle root verification"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "stakeAccountWithdrawer",
+            "docs": [
+              "withdrawer authority of the stake_account_to; merkle root verification"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "claim",
+            "docs": [
+              "claim amount; merkle root verification"
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "InitWithdrawRequestArgs",
       "type": {
         "kind": "struct",
@@ -7691,6 +8843,10 @@ export const IDL: ValidatorBonds = {
           },
           {
             "name": "stakerAuthority",
+            "type": "u8"
+          },
+          {
+            "name": "settlementClaims",
             "type": "u8"
           }
         ]
@@ -8065,13 +9221,8 @@ export const IDL: ValidatorBonds = {
       ]
     },
     {
-      "name": "ClaimSettlementEvent",
+      "name": "ClaimSettlementV2Event",
       "fields": [
-        {
-          "name": "settlementClaim",
-          "type": "publicKey",
-          "index": false
-        },
         {
           "name": "settlement",
           "type": "publicKey",
@@ -8110,23 +9261,8 @@ export const IDL: ValidatorBonds = {
           "index": false
         },
         {
-          "name": "rentCollector",
-          "type": "publicKey",
-          "index": false
-        }
-      ]
-    },
-    {
-      "name": "CloseSettlementClaimEvent",
-      "fields": [
-        {
-          "name": "settlement",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "rentCollector",
-          "type": "publicKey",
+          "name": "index",
+          "type": "u64",
           "index": false
         }
       ]
@@ -8633,6 +9769,58 @@ export const IDL: ValidatorBonds = {
           "index": false
         }
       ]
+    },
+    {
+      "name": "ClaimSettlementEvent",
+      "fields": [
+        {
+          "name": "settlementClaim",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "settlement",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "settlementLamportsClaimed",
+          "type": {
+            "defined": "U64ValueChange"
+          },
+          "index": false
+        },
+        {
+          "name": "settlementMerkleNodesClaimed",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "stakeAccountTo",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "stakeAccountWithdrawer",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "stakeAccountStaker",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "rentCollector",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
     }
   ],
   "errors": [
@@ -8960,6 +10148,36 @@ export const IDL: ValidatorBonds = {
       "code": 6064,
       "name": "NoStakeOrNotActivatingOrActivated",
       "msg": "Stake account is not activating or activated"
+    },
+    {
+      "code": 6065,
+      "name": "BitmapSizeMismatch",
+      "msg": "Data size mismatch for the bitmap"
+    },
+    {
+      "code": 6066,
+      "name": "BitmapIndexOutOfBonds",
+      "msg": "Bitmap index out of bounds"
+    },
+    {
+      "code": 6067,
+      "name": "SettlementClaimsNotInitialized",
+      "msg": "SettlementClaims account not fully initialized, missing data size"
+    },
+    {
+      "code": 6068,
+      "name": "SettlementClaimsTooManyRecords",
+      "msg": "SettlementClaims records exceed maximum to fit Solana account size"
+    },
+    {
+      "code": 6069,
+      "name": "SettlementClaimsAlreadyInitialized",
+      "msg": "SettlementClaims already initialized, no need to increase account size"
+    },
+    {
+      "code": 6070,
+      "name": "SettlementAlreadyClaimed",
+      "msg": "Settlement has been already claimed"
     }
   ]
 };

@@ -115,9 +115,9 @@ pub mod validator_bonds {
         InitSettlement::process(ctx, init_settlement_args)
     }
 
-    pub fn close_settlement(ctx: Context<CloseSettlement>) -> Result<()> {
+    pub fn upsize_settlement_claims(ctx: Context<UpsizeSettlementClaims>) -> Result<()> {
         check_context(&ctx)?;
-        CloseSettlement::process(ctx)
+        UpsizeSettlementClaims::process(ctx)
     }
 
     pub fn cancel_settlement(ctx: Context<CancelSettlement>) -> Result<()> {
@@ -128,19 +128,6 @@ pub mod validator_bonds {
     pub fn fund_settlement(ctx: Context<FundSettlement>) -> Result<()> {
         check_context(&ctx)?;
         FundSettlement::process(ctx)
-    }
-
-    pub fn close_settlement_claim(ctx: Context<CloseSettlementClaim>) -> Result<()> {
-        check_context(&ctx)?;
-        CloseSettlementClaim::process(ctx)
-    }
-
-    pub fn claim_settlement(
-        ctx: Context<ClaimSettlement>,
-        claim_settlement_args: ClaimSettlementArgs,
-    ) -> Result<()> {
-        check_context(&ctx)?;
-        ClaimSettlement::process(ctx, claim_settlement_args)
     }
 
     pub fn merge_stake(ctx: Context<MergeStake>, merge_args: MergeStakeArgs) -> Result<()> {
@@ -166,6 +153,38 @@ pub mod validator_bonds {
     pub fn emergency_resume(ctx: Context<EmergencyPauseResume>) -> Result<()> {
         check_context(&ctx)?;
         EmergencyPauseResume::resume(ctx)
+    }
+
+    pub fn close_settlement_v2(ctx: Context<CloseSettlementV2>) -> Result<()> {
+        check_context(&ctx)?;
+        CloseSettlementV2::process(ctx)
+    }
+
+    pub fn claim_settlement_v2(
+        ctx: Context<ClaimSettlementV2>,
+        claim_settlement_args: ClaimSettlementV2Args,
+    ) -> Result<()> {
+        check_context(&ctx)?;
+        ClaimSettlementV2::process(ctx, claim_settlement_args)
+    }
+
+    // ---- V1: closing Settlements of older version (contract v1.0.0 - v1.5.0) ----
+    pub fn close_settlement(ctx: Context<CloseSettlement>) -> Result<()> {
+        check_context(&ctx)?;
+        CloseSettlement::process(ctx)
+    }
+
+    pub fn close_settlement_claim(ctx: Context<CloseSettlementClaim>) -> Result<()> {
+        check_context(&ctx)?;
+        CloseSettlementClaim::process(ctx)
+    }
+
+    pub fn claim_settlement(
+        ctx: Context<ClaimSettlement>,
+        claim_settlement_args: ClaimSettlementArgs,
+    ) -> Result<()> {
+        check_context(&ctx)?;
+        ClaimSettlement::process(ctx, claim_settlement_args)
     }
 }
 

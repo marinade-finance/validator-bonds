@@ -40,7 +40,7 @@ describe('Validator Bonds fund bond', () => {
     // we want to be at the beginning of the epoch
     // otherwise the merge instruction could fail as the stake account is in transient state (0xc)
     // https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/instruction.rs#L39
-    await waitForNextEpoch(provider.connection, 15)
+    await waitForNextEpoch(provider.connection, 25)
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
       program.programId

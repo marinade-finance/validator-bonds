@@ -11,17 +11,29 @@ use validator_bonds::state::settlement::{find_settlement_staker_authority, Settl
 
 #[derive(Debug, Clone)]
 pub struct SettlementRecord {
+    // What epoch the settlement was created for
     pub epoch: u64,
+    // Vote account the Bond account that the Settlement belongs to is staked to
     pub vote_account_address: Pubkey,
+    // Bond address of the Settlement
     pub bond_address: Pubkey,
+    // Bond account of the Settlement loaded on-chain
     pub bond_account: Option<Bond>,
+    // Settlement address of the Settlement account
     pub settlement_address: Pubkey,
+    // Settlement account loaded on-chain
     pub settlement_account: Option<Settlement>,
+    // The PDA staker authority that stake accounts funded to Settlements are assigned to
     pub settlement_staker_authority: Pubkey,
+    // The merkle root of the merkle tree that the settlement is based on
     pub merkle_root: [u8; 32],
+    // The merkle tree nodes that the settlement is based on
     pub tree_nodes: Vec<TreeNode>,
+    // The maximum total claim sum (sum of SOLs) that can be claimed from the settlement
     pub max_total_claim_sum: u64,
+    // The maximum total claims (number of merkle nodes) that can be claimed from the settlement
     pub max_total_claim: u64,
+    // The funder of the settlement, information loaded from the JSON file
     pub funder: SettlementFunderType,
 }
 

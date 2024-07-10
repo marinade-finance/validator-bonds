@@ -1,16 +1,14 @@
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
-  CLAIM_SETTLEMENT_EVENT,
-  claimSettlementInstruction,
+  claimSettlementV2Instruction,
   fundSettlementInstruction,
-  settlementClaimAddress,
   findSettlementClaims,
-  closeSettlementInstruction,
-  closeSettlementClaimInstruction,
   parseCpiEvents,
   assertEvent,
-  CLOSE_SETTLEMENT_CLAIM_EVENT,
+  settlementClaimsAddress,
+  isClaimed,
+  CLAIM_SETTLEMENT_V2_EVENT,
 } from '../../src'
 import { initTest } from './testValidator'
 import {
@@ -18,16 +16,11 @@ import {
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import {
-  executeTxSimple,
-  transaction,
-  waitForNextEpoch,
-} from '@marinade.finance/web3js-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-common'
 import { createUserAndFund, signer } from '@marinade.finance/web3js-common'
 import {
   MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
   configAccountKeypair,
-  staker2,
   totalClaimVoteAccount1,
   treeNodeBy,
   treeNodesVoteAccount1,
@@ -62,7 +55,6 @@ describe('Validator Bonds claim settlement', () => {
   let validatorIdentity: Keypair
   let settlementAccount: PublicKey
   let stakeAccount: PublicKey
-  let fundSettlementRentPayer: Keypair
 
   beforeAll(async () => {
     ;({ provider, program } = await initTest())
@@ -114,11 +106,6 @@ describe('Validator Bonds claim settlement', () => {
       [signer(splitStakeAccount), operatorAuthority],
       fundIx
     )
-    // will be used for rent payer of claim settlement
-    fundSettlementRentPayer = (await createUserAndFund({
-      provider,
-      lamports: LAMPORTS_PER_SOL,
-    })) as Keypair
   })
 
   it('claim settlement', async () => {
@@ -142,52 +129,49 @@ describe('Validator Bonds claim settlement', () => {
 
     const tx = await transaction(provider)
 
-    const { instruction, settlementClaimAccount } =
-      await claimSettlementInstruction({
+    const { instruction, settlementClaimsAccount } =
+      await claimSettlementV2Instruction({
         program,
-        claimAmount: treeNodeVoteAccount1Withdrawer1.treeNode.data.claim,
+        claimAmount: treeNodeVoteAccount1Withdrawer1.treeNode.claim,
+        index: treeNodeVoteAccount1Withdrawer1.treeNode.index,
         merkleProof: treeNodeVoteAccount1Withdrawer1.proof,
         settlementAccount,
         stakeAccountFrom: stakeAccount,
         stakeAccountTo: stakeAccountTreeNodeVoteAccount1Withdrawer1,
-        rentPayer: fundSettlementRentPayer.publicKey,
       })
     tx.add(instruction)
     const executionReturn = await executeTxSimple(provider.connection, tx, [
       provider.wallet,
-      fundSettlementRentPayer,
     ])
 
-    const [settlementClaimAddr] = settlementClaimAddress(
-      {
-        settlement: settlementAccount,
-        stakeAccountStaker:
-          treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority,
-        stakeAccountWithdrawer:
-          treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority,
-        claim: treeNodeVoteAccount1Withdrawer1.treeNode.data.claim,
-      },
+    const [settlementClaimsAddr] = settlementClaimsAddress(
+      settlementAccount,
       program.programId
     )
-    expect(settlementClaimAccount).toEqual(settlementClaimAddr)
+    expect(settlementClaimsAccount).toEqual(settlementClaimsAddr)
+
+    expect(
+      isClaimed(
+        program,
+        settlementAccount,
+        treeNodeVoteAccount1Withdrawer1.treeNode.index
+      )
+    ).resolves.toBeTruthy()
 
     const events = parseCpiEvents(program, executionReturn?.response)
-    const e = assertEvent(events, CLAIM_SETTLEMENT_EVENT)
+    const e = assertEvent(events, CLAIM_SETTLEMENT_V2_EVENT)
     assert(e !== undefined)
     expect(e.settlement).toEqual(settlementAccount)
-    expect(e.amount).toEqual(
-      treeNodeVoteAccount1Withdrawer1.treeNode.data.claim
-    )
-    expect(e.rentCollector).toEqual(fundSettlementRentPayer.publicKey)
+    expect(e.amount).toEqual(treeNodeVoteAccount1Withdrawer1.treeNode.claim)
+    expect(e.index).toEqual(treeNodeVoteAccount1Withdrawer1.treeNode.index)
     expect(e.settlement).toEqual(settlementAccount)
-    expect(e.settlementClaim).toEqual(settlementClaimAccount)
     expect(e.settlementLamportsClaimed.old).toEqual(
-      new BN(treeNodeVoteAccount1Withdrawer1.treeNode.data.claim).sub(
-        treeNodeVoteAccount1Withdrawer1.treeNode.data.claim
+      new BN(treeNodeVoteAccount1Withdrawer1.treeNode.claim).sub(
+        treeNodeVoteAccount1Withdrawer1.treeNode.claim
       )
     )
     expect(e.settlementLamportsClaimed.new).toEqual(
-      treeNodeVoteAccount1Withdrawer1.treeNode.data.claim
+      treeNodeVoteAccount1Withdrawer1.treeNode.claim
     )
     expect(e.settlementMerkleNodesClaimed).toEqual(1)
     expect(e.stakeAccountStaker).toEqual(
@@ -215,9 +199,10 @@ describe('Validator Bonds claim settlement', () => {
       staker: treeNodeWithdrawer2.treeNode.stakeAuthority,
       withdrawer: treeNodeWithdrawer2.treeNode.withdrawAuthority,
     })
-    const { instruction: ix1 } = await claimSettlementInstruction({
+    const { instruction: ix1 } = await claimSettlementV2Instruction({
       program,
-      claimAmount: treeNodeWithdrawer2.treeNode.data.claim,
+      claimAmount: treeNodeWithdrawer2.treeNode.claim,
+      index: treeNodeWithdrawer2.treeNode.index,
       merkleProof: treeNodeWithdrawer2.proof,
       settlementAccount,
       stakeAccountFrom: stakeAccount,
@@ -236,9 +221,10 @@ describe('Validator Bonds claim settlement', () => {
       staker: treeNodeWithdrawer3.treeNode.stakeAuthority,
       withdrawer: treeNodeWithdrawer3.treeNode.withdrawAuthority,
     })
-    const { instruction: ix2 } = await claimSettlementInstruction({
+    const { instruction: ix2 } = await claimSettlementV2Instruction({
       program,
-      claimAmount: treeNodeWithdrawer3.treeNode.data.claim,
+      claimAmount: treeNodeWithdrawer3.treeNode.claim,
+      index: treeNodeWithdrawer3.treeNode.index,
       merkleProof: treeNodeWithdrawer3.proof,
       settlementAccount,
       stakeAccountFrom: stakeAccount,
@@ -247,94 +233,21 @@ describe('Validator Bonds claim settlement', () => {
 
     await provider.sendIx([], ix1, ix2)
 
-    let findSettlementList = await findSettlementClaims({
+    const findSettlementList = await findSettlementClaims({
       program,
       settlement: settlementAccount,
     })
-    expect(findSettlementList.length).toBeGreaterThanOrEqual(2)
-
-    findSettlementList = await findSettlementClaims({
-      program,
-      stakeAccountStaker: staker2,
-    })
     expect(findSettlementList.length).toBeGreaterThanOrEqual(1)
-    findSettlementList = await findSettlementClaims({
+    const findSettlementListAll = await findSettlementClaims({
       program,
-      stakeAccountWithdrawer: withdrawer1,
     })
-    expect(findSettlementList.length).toEqual(1)
-    findSettlementList = await findSettlementClaims({
-      program,
-      settlement: settlementAccount,
-      stakeAccountStaker: staker2,
-    })
-    expect(findSettlementList.length).toBeGreaterThanOrEqual(1)
-  })
-
-  it('close settlement claim', async () => {
-    expect(
-      (
-        await provider.connection.getAccountInfo(
-          fundSettlementRentPayer.publicKey
-        )
-      )?.lamports
-    ).toBeLessThan(LAMPORTS_PER_SOL)
-
-    const treeNodeVoteAccount1Withdrawer1 = treeNodeBy(
-      voteAccount1,
-      withdrawer1
-    )
-    const [settlementClaimAccount] = settlementClaimAddress(
-      {
-        settlement: settlementAccount,
-        stakeAccountStaker:
-          treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority,
-        stakeAccountWithdrawer:
-          treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority,
-        claim: treeNodeVoteAccount1Withdrawer1.treeNode.data.claim,
-      },
-      program.programId
-    )
-    const tx = await transaction(provider)
-    const { instruction: closeSettle1 } = await closeSettlementInstruction({
-      program,
-      settlementAccount,
-      splitRentRefundAccount: stakeAccount,
-    })
-    const { instruction: closeIx } = await closeSettlementClaimInstruction({
-      program,
-      settlementAccount: settlementAccount,
-      settlementClaimAccount,
-      rentCollector: fundSettlementRentPayer.publicKey,
-    })
-    tx.add(closeSettle1, closeIx)
-
-    await waitForNextEpoch(provider.connection, 20)
-    await waitForNextEpoch(provider.connection, 20)
-
-    const executionReturn = await executeTxSimple(provider.connection, tx, [
-      provider.wallet,
-    ])
+    expect(findSettlementListAll.length).toBeGreaterThanOrEqual(1)
 
     expect(
-      provider.connection.getAccountInfo(settlementClaimAccount)
-    ).resolves.toBeNull()
+      isClaimed(program, settlementAccount, treeNodeWithdrawer2.treeNode.index)
+    ).resolves.toBeTruthy()
     expect(
-      provider.connection.getAccountInfo(settlementAccount)
-    ).resolves.toBeNull()
-    expect(
-      (
-        await provider.connection.getAccountInfo(
-          fundSettlementRentPayer.publicKey
-        )
-      )?.lamports
-    ).toEqual(LAMPORTS_PER_SOL)
-
-    const events = parseCpiEvents(program, executionReturn?.response)
-    const e = assertEvent(events, CLOSE_SETTLEMENT_CLAIM_EVENT)
-    // Ensure the event was emitted
-    assert(e !== undefined)
-    expect(e.settlement).toEqual(settlementAccount)
-    expect(e.rentCollector).toEqual(fundSettlementRentPayer.publicKey)
+      isClaimed(program, settlementAccount, treeNodeWithdrawer3.treeNode.index)
+    ).resolves.toBeTruthy()
   })
 })

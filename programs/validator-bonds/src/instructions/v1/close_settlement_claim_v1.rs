@@ -1,7 +1,6 @@
 use crate::checks::is_closed;
 use crate::error::ErrorCode;
-use crate::events::settlement_claim::CloseSettlementClaimEvent;
-use crate::state::settlement_claim::SettlementClaim;
+use crate::instructions::v1::settlement_claim_v1::SettlementClaim;
 use anchor_lang::prelude::*;
 
 // Closing settlement claim to get back rent for the account
@@ -12,11 +11,11 @@ pub struct CloseSettlementClaim<'info> {
     pub settlement: UncheckedAccount<'info>,
 
     #[account(
-          mut,
-          close = rent_collector,
-          has_one = rent_collector @ ErrorCode::RentCollectorMismatch,
-          has_one = settlement @ ErrorCode::SettlementAccountMismatch,
-      )]
+        mut,
+        close = rent_collector,
+        has_one = rent_collector @ ErrorCode::RentCollectorMismatch,
+        has_one = settlement @ ErrorCode::SettlementAccountMismatch,
+    )]
     pub settlement_claim: Account<'info, SettlementClaim>,
 
     /// CHECK: account rent except back to creator of the account, verified by settlement claim account
@@ -34,11 +33,6 @@ impl<'info> CloseSettlementClaim<'info> {
             is_closed(&ctx.accounts.settlement),
             ErrorCode::SettlementNotClosed
         );
-
-        emit_cpi!(CloseSettlementClaimEvent {
-            settlement: ctx.accounts.settlement.key(),
-            rent_collector: ctx.accounts.rent_collector.key(),
-        });
 
         Ok(())
     }

@@ -97,8 +97,8 @@ done
 echo '========================='
 
 
-# TODO: utilize nodejs CLI to get the data
-# get settlement
+# To utilize nodejs CLI to get the data when has been created
+# -- get settlement
 # pnpm --silent cli -u$RPC_URL show-settlement --epoch 608 -f json > /tmp/a.json
-# get max claiming amount
+# -- get max claiming amount
 # jq '.[].account.maxTotalClaim' /tmp/a.json | paste -s -d+ | bc

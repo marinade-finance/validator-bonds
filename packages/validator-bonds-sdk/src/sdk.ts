@@ -19,7 +19,6 @@ import {
   PublicKey,
 } from '@solana/web3.js'
 import BN from 'bn.js'
-import { MerkleTreeNode } from './merkleTree'
 
 export const MARINADE_CONFIG_ADDRESS = new PublicKey(
   'vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU'
@@ -37,7 +36,7 @@ export type ValidatorBondsProgram = AnchorProgram<ValidatorBonds>
 // --- ACCOUNTS ---
 export type Config = IdlAccounts<ValidatorBonds>['config']
 export type Bond = IdlAccounts<ValidatorBonds>['bond']
-export type SettlementClaim = IdlAccounts<ValidatorBonds>['settlementClaim']
+export type SettlementClaims = IdlAccounts<ValidatorBonds>['settlementClaims']
 export type Settlement = IdlAccounts<ValidatorBonds>['settlement']
 export type WithdrawRequest = IdlAccounts<ValidatorBonds>['withdrawRequest']
 
@@ -48,26 +47,35 @@ export type ConfigureConfigArgs =
 export type InitBondArgs = IdlTypes<ValidatorBonds>['InitBondArgs']
 
 // --- CONSTANTS ---
-function seedFromConstants(seedName: string): Uint8Array {
-  const constant = generated.IDL.constants.find(x => x.name === seedName)
+function fromConstants(constantName: string): string {
+  const constant = generated.IDL.constants.find(x => x.name === constantName)
   if (constant === undefined) {
     throw new Error(
       'SDK initialization failure. Validator bonds IDL does not define constant ' +
         constant
     )
   }
-  return new Uint8Array(JSON.parse(constant.value))
+  return constant.value
+}
+export function seedFromConstants(seedName: string): Uint8Array {
+  const constantValue = fromConstants(seedName)
+  return new Uint8Array(JSON.parse(constantValue))
 }
 export const BOND_SEED = seedFromConstants('BOND_SEED')
 export const BOND_MINT_SEED = seedFromConstants('BOND_MINT_SEED')
 export const SETTLEMENT_SEED = seedFromConstants('SETTLEMENT_SEED')
 export const WITHDRAW_REQUEST_SEED = seedFromConstants('WITHDRAW_REQUEST_SEED')
-export const SETTLEMENT_CLAIM_SEED = seedFromConstants('SETTLEMENT_CLAIM_SEED')
+export const SETTLEMENT_CLAIMS_SEED = seedFromConstants(
+  'SETTLEMENT_CLAIMS_SEED'
+)
 export const BONDS_WITHDRAWER_AUTHORITY_SEED = seedFromConstants(
   'BONDS_WITHDRAWER_AUTHORITY_SEED'
 )
 export const SETTLEMENT_STAKER_AUTHORITY_SEED = seedFromConstants(
   'SETTLEMENT_STAKER_AUTHORITY_SEED'
+)
+export const SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE = Number(
+  fromConstants('SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE')
 )
 
 // --- EVENTS ---
@@ -100,13 +108,9 @@ export const FUND_SETTLEMENT_EVENT = 'FundSettlementEvent'
 export type FundSettlementEvent =
   IdlEvents<ValidatorBonds>[typeof FUND_SETTLEMENT_EVENT]
 
-export const CLAIM_SETTLEMENT_EVENT = 'ClaimSettlementEvent'
-export type ClaimSettlementEvent =
-  IdlEvents<ValidatorBonds>[typeof CLAIM_SETTLEMENT_EVENT]
-
-export const CLOSE_SETTLEMENT_CLAIM_EVENT = 'CloseSettlementClaimEvent'
-export type CloseSettlementClaimEvent =
-  IdlEvents<ValidatorBonds>[typeof CLOSE_SETTLEMENT_CLAIM_EVENT]
+export const CLAIM_SETTLEMENT_V2_EVENT = 'ClaimSettlementV2Event'
+export type ClaimSettlementV2Event =
+  IdlEvents<ValidatorBonds>[typeof CLAIM_SETTLEMENT_V2_EVENT]
 
 export const INIT_SETTLEMENT_EVENT = 'InitSettlementEvent'
 export type InitSettlementEvent =
@@ -259,30 +263,12 @@ export function settlementStakerAuthority(
   )
 }
 
-export function settlementClaimAddress(
-  {
-    settlement,
-    stakeAccountStaker,
-    stakeAccountWithdrawer,
-    claim,
-  }: {
-    settlement: PublicKey
-    stakeAccountStaker: PublicKey
-    stakeAccountWithdrawer: PublicKey
-    claim: BN | number
-  },
+export function settlementClaimsAddress(
+  settlement: PublicKey,
   validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
-    [
-      SETTLEMENT_CLAIM_SEED,
-      settlement.toBytes(),
-      MerkleTreeNode.hash({
-        stakeAuthority: stakeAccountStaker,
-        withdrawAuthority: stakeAccountWithdrawer,
-        claim: claim,
-      }).buffer,
-    ],
+    [SETTLEMENT_CLAIMS_SEED, settlement.toBytes()],
     validatorBondsProgramId
   )
 }

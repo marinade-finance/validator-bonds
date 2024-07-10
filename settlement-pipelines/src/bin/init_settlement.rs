@@ -1,7 +1,7 @@
 use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
 use clap::Parser;
-use log::{debug, error, info};
+use log::{debug, info};
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
     init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
@@ -15,9 +15,7 @@ use settlement_pipelines::json_data::{
 };
 use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
 use settlement_pipelines::settlement_data::SettlementRecord;
-use settlement_pipelines::settlements::SETTLEMENT_CLAIM_ACCOUNT_SIZE;
 use solana_client::nonblocking::rpc_client::RpcClient;
-
 use solana_sdk::native_token::lamports_to_sol;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
@@ -25,13 +23,16 @@ use solana_sdk::signer::Signer;
 use solana_sdk::system_program;
 use solana_transaction_builder::TransactionBuilder;
 use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
+use std::collections::HashMap;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 use validator_bonds::instructions::InitSettlementArgs;
+use validator_bonds::state::settlement::find_settlement_claims_address;
 use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::constants::find_event_authority;
+use validator_bonds_common::utils::get_account_infos_for_pubkeys;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -115,9 +116,7 @@ async fn real_main(reporting: &mut ReportHandler<InitSettlementReport>) -> anyho
     let epoch = args
         .epoch
         .map_or_else(|| settlement_records.first().unwrap().epoch, |v| v);
-    reporting
-        .reportable
-        .init(rpc_client.clone(), epoch, &settlement_records);
+    reporting.reportable.init(epoch, &settlement_records);
 
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
     init_settlements(
@@ -128,6 +127,18 @@ async fn real_main(reporting: &mut ReportHandler<InitSettlementReport>) -> anyho
         &config_address,
         fee_payer.clone(),
         operator_authority.clone(),
+        rent_payer.clone(),
+        &priority_fee_policy,
+        reporting,
+    )
+    .await?;
+
+    upsize_settlements(
+        &program,
+        rpc_client.clone(),
+        transaction_executor.clone(),
+        &settlement_records,
+        fee_payer.clone(),
         rent_payer.clone(),
         &priority_fee_policy,
         reporting,
@@ -207,6 +218,7 @@ async fn init_settlements(
                     rent_payer: rent_payer.pubkey(),
                     program: validator_bonds_id,
                     settlement: record.settlement_address,
+                    settlement_claims: find_settlement_claims_address(&record.settlement_address).0,
                     event_authority: find_event_authority().0,
                 })
                 .args(validator_bonds::instruction::InitSettlement {
@@ -245,45 +257,114 @@ async fn init_settlements(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
+async fn upsize_settlements(
+    program: &Program<Arc<DynSigner>>,
+    rpc_client: Arc<RpcClient>,
+    transaction_executor: Arc<TransactionExecutor>,
+    settlement_records: &Vec<SettlementRecord>,
+    fee_payer: Arc<Keypair>,
+    rent_payer: Arc<Keypair>,
+    priority_fee_policy: &PriorityFeePolicy,
+    reporting: &mut ReportHandler<InitSettlementReport>,
+) -> anyhow::Result<()> {
+    let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
+    transaction_builder.add_signer_checked(&rent_payer);
+
+    // re-loading settlements data from the chain on provided settlement addresses
+    let settlement_claims_infos = get_account_infos_for_pubkeys(
+        rpc_client.clone(),
+        &settlement_records
+            .iter()
+            .map(|s| find_settlement_claims_address(&s.settlement_address).0)
+            .collect::<Vec<Pubkey>>(),
+    )
+    .await?;
+
+    for ((settlement_claims_address, settlement_claims_info), settlement) in settlement_claims_infos
+        .into_iter()
+        .zip(settlement_records.iter())
+    {
+        let claims = if let Some(settlement_claims) = settlement_claims_info {
+            settlement_claims
+        } else {
+            reporting.add_error_string(format!(
+                "CRITICAL [upsize_settlements]: No SettlementClaims account {} for an existing Settlement {}",
+                settlement_claims_address, settlement.settlement_address
+            ));
+            continue;
+        };
+        let required_size =
+            validator_bonds::state::settlement_claims::account_size(settlement.max_total_claim);
+        let number_of_upsize_calls = required_size
+            .saturating_sub(claims.data.len())
+            .div_ceil(validator_bonds::state::settlement_claims::MAX_PERMITTED_DATA_INCREASE);
+        for _ in 0..number_of_upsize_calls {
+            let req = program
+                .request()
+                .accounts(validator_bonds::accounts::UpsizeSettlementClaims {
+                    settlement_claims: settlement_claims_address,
+                    system_program: system_program::ID,
+                    rent_payer: rent_payer.pubkey(),
+                })
+                .args(validator_bonds::instruction::UpsizeSettlementClaims {});
+            add_instruction_to_builder(
+                &mut transaction_builder,
+                &req,
+                format!(
+                    "UpsizeSettlementClaims: {} (settlement: {}, vote account {})",
+                    settlement_claims_address,
+                    settlement.settlement_address,
+                    settlement.vote_account_address
+                ),
+            )?;
+            reporting
+                .reportable
+                .add_upsized_settlement(settlement.settlement_address);
+        }
+    }
+
+    let (tx_count, ix_count) = execute_parallel(
+        rpc_client.clone(),
+        transaction_executor.clone(),
+        &mut transaction_builder,
+        priority_fee_policy,
+    )
+    .await
+    .map_err(CliError::retry_able)?;
+    info!(
+        "Upsize Settlement Claims [{}]: txes {tx_count}/ixes {ix_count} executed successfully",
+        reporting.reportable.list_created_settlements()
+    );
+    Ok(())
+}
+
 struct InitSettlementReport {
-    rpc_client: Option<Arc<RpcClient>>,
     json_settlements_count: u64,
     json_settlements_max_claim_sum: u64,
     json_max_merkle_nodes_sum: u64,
     // settlement_address, vote_account_address
     created_settlements: Vec<(Pubkey, Pubkey)>,
+    upsized_settlements: HashMap<Pubkey, u32>,
     epoch: u64,
 }
 
 impl PrintReportable for InitSettlementReport {
     fn get_report(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + '_>> {
         Box::pin(async {
-            let rpc_client = if let Some(rpc_client) = &self.rpc_client {
-                rpc_client
-            } else {
-                return vec![];
-            };
-            let settlement_claim_rent = rpc_client
-                .get_minimum_balance_for_rent_exemption(SETTLEMENT_CLAIM_ACCOUNT_SIZE)
-                .await
-                .map_or_else(
-                    |e| {
-                        error!("Error fetching SettlementClaim account rent: {:?}", e);
-                        0_u64
-                    },
-                    |v| v,
-                );
-
             vec![
                 format!(
-                    "InitSettlement (epoch: {}): created {}/{} settlements",
+                    "InitSettlement (epoch: {}, sum merkle nodes: {}, sum claim amounts: {}): created {}/{} settlements",
                     self.epoch,
+                    self.json_max_merkle_nodes_sum,
+                    self.json_settlements_max_claim_sum,
                     self.created_settlements.len(),
                     self.json_settlements_count
                 ),
-                format!("InitSettlement number of loaded settlements merkle nodes {}, expected rent for settlement claims {} SOLs",
-                    self.json_max_merkle_nodes_sum,
-                    lamports_to_sol(self.json_max_merkle_nodes_sum * settlement_claim_rent),
+                format!(
+                    "  UpsizeSettlementClaims: upsized settlements {}/{}",
+                    self.upsized_settlements.len(),
+                    self.json_settlements_count
                 ),
             ]
         })
@@ -293,8 +374,8 @@ impl PrintReportable for InitSettlementReport {
 impl InitSettlementReport {
     fn report_handler() -> ReportHandler<Self> {
         let init_settlement_report = Self {
-            rpc_client: None,
             created_settlements: vec![],
+            upsized_settlements: HashMap::new(),
             json_settlements_count: 0,
             json_settlements_max_claim_sum: 0,
             json_max_merkle_nodes_sum: 0,
@@ -303,13 +384,7 @@ impl InitSettlementReport {
         ReportHandler::new(init_settlement_report)
     }
 
-    fn init(
-        &mut self,
-        rpc_client: Arc<RpcClient>,
-        epoch: u64,
-        json_settlements: &[SettlementRecord],
-    ) {
-        self.rpc_client = Some(rpc_client);
+    fn init(&mut self, epoch: u64, json_settlements: &[SettlementRecord]) {
         self.json_settlements_count = json_settlements.len() as u64;
         self.json_settlements_max_claim_sum =
             json_settlements.iter().map(|s| s.max_total_claim_sum).sum();
@@ -322,6 +397,13 @@ impl InitSettlementReport {
             settlement_record.settlement_address,
             settlement_record.vote_account_address,
         ));
+    }
+
+    fn add_upsized_settlement(&mut self, settlement_address: Pubkey) {
+        *self
+            .upsized_settlements
+            .entry(settlement_address)
+            .or_insert(0_u32) += 1_u32;
     }
 
     fn list_created_settlements(&self) -> String {

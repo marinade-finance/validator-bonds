@@ -1,24 +1,26 @@
+use crate::cli_result::CliError;
 use anyhow::anyhow;
 use log::{debug, info};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use std::sync::Arc;
-
-use crate::cli_result::CliError;
 use validator_bonds::state::config::{find_bonds_withdrawer_authority, Config};
 use validator_bonds::state::settlement::{find_settlement_staker_authority, Settlement};
-use validator_bonds::state::settlement_claim::SettlementClaim;
-use validator_bonds_common::settlements::{get_bonds_for_settlements, get_settlements};
+
+use validator_bonds_common::settlement_claims::SettlementClaimsBitmap;
+use validator_bonds_common::settlements::{
+    get_bonds_for_settlements, get_settlement_claims_for_settlement_pubkeys, get_settlements,
+};
 use validator_bonds_common::stake_accounts::{
     collect_stake_accounts, get_clock, obtain_claimable_stake_accounts_for_settlement,
     CollectedStakeAccounts,
 };
 
-pub const SETTLEMENT_CLAIM_ACCOUNT_SIZE: usize = 8 + std::mem::size_of::<SettlementClaim>();
-
 pub struct ClaimableSettlementsReturn {
     pub settlement_address: Pubkey,
     pub settlement: Settlement,
+    pub settlement_claims_address: Pubkey,
+    pub settlement_claims: SettlementClaimsBitmap,
     pub stake_accounts_lamports: u64,
     pub stake_accounts: CollectedStakeAccounts,
 }
@@ -70,6 +72,31 @@ pub async fn list_claimable_settlements(
         stake_accounts.len()
     );
 
+    let claimable_settlement_claims = get_settlement_claims_for_settlement_pubkeys(
+        rpc_client.clone(),
+        &claimable_settlements
+            .iter()
+            .map(|(a, _)| *a)
+            .collect::<Vec<_>>(),
+    )
+    .await
+    .map_err(CliError::RetryAble)?;
+    let claimable_settlement_claims: Vec<(Pubkey, Pubkey, SettlementClaimsBitmap)> =
+        claimable_settlement_claims
+            .into_iter()
+            .map(|(settlement_pubkey, claims_pubkey, claims)| {
+                if let Some(claims) = claims {
+                    Ok((settlement_pubkey, claims_pubkey, claims))
+                } else {
+                    Err(CliError::Processing(anyhow!(
+                        "CRITICAL [upsize_settlements]: No SettlementClaims account {} for an existing Settlement {}",
+                        claims_pubkey,
+                        settlement_pubkey
+                    )))
+                }
+            })
+            .collect::<Result<Vec<(Pubkey, Pubkey, SettlementClaimsBitmap)>, CliError>>()?;
+
     let claimable_stakes = obtain_claimable_stake_accounts_for_settlement(
         stake_accounts,
         config_address,
@@ -84,22 +111,35 @@ pub async fn list_claimable_settlements(
 
     let results = claimable_settlements
         .into_iter()
-        .filter_map(|(pubkey, settlement)| {
-            if let Some((stake_accounts_lamports, stake_accounts)) = claimable_stakes.get(&pubkey) {
-                if stake_accounts.is_empty() {
-                    None
+        .zip(claimable_settlement_claims.into_iter())
+        .filter_map(
+            |(
+                (settlement_address, settlement),
+                (sa, settlement_claims_address, settlement_claims),
+            )| {
+                assert_eq!(settlement_address, sa);
+                if let Some((stake_accounts_lamports, stake_accounts)) =
+                    claimable_stakes.get(&settlement_address)
+                {
+                    if stake_accounts.is_empty() {
+                        // no stake accounts for the settlement then not claimable
+                        None
+                    } else {
+                        Some(ClaimableSettlementsReturn {
+                            settlement_address,
+                            settlement,
+                            settlement_claims_address,
+                            settlement_claims,
+                            stake_accounts_lamports: *stake_accounts_lamports,
+                            stake_accounts: stake_accounts.clone(),
+                        })
+                    }
                 } else {
-                    Some(ClaimableSettlementsReturn {
-                        settlement_address: pubkey,
-                        settlement,
-                        stake_accounts_lamports: *stake_accounts_lamports,
-                        stake_accounts: stake_accounts.clone(),
-                    })
+                    // no settlement found in the map then not claimable
+                    None
                 }
-            } else {
-                None
-            }
-        })
+            },
+        )
         .collect();
 
     Ok(results)

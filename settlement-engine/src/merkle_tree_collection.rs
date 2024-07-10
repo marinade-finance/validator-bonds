@@ -33,17 +33,22 @@ pub fn generate_merkle_tree_meta(settlement: &Settlement) -> anyhow::Result<Merk
         .claims
         .iter()
         .cloned()
+        .enumerate()
         .map(
-            |SettlementClaim {
-                 withdraw_authority,
-                 stake_authority,
-                 claim_amount,
-                 ..
-             }| TreeNode {
+            |(
+                index,
+                SettlementClaim {
+                    withdraw_authority,
+                    stake_authority,
+                    claim_amount,
+                    ..
+                },
+            )| TreeNode {
                 stake_authority,
                 withdraw_authority,
                 claim: claim_amount,
-                ..Default::default()
+                index: index as u64,
+                proof: None,
             },
         )
         .collect();
@@ -120,17 +125,18 @@ mod tests {
             withdraw_authority: Pubkey::from_str("BT6Y2kX5RLhQ6DDzbjbiHNDyyWJgn9jp7g5rCFn8stqy")
                 .unwrap(),
             claim: 444,
+            index: 222,
             proof: None,
         }
         .hash();
         let leaf_hash = hashv(&[&[0], tree_node_hash.as_ref()]).to_bytes();
         assert_eq!(
             tree_node_hash.to_string(),
-            "A2grPmDuPXWQK2Qch7b2pj97SunPw3xjpxDV8efAtAZD"
+            "74QRV6rf48VigmAn2LFhVLYNY9xUZUJHtUuYaNAUsbQs"
         );
         assert_eq!(
             bs58::encode(leaf_hash).into_string(),
-            "CRZSudMd4t7FWQnnpd8scbtrZepB7mMZa9HgBv2pkZRN"
+            "TTeK2Zkr8dXvw3njmKjvCqB6CiELB2L2wUKxQkaVbUR"
         );
     }
 
@@ -149,30 +155,35 @@ mod tests {
                 stake_authority: staker1,
                 withdraw_authority: withdrawer1,
                 claim: 1234,
+                index: 0,
                 proof: None,
             },
             TreeNode {
                 stake_authority: staker1,
                 withdraw_authority: withdrawer2,
                 claim: 99999,
+                index: 1,
                 proof: None,
             },
             TreeNode {
                 stake_authority: staker2,
                 withdraw_authority: withdrawer3,
                 claim: 212121,
+                index: 2,
                 proof: None,
             },
             TreeNode {
                 stake_authority: staker2,
                 withdraw_authority: withdrawer4,
                 claim: LAMPORTS_PER_SOL,
+                index: 3,
                 proof: None,
             },
             TreeNode {
                 stake_authority: staker3,
                 withdraw_authority: withdrawer4,
                 claim: LAMPORTS_PER_SOL * 42,
+                index: 4,
                 proof: None,
             },
         ];
@@ -181,12 +192,14 @@ mod tests {
                 stake_authority: staker2,
                 withdraw_authority: withdrawer1,
                 claim: 69,
+                index: 3,
                 proof: None,
             },
             TreeNode {
                 stake_authority: staker3,
                 withdraw_authority: withdrawer2,
                 claim: 111111,
+                index: 4,
                 proof: None,
             },
         ];
@@ -195,12 +208,14 @@ mod tests {
                 stake_authority: staker2,
                 withdraw_authority: withdrawer2,
                 claim: 556677,
+                index: 0,
                 proof: None,
             },
             TreeNode {
                 stake_authority: staker3,
                 withdraw_authority: withdrawer3,
                 claim: 996677,
+                index: 1,
                 proof: None,
             },
         ];
@@ -218,20 +233,21 @@ mod tests {
         );
         assert_eq!(
             merkle_tree_vote_account1_root.to_string(),
-            "6H5xisVj8r1aYRX2B2PyeG62ofF9aUiy8qHzwwkJCqqH"
+            "HKerG5LfsZVyV8o5pJCQa9UGcBwoNdpprgNEhF6Jqkkn"
         );
         for (i, tree_node) in items_vote_account1.iter_mut().enumerate() {
             tree_node.proof = Some(get_proof(&merkle_tree_vote_account1, i));
             println!(
-                "vote account1[claim:{}]: proof: {:?}, hash tree node: {}",
+                "vote account1[claim:{}, index: {}]: proof: {:?}, hash tree node: {}",
                 tree_node.claim,
+                tree_node.index,
                 tree_node.proof,
                 tree_node.hash()
             )
         }
         assert_eq!(
             item_vote_account1_hashes.get(1).unwrap().to_string(),
-            "AQT4KsCwXci528hys9WgWcURigR4TiNKDsCV9iEmVZ1P"
+            "2KhcqeCqd1ELdf2YzMScL5fQWFcQSWpyKPvY7fwRbh9n"
         );
 
         let item_vote_account2_hashes = items_vote_account2
@@ -247,20 +263,21 @@ mod tests {
         );
         assert_eq!(
             merkle_tree_vote_account2_root.to_string(),
-            "Asi9uVpB3Tx29L17X3Z46jrPizKywTRttqsvnLTzgh27"
+            "SA4YRkCch9fKu2RKEJ37LXzZY7DEYJiMNEgy6EKxo6C"
         );
         for (i, tree_node) in items_vote_account2.iter_mut().enumerate() {
             tree_node.proof = Some(get_proof(&merkle_tree_vote_account2, i));
             println!(
-                "vote account2[claim:{}]: proof: {:?}, hash tree node: {}",
+                "vote account2[claim:{}, index: {}]: proof: {:?}, hash tree node: {}",
                 tree_node.claim,
+                tree_node.index,
                 tree_node.proof,
                 tree_node.hash()
             )
         }
         assert_eq!(
             item_vote_account2_hashes.get(1).unwrap().to_string(),
-            "4WmpRvgW6HdHW4bPVEqPVJXyF2mVG9wpH5mGpgzjmJGY"
+            "CrgDn9vsBDEyxaxBWPV74LZHbgTVonmYJv3DWSLiQ7HN"
         );
 
         let item_operator_hashes = items_operator
@@ -273,12 +290,13 @@ mod tests {
         println!("merkle tree root operator: {}", merkle_tree_operator_root);
         assert_eq!(
             merkle_tree_operator_root.to_string(),
-            "D8rFThGJXYVFcKdqovz3VMA1nALNugHzvGYhSn8dLwip"
+            "2aKJRJBGzx19JdM1MHWrL2QwNduYobiHmsoVxKX3BRfu"
         );
         for (i, tree_node) in items_operator.iter_mut().enumerate() {
             tree_node.proof = Some(get_proof(&merkle_tree_operator, i));
             println!(
-                "operator: proof: {:?}, hash tree node: {}",
+                "operator: index: {}, proof: {:?}, hash tree node: {}",
+                tree_node.index,
                 tree_node.proof,
                 tree_node.hash()
             )

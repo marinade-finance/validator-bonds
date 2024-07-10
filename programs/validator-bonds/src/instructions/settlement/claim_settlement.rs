@@ -3,12 +3,12 @@ use crate::checks::{
 };
 use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
-use crate::events::settlement_claim::ClaimSettlementEvent;
+use crate::events::settlement_claim::ClaimSettlementV2Event;
 use crate::events::U64ValueChange;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::settlement::Settlement;
-use crate::state::settlement_claim::SettlementClaim;
+use crate::state::settlement_claims::{SettlementClaims, SettlementClaimsWrapped};
 use crate::utils::{merkle_proof, minimal_size_stake_account};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::hash::hashv;
@@ -18,7 +18,7 @@ use merkle_tree::psr_claim::TreeNode;
 use merkle_tree::{hash_leaf, LEAF_PREFIX};
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
-pub struct ClaimSettlementArgs {
+pub struct ClaimSettlementV2Args {
     /// proof that the claim is appropriate
     pub proof: Vec<[u8; 32]>,
     // tree node hash; PDA seed
@@ -29,13 +29,15 @@ pub struct ClaimSettlementArgs {
     pub stake_account_withdrawer: Pubkey,
     /// claim amount; merkle root verification
     pub claim: u64,
+    /// index, ordered claim record in the settlement list; merkle root verification
+    pub index: u64,
 }
 
 /// Claims a settlement by withdrawing settlement funded stake account
 #[event_cpi]
 #[derive(Accounts)]
-#[instruction(params: ClaimSettlementArgs)]
-pub struct ClaimSettlement<'info> {
+#[instruction(params: ClaimSettlementV2Args)]
+pub struct ClaimSettlementV2<'info> {
     /// the config account under which the settlement was created
     pub config: Box<Account<'info, Config>>,
 
@@ -67,17 +69,15 @@ pub struct ClaimSettlement<'info> {
 
     /// deduplication, merkle tree record cannot be claimed twice
     #[account(
-        init,
-        payer = rent_payer,
-        space = 8 + std::mem::size_of::<SettlementClaim>(),
+        mut,
+        has_one = settlement @ ErrorCode::BondAccountMismatch,
         seeds = [
-            b"claim_account",
+            b"claims_account",
             settlement.key().as_ref(),
-            params.tree_node_hash.as_ref(),
         ],
-        bump,
+        bump = settlement.bumps.settlement_claims,
     )]
-    pub settlement_claim: Account<'info, SettlementClaim>,
+    pub settlement_claims: Account<'info, SettlementClaims>,
 
     /// a stake account that will be withdrawn
     #[account(mut)]
@@ -101,16 +101,6 @@ pub struct ClaimSettlement<'info> {
     )]
     pub bonds_withdrawer_authority: UncheckedAccount<'info>,
 
-    /// upon claiming, a claim account is created to confirm the occurrence of the claim
-    /// when the settlement withdrawal window expires, the claim account is closed, and the rent is refunded here
-    #[account(
-        mut,
-        owner = system_program.key()
-    )]
-    pub rent_payer: Signer<'info>,
-
-    pub system_program: Program<'info, System>,
-
     /// CHECK: have no CPU budget to parse
     #[account(address = stake_history::ID)]
     pub stake_history: UncheckedAccount<'info>,
@@ -120,24 +110,32 @@ pub struct ClaimSettlement<'info> {
     pub stake_program: Program<'info, Stake>,
 }
 
-impl<'info> ClaimSettlement<'info> {
+impl<'info> ClaimSettlementV2<'info> {
     pub fn process(
-        ctx: Context<ClaimSettlement>,
-        ClaimSettlementArgs {
+        ctx: Context<ClaimSettlementV2>,
+        ClaimSettlementV2Args {
             proof,
             tree_node_hash: tree_node_hash_args,
             claim,
             stake_account_staker,
             stake_account_withdrawer,
-        }: ClaimSettlementArgs,
+            index,
+        }: ClaimSettlementV2Args,
     ) -> Result<()> {
         require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
+
+        let mut settlement_claims = SettlementClaimsWrapped::new(&ctx.accounts.settlement_claims)?;
+        require!(
+            settlement_claims.try_to_set(index)?,
+            ErrorCode::SettlementAlreadyClaimed
+        );
 
         // settlement_claim PDA address verification
         let tree_node = TreeNode {
             stake_authority: stake_account_staker,
             withdraw_authority: stake_account_withdrawer,
             claim,
+            index,
             proof: None,
         };
         let tree_node_bytes = tree_node.hash().to_bytes();
@@ -173,7 +171,7 @@ impl<'info> ClaimSettlement<'info> {
                 .with_values((
                     "merkle_nodes_claimed + 1 > max_merkle_nodes",
                     format!(
-                        "{} + 1 <= {}",
+                        "{} + 1 > {}",
                         ctx.accounts.settlement.merkle_nodes_claimed,
                         ctx.accounts.settlement.max_merkle_nodes
                     ),
@@ -242,20 +240,9 @@ impl<'info> ClaimSettlement<'info> {
         ) {
             return Err(error!(ErrorCode::ClaimSettlementProofFailed).with_values((
                 "Merkle proof verification failed",
-                format!("Tree node: {:?}, hash: {:?}", tree_node, tree_node_hash),
+                format!("Tree node: {:?}, hash: {}", tree_node, tree_node.hash()),
             )));
         }
-
-        ctx.accounts.settlement_claim.set_inner(SettlementClaim {
-            settlement: ctx.accounts.settlement.key(),
-            stake_account_to: ctx.accounts.stake_account_to.key(),
-            stake_account_staker,
-            stake_account_withdrawer,
-            amount: claim,
-            bump: ctx.bumps.settlement_claim,
-            rent_collector: ctx.accounts.rent_payer.key(),
-            reserved: [0; 93],
-        });
 
         withdraw(
             CpiContext::new_with_signer(
@@ -280,19 +267,18 @@ impl<'info> ClaimSettlement<'info> {
         ctx.accounts.settlement.lamports_claimed += claim;
         ctx.accounts.settlement.merkle_nodes_claimed += 1;
 
-        emit_cpi!(ClaimSettlementEvent {
-            settlement: ctx.accounts.settlement_claim.settlement,
-            settlement_claim: ctx.accounts.settlement_claim.key(),
-            stake_account_to: ctx.accounts.settlement_claim.stake_account_to,
+        emit_cpi!(ClaimSettlementV2Event {
+            settlement: ctx.accounts.settlement.key(),
+            stake_account_to: ctx.accounts.stake_account_to.key(),
             settlement_lamports_claimed: U64ValueChange {
                 old: ctx.accounts.settlement.lamports_claimed - claim,
                 new: ctx.accounts.settlement.lamports_claimed
             },
             settlement_merkle_nodes_claimed: ctx.accounts.settlement.merkle_nodes_claimed,
-            stake_account_staker: ctx.accounts.settlement_claim.stake_account_staker,
-            stake_account_withdrawer: ctx.accounts.settlement_claim.stake_account_withdrawer,
-            amount: ctx.accounts.settlement_claim.amount,
-            rent_collector: ctx.accounts.settlement_claim.rent_collector,
+            stake_account_staker,
+            stake_account_withdrawer,
+            amount: claim,
+            index,
         });
 
         Ok(())

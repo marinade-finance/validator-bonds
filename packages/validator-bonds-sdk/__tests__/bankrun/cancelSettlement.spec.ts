@@ -2,7 +2,7 @@ import {
   Errors,
   ValidatorBondsProgram,
   cancelSettlementInstruction,
-  closeSettlementInstruction,
+  closeSettlementV2Instruction,
   configureConfigInstruction,
   getSettlement,
 } from '../../src'
@@ -33,7 +33,9 @@ describe('Validator Bonds cancel settlement', () => {
   let validatorIdentity: Keypair
   let voteAccount: PublicKey
   let settlementAccount: PublicKey
+  let settlementClaimsAccount: PublicKey
   let rentExemptSettlement: number
+  let rentExemptSettlementClaims: number
   let settlementEpoch: number
   let rentCollector: Keypair
 
@@ -67,16 +69,21 @@ describe('Validator Bonds cancel settlement', () => {
       lamports: LAMPORTS_PER_SOL,
       user: rentCollector,
     })
-    ;({ settlementAccount } = await executeInitSettlement({
-      configAccount,
-      program,
-      provider,
-      voteAccount,
-      operatorAuthority,
-      currentEpoch: settlementEpoch,
-      rentCollector: rentCollector.publicKey,
-    }))
+    ;({ settlementAccount, settlementClaimsAccount } =
+      await executeInitSettlement({
+        configAccount,
+        program,
+        provider,
+        voteAccount,
+        operatorAuthority,
+        currentEpoch: settlementEpoch,
+        rentCollector: rentCollector.publicKey,
+      }))
     rentExemptSettlement = await getRentExempt(provider, settlementAccount)
+    rentExemptSettlementClaims = await getRentExempt(
+      provider,
+      settlementClaimsAccount
+    )
     const settlementData = await getSettlement(program, settlementAccount)
     expect(bondAccount).toEqual(settlementData.bond)
   })
@@ -96,7 +103,7 @@ describe('Validator Bonds cancel settlement', () => {
     )
     assert(rentCollectorInfo !== null)
     expect(rentCollectorInfo.lamports).toEqual(
-      LAMPORTS_PER_SOL + rentExemptSettlement
+      LAMPORTS_PER_SOL + rentExemptSettlement + rentExemptSettlementClaims
     )
   })
 
@@ -126,7 +133,7 @@ describe('Validator Bonds cancel settlement', () => {
     )
     assert(rentCollectorInfo !== null)
     expect(rentCollectorInfo.lamports).toEqual(
-      LAMPORTS_PER_SOL + rentExemptSettlement
+      LAMPORTS_PER_SOL + rentExemptSettlement + rentExemptSettlementClaims
     )
   })
 
@@ -155,7 +162,7 @@ describe('Validator Bonds cancel settlement', () => {
   })
 
   it('cannot close settlement when not expired', async () => {
-    const { instruction } = await closeSettlementInstruction({
+    const { instruction } = await closeSettlementV2Instruction({
       program,
       settlementAccount,
     })

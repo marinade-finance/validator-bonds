@@ -41,6 +41,7 @@ import assert from 'assert'
 const JEST_TIMEOUT_MS = 3000_000
 jest.setTimeout(JEST_TIMEOUT_MS)
 
+// 4Kak81y61aAcSYnGyVZAsA1kzypesF4bV5azqEoGZnsX
 const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
   new Uint8Array([
     46, 122, 115, 233, 205, 38, 160, 89, 108, 12, 253, 183, 136, 97, 7, 157, 83,
@@ -58,9 +59,11 @@ const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
 //   ])
 // )
 
-// This test case runs really long as using data from epoch 601 and needs to setup
-// all parts and create 10K settlements. Run this manually when needed
-// FILE='settlement-pipelines/__tests__/test-validator/pipelineSettlement.spec.ts' pnpm test:validator
+// NOTE: This test case is skipped by default as it takes a long time to run
+//       The tests uses a real data from epoch 601 and needs to setup all parts and create 10K settlements
+//       Activate and run this manually when needed.
+//       FILE='settlement-pipelines/__tests__/test-validator/pipelineSettlement.spec.ts' pnpm test:validator
+
 describe.skip('Cargo CLI: Pipeline Settlement', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
@@ -232,7 +235,10 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     await waitForNextEpoch(provider.connection, 15)
 
     const stdErrExecutionResult = RegExp(
-      settlementAddresses.length - 1 + ' executed successfully'
+      settlementAddresses.length -
+        1 +
+        ' executed successfully(.|\n|\r)*' +
+        'Upsize Settlement Claims.*0 executed successfully'
     )
     await (
       expect([
@@ -261,7 +267,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       ]) as any
     ).toHaveMatchingSpawnOutput({
       code: 0,
-      stdout: /merkle nodes 12397/,
+      stdout: /sum merkle nodes: 12397(.|\n|\r)*upsized settlements 0/,
       stderr: stdErrExecutionResult,
     })
 
@@ -598,7 +604,38 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     ).toHaveMatchingSpawnOutput({
       code: 2,
       stderr: /All stake accounts are locked for claiming/,
-      stdout: /created 12[0-9][0-9][0-9] claim accounts/,
+      stdout: /claimed 1[1-2][0-9][0-9][0-9] merkle nodes/,
+    })
+
+    // fund is now run before claiming normally, simulating this situation here
+    await (
+      expect([
+        'cargo',
+        [
+          'run',
+          '--bin',
+          'fund-settlement',
+          '--',
+          '--operator-authority',
+          operatorAuthorityPath,
+          '--config',
+          configAccount.toBase58(),
+          '--rpc-url',
+          provider.connection.rpcEndpoint,
+          '-s',
+          settlementCollectionPath,
+          merkleTreeCollectionPath,
+          '--epoch',
+          currentEpoch.toString(),
+          '--fee-payer',
+          feePayerBase64,
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+      stdout: /funded 0.10 settlements/,
+      stderr: /already funded(.|\n|\r)*0 executed successfully/,
     })
 
     // still expecting some error as we have not fully funded settlements
@@ -625,8 +662,9 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       ]) as any
     ).toHaveMatchingSpawnOutput({
       code: 2,
+      stderr: /already claimed merkle tree nodes 414/,
       stdout:
-        /created 0 claim accounts(.|\n|\r)*No stake account found with enough SOL/,
+        /claimed 0 merkle nodes(.|\n|\r)*No stake account found with enough SOLs to claim/,
     })
     previousTest = TestNames.ClaimSettlement
   })

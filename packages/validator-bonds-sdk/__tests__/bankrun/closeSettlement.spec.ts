@@ -2,7 +2,7 @@ import {
   Config,
   Errors,
   ValidatorBondsProgram,
-  closeSettlementInstruction,
+  closeSettlementV2Instruction,
   fundSettlementInstruction,
   getConfig,
   getRentExemptStake,
@@ -45,6 +45,7 @@ describe('Validator Bonds close settlement', () => {
   let validatorIdentity: Keypair
   let voteAccount: PublicKey
   let settlementAccount: PublicKey
+  let settlementClaimsAccount: PublicKey
   let settlementEpoch: number
   let rentCollector: Keypair
 
@@ -73,15 +74,16 @@ describe('Validator Bonds close settlement', () => {
     })
     settlementEpoch = await currentEpoch(provider)
     rentCollector = Keypair.generate()
-    ;({ settlementAccount } = await executeInitSettlement({
-      configAccount,
-      program,
-      provider,
-      voteAccount,
-      operatorAuthority,
-      currentEpoch: settlementEpoch,
-      rentCollector: rentCollector.publicKey,
-    }))
+    ;({ settlementAccount, settlementClaimsAccount } =
+      await executeInitSettlement({
+        configAccount,
+        program,
+        provider,
+        voteAccount,
+        operatorAuthority,
+        currentEpoch: settlementEpoch,
+        rentCollector: rentCollector.publicKey,
+      }))
     const settlementData = await getSettlement(program, settlementAccount)
     expect(bondAccount).toEqual(settlementData.bond)
   })
@@ -101,8 +103,12 @@ describe('Validator Bonds close settlement', () => {
       provider,
       settlementAccount
     )
+    const rentExemptSettlementClaims = await getRentExempt(
+      provider,
+      settlementClaimsAccount
+    )
 
-    const { instruction } = await closeSettlementInstruction({
+    const { instruction } = await closeSettlementV2Instruction({
       program,
       settlementAccount,
       rentCollector: rentCollector.publicKey,
@@ -118,7 +124,7 @@ describe('Validator Bonds close settlement', () => {
     expect(rentCollectorInfo).not.toBeNull()
     assert(rentCollectorInfo !== null)
     expect(rentCollectorInfo.lamports).toEqual(
-      LAMPORTS_PER_SOL + rentExemptSettlement
+      LAMPORTS_PER_SOL + rentExemptSettlement + rentExemptSettlementClaims
     )
   })
 
@@ -128,7 +134,7 @@ describe('Validator Bonds close settlement', () => {
       lamports: LAMPORTS_PER_SOL,
     })
     expect(pubkey(rentCollectorTest)).not.toEqual(rentCollector.publicKey)
-    const { instruction } = await closeSettlementInstruction({
+    const { instruction } = await closeSettlementV2Instruction({
       program,
       settlementAccount,
       rentCollector: pubkey(rentCollectorTest),
@@ -143,7 +149,7 @@ describe('Validator Bonds close settlement', () => {
   })
 
   it('cannot close settlement when not expired', async () => {
-    const { instruction } = await closeSettlementInstruction({
+    const { instruction } = await closeSettlementV2Instruction({
       program,
       settlementAccount,
     })
@@ -201,7 +207,7 @@ describe('Validator Bonds close settlement', () => {
         config.minimumStakeLamports.toNumber()
     )
 
-    const { instruction } = await closeSettlementInstruction({
+    const { instruction } = await closeSettlementV2Instruction({
       program,
       settlementAccount,
       splitRentRefundAccount: rentCollector.publicKey,
@@ -221,7 +227,7 @@ describe('Validator Bonds close settlement', () => {
       verifyError(e, Errors, 6006, 'not owned by the stake account')
     }
 
-    const { instruction: ixWrongStake } = await closeSettlementInstruction({
+    const { instruction: ixWrongStake } = await closeSettlementV2Instruction({
       program,
       settlementAccount,
       splitRentRefundAccount: pubkey(splitStakeAccount),
@@ -234,12 +240,13 @@ describe('Validator Bonds close settlement', () => {
       ixWrongStake
     )
 
-    const { instruction: ixWrongCollector } = await closeSettlementInstruction({
-      program,
-      settlementAccount,
-      splitRentRefundAccount: pubkey(stakeAccount),
-      splitRentCollector: provider.walletPubkey,
-    })
+    const { instruction: ixWrongCollector } =
+      await closeSettlementV2Instruction({
+        program,
+        settlementAccount,
+        splitRentRefundAccount: pubkey(stakeAccount),
+        splitRentCollector: provider.walletPubkey,
+      })
     try {
       await provider.sendIx([], ixWrongCollector)
       throw new Error('error expected; wrong rent collector')
@@ -247,7 +254,7 @@ describe('Validator Bonds close settlement', () => {
       verifyError(e, Errors, 6043, 'does not match permitted rent collector')
     }
 
-    const { instruction: ixOk } = await closeSettlementInstruction({
+    const { instruction: ixOk } = await closeSettlementV2Instruction({
       program,
       settlementAccount,
       splitRentRefundAccount: pubkey(stakeAccount),

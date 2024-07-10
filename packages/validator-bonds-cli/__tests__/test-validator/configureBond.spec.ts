@@ -28,6 +28,8 @@ import {
   getAssociatedTokenAddressSync,
 } from 'solana-spl-token-modern'
 
+jest.setTimeout(5000 * 1000)
+
 describe('Configure bond account using CLI', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
@@ -178,6 +180,7 @@ describe('Configure bond account using CLI', () => {
           bondAccount.toBase58(),
           '--confirmation-finality',
           'confirmed',
+          '--verbose',
         ],
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any

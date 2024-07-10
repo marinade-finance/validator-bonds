@@ -1,14 +1,15 @@
 import {
   Errors,
   ValidatorBondsProgram,
-  claimSettlementInstruction,
-  closeSettlementInstruction,
-  getSettlementClaim,
+  claimSettlementV2Instruction,
+  closeSettlementV2Instruction,
+  getSettlementClaims,
   resetStakeInstruction,
   withdrawStakeInstruction,
 } from '../../src'
 import {
   BankrunExtendedProvider,
+  assertNotExist,
   currentEpoch,
   warpOffsetEpoch,
   warpToNextEpoch,
@@ -48,6 +49,7 @@ describe('Validator Bonds claim settlement', () => {
   let voteAccount: PublicKey
   let settlementAccount: PublicKey
   let settlementEpoch: number
+  const maxMerkleNodes = 1
 
   beforeAll(async () => {
     ;({ provider, program } = await initBankrunTest())
@@ -80,7 +82,7 @@ describe('Validator Bonds claim settlement', () => {
       operatorAuthority,
       currentEpoch: settlementEpoch,
       merkleRoot: MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
-      maxMerkleNodes: 1,
+      maxMerkleNodes,
       maxTotalClaim: totalClaimVoteAccount1,
     }))
     await createWithdrawerUsers(provider)
@@ -110,8 +112,8 @@ describe('Validator Bonds claim settlement', () => {
         withdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
       })
 
-    const { instruction, settlementClaimAccount } =
-      await claimSettlementInstruction({
+    const { instruction, settlementClaimsAccount } =
+      await claimSettlementV2Instruction({
         program,
         merkleProof: treeNode1Withdrawer1.proof,
         settlementAccount,
@@ -119,36 +121,42 @@ describe('Validator Bonds claim settlement', () => {
         stakeAccountTo: stakeOperatorWithdrawer,
         stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
         stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
-        claimAmount: treeNode1Withdrawer1.treeNode.data.claim,
+        claimAmount: treeNode1Withdrawer1.treeNode.claim,
+        index: treeNode1Withdrawer1.treeNode.index,
       })
 
     await provider.sendIx([], instruction)
 
-    const settlementClaim = await getSettlementClaim(
+    const settlementClaims = await getSettlementClaims(
       program,
-      settlementClaimAccount
+      settlementClaimsAccount
     )
-    expect(settlementClaim.amount).toEqual(
-      treeNode1Withdrawer1.treeNode.data.claim
-    )
+    expect(settlementClaims.account.settlement).toEqual(settlementAccount)
+    expect(settlementClaims.account.maxRecords).toEqual(maxMerkleNodes)
+    expect(settlementClaims.account.version).toEqual(0)
+    expect(settlementClaims.bitmap.bitSet.counter).toEqual(1)
+    expect(
+      settlementClaims.bitmap.isSet(treeNode1Withdrawer1.treeNode.index)
+    ).toBe(true)
     expect(
       (await provider.connection.getAccountInfo(stakeOperatorWithdrawer))
         ?.lamports
     ).toEqual(
-      treeNode1Withdrawer1.treeNode.data.claim.toNumber() +
+      treeNode1Withdrawer1.treeNode.claim.toNumber() +
         stakeWithdrawerLamportsBefore
     )
 
     // closing the settlement
     await warpOffsetEpoch(provider, epochsToClaimSettlement + 1)
-    const { instruction: closeSettlementIx } = await closeSettlementInstruction(
-      {
+    const { instruction: closeSettlementIx } =
+      await closeSettlementV2Instruction({
         program,
         settlementAccount,
         configAccount,
-      }
-    )
+      })
     await provider.sendIx([], closeSettlementIx)
+    assertNotExist(provider, settlementAccount)
+    assertNotExist(provider, settlementClaimsAccount)
 
     // let's try to reset the operator based stake account
     const { instruction: resetStakeIx } = await resetStakeInstruction({
@@ -184,7 +192,7 @@ describe('Validator Bonds claim settlement', () => {
     ).toEqual(
       LAMPORTS_PER_SOL +
         stakeBefore -
-        treeNode1Withdrawer1.treeNode.data.claim.toNumber()
+        treeNode1Withdrawer1.treeNode.claim.toNumber()
     )
   })
 })

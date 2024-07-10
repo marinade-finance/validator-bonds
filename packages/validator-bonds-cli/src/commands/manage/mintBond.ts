@@ -120,7 +120,7 @@ async function manageMintBond({
   tx.add(instruction)
 
   logger.info(
-    `Mint bond ${bondAccount.toBase58()} token ${bondMint.toBase58()} ` +
+    `Minting bond ${bondAccount.toBase58()} token ${bondMint.toBase58()} ` +
       `for validator identity ${validatorIdentity.toBase58()}`
   )
   await executeTx({
