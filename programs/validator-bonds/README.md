@@ -45,8 +45,9 @@
         the operator is required to merge all the `StakeAccounts` of the validator (delegated to the same `VoteAccount`)
         first and then fund such `StakeAccount` into `Settlement`. And the instruction is then capable to split `StakeAccount`
         with spill amount when needed.
-   - The creditor may claim the calculated amount from the `Settlement`. A deduplication
-      account, `SettlementClaim`, is created on-chain, referring to the fact that the protected event has already been claimed by the creditor.
+   - The creditor may claim the calculated amount from the `Settlement`.
+     From V2 there is created a bitmap structure on-chain named `SettlementClaims` that is created on-chain as a side-car to `Settlement` account.
+     When the protected event has already been claimed by the creditor the bitmap is updated to reflect the claim.
    - The `Settlement` may be claimed only for a limited number of epochs, which is configured by the admin authority in `Config`.
      After the elapsed time, the `Settlement` can be closed, and nothing more can be claimed.
      - When the claim time availability elapses, the `Settlement` account can be closed, and the account rent is withdrawn.

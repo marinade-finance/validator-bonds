@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## contract release v2.0.0 (2024-07-X)
+
+* address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
+* tag: [`contract-v2.0.0`](https://github.com/marinade-finance/validator-bonds/releases/tag/contract-v2.0.0), commit: [`TODO`](https://github.com/marinade-finance/validator-bonds/commit/TODO),
+* tx: [`TODO`](https://explorer.solana.com/tx/TODO)
+* anchor verify command:
+  ```
+  git checkout TODO &&\
+  anchor verify  --provider.cluster mainnet -p validator_bonds \
+    --env "GIT_REV=`git rev-parse --short HEAD`" --env 'GIT_REV_NAME=v2.0.0' vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
+  ```
+
+### Breaking updates
+
+* `SettlementClaim` account is not about to be used anymore. Deduplication of claiming will not be made with creating the PDA account
+  but using bitmap data structure in account `SettlementClaims` ([PR#73](https://github.com/marinade-finance/validator-bonds/pull/73/))
+
+### Updates
+
+* `fund_bond` instruction permits to fund `StakeAccount` in state `Activating` and not only fully activated stake accounts ([PR#74](https://github.com/marinade-finance/validator-bonds/pull/74))
+* `claim_settlement` instruction permits to withdraw amount of SOL when exactly matching the size of the `StakeAccount` ([PR#70](https://github.com/marinade-finance/validator-bonds/pull/70))
+
+
 ## TS CLI&SDK [1.5.3](https://github.com/marinade-finance/validator-bonds/compare/v1.5.2...v1.5.3) (2024-06-30)
 
 ### Fixes
