@@ -126,7 +126,6 @@ export enum StakeActivationState {
   Activated, // 2
   Deactivated, // 3
   NonDelegated, // 4
-  Unknown = 128,
 }
 
 export async function stakeActivation(
@@ -169,7 +168,8 @@ export async function stakeActivation(
       // activationEpoch is set in the past
       return StakeActivationState.Activated
     } else {
-      return StakeActivationState.Unknown
+      // unexpected state for the check
+      throw new Error("Unexpected state for the stake account's activation")
     }
   }
   // Uninitialized, RewardsPool, anything else...
