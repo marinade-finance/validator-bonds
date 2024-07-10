@@ -152,6 +152,9 @@ describe('Validator Bonds fund bond account', () => {
       authorizedPubkey: staker.publicKey,
     })
     await provider.sendIx([provider.wallet, staker], deactivateIx)
+    expect(await stakeActivation(provider, stakeAccount)).toEqual(
+      StakeActivationState.Deactivated
+    )
 
     const { instruction } = await fundBondInstruction({
       program,
@@ -205,6 +208,9 @@ describe('Validator Bonds fund bond account', () => {
       lamports: LAMPORTS_PER_SOL * 2,
       voteAccountToDelegate: bond.account.voteAccount,
     })
+    expect(await stakeActivation(provider, stakeAccount)).toEqual(
+      StakeActivationState.Activating
+    )
 
     const { instruction } = await fundBondInstruction({
       program,
@@ -283,6 +289,9 @@ describe('Validator Bonds fund bond account', () => {
       stakeAccountAuthority: withdrawer,
     })
     await warpToNextEpoch(provider)
+    expect(await stakeActivation(provider, stakeAccount)).toEqual(
+      StakeActivationState.Activated
+    )
     await provider.sendIx([withdrawer], instruction)
 
     const [stakeAccountData2, stakeAccountInfo] = await getAndCheckStakeAccount(

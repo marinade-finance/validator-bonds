@@ -121,12 +121,12 @@ export async function delegateAndFund({
 }
 
 export enum StakeActivationState {
-  Activating,
-  Deactivating,
-  Activated,
-  Deactivated,
-  Unknown,
-  NonDelegated,
+  Activating, // 0
+  Deactivating, // 1
+  Activated, // 2
+  Deactivated, // 3
+  NonDelegated, // 4
+  Unknown = 128,
 }
 
 export async function stakeActivation(
@@ -143,25 +143,30 @@ export async function stakeActivation(
     const deactivationEpoch =
       stakeState.Stake.stake.delegation.deactivationEpoch
     const curEpoch = new BN(await currentEpoch(provider))
-    console.log(
-      'activationEpoch',
-      activationEpoch.toString(),
-      'deactivationEpoch',
-      deactivationEpoch.toString(),
-      'currentEpoch',
-      curEpoch.toString()
-    )
 
-    if (!deactivationEpoch.eq(U64_MAX) && deactivationEpoch.gte(curEpoch)) {
+    // when deactivation or activation epoch is set to U64_MAX, it is not set
+    if (
+      !deactivationEpoch.eq(U64_MAX) &&
+      deactivationEpoch.gte(curEpoch) &&
+      !deactivationEpoch.eq(activationEpoch)
+    ) {
+      // deactivationEpoch is set and is in the future and different from activationEpoch
       return StakeActivationState.Deactivating
-    } else if (!activationEpoch.eq(U64_MAX) && activationEpoch.gte(curEpoch)) {
+    } else if (
+      !activationEpoch.eq(U64_MAX) &&
+      activationEpoch.gte(curEpoch) &&
+      !deactivationEpoch.eq(activationEpoch)
+    ) {
+      // activationEpoch is set and is in the future and different from deactivationEpoch
       return StakeActivationState.Activating
     } else if (
-      !deactivationEpoch.eq(U64_MAX) &&
-      deactivationEpoch.lt(curEpoch)
+      deactivationEpoch.lt(curEpoch) ||
+      deactivationEpoch.eq(activationEpoch)
     ) {
+      // deactivationEpoch is set in the past OR deactivationEpoch is equal to activationEpoch
       return StakeActivationState.Deactivated
-    } else if (!activationEpoch.eq(U64_MAX) && activationEpoch.lt(curEpoch)) {
+    } else if (activationEpoch.lt(curEpoch)) {
+      // activationEpoch is set in the past
       return StakeActivationState.Activated
     } else {
       return StakeActivationState.Unknown
