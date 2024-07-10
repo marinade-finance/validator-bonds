@@ -140,7 +140,7 @@ steps:
     - 'notification_color=$(buildkite-agent meta-data get notification_color || echo "15158332")'
     - 'attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")'
     - 'buildkite-agent artifact download --include-retried-jobs claiming-report.txt . || echo "UNKNOWN ERROR" > claiming-report.txt'
-    - 'claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json)'
+    - 'claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json || echo "[]")'
     - |
       claimable_epochs=$(echo "$$claimable_epochs_json" | jq ". | join(\",\")" | tr -d '"')
       curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
