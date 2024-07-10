@@ -23,11 +23,18 @@ import 'reflect-metadata'
 import { BN } from 'bn.js'
 import { U64_MAX } from '@marinade.finance/web3js-common'
 
-export async function initBankrunTest(programId?: PublicKey): Promise<{
+export async function initBankrunTest(
+  programId?: PublicKey,
+  additionalAccounts?: string[]
+): Promise<{
   program: ValidatorBondsProgram
   provider: BankrunExtendedProvider
 }> {
-  const provider = await testInit({ accountDirs: ['./fixtures/accounts/'] })
+  const baseAccountDir = ['./fixtures/accounts/']
+  const accountDirs = additionalAccounts
+    ? [...baseAccountDir, ...additionalAccounts]
+    : baseAccountDir
+  const provider = await testInit({ accountDirs })
   return {
     program: getProgram({ connection: provider, programId }),
     provider,

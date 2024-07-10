@@ -14,21 +14,20 @@ import {
   ValidatorBondsProgram,
   bondAddress,
   settlementAddress,
-  settlementClaimAddress,
-} from '../sdk'
-import { anchorProgramWalletPubkey } from '../utils'
+} from '../../sdk'
+import { anchorProgramWalletPubkey } from '../../utils'
 import BN from 'bn.js'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { getBond, getSettlement } from '../api'
-import { getStakeAccount } from '../web3.js'
-import { MerkleTreeNode } from '../merkleTree'
+import { getBond, getSettlement } from '../../api'
+import { getStakeAccount } from '../../web3.js'
+import { hashTreeV1, settlementClaimAddress } from './settlementClaimV1'
 
 /**
  * Generate instruction to claim from settlement protected event.
  * Permission-less operation. The legitimacy of the claim
  * is verified against the merkle proof and the merkle root.
  */
-export async function claimSettlementInstruction({
+export async function claimSettlementV1Instruction({
   program,
   claimAmount,
   merkleProof,
@@ -144,11 +143,11 @@ export async function claimSettlementInstruction({
     program.programId
   )
 
-  const treeNodeHash = MerkleTreeNode.hash({
-    stakeAuthority: stakeAccountStaker,
-    withdrawAuthority: stakeAccountWithdrawer,
-    claim: claimAmount,
-  }).words
+  const treeNodeHash = hashTreeV1(
+    stakeAccountStaker,
+    stakeAccountWithdrawer,
+    claimAmount
+  ).words
 
   const instruction = await program.methods
     .claimSettlement({

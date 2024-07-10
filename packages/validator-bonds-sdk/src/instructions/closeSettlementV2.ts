@@ -31,7 +31,7 @@ export type CloseSettlementParams = {
  * This is a permission-less operation,
  * the settlement can be closed when timeout elapses (configured in config).
  */
-export async function closeSettlementInstruction(
+export async function closeSettlementV2Instruction(
   params: CloseSettlementParams
 ): Promise<{
   instruction: TransactionInstruction
@@ -47,7 +47,7 @@ export async function closeSettlementInstruction(
   } = await getCloseSettlementAccounts(params)
 
   const instruction = await params.program.methods
-    .closeSettlement()
+    .closeSettlementV2()
     .accounts({
       config: configAccount,
       bond: bondAccount,

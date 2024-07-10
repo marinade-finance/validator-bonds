@@ -13,7 +13,7 @@ import {
 } from '../sdk'
 import { getBond, getWithdrawRequest } from '../api'
 import assert from 'assert'
-import { StakeAccountParsed, findStakeAccounts } from '../web3.js/stakeAccount'
+import { StakeAccountParsed, findStakeAccounts } from '../web3.js'
 import BN from 'bn.js'
 import { mergeStakeInstruction } from '../instructions/mergeStake'
 import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRequest'

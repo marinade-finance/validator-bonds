@@ -23,7 +23,7 @@ added 165 packages in 35s
 
 # to verify installed version
 validator-bonds --version
-1.5.3
+2.0.0
 ```
 
 To get info on available commands
@@ -257,8 +257,8 @@ The meanings of parameters are as follows:
 - `<bond-or-vote-account-address>`: bond account that will be funded by the amount of
   lamports from the stake account.
 - `--stake-account`: address of the stake account that will be assigned under the bonds program.
-- `--stake-authority`: signature of the stake account authority that permits to change the
-  stake account authorities
+- `--stake-authority`: signature of the stake account authority (probably withdrawer)
+  that permits to change the stake account authorities
 
 #### How to add more funds under the bond?
 
@@ -441,7 +441,7 @@ To check where NPM packages are and will be installed:
 # Get npm global installation folder
 npm list -g
 > /usr/lib
-> +-- @marinade.finance/validator-bonds-cli@1.5.3
+> +-- @marinade.finance/validator-bonds-cli@2.0.0
 > ...
 # In this case, the `bin` folder is located at /usr/bin
 ```
@@ -467,7 +467,7 @@ With this configuration, NPM packages will be installed under the `prefix` direc
 npm i -g @marinade.finance/validator-bonds-cli@latest
 npm list -g
 > ~/.local/share/npm/lib
-> `-- @marinade.finance/validator-bonds-cli@1.5.3
+> `-- @marinade.finance/validator-bonds-cli@2.0.0
 ```
 
 To execute the installed packages from any location,
@@ -618,7 +618,7 @@ Commands:
   # Get npm global installation folder
   npm list -g
   > ~/.local/share/npm/lib
-  > `-- @marinade.finance/validator-bonds-cli@1.5.3
+  > `-- @marinade.finance/validator-bonds-cli@2.0.0
   # In this case, the 'bin' folder is located at ~/.local/share/npm/bin
 
   # Get validator-bonds binary folder

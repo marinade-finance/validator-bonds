@@ -200,4 +200,22 @@ pub enum ErrorCode {
 
     #[msg("Stake account is not activating or activated")]
     NoStakeOrNotActivatingOrActivated, // 6064 0x17b0
+
+    #[msg("Data size mismatch for the bitmap")]
+    BitmapSizeMismatch, // 6065 0x17b1
+
+    #[msg("Bitmap index out of bounds")]
+    BitmapIndexOutOfBonds, // 6066 0x17b2
+
+    #[msg("SettlementClaims account not fully initialized, missing data size")]
+    SettlementClaimsNotInitialized, // 6067 0x17b3
+
+    #[msg("SettlementClaims records exceed maximum to fit Solana account size")]
+    SettlementClaimsTooManyRecords, // 6068 0x17b4
+
+    #[msg("SettlementClaims already initialized, no need to increase account size")]
+    SettlementClaimsAlreadyInitialized, // 6069 0x17b5
+
+    #[msg("Settlement has been already claimed")]
+    SettlementAlreadyClaimed, // 6070 0x17b6
 }

@@ -1,18 +1,13 @@
 import { PublicKey, TransactionInstruction } from '@solana/web3.js'
-import {
-  ValidatorBondsProgram,
-  settlementClaimAddress,
-  bondsWithdrawerAuthority,
-} from '../sdk'
-import { getSettlementClaim } from '../api'
+import { ValidatorBondsProgram, bondsWithdrawerAuthority } from '../../sdk'
+import { getSettlementClaim, settlementClaimAddress } from './settlementClaimV1'
 
 /**
- * Generate instruction to close settlement claim.
- * This is a permission-less operation,
- * the settlement claim can be closed when the settlement account does not exist.
- * Purpose is to gain back rent exempt of the settlement claim account.
+ * Generate instruction to close settlement claim V1.
+ * The new version of processing does not use PDA for deduplication of claiming
+ * but it uses Bitmap saved in 'SettlementClaims' account.
  */
-export async function closeSettlementClaimInstruction({
+export async function closeSettlementClaimV1Instruction({
   program,
   settlementAccount,
   settlementClaimAccount,

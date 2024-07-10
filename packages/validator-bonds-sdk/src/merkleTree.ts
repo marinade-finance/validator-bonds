@@ -26,10 +26,13 @@ type MerkleTreeNodeDataInput = {
   stakeAuthority: PublicKey
   withdrawAuthority: PublicKey
   claim: BN | number
+  index: BN | number
 }
 
 export type MerkleTreeNodeData = MerkleTreeNodeDataInput &
-  Omit<MerkleTreeNodeDataInput, 'claim'> & { claim: BN }
+  Omit<MerkleTreeNodeDataInput, 'claim' | 'index'> & { claim: BN } & {
+    index: BN
+  }
 
 // see settlement_engine/src/merkle_tree_collection.rs
 export class MerkleTreeNode {
@@ -38,6 +41,7 @@ export class MerkleTreeNode {
     this.data = {
       ...data,
       claim: new BN(data.claim),
+      index: new BN(data.index),
     }
   }
 
@@ -45,15 +49,18 @@ export class MerkleTreeNode {
     stakeAuthority,
     withdrawAuthority,
     claim,
+    index,
   }: {
     stakeAuthority: string
     withdrawAuthority: string
     claim: BN | number
+    index: BN | number
   }): MerkleTreeNode {
     return new MerkleTreeNode({
       stakeAuthority: new PublicKey(stakeAuthority),
       withdrawAuthority: new PublicKey(withdrawAuthority),
       claim,
+      index,
     })
   }
 
@@ -63,6 +70,14 @@ export class MerkleTreeNode {
 
   get withdrawAuthority(): PublicKey {
     return new PublicKey(this.data.withdrawAuthority)
+  }
+
+  get index(): BN {
+    return new BN(this.data.index)
+  }
+
+  get claim(): BN {
+    return new BN(this.data.claim)
   }
 
   public hash(): MerkleTreeNodeEncoded {
@@ -77,15 +92,18 @@ export class MerkleTreeNode {
     stakeAuthority,
     withdrawAuthority,
     claim,
+    index,
   }: {
     stakeAuthority: string
     withdrawAuthority: string
     claim: BN | number
+    index: BN | number
   }): MerkleTreeNodeEncoded {
     return MerkleTreeNode.fromString({
       stakeAuthority,
       withdrawAuthority,
       claim,
+      index,
     }).hash()
   }
 
@@ -93,6 +111,7 @@ export class MerkleTreeNode {
     stakeAuthority,
     withdrawAuthority,
     claim,
+    index,
   }: MerkleTreeNodeDataInput): MerkleTreeNodeEncoded {
     const sha256 = CryptoJS.algo.SHA256.create()
     sha256.update(pubkeyToWordArray(stakeAuthority))
@@ -100,6 +119,10 @@ export class MerkleTreeNode {
     claim = new BN(claim)
     sha256.update(
       CryptoJS.enc.Hex.parse(claim.toBuffer('le', 8).toString('hex'))
+    )
+    index = new BN(index)
+    sha256.update(
+      CryptoJS.enc.Hex.parse(index.toBuffer('le', 8).toString('hex'))
     )
     const wordArray = sha256.finalize()
     return MerkleTreeNode.toEncodings(wordArray)
@@ -109,11 +132,13 @@ export class MerkleTreeNode {
     stakeAuthority,
     withdrawAuthority,
     claim,
+    index,
   }: MerkleTreeNodeDataInput): MerkleTreeNodeEncoded {
     const resultHash = MerkleTreeNode.hash({
       stakeAuthority,
       withdrawAuthority,
       claim,
+      index,
     })
     return MerkleTreeNode.hashLeafNodeFromBuffer(resultHash)
   }
@@ -128,7 +153,7 @@ export class MerkleTreeNode {
     return MerkleTreeNode.toEncodings(wordArray)
   }
 
-  private static toEncodings(
+  public static toEncodings(
     wordArray: CryptoJS.lib.WordArray
   ): MerkleTreeNodeEncoded {
     const base64Hash = CryptoJS.enc.Base64.stringify(wordArray)

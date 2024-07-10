@@ -8,6 +8,7 @@ use crate::events::settlement::CloseSettlementEvent;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::settlement::Settlement;
+use crate::state::settlement_claims::SettlementClaims;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_spl::stake::{withdraw, Stake, Withdraw};
@@ -15,7 +16,7 @@ use anchor_spl::stake::{withdraw, Stake, Withdraw};
 /// Closes the settlement account, whoever can close it when the epoch expires
 #[event_cpi]
 #[derive(Accounts)]
-pub struct CloseSettlement<'info> {
+pub struct CloseSettlementV2<'info> {
     pub config: Account<'info, Config>,
 
     #[account(
@@ -46,6 +47,18 @@ pub struct CloseSettlement<'info> {
         bump = settlement.bumps.pda,
     )]
     pub settlement: Account<'info, Settlement>,
+
+    #[account(
+        mut,
+        close = rent_collector,
+        has_one = settlement @ ErrorCode::BondAccountMismatch,
+        seeds = [
+            b"claims_account",
+            settlement.key().as_ref(),
+        ],
+        bump = settlement.bumps.settlement_claims,
+    )]
+    pub settlement_claims: Account<'info, SettlementClaims>,
 
     /// CHECK: PDA
     #[account(
@@ -80,8 +93,8 @@ pub struct CloseSettlement<'info> {
     pub stake_history: UncheckedAccount<'info>,
 }
 
-impl<'info> CloseSettlement<'info> {
-    pub fn process(ctx: Context<CloseSettlement>) -> Result<()> {
+impl<'info> CloseSettlementV2<'info> {
+    pub fn process(ctx: Context<CloseSettlementV2>) -> Result<()> {
         require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
         if ctx.accounts.settlement.split_rent_collector.is_some() {

@@ -2,7 +2,7 @@ import { Keypair, PublicKey } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
   CLOSE_SETTLEMENT_EVENT,
-  closeSettlementInstruction,
+  closeSettlementV2Instruction,
   parseCpiEvents,
   assertEvent,
 } from '../../src'
@@ -67,7 +67,7 @@ describe('Validator Bonds close settlement', () => {
 
     const splitRentRefundAccount = Keypair.generate().publicKey
     const tx = await transaction(provider)
-    const { instruction } = await closeSettlementInstruction({
+    const { instruction } = await closeSettlementV2Instruction({
       program,
       settlementAccount,
       rentCollector: rentCollector.publicKey,

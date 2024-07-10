@@ -1,8 +1,13 @@
-use crate::constants::SETTLEMENT_CLAIM_SEED;
 use crate::error::ErrorCode;
+use crate::instructions::v1::tree_node_v1::TreeNodeV1;
 use crate::ID;
 use anchor_lang::prelude::*;
-use merkle_tree::psr_claim::TreeNode;
+
+#[constant]
+pub const SETTLEMENT_CLAIM_SEED: &[u8] = b"claim_account";
+
+// NOTE: we cannot rename the account to SettlementClaimV1
+//       because the account name is used to determine the account discriminator
 
 /// The settlement claim serves for deduplication purposes,
 /// preventing the same settlement from being claimed multiple times with the same claiming data
@@ -33,7 +38,7 @@ impl SettlementClaim {
             &[
                 SETTLEMENT_CLAIM_SEED,
                 &self.settlement.key().as_ref(),
-                TreeNode {
+                TreeNodeV1 {
                     stake_authority: self.stake_account_staker,
                     withdraw_authority: self.stake_account_withdrawer,
                     claim: self.amount,
@@ -47,11 +52,4 @@ impl SettlementClaim {
         )
         .map_err(|_| ErrorCode::InvalidSettlementClaimAddress.into())
     }
-}
-
-pub fn find_settlement_claim_address(settlement: &Pubkey, tree_node_bytes: &[u8]) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[SETTLEMENT_CLAIM_SEED, settlement.as_ref(), tree_node_bytes],
-        &ID,
-    )
 }

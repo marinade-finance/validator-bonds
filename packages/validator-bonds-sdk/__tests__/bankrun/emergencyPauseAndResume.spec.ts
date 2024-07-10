@@ -2,9 +2,8 @@ import {
   Config,
   Errors,
   ValidatorBondsProgram,
-  claimSettlementInstruction,
-  closeSettlementClaimInstruction,
-  closeSettlementInstruction,
+  claimSettlementV2Instruction,
+  closeSettlementV2Instruction,
   configureBondInstruction,
   configureConfigInstruction,
   emergencyPauseInstruction,
@@ -21,6 +20,8 @@ import {
   configureBondWithMintInstruction,
   withdrawStakeInstruction,
   cancelSettlementInstruction,
+  upsizeSettlementClaims,
+  getSettlementClaims,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -53,7 +54,6 @@ import {
   createWithdrawerUsers,
   totalClaimVoteAccount1,
   treeNodeBy,
-  treeNodesVoteAccount1,
   voteAccount1,
   voteAccount1Keypair,
   withdrawer1,
@@ -61,6 +61,8 @@ import {
 import { verifyError } from '@marinade.finance/anchor-common'
 import { claimWithdrawRequestInstruction } from '../../src/instructions/claimWithdrawRequest'
 import { initBankrunTest } from './bankrun'
+import { isInitialized } from '../../src/settlementClaims'
+import assert from 'assert'
 
 describe('Validator Bonds pause&resume', () => {
   const epochsToClaimSettlement = 23
@@ -252,24 +254,43 @@ describe('Validator Bonds pause&resume', () => {
 
     await pause()
     const settlementEpoch = await currentEpoch(provider)
-    const { instruction: initSettlementIx, settlementAccount } =
-      await initSettlementInstruction({
-        program,
-        configAccount,
-        operatorAuthority: adminAuthority.publicKey,
-        merkleRoot: MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
-        maxMerkleNodes: treeNodesVoteAccount1.length,
-        maxTotalClaim: totalClaimVoteAccount1,
-        voteAccount: voteAccount1,
-        bondAccount,
-        epoch: settlementEpoch,
-      })
+    const {
+      instruction: initSettlementIx,
+      settlementAccount,
+      settlementClaimsAccount,
+    } = await initSettlementInstruction({
+      program,
+      configAccount,
+      operatorAuthority: adminAuthority.publicKey,
+      merkleRoot: MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
+      maxMerkleNodes: 10 * 1024 * 8,
+      maxTotalClaim: totalClaimVoteAccount1,
+      voteAccount: voteAccount1,
+      bondAccount,
+      epoch: settlementEpoch,
+    })
     await verifyIsPaused([adminAuthority], initSettlementIx)
 
     await resume()
     await provider.sendIx([adminAuthority], initSettlementIx)
 
     await pause()
+
+    const settlementClaimsAccountInfo =
+      await provider.connection.getAccountInfo(settlementClaimsAccount)
+    assert(settlementClaimsAccountInfo !== null)
+    expect(isInitialized(program, settlementClaimsAccountInfo)).toBe(false)
+
+    const { instruction: upsizeIx } = await upsizeSettlementClaims({
+      program,
+      settlementClaimsAccount,
+    })
+    // not blocked by pause
+    await provider.sendIx([], upsizeIx)
+
+    // when account is decoded it should be initialized
+    await getSettlementClaims(program, settlementClaimsAccount)
+
     const {
       instruction: fundSettlementIx,
       splitStakeAccount: settlementSplitStake,
@@ -302,17 +323,17 @@ describe('Validator Bonds pause&resume', () => {
       withdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
     })
     await warpToNextEpoch(provider)
-    const { instruction: claimIx, settlementClaimAccount } =
-      await claimSettlementInstruction({
-        program,
-        claimAmount: treeNode1Withdrawer1.treeNode.data.claim,
-        merkleProof: treeNode1Withdrawer1.proof,
-        settlementAccount,
-        stakeAccountFrom: stakeAccount,
-        stakeAccountTo: stakeAccountSettlementWithdrawer,
-        stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
-        stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
-      })
+    const { instruction: claimIx } = await claimSettlementV2Instruction({
+      program,
+      claimAmount: treeNode1Withdrawer1.treeNode.data.claim,
+      index: treeNode1Withdrawer1.treeNode.index,
+      merkleProof: treeNode1Withdrawer1.proof,
+      settlementAccount,
+      stakeAccountFrom: stakeAccount,
+      stakeAccountTo: stakeAccountSettlementWithdrawer,
+      stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
+      stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
+    })
 
     await verifyIsPaused([], claimIx)
 
@@ -324,16 +345,15 @@ describe('Validator Bonds pause&resume', () => {
       provider,
       initWithdrawerRequestEpoch + epochsToClaimSettlement + 1
     )
-    const { instruction: closeSettlementIx } = await closeSettlementInstruction(
-      {
+    const { instruction: closeSettlementIx } =
+      await closeSettlementV2Instruction({
         program,
         settlementAccount,
         configAccount,
         bondAccount,
         voteAccount: voteAccount1,
         splitRentRefundAccount: stakeAccount,
-      }
-    )
+      })
     await verifyIsPaused([], closeSettlementIx)
 
     const { instruction: cancelSettlementIx } =
@@ -356,14 +376,6 @@ describe('Validator Bonds pause&resume', () => {
       provider,
       initWithdrawerRequestEpoch + epochsToClaimSettlement + 1
     )
-    const { instruction: closeSettlementClaimIx } =
-      await closeSettlementClaimInstruction({
-        program,
-        settlementAccount,
-        settlementClaimAccount,
-      })
-    // this instruction is just not paused
-    await provider.sendIx([], closeSettlementClaimIx)
 
     await createSettlementFundedDelegatedStake({
       program,

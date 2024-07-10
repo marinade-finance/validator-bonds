@@ -1,7 +1,7 @@
 import {
   Errors,
   ValidatorBondsProgram,
-  closeSettlementInstruction,
+  closeSettlementV2Instruction,
   fundSettlementInstruction,
   getConfig,
   getSettlement,
@@ -460,7 +460,7 @@ describe('Validator Bonds fund settlement', () => {
       currentEpoch: await currentEpoch(provider),
       rentCollector: rentCollector.publicKey,
     })
-    const { instruction: closeIx } = await closeSettlementInstruction({
+    const { instruction: closeIx } = await closeSettlementV2Instruction({
       program,
       settlementAccount,
       rentCollector: rentCollector.publicKey,

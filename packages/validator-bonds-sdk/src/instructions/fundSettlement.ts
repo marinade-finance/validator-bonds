@@ -7,7 +7,6 @@ import {
   Keypair,
   Signer,
   SYSVAR_RENT_PUBKEY,
-  SystemProgram,
 } from '@solana/web3.js'
 import { ValidatorBondsProgram, bondAddress } from '../sdk'
 import { getBond, getConfig, getSettlement } from '../api'
@@ -90,7 +89,6 @@ export async function fundSettlementInstruction({
       stakeAccount,
       splitStakeAccount: splitStakeAccountPubkey,
       splitStakeRentPayer: splitStakeRentPayerPubkey,
-      systemProgram: SystemProgram.programId,
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
       rent: SYSVAR_RENT_PUBKEY,
       clock: SYSVAR_CLOCK_PUBKEY,

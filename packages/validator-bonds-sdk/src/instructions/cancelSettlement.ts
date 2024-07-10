@@ -12,7 +12,7 @@ import { anchorProgramWalletPubkey } from '../utils'
 import {
   CloseSettlementParams,
   getCloseSettlementAccounts,
-} from './closeSettlement'
+} from './closeSettlementV2'
 
 /**
  * Generate instruction to cancel settlement.
