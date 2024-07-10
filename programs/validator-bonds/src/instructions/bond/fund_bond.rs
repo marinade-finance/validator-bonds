@@ -1,6 +1,7 @@
 use crate::checks::{
-    check_stake_exist_and_fully_activated, check_stake_is_initialized_with_withdrawer_authority,
-    check_stake_is_not_locked, check_stake_valid_delegation,
+    check_stake_exist_and_activating_or_activated,
+    check_stake_is_initialized_with_withdrawer_authority, check_stake_is_not_locked,
+    check_stake_valid_delegation,
 };
 use crate::error::ErrorCode;
 use crate::events::bond::FundBondEvent;
@@ -72,7 +73,7 @@ impl<'info> FundBond<'info> {
             &ctx.accounts.clock,
             "stake_account",
         )?;
-        check_stake_exist_and_fully_activated(
+        check_stake_exist_and_activating_or_activated(
             &ctx.accounts.stake_account,
             ctx.accounts.clock.epoch,
             &ctx.accounts.stake_history,

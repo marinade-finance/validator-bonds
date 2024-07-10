@@ -514,8 +514,8 @@ export async function executeInitSettlement({
   epoch: BN
   rentCollector: PublicKey
   merkleRoot: number[] | Uint8Array | Buffer
-  maxMerkleNodes: number
-  maxTotalClaim: number
+  maxMerkleNodes: BN
+  maxTotalClaim: BN
 }> {
   const {
     instruction,
@@ -542,8 +542,8 @@ export async function executeInitSettlement({
     epoch: settlementEpoch,
     rentCollector,
     merkleRoot,
-    maxMerkleNodes: new BN(maxMerkleNodes).toNumber(),
-    maxTotalClaim: new BN(maxTotalClaim).toNumber(),
+    maxMerkleNodes: new BN(maxMerkleNodes),
+    maxTotalClaim: new BN(maxTotalClaim),
   }
 }
 

@@ -4472,6 +4472,11 @@ export type ValidatorBonds = {
       "code": 6063,
       "name": "MaxStakeWantedTooLow",
       "msg": "Max stake wanted value is lower to minimum configured value"
+    },
+    {
+      "code": 6064,
+      "name": "NoStakeOrNotActivatingOrActivated",
+      "msg": "Stake account is not activating or activated"
     }
   ]
 };
@@ -8950,6 +8955,11 @@ export const IDL: ValidatorBonds = {
       "code": 6063,
       "name": "MaxStakeWantedTooLow",
       "msg": "Max stake wanted value is lower to minimum configured value"
+    },
+    {
+      "code": 6064,
+      "name": "NoStakeOrNotActivatingOrActivated",
+      "msg": "Stake account is not activating or activated"
     }
   ]
 };

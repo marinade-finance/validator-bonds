@@ -149,7 +149,8 @@ pub async fn obtain_claimable_stake_accounts_for_settlement(
                     .effective
                     == 0
             } else {
-                // non-locked, non-delegated, maybe initialized (more filtering under map_stake_accounts_to_settlement)
+                // non-locked, non-delegated, maybe initialized (initialized has got authorities but not delegation)
+                // (more filtering under map_stake_accounts_to_settlement)
                 true
             }
         })

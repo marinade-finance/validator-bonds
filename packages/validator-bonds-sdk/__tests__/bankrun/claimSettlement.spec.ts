@@ -5,7 +5,9 @@ import {
   ValidatorBondsProgram,
   bondsWithdrawerAuthority,
   claimSettlementInstruction,
+  fundBondInstruction,
   fundSettlementInstruction,
+  getConfig,
   getRentExemptStake,
   getSettlement,
   getSettlementClaim,
@@ -39,6 +41,7 @@ import {
   createDelegatedStakeAccount,
   createVoteAccount,
   createInitializedStakeAccount,
+  delegatedStakeAccount,
 } from '../utils/staking'
 import {
   signer,
@@ -64,7 +67,12 @@ import {
 import { verifyError } from '@marinade.finance/anchor-common'
 import BN from 'bn.js'
 import { executeTxWithError } from '../utils/helpers'
-import { initBankrunTest } from './bankrun'
+import {
+  StakeActivationState,
+  initBankrunTest,
+  stakeActivation,
+  warpOffsetSlot,
+} from './bankrun'
 import assert from 'assert'
 
 describe('Validator Bonds claim settlement', () => {
@@ -76,7 +84,8 @@ describe('Validator Bonds claim settlement', () => {
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
-  let bondAccount: PublicKey
+  let bondAccount1: PublicKey
+  let bondAccount2: PublicKey
   let operatorAuthority: Keypair
   let validatorIdentity1: Keypair
   let voteAccount1: PublicKey
@@ -114,19 +123,19 @@ describe('Validator Bonds claim settlement', () => {
         voteAccount: voteAccount1Keypair,
         provider,
       }))
-    await executeInitBondInstruction({
+    ;({ bondAccount: bondAccount1 } = await executeInitBondInstruction({
       program,
       provider,
       configAccount,
       voteAccount: voteAccount1,
       validatorIdentity: validatorIdentity1,
-    })
+    }))
     ;({ voteAccount: voteAccount2, validatorIdentity: validatorIdentity2 } =
       await createVoteAccount({
         voteAccount: voteAccount2Keypair,
         provider,
       }))
-    ;({ bondAccount } = await executeInitBondInstruction({
+    ;({ bondAccount: bondAccount2 } = await executeInitBondInstruction({
       program,
       provider,
       configAccount,
@@ -460,7 +469,7 @@ describe('Validator Bonds claim settlement', () => {
         proof: treeNode1Withdrawer1.proof,
         claim: treeNode1Withdrawer1.treeNode.data.claim,
         configAccount,
-        bondAccount: bondAccount,
+        bondAccount: bondAccount2,
         settlementAccount: settlementAccount1,
         stakeAccountFrom: stakeAccount1,
         stakeAccountTo: stakeAccountToWrongBump,
@@ -696,6 +705,86 @@ describe('Validator Bonds claim settlement', () => {
     })
     await provider.sendIx([], ix2)
     assertNotExist(provider, stakeAccount42LamportsFrom)
+  })
+
+  it('claim activating stake account', async () => {
+    await warpToNextEpoch(provider) // we want to have different settlement
+
+    settlementEpoch = await currentEpoch(provider)
+    const { settlementAccount } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount: voteAccount1,
+      operatorAuthority,
+      currentEpoch: settlementEpoch,
+      merkleRoot: MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
+      maxMerkleNodes: treeNodesVoteAccount1.length,
+      maxTotalClaim: 42 * LAMPORTS_PER_SOL,
+    })
+
+    const { stakeAccount, withdrawer } = await delegatedStakeAccount({
+      provider,
+      lamports: LAMPORTS_PER_SOL * 2345,
+      voteAccountToDelegate: voteAccount1,
+    })
+    expect(await stakeActivation(provider, stakeAccount)).toEqual(
+      StakeActivationState.Activating
+    )
+    const { instruction: fundBondIx } = await fundBondInstruction({
+      program,
+      configAccount,
+      bondAccount: bondAccount1,
+      stakeAccount,
+      stakeAccountAuthority: withdrawer,
+    })
+    const { instruction: fundSettlementIx, splitStakeAccount } =
+      await fundSettlementInstruction({
+        program,
+        configAccount,
+        bondAccount: bondAccount1,
+        voteAccount: voteAccount1,
+        operatorAuthority: operatorAuthority.publicKey,
+        settlementAccount,
+        stakeAccount,
+      })
+    await provider.sendIx(
+      [withdrawer, operatorAuthority, signer(splitStakeAccount)],
+      fundBondIx,
+      fundSettlementIx
+    )
+
+    // warp to be able to claim (see slotsToStartSettlementClaiming)
+    const config = await getConfig(program, configAccount)
+    await warpOffsetSlot(
+      provider,
+      config.slotsToStartSettlementClaiming.toNumber()
+    )
+
+    const treeNode = treeNodesVoteAccount1[0]
+    const lamportsTo = 10 * LAMPORTS_PER_SOL
+    const stakeAccountTo = await createDelegatedStakeAccount({
+      provider,
+      lamports: lamportsTo,
+      voteAccount: voteAccount1,
+      staker: treeNode.treeNode.stakeAuthority,
+      withdrawer: treeNode.treeNode.withdrawAuthority,
+    })
+    const { instruction: ix1 } = await claimSettlementInstruction({
+      program,
+      claimAmount: treeNode.treeNode.data.claim,
+      merkleProof: treeNode.proof,
+      settlementAccount: settlementAccount,
+      stakeAccountFrom: stakeAccount,
+      stakeAccountTo: stakeAccountTo,
+      stakeAccountStaker: treeNode.treeNode.stakeAuthority,
+      stakeAccountWithdrawer: treeNode.treeNode.withdrawAuthority,
+    })
+    await provider.sendIx([], ix1)
+
+    expect(
+      (await provider.connection.getAccountInfo(stakeAccountTo))?.lamports
+    ).toEqual(lamportsTo + treeNode.treeNode.data.claim.toNumber())
   })
 
   async function warpToNotBeClaimable() {

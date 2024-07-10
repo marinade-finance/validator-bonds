@@ -6,15 +6,22 @@ import {
 import { Keypair, PublicKey } from '@solana/web3.js'
 import {
   BankrunExtendedProvider,
+  currentEpoch,
   testInit,
   warpToNextEpoch,
 } from '@marinade.finance/bankrun-utils'
-import { delegatedStakeAccount } from '../utils/staking'
+import {
+  StakeStates,
+  delegatedStakeAccount,
+  getAndCheckStakeAccount,
+} from '../utils/staking'
 import {
   executeFundBondInstruction,
   executeInitBondInstruction,
 } from '../utils/testTransactions'
 import 'reflect-metadata'
+import { BN } from 'bn.js'
+import { U64_MAX } from '@marinade.finance/web3js-common'
 
 export async function initBankrunTest(programId?: PublicKey): Promise<{
   program: ValidatorBondsProgram
@@ -25,6 +32,20 @@ export async function initBankrunTest(programId?: PublicKey): Promise<{
     program: getProgram({ connection: provider, programId }),
     provider,
   }
+}
+
+export async function currentSlot(
+  provider: BankrunExtendedProvider
+): Promise<number> {
+  return Number((await provider.context.banksClient.getClock()).slot)
+}
+
+export async function warpOffsetSlot(
+  provider: BankrunExtendedProvider,
+  plusSlots: number
+) {
+  const nextSlot = (await currentSlot(provider)) + plusSlots
+  provider.context.warpToSlot(BigInt(nextSlot))
 }
 
 // this cannot be in generic testTransactions.ts because of warping requires BankrunProvider
@@ -97,4 +118,60 @@ export async function delegateAndFund({
     voteAccount: voteAccountDelegated,
     validatorIdentity,
   }
+}
+
+export enum StakeActivationState {
+  Activating, // 0
+  Deactivating, // 1
+  Activated, // 2
+  Deactivated, // 3
+  NonDelegated, // 4
+}
+
+export async function stakeActivation(
+  provider: BankrunExtendedProvider,
+  stakeAccount: PublicKey
+): Promise<StakeActivationState> {
+  const [stakeState] = await getAndCheckStakeAccount(
+    provider,
+    stakeAccount,
+    StakeStates.Delegated
+  )
+  if (stakeState.Stake !== undefined) {
+    const activationEpoch = stakeState.Stake.stake.delegation.activationEpoch
+    const deactivationEpoch =
+      stakeState.Stake.stake.delegation.deactivationEpoch
+    const curEpoch = new BN(await currentEpoch(provider))
+
+    // value U64_MAX means "not being set"
+    if (
+      !deactivationEpoch.eq(U64_MAX) &&
+      deactivationEpoch.gte(curEpoch) &&
+      !deactivationEpoch.eq(activationEpoch)
+    ) {
+      // deactivationEpoch is set and is in the future and different from activationEpoch
+      return StakeActivationState.Deactivating
+    } else if (
+      !activationEpoch.eq(U64_MAX) &&
+      activationEpoch.gte(curEpoch) &&
+      !deactivationEpoch.eq(activationEpoch)
+    ) {
+      // activationEpoch is set and is in the future and different from deactivationEpoch
+      return StakeActivationState.Activating
+    } else if (
+      deactivationEpoch.lt(curEpoch) ||
+      deactivationEpoch.eq(activationEpoch)
+    ) {
+      // deactivationEpoch is set in the past OR deactivationEpoch is equal to activationEpoch
+      return StakeActivationState.Deactivated
+    } else if (activationEpoch.lt(curEpoch)) {
+      // activationEpoch is set in the past
+      return StakeActivationState.Activated
+    } else {
+      // unexpected state for the check
+      throw new Error("Unexpected state for the stake account's activation")
+    }
+  }
+  // Uninitialized, RewardsPool, anything else...
+  return StakeActivationState.NonDelegated
 }

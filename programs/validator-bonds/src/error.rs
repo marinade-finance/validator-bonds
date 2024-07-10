@@ -80,6 +80,7 @@ pub enum ErrorCode {
     #[msg("Stake is not initialized")]
     UninitializedStake, // 6024 0x1788
 
+    /// Deprecated
     #[msg("Stake account is not fully activated")]
     NoStakeOrNotFullyActivated, // 6025 0x1789
 
@@ -196,4 +197,7 @@ pub enum ErrorCode {
 
     #[msg("Max stake wanted value is lower to minimum configured value")]
     MaxStakeWantedTooLow, // 6063 0x17af
+
+    #[msg("Stake account is not activating or activated")]
+    NoStakeOrNotActivatingOrActivated, // 6064 0x17b0
 }
