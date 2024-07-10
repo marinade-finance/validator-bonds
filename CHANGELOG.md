@@ -2,14 +2,30 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## TS CLI&SDK [2.0.0](https://github.com/marinade-finance/validator-bonds/compare/v1.5.3...v2.0.0) (2024-07-X)
+
+### Breaking
+
+* CLI and SDK updated to be aligned with changes in contract `v2.0.0`
+
+### Updates
+
+* added command `bond-address` to show PDA based on vote account address and config account address
+* `show-bond` does not show information about funded stake account by default,
+  parameter `--with-funding` has to be used explicitly
+
+### Fixes
+
+* `show-bond` fix on showing negative number after floating point when withdraw amount is bigger than available bond amount
+
 ## contract release v2.0.0 (2024-07-X)
 
 * address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
-* tag: [`contract-v2.0.0`](https://github.com/marinade-finance/validator-bonds/releases/tag/contract-v2.0.0), commit: [`TODO`](https://github.com/marinade-finance/validator-bonds/commit/TODO),
+* tag: [`contract-v2.0.0`](https://github.com/marinade-finance/validator-bonds/releases/tag/contract-v2.0.0), commit: [`848fc78`](https://github.com/marinade-finance/validator-bonds/commit/848fc78),
 * tx: [`TODO`](https://explorer.solana.com/tx/TODO)
 * anchor verify command:
   ```
-  git checkout TODO &&\
+  git checkout 848fc78 &&\
   anchor verify  --provider.cluster mainnet -p validator_bonds \
     --env "GIT_REV=`git rev-parse --short HEAD`" --env 'GIT_REV_NAME=v2.0.0' vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
   ```
@@ -29,7 +45,7 @@ All notable changes to this project will be documented in this file. See [standa
 
 ### Fixes
 
-* `show-bond` fix on SOL units formatting 
+* `show-bond` fix on SOL units formatting
 
 ## TS CLI&SDK [1.5.2](https://github.com/marinade-finance/validator-bonds/compare/v1.5.1...v1.5.2) (2024-06-27)
 
