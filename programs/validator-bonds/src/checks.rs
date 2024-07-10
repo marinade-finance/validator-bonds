@@ -185,7 +185,7 @@ pub fn check_stake_is_not_locked(
 /// Verification of the stake account state that's
 ///   - stake account is delegated
 ///   - stake state is either activating or activated
-// implementation from https://github.com/marinade-finance/native-staking/blob/master/bot/src/utils/stakes.rs#L48
+// See https://github.com/marinade-finance/native-staking/blob/a8c7d5f/bot/src/utils/stakes.rs#L66-L87
 pub fn check_stake_exist_and_activating_or_activated(
     stake_account: &StakeAccount,
     epoch: Epoch,
@@ -199,7 +199,7 @@ pub fn check_stake_exist_and_activating_or_activated(
         } = stake
             .delegation
             .stake_activating_and_deactivating(epoch, Some(stake_history), None);
-        if deactivating > 0 || effective == 0 {
+        if (effective == 0 && activating == 0) || deactivating > 0 {
             msg!(
                 "Stake account is neither activating nor activated: {:?}",
                 stake_account.deref()
@@ -546,6 +546,235 @@ mod tests {
             check_stake_is_not_locked(&unix_locked_stake_account, &clock, ""),
             Err(ErrorCode::StakeLockedUp.into())
         );
+    }
+
+    #[test]
+    pub fn stake_is_activated_or_activating_check() {
+        let clock = get_clock();
+        let stake_history = StakeHistory::default();
+
+        // no stake delegation
+        let no_stake_stake_account = get_stake_account(StakeStateV2::Uninitialized);
+        assert_eq!(
+            check_stake_exist_and_activating_or_activated(
+                &no_stake_stake_account,
+                clock.epoch,
+                &stake_history
+            ),
+            Err(ErrorCode::StakeNotDelegated.into())
+        );
+        let rewards_pool_stake_account = get_stake_account(StakeStateV2::RewardsPool);
+        assert_eq!(
+            check_stake_exist_and_activating_or_activated(
+                &rewards_pool_stake_account,
+                clock.epoch,
+                &stake_history
+            ),
+            Err(ErrorCode::StakeNotDelegated.into())
+        );
+        let initialized_stake_account =
+            get_stake_account(StakeStateV2::Initialized(Meta::default()));
+        assert_eq!(
+            check_stake_exist_and_activating_or_activated(
+                &initialized_stake_account,
+                clock.epoch,
+                &stake_history
+            ),
+            Err(ErrorCode::StakeNotDelegated.into())
+        );
+
+        // delegated but no stake
+        let delegated_stake_state =
+            StakeStateV2::Stake(Meta::default(), Stake::default(), StakeFlags::empty());
+        let delegated_stake_account = get_stake_account(delegated_stake_state);
+        assert_eq!(
+            get_delegation_state(&delegated_stake_account, clock.epoch, &stake_history),
+            DelegationState::Deactivated
+        );
+        assert_eq!(
+            check_stake_exist_and_activating_or_activated(
+                &delegated_stake_account,
+                clock.epoch,
+                &stake_history
+            ),
+            Err(ErrorCode::NoStakeOrNotActivatingOrActivated.into())
+        );
+
+        // requirements for the mocked clock instance
+        assert!(clock.epoch > 0);
+
+        let stake_state_deactivated = StakeStateV2::Stake(
+            Meta::default(),
+            Stake {
+                delegation: Delegation {
+                    stake: 100,
+                    activation_epoch: u64::MAX,
+                    deactivation_epoch: clock.epoch - 1,
+                    ..Delegation::default()
+                },
+                ..Stake::default()
+            },
+            StakeFlags::empty(),
+        );
+        let stake_account_deactivated = get_stake_account(stake_state_deactivated);
+        assert_eq!(
+            get_delegation_state(&stake_account_deactivated, clock.epoch, &stake_history),
+            DelegationState::Deactivated
+        );
+        assert_eq!(
+            check_stake_exist_and_activating_or_activated(
+                &stake_account_deactivated,
+                clock.epoch,
+                &stake_history
+            ),
+            Err(ErrorCode::NoStakeOrNotActivatingOrActivated.into())
+        );
+
+        let stake_state_deactivated_2 = StakeStateV2::Stake(
+            Meta::default(),
+            Stake {
+                delegation: Delegation {
+                    stake: 100,
+                    activation_epoch: clock.epoch,
+                    deactivation_epoch: clock.epoch,
+                    ..Delegation::default()
+                },
+                ..Stake::default()
+            },
+            StakeFlags::empty(),
+        );
+        let stake_account_deactivated_2 = get_stake_account(stake_state_deactivated_2);
+        assert_eq!(
+            get_delegation_state(&stake_account_deactivated_2, clock.epoch, &stake_history),
+            DelegationState::Deactivated
+        );
+        assert_eq!(
+            check_stake_exist_and_activating_or_activated(
+                &stake_account_deactivated_2,
+                clock.epoch,
+                &stake_history
+            ),
+            Err(ErrorCode::NoStakeOrNotActivatingOrActivated.into())
+        );
+
+        let stake_state_deactivating = StakeStateV2::Stake(
+            Meta::default(),
+            Stake {
+                delegation: Delegation {
+                    stake: 100,
+                    activation_epoch: u64::MAX,
+                    deactivation_epoch: clock.epoch,
+                    ..Delegation::default()
+                },
+                ..Stake::default()
+            },
+            StakeFlags::empty(),
+        );
+        let stake_account_deactivating = get_stake_account(stake_state_deactivating);
+        assert_eq!(
+            get_delegation_state(&stake_account_deactivating, clock.epoch, &stake_history),
+            DelegationState::Deactivating
+        );
+        assert_eq!(
+            check_stake_exist_and_activating_or_activated(
+                &stake_account_deactivating,
+                clock.epoch,
+                &stake_history
+            ),
+            Err(ErrorCode::NoStakeOrNotActivatingOrActivated.into())
+        );
+
+        let stake_activating = Stake {
+            delegation: Delegation {
+                stake: 100,
+                activation_epoch: clock.epoch,
+                ..Delegation::default()
+            },
+            ..Stake::default()
+        };
+        let stake_state_activating =
+            StakeStateV2::Stake(Meta::default(), stake_activating, StakeFlags::empty());
+        let stake_account_activating = get_stake_account(stake_state_activating);
+        assert_eq!(
+            get_delegation_state(&stake_account_activating, clock.epoch, &stake_history),
+            DelegationState::Activating
+        );
+        assert_eq!(
+            check_stake_exist_and_activating_or_activated(
+                &stake_account_activating,
+                clock.epoch,
+                &stake_history
+            ),
+            Ok(stake_activating)
+        );
+
+        let stake_activated = Stake {
+            delegation: Delegation {
+                stake: 100,
+                activation_epoch: clock.epoch - 1,
+                ..Delegation::default()
+            },
+            ..Stake::default()
+        };
+        let stake_state_activated =
+            StakeStateV2::Stake(Meta::default(), stake_activated, StakeFlags::empty());
+        let stake_account_activated = get_stake_account(stake_state_activated);
+        assert_eq!(
+            get_delegation_state(&stake_account_activated, clock.epoch, &stake_history),
+            DelegationState::Activated
+        );
+        assert_eq!(
+            check_stake_exist_and_activating_or_activated(
+                &stake_account_activated,
+                clock.epoch,
+                &stake_history
+            ),
+            Ok(stake_activated)
+        );
+    }
+
+    #[derive(PartialEq, Debug)]
+    enum DelegationState {
+        Activating,
+        Deactivating,
+        Activated,
+        Deactivated,
+        Fresh,
+    }
+
+    fn get_delegation_state(
+        stake_account: &StakeAccount,
+        epoch: Epoch,
+        stake_history: &StakeHistory,
+    ) -> DelegationState {
+        match stake_account.stake() {
+            None => DelegationState::Fresh,
+            Some(stake) => {
+                let StakeHistoryEntry {
+                    effective,
+                    activating,
+                    deactivating,
+                } = stake.delegation.stake_activating_and_deactivating(
+                    epoch,
+                    Some(stake_history),
+                    None,
+                );
+
+                println!(
+                    "get_delegation_state: [effective:{}/activating:{}/deactivating:{}]",
+                    effective, activating, deactivating
+                );
+                if activating > 0 {
+                    DelegationState::Activating
+                } else if deactivating > 0 {
+                    DelegationState::Deactivating
+                } else if effective > 0 {
+                    DelegationState::Activated
+                } else {
+                    DelegationState::Deactivated
+                }
+            }
+        }
     }
 
     pub fn get_stake_account(stake_state: StakeStateV2) -> StakeAccount {

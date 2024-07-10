@@ -137,7 +137,7 @@ describe('Validator Bonds fund bond account', () => {
     }
   })
 
-  it('fund deactivated', async () => {
+  it('not permitted to fund deactivated', async () => {
     const { stakeAccount, withdrawer, staker } = await delegatedStakeAccount({
       provider,
       lamports: LAMPORTS_PER_SOL * 2,
@@ -163,12 +163,15 @@ describe('Validator Bonds fund bond account', () => {
       stakeAccount,
       stakeAccountAuthority: withdrawer,
     })
-    await provider.sendIx([withdrawer], instruction)
-
-    await checkStakeFundedToBond(stakeAccount)
+    try {
+      await provider.sendIx([withdrawer], instruction)
+      throw new Error('failure expected as deactivated state')
+    } catch (e) {
+      verifyError(e, Errors, 6064, 'not activating or activated')
+    }
   })
 
-  it('fund deactivating', async () => {
+  it('not permitted to fund deactivating', async () => {
     const { stakeAccount, withdrawer, staker } = await delegatedStakeAccount({
       provider,
       lamports: LAMPORTS_PER_SOL * 2,
@@ -197,9 +200,12 @@ describe('Validator Bonds fund bond account', () => {
       stakeAccount,
       stakeAccountAuthority: withdrawer,
     })
-    await provider.sendIx([withdrawer], instruction)
-
-    await checkStakeFundedToBond(stakeAccount)
+    try {
+      await provider.sendIx([withdrawer], instruction)
+      throw new Error('failure expected as deactivating state')
+    } catch (e) {
+      verifyError(e, Errors, 6064, 'not activating or activated')
+    }
   })
 
   it('fund stake just created', async () => {
@@ -221,9 +227,6 @@ describe('Validator Bonds fund bond account', () => {
     })
     await provider.sendIx([withdrawer], instruction)
 
-    expect(await stakeActivation(provider, stakeAccount)).toEqual(
-      StakeActivationState.Activating
-    )
     await checkStakeFundedToBond(stakeAccount)
   })
 

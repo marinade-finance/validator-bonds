@@ -144,7 +144,7 @@ export async function stakeActivation(
       stakeState.Stake.stake.delegation.deactivationEpoch
     const curEpoch = new BN(await currentEpoch(provider))
 
-    // when deactivation or activation epoch is set to U64_MAX, it is not set
+    // value U64_MAX means "not being set"
     if (
       !deactivationEpoch.eq(U64_MAX) &&
       deactivationEpoch.gte(curEpoch) &&

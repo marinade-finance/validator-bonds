@@ -199,5 +199,5 @@ pub enum ErrorCode {
     MaxStakeWantedTooLow, // 6063 0x17af
 
     #[msg("Stake account is not activating or activated")]
-    NoStakeOrNotActivatingOrActivated, // 6026 0x178a
+    NoStakeOrNotActivatingOrActivated, // 6064 0x17b0
 }
