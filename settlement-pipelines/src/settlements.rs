@@ -89,7 +89,7 @@ pub async fn list_claimable_settlements(
                     Ok((settlement_pubkey, claims_pubkey, claims))
                 } else {
                     Err(CliError::Processing(anyhow!(
-                        "CRITICAL [upsize_settlements]: No SettlementClaims account {} for an existing Settlement {}",
+                        "CRITICAL [list_claimable]: No SettlementClaims account {} for an existing Settlement {}",
                         claims_pubkey,
                         settlement_pubkey
                     )))
