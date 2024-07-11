@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-## TS CLI&SDK [2.0.0](https://github.com/marinade-finance/validator-bonds/compare/v1.5.3...v2.0.0) (2024-07-X)
+## TS CLI&SDK [2.0.0](https://github.com/marinade-finance/validator-bonds/compare/v1.5.3...v2.0.0) (2024-07-11)
 
 ### Breaking
 
@@ -18,11 +18,11 @@ All notable changes to this project will be documented in this file. See [standa
 
 * `show-bond` fix on showing negative number after floating point when withdraw amount is bigger than available bond amount
 
-## contract release v2.0.0 (2024-07-X)
+## contract release v2.0.0 (2024-07-11)
 
 * address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
 * tag: [`contract-v2.0.0`](https://github.com/marinade-finance/validator-bonds/releases/tag/contract-v2.0.0), commit: [`848fc78`](https://github.com/marinade-finance/validator-bonds/commit/848fc78),
-* tx: [`TODO`](https://explorer.solana.com/tx/TODO)
+* tx: [`2soQznKuK2oJN8671qkUG2hNPcQU8jKEJt8SNWctsfWAJnhZYAT39QVtMQ8LZPeEhBBgASff37UEeDPL6DobdCoC`](https://explorer.solana.com/tx/2soQznKuK2oJN8671qkUG2hNPcQU8jKEJt8SNWctsfWAJnhZYAT39QVtMQ8LZPeEhBBgASff37UEeDPL6DobdCoC)
 * anchor verify command:
   ```
   git checkout 848fc78 &&\
