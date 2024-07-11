@@ -7,6 +7,7 @@ use std::sync::Arc;
 use validator_bonds::state::config::{find_bonds_withdrawer_authority, Config};
 use validator_bonds::state::settlement::{find_settlement_staker_authority, Settlement};
 
+use crate::CONTRACT_V2_DEPLOYMENT_EPOCH;
 use validator_bonds_common::settlement_claims::SettlementClaimsBitmap;
 use validator_bonds_common::settlements::{
     get_bonds_for_settlements, get_settlement_claims_for_settlement_pubkeys, get_settlements,
@@ -84,15 +85,21 @@ pub async fn list_claimable_settlements(
     let claimable_settlement_claims: Vec<(Pubkey, Pubkey, SettlementClaimsBitmap)> =
         claimable_settlement_claims
             .into_iter()
-            .map(|(settlement_pubkey, claims_pubkey, claims)| {
+            .zip(claimable_settlements.iter())
+            .filter_map(|((settlement_pubkey, claims_pubkey, claims), (_, settlement))| {
                 if let Some(claims) = claims {
-                    Ok((settlement_pubkey, claims_pubkey, claims))
+                    Some(Ok((settlement_pubkey, claims_pubkey, claims)))
                 } else {
-                    Err(CliError::Processing(anyhow!(
-                        "CRITICAL [list_claimable]: No SettlementClaims account {} for an existing Settlement {}",
-                        claims_pubkey,
-                        settlement_pubkey
-                    )))
+                    let error_msg = format!("[list_claimable]: No SettlementClaims account {} for an existing Settlement {}",
+                    claims_pubkey,
+                    settlement_pubkey
+                    );
+                    if settlement.epoch_created_for < CONTRACT_V2_DEPLOYMENT_EPOCH {
+                        info!("{}", error_msg);
+                        None
+                    } else {
+                        Some(Err(CliError::Processing(anyhow!("CRITICAL {}", error_msg))))
+                    }
                 }
             })
             .collect::<Result<Vec<(Pubkey, Pubkey, SettlementClaimsBitmap)>, CliError>>()?;
