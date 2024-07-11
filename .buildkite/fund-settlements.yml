@@ -20,6 +20,8 @@ steps:
     env:
       gs_bucket: gs://marinade-validator-bonds-mainnet
       past_epochs_to_load: 4
+      # epoch when the contract v2 was deployed, using different structure of merkle tree than v1
+      starting_epoch_contract_v2: 640
     commands:
     - |
       set -x
@@ -36,6 +38,10 @@ steps:
     - |
       set -x
       for epoch in $(seq $$epochs_start_index $$current_epoch); do
+        if [[ $$epoch -ge $$starting_epoch_contract_v2 ]]; then
+          echo "Skipping epoch $$epoch, because it's after the contract v2 was deployed at epoch $$starting_epoch_contract_v2"
+          continue
+        fi
         gcloud storage cp "$$gs_bucket/$$epoch/settlement-merkle-trees.json" "./merkle-trees/$${epoch}_settlement-merkle-trees.json" || true
         gcloud storage cp "$$gs_bucket/$$epoch/settlements.json" "./merkle-trees/$${epoch}_settlements.json" || true
       done
