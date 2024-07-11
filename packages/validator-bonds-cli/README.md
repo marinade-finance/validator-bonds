@@ -141,8 +141,13 @@ The parameters and their meanings are explained in detail below:
 ### Show the bond account
 
 ```sh
-validator-bonds -um show-bond <bond-or-vote-account-address> -f yaml
+validator-bonds -um show-bond <bond-or-vote-account-address> --with-funding -f yaml
 ```
+
+_NOTE:_ To display the `amounts` funded to a Bond account, the CLI must execute a `getProgramAccounts` query
+        on the RPC node to list stake accounts. Querying for accounts is often rate-limited,
+        and the error `429 Too Many Requests` may occur. If this happens,
+        use a private RPC node from an RPC provider (see https://solana.com/rpc).
 
 Expected output on created bond is like
 
