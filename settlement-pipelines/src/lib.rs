@@ -9,3 +9,5 @@ pub mod settlement_data;
 pub mod settlements;
 pub mod stake_accounts;
 pub mod stake_accounts_cache;
+
+pub const CONTRACT_V2_DEPLOYMENT_EPOCH: u64 = 640_u64;
