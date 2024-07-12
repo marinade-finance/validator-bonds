@@ -349,17 +349,24 @@ async fn prepare_funding(
                         stake_account: destination_stake,
                         split_stake_account: destination_split_stake,
                         state: destination_stake_state,
+                        lamports: destination_lamports,
                         ..
                     },
                     destination_stake_state_type,
                 )) = stake_account_to_fund
                 {
                     info!(
-                        "Settlement: {} (vote account {}, epoch {}) will be funded with {} stake accounts, possibly merged into {}",
+                        "Settlement: {} (vote account {}, epoch {}) will be funded with {} stake accounts ({} SOLs), possibly merged into {}",
                         settlement_record.settlement_address,
                         settlement_record.vote_account_address,
                         epoch,
                         stake_accounts_to_fund.len() + 1,
+                        lamports_to_sol(
+                            destination_lamports + stake_accounts_to_fund
+                                .iter()
+                                .map(|s| s.lamports)
+                                .sum::<u64>()
+                        ),
                         destination_stake
                     );
 
@@ -429,7 +436,11 @@ async fn prepare_funding(
                         epoch
                     ));
                 }
-                reporting.reportable.mut_ref(epoch).funded_amount += settlement_record
+                // we've got to place where we were willing to fund something
+                // it does not matter if it was succesful or no more stake accounts is available
+                // the calcullated 'amount_to_fund' comes from fact how many is already funded
+                // that means the rest substracted from max_toal_claim_sum has to be already funded
+                reporting.reportable.mut_ref(epoch).funded_amount_before += settlement_record
                     .max_total_claim_sum
                     .saturating_sub(amount_to_fund);
             }

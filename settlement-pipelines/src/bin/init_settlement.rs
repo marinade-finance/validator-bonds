@@ -262,7 +262,7 @@ async fn upsize_settlements(
     program: &Program<Arc<DynSigner>>,
     rpc_client: Arc<RpcClient>,
     transaction_executor: Arc<TransactionExecutor>,
-    settlement_records: &Vec<SettlementRecord>,
+    settlement_records: &[SettlementRecord],
     fee_payer: Arc<Keypair>,
     rent_payer: Arc<Keypair>,
     priority_fee_policy: &PriorityFeePolicy,
