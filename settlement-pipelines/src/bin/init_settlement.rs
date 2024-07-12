@@ -357,7 +357,7 @@ impl PrintReportable for InitSettlementReport {
                     "InitSettlement (epoch: {}, sum merkle nodes: {}, sum claim amounts: {}): created {}/{} settlements",
                     self.epoch,
                     self.json_max_merkle_nodes_sum,
-                    self.json_settlements_max_claim_sum,
+                    lamports_to_sol(self.json_settlements_max_claim_sum),
                     self.created_settlements.len(),
                     self.json_settlements_count
                 ),
