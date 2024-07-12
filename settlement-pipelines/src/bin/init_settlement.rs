@@ -354,7 +354,7 @@ impl PrintReportable for InitSettlementReport {
         Box::pin(async {
             vec![
                 format!(
-                    "InitSettlement (epoch: {}, sum merkle nodes: {}, sum claim amounts: {}): created {}/{} settlements",
+                    "InitSettlement (epoch: {}, sum merkle nodes: {}, sum claim amounts: {} SOLs): created {}/{} settlements",
                     self.epoch,
                     self.json_max_merkle_nodes_sum,
                     lamports_to_sol(self.json_settlements_max_claim_sum),
