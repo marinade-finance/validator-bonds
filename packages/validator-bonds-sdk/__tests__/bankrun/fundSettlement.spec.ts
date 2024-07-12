@@ -9,6 +9,7 @@ import {
   bondsWithdrawerAuthority,
   deserializeStakeState,
   getRentExemptStake,
+  Config,
 } from '../../src'
 import {
   BankrunExtendedProvider,
@@ -28,6 +29,7 @@ import {
   LAMPORTS_PER_SOL,
   PublicKey,
   StakeProgram,
+  SystemProgram,
 } from '@solana/web3.js'
 import {
   StakeStates,
@@ -52,6 +54,7 @@ describe('Validator Bonds fund settlement', () => {
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
+  let config: Config
   let operatorAuthority: Keypair
   let validatorIdentity: Keypair
   let bondAccount: PublicKey
@@ -74,8 +77,7 @@ describe('Validator Bonds fund settlement', () => {
         epochsToClaimSettlement,
       }
     ))
-    const config = await getConfig(program, configAccount)
-
+    config = await getConfig(program, configAccount)
     ;({ voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
     }))
@@ -615,6 +617,111 @@ describe('Validator Bonds fund settlement', () => {
     expect(
       (await getSettlement(program, settlementAccount)).lamportsFunded
     ).toEqual(beingFunded)
+  })
+
+  // Verification that fund settlement uses the non-delegated part of the stake account to be funded
+  // The split account is left funded in Bond and "possibly" is fully delegated
+  it('fund settlement with small amount not-fully delegated stake account', async () => {
+    const maxTotalClaim = 1 * LAMPORTS_PER_SOL
+    const { settlementAccount } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount,
+      operatorAuthority,
+      currentEpoch: settlementEpoch,
+      maxTotalClaim,
+    })
+
+    // stake account big enough to be split to compare to maxTotalClaim
+    const stakedLamports = 1000 * LAMPORTS_PER_SOL
+    const stakeAccount =
+      await createBondsFundedStakeAccountActivated(stakedLamports)
+    // just adding small portion of SOLs on top of the fully activated amount
+    const additionalSolTransfer = LAMPORTS_PER_SOL - 3
+    const transferIx = SystemProgram.transfer({
+      fromPubkey: provider.wallet.publicKey,
+      toPubkey: stakeAccount,
+      lamports: additionalSolTransfer,
+    })
+    await provider.sendIx([], transferIx)
+    let stakeAccountData =
+      await provider.connection.getAccountInfo(stakeAccount)
+    expect(stakeAccountData?.lamports).toEqual(
+      stakedLamports + additionalSolTransfer
+    )
+    let stakeState = (await getAndCheckStakeAccount(provider, stakeAccount))[0]
+    expect(stakeState.Stake!.stake.delegation.stake).toEqual(
+      stakedLamports - rentExemptStake
+    )
+
+    const { instruction, splitStakeAccount } = await fundSettlementInstruction({
+      program,
+      settlementAccount,
+      stakeAccount: stakeAccount,
+    })
+    await provider.sendIx(
+      [signer(splitStakeAccount), operatorAuthority],
+      instruction
+    )
+
+    stakeAccountData = await provider.connection.getAccountInfo(stakeAccount)
+    stakeState = (await getAndCheckStakeAccount(provider, stakeAccount))[0]
+    const splitStakeAccountData = await provider.connection.getAccountInfo(
+      pubkey(splitStakeAccount)
+    )
+    // funded stake account has to have enough sol to fund the settlement, i.e., maxTotalClaim
+    // then there has to be enough lamports after withdrawing all claiming that the stake account may still exist
+    // then there is left rent exempt lamports to be returned to the payer of rent for splitting stake account
+    expect(stakeAccountData?.lamports).toEqual(
+      maxTotalClaim +
+        config.minimumStakeLamports.toNumber() +
+        2 * rentExemptStake
+    )
+    // as the split uses the original stake account then the non-delegated lamports should be available
+    // in the settlement funded stake account
+    // for the stake amount is not calculated the rent-exempt lamports for particular stake account
+    expect(stakeState.Stake!.stake.delegation.stake).toEqual(
+      maxTotalClaim +
+        config.minimumStakeLamports.toNumber() +
+        rentExemptStake -
+        additionalSolTransfer
+    )
+    // check if split stake mount matches what was original in stake account
+    // minus what was funded to the settlement
+    // + rent exempt amount that was added on top of original amount by split rent payer wallet
+    expect(splitStakeAccountData?.lamports).toEqual(
+      stakedLamports +
+        additionalSolTransfer -
+        maxTotalClaim -
+        config.minimumStakeLamports.toNumber() -
+        rentExemptStake
+    )
+    // check the stake account is delegated to settlement
+    const [bondsAuthority] = bondsWithdrawerAuthority(
+      configAccount,
+      program.programId
+    )
+    expect(stakeState.Stake!.meta.authorized.staker).toEqual(
+      settlementStakerAuthority(settlementAccount, program.programId)[0]
+    )
+    expect(stakeState.Stake!.meta.authorized.withdrawer).toEqual(bondsAuthority)
+    // all lamports are delegated in split stake account (except of rent exempt lamports)
+    const [splitStakeState] = await getAndCheckStakeAccount(
+      provider,
+      pubkey(splitStakeAccount),
+      StakeStates.Delegated
+    )
+    expect(splitStakeState.Stake!.stake.delegation.stake).toEqual(
+      (splitStakeAccountData?.lamports ?? 0) - rentExemptStake
+    )
+    // split stake account is funded to bond
+    expect(splitStakeState.Stake!.meta.authorized.staker).toEqual(
+      bondsAuthority
+    )
+    expect(splitStakeState.Stake!.meta.authorized.withdrawer).toEqual(
+      bondsAuthority
+    )
   })
 
   async function createBondsFundedStakeAccountActivated(

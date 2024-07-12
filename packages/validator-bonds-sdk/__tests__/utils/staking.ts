@@ -118,6 +118,7 @@ export async function getAndCheckStakeAccount(
   }
   expect(accountInfo).toBeDefined()
   assert(accountInfo)
+  expect(accountInfo.owner).toEqual(StakeProgram.programId)
   const stakeData = deserializeStakeState(accountInfo.data)
   switch (stakeStateCheck) {
     case StakeStates.Uninitialized:
