@@ -11,14 +11,16 @@ use crate::state::config::Config;
 use crate::state::settlement::Settlement;
 use crate::utils::{minimal_size_stake_account, return_unused_split_stake_account_rent};
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program::invoke_signed;
+use anchor_lang::solana_program::program::{invoke, invoke_signed};
 use anchor_lang::solana_program::sysvar::stake_history;
+use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 use anchor_lang::solana_program::{
     stake,
     stake::state::{StakeAuthorize, StakeStateV2},
 };
 use anchor_spl::stake::{
-    authorize, deactivate_stake, Authorize, DeactivateStake, Stake, StakeAccount,
+    authorize, deactivate_stake, withdraw, Authorize, DeactivateStake, Stake, StakeAccount,
+    Withdraw,
 };
 
 /// Funding the settlement by providing a stake account delegated to a particular validator vote account based on the Merkle proof.
@@ -34,14 +36,21 @@ pub struct FundSettlement<'info> {
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,
+        has_one = vote_account @ ErrorCode::VoteAccountMismatch,
         seeds = [
             b"bond_account",
             config.key().as_ref(),
-            bond.vote_account.as_ref(),
+            vote_account.key().as_ref(),
         ],
         bump = bond.bump,
     )]
     pub bond: Box<Account<'info, Bond>>,
+
+    /// CHECK: the validator vote account to which the stake account is delegated, linked to bond
+    #[account(
+        owner = vote_program_id @ ErrorCode::InvalidVoteAccountProgramId,
+    )]
+    pub vote_account: UncheckedAccount<'info>,
 
     #[account(
         mut,
@@ -120,6 +129,10 @@ pub struct FundSettlement<'info> {
     pub rent: Sysvar<'info, Rent>,
 
     pub stake_program: Program<'info, Stake>,
+
+    /// CHECK: CPI
+    #[account(address = stake::config::ID)]
+    pub stake_config: UncheckedAccount<'info>,
 }
 
 impl<'info> FundSettlement<'info> {
@@ -180,12 +193,12 @@ impl<'info> FundSettlement<'info> {
             && amount_available - amount_needed >= stake_account_min_size + split_stake_rent_exempt;
 
         let (funding_amount, is_split) =
-            // no split needed or possible, whole stake account funded, still amount funded is subtracted off the min size
+            // -> no split needed or possible, whole stake account funded, still amount funded is subtracted off the min size
             // as after claiming the stake will be capable to exist
             if amount_available <= amount_needed || !left_over_splittable  {
                 let lamports_to_fund = ctx.accounts.stake_account.get_lamports() - stake_account_min_size;
 
-                // whole amount used, not split - closing and returning rent
+                // whole amount used, no splitting - closing and returning rent
                 return_unused_split_stake_account_rent(
                     &ctx.accounts.stake_program,
                     &ctx.accounts.split_stake_account,
@@ -195,39 +208,147 @@ impl<'info> FundSettlement<'info> {
                 )?;
                 (lamports_to_fund, false)
             } else {
-                let lamports_to_fund = amount_needed - stake_account_min_size;
-                // split gains what overflows from funding + amount needed to pay back to split rent payer on close
-                let fund_split_leftover =
+                // -> to fund only part of the lamports available in the stake account
+                //    'stake_account' is funded to settlement, the overflow is moved into 'split_stake_account'
+
+                // split_stake_account gains:
+                // -- what overflows from funding: lamports available (delegated and non-delegated) "-" amount needed
+                // --   "-" what is needed to be paid back to split rent payer on close
+                // stake_account gains:
+                // -- amount_needed
+                // --   "+" what is needed to be paid back to split rent payer on close
+                let mut fund_split_leftover =
                     ctx.accounts.stake_account.get_lamports() - amount_needed - split_stake_rent_exempt;
 
-                let split_instruction = stake::instruction::split(
-                  ctx.accounts.stake_account.to_account_info().key,
-                  ctx.accounts.bonds_withdrawer_authority.key,
-                  fund_split_leftover,
-                  &ctx.accounts.split_stake_account.key(),
-                )
-                .last()
-                .unwrap()
-                .clone();
-                invoke_signed(
-                    &split_instruction,
-                    &[
-                        ctx.accounts.stake_program.to_account_info(),
-                        ctx.accounts.stake_account.to_account_info(),
-                        ctx.accounts.split_stake_account.to_account_info(),
-                        ctx.accounts.bonds_withdrawer_authority.to_account_info(),
-                    ],
-                    &[&[
-                        BONDS_WITHDRAWER_AUTHORITY_SEED,
-                        &ctx.accounts.config.key().as_ref(),
-                        &[ctx.accounts.config.bonds_withdrawer_authority_bump],
-                    ]],
-                )?;
+                let lamports_non_delegated = ctx.accounts.stake_account.get_lamports() -  stake_delegation.stake;
+                // When splitting all the un-delegated part is left in the original stake account!
+                //   For the 'stake_account' may exist in "delegated" state there needs to be at least minimal stake size left as delegated.
+                //   We need to some part of the non-delegated lamports to the split stake account and then run the split.
+                let lamports_max_possible_non_delegated = ctx.accounts.settlement.max_total_claim
+                    - ctx.accounts.settlement.lamports_funded + stake_meta.rent_exempt_reserve;
+
+                if lamports_non_delegated > lamports_max_possible_non_delegated {
+                    let mut lamports_to_transfer = lamports_non_delegated - lamports_max_possible_non_delegated;
+                    if fund_split_leftover >= lamports_to_transfer {
+                        // to be split; something is withdrawn to split stake account and some part is split there
+                        fund_split_leftover -= lamports_to_transfer;
+                    } else {
+                        // nothing to be split; the original stake account has to have enough lamports for funding:
+                        //   (to pay the funding + minimal size of stake account + rent == amount_needed) + returning rent for the split
+                        fund_split_leftover = 0;
+                        lamports_to_transfer = ctx.accounts.stake_account.get_lamports() - amount_needed - split_stake_rent_exempt;
+                    }
+                    msg!(
+                        "Withdraw non-delegated: {} to split stake {}; fund_split_leftover: {}",
+                        lamports_to_transfer,
+                        ctx.accounts.split_stake_account.key(),
+                        fund_split_leftover
+                    );
+                    withdraw(
+                        CpiContext::new_with_signer(
+                            ctx.accounts.stake_program.to_account_info(),
+                            Withdraw {
+                                stake: ctx.accounts.stake_account.to_account_info(),
+                                withdrawer: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                                to: ctx.accounts.split_stake_account.to_account_info(),
+                                stake_history: ctx.accounts.stake_history.to_account_info(),
+                                clock: ctx.accounts.clock.to_account_info(),
+                            },
+                            &[&[
+                                BONDS_WITHDRAWER_AUTHORITY_SEED,
+                                &ctx.accounts.config.key().as_ref(),
+                                &[ctx.accounts.config.bonds_withdrawer_authority_bump],
+                            ]],
+                        ),
+                        lamports_to_transfer,
+                        None,
+                    )?;
+                }
+
+                if fund_split_leftover > 0 {
+                    // There is enough delegated lamports in the stake account that we can split them.
+                    //   Delegation target will be the same as for the original stake account.
+                    msg!(
+                        "Split to stake {} with lamports {}",
+                        ctx.accounts.split_stake_account.key(),
+                        fund_split_leftover
+                    );
+                    let split_instruction = stake::instruction::split(
+                        ctx.accounts.stake_account.to_account_info().key,
+                        ctx.accounts.bonds_withdrawer_authority.key,
+                        fund_split_leftover,
+                        &ctx.accounts.split_stake_account.key(),
+                    )
+                        .last()
+                        .unwrap()
+                        .clone();
+                    invoke_signed(
+                        &split_instruction,
+                        &[
+                            ctx.accounts.stake_program.to_account_info(),
+                            ctx.accounts.stake_account.to_account_info(),
+                            ctx.accounts.split_stake_account.to_account_info(),
+                            ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                        ],
+                        &[&[
+                            BONDS_WITHDRAWER_AUTHORITY_SEED,
+                            &ctx.accounts.config.key().as_ref(),
+                            &[ctx.accounts.config.bonds_withdrawer_authority_bump],
+                        ]],
+                    )?;
+                } else {
+                    // Not enough delegated lamports that we can run split. Instead, we initialize and delegate to vote account.
+                    msg!(
+                        "Delegating stake account {} to vote account {} with lamports {}",
+                        ctx.accounts.split_stake_account.key(),
+                        ctx.accounts.bond.vote_account.key(),
+                        ctx.accounts.split_stake_account.get_lamports()
+                    );
+                    let initialize_instruction = stake::instruction::initialize(
+                        ctx.accounts.split_stake_account.to_account_info().key,
+                        &stake::state::Authorized {
+                            staker: ctx.accounts.bonds_withdrawer_authority.key(),
+                            withdrawer: ctx.accounts.bonds_withdrawer_authority.key(),
+                        },
+                        &stake::state::Lockup::default(),
+                    );
+                    invoke(
+                        &initialize_instruction,
+                        &[
+                            ctx.accounts.stake_program.to_account_info(),
+                            ctx.accounts.split_stake_account.to_account_info(),
+                            ctx.accounts.rent.to_account_info(),
+                        ],
+                    )?;
+                    let delegate_instruction = &stake::instruction::delegate_stake(
+                        &ctx.accounts.split_stake_account.key(),
+                        &ctx.accounts.bonds_withdrawer_authority.key(),
+                        &ctx.accounts.bond.vote_account,
+                    );
+                        invoke_signed(
+                        delegate_instruction,
+                        &[
+                            ctx.accounts.stake_program.to_account_info(),
+                            ctx.accounts.split_stake_account.to_account_info(),
+                            ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                            ctx.accounts.vote_account.to_account_info(),
+                            ctx.accounts.clock.to_account_info(),
+                            ctx.accounts.stake_history.to_account_info(),
+                            ctx.accounts.stake_config.to_account_info(),
+                        ],
+                        &[&[
+                            BONDS_WITHDRAWER_AUTHORITY_SEED,
+                            &ctx.accounts.config.key().as_ref(),
+                            &[ctx.accounts.config.bonds_withdrawer_authority_bump],
+                        ]],
+                    )?;
+                }
 
                 // the split rent collector will get back the rent on closing the settlement
                 ctx.accounts.settlement.split_rent_collector = Some(ctx.accounts.split_stake_rent_payer.key());
                 ctx.accounts.settlement.split_rent_amount = split_stake_rent_exempt;
 
+                let lamports_to_fund = amount_needed - stake_account_min_size;
                 (lamports_to_fund, true)
             };
 
