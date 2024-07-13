@@ -73,6 +73,7 @@ pub async fn list_claimable_settlements(
         stake_accounts.len()
     );
 
+    // settlement addr, settlement claims addr, bitmap
     let claimable_settlement_claims = get_settlement_claims_for_settlement_pubkeys(
         rpc_client.clone(),
         &claimable_settlements
@@ -81,50 +82,45 @@ pub async fn list_claimable_settlements(
             .collect::<Vec<_>>(),
     )
     .await
-    .map_err(CliError::RetryAble)?;
-    let claimable_settlement_claims: Vec<(Pubkey, Pubkey, SettlementClaimsBitmap)> =
-        claimable_settlement_claims
-            .into_iter()
-            .zip(claimable_settlements.iter())
-            .filter_map(|((settlement_pubkey, claims_pubkey, claims), (_, settlement))| {
-                if let Some(claims) = claims {
-                    Some(Ok((settlement_pubkey, claims_pubkey, claims)))
+    .map_err(CliError::RetryAble)?
+        .into_iter().zip(claimable_settlements.into_iter())
+        .filter_map(|((settlement_pubkey, claims_pubkey, claims), (s_addr, settlement))|
+        {
+            assert_eq!(settlement_pubkey, s_addr);
+            if let Some(claims) = claims {
+                Some(Ok((settlement_pubkey, settlement, claims_pubkey, claims)))
+            } else {
+                let error_msg = format!("[list_claimable]: No SettlementClaims account {} for an existing Settlement {}/epoch {}",
+                                        claims_pubkey,
+                                        settlement_pubkey,
+                                        settlement.epoch_created_for
+                );
+                if settlement.epoch_created_for < CONTRACT_V2_DEPLOYMENT_EPOCH {
+                    info!("{}", error_msg);
+                    None
                 } else {
-                    let error_msg = format!("[list_claimable]: No SettlementClaims account {} for an existing Settlement {}",
-                    claims_pubkey,
-                    settlement_pubkey
-                    );
-                    if settlement.epoch_created_for < CONTRACT_V2_DEPLOYMENT_EPOCH {
-                        info!("{}", error_msg);
-                        None
-                    } else {
-                        Some(Err(CliError::Processing(anyhow!("CRITICAL {}", error_msg))))
-                    }
+                    Some(Err(CliError::Processing(anyhow!("CRITICAL {}", error_msg))))
                 }
-            })
-            .collect::<Result<Vec<(Pubkey, Pubkey, SettlementClaimsBitmap)>, CliError>>()?;
+            }
+        })
+        .collect::<Result<Vec<(Pubkey, Settlement, Pubkey, SettlementClaimsBitmap)>, CliError>>()?;
 
     let claimable_stakes = obtain_claimable_stake_accounts_for_settlement(
         stake_accounts,
         config_address,
-        claimable_settlements
+        claimable_settlement_claims
             .iter()
-            .map(|(pubkey, _)| *pubkey)
+            .map(|(settlement_pubkey, _, _, _)| *settlement_pubkey)
             .collect(),
         rpc_client.clone(),
     )
     .await
     .map_err(CliError::RetryAble)?;
 
-    let results = claimable_settlements
+    let results = claimable_settlement_claims
         .into_iter()
-        .zip(claimable_settlement_claims.into_iter())
         .filter_map(
-            |(
-                (settlement_address, settlement),
-                (sa, settlement_claims_address, settlement_claims),
-            )| {
-                assert_eq!(settlement_address, sa);
+            |(settlement_address, settlement, settlement_claims_address, settlement_claims)| {
                 if let Some((stake_accounts_lamports, stake_accounts)) =
                     claimable_stakes.get(&settlement_address)
                 {

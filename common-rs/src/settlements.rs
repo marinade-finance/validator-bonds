@@ -83,6 +83,7 @@ pub async fn get_settlements_for_pubkeys(
     get_accounts_for_pubkeys(rpc_client, pubkeys).await
 }
 
+/// settlement address, settlement claims address, settlement claims bitmap
 pub async fn get_settlement_claims_for_settlement_pubkeys(
     rpc_client: Arc<RpcClient>,
     settlement_pubkeys: &[Pubkey],
@@ -111,11 +112,11 @@ pub async fn get_settlement_claims_for_settlement_pubkeys(
         .iter()
         .zip(settlement_claims.into_iter())
         .map(
-            |(settlement_pubkey, (settlement_claims_pubkey, settlement_claims))| {
+            |(settlement_pubkey, (settlement_claims_pubkey, settlement_claims_bitmap))| {
                 (
                     *settlement_pubkey,
                     settlement_claims_pubkey,
-                    settlement_claims,
+                    settlement_claims_bitmap,
                 )
             },
         )
