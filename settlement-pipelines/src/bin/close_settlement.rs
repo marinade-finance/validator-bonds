@@ -209,7 +209,7 @@ async fn close_settlements(
                 program: validator_bonds_id,
                 event_authority: find_event_authority().0,
             })
-            .args(validator_bonds::instruction::CloseSettlement {});
+            .args(validator_bonds::instruction::CloseSettlementV2 {});
         add_instruction_to_builder(
             transaction_builder,
             &req,
