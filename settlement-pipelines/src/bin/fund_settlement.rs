@@ -106,12 +106,12 @@ async fn real_main(reporting: &mut ReportHandler<FundSettlementReport>) -> anyho
     )?;
 
     let rent_payer = if let Some(rent_payer) = args.rent_payer.clone() {
-        load_keypair(&rent_payer)?
+        load_keypair("--rent-payer", &rent_payer)?
     } else {
         fee_payer.clone()
     };
     let marinade_wallet = if let Some(marinade_wallet) = args.marinade_wallet.clone() {
-        load_keypair(&marinade_wallet)?
+        load_keypair("--marinade-wallet", &marinade_wallet)?
     } else {
         fee_payer.clone()
     };
@@ -437,9 +437,9 @@ async fn prepare_funding(
                     ));
                 }
                 // we've got to place where we were willing to fund something
-                // it does not matter if it was succesful or no more stake accounts is available
-                // the calcullated 'amount_to_fund' comes from fact how many is already funded
-                // that means the rest substracted from max_toal_claim_sum has to be already funded
+                // it does not matter if it was successful or no more stake accounts is available
+                // the calculated 'amount_to_fund' comes from fact how many is already funded
+                // that means the rest subtracted from max_total_claim_sum has to be already funded
                 reporting.reportable.mut_ref(epoch).funded_amount_before += settlement_record
                     .max_total_claim_sum
                     .saturating_sub(amount_to_fund);

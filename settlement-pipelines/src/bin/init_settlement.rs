@@ -88,7 +88,7 @@ async fn real_main(reporting: &mut ReportHandler<InitSettlementReport>) -> anyho
     )?;
 
     let rent_payer = if let Some(rent_payer) = args.rent_payer.clone() {
-        load_keypair(&rent_payer)?
+        load_keypair("--rent-payer", &rent_payer)?
     } else {
         fee_payer.clone()
     };

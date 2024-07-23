@@ -67,15 +67,16 @@ pub struct TipPolicyOpts {
     tip_multiplier: Option<u64>,
 }
 
-pub fn load_default_keypair(s: Option<&str>) -> anyhow::Result<Option<Arc<Keypair>>> {
+pub fn load_default_keypair(name: &str, s: Option<&str>) -> anyhow::Result<Option<Arc<Keypair>>> {
     if s.is_none() || s.unwrap().is_empty() {
-        load_keypair(DEFAULT_KEYPAIR_PATH).map_or_else(|_e| Ok(None), |keypair| Ok(Some(keypair)))
+        load_keypair("<default Solana keypair>", DEFAULT_KEYPAIR_PATH)
+            .map_or_else(|_e| Ok(None), |keypair| Ok(Some(keypair)))
     } else {
-        Ok(Some(load_keypair(s.unwrap())?))
+        Ok(Some(load_keypair(name, s.unwrap())?))
     }
 }
 
-pub fn load_keypair(s: &str) -> anyhow::Result<Arc<Keypair>> {
+pub fn load_keypair(name: &str, s: &str) -> anyhow::Result<Arc<Keypair>> {
     // loading directly as the json keypair data (format [u8; 64])
     let parsed_json = parse_keypair_as_json_data(s);
     if let Ok(key_bytes) = parsed_json {
@@ -84,14 +85,21 @@ pub fn load_keypair(s: &str) -> anyhow::Result<Arc<Keypair>> {
         return Ok(Arc::new(k));
     } else {
         debug!(
-            "Could not parse keypair as json data: '{:?}'",
+            "Could not parse keypair named '{}' as json data: '{:?}'",
+            name,
             parsed_json.err()
         );
     }
     // loading as a file path to keypair
     let path = shellexpand::tilde(s);
-    let k = read_keypair_file(Path::new(&path.to_string()))
-        .map_err(|e| anyhow!("Could not read keypair file from '{}': {}", s, e))?;
+    let k = read_keypair_file(Path::new(&path.to_string())).map_err(|e| {
+        anyhow!(
+            "Could not read keypair named '{}' file from '{}': {}",
+            name,
+            s,
+            e
+        )
+    })?;
     Ok(Arc::new(k))
 }
 
@@ -186,15 +194,15 @@ pub fn init_from_opts(
 ) -> anyhow::Result<InitializedGlobalOpts> {
     let (rpc_client, _) = get_rpc_client(global_opts)?;
 
-    let default_keypair = load_default_keypair(global_opts.keypair.as_deref())?;
+    let default_keypair = load_default_keypair("--keypair", global_opts.keypair.as_deref())?;
     let fee_payer_keypair = if let Some(fee_payer) = global_opts.fee_payer.clone() {
-        load_keypair(&fee_payer)?
+        load_keypair("--fee-payer", &fee_payer)?
     } else {
         default_keypair.clone().map_or(Err(anyhow!("Neither --fee-payer nor --keypair provided, no keypair to pay for transaction fees")), Ok)?
     };
     let operator_authority_keypair =
         if let Some(operator_authority) = global_opts.operator_authority.clone() {
-            load_keypair(&operator_authority)?
+            load_keypair("--operator-authority", &operator_authority)?
         } else {
             default_keypair.map_or(
                 Err(anyhow!(
