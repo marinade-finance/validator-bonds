@@ -31,8 +31,6 @@ if [ -z "$SETTLEMENTS_JSON_FILE" ] || [ -z "$MERKLE_TREES_JSON_FILE" ]; then
     exit 1
 fi
 
-# 272 bytes
-CLAIM_ACCOUNT_DATA_RENT=0.002784
 # stake account minimal size (1 SOL is hardcoded here but can be dfferent based on Config)
 STAKE_ACCOUNT_MINIMAL_SIZE=$((1000000000 + 2282880))
 
@@ -50,8 +48,7 @@ echo -n "Sum of max total claim at '$MERKLE_TREES_JSON_FILE': "
 LAMPORTS=$(jq '.merkle_trees[].max_total_claim_sum' "$MERKLE_TREES_JSON_FILE" | paste -s -d+ | bc)
 solsdecimal $LAMPORTS
 NUMBER_OF_CLAIMS=$(jq '.merkle_trees[].tree_nodes | length'  "$MERKLE_TREES_JSON_FILE" |  paste -s -d+ | bc)
-RENT=$(echo "scale=4; $NUMBER_OF_CLAIMS * $CLAIM_ACCOUNT_DATA_RENT" | bc)
-echo "Number of all claims: $NUMBER_OF_CLAIMS, expected rent for newly created: $RENT"
+echo "Number of all claims: $NUMBER_OF_CLAIMS"
 COUNT=$(jq '.merkle_trees | length'  "$MERKLE_TREES_JSON_FILE")
 echo "Number of merkle trees: $COUNT"
 echo '----------------'
@@ -89,9 +86,9 @@ echo
 echo '========================='
 echo 'Summary of claims:'
 for FUNDER in "${!claims_amounts[@]}"; do
-  RENT=$(echo "scale=4; ${claims_number[$FUNDER]} * $STAKE_ACCOUNT_MINIMAL_SIZE" | bc)
-  RENT=$(solsdecimal $RENT)
-  echo -n "Funder $FUNDER, sum of ${claims_number[$FUNDER]} claims (+/- stake 'rent': ${RENT}): "
+  STAKE_ACCOUNT_RENT=$(echo "scale=4; ${claims_number[$FUNDER]} * $STAKE_ACCOUNT_MINIMAL_SIZE" | bc)
+  STAKE_ACCOUNT_RENT=$(solsdecimal $STAKE_ACCOUNT_RENT)
+  echo -n "Funder $FUNDER, sum of ${claims_number[$FUNDER]} claims (+/- stake account 'rent': ${STAKE_ACCOUNT_RENT}): "
   solsdecimal ${claims_amounts[$FUNDER]}
 done
 echo '========================='

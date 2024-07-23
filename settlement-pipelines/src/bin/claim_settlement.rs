@@ -4,8 +4,7 @@ use clap::Parser;
 use log::{debug, error, info};
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
-    init_from_opts, load_keypair, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts,
-    TipPolicyOpts,
+    init_from_opts, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
 };
 use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::{execute_parallel, execute_parallel_with_rate};
@@ -73,10 +72,6 @@ struct Args {
 
     #[clap(flatten)]
     tip_policy_opts: TipPolicyOpts,
-
-    /// keypair payer for rent of accounts, if not provided, fee payer keypair is used
-    #[arg(long)]
-    rent_payer: Option<String>,
 }
 
 #[tokio::main]
@@ -113,12 +108,6 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementReport>) -> anyh
 
     let mut json_data = load_json(&args.settlement_json_files)?;
 
-    let rent_payer = if let Some(rent_payer) = args.rent_payer.clone() {
-        load_keypair(&rent_payer)?
-    } else {
-        fee_payer.clone()
-    };
-
     let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
 
     let settlement_records =
@@ -134,7 +123,6 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementReport>) -> anyh
         .init(rpc_client.clone(), &claimable_settlements);
 
     let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
-    transaction_builder.add_signer_checked(&rent_payer);
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
 
     let clock = get_clock(rpc_client.clone())

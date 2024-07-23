@@ -19,7 +19,7 @@ steps:
   - label: " Loading json settlements data"
     env:
       gs_bucket: gs://marinade-validator-bonds-mainnet
-      past_epochs_to_load: 4
+      past_epochs_to_load: 3
       # epoch when the contract v2 was deployed, using different structure of merkle tree than v1
       starting_epoch_contract_v2: 640
     commands:
@@ -69,9 +69,9 @@ steps:
       ./target/release/fund-settlement \
         --rpc-url $$RPC_URL \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
-        --fee-payer "$$VALIDATOR_BONDS_SETTLEMENTS_WALLET" \
-        --marinade-wallet "$$VALIDATOR_BONDS_FUNDING_WALLET" \
-        --rent-payer "$$VALIDATOR_BONDS_SETTLEMENTS_WALLET" \
+        --fee-payer "$$PSR_RENT_FEE_PAYER_WALLET" \
+        --marinade-wallet "$$PSR_FUNDING_WALLET" \
+        --rent-payer "$$PSR_RENT_FEE_PAYER_WALLET" \
         --settlement-json-files ./merkle-trees/* | tee -a "./fund-execution-report.$$BUILDKITE_RETRY_COUNT"
     key: 'fund-settlement'
     artifact_paths:

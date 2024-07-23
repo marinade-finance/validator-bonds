@@ -101,8 +101,8 @@ steps:
         --input-merkle-tree-collection "./settlement-merkle-trees.json" \
         --input-settlement-collection "./settlements.json" \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
-        --fee-payer "$$VALIDATOR_BONDS_SETTLEMENTS_WALLET" \
-        --rent-payer "$$VALIDATOR_BONDS_SETTLEMENTS_WALLET" \
+        --fee-payer "$$PSR_RENT_FEE_PAYER_WALLET" \
+        --rent-payer "$$PSR_RENT_FEE_PAYER_WALLET" \
         --epoch "$$epoch" | tee -a "./init-execution-report.$$BUILDKITE_RETRY_COUNT"
     key: 'init-settlement'
     artifact_paths:
