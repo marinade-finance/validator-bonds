@@ -17,6 +17,7 @@ use validator_bonds_common::stake_accounts::{
     CollectedStakeAccounts,
 };
 
+#[derive(Debug)]
 pub struct ClaimableSettlementsReturn {
     pub settlement_address: Pubkey,
     pub settlement: Settlement,
@@ -68,7 +69,7 @@ pub async fn list_claimable_settlements(
             .await
             .map_err(CliError::RetryAble)?;
     info!(
-        "For config {} there are {} stake accounts",
+        "For config {} existing {} stake accounts",
         config_address,
         stake_accounts.len()
     );
@@ -125,7 +126,11 @@ pub async fn list_claimable_settlements(
                     claimable_stakes.get(&settlement_address)
                 {
                     if stake_accounts.is_empty() {
-                        // no stake accounts for the settlement then not claimable
+                        debug!(
+                            "No stake accounts for settlement {} (epoch: {}), not claimable",
+                            settlement_address,
+                            settlement.epoch_created_for
+                        );
                         None
                     } else {
                         Some(ClaimableSettlementsReturn {
@@ -139,6 +144,11 @@ pub async fn list_claimable_settlements(
                     }
                 } else {
                     // no settlement found in the map then not claimable
+                    debug!(
+                        "Settlement {} (epoch: {}) not found in map of claimable stake accounts, not claimable",
+                        settlement_address,
+                        settlement.epoch_created_for
+                    );
                     None
                 }
             },

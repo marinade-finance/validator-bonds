@@ -22,7 +22,7 @@ steps:
 
   - label: ":campfire: List claimable epochs"
     env:
-      # RUST_LOG: debug
+      RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,list_claimable_epoch=debug
     commands:
     - '. "$HOME/.cargo/env"'
     - 'buildkite-agent artifact download --include-retried-jobs target/release/list-claimable-epoch .'

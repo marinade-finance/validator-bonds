@@ -1,5 +1,5 @@
 use clap::Parser;
-use log::info;
+use log::{debug, info};
 use settlement_pipelines::arguments::{get_rpc_client, GlobalOpts};
 use settlement_pipelines::init::init_log;
 use settlement_pipelines::settlements::list_claimable_settlements;
@@ -32,6 +32,14 @@ async fn main() -> anyhow::Result<()> {
 
     let claimable_settlements =
         list_claimable_settlements(rpc_client.clone(), &config_address, &config).await?;
+
+    debug!(
+        "Claimable settlements: {:?}",
+        claimable_settlements
+            .iter()
+            .map(|d| (d.settlement_address, d.settlement.epoch_created_for))
+            .collect::<Vec<_>>()
+    );
 
     let claimable_epochs = claimable_settlements
         .iter()
