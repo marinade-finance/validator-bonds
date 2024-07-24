@@ -145,7 +145,7 @@ pub async fn list_claimable_settlements(
                 } else {
                     // no settlement found in the map then not claimable
                     debug!(
-                        "Settlement {} (epoch: {}) not found in map of claimable stake accounts, not claimable",
+                        "Settlement {} (epoch: {}) not claimable stake accounts in map (probably stakes are not deactivated yet)",
                         settlement_address,
                         settlement.epoch_created_for
                     );
