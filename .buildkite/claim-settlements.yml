@@ -99,7 +99,7 @@ steps:
         --rpc-url $$RPC_URL \
         --settlement-json-files ./merkle-trees/* \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
-        --fee-payer "$$PSR_CLAIMING_WALLET" \
+        --fee-payer "$$PSR_TX_FEE_WALLET" \
         | tee -a "./claim-execution-report.$$BUILDKITE_RETRY_COUNT"
     key: 'claim-settlement'
     artifact_paths:

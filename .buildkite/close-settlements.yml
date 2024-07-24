@@ -85,8 +85,8 @@ steps:
       ./target/release/close-settlement \
         --rpc-url $$RPC_URL \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
-        --fee-payer "$$PSR_RENT_FEE_PAYER_WALLET" \
-        --marinade-wallet "$$PSR_FUNDING_WALLET" \
+        --fee-payer "$$PSR_TX_FEE_WALLET" \
+        --marinade-wallet "$$PSR_MARINADE_DAO_FUNDER_WALLET" \
         --past-settlements ./past-settlements.json | tee -a "./close-execution-report.$$BUILDKITE_RETRY_COUNT"
     key: 'close-settlement'
     artifact_paths:
