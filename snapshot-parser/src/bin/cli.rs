@@ -12,12 +12,15 @@ use {
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    /// Path to the directory where the snapshot is unpacked (e.g., from .tar.zst)
     #[arg(long, env, value_parser = Args::path_parser)]
     ledger_path: PathBuf,
 
+    /// Path to write JSON file to for the validator metas (e.g., validators.json)
     #[arg(long, env)]
     output_validator_meta_collection: String,
 
+    /// Path to write JSON file to for the stake metas (e.g., stakes.json)
     #[arg(long, env)]
     output_stake_meta_collection: String,
 }
