@@ -135,7 +135,7 @@ async fn real_main(reporting: &mut ReportHandler<InitSettlementReport>) -> anyho
 
     // RPC nodes are not in sync and load-balanced nodes may provide different data
     // let's wait 15 seconds to get transaction finalized and propagated
-    tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
 
     upsize_settlements(
         &program,
