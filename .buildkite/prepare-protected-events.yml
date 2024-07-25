@@ -1,0 +1,144 @@
+agents:
+  queue: "snapshots"
+
+env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+  claim_type: "protected-events"
+
+steps:
+  - label: ":hammer_and_wrench: :rust: Build"
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'cargo build --release --bin settlement-engine-cli'
+    artifact_paths:
+      - target/release/settlement-engine-cli
+
+  - input: "What is the epoch to generate settlements for?"
+    fields:
+      - text: "Epoch"
+        key: "epoch"
+        format: "[0-9]+"
+    if: "build.env('EPOCH') == null"
+  - command: "echo 'Epoch is: $EPOCH'"
+    if: "build.env('EPOCH') != null"
+
+  - wait: ~
+
+  - label: ":closed_lock_with_key: Concurrency gate lock"
+    command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/prepare-protected-events'
+    concurrency: 1
+
+  - wait: ~
+
+  - label: ":floppy_disk: :arrow_left: :cloud: Downloading Settlements JSON data"
+    commands:
+    - 'epoch=$(buildkite-agent meta-data get epoch)'
+    - |
+      gcloud storage cp "$gs_bucket/$$epoch/validators.json" "."
+      gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
+      gcloud storage cp "$gs_bucket/$$epoch/past-validators.json" "." || echo "Previous validator data not available!"'
+    key: 'download-json'
+    artifact_paths:
+      - "./*.json"
+
+  - wait: ~
+
+  - label: ":scales: Evaluate Marinade Protected Events"
+    env:
+      WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
+    commands:
+    - 'buildkite-agent artifact download --include-retried-jobs validators.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs stakes.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs past-validators.json . || echo "Previous validator data not available"'
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/settlement-engine-cli .'
+    - 'chmod +x target/release/settlement-engine-cli'
+    - 'past_validators_arg=$( [[ -f ./past-validators.json ]] && echo "--past-validator-meta-collection ./past-validators.json" || echo "" )'
+    - |
+      ./target/release/settlement-engine-cli \
+        $$past_validators_arg \
+        --validator-meta-collection "./validators.json" \
+        --stake-meta-collection "./stakes.json" \
+        --output-protected-event-collection "./${claim_type}.json" \
+        --output-settlement-collection "./${claim_type}-settlements.json" \
+        --output-merkle-tree-collection "./${claim_type}-settlement-merkle-trees.json" \
+        --settlement-config settlement-config.yaml
+    artifact_paths:
+        - "./${claim_type}*.json"
+
+  - wait: ~
+
+  - label: "📓 Generating report"
+    commands:
+    - 'buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlements.json .'
+    - './scripts/generate-discord-public-report.bash "./${claim_type}-settlements.json" > "./discord-public-report.txt"'
+    artifact_paths:
+      - "./discord-public-report.txt"
+
+  - wait: ~
+
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - buildkite-agent artifact download --include-retried-jobs ${claim_type}.json .
+    - buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlements.json .
+    - buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlement-merkle-trees.json .
+    - buildkite-agent artifact download --include-retried-jobs discord-public-report.txt .
+    - gcloud storage cp "./${claim_type}.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./${claim_type}-settlements.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./${claim_type}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./discord-public-report.txt" "$gs_bucket/$$epoch/${claim_type}-discord-public-report.txt"
+
+  - wait: ~
+
+  - label: ":mega: Notification"
+    commands:
+    - |
+      epoch=$(buildkite-agent meta-data get epoch)
+      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" -H "Content-Type: application/json" -d '{
+        "embeds": [
+          {
+            "title": "Claims for Validator Bonds ('"${claim_type}"') generated ('"$$epoch"').",
+            "url": "'"$$BUILDKITE_BUILD_URL"'",
+            "color": "52224"
+          }
+        ]
+      }'
+
+  - label: ":mega: PSR feed"
+    commands:
+    - buildkite-agent artifact download --include-retried-jobs discord-public-report.txt .
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - |
+      split_command=$(which split >&2 > /dev/null && echo "split" || echo "gsplit")
+      # discord max message length is 2000 characters
+      $$split_command -C 2000 "./discord-public-report.txt" './discord-public-report.txt.chunk-'
+      for report_chunk in './discord-public-report.txt.chunk-'*; do
+        report=$(cat "$$report_chunk")
+        curl "$$DISCORD_WEBHOOK_PSR_FEED" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": [{"title":"Protected Events"}], "attachments": []}')"
+      done
+
+  - wait: ~
+
+  - label: ":gear: Setup init-settlements trigger"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - |
+      cat <<EOF | buildkite-agent pipeline upload
+      steps:
+        - trigger: "init-settlements"
+          label: ":rocket: Trigger: Init settlements ($$epoch)/($claim_type)"
+          async: true
+          build:
+            branch: $$BUILDKITE_BRANCH
+            env:
+              EPOCH: $$epoch
+              CLAIM_TYPE: $claim_type
+      EOF
+
+  - wait: ~
+
+  - label: ":unlock: Concurrency gate unlock"
+    command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/prepare-protected-events'
+    concurrency: 1

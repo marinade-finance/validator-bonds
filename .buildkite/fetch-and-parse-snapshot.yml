@@ -1,0 +1,135 @@
+agents:
+  queue: "snapshots"
+
+steps:
+  - label: ":closed_lock_with_key: Concurrency gate lock"
+    command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/fetch-and-parse'
+    concurrency: 1
+
+  - input: "Which epoch to fetch?"
+    fields:
+      - text: "Epoch"
+        key: "epoch"
+        format: "[0-9]+"
+    if: "build.env('EPOCH') == null"
+
+  - wait: ~
+
+  - label: ":mega: Notification"
+    commands:
+    - |
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" -H "Content-Type: application/json" -d '{
+        "embeds": [
+          {
+            "title": "Preparing claims for Validator Bonds ('"$$epoch"').",
+            "url": "'"$$BUILDKITE_BUILD_URL"'",
+            "color": "8388863"
+          }
+        ]
+      }'
+
+  - label: ":file_folder: Prepare snapshot directory"
+    env:
+      target_dir: /mnt/storage-1/snapshots
+    commands:
+    - 'mkdir -p /mnt/storage-1/snapshots'
+    - 'epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}'
+    - 'snapshot_dir=$(mktemp --directory -p "$$target_dir" "snapshot-$$epoch-$(date +%s)-XXXXXX")'
+    - 'buildkite-agent meta-data set snapshot_dir "$$snapshot_dir"'
+
+  - wait: ~
+
+  - label: ":cloud: :arrow_right: :floppy_disk: Fetch genesis"
+    commands:
+    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
+    - './scripts/fetch-genesis.bash "$$snapshot_dir"'
+
+  - label: ":cloud: :arrow_right: :floppy_disk: Fetch snapshot"
+    commands:
+    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
+    - 'epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}'
+    - './scripts/fetch-jito-snapshot.bash "$$epoch" "$$snapshot_dir"'
+
+  - label: ":hammer_and_wrench: :rust: Build"
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'cargo build --release --bin snapshot-parser-cli'
+    artifact_paths:
+      - target/release/snapshot-parser-cli
+
+  - wait: ~
+
+  - label: ":microscope: Parse Snapshot"
+    commands:
+    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/snapshot-parser-cli .'
+    - 'chmod +x target/release/snapshot-parser-cli'
+    - |
+      ./target/release/snapshot-parser-cli \
+        --ledger-path "$$snapshot_dir" \
+        --output-validator-meta-collection "$$snapshot_dir/validators.json" \
+        --output-stake-meta-collection "$$snapshot_dir/stakes.json"
+
+  - label: ":floppy_disk: :arrow_left: :cloud: Fetch past validator data"
+    env:
+      gs_bucket: gs://marinade-validator-bonds-mainnet
+    commands:
+    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
+    - 'epoch=$(buildkite-agent meta-data get epoch)'
+    - 'previous_epoch=$((epoch - 1))'
+    - 'gcloud storage cp "$$gs_bucket/$$previous_epoch/validators.json" "$$snapshot_dir/past-validators.json" || echo "Previous validator data not available!"'
+
+  - wait: ~
+
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
+    env:
+      gs_bucket: gs://marinade-validator-bonds-mainnet
+    commands:
+    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
+    - 'epoch=$(buildkite-agent meta-data get epoch)'
+    - 'gcloud storage cp "$$snapshot_dir/past-validators.json" "$$gs_bucket/$$epoch/" || echo "Previous validator data not available!"'
+    - 'gcloud storage cp "$$snapshot_dir/validators.json" "$$gs_bucket/$$epoch/"'
+    - 'gcloud storage cp "$$snapshot_dir/stakes.json" "$$gs_bucket/$$epoch/"'
+
+
+  - wait: ~
+
+  - label: ":gear: :one: Setup trigger for prepare-protected-events"
+    commands:
+    - 'epoch=$(buildkite-agent meta-data get epoch)'
+    - |
+      cat <<EOF | buildkite-agent pipeline upload
+      steps:
+        - trigger: "prepare-protected-events"
+          label: ":rocket: Trigger: Prepare Protected Events ($$epoch)"
+          async: false
+          build:
+            branch: $$BUILDKITE_BRANCH
+            env:
+              EPOCH: $$epoch
+      EOF
+  
+    # TO BE DONE: new pipeline for bidding
+    # - label: ":gear: :two: Setup trigger for prepare-bidding"
+    #   commands:
+    #   - 'epoch=$(buildkite-agent meta-data get epoch)'
+    #   - |
+    #     cat <<EOF | buildkite-agent pipeline upload
+    #     steps:
+    #       - trigger: "prepare-bidding"
+    #         label: ":rocket: Trigger: Prepare Bidding ($$epoch)"
+    #         async: false
+    #         build:
+    #           branch: $$BUILDKITE_BRANCH
+    #           env:
+    #             EPOCH: $$epoch
+    #     EOF
+
+  - wait: ~
+
+  - label: ":unlock: Concurrency gate unlock"
+    command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/fetch-and-parse'
+    concurrency: 1

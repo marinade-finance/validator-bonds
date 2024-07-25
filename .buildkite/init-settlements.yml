@@ -13,21 +13,33 @@ steps:
   - command: "echo 'Epoch is: $EPOCH'"
     if: "build.env('EPOCH') != null"
 
+  - input: "What is the claim type to init?"
+    fields:
+      - select: "Claim type"
+        key: "claim_type"
+        options:
+          - label: "Protected Events"
+            value: "protected-events"
+          - label: "Bidding"
+            value: "bidding"
+    if: "build.env('CLAIM_TYPE') == null"
+
   - wait: ~
 
   - label: ":mega: Notification initializing settlements"
     commands:
     - discord_webhook="${DISCORD_WEBHOOK:-$$DISCORD_WEBHOOK_VALIDATOR_BONDS}"
+    - buildkite-agent meta-data set discord_webhook "$$discord_webhook"
     - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
     - buildkite-agent meta-data set epoch "$$epoch"
-    - buildkite-agent meta-data set discord_webhook "$$discord_webhook"
+    - claim_type=$(buildkite-agent meta-data get claim_type)
     - 'echo "Epoch: $$epoch"'
     - |
       curl "$$discord_webhook" \
         -H "Content-Type: application/json" -d '{
         "embeds": [
           {
-            "title": "Confirm Settlements Initialization for Validator Bonds ('"$$epoch"').",
+            "title": "Confirm Settlements Initialization for Validator Bonds ('"$$epoch"')/("'$$claim_type'").",
             "description": "Please review the 'Unblock' if ready to proceed.",
             "url": "'"$$BUILDKITE_BUILD_URL"'",
             "color": "8388863"
@@ -48,10 +60,11 @@ steps:
     env:
       gs_bucket: gs://marinade-validator-bonds-mainnet
     commands:
-    - 'epoch=$(buildkite-agent meta-data get epoch)'
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - claim_type=$(buildkite-agent meta-data get claim_type)
     - |
-      gcloud storage cp "$$gs_bucket/$$epoch/settlement-merkle-trees.json" "."
-      gcloud storage cp "$$gs_bucket/$$epoch/settlements.json" "."
+      gcloud storage cp "$$gs_bucket/$$epoch/$${claim_type}-settlement-merkle-trees.json" "./settlement-merkle-trees.json"
+      gcloud storage cp "$$gs_bucket/$$epoch/$${claim_type}-settlements.json" "./settlements.json"
     key: 'download-json'
     artifact_paths:
       - "./settlement-merkle-trees.json"
@@ -59,9 +72,9 @@ steps:
 
   - label: ":black_nib: Settlement JSON listing"
     commands:
-     - 'buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .'
-     - 'buildkite-agent artifact download --include-retried-jobs settlements.json .'
-     - 'bash ./scripts/settlement-json-listing.sh --settlements settlements.json --merkle-trees settlement-merkle-trees.json'
+     - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
+     - buildkite-agent artifact download --include-retried-jobs settlements.json .
+     - bash ./scripts/settlement-json-listing.sh --settlements settlements.json --merkle-trees settlement-merkle-trees.json
     depends_on: "download-json"
 
   - wait: ~
@@ -74,7 +87,7 @@ steps:
 
   - label: ":closed_lock_with_key: Concurrency gate lock"
     command: echo "--> Start of concurrency gate"
-    concurrency_group: 'validator-bonds/init-settlements'
+    concurrency_group: 'validator-bonds/init-settlements${CLAIM_TYPE}'
     concurrency: 1
 
   - wait: ~
@@ -84,18 +97,18 @@ steps:
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,init_settlement=debug
       #  RUST_BACKTRACE: full
     commands:
-    - '. "$HOME/.cargo/env"'
-    - 'epoch=$(buildkite-agent meta-data get epoch)'
-    - 'prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))'
-    - 'buildkite-agent artifact download --include-retried-jobs init-execution-report.$$prior_build_number . || true'
+    - . "$HOME/.cargo/env"
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))
+    - buildkite-agent artifact download --include-retried-jobs init-execution-report.$$prior_build_number . || true
     - |
       cp "init-execution-report.$$prior_build_number" "init-execution-report.$$BUILDKITE_RETRY_COUNT" || true
       rm -f "init-execution-report.$$prior_build_number"
       echo "#ATTEMPT $$BUILDKITE_RETRY_COUNT" | tee -a "./init-execution-report.$$BUILDKITE_RETRY_COUNT"
-    - 'buildkite-agent artifact download --include-retried-jobs target/release/init-settlement .'
-    - 'buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .'
-    - 'buildkite-agent artifact download --include-retried-jobs settlements.json .'
-    - 'chmod +x target/release/init-settlement'
+    - buildkite-agent artifact download --include-retried-jobs target/release/init-settlement .
+    - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
+    - buildkite-agent artifact download --include-retried-jobs settlements.json .
+    - chmod +x target/release/init-settlement
     - |
       set -o pipefail
       ./target/release/init-settlement \
@@ -115,8 +128,6 @@ steps:
           limit: 5
 
   - label: ":memo: Notification setup: Init Settlements"
-    env:
-      gs_bucket: gs://marinade-validator-bonds-mainnet
     commands:
      - 'epoch=$(buildkite-agent meta-data get epoch)'
      - |
@@ -135,13 +146,23 @@ steps:
      - 'buildkite-agent artifact download --include-retried-jobs "init-execution-report.*" ./reports/ || echo "No report ERROR" > ./reports/init-execution-report.error'
      - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
      - 'cp "$$report_path" ./init-report.txt'
-     - 'gcloud storage cp ./init-report.txt "$$gs_bucket/$$epoch/init-settlement-report.$(date +%s).txt"'
      - 'buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./init-report.txt)"'
     artifact_paths:
     - "./init-report.txt"
     key: 'notification-setup-init'
     depends_on: "init-settlement"
     allow_dependency_failure: true
+
+  - wait: ~
+
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
+    env:
+      gs_bucket: gs://marinade-validator-bonds-mainnet
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - claim_type=$(buildkite-agent meta-data get claim_type)
+    - buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt
+    - gcloud storage cp ./init-report.txt "$$gs_bucket/$$epoch/$${claim_type}-init-settlement-report.$(date +%s).txt"
 
   - wait: ~
 
@@ -181,5 +202,5 @@ steps:
 
   - label: ":unlock: Concurrency gate unlock"
     command: echo "End of concurrency gate <--"
-    concurrency_group: 'validator-bonds/init-settlements'
+    concurrency_group: 'validator-bonds/init-settlements${CLAIM_TYPE}'
     concurrency: 1
