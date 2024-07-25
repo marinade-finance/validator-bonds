@@ -214,7 +214,7 @@ async fn close_settlements(
             transaction_builder,
             &req,
             format!(
-                "Close Settlement {settlement_address} with refund account {}",
+                "Close Settlement {settlement_address}, refunding split rent from stake account {}",
                 split_rent_refund_account
             ),
         )?;
