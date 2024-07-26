@@ -17,7 +17,7 @@ pub struct ValidatorMeta {
     pub vote_account: Pubkey,
     pub commission: u8,
     /// jito-tip-distribution // TipDistributionAccount // validator_commission_bps
-    pub mev_commission: u16,
+    pub mev_commission: Option<u16>,
     pub stake: u64,
     pub credits: u64,
 }
@@ -212,14 +212,13 @@ pub fn generate_validator_collection(bank: &Arc<Bank>) -> anyhow::Result<Validat
             mev_commission: jito_mev_metas
                 .iter()
                 .find(|jito_mev_meta| jito_mev_meta.vote_account == vote_account_meta.vote_account)
-                .map(|jito_mev_meta| jito_mev_meta.mev_commission)
+                .map(|jito_mev_meta| Some(jito_mev_meta.mev_commission))
                 .unwrap_or_else(|| {
                     error!(
                         "No Jito MEV commision found for vote account: {}",
                         vote_account_meta.vote_account
                     );
-                    // TODO: how to correctly handle the case there is no Jito MEV commission?
-                    0
+                    None
                 }),
             stake: vote_account_meta.stake,
             credits: vote_account_meta.credits,
