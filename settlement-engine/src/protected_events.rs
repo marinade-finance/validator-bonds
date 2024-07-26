@@ -102,7 +102,7 @@ pub fn collect_low_credits_events(
         .iter()
         .filter(|v| v.stake > 0)
         .cloned()
-        .filter_map(|ValidatorMeta {vote_account, commission, credits, stake}| {
+        .filter_map(|ValidatorMeta {vote_account, commission, credits, stake, mev_commission: _}| {
             if credits < expected_credits && commission < 100 {
               debug!("Validator {vote_account} has low credits: {credits}, expected: {expected_credits}");
                 Some(
