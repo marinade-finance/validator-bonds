@@ -2,7 +2,7 @@ use solana_accounts_db::accounts_index::ScanConfig;
 use solana_program::pubkey::Pubkey;
 use solana_sdk::account::{Account, AccountSharedData};
 use {
-    log::{error, info},
+    log::{error, info, warn},
     merkle_tree::serde_serialize::pubkey_string_conversion,
     serde::{Deserialize, Serialize},
     solana_program::stake_history::Epoch,
@@ -214,7 +214,7 @@ pub fn generate_validator_collection(bank: &Arc<Bank>) -> anyhow::Result<Validat
                 .find(|jito_mev_meta| jito_mev_meta.vote_account == vote_account_meta.vote_account)
                 .map(|jito_mev_meta| Some(jito_mev_meta.mev_commission))
                 .unwrap_or_else(|| {
-                    error!(
+                    warn!(
                         "No Jito MEV commision found for vote account: {}",
                         vote_account_meta.vote_account
                     );
