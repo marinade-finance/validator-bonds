@@ -192,7 +192,7 @@ async fn init_settlements(
 
     for record in settlement_records {
         if record.bond_account.is_none() {
-            // the existence of the Bond is required for any init Settlement
+            // the existence of the Bond is required for any init Settlement, when not exists, we skip the init
             reporting.add_error_string(format!(
                 "Cannot find bond account {} for vote account {}, funder {}, claim amount {} SOLs (settlement to init: {})",
                 record.bond_address,
@@ -335,8 +335,20 @@ async fn upsize_settlements(
             claims.data.len(),
             number_of_upsize_calls
         );
+        let vote_account = if let Some(settlement_record) = settlement_records
+            .iter()
+            .find(|s| s.settlement_address == *settlement_address)
+        {
+            settlement_record.vote_account_address
+        } else {
+            reporting.add_error_string(format!(
+                "CRITICAL [upsize_settlements]: No vote account found for Settlement {}",
+                settlement_address
+            ));
+            continue;
+        };
         for _ in 0..number_of_upsize_calls {
-            let _req = program
+            let req = program
                 .request()
                 .accounts(validator_bonds::accounts::UpsizeSettlementClaims {
                     settlement_claims: settlement_claims_address,
@@ -344,16 +356,14 @@ async fn upsize_settlements(
                     rent_payer: rent_payer.pubkey(),
                 })
                 .args(validator_bonds::instruction::UpsizeSettlementClaims {});
-            // add_instruction_to_builder(
-            //     &mut transaction_builder,
-            //     &req,
-            //     format!(
-            //         "UpsizeSettlementClaims: {} (settlement: {}, vote account {})",
-            //         settlement_claims_address,
-            //         settlement.settlement_address,
-            //         settlement.vote_account_address
-            //     ),
-            // )?;
+            add_instruction_to_builder(
+                &mut transaction_builder,
+                &req,
+                format!(
+                    "UpsizeSettlementClaims: {} (settlement: {}, vote account {})",
+                    settlement_claims_address, settlement_address, vote_account,
+                ),
+            )?;
             reporting
                 .reportable
                 .add_upsized_settlement(*settlement_address);

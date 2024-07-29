@@ -17,11 +17,13 @@ steps:
 
   - label: ":mega: Notification initializing settlements"
     commands:
-    - 'epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}'
-    - 'buildkite-agent meta-data set epoch "$$epoch"'
+    - discord_webhook="${DISCORD_WEBHOOK:-$$DISCORD_WEBHOOK_VALIDATOR_BONDS}"
+    - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+    - buildkite-agent meta-data set epoch "$$epoch"
+    - buildkite-agent meta-data set discord_webhook "$$discord_webhook"
     - 'echo "Epoch: $$epoch"'
     - |
-      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
+      curl "$$discord_webhook" \
         -H "Content-Type: application/json" -d '{
         "embeds": [
           {
@@ -145,13 +147,14 @@ steps:
 
   - label: ":mega: Notification Initializing Settlements"
     commands:
-    - 'epoch=$(buildkite-agent meta-data get epoch)'
-    - 'notification_result=$(buildkite-agent meta-data get notification_result || echo "UNKNOWN")'
-    - 'notification_color=$(buildkite-agent meta-data get notification_color || echo "15158332")'
-    - 'attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")'
-    - 'buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt'
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - discord_webhook=$(buildkite-agent meta-data get discord_webhook)
+    - notification_result=$(buildkite-agent meta-data get notification_result || echo "UNKNOWN")
+    - notification_color=$(buildkite-agent meta-data get notification_color || echo "15158332")
+    - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
+    - buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt
     - |
-        curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
+        curl "$$discord_webhook" \
         -F 'payload_json={
             "embeds":[{
               "title": "Init Settlements '"$notification_result"' for Validator Bonds ('"$$epoch"') after '"$$attempts_count"' attempts",
@@ -171,6 +174,8 @@ steps:
       - 'epoch=$(buildkite-agent meta-data get epoch)'
       - 'echo "Epoch: $$epoch"'
       - 'buildkite-agent pipeline upload .buildkite/fund-settlements.yml'
+    depends_on: "init-settlement"
+    allow_dependency_failure: true
 
   - wait: ~
 

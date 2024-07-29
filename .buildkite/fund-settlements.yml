@@ -48,6 +48,20 @@ steps:
     artifact_paths:
       - "./merkle-trees/*"
 
+  - label: ":black_nib: Find Discord webhook"
+    commands:
+    - |
+      discord_webhook="$(buildkite-agent meta-data get discord_webhook)"
+      if [[ -z "$$discord_webhook" ]]; then
+        # env defined by job definition
+        discord_webhook="${DISCORD_WEBHOOK}"
+      fi
+      if [[ -z "$$discord_webhook" ]]; then
+        # env defined by buildkite environment
+        discord_webhook="$${DISCORD_WEBHOOK_VALIDATOR_BONDS}"
+      fi
+      echo "Discord webhook: $$discord_webhook"
+
   - wait: ~
 
   - label: ":campfire::arrow_right: Fund settlements"
@@ -100,7 +114,7 @@ steps:
 
   - label: ":mega: Notification Funding"
     commands:
-    - 'build_result=$(buildkite-agent step get "outcome" --step "fund-settlement")'
+    - build_result=$(buildkite-agent step get "outcome" --step "fund-settlement")
     - |
       if [[ -z "$$build_result" || "$$build_result" =~ "failed" ]]; then
         notification_result="finished with WARNINGS"
@@ -112,7 +126,7 @@ steps:
     - |
       attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
       buildkite-agent artifact download --include-retried-jobs fund-report.txt . || echo 'UNKNOWN ERROR' > './fund-report.txt'
-      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
+      curl "$(buildkite-agent meta-data get discord_webhook)" \
         -F 'payload_json={
             "embeds":[{
               "title": "Fund Settlements '"$$notification_result"', '"$$attempts_count"' attempts",
