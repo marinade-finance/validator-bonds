@@ -192,13 +192,14 @@ async fn init_settlements(
 
     for record in settlement_records {
         if record.bond_account.is_none() {
-            // this is correct for Marinade funder as the existence of the Bond is required for any init Settlement
+            // the existence of the Bond is required for any init Settlement
             reporting.add_error_string(format!(
-                "Cannot find bond account {} for vote account {}, funder {}, claim amount {} SOLs",
+                "Cannot find bond account {} for vote account {}, funder {}, claim amount {} SOLs (settlement to init: {})",
                 record.bond_address,
                 record.vote_account_address,
                 record.funder,
-                lamports_to_sol(record.max_total_claim_sum)
+                lamports_to_sol(record.max_total_claim_sum),
+                record.settlement_address,
             ));
             continue;
         }
@@ -273,7 +274,7 @@ async fn upsize_settlements(
     transaction_builder.add_signer_checked(&rent_payer);
 
     // re-loading settlements data from the chain on provided settlement addresses
-    let reloaded_settlements_data = get_settlements_for_pubkeys(
+    let reloaded_settlements_records = get_settlements_for_pubkeys(
         rpc_client.clone(),
         &settlement_records
             .iter()
@@ -281,41 +282,61 @@ async fn upsize_settlements(
             .collect::<Vec<Pubkey>>(),
     )
     .await
-    .map_err(CliError::retry_able)?;
-    let settlements_data = reloaded_settlements_data
-        .iter()
-        .filter(|(settlement_address, info)| {
+    .map_err(CliError::retry_able)?
+    .into_iter()
+    .filter(|(settlement_address, info)| {
+        if info.is_none() {
             reporting.add_error_string(format!(
                 "[UpsizeElements] Settlement account {} does not exist on-chain",
                 settlement_address
             ));
-            info.is_some()
-        })
+            false
+        } else {
+            true
+        }
+    })
+    .map(|(settlement_address, settlement)| (settlement_address, settlement.unwrap()))
+    .collect::<Vec<(Pubkey, validator_bonds::state::settlement::Settlement)>>();
+    let settlement_claims_pubkeys = reloaded_settlements_records
+        .iter()
         .map(|(settlement_address, _)| find_settlement_claims_address(settlement_address).0)
         .collect::<Vec<Pubkey>>();
     let settlement_claims_infos =
-        get_account_infos_for_pubkeys(rpc_client.clone(), &settlements_data).await?;
+        get_account_infos_for_pubkeys(rpc_client.clone(), &settlement_claims_pubkeys).await?;
 
-    for ((settlement_claims_address, settlement_claims_info), settlement) in settlement_claims_infos
+    for (
+        (settlement_claims_address, settlement_claims_info),
+        (settlement_address, settlement_data),
+    ) in settlement_claims_infos
         .into_iter()
-        .zip(settlement_records.iter())
+        .zip(reloaded_settlements_records.iter())
     {
         let claims = if let Some(settlement_claims) = settlement_claims_info {
             settlement_claims
         } else {
             reporting.add_error_string(format!(
                 "CRITICAL [upsize_settlements]: No SettlementClaims account {} for an existing Settlement {}",
-                settlement_claims_address, settlement.settlement_address
+                settlement_claims_address, settlement_address
             ));
             continue;
         };
-        let required_size =
-            validator_bonds::state::settlement_claims::account_size(settlement.max_total_claim);
+        let required_size = validator_bonds::state::settlement_claims::account_size(
+            settlement_data.max_merkle_nodes,
+        );
         let number_of_upsize_calls = required_size
             .saturating_sub(claims.data.len())
             .div_ceil(validator_bonds::state::settlement_claims::MAX_PERMITTED_DATA_INCREASE);
+        debug!(
+            "[upsize_settlements] settlement {} (settlement claims: {}), max merkle nodes: {}, requires {} bytes, current size: {} bytes, upsize calls: {}",
+            settlement_address,
+            settlement_claims_address,
+            settlement_data.max_merkle_nodes,
+            required_size,
+            claims.data.len(),
+            number_of_upsize_calls
+        );
         for _ in 0..number_of_upsize_calls {
-            let req = program
+            let _req = program
                 .request()
                 .accounts(validator_bonds::accounts::UpsizeSettlementClaims {
                     settlement_claims: settlement_claims_address,
@@ -323,19 +344,19 @@ async fn upsize_settlements(
                     rent_payer: rent_payer.pubkey(),
                 })
                 .args(validator_bonds::instruction::UpsizeSettlementClaims {});
-            add_instruction_to_builder(
-                &mut transaction_builder,
-                &req,
-                format!(
-                    "UpsizeSettlementClaims: {} (settlement: {}, vote account {})",
-                    settlement_claims_address,
-                    settlement.settlement_address,
-                    settlement.vote_account_address
-                ),
-            )?;
+            // add_instruction_to_builder(
+            //     &mut transaction_builder,
+            //     &req,
+            //     format!(
+            //         "UpsizeSettlementClaims: {} (settlement: {}, vote account {})",
+            //         settlement_claims_address,
+            //         settlement.settlement_address,
+            //         settlement.vote_account_address
+            //     ),
+            // )?;
             reporting
                 .reportable
-                .add_upsized_settlement(settlement.settlement_address);
+                .add_upsized_settlement(*settlement_address);
         }
     }
 

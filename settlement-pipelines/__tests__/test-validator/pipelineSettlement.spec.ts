@@ -64,7 +64,7 @@ const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
 //       Activate and run this manually when needed.
 //       FILE='settlement-pipelines/__tests__/test-validator/pipelineSettlement.spec.ts' pnpm test:validator
 
-describe.skip('Cargo CLI: Pipeline Settlement', () => {
+describe('Cargo CLI: Pipeline Settlement', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
 
@@ -266,7 +266,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 2,
+      code: 0,
       stdout: /sum merkle nodes: 12397(.|\n|\r)*upsized settlements 0/,
       stderr: stdErrExecutionResult,
     })
@@ -327,7 +327,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 2,
+      code: 0,
       stdout: /created 0.10 settlements/,
       stderr: /0 executed successfully/,
     })
