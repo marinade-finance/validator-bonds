@@ -53,14 +53,11 @@ struct Args {
     #[clap(flatten)]
     global_opts: GlobalOpts,
 
-    /// List of JSON files with tree collection and settlements
-    #[arg(
-        short = 's',
-        long,
-        value_delimiter = ' ',
-        num_args(1..),
-    )]
-    settlement_json_files: Vec<PathBuf>,
+    /// Pairs of JSON files: 'settlement.json' and 'merkle_tree.json'
+    /// There could be provided multiple pairs of JSON files (argument '-f' can be provided multiple times),
+    /// while the program expects that one pair contains settlement and merkle tree data of the same event.
+    #[arg(required = true, short = 'f', value_delimiter = ' ', num_args(2))]
+    json_files: Vec<PathBuf>,
 
     /// forcing epoch, overriding from the settlement collection
     #[arg(long)]
@@ -126,7 +123,7 @@ async fn real_main(reporting: &mut ReportHandler<FundSettlementReport>) -> anyho
         .await
         .map_err(CliError::retry_able)?;
 
-    let mut json_data = load_json(&args.settlement_json_files)?;
+    let mut json_data = load_json(&args.json_files)?;
     let mut settlement_records_per_epoch = load_json_with_on_chain(
         rpc_client.clone(),
         &mut json_data,

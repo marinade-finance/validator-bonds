@@ -10,6 +10,7 @@ use settlement_engine::settlement_claims::{Settlement, SettlementCollection};
 use settlement_engine::utils::read_from_json_file;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::Arc;
 use validator_bonds::state::bond::Bond;
@@ -44,28 +45,24 @@ pub struct CombinedMerkleTreeSettlementCollections {
     pub merkle_tree_settlements: Vec<MerkleTreeMetaSettlement>,
 }
 
-/// Load JSON data from files and returns a map of EPOCH -> DATA
+/// Load JSON data from pairs of files expecting one file is of `settlement.json` and the other is `merkle-tree.json`.
+/// Returns a collection of data combined from both files and containing information about epoch.
 pub fn load_json(
     settlement_json_files: &[PathBuf],
 ) -> anyhow::Result<Vec<CombinedMerkleTreeSettlementCollections>> {
-    let mut json_data: HashMap<u64, MerkleTreeLoadedData> = HashMap::new();
-    for path in settlement_json_files.iter().filter(|path| {
-        if path.is_file() {
-            debug!("Processing file: {:?}", path);
-            true
-        } else {
-            debug!("Skipping file: {:?}, as it's not a file", path);
-            false
-        }
-    }) {
-        load_json_data_to_merkle_tree(path, &mut json_data)?;
+    // make pairs of files from settlement_json_files
+    let settlement_json_files_pairs = pair_elements(settlement_json_files)?;
+    // loading data from a pair of files, every pair has to consist of one settlement and one merkle tree file
+    let mut claiming_data: Vec<CombinedMerkleTreeSettlementCollections> = vec![];
+    for (path1, path2) in settlement_json_files_pairs
+        .iter()
+        .filter(|(path1, path2)| check_is_file(path1) && check_is_file(path2))
+    {
+        let mut loaded_merkle_tree: MerkleTreeLoadedData = MerkleTreeLoadedData::default();
+        load_json_data_to_merkle_tree(path1, &mut loaded_merkle_tree)?;
+        load_json_data_to_merkle_tree(path2, &mut loaded_merkle_tree)?;
+        claiming_data.push(resolve_combined_optional(loaded_merkle_tree)?);
     }
-    let mut claiming_data = json_data
-        .into_values()
-        .map(|data| {
-            resolve_combined_optional(data.merkle_tree_collection, data.settlement_collection)
-        })
-        .collect::<anyhow::Result<Vec<_>>>()?;
     claiming_data.sort_by_key(|c| c.epoch);
 
     info!(
@@ -86,18 +83,19 @@ pub fn load_json(
     Ok(claiming_data)
 }
 
+#[derive(Default)]
 struct MerkleTreeLoadedData {
     merkle_tree_collection: Option<MerkleTreeCollection>,
     settlement_collection: Option<SettlementCollection>,
 }
 
 fn insert_merkle_tree_parsed_data(
-    loaded_data: &mut HashMap<u64, MerkleTreeLoadedData>,
+    loaded_data: &mut MerkleTreeLoadedData,
     merkle_tree_collection: Option<MerkleTreeCollection>,
     settlement_collection: Option<SettlementCollection>,
 ) -> anyhow::Result<()> {
     // Get the epoch and handle mismatches
-    let epoch = match (&merkle_tree_collection, &settlement_collection) {
+    match (&merkle_tree_collection, &settlement_collection) {
         (Some(mc), Some(sc)) if mc.epoch != sc.epoch => {
             return Err(CliError::processing(format!(
                 "Epoch mismatch between merkle tree collection and settlement collection: {} != {}",
@@ -113,17 +111,11 @@ fn insert_merkle_tree_parsed_data(
         }
     };
 
-    let record = loaded_data
-        .entry(epoch)
-        .or_insert_with(|| MerkleTreeLoadedData {
-            merkle_tree_collection: None,
-            settlement_collection: None,
-        });
-    if record.merkle_tree_collection.is_none() {
-        record.merkle_tree_collection = merkle_tree_collection;
+    if loaded_data.merkle_tree_collection.is_none() {
+        loaded_data.merkle_tree_collection = merkle_tree_collection;
     }
-    if record.settlement_collection.is_none() {
-        record.settlement_collection = settlement_collection;
+    if loaded_data.settlement_collection.is_none() {
+        loaded_data.settlement_collection = settlement_collection;
     }
 
     Ok(())
@@ -131,7 +123,7 @@ fn insert_merkle_tree_parsed_data(
 
 fn load_json_data_to_merkle_tree(
     path: &PathBuf,
-    loaded_data: &mut HashMap<u64, MerkleTreeLoadedData>,
+    loaded_data: &mut MerkleTreeLoadedData,
 ) -> Result<(), CliError> {
     debug!("Loading data from file: {:?}", path);
     let json_loading_result = if let Ok(merkle_tree_collection) = read_from_json_file(path) {
@@ -149,9 +141,10 @@ fn load_json_data_to_merkle_tree(
 }
 
 fn resolve_combined_optional(
-    merkle_tree_collection: Option<MerkleTreeCollection>,
-    settlement_collection: Option<SettlementCollection>,
+    loaded_data: MerkleTreeLoadedData,
 ) -> anyhow::Result<CombinedMerkleTreeSettlementCollections> {
+    let merkle_tree_collection = loaded_data.merkle_tree_collection;
+    let settlement_collection = loaded_data.settlement_collection;
     if merkle_tree_collection.is_none() && settlement_collection.is_none() {
         Err(anyhow!("No merkle tree or settlement collection provided"))
     } else if merkle_tree_collection.is_some() && settlement_collection.is_none() {
@@ -217,8 +210,8 @@ pub async fn load_json_with_on_chain(
     // Loading accounts from on-chain, trying to not pushing many RPC calls to the network
     let (settlement_addresses, bond_addresses) = settlement_records_by_epoch
         .iter()
-        .flat_map(|(_epoch, colection)| {
-            colection
+        .flat_map(|(_epoch, collection)| {
+            collection
                 .iter()
                 .map(|record| (record.settlement_address, record.bond_address))
         })
@@ -235,8 +228,8 @@ pub async fn load_json_with_on_chain(
         .into_iter()
         .collect::<HashMap<Pubkey, Option<Bond>>>();
 
-    for settlement_recods_by_epoch in settlement_records_by_epoch.iter_mut() {
-        for record in settlement_recods_by_epoch.1.iter_mut() {
+    for settlement_records_by_epoch in settlement_records_by_epoch.iter_mut() {
+        for record in settlement_records_by_epoch.1.iter_mut() {
             record.settlement_account = settlements
                 .get(&record.settlement_address)
                 .cloned()
@@ -254,4 +247,31 @@ pub async fn load_json_with_on_chain(
     }
 
     Ok(settlement_records_by_epoch)
+}
+
+fn pair_elements<T: Clone>(elements: &[T]) -> anyhow::Result<Vec<(T, T)>> {
+    if elements.len() % 2 != 0 {
+        return Err(anyhow!("The number of elements is not even"));
+    }
+    let pairs = elements
+        .chunks(2)
+        .map(|chunk| {
+            // It is safe to index chunks[0] and chunks[1] as we ensured length is even
+            let first = chunk[0].clone();
+            let second = chunk[1].clone();
+            (first, second)
+        })
+        .collect::<Vec<(T, T)>>();
+
+    Ok(pairs)
+}
+
+fn check_is_file(path: &PathBuf) -> bool {
+    if path.is_file() {
+        debug!("Processing file: {:?}", path);
+        true
+    } else {
+        debug!("Skipping path: {:?} as not a file", path);
+        false
+    }
 }

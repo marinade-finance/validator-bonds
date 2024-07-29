@@ -1,6 +1,9 @@
 agents:
   queue: "snapshots"
 
+env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+
 steps:
   - label: ":closed_lock_with_key: Concurrency gate lock"
     command: echo "--> Start of concurrency gate"
@@ -73,25 +76,21 @@ steps:
         --output-stake-meta-collection "$$snapshot_dir/stakes.json"
 
   - label: ":floppy_disk: :arrow_left: :cloud: Fetch past validator data"
-    env:
-      gs_bucket: gs://marinade-validator-bonds-mainnet
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - 'epoch=$(buildkite-agent meta-data get epoch)'
     - 'previous_epoch=$((epoch - 1))'
-    - 'gcloud storage cp "$$gs_bucket/$$previous_epoch/validators.json" "$$snapshot_dir/past-validators.json" || echo "Previous validator data not available!"'
+    - 'gcloud storage cp "$gs_bucket/$$previous_epoch/validators.json" "$$snapshot_dir/past-validators.json" || echo "Previous validator data not available!"'
 
   - wait: ~
 
   - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
-    env:
-      gs_bucket: gs://marinade-validator-bonds-mainnet
     commands:
     - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - 'epoch=$(buildkite-agent meta-data get epoch)'
-    - 'gcloud storage cp "$$snapshot_dir/past-validators.json" "$$gs_bucket/$$epoch/" || echo "Previous validator data not available!"'
-    - 'gcloud storage cp "$$snapshot_dir/validators.json" "$$gs_bucket/$$epoch/"'
-    - 'gcloud storage cp "$$snapshot_dir/stakes.json" "$$gs_bucket/$$epoch/"'
+    - 'gcloud storage cp "$$snapshot_dir/past-validators.json" "$gs_bucket/$$epoch/" || echo "Previous validator data not available!"'
+    - 'gcloud storage cp "$$snapshot_dir/validators.json" "$gs_bucket/$$epoch/"'
+    - 'gcloud storage cp "$$snapshot_dir/stakes.json" "$gs_bucket/$$epoch/"'
 
 
   - wait: ~
@@ -109,6 +108,7 @@ steps:
             branch: $$BUILDKITE_BRANCH
             env:
               EPOCH: $$epoch
+              gs_bucket: $gs_bucket
       EOF
   
     # TO BE DONE: new pipeline for bidding
@@ -125,6 +125,7 @@ steps:
     #           branch: $$BUILDKITE_BRANCH
     #           env:
     #             EPOCH: $$epoch
+    #             gs_bucket: $gs_bucket
     #     EOF
 
   - wait: ~

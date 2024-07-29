@@ -73,7 +73,7 @@ impl Display for SettlementFunderType {
 
 /// Splitting data loaded from JSON files into list of SettlementRecords grouped by epoch as a Map key.
 /// We expect the JSON data was combination of two different sources (merkle tree and settlement)
-/// and they were loaded via method [crate::json_data::load_json].
+/// and they were loaded with [crate::json_data::load_json].
 pub fn parse_settlements_from_json(
     json_data: &mut [CombinedMerkleTreeSettlementCollections],
     config_address: &Pubkey,
