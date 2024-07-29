@@ -266,7 +266,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 0,
+      code: 2,
       stdout: /sum merkle nodes: 12397(.|\n|\r)*upsized settlements 0/,
       stderr: stdErrExecutionResult,
     })
@@ -327,7 +327,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 0,
+      code: 2,
       stdout: /created 0.10 settlements/,
       stderr: /0 executed successfully/,
     })

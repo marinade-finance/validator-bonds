@@ -32,6 +32,7 @@ use validator_bonds::instructions::InitSettlementArgs;
 use validator_bonds::state::settlement::find_settlement_claims_address;
 use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::constants::find_event_authority;
+use validator_bonds_common::settlements::get_settlements_for_pubkeys;
 use validator_bonds_common::utils::get_account_infos_for_pubkeys;
 
 #[derive(Parser, Debug)]
@@ -132,11 +133,6 @@ async fn real_main(reporting: &mut ReportHandler<InitSettlementReport>) -> anyho
         reporting,
     )
     .await?;
-
-    // RPC nodes are not in sync and load-balanced nodes may provide different data
-    // let's wait 15 seconds to get transaction finalized and propagated
-    info!("Waiting for 60 seconds to get synced RPC state...");
-    tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
 
     upsize_settlements(
         &program,
@@ -277,14 +273,28 @@ async fn upsize_settlements(
     transaction_builder.add_signer_checked(&rent_payer);
 
     // re-loading settlements data from the chain on provided settlement addresses
-    let settlement_claims_infos = get_account_infos_for_pubkeys(
+    let reloaded_settlements_data = get_settlements_for_pubkeys(
         rpc_client.clone(),
         &settlement_records
             .iter()
-            .map(|s| find_settlement_claims_address(&s.settlement_address).0)
+            .map(|s| s.settlement_address)
             .collect::<Vec<Pubkey>>(),
     )
-    .await?;
+    .await
+    .map_err(CliError::retry_able)?;
+    let settlements_data = reloaded_settlements_data
+        .iter()
+        .filter(|(settlement_address, info)| {
+            reporting.add_error_string(format!(
+                "[UpsizeElements] Settlement account {} does not exist on-chain",
+                settlement_address
+            ));
+            info.is_some()
+        })
+        .map(|(settlement_address, _)| find_settlement_claims_address(settlement_address).0)
+        .collect::<Vec<Pubkey>>();
+    let settlement_claims_infos =
+        get_account_infos_for_pubkeys(rpc_client.clone(), &settlements_data).await?;
 
     for ((settlement_claims_address, settlement_claims_info), settlement) in settlement_claims_infos
         .into_iter()
