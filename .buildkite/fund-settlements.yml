@@ -1,6 +1,9 @@
 agents:
   queue: "snapshots"
 
+env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+
 steps:
   - label: ":closed_lock_with_key: Concurrency gate lock"
     command: echo "--> Start of concurrency gate"
@@ -18,7 +21,6 @@ steps:
 
   - label: " Loading json settlements data"
     env:
-      gs_bucket: gs://marinade-validator-bonds-mainnet
       past_epochs_to_load: 3
       # epoch when the contract v2 was deployed, using different structure of merkle tree than v1
       starting_epoch_contract_v2: 640
@@ -42,11 +44,18 @@ steps:
           echo "Skipping epoch $$epoch, because it's before the contract v2 deployment epoch $$starting_epoch_contract_v2"
           continue
         fi
-        gcloud storage cp "$$gs_bucket/$$epoch/settlement-merkle-trees.json" "./merkle-trees/$${epoch}_settlement-merkle-trees.json" || true
-        gcloud storage cp "$$gs_bucket/$$epoch/settlements.json" "./merkle-trees/$${epoch}_settlements.json" || true
+        for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/*settlement-merkle-trees.json"); do
+          base_name=$(basename "$$merkle_tree_file")
+          prefix_name="${base_name%settlement-merkle-trees.json}"
+          target_dir="./merkle-trees/$${epoch}_$${prefix_name}/"
+          mkdir -p "$$target_dir"
+          gcloud storage cp "$$merkle_tree_file" "$$target_dir"
+          gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlement-merkle-trees.json" "$$target_dir"
+          gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlements.json" "$$target_dir"
+        done
       done
     artifact_paths:
-      - "./merkle-trees/*"
+      - "./merkle-trees/**/*"
 
   - label: ":black_nib: Find Discord webhook"
     commands:
@@ -75,7 +84,18 @@ steps:
       cp "fund-execution-report.$$prior_build_number" "fund-execution-report.$$BUILDKITE_RETRY_COUNT" || true
       rm -f "fund-execution-report.$$prior_build_number"
       echo "#ATTEMPT $$BUILDKITE_RETRY_COUNT" | tee -a "./fund-execution-report.$$BUILDKITE_RETRY_COUNT"
-    - 'buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .'
+    - |
+      buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .
+      files=""
+      for dir in ./merkle-trees/*; do
+        if [ -d "$$dir" ]; then
+          pair_files=""
+          for file in "$$dir"/*; do
+            pair_files="$$pair_files \"$$file\""
+          done
+          files="$$files -f $$pair_files"
+        fi
+      done
     - 'buildkite-agent artifact download --include-retried-jobs target/release/fund-settlement .'
     - 'chmod +x target/release/fund-settlement'
     - |
@@ -86,7 +106,7 @@ steps:
         --fee-payer "$$PSR_TX_FEE_WALLET" \
         --marinade-wallet "$$PSR_MARINADE_DAO_FUNDER_WALLET" \
         --rent-payer "$$PSR_RENT_PAYER_WALLET" \
-        --settlement-json-files ./merkle-trees/* | tee -a "./fund-execution-report.$$BUILDKITE_RETRY_COUNT"
+        $$files | tee -a "./fund-execution-report.$$BUILDKITE_RETRY_COUNT"
     key: 'fund-settlement'
     artifact_paths:
       - "./fund-execution-report.*"
@@ -96,8 +116,6 @@ steps:
           limit: 5
 
   - label: ":memo: Notification setup: Fund Settlements"
-    env:
-      gs_bucket: gs://marinade-validator-bonds-mainnet
     commands:
      - 'mkdir ./reports'
      - 'buildkite-agent artifact download --include-retried-jobs "fund-execution-report.*" ./reports/ || echo "No report ERROR" > ./reports/fund-execution-report.error'

@@ -1,6 +1,9 @@
 agents:
   queue: "snapshots"
 
+env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+
 # This pipeline is responsible for verifying the settlements of the past epochs
 # It will download the past settlements from gcloud and checks their existence on-chain
 # If unknown Settlement is found it may mean a mallicious actor stolen operator keypair and tries to withdraw funds.
@@ -30,7 +33,6 @@ steps:
 
   - label: " Loading past settlements json files"
     env:
-      gs_bucket: gs://marinade-validator-bonds-mainnet
       past_epochs_to_load: 10
     commands:
     - |
@@ -40,7 +42,9 @@ steps:
     - |
       echo "Sequence printing: $(seq $$start_epoch $$current_epoch)"
       for epoch in $(seq $$start_epoch $$current_epoch); do
-        gcloud storage cp "$$gs_bucket/$$epoch/settlement-merkle-trees.json" "./merkle-trees/$${epoch}_settlement-merkle-trees.json" || echo "No gcloud data found for epoch $$epoch"
+        for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/*settlement-merkle-trees.json"); do
+          gcloud storage cp "$$merkle_tree_file" "./merkle-trees/$${epoch}_$${merkle_tree_file}"
+        done
       done
     artifact_paths:
       - "./merkle-trees/*"

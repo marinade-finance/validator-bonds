@@ -1,6 +1,9 @@
 agents:
   queue: "snapshots"
 
+env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+
 steps:
   # epoch number provided in ENV and then waiting for confirmation to proceed
   # or waiting to be prompted by the user after notification is sent
@@ -57,14 +60,12 @@ steps:
       - target/release/init-settlement
 
   - label: ":floppy_disk: :arrow_left: :cloud: Downloading merkle trees"
-    env:
-      gs_bucket: gs://marinade-validator-bonds-mainnet
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - claim_type=$(buildkite-agent meta-data get claim_type)
     - |
-      gcloud storage cp "$$gs_bucket/$$epoch/$${claim_type}-settlement-merkle-trees.json" "./settlement-merkle-trees.json"
-      gcloud storage cp "$$gs_bucket/$$epoch/$${claim_type}-settlements.json" "./settlements.json"
+      gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlement-merkle-trees.json" "./settlement-merkle-trees.json"
+      gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlements.json" "./settlements.json"
     key: 'download-json'
     artifact_paths:
       - "./settlement-merkle-trees.json"
@@ -156,13 +157,11 @@ steps:
   - wait: ~
 
   - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
-    env:
-      gs_bucket: gs://marinade-validator-bonds-mainnet
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - claim_type=$(buildkite-agent meta-data get claim_type)
     - buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt
-    - gcloud storage cp ./init-report.txt "$$gs_bucket/$$epoch/$${claim_type}-init-settlement-report.$(date +%s).txt"
+    - gcloud storage cp ./init-report.txt "$gs_bucket/$$epoch/$${claim_type}-init-settlement-report.$(date +%s).txt"
 
   - wait: ~
 

@@ -1,6 +1,9 @@
 agents:
   queue: "snapshots"
 
+env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+
 steps:
   - label: ":closed_lock_with_key: Concurrency gate lock"
     command: echo "--> Start of concurrency gate"
@@ -20,7 +23,6 @@ steps:
 
   - label: " Loading past settlements data"
     env:
-      gs_bucket: gs://marinade-validator-bonds-mainnet
       config_epochs_non_closable: 3 # configured onchain in config
       past_epochs_to_load: 5
       # epoch when the contract v2 was deployed, using different structure of merkle tree than v1
@@ -44,7 +46,9 @@ steps:
           echo "Skipping epoch $$epoch, because it's before the contract v2 deployment epoch $$starting_epoch_contract_v2"
           continue
         fi
-        gcloud storage cp "$$gs_bucket/$$epoch/settlement-merkle-trees.json" "./merkle-trees/$${epoch}_settlement-merkle-trees.json"
+        for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/*settlement-merkle-trees.json"); do
+          gcloud storage cp "$$merkle_tree_file" "./merkle-trees/$${epoch}_$${merkle_tree_file}"
+        done
       done
     artifact_paths:
       - "./merkle-trees/*"
@@ -97,8 +101,6 @@ steps:
           limit: 5
 
   - label: ":memo: Notification setup: Close Settlements"
-    env:
-      gs_bucket: gs://marinade-validator-bonds-mainnet
     commands:
      - 'mkdir ./reports'
      - 'buildkite-agent artifact download --include-retried-jobs "close-execution-report.*" ./reports/ || echo "No report ERROR" > ./reports/close-execution-report.error'

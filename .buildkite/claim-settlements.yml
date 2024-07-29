@@ -1,6 +1,9 @@
 agents:
   queue: "snapshots"
 
+env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+
 steps:
   - label: ":closed_lock_with_key: Concurrency gate lock"
     command: echo "--> Start of concurrency gate"
@@ -34,7 +37,6 @@ steps:
 
   - label: ":floppy_disk: :arrow_left: :cloud: Downloading all epochs merkle trees"
     env:
-      gs_bucket: gs://marinade-validator-bonds-mainnet
       # epoch when the contract v2 was deployed, using different structure of merkle tree than v1
       starting_epoch_contract_v2: 640
     commands:
@@ -51,16 +53,23 @@ steps:
           continue
         fi
         claimable_epochs_num=$(($$claimable_epochs_num + 1))
-        claimable_epochs_json+=($$epoch)
-        gcloud storage cp "$$gs_bucket/$$epoch/settlement-merkle-trees.json" "./merkle-trees/$${epoch}_settlement-merkle-trees.json"
-        gcloud storage cp "$$gs_bucket/$$epoch/settlements.json" "./merkle-trees/$${epoch}_settlements.json"
+        claimable_epochs_json+=($$epoch)     
+        for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/*settlement-merkle-trees.json"); do
+          base_name=$(basename "$$merkle_tree_file")
+          prefix_name="${base_name%settlement-merkle-trees.json}"
+          target_dir="./merkle-trees/$${epoch}_$${prefix_name}/"
+          mkdir -p "$$target_dir"
+          gcloud storage cp "$$merkle_tree_file" "$$target_dir"
+          gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlement-merkle-trees.json" "$$target_dir"
+          gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlements.json" "$$target_dir"
+        done
       done
       claimable_epochs_json=$(jq --compact-output --null-input '$ARGS.positional' --args -- "$${claimable_epochs_json[@]}")
     - 'buildkite-agent meta-data set claimable_epochs_json "$$claimable_epochs_json"'
     - 'buildkite-agent meta-data set claimable_epochs_num "$$claimable_epochs_num"'
     - 'echo "Claimable epochs [$$claimable_epochs_num]: $$claimable_epochs_json"'
     artifact_paths:
-      - "./merkle-trees/*"
+      - "./merkle-trees/**/*"
 
   - wait: ~
 
@@ -90,17 +99,27 @@ steps:
       cp "claim-execution-report.$$prior_build_number" "claim-execution-report.$$BUILDKITE_RETRY_COUNT" || true
       rm -f "claim-execution-report.$$prior_build_number"
       echo "#ATTEMPT $$BUILDKITE_RETRY_COUNT" | tee -a "./claim-execution-report.$$BUILDKITE_RETRY_COUNT"
-    - 'buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .'
     - 'buildkite-agent artifact download --include-retried-jobs target/release/claim-settlement .'
     - 'chmod +x target/release/claim-settlement'
+    - |
+      buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .
+      files=""
+      for dir in ./merkle-trees/*; do
+        if [ -d "$$dir" ]; then
+          pair_files=""
+          for file in "$$dir"/*; do
+            pair_files="$$pair_files \"$$file\""
+          done
+          files="$$files -f $$pair_files"
+        fi
+      done
     - |
       set -o pipefail
       ./target/release/claim-settlement \
         --rpc-url $$RPC_URL \
-        --settlement-json-files ./merkle-trees/* \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$PSR_TX_FEE_WALLET" \
-        | tee -a "./claim-execution-report.$$BUILDKITE_RETRY_COUNT"
+        $$files | tee -a "./claim-execution-report.$$BUILDKITE_RETRY_COUNT"
     key: 'claim-settlement'
     artifact_paths:
     - "./claim-execution-report.*"
@@ -110,8 +129,6 @@ steps:
           limit: 5
 
   - label: ":memo: Notification setup: Claim Settlements"
-    env:
-      gs_bucket: gs://marinade-validator-bonds-mainnet
     commands:
      - |
         build_result=$(buildkite-agent step get "outcome" --step "claim-settlement")
@@ -131,7 +148,7 @@ steps:
      - 'cp "$$report_path" ./claiming-report.txt'
      - 'claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json)'
      - 'first_epoch=$(echo "$$claimable_epochs_json" | jq ".[0]")'
-     - '[[ -n "$$first_epoch" && "$$first_epoch" != "null" ]] && gcloud storage cp ./claiming-report.txt "$$gs_bucket/$$first_epoch/claiming-report.$(date +%s).txt"'
+     - '[[ -n "$$first_epoch" && "$$first_epoch" != "null" ]] && gcloud storage cp ./claiming-report.txt "$gs_bucket/$$first_epoch/claiming-report.$(date +%s).txt"'
      - 'buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./claiming-report.txt)"'
     artifact_paths:
     - "./claiming-report.txt"

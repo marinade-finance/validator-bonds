@@ -53,14 +53,11 @@ struct Args {
     #[clap(flatten)]
     global_opts: GlobalOpts,
 
-    /// List of JSON files with tree collection and settlements
-    #[arg(
-        short = 's',
-        long,
-        value_delimiter = ' ',
-        num_args(1..),
-    )]
-    settlement_json_files: Vec<PathBuf>,
+    /// Pairs of JSON files: 'settlement.json' and 'merkle_tree.json'
+    /// There could be provided multiple pairs of JSON files (argument '-f' can be provided multiple times),
+    /// while the program expects that one pair contains settlement and merkle tree data of the same event.
+    #[arg(required = true, short = 'f', value_delimiter = ' ', num_args(2))]
+    json_files: Vec<PathBuf>,
 
     /// forcing epoch, overriding ones loaded from json files of settlement_json_files
     /// mostly useful for testing purposes
@@ -106,7 +103,7 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementReport>) -> anyh
         .await
         .map_err(CliError::retry_able)?;
 
-    let mut json_data = load_json(&args.settlement_json_files)?;
+    let mut json_data = load_json(&args.json_files)?;
 
     let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
 
