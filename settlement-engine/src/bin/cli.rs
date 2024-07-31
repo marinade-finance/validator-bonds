@@ -2,7 +2,7 @@ use env_logger::{Builder, Env};
 use settlement_engine::settlement_claims::generate_settlement_collection;
 use settlement_engine::settlement_config::{no_filter, stake_authorities_filter, SettlementConfig};
 use settlement_engine::stake_meta_index::StakeMetaIndex;
-use settlement_engine::utils::read_from_yaml_file;
+use settlement_engine::utils::{file_error, read_from_yaml_file};
 use settlement_engine::{
     merkle_tree_collection::generate_merkle_tree_collection,
     protected_events::generate_protected_event_collection,
@@ -52,7 +52,8 @@ fn main() -> anyhow::Result<()> {
         "Loading settlement configuration: {:?}",
         args.settlement_config
     );
-    let settlement_configs: Vec<SettlementConfig> = read_from_yaml_file(&args.settlement_config)?;
+    let settlement_configs: Vec<SettlementConfig> = read_from_yaml_file(&args.settlement_config)
+        .map_err(file_error("settlement-config", &args.settlement_config))?;
 
     if let Some(whitelisted_stake_authorities) = &args.whitelist_stake_authority {
         info!(
@@ -63,12 +64,19 @@ fn main() -> anyhow::Result<()> {
 
     info!("Loading validator meta collection...");
     let validator_meta_collection: ValidatorMetaCollection =
-        read_from_json_file(&args.validator_meta_collection)?;
+        read_from_json_file(&args.validator_meta_collection).map_err(file_error(
+            "validator-meta-collection",
+            &args.validator_meta_collection,
+        ))?;
 
     info!("Loading past validator meta collection if available...");
     let past_validator_meta_collection: Option<ValidatorMetaCollection> =
         match args.past_validator_meta_collection {
-            Some(path) => Some(read_from_json_file(&path)?),
+            Some(path) => {
+                let past_validators = read_from_json_file(&path)
+                    .map_err(file_error("past-validator-meta-collection", &path))?;
+                Some(past_validators)
+            }
             _ => None,
         };
 
@@ -81,11 +89,18 @@ fn main() -> anyhow::Result<()> {
     write_to_json_file(
         &protected_event_collection,
         &args.output_protected_event_collection,
-    )?;
+    )
+    .map_err(file_error(
+        "output-protected-event-collection",
+        &args.output_protected_event_collection,
+    ))?;
 
     info!("Loading stake meta collection...");
     let stake_meta_collection: StakeMetaCollection =
-        read_from_json_file(&args.stake_meta_collection)?;
+        read_from_json_file(&args.stake_meta_collection).map_err(file_error(
+            "stake-meta-collection",
+            &args.stake_meta_collection,
+        ))?;
 
     info!(
         "Building stake authorities filter: {:?}",
@@ -107,11 +122,21 @@ fn main() -> anyhow::Result<()> {
         &stake_authority_filter,
         &settlement_configs,
     );
-    write_to_json_file(&settlement_collection, &args.output_settlement_collection)?;
+    write_to_json_file(&settlement_collection, &args.output_settlement_collection).map_err(
+        file_error(
+            "output-settlement-collection",
+            &args.output_settlement_collection,
+        ),
+    )?;
 
     info!("Generating merkle tree collection...");
     let merkle_tree_collection = generate_merkle_tree_collection(settlement_collection)?;
-    write_to_json_file(&merkle_tree_collection, &args.output_merkle_tree_collection)?;
+    write_to_json_file(&merkle_tree_collection, &args.output_merkle_tree_collection).map_err(
+        file_error(
+            "output_merkle-tree-collection",
+            &args.output_merkle_tree_collection,
+        ),
+    )?;
 
     info!("Finished.");
     Ok(())
