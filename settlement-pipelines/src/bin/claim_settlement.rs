@@ -56,7 +56,7 @@ struct Args {
     /// Pairs of JSON files: 'settlement.json' and 'merkle_tree.json'
     /// There could be provided multiple pairs of JSON files (argument '-f' can be provided multiple times),
     /// while the program expects that one pair contains settlement and merkle tree data of the same event.
-    #[arg(required = true, short = 'f', value_delimiter = ' ', num_args(2))]
+    #[arg(required = true, short = 'f', long, value_delimiter = ' ', num_args(2))]
     json_files: Vec<PathBuf>,
 
     /// forcing epoch, overriding ones loaded from json files of settlement_json_files
