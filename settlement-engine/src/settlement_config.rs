@@ -5,16 +5,15 @@ use std::collections::HashSet;
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub enum SettlementConfig {
+    StakerRevenueImpactSettlement {
+        meta: SettlementMeta,
+        min_settlement_lamports: u64,
+        covered_range_bps: [u64; 2],
+    },
     LowCreditsSettlement {
         meta: SettlementMeta,
         min_settlement_lamports: u64,
         grace_low_credits_bps: Option<u64>,
-        covered_range_bps: [u64; 2],
-    },
-    CommissionIncreaseSettlement {
-        meta: SettlementMeta,
-        min_settlement_lamports: u64,
-        grace_commission_increase: u8,
         covered_range_bps: [u64; 2],
     },
 }
@@ -23,7 +22,7 @@ impl SettlementConfig {
     pub fn meta(&self) -> &SettlementMeta {
         match self {
             SettlementConfig::LowCreditsSettlement { meta, .. } => meta,
-            SettlementConfig::CommissionIncreaseSettlement { meta, .. } => meta,
+            SettlementConfig::StakerRevenueImpactSettlement { meta, .. } => meta,
         }
     }
     pub fn covered_range_bps(&self) -> &[u64; 2] {
@@ -31,7 +30,7 @@ impl SettlementConfig {
             SettlementConfig::LowCreditsSettlement {
                 covered_range_bps, ..
             } => covered_range_bps,
-            SettlementConfig::CommissionIncreaseSettlement {
+            SettlementConfig::StakerRevenueImpactSettlement {
                 covered_range_bps, ..
             } => covered_range_bps,
         }
@@ -42,7 +41,7 @@ impl SettlementConfig {
                 min_settlement_lamports,
                 ..
             } => min_settlement_lamports,
-            SettlementConfig::CommissionIncreaseSettlement {
+            SettlementConfig::StakerRevenueImpactSettlement {
                 min_settlement_lamports,
                 ..
             } => min_settlement_lamports,
@@ -63,17 +62,11 @@ pub fn build_protected_event_matcher(
                 ProtectedEvent::LowCredits { epr_loss_bps, .. },
             ) => *epr_loss_bps > grace_low_credits_bps.unwrap_or_default(),
             (
-                SettlementConfig::CommissionIncreaseSettlement {
-                    grace_commission_increase,
-                    ..
-                },
-                ProtectedEvent::CommissionIncrease {
-                    previous_commission,
-                    current_commission,
-                    ..
-                },
+                SettlementConfig::StakerRevenueImpactSettlement { .. },
+                ProtectedEvent::StakerRevenueImpact { .. },
             ) => {
-                current_commission.saturating_sub(*previous_commission) > *grace_commission_increase
+                // TODO: no matter what, staker revenue impact event is taken
+                true
             }
             _ => false,
         },

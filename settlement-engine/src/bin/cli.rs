@@ -1,4 +1,5 @@
 use env_logger::{Builder, Env};
+use settlement_engine::bids_pmpe_meta::BidsPmpeMetaCollection;
 use settlement_engine::settlement_claims::generate_settlement_collection;
 use settlement_engine::settlement_config::{no_filter, stake_authorities_filter, SettlementConfig};
 use settlement_engine::stake_meta_index::StakeMetaIndex;
@@ -16,14 +17,22 @@ use {clap::Parser, log::info};
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    /// Input collection data referring to validator commission and MEV rates for an epoch.
+    /// Data expected to come from a snapshot generated at the last slot of the epoch.
     #[arg(long, env)]
     validator_meta_collection: String,
 
-    #[arg(long, env)]
-    past_validator_meta_collection: Option<String>,
-
+    /// Input collection data referring to stake accounts from the snapshot
+    /// of the same epoch as the validator metadata.
     #[arg(long, env)]
     stake_meta_collection: String,
+
+    /// Input collection data referring to promised and actual bids in pmpes.
+    /// It's an aggregate collection of data that says if a validator has paid
+    /// what they promised to pay to the staker.
+    /// The data involves commission rates, mev, expected and actual bids, etc.
+    #[arg(long, env)]
+    bids_pmpe_collection: String,
 
     #[arg(long, env)]
     output_protected_event_collection: String,
@@ -69,22 +78,16 @@ fn main() -> anyhow::Result<()> {
             &args.validator_meta_collection,
         ))?;
 
-    info!("Loading past validator meta collection if available...");
-    let past_validator_meta_collection: Option<ValidatorMetaCollection> =
-        match args.past_validator_meta_collection {
-            Some(path) => {
-                let past_validators = read_from_json_file(&path)
-                    .map_err(file_error("past-validator-meta-collection", &path))?;
-                Some(past_validators)
-            }
-            _ => None,
-        };
+    info!("Loading bids pmpe meta collection...");
+    let bids_pmpe_meta_collection: BidsPmpeMetaCollection =
+        read_from_json_file(&args.bids_pmpe_collection).map_err(file_error(
+            "bids-pmpe-collection",
+            &args.bids_pmpe_collection,
+        ))?;
 
     info!("Generating protected event collection...");
-    let protected_event_collection = generate_protected_event_collection(
-        validator_meta_collection,
-        past_validator_meta_collection,
-    );
+    let protected_event_collection =
+        generate_protected_event_collection(validator_meta_collection, bids_pmpe_meta_collection);
     info!("Writing protected events collection to json file");
     write_to_json_file(
         &protected_event_collection,

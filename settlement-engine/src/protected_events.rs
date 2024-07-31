@@ -1,24 +1,29 @@
+use crate::bids_pmpe_meta::BidsPmpeMetaCollection;
 use {
     crate::utils::{bps, bps_to_fraction},
     log::{debug, info},
     merkle_tree::serde_serialize::pubkey_string_conversion,
     serde::{Deserialize, Serialize},
     snapshot_parser::validator_meta::{ValidatorMeta, ValidatorMetaCollection},
-    solana_sdk::{native_token::lamports_to_sol, pubkey::Pubkey},
+    solana_sdk::pubkey::Pubkey,
     std::collections::HashMap,
 };
 
 #[derive(Clone, Deserialize, Serialize, Debug, utoipa::ToSchema)]
 pub enum ProtectedEvent {
-    CommissionIncrease {
+    StakerRevenueImpact {
         #[serde(with = "pubkey_string_conversion")]
         vote_account: Pubkey,
-        previous_commission: u8,
-        current_commission: u8,
         expected_epr: f64,
         actual_epr: f64,
         epr_loss_bps: u64,
-        stake: f64,
+        // TODO: I believe the currency value should be in lamports, is f64 because of displaying?
+        stake: u64,
+        // TODO: some detail data about the event
+        // previous_commission: u8,
+        // current_commission: u8,
+        // previous_jito_mev: u8,
+        // current_jito_mev: u8,
     },
     LowCredits {
         #[serde(with = "pubkey_string_conversion")]
@@ -29,20 +34,20 @@ pub enum ProtectedEvent {
         expected_epr: f64,
         actual_epr: f64,
         epr_loss_bps: u64,
-        stake: f64,
+        stake: u64,
     },
 }
 
 impl ProtectedEvent {
     pub fn vote_account(&self) -> &Pubkey {
         match self {
-            ProtectedEvent::CommissionIncrease { vote_account, .. } => vote_account,
+            ProtectedEvent::StakerRevenueImpact { vote_account, .. } => vote_account,
             ProtectedEvent::LowCredits { vote_account, .. } => vote_account,
         }
     }
     pub fn expected_epr(&self) -> f64 {
         *match self {
-            ProtectedEvent::CommissionIncrease { expected_epr, .. } => expected_epr,
+            ProtectedEvent::StakerRevenueImpact { expected_epr, .. } => expected_epr,
             ProtectedEvent::LowCredits { expected_epr, .. } => expected_epr,
         }
     }
@@ -55,7 +60,7 @@ impl ProtectedEvent {
                 ..
             } => expected_epr - actual_epr,
 
-            ProtectedEvent::CommissionIncrease {
+            ProtectedEvent::StakerRevenueImpact {
                 expected_epr,
                 actual_epr,
                 ..
@@ -76,6 +81,7 @@ impl ProtectedEvent {
         let claim_per_stake =
             self.claim_per_stake().min(max_claim_per_stake) - ignored_claim_per_stake;
 
+        // TODO: by interest, should not we use some big decimal library for calculations?
         (stake as f64 * claim_per_stake).max(0.0).round() as u64
     }
 }
@@ -115,7 +121,7 @@ pub fn collect_low_credits_events(
                         actual_epr: expected_epr_calculator(commission) * credits as f64
                             / expected_credits as f64,
                         epr_loss_bps: bps(expected_credits - credits, expected_credits),
-                        stake: lamports_to_sol(stake),
+                        stake,
                     },
                 )
             } else {
@@ -125,19 +131,22 @@ pub fn collect_low_credits_events(
         .collect()
 }
 
-pub fn collect_commission_increase_events(
+pub fn collect_staker_revenue_impact_events(
     validator_meta_collection: &ValidatorMetaCollection,
-    past_validator_meta_collection: &ValidatorMetaCollection,
+    bids_pmpe_meta_collection: &BidsPmpeMetaCollection,
 ) -> Vec<ProtectedEvent> {
     assert_eq!(
-        validator_meta_collection.epoch,
-        past_validator_meta_collection.epoch + 1,
-        "Validator meta collections have to be one epoch apart!"
+        validator_meta_collection.epoch, bids_pmpe_meta_collection.epoch,
+        "Validator meta and bids pmpe meta collections have to be of the same epoch"
     );
-    info!("Collecting commission increase events...");
-    let expected_epr_calculator = validator_meta_collection.expected_epr_calculator();
-    let past_validator_metas: HashMap<_, _> = past_validator_meta_collection
-        .validator_metas
+    assert_eq!(
+        validator_meta_collection.slot, bids_pmpe_meta_collection.slot,
+        "Validator meta and bids pmpe meta collections have to be of the same slot"
+    );
+    info!("Collecting staker revenue impact events...");
+    let pmpe_epr_calculator = BidsPmpeMetaCollection::epr_calculator();
+    let bids_pmpe_map: HashMap<_, _> = bids_pmpe_meta_collection
+        .bid_pmpe_metas
         .iter()
         .map(|past_validator_meta| {
             (
@@ -151,29 +160,29 @@ pub fn collect_commission_increase_events(
         .iter()
         .filter(|v| v.stake > 0)
         .cloned()
-        .filter_map(|ValidatorMeta {vote_account, commission: current_commission, stake, ..}| {
-            let past_meta = past_validator_metas.get(&vote_account);
-            let previous_commission = past_meta.map(|past| past.commission);
+        .filter_map(|ValidatorMeta {vote_account, stake, ..}| {
+            let bids_pmpe = bids_pmpe_map.get(&vote_account);
 
-            if let Some(previous_commission) = previous_commission {
-                let current_commission = current_commission.clamp(0, 100);
-                let previous_commission = previous_commission.clamp(0, 100);
-                if previous_commission < current_commission {
-                    debug!("Commission increase found for validator {vote_account}: {previous_commission} % -> {current_commission} %");
+            if let Some(bids_pmpe) = bids_pmpe {
+                // TODO: should here to be considered somehow the effective bid to bound the bid pmpe values?
+                if bids_pmpe.actual_bid_pmpe < bids_pmpe.expected_bid_pmpe {
+                    debug!(
+                        "Staker revenue impact PMPE decrease found for validator {vote_account}: {} -> {}",
+                        bids_pmpe.expected_bid_pmpe,
+                        bids_pmpe.actual_bid_pmpe
+                    );
                     return Some(
-                        ProtectedEvent::CommissionIncrease {
-                          vote_account,
-                            previous_commission,
-                            current_commission,
-                            expected_epr: expected_epr_calculator(previous_commission),
-                            actual_epr: expected_epr_calculator(current_commission),
-                            epr_loss_bps: 10000 - bps((100 - current_commission).into(), (100 - previous_commission).into()),
-                            stake: lamports_to_sol(stake),
+                        ProtectedEvent::StakerRevenueImpact {
+                            vote_account,
+                            expected_epr: pmpe_epr_calculator(bids_pmpe.expected_bid_pmpe),
+                            actual_epr: pmpe_epr_calculator(bids_pmpe.actual_bid_pmpe),
+                            epr_loss_bps: 10000 - bps(bids_pmpe.actual_bid_pmpe, bids_pmpe.expected_bid_pmpe),
+                            stake,
                         },
                     );
                 }
             } else {
-                debug!("Past commission not found for validator {vote_account}");
+                debug!("PMPE calculation data not found for validator {vote_account}");
             }
             None
         })
@@ -182,20 +191,16 @@ pub fn collect_commission_increase_events(
 
 pub fn generate_protected_event_collection(
     validator_meta_collection: ValidatorMetaCollection,
-    past_validator_meta_collection: Option<ValidatorMetaCollection>,
+    bids_pmpe_meta_collection: BidsPmpeMetaCollection,
 ) -> ProtectedEventCollection {
-    let commission_increase_events = past_validator_meta_collection
-        .map(|past_validator_meta_collection| {
-            collect_commission_increase_events(
-                &validator_meta_collection,
-                &past_validator_meta_collection,
-            )
-        })
-        .unwrap_or_default();
+    let staker_revenue_impact_events = collect_staker_revenue_impact_events(
+        &validator_meta_collection,
+        &bids_pmpe_meta_collection,
+    );
     let low_credits_events = collect_low_credits_events(&validator_meta_collection);
 
     let mut events: Vec<_> = Default::default();
-    events.extend(commission_increase_events);
+    events.extend(staker_revenue_impact_events);
     events.extend(low_credits_events);
 
     ProtectedEventCollection {

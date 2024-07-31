@@ -2,23 +2,17 @@
 - LowCreditsSettlement:
     meta:
       funder: ValidatorBond
-    min_settlement_lamports: 100000000
+    min_settlement_lamports: 100000000 # 0.1 SOL
     grace_low_credits_bps: 100 # 1 %
     covered_range_bps: [0, 2000] # 0 % - 20 %
 - LowCreditsSettlement:
     meta:
       funder: Marinade
-    min_settlement_lamports: 100000000
+    min_settlement_lamports: 100000000 # 0.1 SOL
     covered_range_bps: [2000, 10000] # 20 % - 100 %
-- CommissionIncreaseSettlement:
+# TODO: some better name (staker income decrease, penalty, harm, error impact)?
+- StakerRevenueImpactSettlement:
     meta:
       funder: ValidatorBond
-    min_settlement_lamports: 100000000
-    grace_commission_increase: 1 # 1 pct. point
-    covered_range_bps: [0, 2000] # 0 % - 20 %
-- CommissionIncreaseSettlement:
-    meta:
-      funder: Marinade
-    min_settlement_lamports: 100000000
-    grace_commission_increase: 1 # 1 pct. point
-    covered_range_bps: [2000, 10000] # 20 % - 100 %
+    min_settlement_lamports: 10000000 # 0.01 SOL TODO: ensure it is the right value
+    covered_range_bps: [0, 10000] # 0 % - 100 %

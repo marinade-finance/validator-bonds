@@ -39,10 +39,24 @@ steps:
     - |
       gcloud storage cp "$gs_bucket/$$epoch/validators.json" "."
       gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
-      gcloud storage cp "$gs_bucket/$$epoch/past-validators.json" "." || echo "Previous validator data not available!"
-    key: 'download-json'
     artifact_paths:
       - "./*.json"
+
+  - wait: ~
+
+  - label: ":github: :arrow_right: :truffleruby: DS SAM generates PMPE bids data"
+    commands:
+      - - 'buildkite-agent artifact download --include-retried-jobs validators.json .'
+      - 'git clone git@github.com:marinade-finance/ds-sam.git'
+      - |
+        cd ds-sam
+        pnpm install
+        pnpm -r build
+      - |
+        # TODO: change this based on changes in DS SAM
+        pnpm run cli -- generate-pmpe-data -f ./validators.json -o pmpes.json
+    artifact_paths:
+      - "./pmpes.json"
 
   - wait: ~
 
@@ -52,15 +66,15 @@ steps:
     commands:
     - 'buildkite-agent artifact download --include-retried-jobs validators.json .'
     - 'buildkite-agent artifact download --include-retried-jobs stakes.json .'
-    - 'buildkite-agent artifact download --include-retried-jobs past-validators.json . || echo "Previous validator data not available"'
+    - 'buildkite-agent artifact download --include-retried-jobs pmpes.json .'
     - 'buildkite-agent artifact download --include-retried-jobs target/release/settlement-engine-cli .'
     - 'chmod +x target/release/settlement-engine-cli'
-    - 'past_validators_arg=$( [[ -f ./past-validators.json ]] && echo "--past-validator-meta-collection ./past-validators.json" || echo "" )'
     - |
       ./target/release/settlement-engine-cli \
-        $$past_validators_arg \
         --validator-meta-collection "./validators.json" \
         --stake-meta-collection "./stakes.json" \
+        # TODO: check correct arg name here
+        --bids-pmpe-collection "./pmpes.json" \
         --output-protected-event-collection "./${claim_type}.json" \
         --output-settlement-collection "./${claim_type}-settlements.json" \
         --output-merkle-tree-collection "./${claim_type}-settlement-merkle-trees.json" \
