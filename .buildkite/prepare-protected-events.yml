@@ -4,14 +4,16 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   claim_type: "protected-events"
+  ds_sam_auction_github_api_link: "https://api.github.com/repos/marinade-finance/ds-sam-pipeline/contents/auctions/"
+  ds_sam_auction_download_link: "https://raw.githubusercontent.com/marinade-finance/ds-sam-pipeline/main/auctions/"
 
 steps:
   - label: ":hammer_and_wrench: :rust: Build"
     commands:
     - '. "$HOME/.cargo/env"'
-    - 'cargo build --release --bin settlement-engine-cli'
+    - 'cargo build --release --bin protected-event-distribution-cli'
     artifact_paths:
-      - target/release/settlement-engine-cli
+      - target/release/protected-event-distribution-cli
 
   - input: "What is the epoch to generate settlements for?"
     fields:
@@ -31,7 +33,7 @@ steps:
 
   - wait: ~
 
-  - label: ":floppy_disk: :arrow_left: :cloud: Downloading Settlements JSON data"
+  - label: ":cloud: :arrow_right: :floppy_disk: Downloading Settlements JSON data"
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
@@ -39,10 +41,69 @@ steps:
     - |
       gcloud storage cp "$gs_bucket/$$epoch/validators.json" "."
       gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
-      gcloud storage cp "$gs_bucket/$$epoch/past-validators.json" "." || echo "Previous validator data not available!"
-    key: 'download-json'
     artifact_paths:
       - "./*.json"
+
+  - label: ":cloud: :arrow_right: :floppy_disk: Downloading DS SAM auction data"
+    commands:
+      - 'epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}'
+      # checking auction directory to work with
+      - |
+        epoch_auction_dirs=$(./scripts/gh_curl.bash "$$ds_sam_auction_github_api_link" |\
+          jq -r '.[] | .name' | grep "$${epoch}\.")
+        # epoch_auction_dirs list of dirs in format '<epoch>.<slot>', for example '653.12308'
+        epoch_auction_dir=$(echo "$$epoch_auction_dirs" | sort -t. -k2 -n -r | head -n 1)
+        if [[ -z "$$epoch_auction_dir" ]]; then
+          echo "No auction data found for epoch $$epoch, directory listing: $$auction_dirs"
+          exit 1
+        fi
+      # listing input and output files
+      - |
+        ds_sam_input_listing_link="$${ds_sam_auction_github_api_link}$${epoch_auction_dir}/inputs/"
+        input_dir_files=$(./scripts/gh_curl.bash "$$ds_sam_input_listing_link" |\
+          jq -r '.[] | .name')
+        ds_sam_output_listing_link="$${ds_sam_auction_github_api_link}$${epoch_auction_dir}/outputs/"
+        output_dir_files=$(./scripts/gh_curl.bash "$$ds_sam_output_listing_link" |\
+          jq -r '.[] | .name' | grep '.json')
+      # downloading files
+      - |       
+        mkdir -p ./inputs
+        for file in $$input_dir_files; do
+          curl -O --output-dir './inputs' "$${ds_sam_auction_download_link}$${epoch_auction_dir}/inputs/$${file}"
+        done
+        mkdir -p ./outputs
+        for file in $$output_dir_files; do
+          curl -O --output-dir './outputs' "$${ds_sam_auction_download_link}$${epoch_auction_dir}/outputs/$${file}"
+        done
+    artifact_paths:
+      - "./inputs/*"
+      - "./outputs/*"
+
+  - label: ":github: :arrow_right: :truffleruby: Install DS SAM"
+    commands:
+      - 'git clone git@github.com:marinade-finance/ds-sam.git'
+      - |
+        cd ds-sam
+        pnpm install
+        pnpm -r build
+
+  - wait: ~
+
+  - label: ":campfire: DS SAM generates PMPE bids data"
+    commands:
+      - 'buildkite-agent artifact download --include-retried-jobs validators.json .'
+      - 'buildkite-agent artifact download --include-retried-jobs inputs/* .'
+      - 'buildkite-agent artifact download --include-retried-jobs outputs/* .'
+      - '[[ ! -f "./outputs/results.json" ]] && echo "results.json not found" && exit 2'
+      - |
+        cd ds-sam
+        pnpm run cli -- analyze-revenues \
+          --cache-dir-path "./inputs/" \
+          --sam-results-fixture-file-path "./outputs/results.json" \
+          --snapshot-validators-file-path "./validators.json" \
+          --results-file-path evaluation.json
+    artifact_paths:
+      - "./evaluation.json"
 
   - wait: ~
 
@@ -52,19 +113,18 @@ steps:
     commands:
     - 'buildkite-agent artifact download --include-retried-jobs validators.json .'
     - 'buildkite-agent artifact download --include-retried-jobs stakes.json .'
-    - 'buildkite-agent artifact download --include-retried-jobs past-validators.json . || echo "Previous validator data not available"'
-    - 'buildkite-agent artifact download --include-retried-jobs target/release/settlement-engine-cli .'
-    - 'chmod +x target/release/settlement-engine-cli'
-    - 'past_validators_arg=$( [[ -f ./past-validators.json ]] && echo "--past-validator-meta-collection ./past-validators.json" || echo "" )'
+    - 'buildkite-agent artifact download --include-retried-jobs evaluation.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/protected-event-distribution-cli .'
+    - 'chmod +x target/release/protected-event-distribution-cli'
     - |
-      ./target/release/settlement-engine-cli \
-        $$past_validators_arg \
+      ./target/release/protected-event-distribution-cli \
+        --settlement-config settlement-config.yaml \
         --validator-meta-collection "./validators.json" \
         --stake-meta-collection "./stakes.json" \
+        --revenue-expectation-collection "./evaluation.json" \
         --output-protected-event-collection "./${claim_type}.json" \
         --output-settlement-collection "./${claim_type}-settlements.json" \
-        --output-merkle-tree-collection "./${claim_type}-settlement-merkle-trees.json" \
-        --settlement-config settlement-config.yaml
+        --output-merkle-tree-collection "./${claim_type}-settlement-merkle-trees.json"
     artifact_paths:
         - "./${claim_type}*.json"
 

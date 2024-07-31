@@ -389,11 +389,11 @@ dependencies = [
  "gcp-bigquery-client",
  "log",
  "merkle-tree",
+ "protected-event-distribution",
  "rust_decimal",
  "serde",
  "serde_json",
  "serde_yaml 0.8.26",
- "settlement-engine",
  "snapshot-parser",
  "solana-sdk",
  "structopt",
@@ -937,7 +937,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4114279215a005bc675e386011e594e1d9b800918cea18fcadadcce864a2046b"
 dependencies = [
  "borsh-derive 0.10.3",
- "hashbrown 0.12.3",
+ "hashbrown 0.13.2",
 ]
 
 [[package]]
@@ -1160,42 +1160,6 @@ dependencies = [
  "libc",
  "pkg-config",
 ]
-
-[[package]]
-name = "cached"
-version = "0.44.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b195e4fbc4b6862bbd065b991a34750399c119797efff72492f28a5864de8700"
-dependencies = [
- "async-trait",
- "cached_proc_macro",
- "cached_proc_macro_types",
- "futures",
- "hashbrown 0.13.2",
- "instant",
- "once_cell",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "cached_proc_macro"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b48814962d2fd604c50d2b9433c2a41a0ab567779ee2c02f7fba6eca1221f082"
-dependencies = [
- "cached_proc_macro_types",
- "darling 0.14.4",
- "proc-macro2 1.0.78",
- "quote 1.0.35",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "cached_proc_macro_types"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ade8366b8bd5ba243f0a58f036cc0ca8a2f069cff1a2351ef1cac6b083e16fc0"
 
 [[package]]
 name = "caps"
@@ -1563,36 +1527,12 @@ dependencies = [
 
 [[package]]
 name = "darling"
-version = "0.14.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b750cb3417fd1b327431a470f388520309479ab0bf5e323505daf0290cd3850"
-dependencies = [
- "darling_core 0.14.4",
- "darling_macro 0.14.4",
-]
-
-[[package]]
-name = "darling"
 version = "0.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0209d94da627ab5605dcccf08bb18afa5009cfbef48d8a8b7d7bdbc79be25c5e"
 dependencies = [
- "darling_core 0.20.3",
- "darling_macro 0.20.3",
-]
-
-[[package]]
-name = "darling_core"
-version = "0.14.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "109c1ca6e6b7f82cc233a97004ea8ed7ca123a9af07a8230878fcfda9b158bf0"
-dependencies = [
- "fnv",
- "ident_case",
- "proc-macro2 1.0.78",
- "quote 1.0.35",
- "strsim 0.10.0",
- "syn 1.0.109",
+ "darling_core",
+ "darling_macro",
 ]
 
 [[package]]
@@ -1611,22 +1551,11 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.14.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4aab4dbc9f7611d8b55048a3a16d2d010c2c8334e46304b40ac1cc14bf3b48e"
-dependencies = [
- "darling_core 0.14.4",
- "quote 1.0.35",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "darling_macro"
 version = "0.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "836a9bbc7ad63342d6d6e7b815ccab164bc77a2d95d84bc3117a8c0d5c98e2d5"
 dependencies = [
- "darling_core 0.20.3",
+ "darling_core",
  "quote 1.0.35",
  "syn 2.0.50",
 ]
@@ -1751,15 +1680,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dirs"
-version = "5.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44c45a9d03d6676652bcb5e724c7e988de1acad23a711b5217ab9cbecbec2225"
-dependencies = [
- "dirs-sys",
-]
-
-[[package]]
 name = "dirs-next"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1767,18 +1687,6 @@ checksum = "b98cf8ebf19c3d1b223e151f99a4f9f0690dca41414773390fc824184ac833e1"
 dependencies = [
  "cfg-if",
  "dirs-sys-next",
-]
-
-[[package]]
-name = "dirs-sys"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "520f05a5cbd335fae5a99ff7a6ab8627577660ee5cfd6a94a6a929b52ff0321c"
-dependencies = [
- "libc",
- "option-ext",
- "redox_users",
- "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -3420,12 +3328,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "option-ext"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
-
-[[package]]
 name = "os_str_bytes"
 version = "6.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3870,6 +3772,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "213622a1460818959ac1181aaeb2dc9c7f63df720db7d788b3e24eacd1983e13"
 dependencies = [
  "prost",
+]
+
+[[package]]
+name = "protected-event-distribution"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "clap 4.4.8",
+ "env_logger 0.10.1",
+ "log",
+ "merkle-tree",
+ "serde",
+ "serde_json",
+ "serde_yaml 0.8.26",
+ "snapshot-parser",
+ "solana-sdk",
+ "tokio",
+ "utoipa",
 ]
 
 [[package]]
@@ -4608,7 +4529,7 @@ version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "881b6f881b17d13214e5d494c939ebab463d01264ce1811e9d4ac3a882e7695f"
 dependencies = [
- "darling 0.20.3",
+ "darling",
  "proc-macro2 1.0.78",
  "quote 1.0.35",
  "syn 2.0.50",
@@ -4637,54 +4558,6 @@ dependencies = [
  "ryu",
  "serde",
  "unsafe-libyaml",
-]
-
-[[package]]
-name = "settlement-engine"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "bincode",
- "clap 4.4.8",
- "env_logger 0.10.1",
- "log",
- "merkle-tree",
- "serde",
- "serde_json",
- "serde_yaml 0.8.26",
- "snapshot-parser",
- "solana-sdk",
- "tokio",
- "utoipa",
-]
-
-[[package]]
-name = "settlement-pipelines"
-version = "0.0.1"
-dependencies = [
- "anchor-client",
- "anyhow",
- "bincode",
- "clap 4.4.8",
- "env_logger 0.10.1",
- "futures",
- "log",
- "merkle-tree",
- "regex",
- "serde",
- "serde_json",
- "serde_yaml 0.8.26",
- "settlement-engine",
- "shellexpand",
- "solana-account-decoder",
- "solana-client",
- "solana-sdk",
- "solana-transaction-builder",
- "solana-transaction-builder-executor",
- "solana-transaction-executor",
- "tokio",
- "validator-bonds",
- "validator-bonds-common",
 ]
 
 [[package]]
@@ -4758,15 +4631,6 @@ name = "shell-words"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24188a676b6ae68c3b2cb3a01be17fbf7240ce009799bb56d5b1409051e78fde"
-
-[[package]]
-name = "shellexpand"
-version = "3.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da03fa3b94cc19e3ebfc88c4229c49d8f08cdbd1228870a45f0ffdf84988e14b"
-dependencies = [
- "dirs",
-]
 
 [[package]]
 name = "shlex"
@@ -5929,61 +5793,6 @@ dependencies = [
  "solana-rpc-client-api",
  "solana-sdk",
  "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "solana-transaction-builder"
-version = "0.1.0"
-source = "git+https://github.com/marinade-finance/solana-transaction-builder?branch=main#05b471e70d6ea44acf560ad98e1ce7289b002045"
-dependencies = [
- "anyhow",
- "base64 0.13.1",
- "bincode",
- "borsh 0.9.3",
- "log",
- "once_cell",
- "solana-sdk",
- "thiserror",
-]
-
-[[package]]
-name = "solana-transaction-builder-executor"
-version = "0.1.0"
-source = "git+https://github.com/marinade-finance/solana-transaction-builder?branch=main#05b471e70d6ea44acf560ad98e1ce7289b002045"
-dependencies = [
- "anyhow",
- "async-stream",
- "cached",
- "futures",
- "log",
- "solana-client",
- "solana-sdk",
- "solana-transaction-builder",
- "solana-transaction-executor",
- "tokio",
- "uuid",
-]
-
-[[package]]
-name = "solana-transaction-executor"
-version = "0.0.1"
-source = "git+https://github.com/marinade-finance/solana-transaction-executor?branch=master#20ee4e01e2bd47f25863ee045f67f72466397ea2"
-dependencies = [
- "anyhow",
- "async-trait",
- "base64 0.13.1",
- "bincode",
- "chrono",
- "futures-core",
- "futures-util",
- "log",
- "reqwest",
- "serde",
- "serde_json",
- "solana-client",
- "solana-sdk",
- "solana-transaction-status",
  "tokio",
 ]
 
@@ -7258,9 +7067,6 @@ name = "uuid"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f00cc9702ca12d3c81455259621e676d0f7251cec66a21e98fe2e9a37db93b2a"
-dependencies = [
- "getrandom 0.2.10",
-]
 
 [[package]]
 name = "validator-bonds"

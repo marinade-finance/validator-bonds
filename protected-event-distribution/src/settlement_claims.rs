@@ -67,7 +67,6 @@ pub fn generate_settlements(
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     settlement_config: &SettlementConfig,
 ) -> Vec<Settlement> {
-    info!("Generating settlement claim collection {settlement_config:?}...");
     assert_eq!(
         stake_meta_index.stake_meta_collection.epoch, protected_event_collection.epoch,
         "Protected event collection epoch must be same as stake meta collection epoch"
@@ -76,6 +75,8 @@ pub fn generate_settlements(
         stake_meta_index.stake_meta_collection.slot,
         protected_event_collection.slot
     );
+
+    info!("Generating settlement claim collection type {settlement_config:?}...");
 
     let protected_event_matcher = build_protected_event_matcher(settlement_config);
     let matching_protected_events = protected_event_collection

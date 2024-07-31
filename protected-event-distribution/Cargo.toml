@@ -1,9 +1,9 @@
 [[bin]]
-name = "settlement-engine-cli"
+name = "protected-event-distribution-cli"
 path = "src/bin/cli.rs"
 
 [package]
-name = "settlement-engine"
+name = "protected-event-distribution"
 version = "0.0.0"
 edition = "2021"
 

@@ -2,7 +2,7 @@ use crate::{
     dto::{ProtectedEventRecord, ValidatorBondRecord},
     handlers::{bonds, docs, protected_events},
 };
-use settlement_engine::{
+use protected_event_distribution::{
     protected_events::ProtectedEvent,
     settlement_claims::{SettlementFunder, SettlementMeta, SettlementReason},
 };

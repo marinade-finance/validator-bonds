@@ -1,9 +1,12 @@
 use env_logger::{Builder, Env};
-use settlement_engine::settlement_claims::generate_settlement_collection;
-use settlement_engine::settlement_config::{no_filter, stake_authorities_filter, SettlementConfig};
-use settlement_engine::stake_meta_index::StakeMetaIndex;
-use settlement_engine::utils::{file_error, read_from_yaml_file};
-use settlement_engine::{
+use protected_event_distribution::revenue_expectation_meta::RevenueExpectationMetaCollection;
+use protected_event_distribution::settlement_claims::generate_settlement_collection;
+use protected_event_distribution::settlement_config::{
+    no_filter, stake_authorities_filter, SettlementConfig,
+};
+use protected_event_distribution::stake_meta_index::StakeMetaIndex;
+use protected_event_distribution::utils::{file_error, read_from_yaml_file};
+use protected_event_distribution::{
     merkle_tree_collection::generate_merkle_tree_collection,
     protected_events::generate_protected_event_collection,
     utils::{read_from_json_file, write_to_json_file},
@@ -16,14 +19,22 @@ use {clap::Parser, log::info};
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    /// Input collection data referring to validator commission and MEV rates for an epoch.
+    /// Data expected to come from a snapshot generated at the last slot of the epoch.
     #[arg(long, env)]
     validator_meta_collection: String,
 
-    #[arg(long, env)]
-    past_validator_meta_collection: Option<String>,
-
+    /// Input collection data referring to stake accounts from the snapshot
+    /// of the same epoch as the validator metadata.
     #[arg(long, env)]
     stake_meta_collection: String,
+
+    /// Input collection data referring to promised and actual validator processing.
+    /// It's an aggregate collection of data that says if a validator has paid
+    /// what was expected to pay to the staker. That could be a change in commission or mev rate,
+    /// a wrong performance that led to a lower reward, etc.
+    #[arg(long, env)]
+    revenue_expectation_collection: String,
 
     #[arg(long, env)]
     output_protected_event_collection: String,
@@ -69,21 +80,17 @@ fn main() -> anyhow::Result<()> {
             &args.validator_meta_collection,
         ))?;
 
-    info!("Loading past validator meta collection if available...");
-    let past_validator_meta_collection: Option<ValidatorMetaCollection> =
-        match args.past_validator_meta_collection {
-            Some(path) => {
-                let past_validators = read_from_json_file(&path)
-                    .map_err(file_error("past-validator-meta-collection", &path))?;
-                Some(past_validators)
-            }
-            _ => None,
-        };
+    info!("Loading revenue expecation meta collection...");
+    let revenue_expectation_meta_collection: RevenueExpectationMetaCollection =
+        read_from_json_file(&args.revenue_expectation_collection).map_err(file_error(
+            "revenue-expectation-collection",
+            &args.revenue_expectation_collection,
+        ))?;
 
     info!("Generating protected event collection...");
     let protected_event_collection = generate_protected_event_collection(
         validator_meta_collection,
-        past_validator_meta_collection,
+        revenue_expectation_meta_collection,
     );
     info!("Writing protected events collection to json file");
     write_to_json_file(
@@ -115,7 +122,7 @@ fn main() -> anyhow::Result<()> {
     info!("Building stake meta collection index...");
     let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
 
-    info!("Generating settlement collection...");
+    info!("Generating protected events settlement collection...");
     let settlement_collection = generate_settlement_collection(
         &stake_meta_index,
         &protected_event_collection,
@@ -129,7 +136,7 @@ fn main() -> anyhow::Result<()> {
         ),
     )?;
 
-    info!("Generating merkle tree collection...");
+    info!("Generating protected events merkle tree collection...");
     let merkle_tree_collection = generate_merkle_tree_collection(settlement_collection)?;
     write_to_json_file(&merkle_tree_collection, &args.output_merkle_tree_collection).map_err(
         file_error(

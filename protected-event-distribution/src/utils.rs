@@ -1,10 +1,9 @@
+use serde::{de::DeserializeOwned, Serialize};
 use std::path::Path;
 use std::{
     fs::File,
     io::{BufReader, BufWriter, Write},
 };
-
-use serde::{de::DeserializeOwned, Serialize};
 
 pub fn write_to_json_file<T: Serialize>(data: &T, out_path: &str) -> anyhow::Result<()> {
     let file = File::create(out_path)?;

@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
 use merkle_tree::serde_serialize::pubkey_string_conversion;
+use protected_event_distribution::settlement_claims::{SettlementMeta, SettlementReason};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use settlement_engine::settlement_claims::{SettlementMeta, SettlementReason};
 use solana_sdk::pubkey::Pubkey;
 
 #[derive(Debug, Serialize, Deserialize, Clone, utoipa::ToSchema)]

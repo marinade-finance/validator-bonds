@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use clap::Parser;
 use log::{error, info};
-use settlement_engine::utils::read_from_json_file;
+use protected_event_distribution::utils::read_from_json_file;
 use settlement_pipelines::arguments::{get_rpc_client, GlobalOpts};
 use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::init::init_log;

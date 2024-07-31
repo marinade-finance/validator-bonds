@@ -4,7 +4,7 @@ use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
 use clap::Parser;
 use log::{debug, info};
-use settlement_engine::utils::read_from_json_file;
+use protected_event_distribution::utils::read_from_json_file;
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
     init_from_opts, load_pubkey, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts,
