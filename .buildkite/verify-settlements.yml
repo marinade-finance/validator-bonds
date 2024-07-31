@@ -43,7 +43,8 @@ steps:
       echo "Sequence printing: $(seq $$start_epoch $$current_epoch)"
       for epoch in $(seq $$start_epoch $$current_epoch); do
         for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/*settlement-merkle-trees.json"); do
-          gcloud storage cp "$$merkle_tree_file" "./merkle-trees/$${epoch}_$${merkle_tree_file}"
+          base_name=$(basename "$$merkle_tree_file")
+          gcloud storage cp "$$merkle_tree_file" "./merkle-trees/$${epoch}_$${base_name}"
         done
       done
     artifact_paths:
