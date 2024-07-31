@@ -21,7 +21,8 @@ fi
 decimal_format="%0.9f"
 
 function fmt_human_number {
-    numfmt --to si $@
+    integer_part=$(echo "$@" | cut -d. -f1)
+    numfmt -d. --to si "$integer_part"
 }
 export -f fmt_human_number
 
@@ -56,7 +57,14 @@ do
           ;;
 
         CommissionIncrease)
+          expected_commission_pmpe=$(<<<"$protected_event_attributes" jq '.expected_inflation_commission')
           reason="Commission $(<<<"$protected_event_attributes" jq '.previous_commission')% -> $(<<<"$protected_event_attributes" jq '.current_commission')%"
+          ;;
+
+        DowntimeRevenueImpact)
+          actual_credits=$(<<<"$protected_event_attributes" jq '.actual_credits')
+          expected_credits=$(<<<"$protected_event_attributes" jq '.expected_credits')
+          reason="Uptime $(bc <<<"scale=2; 100 * $actual_credits / $expected_credits")%"
           ;;
 
         *)

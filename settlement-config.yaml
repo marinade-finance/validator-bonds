@@ -1,24 +1,19 @@
+# TODO: review requires to confirm the correctness of the values
 ---
-- LowCreditsSettlement:
+- DowntimeRevenueImpactSettlement:
     meta:
       funder: ValidatorBond
-    min_settlement_lamports: 100000000
-    grace_low_credits_bps: 100 # 1 %
+    min_settlement_lamports: 100000000 # 0.1 SOL
+    grace_downtime_bps: 100 # 1 %
     covered_range_bps: [0, 2000] # 0 % - 20 %
-- LowCreditsSettlement:
+- DowntimeRevenueImpactSettlement:
     meta:
       funder: Marinade
-    min_settlement_lamports: 100000000
+    min_settlement_lamports: 100000000 # 0.1 SOL
     covered_range_bps: [2000, 10000] # 20 % - 100 %
 - CommissionIncreaseSettlement:
     meta:
       funder: ValidatorBond
-    min_settlement_lamports: 100000000
-    grace_commission_increase: 1 # 1 pct. point
-    covered_range_bps: [0, 2000] # 0 % - 20 %
-- CommissionIncreaseSettlement:
-    meta:
-      funder: Marinade
-    min_settlement_lamports: 100000000
-    grace_commission_increase: 1 # 1 pct. point
-    covered_range_bps: [2000, 10000] # 20 % - 100 %
+    min_settlement_lamports: 10000000 # 0.01 SOL
+    grace_increase_bps: 100 # 1 %
+    covered_range_bps: [0, 10000] # 0 % - 100 %

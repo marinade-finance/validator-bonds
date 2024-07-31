@@ -5,16 +5,21 @@ use std::collections::HashSet;
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub enum SettlementConfig {
-    LowCreditsSettlement {
+    /// configuration for protected event [protected_events::ProtectedEvent::DowntimeRevenueImpact]
+    DowntimeRevenueImpactSettlement {
         meta: SettlementMeta,
+        /// when settlement sum of claims is under this value, it is not generated
         min_settlement_lamports: u64,
-        grace_low_credits_bps: Option<u64>,
+        /// when downtime of the validator is lower to the grace period the settlement is not generated
+        grace_downtime_bps: Option<u64>,
+        /// range of bps that are covered by the settlement, usually differentiated by type of funder
         covered_range_bps: [u64; 2],
     },
+    /// configuration for protected event [protected_events::ProtectedEvent::CommissionIncrease]
     CommissionIncreaseSettlement {
         meta: SettlementMeta,
         min_settlement_lamports: u64,
-        grace_commission_increase: u8,
+        grace_increase_bps: Option<u64>,
         covered_range_bps: [u64; 2],
     },
 }
@@ -22,13 +27,13 @@ pub enum SettlementConfig {
 impl SettlementConfig {
     pub fn meta(&self) -> &SettlementMeta {
         match self {
-            SettlementConfig::LowCreditsSettlement { meta, .. } => meta,
+            SettlementConfig::DowntimeRevenueImpactSettlement { meta, .. } => meta,
             SettlementConfig::CommissionIncreaseSettlement { meta, .. } => meta,
         }
     }
     pub fn covered_range_bps(&self) -> &[u64; 2] {
         match self {
-            SettlementConfig::LowCreditsSettlement {
+            SettlementConfig::DowntimeRevenueImpactSettlement {
                 covered_range_bps, ..
             } => covered_range_bps,
             SettlementConfig::CommissionIncreaseSettlement {
@@ -38,7 +43,7 @@ impl SettlementConfig {
     }
     pub fn min_settlement_lamports(&self) -> u64 {
         *match self {
-            SettlementConfig::LowCreditsSettlement {
+            SettlementConfig::DowntimeRevenueImpactSettlement {
                 min_settlement_lamports,
                 ..
             } => min_settlement_lamports,
@@ -56,25 +61,17 @@ pub fn build_protected_event_matcher(
     Box::new(
         move |protected_event: &ProtectedEvent| match (settlement_config, protected_event) {
             (
-                SettlementConfig::LowCreditsSettlement {
-                    grace_low_credits_bps,
-                    ..
+                SettlementConfig::DowntimeRevenueImpactSettlement {
+                    grace_downtime_bps, ..
                 },
-                ProtectedEvent::LowCredits { epr_loss_bps, .. },
-            ) => *epr_loss_bps > grace_low_credits_bps.unwrap_or_default(),
+                ProtectedEvent::DowntimeRevenueImpact { epr_loss_bps, .. },
+            ) => *epr_loss_bps > grace_downtime_bps.unwrap_or_default(),
             (
                 SettlementConfig::CommissionIncreaseSettlement {
-                    grace_commission_increase,
-                    ..
+                    grace_increase_bps, ..
                 },
-                ProtectedEvent::CommissionIncrease {
-                    previous_commission,
-                    current_commission,
-                    ..
-                },
-            ) => {
-                current_commission.saturating_sub(*previous_commission) > *grace_commission_increase
-            }
+                ProtectedEvent::CommissionIncrease { epr_loss_bps, .. },
+            ) => *epr_loss_bps > grace_increase_bps.unwrap_or_default(),
             _ => false,
         },
     )

@@ -53,14 +53,18 @@ impl ValidatorMetaCollection {
             .sum()
     }
 
+    /// sum of lamports staked to all validators
     pub fn total_stake(&self) -> u64 {
         self.validator_metas.iter().map(|v| v.stake).sum()
     }
 
+    // TODO: DELETE ME? (not used anymore)
+    /// expected staker commission (MEV not calculated) reward for a staked lamport to be delivered by a validator
     pub fn expected_epr(&self) -> f64 {
         self.validator_rewards as f64 / self.total_stake() as f64
     }
 
+    /// calculates expected staker reward per one staked lamport when particular commission is set
     pub fn expected_epr_calculator(&self) -> impl Fn(u8) -> f64 {
         let expected_epr = self.expected_epr();
 

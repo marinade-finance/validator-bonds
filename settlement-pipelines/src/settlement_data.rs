@@ -2,7 +2,7 @@ use crate::json_data::{CombinedMerkleTreeSettlementCollections, MerkleTreeMetaSe
 use anchor_client::anchor_lang::prelude::Pubkey;
 use anyhow::anyhow;
 use merkle_tree::psr_claim::TreeNode;
-use settlement_engine::settlement_claims::SettlementFunder;
+use protected_event_distribution::settlement_claims::SettlementFunder;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
