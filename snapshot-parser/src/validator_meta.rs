@@ -136,7 +136,7 @@ fn fetch_jito_mev_metas(bank: &Arc<Bank>, epoch: Epoch) -> anyhow::Result<Vec<Ji
         },
     )?;
     info!(
-        "Jito {} accounts loaded: {}",
+        "jito program {} `raw` accounts loaded: {}",
         JITO_PROGRAM,
         jito_accounts_raw.len()
     );
@@ -157,7 +157,8 @@ fn fetch_jito_mev_metas(bank: &Arc<Bank>, epoch: Epoch) -> anyhow::Result<Vec<Ji
                         )
                     })?,
             );
-            if epoch_created_at == epoch {
+            // loading mev for the previous epoch
+            if epoch_created_at == epoch.saturating_sub(1) {
                 let mev_commission = u16::from_le_bytes(
                     account.data[VALIDATOR_COMMISSION_BPS_BYTE_INDEX..VALIDATOR_COMMISSION_BPS_BYTE_INDEX + 2]
                         .try_into()
@@ -181,6 +182,11 @@ fn fetch_jito_mev_metas(bank: &Arc<Bank>, epoch: Epoch) -> anyhow::Result<Vec<Ji
         }
     }
 
+    info!(
+        "jito tip distribution accounts for epoch {}: {}",
+        epoch.saturating_sub(1),
+        jito_mev_metas.len()
+    );
     Ok(jito_mev_metas)
 }
 
