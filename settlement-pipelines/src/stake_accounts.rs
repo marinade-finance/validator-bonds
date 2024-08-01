@@ -12,6 +12,7 @@ use solana_sdk::sysvar::{
     clock::ID as clock_sysvar_id, stake_history::ID as stake_history_sysvar_id,
 };
 use solana_transaction_builder::TransactionBuilder;
+use std::str::FromStr;
 use std::sync::Arc;
 use validator_bonds::instructions::MergeStakeArgs;
 use validator_bonds::ID as validator_bonds_id;
@@ -23,10 +24,10 @@ use validator_bonds_common::stake_accounts::{
 // TODO: better to be loaded from chain
 pub const STAKE_ACCOUNT_RENT_EXEMPTION: u64 = 2282880;
 
-// prioritize collected stake accounts by:
-// - 1. initialized, non-delegated
-// - 2. deactivating
-// - 3. any non-locked
+// 4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk
+pub const MARINADE_LIQUID_STAKER_AUTHORITY: &str = "4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk";
+
+// Prioritize collected stake accounts where to claim to.
 // - error if all are locked or no stake accounts
 pub fn prioritize_for_claiming(
     stake_accounts: &CollectedStakeAccounts,
@@ -38,7 +39,7 @@ pub fn prioritize_for_claiming(
         .filter(|(_, _, stake)| !is_locked(stake, clock))
         .collect::<Vec<_>>();
     non_locked_stake_accounts.sort_by_cached_key(|(_, _, stake_account)| {
-        get_non_locked_priority_key(stake_account, clock, stake_history)
+        get_claiming_priority_key(stake_account, clock, stake_history)
     });
     return if let Some((pubkey, _, _)) = non_locked_stake_accounts.first() {
         Ok(*pubkey)
@@ -57,10 +58,10 @@ pub fn prioritize_for_claiming(
 pub enum StakeAccountStateType {
     DelegatedAndDeactivating,
     DelegatedAndActivating,
-    DelegatedAndEffective,
+    DelegatedAndDeactivated,
     DelegatedAndActive,
     Initialized,
-    Locked,
+    NonAuthorized,
 }
 
 pub fn get_stake_state_type(
@@ -80,7 +81,7 @@ pub fn get_stake_state_type(
         } = delegation.stake_activating_and_deactivating(clock.epoch, Some(stake_history), None);
         if effective == 0 && activating == 0 {
             // all available for immediate delegation
-            StakeAccountStateType::DelegatedAndEffective
+            StakeAccountStateType::DelegatedAndDeactivated
         } else if deactivating > 0 {
             // stake is deactivating, possible to delegate in the next epoch
             StakeAccountStateType::DelegatedAndDeactivating
@@ -92,22 +93,39 @@ pub fn get_stake_state_type(
             StakeAccountStateType::DelegatedAndActive
         }
     } else {
-        StakeAccountStateType::Locked
+        StakeAccountStateType::NonAuthorized
     }
 }
 
-fn get_non_locked_priority_key(
+fn get_claiming_priority_key(
     stake_account: &StakeStateV2,
     clock: &Clock,
     stake_history: &StakeHistory,
 ) -> u8 {
-    match get_stake_state_type(stake_account, clock, stake_history) {
-        StakeAccountStateType::Initialized => 0,
-        StakeAccountStateType::DelegatedAndEffective => 1,
-        StakeAccountStateType::DelegatedAndDeactivating => 2,
-        StakeAccountStateType::DelegatedAndActive => 3,
-        StakeAccountStateType::DelegatedAndActivating => 4,
-        StakeAccountStateType::Locked => 255,
+    // HOTFIX: Marinade liquid staking stake accounts need a different priority to other types
+    let staker = if let Some(authorized) = stake_account.authorized() {
+        authorized.staker
+    } else {
+        Pubkey::default()
+    };
+    if staker == Pubkey::from_str(MARINADE_LIQUID_STAKER_AUTHORITY).unwrap() {
+        match get_stake_state_type(stake_account, clock, stake_history) {
+            StakeAccountStateType::DelegatedAndActive => 0,
+            StakeAccountStateType::DelegatedAndActivating => 1,
+            StakeAccountStateType::DelegatedAndDeactivating => 2,
+            StakeAccountStateType::Initialized => 3,
+            StakeAccountStateType::DelegatedAndDeactivated => 4,
+            StakeAccountStateType::NonAuthorized => 255,
+        }
+    } else {
+        match get_stake_state_type(stake_account, clock, stake_history) {
+            StakeAccountStateType::Initialized => 0,
+            StakeAccountStateType::DelegatedAndDeactivated => 1,
+            StakeAccountStateType::DelegatedAndDeactivating => 2,
+            StakeAccountStateType::DelegatedAndActive => 3,
+            StakeAccountStateType::DelegatedAndActivating => 4,
+            StakeAccountStateType::NonAuthorized => 255,
+        }
     }
 }
 
