@@ -12,6 +12,7 @@ use solana_sdk::sysvar::{
     clock::ID as clock_sysvar_id, stake_history::ID as stake_history_sysvar_id,
 };
 use solana_transaction_builder::TransactionBuilder;
+use std::str::FromStr;
 use std::sync::Arc;
 use validator_bonds::instructions::MergeStakeArgs;
 use validator_bonds::ID as validator_bonds_id;
@@ -24,10 +25,7 @@ use validator_bonds_common::stake_accounts::{
 pub const STAKE_ACCOUNT_RENT_EXEMPTION: u64 = 2282880;
 
 // 4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk
-pub const MARINADE_LIQUID_STAKER_AUTHORITY: [u8; 32] = [
-    53, 109, 26, 143, 162, 193, 40, 246, 201, 67, 252, 19, 89, 52, 168, 66, 3, 56, 165, 101, 156,
-    139, 110, 122, 97, 237, 147, 66, 57, 124, 21, 91,
-];
+pub const MARINADE_LIQUID_STAKER_AUTHORITY: &str = "4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk";
 
 // Prioritize collected stake accounts where to claim to.
 // - error if all are locked or no stake accounts
@@ -110,7 +108,7 @@ fn get_claiming_priority_key(
     } else {
         Pubkey::default()
     };
-    if staker == Pubkey::from(MARINADE_LIQUID_STAKER_AUTHORITY) {
+    if staker == Pubkey::from_str(MARINADE_LIQUID_STAKER_AUTHORITY).unwrap() {
         match get_stake_state_type(stake_account, clock, stake_history) {
             StakeAccountStateType::DelegatedAndActive => 0,
             StakeAccountStateType::DelegatedAndActivating => 1,
