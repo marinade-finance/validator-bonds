@@ -6,19 +6,23 @@ import {
 import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
+  Provider,
   Wallet,
   executeTx,
+  getStakeAccount,
   instanceOfWallet,
   transaction,
 } from '@marinade.finance/web3js-common'
 import {
+  bondsWithdrawerAuthority,
   fundBondInstruction,
   MARINADE_CONFIG_ADDRESS,
 } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
-import { getBondFromAddress } from '../utils'
+import { getBondFromAddress, isExpectedAnchorTransactionError } from '../utils'
 import { FUND_BOND_LIMIT_UNITS } from '../../computeUnits'
+import { Logger } from 'pino'
 
 export function installFundBond(program: Command) {
   program
@@ -86,6 +90,7 @@ async function manageFundBond({
 }) {
   const {
     program,
+    programId,
     provider,
     logger,
     computeUnitPrice,
@@ -127,22 +132,77 @@ async function manageFundBond({
   tx.add(instruction)
 
   logger.info(`Funding bond account ${bondAccount.toBase58()}`)
-  await executeTx({
-    connection: provider.connection,
-    transaction: tx,
-    errMessage: `'Failed to fund bond account ${bondAccount.toBase58()}`,
-    signers,
-    logger,
-    computeUnitLimit: FUND_BOND_LIMIT_UNITS,
-    computeUnitPrice,
-    simulate,
-    printOnly,
-    confirmOpts: confirmationFinality,
-    confirmWaitTime,
-    sendOpts: { skipPreflight },
-  })
+  try {
+    await executeTx({
+      connection: provider.connection,
+      transaction: tx,
+      errMessage: `'Failed to fund bond account ${bondAccount.toBase58()}`,
+      signers,
+      logger,
+      computeUnitLimit: FUND_BOND_LIMIT_UNITS,
+      computeUnitPrice,
+      simulate,
+      printOnly,
+      confirmOpts: confirmationFinality,
+      confirmWaitTime,
+      sendOpts: { skipPreflight },
+    })
+  } catch (err) {
+    return failIfUnexpectedError({
+      err,
+      logger,
+      provider,
+      config,
+      programId,
+      stakeAccount,
+      bondAccount,
+    })
+  }
   logger.info(
     `Bond account ${bondAccount.toBase58()} successfully funded ` +
       `with stake account ${stakeAccount.toBase58()}`
   )
+}
+
+async function failIfUnexpectedError({
+  err,
+  logger,
+  provider,
+  config,
+  programId,
+  stakeAccount,
+  bondAccount,
+}: {
+  err: unknown
+  logger: Logger
+  provider: Provider
+  config: PublicKey
+  programId: PublicKey | undefined
+  stakeAccount: PublicKey
+  bondAccount: PublicKey
+}) {
+  if (
+    await isExpectedAnchorTransactionError(
+      err,
+      'wrong withdrawer authority of the stake account'
+    )
+  ) {
+    // it could be already funded account, let's check it
+    const [bondsWithdrawerAuth] = bondsWithdrawerAuthority(config, programId)
+    const stakeAccountData = await getStakeAccount(
+      provider.connection,
+      stakeAccount
+    )
+    if (stakeAccountData.withdrawer?.equals(bondsWithdrawerAuth)) {
+      logger.debug(
+        `Bonds withdrawer authority '${bondsWithdrawerAuth.toBase58()}' for config '${config.toBase58()}' and program id '${programId?.toBase58()}'`
+      )
+      logger.info(
+        `The stake account ${stakeAccount.toBase58()} is ALREADY funded ` +
+          `to bond account ${bondAccount.toBase58()}.`
+      )
+      return
+    }
+  }
+  throw err
 }

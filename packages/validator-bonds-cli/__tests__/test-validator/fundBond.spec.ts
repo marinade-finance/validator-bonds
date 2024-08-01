@@ -132,6 +132,33 @@ describe('Fund bond account using CLI', () => {
     expect(stakeAccountData1.staker).toEqual(bondWithdrawer)
     expect(stakeAccountData1.withdrawer).toEqual(bondWithdrawer)
 
+    await (
+      expect([
+        'pnpm',
+        [
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          'fund-bond',
+          bondAccount.toBase58(),
+          '--stake-account',
+          stakeAccount1.toBase58(),
+          '--stake-authority',
+          stakeWithdrawerPath,
+          '--confirmation-finality',
+          'confirmed',
+          '--verbose',
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+      // stderr: '',
+      stdout: /is ALREADY funded to bond account/,
+    })
+
     await waitForStakeAccountActivation({
       stakeAccount: stakeAccount2,
       connection: provider.connection,

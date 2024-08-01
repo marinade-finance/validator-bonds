@@ -2,6 +2,7 @@ import { CliCommandError } from '@marinade.finance/cli-common'
 import {
   Bond,
   bondAddress,
+  Errors,
   MARINADE_CONFIG_ADDRESS,
   ValidatorBondsProgram,
   WithdrawRequest,
@@ -11,12 +12,14 @@ import {
   programAccountInfo,
   ProgramAccountInfo,
   getVoteAccountFromData,
+  ExecutionError,
 } from '@marinade.finance/web3js-common'
 import {
   AccountInfo,
   Connection,
   LAMPORTS_PER_SOL,
   PublicKey,
+  SendTransactionError,
 } from '@solana/web3.js'
 import { Logger } from 'pino'
 import { setProgramIdByOwner } from '../context'
@@ -277,4 +280,36 @@ async function checkAccountExistence(
     })
   }
   return accountInfo
+}
+
+// Something wrong happened during the execution of the transaction.
+// Checking the error comes through web3js-common with an expected anchor error.
+export async function isExpectedAnchorTransactionError(
+  err: unknown,
+  anchorErrMsg: string
+) {
+  if (err instanceof ExecutionError) {
+    if (err.cause !== null && err.cause instanceof SendTransactionError) {
+      const sendTransactionError = err.cause
+      const parsedCustomError =
+        sendTransactionError.transactionError.message.match(
+          /custom program error: 0x([0-9a-fA-F]+)/
+        )
+      const decimalValue =
+        parsedCustomError !== null ? parseInt(parsedCustomError[1], 16) : null
+      if (decimalValue !== null) {
+        const anchorErrorMessage = Errors.get(decimalValue)
+        if (anchorErrorMessage !== undefined) {
+          if (
+            anchorErrorMessage
+              .toLocaleLowerCase()
+              .includes(anchorErrMsg.toLocaleLowerCase())
+          ) {
+            return true
+          }
+        }
+      }
+    }
+  }
+  return false
 }
