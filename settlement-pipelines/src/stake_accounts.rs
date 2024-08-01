@@ -114,9 +114,9 @@ fn get_claiming_priority_key(
         match get_stake_state_type(stake_account, clock, stake_history) {
             StakeAccountStateType::DelegatedAndActive => 0,
             StakeAccountStateType::DelegatedAndActivating => 1,
-            StakeAccountStateType::DelegatedAndDeactivated => 2,
+            StakeAccountStateType::DelegatedAndDeactivating => 2,
             StakeAccountStateType::Initialized => 3,
-            StakeAccountStateType::DelegatedAndDeactivating => 4,
+            StakeAccountStateType::DelegatedAndDeactivated => 4,
             StakeAccountStateType::NonAuthorized => 255,
         }
     } else {
