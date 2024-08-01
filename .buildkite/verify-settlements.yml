@@ -124,7 +124,6 @@ steps:
       if [ $$number_unknown_settlements -gt 0 ]; then
         echo " => $$number_unknown_settlements unknown Settlements found"
         unknown_settlements=$(jq -rc '. | join(", ")' ./verify-report.json)
-        set -x
         curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
           -F 'payload_json={
               "embeds":[{
