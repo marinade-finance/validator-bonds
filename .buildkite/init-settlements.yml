@@ -31,10 +31,12 @@ steps:
 
   - label: ":mega: Notification initializing settlements"
     commands:
-    - discord_webhook="${DISCORD_WEBHOOK:-$$DISCORD_WEBHOOK_VALIDATOR_BONDS}"
-    - buildkite-agent meta-data set discord_webhook "$$discord_webhook"
-    - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
-    - buildkite-agent meta-data set epoch "$$epoch"
+    - |
+      discord_webhook="${DISCORD_WEBHOOK:-$$DISCORD_WEBHOOK_VALIDATOR_BONDS}"
+      buildkite-agent meta-data set discord_webhook "$$discord_webhook"
+    - |
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+      buildkite-agent meta-data set epoch "$$epoch"
     - claim_type=$(buildkite-agent meta-data get claim_type)
     - 'echo "Epoch: $$epoch"'
     - |

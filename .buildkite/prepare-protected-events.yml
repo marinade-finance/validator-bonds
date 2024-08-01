@@ -33,7 +33,9 @@ steps:
 
   - label: ":floppy_disk: :arrow_left: :cloud: Downloading Settlements JSON data"
     commands:
-    - 'epoch=$(buildkite-agent meta-data get epoch)'
+    - |
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+      buildkite-agent meta-data set epoch $$epoch
     - |
       gcloud storage cp "$gs_bucket/$$epoch/validators.json" "."
       gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
