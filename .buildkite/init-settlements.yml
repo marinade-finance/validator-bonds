@@ -37,14 +37,16 @@ steps:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
       buildkite-agent meta-data set epoch "$$epoch"
-    - claim_type=$(buildkite-agent meta-data get claim_type)
-    - 'echo "Epoch: $$epoch"'
+    - |
+      claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
+      buildkite-agent meta-data set claim_type "$$claim_type"
+    - 'echo "Epoch: $$epoch", Claim Type: $$claim_type'
     - |
       curl "$$discord_webhook" \
         -H "Content-Type: application/json" -d '{
         "embeds": [
           {
-            "title": "Confirm Settlements Initialization for Validator Bonds ('"$$epoch"')/("'$$claim_type'").",
+            "title": "Confirm Settlements Initialization for Validator Bonds ('"$$epoch"')/('"$$claim_type"').",
             "description": "Please review the 'Unblock' if ready to proceed.",
             "url": "'"$$BUILDKITE_BUILD_URL"'",
             "color": "8388863"

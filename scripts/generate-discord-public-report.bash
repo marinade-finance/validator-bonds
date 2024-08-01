@@ -3,10 +3,11 @@
 set -e
 
 settlement_collection_file="$1"
+settlement_type="$2"
 
 if [[ -z $settlement_collection_file ]]
 then
-    echo "Usage: $0 <settlement collection file>" >&2
+    echo "Usage: $0 <settlement collection file> [settlement type]" >&2
     exit 1
 fi
 
@@ -24,7 +25,11 @@ function fmt_human_number {
 }
 export -f fmt_human_number
 
-echo "Total settlements in epoch $epoch: ☉$(<"$settlement_collection_file" jq '[.settlements[].claims_amount / 1e9] | add' | xargs printf $decimal_format)"
+if [[ $settlement_type ]]; then
+  settlement_type=" $settlement_type"
+fi
+
+echo "Total settlements${settlement_type} in epoch $epoch: ☉$(<"$settlement_collection_file" jq '[.settlements[].claims_amount / 1e9] | add' | xargs printf $decimal_format)"
 echo
 echo "                                vote account    settlement                   reason   stake     funded by"
 echo "--------------------------------------------+-------------+------------------------+-------+-------------"

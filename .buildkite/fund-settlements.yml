@@ -46,10 +46,9 @@ steps:
         fi
         for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/*settlement-merkle-trees.json"); do
           base_name=$(basename "$$merkle_tree_file")
-          prefix_name="${base_name%settlement-merkle-trees.json}"
+          prefix_name="$${base_name%settlement-merkle-trees.json}"
           target_dir="./merkle-trees/$${epoch}_$${prefix_name}/"
           mkdir -p "$$target_dir"
-          gcloud storage cp "$$merkle_tree_file" "$$target_dir"
           gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlement-merkle-trees.json" "$$target_dir"
           gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlements.json" "$$target_dir"
         done
@@ -69,7 +68,6 @@ steps:
         # env defined by buildkite environment
         discord_webhook="$${DISCORD_WEBHOOK_VALIDATOR_BONDS}"
       fi
-      echo "Discord webhook: $$discord_webhook"
 
   - wait: ~
 
@@ -87,11 +85,12 @@ steps:
     - |
       buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .
       files=""
+      set -x
       for dir in ./merkle-trees/*; do
         if [ -d "$$dir" ]; then
           pair_files=""
           for file in "$$dir"/*; do
-            pair_files="$$pair_files \"$$file\""
+            pair_files="$$pair_files $$file"
           done
           files="$$files -f $$pair_files"
         fi

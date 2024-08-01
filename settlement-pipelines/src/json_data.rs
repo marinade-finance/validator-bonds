@@ -54,10 +54,17 @@ pub fn load_json(
     let settlement_json_files_pairs = pair_elements(settlement_json_files)?;
     // loading data from a pair of files, every pair has to consist of one settlement and one merkle tree file
     let mut claiming_data: Vec<CombinedMerkleTreeSettlementCollections> = vec![];
-    for (path1, path2) in settlement_json_files_pairs
-        .iter()
-        .filter(|(path1, path2)| check_is_file(path1) && check_is_file(path2))
-    {
+    for (path1, path2) in settlement_json_files_pairs.iter().filter(|(path1, path2)| {
+        if check_is_file(path1) && check_is_file(path2) {
+            true
+        } else {
+            error!(
+                "Skipping '{:?}' and '{:?}' as one or both are not correct file paths",
+                path1, path2
+            );
+            false
+        }
+    }) {
         let mut loaded_merkle_tree: MerkleTreeLoadedData = MerkleTreeLoadedData::default();
         load_json_data_to_merkle_tree(path1, &mut loaded_merkle_tree)?;
         load_json_data_to_merkle_tree(path2, &mut loaded_merkle_tree)?;
@@ -66,19 +73,20 @@ pub fn load_json(
     claiming_data.sort_by_key(|c| c.epoch);
 
     info!(
-        "Loaded json data from {:?} for epochs: {:?}",
-        settlement_json_files
+        "Loaded json data from {:?} with {} records for epochs: {:?}",
+        settlement_json_files_pairs
             .iter()
-            .map(|p| p.to_str())
+            .map(|(p1, p2)| format!("<{},{}>", p1.to_str().unwrap(), p2.to_str().unwrap()))
             .collect::<Vec<_>>(),
+        claiming_data
+            .iter()
+            .map(|v| v.merkle_tree_settlements.len())
+            .sum::<usize>(),
         // deduplicate and sort the epochs
         claiming_data
             .iter()
             .map(|v| v.epoch)
-            .collect::<HashSet<_>>()
-            .iter()
-            .collect::<Vec<_>>()
-            .sort()
+            .collect::<HashSet<u64>>() // deduplicate
     );
     Ok(claiming_data)
 }

@@ -23,7 +23,7 @@ steps:
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
-      buildkite-agent meta-data set epoch $$epoch
+      buildkite-agent meta-data set epoch "$$epoch"
       curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" -H "Content-Type: application/json" -d '{
         "embeds": [
           {
@@ -128,6 +128,14 @@ steps:
     #             EPOCH: $$epoch
     #             gs_bucket: $gs_bucket
     #     EOF
+
+  - wait: ~
+
+  - label: "🗑️ Cleanup"
+    commands:
+    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
+    - 'echo "Cleaning snapshot dir: $$snapshot_dir"'
+    - 'rm -r "$$snapshot_dir"'
 
   - wait: ~
 

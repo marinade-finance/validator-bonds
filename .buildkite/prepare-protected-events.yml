@@ -35,11 +35,11 @@ steps:
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
-      buildkite-agent meta-data set epoch $$epoch
+      buildkite-agent meta-data set epoch "$$epoch"
     - |
       gcloud storage cp "$gs_bucket/$$epoch/validators.json" "."
       gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
-      gcloud storage cp "$gs_bucket/$$epoch/past-validators.json" "." || echo "Previous validator data not available!"'
+      gcloud storage cp "$gs_bucket/$$epoch/past-validators.json" "." || echo "Previous validator data not available!"
     key: 'download-json'
     artifact_paths:
       - "./*.json"
@@ -73,7 +73,7 @@ steps:
   - label: "📓 Generating report"
     commands:
     - 'buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlements.json .'
-    - './scripts/generate-discord-public-report.bash "./${claim_type}-settlements.json" > "./discord-public-report.txt"'
+    - './scripts/generate-discord-public-report.bash "./${claim_type}-settlements.json" "Protected Events" > "./discord-public-report.txt"'
     artifact_paths:
       - "./discord-public-report.txt"
 
@@ -117,7 +117,7 @@ steps:
       $$split_command -C 2000 "./discord-public-report.txt" './discord-public-report.txt.chunk-'
       for report_chunk in './discord-public-report.txt.chunk-'*; do
         report=$(cat "$$report_chunk")
-        curl "$$DISCORD_WEBHOOK_PSR_FEED" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": [{"title":"Protected Events"}], "attachments": []}')"
+        curl "$$DISCORD_WEBHOOK_PSR_FEED" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": null, "attachments": []}')"
       done
 
   - wait: ~
