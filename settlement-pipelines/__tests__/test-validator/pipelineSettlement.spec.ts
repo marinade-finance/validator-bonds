@@ -64,7 +64,7 @@ const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
 //       Activate and run this manually when needed.
 //       FILE='settlement-pipelines/__tests__/test-validator/pipelineSettlement.spec.ts' pnpm test:validator
 
-describe('Cargo CLI: Pipeline Settlement', () => {
+describe.skip('Cargo CLI: Pipeline Settlement', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
 
