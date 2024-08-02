@@ -577,15 +577,6 @@ function format_sol_exclusive(key: string, value: BN): ReformatAction {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function reformatSettlement(key: string, value: any): ReformatAction {
-  if (key.toLowerCase() === 'merkleroot') {
-    console.debug('merkleroot', value)
-    console.log(
-      'merkleroot',
-      Array.from(value)
-        .map(byte => String(byte))
-        .join(',')
-    )
-  }
   if (
     key.toLowerCase() === 'merkleroot' &&
     (Array.isArray(value) || value instanceof Uint8Array)

@@ -148,7 +148,7 @@ export async function stakeActivation(
     const activationEpoch = stakeState.Stake.stake.delegation.activationEpoch
     const deactivationEpoch =
       stakeState.Stake.stake.delegation.deactivationEpoch
-    const curEpoch = new BN(await currentEpoch(provider))
+    const curEpoch = new BN((await currentEpoch(provider)).toString())
 
     // value U64_MAX means "not being set"
     if (
