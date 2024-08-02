@@ -509,7 +509,7 @@ async function showSettlement({
     }
   }
 
-  const reformatted = reformat(data, reformatBond)
+  const reformatted = reformat(data, reformatSettlement)
   print_data(reformatted, format)
 }
 
@@ -573,6 +573,39 @@ function format_sol_exclusive(key: string, value: BN): ReformatAction {
       },
     ],
   }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function reformatSettlement(key: string, value: any): ReformatAction {
+  if (key.toLowerCase() === 'merkleroot') {
+    console.debug('merkleroot', value)
+    console.log(
+      'merkleroot',
+      Array.from(value)
+        .map(byte => String(byte))
+        .join(',')
+    )
+  }
+  if (
+    key.toLowerCase() === 'merkleroot' &&
+    (Array.isArray(value) || value instanceof Uint8Array)
+  ) {
+    return {
+      type: 'UseExclusively',
+      records: [
+        {
+          key,
+          value:
+            '[' +
+            Array.from(value)
+              .map(byte => String(byte))
+              .join(',') +
+            ']',
+        },
+      ],
+    }
+  }
+  return reformatBond(key, value)
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
