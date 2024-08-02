@@ -69,9 +69,9 @@ export async function executeInitConfigInstruction({
 }: {
   program: ValidatorBondsProgram
   provider: ExtendedProvider
-  epochsToClaimSettlement?: number
-  slotsToStartSettlementClaiming?: number
-  withdrawLockupEpochs?: number
+  epochsToClaimSettlement?: number | BN | bigint
+  slotsToStartSettlementClaiming?: number | BN | bigint
+  withdrawLockupEpochs?: number | BN | bigint
   adminAuthority?: Keypair
   operatorAuthority?: Keypair
   configAccountKeypair?: Keypair
@@ -504,7 +504,7 @@ export async function executeInitSettlement({
   voteAccount?: PublicKey
   bondAccount?: PublicKey
   operatorAuthority: Keypair
-  currentEpoch?: number
+  currentEpoch?: number | BN | bigint
   rentCollector?: PublicKey
   merkleRoot?: number[] | Uint8Array | Buffer
   maxMerkleNodes?: number | BN

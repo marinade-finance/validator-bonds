@@ -20,7 +20,7 @@ import {
   executeInitBondInstruction,
 } from '../utils/testTransactions'
 import 'reflect-metadata'
-import { BN } from 'bn.js'
+import BN from 'bn.js'
 import { U64_MAX } from '@marinade.finance/web3js-common'
 
 export async function initBankrunTest(
@@ -135,6 +135,12 @@ export enum StakeActivationState {
   NonDelegated, // 4
 }
 
+export async function currentEpochBn(
+  provider: BankrunExtendedProvider
+): Promise<BN> {
+  return new BN((await currentEpoch(provider)).toString())
+}
+
 export async function stakeActivation(
   provider: BankrunExtendedProvider,
   stakeAccount: PublicKey
@@ -148,7 +154,7 @@ export async function stakeActivation(
     const activationEpoch = stakeState.Stake.stake.delegation.activationEpoch
     const deactivationEpoch =
       stakeState.Stake.stake.delegation.deactivationEpoch
-    const curEpoch = new BN((await currentEpoch(provider)).toString())
+    const curEpoch = await currentEpochBn(provider)
 
     // value U64_MAX means "not being set"
     if (

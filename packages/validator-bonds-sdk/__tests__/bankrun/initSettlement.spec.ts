@@ -189,7 +189,7 @@ describe('Validator Bonds init settlement', () => {
 
   it('init settlement with future epoch', async () => {
     const merkleRoot = Buffer.alloc(32)
-    const futureEpoch = (await currentEpoch(provider)) + 2024
+    const futureEpoch = (await currentEpoch(provider)) + BigInt(2024)
     const { instruction, settlementAccount } = await initSettlementInstruction({
       program,
       bondAccount: bond.publicKey,

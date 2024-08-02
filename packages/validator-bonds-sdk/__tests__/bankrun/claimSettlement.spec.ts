@@ -70,7 +70,7 @@ describe('Validator Bonds claim settlement', () => {
   const epochsToClaimSettlement = 4
   // the test activates the stake account, we need to set slots to be
   // after the start of the next epoch when the stake account is active as we warped there
-  let slotsToStartSettlementClaiming: number
+  let slotsToStartSettlementClaiming: bigint
   let settlement1ClaimingExpires: bigint
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
@@ -83,7 +83,7 @@ describe('Validator Bonds claim settlement', () => {
   let voteAccount2: PublicKey
   let settlementAccount1: PublicKey
   let settlementAccount2: PublicKey
-  let settlementEpoch: number
+  let settlementEpoch: bigint
   let rentCollector: Keypair
   let stakeAccount1: PublicKey
   let stakeAccount2: PublicKey
@@ -95,10 +95,10 @@ describe('Validator Bonds claim settlement', () => {
     const firstSlotOfEpoch = await getFirstSlotOfEpoch(provider, epochNow)
     const firstSlotOfNextEpoch = await getFirstSlotOfEpoch(
       provider,
-      epochNow + 1
+      epochNow + BigInt(1)
     )
     slotsToStartSettlementClaiming =
-      Number(firstSlotOfNextEpoch - firstSlotOfEpoch) + 3
+      firstSlotOfNextEpoch - firstSlotOfEpoch + BigInt(3)
     ;({ configAccount, operatorAuthority } = await executeInitConfigInstruction(
       {
         program,
@@ -800,15 +800,16 @@ describe('Validator Bonds claim settlement', () => {
 // https://github.com/solana-labs/solana/blob/v1.17.7/sdk/program/src/epoch_schedule.rs#L167
 async function getFirstSlotOfEpoch(
   provider: BankrunExtendedProvider,
-  epoch: number
+  epoch: number | bigint | BN
 ): Promise<bigint> {
-  const epochBigInt = BigInt(epoch)
+  const epochBigInt = BigInt(epoch.toString())
   const { slotsPerEpoch, firstNormalEpoch, firstNormalSlot } =
     provider.context.genesisConfig.epochSchedule
   let firstEpochSlot: bigint
-  const MINIMUM_SLOTS_PER_EPOCH = 32
+  const MINIMUM_SLOTS_PER_EPOCH = BigInt(32)
   if (epochBigInt <= firstNormalEpoch) {
-    firstEpochSlot = BigInt((2 ** epoch - 1) * MINIMUM_SLOTS_PER_EPOCH)
+    firstEpochSlot =
+      (BigInt(2) ** epochBigInt - BigInt(1)) * MINIMUM_SLOTS_PER_EPOCH
   } else {
     firstEpochSlot =
       (epochBigInt - firstNormalEpoch) * slotsPerEpoch + firstNormalSlot

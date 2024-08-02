@@ -65,8 +65,8 @@ import { isInitialized } from '../../src/settlementClaims'
 import assert from 'assert'
 
 describe('Validator Bonds pause&resume', () => {
-  const epochsToClaimSettlement = 23
-  const withdrawLockupEpochs = 1
+  const epochsToClaimSettlement = BigInt(23)
+  const withdrawLockupEpochs = BigInt(1)
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
@@ -236,7 +236,7 @@ describe('Validator Bonds pause&resume', () => {
       })
     await warpOffsetEpoch(
       provider,
-      initWithdrawerRequestEpoch + withdrawLockupEpochs + 1
+      initWithdrawerRequestEpoch + withdrawLockupEpochs + BigInt(1)
     )
     await verifyIsPaused(
       [splitStakeAccount, validatorIdentity],
@@ -343,7 +343,7 @@ describe('Validator Bonds pause&resume', () => {
     await pause()
     await warpOffsetEpoch(
       provider,
-      initWithdrawerRequestEpoch + epochsToClaimSettlement + 1
+      initWithdrawerRequestEpoch + epochsToClaimSettlement + BigInt(1)
     )
     const { instruction: closeSettlementIx } =
       await closeSettlementV2Instruction({
@@ -374,7 +374,7 @@ describe('Validator Bonds pause&resume', () => {
     await pause()
     await warpOffsetEpoch(
       provider,
-      initWithdrawerRequestEpoch + epochsToClaimSettlement + 1
+      initWithdrawerRequestEpoch + epochsToClaimSettlement + BigInt(1)
     )
 
     await createSettlementFundedDelegatedStake({

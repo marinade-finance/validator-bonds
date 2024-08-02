@@ -59,7 +59,7 @@ describe('Validator Bonds fund settlement', () => {
   let validatorIdentity: Keypair
   let bondAccount: PublicKey
   let voteAccount: PublicKey
-  let settlementEpoch: number
+  let settlementEpoch: bigint
   let rentCollector: Keypair
   let rentExemptStake: number
   let stakeAccountMinimalAmount: number
@@ -292,7 +292,7 @@ describe('Validator Bonds fund settlement', () => {
       U64_MAX
     )
     expect(stakeAccountData.Stake?.stake.delegation.activationEpoch).toEqual(
-      executionEpoch - 1
+      executionEpoch - BigInt(1)
     )
 
     const { instruction, splitStakeAccount } = await fundSettlementInstruction({
@@ -340,10 +340,10 @@ describe('Validator Bonds fund settlement', () => {
       StakeStates.Delegated
     )
     expect(stakeAccountData.Stake?.stake.delegation.deactivationEpoch).toEqual(
-      epochNow - 1
+      epochNow - BigInt(1)
     )
     expect(stakeAccountData.Stake?.stake.delegation.activationEpoch).toEqual(
-      executionEpoch - 1
+      executionEpoch - BigInt(1)
     )
   })
 

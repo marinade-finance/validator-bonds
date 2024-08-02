@@ -40,9 +40,9 @@ export async function initConfigInstruction({
   admin?: PublicKey
   operator?: PublicKey
   rentPayer?: PublicKey | Keypair | Signer | WalletInterface // signer
-  epochsToClaimSettlement?: BN | number
-  slotsToStartSettlementClaiming?: BN | number
-  withdrawLockupEpochs?: BN | number
+  epochsToClaimSettlement?: BN | number | bigint
+  slotsToStartSettlementClaiming?: BN | number | bigint
+  withdrawLockupEpochs?: BN | number | bigint
 }): Promise<{
   configAccount: PublicKey | Keypair | Signer | WalletInterface
   instruction: TransactionInstruction
@@ -54,9 +54,11 @@ export async function initConfigInstruction({
     .initConfig({
       adminAuthority: admin,
       operatorAuthority: operator,
-      epochsToClaimSettlement: new BN(epochsToClaimSettlement),
-      withdrawLockupEpochs: new BN(withdrawLockupEpochs),
-      slotsToStartSettlementClaiming: new BN(slotsToStartSettlementClaiming),
+      epochsToClaimSettlement: new BN(epochsToClaimSettlement.toString()),
+      withdrawLockupEpochs: new BN(withdrawLockupEpochs.toString()),
+      slotsToStartSettlementClaiming: new BN(
+        slotsToStartSettlementClaiming.toString()
+      ),
     })
     .accounts({
       config: configAccountPubkey,

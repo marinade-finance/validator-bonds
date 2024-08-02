@@ -70,7 +70,7 @@ function getMeta(
 async function parseStakeAccountData(
   connection: Connection,
   stakeAccountInfo: ProgramAccountInfo<StakeState>,
-  currentEpoch?: BN | number
+  currentEpoch?: BN | number | bigint
 ): Promise<StakeAccountParsed> {
   const meta = getMeta(stakeAccountInfo)
   const delegation = stakeAccountInfo.account.data.Stake?.stake.delegation
@@ -83,7 +83,7 @@ async function parseStakeAccountData(
   if (currentEpoch === undefined) {
     ;({ epoch: currentEpoch } = await connection.getEpochInfo())
   }
-  currentEpoch = new BN(currentEpoch).toNumber()
+  currentEpoch = new BN(currentEpoch.toString())
   const currentTimestamp = new BN(Date.now() / 1000)
 
   return {
@@ -99,11 +99,11 @@ async function parseStakeAccountData(
       lockup.custodian &&
       lockup.custodian !== undefined &&
       lockup.custodian !== PublicKey.default &&
-      (lockup?.epoch.gt(new BN(currentEpoch)) ||
+      (lockup?.epoch.gt(currentEpoch) ||
         lockup?.unixTimestamp.gt(currentTimestamp)),
     balanceLamports,
     stakedLamports,
-    currentEpoch,
+    currentEpoch: currentEpoch.toNumber(),
     currentTimestamp: currentTimestamp.toNumber(),
   }
 }
@@ -111,7 +111,7 @@ async function parseStakeAccountData(
 export async function getStakeAccount(
   connection: Provider | Connection | HasProvider,
   address: PublicKey,
-  currentEpoch?: number
+  currentEpoch?: number | BN | bigint
 ): Promise<StakeAccountParsed> {
   connection = getConnection(connection)
   const accountInfo = await connection.getAccountInfo(address)

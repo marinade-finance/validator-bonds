@@ -46,7 +46,7 @@ describe('Validator Bonds close settlement', () => {
   let voteAccount: PublicKey
   let settlementAccount: PublicKey
   let settlementClaimsAccount: PublicKey
-  let settlementEpoch: number
+  let settlementEpoch: bigint
   let rentCollector: Keypair
 
   beforeAll(async () => {

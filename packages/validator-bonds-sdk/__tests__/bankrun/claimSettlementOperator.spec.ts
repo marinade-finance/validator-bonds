@@ -48,7 +48,7 @@ describe('Validator Bonds claim settlement', () => {
   let validatorIdentity: Keypair
   let voteAccount: PublicKey
   let settlementAccount: PublicKey
-  let settlementEpoch: number
+  let settlementEpoch: bigint
   const maxMerkleNodes = 1
 
   beforeAll(async () => {
