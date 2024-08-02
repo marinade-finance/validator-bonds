@@ -195,9 +195,15 @@ fn resolve_combined(
                 .merkle_trees
                 .into_iter()
                 .zip(settlement_collection.settlements)
-                .map(|(merkle_tree, settlement)| MerkleTreeMetaSettlement {
-                    merkle_tree,
-                    settlement,
+                .map(|(merkle_tree, settlement)| {
+                    assert_eq!(
+                        merkle_tree.vote_account, settlement.vote_account,
+                        "Mismatched vote account for loaded merkle tree and settlement data"
+                    );
+                    MerkleTreeMetaSettlement {
+                        merkle_tree,
+                        settlement,
+                    }
                 })
                 .collect(),
         })
