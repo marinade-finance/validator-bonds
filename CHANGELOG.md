@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## TS CLI&SDK [2.0.1](https://github.com/marinade-finance/validator-bonds/compare/v2.0.0...v2.0.1) (2024-08-05)
+
+### Updates
+
+* `fund-bond` to show information and not an error when funding stake account is already funded
+* `show-bond` to accept stake account address and showing delegated voter
+  as base for PDA bond account address
+* `show-settlement` to better format merkle tree root data
+
+
 ## TS CLI&SDK [2.0.0](https://github.com/marinade-finance/validator-bonds/compare/v1.5.3...v2.0.0) (2024-07-11)
 
 ### Breaking
