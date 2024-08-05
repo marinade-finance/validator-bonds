@@ -591,7 +591,28 @@ describe('Show command using CLI', () => {
     )
     const withdrawRequestAmount = withdrawRequestData.requestedAmount.toNumber()
 
-    const epoch = (await provider.connection.getEpochInfo()).epoch
+    const expectedDataWithdrawRequest = YAML.stringify({
+      ...expectedData,
+      amountActive: `${
+        (sumLamports - withdrawRequestAmount) / LAMPORTS_PER_SOL
+      }.000000000 SOLs`,
+      amountToWithdraw: `${
+        withdrawRequestAmount / LAMPORTS_PER_SOL
+      }.000000000 SOLs`,
+      withdrawRequest: {
+        publicKey: withdrawRequestAccount.toBase58(),
+        account: {
+          voteAccount: withdrawRequestData.voteAccount.toBase58(),
+          bond: bondAccount.toBase58(),
+          epoch: (await provider.connection.getEpochInfo()).epoch,
+          requestedAmount: `${
+            withdrawRequestAmount / LAMPORTS_PER_SOL
+          }.000000000 SOLs`,
+          withdrawnAmount: '0.000000000 SOL',
+        },
+      },
+    })
+
     await (
       expect([
         'pnpm',
@@ -614,27 +635,88 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
       // stderr: '',
-      stdout: YAML.stringify({
-        ...expectedData,
-        amountActive: `${
-          (sumLamports - withdrawRequestAmount) / LAMPORTS_PER_SOL
-        }.000000000 SOLs`,
-        amountToWithdraw: `${
-          withdrawRequestAmount / LAMPORTS_PER_SOL
-        }.000000000 SOLs`,
-        withdrawRequest: {
-          publicKey: withdrawRequestAccount.toBase58(),
-          account: {
-            voteAccount: withdrawRequestData.voteAccount.toBase58(),
-            bond: bondAccount.toBase58(),
-            epoch,
-            requestedAmount: `${
-              withdrawRequestAmount / LAMPORTS_PER_SOL
-            }.000000000 SOLs`,
-            withdrawnAmount: '0.000000000 SOL',
-          },
-        },
-      }),
+      stdout: expectedDataWithdrawRequest,
+    })
+
+    // check show-bond to work with vote account, withdraw request addresses and stake account
+    console.log('CLI program id', program.programId.toBase58())
+    await (
+      expect([
+        'pnpm',
+        [
+          '--silent',
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          'show-bond',
+          voteAccount.toBase58(),
+          '--config',
+          configAccount.toBase58(),
+          '--with-funding',
+          '-f',
+          'yaml',
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+      signal: '',
+      // stderr: '',
+      stdout: expectedDataWithdrawRequest,
+    })
+    await (
+      expect([
+        'pnpm',
+        [
+          '--silent',
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          'show-bond',
+          withdrawRequestAccount.toBase58(),
+          '--with-funding',
+          '-f',
+          'yaml',
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+      signal: '',
+      // stderr: '',
+      stdout: expectedDataWithdrawRequest,
+    })
+    await (
+      expect([
+        'pnpm',
+        [
+          '--silent',
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          'show-bond',
+          lastStakeAccount!.toBase58(),
+          '--config',
+          configAccount.toBase58(),
+          '--with-funding',
+          '-f',
+          'yaml',
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+      signal: '',
+      // stderr: '',
+      stdout: new RegExp(
+        `${lastStakeAccount!.toBase58()} is a STAKE ACCOUNT(.|\\n)*publicKey: ${bondAccount.toBase58()}`
+      ),
     })
 
     const { instruction: ixCancel } = await cancelWithdrawRequestInstruction({

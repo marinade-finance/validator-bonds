@@ -2,6 +2,7 @@ import { CliCommandError } from '@marinade.finance/cli-common'
 import {
   Bond,
   bondAddress,
+  deserializeStakeState,
   Errors,
   MARINADE_CONFIG_ADDRESS,
   ValidatorBondsProgram,
@@ -20,6 +21,7 @@ import {
   LAMPORTS_PER_SOL,
   PublicKey,
   SendTransactionError,
+  StakeProgram,
 } from '@solana/web3.js'
 import { Logger } from 'pino'
 import { setProgramIdByOwner } from '../context'
@@ -52,7 +54,7 @@ export async function getBondFromAddress({
     address = address.publicKey
   }
 
-  const voteAccountAddress = await isVoteAccount({
+  let voteAccountAddress = await isVoteAccount({
     address,
     accountInfo,
     logger,
@@ -80,6 +82,35 @@ export async function getBondFromAddress({
         })
       }
       accountInfo = bondAccountInfo
+    }
+  }
+
+  // Let's check if provided account is a stake account, if so using delegated vote account
+  if (accountInfo.owner.equals(StakeProgram.programId)) {
+    let isStakeAccountError = false
+    try {
+      const stakeAccountData = deserializeStakeState(accountInfo.data)
+      voteAccountAddress =
+        stakeAccountData.Stake?.stake.delegation.voterPubkey || null
+      if (voteAccountAddress !== null) {
+        logger.info(
+          `Address ${address.toBase58()} is a STAKE ACCOUNT delegated to vote account ` +
+            `${voteAccountAddress.toBase58()}. Using the vote account to show bond data.`
+        )
+      } else {
+        isStakeAccountError = true
+      }
+    } catch (e) {
+      isStakeAccountError = true
+    }
+    if (isStakeAccountError) {
+      throw new CliCommandError({
+        valueName: '[stake account address]',
+        value: address.toBase58(),
+        msg:
+          'Provided address is a stake account but it is not delegated or cannot be deserialized. ' +
+          'Please provide a bond account or vote account to fetch bond data.',
+      })
     }
   }
 
