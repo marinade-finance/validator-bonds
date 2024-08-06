@@ -76,3 +76,8 @@ steps:
     - gcloud storage cp "./${claim_type}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
 
   - wait: ~
+
+  - label: ":unlock: Concurrency gate unlock"
+    command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/prepare-bids-distribution'
+    concurrency: 1
