@@ -29,6 +29,7 @@ pub struct SettlementClaim {
 #[derive(Clone, Deserialize, Serialize, Debug, utoipa::ToSchema)]
 pub enum SettlementReason {
     ProtectedEvent(ProtectedEvent),
+    Bidding
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug, Eq, PartialEq, Hash, utoipa::ToSchema)]

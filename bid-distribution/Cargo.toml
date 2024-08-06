@@ -1,0 +1,24 @@
+[[bin]]
+name = "bid-distribution-cli"
+path = "src/bin/cli.rs"
+
+[package]
+name = "bid-distribution"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+bincode = { workspace = true }
+clap = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+merkle-tree = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+snapshot-parser = { workspace = true }
+solana-sdk = { workspace = true }
+tokio = { workspace = true }
+utoipa = { workspace = true }
+settlement-engine = {workspace = true }

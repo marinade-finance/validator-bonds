@@ -1,0 +1,78 @@
+agents:
+  queue: "snapshots"
+
+env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+  claim_type: "bidding"
+
+steps:
+  - label: ":hammer_and_wrench: :rust: Build"
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'cargo build --release --bin bid-distribution'
+    artifact_paths:
+      - target/release/bid-distribution-cli
+
+  - input: "What is the epoch to generate settlements for?"
+    fields:
+      - text: "Epoch"
+        key: "epoch"
+        format: "[0-9]+"
+    if: "build.env('EPOCH') == null"
+  - command: "echo 'Epoch is: $EPOCH'"
+    if: "build.env('EPOCH') != null"
+
+  - wait: ~
+
+  - label: ":closed_lock_with_key: Concurrency gate lock"
+    command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/prepare-bids-distribution'
+    concurrency: 1
+
+  - wait: ~
+
+  - label: ":floppy_disk: :arrow_left: :cloud: Downloading Settlements JSON data"
+    commands:
+    - |
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+      buildkite-agent meta-data set epoch "$$epoch"
+    - |
+      curl -s "https://scoring.marinade.finance/api/v1/scores/sam?epoch=$$epoch" -o validators.json
+      gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
+    key: 'download-json'
+    artifact_paths:
+      - "./*.json"
+
+  - wait: ~
+
+  - label: ":scales: Evaluate Marinade Bids"
+    env:
+      WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
+    commands:
+    - 'buildkite-agent artifact download --include-retried-jobs validators.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs stakes.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/bid-distribution-cli .'
+    - 'chmod +x target/release/bid-distribution-cli'
+    - |
+      ./target/release/bid-distribution-cli \
+        --sam-meta-collection ./validators.json \
+        --stake-meta-collection ./stakes.json \
+        --marinade-fee-bps 800 \
+        --marinade-fee-stake-authority stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq \
+        --marinade-fee-withdraw-authority <<TODO_REPLACE_HERE>> \
+        --output-settlement-collection "./${claim_type}-settlements.json" \ 
+        --output-merkle-tree-collection "./${claim_type}-settlement-merkle-trees.json"
+    artifact_paths:
+    - "./${claim_type}*.json"
+
+  - wait: ~
+  
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlements.json .
+    - buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlement-merkle-trees.json .
+    - gcloud storage cp "./${claim_type}-settlements.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./${claim_type}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
+
+  - wait: ~
