@@ -30,7 +30,7 @@ pub struct ValidatorSamMeta {
     pub vote_account: Pubkey,
     pub marinade_mnde_target_sol: f64,
     pub marinade_sam_target_sol: f64,
-    pub rev_share: String,
+    pub rev_share: RevShare,
     pub stake_priority: u32,
     pub unstake_priority: u32,
     pub max_stake_wanted: f64,
@@ -39,4 +39,13 @@ pub struct ValidatorSamMeta {
     pub metadata: Metadata,
     pub scoring_run_id: String,
     pub epoch: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RevShare {
+    total_pmpe: f64,
+    inflation_pmpe: f64,
+    mev_pmpe: f64,
+    bid_pmpe: f64,
+    auction_effective_bid_pmpe: f64,
 }
