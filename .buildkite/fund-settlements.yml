@@ -57,7 +57,7 @@ steps:
   - label: ":black_nib: Find Discord webhook"
     commands:
     - |
-      discord_webhook="$(buildkite-agent meta-data get discord_webhook)"
+      discord_webhook="$(buildkite-agent meta-data get discord_webhook || echo '')"
       if [[ -z "$$discord_webhook" ]]; then
         # env defined by job definition
         discord_webhook="${DISCORD_WEBHOOK}"
@@ -66,6 +66,7 @@ steps:
         # env defined by buildkite environment
         discord_webhook="$${DISCORD_WEBHOOK_VALIDATOR_BONDS}"
       fi
+      buildkite-agent meta-data set discord_webhook "$$discord_webhook"
 
   - wait: ~
 

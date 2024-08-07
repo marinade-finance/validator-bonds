@@ -21,6 +21,19 @@ steps:
       - target/release/list-claimable-epoch
       - target/release/claim-settlement
 
+  - label: ":black_nib: Find Discord webhook"
+    commands:
+    - |
+      discord_webhook="$(buildkite-agent meta-data get discord_webhook || echo '')"
+      if [[ -z "$$discord_webhook" ]]; then
+        # env defined by job definition
+        discord_webhook="${DISCORD_WEBHOOK}"
+      fi
+      if [[ -z "$$discord_webhook" ]]; then
+        # env defined by buildkite environment
+        discord_webhook="$${DISCORD_WEBHOOK_VALIDATOR_BONDS}"
+      fi
+
   - wait: ~
 
   - label: ":campfire: List claimable epochs"
@@ -166,7 +179,7 @@ steps:
     - 'claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json || echo "[]")'
     - |
       claimable_epochs=$(echo "$$claimable_epochs_json" | jq ". | join(\",\")" | tr -d '"')
-      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
+      curl "$(buildkite-agent meta-data get discord_webhook)" \
         -F 'payload_json={
             "embeds":[{
               "title": "Claim Settlements '"$$notification_result"' for epochs: '"$$claimable_epochs"' after '"$$attempts_count"' attempts",
