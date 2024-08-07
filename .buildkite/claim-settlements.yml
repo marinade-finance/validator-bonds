@@ -33,6 +33,7 @@ steps:
         # env defined by buildkite environment
         discord_webhook="$${DISCORD_WEBHOOK_VALIDATOR_BONDS}"
       fi
+      buildkite-agent meta-data set discord_webhook "$$discord_webhook"
 
   - wait: ~
 
