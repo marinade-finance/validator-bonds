@@ -42,6 +42,7 @@ pub struct ValidatorSamMeta {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RevShare {
     total_pmpe: f64,
     inflation_pmpe: f64,
