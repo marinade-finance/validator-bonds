@@ -37,7 +37,7 @@ pub struct ValidatorSamMeta {
     pub effective_bid: f64,
     pub constraints: String,
     pub metadata: Metadata,
-    pub scoring_run_id: String,
+    pub scoring_run_id: u32,
     pub epoch: u32,
 }
 
