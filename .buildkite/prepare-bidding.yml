@@ -9,7 +9,7 @@ steps:
   - label: ":hammer_and_wrench: :rust: Build"
     commands:
     - '. "$HOME/.cargo/env"'
-    - 'cargo build --release --bin bid-distribution'
+    - 'cargo build --release --bin bid-distribution-cli'
     artifact_paths:
       - target/release/bid-distribution-cli
 
@@ -26,7 +26,7 @@ steps:
 
   - label: ":closed_lock_with_key: Concurrency gate lock"
     command: echo "--> Start of concurrency gate"
-    concurrency_group: 'validator-bonds/prepare-bids-distribution'
+    concurrency_group: 'validator-bonds/prepare-bidding'
     concurrency: 1
 
   - wait: ~
@@ -59,8 +59,8 @@ steps:
         --stake-meta-collection ./stakes.json \
         --marinade-fee-bps 800 \
         --marinade-fee-stake-authority stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq \
-        --marinade-fee-withdraw-authority <<TODO_REPLACE_HERE>> \
-        --output-settlement-collection "./${claim_type}-settlements.json" \ 
+        --marinade-fee-withdraw-authority stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq \
+        --output-settlement-collection "./${claim_type}-settlements.json" \
         --output-merkle-tree-collection "./${claim_type}-settlement-merkle-trees.json"
     artifact_paths:
     - "./${claim_type}*.json"
@@ -79,5 +79,5 @@ steps:
 
   - label: ":unlock: Concurrency gate unlock"
     command: echo "End of concurrency gate <--"
-    concurrency_group: 'validator-bonds/prepare-bids-distribution'
+    concurrency_group: 'validator-bonds/prepare-bidding'
     concurrency: 1
