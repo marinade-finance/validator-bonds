@@ -8,6 +8,7 @@ members = [
     "snapshot-parser",
     "validator-bonds-cli",
     "settlement-pipelines",
+    "bid-distribution",
 ]
 resolver = "1"
 

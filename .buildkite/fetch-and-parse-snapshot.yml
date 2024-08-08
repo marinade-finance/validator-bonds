@@ -111,23 +111,22 @@ steps:
               EPOCH: $$epoch
               gs_bucket: $gs_bucket
       EOF
-  
-    # TO BE DONE: new pipeline for bidding
-    # - label: ":gear: :two: Setup trigger for prepare-bidding"
-    #   commands:
-    #   - 'epoch=$(buildkite-agent meta-data get epoch)'
-    #   - |
-    #     cat <<EOF | buildkite-agent pipeline upload
-    #     steps:
-    #       - trigger: "prepare-bidding"
-    #         label: ":rocket: Trigger: Prepare Bidding ($$epoch)"
-    #         async: false
-    #         build:
-    #           branch: $$BUILDKITE_BRANCH
-    #           env:
-    #             EPOCH: $$epoch
-    #             gs_bucket: $gs_bucket
-    #     EOF
+
+    - label: ":gear: :two: Setup trigger for prepare-bidding"
+      commands:
+      - 'epoch=$(buildkite-agent meta-data get epoch)'
+      - |
+        cat <<EOF | buildkite-agent pipeline upload
+        steps:
+          - trigger: "prepare-bidding"
+            label: ":rocket: Trigger: Prepare Bidding ($$epoch)"
+            async: false
+            build:
+              branch: $$BUILDKITE_BRANCH
+              env:
+                EPOCH: $$epoch
+                gs_bucket: $gs_bucket
+        EOF
 
   - wait: ~
 
