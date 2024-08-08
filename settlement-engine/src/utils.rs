@@ -53,3 +53,10 @@ pub fn bps(value: u64, max: u64) -> u64 {
 pub fn bps_to_fraction(value: u64) -> f64 {
     value as f64 / 10000.0
 }
+
+pub fn file_error<'a>(
+    param_name: &'a str,
+    file_path: &'a str,
+) -> impl Fn(anyhow::Error) -> anyhow::Error + 'a {
+    move |e| anyhow::anyhow!("Failure at '--{param_name} {file_path}': {:?}", e)
+}
