@@ -78,10 +78,6 @@ pub fn generate_bid_settlements(
                 Decimal::from(*settlement_config.marinade_fee_bps()) / Decimal::from(10000);
             let effective_bid = validator.effective_bid / Decimal::from(1000);
 
-            if sam_target_stake + mnde_target_stake == Decimal::ZERO {
-                continue;
-            }
-
             let total_active_stake: u64 = stake_meta_index
                 .iter_grouped_stake_metas(&validator.vote_account)
                 .unwrap()
@@ -90,7 +86,12 @@ pub fn generate_bid_settlements(
                 .map(|meta| meta.active_delegation_lamports)
                 .sum();
 
-            let stake_sam_percentage = sam_target_stake / (sam_target_stake + mnde_target_stake);
+            let stake_sam_percentage = if mnde_target_stake == Decimal::ZERO {
+                Decimal::ONE
+            } else {
+                sam_target_stake / (sam_target_stake + mnde_target_stake)
+            };
+
             let initial_sam_stake = (Decimal::from(total_active_stake) * stake_sam_percentage)
                 .to_u64()
                 .unwrap();
