@@ -1,0 +1,122 @@
+agents:
+  queue: "snapshots"
+
+env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+  claim_type: "bidding"
+
+steps:
+  - label: ":hammer_and_wrench: :rust: Build"
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'cargo build --release --bin bid-distribution-cli'
+    artifact_paths:
+      - target/release/bid-distribution-cli
+
+  - input: "What is the epoch to generate settlements for?"
+    fields:
+      - text: "Epoch"
+        key: "epoch"
+        format: "[0-9]+"
+    if: "build.env('EPOCH') == null"
+  - command: "echo 'Epoch is: $EPOCH'"
+    if: "build.env('EPOCH') != null"
+
+  - wait: ~
+
+  - label: ":closed_lock_with_key: Concurrency gate lock"
+    command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/prepare-bidding'
+    concurrency: 1
+
+  - wait: ~
+
+  - label: ":floppy_disk: :arrow_left: :cloud: Downloading Settlements JSON data"
+    commands:
+    - |
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+      buildkite-agent meta-data set epoch "$$epoch"
+    - |
+      curl -s "https://scoring.marinade.finance/api/v1/scores/sam?epoch=$$epoch" -o sam-scores.json
+      gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
+    key: 'download-json'
+    artifact_paths:
+      - "./*.json"
+
+  - wait: ~
+
+  - label: ":scales: Evaluate Marinade Bids"
+    env:
+      WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
+    commands:
+    - 'buildkite-agent artifact download --include-retried-jobs sam-scores.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs stakes.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/bid-distribution-cli .'
+    - 'chmod +x target/release/bid-distribution-cli'
+    - |
+      ./target/release/bid-distribution-cli \
+        --sam-meta-collection ./sam-scores.json \
+        --stake-meta-collection ./stakes.json \
+        --marinade-fee-bps 10000 \
+        --marinade-fee-stake-authority opLSF7LdfyWNBby5o6FT8UFsr2A4UGKteECgtLSYrSm \
+        --marinade-fee-withdraw-authority opLSF7LdfyWNBby5o6FT8UFsr2A4UGKteECgtLSYrSm \
+        --output-settlement-collection "./${claim_type}-settlements.json" \
+        --output-merkle-tree-collection "./${claim_type}-settlement-merkle-trees.json"
+    artifact_paths:
+    - "./${claim_type}*.json"
+
+  - wait: ~
+  
+  - label: "📓 Generating report"
+    commands:
+    - 'buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlements.json .'
+    - './scripts/generate-discord-public-report.bash "./${claim_type}-settlements.json" "Bidding" > "./discord-public-report.txt"'
+    artifact_paths:
+      - "./discord-public-report.txt"
+
+  - wait: ~
+
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlements.json .
+    - buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlement-merkle-trees.json .
+    - gcloud storage cp "./${claim_type}-settlements.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./${claim_type}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./discord-public-report.txt" "$gs_bucket/$$epoch/${claim_type}-discord-public-report.txt"
+
+  - wait: ~
+
+  - label: ":mega: Notification"
+    commands:
+    - |
+      epoch=$(buildkite-agent meta-data get epoch)
+      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" -H "Content-Type: application/json" -d '{
+        "embeds": [
+          {
+            "title": "Claims for Validator Bonds ('"${claim_type}"') generated ('"$$epoch"').",
+            "url": "'"$$BUILDKITE_BUILD_URL"'",
+            "color": "52224"
+          }
+        ]
+      }'
+
+  - label: ":mega: PSR feed"
+    commands:
+    - buildkite-agent artifact download --include-retried-jobs discord-public-report.txt .
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - |
+      split_command=$(which split >&2 > /dev/null && echo "split" || echo "gsplit")
+      # discord max message length is 2000 characters
+      $$split_command -C 2000 "./discord-public-report.txt" './discord-public-report.txt.chunk-'
+      for report_chunk in './discord-public-report.txt.chunk-'*; do
+        report=$(cat "$$report_chunk")
+        curl "$$DISCORD_WEBHOOK_PSR_FEED" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": null, "attachments": []}')"
+      done
+
+  - wait: ~
+
+  - label: ":unlock: Concurrency gate unlock"
+    command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/prepare-bidding'
+    concurrency: 1
