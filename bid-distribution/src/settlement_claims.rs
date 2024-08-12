@@ -38,7 +38,7 @@ pub fn generate_bid_settlements(
     settlement_config: &SettlementConfig,
 ) -> Vec<Settlement> {
     info!("Generating bid settlements...");
-    
+
     for sam_validator_meta in sam_validator_metas {
         assert_eq!(
             stake_meta_index.stake_meta_collection.epoch, sam_validator_meta.epoch as u64,
