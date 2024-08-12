@@ -38,12 +38,13 @@ pub fn generate_bid_settlements(
     settlement_config: &SettlementConfig,
 ) -> Vec<Settlement> {
     info!("Generating bid settlements...");
-    let sam_validators_epoch = sam_validator_metas.first().unwrap().epoch;
-
-    assert_eq!(
-        stake_meta_index.stake_meta_collection.epoch, sam_validators_epoch as u64,
-        "SAM Validators Collection epoch must be same as stake meta collection epoch"
-    );
+    
+    for sam_validator_meta in sam_validator_metas {
+        assert_eq!(
+            stake_meta_index.stake_meta_collection.epoch, sam_validator_meta.epoch as u64,
+            "SAM Validators Collection epoch must be same as stake meta collection epoch"
+        );
+    }
 
     let marinade_fee_deposit_stake_accounts: HashMap<_, _> = stake_meta_index
         .stake_meta_collection
@@ -75,7 +76,7 @@ pub fn generate_bid_settlements(
             let max_wanted_stake = validator.max_stake_wanted * Decimal::from_f64(1e9).unwrap();
             let marinade_payment_percentage =
                 Decimal::from(*settlement_config.marinade_fee_bps()) / Decimal::from(10000);
-            let effective_bid = validator.effective_bid / Decimal::from_f64(1e3).unwrap();
+            let effective_bid = validator.effective_bid / Decimal::from(1000);
 
             if sam_target_stake + mnde_target_stake == Decimal::ZERO {
                 continue;
@@ -150,7 +151,7 @@ pub fn generate_bid_settlements(
             claims_amount += marinade_fee_claim;
 
             assert!(
-                claims_amount <= stakers_total_claim + marinade_fee_claim,
+                claims_amount <= effective_total_claim.to_u64().unwrap(),
                 "The sum of total claims exceeds the sum of total staker and marinade fee claims"
             );
 

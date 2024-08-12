@@ -57,9 +57,9 @@ steps:
       ./target/release/bid-distribution-cli \
         --sam-meta-collection ./sam-scores.json \
         --stake-meta-collection ./stakes.json \
-        --marinade-fee-bps 800 \
-        --marinade-fee-stake-authority stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq \
-        --marinade-fee-withdraw-authority stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq \
+        --marinade-fee-bps 10000 \
+        --marinade-fee-stake-authority opLSF7LdfyWNBby5o6FT8UFsr2A4UGKteECgtLSYrSm \
+        --marinade-fee-withdraw-authority opLSF7LdfyWNBby5o6FT8UFsr2A4UGKteECgtLSYrSm \
         --output-settlement-collection "./${claim_type}-settlements.json" \
         --output-merkle-tree-collection "./${claim_type}-settlement-merkle-trees.json"
     artifact_paths:
@@ -83,6 +83,7 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlement-merkle-trees.json .
     - gcloud storage cp "./${claim_type}-settlements.json" "$gs_bucket/$$epoch/"
     - gcloud storage cp "./${claim_type}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./discord-public-report.txt" "$gs_bucket/$$epoch/${claim_type}-discord-public-report.txt"
 
   - wait: ~
 
