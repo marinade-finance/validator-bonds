@@ -8,8 +8,8 @@ pub enum SettlementConfig {
         meta: SettlementMeta,
         marinade_fee_bps: u64,
         marinade_withdraw_authority: Pubkey,
-        marinade_stake_authority: Pubkey
-    }
+        marinade_stake_authority: Pubkey,
+    },
 }
 
 impl SettlementConfig {
@@ -21,14 +21,16 @@ impl SettlementConfig {
     pub fn marinade_withdraw_authority(&self) -> &Pubkey {
         match self {
             SettlementConfig::Bidding {
-                marinade_withdraw_authority, ..
+                marinade_withdraw_authority,
+                ..
             } => marinade_withdraw_authority,
         }
     }
     pub fn marinade_stake_authority(&self) -> &Pubkey {
         match self {
             SettlementConfig::Bidding {
-                marinade_stake_authority, ..
+                marinade_stake_authority,
+                ..
             } => marinade_stake_authority,
         }
     }

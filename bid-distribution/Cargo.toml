@@ -19,6 +19,5 @@ serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 snapshot-parser = { workspace = true }
 solana-sdk = { workspace = true }
-tokio = { workspace = true }
-utoipa = { workspace = true }
 settlement-engine = {workspace = true }
+rust_decimal = { workspace = true }

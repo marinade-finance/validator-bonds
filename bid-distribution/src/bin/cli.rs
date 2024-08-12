@@ -1,18 +1,18 @@
+use bid_distribution::sam_meta::ValidatorSamMeta;
 use bid_distribution::settlement_claims::generate_bid_settlement_collection;
-use env_logger::{Builder, Env};
 use bid_distribution::settlement_config::SettlementConfig;
+use env_logger::{Builder, Env};
+use settlement_engine::merkle_tree_collection::generate_merkle_tree_collection;
+use settlement_engine::settlement_claims::SettlementFunder;
+use settlement_engine::settlement_claims::SettlementMeta;
+use settlement_engine::settlement_config::no_filter;
 use settlement_engine::settlement_config::stake_authorities_filter;
 use settlement_engine::stake_meta_index::StakeMetaIndex;
 use settlement_engine::utils::{read_from_json_file, write_to_json_file};
-use settlement_engine::settlement_config::no_filter;
 use snapshot_parser::stake_meta::StakeMetaCollection;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashSet;
 use {clap::Parser, log::info};
-use bid_distribution::sam_meta::ValidatorSamMeta;
-use settlement_engine::settlement_claims::SettlementFunder;
-use settlement_engine::settlement_claims::SettlementMeta;
-use settlement_engine::merkle_tree_collection::generate_merkle_tree_collection;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -49,10 +49,10 @@ fn main() -> anyhow::Result<()> {
     info!("Starting bid distribution...");
     let args: Args = Args::parse();
 
-    info!("Marinade fee bps loaded: {:?}",&args.marinade_fee_bps);
+    info!("Marinade fee bps loaded: {:?}", &args.marinade_fee_bps);
 
     let settlement_meta = SettlementMeta {
-        funder: SettlementFunder::ValidatorBond
+        funder: SettlementFunder::ValidatorBond,
     };
 
     let settlement_config = SettlementConfig::Bidding {
@@ -90,10 +90,12 @@ fn main() -> anyhow::Result<()> {
                 stake_authorities_filter(HashSet::from_iter(whitelisted_stake_authorities))
             });
     info!("Generating settlement collection...");
-    let settlement_collection = generate_bid_settlement_collection(&stake_meta_index, 
-        &validator_sam_metas, 
-        &stake_authority_filter, 
-        &settlement_config);
+    let settlement_collection = generate_bid_settlement_collection(
+        &stake_meta_index,
+        &validator_sam_metas,
+        &stake_authority_filter,
+        &settlement_config,
+    );
     write_to_json_file(&settlement_collection, &args.output_settlement_collection)?;
 
     info!("Generating merkle tree collection...");
