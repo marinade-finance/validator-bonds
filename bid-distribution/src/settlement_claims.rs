@@ -39,12 +39,12 @@ pub fn generate_bid_settlements(
 ) -> Vec<Settlement> {
     info!("Generating bid settlements...");
 
-    for sam_validator_meta in sam_validator_metas {
-        assert_eq!(
-            stake_meta_index.stake_meta_collection.epoch, sam_validator_meta.epoch as u64,
-            "SAM Validators Collection epoch must be same as stake meta collection epoch"
-        );
-    }
+    assert!(
+        sam_validator_metas
+            .iter()
+            .all(|v| v.epoch as u64 == stake_meta_index.stake_meta_collection.epoch),
+        "SAM Validators Collection epoch must be same as stake meta collection epoch"
+    );
 
     let marinade_fee_deposit_stake_accounts: HashMap<_, _> = stake_meta_index
         .stake_meta_collection
