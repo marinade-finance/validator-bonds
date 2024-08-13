@@ -20,6 +20,7 @@ import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { INIT_BOND_LIMIT_UNITS } from '../../computeUnits'
 import BN from 'bn.js'
+import { toBN } from '../../parsers'
 
 export function installInitBond(program: Command) {
   program
@@ -57,12 +58,12 @@ export function installInitBond(program: Command) {
     .option(
       '--cpmpe <number>',
       'Cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch. (default: 0)',
-      value => new BN(value.replace(/_/g, ''), 10)
+      value => toBN(value)
     )
     .option(
       '--max-stake-wanted <number>',
       'The maximum stake amount, in lamports, that the validator wants to be delegated to them (default: 0).',
-      value => new BN(value.replace(/_/g, ''), 10)
+      value => toBN(value)
     )
     .action(
       async ({

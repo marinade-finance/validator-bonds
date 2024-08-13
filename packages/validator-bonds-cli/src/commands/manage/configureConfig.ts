@@ -20,6 +20,7 @@ import {
 } from '@marinade.finance/validator-bonds-sdk'
 import { CONFIGURE_CONFIG_LIMIT_UNITS } from '../../computeUnits'
 import BN from 'bn.js'
+import { toBN } from '../../parsers'
 
 export function installConfigureConfig(program: Command) {
   program
@@ -69,12 +70,12 @@ export function installConfigureConfig(program: Command) {
     .option(
       '--minimum-stake-lamports <number>',
       'New value of minimum stake lamports used when program do splitting of stake',
-      value => new BN(value, 10)
+      value => toBN(value)
     )
     .option(
       '--min-bond-max-stake-wanted <number>',
       'New value of minimum for max-stake-wanted field, in lamports, configured by validators in bond.',
-      value => new BN(value, 10)
+      value => toBN(value)
     )
     .action(
       async (

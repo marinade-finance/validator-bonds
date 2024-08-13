@@ -24,6 +24,7 @@ import {
   CONFIGURE_BOND_MINT_LIMIT_UNITS,
 } from '../../computeUnits'
 import BN from 'bn.js'
+import { toBN } from '../../parsers'
 
 export function installConfigureBond(program: Command) {
   program
@@ -63,13 +64,13 @@ export function installConfigureBond(program: Command) {
     .option(
       '--cpmpe <number>',
       'New value of cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch.',
-      value => new BN(value.replace(/_/g, ''), 10)
+      value => toBN(value)
     )
     .option(
       '--max-stake-wanted <number>',
       'New value of maximum stake amount, in lamports, the validator wants to be delegated to them. ' +
         'The actual amount delegated will depend on the auction and may be equal to or less than this value.',
-      value => new BN(value.replace(/_/g, ''), 10)
+      value => toBN(value)
     )
     .action(
       async (
