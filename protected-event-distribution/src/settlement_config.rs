@@ -1,4 +1,5 @@
 use crate::{protected_events::ProtectedEvent, settlement_claims::SettlementMeta};
+use log::debug;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashSet;
@@ -65,13 +66,37 @@ pub fn build_protected_event_matcher(
                     grace_downtime_bps, ..
                 },
                 ProtectedEvent::DowntimeRevenueImpact { epr_loss_bps, .. },
-            ) => *epr_loss_bps > grace_downtime_bps.unwrap_or_default(),
+            ) => {
+                if *epr_loss_bps > grace_downtime_bps.unwrap_or_default() {
+                    true
+                } else {
+                    debug!(
+                        "DowntimeRevenueImpact event vote account {} with epr_loss_bps: {} is under grace period: {}",
+                        protected_event.vote_account(),
+                        epr_loss_bps,
+                        grace_downtime_bps.unwrap_or_default()
+                    );
+                    false
+                }
+            }
             (
                 SettlementConfig::CommissionIncreaseSettlement {
                     grace_increase_bps, ..
                 },
                 ProtectedEvent::CommissionIncrease { epr_loss_bps, .. },
-            ) => *epr_loss_bps > grace_increase_bps.unwrap_or_default(),
+            ) => {
+                if *epr_loss_bps > grace_increase_bps.unwrap_or_default() {
+                    true
+                } else {
+                    debug!(
+                        "CommissionIncrease event vote account {} with epr_loss_bps: {} is under grace period: {}",
+                        protected_event.vote_account(),
+                        epr_loss_bps,
+                        grace_increase_bps.unwrap_or_default()
+                    );
+                    false
+                }
+            }
             _ => false,
         },
     )

@@ -105,6 +105,7 @@ steps:
 
   - label: ":scales: Evaluate Marinade Protected Events"
     env:
+      RUST_LOG: info,protected_event_distribution=debug
       WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
     commands:
     - 'buildkite-agent artifact download --include-retried-jobs validators.json .'
