@@ -79,14 +79,6 @@ steps:
       - "./inputs/*"
       - "./outputs/*"
 
-  - label: ":github: :arrow_right: :truffleruby: Install DS SAM"
-    commands:
-      - 'git clone git@github.com:marinade-finance/ds-sam.git'
-      - |
-        cd ds-sam
-        pnpm install
-        pnpm -r build
-
   - wait: ~
 
   - label: ":campfire: DS SAM generates PMPE bids data"
@@ -95,8 +87,12 @@ steps:
       - 'buildkite-agent artifact download --include-retried-jobs inputs/* .'
       - 'buildkite-agent artifact download --include-retried-jobs outputs/* .'
       - '[[ ! -f "./outputs/results.json" ]] && echo "results.json not found" && exit 2'
+      - 'git clone git@github.com:marinade-finance/ds-sam.git'
       - |
         cd ds-sam
+        pnpm install
+        pnpm -r build
+      - |
         pnpm run cli -- analyze-revenues \
           --cache-dir-path "./inputs/" \
           --sam-results-fixture-file-path "./outputs/results.json" \

@@ -81,6 +81,7 @@ steps:
     - epoch=$(buildkite-agent meta-data get epoch)
     - buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlements.json .
     - buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlement-merkle-trees.json .
+    - buildkite-agent artifact download --include-retried-jobs discord-public-report.txt .
     - gcloud storage cp "./${claim_type}-settlements.json" "$gs_bucket/$$epoch/"
     - gcloud storage cp "./${claim_type}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
     - gcloud storage cp "./discord-public-report.txt" "$gs_bucket/$$epoch/${claim_type}-discord-public-report.txt"
@@ -113,6 +114,25 @@ steps:
         report=$(cat "$$report_chunk")
         curl "$$DISCORD_WEBHOOK_PSR_FEED" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": null, "attachments": []}')"
       done
+
+  - wait: ~
+
+  - label: ":gear: Setup init-settlements trigger"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - |
+      cat <<EOF | buildkite-agent pipeline upload
+      steps:
+        - trigger: "init-settlements"
+          label: ":rocket: Trigger: Init settlements ($$epoch)/($claim_type)"
+          async: true
+          build:
+            branch: $$BUILDKITE_BRANCH
+            env:
+              EPOCH: $$epoch
+              CLAIM_TYPE: $claim_type
+              gs_bucket: $gs_bucket
+      EOF
 
   - wait: ~
 
