@@ -1,12 +1,12 @@
 use crate::sam_meta::ValidatorSamMeta;
 use crate::settlement_config::SettlementConfig;
 use log::info;
-use rust_decimal::prelude::*;
-use rust_decimal::Decimal;
-use settlement_engine::settlement_claims::{
+use protected_event_distribution::settlement_claims::{
     Settlement, SettlementClaim, SettlementCollection, SettlementReason,
 };
-use settlement_engine::stake_meta_index::StakeMetaIndex;
+use protected_event_distribution::stake_meta_index::StakeMetaIndex;
+use rust_decimal::prelude::*;
+use rust_decimal::Decimal;
 use solana_sdk::pubkey::Pubkey;
 use std::cmp::min;
 use std::collections::HashMap;
