@@ -1,5 +1,6 @@
 use crate::revenue_expectation_meta::{RevenueExpectationMeta, RevenueExpectationMetaCollection};
-use solana_sdk::native_token::LAMPORTS_PER_SOL;
+use crate::utils::bps_f64;
+
 use {
     crate::utils::{bps, bps_to_fraction},
     log::{debug, info},
@@ -124,9 +125,9 @@ pub fn collect_commission_increase_events(
                             // expected_epr is ratio of how many SOLS to pay for 1 staked SOL (it does not matter if in loampors or SOLs when ratio)
                             expected_epr: revenue_expectation.expected_non_bid_pmpe / 1000.0,
                             actual_epr: revenue_expectation.actual_non_bid_pmpe / 1000.0,
-                            epr_loss_bps: bps(
-                                ((revenue_expectation.expected_non_bid_pmpe - revenue_expectation.actual_non_bid_pmpe) * LAMPORTS_PER_SOL as f64).round() as u64,
-                                (revenue_expectation.expected_non_bid_pmpe * LAMPORTS_PER_SOL as f64).round() as u64
+                            epr_loss_bps: bps_f64(
+                                revenue_expectation.expected_non_bid_pmpe - revenue_expectation.actual_non_bid_pmpe,
+                                revenue_expectation.expected_non_bid_pmpe
                             ),
                             stake,
                         },

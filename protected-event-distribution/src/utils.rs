@@ -49,6 +49,14 @@ pub fn bps(value: u64, max: u64) -> u64 {
     10000 * value / max
 }
 
+pub fn bps_f64(value: f64, max: f64) -> u64 {
+    assert!(
+        max > 0.0,
+        "Cannot calculute bps from values: {value}, {max}"
+    );
+    (10000.0 * value / max).round() as u64
+}
+
 pub fn bps_to_fraction(value: u64) -> f64 {
     value as f64 / 10000.0
 }
