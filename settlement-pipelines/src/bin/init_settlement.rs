@@ -203,6 +203,17 @@ async fn init_settlements(
             ));
             continue;
         }
+        if record.max_total_claim == 0 || record.max_total_claim_sum == 0 {
+            reporting.add_error_string(format!(
+                "Cannot init Settlement with 0 at max_total_claim({}) or max_total_claim_sum({} SOLs), vote account {}, funder {} (settlement to init: {})",
+                record.max_total_claim,
+                lamports_to_sol(record.max_total_claim_sum),
+                record.vote_account_address,
+                record.funder,
+                record.settlement_address,
+            ));
+            continue;
+        }
 
         if record.settlement_account.is_some() {
             debug!(

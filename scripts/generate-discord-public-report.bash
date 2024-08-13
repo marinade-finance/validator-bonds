@@ -39,39 +39,44 @@ do
     vote_account=$(<<<"$settlement" jq '.vote_account' -r)
     claims_amount=$(<<<"$settlement" jq '.claims_amount / 1e9' -r | xargs printf $decimal_format)
     protected_stake=$(<<<"$settlement" jq '[.claims[].active_stake] | add / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
-    reason_code=$(<<<"$settlement" jq '.reason | keys[0]' -r)
+    reason_code=$(<<<"$settlement" jq '.reason | keys[0]' -r 2> /dev/null || <<<"$settlement" jq '.reason' -r)
 
-    if ! [[ $reason_code == "ProtectedEvent" ]]
-    then
-        continue
+    if  [[ $reason_code == "ProtectedEvent" ]]; then
+      protected_event_code=$(<<<"$settlement" jq '.reason.ProtectedEvent | keys[0]' -r)
+      protected_event_attributes=$(<<<"$settlement" jq '.reason.ProtectedEvent | to_entries[0].value' -r)
+
+      case $protected_event_code in
+          LowCredits)
+            actual_credits=$(<<<"$protected_event_attributes" jq '.actual_credits')
+            expected_credits=$(<<<"$protected_event_attributes" jq '.expected_credits')
+            reason="Uptime $(bc <<<"scale=2; 100 * $actual_credits / $expected_credits")%"
+            ;;
+
+          CommissionIncrease)
+            expected_commission_pmpe=$(<<<"$protected_event_attributes" jq '.expected_inflation_commission')
+            reason="Commission $(<<<"$protected_event_attributes" jq '.previous_commission')% -> $(<<<"$protected_event_attributes" jq '.current_commission')%"
+            ;;
+
+          DowntimeRevenueImpact)
+            actual_credits=$(<<<"$protected_event_attributes" jq '.actual_credits')
+            expected_credits=$(<<<"$protected_event_attributes" jq '.expected_credits')
+            reason="Uptime $(bc <<<"scale=2; 100 * $actual_credits / $expected_credits")%"
+            ;;
+
+          *)
+            echo "Unexpected protected event code: '$protected_event_code'" >&2
+            exit 1
+            ;;
+      esac
     fi
 
-    protected_event_code=$(<<<"$settlement" jq '.reason.ProtectedEvent | keys[0]' -r)
-    protected_event_attributes=$(<<<"$settlement" jq '.reason.ProtectedEvent | to_entries[0].value' -r)
+    if [[ $reason_code == "Bidding" ]]; then
+      reason="Bidding"
+    fi
 
-    case $protected_event_code in
-        LowCredits)
-          actual_credits=$(<<<"$protected_event_attributes" jq '.actual_credits')
-          expected_credits=$(<<<"$protected_event_attributes" jq '.expected_credits')
-          reason="Uptime $(bc <<<"scale=2; 100 * $actual_credits / $expected_credits")%"
-          ;;
-
-        CommissionIncrease)
-          expected_commission_pmpe=$(<<<"$protected_event_attributes" jq '.expected_inflation_commission')
-          reason="Commission $(<<<"$protected_event_attributes" jq '.previous_commission')% -> $(<<<"$protected_event_attributes" jq '.current_commission')%"
-          ;;
-
-        DowntimeRevenueImpact)
-          actual_credits=$(<<<"$protected_event_attributes" jq '.actual_credits')
-          expected_credits=$(<<<"$protected_event_attributes" jq '.expected_credits')
-          reason="Uptime $(bc <<<"scale=2; 100 * $actual_credits / $expected_credits")%"
-          ;;
-
-        *)
-          echo "Unexpected protected event code: '$protected_event_code'" >&2
-          exit 1
-          ;;
-    esac
+    if [[ -z $reason ]]; then
+      continue
+    fi
 
     funder=$(<<<"$settlement" jq '.meta.funder' -r)
     case $funder in
@@ -92,4 +97,4 @@ do
     
 
     echo -e "$(printf "%44s" "$vote_account") $(printf "%15s" "☉$claims_amount") $(printf "%24s" "$reason") $(printf "%9s" "☉$protected_stake") $(printf "%13s" "$funder_info")"
-done < <(<"$settlement_collection_file" jq '.settlements | sort_by((.reason.ProtectedEvent | to_entries[0].value.actual_epr), (-.claims_amount)) | .[]' -c)
+done < <(<"$settlement_collection_file" jq '.settlements | sort_by((-.claims_amount)) | .[]' -c)

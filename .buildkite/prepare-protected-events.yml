@@ -94,10 +94,10 @@ steps:
         pnpm -r build
       - |
         pnpm run cli -- analyze-revenues \
-          --cache-dir-path "./inputs/" \
-          --sam-results-fixture-file-path "./outputs/results.json" \
-          --snapshot-validators-file-path "./validators.json" \
-          --results-file-path evaluation.json
+          --cache-dir-path "../inputs" \
+          --sam-results-fixture-file-path "../outputs/results.json" \
+          --snapshot-validators-file-path "../validators.json" \
+          --results-file-path "../evaluation.json"
     artifact_paths:
       - "./evaluation.json"
 
