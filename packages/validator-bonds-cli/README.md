@@ -65,7 +65,7 @@ solana delegate-stake <stake-account-pubkey> <vote-account-address>
 validator-bonds fund-bond <vote-account-address> --stake-account <stake-account-pubkey>
 
 # Bidding the auction
-# --max-stake-wanted defines the maximum stake amount (in lamports) the validator wants to be delegated to them
+# --max-stake-wanted specifies the maximum amount of stake the validator aims to receive. The actual amount delegated will depend on the auction and may be equal to or less than this value.
 # --cpmpe defines how many lamports the validator is willing to pay for every 1000 SOLs delegated
 validator-bonds configure-bond <vote-account-address> --authority ./validator-identity.json \
   --cpmpe <lamports> --max-stake-wanted <lamports>

@@ -67,7 +67,8 @@ export function installConfigureBond(program: Command) {
     )
     .option(
       '--max-stake-wanted <number>',
-      'New value of maximum stake amount, in lamports, the validator wants to be delegated to them.',
+      'New value of maximum stake amount, in lamports, the validator wants to be delegated to them. ' +
+        'The actual amount delegated will depend on the auction and may be equal to or less than this value.',
       value => new BN(value.replace(/_/g, ''), 10)
     )
     .action(
