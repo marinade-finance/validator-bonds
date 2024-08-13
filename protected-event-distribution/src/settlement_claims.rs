@@ -4,7 +4,7 @@ use crate::{
     settlement_config::{build_protected_event_matcher, SettlementConfig},
     stake_meta_index::StakeMetaIndex,
 };
-use log::info;
+use log::{debug, info};
 use solana_sdk::pubkey::Pubkey;
 
 use {
@@ -129,6 +129,13 @@ pub fn generate_settlements(
                     claims_amount,
                     claims,
                 });
+            } else {
+                debug!(
+                    "Skipping protected-event Settlement for vote account {} as claim amount {} is less than min settlement lamports {}",
+                    protected_event.vote_account(),
+                    claims_amount,
+                    settlement_config.min_settlement_lamports()
+                );
             }
         }
     }

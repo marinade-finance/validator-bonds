@@ -1,4 +1,6 @@
 use crate::revenue_expectation_meta::{RevenueExpectationMeta, RevenueExpectationMetaCollection};
+use crate::utils::bps_f64;
+
 use {
     crate::utils::{bps, bps_to_fraction},
     log::{debug, info},
@@ -107,7 +109,7 @@ pub fn collect_commission_increase_events(
             if let Some(revenue_expectation) = revenue_expectation {
                 if revenue_expectation.actual_non_bid_pmpe < revenue_expectation.expected_non_bid_pmpe {
                     debug!(
-                        "Validator {vote_account} commission increase. Expected non bid PMPE: {}, actual non bid PMPE: {}",
+                        "Validator {vote_account} increased commission, expected non bid PMPE: {}, actual non bid PMPE: {}",
                         revenue_expectation.expected_non_bid_pmpe,
                         revenue_expectation.actual_non_bid_pmpe
                     );
@@ -120,12 +122,12 @@ pub fn collect_commission_increase_events(
                             expected_mev_commission: revenue_expectation.expected_mev_commission,
                             actual_mev_commission: revenue_expectation.actual_mev_commission,
                             // expected_non_bid_pmpe is what how many SOLs was expected to gain per 1000 of staked SOLs
-                            // expected_epr is how many lamports per 1 staked lamport was expected to be paid by validator
+                            // expected_epr is ratio of how many SOLS to pay for 1 staked SOL (it does not matter if in loampors or SOLs when ratio)
                             expected_epr: revenue_expectation.expected_non_bid_pmpe / 1000.0,
                             actual_epr: revenue_expectation.actual_non_bid_pmpe / 1000.0,
-                            epr_loss_bps: bps(
-                                (revenue_expectation.expected_non_bid_pmpe - revenue_expectation.actual_non_bid_pmpe).round() as u64,
-                                revenue_expectation.expected_non_bid_pmpe.round() as u64
+                            epr_loss_bps: bps_f64(
+                                revenue_expectation.expected_non_bid_pmpe - revenue_expectation.actual_non_bid_pmpe,
+                                revenue_expectation.expected_non_bid_pmpe
                             ),
                             stake,
                         },
