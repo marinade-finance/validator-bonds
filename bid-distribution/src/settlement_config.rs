@@ -1,5 +1,5 @@
+use protected_event_distribution::settlement_claims::SettlementMeta;
 use serde::{Deserialize, Serialize};
-use settlement_engine::settlement_claims::SettlementMeta;
 use solana_sdk::pubkey::Pubkey;
 
 #[derive(Clone, Deserialize, Serialize, Debug)]

@@ -14,10 +14,10 @@ clap = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
 merkle-tree = { workspace = true }
+protected-event-distribution = {workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 snapshot-parser = { workspace = true }
 solana-sdk = { workspace = true }
-settlement-engine = {workspace = true }
 rust_decimal = { workspace = true }
