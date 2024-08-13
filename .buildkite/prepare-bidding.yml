@@ -58,15 +58,15 @@ steps:
         --sam-meta-collection ./sam-scores.json \
         --stake-meta-collection ./stakes.json \
         --marinade-fee-bps 10000 \
-        --marinade-fee-stake-authority opLSF7LdfyWNBby5o6FT8UFsr2A4UGKteECgtLSYrSm \
-        --marinade-fee-withdraw-authority opLSF7LdfyWNBby5o6FT8UFsr2A4UGKteECgtLSYrSm \
+        --marinade-fee-stake-authority 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB \
+        --marinade-fee-withdraw-authority 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB \
         --output-settlement-collection "./${claim_type}-settlements.json" \
         --output-merkle-tree-collection "./${claim_type}-settlement-merkle-trees.json"
     artifact_paths:
     - "./${claim_type}*.json"
 
   - wait: ~
-  
+
   - label: "📓 Generating report"
     commands:
     - 'buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlements.json .'
