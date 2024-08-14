@@ -142,13 +142,13 @@ pub fn generate_bid_settlements(
                 .map(|s| (s.pubkey, s.active_delegation_lamports))
                 .collect();
 
-            if effective_sam_stake > 0 && marinade_fee_claim > 0 {
+            if initial_sam_stake > 0 && marinade_fee_claim > 0 {
                 claims.push(SettlementClaim {
                     withdraw_authority: *settlement_config.marinade_withdraw_authority(),
                     stake_authority: *settlement_config.marinade_stake_authority(),
                     stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
                     claim_amount: marinade_fee_claim,
-                    active_stake: effective_sam_stake,
+                    active_stake: total_active_stake,
                 });
                 claims_amount += marinade_fee_claim;
 
