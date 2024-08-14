@@ -46,20 +46,6 @@ pub fn generate_bid_settlements(
         "SAM Validators Collection epoch must be same as stake meta collection epoch"
     );
 
-    let marinade_fee_deposit_stake_accounts: HashMap<_, _> = stake_meta_index
-        .stake_meta_collection
-        .stake_metas
-        .iter()
-        .find(|x| {
-            x.withdraw_authority
-                .eq(settlement_config.marinade_withdraw_authority())
-                && x.stake_authority
-                    .eq(settlement_config.marinade_stake_authority())
-        })
-        .iter()
-        .map(|s| (s.pubkey, s.active_delegation_lamports))
-        .collect();
-
     let mut settlement_claim_collections = vec![];
 
     for validator in sam_validator_metas {
@@ -142,28 +128,45 @@ pub fn generate_bid_settlements(
                 "Claims amount is bigger than stakers total claim"
             );
 
-            claims.push(SettlementClaim {
-                withdraw_authority: *settlement_config.marinade_withdraw_authority(),
-                stake_authority: *settlement_config.marinade_stake_authority(),
-                stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
-                claim_amount: marinade_fee_claim,
-                active_stake: marinade_fee_deposit_stake_accounts.values().sum(),
-            });
-            claims_amount += marinade_fee_claim;
+            let marinade_fee_deposit_stake_accounts: HashMap<_, _> = stake_meta_index
+                .stake_meta_collection
+                .stake_metas
+                .iter()
+                .find(|x| {
+                    x.withdraw_authority
+                        .eq(settlement_config.marinade_withdraw_authority())
+                        && x.stake_authority
+                            .eq(settlement_config.marinade_stake_authority())
+                })
+                .iter()
+                .map(|s| (s.pubkey, s.active_delegation_lamports))
+                .collect();
 
-            assert!(
-                claims_amount <= effective_total_claim.to_u64().unwrap(),
-                "The sum of total claims exceeds the sum of total staker and marinade fee claims"
-            );
+            if effective_sam_stake > 0 && marinade_fee_claim > 0 {
+                claims.push(SettlementClaim {
+                    withdraw_authority: *settlement_config.marinade_withdraw_authority(),
+                    stake_authority: *settlement_config.marinade_stake_authority(),
+                    stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
+                    claim_amount: marinade_fee_claim,
+                    active_stake: effective_sam_stake,
+                });
+                claims_amount += marinade_fee_claim;
 
-            settlement_claim_collections.push(Settlement {
-                reason: SettlementReason::Bidding,
-                meta: settlement_config.meta().clone(),
-                vote_account: validator.vote_account,
-                claims_count: claims.len(),
-                claims_amount,
-                claims,
-            });
+                assert!(
+                    claims_amount <= effective_total_claim.to_u64().unwrap(),
+                    "The sum of total claims exceeds the sum of total staker and marinade fee claims"
+                );
+            }
+            if !claims.is_empty() {
+                settlement_claim_collections.push(Settlement {
+                    reason: SettlementReason::Bidding,
+                    meta: settlement_config.meta().clone(),
+                    vote_account: validator.vote_account,
+                    claims_count: claims.len(),
+                    claims_amount,
+                    claims,
+                });
+            }
         }
     }
     settlement_claim_collections
