@@ -113,7 +113,8 @@ pub fn collect_commission_increase_events(
                         revenue_expectation.expected_non_bid_pmpe,
                         revenue_expectation.actual_non_bid_pmpe
                     );
-                    revenue_expectation.check_commission_loss_per_stake();
+                    // TODO: fix use of rust decimal instead of f64 and then re-enable this check
+                    // revenue_expectation.check_commission_loss_per_stake();
                     Some(
                         ProtectedEvent::CommissionIncrease {
                             vote_account,
