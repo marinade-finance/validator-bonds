@@ -16,8 +16,8 @@ pub enum SettlementConfig {
         /// range of bps that are covered by the settlement, usually differentiated by type of funder
         covered_range_bps: [u64; 2],
     },
-    /// configuration for protected event [protected_events::ProtectedEvent::CommissionIncrease]
-    CommissionIncreaseSettlement {
+    /// configuration for protected event [protected_events::ProtectedEvent::CommissionSamIncrease]
+    CommissionSamIncreaseSettlement {
         meta: SettlementMeta,
         min_settlement_lamports: u64,
         grace_increase_bps: Option<u64>,
@@ -29,7 +29,7 @@ impl SettlementConfig {
     pub fn meta(&self) -> &SettlementMeta {
         match self {
             SettlementConfig::DowntimeRevenueImpactSettlement { meta, .. } => meta,
-            SettlementConfig::CommissionIncreaseSettlement { meta, .. } => meta,
+            SettlementConfig::CommissionSamIncreaseSettlement { meta, .. } => meta,
         }
     }
     pub fn covered_range_bps(&self) -> &[u64; 2] {
@@ -37,7 +37,7 @@ impl SettlementConfig {
             SettlementConfig::DowntimeRevenueImpactSettlement {
                 covered_range_bps, ..
             } => covered_range_bps,
-            SettlementConfig::CommissionIncreaseSettlement {
+            SettlementConfig::CommissionSamIncreaseSettlement {
                 covered_range_bps, ..
             } => covered_range_bps,
         }
@@ -48,7 +48,7 @@ impl SettlementConfig {
                 min_settlement_lamports,
                 ..
             } => min_settlement_lamports,
-            SettlementConfig::CommissionIncreaseSettlement {
+            SettlementConfig::CommissionSamIncreaseSettlement {
                 min_settlement_lamports,
                 ..
             } => min_settlement_lamports,
@@ -80,16 +80,16 @@ pub fn build_protected_event_matcher(
                 }
             }
             (
-                SettlementConfig::CommissionIncreaseSettlement {
+                SettlementConfig::CommissionSamIncreaseSettlement {
                     grace_increase_bps, ..
                 },
-                ProtectedEvent::CommissionIncrease { epr_loss_bps, .. },
+                ProtectedEvent::CommissionSamIncrease { epr_loss_bps, .. },
             ) => {
                 if *epr_loss_bps > grace_increase_bps.unwrap_or_default() {
                     true
                 } else {
                     debug!(
-                        "CommissionIncrease event vote account {} with epr_loss_bps: {} is under grace period: {}",
+                        "CommissionSamIncrease event vote account {} with epr_loss_bps: {} is under grace period: {}",
                         protected_event.vote_account(),
                         epr_loss_bps,
                         grace_increase_bps.unwrap_or_default()

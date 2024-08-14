@@ -46,13 +46,8 @@ do
       protected_event_attributes=$(<<<"$settlement" jq '.reason.ProtectedEvent | to_entries[0].value' -r)
 
       case $protected_event_code in
-          LowCredits)
-            actual_credits=$(<<<"$protected_event_attributes" jq '.actual_credits')
-            expected_credits=$(<<<"$protected_event_attributes" jq '.expected_credits')
-            reason="Uptime $(bc <<<"scale=2; 100 * $actual_credits / $expected_credits")%"
-            ;;
-
-          CommissionIncrease)
+          # ---- V2 SAM events ----
+          CommissionSamIncrease)
             expected_commission_pmpe=$(<<<"$protected_event_attributes" jq '.expected_inflation_commission')
             actual_inflation_commission=$(<<<"$protected_event_attributes" jq '.actual_inflation_commission')
             expected_mev_commission=$(<<<"$protected_event_attributes" jq '.expected_mev_commission')
@@ -60,13 +55,23 @@ do
             actual_mev_commission=$(<<<"$protected_event_attributes" jq '.actual_mev_commission')
             [[ $actual_mev_commission == "null" ]] && actual_mev_commission=0
             reason="Commiss.pmpe $(bc <<<"scale=2; $expected_commission_pmpe + $expected_mev_commission") -> $(bc <<<"scale=2; $actual_inflation_commission + $actual_mev_commission")"
-            # reason="Commission $(<<<"$protected_event_attributes" jq '.previous_commission')% -> $(<<<"$protected_event_attributes" jq '.current_commission')%"
             ;;
 
           DowntimeRevenueImpact)
             actual_credits=$(<<<"$protected_event_attributes" jq '.actual_credits')
             expected_credits=$(<<<"$protected_event_attributes" jq '.expected_credits')
             reason="Uptime $(bc <<<"scale=2; 100 * $actual_credits / $expected_credits")%"
+            ;;
+
+          # ---- V1 events ----
+          LowCredits)
+            actual_credits=$(<<<"$protected_event_attributes" jq '.actual_credits')
+            expected_credits=$(<<<"$protected_event_attributes" jq '.expected_credits')
+            reason="Uptime $(bc <<<"scale=2; 100 * $actual_credits / $expected_credits")%"
+            ;;
+
+          CommissionIncrease)
+            reason="Commission $(<<<"$protected_event_attributes" jq '.previous_commission')% -> $(<<<"$protected_event_attributes" jq '.current_commission')%"
             ;;
 
           *)
@@ -81,6 +86,7 @@ do
     fi
 
     if [[ -z $reason ]]; then
+      echo "Unexpected reason code: '$reason_code'" >&2
       continue
     fi
 

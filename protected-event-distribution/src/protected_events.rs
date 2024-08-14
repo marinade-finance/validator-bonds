@@ -24,7 +24,7 @@ pub enum ProtectedEvent {
         epr_loss_bps: u64,
         stake: u64,
     },
-    CommissionIncrease {
+    CommissionSamIncrease {
         #[serde(with = "pubkey_string_conversion")]
         vote_account: Pubkey,
         expected_inflation_commission: f64,
@@ -36,25 +36,52 @@ pub enum ProtectedEvent {
         epr_loss_bps: u64,
         stake: u64,
     },
+
+    // V1 events (before SAM was introduced) for backward compatibility to parse JSONs
+    CommissionIncrease {
+        #[serde(with = "pubkey_string_conversion")]
+        vote_account: Pubkey,
+        previous_commission: u8,
+        current_commission: u8,
+        expected_epr: f64,
+        actual_epr: f64,
+        epr_loss_bps: u64,
+        stake: f64,
+    },
+    LowCredits {
+        #[serde(with = "pubkey_string_conversion")]
+        vote_account: Pubkey,
+        expected_credits: u64,
+        actual_credits: u64,
+        commission: u8,
+        expected_epr: f64,
+        actual_epr: f64,
+        epr_loss_bps: u64,
+        stake: f64,
+    },
 }
 
 impl ProtectedEvent {
     pub fn vote_account(&self) -> &Pubkey {
         match self {
             ProtectedEvent::DowntimeRevenueImpact { vote_account, .. } => vote_account,
+            ProtectedEvent::CommissionSamIncrease { vote_account, .. } => vote_account,
             ProtectedEvent::CommissionIncrease { vote_account, .. } => vote_account,
+            ProtectedEvent::LowCredits { vote_account, .. } => vote_account,
         }
     }
     pub fn expected_epr(&self) -> f64 {
         *match self {
             ProtectedEvent::DowntimeRevenueImpact { expected_epr, .. } => expected_epr,
+            ProtectedEvent::CommissionSamIncrease { expected_epr, .. } => expected_epr,
             ProtectedEvent::CommissionIncrease { expected_epr, .. } => expected_epr,
+            ProtectedEvent::LowCredits { expected_epr, .. } => expected_epr,
         }
     }
 
     fn claim_per_stake(&self) -> f64 {
         match self {
-            ProtectedEvent::CommissionIncrease {
+            ProtectedEvent::CommissionSamIncrease {
                 expected_epr,
                 actual_epr,
                 ..
@@ -65,6 +92,10 @@ impl ProtectedEvent {
                 actual_epr,
                 ..
             } => expected_epr - actual_epr,
+            non_implemented => panic!(
+                "Claim per stake is not implemented for event {:?}",
+                non_implemented
+            ),
         }
     }
 
@@ -116,7 +147,7 @@ pub fn collect_commission_increase_events(
                     // TODO: fix use of rust decimal instead of f64 and then re-enable this check
                     // revenue_expectation.check_commission_loss_per_stake();
                     Some(
-                        ProtectedEvent::CommissionIncrease {
+                        ProtectedEvent::CommissionSamIncrease {
                             vote_account,
                             expected_inflation_commission: revenue_expectation.expected_inflation_commission,
                             actual_inflation_commission: revenue_expectation.actual_inflation_commission,

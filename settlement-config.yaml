@@ -11,7 +11,7 @@
       funder: Marinade
     min_settlement_lamports: 100000000 # 0.1 SOL
     covered_range_bps: [2000, 10000] # 20 % - 100 %
-- CommissionIncreaseSettlement:
+- CommissionSamIncreaseSettlement:
     meta:
       funder: ValidatorBond
     min_settlement_lamports: 10000000 # 0.01 SOL
