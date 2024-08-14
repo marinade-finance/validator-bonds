@@ -71,7 +71,7 @@ steps:
         for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/*settlement-merkle-trees.json"); do
           base_name=$(basename "$$merkle_tree_file")
           prefix_name="$${base_name%settlement-merkle-trees.json}"
-          target_dir="./merkle-trees/$${epoch}_$${prefix_name}/"
+          target_dir="./merkle-trees/$${epoch}_$${prefix_name%%-*}/"
           mkdir -p "$$target_dir"
           gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlement-merkle-trees.json" "$$target_dir"
           gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlements.json" "$$target_dir"
