@@ -3882,6 +3882,7 @@ dependencies = [
  "env_logger 0.10.1",
  "log",
  "merkle-tree",
+ "rust_decimal",
  "serde",
  "serde_json",
  "serde_yaml 0.8.26",

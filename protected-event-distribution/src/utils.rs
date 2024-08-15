@@ -1,3 +1,5 @@
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::Path;
 use std::{
@@ -49,16 +51,18 @@ pub fn bps(value: u64, max: u64) -> u64 {
     10000 * value / max
 }
 
-pub fn bps_f64(value: f64, max: f64) -> u64 {
+pub fn bps_decimal(value: Decimal, max: Decimal) -> u64 {
     assert!(
-        max > 0.0,
+        max > Decimal::ZERO,
         "Cannot calculute bps from values: {value}, {max}"
     );
-    (10000.0 * value / max).round() as u64
+    (Decimal::from(10000) * value / max)
+        .to_u64()
+        .expect("bps_decimal: cannot convert to u64")
 }
 
-pub fn bps_to_fraction(value: u64) -> f64 {
-    value as f64 / 10000.0
+pub fn bps_to_fraction(value: u64) -> Decimal {
+    Decimal::from(value) / Decimal::from(10000)
 }
 
 pub fn file_error<'a>(

@@ -1,5 +1,7 @@
 use crate::revenue_expectation_meta::{RevenueExpectationMeta, RevenueExpectationMetaCollection};
-use crate::utils::bps_f64;
+use crate::utils::bps_decimal;
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 use {
     crate::utils::{bps, bps_to_fraction},
@@ -19,20 +21,20 @@ pub enum ProtectedEvent {
         actual_credits: u64,
         expected_credits: u64,
         /// how many lamports per 1 staked lamport was expected to be paid by validator
-        expected_epr: f64,
-        actual_epr: f64,
+        expected_epr: Decimal,
+        actual_epr: Decimal,
         epr_loss_bps: u64,
         stake: u64,
     },
     CommissionSamIncrease {
         #[serde(with = "pubkey_string_conversion")]
         vote_account: Pubkey,
-        expected_inflation_commission: f64,
-        actual_inflation_commission: f64,
-        expected_mev_commission: Option<f64>,
-        actual_mev_commission: Option<f64>,
-        expected_epr: f64,
-        actual_epr: f64,
+        expected_inflation_commission: Decimal,
+        actual_inflation_commission: Decimal,
+        expected_mev_commission: Option<Decimal>,
+        actual_mev_commission: Option<Decimal>,
+        expected_epr: Decimal,
+        actual_epr: Decimal,
         epr_loss_bps: u64,
         stake: u64,
     },
@@ -43,10 +45,10 @@ pub enum ProtectedEvent {
         vote_account: Pubkey,
         previous_commission: u8,
         current_commission: u8,
-        expected_epr: f64,
-        actual_epr: f64,
+        expected_epr: Decimal,
+        actual_epr: Decimal,
         epr_loss_bps: u64,
-        stake: f64,
+        stake: Decimal,
     },
     LowCredits {
         #[serde(with = "pubkey_string_conversion")]
@@ -54,10 +56,10 @@ pub enum ProtectedEvent {
         expected_credits: u64,
         actual_credits: u64,
         commission: u8,
-        expected_epr: f64,
-        actual_epr: f64,
+        expected_epr: Decimal,
+        actual_epr: Decimal,
         epr_loss_bps: u64,
-        stake: f64,
+        stake: Decimal,
     },
 }
 
@@ -70,7 +72,7 @@ impl ProtectedEvent {
             ProtectedEvent::LowCredits { vote_account, .. } => vote_account,
         }
     }
-    pub fn expected_epr(&self) -> f64 {
+    pub fn expected_epr(&self) -> Decimal {
         *match self {
             ProtectedEvent::DowntimeRevenueImpact { expected_epr, .. } => expected_epr,
             ProtectedEvent::CommissionSamIncrease { expected_epr, .. } => expected_epr,
@@ -79,7 +81,7 @@ impl ProtectedEvent {
         }
     }
 
-    fn claim_per_stake(&self) -> f64 {
+    fn claim_per_stake(&self) -> Decimal {
         match self {
             ProtectedEvent::CommissionSamIncrease {
                 expected_epr,
@@ -100,7 +102,9 @@ impl ProtectedEvent {
     }
 
     pub fn claim_amount(&self, stake: u64) -> u64 {
-        (self.claim_per_stake() * (stake as f64)) as u64
+        (self.claim_per_stake() * Decimal::from(stake))
+            .to_u64()
+            .expect("claim_amount: cannot convert to u64")
     }
 
     pub fn claim_amount_in_loss_range(&self, range_bps: &[u64; 2], stake: u64) -> u64 {
@@ -112,7 +116,10 @@ impl ProtectedEvent {
         let claim_per_stake =
             self.claim_per_stake().min(max_claim_per_stake) - ignored_claim_per_stake;
 
-        (stake as f64 * claim_per_stake).max(0.0).round() as u64
+        (Decimal::from(stake) * claim_per_stake)
+            .max(Decimal::ZERO)
+            .to_u64()
+            .expect("claim_amount_in_loss_range: cannot convert to u64")
     }
 }
 
@@ -128,6 +135,7 @@ pub fn collect_commission_increase_events(
     revenue_expectation_map: &HashMap<Pubkey, RevenueExpectationMeta>,
 ) -> Vec<ProtectedEvent> {
     info!("Collecting commission increase events...");
+    let decimal_1000 = Decimal::from(1000);
 
     validator_meta_collection
         .validator_metas
@@ -144,8 +152,6 @@ pub fn collect_commission_increase_events(
                         revenue_expectation.expected_non_bid_pmpe,
                         revenue_expectation.actual_non_bid_pmpe
                     );
-                    // TODO: fix use of rust decimal instead of f64 and then re-enable this check
-                    // revenue_expectation.check_commission_loss_per_stake();
                     Some(
                         ProtectedEvent::CommissionSamIncrease {
                             vote_account,
@@ -154,10 +160,10 @@ pub fn collect_commission_increase_events(
                             expected_mev_commission: revenue_expectation.expected_mev_commission,
                             actual_mev_commission: revenue_expectation.actual_mev_commission,
                             // expected_non_bid_pmpe is what how many SOLs was expected to gain per 1000 of staked SOLs
-                            // expected_epr is ratio of how many SOLS to pay for 1 staked SOL (it does not matter if in loampors or SOLs when ratio)
-                            expected_epr: revenue_expectation.expected_non_bid_pmpe / 1000.0,
-                            actual_epr: revenue_expectation.actual_non_bid_pmpe / 1000.0,
-                            epr_loss_bps: bps_f64(
+                            // expected_epr is ratio of how many SOLS to pay for 1 staked SOL (it does not matter if in lamports or SOLs when ratio)
+                            expected_epr: revenue_expectation.expected_non_bid_pmpe / decimal_1000,
+                            actual_epr: revenue_expectation.actual_non_bid_pmpe / decimal_1000,
+                            epr_loss_bps: bps_decimal(
                                 revenue_expectation.expected_non_bid_pmpe - revenue_expectation.actual_non_bid_pmpe,
                                 revenue_expectation.expected_non_bid_pmpe
                             ),
@@ -186,6 +192,7 @@ pub fn collect_downtime_revenue_impact_events(
     let total_stake_weighted_credits = validator_meta_collection.total_stake_weighted_credits();
     let expected_credits =
         (total_stake_weighted_credits / validator_meta_collection.total_stake() as u128) as u64;
+    let decimal_1000 = Decimal::from(1000);
 
     validator_meta_collection
         .validator_metas
@@ -197,14 +204,14 @@ pub fn collect_downtime_revenue_impact_events(
             if let Some(revenue_expectation) = revenue_expectation {
                 if credits < expected_credits && commission < 100 {
                     debug!("Validator {vote_account} has got downtime, credits: {credits}, expected credits: {expected_credits}");
-                    let uptime = credits as f64 / expected_credits as f64;
+                    let uptime = Decimal::from(credits) / Decimal::from(expected_credits);
                     Some(
                         ProtectedEvent::DowntimeRevenueImpact {
                             vote_account,
                             actual_credits: credits,
                             expected_credits,
-                            expected_epr: revenue_expectation.actual_non_bid_pmpe / 1000.0,
-                            actual_epr: (revenue_expectation.actual_non_bid_pmpe / 1000.0) * uptime,
+                            expected_epr: revenue_expectation.actual_non_bid_pmpe / decimal_1000,
+                            actual_epr: (revenue_expectation.actual_non_bid_pmpe / decimal_1000) * uptime,
                             epr_loss_bps: bps(
                                 expected_credits - credits,
                                 expected_credits
