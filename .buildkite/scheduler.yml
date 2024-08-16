@@ -22,6 +22,7 @@ steps:
     commands:
     - |
       max_processed_epoch=$(gcloud storage ls "gs://marinade-validator-bonds-mainnet" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 1)
+      max_processed_epoch="$${max_processed_epoch%%[^0-9]*}"
       max_available_epoch=$(gcloud storage ls "gs://jito-mainnet/**/*.tar.zst" | awk -F / '{print $$4}' | sort -nr | head -n 1)
       echo max_processed_epoch: $$max_processed_epoch
       echo max_available_epoch: $$max_available_epoch
