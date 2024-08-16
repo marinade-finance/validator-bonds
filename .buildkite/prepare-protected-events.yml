@@ -143,10 +143,12 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlements.json .
     - buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlement-merkle-trees.json .
     - buildkite-agent artifact download --include-retried-jobs discord-public-report.txt .
+    - buildkite-agent artifact download --include-retried-jobs evaluation.json .
     - gcloud storage cp "./${claim_type}.json" "$gs_bucket/$$epoch/"
     - gcloud storage cp "./${claim_type}-settlements.json" "$gs_bucket/$$epoch/"
     - gcloud storage cp "./${claim_type}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
     - gcloud storage cp "./discord-public-report.txt" "$gs_bucket/$$epoch/${claim_type}-discord-public-report.txt"
+    - gcloud storage cp "./evaluation.json" "$gs_bucket/$$epoch/${claim_type}-evaluation.json"
 
   - wait: ~
 

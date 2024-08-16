@@ -27,8 +27,11 @@ pub struct RevenueExpectationMeta {
     /// changes in inflation and MEV commissions
     pub expected_inflation_commission: Decimal,
     pub actual_inflation_commission: Decimal,
+    /// data of inflation take from previous epoch compared to the current one
+    pub past_inflation_commission: Decimal,
     pub expected_mev_commission: Option<Decimal>,
     pub actual_mev_commission: Option<Decimal>,
+    pub past_mev_commission: Option<Decimal>,
     /// expected PMPE in SOLs for part of stake that is not part of SAM (e.g., MNDE part, (calculated from `1-samStakeShare`)
     /// how many SOLs was expected to be paid by validator for get stake of 1000 SOLs
     pub expected_non_bid_pmpe: Decimal,
@@ -41,4 +44,7 @@ pub struct RevenueExpectationMeta {
     pub sam_stake_share: Decimal,
     /// loss of lamports per 1 SOL for commission change
     pub loss_per_stake: Decimal,
+    /// validator increased commission and the commission is not covered in the bidding part
+    /// when increase is in bidding not necessary to add it to protected event payment
+    pub non_bid_commission_increase_pmpe: Decimal,
 }

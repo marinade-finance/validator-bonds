@@ -48,13 +48,9 @@ do
       case $protected_event_code in
           # ---- V2 SAM events ----
           CommissionSamIncrease)
-            expected_commission_pmpe=$(<<<"$protected_event_attributes" jq '.expected_inflation_commission')
+            past_inflation_commission=$(<<<"$protected_event_attributes" jq '.past_inflation_commission')
             actual_inflation_commission=$(<<<"$protected_event_attributes" jq '.actual_inflation_commission')
-            expected_mev_commission=$(<<<"$protected_event_attributes" jq '.expected_mev_commission')
-            [[ $expected_mev_commission == "null" ]] && expected_mev_commission=0
-            actual_mev_commission=$(<<<"$protected_event_attributes" jq '.actual_mev_commission')
-            [[ $actual_mev_commission == "null" ]] && actual_mev_commission=0
-            reason="Commiss.pmpe $(bc <<<"scale=2; $expected_commission_pmpe + $expected_mev_commission") -> $(bc <<<"scale=2; $actual_inflation_commission + $actual_mev_commission")"
+            reason="Commission $(bc <<<"scale=2; $past_inflation_commission*100")% -> $(bc <<<"scale=2; $actual_inflation_commission*100")%"
             ;;
 
           DowntimeRevenueImpact)

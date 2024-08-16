@@ -31,8 +31,11 @@ pub enum ProtectedEvent {
         vote_account: Pubkey,
         expected_inflation_commission: Decimal,
         actual_inflation_commission: Decimal,
+        past_inflation_commission: Decimal,
         expected_mev_commission: Option<Decimal>,
         actual_mev_commission: Option<Decimal>,
+        past_mev_commission: Option<Decimal>,
+        non_bid_commission_increase_pmpe: Decimal,
         expected_epr: Decimal,
         actual_epr: Decimal,
         epr_loss_bps: u64,
@@ -146,32 +149,37 @@ pub fn collect_commission_increase_events(
             let revenue_expectation = revenue_expectation_map.get(&vote_account);
 
             if let Some(revenue_expectation) = revenue_expectation {
-                if revenue_expectation.actual_non_bid_pmpe < revenue_expectation.expected_non_bid_pmpe {
+                let expected_commission_pmpe = revenue_expectation.expected_non_bid_pmpe + revenue_expectation.non_bid_commission_increase_pmpe;
+                if revenue_expectation.actual_non_bid_pmpe < expected_commission_pmpe {
                     debug!(
-                        "Validator {vote_account} increased commission, expected non bid PMPE: {}, actual non bid PMPE: {}",
+                        "Validator {vote_account} increased commission, expected non bid: {}, actual non bid: {}, no bid commission increase: {}",
                         revenue_expectation.expected_non_bid_pmpe,
-                        revenue_expectation.actual_non_bid_pmpe
+                        revenue_expectation.actual_non_bid_pmpe,
+                        revenue_expectation.non_bid_commission_increase_pmpe
                     );
                     Some(
                         ProtectedEvent::CommissionSamIncrease {
                             vote_account,
                             expected_inflation_commission: revenue_expectation.expected_inflation_commission,
+                            past_inflation_commission: revenue_expectation.past_inflation_commission,
                             actual_inflation_commission: revenue_expectation.actual_inflation_commission,
                             expected_mev_commission: revenue_expectation.expected_mev_commission,
                             actual_mev_commission: revenue_expectation.actual_mev_commission,
+                            past_mev_commission: revenue_expectation.past_mev_commission,
+                            non_bid_commission_increase_pmpe: revenue_expectation.non_bid_commission_increase_pmpe,
                             // expected_non_bid_pmpe is what how many SOLs was expected to gain per 1000 of staked SOLs
                             // expected_epr is ratio of how many SOLS to pay for 1 staked SOL (it does not matter if in lamports or SOLs when ratio)
-                            expected_epr: revenue_expectation.expected_non_bid_pmpe / decimal_1000,
+                            expected_epr: expected_commission_pmpe / decimal_1000,
                             actual_epr: revenue_expectation.actual_non_bid_pmpe / decimal_1000,
                             epr_loss_bps: bps_decimal(
-                                revenue_expectation.expected_non_bid_pmpe - revenue_expectation.actual_non_bid_pmpe,
-                                revenue_expectation.expected_non_bid_pmpe
+                                expected_commission_pmpe - revenue_expectation.actual_non_bid_pmpe,
+                                expected_commission_pmpe
                             ),
                             stake,
                         },
                     )
                 } else {
-                    debug!("[OK] Validator {vote_account} has not increased commission");
+                    debug!("Validator {vote_account} has not increased commission");
                     None
                 }
             } else {
@@ -220,7 +228,7 @@ pub fn collect_downtime_revenue_impact_events(
                         },
                     )
                 } else {
-                    debug!("No commission increase found for validator {vote_account}");
+                    debug!("No downtime found for validator {vote_account}");
                     None
                 }
             } else {
