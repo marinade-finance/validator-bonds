@@ -50,7 +50,13 @@ do
           CommissionSamIncrease)
             past_inflation_commission=$(<<<"$protected_event_attributes" jq '.past_inflation_commission')
             actual_inflation_commission=$(<<<"$protected_event_attributes" jq '.actual_inflation_commission')
-            reason="Commission $(bc <<<"scale=2; $past_inflation_commission*100")% -> $(bc <<<"scale=2; $actual_inflation_commission*100")%"
+            if [[ $past_inflation_commission != $actual_inflation_commission ]]; then
+              reason="Commission $(bc <<<"scale=2; $past_inflation_commission*100")% -> $(bc <<<"scale=2; $actual_inflation_commission*100")%"
+            else
+              expected_epr=$(<<<"$protected_event_attributes" jq '.expected_epr')
+              actual_epr=$(<<<"$protected_event_attributes" jq '.actual_epr')
+              reason="EPR $(bc <<<"scale=6; $expected_epr/1") -> $(bc <<<"scale=6; $actual_epr/1")"
+            fi
             ;;
 
           DowntimeRevenueImpact)
