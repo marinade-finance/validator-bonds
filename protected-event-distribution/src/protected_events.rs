@@ -13,6 +13,15 @@ use {
     std::collections::HashMap,
 };
 
+/// Protected event stands for a validator's behaviour that has a negative impact on the revenue for staker.
+/// It can be badly performing  validator having a downtime, or validator increased commission etc.
+/// Each event is bound to particular validator by `vote_account` field.
+/// Then it contains the details of the event like expected and actual values of credits, commission, etc.
+/// The common field for all events are:
+/// * `expected_epr` is the expected EPR (Expected Profit Rate) for the staked lamports
+/// * `actual_epr` is the actual EPR for the gained staked lamports
+/// * `epr_loss_bps` is the loss of EPR in basis points (difference between expected and actual)
+/// * `stake` is the amount of staked lamports at the `vote_account`
 #[derive(Clone, Deserialize, Serialize, Debug, utoipa::ToSchema)]
 pub enum ProtectedEvent {
     DowntimeRevenueImpact {

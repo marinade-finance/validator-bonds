@@ -9,6 +9,7 @@ use {
     solana_sdk::hash::Hash,
 };
 
+/// A struct that represents a [`Settlement`]
 #[derive(Default, Clone, Deserialize, Serialize)]
 pub struct MerkleTreeMeta {
     pub merkle_root: Option<Hash>,

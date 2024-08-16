@@ -14,6 +14,12 @@ use {
     std::collections::HashMap,
 };
 
+/// Claim record that is involved within a `Settlement`.
+/// `claim_amount` is number of lamports that can be claimed,
+/// `withdraw_authority` and `stake_authority` defines an owner of stake account
+/// where the lamports can be claimed.
+/// The `active_stake` and `stake_accounts` are for debugging purposes
+/// to show the total active stake and the list of stake accounts that can be claimed.
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct SettlementClaim {
     #[serde(with = "pubkey_string_conversion")]
@@ -43,6 +49,11 @@ pub struct SettlementMeta {
     pub funder: SettlementFunder,
 }
 
+/// `Settlement` defines an event (e.g., a protected event or a bidding event) that will be settled
+/// by creating an on-chain record represented by a Merkle root covering all claims.
+/// A settlement is created for a single validator (vote account) with a specified reason and a funder (the source of the lamports for claiming).
+/// It contains a list of claims, where each claim specifies the amount of lamports to be claimed
+/// and the owner of the stake account (defined by stake and withdraw authority) into which the lamports can be claimed.
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct Settlement {
     pub reason: SettlementReason,
