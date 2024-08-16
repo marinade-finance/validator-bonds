@@ -41,6 +41,7 @@ steps:
     - |
       gcloud storage cp "$gs_bucket/$$epoch/validators.json" "."
       gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
+      gcloud storage cp "$gs_bucket/$$epoch/past-validators.json" "." || echo "Previous validator data not available!"
     artifact_paths:
       - "./*.json"
 
@@ -84,16 +85,20 @@ steps:
   - label: ":campfire: DS SAM generates PMPE bids data"
     commands:
       - 'buildkite-agent artifact download --include-retried-jobs validators.json .'
+      - 'buildkite-agent artifact download --include-retried-jobs past-validators.json . || echo "Previous validator data not available"'
       - 'buildkite-agent artifact download --include-retried-jobs inputs/* .'
       - 'buildkite-agent artifact download --include-retried-jobs outputs/* .'
       - '[[ ! -f "./outputs/results.json" ]] && echo "results.json not found" && exit 2'
+      - 'past_validators_arg=$( [[ -f ./past-validators.json ]] && echo "--snapshot-past-validators-file-path ../past-validators.json" || echo "" )'
       - 'git clone git@github.com:marinade-finance/ds-sam.git'
       - |
         cd ds-sam
+        git status
         pnpm install
         pnpm -r build
       - |
         pnpm run cli -- analyze-revenues \
+          $$past_validators_arg \
           --cache-dir-path "../inputs" \
           --sam-results-fixture-file-path "../outputs/results.json" \
           --snapshot-validators-file-path "../validators.json" \
