@@ -32,8 +32,8 @@ fi
 
 echo "Total settlements${settlement_type} in epoch $epoch: ☉$(<"$settlement_collection_file" jq '[.settlements[].claims_amount / 1e9] | add' | xargs printf $decimal_format)"
 echo
-echo "                                vote account    settlement                   reason   stake     funded by"
-echo "--------------------------------------------+-------------+------------------------+-------+-------------"
+echo "                                vote account    settlement                        reason   stake     funded by"
+echo "--------------------------------------------+-------------+-----------------------------+-------+-------------"
 while read -r settlement
 do
     vote_account=$(<<<"$settlement" jq '.vote_account' -r)
@@ -48,15 +48,13 @@ do
       case $protected_event_code in
           # ---- V2 SAM events ----
           CommissionSamIncrease)
+            # last epoch inflation commission
             past_inflation_commission=$(<<<"$protected_event_attributes" jq '.past_inflation_commission')
+            # inflation when SAM was run
+            expected_inflation_commission=$(<<<"$protected_event_attributes" jq '.expected_inflation_commission')
+            # inflation after SAM auction was run
             actual_inflation_commission=$(<<<"$protected_event_attributes" jq '.actual_inflation_commission')
-            if [[ $past_inflation_commission != $actual_inflation_commission ]]; then
-              reason="Commission $(bc <<<"scale=2; $past_inflation_commission*100")% -> $(bc <<<"scale=2; $actual_inflation_commission*100")%"
-            else
-              expected_epr=$(<<<"$protected_event_attributes" jq '.expected_epr')
-              actual_epr=$(<<<"$protected_event_attributes" jq '.actual_epr')
-              reason="EPR $(bc <<<"scale=6; $expected_epr/1") -> $(bc <<<"scale=6; $actual_epr/1")"
-            fi
+            reason="Commission $(bc <<<"scale=1; $past_inflation_commission*100/1")%/$(bc <<<"scale=1; $expected_inflation_commission*100/1")% -> $(bc <<<"scale=1; $actual_inflation_commission*100/1")%"
             ;;
 
           DowntimeRevenueImpact)
@@ -110,5 +108,5 @@ do
 
     
 
-    echo -e "$(printf "%44s" "$vote_account") $(printf "%15s" "☉$claims_amount") $(printf "%24s" "$reason") $(printf "%9s" "☉$protected_stake") $(printf "%13s" "$funder_info")"
+    echo -e "$(printf "%44s" "$vote_account") $(printf "%15s" "☉$claims_amount") $(printf "%28s" "$reason") $(printf "%9s" "☉$protected_stake") $(printf "%13s" "$funder_info")"
 done < <(<"$settlement_collection_file" jq '.settlements | sort_by((-.claims_amount)) | .[]' -c)
