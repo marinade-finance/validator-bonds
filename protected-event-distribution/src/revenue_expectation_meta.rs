@@ -44,7 +44,7 @@ pub struct RevenueExpectationMeta {
     pub sam_stake_share: Decimal,
     /// loss of lamports per 1 SOL for commission change
     pub loss_per_stake: Decimal,
-    /// validator increased commission and the commission is not covered in the bidding part
+    /// validator increased commission before SAM was run and not win the bidding
     /// when increase is in bidding not necessary to add it to protected event payment
-    pub non_bid_commission_increase_pmpe: Decimal,
+    pub before_sam_commission_increase_pmpe: Decimal,
 }

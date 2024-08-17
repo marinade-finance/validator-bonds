@@ -35,7 +35,7 @@ pub enum ProtectedEvent {
         expected_mev_commission: Option<Decimal>,
         actual_mev_commission: Option<Decimal>,
         past_mev_commission: Option<Decimal>,
-        non_bid_commission_increase_pmpe: Decimal,
+        before_sam_commission_increase_pmpe: Decimal,
         expected_epr: Decimal,
         actual_epr: Decimal,
         epr_loss_bps: u64,
@@ -149,13 +149,13 @@ pub fn collect_commission_increase_events(
             let revenue_expectation = revenue_expectation_map.get(&vote_account);
 
             if let Some(revenue_expectation) = revenue_expectation {
-                let expected_commission_pmpe = revenue_expectation.expected_non_bid_pmpe + revenue_expectation.non_bid_commission_increase_pmpe;
+                let expected_commission_pmpe = revenue_expectation.expected_non_bid_pmpe + revenue_expectation.before_sam_commission_increase_pmpe;
                 if revenue_expectation.actual_non_bid_pmpe < expected_commission_pmpe {
                     debug!(
                         "Validator {vote_account} increased commission, expected non bid: {}, actual non bid: {}, no bid commission increase: {}",
                         revenue_expectation.expected_non_bid_pmpe,
                         revenue_expectation.actual_non_bid_pmpe,
-                        revenue_expectation.non_bid_commission_increase_pmpe
+                        revenue_expectation.before_sam_commission_increase_pmpe
                     );
                     Some(
                         ProtectedEvent::CommissionSamIncrease {
@@ -166,7 +166,7 @@ pub fn collect_commission_increase_events(
                             expected_mev_commission: revenue_expectation.expected_mev_commission,
                             actual_mev_commission: revenue_expectation.actual_mev_commission,
                             past_mev_commission: revenue_expectation.past_mev_commission,
-                            non_bid_commission_increase_pmpe: revenue_expectation.non_bid_commission_increase_pmpe,
+                            before_sam_commission_increase_pmpe: revenue_expectation.before_sam_commission_increase_pmpe,
                             // expected_non_bid_pmpe is what how many SOLs was expected to gain per 1000 of staked SOLs
                             // expected_epr is ratio of how many SOLS to pay for 1 staked SOL (it does not matter if in lamports or SOLs when ratio)
                             expected_epr: expected_commission_pmpe / decimal_1000,
