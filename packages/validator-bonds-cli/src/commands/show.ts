@@ -595,6 +595,16 @@ function reformatSettlement(key: string, value: any): ReformatAction {
         },
       ],
     }
+  } else if (key.toLowerCase().includes('maxmerklenodes')) {
+    return {
+      type: 'UseExclusively',
+      records: [
+        {
+          key: 'maxMerkleNodes',
+          value: value.toString(),
+        },
+      ],
+    }
   }
   return reformatBond(key, value)
 }
