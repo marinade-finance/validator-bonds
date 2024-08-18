@@ -307,6 +307,9 @@ async fn prepare_funding(
                 let funding_stake_accounts = fund_bond_stake_accounts
                     .get_mut(&settlement_record.vote_account_address)
                     .unwrap_or(&mut empty_vec);
+                // using the bigger stake accounts first
+                funding_stake_accounts.sort_by_cached_key(|s| s.lamports);
+                funding_stake_accounts.reverse();
                 info!(
                         "Settlement {} (vote account {}, epoch {}) is to be funded by validator by {} SOLs, stake accounts: {} with {} SOLs",
                         settlement_record.settlement_address,
