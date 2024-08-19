@@ -57,7 +57,7 @@ steps:
       ./target/release/bid-distribution-cli \
         --sam-meta-collection ./sam-scores.json \
         --stake-meta-collection ./stakes.json \
-        --marinade-fee-bps 10000 \
+        --marinade-fee-bps 5000 \
         --marinade-fee-stake-authority 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB \
         --marinade-fee-withdraw-authority 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB \
         --output-settlement-collection "./${claim_type}-settlements.json" \
