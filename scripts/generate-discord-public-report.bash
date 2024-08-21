@@ -4,10 +4,11 @@ set -e
 
 settlement_collection_file="$1"
 settlement_type="$2"
+ignore_marinade_fee_active_stake="$3"
 
 if [[ -z $settlement_collection_file ]]
 then
-    echo "Usage: $0 <settlement collection file> [settlement type]" >&2
+    echo "Usage: $0 <settlement collection file> [settlement type] [ignore marinade fee active stake]" >&2
     exit 1
 fi
 
@@ -38,7 +39,13 @@ while read -r settlement
 do
     vote_account=$(<<<"$settlement" jq '.vote_account' -r)
     claims_amount=$(<<<"$settlement" jq '.claims_amount / 1e9' -r | xargs printf $decimal_format)
-    protected_stake=$(<<<"$settlement" jq '[.claims[].active_stake] | add / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
+     
+    if [[ $ignore_marinade_fee_active_stake == "true" ]]; then
+        protected_stake=$(<<<"$settlement" jq '[.claims[] | select(.withdraw_authority != "89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB" and .stake_authority != "89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB") | .active_stake] | add // 0 | . / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
+    else
+        protected_stake=$(<<<"$settlement" jq '[.claims[].active_stake] | add / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
+    fi
+    
     reason_code=$(<<<"$settlement" jq '.reason | keys[0]' -r 2> /dev/null || <<<"$settlement" jq '.reason' -r)
 
     if  [[ $reason_code == "ProtectedEvent" ]]; then
