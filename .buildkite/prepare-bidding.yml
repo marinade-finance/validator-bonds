@@ -48,6 +48,7 @@ steps:
   - label: ":scales: Evaluate Marinade Bids"
     env:
       WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
+      MARINADE_FEE_BPS: 5000
     commands:
     - 'buildkite-agent artifact download --include-retried-jobs sam-scores.json .'
     - 'buildkite-agent artifact download --include-retried-jobs stakes.json .'
@@ -57,7 +58,7 @@ steps:
       ./target/release/bid-distribution-cli \
         --sam-meta-collection ./sam-scores.json \
         --stake-meta-collection ./stakes.json \
-        --marinade-fee-bps 5000 \
+        --marinade-fee-bps ${MARINADE_FEE_BPS} \
         --marinade-fee-stake-authority 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB \
         --marinade-fee-withdraw-authority 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB \
         --output-settlement-collection "./${claim_type}-settlements.json" \
@@ -70,7 +71,12 @@ steps:
   - label: "📓 Generating report"
     commands:
     - 'buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlements.json .'
-    - './scripts/generate-discord-public-report.bash "./${claim_type}-settlements.json" "Bidding" > "./discord-public-report.txt"'
+    - |
+      if [[ "$MARINADE_FEE_BPS" == "10000" ]]; then
+        ./scripts/generate-discord-public-report.bash "./${claim_type}-settlements.json" "Bidding" > "./discord-public-report.txt"
+      else
+        ./scripts/generate-discord-public-report.bash "./${claim_type}-settlements.json" "Bidding" true > "./discord-public-report.txt"
+      fi
     artifact_paths:
       - "./discord-public-report.txt"
 
