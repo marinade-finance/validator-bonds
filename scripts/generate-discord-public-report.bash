@@ -5,11 +5,20 @@ set -e
 settlement_collection_file="$1"
 settlement_type="$2"
 ignore_marinade_fee_active_stake="$3"
+marinade_fee_stake_authority="${MARINADE_FEE_STAKE_AUTHORITY:-}"
+marinade_fee_withdraw_authority="${MARINADE_FEE_WITHDRAW_AUTHORITY:-}"
 
 if [[ -z $settlement_collection_file ]]
 then
     echo "Usage: $0 <settlement collection file> [settlement type] [ignore marinade fee active stake]" >&2
     exit 1
+fi
+
+if [[ $ignore_marinade_fee_active_stake == "true" ]]; then
+  if [[ -z $marinade_fee_stake_authority || -z $marinade_fee_withdraw_authority ]]; then
+    echo "Error: When ignore_marinade_fee_active_stake is set to true, both MARINADE_FEE_STAKE_AUTHORITY and MARINADE_FEE_WITHDRAW_AUTHORITY must be provided." >&2
+    exit 1
+  fi
 fi
 
 epoch="$(<"$settlement_collection_file" jq '.epoch' -r)"
@@ -41,7 +50,7 @@ do
     claims_amount=$(<<<"$settlement" jq '.claims_amount / 1e9' -r | xargs printf $decimal_format)
      
     if [[ $ignore_marinade_fee_active_stake == "true" ]]; then
-        protected_stake=$(<<<"$settlement" jq '[.claims[] | select(.withdraw_authority != "89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB" and .stake_authority != "89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB") | .active_stake] | add // 0 | . / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
+        protected_stake=$(<<<"$settlement" jq "[.claims[] | select(.withdraw_authority != \"$marinade_fee_withdraw_authority\" and .stake_authority != \"$marinade_fee_stake_authority\") | .active_stake] | add // 0 | . / 1e9" -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
     else
         protected_stake=$(<<<"$settlement" jq '[.claims[].active_stake] | add / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
     fi
@@ -112,8 +121,6 @@ do
           exit 1
           ;;
     esac
-
-    
 
     echo -e "$(printf "%44s" "$vote_account") $(printf "%15s" "☉$claims_amount") $(printf "%28s" "$reason") $(printf "%9s" "☉$protected_stake") $(printf "%13s" "$funder_info")"
 done < <(<"$settlement_collection_file" jq '.settlements | sort_by((-.claims_amount)) | .[]' -c)

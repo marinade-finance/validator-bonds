@@ -4,6 +4,9 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   claim_type: "bidding"
+  MARINADE_FEE_BPS: 5000
+  MARINADE_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
+  MARINADE_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
 
 steps:
   - label: ":hammer_and_wrench: :rust: Build"
@@ -48,7 +51,6 @@ steps:
   - label: ":scales: Evaluate Marinade Bids"
     env:
       WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
-      MARINADE_FEE_BPS: 5000
     commands:
     - 'buildkite-agent artifact download --include-retried-jobs sam-scores.json .'
     - 'buildkite-agent artifact download --include-retried-jobs stakes.json .'
@@ -59,8 +61,8 @@ steps:
         --sam-meta-collection ./sam-scores.json \
         --stake-meta-collection ./stakes.json \
         --marinade-fee-bps ${MARINADE_FEE_BPS} \
-        --marinade-fee-stake-authority 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB \
-        --marinade-fee-withdraw-authority 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB \
+        --marinade-fee-stake-authority ${MARINADE_FEE_STAKE_AUTHORITY} \
+        --marinade-fee-withdraw-authority ${MARINADE_FEE_WITHDRAW_AUTHORITY} \
         --output-settlement-collection "./${claim_type}-settlements.json" \
         --output-merkle-tree-collection "./${claim_type}-settlement-merkle-trees.json"
     artifact_paths:
