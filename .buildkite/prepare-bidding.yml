@@ -4,6 +4,9 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   claim_type: "bidding"
+  MARINADE_FEE_BPS: 5000
+  MARINADE_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
+  MARINADE_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
 
 steps:
   - label: ":hammer_and_wrench: :rust: Build"
@@ -57,9 +60,9 @@ steps:
       ./target/release/bid-distribution-cli \
         --sam-meta-collection ./sam-scores.json \
         --stake-meta-collection ./stakes.json \
-        --marinade-fee-bps 5000 \
-        --marinade-fee-stake-authority 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB \
-        --marinade-fee-withdraw-authority 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB \
+        --marinade-fee-bps ${MARINADE_FEE_BPS} \
+        --marinade-fee-stake-authority ${MARINADE_FEE_STAKE_AUTHORITY} \
+        --marinade-fee-withdraw-authority ${MARINADE_FEE_WITHDRAW_AUTHORITY} \
         --output-settlement-collection "./${claim_type}-settlements.json" \
         --output-merkle-tree-collection "./${claim_type}-settlement-merkle-trees.json"
     artifact_paths:
@@ -70,7 +73,12 @@ steps:
   - label: "📓 Generating report"
     commands:
     - 'buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlements.json .'
-    - './scripts/generate-discord-public-report.bash "./${claim_type}-settlements.json" "Bidding" > "./discord-public-report.txt"'
+    - |
+      if [[ "$MARINADE_FEE_BPS" == "10000" ]]; then
+        ./scripts/generate-discord-public-report.bash "./${claim_type}-settlements.json" "Bidding" > "./discord-public-report.txt"
+      else
+        ./scripts/generate-discord-public-report.bash "./${claim_type}-settlements.json" "Bidding" true > "./discord-public-report.txt"
+      fi
     artifact_paths:
       - "./discord-public-report.txt"
 
