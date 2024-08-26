@@ -63,7 +63,7 @@ importers:
         specifier: ^2.4.8
         version: 2.4.8
       '@marinade.finance/validator-bonds-sdk':
-        specifier: 'workspace: ^2.0.0'
+        specifier: 'workspace: ^2.0.2'
         version: link:../validator-bonds-sdk
       '@marinade.finance/web3js-common':
         specifier: ^2.4.8
@@ -190,7 +190,7 @@ importers:
         specifier: ^2.4.8
         version: 2.4.8
       '@marinade.finance/validator-bonds-sdk':
-        specifier: 'workspace: ^2.0.0'
+        specifier: 'workspace: ^2.0.2'
         version: link:../packages/validator-bonds-sdk
       '@marinade.finance/web3js-common':
         specifier: ^2.4.8
