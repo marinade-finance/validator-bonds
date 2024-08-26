@@ -275,9 +275,10 @@ but the amount of SOLs is always associated with the validator.
 
 ### Withdrawing Bond Account
 
-When someone chooses to stop participating in covering the bonds for [protected events](https://marinade.finance/blog/introducing-protected-staking-rewards/),
-they can withdraw the funds by transferring the ownership of the stake accounts
-back to the (original) owner.
+When someone chooses to stop participating in covering the bonds for
+[protected events](https://marinade.finance/blog/introducing-protected-staking-rewards/),
+they can withdraw the funds **by transferring ownership** of the stake accounts back to
+the original owner (i.e., stake account authorities are transferred to `--withdrawer`).
 
 This process involves two steps:
 
@@ -313,13 +314,19 @@ validator-bonds -um claim-withdraw-request <withdraw-request-or-bond-account-add
 
 The meanings of parameters are as follows:
 
-- `<bond-or-vote-account-address>`: bond account from which funds will be withdrawn
-- `--stake-account`: address of the stake account that will be assigned under the bonds program
-- `--authority`: bond account authority with permission to make changes on the bond account,
-  either configured pubkey in the bonds account (see `configure-bond` above) or the validator
-  identity
-- `--amount`: amount of lamports required to be withdrawn from the bonds program
-- `--withdrawer`: new owner of the withdrawn stake accounts
+- `<bond-or-vote-account-address>`: The bond account from which funds
+  (i.e., where stake accounts are withdrawn) will be taken.
+- `--authority`: The bond account authority with permission to make changes to the bond account.
+  This can be either the configured public key in the bond account
+  (see `configure-bond` above) or the validator identity.
+- `--amount`: The max amount of lamports to be later withdrawn from the bonds program on claiming.
+  The amount can only be specified when creating the withdrawal request.
+  If a different amount needs to be withdrawn, the old request must be canceled,
+  a new withdrawal request with the desired amount must be created
+  and you must wait for a few epochs (by default, 3 epochs) before claiming is possible.
+- `--withdrawer`: The new owner of the withdrawn stake accounts
+  (the `staker` and `withdrawer` authorities are assigned to `--withdrawer` public key).
+
 
 #### Technical details on creating withdraw request and claiming
 

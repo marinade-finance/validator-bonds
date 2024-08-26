@@ -49,7 +49,7 @@ pnpm install
 pnpm cli --help
 ```
 
-### Validator Bonds CLI
+### Validator Bonds data loading CLI
 
 ```sh
 cargo build --release
