@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## TS CLI&SDK [2.0.2](https://github.com/marinade-finance/validator-bonds/compare/v2.0.1...v2.0.2) (2024-08-26)
+
+### Updates
+
+* `claim-withdraw-request` not throwing error on already claimed request
+
+### Fixes
+
+* `claim-withdraw-request` make possible to claim a bond with an `activating` stake account
+  when other funded accounts are already `active`
+
+
 ## TS CLI&SDK [2.0.1](https://github.com/marinade-finance/validator-bonds/compare/v2.0.0...v2.0.1) (2024-08-05)
 
 ### Updates
