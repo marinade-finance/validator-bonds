@@ -51,6 +51,7 @@ export async function orchestrateWithdrawDeposit({
   withdrawRequestAccount: PublicKey
   splitStakeAccounts: Keypair[] // required signer
   withdrawStakeAccounts: PublicKey[]
+  amountToWithdraw: BN
 }> {
   if (
     configAccount !== undefined &&
@@ -106,13 +107,14 @@ export async function orchestrateWithdrawDeposit({
   )
   amountToWithdraw =
     amountToWithdraw <= new BN(0) ? new BN(0) : amountToWithdraw
+
   // calculating what are the stake accounts we need to merge to easily withdraw the deposit
   const [bondWithdrawerAuthority] = bondsWithdrawerAuthority(
     configAccount,
     program.programId
   )
   const currentEpoch = (await program.provider.connection.getEpochInfo()).epoch
-  const stakeAccountsToWithdraw = (
+  const stakeAccountsFunded = (
     await findStakeAccounts({
       connection: program,
       staker: bondWithdrawerAuthority,
@@ -120,37 +122,36 @@ export async function orchestrateWithdrawDeposit({
       voter: withdrawRequestData.voteAccount,
       currentEpoch,
     })
+  ).sort((x, y) =>
+    x.account.lamports > y.account.lamports
+      ? 1
+      : x.account.lamports < y.account.lamports
+        ? -1
+        : 0
   )
-    .sort((x, y) =>
-      x.account.lamports > y.account.lamports
-        ? 1
-        : x.account.lamports < y.account.lamports
-          ? -1
-          : 0
-    )
-    .reduce<{
-      stakesAmount: BN
-      accounts: ProgramAccountInfo<StakeAccountParsed>[]
-    }>(
-      (acc, accountInfo) => {
-        if (acc.stakesAmount < amountToWithdraw) {
-          acc.stakesAmount.add(new BN(accountInfo.account.lamports))
-          acc.accounts.push(accountInfo)
-        }
-        return acc
-      },
-      {
-        stakesAmount: new BN(0),
-        accounts: [] as ProgramAccountInfo<StakeAccountParsed>[],
+  const stakeAccountsToWithdraw = stakeAccountsFunded.reduce<{
+    stakesAmount: BN
+    accounts: ProgramAccountInfo<StakeAccountParsed>[]
+  }>(
+    (acc, accountInfo) => {
+      if (acc.stakesAmount < amountToWithdraw) {
+        acc.stakesAmount.add(new BN(accountInfo.account.lamports))
+        acc.accounts.push(accountInfo)
       }
-    )
+      return acc
+    },
+    {
+      stakesAmount: new BN(0),
+      accounts: [] as ProgramAccountInfo<StakeAccountParsed>[],
+    }
+  )
+
+  const instructions: TransactionInstruction[] = []
+  const withdrawStakeAccounts: PublicKey[] = []
+  const splitStakeAccounts: Keypair[] = []
 
   // there are some stake accounts to withdraw from
   if (stakeAccountsToWithdraw.accounts.length > 0) {
-    const instructions: TransactionInstruction[] = []
-    const withdrawStakeAccounts: PublicKey[] = []
-    const splitStakeAccounts: Keypair[] = []
-
     const destinationStakeAccount = stakeAccountsToWithdraw.accounts[0]
     // going through from the second item that we want to merge all to the first one
     for (
@@ -213,17 +214,20 @@ export async function orchestrateWithdrawDeposit({
     withdrawStakeAccounts.push(destinationStakeAccount.publicKey)
     splitStakeAccounts.push(withdrawRequest.splitStakeAccount)
     instructions.push(withdrawRequest.instruction)
+  }
 
-    return {
-      instructions,
-      withdrawRequestAccount,
-      splitStakeAccounts, // needed to be signers of whole transaction
-      withdrawStakeAccounts,
-    }
-  } else {
+  if (stakeAccountsFunded.length === 0 && amountToWithdraw > new BN(0)) {
     throw new Error(
       'orchestrateWithdrawDeposit: cannot find any stake accounts to withdraw from'
     )
+  }
+
+  return {
+    instructions,
+    withdrawRequestAccount,
+    splitStakeAccounts, // needed to be signers of whole transaction
+    withdrawStakeAccounts,
+    amountToWithdraw,
   }
 }
 

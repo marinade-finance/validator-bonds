@@ -1,4 +1,5 @@
 import {
+  CliCommandError,
   parsePubkey,
   parsePubkeyOrPubkeyFromWallet,
   parseWalletOrPubkey,
@@ -19,6 +20,7 @@ import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { getWithdrawRequestFromAddress } from '../utils'
 import { CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS } from '../../computeUnits'
+import { BN } from 'bn.js'
 
 export function installClaimWithdrawRequest(program: Command) {
   program
@@ -163,6 +165,7 @@ async function manageClaimWithdrawRequest({
     withdrawRequestAccount,
     withdrawStakeAccounts,
     splitStakeAccounts,
+    amountToWithdraw,
   } = await orchestrateWithdrawDeposit({
     program,
     withdrawRequestAccount: withdrawRequestAddress,
@@ -174,6 +177,27 @@ async function manageClaimWithdrawRequest({
     splitStakeRentPayer,
     logger,
   })
+
+  console.log('withdrawRequestAccount', amountToWithdraw.toString())
+  if (amountToWithdraw <= new BN(0)) {
+    logger.info(
+      `Withdraw request ${withdrawRequestAccount.toBase58()} for bond account ${bondAccount?.toBase58()}` +
+        'has been fully withdrawn, with nothing left to claim.\n' +
+        'If you want to withdraw more funds, please cancel the current request and create a new one.'
+    )
+    return
+  }
+  if (instructions.length === 0) {
+    throw new CliCommandError({
+      commandName: '--claim-withdraw-request',
+      valueName: 'address',
+      value: withdrawRequestAccount.toBase58(),
+      msg:
+        'CLI internal error. No instruction for claiming generated. ' +
+        'Try to run with --debug to get more info.',
+    })
+  }
+
   signers.push(...splitStakeAccounts)
   tx.add(...instructions)
 

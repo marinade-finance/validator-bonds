@@ -13,8 +13,10 @@ import {
   findStakeAccounts,
   getWithdrawRequest,
   cancelWithdrawRequestInstruction,
+  withdrawRequestAddress,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
+  executeCancelWithdrawRequestInstruction,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitWithdrawRequestInstruction,
@@ -70,6 +72,20 @@ describe('Claim withdraw request using CLI', () => {
       configAccount,
       voteAccount,
     }))
+    try {
+      const [withdrawRequestAddr] = withdrawRequestAddress(
+        bondAccount,
+        program.programId
+      )
+      await executeCancelWithdrawRequestInstruction(
+        program,
+        provider,
+        withdrawRequestAddr,
+        validatorIdentityKeypair
+      )
+    } catch (e) {
+      // ignore
+    }
     ;({ withdrawRequestAccount } = await executeInitWithdrawRequestInstruction({
       program,
       provider,
@@ -146,6 +162,33 @@ describe('Claim withdraw request using CLI', () => {
       code: 0,
       // stderr: '',
       stdout: /successfully claimed/,
+    })
+
+    // second claim will not fail
+    await (
+      expect([
+        'pnpm',
+        [
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          'claim-withdraw-request',
+          voteAccount.toBase58(),
+          '--config',
+          configAccount.toBase58(),
+          '--authority',
+          validatorIdentityPath,
+          '--withdrawer',
+          pubkey(user).toBase58(),
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+      // stderr: '',
+      stdout: /has been fully withdrawn/,
     })
 
     const userStakeAccounts = await findStakeAccounts({
