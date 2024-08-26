@@ -161,8 +161,8 @@ async function manageClaimWithdrawRequest({
   const {
     instructions,
     withdrawRequestAccount,
-    stakeAccount,
-    splitStakeAccount,
+    withdrawStakeAccounts,
+    splitStakeAccounts,
   } = await orchestrateWithdrawDeposit({
     program,
     withdrawRequestAccount: withdrawRequestAddress,
@@ -172,18 +172,20 @@ async function manageClaimWithdrawRequest({
     authority,
     withdrawer,
     splitStakeRentPayer,
+    logger,
   })
-  signers.push(splitStakeAccount)
+  signers.push(...splitStakeAccounts)
   tx.add(...instructions)
 
   logger.info(
-    `Claiming withdraw request account ${withdrawRequestAccount.toBase58()} ` +
-      `for bond account ${bondAccount?.toBase58()} with stake account ${stakeAccount.toBase58()}`
+    `Claiming withdraw request ${withdrawRequestAccount.toBase58()} ` +
+      `for bond account ${bondAccount?.toBase58()} with stake accounts: [` +
+      `${withdrawStakeAccounts.map(s => s.toBase58()).join(',')}]`
   )
   await splitAndExecuteTx({
     connection: provider.connection,
     transaction: tx,
-    errMessage: `Failed to claim withdraw request ${withdrawRequestAccount.toBase58()}`,
+    errMessage: `Failed to claim withdraw requests ${withdrawRequestAccount.toBase58()}`,
     signers,
     logger,
     computeUnitLimit: CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS,
@@ -195,7 +197,7 @@ async function manageClaimWithdrawRequest({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +
+    `Withdraw request accounts: ${withdrawRequestAccount.toBase58()} ` +
       `for bond account ${bondAccount?.toBase58()} successfully claimed`
   )
 }

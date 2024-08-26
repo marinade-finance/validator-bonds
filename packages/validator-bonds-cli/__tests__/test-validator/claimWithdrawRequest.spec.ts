@@ -12,6 +12,7 @@ import {
   getStakeAccount,
   findStakeAccounts,
   getWithdrawRequest,
+  cancelWithdrawRequestInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
   executeInitBondInstruction,
@@ -118,6 +119,7 @@ describe('Claim withdraw request using CLI', () => {
     const user = await createUserAndFund({ provider })
 
     // waiting for next epoch, otherwise the merge fails as stake accounts are in different states (0x6)
+    // + needed to wait 1 epoch for the withdraw request to be claimable (config set 'withdrawLockupEpochs' to 0)
     await waitForNextEpoch(provider.connection, 15)
 
     await (
@@ -161,6 +163,72 @@ describe('Claim withdraw request using CLI', () => {
     )
     expect(withdrawRequestData.requestedAmount).toEqual(withdrawRequestLamports)
     expect(withdrawRequestData.withdrawnAmount).toEqual(withdrawRequestLamports)
+
+    // --- let's claim again with active and activating stake account
+    const { instruction: ixCancel } = await cancelWithdrawRequestInstruction({
+      program,
+      withdrawRequestAccount,
+      authority: validatorIdentityKeypair,
+      bondAccount,
+      voteAccount,
+    })
+    await provider.sendIx([validatorIdentityKeypair], ixCancel)
+    ;({ withdrawRequestAccount } = await executeInitWithdrawRequestInstruction({
+      program,
+      provider,
+      configAccount,
+      bondAccount,
+      validatorIdentity: validatorIdentityKeypair,
+      amount: Number.MAX_SAFE_INTEGER,
+    }))
+    // waiting for next epoch for withdraw request to be claimable
+    await waitForNextEpoch(provider.connection, 15)
+    const activeStake = await createBondsFundedStakeAccount({
+      program,
+      provider,
+      configAccount,
+      lamports: LAMPORTS_PER_SOL * 100,
+      voteAccount,
+    })
+    await (
+      expect([
+        'pnpm',
+        [
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          'claim-withdraw-request',
+          withdrawRequestAccount.toBase58(),
+          '--config',
+          configAccount.toBase58(),
+          '--authority',
+          validatorIdentityPath,
+          '--withdrawer',
+          pubkey(user).toBase58(),
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+      // stderr: '',
+      stdout: /successfully claimed/,
+    })
+
+    // expected merging of stake accounts happened, ser has to have 3 stake accounts:
+    //  - 1 stake account from the first claim (all merged)
+    //  - 2 more from the second claim (all the rest merged besides the activeStake)
+    const userStakeAccountsMerged = await findStakeAccounts({
+      connection: program,
+      staker: pubkey(user),
+      withdrawer: pubkey(user),
+    })
+    expect(userStakeAccountsMerged.length).toEqual(3)
+    expect(
+      userStakeAccountsMerged.filter(s => s.publicKey.equals(activeStake))
+        .length
+    ).toEqual(1)
   })
 
   it('claim withdraw request in print-only mode', async () => {

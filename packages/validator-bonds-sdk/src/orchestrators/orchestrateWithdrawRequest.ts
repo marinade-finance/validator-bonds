@@ -20,6 +20,7 @@ import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRe
 import { anchorProgramWalletPubkey } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import { ProgramAccountInfo } from '@marinade.finance/web3js-common'
+import { LoggerPlaceholder, logDebug } from '@marinade.finance/ts-common'
 
 /**
  * Returning the instructions for withdrawing the deposit (on top of the withdraw request)
@@ -34,6 +35,7 @@ export async function orchestrateWithdrawDeposit({
   withdrawer,
   authority,
   splitStakeRentPayer = anchorProgramWalletPubkey(program),
+  logger,
 }: {
   program: ValidatorBondsProgram
   withdrawRequestAccount?: PublicKey
@@ -43,11 +45,12 @@ export async function orchestrateWithdrawDeposit({
   withdrawer?: PublicKey
   authority?: PublicKey | Keypair | Signer | WalletInterface // signer
   splitStakeRentPayer?: PublicKey | Keypair | Signer | WalletInterface // signer
+  logger?: LoggerPlaceholder
 }): Promise<{
   instructions: TransactionInstruction[]
-  splitStakeAccount: Keypair // signer
   withdrawRequestAccount: PublicKey
-  stakeAccount: PublicKey
+  splitStakeAccounts: Keypair[] // required signer
+  withdrawStakeAccounts: PublicKey[]
 }> {
   if (
     configAccount !== undefined &&
@@ -108,13 +111,14 @@ export async function orchestrateWithdrawDeposit({
     configAccount,
     program.programId
   )
+  const currentEpoch = (await program.provider.connection.getEpochInfo()).epoch
   const stakeAccountsToWithdraw = (
     await findStakeAccounts({
       connection: program,
       staker: bondWithdrawerAuthority,
       withdrawer: bondWithdrawerAuthority,
       voter: withdrawRequestData.voteAccount,
-      currentEpoch: 0,
+      currentEpoch,
     })
   )
     .sort((x, y) =>
@@ -141,51 +145,93 @@ export async function orchestrateWithdrawDeposit({
       }
     )
 
-  const instructions: TransactionInstruction[] = []
-
   // there are some stake accounts to withdraw from
   if (stakeAccountsToWithdraw.accounts.length > 0) {
-    const destinationStakeAccount =
-      stakeAccountsToWithdraw.accounts[0].publicKey
+    const instructions: TransactionInstruction[] = []
+    const withdrawStakeAccounts: PublicKey[] = []
+    const splitStakeAccounts: Keypair[] = []
+
+    const destinationStakeAccount = stakeAccountsToWithdraw.accounts[0]
     // going through from the second item that we want to merge all to the first one
     for (
       let mergeIndex = 1;
       mergeIndex < stakeAccountsToWithdraw.accounts.length;
       mergeIndex++
     ) {
-      const sourceStakeAccount =
-        stakeAccountsToWithdraw.accounts[mergeIndex].publicKey
-      const mergeIx = await mergeStakeInstruction({
-        program,
-        configAccount,
-        sourceStakeAccount,
-        destinationStakeAccount,
-      })
-      instructions.push(mergeIx.instruction)
+      // merging possible only for the stake accounts of the same state
+      const sourceStakeAccount = stakeAccountsToWithdraw.accounts[mergeIndex]
+
+      if (
+        isFullyActive(sourceStakeAccount, currentEpoch) ===
+          isFullyActive(destinationStakeAccount, currentEpoch) &&
+        sourceStakeAccount.account.data.isCoolingDown ===
+          destinationStakeAccount.account.data.isCoolingDown
+      ) {
+        const mergeIx = await mergeStakeInstruction({
+          program,
+          configAccount,
+          sourceStakeAccount: sourceStakeAccount.publicKey,
+          destinationStakeAccount: destinationStakeAccount.publicKey,
+        })
+        logDebug(
+          logger,
+          `Merging stake account: ${sourceStakeAccount.publicKey.toBase58()} -> ` +
+            `${destinationStakeAccount.publicKey.toBase58()}`
+        )
+        instructions.push(mergeIx.instruction)
+      } else {
+        // not possible to merge so let's just to try to withdraw directly the stake account
+        const withdrawRequest = await claimWithdrawRequestInstruction({
+          program,
+          configAccount,
+          withdrawRequestAccount,
+          bondAccount,
+          stakeAccount: sourceStakeAccount.publicKey,
+          authority,
+          voteAccount: withdrawRequestData.voteAccount,
+          splitStakeRentPayer,
+          withdrawer,
+        })
+        withdrawStakeAccounts.push(sourceStakeAccount.publicKey)
+        splitStakeAccounts.push(withdrawRequest.splitStakeAccount)
+        instructions.push(withdrawRequest.instruction)
+      }
     }
-    const withdrawDeposit = await claimWithdrawRequestInstruction({
+
+    // managing the withdraw request for the first stake account in the list
+    const withdrawRequest = await claimWithdrawRequestInstruction({
       program,
       configAccount,
       withdrawRequestAccount,
       bondAccount,
-      stakeAccount: destinationStakeAccount,
+      stakeAccount: destinationStakeAccount.publicKey,
       authority,
       voteAccount: withdrawRequestData.voteAccount,
       splitStakeRentPayer,
       withdrawer,
     })
-    instructions.push(withdrawDeposit.instruction)
+    withdrawStakeAccounts.push(destinationStakeAccount.publicKey)
+    splitStakeAccounts.push(withdrawRequest.splitStakeAccount)
+    instructions.push(withdrawRequest.instruction)
 
     return {
       instructions,
-      // needed as a signer for the transaction from method caller
-      splitStakeAccount: withdrawDeposit.splitStakeAccount,
       withdrawRequestAccount,
-      stakeAccount: destinationStakeAccount,
+      splitStakeAccounts, // needed to be signers of whole transaction
+      withdrawStakeAccounts,
     }
   } else {
     throw new Error(
       'orchestrateWithdrawDeposit: cannot find any stake accounts to withdraw from'
     )
   }
+}
+
+function isFullyActive(
+  stakeAccount: ProgramAccountInfo<StakeAccountParsed>,
+  epoch: BN | number
+): boolean {
+  return new BN(
+    stakeAccount.account.data.activationEpoch || Number.MAX_SAFE_INTEGER
+  ).lt(new BN(epoch))
 }

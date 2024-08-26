@@ -237,7 +237,6 @@ export async function getWithdrawRequestFromAddress({
     logger,
   })
 
-  ;({ program } = await setProgramIdByOwner(address))
   if (voteAccountAddress !== null) {
     if (config === undefined) {
       config = MARINADE_CONFIG_ADDRESS
@@ -247,6 +246,9 @@ export async function getWithdrawRequestFromAddress({
       voteAccountAddress,
       program.programId
     )
+  } else {
+    // expecting it's not a vote account but an address belonging to the bond contract
+    ;({ program } = await setProgramIdByOwner(address))
   }
 
   ;[address] = withdrawRequestAddress(bondAccountAddress, program.programId)
