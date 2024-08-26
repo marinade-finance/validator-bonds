@@ -28,7 +28,7 @@ pub struct SettlementClaim {
 
 #[derive(Clone, Deserialize, Serialize, Debug, utoipa::ToSchema)]
 pub enum SettlementReason {
-    ProtectedEvent(ProtectedEvent),
+    ProtectedEvent(Box<ProtectedEvent>),
     Bidding,
 }
 
@@ -122,7 +122,7 @@ pub fn generate_settlements(
 
             if claims_amount >= settlement_config.min_settlement_lamports() {
                 settlement_claim_collections.push(Settlement {
-                    reason: SettlementReason::ProtectedEvent(protected_event.clone()),
+                    reason: SettlementReason::ProtectedEvent(Box::new(protected_event.clone())),
                     meta: settlement_config.meta().clone(),
                     vote_account: *protected_event.vote_account(),
                     claims_count: claims.len(),
