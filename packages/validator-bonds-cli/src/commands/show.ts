@@ -25,6 +25,7 @@ import {
   getSettlement,
   findSettlements,
   findStakeAccounts,
+  withdrawRequestAddress,
 } from '@marinade.finance/validator-bonds-sdk'
 import { ProgramAccount } from '@coral-xyz/anchor'
 import { getBondFromAddress, formatToSol, formatUnit } from './utils'
@@ -360,6 +361,22 @@ async function showBond({
         data.bondFundedStakeAccounts = bondFunding[0].bondFundedStakeAccounts
         data.settlementFundedStakeAccounts =
           bondFunding[0].settlementFundedStakeAccounts
+      }
+    } else {
+      // funding data is not requested, let's search for withdraw request data at least
+      const [withdrawRequestAddr] = withdrawRequestAddress(
+        address,
+        program.programId
+      )
+      const withdrawRequestData =
+        await program.account.withdrawRequest.fetchNullable(withdrawRequestAddr)
+      if (withdrawRequestData !== null) {
+        data.withdrawRequest = {
+          publicKey: withdrawRequestAddr,
+          account: withdrawRequestData,
+        }
+      } else {
+        data.withdrawRequest = undefined // output shows it does not exist
       }
     }
   } else {
