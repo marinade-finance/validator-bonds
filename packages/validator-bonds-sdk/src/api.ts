@@ -25,6 +25,7 @@ import {
   getMultipleAccounts,
   ProgramAccountInfo,
   ProgramAccountInfoNoData,
+  ProgramAccountInfoNullable,
   ProgramAccountWithInfoNullable,
 } from '@marinade.finance/web3js-common'
 import { findStakeAccounts, StakeAccountParsed } from './web3.js'
@@ -102,12 +103,8 @@ export async function getMultipleBonds({
   program: ValidatorBondsProgram
   addresses: PublicKey[]
 }): Promise<ProgramAccountWithInfoNullable<Bond>[]> {
-  return (
-    await getMultipleAccounts({
-      connection: program.provider.connection,
-      addresses,
-    })
-  ).map(({ publicKey, account: accountInfo }) =>
+  const accounts = await getMultiAccounts({ program, addresses })
+  return accounts.map(({ publicKey, account: accountInfo }) =>
     mapAccountInfoToProgramAccount<Bond>(
       program,
       accountInfo,
@@ -191,12 +188,8 @@ export async function getMultipleWithdrawRequests({
   program: ValidatorBondsProgram
   addresses: PublicKey[]
 }): Promise<ProgramAccountWithInfoNullable<WithdrawRequest>[]> {
-  return (
-    await getMultipleAccounts({
-      connection: program.provider.connection,
-      addresses,
-    })
-  ).map(({ publicKey, account: accountInfo }) =>
+  const accounts = await getMultiAccounts({ program, addresses })
+  return accounts.map(({ publicKey, account: accountInfo }) =>
     mapAccountInfoToProgramAccount<WithdrawRequest>(
       program,
       accountInfo,
@@ -276,12 +269,8 @@ export async function getMultipleSettlements({
   program: ValidatorBondsProgram
   addresses: PublicKey[]
 }): Promise<ProgramAccountWithInfoNullable<Settlement>[]> {
-  return (
-    await getMultipleAccounts({
-      connection: program.provider.connection,
-      addresses,
-    })
-  ).map(({ publicKey, account: accountInfo }) =>
+  const accounts = await getMultiAccounts({ program, addresses })
+  return accounts.map(({ publicKey, account: accountInfo }) =>
     mapAccountInfoToProgramAccount<Settlement>(
       program,
       accountInfo,
@@ -387,12 +376,8 @@ export async function getMultipleSettlementClaims({
   program: ValidatorBondsProgram
   addresses: PublicKey[]
 }): Promise<ProgramAccountWithInfoNullable<SettlementClaimsBitmap>[]> {
-  return (
-    await getMultipleAccounts({
-      connection: program.provider.connection,
-      addresses,
-    })
-  ).map(({ publicKey, account: accountInfo }) => {
+  const accounts = await getMultiAccounts({ program, addresses })
+  return accounts.map(({ publicKey, account: accountInfo }) => {
     if (accountInfo === null) {
       return { publicKey, account: null, accountInfo: null }
     } else {
@@ -776,4 +761,30 @@ function mapAccountInfoToProgramAccount<T>(
       : null,
     accountInfo,
   }
+}
+
+async function getMultiAccounts({
+  program,
+  addresses,
+}: {
+  program: ValidatorBondsProgram
+  addresses: PublicKey[]
+}): Promise<ProgramAccountInfoNullable<Buffer>[]> {
+  const foundAccounts: ProgramAccountInfoNullable<Buffer>[] = []
+  if (addresses.length === 1) {
+    const [address] = addresses
+    const accountNullable: ProgramAccountInfoNullable<Buffer> = {
+      publicKey: address,
+      account: await program.provider.connection.getAccountInfo(address),
+    }
+    foundAccounts.push(accountNullable)
+  } else if (addresses.length > 1) {
+    foundAccounts.push(
+      ...(await getMultipleAccounts({
+        connection: program.provider.connection,
+        addresses,
+      }))
+    )
+  }
+  return foundAccounts
 }
