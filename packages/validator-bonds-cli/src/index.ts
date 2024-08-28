@@ -24,12 +24,12 @@ program
   .allowExcessArguments(false)
   .configureHelp({ showGlobalOptions: true })
   .option(
-    '-u, --cluster <cluster>',
-    'solana cluster URL or ' +
-      'a moniker (m/mainnet/mainnet-beta, d/devnet, t/testnet, l/localhost)',
+    '-u, --url <rpc-url>',
+    'solana RPC URL or a moniker ' +
+      '(m/mainnet/mainnet-beta, d/devnet, t/testnet, l/localhost), see https://solana.com/rpc',
     'mainnet'
   )
-  .option('-c <cluster>', 'alias for "-u, --cluster"')
+  .option('-c, --cluster <cluster>', 'alias for "-u, --url"')
   .option(
     '-k, --keypair <keypair-or-ledger>',
     'Wallet keypair (path or ledger url in format usb://ledger/[<pubkey>][?key=<derivedPath>]). ' +
@@ -89,7 +89,7 @@ program
     )
 
     setValidatorBondsCliContext({
-      cluster: command.opts().cluster as string,
+      cluster: (command.opts().url ?? command.opts().cluster) as string,
       wallet: walletInterface,
       programId: await command.opts().programId,
       simulate: Boolean(command.opts().simulate),
