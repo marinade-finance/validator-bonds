@@ -227,22 +227,34 @@ async fn prepare_funding(
 
         if settlement_record.settlement_account.is_none() {
             reporting.add_error_string(format!(
-                "Settlement {} (vote account {}, epoch {}) does not exist on-chain, cannot be funded",
-                settlement_record.settlement_address, settlement_record.vote_account_address, epoch,
+                "Settlement {} (vote account {}, bond {}, epoch {}, reason {}) does not exist on-chain, cannot be funded",
+                settlement_record.settlement_address,
+                settlement_record.vote_account_address,
+                settlement_record.bond_address,
+                epoch,
+                settlement_record.reason,
             ));
             continue;
         }
         if epoch + config.epochs_to_claim_settlement < clock.epoch {
             warn!(
-                "Settlement {} (vote account {}) at epoch {} is too old to be funded, skipping funding",
-                settlement_record.settlement_address, epoch, settlement_record.vote_account_address,
+                "Settlement {} (vote account {}, bond {}, epoch {}, reason {}) is too old to be funded, skipping funding",
+                settlement_record.settlement_address,
+                settlement_record.vote_account_address,
+                settlement_record.bond_address,
+                epoch,
+                settlement_record.reason,
             );
             continue;
         }
         if settlement_record.bond_account.is_none() {
             reporting.add_error_string(format!(
-                "Settlement {} (vote account {}, epoch {}) is not funded by validator bond, skipping funding",
-                settlement_record.settlement_address, settlement_record.vote_account_address, epoch,
+                "Settlement {} (vote account {}, bond {}, epoch {}, reason {}) is not funded by validator bond, skipping funding",
+                settlement_record.settlement_address,
+                settlement_record.vote_account_address,
+                settlement_record.bond_address,
+                epoch,
+                settlement_record.reason,
             ));
             reporting
                 .reportable
@@ -285,9 +297,11 @@ async fn prepare_funding(
         match &mut settlement_record.funder {
             SettlementFunderType::Marinade(_) => {
                 info!(
-                    "Settlement {} (vote account {}, epoch {}) is to be funded by Marinade from fee wallet by {} SOLs",
+                    "Settlement {} (vote account {}, bond {}, reason {}, epoch {}) is to be funded by Marinade from fee wallet by {} SOLs",
                     settlement_record.settlement_address,
                     settlement_record.vote_account_address,
+                    settlement_record.bond_address,
+                    settlement_record.reason,
                     epoch,
                     lamports_to_sol(amount_to_fund)
                 );
@@ -311,12 +325,19 @@ async fn prepare_funding(
                 funding_stake_accounts.sort_by_cached_key(|s| s.lamports);
                 funding_stake_accounts.reverse();
                 info!(
-                        "Settlement {} (vote account {}, epoch {}) is to be funded by validator by {} SOLs, stake accounts: {} with {} SOLs",
+                        "Settlement {} (vote account {}, bond {}, reason {}, epoch {}) is to be funded by validator by {} SOLs. Available {} stake accounts ({}) with {} SOLs.",
                         settlement_record.settlement_address,
                         settlement_record.vote_account_address,
+                        settlement_record.bond_address,
+                        settlement_record.reason,
                         epoch,
                         lamports_to_sol(amount_to_fund),
                         funding_stake_accounts.len(),
+                    funding_stake_accounts
+                        .iter()
+                        .map(|s| s.stake_account.to_string())
+                        .collect::<Vec<String>>()
+                        .join(","),
                         lamports_to_sol(funding_stake_accounts
                         .iter()
                         .map(|s| s.lamports)
@@ -356,11 +377,9 @@ async fn prepare_funding(
                 )) = stake_account_to_fund
                 {
                     info!(
-                        "Settlement: {} (vote account {}, epoch {}) will be funded with {} stake accounts ({} SOLs), possibly merged into {}",
+                        "Settlement: {} will be funded with {} stake accounts with {} SOLs, possibly merged into {}",
                         settlement_record.settlement_address,
-                        settlement_record.vote_account_address,
-                        epoch,
-                        stake_accounts_to_fund.len() + 1,
+                        funding_stake_accounts.len() + 1,
                         lamports_to_sol(
                             destination_lamports + stake_accounts_to_fund
                                 .iter()
@@ -399,10 +418,11 @@ async fn prepare_funding(
 
                     if lamports_available < amount_to_fund {
                         let err_msg = format!(
-                            "Cannot fully fund settlement {} (vote account {}, epoch {}, funder: ValidatorBond) with {} SOLs as only {} SOLs were found in stake accounts",
+                            "Cannot fully fund settlement {} (vote account {}, epoch {}, reason: {}, funder: ValidatorBond) with {} SOLs as only {} SOLs were found in stake accounts",
                             settlement_record.settlement_address,
                             settlement_record.vote_account_address,
                             epoch,
+                            settlement_record.reason,
                             lamports_to_sol(amount_to_fund),
                             lamports_to_sol(lamports_available)
                         );
@@ -430,10 +450,11 @@ async fn prepare_funding(
                     }
                 } else {
                     reporting.add_error_string(format!(
-                        "Settlement {} (vote account {}, epoch {}) not funded as no stake account available",
+                        "Settlement {} (vote account {}, epoch {}, reason: {}, funder: ValidatorBond) not funded as no stake account available",
                         settlement_record.settlement_address,
                         settlement_record.vote_account_address,
-                        epoch
+                        epoch,
+                        settlement_record.reason,
                     ));
                 }
                 // we've got to place where we were willing to fund something
@@ -506,10 +527,12 @@ async fn fund_settlements(
     for settlement_record in settlement_records.iter().flat_map(|(_, r)| r.iter()) {
         if !is_for_funding(settlement_record) {
             debug!(
-                "Settlement {} (vote account {}, epoch {}, funder {:?}) is not planned for funding",
+                "Settlement {} (vote account {}, bond {}, epoch {}, reason: {}, funder {:?}) is not planned for funding",
                 settlement_record.settlement_address,
                 settlement_record.vote_account_address,
+                settlement_record.bond_address,
                 settlement_record.epoch,
+                settlement_record.reason,
                 settlement_record.funder
             );
             continue;
@@ -519,10 +542,13 @@ async fn fund_settlements(
                 let new_stake_account_keypair = Arc::new(Keypair::new());
                 transaction_builder.add_signer_checked(&new_stake_account_keypair);
                 info!(
-                    "Settlement: {} (vote account {}, epoch {}), creating marinade stake account {}",
+                    "Settlement: {} (vote account {}, bond {}, epoch {}, reason: {}, funder: {}), creating Marinade stake account {}",
                     settlement_record.settlement_address,
                     settlement_record.vote_account_address,
+                    settlement_record.bond_address,
                     settlement_record.epoch,
+                    settlement_record.reason,
+                    settlement_record.funder,
                     new_stake_account_keypair.pubkey()
                 );
                 let instructions = create_stake_account_instructions(
@@ -581,8 +607,11 @@ async fn fund_settlements(
                         &mut transaction_builder,
                         &req,
                         format!(
-                            "FundSettlement: {}, stake: {}",
-                            settlement_record.settlement_address, stake_account_to_fund,
+                            "FundSettlement: {}, bond: {}, reason: {}, stake: {}",
+                            settlement_record.settlement_address,
+                            settlement_record.bond_address,
+                            settlement_record.reason,
+                            stake_account_to_fund,
                         ),
                     )?;
                     reporting
@@ -593,9 +622,12 @@ async fn fund_settlements(
             _ => {
                 // reason should be already part of report and we don't want to double-add
                 error!(
-                    "Not possible to fund settlement {} (vote account {}) with funder type {:?}",
+                    "Not possible to fund settlement {} (vote account {}, bond {}, epoch {}, reason {}, funder {:?})",
                     settlement_record.settlement_address,
                     settlement_record.vote_account_address,
+                    settlement_record.bond_address,
+                    settlement_record.epoch,
+                    settlement_record.reason,
                     settlement_record.funder
                 );
             }

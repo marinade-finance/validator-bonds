@@ -1,4 +1,5 @@
 #![allow(clippy::type_complexity)]
+
 use crate::{
     protected_events::ProtectedEvent,
     settlement_config::{build_protected_event_matcher, SettlementConfig},
@@ -6,6 +7,7 @@ use crate::{
 };
 use log::{debug, info};
 use solana_sdk::pubkey::Pubkey;
+use std::fmt::Display;
 
 use {
     crate::protected_events::ProtectedEventCollection,
@@ -30,6 +32,15 @@ pub struct SettlementClaim {
 pub enum SettlementReason {
     ProtectedEvent(Box<ProtectedEvent>),
     Bidding,
+}
+
+impl Display for SettlementReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SettlementReason::ProtectedEvent(_) => write!(f, "ProtectedEvent"),
+            SettlementReason::Bidding => write!(f, "Bidding"),
+        }
+    }
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug, Eq, PartialEq, Hash, utoipa::ToSchema)]
