@@ -65,9 +65,10 @@ pub fn load_json(
             false
         }
     }) {
-        let mut loaded_merkle_tree: MerkleTreeLoadedData = MerkleTreeLoadedData::default();
-        load_json_data_to_merkle_tree(path1, &mut loaded_merkle_tree)?;
-        load_json_data_to_merkle_tree(path2, &mut loaded_merkle_tree)?;
+        let mut loaded_merkle_tree: MerkleTreeSettlementLoadedData =
+            MerkleTreeSettlementLoadedData::default();
+        load_json_merkle_tree_settlement(path1, &mut loaded_merkle_tree)?;
+        load_json_merkle_tree_settlement(path2, &mut loaded_merkle_tree)?;
         claiming_data.push(resolve_combined_optional(loaded_merkle_tree)?);
     }
     claiming_data.sort_by_key(|c| c.epoch);
@@ -92,13 +93,13 @@ pub fn load_json(
 }
 
 #[derive(Default)]
-struct MerkleTreeLoadedData {
+struct MerkleTreeSettlementLoadedData {
     merkle_tree_collection: Option<MerkleTreeCollection>,
     settlement_collection: Option<SettlementCollection>,
 }
 
-fn insert_merkle_tree_parsed_data(
-    loaded_data: &mut MerkleTreeLoadedData,
+fn insert_json_parsed_data(
+    loaded_data: &mut MerkleTreeSettlementLoadedData,
     merkle_tree_collection: Option<MerkleTreeCollection>,
     settlement_collection: Option<SettlementCollection>,
 ) -> anyhow::Result<()> {
@@ -129,15 +130,19 @@ fn insert_merkle_tree_parsed_data(
     Ok(())
 }
 
-fn load_json_data_to_merkle_tree(
+fn load_json_merkle_tree_settlement(
     path: &PathBuf,
-    loaded_data: &mut MerkleTreeLoadedData,
+    loaded_data: &mut MerkleTreeSettlementLoadedData,
 ) -> Result<(), CliError> {
     debug!("Loading data from file: {:?}", path);
     let json_loading_result = if let Ok(merkle_tree_collection) = read_from_json_file(path) {
-        insert_merkle_tree_parsed_data(loaded_data, Some(merkle_tree_collection), None)
+        let result = insert_json_parsed_data(loaded_data, Some(merkle_tree_collection), None);
+        debug!("Loaded merkle tree collection from file: {:?}", path);
+        result
     } else if let Ok(settlement_collection) = read_from_json_file(path) {
-        insert_merkle_tree_parsed_data(loaded_data, None, Some(settlement_collection))
+        let result = insert_json_parsed_data(loaded_data, None, Some(settlement_collection));
+        debug!("Loaded settlement collection from file: {:?}", path);
+        result
     } else {
         Err(anyhow!("Cannot load JSON data from file: {:?}", path))
     };
@@ -149,7 +154,7 @@ fn load_json_data_to_merkle_tree(
 }
 
 fn resolve_combined_optional(
-    loaded_data: MerkleTreeLoadedData,
+    loaded_data: MerkleTreeSettlementLoadedData,
 ) -> anyhow::Result<CombinedMerkleTreeSettlementCollections> {
     let merkle_tree_collection = loaded_data.merkle_tree_collection;
     let settlement_collection = loaded_data.settlement_collection;
