@@ -33,6 +33,7 @@ use solana_sdk::sysvar::{
 };
 use solana_transaction_builder::TransactionBuilder;
 use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::PathBuf;
@@ -388,14 +389,16 @@ async fn prepare_funding(
                         ),
                         destination_stake
                     );
-
                     validator_bonds_funders.push(SettlementFunderValidatorBond {
                         stake_account_to_fund: destination_stake,
                     });
+
                     let possible_to_merge = stake_accounts_to_fund
                         .iter()
                         .map(|f| f.into())
                         .collect::<Vec<CollectedStakeAccount>>();
+                    // when possible to merge then merge transactions are added to the transaction builder
+                    // when non-mergeable stake account is found, it is directly funded to settlement
                     let non_mergeable = prepare_merge_instructions(
                         possible_to_merge.iter().collect(),
                         destination_stake,
@@ -416,37 +419,42 @@ async fn prepare_funding(
                         },
                     ));
 
-                    if lamports_available < amount_to_fund {
-                        let err_msg = format!(
-                            "Cannot fully fund settlement {} (vote account {}, epoch {}, reason: {}, funder: ValidatorBond) with {} SOLs as only {} SOLs were found in stake accounts",
-                            settlement_record.settlement_address,
-                            settlement_record.vote_account_address,
-                            epoch,
-                            settlement_record.reason,
-                            lamports_to_sol(amount_to_fund),
-                            lamports_to_sol(lamports_available)
-                        );
-                        reporting.add_error_string(err_msg);
-                        reporting.reportable.mut_ref(epoch).funded_amount += lamports_available;
-                    } else if lamports_available > amount_to_fund + minimal_stake_lamports {
-                        // we are in situation that the stake account has got (or it will have after merging)
-                        // more lamports than needed for funding the settlement in current loop iteration,
-                        // the rest of lamports from the stake account can be used for other settlements,
-                        // the lamports will be available under split stake account after the stake account is funded (next for-loop section)
-                        // let's use the split stake account as a source for funding of next settlement
-                        // NOTE: this process is "important" if the same vote account is used for multiple settlements,
-                        //       and we want to utilize the maximum funding spreading over multiple settlements
-                        // WARN: this REQUIRES that the merge bond transactions are executed in sequence!
-                        let lamports_available_after_split = lamports_available
-                            .saturating_sub(amount_to_fund)
-                            .saturating_sub(minimal_stake_lamports);
-                        funding_stake_accounts.push(FundBondStakeAccount {
-                            lamports: lamports_available_after_split,
-                            stake_account: destination_split_stake.pubkey(),
-                            split_stake_account: Arc::new(Keypair::new()),
-                            state: destination_stake_state,
-                        });
-                        reporting.reportable.mut_ref(epoch).funded_amount += amount_to_fund;
+                    match lamports_available.cmp(&(amount_to_fund + minimal_stake_lamports)) {
+                        Ordering::Less => {
+                            let err_msg = format!(
+                                "Cannot fully fund settlement {} (vote account {}, epoch {}, reason: {}, funder: ValidatorBond). To fund {} SOLs, to fund with min stake amount {}, only {} SOLs were found in stake accounts",
+                                settlement_record.settlement_address,
+                                settlement_record.vote_account_address,
+                                epoch,
+                                settlement_record.reason,
+                                lamports_to_sol(amount_to_fund),
+                                lamports_to_sol(amount_to_fund + minimal_stake_lamports),
+                                lamports_to_sol(lamports_available)
+                            );
+                            reporting.add_error_string(err_msg);
+                            reporting.reportable.mut_ref(epoch).funded_amount += lamports_available;
+                        }
+                        Ordering::Equal => {
+                            // fully funded and whole stake account is used for the settlement funding
+                            reporting.reportable.mut_ref(epoch).funded_amount += amount_to_fund;
+                        }
+                        Ordering::Greater => {
+                            // the stake account has got (or having after merging) more lamports than needed for the settlement in the current for-loop,
+                            // the rest of lamports will be available in the split stake account
+                            // and that can be used as a source for funding of next settlement when vote account is part of multiple settlements
+                            // WARN: this REQUIRES that the merge stake transactions are executed in sequence!
+                            let lamports_available_after_split = lamports_available
+                                .saturating_sub(amount_to_fund)
+                                .saturating_sub(minimal_stake_lamports);
+                            // the funding_stake_accounts vec is mut ref item from fund_bond_stake_accounts hashmap
+                            funding_stake_accounts.push(FundBondStakeAccount {
+                                lamports: lamports_available_after_split,
+                                stake_account: destination_split_stake.pubkey(),
+                                split_stake_account: Arc::new(Keypair::new()),
+                                state: destination_stake_state,
+                            });
+                            reporting.reportable.mut_ref(epoch).funded_amount += amount_to_fund;
+                        }
                     }
                 } else {
                     reporting.add_error_string(format!(
@@ -457,10 +465,10 @@ async fn prepare_funding(
                         settlement_record.reason,
                     ));
                 }
-                // we've got to place where we were willing to fund something
-                // it does not matter if it was successful or no more stake accounts is available
-                // the calculated 'amount_to_fund' comes from fact how many is already funded
-                // that means the rest subtracted from max_total_claim_sum has to be already funded
+                // we've got to place in code where we wanted to fund something
+                // it does not matter if it was successful or not (e.g., no stake account is available)
+                // we need to track how much was funded before this, the calculated 'amount_to_fund'
+                // reflects on how much is already funded, when subtracted from `max_total_claim_sum` then we get what has been already funded
                 reporting.reportable.mut_ref(epoch).funded_amount_before += settlement_record
                     .max_total_claim_sum
                     .saturating_sub(amount_to_fund);
