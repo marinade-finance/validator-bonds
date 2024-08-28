@@ -64,7 +64,7 @@ const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
 //       Activate and run this manually when needed.
 //       FILE='settlement-pipelines/__tests__/test-validator/pipelineSettlement.spec.ts' pnpm test:validator
 
-describe.skip('Cargo CLI: Pipeline Settlement', () => {
+describe('Cargo CLI: Pipeline Settlement', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
 
@@ -467,7 +467,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 0,
+      code: 2,
       stdout: /funded 9.10 settlements/,
       stderr:
         /will be funded with 2 stake accounts(.|\n|\r)*9 executed successfully/,

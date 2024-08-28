@@ -148,6 +148,7 @@ pub fn filter_settlement_funded(
 
 /// Preparing instructions to merge stake accounts from stake_accounts_to_merge into destination_stake
 /// Returning list of stake accounts addresses that cannot be merged.
+/// Prepared transactions are passed from the function through mutable referecne of `transaction_builder`.
 #[allow(clippy::too_many_arguments)]
 pub async fn prepare_merge_instructions(
     stake_accounts_to_merge: Vec<&CollectedStakeAccount>,
