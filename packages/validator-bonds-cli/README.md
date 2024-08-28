@@ -831,3 +831,17 @@ Commands:
   additional staking rewards earned by stake accounts during the delayed period until claiming is permitted.
   For example, the new withdrawal request could specify `--amount` as 5 SOLs instead of 4 SOLs for this particular example,
   or use term `"ALL"` (`--amount ALL`) to declare the desire to withdraw everything from the bond regardless of anything.
+
+* **Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.**
+
+  The executed command sends the transaction on-chain. For the transaction to be processed, a wallet must pay
+  the [transaction fee](https://solana.com/docs/core/fees) (approximately 5000 lamports).
+  The CLI attempts to use the default wallet payer, which is typically the default Solana CLI keypair
+  (usually located at `$HOME/.config/solana/id.json`; see CLI configuration with `solana config get`).
+  If this wallet address has insufficient funds to cover the transaction fee, you will encounter this error.
+
+  To verify which keypair is being used, add the `--verbose` switch to your command.
+
+  **Solution:**
+
+  Use the `-k <keypair-path>` parameter to specify a keypair wallet that has sufficient lamports to pay the transaction fee.
