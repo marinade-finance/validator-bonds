@@ -2,7 +2,7 @@ use crate::json_data::{CombinedMerkleTreeSettlementCollections, MerkleTreeMetaSe
 use anchor_client::anchor_lang::prelude::Pubkey;
 use anyhow::anyhow;
 use merkle_tree::psr_claim::TreeNode;
-use protected_event_distribution::settlement_claims::SettlementFunder;
+use protected_event_distribution::settlement_claims::{SettlementFunder, SettlementReason};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -33,8 +33,10 @@ pub struct SettlementRecord {
     pub max_total_claim_sum: u64,
     // The maximum total claims (number of merkle nodes) that can be claimed from the settlement
     pub max_total_claim: u64,
-    // The funder of the settlement, information loaded from the JSON file
+    // The funder of the settlement, from the JSON file
     pub funder: SettlementFunderType,
+    // The reason for the settlement (protected event, bidding...), from the JSON file
+    pub reason: SettlementReason,
 }
 
 #[derive(Debug, Clone)]
@@ -116,6 +118,7 @@ pub fn parse_settlements_from_json(
                     max_total_claim_sum: merkle_tree.max_total_claim_sum,
                     max_total_claim: merkle_tree.max_total_claims as u64,
                     funder: SettlementFunderType::new(&settlement.meta.funder),
+                    reason: settlement.reason.clone(),
                     bond_account: None,
                     settlement_account: None,
                 } ;
