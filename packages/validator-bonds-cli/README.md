@@ -50,9 +50,9 @@ validator-bonds init-bond --vote-account <vote-account-address> \
   --validator-identity ./validator-identity.json
 > Bond account BondAddress9iRYo3ZEK6dpmm9jYWX3Kb63Ed7RAFfUc of config vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 successfully created
 
-# optional: grind stake account keypair, used to remind that the key is for a bond
-solana-keygen grind --starts-with bnd:1
-> Wrote keypair to bndozK6C9zuCqjrdaWoJpX9AQeU1jm8BNdmKC85LotQ.json
+# create a random keypair for a stake account to be created and funded to bond
+# the Validator Bonds program does not preserve stake account public keys as it merges and splits them
+solana-keygen new -o /tmp/stake-account-keypair.json
 
 # Creating a stake account. The SOLs will be funded to the Bond
 solana create-stake-account <stake-account-keypair> <Amount of SOL 1 for every 10,000 staked>
@@ -141,13 +141,18 @@ The parameters and their meanings are explained in detail below:
 ### Show the bond account
 
 ```sh
-validator-bonds -um show-bond <bond-or-vote-account-address> --with-funding -f yaml
+validator-bonds -um show-bond <bond-or-vote-account-address>
 ```
 
-_NOTE:_ To display the `amounts` funded to a Bond account, the CLI must execute a `getProgramAccounts` query
-        on the RPC node to list stake accounts. Querying for accounts is often rate-limited,
-        and the error `429 Too Many Requests` may occur. If this happens,
-        use a private RPC node from an RPC provider (see https://solana.com/rpc).
+To display all details about the Bond use `--with-funding` and `--verbose` parameters.
+Gathering all the details require multiple calls to RPC node and does not work
+properly with public RPC node (moniker `-um` or `--rpc-url mainnet-beta`).
+Use some other RPC node url as described at https://solana.com/rpc.
+
+```
+RPC_URL=<url-to-solana-rpc-node>
+validator-bonds -u$RPC_URL show-bond <bond-or-vote-account-address> --with-funding --verbose -f yaml
+```
 
 Expected output on created bond is like
 
@@ -171,6 +176,9 @@ Expected output on created bond is like
   withdrawRequest: '<NOT EXISTING>'
 }
 ```
+
+_NOTE:_ for more details on `429 Too Many Requests` check the section
+        [Troubleshooting](#troubleshooting)
 
 ### Bond account configuration
 
@@ -237,6 +245,7 @@ validator-bonds -um configure-bond <bond-or-vote-account-address> \
 
 The bond account exists to be funded, where the funds may be used to cover a protected event
 when a validator under-performs or experiences a serious issue.
+The funds are used when the validator bids in an auction.
 "Funding the bond" consists of two steps:
 
 1. Charging lamports to a stake account.
@@ -272,6 +281,21 @@ The validator bonds program may merge or split the accounts delegated to the sam
 It's not guaranteed to maintain the same stake accounts in the bond,
 but the amount of SOLs is always associated with the validator.
 
+#### Validator Bonds and funding with stake accounts
+
+The concept of Bonds revolves around managing stake accounts delegated to validators.
+This allows the validator to lock funds under the Validator Bonds Program while still
+earning inflation rewards. However, Validator Bonds Program is not designed to preserve
+the specific stake accounts (i.e, its public keys) that were initially funded.
+Instead, the funding is considered as the total sum of lamports across various stake accounts.
+
+When a settlement event occurs, the funded stake account is split,
+and a portion of the funds is used for the `Settlement`.
+After the settlement is closed, any non-claimed lamports remaining in the stake account are
+returned to the bond's available resources, making them eligible for withdrawal.
+As a result, there are now two stake accounts.
+These stake accounts can later be merged if needed to create a larger,
+compound amount for future settlement funding.
 
 ### Withdrawing Bond Account
 
@@ -364,14 +388,20 @@ validator-bonds -um cancel-withdraw-request <withdraw-request-or-bond-account-ad
 
 ### Show Validator Bonds Program Configuration
 
-To check the Validator Bonds program configuration data, use the `show-config` command.
-The Marinade config account address is `vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU`.
+The global configuration for the Validator Bonds Program is stored on-chain in
+[a config account](https://github.com/marinade-finance/validator-bonds/blob/main/programs/validator-bonds/src/state/config.rs),
+which can be viewed using the `show-config` command.
+The address of the Marinade config account is `vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU`.
 
-To check the lockup period for the withdraw request ticket, verify the value of
-'withdrawLockupEpochs' to find the required number of epochs that must elapse after
-the withdrawal request is created.
+Configuration parameters:
+
+* `epochsToClaimSettlement`: Number of epochs during which a `Settlement` is available for claiming after its creation.
+* `slotsToStartSettlementClaiming`: Number of slots that must elapse after a `Settlement` is created before claiming is permitted.
+* `withdrawLockupEpochs`: Number of epochs that must elapse before a Bonds withdrawal request can be claimed.
+* `minimumStakeLamports`: Minimum size of a stake account when working with split stakes.
 
 ```sh
+# Global configuration of Marinade Validator Bonds Program
 validator-bonds -um show-config vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU
 ```
 
@@ -669,9 +699,25 @@ Commands:
 
   **Solution:**
 
-  * To retrieve printed data about one particular bond account, this error should not be seen. Use a simple call of `show-bond <vote-account>`
-  and **DO NOT** use filter arguments like `show-bond --vote-account <address>`.
-  * Use a private RPC endpoint. Most providers offer free plans that can be easily used here. `export RPC_URL=<private-rpc-http-endpoint>; show-bond -u$RPC_URL...`
+  * To retrieve printed data about one particular bond account, this error should not be seen.
+    Use a simple call of `show-bond <vote-account>`
+    and **DO NOT** use filter arguments like `show-bond --vote-account <address>`.
+  * Use a private RPC endpoint (see https://solana.com/rpc). Most providers offer free plans
+    that can be easily used: `RPC_URL=<private-rpc-http-endpoint>; show-bond -u$RPC_URL...`
+
+* **command fails with `429 Too Many Requests`**
+
+  This error often occurs when the `show-bond` command is used with the public RPC API endpoint
+  `https://api.mainnet-beta.solana.com`, which is the default endpoint for CLI commands.
+  To display all the details, the CLI often needs to execute multiple RPC queries.
+  Public RPC nodes impose rate limits, and exceeding these limits results in the
+  `429 Too Many Requests` error.
+
+  **Solution:**
+
+  * Use a private RPC endpoint (see https://solana.com/rpc).
+    Most providers offer free plans that can be easily utilized:
+    `RPC_URL=<private-rpc-http-endpoint>; show-bond -u $RPC_URL...`
 
 * **node_modules/@solana/webljs/lib/index.cjs.js:643 keyMeta.isSigner ||= accountMeta.isSigner**
 
