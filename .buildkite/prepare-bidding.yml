@@ -3,7 +3,8 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
-  claim_type: "bidding"
+  MARINADE_SCORING_API_URL: https://scoring.marinade.finance/api/v1
+  CLAIM_TYPE: "bidding"
   MARINADE_FEE_BPS: 2500
   MARINADE_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
   MARINADE_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
@@ -34,13 +35,22 @@ steps:
 
   - wait: ~
 
-  - label: ":floppy_disk: :arrow_left: :cloud: Downloading Settlements JSON data"
+  - label: ":black_nib: Env variables setup"
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
       buildkite-agent meta-data set epoch "$$epoch"
     - |
-      curl -s "https://scoring.marinade.finance/api/v1/scores/sam?epoch=$$epoch" -o sam-scores.json
+      discord_webhook="${DISCORD_WEBHOOK:-$$DISCORD_WEBHOOK_VALIDATOR_BONDS}"
+      buildkite-agent meta-data set discord_webhook "$$discord_webhook"
+
+  - wait: ~
+
+  - label: ":floppy_disk: :arrow_left: :cloud: Downloading Settlements JSON data"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - |
+      curl -s "${MARINADE_SCORING_API_URL}/scores/sam?epoch=$$epoch" -o sam-scores.json
       gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
     key: 'download-json'
     artifact_paths:
@@ -63,21 +73,21 @@ steps:
         --marinade-fee-bps ${MARINADE_FEE_BPS} \
         --marinade-fee-stake-authority ${MARINADE_FEE_STAKE_AUTHORITY} \
         --marinade-fee-withdraw-authority ${MARINADE_FEE_WITHDRAW_AUTHORITY} \
-        --output-settlement-collection "./${claim_type}-settlements.json" \
-        --output-merkle-tree-collection "./${claim_type}-settlement-merkle-trees.json"
+        --output-settlement-collection "./${CLAIM_TYPE}-settlements.json" \
+        --output-merkle-tree-collection "./${CLAIM_TYPE}-settlement-merkle-trees.json"
     artifact_paths:
-    - "./${claim_type}*.json"
+    - "./${CLAIM_TYPE}*.json"
 
   - wait: ~
 
   - label: "📓 Generating report"
     commands:
-    - 'buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlements.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .'
     - |
       if [[ "$MARINADE_FEE_BPS" == "10000" ]]; then
-        ./scripts/generate-discord-public-report.bash "./${claim_type}-settlements.json" "Bidding" > "./discord-public-report.txt"
+        ./scripts/generate-discord-public-report.bash "./${CLAIM_TYPE}-settlements.json" "Bidding" > "./discord-public-report.txt"
       else
-        ./scripts/generate-discord-public-report.bash "./${claim_type}-settlements.json" "Bidding" true > "./discord-public-report.txt"
+        ./scripts/generate-discord-public-report.bash "./${CLAIM_TYPE}-settlements.json" "Bidding" true > "./discord-public-report.txt"
       fi
     artifact_paths:
       - "./discord-public-report.txt"
@@ -87,12 +97,12 @@ steps:
   - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
-    - buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlements.json .
-    - buildkite-agent artifact download --include-retried-jobs ${claim_type}-settlement-merkle-trees.json .
+    - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .
+    - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlement-merkle-trees.json .
     - buildkite-agent artifact download --include-retried-jobs discord-public-report.txt .
-    - gcloud storage cp "./${claim_type}-settlements.json" "$gs_bucket/$$epoch/"
-    - gcloud storage cp "./${claim_type}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
-    - gcloud storage cp "./discord-public-report.txt" "$gs_bucket/$$epoch/${claim_type}-discord-public-report.txt"
+    - gcloud storage cp "./${CLAIM_TYPE}-settlements.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./${CLAIM_TYPE}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./discord-public-report.txt" "$gs_bucket/$$epoch/${CLAIM_TYPE}-discord-public-report.txt"
 
   - wait: ~
 
@@ -100,10 +110,10 @@ steps:
     commands:
     - |
       epoch=$(buildkite-agent meta-data get epoch)
-      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" -H "Content-Type: application/json" -d '{
+      curl "$(buildkite-agent meta-data get discord_webhook)" -H "Content-Type: application/json" -d '{
         "embeds": [
           {
-            "title": "Claims for Validator Bonds ('"${claim_type}"') generated ('"$$epoch"').",
+            "title": "Claims for Validator Bonds ('"${CLAIM_TYPE}"') generated ('"$$epoch"').",
             "url": "'"$$BUILDKITE_BUILD_URL"'",
             "color": "52224"
           }
@@ -119,13 +129,14 @@ steps:
       cat <<EOF | buildkite-agent pipeline upload
       steps:
         - trigger: "init-settlements"
-          label: ":rocket: Trigger: Init settlements ($$epoch)/($claim_type)"
+          label: ":rocket: Trigger: Init settlements ($$epoch)/($CLAIM_TYPE)"
           async: true
           build:
             branch: $$BUILDKITE_BRANCH
             env:
               EPOCH: $$epoch
-              CLAIM_TYPE: $claim_type
+              CLAIM_TYPE: $CLAIM_TYPE
+              DISCORD_WEBHOOK: $(buildkite-agent meta-data get discord_webhook)
               NOTIFY_PSR_FEED: true
               gs_bucket: $gs_bucket
       EOF
