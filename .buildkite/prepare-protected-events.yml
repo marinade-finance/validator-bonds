@@ -171,19 +171,6 @@ steps:
         ]
       }'
 
-  - label: ":mega: PSR feed"
-    commands:
-    - buildkite-agent artifact download --include-retried-jobs discord-public-report.txt .
-    - epoch=$(buildkite-agent meta-data get epoch)
-    - |
-      split_command=$(which split >&2 > /dev/null && echo "split" || echo "gsplit")
-      # discord max message length is 2000 characters
-      $$split_command -C 2000 "./discord-public-report.txt" './discord-public-report.txt.chunk-'
-      for report_chunk in './discord-public-report.txt.chunk-'*; do
-        report=$(cat "$$report_chunk")
-        curl "$$DISCORD_WEBHOOK_PSR_FEED" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": null, "attachments": []}')"
-      done
-
   - wait: ~
 
   - label: ":gear: Setup init-settlements trigger"
@@ -200,6 +187,7 @@ steps:
             env:
               EPOCH: $$epoch
               CLAIM_TYPE: $claim_type
+              NOTIFY_PSR_FEED: true
               gs_bucket: $gs_bucket
       EOF
 
