@@ -323,9 +323,7 @@ async function showBond({
       voteAccount = {
         nodePubkey: voteAccountData.nodePubkey,
         authorizedWithdrawer: voteAccountData.authorizedWithdrawer,
-        authorizedVoters: voteAccountData.authorizedVoters,
         commission: voteAccountData.commission,
-        rootSlot: voteAccountData.rootSlot,
       }
     }
 
