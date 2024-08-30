@@ -3,7 +3,6 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
-  NOTIFY_PSR_FEED: false
 
 steps:
   # epoch number provided in ENV and then waiting for confirmation to proceed
@@ -30,7 +29,7 @@ steps:
 
   - wait: ~
 
-  - label: ":mega: Notification initializing settlements"
+  - label: ":black_nib: Env variables setup"
     commands:
     - |
       discord_webhook="${DISCORD_WEBHOOK:-$$DISCORD_WEBHOOK_VALIDATOR_BONDS}"
@@ -42,8 +41,15 @@ steps:
       claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
       buildkite-agent meta-data set claim_type "$$claim_type"
     - 'echo "Epoch: $$epoch", Claim Type: $$claim_type'
+
+  - wait: ~
+
+  - label: ":mega: Notification initializing settlements"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - claim_type=$(buildkite-agent meta-data get claim_type)
     - |
-      curl "$$discord_webhook" \
+      curl "$(buildkite-agent meta-data get discord_webhook)" \
         -H "Content-Type: application/json" -d '{
         "embeds": [
           {
@@ -170,16 +176,15 @@ steps:
 
   - wait: ~
 
-  - label: ":mega: Notification Initializing Settlements"
+  - label: ":mega: Notification :fast_forward: Monitoring Initialize Settlements"
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
-    - discord_webhook=$(buildkite-agent meta-data get discord_webhook)
     - notification_result=$(buildkite-agent meta-data get notification_result || echo "UNKNOWN")
     - notification_color=$(buildkite-agent meta-data get notification_color || echo "15158332")
     - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
     - buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt
     - |
-        curl "$$discord_webhook" \
+        curl "$(buildkite-agent meta-data get discord_webhook)" \
         -F 'payload_json={
             "embeds":[{
               "title": "Init Settlements '"$notification_result"' for Validator Bonds ('"$$epoch"') after '"$$attempts_count"' attempts",
@@ -191,7 +196,7 @@ steps:
     depends_on: "notification-setup-init"
     allow_dependency_failure: true
 
-  - label: ":mega: Notification PSR feed"
+  - label: ":mega: Notification :fast_forward: PSR feed"
     commands:
     - claim_type=$(buildkite-agent meta-data get claim_type)
     - epoch=$(buildkite-agent meta-data get epoch)
@@ -206,7 +211,7 @@ steps:
       done
     depends_on: "notification-setup-init"
     allow_dependency_failure: true
-    if: "build.env('NOTIFY_PSR_FEED') == 'true'"
+    if: "build.env('NOTIFY_PSR_FEED') != null"
 
   - wait: ~
     continue_on_failure: true
