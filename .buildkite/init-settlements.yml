@@ -195,9 +195,10 @@ steps:
 
   - label: ":gear: Upload and trigger fund-settlements pipeline"
     commands:
-      - 'epoch=$(buildkite-agent meta-data get epoch)'
-      - 'echo "Epoch: $$epoch"'
-      - 'buildkite-agent pipeline upload .buildkite/fund-settlements.yml'
+      - epoch=$(buildkite-agent meta-data get epoch)
+      - claim_type=$(buildkite-agent meta-data get claim_type)
+      - 'echo "Epoch: $$epoch, Claim type: $$claim_type"'
+      - buildkite-agent pipeline upload .buildkite/fund-settlements.yml
     depends_on: "init-settlement"
     allow_dependency_failure: true
 
