@@ -531,11 +531,13 @@ export async function findBondNonSettlementStakeAccounts(args: {
 export type BondDataWithFunding = {
   bondAccount: PublicKey
   voteAccount: PublicKey
+  amountOwned: BN
   amountActive: BN
-  amountAtSettlements: BN
-  amountToWithdraw: BN
   numberActiveStakeAccounts: number
+  amountAtSettlements: BN
   numberSettlementStakeAccounts: number
+  amountToWithdraw: BN
+  epochsToElapseToWithdraw: BN | undefined
   withdrawRequest: ProgramAccount<WithdrawRequest> | undefined
   bondFundedStakeAccounts: ProgramAccountInfo<StakeAccountParsed>[]
   settlementFundedStakeAccounts: ProgramAccountInfo<StakeAccountParsed>[]
@@ -544,17 +546,12 @@ export type BondDataWithFunding = {
 function calculateFundedAmount(
   stakeAccounts:
     | ProgramAccountInfoNoData[]
-    | ProgramAccountInfo<StakeAccountParsed>[],
-  withdrawRequest: ProgramAccount<WithdrawRequest> | undefined
-): { stakeAccountsAmount: BN; withdrawRequestAmount: BN; amount: BN } {
-  const stakeAccountsAmount = stakeAccounts
+    | ProgramAccountInfo<StakeAccountParsed>[]
+): { amount: BN } {
+  const amount = stakeAccounts
     .map(stakeAccount => stakeAccount.account.lamports)
     .reduce((sum, lamports) => sum.add(new BN(lamports)), ZERO_BN)
-  const withdrawRequestAmount = (
-    withdrawRequest?.account.requestedAmount ?? ZERO_BN
-  ).sub(withdrawRequest?.account.withdrawnAmount ?? ZERO_BN)
-  const amount = stakeAccountsAmount.sub(withdrawRequestAmount)
-  return { stakeAccountsAmount, withdrawRequestAmount, amount }
+  return { amount }
 }
 
 export async function getBondsFunding({
@@ -562,11 +559,13 @@ export async function getBondsFunding({
   configAccount,
   bondAccounts,
   voteAccounts,
+  currentEpoch,
 }: {
   program: ValidatorBondsProgram
   configAccount: PublicKey
   bondAccounts?: (PublicKey | undefined)[]
   voteAccounts?: (PublicKey | undefined)[]
+  currentEpoch?: number | BN
 }): Promise<BondDataWithFunding[]> {
   const maxLength = Math.max(
     bondAccounts?.length ?? 0,
@@ -665,10 +664,14 @@ export async function getBondsFunding({
       account: withdrawRequestData.account,
     }
   }
+  currentEpoch =
+    currentEpoch ?? (await program.provider.connection.getEpochInfo()).epoch
+  currentEpoch = new BN(currentEpoch)
   // get bond related stake accounts to find the funding
   const allStakeAccounts = await findConfigStakeAccounts({
     program,
     configAccount,
+    currentEpoch,
   })
 
   const bondFundedStakeAccounts = allStakeAccounts
@@ -696,6 +699,9 @@ export async function getBondsFunding({
   const bondFundedStakeAccountsMap = groupByVoter(bondFundedStakeAccounts)
   const settlementsStakeAccountsMap = groupByVoter(settlementsStakeAccounts)
 
+  const configData = await getConfig(program, configAccount)
+  const withdrawLockupEpochs = configData.withdrawLockupEpochs
+
   return Array.from(inputData.entries()).map(
     ([bondAccount, { voteAccount, withdrawRequest }]) => {
       const bondFunded =
@@ -705,21 +711,52 @@ export async function getBondsFunding({
         settlementsStakeAccountsMap.get(voteAccount.toBase58()) ??
         ([] as ProgramAccountInfo<StakeAccountParsed>[])
 
-      const { amount: amountActive, withdrawRequestAmount: amountToWithdraw } =
-        calculateFundedAmount(bondFunded, withdrawRequest)
-      const { amount: amountAtSettlements } = calculateFundedAmount(
-        settlementFunded,
-        undefined
-      )
+      const { amount: amountFundedAtBond } = calculateFundedAmount(bondFunded)
+      const { amount: amountAtSettlements } =
+        calculateFundedAmount(settlementFunded)
+      const amountOwned = amountFundedAtBond.add(amountAtSettlements)
+      const withdrawalRequestedAmount = (
+        withdrawRequest?.account.requestedAmount ?? ZERO_BN
+      ).sub(withdrawRequest?.account.withdrawnAmount ?? ZERO_BN)
+      const amountActive = amountFundedAtBond.sub(withdrawalRequestedAmount)
+
+      let amountToWithdraw: BN
+      if (withdrawalRequestedAmount.isZero()) {
+        // withdraw request does not exist or or all requested is already withdrawn
+        amountToWithdraw = ZERO_BN
+      } else if (amountFundedAtBond.lt(withdrawalRequestedAmount)) {
+        // requested amount is greater than what is currently available for withdrawal
+        //  we can withdraw ony what is available in the bond
+        amountToWithdraw = amountFundedAtBond
+      } else {
+        // requested amount is less than what is currently available
+        //   we can withdraw the whole amount of the request
+        amountToWithdraw = withdrawalRequestedAmount
+      }
+      let epochsToElapseToWithdraw: BN | undefined = undefined
+      if (
+        withdrawRequest !== undefined &&
+        currentEpoch.lte(
+          withdrawRequest.account.epoch.add(withdrawLockupEpochs)
+        )
+      ) {
+        // withdraw request is locked as withdrawLockupEpochs have not elapsed yet
+        epochsToElapseToWithdraw = withdrawRequest.account.epoch
+          .add(withdrawLockupEpochs)
+          .addn(1)
+          .sub(currentEpoch)
+      }
 
       return {
         bondAccount: new PublicKey(bondAccount),
         voteAccount,
+        amountOwned,
         amountActive,
-        amountAtSettlements,
-        amountToWithdraw,
         numberActiveStakeAccounts: bondFunded.length,
+        amountAtSettlements,
         numberSettlementStakeAccounts: settlementFunded.length,
+        amountToWithdraw,
+        epochsToElapseToWithdraw,
         withdrawRequest,
         bondFundedStakeAccounts: bondFunded,
         settlementFundedStakeAccounts: settlementFunded,

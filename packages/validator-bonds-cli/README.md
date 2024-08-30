@@ -151,7 +151,7 @@ Use some other RPC node url as described at https://solana.com/rpc.
 
 ```
 RPC_URL=<url-to-solana-rpc-node>
-validator-bonds -u$RPC_URL show-bond <bond-or-vote-account-address> --with-funding --verbose -f yaml
+validator-bonds -u$RPC_URL show-bond <bond-or-vote-account-address> --with-funding --verbose
 ```
 
 Expected output on created bond is like
@@ -166,13 +166,13 @@ Expected output on created bond is like
     authority: '...'
     costPerMillePerEpoch: "1000 lamports",
     maxStakeWanted: "10000 SOLs"
-
   },
+  amountOwned: "10.024261277 SOLs",
   amountActive: "10.024261277 SOLs,
-  amountAtSettlements: "0.000000000 SOL",
-  amountToWithdraw: "0.000000000 SOL",
   numberActiveStakeAccounts: 1,
+  amountAtSettlements: "0 SOL",
   numberSettlementStakeAccounts: 0,
+  amountToWithdraw: "0 SOL",
   withdrawRequest: '<NOT EXISTING>'
 }
 ```

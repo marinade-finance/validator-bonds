@@ -284,10 +284,16 @@ export function formatToSol(value: BN | number | BigInt): string {
 function formatLamportsToSol(value: BN | number | BigInt): string {
   value = new BN(value.toString())
   const { div, mod } = new BN(value).divmod(new BN(LAMPORTS_PER_SOL))
-  return `${div.toString()}.${mod
-    .abs()
-    .toString()
-    .padStart(Math.log10(LAMPORTS_PER_SOL), '0')}`
+  if (mod.isZero() && div.isZero()) {
+    return '0'
+  } else if (mod.isZero()) {
+    return div.toString()
+  } else {
+    return `${div.toString()}.${mod
+      .abs()
+      .toString()
+      .padStart(Math.log10(LAMPORTS_PER_SOL), '0')}`
+  }
 }
 
 export function formatUnit(value: BN | number | BigInt, unit: string): string {
