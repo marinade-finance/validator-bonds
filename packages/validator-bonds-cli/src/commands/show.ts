@@ -63,7 +63,7 @@ export function installShowConfig(program: Command) {
     .option(
       `-f, --format <${FORMAT_TYPE_DEF.join('|')}>`,
       'Format of output',
-      'text'
+      'json'
     )
     .action(
       async (
@@ -119,7 +119,7 @@ export function installShowBond(program: Command) {
     .option(
       `-f, --format <${FORMAT_TYPE_DEF.join('|')}>`,
       'Format of output',
-      'text'
+      'json'
     )
     .action(
       async (
@@ -165,7 +165,7 @@ export function installShowSettlement(program: Command) {
     .option(
       `-f, --format <${FORMAT_TYPE_DEF.join('|')}>`,
       'Format of output',
-      'text'
+      'json'
     )
     .action(
       async (

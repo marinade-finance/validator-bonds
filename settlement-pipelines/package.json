@@ -21,10 +21,10 @@
       "@coral-xyz/anchor": "^0.29.0",
       "@solana/web3.js": "^1.93.0",
       "@marinade.finance/ledger-utils": "^3.0.1",
-      "@marinade.finance/cli-common": "^2.4.8",
-      "@marinade.finance/anchor-common": "^2.4.8",
-      "@marinade.finance/web3js-common": "^2.4.8",
-      "@marinade.finance/ts-common": "^2.4.8",
+      "@marinade.finance/cli-common": "^2.4.9",
+      "@marinade.finance/anchor-common": "^2.4.9",
+      "@marinade.finance/web3js-common": "^2.4.9",
+      "@marinade.finance/ts-common": "^2.4.9",
       "bn.js": "^5.2.1",
       "jsbi": "^4.3.0",
       "commander": "^11.1.0",
@@ -32,7 +32,7 @@
       "pino-pretty": "^10.3.1",
       "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
       "yaml": "^2.4.5",
-      "@marinade.finance/jest-utils": "^2.4.8"
+      "@marinade.finance/jest-utils": "^2.4.9"
     }
   }
   
