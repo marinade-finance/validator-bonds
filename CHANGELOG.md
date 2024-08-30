@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## TS CLI&SDK [2.0.3](https://github.com/marinade-finance/validator-bonds/compare/v2.0.2...v2.0.3) (2024-08-30)
+
+### Updates
+
+* possible to use long version of `-u` parameter that is `--url` to define rpc url address
+* `show-bond` to display number of SOLs locked in bond
+
+### Fixes
+
+* `show-bond` fix the way how field `amountToWithdraw` is calculated
+
+
 ## TS CLI&SDK [2.0.2](https://github.com/marinade-finance/validator-bonds/compare/v2.0.1...v2.0.2) (2024-08-26)
 
 ### Updates
