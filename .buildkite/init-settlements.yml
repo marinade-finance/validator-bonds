@@ -3,6 +3,7 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
+  NOTIFY_PSR_FEED: false
 
 steps:
   # epoch number provided in ENV and then waiting for confirmation to proceed
@@ -189,6 +190,23 @@ steps:
         -F "file1=@./init-report.txt"
     depends_on: "notification-setup-init"
     allow_dependency_failure: true
+
+  - label: ":mega: Notification PSR feed"
+    commands:
+    - claim_type=$(buildkite-agent meta-data get claim_type)
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-discord-public-report.txt" "./discord-public-report.txt"
+    - |
+      split_command=$(which split >&2 > /dev/null && echo "split" || echo "gsplit")
+      # discord max message length is 2000 characters
+      $$split_command -C 2000 "./discord-public-report.txt" './discord-public-report.txt.chunk-'
+      for report_chunk in './discord-public-report.txt.chunk-'*; do
+        report=$(cat "$$report_chunk")
+        curl "$$DISCORD_WEBHOOK_PSR_FEED" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": null, "attachments": []}')"
+      done
+    depends_on: "notification-setup-init"
+    allow_dependency_failure: true
+    if: "build.env('NOTIFY_PSR_FEED') == 'true'"
 
   - wait: ~
     continue_on_failure: true
