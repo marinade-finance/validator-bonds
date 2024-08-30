@@ -6,6 +6,9 @@ import {
   getWithdrawRequest,
   cancelWithdrawRequestInstruction,
   bondsWithdrawerAuthority,
+  WithdrawRequest,
+  Config,
+  getConfig,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
   U64_MAX,
@@ -280,26 +283,28 @@ describe('Show command using CLI', () => {
         voteAccount: voteAccount.toBase58(),
         authority: bondAuthority.publicKey.toBase58(),
         costPerMillePerEpoch: '222 lamports',
-        maxStakeWanted: '2000.000000000 SOLs',
+        maxStakeWanted: '2000 SOLs',
       },
     }
     const expectedDataFundingSingleItem = {
       ...expectedDataNoFunding,
       voteAccount: voteAccountShow,
-      amountActive: '0.000000000 SOL',
-      amountAtSettlements: '0.000000000 SOL',
-      amountToWithdraw: '0.000000000 SOL',
+      amountOwned: '0 SOL',
+      amountActive: '0 SOL',
       numberActiveStakeAccounts: 0,
+      amountAtSettlements: '0 SOL',
       numberSettlementStakeAccounts: 0,
+      amountToWithdraw: '0 SOL',
       withdrawRequest: '<NOT EXISTING>',
     }
     const expectedDataFundingMultipleItems = {
       ...expectedDataNoFunding,
-      amountActive: '0.000000000 SOL',
-      amountAtSettlements: '0.000000000 SOL',
-      amountToWithdraw: '0.000000000 SOL',
+      amountOwned: '0 SOL',
+      amountActive: '0 SOL',
       numberActiveStakeAccounts: 0,
+      amountAtSettlements: '0 SOL',
       numberSettlementStakeAccounts: 0,
+      amountToWithdraw: '0 SOL',
       withdrawRequest: '<NOT EXISTING>',
     }
 
@@ -485,11 +490,12 @@ describe('Show command using CLI', () => {
   })
 
   it('show funded bond', async () => {
+    const withdrawLockupEpochs = 0
     const { configAccount } = await executeInitConfigInstruction({
       program,
       provider,
       epochsToClaimSettlement: 1,
-      withdrawLockupEpochs: 0,
+      withdrawLockupEpochs,
     })
     expect(
       provider.connection.getAccountInfo(configAccount)
@@ -530,7 +536,7 @@ describe('Show command using CLI', () => {
         voteAccount: voteAccount,
         authority: bondAuthority.publicKey,
         costPerMillePerEpoch: '1 lamport',
-        maxStakeWanted: '0.000000000 SOL',
+        maxStakeWanted: '0 SOL',
       },
     }
     const voteAccountShow = await loadTestingVoteAccount(
@@ -540,11 +546,12 @@ describe('Show command using CLI', () => {
     const expectedData = {
       ...expectedDataNoFunding,
       voteAccount: voteAccountShow,
-      amountActive: '0.000000000 SOL',
-      amountAtSettlements: '0.000000000 SOL',
-      amountToWithdraw: '0.000000000 SOL',
+      amountOwned: '0 SOL',
+      amountActive: '0 SOL',
       numberActiveStakeAccounts: stakeAccountLamports.length,
+      amountAtSettlements: '0 SOL',
       numberSettlementStakeAccounts: 0,
+      amountToWithdraw: '0 SOL',
       withdrawRequest: '<NOT EXISTING>',
     }
 
@@ -572,7 +579,8 @@ describe('Show command using CLI', () => {
       // stderr: '',
       stdout: YAML.stringify({
         ...expectedData,
-        amountActive: `${sumLamports / LAMPORTS_PER_SOL}.000000000 SOLs`,
+        amountOwned: `${sumLamports / LAMPORTS_PER_SOL} SOLs`,
+        amountActive: `${sumLamports / LAMPORTS_PER_SOL} SOLs`,
       }),
     })
 
@@ -591,27 +599,32 @@ describe('Show command using CLI', () => {
     )
     const withdrawRequestAmount = withdrawRequestData.requestedAmount.toNumber()
 
-    const expectedDataWithdrawRequest = YAML.stringify({
-      ...expectedData,
+    const expectedDataWithdrawRequestBefore = {
+      ...expectedDataNoFunding,
+      voteAccount: voteAccountShow,
+      amountOwned: `${sumLamports / LAMPORTS_PER_SOL} SOLs`,
       amountActive: `${
         (sumLamports - withdrawRequestAmount) / LAMPORTS_PER_SOL
-      }.000000000 SOLs`,
-      amountToWithdraw: `${
-        withdrawRequestAmount / LAMPORTS_PER_SOL
-      }.000000000 SOLs`,
+      } SOLs`,
+      numberActiveStakeAccounts: stakeAccountLamports.length,
+      amountAtSettlements: '0 SOL',
+      numberSettlementStakeAccounts: 0,
+      amountToWithdraw: `${withdrawRequestAmount / LAMPORTS_PER_SOL} SOLs`,
+    }
+    const expectedDataWithdrawRequestAfter = {
       withdrawRequest: {
         publicKey: withdrawRequestAccount.toBase58(),
         account: {
           voteAccount: withdrawRequestData.voteAccount.toBase58(),
           bond: bondAccount.toBase58(),
           epoch: (await provider.connection.getEpochInfo()).epoch,
-          requestedAmount: `${
-            withdrawRequestAmount / LAMPORTS_PER_SOL
-          }.000000000 SOLs`,
-          withdrawnAmount: '0.000000000 SOL',
+          requestedAmount: `${withdrawRequestAmount / LAMPORTS_PER_SOL} SOLs`,
+          withdrawnAmount: '0 SOL',
         },
       },
-    })
+    }
+    // waiting for next epoch to make sure the withdraw request claiming is over
+    await waitForNextEpoch(provider.connection, 15)
 
     await (
       expect([
@@ -635,11 +648,13 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
       // stderr: '',
-      stdout: expectedDataWithdrawRequest,
+      stdout: YAML.stringify({
+        ...expectedDataWithdrawRequestBefore,
+        ...expectedDataWithdrawRequestAfter,
+      }),
     })
 
     // check show-bond to work with vote account, withdraw request addresses and stake account
-    console.log('CLI program id', program.programId.toBase58())
     await (
       expect([
         'pnpm',
@@ -664,8 +679,12 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
       // stderr: '',
-      stdout: expectedDataWithdrawRequest,
+      stdout: YAML.stringify({
+        ...expectedDataWithdrawRequestBefore,
+        ...expectedDataWithdrawRequestAfter,
+      }),
     })
+
     await (
       expect([
         'pnpm',
@@ -688,8 +707,12 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
       // stderr: '',
-      stdout: expectedDataWithdrawRequest,
+      stdout: YAML.stringify({
+        ...expectedDataWithdrawRequestBefore,
+        ...expectedDataWithdrawRequestAfter,
+      }),
     })
+
     await (
       expect([
         'pnpm',
@@ -715,7 +738,7 @@ describe('Show command using CLI', () => {
       signal: '',
       // stderr: '',
       stdout: new RegExp(
-        `${lastStakeAccount!.toBase58()} is a STAKE ACCOUNT(.|\\n)*publicKey: ${bondAccount.toBase58()}`
+        `${lastStakeAccount!.toBase58()} is a STAKE ACCOUNT.*vote account ${voteAccount.toBase58()}`
       ),
     })
 
@@ -751,9 +774,8 @@ describe('Show command using CLI', () => {
       // stderr: '',
       stdout: YAML.stringify({
         ...expectedData,
-        amountActive: `${sumLamports / LAMPORTS_PER_SOL}.${
-          sumLamports % LAMPORTS_PER_SOL
-        }00000000 SOLs`,
+        amountOwned: `${sumLamports / LAMPORTS_PER_SOL} SOLs`,
+        amountActive: `${sumLamports / LAMPORTS_PER_SOL} SOLs`,
       }),
     })
 
@@ -763,17 +785,17 @@ describe('Show command using CLI', () => {
     const { div: activeDiv, mod: activeMod } = new BN(sumLamports)
       .sub(U64_MAX)
       .divmod(bnLamportsPerSol)
-    const { div: requestedDiv, mod: requestedMod } = new BN(U64_MAX).divmod(
-      bnLamportsPerSol
-    )
     const withdrawingAmount =
       stakeAccountLamports[stakeAccountLamports.length - 1]
-    const { div: withdrawingDiv, mod: withdrawingMod } = new BN(
-      withdrawingAmount
-    ).divmod(bnLamportsPerSol)
-    const { div: toWithdrawDiv, mod: toWithdrawMod } = new BN(U64_MAX)
-      .sub(new BN(withdrawingAmount))
-      .divmod(bnLamportsPerSol)
+    const { div: withdrawingDiv } = new BN(withdrawingAmount).divmod(
+      bnLamportsPerSol
+    )
+    // sum of all numbers in stakeAccountLamports.
+    const leftStakeAccountAmount = new BN(
+      stakeAccountLamports.reduce((a, b) => a + b, 0) - withdrawingAmount
+    )
+      .div(bnLamportsPerSol)
+      .toNumber()
     const { withdrawRequestAccount: toWithdrawRequestAcc } =
       await executeInitWithdrawRequestInstruction({
         program,
@@ -817,13 +839,12 @@ describe('Show command using CLI', () => {
       // stderr: '',
       stdout: YAML.stringify({
         ...expectedData,
+        amountOwned: `${leftStakeAccountAmount} SOLs`,
         amountActive: `${activeDiv.toString()}.${activeMod
           .muln(-1)
           .toString()
           .padStart(9, '0')} SOLs`,
-        amountToWithdraw: `${toWithdrawDiv.toString()}.${toWithdrawMod
-          .toString()
-          .padStart(9, '0')} SOLs`,
+        amountToWithdraw: `${leftStakeAccountAmount.toString()} SOLs`,
         numberActiveStakeAccounts: stakeAccountLamports.length - 1,
         withdrawRequest: {
           publicKey: withdrawRequestAccount.toBase58(),
@@ -831,12 +852,8 @@ describe('Show command using CLI', () => {
             voteAccount: withdrawRequestData.voteAccount.toBase58(),
             bond: bondAccount.toBase58(),
             epoch: epoch2,
-            requestedAmount: `${requestedDiv.toString()}.${requestedMod
-              .toString()
-              .padStart(9, '0')} SOLs`,
-            withdrawnAmount: `${withdrawingDiv.toString()}.${withdrawingMod
-              .toString()
-              .padStart(9, '0')} SOLs`,
+            requestedAmount: '<ALL>',
+            withdrawnAmount: `${withdrawingDiv.toString()} SOLs`,
           },
         },
       }),
@@ -855,8 +872,6 @@ async function loadTestingVoteAccount(
   return {
     nodePubkey: voteAccountData.nodePubkey,
     authorizedWithdrawer: voteAccountData.authorizedWithdrawer,
-    authorizedVoters: voteAccountData.authorizedVoters,
     commission: voteAccountData.commission,
-    rootSlot: voteAccountData.rootSlot,
   }
 }
