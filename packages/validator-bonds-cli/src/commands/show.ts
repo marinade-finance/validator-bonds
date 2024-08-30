@@ -32,6 +32,7 @@ import { getBondFromAddress, formatToSol, formatUnit } from './utils'
 import BN from 'bn.js'
 import {
   ProgramAccountInfoNullable,
+  U64_MAX,
   VoteAccount,
   getMultipleAccounts,
   getVoteAccountFromData,
@@ -350,12 +351,14 @@ async function showBond({
           msg: 'For argument "--with-funding", failed to fetch stake accounts to check evaluate',
         })
       }
+      data.amountOwned = bondFunding[0].amountOwned
       data.amountActive = bondFunding[0].amountActive
-      data.amountAtSettlements = bondFunding[0].amountAtSettlements
-      data.amountToWithdraw = bondFunding[0].amountToWithdraw
       data.numberActiveStakeAccounts = bondFunding[0].numberActiveStakeAccounts
+      data.amountAtSettlements = bondFunding[0].amountAtSettlements
       data.numberSettlementStakeAccounts =
         bondFunding[0].numberSettlementStakeAccounts
+      data.amountToWithdraw = bondFunding[0].amountToWithdraw
+      data.epochsToElapseToWithdraw = bondFunding[0].epochsToElapseToWithdraw
       data.withdrawRequest = bondFunding[0].withdrawRequest
       if (cliContext.logger.isLevelEnabled('debug')) {
         data.bondFundedStakeAccounts = bondFunding[0].bondFundedStakeAccounts
@@ -411,14 +414,17 @@ async function showBond({
           const bondFunding = bondsFunding.find(bondFunding =>
             bondFunding.bondAccount.equals(bond.publicKey)
           )
+          data[i].amountOwned = bondFunding?.amountOwned
           data[i].amountActive = bondFunding?.amountActive
+          data[i].numberActiveStakeAccounts =
+            bondFunding?.numberActiveStakeAccounts
           data[i].amountAtSettlements = bondFunding?.amountAtSettlements
+          data[i].numberSettlementStakeAccounts =
+            bondFunding?.numberSettlementStakeAccounts
           data[i].amountToWithdraw = bondFunding?.amountToWithdraw
-          ;(data[i].numberActiveStakeAccounts =
-            bondFunding?.numberActiveStakeAccounts),
-            (data[i].numberSettlementStakeAccounts =
-              bondFunding?.numberSettlementStakeAccounts),
-            (data[i].withdrawRequest = bondFunding?.withdrawRequest)
+          data[i].epochsToElapseToWithdraw =
+            bondFunding?.epochsToElapseToWithdraw
+          data[i].withdrawRequest = bondFunding?.withdrawRequest
           if (cliContext.logger.isLevelEnabled('debug')) {
             data[i].bondFundedStakeAccounts =
               bondFunding?.bondFundedStakeAccounts
@@ -556,6 +562,16 @@ function reformatBond(key: string, value: any): ReformatAction {
           value: new BN(value).toString() + ' ' + formatUnit(value, 'lamport'),
         },
       ],
+    }
+  }
+  if (key === 'requestedAmount') {
+    if (new BN(value).eq(U64_MAX)) {
+      return {
+        type: 'UseExclusively',
+        records: [{ key, value: '<ALL>' }],
+      }
+    } else {
+      return format_sol_exclusive(key, value)
     }
   }
   if (
