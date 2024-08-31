@@ -539,6 +539,7 @@ export type BondDataWithFunding = {
   amountToWithdraw: BN
   epochsToElapseToWithdraw: BN | undefined
   withdrawRequest: ProgramAccount<WithdrawRequest> | undefined
+  amountFundedAtBond: BN
   bondFundedStakeAccounts: ProgramAccountInfo<StakeAccountParsed>[]
   settlementFundedStakeAccounts: ProgramAccountInfo<StakeAccountParsed>[]
 }
@@ -758,6 +759,7 @@ export async function getBondsFunding({
         amountToWithdraw,
         epochsToElapseToWithdraw,
         withdrawRequest,
+        amountFundedAtBond,
         bondFundedStakeAccounts: bondFunded,
         settlementFundedStakeAccounts: settlementFunded,
       }
