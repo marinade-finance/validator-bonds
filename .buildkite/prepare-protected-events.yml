@@ -150,7 +150,7 @@ steps:
 
   - wait: ~
 
-  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Prepare Protected Events"
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}.json .

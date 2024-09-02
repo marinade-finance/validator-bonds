@@ -55,9 +55,10 @@ steps:
         current_epoch=$(curl --silent "$$RPC_URL" -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1, "method":"getEpochInfo"}' | jq '.result.epoch')
         epochs_start_index=$((current_epoch - past_epochs_to_load))
       else
-      current_epoch=$$epoch
+        current_epoch=$$epoch
         epochs_start_index=$$epoch
       fi
+    - latest_funded_epoch=''
     - |
       for epoch in $(seq $$epochs_start_index $$current_epoch); do
         if [[ $$epoch -lt $$starting_epoch_contract_v2 ]]; then
@@ -79,7 +80,9 @@ steps:
           gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlement-merkle-trees.json" "$$target_dir"
           gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlements.json" "$$target_dir"
         fi
+        latest_funded_epoch="$$epoch"
       done
+    - buildkite-agent meta-data set latest_funded_epoch "$$latest_funded_epoch"
     artifact_paths:
       - "./merkle-trees/**/*"
 
@@ -155,6 +158,19 @@ steps:
     allow_dependency_failure: true
 
   - wait: ~
+
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Fund Settlements"
+    commands:
+    - latest_funded_epoch=$(buildkite-agent meta-data get latest_funded_epoch)
+    - claim_type=$(buildkite-agent meta-data get claim_type)
+    - claim_type_prefix=$([[ -z "$$claim_type" ]] && echo "" || echo "$${claim_type}-")
+    - buildkite-agent artifact download --include-retried-jobs fund-report.txt . || echo "UNKNOWN ERROR" > fund-report.txt
+    - |
+      if [[ -n "$$latest_funded_epoch" ]]; then
+        gcloud storage cp ./fund-report.txt "$gs_bucket/$$latest_funded_epoch/buildkite/$${claim_type_prefix}fund-settlement-report.$(date +%s).txt"
+      fi
+    depends_on: "notification-setup-funding"
+    allow_dependency_failure: true
 
   - label: ":mega: Notification Funding"
     commands:

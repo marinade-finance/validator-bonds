@@ -6,6 +6,7 @@ use protected_event_distribution::settlement_claims::{SettlementFunder, Settleme
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::hash::Hash;
 use validator_bonds::state::bond::Bond;
 use validator_bonds::state::settlement::{find_settlement_staker_authority, Settlement};
 
@@ -38,6 +39,23 @@ pub struct SettlementRecord {
     // The reason for the settlement (protected event, bidding...), from the JSON file
     pub reason: SettlementReason,
 }
+
+/// Two SettlementRecords are equal if they are of the same bond and have the same epoch and merkle root.
+/// That is implicitly derived within settlement address, see [`validator_bonds::state::settlement::find_settlement_address`].
+/// While there cannot be created two `Settlement` records on-chain.
+impl PartialEq for SettlementRecord {
+    fn eq(&self, other: &Self) -> bool {
+        self.settlement_address == other.settlement_address
+    }
+}
+
+impl Hash for SettlementRecord {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.settlement_address.hash(state);
+    }
+}
+
+impl Eq for SettlementRecord {}
 
 #[derive(Debug, Clone)]
 pub struct SettlementFunderValidatorBond {

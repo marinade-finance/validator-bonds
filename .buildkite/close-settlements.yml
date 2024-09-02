@@ -39,6 +39,7 @@ steps:
         echo "No found any epoch to start to load settlement JSON files"
         exit 1
       fi
+    - latest_funded_epoch=''
     - |
       for epoch in $(seq $$epochs_start_index $$epochs_end_index); do
         if [[ $$epoch -lt $$starting_epoch_contract_v2 ]]; then
@@ -49,7 +50,9 @@ steps:
           base_name=$(basename "$$merkle_tree_file")
           gcloud storage cp "$$merkle_tree_file" "./merkle-trees/$${epoch}_$${base_name}"
         done
+        latest_funded_epoch=$$epoch
       done
+    - buildkite-agent meta-data set latest_funded_epoch "$$latest_funded_epoch"
     artifact_paths:
       - "./merkle-trees/*"
 
@@ -102,18 +105,26 @@ steps:
 
   - label: ":memo: Notification setup: Close Settlements"
     commands:
-     - 'mkdir ./reports'
-     - 'buildkite-agent artifact download --include-retried-jobs "close-execution-report.*" ./reports/ || echo "No report ERROR" > ./reports/close-execution-report.error'
-     - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
-     - 'cp "$$report_path" ./close-report.txt'
-     - 'buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./close-report.txt)"'
+    - 'mkdir ./reports'
+    - 'buildkite-agent artifact download --include-retried-jobs "close-execution-report.*" ./reports/ || echo "No report ERROR" > ./reports/close-execution-report.error'
+    - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
+    - 'cp "$$report_path" ./close-report.txt'
+    - 'buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./close-report.txt)"'
     artifact_paths:
     - "./close-report.txt"
-    key: 'notification'
+    key: 'notification-setup-close'
     depends_on: "close-settlement"
     allow_dependency_failure: true
 
   - wait: ~
+
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Close Settlements"
+    commands:
+    - latest_funded_epoch=$(buildkite-agent meta-data get latest_funded_epoch)
+    - buildkite-agent artifact download --include-retried-jobs close-report.txt . || echo "UNKNOWN ERROR" > close-report.txt
+    - gcloud storage cp ./close-report.txt "$gs_bucket/$$latest_funded_epoch/buildkite/close-settlement-report.$(date +%s).txt"
+    depends_on: "notification-setup-close"
+    allow_dependency_failure: true
 
   - label: ":mega: Notification Closing"
     commands:
@@ -138,7 +149,7 @@ steps:
             }]
         }' \
         -F "file1=@./close-report.txt"
-    depends_on: "notification"
+    depends_on: "notification-setup-close"
     allow_dependency_failure: true
 
   - wait: ~

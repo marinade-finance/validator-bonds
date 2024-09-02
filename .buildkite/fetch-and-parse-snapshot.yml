@@ -93,7 +93,6 @@ steps:
     - 'gcloud storage cp "$$snapshot_dir/validators.json" "$gs_bucket/$$epoch/"'
     - 'gcloud storage cp "$$snapshot_dir/stakes.json" "$gs_bucket/$$epoch/"'
 
-
   - wait: ~
 
   - label: ":gear: :one: Setup trigger for prepare-protected-events"
