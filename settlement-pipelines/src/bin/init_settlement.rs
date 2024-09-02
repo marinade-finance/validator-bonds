@@ -23,7 +23,7 @@ use solana_sdk::signer::Signer;
 use solana_sdk::system_program;
 use solana_transaction_builder::TransactionBuilder;
 use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -401,7 +401,7 @@ struct InitSettlementReport {
     json_settlements_max_claim_sum: u64,
     json_max_merkle_nodes_sum: u64,
     // settlement_address, vote_account_address
-    created_settlements: Vec<(Pubkey, Pubkey)>,
+    created_settlements: HashSet<SettlementRecord>,
     upsized_settlements: HashMap<Pubkey, u32>,
     epoch: u64,
 }
@@ -450,10 +450,7 @@ impl InitSettlementReport {
     }
 
     fn add_created_settlement(&mut self, settlement_record: &SettlementRecord) {
-        self.created_settlements.push((
-            settlement_record.settlement_address,
-            settlement_record.vote_account_address,
-        ));
+        self.created_settlements.insert(settlement_record.clone());
     }
 
     fn add_upsized_settlement(&mut self, settlement_address: Pubkey) {

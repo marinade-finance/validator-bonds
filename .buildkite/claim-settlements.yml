@@ -159,9 +159,6 @@ steps:
      - 'buildkite-agent artifact download --include-retried-jobs "claim-execution-report.*" ./reports/ || echo "No report ERROR" > ./reports/claim-execution-report.error'
      - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
      - 'cp "$$report_path" ./claiming-report.txt'
-     - 'claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json)'
-     - 'first_epoch=$(echo "$$claimable_epochs_json" | jq ".[0]")'
-     - '[[ -n "$$first_epoch" && "$$first_epoch" != "null" ]] && gcloud storage cp ./claiming-report.txt "$gs_bucket/$$first_epoch/claiming-report.$(date +%s).txt"'
      - 'buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./claiming-report.txt)"'
     artifact_paths:
     - "./claiming-report.txt"
@@ -170,6 +167,18 @@ steps:
     allow_dependency_failure: true
 
   - wait: ~
+
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Claim Settlements"
+    commands:
+    - buildkite-agent artifact download --include-retried-jobs claiming-report.txt . || echo "UNKNOWN ERROR" > claiming-report.txt
+    - claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json)
+    - first_epoch=$(echo "$$claimable_epochs_json" | jq ".[0]")
+    - |
+      if [[ -n "$$first_epoch" && "$$first_epoch" != "null" ]]; then
+        gcloud storage cp ./claiming-report.txt "$gs_bucket/$$first_epoch/buildkite/claiming-report.$(date +%s).txt"
+      fi
+    depends_on: "notification"
+    allow_dependency_failure: true
 
   - label: ":mega: Notification Claiming"
     commands:
