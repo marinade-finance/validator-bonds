@@ -6,9 +6,6 @@ import {
   getWithdrawRequest,
   cancelWithdrawRequestInstruction,
   bondsWithdrawerAuthority,
-  WithdrawRequest,
-  Config,
-  getConfig,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
   U64_MAX,
