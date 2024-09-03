@@ -29,7 +29,7 @@ steps:
 
   - wait: ~
 
-  - label: ":black_nib: Env variables setup"
+  - label: ":black_nib: Env variables setup: Init Settlements"
     commands:
     - |
       discord_webhook="${DISCORD_WEBHOOK:-$$DISCORD_WEBHOOK_VALIDATOR_BONDS}"
