@@ -12,14 +12,18 @@ steps:
 
   - wait: ~
 
-  - label: ":black_nib: Env variables setup"
+  - label: ":black_nib: Env variables setup: Fund Settlements"
     commands:
-    - |          
-      claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type || "")}
-      buildkite-agent meta-data set claim_type "$$claim_type"
     - |
-      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch || "")}
-      buildkite-agent meta-data set epoch "$$epoch"
+      claim_type=${CLAIM_TYPE:-"$($(buildkite-agent meta-data get claim_type) || true)"}
+      if [[ -n "$$claim_type" ]]; then
+        buildkite-agent meta-data set claim_type "$$claim_type"
+      fi
+    - |
+      epoch=${EPOCH:-"$($(buildkite-agent meta-data get epoch) || true)"}
+      if [[ -n "$$epoch" ]]; then
+        buildkite-agent meta-data set epoch "$$epoch"
+      fi
 
   - wait: ~
 
@@ -30,7 +34,7 @@ steps:
     artifact_paths:
       - target/release/fund-settlement
 
-  - label: " Loading json settlements data"
+  - label: ":surfer: Loading JSON settlements data"
     env:
       past_epochs_to_load: 3
       # epoch when the contract v2 was deployed, using different structure of merkle tree than v1
@@ -44,8 +48,8 @@ steps:
         exit 0
       fi
     - 'mkdir ./merkle-trees/'
-    - claim_type=$(buildkite-agent meta-data get claim_type)
-    - epoch=$(buildkite-agent meta-data get epoch)
+    - claim_type=$(buildkite-agent meta-data get claim_type) || true
+    - epoch=$(buildkite-agent meta-data get epoch) || true
     - |
       if [[ -z "$$epoch" ]]; then
         current_epoch=$(curl --silent "$$RPC_URL" -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1, "method":"getEpochInfo"}' | jq '.result.epoch')
@@ -82,7 +86,7 @@ steps:
   - label: ":black_nib: Find Discord webhook"
     commands:
     - |
-      discord_webhook="$(buildkite-agent meta-data get discord_webhook || echo '')"
+      discord_webhook=$(buildkite-agent meta-data get discord_webhook) || true
       if [[ -z "$$discord_webhook" ]]; then
         # env defined by job definition
         discord_webhook="${DISCORD_WEBHOOK}"
