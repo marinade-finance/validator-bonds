@@ -486,7 +486,6 @@ struct CloseSettlementReport {
     withdraw_wallet: Pubkey,
     /// settlement pubkey, settlement account
     closed_settlements: Vec<(Pubkey, Settlement)>,
-
     // epoch -> settlement -> (vote account, number of stake accounts that were reset, lamports)
     reset_stake_grouped: HashMap<u64, HashMap<Pubkey, (Pubkey, u64, u64)>>,
     // epoch -> settlement -> (marinade dao wallet, number of stake accounts that were withdrawn, lamports)

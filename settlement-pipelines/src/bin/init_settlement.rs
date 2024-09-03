@@ -2,6 +2,7 @@ use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
 use clap::Parser;
 use log::{debug, info};
+
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
     init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
@@ -14,6 +15,7 @@ use settlement_pipelines::json_data::{
     load_json, load_json_with_on_chain, CombinedMerkleTreeSettlementCollections,
 };
 use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
+use settlement_pipelines::reporting_data::SettlementsReportData;
 use settlement_pipelines::settlement_data::SettlementRecord;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::native_token::lamports_to_sol;
@@ -28,6 +30,7 @@ use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
+use tokio::time::sleep;
 use validator_bonds::instructions::InitSettlementArgs;
 use validator_bonds::state::settlement::find_settlement_claims_address;
 use validator_bonds::ID as validator_bonds_id;
@@ -134,6 +137,9 @@ async fn real_main(reporting: &mut ReportHandler<InitSettlementReport>) -> anyho
     )
     .await?;
 
+    // waiting for data finalization on-chain
+    sleep(std::time::Duration::from_secs(8)).await;
+
     upsize_settlements(
         &program,
         rpc_client.clone(),
@@ -220,6 +226,10 @@ async fn init_settlements(
                 "Settlement account {} already exists, skipping initialization",
                 record.settlement_address
             );
+            reporting
+                .reportable
+                .existing_settlements
+                .insert(record.settlement_address);
         } else {
             let req = program
                 .request()
@@ -397,33 +407,56 @@ async fn upsize_settlements(
 }
 
 struct InitSettlementReport {
-    json_settlements_count: u64,
-    json_settlements_max_claim_sum: u64,
-    json_max_merkle_nodes_sum: u64,
-    // settlement_address, vote_account_address
-    created_settlements: HashSet<SettlementRecord>,
-    upsized_settlements: HashMap<Pubkey, u32>,
     epoch: u64,
+    json_loaded_settlements: HashSet<SettlementRecord>,
+    created_settlements: HashSet<SettlementRecord>,
+    existing_settlements: HashSet<Pubkey>,
+    upsized_settlements: HashMap<Pubkey, u32>,
 }
 
 impl PrintReportable for InitSettlementReport {
     fn get_report(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + '_>> {
-        Box::pin(async {
-            vec![
+        let SettlementsReportData {
+            settlements_count: loaded_settlements_count,
+            settlements_max_claim_sum: loaded_settlements_max_claim_sum,
+            max_merkle_nodes_sum: loaded_max_merkle_nodes_sum,
+        } = self.list_loaded_settlements_data();
+        let settlements_info_by_reason: Vec<String> = self.list_settlements_data_by_reason()
+            .iter()
+            .flat_map(|(reason, (loaded_data, created_data))| {
+                vec![
+                    format!(
+                        "    Reason: {}, created settlements {}/{}, merkle nodes {}/{}, created claim amounts: {}/{} SOLs",
+                        reason,
+                        created_data.settlements_count,
+                        loaded_data.settlements_count,
+                        created_data.max_merkle_nodes_sum,
+                        loaded_data.max_merkle_nodes_sum,
+                        lamports_to_sol(created_data.settlements_max_claim_sum),
+                        lamports_to_sol(loaded_data.settlements_max_claim_sum),
+
+                    )
+                ]
+            })
+            .collect();
+        Box::pin(async move {
+            let mut result_vec = vec![
                 format!(
-                    "InitSettlement (epoch: {}, sum merkle nodes: {}, sum claim amounts: {} SOLs): created {}/{} settlements",
+                    "InitSettlement (epoch: {}, sum merkle nodes: {}, sum claim amounts: {} SOLs): created {}/{} settlements, already existing {}",
                     self.epoch,
-                    self.json_max_merkle_nodes_sum,
-                    lamports_to_sol(self.json_settlements_max_claim_sum),
+                    loaded_max_merkle_nodes_sum,
+                    lamports_to_sol(loaded_settlements_max_claim_sum),
                     self.created_settlements.len(),
-                    self.json_settlements_count
-                ),
-                format!(
-                    "  UpsizeSettlementClaims: upsized settlements {}/{}",
-                    self.upsized_settlements.len(),
-                    self.json_settlements_count
-                ),
-            ]
+                    loaded_settlements_count,
+                    self.existing_settlements.len(),
+                )];
+            result_vec.extend(settlements_info_by_reason);
+            result_vec.push(format!(
+                "UpsizeSettlementClaims: upsized settlements {}/{}",
+                self.upsized_settlements.len(),
+                loaded_settlements_count
+            ));
+            result_vec
         })
     }
 }
@@ -431,22 +464,18 @@ impl PrintReportable for InitSettlementReport {
 impl InitSettlementReport {
     fn report_handler() -> ReportHandler<Self> {
         let init_settlement_report = Self {
-            created_settlements: vec![],
-            upsized_settlements: HashMap::new(),
-            json_settlements_count: 0,
-            json_settlements_max_claim_sum: 0,
-            json_max_merkle_nodes_sum: 0,
             epoch: 0,
+            json_loaded_settlements: HashSet::new(),
+            created_settlements: HashSet::new(),
+            existing_settlements: HashSet::new(),
+            upsized_settlements: HashMap::new(),
         };
         ReportHandler::new(init_settlement_report)
     }
 
     fn init(&mut self, epoch: u64, json_settlements: &[SettlementRecord]) {
-        self.json_settlements_count = json_settlements.len() as u64;
-        self.json_settlements_max_claim_sum =
-            json_settlements.iter().map(|s| s.max_total_claim_sum).sum();
-        self.json_max_merkle_nodes_sum = json_settlements.iter().map(|s| s.max_total_claim).sum();
         self.epoch = epoch;
+        self.json_loaded_settlements = json_settlements.iter().cloned().collect();
     }
 
     fn add_created_settlement(&mut self, settlement_record: &SettlementRecord) {
@@ -463,8 +492,60 @@ impl InitSettlementReport {
     fn list_created_settlements(&self) -> String {
         self.created_settlements
             .iter()
-            .map(|(s, v)| format!("{}/{}", s, v))
+            .map(
+                |SettlementRecord {
+                     settlement_address,
+                     vote_account_address,
+                     ..
+                 }| format!("{}/{}", settlement_address, vote_account_address),
+            )
             .collect::<Vec<String>>()
             .join(", ")
+    }
+
+    fn list_loaded_settlements_data(&self) -> SettlementsReportData {
+        Self::list_settlements_data(
+            &self
+                .json_loaded_settlements
+                .iter()
+                .collect::<Vec<&SettlementRecord>>(),
+        )
+    }
+
+    /// Loading and created settlement data grouped by settlement reason.
+    /// The returned data contains a tuple of (Loaded, Created) SettlementsReportData.
+    fn list_settlements_data_by_reason(
+        &self,
+    ) -> HashMap<String, (SettlementsReportData, SettlementsReportData)> {
+        let mut data = HashMap::new();
+        data.insert(
+            "Bidding".to_string(),
+            (
+                SettlementsReportData::calculate_bidding(&self.json_loaded_settlements),
+                SettlementsReportData::calculate_bidding(&self.created_settlements),
+            ),
+        );
+        data.insert(
+            "ProtectedEvent".to_string(),
+            (
+                SettlementsReportData::calculate_protected_event(&self.json_loaded_settlements),
+                SettlementsReportData::calculate_protected_event(&self.created_settlements),
+            ),
+        );
+        data
+    }
+
+    fn list_settlements_data(settlement_records: &[&SettlementRecord]) -> SettlementsReportData {
+        let settlements_count = settlement_records.len() as u64;
+        let settlements_max_claim_sum = settlement_records
+            .iter()
+            .map(|s| s.max_total_claim_sum)
+            .sum();
+        let max_merkle_nodes_sum = settlement_records.iter().map(|s| s.max_total_claim).sum();
+        SettlementsReportData {
+            settlements_count,
+            settlements_max_claim_sum,
+            max_merkle_nodes_sum,
+        }
     }
 }
