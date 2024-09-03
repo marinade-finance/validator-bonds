@@ -14,6 +14,7 @@ use settlement_pipelines::executor::execute_in_sequence;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::{load_json, load_json_with_on_chain};
 use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
+use settlement_pipelines::reporting_data::SettlementsReportData;
 use settlement_pipelines::settlement_data::{
     SettlementFunderMarinade, SettlementFunderType, SettlementFunderValidatorBond, SettlementRecord,
 };
@@ -81,12 +82,12 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> CliResult {
-    let mut reporting = FundSettlementReport::report_handler();
+    let mut reporting = FundSettlementsReport::report_handler();
     let result = real_main(&mut reporting).await;
-    with_reporting::<FundSettlementReport>(&reporting, result).await
+    with_reporting::<FundSettlementsReport>(&reporting, result).await
 }
 
-async fn real_main(reporting: &mut ReportHandler<FundSettlementReport>) -> anyhow::Result<()> {
+async fn real_main(reporting: &mut ReportHandler<FundSettlementsReport>) -> anyhow::Result<()> {
     let args: Args = Args::parse();
     init_log(&args.global_opts);
 
@@ -135,9 +136,7 @@ async fn real_main(reporting: &mut ReportHandler<FundSettlementReport>) -> anyho
 
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
 
-    reporting
-        .reportable
-        .init(rpc_client.clone(), &settlement_records_per_epoch);
+    reporting.reportable.init(&settlement_records_per_epoch);
 
     prepare_funding(
         &program,
@@ -183,7 +182,7 @@ async fn prepare_funding(
     fee_payer: Arc<Keypair>,
     operator_authority: Arc<Keypair>,
     priority_fee_policy: &PriorityFeePolicy,
-    reporting: &mut ReportHandler<FundSettlementReport>,
+    reporting: &mut ReportHandler<FundSettlementsReport>,
 ) -> anyhow::Result<()> {
     let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
     transaction_builder.add_signer_checked(&operator_authority);
@@ -288,10 +287,7 @@ async fn prepare_funding(
             );
             reporting
                 .reportable
-                .mut_ref(epoch)
-                .funded_settlements_count_before += 1;
-            reporting.reportable.mut_ref(epoch).funded_amount_before +=
-                settlement_record.max_total_claim_sum;
+                .add_already_fully_funded_settlement(settlement_record);
             continue;
         }
 
@@ -315,7 +311,9 @@ async fn prepare_funding(
                     SettlementFunderType::Marinade(Some(SettlementFunderMarinade {
                         amount_to_fund,
                     }));
-                reporting.reportable.mut_ref(epoch).funded_amount += amount_to_fund;
+                reporting
+                    .reportable
+                    .add_funded_settlement(settlement_record, amount_to_fund);
             }
             SettlementFunderType::ValidatorBond(validator_bonds_funders) => {
                 let mut empty_vec: Vec<FundBondStakeAccount> = vec![];
@@ -432,11 +430,15 @@ async fn prepare_funding(
                                 lamports_to_sol(lamports_available)
                             );
                             reporting.add_error_string(err_msg);
-                            reporting.reportable.mut_ref(epoch).funded_amount += lamports_available;
+                            reporting
+                                .reportable
+                                .add_funded_settlement(settlement_record, lamports_available);
                         }
                         Ordering::Equal => {
                             // fully funded and whole stake account is used for the settlement funding
-                            reporting.reportable.mut_ref(epoch).funded_amount += amount_to_fund;
+                            reporting
+                                .reportable
+                                .add_funded_settlement(settlement_record, amount_to_fund);
                         }
                         Ordering::Greater => {
                             // the stake account has got (or having after merging) more lamports than needed for the settlement in the current for-loop,
@@ -453,7 +455,9 @@ async fn prepare_funding(
                                 split_stake_account: Arc::new(Keypair::new()),
                                 state: destination_stake_state,
                             });
-                            reporting.reportable.mut_ref(epoch).funded_amount += amount_to_fund;
+                            reporting
+                                .reportable
+                                .add_funded_settlement(settlement_record, amount_to_fund);
                         }
                     }
                 } else {
@@ -469,9 +473,12 @@ async fn prepare_funding(
                 // it does not matter if it was successful or not (e.g., no stake account is available)
                 // we need to track how much was funded before this, the calculated 'amount_to_fund'
                 // reflects on how much is already funded, when subtracted from `max_total_claim_sum` then we get what has been already funded
-                reporting.reportable.mut_ref(epoch).funded_amount_before += settlement_record
-                    .max_total_claim_sum
-                    .saturating_sub(amount_to_fund);
+                reporting.reportable.add_already_funded_settlement(
+                    settlement_record,
+                    settlement_record
+                        .max_total_claim_sum
+                        .saturating_sub(amount_to_fund),
+                );
             }
         }
     }
@@ -518,7 +525,7 @@ async fn fund_settlements(
     marinade_wallet: Arc<Keypair>,
     rent_payer: Arc<Keypair>,
     priority_fee_policy: &PriorityFeePolicy,
-    reporting: &mut ReportHandler<FundSettlementReport>,
+    reporting: &mut ReportHandler<FundSettlementsReport>,
 ) -> anyhow::Result<()> {
     let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
     transaction_builder.add_signer_checked(&operator_authority);
@@ -576,9 +583,6 @@ async fn fund_settlements(
                 );
                 transaction_builder.add_instructions(instructions)?;
                 transaction_builder.finish_instruction_pack();
-                reporting
-                    .reportable
-                    .add_funded_settlement(settlement_record);
             }
             SettlementFunderType::ValidatorBond(validator_bonds_funders) => {
                 for SettlementFunderValidatorBond {
@@ -622,13 +626,10 @@ async fn fund_settlements(
                             stake_account_to_fund,
                         ),
                     )?;
-                    reporting
-                        .reportable
-                        .add_funded_settlement(settlement_record);
                 }
             }
             _ => {
-                // reason should be already part of report and we don't want to double-add
+                // reason should be already part of reporting and we don't want to double-add
                 error!(
                     "Not possible to fund settlement {} (vote account {}, bond {}, epoch {}, reason {}, funder {:?})",
                     settlement_record.settlement_address,
@@ -716,49 +717,154 @@ async fn get_on_chain_bond_stake_accounts(
     Ok(result_map)
 }
 
-struct FundSettlementReport {
-    rpc_client: Option<Arc<RpcClient>>,
-    funded_data_per_epoch: HashMap<u64, FundedReportingData>,
+struct FundSettlementsReport {
+    settlements_per_epoch: HashMap<u64, FundSettlementReport>,
 }
 
 #[derive(Default)]
-struct FundedReportingData {
-    json_settlements_count: u64,
-    json_settlements_max_claim_sum: u64,
-    funded_amount: u64,
-    funded_settlements: HashSet<Pubkey>,
-    funded_amount_before: u64,
-    funded_settlements_count_before: u64,
+struct FundSettlementReport {
+    json_loaded_settlements: HashSet<SettlementRecord>,
+    // settlements and amount funded for settlement
+    funded_settlements: HashMap<Pubkey, (SettlementRecord, u64)>,
+    already_funded_settlements: HashMap<Pubkey, (SettlementRecord, u64)>,
     not_funded_by_validator_bond_count: u64,
 }
 
-impl PrintReportable for FundSettlementReport {
+impl FundSettlementReport {
+    fn funded_amount(&self) -> u64 {
+        self.funded_settlements
+            .values()
+            .map(|(_, amount)| *amount)
+            .sum()
+    }
+
+    fn already_funded_amount(&self) -> u64 {
+        self.already_funded_settlements
+            .values()
+            .map(|(_, amount)| *amount)
+            .sum()
+    }
+}
+
+impl FundSettlementsReport {
+    fn report_handler() -> ReportHandler<Self> {
+        let fund_settlement_report = Self {
+            settlements_per_epoch: HashMap::new(),
+        };
+        ReportHandler::new(fund_settlement_report)
+    }
+
+    fn init(&mut self, json_loaded_data: &HashMap<u64, Vec<SettlementRecord>>) {
+        for (epoch, record) in json_loaded_data {
+            self.settlements_per_epoch.insert(
+                *epoch,
+                FundSettlementReport {
+                    json_loaded_settlements: record.iter().cloned().collect(),
+                    ..Default::default()
+                },
+            );
+        }
+    }
+
+    fn add_funded_settlement(&mut self, record: &SettlementRecord, funded_amount: u64) {
+        let report = self.mut_ref(record.epoch);
+        report
+            .funded_settlements
+            .entry(record.settlement_address)
+            .and_modify(|(_, amount)| *amount += funded_amount)
+            .or_insert_with(|| (record.clone(), funded_amount));
+    }
+
+    fn add_already_fully_funded_settlement(&mut self, record: &SettlementRecord) {
+        self.add_already_funded_settlement(record, record.max_total_claim_sum);
+    }
+    fn add_already_funded_settlement(&mut self, record: &SettlementRecord, funded_amount: u64) {
+        let report = self.mut_ref(record.epoch);
+        report
+            .already_funded_settlements
+            .entry(record.settlement_address)
+            .and_modify(|(_, amount)| *amount += funded_amount)
+            .or_insert_with(|| (record.clone(), funded_amount));
+    }
+
+    fn mut_ref(&mut self, epoch: u64) -> &mut FundSettlementReport {
+        self.settlements_per_epoch.entry(epoch).or_default()
+    }
+}
+
+impl PrintReportable for FundSettlementsReport {
     fn get_report(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + '_>> {
         Box::pin(async {
-            let _rpc_client = if let Some(rpc_client) = &self.rpc_client {
-                rpc_client
-            } else {
-                return vec![];
-            };
             let mut report = vec![];
             let mut sorted_by_epoch = self
-                .funded_data_per_epoch
+                .settlements_per_epoch
                 .iter()
-                .collect::<Vec<(&u64, &FundedReportingData)>>();
+                .collect::<Vec<(&u64, &FundSettlementReport)>>();
             sorted_by_epoch.sort_by_key(|(a, _)| *a);
             for (epoch, funded_data) in sorted_by_epoch {
+                let json_loaded = SettlementsReportData::calculate(
+                    &funded_data
+                        .json_loaded_settlements
+                        .iter()
+                        .collect::<Vec<&SettlementRecord>>(),
+                );
                 report.push(format!(
                     "Epoch {} funded {}/{} settlements with {}/{} SOLs (before this already funded {}/{} settlements with {}/{} SOLs)",
                     epoch,
                     funded_data.funded_settlements.len(),
-                    funded_data.json_settlements_count,
-                    lamports_to_sol(funded_data.funded_amount),
-                    lamports_to_sol(funded_data.json_settlements_max_claim_sum),
-                    funded_data.funded_settlements_count_before,
-                    funded_data.json_settlements_count,
-                    lamports_to_sol(funded_data.funded_amount_before),
-                    lamports_to_sol(funded_data.json_settlements_max_claim_sum),
+                    json_loaded.settlements_count,
+                    lamports_to_sol(funded_data.funded_amount()),
+                    lamports_to_sol(json_loaded.settlements_max_claim_sum),
+                    funded_data.already_funded_settlements.len(),
+                    json_loaded.settlements_count,
+                    lamports_to_sol(funded_data.already_funded_amount()),
+                    lamports_to_sol(json_loaded.settlements_max_claim_sum),
                 ));
+                let bidding_json_loaded =
+                    SettlementsReportData::calculate_bidding(&funded_data.json_loaded_settlements);
+                let bidding_funded = SettlementsReportData::calculate_sum_amount_bidding(
+                    &funded_data.funded_settlements,
+                );
+                let bidding_already_funded = SettlementsReportData::calculate_sum_amount_bidding(
+                    &funded_data.already_funded_settlements,
+                );
+                if bidding_json_loaded.settlements_count > 0 {
+                    report.push(format!(
+                        "  - Bidding: funded {}/{} settlements with {}/{} SOLs (before this already funded {}/{} settlements with {}/{} SOLs)",
+                        bidding_funded.0.settlements_count,
+                        bidding_json_loaded.settlements_count,
+                        lamports_to_sol(bidding_funded.1),
+                        lamports_to_sol(bidding_json_loaded.settlements_max_claim_sum),
+                        bidding_already_funded.0.settlements_count,
+                        bidding_json_loaded.settlements_count,
+                        lamports_to_sol(bidding_already_funded.1),
+                        lamports_to_sol(bidding_json_loaded.settlements_max_claim_sum),
+                    ));
+                }
+                let protected_event_json_loaded = SettlementsReportData::calculate_protected_event(
+                    &funded_data.json_loaded_settlements,
+                );
+                let protected_event_funded =
+                    SettlementsReportData::calculate_sum_amount_protected_event(
+                        &funded_data.funded_settlements,
+                    );
+                let protected_event_already_funded =
+                    SettlementsReportData::calculate_sum_amount_protected_event(
+                        &funded_data.already_funded_settlements,
+                    );
+                if protected_event_json_loaded.settlements_count > 0 {
+                    report.push(format!(
+                        "  - Protected Events: funded {}/{} settlements with {}/{} SOLs (before this already funded {}/{} settlements with {}/{} SOLs)",
+                        protected_event_funded.0.settlements_count,
+                        protected_event_json_loaded.settlements_count,
+                        lamports_to_sol(protected_event_funded.1),
+                        lamports_to_sol(protected_event_json_loaded.settlements_max_claim_sum),
+                        protected_event_already_funded.0.settlements_count,
+                        protected_event_json_loaded.settlements_count,
+                        lamports_to_sol(protected_event_already_funded.1),
+                        lamports_to_sol(protected_event_json_loaded.settlements_max_claim_sum),
+                    ));
+                }
                 if funded_data.not_funded_by_validator_bond_count > 0 {
                     report.push(format!(
                         "    Number of Settlements not funded because of non-existing Bond: {}",
@@ -768,47 +874,5 @@ impl PrintReportable for FundSettlementReport {
             }
             report
         })
-    }
-}
-
-impl FundSettlementReport {
-    fn report_handler() -> ReportHandler<Self> {
-        let fund_settlement_report = Self {
-            rpc_client: None,
-            funded_data_per_epoch: HashMap::new(),
-        };
-        ReportHandler::new(fund_settlement_report)
-    }
-
-    fn init(
-        &mut self,
-        rpc_client: Arc<RpcClient>,
-        json_data: &HashMap<u64, Vec<SettlementRecord>>,
-    ) {
-        self.rpc_client = Some(rpc_client);
-        for (epoch, record) in json_data {
-            self.funded_data_per_epoch.insert(
-                *epoch,
-                FundedReportingData {
-                    json_settlements_count: record.len() as u64,
-                    json_settlements_max_claim_sum: record
-                        .iter()
-                        .map(|s| s.max_total_claim_sum)
-                        .sum::<u64>(),
-                    ..Default::default()
-                },
-            );
-        }
-    }
-
-    fn add_funded_settlement(&mut self, record: &SettlementRecord) {
-        self.funded_data_per_epoch
-            .entry(record.epoch)
-            .or_default()
-            .funded_settlements
-            .insert(record.settlement_address);
-    }
-    fn mut_ref(&mut self, epoch: u64) -> &mut FundedReportingData {
-        self.funded_data_per_epoch.entry(epoch).or_default()
     }
 }
