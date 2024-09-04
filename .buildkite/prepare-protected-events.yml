@@ -33,7 +33,7 @@ steps:
 
   - wait: ~
 
-  - label: ":black_nib: Env variables setup"
+  - label: ":black_nib: Env variables setup: Protected Events"
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
@@ -46,6 +46,7 @@ steps:
 
   - label: ":cloud: :arrow_right: :floppy_disk: Downloading Settlements JSON data"
     commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
     - |
       gcloud storage cp "$gs_bucket/$$epoch/validators.json" "."
       gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
@@ -55,7 +56,7 @@ steps:
 
   - label: ":cloud: :arrow_right: :floppy_disk: Downloading DS SAM auction data"
     commands:
-      - 'epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}'
+      - epoch=$(buildkite-agent meta-data get epoch)
       # checking auction directory to work with
       - |
         epoch_auction_dirs=$(./scripts/gh_curl.bash "$$ds_sam_auction_github_api_link" |\
