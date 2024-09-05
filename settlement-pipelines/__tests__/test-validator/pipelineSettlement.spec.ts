@@ -64,7 +64,7 @@ const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
 //       Activate and run this manually when needed.
 //       FILE='settlement-pipelines/__tests__/test-validator/pipelineSettlement.spec.ts' pnpm test:validator
 
-describe('Cargo CLI: Pipeline Settlement', () => {
+describe.skip('Cargo CLI: Pipeline Settlement', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
 
@@ -604,7 +604,7 @@ describe('Cargo CLI: Pipeline Settlement', () => {
     ).toHaveMatchingSpawnOutput({
       code: 2,
       stderr: /All stake accounts are locked for claiming/,
-      stdout: /claimed 1[1-2][0-9][0-9][0-9] merkle nodes/,
+      stdout: /claimed 1[1-2][0-9][0-9][0-9].[0-9]+ merkle nodes/,
     })
 
     // fund is now run before claiming normally, simulating this situation here
@@ -664,7 +664,7 @@ describe('Cargo CLI: Pipeline Settlement', () => {
       code: 2,
       stderr: /already claimed merkle tree nodes 414/,
       stdout:
-        /claimed 0 merkle nodes(.|\n|\r)*No stake account found with enough SOLs to claim/,
+        /claimed 0.[0-9]+ merkle nodes(.|\n|\r)*No stake account found with enough SOLs to claim/,
     })
     previousTest = TestNames.ClaimSettlement
   })
