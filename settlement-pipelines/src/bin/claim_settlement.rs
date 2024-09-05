@@ -818,7 +818,7 @@ impl PrintReportable for ClaimSettlementsReport {
                 );
 
                 report.push(format!(
-                    "Epoch {}, settlements {} this time claimed {}/{} merkle nodes in amount of {}/{} SOLs  (not claimed reason: no target {}, no source: {})",
+                    "Epoch {}, settlements {}, this time claimed {}/{} merkle nodes in amount of {}/{} SOLs  (not claimed reason: no target {}, no source: {})",
                     epoch,
                     after_settlements_count,
                     now_claimed_nodes,
