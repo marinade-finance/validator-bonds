@@ -174,7 +174,7 @@ steps:
     - claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json)
     - first_epoch=$(echo "$$claimable_epochs_json" | jq ".[0]")
     - |
-      if [[ -n "$$first_epoch" && "$$first_epoch" != "null" ]]; then
+      if [[ -n "$$first_epoch" && "$$first_epoch" != "null" && $(gcloud storage ls "$gs_bucket/$$first_epoch" 2> /dev/null) ]]; then
         gcloud storage cp ./claiming-report.txt "$gs_bucket/$$first_epoch/buildkite/claiming-report.$(date +%s).txt"
       fi
     depends_on: "notification"

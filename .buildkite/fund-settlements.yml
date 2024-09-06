@@ -165,7 +165,7 @@ steps:
     - claim_type_prefix=$([[ -z "$$claim_type" ]] && echo "" || echo "$${claim_type}-")
     - buildkite-agent artifact download --include-retried-jobs fund-report.txt . || echo "UNKNOWN ERROR" > fund-report.txt
     - |
-      if [[ -n "$$latest_funded_epoch" ]]; then
+      if [[ -n "$$latest_funded_epoch" && $(gcloud storage ls "$gs_bucket/$$latest_funded_epoch" 2> /dev/null) ]]; then
         gcloud storage cp ./fund-report.txt "$gs_bucket/$$latest_funded_epoch/buildkite/$${claim_type_prefix}fund-settlement-report.$(date +%s).txt"
       fi
     depends_on: "notification-setup-funding"
