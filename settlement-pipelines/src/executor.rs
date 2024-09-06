@@ -6,7 +6,7 @@ use solana_transaction_builder_executor::{
 use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
 use std::sync::Arc;
 
-const PARALLEL_EXECUTION_RATE_DEFAULT: usize = 100;
+const PARALLEL_EXECUTION_RATE_DEFAULT: usize = 30;
 
 pub async fn execute_parallel(
     rpc_client: Arc<RpcClient>,
