@@ -7,7 +7,7 @@ use settlement_pipelines::arguments::{
     init_from_opts, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
 };
 use settlement_pipelines::cli_result::{CliError, CliResult};
-use settlement_pipelines::executor::{execute_parallel, execute_parallel_with_rate};
+use settlement_pipelines::executor::execute_parallel;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::load_json;
 use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
@@ -428,12 +428,11 @@ async fn claim_settlement<'a>(
         )?;
     }
 
-    let execution_result = execute_parallel_with_rate(
+    let execution_result = execute_parallel(
         rpc_client.clone(),
         transaction_executor.clone(),
         transaction_builder,
         priority_fee_policy,
-        300,
     )
     .await;
     reporting.add_tx_execution_result(
