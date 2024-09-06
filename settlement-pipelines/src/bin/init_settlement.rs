@@ -17,6 +17,7 @@ use settlement_pipelines::json_data::{
 use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
 use settlement_pipelines::reporting_data::SettlementsReportData;
 use settlement_pipelines::settlement_data::SettlementRecord;
+use settlement_pipelines::FINALIZATION_WAIT_TIMEOUT;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::native_token::lamports_to_sol;
 use solana_sdk::pubkey::Pubkey;
@@ -138,7 +139,7 @@ async fn real_main(reporting: &mut ReportHandler<InitSettlementReport>) -> anyho
     .await?;
 
     // waiting for data finalization on-chain
-    sleep(std::time::Duration::from_secs(8)).await;
+    sleep(FINALIZATION_WAIT_TIMEOUT).await;
 
     upsize_settlements(
         &program,

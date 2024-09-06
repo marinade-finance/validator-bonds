@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 pub mod anchor;
 pub mod arguments;
 pub mod cli_result;
@@ -12,3 +14,5 @@ pub mod stake_accounts;
 pub mod stake_accounts_cache;
 
 pub const CONTRACT_V2_DEPLOYMENT_EPOCH: u64 = 640_u64;
+
+pub const FINALIZATION_WAIT_TIMEOUT: Duration = Duration::from_secs(8);

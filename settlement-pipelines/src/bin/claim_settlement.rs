@@ -19,6 +19,7 @@ use settlement_pipelines::stake_accounts::{
     STAKE_ACCOUNT_RENT_EXEMPTION,
 };
 use settlement_pipelines::stake_accounts_cache::StakeAccountsCache;
+use settlement_pipelines::FINALIZATION_WAIT_TIMEOUT;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::clock::Clock;
 use solana_sdk::native_token::lamports_to_sol;
@@ -770,7 +771,7 @@ impl ClaimSettlementReport {
 impl PrintReportable for ClaimSettlementsReport {
     fn get_report(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + '_>> {
         Box::pin(async {
-            sleep(std::time::Duration::from_secs(8)).await; // waiting for data finalization on-chain
+            sleep(FINALIZATION_WAIT_TIMEOUT).await; // waiting for data finalization on-chain
             let after_settlements = match self.load_settlements_from_chain().await {
                 Ok(value) => value,
                 Err(e) => return vec![format!("Error reporting settlement claiming: {:?}", e)],
