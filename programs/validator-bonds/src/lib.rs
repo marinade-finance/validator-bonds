@@ -167,25 +167,6 @@ pub mod validator_bonds {
         check_context(&ctx)?;
         ClaimSettlementV2::process(ctx, claim_settlement_args)
     }
-
-    // ---- V1: closing Settlements of older version (contract v1.0.0 - v1.5.0) ----
-    pub fn close_settlement(ctx: Context<CloseSettlement>) -> Result<()> {
-        check_context(&ctx)?;
-        CloseSettlement::process(ctx)
-    }
-
-    pub fn close_settlement_claim(ctx: Context<CloseSettlementClaim>) -> Result<()> {
-        check_context(&ctx)?;
-        CloseSettlementClaim::process(ctx)
-    }
-
-    pub fn claim_settlement(
-        ctx: Context<ClaimSettlement>,
-        claim_settlement_args: ClaimSettlementArgs,
-    ) -> Result<()> {
-        check_context(&ctx)?;
-        ClaimSettlement::process(ctx, claim_settlement_args)
-    }
 }
 
 #[cfg(test)]
