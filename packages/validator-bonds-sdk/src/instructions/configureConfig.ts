@@ -73,22 +73,28 @@ export async function configureConfigInstruction({
     epochsToClaimSettlement: newEpochsToClaimSettlement
       ? new BN(newEpochsToClaimSettlement)
       : null,
-    slotsToStartSettlementClaiming: newSlotsToStartSettlementClaiming
-      ? new BN(newSlotsToStartSettlementClaiming)
-      : null,
-    withdrawLockupEpochs: newWithdrawLockupEpochs
-      ? new BN(newWithdrawLockupEpochs)
-      : null,
-    minimumStakeLamports: newMinimumStakeLamports
-      ? new BN(newMinimumStakeLamports)
-      : null,
-    minBondMaxStakeWanted: newMinBondMaxStakeWanted
-      ? new BN(newMinBondMaxStakeWanted)
-      : null,
+    slotsToStartSettlementClaiming:
+      newSlotsToStartSettlementClaiming !== undefined
+        ? new BN(newSlotsToStartSettlementClaiming)
+        : null,
+    withdrawLockupEpochs:
+      newWithdrawLockupEpochs !== undefined
+        ? new BN(newWithdrawLockupEpochs)
+        : null,
+    minimumStakeLamports:
+      newMinimumStakeLamports !== undefined
+        ? new BN(newMinimumStakeLamports)
+        : null,
+    minBondMaxStakeWanted:
+      newMinBondMaxStakeWanted !== undefined
+        ? new BN(newMinBondMaxStakeWanted)
+        : null,
   }
 
   if (Object.values(args).every(v => v === null)) {
-    throw new Error('No new config values provided')
+    throw new Error(
+      'configureConfigInstruction: method parameters provided no new property to configure'
+    )
   }
 
   const instruction = await program.methods
