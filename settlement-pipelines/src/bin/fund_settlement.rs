@@ -778,6 +778,7 @@ impl FundSettlementsReport {
     fn add_already_fully_funded_settlement(&mut self, record: &SettlementRecord) {
         self.add_already_funded_settlement(record, record.max_total_claim_sum);
     }
+
     fn add_already_funded_settlement(&mut self, record: &SettlementRecord, funded_amount: u64) {
         let report = self.mut_ref(record.epoch);
         report
@@ -808,6 +809,11 @@ impl PrintReportable for FundSettlementsReport {
                         .iter()
                         .collect::<Vec<&SettlementRecord>>(),
                 );
+                let already_funded_count = funded_data
+                    .already_funded_settlements
+                    .iter()
+                    .filter(|(_, (_, amount))| *amount > 0)
+                    .count();
                 report.push(format!(
                     "Epoch {} funded {}/{} settlements with {}/{} SOLs (before this already funded {}/{} settlements with {}/{} SOLs)",
                     epoch,
@@ -815,7 +821,7 @@ impl PrintReportable for FundSettlementsReport {
                     json_loaded.settlements_count,
                     lamports_to_sol(funded_data.funded_amount()),
                     lamports_to_sol(json_loaded.settlements_max_claim_sum),
-                    funded_data.already_funded_settlements.len(),
+                    already_funded_count,
                     json_loaded.settlements_count,
                     lamports_to_sol(funded_data.already_funded_amount()),
                     lamports_to_sol(json_loaded.settlements_max_claim_sum),
