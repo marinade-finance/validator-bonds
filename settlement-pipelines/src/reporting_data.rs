@@ -113,6 +113,7 @@ impl SettlementsReportData {
         let mut sum_amount: u64 = 0;
         let filtered_settlement_records = settlement_records
             .iter()
+            .filter(|(_, (_, amount))| *amount > 0)
             .filter(|(_, (s, _))| {
                 matches!(
                     (&reason_match, &s.reason),
