@@ -61,6 +61,7 @@ describe('Validator Bonds fund bond', () => {
     await waitForStakeAccountActivation({
       stakeAccount,
       connection: provider.connection,
+      timeoutSeconds: 60,
     })
 
     const tx = await transaction(provider)

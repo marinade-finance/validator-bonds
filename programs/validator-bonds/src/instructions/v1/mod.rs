@@ -1,16 +1,10 @@
 pub mod claim_settlement_v1;
-pub mod close_settlement_claim_v1;
-pub mod close_settlement_v1;
-mod settlement_claim_v1;
-mod tree_node_v1;
-
-pub use claim_settlement_v1::*;
-pub use close_settlement_claim_v1::*;
-pub use close_settlement_v1::*;
+pub mod settlement_claim_v1;
+pub mod tree_node_v1;
 
 /*
- * Instructions that were used in first version of the Validator Bonds program
+ * Data structures that were used in first version of the Validator Bonds program
  * (version v1) when deduplication accounts were managed by creating PDA accounts.
- * These instructions serve only to close existing settlements.
- * Any new Settlement can be created and managed only by new versions of the instructions.
+ * The instructions for v1 were removed while the data struct is left in code
+ * to get generated in the program IDL and usable for loading on-chain logs for the v1 program.
  */
