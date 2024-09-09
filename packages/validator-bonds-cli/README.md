@@ -366,12 +366,26 @@ will be taken. This typically results in __splitting the stake account__,
 where one portion of lamports is transferred to the withdrawer,
 while the remaining portion is retained in the validator bonds contract.
 
-However, a split stake account issue may arise if the requested withdrawal amount is not conducive to creating viable stake accounts.
-A viable stake account requires a defined amount of `1` SOL + rent amount (`~0.002282880` SOL).
-Failure to meet this criteria may result in the `claim-withdraw-request` operation failing.
-Refer to [FAQ, section Failed to claim withdraw request](#faq-and-issues)
-for more information on issues related to failed withdrawal requests.
+However, a split stake account issue may arise if the requested withdrawal amount is not conducive
+to creating viable _delegated_ stake accounts.
 
+A viable stake account must include an amount to cover the rent deposit (`~0.002282880` SOL
+for a stake account). The rent is not part of the delegated amount but is a base requirement
+for any account created on Solana.
+Additionally, a viable _delegated_ stake account must have some SOL beyond the rent deposit.
+Currently, Solana requires a minimum of `1 lamport` for this purpose, but this
+[requirement may change in the future](https://github.com/solana-labs/solana/issues/24357).
+
+The contract mirrors this requirement by defining the `Config` parameter
+[`minimum_stake_lamports`](https://github.com/marinade-finance/validator-bonds/blob/contract-v2.0.0/programs/validator-bonds/src/state/config.rs#L19),
+which enforces a minimum amount for each stake account,
+ensuring that this amount is locked within any stake account.
+This is particularly important for stake accounts funded into a `Settlement`,
+as such stake account locks this amount until the `Settlement` is closed and reset.
+
+Failure to meet the minimum stake account size may result in the `claim-withdraw-request` operation failing.
+For more details on withdrawal issues, refer to the
+[FAQ section on failed withdrawal requests](#faq-and-issues).
 
 ### Cancelling Withdraw Request Account
 
@@ -399,6 +413,7 @@ Configuration parameters:
 * `slotsToStartSettlementClaiming`: Number of slots that must elapse after a `Settlement` is created before claiming is permitted.
 * `withdrawLockupEpochs`: Number of epochs that must elapse before a Bonds withdrawal request can be claimed.
 * `minimumStakeLamports`: Minimum size of a stake account when working with split stakes.
+* `minBondMaxStakeWanted`: Minimal value in lamports to be permitted being defined for bond `--max-stake-wanted` parameter.
 
 ```sh
 # Global configuration of Marinade Validator Bonds Program
