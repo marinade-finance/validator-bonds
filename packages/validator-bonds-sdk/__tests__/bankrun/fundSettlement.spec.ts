@@ -224,7 +224,7 @@ describe('Validator Bonds fund settlement', () => {
       provider,
       lamports: LAMPORTS_PER_SOL,
     })
-    const lamportsToFund = maxTotalClaim + LAMPORTS_PER_SOL
+    const lamportsToFund = maxTotalClaim + stakeAccountMinimalAmount - rentExemptStake
     const stakeAccount =
       await createBondsFundedStakeAccountActivated(lamportsToFund)
 
@@ -404,6 +404,7 @@ describe('Validator Bonds fund settlement', () => {
     const { stakeAccount, staker, withdrawer } = await delegatedStakeAccount({
       provider,
       voteAccountToDelegate: voteAccount,
+      lamports: stakeAccountMinimalAmount + 1
     })
     const deactivateIx = StakeProgram.deactivate({
       stakePubkey: stakeAccount,
@@ -441,8 +442,8 @@ describe('Validator Bonds fund settlement', () => {
       instruction
     )
     const settlementData = await getSettlement(program, settlementAccount)
-    // nothing funded as the lamports of the stake account is exactly min lamports for stake account (1 SOL) + rent exempt
-    expect(settlementData.lamportsFunded).toEqual(0)
+    // funded only 1 lamport; the lamports of the stake account is min lamports + rent exempt + 1 lamport
+    expect(settlementData.lamportsFunded).toEqual(1)
     await assertNotExist(provider, pubkey(splitStakeAccount))
     stakeAccountInfo = await provider.connection.getAccountInfo(stakeAccount)
     stakeAccountData = deserializeStakeState(stakeAccountInfo?.data)
