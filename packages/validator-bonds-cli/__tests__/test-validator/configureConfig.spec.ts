@@ -72,7 +72,7 @@ describe('Configure config account using CLI', () => {
     ).toHaveMatchingSpawnOutput({
       code: 200,
       // stderr: '',
-      stdout: /No new config values provided/,
+      stdout: /no new property to configure/,
     })
 
     await (
@@ -141,6 +141,8 @@ describe('Configure config account using CLI', () => {
           adminKeypair.publicKey.toBase58(),
           '--operator',
           PublicKey.default.toBase58(),
+          '--minimum-stake-lamports',
+          0,
           '--print-only',
         ],
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
