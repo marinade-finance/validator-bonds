@@ -294,11 +294,12 @@ async fn prepare_funding(
         match &mut settlement_record.funder {
             SettlementFunderType::Marinade(_) => {
                 info!(
-                    "Settlement {} (vote account {}, bond {}, reason {}, epoch {}) is to be funded by Marinade from fee wallet by {} SOLs",
+                    "Settlement {} (vote account {}, bond {}, reason {}, max claim {} SOLs, epoch {}) is to be funded by Marinade from fee wallet by {} SOLs",
                     settlement_record.settlement_address,
                     settlement_record.vote_account_address,
                     settlement_record.bond_address,
                     settlement_record.reason,
+                    lamports_to_sol(settlement_record.max_total_claim_sum),
                     epoch,
                     lamports_to_sol(amount_to_fund)
                 );
@@ -324,11 +325,12 @@ async fn prepare_funding(
                 funding_stake_accounts.sort_by_cached_key(|s| s.lamports);
                 funding_stake_accounts.reverse();
                 info!(
-                        "Settlement {} (vote account {}, bond {}, reason {}, epoch {}) is to be funded by validator by {} SOLs. Available {} stake accounts ({}) with {} SOLs.",
+                        "Settlement {} (vote account {}, bond {}, reason {}, max claim {} SOLS, epoch {}) is to be funded by validator by {} SOLs. Available {} stake accounts ({}) with {} SOLs.",
                         settlement_record.settlement_address,
                         settlement_record.vote_account_address,
                         settlement_record.bond_address,
                         settlement_record.reason,
+                        lamports_to_sol(settlement_record.max_total_claim_sum),
                         epoch,
                         lamports_to_sol(amount_to_fund),
                         funding_stake_accounts.len(),
@@ -420,11 +422,12 @@ async fn prepare_funding(
                     match lamports_available.cmp(&(amount_to_fund + minimal_stake_lamports)) {
                         Ordering::Less => {
                             let err_msg = format!(
-                                "Cannot fully fund settlement {} (vote account {}, epoch {}, reason: {}, funder: ValidatorBond). To fund {} SOLs, to fund with min stake amount {}, only {} SOLs were found in stake accounts",
+                                "Cannot fully fund settlement {} (vote account {}, epoch {}, reason: {}, max claim {} SOLs, funder: ValidatorBond). To fund {} SOLs, to fund with min stake amount {}, only {} SOLs were found in stake accounts",
                                 settlement_record.settlement_address,
                                 settlement_record.vote_account_address,
                                 epoch,
                                 settlement_record.reason,
+                                lamports_to_sol(settlement_record.max_total_claim_sum),
                                 lamports_to_sol(amount_to_fund),
                                 lamports_to_sol(amount_to_fund + minimal_stake_lamports),
                                 lamports_to_sol(lamports_available)
@@ -462,11 +465,12 @@ async fn prepare_funding(
                     }
                 } else {
                     reporting.add_error_string(format!(
-                        "Settlement {} (vote account {}, epoch {}, reason: {}, funder: ValidatorBond) not funded as no stake account available",
+                        "Settlement {} (vote account {}, epoch {}, reason: {}, max claim {} SOLs, funder: ValidatorBond) not funded as no stake account available",
                         settlement_record.settlement_address,
                         settlement_record.vote_account_address,
                         epoch,
                         settlement_record.reason,
+                        lamports_to_sol(settlement_record.max_total_claim_sum),
                     ));
                 }
                 // we've got to place in code where we wanted to fund something
@@ -619,9 +623,10 @@ async fn fund_settlements(
                         &mut transaction_builder,
                         &req,
                         format!(
-                            "FundSettlement: {}, bond: {}, reason: {}, stake: {}",
+                            "FundSettlement: {}, bond: {}, vote: {}, reason: {}, stake: {}",
                             settlement_record.settlement_address,
                             settlement_record.bond_address,
+                            settlement_record.vote_account_address,
                             settlement_record.reason,
                             stake_account_to_fund,
                         ),
