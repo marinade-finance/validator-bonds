@@ -224,7 +224,8 @@ describe('Validator Bonds fund settlement', () => {
       provider,
       lamports: LAMPORTS_PER_SOL,
     })
-    const lamportsToFund = maxTotalClaim + stakeAccountMinimalAmount - rentExemptStake
+    const lamportsToFund =
+      maxTotalClaim + stakeAccountMinimalAmount - rentExemptStake
     const stakeAccount =
       await createBondsFundedStakeAccountActivated(lamportsToFund)
 
@@ -404,7 +405,7 @@ describe('Validator Bonds fund settlement', () => {
     const { stakeAccount, staker, withdrawer } = await delegatedStakeAccount({
       provider,
       voteAccountToDelegate: voteAccount,
-      lamports: stakeAccountMinimalAmount + 1
+      lamports: stakeAccountMinimalAmount + 1,
     })
     const deactivateIx = StakeProgram.deactivate({
       stakePubkey: stakeAccount,
