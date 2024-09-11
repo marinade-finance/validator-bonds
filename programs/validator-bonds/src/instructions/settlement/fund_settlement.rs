@@ -211,29 +211,31 @@ impl<'info> FundSettlement<'info> {
                 // -> to fund only part of the lamports available in the stake account
                 //    'stake_account' is funded to settlement, the overflow is moved into 'split_stake_account'
 
-                // split_stake_account gains:
-                // -- what overflows from funding: lamports available (delegated and non-delegated) "-" amount needed
-                // --   "-" what is needed to be paid back to split rent payer on close
                 // stake_account gains:
-                // -- amount_needed
-                // --   "+" what is needed to be paid back to split rent payer on close
+                // --  amount_needed
+                // --    "+" what is needed to be paid back to split rent payer on close
+                // split_stake_account gains (i.e., fund_split_leftover):
+                // -- what overflows from funding:
+                // --  lamports available (delegated and non-delegated)
+                // --    "-" amount needed
+                // --    "-" what is needed to be paid back to split rent payer on close
                 let mut fund_split_leftover =
                     ctx.accounts.stake_account.get_lamports() - amount_needed - split_stake_rent_exempt;
 
+                // For the 'stake_account' to stay in the "delegated" state, a minimum stake must remain delegated.
+                // A portion of the undelegated lamports may need to be moved to the split account before splitting.
+                // See: https://github.com/anza-xyz/agave/blob/v2.0.9/programs/stake/src/stake_state.rs#L504
                 let lamports_non_delegated = ctx.accounts.stake_account.get_lamports() -  stake_delegation.stake;
-                // When splitting all the un-delegated part is left in the original stake account!
-                //   For the 'stake_account' may exist in "delegated" state there needs to be at least minimal stake size left as delegated.
-                //   We need to some part of the non-delegated lamports to the split stake account and then run the split.
                 let lamports_max_possible_non_delegated = ctx.accounts.settlement.max_total_claim
                     - ctx.accounts.settlement.lamports_funded + stake_meta.rent_exempt_reserve;
 
                 if lamports_non_delegated > lamports_max_possible_non_delegated {
                     let mut lamports_to_transfer = lamports_non_delegated - lamports_max_possible_non_delegated;
                     if fund_split_leftover >= lamports_to_transfer {
-                        // to be split; something is withdrawn to split stake account and some part is split there
+                        // to be split; something is withdrawn directly and some part is moved by split ix
                         fund_split_leftover -= lamports_to_transfer;
                     } else {
-                        // nothing to be split; the original stake account has to have enough lamports for funding:
+                        // nothing to be split; all is withdrawn directly, to withdraw:
                         //   (to pay the funding + minimal size of stake account + rent == amount_needed) + returning rent for the split
                         fund_split_leftover = 0;
                         lamports_to_transfer = ctx.accounts.stake_account.get_lamports() - amount_needed - split_stake_rent_exempt;
@@ -266,10 +268,9 @@ impl<'info> FundSettlement<'info> {
                 }
 
                 if fund_split_leftover > 0 {
-                    // There is enough delegated lamports in the stake account that we can split them.
-                    //   Delegation target will be the same as for the original stake account.
+                    // Sufficient delegated lamports are available for splitting.
                     msg!(
-                        "Split to stake {} with lamports {}",
+                        "Splitting to stake account {} with lamports {}",
                         ctx.accounts.split_stake_account.key(),
                         fund_split_leftover
                     );
@@ -297,7 +298,8 @@ impl<'info> FundSettlement<'info> {
                         ]],
                     )?;
                 } else {
-                    // Not enough delegated lamports that we can run split. Instead, we initialize and delegate to vote account.
+                    // Insufficient delegated lamports for splitting.
+                    //   Initializing and delegating the split_stake_account instead.
                     msg!(
                         "Delegating stake account {} to vote account {} with lamports {}",
                         ctx.accounts.split_stake_account.key(),
