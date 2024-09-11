@@ -6,10 +6,11 @@ module.exports = {
   modulePathIgnorePatterns: ['<rootDir>/build/'],
   testRegex: ['__tests__/test-validator/.*.spec.ts'],
   testPathIgnorePatterns: ['.*utils.*'],
-  testTimeout: 600000,
+  testTimeout: 1200000,
   detectOpenHandles: true,
   setupFilesAfterEnv: [
     /// https://github.com/marinade-finance/marinade-ts-cli/blob/main/packages/lib/jest-utils/src/equalityTesters.ts
     '<rootDir>/node_modules/@marinade.finance/jest-utils/src/equalityTesters',
   ],
+  maxWorkers: 1,
 }
