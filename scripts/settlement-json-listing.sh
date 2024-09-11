@@ -16,6 +16,33 @@ solsdecimal() {
   fi
 }
 
+# finding value of amount of delegated stake to be locked when funding
+# https://github.com/marinade-finance/validator-bonds/blob/contract-v2.0.0/programs/validator-bonds/src/state/config.rs#L19
+config_min_stake() {
+  # create a temporary file and then delete it
+  TMP_FILE=$(mktemp)
+  # marinade config account 'vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU' for program 'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4'
+  # value 'minimum_stake_lamports' is at index 88 (89th byte) and it's u64 (8 bytes)
+  MIMIMUM_STAKE_LAMPORTS_BYTE=89
+  curl https://api.mainnet-beta.solana.com -X POST -H "Content-Type: application/json" -s -d '
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "getAccountInfo",
+      "params": [
+        "vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU",
+        {
+          "encoding": "base64"
+        }
+      ]
+    }
+  ' | jq -r '.result.value.data[0]' | base64 -d | tail -c+${MIMIMUM_STAKE_LAMPORTS_BYTE} | head -c8 > "$TMP_FILE"
+  hex=$(xxd -p -l 8 -c 8 "$TMP_FILE" | sed 's/\(..\)/\\x\1/g')
+  decimal=$(printf "$hex" | od -An -tu8 | tr -d ' ')
+  echo $decimal
+  rm -f "$TMP_FILE"
+}
+
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -31,8 +58,10 @@ if [ -z "$SETTLEMENTS_JSON_FILE" ] || [ -z "$MERKLE_TREES_JSON_FILE" ]; then
     exit 1
 fi
 
-# stake account minimal size (1 SOL is hardcoded here but can be dfferent based on Config)
-STAKE_ACCOUNT_MINIMAL_SIZE=$((1000000000 + 2282880))
+# stake account minimal size
+CONFIG_MIN_STAKE=$(config_min_stake)
+STAKE_ACCOUNT_MINIMAL_SIZE=$(($CONFIG_MIN_STAKE + 2282880))
+echo "Minimal delegated stake accout lamports: ${STAKE_ACCOUNT_MINIMAL_SIZE}"
 
 SETTLEMENTS_EPOCH=$(jq '.epoch' "$SETTLEMENTS_JSON_FILE")
 MERKLE_TREES_EPOCH=$(jq '.epoch' "$MERKLE_TREES_JSON_FILE")
