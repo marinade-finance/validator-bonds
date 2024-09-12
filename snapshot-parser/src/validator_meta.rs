@@ -1,6 +1,5 @@
-use solana_accounts_db::accounts_index::ScanConfig;
+use crate::jito_mev::fetch_jito_mev_metas;
 use solana_program::pubkey::Pubkey;
-use solana_sdk::account::{Account, AccountSharedData};
 use {
     log::{error, info, warn},
     merkle_tree::serde_serialize::pubkey_string_conversion,
@@ -113,87 +112,6 @@ fn fetch_vote_account_metas(bank: &Arc<Bank>, epoch: Epoch) -> Vec<VoteAccountMe
         .collect()
 }
 
-struct JitoMevMeta {
-    vote_account: Pubkey,
-    mev_commission: u16,
-}
-
-// https://github.com/jito-foundation/jito-programs/blob/v0.1.5/mev-programs/programs/tip-distribution/src/state.rs#L32
-const JITO_PROGRAM: &str = "4R3gSG8BpU4t19KYj8CfnbtRpnT8gtk4dvTHxVRwc2r7";
-const TIP_DISTRIBUTION_ACCOUNT_DISCRIMINATOR: [u8; 8] = [85, 64, 113, 198, 234, 94, 120, 123];
-const VALIDATOR_VOTE_ACCOUNT_BYTE_INDEX: usize = 8; // anchor header
-const EPOCH_CREATED_AT_BYTE_INDEX: usize = 8 + // anchor header
-    // TipDistributionAccount "prefix" data
-    65 +
-    // MerkleRoot
-    64;
-const VALIDATOR_COMMISSION_BPS_BYTE_INDEX: usize = EPOCH_CREATED_AT_BYTE_INDEX + 8;
-
-fn fetch_jito_mev_metas(bank: &Arc<Bank>, epoch: Epoch) -> anyhow::Result<Vec<JitoMevMeta>> {
-    let jito_program: Pubkey = JITO_PROGRAM.try_into()?;
-
-    let jito_accounts_raw = bank.get_program_accounts(
-        &jito_program,
-        &ScanConfig {
-            collect_all_unsorted: true,
-            ..ScanConfig::default()
-        },
-    )?;
-    info!(
-        "jito program {} `raw` accounts loaded: {}",
-        JITO_PROGRAM,
-        jito_accounts_raw.len()
-    );
-
-    let mut jito_mev_metas: Vec<JitoMevMeta> = Default::default();
-
-    for (pubkey, shared_account) in jito_accounts_raw {
-        let account = <AccountSharedData as Into<Account>>::into(shared_account);
-        if account.data[0..8] == TIP_DISTRIBUTION_ACCOUNT_DISCRIMINATOR {
-            let epoch_created_at = u64::from_le_bytes(
-                account.data[EPOCH_CREATED_AT_BYTE_INDEX..EPOCH_CREATED_AT_BYTE_INDEX + 8]
-                    .try_into()
-                    .map_err(|e| {
-                        anyhow::anyhow!(
-                            "Failed to parse epoch_created_at for account {}: {:?}",
-                            pubkey,
-                            e
-                        )
-                    })?,
-            );
-            // loading mev for the previous epoch
-            if epoch_created_at == epoch.saturating_sub(1) {
-                let mev_commission = u16::from_le_bytes(
-                    account.data[VALIDATOR_COMMISSION_BPS_BYTE_INDEX..VALIDATOR_COMMISSION_BPS_BYTE_INDEX + 2]
-                        .try_into()
-                        .map_err(|e| anyhow::anyhow!("Failed to parse validator_commission_bps (mev commission) for account {}: {:?}", pubkey, e))?,
-                );
-                let vote_account: Pubkey = account.data
-                    [VALIDATOR_VOTE_ACCOUNT_BYTE_INDEX..VALIDATOR_VOTE_ACCOUNT_BYTE_INDEX + 32]
-                    .try_into()
-                    .map_err(|e| {
-                        anyhow::anyhow!(
-                            "Failed to parse vote account for account {}: {:?}",
-                            pubkey,
-                            e
-                        )
-                    })?;
-                jito_mev_metas.push(JitoMevMeta {
-                    vote_account,
-                    mev_commission,
-                });
-            }
-        }
-    }
-
-    info!(
-        "jito tip distribution accounts for epoch {}: {}",
-        epoch.saturating_sub(1),
-        jito_mev_metas.len()
-    );
-    Ok(jito_mev_metas)
-}
-
 pub fn generate_validator_collection(bank: &Arc<Bank>) -> anyhow::Result<ValidatorMetaCollection> {
     assert!(bank.is_frozen());
 
@@ -225,7 +143,7 @@ pub fn generate_validator_collection(bank: &Arc<Bank>) -> anyhow::Result<Validat
                 .map(|jito_mev_meta| Some(jito_mev_meta.mev_commission))
                 .unwrap_or_else(|| {
                     warn!(
-                        "No Jito MEV commision found for vote account: {}",
+                        "No Jito MEV commission found for vote account: {}",
                         vote_account_meta.vote_account
                     );
                     None
