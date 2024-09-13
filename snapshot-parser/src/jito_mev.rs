@@ -2,12 +2,7 @@ use solana_accounts_db::accounts_index::ScanConfig;
 use solana_program::pubkey::Pubkey;
 use solana_sdk::account::{Account, AccountSharedData};
 
-use {
-    log::{info},
-    solana_program::stake_history::Epoch,
-    solana_runtime::bank::Bank,
-    std::sync::Arc,
-};
+use {log::info, solana_program::stake_history::Epoch, solana_runtime::bank::Bank, std::sync::Arc};
 
 pub struct JitoMevMeta {
     pub vote_account: Pubkey,
@@ -128,11 +123,6 @@ fn update_mev_commission(
         vote_account,
         mev_commission: jito_commission,
     });
-    // TODO: REMOVE THIS LOGGING
-    info!(
-        "Jito MEV commission for vote account {} in epoch {}: {}",
-        vote_account, epoch, jito_commission
-    );
     Ok(())
 }
 
