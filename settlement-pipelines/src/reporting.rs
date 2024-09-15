@@ -1,5 +1,6 @@
 use crate::cli_result::{CliError, CliResult};
 use log::{error, info};
+use solana_transaction_builder_executor::TransactionBuilderExecutionErrors;
 use std::fmt::Display;
 use std::future::Future;
 use std::ops::{Deref, DerefMut};
@@ -75,7 +76,7 @@ impl ErrorHandler {
 
     pub fn add_tx_execution_result<D: Display>(
         &mut self,
-        execution_result: anyhow::Result<(usize, usize)>,
+        execution_result: Result<(usize, usize), TransactionBuilderExecutionErrors>,
         message: D,
     ) {
         match execution_result {
@@ -83,7 +84,9 @@ impl ErrorHandler {
                 info!("{message}: txes {tx_count}/ixes {ix_count} executed successfully")
             }
             Err(err) => {
-                self.add_retry_able_error(err);
+                for single_error in err.into_iter() {
+                    self.add_retry_able_error(anyhow::Error::from(single_error));
+                }
             }
         }
     }

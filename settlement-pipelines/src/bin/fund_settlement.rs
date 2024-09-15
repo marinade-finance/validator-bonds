@@ -487,14 +487,18 @@ async fn prepare_funding(
         }
     }
 
-    let execution_result = execute_in_sequence(
+    let execution_result_merging = execute_in_sequence(
         rpc_client.clone(),
         transaction_executor.clone(),
         &mut transaction_builder,
         priority_fee_policy,
+        false,
     )
     .await;
-    reporting.add_tx_execution_result(execution_result, "Fund Settlement - Merge Stake Accounts");
+    reporting.add_tx_execution_result(
+        execution_result_merging,
+        "Fund Settlement - Merge Stake Accounts",
+    );
 
     Ok(())
 }
@@ -648,14 +652,15 @@ async fn fund_settlements(
         }
     }
 
-    let execute_result = execute_in_sequence(
+    let execute_result_funding = execute_in_sequence(
         rpc_client.clone(),
         transaction_executor.clone(),
         &mut transaction_builder,
         priority_fee_policy,
+        true, // TODO: set false when contract 2.1.0 is deployed (https://github.com/marinade-finance/validator-bonds/pull/77)
     )
     .await;
-    reporting.add_tx_execution_result(execute_result, "FundSettlements");
+    reporting.add_tx_execution_result(execute_result_funding, "FundSettlements");
 
     Ok(())
 }
