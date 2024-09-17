@@ -26,7 +26,6 @@ use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::clock::Clock;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::{Keypair, Signer};
-use solana_sdk::stake::config::ID as stake_config_id;
 use solana_sdk::stake::instruction::create_account as create_stake_account_instructions;
 use solana_sdk::stake::program::ID as stake_program_id;
 use solana_sdk::sysvar::{
@@ -602,7 +601,6 @@ async fn fund_settlements(
                         .accounts(validator_bonds::accounts::FundSettlement {
                             config: *config_address,
                             bond: settlement_record.bond_address,
-                            vote_account: settlement_record.vote_account_address,
                             stake_account: *stake_account_to_fund,
                             bonds_withdrawer_authority: withdrawer_authority,
                             operator_authority: operator_authority.pubkey(),
@@ -616,7 +614,6 @@ async fn fund_settlements(
                             stake_history: stake_history_sysvar_id,
                             clock: clock_sysvar_id,
                             stake_program: stake_program_id,
-                            stake_config: stake_config_id,
                             program: validator_bonds_id,
                             event_authority: find_event_authority().0,
                         })

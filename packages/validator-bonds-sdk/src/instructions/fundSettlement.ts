@@ -7,7 +7,6 @@ import {
   Keypair,
   Signer,
   SYSVAR_RENT_PUBKEY,
-  STAKE_CONFIG_ID,
 } from '@solana/web3.js'
 import { ValidatorBondsProgram, bondAddress } from '../sdk'
 import { getBond, getConfig, getSettlement } from '../api'
@@ -57,10 +56,9 @@ export async function fundSettlementInstruction({
     bondAccount = settlementData.bond
   }
 
-  if (configAccount === undefined || voteAccount === undefined) {
+  if (configAccount === undefined) {
     const bondData = await getBond(program, bondAccount)
     configAccount = bondData.config
-    voteAccount = bondData.voteAccount
   }
 
   if (operatorAuthority === undefined) {
@@ -88,7 +86,6 @@ export async function fundSettlementInstruction({
       bond: bondAccount,
       settlement: settlementAccount,
       operatorAuthority: operatorAuthorityPubkey,
-      voteAccount: voteAccount,
       stakeAccount,
       splitStakeAccount: splitStakeAccountPubkey,
       splitStakeRentPayer: splitStakeRentPayerPubkey,
@@ -96,7 +93,6 @@ export async function fundSettlementInstruction({
       rent: SYSVAR_RENT_PUBKEY,
       clock: SYSVAR_CLOCK_PUBKEY,
       stakeProgram: StakeProgram.programId,
-      stakeConfig: STAKE_CONFIG_ID,
     })
     .instruction()
   return {
