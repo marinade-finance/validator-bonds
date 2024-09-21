@@ -309,8 +309,13 @@ This process involves two steps:
 1. Initialize a withdrawal request, which means creating an on-chain account (a ticket) informing the protected event system about the intention to withdraw funds.
 2. Only after the lockup period elapses — currently after 3 epochs — can one claim the withdrawal request and regain ownership of the funds held in the stake account.
 
-**NOTE:** The amount declared in the withdrawal request ticket account is no longer
-          considered as part of the funded bond amount.
+**WARNING:** The amount specified in the withdrawal request ticket account is no longer
+             counted as part of the funded bond amount.
+             When participating in bond auctions,
+             always verify the active stake recognized by the system using the `show-bond` CLI command.
+
+**NOTE:** The withdrawal request account remains on-chain until canceled.
+          See details and consequences in the section [Canceling Withdraw Request](#cancelling-withdraw-request
 
 To initialize the withdrawal request, one needs to define the maximum number of lamports
 that are requested to be withdrawn upon claiming.
@@ -391,14 +396,25 @@ For more details on withdrawal issues, refer to the
 
 The withdrawal request can be cancelled at any time.
 
-If the Bond owner desires to change the withdrawal amount or wishes to return the amount
-to be considered as funded bonds again, they need to cancel the existing request
-and potentially create a new withdrawal request later on.
-
 ```sh
 validator-bonds -um cancel-withdraw-request <withdraw-request-or-bond-account-address> \
   --authority <bond-authority-keypair>
 ```
+
+The intention [to withdraw funds from the bond account](#withdrawing-bond-account)
+is signaled by creating an on-chain withdrawal request account.
+This account remains until it is manually canceled.
+Only one withdrawal request can exist per bond at a time. 
+
+If the bond owner wishes to change the withdrawal amount or have the amount considered
+as part of the funded bond again, they must cancel the existing request
+and create [a new withdrawal request](#withdrawing-bond-account) if needed.
+
+**NOTE:** When the owner uses `--amount ALL` during withdrawal, the system sets the amount
+          to the maximum possible value. Any future bond funding will also be considered as
+          withdrawable and thus not counted to bond funded amount.
+          The existence of a withdrawal request can be verified using
+          the `show-bond` command.
 
 ### Show Validator Bonds Program Configuration
 
