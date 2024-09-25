@@ -1484,14 +1484,19 @@ export type ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "account": "Bond",
-                "path": "bond.vote_account"
+                "path": "vote_account"
               }
             ]
           },
           "relations": [
-            "config"
+            "config",
+            "vote_account"
           ]
+        },
+        {
+          "name": "voteAccount",
+          "isMut": false,
+          "isSigner": false
         },
         {
           "name": "settlement",
@@ -1640,6 +1645,11 @@ export type ValidatorBonds = {
         },
         {
           "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeConfig",
           "isMut": false,
           "isSigner": false
         },
@@ -6116,14 +6126,19 @@ export const IDL: ValidatorBonds = {
               {
                 "kind": "account",
                 "type": "publicKey",
-                "account": "Bond",
-                "path": "bond.vote_account"
+                "path": "vote_account"
               }
             ]
           },
           "relations": [
-            "config"
+            "config",
+            "vote_account"
           ]
+        },
+        {
+          "name": "voteAccount",
+          "isMut": false,
+          "isSigner": false
         },
         {
           "name": "settlement",
@@ -6272,6 +6287,11 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeConfig",
           "isMut": false,
           "isSigner": false
         },
