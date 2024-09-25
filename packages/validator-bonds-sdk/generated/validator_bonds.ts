@@ -1,5 +1,5 @@
 export type ValidatorBonds = {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "name": "validator_bonds",
   "constants": [
     {
@@ -4641,7 +4641,7 @@ export type ValidatorBonds = {
 };
 
 export const IDL: ValidatorBonds = {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "name": "validator_bonds",
   "constants": [
     {
