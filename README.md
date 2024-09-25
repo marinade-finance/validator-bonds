@@ -116,19 +116,22 @@ solana program deploy -v -ud \
    ./target/verifiable/validator_bonds.so
 
 # deploy (mainnet, SPL Gov authority multisig, governance 7iUtT...wtBZY)
-# NOTE: solana version 1.18.x; `--with-compute-unit-price` is required to be used as of the congestion of the network
+# NOTE: solana version 1.18.x; `--with-compute-unit-price --use-rpc --use-quic` fixing the congestion of the network
+#       check the latest available Solana client version at https://docs.solanalabs.com/cli/install
 solana -um -k [fee-payer-keypair] \
     program write-buffer target/verifiable/validator_bonds.so \
-    --with-compute-unit-price 10
+    --with-compute-unit-price 10 \
+    --use-rpc --use-quic
 solana -um -k [fee-payer-keypair] \
     program set-buffer-authority \
     --new-buffer-authority 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm <BUFFER_PUBKEY>
 
 
 # 2. IDL UPDATE, idl account Du3XrzTNqhLt9gpui9LUogrLqCDrVC2HrtiNXHSJM58y)
+# NOTE: 'Error processing Instruction 0: custom program error: 0x7d3' means wrong IDL authority
 ## publish IDL (devnet, hot wallet)
 anchor --provider.cluster devnet idl \
-  --provider.wallet [fee-payer-keypair] \
+  --provider.wallet [idl-authority-and-fee-payer-keypair] \
   # init vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
   upgrade vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
   -f ./target/idl/validator_bonds.json
@@ -150,7 +153,7 @@ anchor idl --provider.cluster mainnet set-buffer --print-only \
 anchor --provider.cluster mainnet \
    verify -p validator_bonds \
    --env "GIT_REV=`git rev-parse --short HEAD`" --env "GIT_REV_NAME=${VERSION}" \
-   # --skip-build
+   # --skip-build \
    <PROGRAM_ID_or_BUFFER_ID>
 
 ```
