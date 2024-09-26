@@ -197,10 +197,15 @@ export function installShowEvent(program: Command) {
     .command('show-event')
     .description('Showing data of anchor event')
     .argument('<event-data>', 'base64 data of anchor event')
-    .option('-t, --event-type <init>', 'Type of event to decode', 'init')
-    .action(async (eventData: string) => {
+    .option(
+      `-f, --format <${FORMAT_TYPE_DEF.join('|')}>`,
+      'Format of output',
+      'json'
+    )
+    .action(async (eventData: string, { format }: { format: FormatType }) => {
       await showEvent({
         eventData,
+        format,
       })
     })
 }
@@ -535,8 +540,14 @@ async function showSettlement({
   print_data(reformatted, format)
 }
 
-async function showEvent({ eventData }: { eventData: string }) {
-  const { program, logger } = getCliContext()
+async function showEvent({
+  eventData,
+  format,
+}: {
+  eventData: string
+  format: FormatType
+}) {
+  const { program } = getCliContext()
 
   // checking if base data is decodable
   // if not, trying to decode the data without the first 8 bytes as Anchor constant CPI discriminator
@@ -556,7 +567,7 @@ async function showEvent({ eventData }: { eventData: string }) {
   }
 
   const reformattedData = reformat(decodedData)
-  print_data(reformattedData, 'text')
+  print_data(reformattedData, format)
 }
 
 /**
