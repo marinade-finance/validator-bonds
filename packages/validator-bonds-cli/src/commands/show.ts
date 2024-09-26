@@ -37,6 +37,7 @@ import {
   getMultipleAccounts,
   getVoteAccountFromData,
 } from '@marinade.finance/web3js-common'
+import { base64, bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 
 export type ProgramAccountWithProgramId<T> = ProgramAccount<T> & {
   programId: PublicKey
@@ -535,11 +536,53 @@ async function showSettlement({
 }
 
 async function showEvent({ eventData }: { eventData: string }) {
-  const { program } = getCliContext()
+  const { program, logger } = getCliContext()
 
-  const decodedData = program.coder.events.decode(eventData)
+  // checking if base data is decodable
+  // if not, trying to decode the data without the first 8 bytes as Anchor constant CPI discriminator
+  let decodedData = program.coder.events.decode(eventData)
+  if (decodedData === null) {
+    const cpiData = parseAsTransactionCpiData(eventData)
+    if (cpiData !== null) {
+      decodedData = program.coder.events.decode(cpiData)
+    }
+  }
+  if (decodedData === null) {
+    throw new CliCommandError({
+      valueName: '<event-data>',
+      value: eventData,
+      msg: 'Failed to decode event data',
+    })
+  }
+
   const reformattedData = reformat(decodedData)
   print_data(reformattedData, 'text')
+}
+
+/**
+ * Check the log data to be transaction CPI event:
+ * Expected data format:
+ *  < cpi event discriminator | event name discriminator | event data >
+ * If matches cpi event discriminator
+ * < event name | event data> base64 formatted is returned
+ * otherwise null is returned.
+ */
+function parseAsTransactionCpiData(log: string): string | null {
+  const eventIxTag: BN = new BN('1d9acb512ea545e4', 'hex')
+  let encodedLog: Buffer
+  try {
+    // verification if log is transaction cpi data encoded with base58
+    encodedLog = bs58.decode(log)
+  } catch (e) {
+    return null
+  }
+  const disc = encodedLog.subarray(0, 8)
+  if (disc.equals(eventIxTag.toBuffer('le'))) {
+    // after CPI tag data follows in format of standard event
+    return base64.encode(encodedLog.subarray(8))
+  } else {
+    return null
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
