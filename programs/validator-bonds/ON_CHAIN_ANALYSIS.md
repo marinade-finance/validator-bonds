@@ -73,7 +73,7 @@ with
     from solana.core.fact_transactions,
       LATERAL FLATTEN(input => instructions) ixs,
     where 1=1
-      and BLOCK_TIMESTAMP > CURRENT_DATE - 2
+      and BLOCK_TIMESTAMP > CURRENT_DATE - 7
       -- and BLOCK_TIMESTAMP <= CURRENT_DATE - 7
       and ixs.value:programId = 'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4'
       -- FundSettlement Anchor IX discriminator: '[179, 146, 113, 34, 30, 92, 26, 19]'
@@ -122,7 +122,7 @@ where 1=1
 order by block_timestamp ASC;
 ```
 
-"The string found in the `ixs.value:data` column can be decrypted using the
+The string found in the `ixs.value:data` column can be decrypted using the
 [Validator Bonds CLI](../../packages/validator-bonds-cli/README.md)
 `show-event` command.
 
