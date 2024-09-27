@@ -78,6 +78,8 @@ cargo build --release
 For details for on-chain part see
 [validator-bonds README](./programs/validator-bonds/README.md).
 
+For information on tracking on-chain transactions, refer to the [On-Chain Analysis](./programs/validator-bonds/ON_CHAIN_ANALYSIS.md) document.
+
 To build the Anchor program use the [`scripts`](./package.json) of the `pnpm`.
 
 ```sh
