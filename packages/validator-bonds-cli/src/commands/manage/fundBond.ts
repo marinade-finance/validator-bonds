@@ -147,8 +147,12 @@ async function manageFundBond({
       confirmWaitTime,
       sendOpts: { skipPreflight },
     })
+    logger.info(
+      `Bond account ${bondAccount.toBase58()} successfully funded ` +
+        `with stake account ${stakeAccount.toBase58()}`
+    )
   } catch (err) {
-    return failIfUnexpectedError({
+    failIfUnexpectedError({
       err,
       logger,
       provider,
@@ -158,10 +162,6 @@ async function manageFundBond({
       bondAccount,
     })
   }
-  logger.info(
-    `Bond account ${bondAccount.toBase58()} successfully funded ` +
-      `with stake account ${stakeAccount.toBase58()}`
-  )
 }
 
 async function failIfUnexpectedError({
@@ -187,7 +187,7 @@ async function failIfUnexpectedError({
       'wrong withdrawer authority of the stake account'
     )
   ) {
-    // it could be already funded account, let's check it
+    // it could be a stake account that's already funded, let's check it
     const [bondsWithdrawerAuth] = bondsWithdrawerAuthority(config, programId)
     const stakeAccountData = await getStakeAccount(
       provider.connection,

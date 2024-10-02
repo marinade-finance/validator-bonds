@@ -28,11 +28,10 @@ import {
   withdrawRequestAddress,
 } from '@marinade.finance/validator-bonds-sdk'
 import { ProgramAccount } from '@coral-xyz/anchor'
-import { getBondFromAddress, formatToSol, formatUnit } from './utils'
+import { getBondFromAddress, formatUnit, formatToSolWithAll } from './utils'
 import BN from 'bn.js'
 import {
   ProgramAccountInfoNullable,
-  U64_MAX,
   VoteAccount,
   getMultipleAccounts,
   getVoteAccountFromData,
@@ -617,14 +616,7 @@ function reformatBond(key: string, value: any): ReformatAction {
     }
   }
   if (key === 'requestedAmount') {
-    if (new BN(value).eq(U64_MAX)) {
-      return {
-        type: 'UseExclusively',
-        records: [{ key, value: '<ALL>' }],
-      }
-    } else {
-      return format_sol_exclusive(key, value)
-    }
+    return format_sol_exclusive(key, value)
   }
   if (
     key.startsWith('amount') ||
@@ -654,7 +646,7 @@ function format_sol_exclusive(key: string, value: BN): ReformatAction {
     records: [
       {
         key,
-        value: `${formatToSol(value)}`,
+        value: `${formatToSolWithAll(value)}`,
       },
     ],
   }

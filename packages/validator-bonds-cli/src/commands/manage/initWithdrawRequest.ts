@@ -7,6 +7,7 @@ import {
 import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
+  ExecutionError,
   U64_MAX,
   Wallet,
   executeTx,
@@ -20,12 +21,14 @@ import {
   getRentExemptStake,
   initWithdrawRequestInstruction,
   MARINADE_CONFIG_ADDRESS,
+  ValidatorBondsProgram,
 } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import BN from 'bn.js'
-import { formatToSol, getBondFromAddress } from '../utils'
+import { formatToSol, formatToSolWithAll, getBondFromAddress } from '../utils'
 import { INIT_WITHDRAW_REQUEST_LIMIT_UNITS } from '../../computeUnits'
+import { Logger } from 'pino'
 
 export function installInitWithdrawRequest(program: Command) {
   program
@@ -206,26 +209,72 @@ async function manageInitWithdrawRequest({
   tx.add(instruction)
 
   logger.info(
-    `Initializing withdraw request account ${withdrawRequestAccount.toBase58()} (${formatToSol(
-      amountBN
-    )}) ` + `for bond account ${bondAccount.toBase58()}`
+    `Initializing withdraw request account ${withdrawRequestAccount.toBase58()} (amount: ` +
+      `${formatToSolWithAll(
+        amountBN
+      )}) for bond account ${bondAccount.toBase58()}`
   )
-  await executeTx({
-    connection: provider.connection,
-    transaction: tx,
-    errMessage: `Failed to initialize withdraw request ${withdrawRequestAccount.toBase58()}`,
-    signers,
-    logger,
-    computeUnitLimit: INIT_WITHDRAW_REQUEST_LIMIT_UNITS,
-    computeUnitPrice,
-    simulate,
-    printOnly,
-    confirmOpts: confirmationFinality,
-    confirmWaitTime,
-    sendOpts: { skipPreflight },
-  })
-  logger.info(
-    `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +
-      `for bond account ${bondAccount.toBase58()} successfully initialized`
-  )
+  try {
+    await executeTx({
+      connection: provider.connection,
+      transaction: tx,
+      errMessage: `Failed to initialize withdraw request ${withdrawRequestAccount.toBase58()}`,
+      signers,
+      logger,
+      computeUnitLimit: INIT_WITHDRAW_REQUEST_LIMIT_UNITS,
+      computeUnitPrice,
+      simulate,
+      printOnly,
+      confirmOpts: confirmationFinality,
+      confirmWaitTime,
+      sendOpts: { skipPreflight },
+    })
+    logger.info(
+      `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +
+        `for bond account ${bondAccount.toBase58()} successfully initialized`
+    )
+  } catch (err) {
+    failIfUnexpectedError({
+      err,
+      logger,
+      program,
+      withdrawRequestAccount,
+    })
+  }
+}
+
+async function failIfUnexpectedError({
+  err,
+  logger,
+  program,
+  withdrawRequestAccount,
+}: {
+  err: unknown
+  logger: Logger
+  program: ValidatorBondsProgram
+  withdrawRequestAccount: PublicKey
+}) {
+  if (
+    err instanceof ExecutionError &&
+    err.messageWithCause().includes('custom program error: 0x0')
+  ) {
+    const withdrawRequestData =
+      await program.account.withdrawRequest.fetchNullable(
+        withdrawRequestAccount
+      )
+    if (withdrawRequestData !== null) {
+      logger.info(
+        `The withdraw request ${withdrawRequestAccount.toBase58()} ALREADY exists on-chain. ` +
+          `The requested amount ${formatToSolWithAll(
+            withdrawRequestData.requestedAmount
+          )}, ` +
+          `with withdrawn amount ${formatToSolWithAll(
+            withdrawRequestData.withdrawnAmount
+          )}.\n` +
+          '  If you want to withdraw more, consider canceling the existing request and creating a new withdraw request.'
+      )
+      return
+    }
+  }
+  throw err
 }
