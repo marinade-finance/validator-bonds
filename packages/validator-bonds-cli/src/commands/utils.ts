@@ -14,6 +14,7 @@ import {
   ProgramAccountInfo,
   getVoteAccountFromData,
   ExecutionError,
+  U64_MAX,
 } from '@marinade.finance/web3js-common'
 import {
   AccountInfo,
@@ -274,6 +275,14 @@ export async function getWithdrawRequestFromAddress({
       msg: 'Failed to fetch withdraw request account data',
       cause: e as Error,
     })
+  }
+}
+
+export function formatToSolWithAll(value: BN | number | BigInt): string {
+  if (new BN(value.toString()).eq(U64_MAX)) {
+    return '<ALL>'
+  } else {
+    return `${formatLamportsToSol(value)} ${formatUnit(value, 'SOL')}`
   }
 }
 

@@ -6,6 +6,7 @@ import {
 import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
+  ExecutionError,
   Wallet,
   executeTx,
   getVoteAccount,
@@ -14,6 +15,7 @@ import {
 } from '@marinade.finance/web3js-common'
 import {
   MARINADE_CONFIG_ADDRESS,
+  ValidatorBondsProgram,
   initBondInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
@@ -21,6 +23,7 @@ import { PublicKey, Signer } from '@solana/web3.js'
 import { INIT_BOND_LIMIT_UNITS } from '../../computeUnits'
 import BN from 'bn.js'
 import { toBN } from '../../parsers'
+import { Logger } from 'pino'
 
 export function installInitBond(program: Command) {
   program
@@ -160,23 +163,59 @@ async function manageInitBond({
   logger.info(
     `Initializing bond account ${bondAccount.toBase58()} (finalization may take seconds)`
   )
-  await executeTx({
-    connection: provider.connection,
-    transaction: tx,
-    errMessage:
-      `'Failed to init bond account ${bondAccount.toBase58()}` +
-      ` of config ${config.toBase58()}`,
-    signers,
-    logger,
-    computeUnitLimit: INIT_BOND_LIMIT_UNITS,
-    computeUnitPrice,
-    simulate,
-    printOnly,
-    confirmOpts: confirmationFinality,
-    confirmWaitTime,
-    sendOpts: { skipPreflight },
-  })
-  logger.info(
-    `Bond account ${bondAccount.toBase58()} of config ${config.toBase58()} successfully created`
-  )
+
+  try {
+    await executeTx({
+      connection: provider.connection,
+      transaction: tx,
+      errMessage:
+        `'Failed to init bond account ${bondAccount.toBase58()}` +
+        ` of config ${config.toBase58()}`,
+      signers,
+      logger,
+      computeUnitLimit: INIT_BOND_LIMIT_UNITS,
+      computeUnitPrice,
+      simulate,
+      printOnly,
+      confirmOpts: confirmationFinality,
+      confirmWaitTime,
+      sendOpts: { skipPreflight },
+    })
+    logger.info(
+      `Bond account ${bondAccount.toBase58()} of config ${config.toBase58()} successfully created`
+    )
+  } catch (err) {
+    failIfUnexpectedError({
+      err,
+      logger,
+      program,
+      bondAccount,
+    })
+  }
+}
+
+async function failIfUnexpectedError({
+  err,
+  logger,
+  program,
+  bondAccount,
+}: {
+  err: unknown
+  logger: Logger
+  program: ValidatorBondsProgram
+  bondAccount: PublicKey
+}) {
+  if (
+    err instanceof ExecutionError &&
+    err.messageWithCause().includes('custom program error: 0x0')
+  ) {
+    const bondData = await program.account.bond.fetchNullable(bondAccount)
+    if (bondData !== null) {
+      logger.info(
+        `The bond account ${bondAccount.toBase58()} is ALREADY initialized.`
+      )
+      return
+    }
+  }
+  throw err
 }
