@@ -62,7 +62,7 @@ pub fn fetch_jito_mev_metas(bank: &Arc<Bank>, epoch: Epoch) -> anyhow::Result<Ve
 
     info!(
         "jito tip distribution accounts for epoch {}: {}",
-        epoch.saturating_sub(1),
+        epoch,
         jito_mev_metas.len()
     );
     Ok(jito_mev_metas)
