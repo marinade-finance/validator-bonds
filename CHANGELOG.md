@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## contract release v2.1.0 (2024-10-03)
+
+* address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
+* tag: [`contract-v2.1.0`](https://github.com/marinade-finance/validator-bonds/releases/tag/contract-v2.1.0), commit: [`4a5b009`](https://github.com/marinade-finance/validator-bonds/commit/4a5b009),
+* tx: [`5Thoyave21LckBdbVDsAehaVHcR43werbJsz6QJurFxux3tnpqKfVKY2T5Ytc7B8L6cSq29U5pRjK8L8sRtQqMG9`](https://explorer.solana.com/tx/5Thoyave21LckBdbVDsAehaVHcR43werbJsz6QJurFxux3tnpqKfVKY2T5Ytc7B8L6cSq29U5pRjK8L8sRtQqMG9)
+* anchor verify command:
+  ```
+  git checkout 4a5b009 &&\
+  anchor verify  --provider.cluster mainnet -p validator_bonds \
+    --env "GIT_REV=`git rev-parse --short HEAD`" --env 'GIT_REV_NAME=v2.1.0' vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
+  ```
+
+### Breaking updates
+
+* Removal of instructions related to version `v1`: 
+  `closeSettlement`, `closeSettlementClaim`, `claimSettlement` ([PR#109](https://github.com/marinade-finance/validator-bonds/pull/109))
+* Update `FundSettlement` instruction to handle non-delegated lamports. Input accounts were changed. ([PR#77](https://github.com/marinade-finance/validator-bonds/pull/77))
+
+
 ## TS CLI&SDK [2.0.3](https://github.com/marinade-finance/validator-bonds/compare/v2.0.2...v2.0.3) (2024-08-30)
 
 ### Updates
