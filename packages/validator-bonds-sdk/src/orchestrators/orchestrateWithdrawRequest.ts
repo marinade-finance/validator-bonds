@@ -218,7 +218,8 @@ export async function orchestrateWithdrawDeposit({
 
   if (stakeAccountsFunded.length === 0 && amountToWithdraw > new BN(0)) {
     throw new Error(
-      'orchestrateWithdrawDeposit: cannot find any stake accounts to withdraw from'
+      'Claim withdraw request failed: No stake accounts found for bond account ' +
+        `(${bondAccount.toBase58()}) to process the withdrawal.`
     )
   }
 
