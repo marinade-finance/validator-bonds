@@ -232,11 +232,30 @@ export async function getWithdrawRequestFromAddress({
   }
 
   let bondAccountAddress = address
-  const voteAccountAddress = await isVoteAccount({
+  let voteAccountAddress = await isVoteAccount({
     address,
     accountInfo,
     logger,
   })
+
+  if (
+    voteAccountAddress === null &&
+    accountInfo.owner.equals(StakeProgram.programId)
+  ) {
+    try {
+      const stakeAccountData = deserializeStakeState(accountInfo.data)
+      voteAccountAddress =
+        stakeAccountData.Stake?.stake.delegation.voterPubkey ?? null
+      if (voteAccountAddress !== null) {
+        logger.info(
+          `Address ${address.toBase58()} is a STAKE ACCOUNT delegated to vote account ` +
+            `${voteAccountAddress.toBase58()}. Using the vote account to get the withdraw request data.`
+        )
+      }
+    } catch (e) {
+      logger.debug(`Failed to decode account ${address} as stake account`, e)
+    }
+  }
 
   if (voteAccountAddress !== null) {
     if (config === undefined) {
@@ -257,7 +276,7 @@ export async function getWithdrawRequestFromAddress({
   accountInfo = await checkAccountExistence(
     program.provider.connection,
     address,
-    'type of withdrawRequest'
+    `WithdrawRequest generated from bond address ${bondAccountAddress.toBase58()} does not exist`
   )
 
   // final decoding of withdraw request account from account info
@@ -324,7 +343,9 @@ async function checkAccountExistence(
     throw new CliCommandError({
       valueName: '[address]',
       value: address.toBase58(),
-      msg: `Address does not exist at ${connection.rpcEndpoint}: ` + errorMsg,
+      msg:
+        `Address does not exist on-chain (RPC endpoint: ${connection.rpcEndpoint}): ` +
+        errorMsg,
     })
   }
   return accountInfo
