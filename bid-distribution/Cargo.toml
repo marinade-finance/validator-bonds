@@ -19,5 +19,5 @@ rust_decimal = { workspace = true, features = ["serde-float"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
-snapshot-parser = { workspace = true }
+snapshot-parser-types = { workspace = true }
 solana-sdk = { workspace = true }

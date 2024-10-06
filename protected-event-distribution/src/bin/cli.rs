@@ -11,7 +11,7 @@ use protected_event_distribution::{
     protected_events::generate_protected_event_collection,
     utils::{read_from_json_file, write_to_json_file},
 };
-use snapshot_parser::{stake_meta::StakeMetaCollection, validator_meta::ValidatorMetaCollection};
+use snapshot_parser_types::{stake_meta::StakeMetaCollection, validator_meta::ValidatorMetaCollection};
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashSet;
 use {clap::Parser, log::info};

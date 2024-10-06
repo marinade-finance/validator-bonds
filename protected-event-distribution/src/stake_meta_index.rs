@@ -1,6 +1,6 @@
-use snapshot_parser::stake_meta::StakeMeta;
+use snapshot_parser_types::stake_meta::StakeMeta;
 use solana_sdk::pubkey::Pubkey;
-use {snapshot_parser::stake_meta::StakeMetaCollection, std::collections::HashMap};
+use {snapshot_parser_types::stake_meta::StakeMetaCollection, std::collections::HashMap};
 pub struct StakeMetaIndex<'a> {
     pub stake_meta_collection: &'a StakeMetaCollection,
     index: HashMap<&'a Pubkey, HashMap<(&'a Pubkey, &'a Pubkey), Vec<&'a StakeMeta>>>,
