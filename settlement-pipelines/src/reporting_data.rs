@@ -158,7 +158,10 @@ impl SettlementsReportData {
                 };
                 result.get_mut(&reason_type).unwrap().insert(*pubkey);
             } else {
-                debug!("Unknown settlement record for pubkey: {}", pubkey);
+                debug!(
+                    "group by reason: unknown settlement record for pubkey: {}",
+                    pubkey
+                );
             };
         }
         result
