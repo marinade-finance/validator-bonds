@@ -35,6 +35,8 @@ steps:
         ]
       }'
 
+  - wait: ~
+
   - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
     commands:
     - 'epoch=$(buildkite-agent meta-data get epoch)'
