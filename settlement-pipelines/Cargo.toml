@@ -51,7 +51,6 @@ serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 protected-event-distribution = { workspace = true }
 shellexpand = { workspace = true }
-solana-account-decoder = { workspace = true }
 solana-sdk = { workspace = true }
 solana-client = { workspace = true }
 tokio = { workspace = true }

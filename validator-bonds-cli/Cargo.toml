@@ -18,7 +18,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 structopt = { workspace = true }
-snapshot-parser = { workspace = true }
 solana-sdk = { workspace = true }
 tokio = { workspace = true }
 anchor-lang = { workspace = true }

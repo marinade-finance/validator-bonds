@@ -8,28 +8,20 @@ steps:
 
   - wait: ~
 
-  - label: ":recycle: Pruning old snapshot directories"
-    concurrency_group: 'validator-bonds/fetch'
-    concurrency: 1
-    env:
-      snapshots_dir: /mnt/storage-1/snapshots
-    commands:
-    - 'ls -td -- /mnt/storage-1/snapshots/*/ | awk "NR>1" | tee /dev/stderr | xargs rm -rf'
-
   - label: ":calendar: Schedule"
-    concurrency_group: 'validator-bonds/fetch'
+    concurrency_group: 'validator-bonds/copy-parsed'
     concurrency: 1
     commands:
     - |
       max_processed_epoch=$(gcloud storage ls "gs://marinade-validator-bonds-mainnet" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 1)
       max_processed_epoch="$${max_processed_epoch%%[^0-9]*}"
-      max_available_epoch=$(gcloud storage ls "gs://jito-mainnet/**/*.tar.zst" | awk -F / '{print $$4}' | sort -nr | head -n 1)
+      max_available_epoch=$(gcloud storage ls "gs://marinade-solana-snapshot-mainnet/**/stakes.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 1)
       echo max_processed_epoch: $$max_processed_epoch
       echo max_available_epoch: $$max_available_epoch
       (( $$max_processed_epoch < $$max_available_epoch )) && cat <<EOF | buildkite-agent pipeline upload
       steps:
-        - trigger: "fetch-and-parse-snapshot"
-          label: ":rocket: Trigger: Fetch Solana snapshot ($$max_available_epoch)"
+        - trigger: "copy-parsed-snapshot"
+          label: ":rocket: Trigger: Fetch parsed Solana snapshot ($$max_available_epoch)"
           async: false
           build:
             env:

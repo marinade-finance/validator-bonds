@@ -25,7 +25,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 protected-event-distribution = { workspace = true }
-snapshot-parser = { workspace = true }
 solana-sdk = { workspace = true }
 structopt = { workspace = true }
 tokio = { workspace = true }

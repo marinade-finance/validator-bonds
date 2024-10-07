@@ -4,7 +4,6 @@ members = [
     "common-rs",
     "merkle-tree",
     "programs/*",
-    "snapshot-parser",
     "validator-bonds-cli",
     "settlement-pipelines",
     "bid-distribution",
@@ -44,7 +43,7 @@ serde = "1.0.197"
 serde_json = "1.0.114"
 serde_yaml = "0.8"
 protected-event-distribution = { path = "protected-event-distribution" }
-snapshot-parser = { path = "./snapshot-parser" }
+snapshot-parser-types = { git = "https://github.com/marinade-finance/solana-snapshot-parser", branch = "master" }
 shellexpand = "3.1.0"
 solana-account-decoder = "1.17.22"
 solana-accounts-db = "=1.17.22"

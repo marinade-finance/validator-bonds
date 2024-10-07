@@ -9,7 +9,7 @@ use protected_event_distribution::settlement_config::no_filter;
 use protected_event_distribution::settlement_config::stake_authorities_filter;
 use protected_event_distribution::stake_meta_index::StakeMetaIndex;
 use protected_event_distribution::utils::{read_from_json_file, write_to_json_file};
-use snapshot_parser::stake_meta::StakeMetaCollection;
+use snapshot_parser_types::stake_meta::StakeMetaCollection;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashSet;
 use {clap::Parser, log::info};

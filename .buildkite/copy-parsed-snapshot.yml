@@ -1,0 +1,83 @@
+agents:
+  queue: "snapshots"
+
+env:
+  gs_source_bucket: gs://marinade-solana-snapshot-mainnet
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+
+steps:
+  - label: ":closed_lock_with_key: Concurrency gate lock"
+    command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/copy-parsed'
+    concurrency: 1
+
+  - input: "Which epoch to fetch?"
+    fields:
+      - text: "Epoch"
+        key: "epoch"
+        format: "[0-9]+"
+    if: "build.env('EPOCH') == null"
+
+  - wait: ~
+
+  - label: ":mega: Notification"
+    commands:
+    - |
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+      buildkite-agent meta-data set epoch "$$epoch"
+      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" -H "Content-Type: application/json" -d '{
+        "embeds": [
+          {
+            "title": "Preparing claims for Validator Bonds ('"$$epoch"').",
+            "url": "'"$$BUILDKITE_BUILD_URL"'",
+            "color": "8388863"
+          }
+        ]
+      }'
+
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
+    commands:
+    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
+    - 'epoch=$(buildkite-agent meta-data get epoch)'
+    - 'gcloud storage cp "$gs_source_bucket/past-validators.json" "$gs_bucket/$$epoch/"'
+    - 'gcloud storage cp "$gs_source_bucket/validators.json" "$gs_bucket/$$epoch/"'
+    - 'gcloud storage cp "$gs_source_bucket/stakes.json" "$gs_bucket/$$epoch/"'
+
+  - wait: ~
+
+  - label: ":gear: :one: Setup trigger for prepare-protected-events"
+    commands:
+    - 'epoch=$(buildkite-agent meta-data get epoch)'
+    - |
+      cat <<EOF | buildkite-agent pipeline upload
+      steps:
+        - trigger: "prepare-protected-events"
+          label: ":rocket: Trigger: Prepare Protected Events ($$epoch)"
+          async: false
+          build:
+            branch: $$BUILDKITE_BRANCH
+            env:
+              EPOCH: $$epoch
+              gs_bucket: $gs_bucket
+      EOF
+
+  - label: ":gear: :two: Setup trigger for prepare-bidding"
+    commands:
+    - 'epoch=$(buildkite-agent meta-data get epoch)'
+    - |
+      cat <<EOF | buildkite-agent pipeline upload
+      steps:
+        - trigger: "prepare-bidding"
+          label: ":rocket: Trigger: Prepare Bidding ($$epoch)"
+          async: false
+          build:
+            branch: $$BUILDKITE_BRANCH
+            env:
+              EPOCH: $$epoch
+              gs_bucket: $gs_bucket
+      EOF
+
+  - label: ":unlock: Concurrency gate unlock"
+    command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/copy-parsed'
+    concurrency: 1
