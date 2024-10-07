@@ -9,6 +9,7 @@ import { setProgramIdOrDefault } from '../context'
 import {
   MARINADE_CONFIG_ADDRESS,
   bondAddress,
+  withdrawRequestAddress,
 } from '@marinade.finance/validator-bonds-sdk'
 import { ProgramAccount } from '@coral-xyz/anchor'
 
@@ -65,8 +66,16 @@ async function showBondAddress({
       'Deriving bond account address from vote account: ' +
         `${address.toBase58()}, config: ${config.toBase58()}, programId: ${program.programId.toBase58()}`
     )
+    const [withdrawRequestAddr, withdrawRequestBump] = withdrawRequestAddress(
+      bondAddr,
+      program.programId
+    )
+    logger.debug(
+      'Deriving withdraw request account address from bond account: ' +
+        `${bondAddr.toBase58()}, programId: ${program.programId.toBase58()}`
+    )
     console.log(
-      `Bond account address: ${bondAddr.toBase58()} [bump: ${bondBump}]`
+      `Bond account address: ${bondAddr.toBase58()} [bump: ${bondBump}], withdraw request address: ${withdrawRequestAddr.toBase58()} [bump: ${withdrawRequestBump}]`
     )
   } catch (err) {
     throw new CliCommandError({
