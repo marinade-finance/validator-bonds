@@ -37,7 +37,6 @@ steps:
 
   - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
     commands:
-    - 'snapshot_dir=$(buildkite-agent meta-data get snapshot_dir)'
     - 'epoch=$(buildkite-agent meta-data get epoch)'
     - 'gcloud storage cp "$gs_source_bucket/past-validators.json" "$gs_bucket/$$epoch/"'
     - 'gcloud storage cp "$gs_source_bucket/validators.json" "$gs_bucket/$$epoch/"'
