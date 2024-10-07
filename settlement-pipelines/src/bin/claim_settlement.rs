@@ -110,7 +110,7 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementsReport>) -> any
     let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
 
     let mut json_data = load_json(&args.json_files)?;
-    let settlement_records_per_epoch =
+    let json_loaded_settlements_per_epoch =
         parse_settlements_from_json(&mut json_data, &config_address, args.epoch)
             .map_err(CliError::processing)?;
 
@@ -120,7 +120,7 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementsReport>) -> any
 
     reporting.reportable.init(
         rpc_client.clone(),
-        &settlement_records_per_epoch,
+        &json_loaded_settlements_per_epoch,
         &claimable_settlements,
     );
 
@@ -152,14 +152,16 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementsReport>) -> any
     let mut stake_accounts_to_cache = StakeAccountsCache::default();
 
     for claimable_settlement in claimable_settlements {
-        let json_matching_settlement =
-            match get_settlement_from_json(&settlement_records_per_epoch, &claimable_settlement) {
-                Ok(json_record) => json_record,
-                Err(e) => {
-                    reporting.add_cli_error(e);
-                    continue;
-                }
-            };
+        let json_matching_settlement = match get_settlement_from_json(
+            &json_loaded_settlements_per_epoch,
+            &claimable_settlement,
+        ) {
+            Ok(json_record) => json_record,
+            Err(e) => {
+                reporting.add_cli_error(e);
+                continue;
+            }
+        };
 
         info!(
             "Claiming settlement {}, vote account {}, claim amount {}, for epoch {}, number of FROM stake accounts {}, already claimed merkle tree nodes {}",
@@ -451,16 +453,17 @@ fn get_settlement_from_json<'a>(
     on_chain_settlement: &ClaimableSettlementsReturn,
 ) -> Result<&'a SettlementRecord, CliError> {
     let settlement_epoch = on_chain_settlement.settlement.epoch_created_for;
-    let settlement_merkle_tree =
-        if let Some(settlement_merkle_tree) = per_epoch_settlement_records.get(&settlement_epoch) {
-            settlement_merkle_tree
-        } else {
-            return Err(CliError::Processing(anyhow!(
-                "No JSON merkle tree data found for settlement {} epoch {}",
+    let settlement_merkle_tree = if let Some(settlement_merkle_tree) =
+        per_epoch_settlement_records.get(&settlement_epoch)
+    {
+        settlement_merkle_tree
+    } else {
+        return Err(CliError::Processing(anyhow!(
+                "No JSON merkle tree data found for settlement {} epoch {}, probably missing JSON input data for epoch (e.g., bidding or protected-events data)",
                 on_chain_settlement.settlement_address,
                 settlement_epoch
             )));
-        };
+    };
 
     // find on-chain data match with json data
     let matching_settlement = settlement_merkle_tree.iter().find(|settlement_from_json| {
@@ -741,7 +744,7 @@ impl ClaimSettlementReport {
                             .map_or_else(|| (0, 0, 0), |(nodes, lamports)| (1, *nodes, *lamports))
                     })
                     .fold((0, 0, 0), |acc, (settlements, nodes, lamports)| {
-                        (acc.0 + settlements, acc.1 + nodes, acc.0 + lamports)
+                        (acc.0 + settlements, acc.1 + nodes, acc.2 + lamports)
                     });
                 (reason, (settlements_count, claimed_nodes, claimed_lamports))
             })
