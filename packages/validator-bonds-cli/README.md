@@ -23,7 +23,7 @@ added 165 packages in 35s
 
 # to verify installed version
 validator-bonds --version
-2.0.3
+2.0.4
 ```
 
 To get info on available commands
@@ -404,7 +404,7 @@ validator-bonds -um cancel-withdraw-request <withdraw-request-or-bond-account-ad
 The intention [to withdraw funds from the bond account](#withdrawing-bond-account)
 is signaled by creating an on-chain withdrawal request account.
 This account remains until it is manually canceled.
-Only one withdrawal request can exist per bond at a time. 
+Only one withdrawal request can exist per bond at a time.
 
 If the bond owner wishes to change the withdrawal amount or have the amount considered
 as part of the funded bond again, they must cancel the existing request
@@ -513,7 +513,7 @@ To check where NPM packages are and will be installed:
 # Get npm global installation folder
 npm list -g
 > /usr/lib
-> +-- @marinade.finance/validator-bonds-cli@2.0.3
+> +-- @marinade.finance/validator-bonds-cli@2.0.4
 > ...
 # In this case, the `bin` folder is located at /usr/bin
 ```
@@ -539,7 +539,7 @@ With this configuration, NPM packages will be installed under the `prefix` direc
 npm i -g @marinade.finance/validator-bonds-cli@latest
 npm list -g
 > ~/.local/share/npm/lib
-> `-- @marinade.finance/validator-bonds-cli@2.0.3
+> `-- @marinade.finance/validator-bonds-cli@2.0.4
 ```
 
 To execute the installed packages from any location,
@@ -697,7 +697,7 @@ Commands:
   # Get npm global installation folder
   npm list -g
   > ~/.local/share/npm/lib
-  > `-- @marinade.finance/validator-bonds-cli@2.0.3
+  > `-- @marinade.finance/validator-bonds-cli@2.0.4
   # In this case, the 'bin' folder is located at ~/.local/share/npm/bin
 
   # Get validator-bonds binary folder
