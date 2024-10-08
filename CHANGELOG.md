@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## TS CLI&SDK [2.0.4](https://github.com/marinade-finance/validator-bonds/compare/v2.0.3...v2.0.4) (2024-10-08)
+
+### Updates
+
+* cli: `bond-address` to display address of withdraw request for the bond ([PR#128](https://github.com/marinade-finance/validator-bonds/pull/128))
+* cli: `claim-withdraw-request` to work with addresses of stake accounts ([PR#123](https://github.com/marinade-finance/validator-bonds/pull/123))
+
+### Fixes
+
+* cli: handle better errors when bond or withdraw request exist on chain on init ([PR#122](https://github.com/marinade-finance/validator-bonds/pull/122))
+* cli: `show-event` to correctly parse cpi event data of the contract ([PR#118](https://github.com/marinade-finance/validator-bonds/pull/118))
+* sdk: `configureConfig` to accept `0` as a valid value ([PR#105](https://github.com/marinade-finance/validator-bonds/pull/105))
+
 ## contract release v2.1.0 (2024-10-03)
 
 * address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
