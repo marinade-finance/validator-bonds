@@ -151,10 +151,17 @@ anchor idl --provider.cluster mainnet set-buffer --print-only \
 
 # 3.check verifiable deployment (<BUFFER_PUBKEY> can be verified as well)
 #   a) when the target/verifiable/.so has been built already use switch --skip-build
+COMMIT_HASH=`git rev-parse --short HEAD`
 anchor --provider.cluster mainnet \
    verify -p validator_bonds \
-   --env "GIT_REV=`git rev-parse --short HEAD`" --env "GIT_REV_NAME=${VERSION}" \
+   --env "GIT_REV=${COMMIT_HASH}" --env "GIT_REV_NAME=${VERSION}" \
    # --skip-build \
    <PROGRAM_ID_or_BUFFER_ID>
 
+# 3.b upload the verified build to OtterSec API to be considered a Verified Build
+#     see https://github.com/Ellipsis-Labs/solana-verifiable-build
+solana-verify verify-from-repo https://github.com/marinade-finance/validator-bonds \
+  --library-name validator_bonds \
+  --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 --commit-hash "${COMMIT_HASH}" \
+  -- --config env.GIT_REV=\'${COMMIT_HASH}\' --config env.GIT_REV_NAME=\'${VERSION}\'
 ```
