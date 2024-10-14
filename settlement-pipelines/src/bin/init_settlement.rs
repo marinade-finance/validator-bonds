@@ -17,7 +17,6 @@ use settlement_pipelines::json_data::{
 use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
 use settlement_pipelines::reporting_data::SettlementsReportData;
 use settlement_pipelines::settlement_data::SettlementRecord;
-use settlement_pipelines::FINALIZATION_WAIT_TIMEOUT;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::native_token::lamports_to_sol;
 use solana_sdk::pubkey::Pubkey;
@@ -31,13 +30,13 @@ use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
-use tokio::time::sleep;
+
 use validator_bonds::instructions::InitSettlementArgs;
 use validator_bonds::state::settlement::find_settlement_claims_address;
 use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::constants::find_event_authority;
 use validator_bonds_common::settlements::get_settlements_for_pubkeys;
-use validator_bonds_common::utils::get_account_infos_for_pubkeys;
+use validator_bonds_common::utils::try_get_all_account_infos_for_pubkeys;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -137,9 +136,6 @@ async fn real_main(reporting: &mut ReportHandler<InitSettlementReport>) -> anyho
         reporting,
     )
     .await?;
-
-    // waiting for data finalization on-chain
-    sleep(FINALIZATION_WAIT_TIMEOUT).await;
 
     upsize_settlements(
         &program,
@@ -324,7 +320,8 @@ async fn upsize_settlements(
         .map(|(settlement_address, _)| find_settlement_claims_address(settlement_address).0)
         .collect::<Vec<Pubkey>>();
     let settlement_claims_infos =
-        get_account_infos_for_pubkeys(rpc_client.clone(), &settlement_claims_pubkeys).await?;
+        try_get_all_account_infos_for_pubkeys(rpc_client.clone(), &settlement_claims_pubkeys, 5)
+            .await?;
 
     for (
         (settlement_claims_address, settlement_claims_info),

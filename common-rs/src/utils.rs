@@ -1,6 +1,6 @@
 use anchor_client::anchor_lang::AccountDeserialize;
 use anyhow::anyhow;
-use log::error;
+use log::{debug, error};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcAccountInfoConfig;
 
@@ -8,6 +8,7 @@ use solana_program::pubkey::Pubkey;
 
 use solana_sdk::account::Account;
 use std::sync::Arc;
+use tokio::time::sleep;
 
 pub async fn get_account_infos_for_pubkeys(
     rpc_client: Arc<RpcClient>,
@@ -59,4 +60,30 @@ pub async fn get_accounts_for_pubkeys<T: AccountDeserialize>(
             (*pubkey, account)
         })
         .collect())
+}
+
+pub async fn try_get_all_account_infos_for_pubkeys(
+    rpc_client: Arc<RpcClient>,
+    pubkeys: &[Pubkey],
+    retry_count: usize,
+) -> anyhow::Result<Vec<(Pubkey, Option<Account>)>> {
+    let mut counter: usize = 0;
+    let accounts = loop {
+        let accounts = get_account_infos_for_pubkeys(rpc_client.clone(), pubkeys).await?;
+        counter += 1;
+        if accounts.iter().all(|(_, account)| account.is_some()) {
+            break accounts;
+        }
+        if counter > retry_count {
+            debug!(
+                "Retry limit {} reached while trying to fetch all provided pubkeys, expected length: {}, actual length: {}",
+                retry_count,
+                pubkeys.len(),
+                accounts.iter().filter(|(_, account)| account.is_some()).count()
+            );
+            break accounts;
+        }
+        sleep(std::time::Duration::from_secs((counter * 2) as u64)).await;
+    };
+    Ok(accounts)
 }
