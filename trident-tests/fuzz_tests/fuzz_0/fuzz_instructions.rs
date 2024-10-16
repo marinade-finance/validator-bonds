@@ -1,8 +1,7 @@
 pub mod validator_bonds_fuzz_instructions {
-    use anchor_lang::{AnchorDeserialize, AnchorSerialize};
     use crate::accounts_snapshots::*;
-    use trident_client::fuzzing::*;
     use trident_client::fuzzing::solana_sdk::native_token::LAMPORTS_PER_SOL;
+    use trident_client::fuzzing::*;
     use validator_bonds_common::constants::find_event_authority;
 
     #[derive(Arbitrary, DisplayIx, FuzzTestExecutor, FuzzDeserialize)]
@@ -501,7 +500,7 @@ pub mod validator_bonds_fuzz_instructions {
             let admin_authority = fuzz_accounts.admin_authority.get_or_create_account(
                 self.data.admin_authority,
                 client,
-                10 * LAMPORTS_PER_SOL,
+                LAMPORTS_PER_SOL,
             );
             let data = validator_bonds::instruction::InitConfig {
                 init_config_args: validator_bonds::instructions::InitConfigArgs {
@@ -509,7 +508,9 @@ pub mod validator_bonds_fuzz_instructions {
                     operator_authority: operator_authority.pubkey(),
                     epochs_to_claim_settlement: self.data.epochs_to_claim_settlement,
                     withdraw_lockup_epochs: self.data.withdraw_lockup_epochs,
-                    slots_to_start_settlement_claiming: self.data.slots_to_start_settlement_claiming,
+                    slots_to_start_settlement_claiming: self
+                        .data
+                        .slots_to_start_settlement_claiming,
                 },
             };
             Ok(data)
@@ -521,11 +522,7 @@ pub mod validator_bonds_fuzz_instructions {
         ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
             let config = fuzz_accounts
                 .config
-                .get_or_create_account(
-                    self.accounts.config,
-                    &[],
-                    &validator_bonds::ID,
-                )
+                .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
                 .unwrap();
             let rent_payer = fuzz_accounts.rent_payer.get_or_create_account(
                 self.accounts.rent_payer,
@@ -550,11 +547,52 @@ pub mod validator_bonds_fuzz_instructions {
         type IxSnapshot = ConfigureConfigSnapshot<'info>;
         fn get_data(
             &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
+            client: &mut impl FuzzClient,
+            fuzz_accounts: &mut FuzzAccounts,
         ) -> Result<Self::IxData, FuzzingError> {
+            let data_admin = if let Some(admin) = self.data.admin {
+                Some(
+                    fuzz_accounts
+                        .admin_authority
+                        .get_or_create_account(admin, client, LAMPORTS_PER_SOL)
+                        .pubkey(),
+                )
+            } else {
+                None
+            };
+            let data_operator = if let Some(operator) = self.data.operator {
+                Some(
+                    fuzz_accounts
+                        .operator_authority
+                        .get_or_create_account(operator, client, LAMPORTS_PER_SOL)
+                        .pubkey(),
+                )
+            } else {
+                None
+            };
+            let data_pause_authority = if let Some(pause_authority) = self.data.pause_authority {
+                Some(
+                    fuzz_accounts
+                        .pause_authority
+                        .get_or_create_account(pause_authority, client, LAMPORTS_PER_SOL)
+                        .pubkey(),
+                )
+            } else {
+                None
+            };
             let data = validator_bonds::instruction::ConfigureConfig {
-                configure_config_args: todo!(),
+                configure_config_args: validator_bonds::instructions::ConfigureConfigArgs {
+                    admin: data_admin,
+                    operator: data_operator,
+                    pause_authority: data_pause_authority,
+                    epochs_to_claim_settlement: self.data.epochs_to_claim_settlement,
+                    withdraw_lockup_epochs: self.data.withdraw_lockup_epochs,
+                    minimum_stake_lamports: self.data.minimum_stake_lamports,
+                    slots_to_start_settlement_claiming: self
+                        .data
+                        .slots_to_start_settlement_claiming,
+                    min_bond_max_stake_wanted: self.data.min_bond_max_stake_wanted,
+                },
             };
             Ok(data)
         }
@@ -563,14 +601,23 @@ pub mod validator_bonds_fuzz_instructions {
             client: &mut impl FuzzClient,
             fuzz_accounts: &mut FuzzAccounts,
         ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
+            let config = fuzz_accounts
+                .config
+                .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+                .unwrap();
+            let admin_authority = fuzz_accounts.admin_authority.get_or_create_account(
+                self.accounts.admin_authority,
+                client,
+                LAMPORTS_PER_SOL,
+            );
             let acc_meta = validator_bonds::accounts::ConfigureConfig {
-                config: todo!(),
-                admin_authority: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
+                config: config.pubkey,
+                admin_authority: admin_authority.pubkey(),
+                event_authority: find_event_authority().0,
+                program: validator_bonds::ID,
             }
             .to_account_metas(None);
+            let signers = vec![admin_authority];
             Ok((signers, acc_meta))
         }
     }
@@ -580,11 +627,20 @@ pub mod validator_bonds_fuzz_instructions {
         type IxSnapshot = InitBondSnapshot<'info>;
         fn get_data(
             &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
+            client: &mut impl FuzzClient,
+            fuzz_accounts: &mut FuzzAccounts,
         ) -> Result<Self::IxData, FuzzingError> {
+            let bond_authority = fuzz_accounts.bond_authority.get_or_create_account(
+                self.data.bond_authority,
+                client,
+                LAMPORTS_PER_SOL,
+            );
             let data = validator_bonds::instruction::InitBond {
-                init_bond_args: todo!(),
+                init_bond_args: validator_bonds::instructions::InitBondArgs {
+                    bond_authority: todo!(),
+                    cpmpe: self.data.cpmpe,
+                    max_stake_wanted: todo!(),
+                },
             };
             Ok(data)
         }

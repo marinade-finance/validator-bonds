@@ -185,11 +185,7 @@ pub async fn obtain_funded_stake_accounts_for_settlement(
                     effective,
                     deactivating,
                     activating: _,
-                } = delegation.stake_activating_and_deactivating(
-                    clock.epoch,
-                    stake_history,
-                    None,
-                );
+                } = delegation.stake_activating_and_deactivating(clock.epoch, stake_history, None);
                 effective == 0 || deactivating > 0
             } else {
                 // non-locked, non-delegated, maybe initialized (more filtering under map_stake_accounts_to_settlement)
