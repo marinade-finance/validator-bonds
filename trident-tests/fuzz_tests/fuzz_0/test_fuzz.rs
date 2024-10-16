@@ -4,6 +4,7 @@ const PROGRAM_NAME_VALIDATOR_BONDS: &str = "validator_bonds";
 use fuzz_instructions::validator_bonds_fuzz_instructions::FuzzInstruction as FuzzInstruction_validator_bonds;
 use trident_client::fuzzing::*;
 mod accounts_snapshots;
+mod common;
 mod fuzz_instructions;
 
 pub type FuzzInstruction = FuzzInstruction_validator_bonds;

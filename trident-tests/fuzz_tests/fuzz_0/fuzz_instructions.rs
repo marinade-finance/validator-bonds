@@ -1,5 +1,6 @@
 pub mod validator_bonds_fuzz_instructions {
     use crate::accounts_snapshots::*;
+    use crate::common::*;
     use anchor_lang::solana_program::vote::state::{VoteInit, VoteState};
     use anchor_spl::token_2022::spl_token_2022::solana_program::clock::Clock;
     use trident_client::fuzzing::solana_sdk::account::AccountSharedData;
@@ -7,32 +8,6 @@ pub mod validator_bonds_fuzz_instructions {
     use trident_client::fuzzing::*;
     use validator_bonds_common::constants::find_event_authority;
     const BOND_ACCOUNT_SEED: &[u8; 12] = b"bond_account";
-
-    pub fn create_vote_account(client: &mut impl FuzzClient, node_pubkey: &Keypair) -> Keypair {
-        let keypair = Keypair::new();
-        let space = VoteState::size_of();
-        let rent_exempt_lamports = client.get_rent().unwrap().minimum_balance(space);
-        let voter_keypair = Keypair::new();
-        let withdrawer_keypair = Keypair::new();
-        let vote_account = VoteState::new(
-            &VoteInit {
-                node_pubkey: node_pubkey.pubkey(),
-                authorized_voter: voter_keypair.pubkey(),
-                authorized_withdrawer: withdrawer_keypair.pubkey(),
-                commission: 0,
-            },
-            &Clock::default(),
-        );
-        let account = AccountSharedData::new_data_with_space::<VoteState>(
-            rent_exempt_lamports,
-            &vote_account,
-            space,
-            &anchor_lang::solana_program::vote::program::ID,
-        )
-        .unwrap();
-        client.set_account_custom(&keypair.pubkey(), &account);
-        keypair
-    }
 
     #[derive(Arbitrary, DisplayIx, FuzzTestExecutor, FuzzDeserialize)]
     pub enum FuzzInstruction {
@@ -704,7 +679,12 @@ pub mod validator_bonds_fuzz_instructions {
                 client,
                 LAMPORTS_PER_SOL,
             );
-            let vote_account = create_vote_account(client, &node_pubkey);
+            let node_pubkey = fuzz_accounts.validator_identity.get_or_create_account(
+                self.accounts.validator_identity,
+                client,
+                LAMPORTS_PER_SOL,
+            );
+            let vote_account = set_vote_account_with_node_pubkey(client, node_pubkey.pubkey());
             let bond = fuzz_accounts
                 .bond
                 .get_or_create_account(
@@ -712,7 +692,7 @@ pub mod validator_bonds_fuzz_instructions {
                     &[
                         BOND_ACCOUNT_SEED,
                         config.pubkey.as_ref(),
-                        vote_account.pubkey().as_ref(),
+                        vote_account.as_ref(),
                     ],
                     &validator_bonds::ID,
                 )
@@ -724,7 +704,7 @@ pub mod validator_bonds_fuzz_instructions {
             );
             let acc_meta = validator_bonds::accounts::InitBond {
                 config: config.pubkey(),
-                vote_account: vote_account.pubkey(),
+                vote_account,
                 validator_identity: Some(node_pubkey.pubkey()),
                 bond: bond.pubkey(),
                 rent_payer: rent_payer.pubkey(),
@@ -779,7 +759,12 @@ pub mod validator_bonds_fuzz_instructions {
                 client,
                 LAMPORTS_PER_SOL,
             );
-            let vote_account = create_vote_account(client, &bond_authority);
+            let node_pubkey = fuzz_accounts.validator_identity.get_or_create_account(
+                self.accounts.validator_identity,
+                client,
+                LAMPORTS_PER_SOL,
+            );
+            let vote_account = set_vote_account_with_node_pubkey(client, node_pubkey.pubkey());
             let bond = fuzz_accounts
                 .bond
                 .get_or_create_account(
@@ -811,16 +796,21 @@ pub mod validator_bonds_fuzz_instructions {
         type IxSnapshot = ConfigureBondWithMintSnapshot<'info>;
         fn get_data(
             &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
+            client: &mut impl FuzzClient,
+            fuzz_accounts: &mut FuzzAccounts,
         ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::ConfigureBondWithMint { 
+            let node_pubkey = fuzz_accounts.validator_identity.get_or_create_account(
+                self.accounts.node_pubkey,
+                client,
+                LAMPORTS_PER_SOL,
+            );
+            let data = validator_bonds::instruction::ConfigureBondWithMint {
                 args: validator_bonds::instructions::ConfigureBondWithMintArgs {
                     validator_identity: self.data.validator_identity,
                     bond_authority: self.data.bond_authority,
                     cpmpe: self.data.cpmpe,
                     max_stake_wanted: self.data.max_stake_wanted,
-                }
+                },
             };
             Ok(data)
         }
