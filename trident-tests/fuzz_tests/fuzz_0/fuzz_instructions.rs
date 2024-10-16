@@ -39,7 +39,7 @@ pub mod validator_bonds_fuzz_instructions {
         InitConfig(InitConfig),
         ConfigureConfig(ConfigureConfig),
         InitBond(InitBond),
-        // ConfigureBond(ConfigureBond),
+        ConfigureBond(ConfigureBond),
         // ConfigureBondWithMint(ConfigureBondWithMint),
         // MintBond(MintBond),
         // FundBond(FundBond),
@@ -805,43 +805,50 @@ pub mod validator_bonds_fuzz_instructions {
             Ok((signers, acc_meta))
         }
     }
-    // impl<'info> IxOps<'info> for ConfigureBondWithMint {
-    //     type IxData = validator_bonds::instruction::ConfigureBondWithMint;
-    //     type IxAccounts = FuzzAccounts;
-    //     type IxSnapshot = ConfigureBondWithMintSnapshot<'info>;
-    //     fn get_data(
-    //         &self,
-    //         _client: &mut impl FuzzClient,
-    //         _fuzz_accounts: &mut FuzzAccounts,
-    //     ) -> Result<Self::IxData, FuzzingError> {
-    //         let data = validator_bonds::instruction::ConfigureBondWithMint { args: todo!() };
-    //         Ok(data)
-    //     }
-    //     fn get_accounts(
-    //         &self,
-    //         client: &mut impl FuzzClient,
-    //         fuzz_accounts: &mut FuzzAccounts,
-    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-    //         let config = fuzz_accounts
-    //             .config
-    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
-    //             .unwrap();
-    //         let acc_meta = validator_bonds::accounts::ConfigureBondWithMint {
-    //             config: config.pubkey(),
-    //             bond: todo!(),
-    //             mint: todo!(),
-    //             vote_account: todo!(),
-    //             token_account: todo!(),
-    //             token_authority: todo!(),
-    //             token_program: todo!(),
-    //             event_authority: todo!(),
-    //             program: todo!(),
-    //         }
-    //         .to_account_metas(None);
-    //         let signers = vec![todo!()];
-    //         Ok((signers, acc_meta))
-    //     }
-    // }
+    impl<'info> IxOps<'info> for ConfigureBondWithMint {
+        type IxData = validator_bonds::instruction::ConfigureBondWithMint;
+        type IxAccounts = FuzzAccounts;
+        type IxSnapshot = ConfigureBondWithMintSnapshot<'info>;
+        fn get_data(
+            &self,
+            _client: &mut impl FuzzClient,
+            _fuzz_accounts: &mut FuzzAccounts,
+        ) -> Result<Self::IxData, FuzzingError> {
+            let data = validator_bonds::instruction::ConfigureBondWithMint { 
+                args: validator_bonds::instructions::ConfigureBondWithMintArgs {
+                    validator_identity: self.data.validator_identity,
+                    bond_authority: self.data.bond_authority,
+                    cpmpe: self.data.cpmpe,
+                    max_stake_wanted: self.data.max_stake_wanted,
+                }
+            };
+            Ok(data)
+        }
+        fn get_accounts(
+            &self,
+            client: &mut impl FuzzClient,
+            fuzz_accounts: &mut FuzzAccounts,
+        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+            let config = fuzz_accounts
+                .config
+                .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+                .unwrap();
+            let acc_meta = validator_bonds::accounts::ConfigureBondWithMint {
+                config: config.pubkey(),
+                bond: todo!(),
+                mint: todo!(),
+                vote_account: todo!(),
+                token_account: todo!(),
+                token_authority: todo!(),
+                token_program: todo!(),
+                event_authority: todo!(),
+                program: todo!(),
+            }
+            .to_account_metas(None);
+            let signers = vec![todo!()];
+            Ok((signers, acc_meta))
+        }
+    }
     // impl<'info> IxOps<'info> for MintBond {
     //     type IxData = validator_bonds::instruction::MintBond;
     //     type IxAccounts = FuzzAccounts;
