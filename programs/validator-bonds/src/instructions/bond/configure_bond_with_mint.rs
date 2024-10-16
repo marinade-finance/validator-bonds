@@ -9,7 +9,7 @@ use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 use anchor_spl::token::Mint;
 use anchor_spl::token::{burn, Burn, Token, TokenAccount};
 
-#[derive(Debug, AnchorDeserialize, AnchorSerialize)]
+#[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct ConfigureBondWithMintArgs {
     /// Validator identity configured within the vote account.
     pub validator_identity: Pubkey,

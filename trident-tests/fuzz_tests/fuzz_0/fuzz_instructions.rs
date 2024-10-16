@@ -1,6 +1,10 @@
 pub mod validator_bonds_fuzz_instructions {
+    use anchor_lang::{AnchorDeserialize, AnchorSerialize};
     use crate::accounts_snapshots::*;
     use trident_client::fuzzing::*;
+    use trident_client::fuzzing::solana_sdk::native_token::LAMPORTS_PER_SOL;
+    use validator_bonds_common::constants::find_event_authority;
+
     #[derive(Arbitrary, DisplayIx, FuzzTestExecutor, FuzzDeserialize)]
     pub enum FuzzInstruction {
         InitConfig(InitConfig),
@@ -40,8 +44,13 @@ pub mod validator_bonds_fuzz_instructions {
     }
     #[derive(Arbitrary, Debug)]
     pub struct InitConfigData {
-        pub init_config_args: validator_bonds::instructions::config::init_config::InitConfigArgs,
+        pub admin_authority: AccountId,
+        pub operator_authority: AccountId,
+        pub epochs_to_claim_settlement: u64,
+        pub withdraw_lockup_epochs: u64,
+        pub slots_to_start_settlement_claiming: u64,
     }
+
     #[derive(Arbitrary, Debug)]
     pub struct ConfigureConfig {
         pub accounts: ConfigureConfigAccounts,
@@ -56,8 +65,14 @@ pub mod validator_bonds_fuzz_instructions {
     }
     #[derive(Arbitrary, Debug)]
     pub struct ConfigureConfigData {
-        pub configure_config_args:
-            validator_bonds::instructions::config::configure_config::ConfigureConfigArgs,
+        pub admin: Option<AccountId>,
+        pub operator: Option<AccountId>,
+        pub pause_authority: Option<AccountId>,
+        pub epochs_to_claim_settlement: Option<u64>,
+        pub withdraw_lockup_epochs: Option<u64>,
+        pub minimum_stake_lamports: Option<u64>,
+        pub slots_to_start_settlement_claiming: Option<u64>,
+        pub min_bond_max_stake_wanted: Option<u64>,
     }
     #[derive(Arbitrary, Debug)]
     pub struct InitBond {
@@ -77,7 +92,9 @@ pub mod validator_bonds_fuzz_instructions {
     }
     #[derive(Arbitrary, Debug)]
     pub struct InitBondData {
-        pub init_bond_args: validator_bonds::instructions::bond::init_bond::InitBondArgs,
+        pub bond_authority: AccountId,
+        pub cpmpe: u64,
+        pub max_stake_wanted: u64,
     }
     #[derive(Arbitrary, Debug)]
     pub struct ConfigureBond {
@@ -95,8 +112,9 @@ pub mod validator_bonds_fuzz_instructions {
     }
     #[derive(Arbitrary, Debug)]
     pub struct ConfigureBondData {
-        pub configure_bond_args:
-            validator_bonds::instructions::bond::configure_bond::ConfigureBondArgs,
+        pub bond_authority: Option<AccountId>,
+        pub cpmpe: Option<u64>,
+        pub max_stake_wanted: Option<u64>,
     }
     #[derive(Arbitrary, Debug)]
     pub struct ConfigureBondWithMint {
@@ -116,7 +134,12 @@ pub mod validator_bonds_fuzz_instructions {
         pub program: AccountId,
     }
     #[derive(Arbitrary, Debug)]
-    pub struct ConfigureBondWithMintData { pub args : validator_bonds :: instructions :: bond :: configure_bond_with_mint :: ConfigureBondWithMintArgs }
+    pub struct ConfigureBondWithMintData {
+        pub validator_identity: AccountId,
+        pub bond_authority: Option<AccountId>,
+        pub cpmpe: Option<u64>,
+        pub max_stake_wanted: Option<u64>,
+    }
     #[derive(Arbitrary, Debug)]
     pub struct MintBond {
         pub accounts: MintBondAccounts,
@@ -181,8 +204,7 @@ pub mod validator_bonds_fuzz_instructions {
     }
     #[derive(Arbitrary, Debug)]
     pub struct InitWithdrawRequestData {
-        pub create_withdraw_request_args:
-            validator_bonds::instructions::withdraw::init_withdraw_request::InitWithdrawRequestArgs,
+        pub amount: u64,
     }
     #[derive(Arbitrary, Debug)]
     pub struct CancelWithdrawRequest {
@@ -247,8 +269,11 @@ pub mod validator_bonds_fuzz_instructions {
     }
     #[derive(Arbitrary, Debug)]
     pub struct InitSettlementData {
-        pub init_settlement_args:
-            validator_bonds::instructions::settlement::init_settlement::InitSettlementArgs,
+        pub merkle_root: [u8; 32],
+        pub max_total_claim: u64,
+        pub max_merkle_nodes: u64,
+        pub rent_collector: AccountId,
+        pub epoch: u64,
     }
     #[derive(Arbitrary, Debug)]
     pub struct UpsizeSettlementClaims {
@@ -334,7 +359,7 @@ pub mod validator_bonds_fuzz_instructions {
     }
     #[derive(Arbitrary, Debug)]
     pub struct MergeStakeData {
-        pub merge_args: validator_bonds::instructions::stake::merge_stake::MergeStakeArgs,
+        pub settlement: AccountId,
     }
     #[derive(Arbitrary, Debug)]
     pub struct ResetStake {
@@ -452,8 +477,12 @@ pub mod validator_bonds_fuzz_instructions {
     }
     #[derive(Arbitrary, Debug)]
     pub struct ClaimSettlementV2Data {
-        pub claim_settlement_args:
-            validator_bonds::instructions::settlement::claim_settlement::ClaimSettlementV2Args,
+        pub proof: Vec<[u8; 32]>,
+        pub tree_node_hash: [u8; 32],
+        pub stake_account_staker: AccountId,
+        pub stake_account_withdrawer: AccountId,
+        pub claim: u64,
+        pub index: u64,
     }
     impl<'info> IxOps<'info> for InitConfig {
         type IxData = validator_bonds::instruction::InitConfig;
@@ -461,11 +490,27 @@ pub mod validator_bonds_fuzz_instructions {
         type IxSnapshot = InitConfigSnapshot<'info>;
         fn get_data(
             &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
+            client: &mut impl FuzzClient,
+            fuzz_accounts: &mut FuzzAccounts,
         ) -> Result<Self::IxData, FuzzingError> {
+            let operator_authority = fuzz_accounts.operator_authority.get_or_create_account(
+                self.data.operator_authority,
+                client,
+                10 * LAMPORTS_PER_SOL,
+            );
+            let admin_authority = fuzz_accounts.admin_authority.get_or_create_account(
+                self.data.admin_authority,
+                client,
+                10 * LAMPORTS_PER_SOL,
+            );
             let data = validator_bonds::instruction::InitConfig {
-                init_config_args: todo!(),
+                init_config_args: validator_bonds::instructions::InitConfigArgs {
+                    admin_authority: admin_authority.pubkey(),
+                    operator_authority: operator_authority.pubkey(),
+                    epochs_to_claim_settlement: self.data.epochs_to_claim_settlement,
+                    withdraw_lockup_epochs: self.data.withdraw_lockup_epochs,
+                    slots_to_start_settlement_claiming: self.data.slots_to_start_settlement_claiming,
+                },
             };
             Ok(data)
         }
@@ -474,15 +519,28 @@ pub mod validator_bonds_fuzz_instructions {
             client: &mut impl FuzzClient,
             fuzz_accounts: &mut FuzzAccounts,
         ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
+            let config = fuzz_accounts
+                .config
+                .get_or_create_account(
+                    self.accounts.config,
+                    &[],
+                    &validator_bonds::ID,
+                )
+                .unwrap();
+            let rent_payer = fuzz_accounts.rent_payer.get_or_create_account(
+                self.accounts.rent_payer,
+                client,
+                100 * LAMPORTS_PER_SOL,
+            );
             let acc_meta = validator_bonds::accounts::InitConfig {
-                config: todo!(),
-                rent_payer: todo!(),
-                system_program: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
+                config: config.pubkey(),
+                rent_payer: rent_payer.pubkey(),
+                system_program: solana_sdk::system_program::ID,
+                event_authority: find_event_authority().0,
+                program: validator_bonds::ID,
             }
             .to_account_metas(None);
+            let signers = vec![rent_payer];
             Ok((signers, acc_meta))
         }
     }
@@ -1178,49 +1236,49 @@ pub mod validator_bonds_fuzz_instructions {
     #[doc = r" Keypair, PdaStore, TokenStore, MintStore, ProgramStore"]
     #[derive(Default)]
     pub struct FuzzAccounts {
-        admin_authority: AccountsStorage<todo!()>,
-        associated_token_program: AccountsStorage<todo!()>,
-        authority: AccountsStorage<todo!()>,
-        bond: AccountsStorage<todo!()>,
-        bonds_withdrawer_authority: AccountsStorage<todo!()>,
-        clock: AccountsStorage<todo!()>,
-        config: AccountsStorage<todo!()>,
-        destination_stake: AccountsStorage<todo!()>,
-        event_authority: AccountsStorage<todo!()>,
-        metadata: AccountsStorage<todo!()>,
-        metadata_program: AccountsStorage<todo!()>,
-        mint: AccountsStorage<todo!()>,
-        operator_authority: AccountsStorage<todo!()>,
-        pause_authority: AccountsStorage<todo!()>,
-        program: AccountsStorage<todo!()>,
-        rent: AccountsStorage<todo!()>,
-        rent_collector: AccountsStorage<todo!()>,
-        rent_payer: AccountsStorage<todo!()>,
-        settlement: AccountsStorage<todo!()>,
-        settlement_claims: AccountsStorage<todo!()>,
-        settlement_staker_authority: AccountsStorage<todo!()>,
-        source_stake: AccountsStorage<todo!()>,
-        split_rent_collector: AccountsStorage<todo!()>,
-        split_rent_refund_account: AccountsStorage<todo!()>,
-        split_stake_account: AccountsStorage<todo!()>,
-        split_stake_rent_payer: AccountsStorage<todo!()>,
-        stake_account: AccountsStorage<todo!()>,
-        stake_account_from: AccountsStorage<todo!()>,
-        stake_account_to: AccountsStorage<todo!()>,
-        stake_authority: AccountsStorage<todo!()>,
-        stake_config: AccountsStorage<todo!()>,
-        stake_history: AccountsStorage<todo!()>,
-        stake_program: AccountsStorage<todo!()>,
-        staker_authority: AccountsStorage<todo!()>,
-        system_program: AccountsStorage<todo!()>,
-        token_account: AccountsStorage<todo!()>,
-        token_authority: AccountsStorage<todo!()>,
-        token_program: AccountsStorage<todo!()>,
-        validator_identity: AccountsStorage<todo!()>,
-        validator_identity_token_account: AccountsStorage<todo!()>,
-        vote_account: AccountsStorage<todo!()>,
-        withdraw_request: AccountsStorage<todo!()>,
-        withdraw_to: AccountsStorage<todo!()>,
-        withdrawer: AccountsStorage<todo!()>,
+        admin_authority: AccountsStorage<Keypair>,
+        authority: AccountsStorage<Keypair>,
+        bond: AccountsStorage<PdaStore>,
+        bonds_withdrawer_authority: AccountsStorage<Keypair>,
+        config: AccountsStorage<PdaStore>,
+        destination_stake: AccountsStorage<PdaStore>,
+        mint: AccountsStorage<MintStore>,
+        operator_authority: AccountsStorage<Keypair>,
+        pause_authority: AccountsStorage<Keypair>,
+        rent_collector: AccountsStorage<Keypair>,
+        rent_payer: AccountsStorage<Keypair>,
+        settlement: AccountsStorage<PdaStore>,
+        settlement_claims: AccountsStorage<PdaStore>,
+        settlement_staker_authority: AccountsStorage<Keypair>,
+        source_stake: AccountsStorage<PdaStore>,
+        split_rent_collector: AccountsStorage<Keypair>,
+        split_rent_refund_account: AccountsStorage<Keypair>,
+        split_stake_account: AccountsStorage<PdaStore>,
+        split_stake_rent_payer: AccountsStorage<Keypair>,
+        stake_account: AccountsStorage<PdaStore>,
+        stake_account_from: AccountsStorage<Keypair>,
+        stake_account_to: AccountsStorage<Keypair>,
+        stake_authority: AccountsStorage<Keypair>,
+        staker_authority: AccountsStorage<Keypair>,
+        token_account: AccountsStorage<PdaStore>,
+        token_authority: AccountsStorage<Keypair>,
+        validator_identity: AccountsStorage<Keypair>,
+        validator_identity_token_account: AccountsStorage<Keypair>,
+        vote_account: AccountsStorage<PdaStore>,
+        withdraw_request: AccountsStorage<PdaStore>,
+        withdraw_to: AccountsStorage<Keypair>,
+        withdrawer: AccountsStorage<Keypair>,
+        // associated_token_program: AccountsStorage<ProgramStore>,
+        // clock: AccountsStorage<ProgramStore>,
+        // event_authority: AccountsStorage<Keypair>,
+        // metadata: AccountsStorage<PdaStore>,
+        // metadata_program: AccountsStorage<PdaStore>,
+        // stake_config: AccountsStorage<ProgramStore>,
+        // program: AccountsStorage<PdaStore>,
+        // rent: AccountsStorage<PdaStore>,
+        // stake_history: AccountsStorage<ProgramStore>,
+        // stake_program: AccountsStorage<ProgramStore>,
+        // system_program: AccountsStorage<ProgramStore>,
+        // token_program: AccountsStorage<ProgramStore>,
     }
 }

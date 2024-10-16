@@ -11,12 +11,9 @@ edition = "2021"
 [dependencies]
 anchor-lang = { workspace = true }
 anchor-spl = { workspace = true, features = ["stake", "mint", "token", "associated_token", "token_2022", "metadata"] }
-arbitrary = "1.3.0"
-assert_matches = "1.4.0"
-honggfuzz = "0.5.56"
-
-[dependencies.trident-client]
-version = "0.7.0"
-
-[dependencies.validator-bonds]
-path = "../../programs/validator-bonds"
+arbitrary = { workspace = true }
+assert_matches = { workspace = true }
+honggfuzz = { workspace = true }
+trident-client = { workspace = true }
+validator-bonds = { workspace = true }
+validator-bonds-common = { workspace = true }

@@ -3,7 +3,7 @@ use crate::events::config::InitConfigEvent;
 use crate::state::config::{find_bonds_withdrawer_authority, Config};
 use anchor_lang::prelude::*;
 
-#[derive(Debug, AnchorDeserialize, AnchorSerialize)]
+#[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct InitConfigArgs {
     pub admin_authority: Pubkey,
     pub operator_authority: Pubkey,

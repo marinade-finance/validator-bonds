@@ -7,7 +7,7 @@ use crate::state::withdraw_request::WithdrawRequest;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 
-#[derive(Debug, AnchorDeserialize, AnchorSerialize)]
+#[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct InitWithdrawRequestArgs {
     pub amount: u64,
 }

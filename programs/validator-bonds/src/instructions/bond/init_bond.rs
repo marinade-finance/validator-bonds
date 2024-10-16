@@ -8,7 +8,7 @@ use crate::state::config::Config;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 
-#[derive(Debug, AnchorDeserialize, AnchorSerialize)]
+#[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct InitBondArgs {
     pub bond_authority: Pubkey,
     pub cpmpe: u64,

@@ -17,7 +17,7 @@ use anchor_spl::stake::{withdraw, Stake, StakeAccount, Withdraw};
 use merkle_tree::psr_claim::TreeNode;
 use merkle_tree::{hash_leaf, LEAF_PREFIX};
 
-#[derive(Debug, AnchorDeserialize, AnchorSerialize)]
+#[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct ClaimSettlementV2Args {
     /// proof that the claim is appropriate
     pub proof: Vec<[u8; 32]>,
