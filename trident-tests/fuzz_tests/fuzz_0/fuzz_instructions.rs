@@ -1,5 +1,8 @@
 pub mod validator_bonds_fuzz_instructions {
     use crate::accounts_snapshots::*;
+    use anchor_lang::solana_program::vote::state::{VoteInit, VoteState};
+    use anchor_spl::token_2022::spl_token_2022::solana_program::clock::Clock;
+    use trident_client::fuzzing::solana_sdk::account::AccountSharedData;
     use trident_client::fuzzing::solana_sdk::native_token::LAMPORTS_PER_SOL;
     use trident_client::fuzzing::*;
     use validator_bonds_common::constants::find_event_authority;
@@ -9,24 +12,24 @@ pub mod validator_bonds_fuzz_instructions {
         InitConfig(InitConfig),
         ConfigureConfig(ConfigureConfig),
         InitBond(InitBond),
-        ConfigureBond(ConfigureBond),
-        ConfigureBondWithMint(ConfigureBondWithMint),
-        MintBond(MintBond),
-        FundBond(FundBond),
-        InitWithdrawRequest(InitWithdrawRequest),
-        CancelWithdrawRequest(CancelWithdrawRequest),
-        ClaimWithdrawRequest(ClaimWithdrawRequest),
-        InitSettlement(InitSettlement),
-        UpsizeSettlementClaims(UpsizeSettlementClaims),
-        CancelSettlement(CancelSettlement),
-        FundSettlement(FundSettlement),
-        MergeStake(MergeStake),
-        ResetStake(ResetStake),
-        WithdrawStake(WithdrawStake),
-        EmergencyPause(EmergencyPause),
-        EmergencyResume(EmergencyResume),
-        CloseSettlementV2(CloseSettlementV2),
-        ClaimSettlementV2(ClaimSettlementV2),
+        // ConfigureBond(ConfigureBond),
+        // ConfigureBondWithMint(ConfigureBondWithMint),
+        // MintBond(MintBond),
+        // FundBond(FundBond),
+        // InitWithdrawRequest(InitWithdrawRequest),
+        // CancelWithdrawRequest(CancelWithdrawRequest),
+        // ClaimWithdrawRequest(ClaimWithdrawRequest),
+        // InitSettlement(InitSettlement),
+        // UpsizeSettlementClaims(UpsizeSettlementClaims),
+        // CancelSettlement(CancelSettlement),
+        // FundSettlement(FundSettlement),
+        // MergeStake(MergeStake),
+        // ResetStake(ResetStake),
+        // WithdrawStake(WithdrawStake),
+        // EmergencyPause(EmergencyPause),
+        // EmergencyResume(EmergencyResume),
+        // CloseSettlementV2(CloseSettlementV2),
+        // ClaimSettlementV2(ClaimSettlementV2),
     }
     #[derive(Arbitrary, Debug)]
     pub struct InitConfig {
@@ -637,9 +640,9 @@ pub mod validator_bonds_fuzz_instructions {
             );
             let data = validator_bonds::instruction::InitBond {
                 init_bond_args: validator_bonds::instructions::InitBondArgs {
-                    bond_authority: todo!(),
+                    bond_authority: bond_authority.pubkey(),
                     cpmpe: self.data.cpmpe,
-                    max_stake_wanted: todo!(),
+                    max_stake_wanted: self.data.max_stake_wanted,
                 },
             };
             Ok(data)
@@ -649,651 +652,779 @@ pub mod validator_bonds_fuzz_instructions {
             client: &mut impl FuzzClient,
             fuzz_accounts: &mut FuzzAccounts,
         ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
+            let config = fuzz_accounts
+                .config
+                .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+                .unwrap();
+            let node_pubkey = fuzz_accounts.validator_identity.get_or_create_account(
+                self.accounts.validator_identity,
+                client,
+                LAMPORTS_PER_SOL,
+            );
+            let vote_account = fuzz_accounts
+                .vote_account
+                .storage()
+                .entry(self.accounts.vote_account)
+                .or_insert_with(|| {
+                    let space = VoteState::size_of();
+                    let rent_exempt_lamports = client.get_rent().unwrap().minimum_balance(space);
+                    let keypair = Keypair::new();
+                    let vote_account = VoteState::new(
+                        &VoteInit {
+                            node_pubkey: node_pubkey.pubkey(),
+                            authorized_voter: keypair.pubkey(),
+                            authorized_withdrawer: keypair.pubkey(),
+                            commission: 0,
+                        },
+                        &Clock::default(),
+                    );
+                    // let mut vote_account_data: Vec<u8> = vec![];
+                    // VoteState::serialize(&VoteStateVersions::Current(Box::new(vote_account)), vote_account_data.as_mut_slice())
+                    //     .expect("Failed to serialize vote account");
+                    let account = AccountSharedData::new_data_with_space::<VoteState>(
+                        rent_exempt_lamports,
+                        &vote_account,
+                        space,
+                        &anchor_lang::solana_program::vote::program::ID,
+                    )
+                    .unwrap();
+                    // insert the custom account also into the client
+                    client.set_account_custom(&keypair.pubkey(), &account);
+                    keypair
+                });
+            let bond = fuzz_accounts
+                .bond
+                .get_or_create_account(
+                    self.accounts.bond,
+                    &[
+                        b"bond_account",
+                        config.pubkey.as_ref(),
+                        vote_account.pubkey().as_ref(),
+                    ],
+                    &validator_bonds::ID,
+                )
+                .unwrap();
+            let rent_payer = fuzz_accounts.rent_payer.get_or_create_account(
+                self.accounts.rent_payer,
+                client,
+                100 * LAMPORTS_PER_SOL,
+            );
             let acc_meta = validator_bonds::accounts::InitBond {
-                config: todo!(),
-                vote_account: todo!(),
-                validator_identity: todo!(),
-                bond: todo!(),
-                rent_payer: todo!(),
-                system_program: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
+                config: config.pubkey(),
+                vote_account: vote_account.pubkey(),
+                validator_identity: Some(node_pubkey.pubkey()),
+                bond: bond.pubkey(),
+                rent_payer: rent_payer.pubkey(),
+                system_program: solana_sdk::system_program::ID,
+                event_authority: find_event_authority().0,
+                program: validator_bonds::ID,
             }
             .to_account_metas(None);
+            let signers = vec![node_pubkey, rent_payer];
             Ok((signers, acc_meta))
         }
     }
-    impl<'info> IxOps<'info> for ConfigureBond {
-        type IxData = validator_bonds::instruction::ConfigureBond;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = ConfigureBondSnapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::ConfigureBond {
-                configure_bond_args: todo!(),
-            };
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::ConfigureBond {
-                config: todo!(),
-                bond: todo!(),
-                authority: todo!(),
-                vote_account: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for ConfigureBondWithMint {
-        type IxData = validator_bonds::instruction::ConfigureBondWithMint;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = ConfigureBondWithMintSnapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::ConfigureBondWithMint { args: todo!() };
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::ConfigureBondWithMint {
-                config: todo!(),
-                bond: todo!(),
-                mint: todo!(),
-                vote_account: todo!(),
-                token_account: todo!(),
-                token_authority: todo!(),
-                token_program: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for MintBond {
-        type IxData = validator_bonds::instruction::MintBond;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = MintBondSnapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::MintBond {};
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::MintBond {
-                config: todo!(),
-                bond: todo!(),
-                mint: todo!(),
-                validator_identity: todo!(),
-                validator_identity_token_account: todo!(),
-                vote_account: todo!(),
-                metadata: todo!(),
-                rent_payer: todo!(),
-                system_program: todo!(),
-                token_program: todo!(),
-                associated_token_program: todo!(),
-                metadata_program: todo!(),
-                rent: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for FundBond {
-        type IxData = validator_bonds::instruction::FundBond;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = FundBondSnapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::FundBond {};
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::FundBond {
-                config: todo!(),
-                bond: todo!(),
-                bonds_withdrawer_authority: todo!(),
-                stake_account: todo!(),
-                stake_authority: todo!(),
-                clock: todo!(),
-                stake_history: todo!(),
-                stake_program: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for InitWithdrawRequest {
-        type IxData = validator_bonds::instruction::InitWithdrawRequest;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = InitWithdrawRequestSnapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::InitWithdrawRequest {
-                create_withdraw_request_args: todo!(),
-            };
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::InitWithdrawRequest {
-                config: todo!(),
-                bond: todo!(),
-                vote_account: todo!(),
-                authority: todo!(),
-                withdraw_request: todo!(),
-                rent_payer: todo!(),
-                system_program: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for CancelWithdrawRequest {
-        type IxData = validator_bonds::instruction::CancelWithdrawRequest;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = CancelWithdrawRequestSnapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::CancelWithdrawRequest {};
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::CancelWithdrawRequest {
-                config: todo!(),
-                bond: todo!(),
-                vote_account: todo!(),
-                authority: todo!(),
-                withdraw_request: todo!(),
-                rent_collector: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for ClaimWithdrawRequest {
-        type IxData = validator_bonds::instruction::ClaimWithdrawRequest;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = ClaimWithdrawRequestSnapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::ClaimWithdrawRequest {};
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::ClaimWithdrawRequest {
-                config: todo!(),
-                bond: todo!(),
-                vote_account: todo!(),
-                authority: todo!(),
-                withdraw_request: todo!(),
-                bonds_withdrawer_authority: todo!(),
-                stake_account: todo!(),
-                withdrawer: todo!(),
-                split_stake_account: todo!(),
-                split_stake_rent_payer: todo!(),
-                stake_program: todo!(),
-                system_program: todo!(),
-                stake_history: todo!(),
-                clock: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for InitSettlement {
-        type IxData = validator_bonds::instruction::InitSettlement;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = InitSettlementSnapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::InitSettlement {
-                init_settlement_args: todo!(),
-            };
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::InitSettlement {
-                config: todo!(),
-                bond: todo!(),
-                settlement: todo!(),
-                settlement_claims: todo!(),
-                operator_authority: todo!(),
-                rent_payer: todo!(),
-                system_program: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for UpsizeSettlementClaims {
-        type IxData = validator_bonds::instruction::UpsizeSettlementClaims;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = UpsizeSettlementClaimsSnapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::UpsizeSettlementClaims {};
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::UpsizeSettlementClaims {
-                settlement_claims: todo!(),
-                rent_payer: todo!(),
-                system_program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for CancelSettlement {
-        type IxData = validator_bonds::instruction::CancelSettlement;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = CancelSettlementSnapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::CancelSettlement {};
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::CancelSettlement {
-                config: todo!(),
-                bond: todo!(),
-                settlement: todo!(),
-                settlement_claims: todo!(),
-                authority: todo!(),
-                bonds_withdrawer_authority: todo!(),
-                rent_collector: todo!(),
-                split_rent_collector: todo!(),
-                split_rent_refund_account: todo!(),
-                clock: todo!(),
-                stake_program: todo!(),
-                stake_history: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for FundSettlement {
-        type IxData = validator_bonds::instruction::FundSettlement;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = FundSettlementSnapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::FundSettlement {};
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::FundSettlement {
-                config: todo!(),
-                bond: todo!(),
-                vote_account: todo!(),
-                settlement: todo!(),
-                operator_authority: todo!(),
-                stake_account: todo!(),
-                settlement_staker_authority: todo!(),
-                bonds_withdrawer_authority: todo!(),
-                split_stake_account: todo!(),
-                split_stake_rent_payer: todo!(),
-                system_program: todo!(),
-                stake_history: todo!(),
-                clock: todo!(),
-                rent: todo!(),
-                stake_program: todo!(),
-                stake_config: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for MergeStake {
-        type IxData = validator_bonds::instruction::MergeStake;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = MergeStakeSnapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::MergeStake {
-                merge_args: todo!(),
-            };
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::MergeStake {
-                config: todo!(),
-                source_stake: todo!(),
-                destination_stake: todo!(),
-                staker_authority: todo!(),
-                stake_history: todo!(),
-                clock: todo!(),
-                stake_program: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for ResetStake {
-        type IxData = validator_bonds::instruction::ResetStake;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = ResetStakeSnapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::ResetStake {};
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::ResetStake {
-                config: todo!(),
-                bond: todo!(),
-                settlement: todo!(),
-                stake_account: todo!(),
-                bonds_withdrawer_authority: todo!(),
-                vote_account: todo!(),
-                stake_history: todo!(),
-                stake_config: todo!(),
-                clock: todo!(),
-                stake_program: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for WithdrawStake {
-        type IxData = validator_bonds::instruction::WithdrawStake;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = WithdrawStakeSnapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::WithdrawStake {};
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::WithdrawStake {
-                config: todo!(),
-                operator_authority: todo!(),
-                settlement: todo!(),
-                stake_account: todo!(),
-                bonds_withdrawer_authority: todo!(),
-                withdraw_to: todo!(),
-                stake_history: todo!(),
-                clock: todo!(),
-                stake_program: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for EmergencyPause {
-        type IxData = validator_bonds::instruction::EmergencyPause;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = EmergencyPauseSnapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::EmergencyPause {};
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::EmergencyPauseResume {
-                config: todo!(),
-                pause_authority: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for EmergencyResume {
-        type IxData = validator_bonds::instruction::EmergencyResume;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = EmergencyResumeSnapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::EmergencyResume {};
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::EmergencyPauseResume {
-                config: todo!(),
-                pause_authority: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for CloseSettlementV2 {
-        type IxData = validator_bonds::instruction::CloseSettlementV2;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = CloseSettlementV2Snapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::CloseSettlementV2 {};
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::CloseSettlementV2 {
-                config: todo!(),
-                bond: todo!(),
-                settlement: todo!(),
-                settlement_claims: todo!(),
-                bonds_withdrawer_authority: todo!(),
-                rent_collector: todo!(),
-                split_rent_collector: todo!(),
-                split_rent_refund_account: todo!(),
-                clock: todo!(),
-                stake_program: todo!(),
-                stake_history: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
-    impl<'info> IxOps<'info> for ClaimSettlementV2 {
-        type IxData = validator_bonds::instruction::ClaimSettlementV2;
-        type IxAccounts = FuzzAccounts;
-        type IxSnapshot = ClaimSettlementV2Snapshot<'info>;
-        fn get_data(
-            &self,
-            _client: &mut impl FuzzClient,
-            _fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<Self::IxData, FuzzingError> {
-            let data = validator_bonds::instruction::ClaimSettlementV2 {
-                claim_settlement_args: todo!(),
-            };
-            Ok(data)
-        }
-        fn get_accounts(
-            &self,
-            client: &mut impl FuzzClient,
-            fuzz_accounts: &mut FuzzAccounts,
-        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let signers = vec![todo!()];
-            let acc_meta = validator_bonds::accounts::ClaimSettlementV2 {
-                config: todo!(),
-                bond: todo!(),
-                settlement: todo!(),
-                settlement_claims: todo!(),
-                stake_account_from: todo!(),
-                stake_account_to: todo!(),
-                bonds_withdrawer_authority: todo!(),
-                stake_history: todo!(),
-                clock: todo!(),
-                stake_program: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
-            }
-            .to_account_metas(None);
-            Ok((signers, acc_meta))
-        }
-    }
+    // impl<'info> IxOps<'info> for ConfigureBond {
+    //     type IxData = validator_bonds::instruction::ConfigureBond;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = ConfigureBondSnapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::ConfigureBond {
+    //             configure_bond_args: todo!(),
+    //         };
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::ConfigureBond {
+    //             config: config.pubkey(),
+    //             bond: todo!(),
+    //             authority: todo!(),
+    //             vote_account: todo!(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for ConfigureBondWithMint {
+    //     type IxData = validator_bonds::instruction::ConfigureBondWithMint;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = ConfigureBondWithMintSnapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::ConfigureBondWithMint { args: todo!() };
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::ConfigureBondWithMint {
+    //             config: config.pubkey(),
+    //             bond: todo!(),
+    //             mint: todo!(),
+    //             vote_account: todo!(),
+    //             token_account: todo!(),
+    //             token_authority: todo!(),
+    //             token_program: todo!(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for MintBond {
+    //     type IxData = validator_bonds::instruction::MintBond;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = MintBondSnapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::MintBond {};
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::MintBond {
+    //             config: config.pubkey(),
+    //             bond: todo!(),
+    //             mint: todo!(),
+    //             validator_identity: todo!(),
+    //             validator_identity_token_account: todo!(),
+    //             vote_account: todo!(),
+    //             metadata: todo!(),
+    //             rent_payer: todo!(),
+    //             system_program: todo!(),
+    //             token_program: todo!(),
+    //             associated_token_program: todo!(),
+    //             metadata_program: todo!(),
+    //             rent: todo!(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for FundBond {
+    //     type IxData = validator_bonds::instruction::FundBond;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = FundBondSnapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::FundBond {};
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::FundBond {
+    //             config: config.pubkey(),
+    //             bond: todo!(),
+    //             bonds_withdrawer_authority: todo!(),
+    //             stake_account: todo!(),
+    //             stake_authority: todo!(),
+    //             clock: todo!(),
+    //             stake_history: todo!(),
+    //             stake_program: todo!(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for InitWithdrawRequest {
+    //     type IxData = validator_bonds::instruction::InitWithdrawRequest;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = InitWithdrawRequestSnapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::InitWithdrawRequest {
+    //             create_withdraw_request_args:
+    //                 validator_bonds::instructions::InitWithdrawRequestArgs {
+    //                     amount: self.data.amount,
+    //                 },
+    //         };
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::InitWithdrawRequest {
+    //             config: config.pubkey(),
+    //             bond: todo!(),
+    //             vote_account: todo!(),
+    //             authority: todo!(),
+    //             withdraw_request: todo!(),
+    //             rent_payer: todo!(),
+    //             system_program: todo!(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for CancelWithdrawRequest {
+    //     type IxData = validator_bonds::instruction::CancelWithdrawRequest;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = CancelWithdrawRequestSnapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::CancelWithdrawRequest {};
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::CancelWithdrawRequest {
+    //             config: config.pubkey(),
+    //             bond: todo!(),
+    //             vote_account: todo!(),
+    //             authority: todo!(),
+    //             withdraw_request: todo!(),
+    //             rent_collector: todo!(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for ClaimWithdrawRequest {
+    //     type IxData = validator_bonds::instruction::ClaimWithdrawRequest;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = ClaimWithdrawRequestSnapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::ClaimWithdrawRequest {};
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::ClaimWithdrawRequest {
+    //             config: config.pubkey(),
+    //             bond: todo!(),
+    //             vote_account: todo!(),
+    //             authority: todo!(),
+    //             withdraw_request: todo!(),
+    //             bonds_withdrawer_authority: todo!(),
+    //             stake_account: todo!(),
+    //             withdrawer: todo!(),
+    //             split_stake_account: todo!(),
+    //             split_stake_rent_payer: todo!(),
+    //             stake_program: todo!(),
+    //             system_program: todo!(),
+    //             stake_history: todo!(),
+    //             clock: todo!(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for InitSettlement {
+    //     type IxData = validator_bonds::instruction::InitSettlement;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = InitSettlementSnapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::InitSettlement {
+    //             init_settlement_args: todo!(),
+    //         };
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::InitSettlement {
+    //             config: config.pubkey(),
+    //             bond: todo!(),
+    //             settlement: todo!(),
+    //             settlement_claims: todo!(),
+    //             operator_authority: todo!(),
+    //             rent_payer: todo!(),
+    //             system_program: todo!(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for UpsizeSettlementClaims {
+    //     type IxData = validator_bonds::instruction::UpsizeSettlementClaims;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = UpsizeSettlementClaimsSnapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::UpsizeSettlementClaims {};
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let acc_meta = validator_bonds::accounts::UpsizeSettlementClaims {
+    //             settlement_claims: todo!(),
+    //             rent_payer: todo!(),
+    //             system_program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for CancelSettlement {
+    //     type IxData = validator_bonds::instruction::CancelSettlement;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = CancelSettlementSnapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::CancelSettlement {};
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::CancelSettlement {
+    //             config: config.pubkey(),
+    //             bond: todo!(),
+    //             settlement: todo!(),
+    //             settlement_claims: todo!(),
+    //             authority: todo!(),
+    //             bonds_withdrawer_authority: todo!(),
+    //             rent_collector: todo!(),
+    //             split_rent_collector: todo!(),
+    //             split_rent_refund_account: todo!(),
+    //             clock: todo!(),
+    //             stake_program: todo!(),
+    //             stake_history: todo!(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for FundSettlement {
+    //     type IxData = validator_bonds::instruction::FundSettlement;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = FundSettlementSnapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::FundSettlement {};
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::FundSettlement {
+    //             config: config.pubkey(),
+    //             bond: todo!(),
+    //             vote_account: todo!(),
+    //             settlement: todo!(),
+    //             operator_authority: todo!(),
+    //             stake_account: todo!(),
+    //             settlement_staker_authority: todo!(),
+    //             bonds_withdrawer_authority: todo!(),
+    //             split_stake_account: todo!(),
+    //             split_stake_rent_payer: todo!(),
+    //             system_program: todo!(),
+    //             stake_history: todo!(),
+    //             clock: todo!(),
+    //             rent: todo!(),
+    //             stake_program: todo!(),
+    //             stake_config: config.pubkey(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for MergeStake {
+    //     type IxData = validator_bonds::instruction::MergeStake;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = MergeStakeSnapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::MergeStake {
+    //             merge_args: todo!(),
+    //         };
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::MergeStake {
+    //             config: config.pubkey(),
+    //             source_stake: todo!(),
+    //             destination_stake: todo!(),
+    //             staker_authority: todo!(),
+    //             stake_history: todo!(),
+    //             clock: todo!(),
+    //             stake_program: todo!(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for ResetStake {
+    //     type IxData = validator_bonds::instruction::ResetStake;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = ResetStakeSnapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::ResetStake {};
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::ResetStake {
+    //             config: config.pubkey(),
+    //             bond: todo!(),
+    //             settlement: todo!(),
+    //             stake_account: todo!(),
+    //             bonds_withdrawer_authority: todo!(),
+    //             vote_account: todo!(),
+    //             stake_history: todo!(),
+    //             stake_config: config.pubkey(),
+    //             clock: todo!(),
+    //             stake_program: todo!(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for WithdrawStake {
+    //     type IxData = validator_bonds::instruction::WithdrawStake;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = WithdrawStakeSnapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::WithdrawStake {};
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::WithdrawStake {
+    //             config: config.pubkey(),
+    //             operator_authority: todo!(),
+    //             settlement: todo!(),
+    //             stake_account: todo!(),
+    //             bonds_withdrawer_authority: todo!(),
+    //             withdraw_to: todo!(),
+    //             stake_history: todo!(),
+    //             clock: todo!(),
+    //             stake_program: todo!(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for EmergencyPause {
+    //     type IxData = validator_bonds::instruction::EmergencyPause;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = EmergencyPauseSnapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::EmergencyPause {};
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::EmergencyPauseResume {
+    //             config: config.pubkey(),
+    //             pause_authority: todo!(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for EmergencyResume {
+    //     type IxData = validator_bonds::instruction::EmergencyResume;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = EmergencyResumeSnapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::EmergencyResume {};
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::EmergencyPauseResume {
+    //             config: config.pubkey(),
+    //             pause_authority: todo!(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for CloseSettlementV2 {
+    //     type IxData = validator_bonds::instruction::CloseSettlementV2;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = CloseSettlementV2Snapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::CloseSettlementV2 {};
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::CloseSettlementV2 {
+    //             config: config.pubkey(),
+    //             bond: todo!(),
+    //             settlement: todo!(),
+    //             settlement_claims: todo!(),
+    //             bonds_withdrawer_authority: todo!(),
+    //             rent_collector: todo!(),
+    //             split_rent_collector: todo!(),
+    //             split_rent_refund_account: todo!(),
+    //             clock: todo!(),
+    //             stake_program: todo!(),
+    //             stake_history: todo!(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
+    // impl<'info> IxOps<'info> for ClaimSettlementV2 {
+    //     type IxData = validator_bonds::instruction::ClaimSettlementV2;
+    //     type IxAccounts = FuzzAccounts;
+    //     type IxSnapshot = ClaimSettlementV2Snapshot<'info>;
+    //     fn get_data(
+    //         &self,
+    //         _client: &mut impl FuzzClient,
+    //         _fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<Self::IxData, FuzzingError> {
+    //         let data = validator_bonds::instruction::ClaimSettlementV2 {
+    //             claim_settlement_args: todo!(),
+    //         };
+    //         Ok(data)
+    //     }
+    //     fn get_accounts(
+    //         &self,
+    //         client: &mut impl FuzzClient,
+    //         fuzz_accounts: &mut FuzzAccounts,
+    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+    //         let config = fuzz_accounts
+    //             .config
+    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+    //             .unwrap();
+    //         let acc_meta = validator_bonds::accounts::ClaimSettlementV2 {
+    //             config: config.pubkey(),
+    //             bond: todo!(),
+    //             settlement: todo!(),
+    //             settlement_claims: todo!(),
+    //             stake_account_from: todo!(),
+    //             stake_account_to: todo!(),
+    //             bonds_withdrawer_authority: todo!(),
+    //             stake_history: todo!(),
+    //             clock: todo!(),
+    //             stake_program: todo!(),
+    //             event_authority: todo!(),
+    //             program: todo!(),
+    //         }
+    //         .to_account_metas(None);
+    //         let signers = vec![todo!()];
+    //         Ok((signers, acc_meta))
+    //     }
+    // }
     #[doc = r" Use AccountsStorage<T> where T can be one of:"]
     #[doc = r" Keypair, PdaStore, TokenStore, MintStore, ProgramStore"]
     #[derive(Default)]
     pub struct FuzzAccounts {
         admin_authority: AccountsStorage<Keypair>,
-        authority: AccountsStorage<Keypair>,
+        bond_authority: AccountsStorage<Keypair>,
         bond: AccountsStorage<PdaStore>,
         bonds_withdrawer_authority: AccountsStorage<Keypair>,
         config: AccountsStorage<PdaStore>,
@@ -1320,7 +1451,7 @@ pub mod validator_bonds_fuzz_instructions {
         token_authority: AccountsStorage<Keypair>,
         validator_identity: AccountsStorage<Keypair>,
         validator_identity_token_account: AccountsStorage<Keypair>,
-        vote_account: AccountsStorage<PdaStore>,
+        vote_account: AccountsStorage<Keypair>,
         withdraw_request: AccountsStorage<PdaStore>,
         withdraw_to: AccountsStorage<Keypair>,
         withdrawer: AccountsStorage<Keypair>,

@@ -2232,6 +2232,7 @@ dependencies = [
  "anchor-spl",
  "arbitrary",
  "assert_matches",
+ "bincode",
  "honggfuzz",
  "trident-client",
  "validator-bonds",

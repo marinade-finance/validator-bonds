@@ -13,6 +13,7 @@ anchor-lang = { workspace = true }
 anchor-spl = { workspace = true, features = ["stake", "mint", "token", "associated_token", "token_2022", "metadata"] }
 arbitrary = { workspace = true }
 assert_matches = { workspace = true }
+bincode = { workspace = true }
 honggfuzz = { workspace = true }
 trident-client = { workspace = true }
 validator-bonds = { workspace = true }
