@@ -27,7 +27,7 @@ crashdir = ""
 # Input file extension (e.g. 'swf'), (default: "" ['fuzz'])
 extension = ""
 # Number of seconds this fuzzing session will last (default: 0 [no limit])
-run_time = 0
+run_time = 120
 # Maximal size of files processed by the fuzzer in bytes (default: 1048576 = 1MB)
 max_file_size = 1048576
 # Save all test-cases (not only the unique ones) by appending the current time-stamp to the filenames (default: false)

@@ -6,6 +6,33 @@ pub mod validator_bonds_fuzz_instructions {
     use trident_client::fuzzing::solana_sdk::native_token::LAMPORTS_PER_SOL;
     use trident_client::fuzzing::*;
     use validator_bonds_common::constants::find_event_authority;
+    const BOND_ACCOUNT_SEED: &[u8; 12] = b"bond_account";
+
+    pub fn create_vote_account(client: &mut impl FuzzClient, node_pubkey: &Keypair) -> Keypair {
+        let keypair = Keypair::new();
+        let space = VoteState::size_of();
+        let rent_exempt_lamports = client.get_rent().unwrap().minimum_balance(space);
+        let voter_keypair = Keypair::new();
+        let withdrawer_keypair = Keypair::new();
+        let vote_account = VoteState::new(
+            &VoteInit {
+                node_pubkey: node_pubkey.pubkey(),
+                authorized_voter: voter_keypair.pubkey(),
+                authorized_withdrawer: withdrawer_keypair.pubkey(),
+                commission: 0,
+            },
+            &Clock::default(),
+        );
+        let account = AccountSharedData::new_data_with_space::<VoteState>(
+            rent_exempt_lamports,
+            &vote_account,
+            space,
+            &anchor_lang::solana_program::vote::program::ID,
+        )
+        .unwrap();
+        client.set_account_custom(&keypair.pubkey(), &account);
+        keypair
+    }
 
     #[derive(Arbitrary, DisplayIx, FuzzTestExecutor, FuzzDeserialize)]
     pub enum FuzzInstruction {
@@ -543,6 +570,22 @@ pub mod validator_bonds_fuzz_instructions {
             let signers = vec![rent_payer];
             Ok((signers, acc_meta))
         }
+
+        // TODO: invariant here
+        fn check(
+            &self,
+            _pre_ix: Self::IxSnapshot,
+            post_ix: Self::IxSnapshot,
+            _ix_data: Self::IxData,
+        ) -> Result<(), FuzzingError> {
+            if let Some(config_account) = post_ix.config {
+                if config_account.withdraw_lockup_epochs > 0 {
+                    println!("withdraw_lockup_epochs > 0, failing here");
+                    return Err(FuzzingError::Custom(1));
+                }
+            }
+            Ok(())
+        }
     }
     impl<'info> IxOps<'info> for ConfigureConfig {
         type IxData = validator_bonds::instruction::ConfigureConfig;
@@ -661,43 +704,13 @@ pub mod validator_bonds_fuzz_instructions {
                 client,
                 LAMPORTS_PER_SOL,
             );
-            let vote_account = fuzz_accounts
-                .vote_account
-                .storage()
-                .entry(self.accounts.vote_account)
-                .or_insert_with(|| {
-                    let space = VoteState::size_of();
-                    let rent_exempt_lamports = client.get_rent().unwrap().minimum_balance(space);
-                    let keypair = Keypair::new();
-                    let vote_account = VoteState::new(
-                        &VoteInit {
-                            node_pubkey: node_pubkey.pubkey(),
-                            authorized_voter: keypair.pubkey(),
-                            authorized_withdrawer: keypair.pubkey(),
-                            commission: 0,
-                        },
-                        &Clock::default(),
-                    );
-                    // let mut vote_account_data: Vec<u8> = vec![];
-                    // VoteState::serialize(&VoteStateVersions::Current(Box::new(vote_account)), vote_account_data.as_mut_slice())
-                    //     .expect("Failed to serialize vote account");
-                    let account = AccountSharedData::new_data_with_space::<VoteState>(
-                        rent_exempt_lamports,
-                        &vote_account,
-                        space,
-                        &anchor_lang::solana_program::vote::program::ID,
-                    )
-                    .unwrap();
-                    // insert the custom account also into the client
-                    client.set_account_custom(&keypair.pubkey(), &account);
-                    keypair
-                });
+            let vote_account = create_vote_account(client, &node_pubkey);
             let bond = fuzz_accounts
                 .bond
                 .get_or_create_account(
                     self.accounts.bond,
                     &[
-                        b"bond_account",
+                        BOND_ACCOUNT_SEED,
                         config.pubkey.as_ref(),
                         vote_account.pubkey().as_ref(),
                     ],
@@ -724,42 +737,74 @@ pub mod validator_bonds_fuzz_instructions {
             Ok((signers, acc_meta))
         }
     }
-    // impl<'info> IxOps<'info> for ConfigureBond {
-    //     type IxData = validator_bonds::instruction::ConfigureBond;
-    //     type IxAccounts = FuzzAccounts;
-    //     type IxSnapshot = ConfigureBondSnapshot<'info>;
-    //     fn get_data(
-    //         &self,
-    //         _client: &mut impl FuzzClient,
-    //         _fuzz_accounts: &mut FuzzAccounts,
-    //     ) -> Result<Self::IxData, FuzzingError> {
-    //         let data = validator_bonds::instruction::ConfigureBond {
-    //             configure_bond_args: todo!(),
-    //         };
-    //         Ok(data)
-    //     }
-    //     fn get_accounts(
-    //         &self,
-    //         client: &mut impl FuzzClient,
-    //         fuzz_accounts: &mut FuzzAccounts,
-    //     ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-    //         let config = fuzz_accounts
-    //             .config
-    //             .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
-    //             .unwrap();
-    //         let acc_meta = validator_bonds::accounts::ConfigureBond {
-    //             config: config.pubkey(),
-    //             bond: todo!(),
-    //             authority: todo!(),
-    //             vote_account: todo!(),
-    //             event_authority: todo!(),
-    //             program: todo!(),
-    //         }
-    //         .to_account_metas(None);
-    //         let signers = vec![todo!()];
-    //         Ok((signers, acc_meta))
-    //     }
-    // }
+    impl<'info> IxOps<'info> for ConfigureBond {
+        type IxData = validator_bonds::instruction::ConfigureBond;
+        type IxAccounts = FuzzAccounts;
+        type IxSnapshot = ConfigureBondSnapshot<'info>;
+        fn get_data(
+            &self,
+            client: &mut impl FuzzClient,
+            fuzz_accounts: &mut FuzzAccounts,
+        ) -> Result<Self::IxData, FuzzingError> {
+            let bond_authority = if let Some(ba) = self.data.bond_authority {
+                Some(
+                    fuzz_accounts
+                        .bond_authority
+                        .get_or_create_account(ba, client, LAMPORTS_PER_SOL)
+                        .pubkey(),
+                )
+            } else {
+                None
+            };
+            let data = validator_bonds::instruction::ConfigureBond {
+                configure_bond_args: validator_bonds::instructions::ConfigureBondArgs {
+                    bond_authority,
+                    cpmpe: self.data.cpmpe,
+                    max_stake_wanted: self.data.max_stake_wanted,
+                },
+            };
+            Ok(data)
+        }
+        fn get_accounts(
+            &self,
+            client: &mut impl FuzzClient,
+            fuzz_accounts: &mut FuzzAccounts,
+        ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+            let config = fuzz_accounts
+                .config
+                .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
+                .unwrap();
+            let bond_authority = fuzz_accounts.bond_authority.get_or_create_account(
+                self.accounts.authority,
+                client,
+                LAMPORTS_PER_SOL,
+            );
+            let vote_account = create_vote_account(client, &bond_authority);
+            let bond = fuzz_accounts
+                .bond
+                .get_or_create_account(
+                    self.accounts.bond,
+                    &[
+                        BOND_ACCOUNT_SEED,
+                        config.pubkey.as_ref(),
+                        vote_account.pubkey().as_ref(),
+                    ],
+                    &validator_bonds::ID,
+                )
+                .unwrap();
+            let acc_meta = validator_bonds::accounts::ConfigureBond {
+                config: config.pubkey(),
+                bond: bond.pubkey(),
+                authority: bond_authority.pubkey(),
+                vote_account: vote_account.pubkey(),
+                event_authority: find_event_authority().0,
+                program: validator_bonds::ID,
+            }
+            .to_account_metas(None);
+            let signers = vec![bond_authority];
+            Ok((signers, acc_meta))
+        }
+    }
     // impl<'info> IxOps<'info> for ConfigureBondWithMint {
     //     type IxData = validator_bonds::instruction::ConfigureBondWithMint;
     //     type IxAccounts = FuzzAccounts;
