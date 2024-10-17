@@ -1,4 +1,3 @@
-use crate::fuzz_instructions::validator_bonds_fuzz_instructions::FuzzAccounts;
 use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 use trident_client::fuzzing::solana_sdk::account::{AccountSharedData, WritableAccount};
 use trident_client::fuzzing::solana_sdk::clock::{Clock, Epoch};
@@ -6,28 +5,34 @@ use trident_client::fuzzing::solana_sdk::rent::Rent;
 use trident_client::fuzzing::solana_sdk::stake::state::{
     Authorized, Delegation, Meta, Stake, StakeStateV2,
 };
-use trident_client::fuzzing::solana_sdk::stake::tools::get_minimum_delegation;
 use trident_client::fuzzing::solana_sdk::vote::state::{VoteInit, VoteState, VoteStateVersions};
-use trident_client::fuzzing::{AccountId, AccountsStorage, FuzzClient, Keypair, Pubkey, Signer};
+use trident_client::fuzzing::{
+    AccountId, AccountsStorage, FuzzClient, Keypair, Pubkey, Signer, TokenStore,
+};
 use trident_client::prelude::solana_sdk::stake::stake_flags::StakeFlags;
 
+/// Using the client to get or create vote account
+/// And returning the VoteState data on it that are in client
 pub fn get_or_create_vote_account(
-    votea_accounts_storage: &mut AccountsStorage<Keypair>,
+    vote_accounts_storage: &mut AccountsStorage<Keypair>,
     account_id: AccountId,
     client: &mut impl FuzzClient,
     node_pubkey: Pubkey,
-) -> Option<Pubkey> {
-    let key = votea_accounts_storage
+) -> Option<(Pubkey, VoteState)> {
+    let key = vote_accounts_storage
         .storage()
         .entry(account_id)
         .or_insert_with(|| set_vote_account_with_node_pubkey(client, node_pubkey));
-    Some(key.pubkey())
+    let account = client
+        .get_account(&key.pubkey())
+        .expect("Failed to get vote account")
+        .expect("Vote account not found");
+    VoteState::deserialize(&account.data)
+        .ok()
+        .map(|vote_state| (key.pubkey(), vote_state))
 }
 
-pub fn set_vote_account_with_node_pubkey(
-    client: &mut impl FuzzClient,
-    node_pubkey: Pubkey,
-) -> Keypair {
+fn set_vote_account_with_node_pubkey(client: &mut impl FuzzClient, node_pubkey: Pubkey) -> Keypair {
     let authorized_voter = Pubkey::new_unique();
     let authorized_withdrawer = Pubkey::new_unique();
     let commission = 0;
@@ -40,7 +45,7 @@ pub fn set_vote_account_with_node_pubkey(
     )
 }
 
-pub fn set_vote_account(
+fn set_vote_account(
     client: &mut impl FuzzClient,
     node_pubkey: Pubkey, // validator identity
     authorized_voter: Pubkey,
@@ -59,9 +64,9 @@ pub fn set_vote_account(
 
     let vote_state = VoteState::new(
         &VoteInit {
-            node_pubkey: node_pubkey,
-            authorized_voter: authorized_voter,
-            authorized_withdrawer: authorized_withdrawer,
+            node_pubkey,
+            authorized_voter,
+            authorized_withdrawer,
             commission,
         },
         &Clock::default(),
@@ -78,7 +83,7 @@ pub fn set_vote_account(
     vote_account_keypair
 }
 
-pub fn set_initialized_stake_account(client: &mut impl FuzzClient) -> Pubkey {
+fn set_initialized_stake_account(client: &mut impl FuzzClient) -> Pubkey {
     let stake_account_key = Keypair::new().pubkey();
 
     let rent = Rent::default();
@@ -118,7 +123,7 @@ pub fn get_or_create_delegated_stake_account(
     Some(key.pubkey())
 }
 
-pub fn set_delegated_stake_accounts_with_defaults(
+fn set_delegated_stake_accounts_with_defaults(
     client: &mut impl FuzzClient,
     vote_account: Pubkey,
     authority: Pubkey,
@@ -135,14 +140,14 @@ pub fn set_delegated_stake_accounts_with_defaults(
     )
 }
 
-pub fn set_delegated_stake_account(
+fn set_delegated_stake_account(
     client: &mut impl FuzzClient,
     voter_pubkey: Pubkey, // vote account delegated to
     staker: Pubkey,
     withdrawer: Pubkey,
     stake: u64,
     activation_epoch: Epoch,
-    deactiavation_epoch: Option<Epoch>,
+    deactivation_epoch: Option<Epoch>,
 ) -> Keypair {
     let stake_account_keypair = Keypair::new();
 
@@ -167,7 +172,7 @@ pub fn set_delegated_stake_account(
                     stake,
                     activation_epoch,
                     voter_pubkey,
-                    deactivation_epoch: if let Some(epoch) = deactiavation_epoch {
+                    deactivation_epoch: if let Some(epoch) = deactivation_epoch {
                         epoch
                     } else {
                         u64::MAX

@@ -1,9 +1,9 @@
 pub mod validator_bonds_fuzz_instructions {
+    use anchor_lang::AccountDeserialize;
     use crate::accounts_snapshots::*;
     use crate::common::*;
-    use anchor_lang::solana_program::vote::state::{VoteInit, VoteState};
-    use anchor_spl::token_2022::spl_token_2022::solana_program::clock::Clock;
-    use trident_client::fuzzing::solana_sdk::account::AccountSharedData;
+    use anchor_lang::solana_program::vote::state::VoteState;
+    use anchor_spl::token::TokenAccount;
     use trident_client::fuzzing::solana_sdk::native_token::LAMPORTS_PER_SOL;
     use trident_client::fuzzing::*;
     use validator_bonds_common::constants::find_event_authority;
@@ -525,10 +525,7 @@ pub mod validator_bonds_fuzz_instructions {
             client: &mut impl FuzzClient,
             fuzz_accounts: &mut FuzzAccounts,
         ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let config = fuzz_accounts
-                .config
-                .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
-                .unwrap();
+            let config = Keypair::new();
             let rent_payer = fuzz_accounts.rent_payer.get_or_create_account(
                 self.accounts.rent_payer,
                 client,
@@ -542,25 +539,25 @@ pub mod validator_bonds_fuzz_instructions {
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
-            let signers = vec![rent_payer];
+            let signers = vec![rent_payer, config];
             Ok((signers, acc_meta))
         }
 
-        // TODO: invariant here
-        fn check(
-            &self,
-            _pre_ix: Self::IxSnapshot,
-            post_ix: Self::IxSnapshot,
-            _ix_data: Self::IxData,
-        ) -> Result<(), FuzzingError> {
-            if let Some(config_account) = post_ix.config {
-                if config_account.withdraw_lockup_epochs > 0 {
-                    println!("withdraw_lockup_epochs > 0, failing here");
-                    return Err(FuzzingError::Custom(1));
-                }
-            }
-            Ok(())
-        }
+        // // TODO: invariants here
+        // fn check(
+        //     &self,
+        //     _pre_ix: Self::IxSnapshot,
+        //     post_ix: Self::IxSnapshot,
+        //     _ix_data: Self::IxData,
+        // ) -> Result<(), FuzzingError> {
+        //     if let Some(config_account) = post_ix.config {
+        //         if config_account.withdraw_lockup_epochs > 0 {
+        //             println!("withdraw_lockup_epochs > 0, failing here");
+        //             return Err(FuzzingError::Custom(1));
+        //         }
+        //     }
+        //     Ok(())
+        // }
     }
     impl<'info> IxOps<'info> for ConfigureConfig {
         type IxData = validator_bonds::instruction::ConfigureConfig;
@@ -632,7 +629,7 @@ pub mod validator_bonds_fuzz_instructions {
                 LAMPORTS_PER_SOL,
             );
             let acc_meta = validator_bonds::accounts::ConfigureConfig {
-                config: config.pubkey,
+                config: config.pubkey(),
                 admin_authority: admin_authority.pubkey(),
                 event_authority: find_event_authority().0,
                 program: validator_bonds::ID,
@@ -670,21 +667,12 @@ pub mod validator_bonds_fuzz_instructions {
             client: &mut impl FuzzClient,
             fuzz_accounts: &mut FuzzAccounts,
         ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+            let (vote_account, _, node_pubkey) =
+                fuzz_accounts.get_or_create_vote_account(client, 0, self.accounts.vote_account);
             let config = fuzz_accounts
                 .config
                 .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
                 .unwrap();
-            let node_pubkey = fuzz_accounts.validator_identity.get_or_create_account(
-                self.accounts.validator_identity,
-                client,
-                LAMPORTS_PER_SOL,
-            );
-            let node_pubkey = fuzz_accounts.validator_identity.get_or_create_account(
-                self.accounts.validator_identity,
-                client,
-                LAMPORTS_PER_SOL,
-            );
-            let vote_account = set_vote_account_with_node_pubkey(client, node_pubkey.pubkey());
             let bond = fuzz_accounts
                 .bond
                 .get_or_create_account(
@@ -750,6 +738,8 @@ pub mod validator_bonds_fuzz_instructions {
             client: &mut impl FuzzClient,
             fuzz_accounts: &mut FuzzAccounts,
         ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+            let (vote_account, _, _) =
+                fuzz_accounts.get_or_create_vote_account(client, 0, self.accounts.vote_account);
             let config = fuzz_accounts
                 .config
                 .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
@@ -759,12 +749,6 @@ pub mod validator_bonds_fuzz_instructions {
                 client,
                 LAMPORTS_PER_SOL,
             );
-            let node_pubkey = fuzz_accounts.validator_identity.get_or_create_account(
-                self.accounts.validator_identity,
-                client,
-                LAMPORTS_PER_SOL,
-            );
-            let vote_account = set_vote_account_with_node_pubkey(client, node_pubkey.pubkey());
             let bond = fuzz_accounts
                 .bond
                 .get_or_create_account(
@@ -772,7 +756,7 @@ pub mod validator_bonds_fuzz_instructions {
                     &[
                         BOND_ACCOUNT_SEED,
                         config.pubkey.as_ref(),
-                        vote_account.pubkey().as_ref(),
+                        vote_account.as_ref(),
                     ],
                     &validator_bonds::ID,
                 )
@@ -781,7 +765,7 @@ pub mod validator_bonds_fuzz_instructions {
                 config: config.pubkey(),
                 bond: bond.pubkey(),
                 authority: bond_authority.pubkey(),
-                vote_account: vote_account.pubkey(),
+                vote_account,
                 event_authority: find_event_authority().0,
                 program: validator_bonds::ID,
             }
@@ -799,15 +783,22 @@ pub mod validator_bonds_fuzz_instructions {
             client: &mut impl FuzzClient,
             fuzz_accounts: &mut FuzzAccounts,
         ) -> Result<Self::IxData, FuzzingError> {
-            let node_pubkey = fuzz_accounts.validator_identity.get_or_create_account(
-                self.accounts.node_pubkey,
-                client,
-                LAMPORTS_PER_SOL,
-            );
+            let (_, _, node_pubkey) =
+                fuzz_accounts.get_or_create_vote_account(client, 0, self.accounts.vote_account);
+            let bond_authority = if let Some(ba) = self.data.bond_authority {
+                Some(
+                    fuzz_accounts
+                        .bond_authority
+                        .get_or_create_account(ba, client, LAMPORTS_PER_SOL)
+                        .pubkey(),
+                )
+            } else {
+                None
+            };
             let data = validator_bonds::instruction::ConfigureBondWithMint {
                 args: validator_bonds::instructions::ConfigureBondWithMintArgs {
-                    validator_identity: self.data.validator_identity,
-                    bond_authority: self.data.bond_authority,
+                    validator_identity: node_pubkey.pubkey(),
+                    bond_authority,
                     cpmpe: self.data.cpmpe,
                     max_stake_wanted: self.data.max_stake_wanted,
                 },
@@ -819,23 +810,51 @@ pub mod validator_bonds_fuzz_instructions {
             client: &mut impl FuzzClient,
             fuzz_accounts: &mut FuzzAccounts,
         ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
+            let (vote_account, _, _) =
+                fuzz_accounts.get_or_create_vote_account(client, 0, self.accounts.vote_account);
             let config = fuzz_accounts
                 .config
                 .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
-                .unwrap();
+                .unwrap()
+                .pubkey();
+            let bond = fuzz_accounts
+                .bond
+                .get_or_create_account(
+                    self.accounts.bond,
+                    &[BOND_ACCOUNT_SEED, config.as_ref(), vote_account.as_ref()],
+                    &validator_bonds::ID,
+                )
+                .unwrap()
+                .pubkey();
+            let mint = fuzz_accounts
+                .validator_identity_mint
+                .get_or_create_account(
+                    self.accounts.mint,
+                    &[BOND_ACCOUNT_SEED, config.as_ref(), vote_account.as_ref()],
+                    &validator_bonds::ID,
+                )
+                .unwrap()
+                .pubkey();
+            let (token_account, token_authority) = fuzz_accounts.get_or_create_token(
+                client,
+                mint,
+                self.accounts.token_account,
+                self.accounts.token_authority,
+            );
+
             let acc_meta = validator_bonds::accounts::ConfigureBondWithMint {
-                config: config.pubkey(),
-                bond: todo!(),
-                mint: todo!(),
-                vote_account: todo!(),
-                token_account: todo!(),
-                token_authority: todo!(),
-                token_program: todo!(),
-                event_authority: todo!(),
-                program: todo!(),
+                config,
+                bond,
+                mint,
+                vote_account,
+                token_account: token_account.clone(),
+                token_authority: token_authority.pubkey(),
+                token_program: anchor_spl::token::ID,
+                event_authority: find_event_authority().0,
+                program: validator_bonds::ID,
             }
             .to_account_metas(None);
-            let signers = vec![todo!()];
+            let signers = vec![token_authority.clone()];
             Ok((signers, acc_meta))
         }
     }
@@ -1471,7 +1490,6 @@ pub mod validator_bonds_fuzz_instructions {
         bonds_withdrawer_authority: AccountsStorage<Keypair>,
         config: AccountsStorage<PdaStore>,
         destination_stake: AccountsStorage<PdaStore>,
-        mint: AccountsStorage<MintStore>,
         operator_authority: AccountsStorage<Keypair>,
         pause_authority: AccountsStorage<Keypair>,
         rent_collector: AccountsStorage<Keypair>,
@@ -1489,10 +1507,10 @@ pub mod validator_bonds_fuzz_instructions {
         stake_account_to: AccountsStorage<Keypair>,
         stake_authority: AccountsStorage<Keypair>,
         staker_authority: AccountsStorage<Keypair>,
-        token_account: AccountsStorage<PdaStore>,
-        token_authority: AccountsStorage<Keypair>,
         validator_identity: AccountsStorage<Keypair>,
-        validator_identity_token_account: AccountsStorage<Keypair>,
+        validator_identity_mint: AccountsStorage<PdaStore>,
+        validator_identity_token_account: AccountsStorage<TokenStore>,
+        validator_identity_token_authority: AccountsStorage<Keypair>,
         vote_account: AccountsStorage<Keypair>,
         withdraw_request: AccountsStorage<PdaStore>,
         withdraw_to: AccountsStorage<Keypair>,
@@ -1509,5 +1527,126 @@ pub mod validator_bonds_fuzz_instructions {
         // stake_program: AccountsStorage<ProgramStore>,
         // system_program: AccountsStorage<ProgramStore>,
         // token_program: AccountsStorage<ProgramStore>,
+    }
+
+    impl FuzzAccounts {
+        pub fn get_or_create_vote_account(
+            &mut self,
+            client: &mut impl FuzzClient,
+            validator_identity: AccountId,
+            vote_account: AccountId,
+        ) -> (Pubkey, VoteState, Keypair) {
+            let mut validator_identity_keypair = self.validator_identity.get_or_create_account(
+                validator_identity,
+                client,
+                LAMPORTS_PER_SOL,
+            );
+            let (vote_account, vote_state) = get_or_create_vote_account(
+                &mut self.vote_account,
+                vote_account,
+                client,
+                validator_identity_keypair.pubkey(),
+            )
+            .unwrap();
+            if validator_identity_keypair.pubkey() != vote_state.node_pubkey {
+                // search for the correct vote account keypair
+                validator_identity_keypair = self
+                    .validator_identity
+                    .storage()
+                    .iter()
+                    .find(|(_, v)| v.pubkey() == vote_state.node_pubkey)
+                    .unwrap()
+                    .1
+                    .clone();
+            }
+            (vote_account, vote_state, validator_identity_keypair)
+        }
+
+        pub fn get_or_create_token(
+            &mut self,
+            client: &mut impl FuzzClient,
+            mint: Pubkey,
+            validator_identity_token_account: AccountId,
+            validator_identity_token_authority: AccountId,
+        ) -> (Pubkey, Keypair) {
+            let mut validator_identity_keypair = self
+                .validator_identity_token_authority
+                .get_or_create_account(
+                    validator_identity_token_authority,
+                    client,
+                    LAMPORTS_PER_SOL,
+                );
+            let token_account_pubkey = self
+                .validator_identity_token_account
+                .get_or_create_account(
+                    validator_identity_token_account,
+                    client,
+                    mint,
+                    validator_identity_keypair.pubkey(),
+                    LAMPORTS_PER_SOL,
+                    None,
+                    None,
+                    0,
+                    None,
+                )
+                .unwrap();
+            let mut token_account_data =
+                client.get_account(&token_account_pubkey).unwrap().unwrap();
+            let token_account: TokenAccount = TokenAccount::try_deserialize_unchecked(
+                &mut &*token_account_data.data.as_mut_slice(),
+            )
+            .unwrap();
+            if validator_identity_keypair.pubkey() != token_account.owner {
+                // search for the correct vote account keypair
+                validator_identity_keypair = self
+                    .validator_identity_token_authority
+                    .storage()
+                    .iter()
+                    .find(|(_, v)| v.pubkey() == token_account.owner)
+                    .unwrap()
+                    .1
+                    .clone();
+            }
+            (token_account_pubkey, validator_identity_keypair)
+        }
+
+    //     pub fn get_or_create_config_account(
+    //         &mut self,
+    //         client: &mut impl FuzzClient,
+    //         config: AccountId,
+    //     ) -> Keypair {
+    //         let keypair = self.config.storage().entry(config).or_insert_with(|| {
+    //             let space = 8 + std::mem::size_of::<Config>();
+    //             let rent_exempt_lamports = client.get_rent().unwrap().minimum_balance(space);
+    //             let keypair = Keypair::new();
+    //             let (_, bonds_withdrawer_authority_bump) =
+    //                 validator_bonds::state::config::find_bonds_withdrawer_authority(&keypair.pubkey());
+    //             let config_account = validator_bonds::state::config::Config {
+    //                 admin_authority: Pubkey::new_unique(),
+    //                 operator_authority: Pubkey::new_unique(),
+    //                 epochs_to_claim_settlement: 0,
+    //                 withdraw_lockup_epochs: 0,
+    //                 minimum_stake_lamports: 0,
+    //                 bonds_withdrawer_authority_bump,
+    //                 pause_authority: Pubkey::new_unique(),
+    //                 paused: false,
+    //                 slots_to_start_settlement_claiming: 0,
+    //                 min_bond_max_stake_wanted: 0,
+    //                 reserved: [0; 463],
+    //             };
+    //
+    //             let account = AccountSharedData::new_data_with_space::<Vec<u8>>(
+    //                 rent_exempt_lamports,
+    //                 &config_account.try_to_vec().unwrap(),
+    //                 space,
+    //                 &validator_bonds::id(),
+    //             )
+    //             .unwrap();
+    //             // insert the custom account also into the client
+    //             client.set_account_custom(&keypair.pubkey(), &account);
+    //             keypair
+    //         });
+    //         keypair.clone()
+    //     }
     }
 }
