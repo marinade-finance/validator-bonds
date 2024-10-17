@@ -1,11 +1,12 @@
 pub mod validator_bonds_fuzz_instructions {
-    use anchor_lang::AccountDeserialize;
+    use anchor_lang::{AccountDeserialize, AccountSerialize};
     use crate::accounts_snapshots::*;
     use crate::common::*;
     use anchor_lang::solana_program::vote::state::VoteState;
     use anchor_spl::token::TokenAccount;
     use trident_client::fuzzing::solana_sdk::native_token::LAMPORTS_PER_SOL;
     use trident_client::fuzzing::*;
+    use trident_client::fuzzing::solana_sdk::account::{AccountSharedData, WritableAccount};
     use validator_bonds_common::constants::find_event_authority;
     const BOND_ACCOUNT_SEED: &[u8; 12] = b"bond_account";
 
@@ -619,15 +620,37 @@ pub mod validator_bonds_fuzz_instructions {
             client: &mut impl FuzzClient,
             fuzz_accounts: &mut FuzzAccounts,
         ) -> Result<(Vec<Keypair>, Vec<AccountMeta>), FuzzingError> {
-            let config = fuzz_accounts
-                .config
-                .get_or_create_account(self.accounts.config, &[], &validator_bonds::ID)
-                .unwrap();
-            let admin_authority = fuzz_accounts.admin_authority.get_or_create_account(
-                self.accounts.admin_authority,
-                client,
-                LAMPORTS_PER_SOL,
+            let config = client.set_account(10 * LAMPORTS_PER_SOL);
+            let admin_authority = client.set_account(10 * LAMPORTS_PER_SOL);
+            let operator_authority = client.set_account(10 * LAMPORTS_PER_SOL);
+
+            // set config fields
+            let config_account = validator_bonds::state::config::Config {
+                admin_authority: admin_authority.pubkey(),
+                operator_authority: operator_authority.pubkey(),
+                epochs_to_claim_settlement: 0,
+                withdraw_lockup_epochs: 0,
+                minimum_stake_lamports: 0,
+                bonds_withdrawer_authority_bump: 0,
+                pause_authority: Pubkey::new_unique(),
+                paused: false,
+                slots_to_start_settlement_claiming: 0,
+                min_bond_max_stake_wanted: 0,
+                reserved: [0; 463],
+            };
+            let mut data: Vec<u8> = vec![];
+            config_account.try_serialize(&mut data).unwrap();
+            client.set_account_custom(
+                &config.pubkey(),
+                &AccountSharedData::create(
+                    10 * LAMPORTS_PER_SOL,
+                    data,
+                    validator_bonds::ID,
+                    false,
+                    0,
+                ),
             );
+
             let acc_meta = validator_bonds::accounts::ConfigureConfig {
                 config: config.pubkey(),
                 admin_authority: admin_authority.pubkey(),
