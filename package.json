@@ -9,6 +9,7 @@
         "test:validator": "anchor test",
         "test:bankrun": "pnpm anchor:build && pnpm jest --config jest.config.bankrun.js --runInBand true -- \"$FILE\"",
         "test:cargo": "cargo test --features no-entrypoint -- --nocapture",
+        "test:fuzz": "trident fuzz run fuzz_0",
         "test": "pnpm test:cargo && pnpm test:bankrun && pnpm test:validator",
         "cli": "ts-node ./packages/validator-bonds-cli/src/",
         "lint:cargo": "cargo fmt -- --check && cargo clippy --release",
