@@ -1347,7 +1347,7 @@ pub mod validator_bonds_fuzz_instructions {
             );
             let max_merkle_nodes = self.data.max_merkle_nodes;
             let epoch = Clock::default().epoch;
-            let (settlement, _) = set_settlement(
+            let (settlement, settlement_data) = set_settlement(
                 client,
                 bond.bond.pubkey(),
                 [0; 32],
@@ -1357,11 +1357,6 @@ pub mod validator_bonds_fuzz_instructions {
             );
             let (settlement_claims, _) =
                 set_settlement_claims(client, settlement, max_merkle_nodes);
-            let rent_collector = fuzz_accounts.rent_payer.get_or_create_account(
-                self.accounts.rent_collector,
-                client,
-                100 * LAMPORTS_PER_SOL,
-            );
             let split_rent_collector = fuzz_accounts.rent_payer.get_or_create_account(
                 self.accounts.split_rent_collector,
                 client,
@@ -1384,7 +1379,7 @@ pub mod validator_bonds_fuzz_instructions {
                     &config.config.pubkey(),
                 )
                 .0,
-                rent_collector: rent_collector.pubkey(),
+                rent_collector: settlement_data.rent_collector,
                 split_rent_collector: split_rent_collector.pubkey(),
                 split_rent_refund_account,
                 clock: solana_sdk::sysvar::clock::ID,
