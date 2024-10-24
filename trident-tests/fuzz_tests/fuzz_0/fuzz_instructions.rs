@@ -306,8 +306,8 @@ pub mod validator_bonds_fuzz_instructions {
         pub settlement_vote_account: AccountId,
         #[arbitrary(with = |u: &mut arbitrary::Unstructured| -> arbitrary::Result<Vec<SettlementClaimData>> {
             let min_length = 1;
-            let length = u.int_in_range(min_length..=u64::MAX)?;
-            let mut vec = Vec::with_capacity(length as usize);
+            let length = u.int_in_range(min_length..=usize::MAX)?;
+            let mut vec = Vec::with_capacity(length);
             for _ in 0..length {
                 vec.push(u.arbitrary()?);
             }
@@ -1445,11 +1445,7 @@ pub mod validator_bonds_fuzz_instructions {
                 client,
                 100 * LAMPORTS_PER_SOL,
             );
-            let split_stake = fuzz_accounts.stake_account.get_or_create_account(
-                self.accounts.split_stake_account,
-                client,
-                100 * LAMPORTS_PER_SOL,
-            );
+            let split_stake = Keypair::new();
             let acc_meta = validator_bonds::accounts::FundSettlement {
                 config: config.config.pubkey(),
                 bond: bond.bond.pubkey(),
