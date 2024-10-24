@@ -3,7 +3,6 @@ use anchor_lang::solana_program::program_pack::Pack;
 use anchor_lang::{AccountSerialize, AnchorSerialize};
 use anchor_spl::token::spl_token;
 use anchor_spl::token::spl_token::state::Mint;
-
 use std::collections::HashMap;
 use trident_client::___private::TempClone;
 use trident_client::fuzzing::solana_sdk::account::{AccountSharedData, WritableAccount};
@@ -47,16 +46,19 @@ pub fn set_settlement_claims(
         version: 0,
         max_records,
     };
-    let mut data: Vec<u8> = Vec::with_capacity(account_size(max_records));
+
+    let mut data = vec![];
     settlement_claims_account.try_serialize(&mut data).unwrap();
+    let mut splice_data = vec![0u8; account_size(max_records)];
+    splice_data[0..data.len()].copy_from_slice(&data);
 
     let (settlement_claims, _) = find_settlement_claims_address(&settlement);
 
     let rent = Rent::default();
-    let lamports = rent.minimum_balance(data.len());
+    let lamports = rent.minimum_balance(splice_data.len());
     client.set_account_custom(
         &settlement_claims,
-        &AccountSharedData::create(lamports, data, validator_bonds::ID, false, 0),
+        &AccountSharedData::create(lamports, splice_data, validator_bonds::ID, false, u64::MAX),
     );
     (settlement_claims, settlement_claims_account)
 }
@@ -96,14 +98,17 @@ pub fn set_settlement(
         },
         reserved: [0; 90],
     };
-    let mut data: Vec<u8> = vec![];
+
+    let mut data = vec![];
     settlement_account.try_serialize(&mut data).unwrap();
+    let mut splice_data = vec![0u8; 8 + std::mem::size_of::<Settlement>()];
+    splice_data[0..data.len()].copy_from_slice(&data);
 
     let rent = Rent::default();
-    let lamports = rent.minimum_balance(data.len());
+    let lamports = rent.minimum_balance(splice_data.len());
     client.set_account_custom(
         &settlement,
-        &AccountSharedData::create(lamports, data, validator_bonds::ID, false, 0),
+        &AccountSharedData::create(lamports, splice_data, validator_bonds::ID, false, u64::MAX),
     );
     (settlement, settlement_account)
 }
@@ -126,14 +131,16 @@ pub fn set_withdraw_request(
         bump,
         reserved: [0; 93],
     };
-    let mut data: Vec<u8> = vec![];
+    let mut data = vec![];
     withdraw_request_account.try_serialize(&mut data).unwrap();
+    let mut splice_data = vec![0u8; 8 + std::mem::size_of::<WithdrawRequest>()];
+    splice_data[0..data.len()].copy_from_slice(&data);
 
     let rent = Rent::default();
-    let lamports = rent.minimum_balance(data.len());
+    let lamports = rent.minimum_balance(splice_data.len());
     client.set_account_custom(
         &pubkey,
-        &AccountSharedData::create(lamports, data, validator_bonds::ID, false, 0),
+        &AccountSharedData::create(lamports, splice_data, validator_bonds::ID, false, u64::MAX),
     );
     (pubkey, withdraw_request_account)
 }
@@ -210,14 +217,16 @@ fn set_bond(client: &mut impl FuzzClient, config: Pubkey) -> BondData {
         max_stake_wanted: 0,
         reserved: [0; 134],
     };
-    let mut data: Vec<u8> = vec![];
+    let mut data = vec![];
     bond_account.try_serialize(&mut data).unwrap();
+    let mut splice_data = vec![0u8; 8 + std::mem::size_of::<Bond>()];
+    splice_data[0..data.len()].copy_from_slice(&data);
 
     let rent = Rent::default();
-    let lamports = rent.minimum_balance(data.len());
+    let lamports = rent.minimum_balance(splice_data.len());
     client.set_account_custom(
         &bond,
-        &AccountSharedData::create(lamports, data, validator_bonds::ID, false, 0),
+        &AccountSharedData::create(lamports, splice_data, validator_bonds::ID, false, u64::MAX),
     );
 
     BondData {
@@ -297,7 +306,7 @@ pub fn set_config_with_modify(
         operator_authority: operator_authority.pubkey(),
         epochs_to_claim_settlement: 0,
         withdraw_lockup_epochs: 0,
-        minimum_stake_lamports: 0,
+        minimum_stake_lamports: LAMPORTS_PER_SOL,
         bonds_withdrawer_authority_bump,
         pause_authority: pause_authority.pubkey(),
         paused: false,
@@ -308,14 +317,18 @@ pub fn set_config_with_modify(
 
     modifier(&mut config_account);
 
-    let mut data: Vec<u8> = vec![];
+    let mut data = vec![];
     config_account.try_serialize(&mut data).unwrap();
+    let _data_size = 8 + std::mem::size_of::<Config>();
+    let mut splice_data = vec![0u8; 8 + std::mem::size_of::<Config>()];
+    splice_data[0..data.len()].copy_from_slice(&data);
+    let _is_same = data == splice_data[0..data.len()].to_vec();
 
     let rent = Rent::default();
-    let lamports = rent.minimum_balance(data.len());
+    let lamports = rent.minimum_balance(splice_data.len());
     client.set_account_custom(
         &config.pubkey(),
-        &AccountSharedData::create(lamports, data, validator_bonds::ID, false, 0),
+        &AccountSharedData::create(lamports, splice_data, validator_bonds::ID, false, u64::MAX),
     );
     ConfigData {
         config,
