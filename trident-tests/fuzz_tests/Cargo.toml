@@ -1,0 +1,23 @@
+[[bin]]
+name = "fuzz_0"
+path = "fuzz_0/test_fuzz.rs"
+
+[package]
+name = "fuzz_tests"
+version = "0.1.0"
+description = "Created with Trident"
+edition = "2021"
+
+[dependencies]
+anchor-lang = { workspace = true }
+anchor-spl = { workspace = true, features = ["stake", "mint", "token", "associated_token", "token_2022", "metadata"] }
+anyhow = { workspace = true }
+arbitrary = { workspace = true }
+assert_matches = { workspace = true }
+bincode = { workspace = true }
+honggfuzz = { workspace = true }
+log = { workspace = true }
+protected-event-distribution = { workspace = true }
+trident-client = { workspace = true }
+validator-bonds = { workspace = true }
+validator-bonds-common = { workspace = true }

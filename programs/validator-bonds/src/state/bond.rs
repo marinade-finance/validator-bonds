@@ -61,6 +61,13 @@ pub fn find_bond_address(config: &Pubkey, vote_account: &Pubkey) -> (Pubkey, u8)
     )
 }
 
-pub fn find_bond_mint(bond_account: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[BOND_MINT_SEED, bond_account.as_ref()], &ID)
+pub fn find_bond_mint(bond_account: &Pubkey, validator_identity: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            BOND_MINT_SEED,
+            bond_account.as_ref(),
+            validator_identity.as_ref(),
+        ],
+        &ID,
+    )
 }

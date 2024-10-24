@@ -29,6 +29,7 @@ docker-target/
 .idea/
 .vscode/
 
-# Fuzz attempts
+# Hongfuzz data
 fuzz/
 hfuzz*
+fuzzing/
