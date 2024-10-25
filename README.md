@@ -77,6 +77,10 @@ cargo build --release
 For details for on-chain part see
 [validator-bonds README](./programs/validator-bonds/README.md).
 
+Contract audits:
+
+* [Neodyme](https://neodyme.io), tag [`contract-v1.4.0`](https://github.com/marinade-finance/validator-bonds/tree/contract-v1.4.0), commit `7e6d35e`, see [audit document](./resources/audit/neodytme-audit-validator-bonds.pdf)
+
 For information on tracking on-chain transactions, refer to the [On-Chain Analysis](./programs/validator-bonds/ON_CHAIN_ANALYSIS.md) document.
 
 To build the Anchor program use the [`scripts`](./package.json) of the `pnpm`.
