@@ -625,7 +625,7 @@ Commands:
 
 ## FAQ and issues
 
-* **npm WARN EBADENGINE Unsupported engine {**
+* **npm WARN EBADENGINE Unsupported engine {**<a id='troubleshooting-npm-ebadengine'></a>
 
   When running the `validator-bonds` cli the error continues as
   ```
@@ -640,7 +640,7 @@ Commands:
 
   **Solution:** old version of Node.js is installed on the machine. Node.js upgrade to version 16 or later is needed.
 
-* **ExecutionError: Transaction XYZ not found**
+* **ExecutionError: Transaction XYZ not found**<a id='troubleshooting-execution-error'></a>
 
   The CLI sent the transaction to blockchain but because of a connection
   or RPC issue the client was not capable to verify that the transaction
@@ -661,7 +661,7 @@ Commands:
   you can run search with CLI `validator-bonds -um show-bond <bond-or-vote-account>`
   to check if account was created.
 
-* **bigint: Failed to load bindings, ...**
+* **bigint: Failed to load bindings, ...**<a id='troubleshooting-bigint-bindings'></a>
 
   CLI shows error `the bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)`
   is caused by system configuration requirements from `@solana/web3.js` (details at https://solana.stackexchange.com/questions/4077/bigint-failed-to-load-bindings-pure-js-will-be-used-try-npm-run-rebuild-whe). No functionality issues with this error.
@@ -676,7 +676,8 @@ Commands:
   apt-get install build-essential python3
   npm i -g @marinade.finance/validator-bonds-cli@latest
   ```
-* **npm i -g @marinade.finance/validator-bonds-cli@latest** does not install the latest version
+* **npm i -g @marinade.finance/validator-bonds-cli@latest**<a id='troubleshooting-latest-version'></a>
+  does not install the latest version
 
   Regardless the command `npm i -g @marinade.finance/validator-bonds-cli@latest` should install the latest
   CLI version on your system, the `validator-bonds --version` shows outdated version
@@ -713,7 +714,7 @@ Commands:
   * Change `PATH` to prioritize the `npm -g` folders, ``NPM_LIB=`npm list -g | head -n 1`; export PATH=${NPM_LIB/%lib/bin}:$PATH``
   * Use local `npm exec` execution instead of global installation, see the section [*NPM Exec From Local Directory*](#npm-exec-from-local-directory)
 
-* **Command yields `The RPC call or parameters have been disabled`**
+* **Command yields `The RPC call or parameters have been disabled`**<a id='troubleshooting-rpc-disabled'></a>
 
   The command (most probably `show-` command) finishes with an error:
 
@@ -736,7 +737,7 @@ Commands:
   * Use a private RPC endpoint (see https://solana.com/rpc). Most providers offer free plans
     that can be easily used: `RPC_URL=<private-rpc-http-endpoint>; show-bond -u$RPC_URL...`
 
-* **command fails with `429 Too Many Requests`**
+* **command fails with `429 Too Many Requests`**<a id='troubleshooting-too-many-requests'></a>
 
   This error often occurs when the `show-bond` command is used with the public RPC API endpoint
   `https://api.mainnet-beta.solana.com`, which is the default endpoint for CLI commands.
@@ -751,6 +752,7 @@ Commands:
     `RPC_URL=<private-rpc-http-endpoint>; show-bond -u $RPC_URL...`
 
 * **node_modules/@solana/webljs/lib/index.cjs.js:643 keyMeta.isSigner ||= accountMeta.isSigner**
+  <a id='troubleshooting-account-meta-signer'></a>
 
   ```
   SyntaxError: Unexpected token '='
@@ -762,7 +764,7 @@ Commands:
 
   Upgrade Node.js to version 16 or later.
 
-* **Segmentation fault (core dumped)**
+* **Segmentation fault (core dumped)**<a id='troubleshooting-segmentation-fault'></a>
 
   This could be caused by the system containing two different versions of Node.js,
   one installed at the system level (e.g., via `apt`) and the other installed via `npm`.
@@ -778,6 +780,7 @@ Commands:
   ```
 
 * **DeprecationWarning: The punycode module is deprecated. Please use a userland alternative instead.**
+  <a id='troubleshooting-deprecation-punycode'></a>
 
   **Explanation**
 
@@ -790,6 +793,7 @@ Commands:
   No functionality issue. The CLI can be used as is with this warning displayed.
 
 * **WithdrawRequestNotReady ... Withdraw request has not elapsed the epoch lockup period yet.**
+  <a id='troubleshooting-withdraw-not-ready'></a>
 
   ```
   "Program log: AnchorError caused by account: withdraw_request. Error Code: WithdrawRequestNotReady. Error Number: 6021. Error Message: Withdraw request has not elapsed the epoch lockup period yet."
@@ -803,26 +807,28 @@ Commands:
   More information can be found in the [Withdrawing Bond Account](#withdrawing-bond-account) section.
 
 * **Error processing Instruction 0: custom program error: 0xbbd**
+  <a id='troubleshooting-custom-error-0xbbd'></a>
 
- ```
- Anchor error 3005 (0xbbd), AccountNotEnoughKeys. Not enough account keys given to the instruction
- ```
+  ```
+  Anchor error 3005 (0xbbd), AccountNotEnoughKeys. Not enough account keys given to the instruction
+  ```
 
- After updating the contract to the audited version, auditors requested using the CPI logging method,
- which causes the old CLI to fail with error `3005 (0xbbd)`.
- This error occurs due to insufficient account keys provided by old version of CLI to the instruction,
- as the [`emit cpi`](https://book.anchor-lang.com/anchor_in_depth/events.html#cpi-events)
- functionality requires specialized PDA at the call.
+  After updating the contract to the audited version, auditors requested using the CPI logging method,
+  which causes the old CLI to fail with error `3005 (0xbbd)`.
+  This error occurs due to insufficient account keys provided by old version of CLI to the instruction,
+  as the [`emit cpi`](https://book.anchor-lang.com/anchor_in_depth/events.html#cpi-events)
+  functionality requires specialized PDA at the call.
 
- **Solution:**
+  **Solution:**
 
- Update version of CLI to most up-to-date.
+  Update version of CLI to most up-to-date.
 
- ```
- npm i -g @marinade.finance/validator-bonds-cli@latest
- ```
+  ```
+  npm i -g @marinade.finance/validator-bonds-cli@latest
+  ```
 
 * **Failed to claim withdraw request ...***
+  <a id='troubleshooting-failed-to-claim'></a>
 
   ```
   custom program error: 0x178f
@@ -864,6 +870,7 @@ Commands:
   or use term `"ALL"` (`--amount ALL`) to declare the desire to withdraw everything from the bond regardless of anything.
 
 * **Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.**
+  <a id='troubleshooting-attempt-debit'></a>
 
   The executed command sends the transaction on-chain. For the transaction to be processed, a wallet must pay
   the [transaction fee](https://solana.com/docs/core/fees) (approximately 5000 lamports).
