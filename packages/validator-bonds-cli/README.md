@@ -315,7 +315,7 @@ This process involves two steps:
              always verify the active stake recognized by the system using the `show-bond` CLI command.
 
 **NOTE:** The withdrawal request account remains on-chain until canceled.
-          See details and consequences in the section [Canceling Withdraw Request](#cancelling-withdraw-request
+          See details and consequences in the section [Cancelling Withdraw Request](#cancelling-withdraw-request-account).
 
 To initialize the withdrawal request, one needs to define the maximum number of lamports
 that are requested to be withdrawn upon claiming.
@@ -855,7 +855,7 @@ Commands:
   to the stake account bonded to your bond account. That way the sufficient overflow for splitting is ensured.
   Then, withdraw the requested SOLs (for this particular example it's approximately 4 SOLs, i.e., 4020836040 lamports)
   by use of `claim-withdraw-request` CLI command.
-  The remaining `1.002282880` can be withdrawn by canceling the fulfilled withdrawal request
+  The remaining `1.002282880` can be withdrawn by cancelling the fulfilled withdrawal request
   and then creating a new one for that specific amount (needed to wait until new withdraw request elapses).
 
   Alternatively, cancel the current withdrawal request and create a new one with a larger `--amount` to cover
