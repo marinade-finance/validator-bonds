@@ -40,6 +40,7 @@ pub fn set_settlement_claims(
     client: &mut impl FuzzClient,
     settlement: Pubkey,
     max_records: u64,
+    full_account_size: bool,
 ) -> (Pubkey, SettlementClaims) {
     let settlement_claims_account = SettlementClaims {
         settlement,
@@ -49,7 +50,12 @@ pub fn set_settlement_claims(
 
     let mut data = vec![];
     settlement_claims_account.try_serialize(&mut data).unwrap();
-    let mut splice_data = vec![0u8; account_size(max_records)];
+    let account_size_to_set = if full_account_size {
+        account_size(max_records)
+    } else {
+        account_size(0)
+    };
+    let mut splice_data = vec![0u8; account_size_to_set];
     splice_data[0..data.len()].copy_from_slice(&data);
 
     let (settlement_claims, _) = find_settlement_claims_address(&settlement);

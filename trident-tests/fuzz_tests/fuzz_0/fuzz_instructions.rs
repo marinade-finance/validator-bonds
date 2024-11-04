@@ -338,6 +338,7 @@ pub mod validator_bonds_fuzz_instructions {
     }
     #[derive(Arbitrary, Debug)]
     pub struct UpsizeSettlementClaimsData {
+        #[arbitrary(with = |u: &mut arbitrary::Unstructured| u.int_in_range(81921..=80000000))]
         max_records: u64,
     }
     #[derive(Arbitrary, Debug)]
@@ -1309,7 +1310,7 @@ pub mod validator_bonds_fuzz_instructions {
             );
             let settlement = Pubkey::new_unique();
             let (settlement_claims, _) =
-                set_settlement_claims(client, settlement, self.data.max_records);
+                set_settlement_claims(client, settlement, self.data.max_records, false);
             let acc_meta = validator_bonds::accounts::UpsizeSettlementClaims {
                 settlement_claims,
                 rent_payer: rent_payer.pubkey(),
@@ -1356,7 +1357,7 @@ pub mod validator_bonds_fuzz_instructions {
                 epoch,
             );
             let (settlement_claims, _) =
-                set_settlement_claims(client, settlement, max_merkle_nodes);
+                set_settlement_claims(client, settlement, max_merkle_nodes, true);
             let split_rent_collector = fuzz_accounts.rent_payer.get_or_create_account(
                 self.accounts.split_rent_collector,
                 client,
