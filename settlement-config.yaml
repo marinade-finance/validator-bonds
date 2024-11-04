@@ -5,7 +5,7 @@
       funder: ValidatorBond
     min_settlement_lamports: 100000000 # 0.1 SOL
     grace_downtime_bps: 100 # 1 %
-    covered_range_bps: [0, 5000] # 0 % - 20 %
+    covered_range_bps: [0, 5000] # 0 % - 50 %
 - DowntimeRevenueImpactSettlement:
     meta:
       funder: Marinade
