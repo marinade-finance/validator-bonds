@@ -4,9 +4,14 @@ This module contains fuzz tests based on
 [Ackee Trident framework](https://ackee.xyz/trident/docs/latest/getting-started/getting-started/)
 that is supported by [Honggfuzz-rs](https://github.com/google/honggfuzz) fuzzing framework.
 
+NOTE: the Trident framework recently added new usable features
+      ([1](https://github.com/Ackee-Blockchain/trident/pull/220), [2](https://github.com/Ackee-Blockchain/trident/pull/217)...)
+      unfortunately it's only supported with Anchor 0.30.x+ and Solana versions newer than 1.7.22.
+      Switching the project version dependencies is currently off the agenda.
+
 ## Prerequisites
 
-- Installed [Solana/Agave tooling](https://solana.com/docs/intro/installation)
+- Installed [Solana tooling](https://solana.com/docs/intro/installation)
   version needs to be complement to version used within [`Anchor.toml`](../Anchor.toml) file.
   ```shell
   sh -c "$(curl -sSfL https://release.solana.com/v1.17.22/install)"
@@ -98,7 +103,29 @@ thread 'main' panicked at /home/chalda/.cargo/registry/src/index.crates.io-6f17d
 Transaction::sign failed with error NotEnoughSigners
 ```
 
+#### Show more debug information
+
+To get more details of particular test failures one usually needs to rerun the particular case.
+To limit what is executed one need to change the [`test_fuzz.rs`](./fuzz_tests/fuzz_0/test_fuzz.rs) file
+and comment out all the cases that should be ignored to be run.
+Then change the [Test.toml](../Trident.toml) file to show all the debug information by setting the following properties
+(plus good to set environment variables `export RUST_BACKTRACE=1` and `export RUST_LOG=debug`).
+
+```toml
+[honggfuzz]
+iterations = 20
+threads = 1
+keep_output = true
+verbose = true
+```
+
 ## Troubleshooting
+
+- Here's a revised version:
+
+- Currently, the fuzz tests occasionally fail with a `BlockhashNotFound` error originating from the bank program test.
+  The cause is unclear (discussed with the Trident team, who haven't encountered this issue but have faced others
+  and mentioned it may work with a newer Agave Solana version).
 
 - See youtube tutorials for details on the framework
     - [Solana Anchor Program Fuzzing with Trident I](https://www.youtube.com/watch?v=5JRVnxGW8kc)

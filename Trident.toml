@@ -10,11 +10,11 @@ iterations = 0
 # Number of concurrent fuzzing threads (default: 0 [number of CPUs / 2])
 threads = 0
 # Don't close children's stdin, stdout, stderr; can be noisy (default: false)
-keep_output = false
+keep_output = true
 # Disable ANSI console; use simple log output (default: false)
-verbose = false
+verbose = true
 # Exit upon seeing the first crash (default: false)
-exit_upon_crash = true
+exit_upon_crash = false
 # Maximal number of mutations per one run (default: 6)
 mutations_per_run = 6
 # Target compilation directory, (default: "" ["trident-tests/fuzz_tests/fuzzing/hfuzz_target"]).
