@@ -106,7 +106,7 @@ fn insert_json_parsed_data(
     // Get the epoch and handle mismatches
     match (&merkle_tree_collection, &settlement_collection) {
         (Some(mc), Some(sc)) if mc.epoch != sc.epoch => {
-            return Err(CliError::processing(format!(
+            return Err(CliError::critical(format!(
                 "Epoch mismatch between merkle tree collection and settlement collection: {} != {}",
                 mc.epoch, sc.epoch
             )));
@@ -114,7 +114,7 @@ fn insert_json_parsed_data(
         (Some(mc), _) => mc.epoch,
         (_, Some(sc)) => sc.epoch,
         _ => {
-            return Err(CliError::processing(
+            return Err(CliError::critical(
                 "No epoch found in either merkle tree collection or settlement collection",
             ));
         }
@@ -149,7 +149,7 @@ fn load_json_merkle_tree_settlement(
 
     json_loading_result.map_err(|e| {
         error!("Error loading JSON data from file: {:?}, {:?}", path, e);
-        CliError::Processing(e)
+        CliError::Critical(e)
     })
 }
 
@@ -224,7 +224,7 @@ pub async fn load_json_with_on_chain(
 ) -> Result<HashMap<u64, Vec<SettlementRecord>>, CliError> {
     let mut settlement_records_by_epoch =
         parse_settlements_from_json(json_data, config_address, epoch)
-            .map_err(CliError::Processing)?;
+            .map_err(CliError::Critical)?;
 
     // Loading accounts from on-chain, trying to not pushing many RPC calls to the network
     let (settlement_addresses, bond_addresses) = settlement_records_by_epoch

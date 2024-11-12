@@ -162,7 +162,7 @@ async fn load_on_chain_data(
     let settlement_records_per_epoch =
         load_json_with_on_chain(rpc_client, json_data, config_address, epoch).await?;
     if settlement_records_per_epoch.keys().len() != 1 {
-        return Err(CliError::Processing(anyhow!(
+        return Err(CliError::Critical(anyhow!(
             "Loading Settlements from JSON data expected one epoch data but got {}",
             settlement_records_per_epoch.keys().len()
         )));
@@ -170,7 +170,7 @@ async fn load_on_chain_data(
     if let Some(settlement_records) = settlement_records_per_epoch.into_iter().next() {
         Ok(settlement_records.1)
     } else {
-        Err(CliError::Processing(anyhow!(
+        Err(CliError::Critical(anyhow!(
             "Loading Settlements from JSON data failed to get Settlement records"
         )))
     }

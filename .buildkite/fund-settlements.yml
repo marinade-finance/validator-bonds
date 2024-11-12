@@ -107,11 +107,11 @@ steps:
     commands:
     - '. "$HOME/.cargo/env"'
     - 'prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))'
-    - 'buildkite-agent artifact download --include-retried-jobs fund-execution-report.$$prior_build_number . || true'
+    - 'buildkite-agent artifact download --include-retried-jobs execution-report.$$prior_build_number . || true'
     - |
-      cp "fund-execution-report.$$prior_build_number" "fund-execution-report.$$BUILDKITE_RETRY_COUNT" || true
+      cp "execution-report.$$prior_build_number" "execution-report.$$BUILDKITE_RETRY_COUNT" || true
       rm -f "fund-execution-report.$$prior_build_number"
-      echo "#ATTEMPT $$BUILDKITE_RETRY_COUNT" | tee -a "./fund-execution-report.$$BUILDKITE_RETRY_COUNT"
+      echo "#ATTEMPT FUND SETTLEMENT $$BUILDKITE_RETRY_COUNT" | tee -a "./execution-report.$$BUILDKITE_RETRY_COUNT"
     - |
       buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .
       files=""
@@ -126,18 +126,19 @@ steps:
       done
     - 'buildkite-agent artifact download --include-retried-jobs target/release/fund-settlement .'
     - 'chmod +x target/release/fund-settlement'
+    - source ./scripts/execute-handlers.sh
     - |
-      set -o pipefail
+      handle_command_execution "fund-settlement" \
       ./target/release/fund-settlement \
         --rpc-url $$RPC_URL \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$PSR_TX_FEE_WALLET" \
         --marinade-wallet "$$PSR_MARINADE_DAO_FUNDER_WALLET" \
         --rent-payer "$$PSR_RENT_PAYER_WALLET" \
-        $$files | tee -a "./fund-execution-report.$$BUILDKITE_RETRY_COUNT"
+        $$files
     key: 'fund-settlement'
     artifact_paths:
-      - "./fund-execution-report.*"
+      - "./execution-report.*"
     retry:
       automatic:
         - exit_status: 100
@@ -146,7 +147,7 @@ steps:
   - label: ":memo: Notification setup: Fund Settlements"
     commands:
      - 'mkdir ./reports'
-     - 'buildkite-agent artifact download --include-retried-jobs "fund-execution-report.*" ./reports/ || echo "No report ERROR" > ./reports/fund-execution-report.error'
+     - 'buildkite-agent artifact download --include-retried-jobs "execution-report.*" ./reports/ || echo "No report ERROR" > ./reports/execution-report.error'
      - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
      - 'cp "$$report_path" ./fund-report.txt'
      - 'buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./fund-report.txt)"'
@@ -173,15 +174,8 @@ steps:
 
   - label: ":mega: Notification Funding"
     commands:
-    - build_result=$(buildkite-agent step get "outcome" --step "fund-settlement")
-    - |
-      if [[ -z "$$build_result" || "$$build_result" =~ "failed" ]]; then
-        notification_result="finished with WARNINGS"
-        notification_color="16355909"
-      else
-        notification_result="SUCCEEDED"
-        notification_color="52224"
-      fi
+    - source ./scripts/execute-handlers.sh
+    - check_command_execution_status "fund-settlement" || true
     - |
       attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
       buildkite-agent artifact download --include-retried-jobs fund-report.txt . || echo 'UNKNOWN ERROR' > './fund-report.txt'

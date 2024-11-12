@@ -107,11 +107,11 @@ steps:
         exit 0
       fi
     - 'prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))'
-    - 'buildkite-agent artifact download --include-retried-jobs claim-execution-report.$$prior_build_number . || true'
+    - 'buildkite-agent artifact download --include-retried-jobs execution-report.$$prior_build_number . || true'
     - |
-      cp "claim-execution-report.$$prior_build_number" "claim-execution-report.$$BUILDKITE_RETRY_COUNT" || true
-      rm -f "claim-execution-report.$$prior_build_number"
-      echo "#ATTEMPT $$BUILDKITE_RETRY_COUNT" | tee -a "./claim-execution-report.$$BUILDKITE_RETRY_COUNT"
+      cp "execution-report.$$prior_build_number" "execution-report.$$BUILDKITE_RETRY_COUNT" || true
+      rm -f "execution-report.$$prior_build_number"
+      echo "#ATTEMPT CLAIM SETTLEMENTS $$BUILDKITE_RETRY_COUNT" | tee -a "./execution-report.$$BUILDKITE_RETRY_COUNT"
     - 'buildkite-agent artifact download --include-retried-jobs target/release/claim-settlement .'
     - 'chmod +x target/release/claim-settlement'
     - |
@@ -126,16 +126,17 @@ steps:
           files="$$files -f $$pair_files"
         fi
       done
+    - source ./scripts/execute-handlers.sh
     - |
-      set -o pipefail
+      handle_command_execution "claim-settlement" \
       ./target/release/claim-settlement \
         --rpc-url $$RPC_URL \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$PSR_TX_FEE_WALLET" \
-        $$files | tee -a "./claim-execution-report.$$BUILDKITE_RETRY_COUNT"
+        $$files
     key: 'claim-settlement'
     artifact_paths:
-    - "./claim-execution-report.*"
+    - "./execution-report.*"
     retry:
       automatic:
         - exit_status: 100
@@ -143,20 +144,8 @@ steps:
 
   - label: ":memo: Notification setup: Claim Settlements"
     commands:
-     - |
-        build_result=$(buildkite-agent step get "outcome" --step "claim-settlement")
-        if [[ -z "$$build_result" || "$$build_result" =~ "failed" ]]; then
-          notification_result="finished with WARNINGS"
-          notification_color="16355909"
-        else
-          notification_result="SUCCEEDED"
-          notification_color="52224"
-        fi
-     - 'buildkite-agent meta-data set notification_color "$$notification_color"'
-     - 'buildkite-agent meta-data set notification_result "$$notification_result"'
-     - 'echo "Notification result: $$notification_result, color: $$notification_color"'
      - 'mkdir ./reports'
-     - 'buildkite-agent artifact download --include-retried-jobs "claim-execution-report.*" ./reports/ || echo "No report ERROR" > ./reports/claim-execution-report.error'
+     - 'buildkite-agent artifact download --include-retried-jobs "execution-report.*" ./reports/ || echo "No report ERROR" > ./reports/execution-report.error'
      - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
      - 'cp "$$report_path" ./claiming-report.txt'
      - 'buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./claiming-report.txt)"'
@@ -182,13 +171,14 @@ steps:
 
   - label: ":mega: Notification Claiming"
     commands:
-    - 'notification_result=$(buildkite-agent meta-data get notification_result || echo "UNKNOWN")'
-    - 'notification_color=$(buildkite-agent meta-data get notification_color || echo "15158332")'
-    - 'attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")'
-    - 'buildkite-agent artifact download --include-retried-jobs claiming-report.txt . || echo "UNKNOWN ERROR" > claiming-report.txt'
-    - 'claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json || echo "[]")'
+    - source ./scripts/execute-handlers.sh
+    - check_command_execution_status "claim-settlement" || true
+    - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
+    - buildkite-agent artifact download --include-retried-jobs claiming-report.txt . || echo "UNKNOWN ERROR" > claiming-report.txt
     - |
+      claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json || echo "[]")
       claimable_epochs=$(echo "$$claimable_epochs_json" | jq ". | join(\",\")" | tr -d '"')
+    - |
       curl "$(buildkite-agent meta-data get discord_webhook)" \
         -F 'payload_json={
             "embeds":[{

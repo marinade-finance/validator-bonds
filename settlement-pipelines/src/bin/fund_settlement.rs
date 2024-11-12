@@ -3,7 +3,7 @@ use anchor_client::anchor_lang::solana_program::stake::state::{Authorized, Locku
 use anchor_client::anchor_lang::solana_program::system_program;
 use anchor_client::{DynSigner, Program};
 use clap::Parser;
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
     init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
@@ -238,19 +238,19 @@ async fn prepare_funding(
             continue;
         }
         if epoch + config.epochs_to_claim_settlement < clock.epoch {
-            warn!(
+            reporting.add_warning_string(format!(
                 "Settlement {} (vote account {}, bond {}, epoch {}, reason {}) is too old to be funded, skipping funding",
                 settlement_record.settlement_address,
                 settlement_record.vote_account_address,
                 settlement_record.bond_address,
                 epoch,
                 settlement_record.reason,
-            );
+            ));
             continue;
         }
         if settlement_record.bond_account.is_none() {
             reporting.add_error_string(format!(
-                "Settlement {} (vote account {}, bond {}, epoch {}, reason {}) is not funded by validator bond, skipping funding",
+                "Settlement {} (vote account {}, bond {}, epoch {}, reason {}) funding skipped. Bond account does not exist.",
                 settlement_record.settlement_address,
                 settlement_record.vote_account_address,
                 settlement_record.bond_address,
@@ -422,7 +422,7 @@ async fn prepare_funding(
 
                     match lamports_available.cmp(&(amount_to_fund + minimal_stake_lamports)) {
                         Ordering::Less => {
-                            let err_msg = format!(
+                            reporting.add_warning_string( format!(
                                 "Cannot fully fund settlement {} (vote account {}, epoch {}, reason: {}, max claim {} SOLs, funder: ValidatorBond). To fund {} SOLs, to fund with min stake amount {}, only {} SOLs were found in stake accounts",
                                 settlement_record.settlement_address,
                                 settlement_record.vote_account_address,
@@ -432,8 +432,7 @@ async fn prepare_funding(
                                 lamports_to_sol(amount_to_fund),
                                 lamports_to_sol(amount_to_fund + minimal_stake_lamports),
                                 lamports_to_sol(lamports_available)
-                            );
-                            reporting.add_error_string(err_msg);
+                            ));
                             reporting
                                 .reportable
                                 .add_funded_settlement(settlement_record, lamports_available);
@@ -465,7 +464,7 @@ async fn prepare_funding(
                         }
                     }
                 } else {
-                    reporting.add_error_string(format!(
+                    reporting.add_warning_string(format!(
                         "Settlement {} (vote account {}, epoch {}, reason: {}, max claim {} SOLs, funder: ValidatorBond) not funded as no stake account available",
                         settlement_record.settlement_address,
                         settlement_record.vote_account_address,

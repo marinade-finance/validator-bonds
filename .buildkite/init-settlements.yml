@@ -116,7 +116,7 @@ steps:
     - |
       cp "init-execution-report.$$prior_build_number" "init-execution-report.$$BUILDKITE_RETRY_COUNT" || true
       rm -f "init-execution-report.$$prior_build_number"
-      echo "#ATTEMPT $$BUILDKITE_RETRY_COUNT" | tee -a "./init-execution-report.$$BUILDKITE_RETRY_COUNT"
+      echo "#ATTEMPT INIT SETTLEMENTS $$BUILDKITE_RETRY_COUNT" | tee -a "./init-execution-report.$$BUILDKITE_RETRY_COUNT"
     - buildkite-agent artifact download --include-retried-jobs target/release/init-settlement .
     - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
     - buildkite-agent artifact download --include-retried-jobs settlements.json .
