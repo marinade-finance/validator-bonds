@@ -73,7 +73,7 @@ steps:
     - '. "$HOME/.cargo/env"'
     - |
       
-      echo "#ATTEMPT $((BUILDKITE_RETRY_COUNT+1))" | tee -a "./verify-execution-report.$$BUILDKITE_RETRY_COUNT"
+      echo "#ATTEMPT VERIFY SETTLEMENTS $((BUILDKITE_RETRY_COUNT+1))" | tee -a "./verify-execution-report.$$BUILDKITE_RETRY_COUNT"
     - 'buildkite-agent artifact download --include-retried-jobs target/release/verify-settlement .'
     - 'buildkite-agent artifact download --include-retried-jobs past-settlements.json .'
     - 'chmod +x target/release/verify-settlement'

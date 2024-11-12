@@ -112,7 +112,7 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementsReport>) -> any
     let mut json_data = load_json(&args.json_files)?;
     let json_loaded_settlements_per_epoch =
         parse_settlements_from_json(&mut json_data, &config_address, args.epoch)
-            .map_err(CliError::processing)?;
+            .map_err(CliError::critical)?;
 
     // loaded from RPC on-chain data
     let mut claimable_settlements =
@@ -340,7 +340,7 @@ async fn claim_settlement<'a>(
             if let Some((pubkey, _, _)) = stake_account_from {
                 *pubkey
             } else {
-                reporting.add_error_string(format!(
+                reporting.add_warning_string(format!(
                     "No stake account found with enough SOLs to claim {} from, settlement {}, index: {}, epoch {}",
                     lamports_to_sol(tree_node.claim),
                     settlement_json_data.settlement_address,
@@ -373,7 +373,7 @@ async fn claim_settlement<'a>(
             clock,
             stake_history,
         ).map_or_else(|e| {
-            reporting.add_error_string(format!(
+            reporting.add_warning_string(format!(
                 "No available stake account found where to claim into of staker/withdraw authorities {}/{} (epoch: {}, settlement: {}, claim: {}, index: {}): {:?}",
                 tree_node.stake_authority, tree_node.withdraw_authority,
                 settlement_json_data.epoch,
@@ -458,7 +458,7 @@ fn get_settlement_from_json<'a>(
     {
         settlement_merkle_tree
     } else {
-        return Err(CliError::Processing(anyhow!(
+        return Err(CliError::Critical(anyhow!(
                 "No JSON merkle tree data found for settlement {} epoch {}, probably missing JSON input data for epoch (e.g., bidding or protected-events data)",
                 on_chain_settlement.settlement_address,
                 settlement_epoch
@@ -472,7 +472,7 @@ fn get_settlement_from_json<'a>(
     let matching_settlement = if let Some(settlement) = matching_settlement {
         settlement
     } else {
-        return Err(CliError::Processing(anyhow!(
+        return Err(CliError::Critical(anyhow!(
             "No matching JSON merkle-tree data has been found for on-chain settlement {}, bond {} in epoch {}",
             on_chain_settlement.settlement_address,
             on_chain_settlement.settlement.bond,
@@ -483,7 +483,7 @@ fn get_settlement_from_json<'a>(
     if on_chain_settlement.settlement.max_total_claim != matching_settlement.max_total_claim_sum
         || on_chain_settlement.settlement.merkle_root != matching_settlement.merkle_root
     {
-        return Err(CliError::Processing(anyhow!(
+        return Err(CliError::Critical(anyhow!(
             "Mismatch between on-chain settlement and JSON data for settlement {}, bond {} in epoch {}",
             on_chain_settlement.settlement_address,
             on_chain_settlement.settlement.bond,
@@ -491,7 +491,7 @@ fn get_settlement_from_json<'a>(
         )));
     }
     if on_chain_settlement.stake_accounts.is_empty() {
-        return Err(CliError::Processing(anyhow!(
+        return Err(CliError::Critical(anyhow!(
             "No stake accounts found on-chain for settlement {}",
             on_chain_settlement.settlement_address
         )));

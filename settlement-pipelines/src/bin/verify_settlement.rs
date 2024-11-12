@@ -39,7 +39,7 @@ async fn real_main() -> anyhow::Result<()> {
 
     let past_settlements: Vec<BondSettlement> = read_from_json_file(&args.past_settlements)
         .map_err(|e| anyhow!("Failed to load --past-settlements: {:?}", e))
-        .map_err(CliError::Processing)?;
+        .map_err(CliError::Critical)?;
 
     let (rpc_client, _) = get_rpc_client(&args.global_opts).map_err(CliError::RetryAble)?;
     let config_settlements = get_settlements_for_config(rpc_client.clone(), &config_address)
@@ -78,7 +78,7 @@ async fn real_main() -> anyhow::Result<()> {
 
     serde_json::to_writer(io::stdout(), &unknown_settlements)
         .map_err(|e| anyhow!("Failed to write unknown settlements as JSON: {:?}", e))
-        .map_err(CliError::Processing)?;
+        .map_err(CliError::Critical)?;
 
     Ok(())
 }

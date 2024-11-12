@@ -83,7 +83,7 @@ steps:
     - |
       cp "close-execution-report.$$prior_build_number" "close-execution-report.$$BUILDKITE_RETRY_COUNT" || true
       rm -f "close-execution-report.$$prior_build_number"
-      echo "#ATTEMPT $$BUILDKITE_RETRY_COUNT" | tee -a "./close-execution-report.$$BUILDKITE_RETRY_COUNT"
+      echo "#ATTEMPT CLOSE SETTLEMENTS $$BUILDKITE_RETRY_COUNT" | tee -a "./close-execution-report.$$BUILDKITE_RETRY_COUNT"
     - 'buildkite-agent artifact download --include-retried-jobs target/release/close-settlement .'
     - 'buildkite-agent artifact download --include-retried-jobs past-settlements.json .'
     - 'chmod +x target/release/close-settlement'

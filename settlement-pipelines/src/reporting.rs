@@ -48,6 +48,7 @@ impl<T: PrintReportable> DerefMut for ReportHandler<T> {
 pub struct ErrorHandler {
     retry_able_errors: Vec<String>,
     errors: Vec<String>,
+    warnings: Vec<String>,
 }
 
 impl ErrorHandler {
@@ -61,6 +62,16 @@ impl ErrorHandler {
         self.errors.push(format!("{}", error));
     }
 
+    pub fn add_warning_string<D: Display>(&mut self, warning: D) {
+        error!("{}", warning);
+        self.warnings.push(warning.to_string());
+    }
+
+    pub fn add_warning(&mut self, warning: anyhow::Error) {
+        error!("{:?}", warning);
+        self.warnings.push(format!("{}", warning));
+    }
+
     pub fn add_retry_able_error(&mut self, error: anyhow::Error) {
         error!("{:?}", error);
         self.retry_able_errors.push(format!("{}", error));
@@ -69,8 +80,9 @@ impl ErrorHandler {
     pub fn add_cli_error(&mut self, error: CliError) {
         error!("{:?}", error);
         match error {
-            CliError::Processing(err) => self.add_error(err),
+            CliError::Critical(err) => self.add_error(err),
             CliError::RetryAble(err) => self.add_retry_able_error(err),
+            CliError::Warning(err) => self.add_warning(err),
         }
     }
 
@@ -94,28 +106,35 @@ impl ErrorHandler {
     pub fn finalize(&self) -> anyhow::Result<()> {
         let mut result = anyhow::Ok(());
 
+        if !self.warnings.is_empty() {
+            println!("WARNINGS ({}):", self.warnings.len());
+            for warning in &self.warnings {
+                println!("{}", warning);
+            }
+            result = Err(CliError::warning(format!(
+                "Some warnings occurred during processing: {} warnings",
+                self.warnings.len()
+            )));
+        }
+
         if !self.errors.is_empty() {
-            println!("ERRORS:");
+            println!("ERRORS ({}):", self.errors.len());
             for error in &self.errors {
                 println!("{}", error);
             }
-            result = Err(CliError::processing(format!(
-                "Errors occurred during processing: {} errors",
+            result = Err(CliError::critical(format!(
+                "Some errors occurred during processing: {} errors",
                 self.errors.len()
             )));
         }
 
         if !self.retry_able_errors.is_empty() {
-            error!(
-                "Errors occurred during transaction processing: {} errors",
-                self.retry_able_errors.len()
-            );
-            println!("TRANSACTION ERRORS:");
+            println!("TRANSACTION ERRORS ({}):", self.retry_able_errors.len());
             for error in &self.retry_able_errors {
                 println!("{}", error);
             }
             result = Err(CliError::retry_able(format!(
-                "Retry-able errors occurred: {} errors",
+                "Some retry-able errors occurred: {} errors",
                 self.retry_able_errors.len()
             )));
         }

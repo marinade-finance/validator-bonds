@@ -34,13 +34,18 @@ impl Termination for CliResult {
 
 #[derive(Debug)]
 pub enum CliError {
-    Processing(anyhow::Error),
+    Critical(anyhow::Error),
+    Warning(anyhow::Error),
     RetryAble(anyhow::Error),
 }
 
 impl CliError {
-    pub fn processing<T: Debug>(err: T) -> anyhow::Error {
-        CliError::Processing(anyhow!("{:?}", err)).into()
+    pub fn critical<T: Debug>(err: T) -> anyhow::Error {
+        CliError::Critical(anyhow!("{:?}", err)).into()
+    }
+
+    pub fn warning<T: Debug>(err: T) -> anyhow::Error {
+        CliError::Warning(anyhow!("{:?}", err)).into()
     }
 
     pub fn retry_able<T: Debug>(err: T) -> anyhow::Error {
@@ -53,7 +58,8 @@ impl std::error::Error for CliError {}
 impl fmt::Display for CliError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            CliError::Processing(err) => write!(f, "[Processing] {}", err),
+            CliError::Critical(err) => write!(f, "[Critical] {}", err),
+            CliError::Warning(err) => write!(f, "[Warning] {}", err),
             CliError::RetryAble(err) => write!(f, "[RetryAble] {}", err),
         }
     }
@@ -63,9 +69,14 @@ impl From<CliError> for ExitCode {
     fn from(err: CliError) -> ExitCode {
         match err {
             // default exit code for failure is 1
-            CliError::Processing(e) => {
+            // we use 2 to show it's an error from our CLI
+            CliError::Critical(e) => {
                 error!("{:?}", e);
                 ExitCode::from(2)
+            }
+            CliError::Warning(e) => {
+                error!("{:?}", e);
+                ExitCode::from(99)
             }
             CliError::RetryAble(e) => {
                 error!("{:?}", e);

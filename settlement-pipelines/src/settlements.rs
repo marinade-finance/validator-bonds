@@ -100,7 +100,7 @@ pub async fn list_claimable_settlements(
                     info!("{}", error_msg);
                     None
                 } else {
-                    Some(Err(CliError::Processing(anyhow!("CRITICAL {}", error_msg))))
+                    Some(Err(CliError::Critical(anyhow!("CRITICAL {}", error_msg))))
                 }
             }
         })
