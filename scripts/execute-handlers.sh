@@ -3,11 +3,11 @@
 # Function to handle command execution and exit codes
 # Where we define exit error codes:
 # 0: Success
-# 1: Non-retryable error
-# 2: Warning failure
+# 1: Error, standard linux error status code
+# 2: Failure emitted by CLI
+# 99: Warning
 # 100: Retryable failure
-# Error code is stored in Buildkite metadata set as compound of variables
-# ${command_name}_status and ${command_name}_warning.
+# Error codes are stored in Buildkite metadata: ${command_name}_status and ${command_name}_warning.
 handle_command_execution() {
     set +e
     local command_name="$1"
