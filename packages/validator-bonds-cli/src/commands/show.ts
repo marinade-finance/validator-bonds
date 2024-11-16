@@ -26,6 +26,7 @@ import {
   findSettlements,
   findStakeAccounts,
   withdrawRequestAddress,
+  settlementClaimsAddress,
 } from '@marinade.finance/validator-bonds-sdk'
 import { ProgramAccount } from '@coral-xyz/anchor'
 import { getBondFromAddress, formatUnit, formatToSolWithAll } from './utils'
@@ -524,6 +525,10 @@ async function showSettlement({
         programId: program.programId,
         publicKey: settlementData.publicKey,
         account: settlementData.account,
+        settlementClaims: settlementClaimsAddress(
+          settlementData.publicKey,
+          program.programId
+        )[0],
       }))
     } catch (err) {
       throw new CliCommandError({
