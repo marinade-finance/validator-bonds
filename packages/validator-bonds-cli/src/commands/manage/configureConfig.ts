@@ -190,7 +190,7 @@ async function manageConfigureConfig({
   await executeTx({
     connection: provider.connection,
     transaction: tx,
-    errMessage: `'Failed to create config account ${address.toBase58()}`,
+    errMessage: `'Failed to configure config account ${address.toBase58()}`,
     signers,
     logger,
     computeUnitLimit: CONFIGURE_CONFIG_LIMIT_UNITS,
