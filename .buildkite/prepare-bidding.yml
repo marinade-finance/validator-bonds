@@ -5,7 +5,7 @@ env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   MARINADE_SCORING_API_URL: https://scoring.marinade.finance/api/v1
   CLAIM_TYPE: "bidding"
-  MARINADE_FEE_BPS: 6000
+  MARINADE_FEE_BPS: 2000
   MARINADE_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
   MARINADE_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
 
