@@ -180,6 +180,45 @@ Expected output on created bond is like
 _NOTE:_ for more details on `429 Too Many Requests` check the section
         [Troubleshooting](#troubleshooting)
 
+#### Amount Values and the `amountActive` Field
+
+The `amountActive` field represents the amount of SOL available for funding Settlements and is considered
+as funded to the Bond account. It is calculated as:
+
+```
+amountActive = amountOwned - amountAtSettlements - amountToWithdraw
+```
+
+- **`amountOwned`**: The total amount available at the Bond account.
+- **`amountAtSettlements`**: The amount reserved in existing Settlements, waiting to be claimed by stakers.
+  If not claimed, this amount is returned to the Bond account and reflected in `amountActive`.
+- **`amountToWithdraw`**: The amount the user has requested to withdraw, which is no longer considered
+  active for Settlement funding.
+
+When a user decides to [withdraw from their Bond account](#withdrawing-bond-account), a special on-chain withdrawal request
+is created. This request acts as a ticket authorizing withdrawal after a delay (~4 epochs).
+The delay allows the Validator Bonds system time to rebalance the delegated stake if necessary.
+
+The requested withdrawal amount (`amountToWithdraw`) remains available in the Bond but is excluded from `amountActive`
+since it is set to be withdrawn.
+
+When creating a withdrawal request with the [`ALL` option](#withdraw-all)
+in the [`init-withdraw-request` CLI command](#withdrawing-bond-account), the system interprets it as a request
+to withdraw all funds from the Bond account. This may result in `amountActive` becoming negative.
+
+Example of a negative `amountActive`:
+```json
+"amountActive": "-18446744053.751394957 SOL"
+```
+
+This indicates that the user funded their Bond but then created a withdrawal request for `ALL`.
+The system calculates `ALL` as an extremely large value
+(approximately [`18e18`](https://doc.rust-lang.org/std/u64/constant.MAX.html)).
+Subtracting this from the available amount results in a negative `amountActive`,
+signifying that no funds are available for Settlement funding.
+
+
+
 ### Bond account configuration
 
 The `Bond` owner may configure following properties of the account:
@@ -309,6 +348,12 @@ This process involves two steps:
 1. Initialize a withdrawal request, which means creating an on-chain account (a ticket) informing the protected event system about the intention to withdraw funds.
 2. Only after the lockup period elapses — currently after 3 epochs — can one claim the withdrawal request and regain ownership of the funds held in the stake account.
 
+<a id='withdraw-all'></a>
+
+**IMPORTANT:** If you want to withdraw all SOLs from the funded bond,
+               use **ALL** as value for `--amount` argument.
+               Using **ALL** means creating a withdrawal request ticket with an amount approximately equal to [`18e18`](https://doc.rust-lang.org/std/u64/constant.MAX.html).
+
 **WARNING:** The amount specified in the withdrawal request ticket account is no longer
              counted as part of the funded bond amount.
              When participating in bond auctions,
@@ -320,9 +365,6 @@ This process involves two steps:
 To initialize the withdrawal request, one needs to define the maximum number of lamports
 that are requested to be withdrawn upon claiming.
 The amount defined on creating withdraw request can be _bigger_ than amount funded to bond.
-
-**IMPORTANT:** If you want to withdraw all SOLs from the funded bond,
-               use **ALL** as value for `--amount` argument.
 
 For claiming, one may define `--withdrawer` as the public key where the claimed
 stake accounts will be assigned (by withdrawer and staker authorities) to.
