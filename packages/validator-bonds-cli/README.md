@@ -507,17 +507,13 @@ For advanced on-chain queries, refer to the [on-chain analysis documentation](..
 ## Searching Bonds funded stake accounts
 
 Bond program assigns the funded stake accounts with `withdrawal` authority of address
-`7cgg6KhPd1G8oaoB48RyPDWu7uZs51jUpDYB3eq4VebH`. To query the all stake accounts
-one may use the RPC call of `getProgramAccounts`.
+`7cgg6KhPd1G8oaoB48RyPDWu7uZs51jUpDYB3eq4VebH`.
 
 Technical details of the stake account layout can be found in Solana source code [for staker and withdrawer](https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/state.rs#L60)
 and for [voter pubkey](https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/state.rs#L414).
 
-```
-STAKER_OFFSET = 12 // 4 for enum, 8 rent exempt reserve
-WITHDRAWER_OFFSET = 44 // 4 + 8 + staker pubkey
-VOTER_PUBKEY_OFFSET = 124 // 4 for enum + 120 for Meta
-```
+To query the all stake accounts
+one may use the RPC call of `getProgramAccounts`.
 
 ```sh
 RPC_URL='https://api.mainnet-beta.solana.com'
@@ -539,6 +535,52 @@ curl $RPC_URL -X POST -H "Content-Type: application/json" -d '
             "memcmp": {
               "offset": 44,
               "bytes": "7cgg6KhPd1G8oaoB48RyPDWu7uZs51jUpDYB3eq4VebH"
+            }
+          }
+        ]
+      }
+    ]
+  }
+' | jq '.'
+```
+
+To query by parameters one needs to add an offset of the data.
+For all stake accounts assigned under Bond and delegated to a validator
+one uses voter key.
+
+```
+STAKER_OFFSET = 12 // 4 for enum, 8 rent exempt reserve
+WITHDRAWER_OFFSET = 44 // 4 + 8 + staker pubkey
+// to whom the stake is delegated
+VOTER_PUBKEY_OFFSET = 124 // 4 for enum + 120 for Meta
+```
+
+```
+RPC_URL='https://api.mainnet-beta.solana.com'
+curl $RPC_URL -X POST -H "Content-Type: application/json" -d '
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getProgramAccounts",
+    "params": [
+      "Stake11111111111111111111111111111111111111",
+      {
+        "encoding": "base64",
+        "dataSlice": {
+            "offset": 0,
+            "length": 0
+        },
+      "filters": [
+          {
+            "memcmp": {
+              "offset": 44,
+              "bytes": "7cgg6KhPd1G8oaoB48RyPDWu7uZs51jUpDYB3eq4VebH"
+            }
+          },
+          {
+            "memcmp": {
+              "offset": 124,
+              "bytes": "<<vote account address>>"
             }
           }
         ]
