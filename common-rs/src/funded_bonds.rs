@@ -39,7 +39,7 @@ pub async fn collect_validator_bonds_with_funds(
     log::info!("Found witdraw requests: {}", witdraw_requests.len());
     log::info!("Found settlements: {}", settlements.len());
 
-    for (pubkey, _, stake_account) in stake_accounts {
+    for (pubkey, lamports_available, stake_account) in stake_accounts {
         if let Some(lockup) = stake_account.lockup() {
             if lockup.is_in_force(&clock, None) {
                 log::warn!("Lockup is in force {pubkey}");
@@ -47,8 +47,8 @@ pub async fn collect_validator_bonds_with_funds(
         }
         if let Some(delegation) = stake_account.delegation() {
             let funded_bond = validator_funds.entry(delegation.voter_pubkey).or_default();
-            funded_bond.funded_amount += delegation.stake;
-            funded_bond.effective_amount += delegation.stake;
+            funded_bond.funded_amount += lamports_available;
+            funded_bond.effective_amount += lamports_available;
         }
     }
 
