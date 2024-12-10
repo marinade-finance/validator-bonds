@@ -478,20 +478,84 @@ Configuration parameters:
 validator-bonds -um show-config vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU
 ```
 
+## Details on Bond Processing
+
+Bond calculation and settlement occur with a one-epoch delay.
+Funds are charged at the start of epoch X+1 based on data from epoch X.
+
+### Auction
+
+The auction for epoch X determines the effective bid (`auctionEffectiveBidPmpe`)
+for each validator for that epoch.
+This value, calculated from bids across participating validators,
+defines the SOL cost per 10,000 SOL staked.
+
+**Example:**  
+If `auctionEffectiveBidPmpe` = `0.123` and a validator is delegated 100K SOL by Marinade,
+the payment is:  
+`0.123 * 100,000 / 10,000 = 1.23 SOL`.
+
+**Access Data:**  
+  - The results of the auction are stored within the pipeline results
+https://github.com/marinade-finance/ds-sam-pipeline/tree/main/auctions
+(see the JSON file `<epoch>/outputs/results.json`)
+  - The data are loaded to API and are available at 
+https://scoring.marinade.finance/api/v1/scores/sam?epoch=X
+  - The data is displayed at dashboard https://psr.marinade.finance/
+
+#### Settlement Creation
+
+Using delegated stake and auction results from epoch X, Bonds processing creates on-chain
+`Settlement` data at the start of epoch X+1. These are funded from the validator's Bond
+based on the auction outcome.
+The processing runs at the start of epoch X+1 for epoch X, as it is only then clear how many
+SOLs Marinade delegated to each validator. The data is sourced from the Solana snapshot
+taken at the end of epoch X.
+
+Settlements can be claimed by stakers for 4 epochs.
+Unclaimed funds are returned to the validator's Bond.
+
+- **Access Data:**  
+  - Discord: [PSR feed channel](https://discord.com/channels/823564092379627520/1223330302890348754).  
+  - Historical data: [Google Cloud storage](https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet).  
+
+### PSR Events
+
+Bonds can also be charged for [PSR events](https://marinade.finance/how-it-works/psr).  
+
+**Note:**  
+The term "uptime" refers to "voting uptime," i.e., the number of
+[vote credits](https://docs.anza.xyz/proposals/timely-vote-credits) earned.
+Bond calculations ensure validators earn inflation rewards equal to or above the network average.
+Validators below the standard are charged to cover the shortfall,
+and a Settlement is created for this purpose.
+
+### Verifying Charged Amounts
+
+Validators can verify charged amounts and funded SOLs on-chain.  
+
+**Options:**  
+- **Current State:** Use the [CLI show command](#show-the-bond-account) to see the current on-chain Bond state
+  - _NOTE:_ data from `show-bond` represents current on-chain data not data used
+        for bonds calculation of particular epoch
+- **Historical Data:**  
+  - Dashboard: [PSR Bonds Dashboard](https://psr.marinade.finance/).  
+  - Auction data: [Auction scores API](https://scoring.marinade.finance/api/v1/scores/sam?epoch=X).  
+  - Settlement data: [Google Cloud storage](https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet).  
+
+For advanced on-chain queries, refer to the [on-chain analysis documentation](../../programs/validator-bonds/ON_CHAIN_ANALYSIS.md).
+
+
 ## Searching Bonds funded stake accounts
 
 Bond program assigns the funded stake accounts with `withdrawal` authority of address
-`7cgg6KhPd1G8oaoB48RyPDWu7uZs51jUpDYB3eq4VebH`. To query the all stake accounts
-one may use the RPC call of `getProgramAccounts`.
+`7cgg6KhPd1G8oaoB48RyPDWu7uZs51jUpDYB3eq4VebH`.
 
 Technical details of the stake account layout can be found in Solana source code [for staker and withdrawer](https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/state.rs#L60)
 and for [voter pubkey](https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/state.rs#L414).
 
-```
-STAKER_OFFSET = 12 // 4 for enum, 8 rent exempt reserve
-WITHDRAWER_OFFSET = 44 // 4 + 8 + staker pubkey
-VOTER_PUBKEY_OFFSET = 124 // 4 for enum + 120 for Meta
-```
+To query all the stake accounts
+one may use the RPC call of `getProgramAccounts`.
 
 ```sh
 RPC_URL='https://api.mainnet-beta.solana.com'
@@ -513,6 +577,52 @@ curl $RPC_URL -X POST -H "Content-Type: application/json" -d '
             "memcmp": {
               "offset": 44,
               "bytes": "7cgg6KhPd1G8oaoB48RyPDWu7uZs51jUpDYB3eq4VebH"
+            }
+          }
+        ]
+      }
+    ]
+  }
+' | jq '.'
+```
+
+To query by parameters one needs to add an offset of the data.
+For all stake accounts assigned under Bond and delegated to a validator
+one uses voter key.
+
+```
+STAKER_OFFSET = 12 // 4 for enum, 8 rent exempt reserve
+WITHDRAWER_OFFSET = 44 // 4 + 8 + staker pubkey
+// to whom the stake is delegated
+VOTER_PUBKEY_OFFSET = 124 // 4 for enum + 120 for Meta
+```
+
+```
+RPC_URL='https://api.mainnet-beta.solana.com'
+curl $RPC_URL -X POST -H "Content-Type: application/json" -d '
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getProgramAccounts",
+    "params": [
+      "Stake11111111111111111111111111111111111111",
+      {
+        "encoding": "base64",
+        "dataSlice": {
+            "offset": 0,
+            "length": 0
+        },
+      "filters": [
+          {
+            "memcmp": {
+              "offset": 44,
+              "bytes": "7cgg6KhPd1G8oaoB48RyPDWu7uZs51jUpDYB3eq4VebH"
+            }
+          },
+          {
+            "memcmp": {
+              "offset": 124,
+              "bytes": "<<vote account address>>"
             }
           }
         ]

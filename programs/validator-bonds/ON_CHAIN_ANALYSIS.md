@@ -115,47 +115,41 @@ WHERE 1=1
 ORDER BY floor(block_id/432000) ASC
 ```
 
-
 ## Query Validator Bonds instructions event data
 
 One can query the Anchor instructions for events as they are emitted in the contract code,
 see e.g., [FundBond event](https://github.com/marinade-finance/validator-bonds/blob/contract-v2.0.0/programs/validator-bonds/src/instructions/bond/fund_bond.rs#L127).
 
 ```sql
-select block_timestamp, ixs.value:data
-    from solana.core.fact_events fe
-    inner JOIN solana.core.fact_transactions ft USING(block_timestamp, tx_id, succeeded)
-        ,LATERAL FLATTEN(input => fe.inner_instruction:instructions) ixs,
-where 1=1
-    and fe.succeeded
-    and fe.program_id = 'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4'
-    and fe.block_timestamp > current_date - 7
-    -- and fe.block_timestamp < current_date - 7
-    and array_contains('Program log: Instruction: FundBond'::variant, ft.log_messages)
-    and array_contains('<<bond-account-pubkey>>'::variant, fe.instruction:accounts)
-    -- filter the list of inner instructions for only the emit log CPI events
-    -- this instruction is always emitted by the same Anchor CPI PDA defined for the bond program
-    and array_contains('j6cZKhHTFuWsiCgPT5wriQpZWqWWUSQqjDJ8S2YDvDL'::variant, ixs.value:accounts)
-ORDER BY block_timestamp ASC
-```
-
-```sql
--- FundSettlement
-select block_timestamp, ixs.value:data
-from solana.core.fact_events fe
-inner JOIN solana.core.fact_transactions ft USING(block_timestamp, tx_id, succeeded)
-  ,LATERAL FLATTEN(input => fe.inner_instruction:instructions) ixs,
-where
-fe.succeeded
+SELECT
+  -- floor(block_id/432000) as epoch,
+  -- tx_id,
+  block_timestamp,
+  block_id,
+  ixs.value:data
+FROM solana.core.fact_events fe
+INNER JOIN
+  solana.core.fact_transactions ft USING(block_timestamp, tx_id, succeeded),
+  LATERAL FLATTEN(input => fe.inner_instruction:instructions) ixs
+WHERE fe.succeeded
+-- and fe.block_id >= 700*432000
 and fe.program_id = 'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4'
+
+-- Type of INSTRUCTION searching for
+-- and array_contains('Program log: Instruction: FundBond'::variant, ft.log_messages)
 and array_contains('Program log: Instruction: FundSettlement'::variant, ft.log_messages)
--- vote account: CaraHZBReeNNYAJ326DFsvy41M2p1KWTEoBAwBL6bmWZ -> bond account: 3zVyxrxkR2a3oWoBku7CaAG7UW6JS65vqyoTdG1Djig9
-and array_contains('3zVyxrxkR2a3oWoBku7CaAG7UW6JS65vqyoTdG1Djig9'::variant, fe.instruction:accounts)
+-- and array_contains('Program log: Instruction: ClaimWithdrawRequest'::variant, ft.log_messages)
+
+-- filter instructions by Bond pubkey
+and array_contains('<<bond-account-pubkey>>'::variant, fe.instruction:accounts)
+
 -- from the list of inner instructions getting only those that contains the CPI event data
 -- the CPI PDA call address is always the same for bond program
 and array_contains('j6cZKhHTFuWsiCgPT5wriQpZWqWWUSQqjDJ8S2YDvDL'::variant, ixs.value:accounts)
-ORDER BY block_timestamp ASC
+order by block_timestamp ASC;
 ```
+
+### Investigate the event data
 
 The string found in the `ixs.value:data` column can be decrypted using the
 [Validator Bonds CLI](../../packages/validator-bonds-cli/README.md)
@@ -166,3 +160,22 @@ Run it like this:
 ```sh
 pnpm --silent cli show-event -f json <<base58-format-cpi-event-data>>
 ```
+
+or one can use the script [`parse-flipside-event-csv`](../../scripts/parse-flipside-event-csv.sh).
+See following guideline:
+
+1. Run the FlipSide query with Bond account defined within
+   https://flipsidecrypto.xyz/studio/queries
+2. Download the `Results` CSV file
+   ![Download the `Results` CSV file](../../resources/onchain/howto-download-results.png)
+3. Get running the parsing script to list the funded amounts per transaction
+   ```
+   ./scripts/parse-flipside-event-csv.sh ~/Downloads/download-query-results-37ee1ecb-3e1b-438d-b410-5a1d617ccbe3.csv 
+   ./scripts/parse-flipside-event-csv.sh: parsing file 'Downloads/download-query-results-37ee1ecb-3e1b-438d-b410-5a1d617ccbe3.csv'
+   Skipping 'BLOCK_TIMESTAMP'
+   2024-11-1600:13:35.000;698;7.335386511
+   2024-11-1722:27:48.000;699;0.501340858
+   2024-11-1722:59:21.000;699;17.833468698
+   2024-11-2008:40:44.000;700;9.445008408
+   Total lamports: 35.115204475
+   ```
