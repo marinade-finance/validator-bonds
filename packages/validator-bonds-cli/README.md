@@ -456,7 +456,7 @@ the payment is:
 **Access Data:**  
   - The results of the auction are stored within the pipeline results
 https://github.com/marinade-finance/ds-sam-pipeline/tree/main/auctions
-(see the folder `<epoch>/outputs/results.json`)
+(see the JSON file `<epoch>/outputs/results.json`)
   - The data are loaded to API and are available at 
 https://scoring.marinade.finance/api/v1/scores/sam?epoch=X
   - The data is displayed at dashboard https://psr.marinade.finance/
@@ -512,7 +512,7 @@ Bond program assigns the funded stake accounts with `withdrawal` authority of ad
 Technical details of the stake account layout can be found in Solana source code [for staker and withdrawer](https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/state.rs#L60)
 and for [voter pubkey](https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/state.rs#L414).
 
-To query the all stake accounts
+To query all the stake accounts
 one may use the RPC call of `getProgramAccounts`.
 
 ```sh
