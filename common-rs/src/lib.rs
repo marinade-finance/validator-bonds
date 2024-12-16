@@ -11,6 +11,7 @@ pub mod settlement_claims;
 pub mod settlements;
 pub mod stake_accounts;
 pub mod utils;
+pub mod utils_rpc_retry;
 pub mod withdraw_requests;
 
 pub fn get_validator_bonds_program(

@@ -1,5 +1,5 @@
 use anchor_client::{DynSigner, Program};
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use clap::Parser;
 use log::{debug, info};
 
@@ -37,6 +37,7 @@ use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::constants::find_event_authority;
 use validator_bonds_common::settlements::get_settlements_for_pubkeys;
 use validator_bonds_common::utils::try_get_all_account_infos_for_pubkeys;
+use validator_bonds_common::utils_rpc_retry::retry_get_pubkeys_operation;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -292,29 +293,33 @@ async fn upsize_settlements(
     transaction_builder.add_signer_checked(&rent_payer);
 
     // re-loading settlements data from the chain on provided settlement addresses
-    let reloaded_settlements_records = get_settlements_for_pubkeys(
+    let reloaded_settlements_data = retry_get_pubkeys_operation(
         rpc_client.clone(),
         &settlement_records
             .iter()
             .map(|s| s.settlement_address)
             .collect::<Vec<Pubkey>>(),
+        get_settlements_for_pubkeys,
+        None,
     )
     .await
-    .map_err(CliError::retry_able)?
-    .into_iter()
-    .filter(|(settlement_address, info)| {
-        if info.is_none() {
-            reporting.add_error_string(format!(
-                "[UpsizeElements] Settlement account {} does not exist on-chain",
-                settlement_address
-            ));
-            false
-        } else {
-            true
-        }
-    })
-    .map(|(settlement_address, settlement)| (settlement_address, settlement.unwrap()))
-    .collect::<Vec<(Pubkey, validator_bonds::state::settlement::Settlement)>>();
+    .context("Failed to reload Settlements data based of pubkeys");
+    let reloaded_settlements_records = reloaded_settlements_data
+        .map_err(CliError::retry_able)?
+        .into_iter()
+        .filter(|(settlement_address, info)| {
+            if info.is_none() {
+                reporting.add_error_string(format!(
+                    "[UpsizeElements] Settlement account {} does not exist on-chain",
+                    settlement_address
+                ));
+                false
+            } else {
+                true
+            }
+        })
+        .map(|(settlement_address, settlement)| (settlement_address, settlement.unwrap()))
+        .collect::<Vec<(Pubkey, validator_bonds::state::settlement::Settlement)>>();
     let settlement_claims_pubkeys = reloaded_settlements_records
         .iter()
         .map(|(settlement_address, _)| find_settlement_claims_address(settlement_address).0)
