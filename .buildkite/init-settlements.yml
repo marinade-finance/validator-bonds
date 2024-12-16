@@ -151,14 +151,14 @@ steps:
           notification_result="SUCCEEDED"
           notification_color="52224"
         fi
-     - 'buildkite-agent meta-data set notification_color "$$notification_color"'
-     - 'buildkite-agent meta-data set notification_result "$$notification_result"'
+     - buildkite-agent meta-data set notification_color "$$notification_color"
+     - buildkite-agent meta-data set notification_result "$$notification_result"
      - 'echo "Notification result: $$notification_result, color: $$notification_color"'
-     - 'mkdir ./reports'
-     - 'buildkite-agent artifact download --include-retried-jobs "init-execution-report.*" ./reports/ || echo "No report ERROR" > ./reports/init-execution-report.error'
-     - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
-     - 'cp "$$report_path" ./init-report.txt'
-     - 'buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./init-report.txt)"'
+     - mkdir ./reports
+     - buildkite-agent artifact download --include-retried-jobs "init-execution-report.*" ./reports/ || echo "No report ERROR" > ./reports/init-execution-report.error
+     - report_path="./reports/$(ls -v1 reports/ | tail -n 1)"
+     - cp "$$report_path" ./init-report.txt
+     - buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./init-report.txt)"
     artifact_paths:
     - "./init-report.txt"
     key: 'notification-setup-init'
@@ -182,12 +182,13 @@ steps:
     - notification_result=$(buildkite-agent meta-data get notification_result || echo "UNKNOWN")
     - notification_color=$(buildkite-agent meta-data get notification_color || echo "15158332")
     - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
+    - claim_type=$(buildkite-agent meta-data get claim_type || echo "UNKNOWN")
     - buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt
     - |
         curl "$(buildkite-agent meta-data get discord_webhook)" \
         -F 'payload_json={
             "embeds":[{
-              "title": "Init Settlements '"$notification_result"' for Validator Bonds ('"$$epoch"') after '"$$attempts_count"' attempts",
+              "title": "Init Settlements '"$$notification_result"' for '"$$claim_type"' Validator Bonds ('"$$epoch"') after '"$$attempts_count"' attempts",
               "url": "'"$$BUILDKITE_BUILD_URL"'",
               "color": "'"$$notification_color"'"
             }]
