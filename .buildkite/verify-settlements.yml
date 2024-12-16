@@ -70,21 +70,21 @@ steps:
     env:
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,verify_settlement=debug
     commands:
-    - '. "$HOME/.cargo/env"'
+    - . "$HOME/.cargo/env"
+    - command_name="verify-settlement"
     - |
-      
-      echo "#ATTEMPT VERIFY SETTLEMENTS $((BUILDKITE_RETRY_COUNT+1))" | tee -a "./verify-execution-report.$$BUILDKITE_RETRY_COUNT"
-    - 'buildkite-agent artifact download --include-retried-jobs target/release/verify-settlement .'
-    - 'buildkite-agent artifact download --include-retried-jobs past-settlements.json .'
-    - 'chmod +x target/release/verify-settlement'
+      echo "#ATTEMPT VERIFY SETTLEMENTS $((BUILDKITE_RETRY_COUNT+1))" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
+    - buildkite-agent artifact download --include-retried-jobs target/release/verify-settlement .
+    - buildkite-agent artifact download --include-retried-jobs past-settlements.json .
+    - chmod +x target/release/verify-settlement
     - |
       set -o pipefail
       ./target/release/verify-settlement \
         --rpc-url $$RPC_URL \
-        --past-settlements ./past-settlements.json | tee -a "./verify-execution-report.$$BUILDKITE_RETRY_COUNT"
+        --past-settlements ./past-settlements.json | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
     key: 'verify-settlement'
     artifact_paths:
-      - "./verify-execution-report.*"
+      - "./execution-report.*"
     retry:
       automatic:
         - exit_status: 100
@@ -92,9 +92,10 @@ steps:
 
   - label: ":memo: Notification setup: Verify Settlements"
     commands:
-     - 'mkdir ./reports'
-     - 'buildkite-agent artifact download --include-retried-jobs "verify-execution-report.*" ./reports/ || echo "[\"No report ERROR\"]" > ./reports/verify-execution-report.error'
-     - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
+     - mkdir ./reports
+     - command_name='verify-settlement'
+     - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name.*" ./reports/ || echo "[\"No report ERROR\"]" > ./reports/execution-report.$$command_name.error
+     - report_path="./reports/$(ls -v1 reports/ | tail -n 1)"
      - |
        ATTEMPT_COUNT=$(grep -c ATTEMPT "$$report_path" | sed 's/.*ATTEMPT //g')
        buildkite-agent meta-data set attempts_count "$${ATTEMPT_COUNT:-0}"
