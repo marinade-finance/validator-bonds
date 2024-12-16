@@ -13,10 +13,9 @@ handle_command_execution() {
     local command_name="$1"
     shift
     set -o pipefail
-    "$@" | tee -a "./execution-report.${BUILDKITE_RETRY_COUNT}"
+    "$@" | tee -a "./execution-report.${command_name}.${BUILDKITE_RETRY_COUNT}"
     local exit_code=$?
 
-    set -x # TODO: DELETE ME
     buildkite-agent meta-data set "${command_name}_status" "$exit_code"
 
     # Handle different exit codes
@@ -54,7 +53,6 @@ set_notification_details() {
 }
 
 check_command_execution_status() {
-    set -x # TODO: DELETE ME
     local command_name="$1"
     local command_status
     local warning_state

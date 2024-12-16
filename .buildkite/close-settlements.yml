@@ -77,16 +77,17 @@ steps:
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,close_settlement=debug
       # RUST_BACKTRACE: full
     commands:
-    - '. "$HOME/.cargo/env"'
-    - 'prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))'
-    - 'buildkite-agent artifact download --include-retried-jobs close-execution-report.$$prior_build_number . || true'
+    - . "$HOME/.cargo/env"
+    - prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))
+    - command_name='close-settlement'
+    - buildkite-agent artifact download --include-retried-jobs execution-report.$$command_name.$$prior_build_number . || true
     - |
-      cp "close-execution-report.$$prior_build_number" "close-execution-report.$$BUILDKITE_RETRY_COUNT" || true
-      rm -f "close-execution-report.$$prior_build_number"
-      echo "#ATTEMPT CLOSE SETTLEMENTS $$BUILDKITE_RETRY_COUNT" | tee -a "./close-execution-report.$$BUILDKITE_RETRY_COUNT"
-    - 'buildkite-agent artifact download --include-retried-jobs target/release/close-settlement .'
-    - 'buildkite-agent artifact download --include-retried-jobs past-settlements.json .'
-    - 'chmod +x target/release/close-settlement'
+      cp "execution-report.$$command_name.$$prior_build_number" "execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT" || true
+      rm -f "execution-report.$$command_name.$$prior_build_number"
+      echo "#ATTEMPT CLOSE SETTLEMENTS $$BUILDKITE_RETRY_COUNT" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
+    - buildkite-agent artifact download --include-retried-jobs target/release/close-settlement .
+    - buildkite-agent artifact download --include-retried-jobs past-settlements.json .
+    - chmod +x target/release/close-settlement
     - |
       set -o pipefail
       ./target/release/close-settlement \
@@ -94,10 +95,10 @@ steps:
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$PSR_TX_FEE_WALLET" \
         --marinade-wallet "$$PSR_MARINADE_DAO_FUNDER_WALLET" \
-        --past-settlements ./past-settlements.json | tee -a "./close-execution-report.$$BUILDKITE_RETRY_COUNT"
+        --past-settlements ./past-settlements.json | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
     key: 'close-settlement'
     artifact_paths:
-      - "./close-execution-report.*"
+      - "./execution-report.*"
     retry:
       automatic:
         - exit_status: 100
@@ -105,11 +106,12 @@ steps:
 
   - label: ":memo: Notification setup: Close Settlements"
     commands:
-    - 'mkdir ./reports'
-    - 'buildkite-agent artifact download --include-retried-jobs "close-execution-report.*" ./reports/ || echo "No report ERROR" > ./reports/close-execution-report.error'
-    - 'report_path="./reports/$(ls -v1 reports/ | tail -n 1)"'
-    - 'cp "$$report_path" ./close-report.txt'
-    - 'buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./close-report.txt)"'
+    - mkdir ./reports
+    - command_name='close-settlement'
+    - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name.*" ./reports/ || echo "No report ERROR" > ./reports/execution-report.$$command_name.error
+    - report_path="./reports/$(ls -v1 reports/ | tail -n 1)"
+    - cp "$$report_path" ./close-report.txt
+    - buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./close-report.txt)"
     artifact_paths:
     - "./close-report.txt"
     key: 'notification-setup-close'

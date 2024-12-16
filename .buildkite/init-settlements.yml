@@ -112,11 +112,12 @@ steps:
     - . "$HOME/.cargo/env"
     - epoch=$(buildkite-agent meta-data get epoch)
     - prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))
-    - buildkite-agent artifact download --include-retried-jobs init-execution-report.$$prior_build_number . || true
+    - command_name='init-settlement'
+    - buildkite-agent artifact download --include-retried-jobs execution-report.$$command_name.$$prior_build_number . || true
     - |
-      cp "init-execution-report.$$prior_build_number" "init-execution-report.$$BUILDKITE_RETRY_COUNT" || true
-      rm -f "init-execution-report.$$prior_build_number"
-      echo "#ATTEMPT INIT SETTLEMENTS $$BUILDKITE_RETRY_COUNT" | tee -a "./init-execution-report.$$BUILDKITE_RETRY_COUNT"
+      cp "execution-report.$$command_name.$$prior_build_number" "execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT" || true
+      rm -f "execution-report.$$command_name.$$prior_build_number"
+      echo "#ATTEMPT INIT SETTLEMENTS $$BUILDKITE_RETRY_COUNT" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
     - buildkite-agent artifact download --include-retried-jobs target/release/init-settlement .
     - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
     - buildkite-agent artifact download --include-retried-jobs settlements.json .
@@ -130,10 +131,10 @@ steps:
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$PSR_TX_FEE_WALLET" \
         --rent-payer "$$PSR_RENT_PAYER_WALLET" \
-        --epoch "$$epoch" | tee -a "./init-execution-report.$$BUILDKITE_RETRY_COUNT"
+        --epoch "$$epoch" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
     key: 'init-settlement'
     artifact_paths:
-    - "./init-execution-report.*"
+    - "./execution-report.*"
     retry:
       automatic:
         - exit_status: 100
@@ -155,7 +156,8 @@ steps:
      - buildkite-agent meta-data set notification_result "$$notification_result"
      - 'echo "Notification result: $$notification_result, color: $$notification_color"'
      - mkdir ./reports
-     - buildkite-agent artifact download --include-retried-jobs "init-execution-report.*" ./reports/ || echo "No report ERROR" > ./reports/init-execution-report.error
+     - command_name='init-settlement'
+     - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name.*" ./reports/ || echo "No report ERROR" > ./reports/execution-report.$$command_name.error
      - report_path="./reports/$(ls -v1 reports/ | tail -n 1)"
      - cp "$$report_path" ./init-report.txt
      - buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./init-report.txt)"

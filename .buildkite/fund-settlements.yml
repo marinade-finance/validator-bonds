@@ -105,13 +105,14 @@ steps:
     env:
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,fund_settlement=debug
     commands:
-    - '. "$HOME/.cargo/env"'
-    - 'prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))'
-    - 'buildkite-agent artifact download --include-retried-jobs execution-report.$$prior_build_number . || true'
+    - . "$HOME/.cargo/env"
+    - prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))
+    - command_name='fund-settlement'
+    - buildkite-agent artifact download --include-retried-jobs execution-report.$$command_name.$$prior_build_number . || true
     - |
-      cp "execution-report.$$prior_build_number" "execution-report.$$BUILDKITE_RETRY_COUNT" || true
-      rm -f "fund-execution-report.$$prior_build_number"
-      echo "#ATTEMPT FUND SETTLEMENT $$BUILDKITE_RETRY_COUNT" | tee -a "./execution-report.$$BUILDKITE_RETRY_COUNT"
+      cp "execution-report.$$command_name.$$prior_build_number" "execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT" || true
+      rm -f "fund-execution-report.$$command_name.$$prior_build_number"
+      echo "#ATTEMPT FUND SETTLEMENT $$BUILDKITE_RETRY_COUNT" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
     - |
       buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .
       files=""
@@ -124,11 +125,11 @@ steps:
           files="$$files -f $$pair_files"
         fi
       done
-    - 'buildkite-agent artifact download --include-retried-jobs target/release/fund-settlement .'
-    - 'chmod +x target/release/fund-settlement'
+    - buildkite-agent artifact download --include-retried-jobs target/release/fund-settlement .
+    - chmod +x target/release/fund-settlement
     - source ./scripts/execute-handlers.sh
     - |
-      handle_command_execution "fund-settlement" \
+      handle_command_execution "$$command_name" \
       ./target/release/fund-settlement \
         --rpc-url $$RPC_URL \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
@@ -147,7 +148,8 @@ steps:
   - label: ":memo: Notification setup: Fund Settlements"
     commands:
      - mkdir ./reports
-     - buildkite-agent artifact download --include-retried-jobs "execution-report-fund.*" ./reports/ || echo "No report ERROR" > ./reports/execution-report-fund.error
+     - command_name='fund-settlement'
+     - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name.*" ./reports/ || echo "No report ERROR" > ./reports/execution-report.$$command_name.error
      - report_path="./reports/$(ls -v1 reports/ | tail -n 1)"
      - cp "$$report_path" ./fund-report.txt
      - buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./fund-report.txt)"
