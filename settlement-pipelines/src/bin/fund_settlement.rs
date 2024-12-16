@@ -266,10 +266,16 @@ async fn prepare_funding(
 
         let settlement_amount_funded = funded_to_settlement_stakes
             .get(&settlement_record.settlement_address)
-            .map_or(0, |(lamports_in_accounts, _)| *lamports_in_accounts);
+            .map_or(0, |(lamports_in_accounts, funded_accounts)|
+                // Amount funded has to be calculated without the minimal stake amount that is not part of the claim
+                *lamports_in_accounts - (funded_accounts.len() as u64 * minimal_stake_lamports));
         let amount_to_fund = settlement_record.settlement_account.as_ref().map_or(
             settlement_record.max_total_claim_sum,
             |settlement| {
+                assert_eq!(
+                    settlement.max_total_claim,
+                    settlement_record.max_total_claim_sum,
+                );
                 settlement
                     .max_total_claim
                     .saturating_sub(settlement.lamports_claimed)
@@ -345,11 +351,11 @@ async fn prepare_funding(
                         .map(|s| s.lamports)
                         .sum::<u64>())
                     );
-                let mut lamports_available: u64 = 0;
+                let mut funding_lamports_accumulated: u64 = 0;
                 let mut stake_accounts_to_fund: Vec<FundBondStakeAccount> = vec![];
                 funding_stake_accounts.retain(|stake_account| {
-                    if lamports_available < amount_to_fund + minimal_stake_lamports {
-                        lamports_available += stake_account.lamports;
+                    if funding_lamports_accumulated < amount_to_fund + minimal_stake_lamports {
+                        funding_lamports_accumulated += stake_account.lamports;
                         stake_accounts_to_fund.push(stake_account.clone());
                         true // delete from the list, no available anymore, it will be funded
                     } else {
@@ -359,7 +365,7 @@ async fn prepare_funding(
 
                 // for the found and fitting stake accounts: taking first one and trying to merge other ones into it
                 let stake_account_to_fund: Option<(FundBondStakeAccount, StakeAccountStateType)> =
-                    if stake_accounts_to_fund.is_empty() || lamports_available == 0 {
+                    if stake_accounts_to_fund.is_empty() || funding_lamports_accumulated == 0 {
                         None
                     } else {
                         let account = stake_accounts_to_fund.remove(0);
@@ -420,7 +426,9 @@ async fn prepare_funding(
                         },
                     ));
 
-                    match lamports_available.cmp(&(amount_to_fund + minimal_stake_lamports)) {
+                    match funding_lamports_accumulated
+                        .cmp(&(amount_to_fund + minimal_stake_lamports))
+                    {
                         Ordering::Less => {
                             reporting.add_warning_string( format!(
                                 "Cannot fully fund settlement {} (vote account {}, epoch {}, reason: {}, max claim {} SOLs, funder: ValidatorBond). To fund {} SOLs, to fund with min stake amount {}, only {} SOLs were found in stake accounts",
@@ -431,11 +439,12 @@ async fn prepare_funding(
                                 lamports_to_sol(settlement_record.max_total_claim_sum),
                                 lamports_to_sol(amount_to_fund),
                                 lamports_to_sol(amount_to_fund + minimal_stake_lamports),
-                                lamports_to_sol(lamports_available)
+                                lamports_to_sol(funding_lamports_accumulated)
                             ));
-                            reporting
-                                .reportable
-                                .add_funded_settlement(settlement_record, lamports_available);
+                            reporting.reportable.add_funded_settlement(
+                                settlement_record,
+                                funding_lamports_accumulated.saturating_sub(minimal_stake_lamports),
+                            );
                         }
                         Ordering::Equal => {
                             // fully funded and whole stake account is used for the settlement funding
@@ -448,10 +457,12 @@ async fn prepare_funding(
                             // the rest of lamports will be available in the split stake account
                             // and that can be used as a source for funding of next settlement when vote account is part of multiple settlements
                             // WARN: this REQUIRES that the merge stake transactions are executed in sequence!
-                            let lamports_available_after_split = lamports_available
+                            let lamports_available_after_split = funding_lamports_accumulated
                                 .saturating_sub(amount_to_fund)
                                 .saturating_sub(minimal_stake_lamports);
-                            // the funding_stake_accounts vec is mut ref item from fund_bond_stake_accounts hashmap
+                            // we are adding the stake account into next round of funding for next settlement
+                            // after merging the stake account when the settlement is funded by real an on-chain tx (see fund_settlements)
+                            // some funding will be left after fund+split within stake account, we can re-use the same account for a next settlement
                             funding_stake_accounts.push(FundBondStakeAccount {
                                 lamports: lamports_available_after_split,
                                 stake_account: destination_split_stake.pubkey(),
