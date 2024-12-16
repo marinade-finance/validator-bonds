@@ -3,9 +3,7 @@ use anyhow::anyhow;
 use log::{debug, error};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcAccountInfoConfig;
-
 use solana_program::pubkey::Pubkey;
-
 use solana_sdk::account::Account;
 use std::sync::Arc;
 use tokio::time::sleep;
