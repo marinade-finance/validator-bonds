@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use log::debug;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_program::pubkey::Pubkey;
 use std::future::Future;
@@ -55,11 +56,23 @@ impl Default for RetryConfig {
     }
 }
 
+/// Performs a retry-able operation to fetch data for multiple public keys from an RPC client.
+/// # Arguments
+///
+/// * `rpc_client` - An thread-safe reference to the RPC client used for making requests
+/// * `pubkeys` - A slice of `Pubkey`s to fetch data for
+/// * `operation` - A closure that defines the fetch operation to perform for the `pubkeys`
+/// * `config` - Optional retry configuration parameters. If None, default retry settings will be used
+/// * `require_all` - If true, the function will be retrying until data returned from `operation`
+///                   consists number of records equal to all the input keys.
+///                  If false, it does not consider number of returned values,
+///                   and it may return partial results.
 pub async fn retry_get_pubkeys_operation<'a, T, F, Fut>(
     rpc_client: Arc<RpcClient>,
     pubkeys: &'a [Pubkey],
     operation: F,
     config: Option<RetryConfig>,
+    require_all: bool,
 ) -> anyhow::Result<Vec<(Pubkey, Option<T>)>>
 where
     F: Fn(Arc<RpcClient>, &'a [Pubkey]) -> Fut + 'a,
@@ -97,7 +110,18 @@ where
             .unwrap_or(Duration::from_secs(30)); // Default timeout per attempt if no total timeout specified
 
         match timeout(remaining_timeout, operation(rpc_client.clone(), pubkeys)).await {
-            Ok(Ok(result)) => return Ok(result),
+            Ok(Ok(result)) => {
+                if result.len() == pubkeys.len() || !require_all {
+                    return Ok(result);
+                } else {
+                    debug!(
+                        "retry_get_pubkeys_operation: retrying, expected number of records: {}, received records: {}",
+                        pubkeys.len(), result.len()
+                    );
+                    retries += 1;
+                    sleep(config.retry_delay).await;
+                }
+            }
             Ok(Err(e)) => {
                 last_error = Some(e);
                 retries += 1;

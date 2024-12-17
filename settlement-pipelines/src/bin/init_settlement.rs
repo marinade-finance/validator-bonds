@@ -301,6 +301,7 @@ async fn upsize_settlements(
             .collect::<Vec<Pubkey>>(),
         get_settlements_for_pubkeys,
         None,
+        true,
     )
     .await
     .context("Failed to reload Settlements data based of pubkeys");
