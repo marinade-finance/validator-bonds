@@ -113,8 +113,8 @@ steps:
       cp "execution-report.$$command_name.$$prior_build_number" "execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT" || true
       rm -f "execution-report.$$command_name.$$prior_build_number"
       echo "#ATTEMPT CLAIM SETTLEMENTS $$BUILDKITE_RETRY_COUNT" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
-    - 'buildkite-agent artifact download --include-retried-jobs target/release/claim-settlement .'
-    - 'chmod +x target/release/claim-settlement'
+    - buildkite-agent artifact download --include-retried-jobs target/release/claim-settlement .
+    - chmod +x target/release/claim-settlement
     - |
       buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .
       files=""
@@ -168,7 +168,7 @@ steps:
       if [[ -n "$$first_epoch" && "$$first_epoch" != "null" && $(gcloud storage ls "$gs_bucket/$$first_epoch" 2> /dev/null) ]]; then
         gcloud storage cp ./claiming-report.txt "$gs_bucket/$$first_epoch/buildkite/claiming-report.$(date +%s).txt"
       fi
-    depends_on: "notification"
+    depends_on: "notification-setup-claim"
     allow_dependency_failure: true
 
   - label: ":mega: Notification Claiming"
