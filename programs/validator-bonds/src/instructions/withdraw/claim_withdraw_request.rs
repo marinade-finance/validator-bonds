@@ -9,11 +9,14 @@ use crate::events::{SplitStakeData, U64ValueChange};
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::withdraw_request::WithdrawRequest;
-use crate::utils::{minimal_size_stake_account, return_unused_split_stake_account_rent};
+use crate::utils::{
+    minimal_size_stake_account, return_unused_split_stake_account_rent, split_stake,
+};
 use anchor_lang::prelude::*;
+
+use anchor_lang::solana_program::stake;
 use anchor_lang::solana_program::stake::state::{StakeAuthorize, StakeStateV2};
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
-use anchor_lang::solana_program::{program::invoke_signed, stake};
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 
 /// Withdrawing funds from a bond account requires creating a withdrawal request first.
@@ -103,6 +106,12 @@ pub struct ClaimWithdrawRequest<'info> {
     pub stake_history: Sysvar<'info, StakeHistory>,
 
     pub clock: Sysvar<'info, Clock>,
+
+    pub rent: Sysvar<'info, Rent>,
+
+    /// CHECK: CPI
+    #[account(address = stake::config::ID)]
+    pub stake_config: UncheckedAccount<'info>,
 }
 
 impl<'info> ClaimWithdrawRequest<'info> {
@@ -145,7 +154,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
         );
 
         // the amount that has not yet been withdrawn from the request
-        let amount_to_fulfill_withdraw = ctx
+        let amount_to_fulfill_claim_request = ctx
             .accounts
             .withdraw_request
             .requested_amount
@@ -154,12 +163,12 @@ impl<'info> ClaimWithdrawRequest<'info> {
         // when the stake account is bigger to the non-withdrawn amount of the withdrawal request
         // we need to split the stake account to parts and withdraw only the non-withdrawn amount
         let (withdrawing_amount, is_split) = if ctx.accounts.stake_account.get_lamports()
-            > amount_to_fulfill_withdraw
+            > amount_to_fulfill_claim_request
         {
             // ensuring that splitting means stake accounts will be big enough
             // note: the rent exempt of the newly created split account has been already paid by the tx caller
             let minimal_stake_size = minimal_size_stake_account(&stake_meta, &ctx.accounts.config);
-            if ctx.accounts.stake_account.get_lamports() - amount_to_fulfill_withdraw
+            if ctx.accounts.stake_account.get_lamports() - amount_to_fulfill_claim_request
                 < minimal_stake_size
             {
                 return Err(error!(ErrorCode::StakeAccountNotBigEnoughToSplit)
@@ -169,47 +178,39 @@ impl<'info> ClaimWithdrawRequest<'info> {
                         format!(
                             "{} - {} < {}",
                             ctx.accounts.stake_account.get_lamports(),
-                            amount_to_fulfill_withdraw,
+                            amount_to_fulfill_claim_request,
                             minimal_stake_size,
                         ),
                     )));
             }
-            if amount_to_fulfill_withdraw < minimal_stake_size {
+            if amount_to_fulfill_claim_request < minimal_stake_size {
                 return Err(error!(ErrorCode::WithdrawRequestAmountTooSmall)
                     .with_account_name("stake_account")
                     .with_values((
                         "amount_to_fulfill_withdraw < minimal_stake_size",
-                        format!("{} < {}", amount_to_fulfill_withdraw, minimal_stake_size,),
+                        format!(
+                            "{} < {}",
+                            amount_to_fulfill_claim_request, minimal_stake_size,
+                        ),
                     )));
             }
 
-            let withdraw_split_leftover =
-                ctx.accounts.stake_account.get_lamports() - amount_to_fulfill_withdraw;
-            let split_instruction = stake::instruction::split(
-                &ctx.accounts.stake_account.key(),
-                ctx.accounts.bonds_withdrawer_authority.key,
-                withdraw_split_leftover,
-                &ctx.accounts.split_stake_account.key(),
-            )
-            .last()
-            .unwrap()
-            .clone();
-            invoke_signed(
-                &split_instruction,
-                &[
-                    ctx.accounts.stake_program.to_account_info(),
-                    ctx.accounts.stake_account.to_account_info(),
-                    ctx.accounts.bonds_withdrawer_authority.to_account_info(),
-                    ctx.accounts.split_stake_account.to_account_info(),
-                ],
-                &[&[
-                    BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &ctx.accounts.config.key().as_ref(),
-                    &[ctx.accounts.config.bonds_withdrawer_authority_bump],
-                ]],
+            split_stake(
+                &ctx.accounts.stake_account,
+                amount_to_fulfill_claim_request,
+                &ctx.accounts.split_stake_account,
+                &ctx.accounts.vote_account,
+                &ctx.accounts.config,
+                &ctx.accounts.bonds_withdrawer_authority,
+                &ctx.accounts.stake_program,
+                &ctx.accounts.stake_history,
+                &ctx.accounts.stake_config,
+                &ctx.accounts.clock,
+                &ctx.accounts.rent,
             )?;
+
             // the amount  is enough to fulfil the missing part of the withdrawal request
-            (amount_to_fulfill_withdraw, true)
+            (amount_to_fulfill_claim_request, true)
         } else {
             return_unused_split_stake_account_rent(
                 &ctx.accounts.stake_program,
@@ -229,44 +230,9 @@ impl<'info> ClaimWithdrawRequest<'info> {
             .withdrawn_amount
             .saturating_add(withdrawing_amount);
 
-        // changing owner of the stake account to entity defined in this ix (via withdraw request)
-        authorize(
-            CpiContext::new_with_signer(
-                ctx.accounts.stake_program.to_account_info(),
-                Authorize {
-                    stake: ctx.accounts.stake_account.to_account_info(),
-                    authorized: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
-                    new_authorized: ctx.accounts.withdrawer.to_account_info(),
-                    clock: ctx.accounts.clock.to_account_info(),
-                },
-                &[&[
-                    BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &ctx.accounts.config.key().as_ref(),
-                    &[ctx.accounts.config.bonds_withdrawer_authority_bump],
-                ]],
-            ),
-            // withdrawer authority (owner) is now the withdrawer authority defined by ix
-            StakeAuthorize::Staker,
-            None,
-        )?;
-        authorize(
-            CpiContext::new_with_signer(
-                ctx.accounts.stake_program.to_account_info(),
-                Authorize {
-                    stake: ctx.accounts.stake_account.to_account_info(),
-                    authorized: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
-                    new_authorized: ctx.accounts.withdrawer.to_account_info(),
-                    clock: ctx.accounts.clock.to_account_info(),
-                },
-                &[&[
-                    BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &ctx.accounts.config.key().as_ref(),
-                    &[ctx.accounts.config.bonds_withdrawer_authority_bump],
-                ]],
-            ),
-            StakeAuthorize::Withdrawer,
-            None,
-        )?;
+        // changing owner of the stake account to wallet defined in this ix (via withdraw request)
+        Self::authorize_withdrawer_authority(&ctx, StakeAuthorize::Staker)?;
+        Self::authorize_withdrawer_authority(&ctx, StakeAuthorize::Withdrawer)?;
 
         emit_cpi!(ClaimWithdrawRequestEvent {
             bond: ctx.accounts.bond.key(),
@@ -295,6 +261,32 @@ impl<'info> ClaimWithdrawRequest<'info> {
             withdrawing_amount
         );
 
+        Ok(())
+    }
+
+    fn authorize_withdrawer_authority(
+        ctx: &Context<ClaimWithdrawRequest>,
+        stake_authorize: StakeAuthorize,
+    ) -> Result<()> {
+        authorize(
+            CpiContext::new_with_signer(
+                ctx.accounts.stake_program.to_account_info(),
+                Authorize {
+                    stake: ctx.accounts.stake_account.to_account_info(),
+                    authorized: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                    new_authorized: ctx.accounts.withdrawer.to_account_info(),
+                    clock: ctx.accounts.clock.to_account_info(),
+                },
+                &[&[
+                    BONDS_WITHDRAWER_AUTHORITY_SEED,
+                    &ctx.accounts.config.key().as_ref(),
+                    &[ctx.accounts.config.bonds_withdrawer_authority_bump],
+                ]],
+            ),
+            // owner authority is now the authority defined by ix
+            stake_authorize,
+            None,
+        )?;
         Ok(())
     }
 }

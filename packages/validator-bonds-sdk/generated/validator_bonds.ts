@@ -1061,6 +1061,16 @@ export type ValidatorBonds = {
           "isSigner": false
         },
         {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "eventAuthority",
           "isMut": false,
           "isSigner": false,
@@ -4636,6 +4646,11 @@ export type ValidatorBonds = {
       "code": 6070,
       "name": "SettlementAlreadyClaimed",
       "msg": "Settlement has been already claimed"
+    },
+    {
+      "code": 6071,
+      "name": "StakeAccountNotBigEnoughToWithdrawOrSplit",
+      "msg": "Stake account is not big process with withdraw or split"
     }
   ]
 };
@@ -5703,6 +5718,16 @@ export const IDL: ValidatorBonds = {
           "isSigner": false
         },
         {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "stakeConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "eventAuthority",
           "isMut": false,
           "isSigner": false,
@@ -9278,6 +9303,11 @@ export const IDL: ValidatorBonds = {
       "code": 6070,
       "name": "SettlementAlreadyClaimed",
       "msg": "Settlement has been already claimed"
+    },
+    {
+      "code": 6071,
+      "name": "StakeAccountNotBigEnoughToWithdrawOrSplit",
+      "msg": "Stake account is not big process with withdraw or split"
     }
   ]
 };
