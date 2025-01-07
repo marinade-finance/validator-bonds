@@ -15,9 +15,10 @@ import {
 import {
   MARINADE_CONFIG_ADDRESS,
   orchestrateWithdrawDeposit,
+  claimWithdrawRequestInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
-import { PublicKey, Signer } from '@solana/web3.js'
+import { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
 import { getWithdrawRequestFromAddress } from '../utils'
 import { CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS } from '../../computeUnits'
 import { BN } from 'bn.js'
@@ -73,6 +74,13 @@ export function installClaimWithdrawRequest(program: Command) {
         'then the splitted stake account remains under bond as funded (default: wallet keypair)',
       parseWalletOrPubkey
     )
+    .option(
+      '--stake-account <pubkey>',
+      'Use this parameter to force the CLI to use particular stake account for withdrawal. ' +
+        'By default, the stake account searched from the list of available accounts assigned to Bond account, ' +
+        'using this parameter enforce direct use of the stake account. ',
+      parsePubkey
+    )
     .action(
       async (
         address: Promise<PublicKey | undefined>,
@@ -82,12 +90,14 @@ export function installClaimWithdrawRequest(program: Command) {
           authority,
           withdrawer,
           splitStakeRentPayer,
+          stakeAccount,
         }: {
           config?: Promise<PublicKey>
           voteAccount?: Promise<PublicKey>
           authority?: Promise<WalletInterface | PublicKey>
           withdrawer?: Promise<PublicKey>
           splitStakeRentPayer?: Promise<WalletInterface | PublicKey>
+          stakeAccount?: Promise<PublicKey>
         }
       ) => {
         await manageClaimWithdrawRequest({
@@ -97,6 +107,7 @@ export function installClaimWithdrawRequest(program: Command) {
           authority: await authority,
           withdrawer: await withdrawer,
           splitStakeRentPayer: await splitStakeRentPayer,
+          stakeAccount: await stakeAccount,
         })
       }
     )
@@ -109,6 +120,7 @@ async function manageClaimWithdrawRequest({
   authority,
   withdrawer,
   splitStakeRentPayer,
+  stakeAccount,
 }: {
   address?: PublicKey
   config?: PublicKey
@@ -116,6 +128,7 @@ async function manageClaimWithdrawRequest({
   authority?: WalletInterface | PublicKey
   withdrawer?: PublicKey
   splitStakeRentPayer?: WalletInterface | PublicKey
+  stakeAccount?: PublicKey
 }) {
   const {
     program,
@@ -160,56 +173,79 @@ async function manageClaimWithdrawRequest({
     bondAccount = withdrawRequestAccountData.account.data.bond
   }
 
-  const {
-    instructions,
-    withdrawRequestAccount,
-    withdrawStakeAccounts,
-    splitStakeAccounts,
-    amountToWithdraw,
-  } = await orchestrateWithdrawDeposit({
-    program,
-    withdrawRequestAccount: withdrawRequestAddress,
-    bondAccount,
-    voteAccount,
-    configAccount: config,
-    authority,
-    withdrawer,
-    splitStakeRentPayer,
-    logger,
-  })
-
-  console.log('withdrawRequestAccount', amountToWithdraw.toString())
-  if (amountToWithdraw <= new BN(0)) {
-    logger.info(
-      `Withdraw request ${withdrawRequestAccount.toBase58()} for bond account ${bondAccount?.toBase58()}` +
-        'has been fully withdrawn, with nothing left to claim.\n' +
-        'If you want to withdraw more funds, please cancel the current request and create a new one.'
-    )
-    return
+  let instructionsToProcess: TransactionInstruction[] = []
+  let stakeAccountsToWithdraw: PublicKey[] = []
+  if (stakeAccount !== undefined) {
+    // foced to use provided stake account
+    const { instruction, withdrawRequestAccount } =
+      await claimWithdrawRequestInstruction({
+        program,
+        withdrawRequestAccount: withdrawRequestAddress,
+        bondAccount,
+        configAccount: config,
+        voteAccount,
+        stakeAccount,
+        authority,
+        splitStakeRentPayer,
+        withdrawer,
+      })
+    withdrawRequestAddress = withdrawRequestAccount
+    instructionsToProcess = [instruction]
+    stakeAccountsToWithdraw = [stakeAccount]
+  } else {
+    // default behaviour to search stake account from bond account and merge beforehand
+    const {
+      instructions,
+      withdrawStakeAccounts,
+      splitStakeAccounts,
+      withdrawRequestAccount,
+      amountToWithdraw,
+    } = await orchestrateWithdrawDeposit({
+      program,
+      withdrawRequestAccount: withdrawRequestAddress,
+      bondAccount,
+      voteAccount,
+      configAccount: config,
+      authority,
+      withdrawer,
+      splitStakeRentPayer,
+      logger,
+    })
+    signers.push(...splitStakeAccounts)
+    withdrawRequestAddress = withdrawRequestAccount
+    instructionsToProcess = instructions
+    stakeAccountsToWithdraw = withdrawStakeAccounts
+    if (amountToWithdraw <= new BN(0)) {
+      logger.info(
+        `Withdraw request ${withdrawRequestAddress.toBase58()} for bond account ${bondAccount?.toBase58()}` +
+          'has been fully withdrawn, with nothing left to claim.\n' +
+          'If you want to withdraw more funds, please cancel the current request and create a new one.'
+      )
+      return
+    }
   }
-  if (instructions.length === 0) {
+
+  if (instructionsToProcess.length === 0) {
     throw new CliCommandError({
       commandName: '--claim-withdraw-request',
       valueName: 'address',
-      value: withdrawRequestAccount.toBase58(),
+      value: withdrawRequestAddress.toBase58(),
       msg:
         'CLI internal error. No instruction for claiming generated. ' +
         'Try to run with --debug to get more info.',
     })
   }
-
-  signers.push(...splitStakeAccounts)
-  tx.add(...instructions)
+  tx.add(...instructionsToProcess)
 
   logger.info(
-    `Claiming withdraw request ${withdrawRequestAccount.toBase58()} ` +
+    `Claiming withdraw request ${withdrawRequestAddress.toBase58()} ` +
       `for bond account ${bondAccount?.toBase58()} with stake accounts: [` +
-      `${withdrawStakeAccounts.map(s => s.toBase58()).join(',')}]`
+      `${stakeAccountsToWithdraw.map(s => s.toBase58()).join(',')}]`
   )
   await splitAndExecuteTx({
     connection: provider.connection,
     transaction: tx,
-    errMessage: `Failed to claim withdraw requests ${withdrawRequestAccount.toBase58()}`,
+    errMessage: `Failed to claim withdraw requests ${withdrawRequestAddress.toBase58()}`,
     signers,
     logger,
     computeUnitLimit: CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS,
@@ -221,7 +257,7 @@ async function manageClaimWithdrawRequest({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Withdraw request accounts: ${withdrawRequestAccount.toBase58()} ` +
+    `Withdraw request accounts: ${withdrawRequestAddress.toBase58()} ` +
       `for bond account ${bondAccount?.toBase58()} successfully claimed`
   )
 }
