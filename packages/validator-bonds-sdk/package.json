@@ -1,6 +1,6 @@
 {
   "name": "@marinade.finance/validator-bonds-sdk",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "SDK of the validator bonds contract",
   "repository": {
     "type": "git",
