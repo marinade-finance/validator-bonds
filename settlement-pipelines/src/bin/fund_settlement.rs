@@ -19,7 +19,7 @@ use settlement_pipelines::settlement_data::{
     SettlementFunderMarinade, SettlementFunderType, SettlementFunderValidatorBond, SettlementRecord,
 };
 use settlement_pipelines::stake_accounts::{
-    get_stake_state_type, prepare_merge_instructions, StakeAccountStateType,
+    get_delegated_amount, get_stake_state_type, prepare_merge_instructions, StakeAccountStateType,
     STAKE_ACCOUNT_RENT_EXEMPTION,
 };
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -328,8 +328,12 @@ async fn prepare_funding(
                 let funding_stake_accounts = fund_bond_stake_accounts
                     .get_mut(&settlement_record.vote_account_address)
                     .unwrap_or(&mut empty_vec);
-                // using the bigger stake accounts first
-                funding_stake_accounts.sort_by_cached_key(|s| s.lamports);
+                // prioritize the biggest undelegated (inactive) amounts first
+                funding_stake_accounts.sort_by_cached_key(|account| {
+                    let delegated_amount =
+                        get_delegated_amount(&account.state, &clock, &stake_history);
+                    account.lamports.saturating_sub(delegated_amount)
+                });
                 funding_stake_accounts.reverse();
                 info!(
                         "Settlement {} (vote account {}, bond {}, reason {}, max claim {} SOLS, epoch {}) is to be funded by validator by {} SOLs. Available {} stake accounts ({}) with {} SOLs.",

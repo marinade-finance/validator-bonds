@@ -65,14 +65,14 @@ pub enum StakeAccountStateType {
 }
 
 pub fn get_stake_state_type(
-    stake_account: &StakeStateV2,
+    stake_account_state: &StakeStateV2,
     clock: &Clock,
     stake_history: &StakeHistory,
 ) -> StakeAccountStateType {
-    if let StakeStateV2::Initialized(_) = stake_account {
+    if let StakeStateV2::Initialized(_) = stake_account_state {
         // stake account is initialized and not delegated, it can be delegated just now
         StakeAccountStateType::Initialized
-    } else if let Some(delegation) = stake_account.delegation() {
+    } else if let Some(delegation) = stake_account_state.delegation() {
         // stake account was delegated, verification of the delegation state
         let StakeHistoryEntry {
             effective,
@@ -94,6 +94,23 @@ pub fn get_stake_state_type(
         }
     } else {
         StakeAccountStateType::NonAuthorized
+    }
+}
+
+pub fn get_delegated_amount(
+    stake_account_state: &StakeStateV2,
+    clock: &Clock,
+    stake_history: &StakeHistory,
+) -> u64 {
+    if let Some(delegation) = stake_account_state.delegation() {
+        let StakeHistoryEntry {
+            effective,
+            deactivating,
+            activating,
+        } = delegation.stake_activating_and_deactivating(clock.epoch, Some(stake_history), None);
+        effective + deactivating + activating
+    } else {
+        0
     }
 }
 
