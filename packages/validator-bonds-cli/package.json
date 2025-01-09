@@ -24,7 +24,7 @@
   ],
   "main": "src/index",
   "dependencies": {
-    "@marinade.finance/validator-bonds-sdk": "workspace: ^2.0.5",
+    "@marinade.finance/validator-bonds-sdk": " ^2.0.5",
     "@coral-xyz/anchor": "^0.29.0",
     "@marinade.finance/anchor-common": "^2.4.9",
     "@marinade.finance/cli-common": "^2.4.9",
