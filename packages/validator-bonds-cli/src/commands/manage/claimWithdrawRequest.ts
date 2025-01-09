@@ -78,7 +78,7 @@ export function installClaimWithdrawRequest(program: Command) {
       '--stake-account <pubkey>',
       'Use this parameter to force the CLI to use particular stake account for withdrawal. ' +
         'By default, the stake account searched from the list of available accounts assigned to Bond account, ' +
-        'using this parameter enforce direct use of the stake account. ',
+        'using this parameter enforces direct use of the stake account.',
       parsePubkey
     )
     .action(
