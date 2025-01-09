@@ -23,7 +23,7 @@ added 165 packages in 35s
 
 # to verify installed version
 validator-bonds --version
-2.0.4
+2.0.5
 ```
 
 To get info on available commands
@@ -125,7 +125,7 @@ The parameters and their meanings are explained in detail below:
 * `--bond-authority`: Refers to any public key with ownership rights. It is recommended to use a ledger or multisig.
   This key does not necessarily need to correspond to an existing on-chain account (SOL preloading is unnecessary).
 * `--rent-payer`: This account covers the creation cost of the Solana bond account, and it is expected to be the same as the fee payer (default).
-   The rent cost is `0.00270048` SOL. Note that the `--rent-payer` is unrelated to bond security or "funding," which is addressed through a separate instruction. 
+   The rent cost is `0.002.0.58` SOL. Note that the `--rent-payer` is unrelated to bond security or "funding," which is addressed through a separate instruction. 
    The bond's security is established by providing a stake account. The lamports in the stake account then corresponds to the SOL amount added to the security of the bond account.
    There is no direct payment of SOLs to the bond; it is accomplished solely by allocating stake accounts.
 * `--cpmpe`: Cost per mille per epoch, in lamports. How many lamports the validator is willing to pay for every 1000 SOLs delegated.
@@ -665,7 +665,7 @@ To check where NPM packages are and will be installed:
 # Get npm global installation folder
 npm list -g
 > /usr/lib
-> +-- @marinade.finance/validator-bonds-cli@2.0.4
+> +-- @marinade.finance/validator-bonds-cli@2.0.5
 > ...
 # In this case, the `bin` folder is located at /usr/bin
 ```
@@ -691,7 +691,7 @@ With this configuration, NPM packages will be installed under the `prefix` direc
 npm i -g @marinade.finance/validator-bonds-cli@latest
 npm list -g
 > ~/.local/share/npm/lib
-> `-- @marinade.finance/validator-bonds-cli@2.0.4
+> `-- @marinade.finance/validator-bonds-cli@2.0.5
 ```
 
 To execute the installed packages from any location,
@@ -850,7 +850,7 @@ Commands:
   # Get npm global installation folder
   npm list -g
   > ~/.local/share/npm/lib
-  > `-- @marinade.finance/validator-bonds-cli@2.0.4
+  > `-- @marinade.finance/validator-bonds-cli@2.0.5
   # In this case, the 'bin' folder is located at ~/.local/share/npm/bin
 
   # Get validator-bonds binary folder

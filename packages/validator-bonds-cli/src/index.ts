@@ -20,7 +20,7 @@ logger.level = 'debug'
 const program = new Command()
 
 program
-  .version('2.0.4')
+  .version('2.0.5')
   .allowExcessArguments(false)
   .configureHelp({ showGlobalOptions: true })
   .option(

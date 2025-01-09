@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## TS CLI&SDK [2.0.5](https://github.com/marinade-finance/validator-bonds/compare/v2.0.4...v2.0.5) (2025-01-09)
+
+### Updates
+
+* cli: `claim-withdraw-request` to having option `--stake-account` forcing to claim particular account ([PR#158](https://github.com/marinade-finance/validator-bonds/pull/158))
+
 ## TS CLI&SDK [2.0.4](https://github.com/marinade-finance/validator-bonds/compare/v2.0.3...v2.0.4) (2024-10-08)
 
 ### Updates
