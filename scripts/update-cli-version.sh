@@ -11,6 +11,7 @@ README="$SCRIPT_DIR/../README.md"
 README_CLI="$SCRIPT_DIR/../packages/validator-bonds-cli//README.md"
 
 VERSION=`cat $SDK_PACKAGE_JSON | grep version | cut -d '"' -f 4`
+ESCAPED_VERSION=$(echo $VERSION | sed 's/\./\\./g')
 NEW_VERSION=`echo $VERSION | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g'`
 NEW_VERSION=${1:-$NEW_VERSION}
 
@@ -24,7 +25,7 @@ sed -i 's/workspace://' "$CLI_PACKAGE_JSON"
 for I in "$SDK_PACKAGE_JSON" "$CLI_PACKAGE_JSON" "$PIPELINES_PACKAGE_JSON" "$CLI_INDEX" "$README" "$README_CLI"; do
     UPDATE_FILE=`readlink -f "$I"`
     echo "Updating ${UPDATE_FILE}"
-    sed -i "s/$VERSION/$NEW_VERSION/" "$UPDATE_FILE"
+    sed -i "s/$ESCAPED_VERSION/$NEW_VERSION/" "$UPDATE_FILE"
 done
 
 if [ -e "./package.json" ]; then
