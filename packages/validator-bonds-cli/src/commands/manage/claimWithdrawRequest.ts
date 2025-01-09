@@ -176,7 +176,7 @@ async function manageClaimWithdrawRequest({
   let instructionsToProcess: TransactionInstruction[] = []
   let stakeAccountsToWithdraw: PublicKey[] = []
   if (stakeAccount !== undefined) {
-    // foced to use provided stake account
+    // forced to use provided stake account
     const { instruction, withdrawRequestAccount } =
       await claimWithdrawRequestInstruction({
         program,
