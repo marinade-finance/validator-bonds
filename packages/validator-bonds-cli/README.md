@@ -125,7 +125,7 @@ The parameters and their meanings are explained in detail below:
 * `--bond-authority`: Refers to any public key with ownership rights. It is recommended to use a ledger or multisig.
   This key does not necessarily need to correspond to an existing on-chain account (SOL preloading is unnecessary).
 * `--rent-payer`: This account covers the creation cost of the Solana bond account, and it is expected to be the same as the fee payer (default).
-   The rent cost is `0.002.0.58` SOL. Note that the `--rent-payer` is unrelated to bond security or "funding," which is addressed through a separate instruction. 
+   The rent cost is `0.00270048` SOL. Note that the `--rent-payer` is unrelated to bond security or "funding," which is addressed through a separate instruction.
    The bond's security is established by providing a stake account. The lamports in the stake account then corresponds to the SOL amount added to the security of the bond account.
    There is no direct payment of SOLs to the bond; it is accomplished solely by allocating stake accounts.
 * `--cpmpe`: Cost per mille per epoch, in lamports. How many lamports the validator is willing to pay for every 1000 SOLs delegated.
@@ -231,7 +231,7 @@ The `Bond` owner may configure following properties of the account:
   auction. The Bond owner agrees to pay this amount in lamports to get stake delegated to the vote
   account for one epoch.
 * `--max-stake-wanted` In lamports, the maximum amount of stake that the Bond owner desires to get delegated
-  to their vote account. 
+  to their vote account.
 
 #### Permission-ed Configure workflow
 
@@ -278,7 +278,7 @@ validator-bonds -um configure-bond <bond-or-vote-account-address> \
 
 ### Funding Bond Account
 
-**! NEVER fund a bond with a SOL transfer. Bond funding happens by assigning a stake account to the `Bond`.** 
+**! NEVER fund a bond with a SOL transfer. Bond funding happens by assigning a stake account to the `Bond`.**
 
 **! NEVER fund a bond by manually assigning the [withdraw authority](https://solana.com/docs/economics/staking/stake-accounts#understanding-account-authorities) under the Bond PDA. Funding a `Bond` should be done using the [`fund_bond`](https://github.com/marinade-finance/validator-bonds/blob/main/programs/validator-bonds/src/instructions/bond/fund_bond.rs#L13) instruction.**
 
@@ -490,16 +490,16 @@ for each validator for that epoch.
 This value, calculated from bids across participating validators,
 defines the SOL cost per 10,000 SOL staked.
 
-**Example:**  
+**Example:**
 If `auctionEffectiveBidPmpe` = `0.123` and a validator is delegated 100K SOL by Marinade,
-the payment is:  
+the payment is:
 `0.123 * 100,000 / 10,000 = 1.23 SOL`.
 
-**Access Data:**  
+**Access Data:**
   - The results of the auction are stored within the pipeline results
 https://github.com/marinade-finance/ds-sam-pipeline/tree/main/auctions
 (see the JSON file `<epoch>/outputs/results.json`)
-  - The data are loaded to API and are available at 
+  - The data are loaded to API and are available at
 https://scoring.marinade.finance/api/v1/scores/sam?epoch=X
   - The data is displayed at dashboard https://psr.marinade.finance/
 
@@ -515,15 +515,15 @@ taken at the end of epoch X.
 Settlements can be claimed by stakers for 4 epochs.
 Unclaimed funds are returned to the validator's Bond.
 
-- **Access Data:**  
-  - Discord: [PSR feed channel](https://discord.com/channels/823564092379627520/1223330302890348754).  
-  - Historical data: [Google Cloud storage](https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet).  
+- **Access Data:**
+  - Discord: [PSR feed channel](https://discord.com/channels/823564092379627520/1223330302890348754).
+  - Historical data: [Google Cloud storage](https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet).
 
 ### PSR Events
 
-Bonds can also be charged for [PSR events](https://marinade.finance/how-it-works/psr).  
+Bonds can also be charged for [PSR events](https://marinade.finance/how-it-works/psr).
 
-**Note:**  
+**Note:**
 The term "uptime" refers to "voting uptime," i.e., the number of
 [vote credits](https://docs.anza.xyz/proposals/timely-vote-credits) earned.
 Bond calculations ensure validators earn inflation rewards equal to or above the network average.
@@ -532,16 +532,16 @@ and a Settlement is created for this purpose.
 
 ### Verifying Charged Amounts
 
-Validators can verify charged amounts and funded SOLs on-chain.  
+Validators can verify charged amounts and funded SOLs on-chain.
 
-**Options:**  
+**Options:**
 - **Current State:** Use the [CLI show command](#show-the-bond-account) to see the current on-chain Bond state
   - _NOTE:_ data from `show-bond` represents current on-chain data not data used
         for bonds calculation of particular epoch
-- **Historical Data:**  
-  - Dashboard: [PSR Bonds Dashboard](https://psr.marinade.finance/).  
-  - Auction data: [Auction scores API](https://scoring.marinade.finance/api/v1/scores/sam?epoch=X).  
-  - Settlement data: [Google Cloud storage](https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet).  
+- **Historical Data:**
+  - Dashboard: [PSR Bonds Dashboard](https://psr.marinade.finance/).
+  - Auction data: [Auction scores API](https://scoring.marinade.finance/api/v1/scores/sam?epoch=X).
+  - Settlement data: [Google Cloud storage](https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet).
 
 For advanced on-chain queries, refer to the [on-chain analysis documentation](../../programs/validator-bonds/ON_CHAIN_ANALYSIS.md).
 
@@ -634,7 +634,7 @@ curl $RPC_URL -X POST -H "Content-Type: application/json" -d '
 
 ## Support for Ledger signing
 
-Any signature can be generated using Ledger by specifying either the pubkey 
+Any signature can be generated using Ledger by specifying either the pubkey
 (`usb://ledger/9rPVSygg3brqghvdZ6wsL2i5YNQTGhXGdJzF65YxaCQd`) or the path (`usb://ledger?key=0/0`)
 as the parameter value.
 For instance, if the bond authority is set up to be controlled by a key managed on Ledger, the command can be executed as follows:
@@ -952,7 +952,7 @@ Commands:
   ```
 
   **Explanation**
-  
+
   This error occurs with the `claim-withdraw-request` CLI command and means that the withdrawal request is not yet ready.
   The bonds program allows funds to be withdrawn only after a specified time defined in the `Config` account.
   Wait for a few `epochs` for the request to become available for claiming.
