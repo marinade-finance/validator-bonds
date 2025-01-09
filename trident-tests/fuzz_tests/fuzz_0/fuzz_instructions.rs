@@ -1160,6 +1160,8 @@ pub mod validator_bonds_fuzz_instructions {
                 system_program: solana_sdk::system_program::ID,
                 stake_history: solana_sdk::sysvar::stake_history::ID,
                 clock: solana_sdk::sysvar::clock::ID,
+                rent: solana_sdk::sysvar::rent::ID,
+                stake_config: solana_sdk::stake::config::ID,
                 event_authority: find_event_authority().0,
                 program: validator_bonds::ID,
             }
