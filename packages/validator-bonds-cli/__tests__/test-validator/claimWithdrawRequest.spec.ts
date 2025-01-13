@@ -274,6 +274,50 @@ describe('Claim withdraw request using CLI', () => {
     ).toEqual(1)
   })
 
+  it('claim withdraw request with stake account', async () => {
+    const stakeAccount = await createBondsFundedStakeAccount({
+      program,
+      provider,
+      configAccount,
+      lamports: withdrawRequestLamports,
+      voteAccount,
+    })
+
+    const user = await createUserAndFund({ provider })
+
+    // waiting for next epoch, otherwise the merge fails as stake accounts are in different states (0x6)
+    // + needed to wait 1 epoch for the withdraw request to be claimable (config set 'withdrawLockupEpochs' to 0)
+    await waitForNextEpoch(provider.connection, 15)
+
+    await (
+      expect([
+        'pnpm',
+        [
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          'claim-withdraw-request',
+          voteAccount.toBase58(),
+          '--config',
+          configAccount.toBase58(),
+          '--authority',
+          validatorIdentityPath,
+          '--withdrawer',
+          pubkey(user).toBase58(),
+          '--stake-account',
+          stakeAccount.toBase58(),
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+      // stderr: '',
+      stdout: /successfully claimed/,
+    })
+  })
+
   it('claim withdraw request in print-only mode', async () => {
     await createBondsFundedStakeAccount({
       program,

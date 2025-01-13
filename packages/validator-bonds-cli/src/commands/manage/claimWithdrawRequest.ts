@@ -177,7 +177,7 @@ async function manageClaimWithdrawRequest({
   let stakeAccountsToWithdraw: PublicKey[] = []
   if (stakeAccount !== undefined) {
     // forced to use provided stake account
-    const { instruction, withdrawRequestAccount } =
+    const { instruction, withdrawRequestAccount, splitStakeAccount } =
       await claimWithdrawRequestInstruction({
         program,
         withdrawRequestAccount: withdrawRequestAddress,
@@ -189,6 +189,7 @@ async function manageClaimWithdrawRequest({
         splitStakeRentPayer,
         withdrawer,
       })
+    signers.push(splitStakeAccount)
     withdrawRequestAddress = withdrawRequestAccount
     instructionsToProcess = [instruction]
     stakeAccountsToWithdraw = [stakeAccount]
