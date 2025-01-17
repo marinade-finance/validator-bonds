@@ -2727,6 +2727,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "institutional-psr-distribution"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bid-psr-distribution",
+ "bincode",
+ "clap 4.4.8",
+ "env_logger 0.10.1",
+ "log",
+ "merkle-tree",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "serde_yaml 0.8.26",
+ "snapshot-parser-types",
+ "solana-sdk",
+ "tokio",
+ "utoipa",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
