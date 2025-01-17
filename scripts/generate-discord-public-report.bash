@@ -100,6 +100,9 @@ do
     if [[ $reason_code == "Bidding" ]]; then
       reason="Bidding"
     fi
+    if [[ $reason_code == "InstitutionalPayout" ]]; then
+      reason="Institutional"
+    fi
 
     if [[ -z $reason ]]; then
       echo "Unexpected reason code: '$reason_code'" >&2

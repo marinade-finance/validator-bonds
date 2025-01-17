@@ -8,6 +8,7 @@
         "pretest:validator": "node -e \"if (process.versions.node.split('.')[0] < 20) { console.error('Node.js 20 or higher is required for running tests (crypto module is in use)'); process.exit(1); }\"",
         "test:validator": "anchor test",
         "test:bankrun": "pnpm anchor:build && pnpm jest --config jest.config.bankrun.js --runInBand true -- \"$FILE\"",
+        "test:download-institutional": "T=`mktemp -d` && git clone --depth=1 --single-branch git@github.com:marinade-finance/institutional-staking.git \"$T\" && TARGET='settlement-distributions/institutional-distribution/tests/fixtures/' && rm -f \"$TARGET\"/*payouts.json && cp \"$T/fixtures/\"*payouts.json \"$TARGET\"; rm -rf \"$T\"",
         "test:cargo": "cargo test --features no-entrypoint -- --nocapture",
         "test:fuzz": "trident fuzz run fuzz_0",
         "test": "pnpm test:cargo && pnpm test:bankrun && pnpm test:validator",

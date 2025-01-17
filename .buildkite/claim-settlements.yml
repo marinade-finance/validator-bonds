@@ -3,6 +3,7 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
+  SLACK_API: https://slack.com/api/chat.postMessage
 
 steps:
   - label: ":closed_lock_with_key: Concurrency gate lock"
@@ -171,27 +172,35 @@ steps:
     depends_on: "notification-setup-claim"
     allow_dependency_failure: true
 
+  - label: ":atom_symbol: Report printing"
+    commands:
+    - buildkite-agent artifact download --include-retried-jobs claiming-report.txt . || echo "UNKNOWN ERROR" > claiming-report.txt
+    - cat ./claiming-report.txt
+    depends_on: "notification-setup-claim"
+    allow_dependency_failure: true
+
   - label: ":mega: Notification Claiming"
     commands:
     - source ./scripts/execute-handlers.sh
     - check_command_execution_status "claim-settlement" || true
     - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
-    - buildkite-agent artifact download --include-retried-jobs claiming-report.txt . || echo "UNKNOWN ERROR" > claiming-report.txt
     - |
       claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json || echo "[]")
       claimable_epochs=$(echo "$$claimable_epochs_json" | jq ". | join(\",\")" | tr -d '"')
     - |
-      curl "$(buildkite-agent meta-data get discord_webhook)" \
-        -F 'payload_json={
-            "embeds":[{
-              "title": "Claim Settlements '"$$notification_result"' for epochs: '"$$claimable_epochs"' after '"$$attempts_count"' attempts",
-              "url": "'"$$BUILDKITE_BUILD_URL"'",
-              "color": "'"$$notification_color"'"
-            }]
-        }' \
-        -F "file1=@./claiming-report.txt"
-    - |
-      build_result=$(buildkite-agent step get "outcome" --step "claim-settlement")
+      curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
+        -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
+          "channel": "feed-pipeline-sam-psr",
+          "attachments": [
+            {
+              "color": "'"$$notification_color"'",
+              "title": "Claim Settlements '"$$notification_result"'",
+              "title_link": "'"$$BUILDKITE_BUILD_URL"'",
+              "text": "for epochs: '"$$claimable_epochs"' after '"$$attempts_count"' attempts",
+              "footer": "<'"$$BUILDKITE_BUILD_URL"'|View in Buildkite>"
+            }
+          ]
+      }'
     depends_on: "notification-setup-claim"
     allow_dependency_failure: true
 

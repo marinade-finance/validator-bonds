@@ -1,0 +1,140 @@
+agents:
+  queue: "snapshots"
+
+env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+  gs_bucket_institutional: gs://marinade-institutional-staking-mainnet
+  SLACK_API: https://slack.com/api/chat.postMessage
+  SLACK_FEED: "feed-institutional-staking"
+  CLAIM_TYPE: "institutional-distribution"
+
+steps:
+  - label: ":hammer_and_wrench: :rust: Build"
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'cargo build --release --bin institutional-distribution-cli'
+    artifact_paths:
+      - target/release/institutional-distribution-cli
+
+  - input: "What is the epoch to generate settlements for?"
+    fields:
+      - text: "Epoch"
+        key: "epoch"
+        format: "[0-9]+"
+    if: "build.env('EPOCH') == null"
+    blocked_state: running
+  - command: "echo 'Epoch is: $EPOCH'"
+    if: "build.env('EPOCH') != null"
+
+  - wait: ~
+
+  - label: ":closed_lock_with_key: Concurrency gate lock"
+    command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/prepare-institutional-distribution'
+    concurrency: 1
+
+  - wait: ~
+
+  - label: ":black_nib: Env variables setup"
+    commands:
+    - |
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+      buildkite-agent meta-data set epoch "$$epoch"
+
+  - wait: ~
+
+  - label: ":floppy_disk: :arrow_left: :cloud: Downloading Input JSON data"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - |
+      gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" "."
+    key: 'download-json'
+    artifact_paths:
+      - "./institutional-payouts.json"
+
+  - wait: ~
+
+  - label: ":scales: Prepare Validator Bonds Merkle Tree"
+    env:
+    commands:
+    - 'buildkite-agent artifact download --include-retried-jobs institutional-payouts.json .'
+    - 'chmod +x target/release/institutional-distribution-cli'
+    - |
+      ./target/release/institutional-distribution-cli -- \
+        --institutional-payouts institutional-payouts.json \
+        --marinade-fee-stake-authority ${MARINADE_FEE_STAKE_AUTHORITY} \
+        --marinade-fee-withdraw-authority ${MARINADE_FEE_WITHDRAW_AUTHORITY} \
+        --output-settlement-collection "./${CLAIM_TYPE}-settlements.json" \
+        --output-merkle-tree-collection "./${CLAIM_TYPE}-merkle-trees.json"
+    artifact_paths:
+    - "./${CLAIM_TYPE}*.json"
+
+  - wait: ~
+
+  - label: "📓 Generating report"
+    commands:
+    - buildkite-agent artifact download --include-retried-jobs institutional-settlements.json .
+    - |
+      ./scripts/generate-discord-public-report.bash "./${CLAIM_TYPE}-settlements.json" "Institutional" true > "./discord-public-report.txt"
+    artifact_paths:
+      - "./discord-public-report.txt"
+
+  - wait: ~
+
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Prepare Bid Distribution"
+    commands:
+      - epoch=$(buildkite-agent meta-data get epoch)
+      - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .
+      - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlement-merkle-trees.json .
+      - buildkite-agent artifact download --include-retried-jobs discord-public-report.txt .
+      - gcloud storage cp "./${CLAIM_TYPE}-settlements.json" "$gs_bucket/$$epoch/"
+      - gcloud storage cp "./${CLAIM_TYPE}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
+      - gcloud storage cp "./discord-public-report.txt" "$gs_bucket/$$epoch/${CLAIM_TYPE}-discord-public-report.txt"
+
+  - wait: ~
+
+  - label: ":mega: Notification"
+    commands:
+    - |
+      epoch=$(buildkite-agent meta-data get epoch)
+      curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
+        -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
+          "channel": "'"$SLACK_FEED"'",
+          "attachments": [
+            {
+              "color": "#8000ff",
+              "title": "Claims for Validator Bonds ('"${CLAIM_TYPE}"') generated ('"$$epoch"').",
+              "title_link": "'"$$BUILDKITE_BUILD_URL"'",
+              "footer": "<'"$$BUILDKITE_BUILD_URL"'|View in Buildkite>"
+            }
+          ]
+      }'
+    if: "build.env('NOTIFY_FEED') == 'true'"
+
+  - wait: ~
+
+  - label: ":gear: Setup init-settlements trigger"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - |
+      cat <<EOF | buildkite-agent pipeline upload
+      steps:
+        - trigger: "init-settlements"
+          label: ":rocket: Trigger: Init settlements ($$epoch)/($CLAIM_TYPE)"
+          async: true
+          build:
+            branch: $$BUILDKITE_BRANCH
+            env:
+              EPOCH: $$epoch
+              CLAIM_TYPE: $CLAIM_TYPE
+              NOTIFY_FEED: $NOTIFY_FEED
+              SLACK_FEED: $SLACK_FEED
+              gs_bucket: $gs_bucket
+      EOF
+
+  - wait: ~
+
+  - label: ":unlock: Concurrency gate unlock"
+    command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/prepare-institutional-distribution'
+    concurrency: 1

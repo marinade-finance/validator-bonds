@@ -1,9 +1,14 @@
 agents:
   queue: "snapshots"
 
+env:
+  gs_bucket_bonds: gs://marinade-validator-bonds-mainnet
+  gs_bucket_snapshots: gs://marinade-solana-snapshot-mainnet
+
 steps:
-  - command: echo "--> Start of concurrency gate"
-    concurrency_group: 'validator-bonds/scheduler'
+  - label: ":closed_lock_with_key: Concurrency gate lock"
+    command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/scheduler-bidding'
     concurrency: 1
 
   - wait: ~
@@ -13,25 +18,27 @@ steps:
     concurrency: 1
     commands:
     - |
-      max_processed_epoch=$(gcloud storage ls "gs://marinade-validator-bonds-mainnet" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 1)
+      max_processed_epoch=$(gcloud storage ls "${gs_bucket_bonds}/**/bid-psr-distribution.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 1)
       max_processed_epoch="$${max_processed_epoch%%[^0-9]*}"
       max_available_epoch=$(gcloud storage ls "gs://marinade-solana-snapshot-mainnet/**/stakes.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 1)
-      echo max_processed_epoch: $$max_processed_epoch
-      echo max_available_epoch: $$max_available_epoch
+      echo "Bidding:: > max_processed_epoch: $$max_processed_epoch, max_available_epoch: $$max_available_epoch"
       (( $$max_processed_epoch < $$max_available_epoch )) && cat <<EOF | buildkite-agent pipeline upload
       steps:
         - trigger: "copy-parsed-snapshot"
           label: ":rocket: Trigger: Fetch parsed Solana snapshot ($$max_available_epoch)"
           async: false
           build:
+            branch: $$BUILDKITE_BRANCH
             env:
               EPOCH: $$max_available_epoch
+              NOTIFY_FEED: true
       EOF
 
       echo Scheduling complete
 
   - wait: ~
 
-  - command: echo "End of concurrency gate <--"
-    concurrency_group: 'validator-bonds/scheduler'
+  - label: ":unlock: Concurrency gate unlock"
+    command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/scheduler-bidding'
     concurrency: 1
