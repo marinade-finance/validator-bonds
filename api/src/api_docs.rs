@@ -2,9 +2,9 @@ use crate::{
     dto::{ProtectedEventRecord, ValidatorBondRecord},
     handlers::{bonds, docs, protected_events},
 };
-use protected_event_distribution::{
+use bid_psr_distribution::{
     protected_events::ProtectedEvent,
-    settlement_claims::{SettlementFunder, SettlementMeta, SettlementReason},
+    settlement_collection::{SettlementFunder, SettlementMeta, SettlementReason},
 };
 use solana_sdk::pubkey::Pubkey;
 use utoipa::{

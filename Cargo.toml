@@ -6,8 +6,8 @@ members = [
     "programs/*",
     "validator-bonds-cli",
     "settlement-pipelines",
-    "bid-distribution",
-    "protected-event-distribution",
+    "settlement-distributions/bid-distribution",
+    "settlement-distributions/bid-psr-distribution",
     "trident-tests/fuzz_tests"
 ]
 resolver = "1"
@@ -46,7 +46,7 @@ rust_decimal = { version = "1.26", features = ["db-postgres"] }
 serde = "1.0.197"
 serde_json = "1.0.114"
 serde_yaml = "0.8"
-protected-event-distribution = { path = "protected-event-distribution" }
+bid-psr-distribution = { path = "settlement-distributions/bid-psr-distribution" }
 snapshot-parser-types = { git = "https://github.com/marinade-finance/solana-snapshot-parser", branch = "master" }
 shellexpand = "3.1.0"
 solana-account-decoder = "1.17.22"

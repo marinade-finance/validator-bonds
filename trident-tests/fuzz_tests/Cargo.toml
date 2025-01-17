@@ -17,7 +17,7 @@ assert_matches = { workspace = true }
 bincode = { workspace = true }
 honggfuzz = { workspace = true }
 log = { workspace = true }
-protected-event-distribution = { workspace = true }
+bid-psr-distribution = { workspace = true }
 trident-client = { workspace = true }
 validator-bonds = { workspace = true }
 validator-bonds-common = { workspace = true }

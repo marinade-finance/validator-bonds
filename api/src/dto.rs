@@ -1,6 +1,6 @@
+use bid_psr_distribution::settlement_collection::{SettlementMeta, SettlementReason};
 use chrono::{DateTime, Utc};
 use merkle_tree::serde_serialize::pubkey_string_conversion;
-use protected_event_distribution::settlement_claims::{SettlementMeta, SettlementReason};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;

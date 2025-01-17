@@ -1,10 +1,10 @@
 use crate::sam_meta::ValidatorSamMeta;
 use crate::settlement_config::SettlementConfig;
-use log::info;
-use protected_event_distribution::settlement_claims::{
+use bid_psr_distribution::settlement_collection::{
     Settlement, SettlementClaim, SettlementCollection, SettlementReason,
 };
-use protected_event_distribution::stake_meta_index::StakeMetaIndex;
+use bid_psr_distribution::stake_meta_index::StakeMetaIndex;
+use log::info;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 use solana_sdk::pubkey::Pubkey;

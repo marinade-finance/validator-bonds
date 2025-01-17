@@ -1,9 +1,9 @@
 [[bin]]
-name = "protected-event-distribution-cli"
+name = "bid-psr-distribution-cli"
 path = "src/bin/cli.rs"
 
 [package]
-name = "protected-event-distribution"
+name = "bid-psr-distribution"
 version = "0.0.0"
 edition = "2021"
 
