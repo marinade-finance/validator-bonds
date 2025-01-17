@@ -7,16 +7,9 @@ edition = "2021"
 anchor-client = { workspace = true }
 anyhow = { workspace = true }
 bincode = { workspace = true }
-futures = { workspace = true }
 log = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-serde_yaml = { workspace = true }
 solana-sdk = { workspace = true }
-solana-clap-utils = { workspace = true }
 solana-client = { workspace = true }
-solana-logger = { workspace = true }
-solana-cli-config = { workspace = true }
 solana-account-decoder = { workspace = true }
 solana-program = { workspace = true }
 tokio = {workspace = true}

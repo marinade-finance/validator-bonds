@@ -16,7 +16,7 @@ pub struct SettlementsReportData {
 pub enum ReportingReasonSettlement {
     ProtectedEvent,
     Bidding,
-    InstitutionalProtectedEvent,
+    InstitutionalPayout,
     InstitutionalRewards,
 }
 
@@ -25,7 +25,7 @@ impl ReportingReasonSettlement {
         vec![
             ReportingReasonSettlement::ProtectedEvent,
             ReportingReasonSettlement::Bidding,
-            ReportingReasonSettlement::InstitutionalProtectedEvent,
+            ReportingReasonSettlement::InstitutionalPayout,
             ReportingReasonSettlement::InstitutionalRewards,
         ]
     }
@@ -36,7 +36,7 @@ impl Display for ReportingReasonSettlement {
         match self {
             ReportingReasonSettlement::ProtectedEvent => write!(f, "ProtectedEvent"),
             ReportingReasonSettlement::Bidding => write!(f, "Bidding"),
-            ReportingReasonSettlement::InstitutionalProtectedEvent => {
+            ReportingReasonSettlement::InstitutionalPayout => {
                 write!(f, "InstitutionalProtectedEvent")
             }
             ReportingReasonSettlement::InstitutionalRewards => write!(f, "InstitutionalRewards"),
@@ -163,11 +163,8 @@ impl SettlementsReportData {
                         ReportingReasonSettlement::ProtectedEvent
                     }
                     SettlementReason::Bidding => ReportingReasonSettlement::Bidding,
-                    SettlementReason::InstitutionalProtectedEvent => {
-                        ReportingReasonSettlement::InstitutionalProtectedEvent
-                    }
-                    SettlementReason::InstitutionalRewards => {
-                        ReportingReasonSettlement::InstitutionalRewards
+                    SettlementReason::InstitutionalPayout => {
+                        ReportingReasonSettlement::InstitutionalPayout
                     }
                 };
                 result.get_mut(&reason_type).unwrap().insert(*pubkey);

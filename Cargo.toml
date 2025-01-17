@@ -8,6 +8,7 @@ members = [
     "settlement-pipelines",
     "settlement-distributions/bid-distribution",
     "settlement-distributions/bid-psr-distribution",
+    "settlement-distributions/institutional-distribution",
     "trident-tests/fuzz_tests"
 ]
 resolver = "1"

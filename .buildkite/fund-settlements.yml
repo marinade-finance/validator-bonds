@@ -3,6 +3,7 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
+  SLACK_API: https://slack.com/api/chat.postMessage
 
 steps:
   - label: ":closed_lock_with_key: Concurrency gate lock"
@@ -12,18 +13,32 @@ steps:
 
   - wait: ~
 
+  - input: "What is slack feed to emit messages into?"
+    fields:
+      - select: "Slack feed"
+        key: "slack_feed"
+        options:
+          - label: "Feed Pipeline SAM PSR"
+            value: "feed-pipeline-sam-psr"
+          - label: "Feed Institutional Staking"
+            value: "feed-institutional-staking"
+    if: "build.env('SLACK_FEED') == null && build.env('NOTIFY_FEED') == 'true'"
+    blocked_state: running
+
+  - wait: ~
+
   - label: ":black_nib: Env variables setup: Fund Settlements"
     commands:
     - |
-      claim_type=${CLAIM_TYPE:-"$($(buildkite-agent meta-data get claim_type) || true)"}
-      if [[ -n "$$claim_type" ]]; then
-        buildkite-agent meta-data set claim_type "$$claim_type"
-      fi
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+      buildkite-agent meta-data set epoch "$$epoch"
     - |
-      epoch=${EPOCH:-"$($(buildkite-agent meta-data get epoch) || true)"}
-      if [[ -n "$$epoch" ]]; then
-        buildkite-agent meta-data set epoch "$$epoch"
-      fi
+      claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
+      buildkite-agent meta-data set claim_type "$$claim_type"
+    - |
+      slack_feed=${SLACK_FEED:-$(buildkite-agent meta-data get slack_feed)}
+      buildkite-agent meta-data set slack_feed "$$slack_feed"
+    - 'echo "Epoch: $$epoch", Claim Type: $$claim_type, Slack Feed: $$slack_feed"'
 
   - wait: ~
 
@@ -84,20 +99,6 @@ steps:
       done
     artifact_paths:
       - "./merkle-trees/**/*"
-
-  - label: ":black_nib: Find Discord webhook"
-    commands:
-    - |
-      discord_webhook=$(buildkite-agent meta-data get discord_webhook) || true
-      if [[ -z "$$discord_webhook" ]]; then
-        # env defined by job definition
-        discord_webhook="${DISCORD_WEBHOOK}"
-      fi
-      if [[ -z "$$discord_webhook" ]]; then
-        # env defined by buildkite environment
-        discord_webhook="$${DISCORD_WEBHOOK_VALIDATOR_BONDS}"
-      fi
-      buildkite-agent meta-data set discord_webhook "$$discord_webhook"
 
   - wait: ~
 
@@ -174,28 +175,36 @@ steps:
     depends_on: "notification-setup-funding"
     allow_dependency_failure: true
 
+  - label: ":atom_symbol: Report printing"
+    commands:
+    - buildkite-agent artifact download --include-retried-jobs fund-report.txt . || echo 'UNKNOWN ERROR' > './fund-report.txt'
+    - cat ./fund-report.txt
+    depends_on: "notification-setup-funding"
+    allow_dependency_failure: true
+
   - label: ":mega: Notification Funding"
     commands:
     - source ./scripts/execute-handlers.sh
     - check_command_execution_status "fund-settlement" || true
     - |
-      attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
       claim_type=$(buildkite-agent meta-data get claim_type) || true
-      if [[ -n "$$claim_type" ]]; then
-        claim_type=" [$$claim_type]"
-      fi
-      buildkite-agent artifact download --include-retried-jobs fund-report.txt . || echo 'UNKNOWN ERROR' > './fund-report.txt'
-      curl "$(buildkite-agent meta-data get discord_webhook)" \
-        -F 'payload_json={
-            "embeds":[{
-              "title": "Fund Settlements '"$${notification_result}$${claim_type}"', '"$$attempts_count"' attempts",
-              "url": "'"$$BUILDKITE_BUILD_URL"'",
-              "color": "'"$$notification_color"'"
-            }]
-        }' \
-        -F "file1=@./fund-report.txt"
+      [[ -n "$$claim_type" ]] && claim_type=" [$$claim_type]"
+    - slack_feed=$(buildkite-agent meta-data get slack_feed)
+    - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
+    - |
+      curl $SLACK_API -X POST -H 'Content-Type: application/json; charset=utf-8' \
+        -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
+        "channel": "'"$$slack_feed"'",
+        "attachments": [{
+          "color": "'"$$notification_color"'",
+          "title": "Fund Settlements '"$${notification_result}$${claim_type}"', '"$$attempts_count"' attempts",
+          "title_link": "'"$$BUILDKITE_BUILD_URL"'",
+          "footer": "<'"$$BUILDKITE_BUILD_URL"'|View in Buildkite>" 
+        }]
+      }'
     depends_on: "notification-setup-funding"
     allow_dependency_failure: true
+    if: "build.env('NOTIFY_FEED') == 'true'"
 
   - wait: ~
 

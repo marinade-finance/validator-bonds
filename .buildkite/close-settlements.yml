@@ -3,6 +3,7 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
+  SLACK_API: https://slack.com/api/chat.postMessage
 
 steps:
   - label: ":closed_lock_with_key: Concurrency gate lock"
@@ -88,14 +89,15 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs target/release/close-settlement .
     - buildkite-agent artifact download --include-retried-jobs past-settlements.json .
     - chmod +x target/release/close-settlement
+    - source ./scripts/execute-handlers.sh
     - |
-      set -o pipefail
+      handle_command_execution "close-settlement" \
       ./target/release/close-settlement \
         --rpc-url $$RPC_URL \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$PSR_TX_FEE_WALLET" \
         --marinade-wallet "$$PSR_MARINADE_DAO_FUNDER_WALLET" \
-        --past-settlements ./past-settlements.json | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
+        --past-settlements ./past-settlements.json
     key: 'close-settlement'
     artifact_paths:
       - "./execution-report.*"
@@ -128,29 +130,31 @@ steps:
     depends_on: "notification-setup-close"
     allow_dependency_failure: true
 
+  - label: ":atom_symbol: Report printing"
+    commands:
+    - buildkite-agent artifact download --include-retried-jobs close-report.txt . || echo 'UNKNOWN ERROR' > './close-report.txt'
+    - cat ./close-report.txt
+    depends_on: "notification-setup-close"
+    allow_dependency_failure: true
+
   - label: ":mega: Notification Closing"
     commands:
-    - 'build_result=$(buildkite-agent step get "outcome" --step "close-settlement")'
+    - source ./scripts/execute-handlers.sh
+    - check_command_execution_status "close-settlement" || true
+    - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
     - |
-      if [[ -z "$$build_result" || "$$build_result" =~ "failed" ]]; then
-        notification_result="FAILED"
-        notification_color="15158332"
-      else
-        notification_result="SUCCEEDED"
-        notification_color="52224"
-      fi
-    - |
-      attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
-      buildkite-agent artifact download --include-retried-jobs close-report.txt . || echo 'UNKNOWN ERROR' > './close-report.txt'
-      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
-        -F 'payload_json={
-            "embeds":[{
+      curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
+        -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
+          "channel": "feed-pipeline-sam-psr",
+          "attachments": [
+            {
+              "color": "'"$$notification_color"'",
               "title": "Close Settlements '"$$notification_result"', '"$$attempts_count"' attempts",
-              "url": "'"$$BUILDKITE_BUILD_URL"'",
-              "color": "'"$$notification_color"'"
-            }]
-        }' \
-        -F "file1=@./close-report.txt"
+              "title_link": "'"$$BUILDKITE_BUILD_URL"'",
+              "footer": "<'"$$BUILDKITE_BUILD_URL"'|View in Buildkite>"
+            }
+          ]
+      }'
     depends_on: "notification-setup-close"
     allow_dependency_failure: true
 

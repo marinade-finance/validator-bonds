@@ -4,6 +4,7 @@ agents:
 env:
   gs_source_bucket: gs://marinade-solana-snapshot-mainnet
   gs_bucket: gs://marinade-validator-bonds-mainnet
+  SLACK_API: https://slack.com/api/chat.postMessage
 
 steps:
   - label: ":closed_lock_with_key: Concurrency gate lock"
@@ -17,38 +18,51 @@ steps:
         key: "epoch"
         format: "[0-9]+"
     if: "build.env('EPOCH') == null"
+    blocked_state: running
+
+  - wait: ~
+
+  - label: ":black_nib: Env variables setup: Parse Snapshot"
+    commands:
+    - |
+    - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+    - buildkite-agent meta-data set epoch "$$epoch"
+    - 'echo "Epoch: $$epoch"'
 
   - wait: ~
 
   - label: ":mega: Notification"
     commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
     - |
-      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
-      buildkite-agent meta-data set epoch "$$epoch"
-      curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" -H "Content-Type: application/json" -d '{
-        "embeds": [
-          {
-            "title": "Preparing claims for Validator Bonds ('"$$epoch"').",
-            "url": "'"$$BUILDKITE_BUILD_URL"'",
-            "color": "8388863"
-          }
-        ]
+      curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
+        -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
+          "channel": "feed-pipeline-sam-psr",
+          "attachments": [
+            {
+              "color": "#8000ff",
+              "title": "Preparing claims for Validator Bonds ('"$$epoch"').",
+              "title_link": "'"$$BUILDKITE_BUILD_URL"'",
+              "footer": "<'"$$BUILDKITE_BUILD_URL"'|View in Buildkite>"
+            }
+          ]
       }'
+    if: "build.env('NOTIFY_FEED') == 'true'"
 
   - wait: ~
 
   - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
     commands:
-    - 'epoch=$(buildkite-agent meta-data get epoch)'
-    - 'gcloud storage cp "$gs_source_bucket/$$epoch/past-validators.json" "$gs_bucket/$$epoch/"'
-    - 'gcloud storage cp "$gs_source_bucket/$$epoch/validators.json" "$gs_bucket/$$epoch/"'
-    - 'gcloud storage cp "$gs_source_bucket/$$epoch/stakes.json" "$gs_bucket/$$epoch/"'
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - gcloud storage cp "$gs_source_bucket/$$epoch/past-validators.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "$gs_source_bucket/$$epoch/validators.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "$gs_source_bucket/$$epoch/stakes.json" "$gs_bucket/$$epoch/"
 
   - wait: ~
 
   - label: ":gear: :one: Setup trigger for prepare-bid-psr-distribution"
     commands:
-    - 'epoch=$(buildkite-agent meta-data get epoch)'
+    - epoch=$(buildkite-agent meta-data get epoch)
     - |
       cat <<EOF | buildkite-agent pipeline upload
       steps:
@@ -59,6 +73,7 @@ steps:
             branch: $$BUILDKITE_BRANCH
             env:
               EPOCH: $$epoch
+              NOTIFY_FEED: $NOTIFY_FEED
               gs_bucket: $gs_bucket
       EOF
 
@@ -75,6 +90,7 @@ steps:
             branch: $$BUILDKITE_BRANCH
             env:
               EPOCH: $$epoch
+              NOTIFY_FEED: $NOTIFY_FEED
               gs_bucket: $gs_bucket
       EOF
 

@@ -1,0 +1,45 @@
+agents:
+  queue: "snapshots"
+
+env:
+  gs_bucket_bonds: gs://marinade-validator-bonds-mainnet
+  gs_bucket_institutional: gs://marinade-institutional-staking-mainnet
+
+steps:
+  - label: ":closed_lock_with_key: Concurrency gate lock"
+    command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/scheduler-institutional'
+    concurrency: 1
+
+  - wait: ~
+
+  - label: ":calendar: Schedule Prepare Institutional Distribution"
+    concurrency_group: 'validator-bonds/prepare-institutional-distribution'
+    concurrency: 1
+    commands:
+    - |
+      max_processed_epoch=$(gcloud storage ls "${gs_bucket_bonds}/**/institutional-distribution.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 1) || exit 23
+      max_processed_epoch="$${max_processed_epoch%%[^0-9]*}"
+      max_available_epoch=$(gcloud storage ls "${gs_bucket_institutional}" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 1) || exit 22
+      max_available_epoch="$${max_available_epoch%%[^0-9]*}"
+      echo "institutional:: max_processed_epoch: $$max_processed_epoch, max_available_epoch: $$max_available_epoch"
+      (( $$max_processed_epoch < $$max_available_epoch )) && cat <<EOF | buildkite-agent pipeline upload
+      steps:
+        - trigger: "prepare-institutional-distribution"
+          label: ":rocket: Trigger: Prepare Institutional Distribution ($$max_available_epoch)"
+          async: false
+          build:
+            branch: $$BUILDKITE_BRANCH
+            env:
+              EPOCH: $$max_available_epoch
+              NOTIFY_FEED: true
+      EOF
+
+      echo Scheduling complete
+
+  - wait: ~
+
+  - label: ":unlock: Concurrency gate unlock"
+    command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/scheduler-institutional'
+    concurrency: 1
