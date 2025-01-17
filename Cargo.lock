@@ -383,6 +383,7 @@ name = "api"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "bid-psr-distribution",
  "bincode",
  "chrono",
  "clap 4.4.8",
@@ -390,7 +391,6 @@ dependencies = [
  "gcp-bigquery-client",
  "log",
  "merkle-tree",
- "protected-event-distribution",
  "rust_decimal",
  "serde",
  "serde_json",
@@ -736,18 +736,38 @@ name = "bid-distribution"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "bid-psr-distribution",
  "bincode",
  "clap 4.4.8",
  "env_logger 0.10.1",
  "log",
  "merkle-tree",
- "protected-event-distribution",
  "rust_decimal",
  "serde",
  "serde_json",
  "serde_yaml 0.8.26",
  "snapshot-parser-types",
  "solana-sdk",
+]
+
+[[package]]
+name = "bid-psr-distribution"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "clap 4.4.8",
+ "env_logger 0.10.1",
+ "log",
+ "merkle-tree",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "serde_yaml 0.8.26",
+ "snapshot-parser-types",
+ "solana-sdk",
+ "tokio",
+ "utoipa",
 ]
 
 [[package]]
@@ -2232,10 +2252,10 @@ dependencies = [
  "anyhow",
  "arbitrary",
  "assert_matches",
+ "bid-psr-distribution",
  "bincode",
  "honggfuzz",
  "log",
- "protected-event-distribution",
  "trident-client",
  "validator-bonds",
  "validator-bonds-common",
@@ -3791,26 +3811,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "protected-event-distribution"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "bincode",
- "clap 4.4.8",
- "env_logger 0.10.1",
- "log",
- "merkle-tree",
- "rust_decimal",
- "serde",
- "serde_json",
- "serde_yaml 0.8.26",
- "snapshot-parser-types",
- "solana-sdk",
- "tokio",
- "utoipa",
-]
-
-[[package]]
 name = "ptr_meta"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4604,13 +4604,13 @@ version = "0.0.1"
 dependencies = [
  "anchor-client",
  "anyhow",
+ "bid-psr-distribution",
  "bincode",
  "clap 4.4.8",
  "env_logger 0.10.1",
  "futures",
  "log",
  "merkle-tree",
- "protected-event-distribution",
  "regex",
  "serde",
  "serde_json",

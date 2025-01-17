@@ -11,9 +11,9 @@ steps:
   - label: ":hammer_and_wrench: :rust: Build"
     commands:
     - '. "$HOME/.cargo/env"'
-    - 'cargo build --release --bin protected-event-distribution-cli'
+    - 'cargo build --release --bin bid-psr-distribution-cli'
     artifact_paths:
-      - target/release/protected-event-distribution-cli
+      - target/release/bid-psr-distribution-cli
 
   - input: "What is the epoch to generate settlements for?"
     fields:
@@ -119,16 +119,16 @@ steps:
 
   - label: ":scales: Evaluate Marinade Protected Events"
     env:
-      RUST_LOG: info,protected_event_distribution=debug
+      RUST_LOG: info,bid_psr_distribution=debug
       WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
     commands:
     - 'buildkite-agent artifact download --include-retried-jobs validators.json .'
     - 'buildkite-agent artifact download --include-retried-jobs stakes.json .'
     - 'buildkite-agent artifact download --include-retried-jobs evaluation.json .'
-    - 'buildkite-agent artifact download --include-retried-jobs target/release/protected-event-distribution-cli .'
-    - 'chmod +x target/release/protected-event-distribution-cli'
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/bid-psr-distribution-cli .'
+    - 'chmod +x target/release/bid-psr-distribution-cli'
     - |
-      ./target/release/protected-event-distribution-cli \
+      ./target/release/bid-psr-distribution-cli \
         --settlement-config settlement-config.yaml \
         --validator-meta-collection "./validators.json" \
         --stake-meta-collection "./stakes.json" \
