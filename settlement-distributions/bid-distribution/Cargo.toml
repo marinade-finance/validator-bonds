@@ -14,7 +14,7 @@ clap = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
 merkle-tree = { workspace = true }
-protected-event-distribution = {workspace = true }
+bid-psr-distribution = {workspace = true }
 rust_decimal = { workspace = true, features = ["serde-float"] }
 serde = { workspace = true }
 serde_json = { workspace = true }

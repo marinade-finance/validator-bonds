@@ -1,6 +1,6 @@
 use crate::settlement_data::SettlementRecord;
+use bid_psr_distribution::settlement_collection::SettlementReason;
 use log::debug;
-use protected_event_distribution::settlement_claims::SettlementReason;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
@@ -16,6 +16,8 @@ pub struct SettlementsReportData {
 pub enum ReportingReasonSettlement {
     ProtectedEvent,
     Bidding,
+    InstitutionalProtectedEvent,
+    InstitutionalRewards,
 }
 
 impl ReportingReasonSettlement {
@@ -23,6 +25,8 @@ impl ReportingReasonSettlement {
         vec![
             ReportingReasonSettlement::ProtectedEvent,
             ReportingReasonSettlement::Bidding,
+            ReportingReasonSettlement::InstitutionalProtectedEvent,
+            ReportingReasonSettlement::InstitutionalRewards,
         ]
     }
 }
@@ -32,6 +36,10 @@ impl Display for ReportingReasonSettlement {
         match self {
             ReportingReasonSettlement::ProtectedEvent => write!(f, "ProtectedEvent"),
             ReportingReasonSettlement::Bidding => write!(f, "Bidding"),
+            ReportingReasonSettlement::InstitutionalProtectedEvent => {
+                write!(f, "InstitutionalProtectedEvent")
+            }
+            ReportingReasonSettlement::InstitutionalRewards => write!(f, "InstitutionalRewards"),
         }
     }
 }
@@ -155,6 +163,12 @@ impl SettlementsReportData {
                         ReportingReasonSettlement::ProtectedEvent
                     }
                     SettlementReason::Bidding => ReportingReasonSettlement::Bidding,
+                    SettlementReason::InstitutionalProtectedEvent => {
+                        ReportingReasonSettlement::InstitutionalProtectedEvent
+                    }
+                    SettlementReason::InstitutionalRewards => {
+                        ReportingReasonSettlement::InstitutionalRewards
+                    }
                 };
                 result.get_mut(&reason_type).unwrap().insert(*pubkey);
             } else {

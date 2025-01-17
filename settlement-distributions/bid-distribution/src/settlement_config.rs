@@ -1,4 +1,4 @@
-use protected_event_distribution::settlement_claims::SettlementMeta;
+use bid_psr_distribution::settlement_collection::SettlementMeta;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 

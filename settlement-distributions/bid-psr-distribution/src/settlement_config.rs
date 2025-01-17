@@ -1,4 +1,4 @@
-use crate::{protected_events::ProtectedEvent, settlement_claims::SettlementMeta};
+use crate::{protected_events::ProtectedEvent, settlement_collection::SettlementMeta};
 use log::debug;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
