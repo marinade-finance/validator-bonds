@@ -118,3 +118,32 @@ pub mod map_pubkey_string_conversion {
         }
     }
 }
+
+pub mod vec_pubkey_string_conversion {
+    use serde::Serialize;
+    use {
+        serde::{self, Deserialize, Deserializer, Serializer},
+        solana_program::pubkey::Pubkey,
+        std::str::FromStr,
+    };
+
+    pub fn serialize<S>(pubkeys: &[Pubkey], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Convert Vec<Pubkey> to Vec<String>
+        let string_vec: Vec<String> = pubkeys.iter().map(|pubkey| pubkey.to_string()).collect();
+        string_vec.serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Pubkey>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let strings: Vec<String> = Vec::deserialize(deserializer)?;
+        strings
+            .into_iter()
+            .map(|s| Pubkey::from_str(&s).map_err(serde::de::Error::custom))
+            .collect()
+    }
+}

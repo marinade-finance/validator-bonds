@@ -1,9 +1,9 @@
-use crate::settlement_claims::SettlementCollection;
+use crate::settlement_collection::SettlementCollection;
 use log::info;
 use solana_sdk::pubkey::Pubkey;
 
 use {
-    crate::settlement_claims::{Settlement, SettlementClaim},
+    crate::settlement_collection::{Settlement, SettlementClaim},
     merkle_tree::{psr_claim::TreeNode, serde_serialize::pubkey_string_conversion, MerkleTree},
     serde::{Deserialize, Serialize},
     solana_sdk::hash::Hash,

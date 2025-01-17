@@ -7,13 +7,11 @@ pub mod validator_bonds_fuzz_instructions {
     use anchor_spl::associated_token::get_associated_token_address;
     use anchor_spl::metadata::mpl_token_metadata::accounts::Metadata;
     use anchor_spl::token::TokenAccount;
-    use log::info;
-    use protected_event_distribution::merkle_tree_collection::{
-        generate_merkle_tree_meta, MerkleTreeMeta,
-    };
-    use protected_event_distribution::settlement_claims::{
+    use bid_psr_distribution::merkle_tree_collection::{generate_merkle_tree_meta, MerkleTreeMeta};
+    use bid_psr_distribution::settlement_collection::{
         Settlement, SettlementClaim, SettlementFunder, SettlementMeta, SettlementReason,
     };
+    use log::info;
     use trident_client::fuzzing::solana_sdk::native_token::LAMPORTS_PER_SOL;
     use trident_client::fuzzing::*;
     use validator_bonds::instructions::{

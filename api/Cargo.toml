@@ -24,7 +24,7 @@ rust_decimal = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
-protected-event-distribution = { workspace = true }
+bid-psr-distribution = { workspace = true }
 solana-sdk = { workspace = true }
 structopt = { workspace = true }
 tokio = { workspace = true }

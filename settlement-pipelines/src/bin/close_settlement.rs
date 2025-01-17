@@ -2,9 +2,9 @@ use anchor_client::anchor_lang::solana_program::native_token::lamports_to_sol;
 use anchor_client::anchor_lang::solana_program::stake::state::StakeStateV2;
 use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
+use bid_psr_distribution::utils::read_from_json_file;
 use clap::Parser;
 use log::{debug, info};
-use protected_event_distribution::utils::read_from_json_file;
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
     init_from_opts, load_pubkey, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts,

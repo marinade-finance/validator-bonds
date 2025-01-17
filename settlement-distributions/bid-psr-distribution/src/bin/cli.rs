@@ -1,16 +1,16 @@
-use env_logger::{Builder, Env};
-use protected_event_distribution::revenue_expectation_meta::RevenueExpectationMetaCollection;
-use protected_event_distribution::settlement_claims::generate_settlement_collection;
-use protected_event_distribution::settlement_config::{
+use bid_psr_distribution::revenue_expectation_meta::RevenueExpectationMetaCollection;
+use bid_psr_distribution::settlement_config::{
     no_filter, stake_authorities_filter, SettlementConfig,
 };
-use protected_event_distribution::stake_meta_index::StakeMetaIndex;
-use protected_event_distribution::utils::{file_error, read_from_yaml_file};
-use protected_event_distribution::{
+use bid_psr_distribution::settlement_generator::generate_settlement_collection;
+use bid_psr_distribution::stake_meta_index::StakeMetaIndex;
+use bid_psr_distribution::utils::{file_error, read_from_yaml_file};
+use bid_psr_distribution::{
     merkle_tree_collection::generate_merkle_tree_collection,
     protected_events::generate_protected_event_collection,
     utils::{read_from_json_file, write_to_json_file},
 };
+use env_logger::{Builder, Env};
 use snapshot_parser_types::{
     stake_meta::StakeMetaCollection, validator_meta::ValidatorMetaCollection,
 };
