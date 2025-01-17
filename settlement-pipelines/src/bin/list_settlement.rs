@@ -1,7 +1,7 @@
+use bid_psr_distribution::merkle_tree_collection::MerkleTreeCollection;
+use bid_psr_distribution::utils::{read_from_json_file, write_to_json_file};
 use clap::Parser;
 use log::{debug, error, info, warn};
-use protected_event_distribution::merkle_tree_collection::MerkleTreeCollection;
-use protected_event_distribution::utils::{read_from_json_file, write_to_json_file};
 use settlement_pipelines::arguments::GlobalOpts;
 use settlement_pipelines::init::init_log;
 use settlement_pipelines::json_data::BondSettlement;
