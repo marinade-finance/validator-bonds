@@ -51,6 +51,10 @@ steps:
     - epoch=$(buildkite-agent meta-data get epoch)
     - |
       curl -s "${MARINADE_SCORING_API_URL}/scores/sam?epoch=$$epoch" -o sam-scores.json
+      if [ $(jq '. | length' ./sam-scores.json) -eq 0 ]; then
+        echo "No SAM scores found for epoch $$epoch"
+        exit 1
+      fi
       gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
     key: 'download-json'
     artifact_paths:
