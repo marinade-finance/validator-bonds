@@ -29,6 +29,7 @@ import { initTest } from './testValidator'
 import { rand } from '@marinade.finance/ts-common'
 import { BN } from 'bn.js'
 import { pubkey, signer } from '@marinade.finance/web3js-common'
+import { getSecureRandomInt } from '../utils/helpers'
 
 describe('Validator Bonds api call to stake accounts', () => {
   const NUMBER_OF_BONDS = 100
@@ -72,10 +73,8 @@ describe('Validator Bonds api call to stake accounts', () => {
     }
     ;(await Promise.all(promiseBonds)).forEach(bond => {
       const count = rand(5)
-      const randomLamports = [...Array(count)].map(
-        () =>
-          2 * LAMPORTS_PER_SOL +
-          Math.floor(Math.random() * 100 * LAMPORTS_PER_SOL),
+      const randomLamports = [...Array(count)].map(() =>
+        getSecureRandomInt(2 * LAMPORTS_PER_SOL, 100 * LAMPORTS_PER_SOL),
       )
       inputData.push({
         bondAccount: bond.bondAccount,

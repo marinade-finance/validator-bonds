@@ -28,6 +28,7 @@ import { createVoteAccount } from '../utils/staking'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { initBankrunTest } from './bankrun'
 import { isInitialized } from '../../src/settlementClaims'
+import { getRandomByte } from '../utils/helpers'
 
 // maximum increase in account size per instruction
 //   see https://github.com/anza-xyz/agave/blob/v2.0.1/sdk/program/src/entrypoint.rs#L263
@@ -81,7 +82,7 @@ describe('Validator Bonds init settlement', () => {
 
   it('init settlement', async () => {
     const merkleRoot = Buffer.from(
-      Array.from({ length: 32 }, () => Math.floor(Math.random() * 256)),
+      Array.from({ length: 32 }, () => getRandomByte()),
     )
     const epochNow = await currentEpoch(provider)
     const rentCollector = Keypair.generate().publicKey
@@ -163,7 +164,7 @@ describe('Validator Bonds init settlement', () => {
 
   it('cannot init settlement with wrong buffer size', async () => {
     const merkleRoot = Buffer.from(
-      Array.from({ length: 30 }, () => Math.floor(Math.random() * 256)),
+      Array.from({ length: 30 }, () => getRandomByte()),
     )
     const { instruction, settlementAccount } = await initSettlementInstruction({
       program,
