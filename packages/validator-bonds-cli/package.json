@@ -42,6 +42,7 @@
     "yaml": "^2.4.5"
   },
   "devDependencies": {
+    "crypto-js": "^4.2.0",
     "@marinade.finance/jest-utils": "=2.4.12"
   },
   "engines": {

@@ -44,13 +44,14 @@ import {
 import { pubkey, signer } from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { initBankrunTest } from './bankrun'
+import { getSecureRandomInt } from '../utils/helpers'
 
 describe('Staking merge verification/investigation', () => {
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let operatorAuthority: Keypair
-  const startUpEpoch = Math.floor(Math.random() * 100) + 100
+  const startUpEpoch = getSecureRandomInt(100, 200)
 
   beforeAll(async () => {
     ;({ provider, program } = await initBankrunTest())

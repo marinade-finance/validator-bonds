@@ -25,6 +25,7 @@ import assert from 'assert'
 import { createUserAndFund, pubkey } from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { initBankrunTest } from './bankrun'
+import { getSecureRandomInt } from '../utils/helpers'
 
 describe('Validator Bonds cancel withdraw request', () => {
   let provider: BankrunExtendedProvider
@@ -34,7 +35,7 @@ describe('Validator Bonds cancel withdraw request', () => {
   let bondAuthority: Keypair
   let validatorIdentity: Keypair
   let withdrawRequestAccount: PublicKey
-  const startUpEpoch = Math.floor(Math.random() * 100) + 100
+  const startUpEpoch = getSecureRandomInt(100, 200)
 
   beforeAll(async () => {
     ;({ provider, program } = await initBankrunTest())

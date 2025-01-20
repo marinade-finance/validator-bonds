@@ -38,6 +38,7 @@ import {
 } from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { initBankrunTest, delegateAndFund } from './bankrun'
+import { getSecureRandomInt } from '../utils/helpers'
 
 // TODO: test the merging stake accounts through the orchestrate withdraw request, i.e., test orchestrators/orchestrateWithdrawRequest.ts
 
@@ -49,7 +50,7 @@ describe('Validator Bonds claim withdraw request', () => {
   let validatorIdentity: Keypair
   let bondAuthority: Keypair
   let voteAccount: PublicKey
-  const startUpEpoch = Math.floor(Math.random() * 100) + 100
+  const startUpEpoch = getSecureRandomInt(100, 200)
   const withdrawLockupEpochs = 1
 
   beforeAll(async () => {

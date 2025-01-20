@@ -9,6 +9,7 @@ import {
 } from '@solana/web3.js'
 import { checkErrorMessage } from '@marinade.finance/ts-common'
 import assert from 'assert'
+import CryptoJS from 'crypto-js'
 
 export async function executeTxWithError(
   provider: ExtendedProvider,
@@ -49,4 +50,25 @@ export async function getRentExempt(
   return await provider.connection.getMinimumBalanceForRentExemption(
     accountInfo.data.length,
   )
+}
+
+export function getSecureRandomInt(min: number, max: number): number {
+  const range = max - min + 1
+  const bitsNeeded = Math.ceil(Math.log2(range))
+  const bytesNeeded = Math.ceil(bitsNeeded / 8)
+  const mask = (1 << bitsNeeded) - 1
+
+  let result: number
+  do {
+    const wordArray = CryptoJS.lib.WordArray.random(bytesNeeded)
+    result = wordArray.words[0] >>> 0 // Convert to unsigned 32-bit
+    result = result & mask // Apply mask to get required bits
+  } while (result >= range)
+
+  return min + result
+}
+
+export function getRandomByte() {
+  const wordArray = CryptoJS.lib.WordArray.random(1)
+  return wordArray.words[0] & 0xff
 }

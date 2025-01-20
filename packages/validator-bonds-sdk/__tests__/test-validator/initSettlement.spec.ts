@@ -145,9 +145,7 @@ describe('Validator Bonds init settlement', () => {
       .epoch
     const buffers: Buffer[] = []
     for (let i = 1; i <= numberOfSettlements; i++) {
-      const buffer = Buffer.from(
-        Array.from({ length: 32 }, () => Math.floor(Math.random() * 256)),
-      )
+      const buffer = Buffer.from(crypto.getRandomValues(new Uint8Array(32)))
       buffers.push(buffer)
       const { instruction } = await initSettlementInstruction({
         program,

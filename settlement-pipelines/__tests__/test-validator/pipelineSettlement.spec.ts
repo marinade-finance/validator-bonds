@@ -37,6 +37,7 @@ import path from 'path'
 import { createDelegatedStakeAccount } from '../../../packages/validator-bonds-sdk/__tests__/utils/staking'
 import BN from 'bn.js'
 import assert from 'assert'
+import { getSecureRandomInt } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/helpers'
 
 const JEST_TIMEOUT_MS = 3000_000
 jest.setTimeout(JEST_TIMEOUT_MS)
@@ -209,7 +210,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
 
     const randomMerkleTree =
       loadedJson.merkle_trees[
-        Math.floor(Math.random() * loadedJson.merkle_trees.length)
+        getSecureRandomInt(0, loadedJson.merkle_trees.length)
       ]
     currentEpoch = (await program.provider.connection.getEpochInfo()).epoch
     await executeInitSettlement({
@@ -695,9 +696,8 @@ export async function chunkedCreateInitializedStakeAccounts({
   let signers: Keypair[] = []
   let counter = 0
   let futures: Promise<void>[] = []
-  const lockedAccounts = Array.from(
-    { length: 20 },
-    () => Math.floor(Math.random() * combined.length) + 1,
+  const lockedAccounts = Array.from({ length: 20 }, () =>
+    getSecureRandomInt(1, combined.length),
   )
   for (const { staker, withdrawer, keypair } of combined) {
     counter++

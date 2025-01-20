@@ -26,6 +26,7 @@ import {
 } from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { initBankrunTest } from './bankrun'
+import { getSecureRandomInt } from '../utils/helpers'
 
 describe('Validator Bonds init withdraw request', () => {
   let provider: BankrunExtendedProvider
@@ -38,7 +39,7 @@ describe('Validator Bonds init withdraw request', () => {
 
   beforeAll(async () => {
     ;({ provider, program } = await initBankrunTest())
-    const startUpEpochPlus = Math.floor(Math.random() * 100) + 100
+    const startUpEpochPlus = getSecureRandomInt(100, 200)
     const currentEpoch = Number(
       (await provider.context.banksClient.getClock()).epoch,
     )
