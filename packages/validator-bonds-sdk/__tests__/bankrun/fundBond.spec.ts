@@ -37,6 +37,7 @@ import {
   delegatedStakeAccount,
   getAndCheckStakeAccount,
 } from '../utils/staking'
+import { getSecureRandomInt } from '../utils/helpers'
 
 describe('Validator Bonds fund bond account', () => {
   let provider: BankrunExtendedProvider
@@ -45,7 +46,7 @@ describe('Validator Bonds fund bond account', () => {
   let bond: ProgramAccount<Bond>
   let bondAuthority: Keypair
   let bondWithdrawAuthority: PublicKey
-  const startUpEpoch = Math.floor(Math.random() * 100) + 100
+  const startUpEpoch = getSecureRandomInt(100, 200)
 
   beforeAll(async () => {
     ;({ provider, program } = await initBankrunTest())

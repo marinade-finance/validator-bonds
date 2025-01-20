@@ -35,6 +35,7 @@ import {
   getAnchorValidatorInfo,
 } from '@marinade.finance/anchor-common'
 import assert from 'assert'
+import { getSecureRandomInt } from '../utils/helpers'
 
 describe('Validator Bonds init withdraw request', () => {
   let provider: AnchorExtendedProvider
@@ -137,7 +138,7 @@ describe('Validator Bonds init withdraw request', () => {
         program,
         configAccount,
         bondAuthority: bondAuthority.publicKey,
-        cpmpe: Math.floor(Math.random() * 100),
+        cpmpe: getSecureRandomInt(1, 100),
         voteAccount,
         validatorIdentity,
       })

@@ -22,6 +22,7 @@ import { createVoteAccount, createVoteAccountWithIdentity } from './staking'
 import BN from 'bn.js'
 import assert from 'assert'
 import { pubkey, signer } from '@marinade.finance/web3js-common'
+import { getRandomByte, getSecureRandomInt } from './helpers'
 
 export async function executeWithdraw(
   provider: ExtendedProvider,
@@ -60,9 +61,9 @@ export async function executeWithdraw(
 export async function executeInitConfigInstruction({
   program,
   provider,
-  epochsToClaimSettlement = Math.floor(Math.random() * 10) + 1,
+  epochsToClaimSettlement = getSecureRandomInt(1, 10),
   slotsToStartSettlementClaiming = 0,
-  withdrawLockupEpochs = Math.floor(Math.random() * 10) + 1,
+  withdrawLockupEpochs = getSecureRandomInt(1, 10),
   adminAuthority,
   operatorAuthority,
   configAccountKeypair,
@@ -180,7 +181,7 @@ export async function executeInitBondInstruction({
   bondAuthority,
   voteAccount,
   validatorIdentity,
-  cpmpe = Math.floor(Math.random() * 100) + 1,
+  cpmpe = getSecureRandomInt(1, 100),
   maxStakeWanted = 0,
 }: {
   program: ValidatorBondsProgram
@@ -489,12 +490,10 @@ export async function executeInitSettlement({
   voteAccount,
   operatorAuthority,
   currentEpoch,
-  merkleRoot = Buffer.from(
-    Array.from({ length: 32 }, () => Math.floor(Math.random() * 256)),
-  ),
+  merkleRoot = Buffer.from(Array.from({ length: 32 }, () => getRandomByte())),
   rentCollector = Keypair.generate().publicKey,
-  maxMerkleNodes = Math.floor(Math.random() * 100) + 1,
-  maxTotalClaim = Math.floor(Math.random() * 100) + 1,
+  maxMerkleNodes = getSecureRandomInt(1, 100),
+  maxTotalClaim = getSecureRandomInt(1, 100),
 }: {
   program: ValidatorBondsProgram
   provider: ExtendedProvider
