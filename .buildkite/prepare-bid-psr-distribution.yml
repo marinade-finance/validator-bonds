@@ -3,7 +3,7 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
-  CLAIM_TYPE: "protected-events"
+  CLAIM_TYPE: "bid-psr-distribution"
   ds_sam_auction_github_api_link: "https://api.github.com/repos/marinade-finance/ds-sam-pipeline/contents/auctions/"
   ds_sam_auction_download_link: "https://raw.githubusercontent.com/marinade-finance/ds-sam-pipeline/main/auctions/"
 
@@ -28,12 +28,12 @@ steps:
 
   - label: ":closed_lock_with_key: Concurrency gate lock"
     command: echo "--> Start of concurrency gate"
-    concurrency_group: 'validator-bonds/prepare-protected-events'
+    concurrency_group: 'validator-bonds/prepare-bid-psr-distribution'
     concurrency: 1
 
   - wait: ~
 
-  - label: ":black_nib: Env variables setup: Protected Events"
+  - label: ":black_nib: Env variables setup: Bid PSR Distribution"
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
@@ -117,7 +117,7 @@ steps:
 
   - wait: ~
 
-  - label: ":scales: Evaluate Marinade Protected Events"
+  - label: ":scales: Evaluate Marinade Bid PSR Distribution"
     env:
       RUST_LOG: info,bid_psr_distribution=debug
       WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
@@ -150,7 +150,7 @@ steps:
 
   - wait: ~
 
-  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Prepare Protected Events"
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Prepare Bid PSR Distribution"
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}.json .
@@ -205,5 +205,5 @@ steps:
 
   - label: ":unlock: Concurrency gate unlock"
     command: echo "End of concurrency gate <--"
-    concurrency_group: 'validator-bonds/prepare-protected-events'
+    concurrency_group: 'validator-bonds/prepare-bid-psr-distribution'
     concurrency: 1

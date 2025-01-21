@@ -21,10 +21,10 @@ steps:
       - select: "Claim type"
         key: "claim_type"
         options:
-          - label: "Protected Events"
-            value: "protected-events"
-          - label: "Bidding"
-            value: "bidding"
+          - label: "Bid PSR Distribution"
+            value: "bid-psr-distribution"
+          - label: "Bid Distribution"
+            value: "bid-distribution"
     if: "build.env('CLAIM_TYPE') == null"
 
   - wait: ~

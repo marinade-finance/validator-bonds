@@ -14,7 +14,7 @@ pub struct QueryParams {}
 #[utoipa::path(
     get,
     tag = "Protected Events",
-    operation_id = "List protected events",
+    operation_id = "List Bid PSR (protected events)",
     path = "/protected-events",
     responses(
         (status = 200, body = ProtectedEventsResponse),
