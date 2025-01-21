@@ -98,7 +98,6 @@ describe('Fund bond account with SOL using CLI', () => {
       code: 0,
       stdout: /successfully funded with amount/,
     })
-
     const userAccount = await provider.connection.getAccountInfo(
       fromKeypair.publicKey,
     )

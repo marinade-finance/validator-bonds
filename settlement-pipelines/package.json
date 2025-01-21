@@ -1,6 +1,6 @@
 {
     "name": "@marinade.finance/settlement-pipelines",
-    "version": "2.0.6",
+    "version": "2.0.7",
     "description": "Tests for settlement pipelines CLI",
     "repository": {
       "type": "git",

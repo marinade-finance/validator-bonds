@@ -1,0 +1,51 @@
+{
+  "name": "@marinade.finance/validator-bonds-cli-institutional",
+  "version": "2.0.7",
+  "description": "CLI of the validator bonds contract streamlined for institutional users",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:marinade-finance/validator-bonds.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "validator-bonds-institutional": "./src/index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "main": "src/index",
+  "dependencies": {
+    "@marinade.finance/validator-bonds-sdk": "workspace: ^2.0.7",
+    "@marinade.finance/validator-bonds-cli-core": "workspace: ^2.0.7",
+    "@coral-xyz/anchor": "^0.29.0",
+    "@marinade.finance/anchor-common": "=2.4.12",
+    "@marinade.finance/cli-common": "=2.4.12",
+    "@marinade.finance/ledger-utils": "^3.0.1",
+    "@marinade.finance/ts-common": "=2.4.12",
+    "@marinade.finance/web3js-common": "=2.4.12",
+    "@solana/web3.js": "^1.98.0",
+    "bn.js": "^5.2.1",
+    "bs58": "^6.0.0",
+    "commander": "^13.1.0",
+    "jsbi": "^4.3.0",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
+    "yaml": "^2.4.5"
+  },
+  "devDependencies": {
+    "@marinade.finance/jest-utils": "=2.4.12"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}

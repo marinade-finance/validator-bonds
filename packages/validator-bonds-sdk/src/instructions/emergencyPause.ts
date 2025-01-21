@@ -7,6 +7,7 @@ import {
 import { MARINADE_CONFIG_ADDRESS, ValidatorBondsProgram } from '../sdk'
 import { getConfig } from '../api'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import { LoggerPlaceholder, logWarn } from '@marinade.finance/ts-common'
 
 /**
  * Generate instruction to pause program.
@@ -14,16 +15,26 @@ import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
  */
 export async function emergencyPauseInstruction({
   program,
-  configAccount = MARINADE_CONFIG_ADDRESS,
+  configAccount,
   pauseAuthority,
+  logger,
 }: {
   program: ValidatorBondsProgram
   configAccount?: PublicKey
   pauseAuthority?: PublicKey | Keypair | Signer | WalletInterface // signer
+  logger?: LoggerPlaceholder
 }): Promise<{
   instruction: TransactionInstruction
 }> {
   if (pauseAuthority === undefined) {
+    if (configAccount === undefined) {
+      logWarn(
+        logger,
+        'emergencyPause SDK: config is not provided, using default address: ' +
+          MARINADE_CONFIG_ADDRESS.toBase58(),
+      )
+      configAccount = MARINADE_CONFIG_ADDRESS
+    }
     const configData = await getConfig(program, configAccount)
     pauseAuthority = configData.pauseAuthority
   }

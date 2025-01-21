@@ -37,7 +37,7 @@ import path from 'path'
 import { createDelegatedStakeAccount } from '../../../packages/validator-bonds-sdk/__tests__/utils/staking'
 import BN from 'bn.js'
 import assert from 'assert'
-import { getSecureRandomInt } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/helpers'
+import { getSecureRandomInt } from '../../../packages/validator-bonds-sdk/__tests__/utils/helpers'
 
 const JEST_TIMEOUT_MS = 3000_000
 jest.setTimeout(JEST_TIMEOUT_MS)

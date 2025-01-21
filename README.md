@@ -9,7 +9,7 @@ Mono repository for Validator Bonds product
 ## Repository structure
 
 * [`programs/validator-bonds`](./programs/validator-bonds/) - Anchor on-chain contract project 
-* [`packages/`](./packages/) - TypeScript packages related to on-chain program
+* [`packages/`](./packages/) - TypeScript packages related to on-chain program (SDK, CLI)
   ([SDK](./packages/validator-bonds-sdk/), [CLI](./packages/validator-bonds-cli/))
 * [`api/`](./api/) - in Rust developed OpenAPI service that publishes bonds data ([API endpoint](https://validator-bonds-api.marinade.finance/docs))
 * [`.buildkite/`](./.buildkite/) - automated pipelines that prepare data for bonds claiming, updating API data and similar

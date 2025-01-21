@@ -12,6 +12,7 @@ import {
 import BN from 'bn.js'
 import { getConfig } from '../api'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import { LoggerPlaceholder, logWarn } from '@marinade.finance/ts-common'
 
 /**
  * Generate instruction to configure config account. Available for admin authority.
@@ -32,7 +33,7 @@ import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
  */
 export async function configureConfigInstruction({
   program,
-  configAccount = MARINADE_CONFIG_ADDRESS,
+  configAccount,
   adminAuthority,
   newAdmin,
   newOperator,
@@ -42,6 +43,7 @@ export async function configureConfigInstruction({
   newWithdrawLockupEpochs,
   newMinimumStakeLamports,
   newMinBondMaxStakeWanted,
+  logger,
 }: {
   program: ValidatorBondsProgram
   configAccount?: PublicKey
@@ -54,10 +56,19 @@ export async function configureConfigInstruction({
   newWithdrawLockupEpochs?: BN | number
   newMinimumStakeLamports?: BN | number
   newMinBondMaxStakeWanted?: BN | number
+  logger?: LoggerPlaceholder
 }): Promise<{
   instruction: TransactionInstruction
 }> {
   if (adminAuthority === undefined) {
+    if (configAccount === undefined) {
+      logWarn(
+        logger,
+        'configureConfig SDK: config is not provided, using default config address: ' +
+          MARINADE_CONFIG_ADDRESS.toBase58(),
+      )
+      configAccount = MARINADE_CONFIG_ADDRESS
+    }
     const configData = await getConfig(program, configAccount)
     adminAuthority = configData.adminAuthority
   }

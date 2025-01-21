@@ -14,6 +14,7 @@ import {
 import { anchorProgramWalletPubkey, checkAndGetBondAddress } from '../utils'
 import { getBond, getWithdrawRequest } from '../api'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import { LoggerPlaceholder, logWarn } from '@marinade.finance/ts-common'
 
 /**
  * Generate instruction to cancel withdraw request for bond account.
@@ -28,6 +29,7 @@ export async function cancelWithdrawRequestInstruction({
   voteAccount,
   authority,
   rentCollector = anchorProgramWalletPubkey(program),
+  logger,
 }: {
   program: ValidatorBondsProgram
   withdrawRequestAccount?: PublicKey
@@ -36,6 +38,7 @@ export async function cancelWithdrawRequestInstruction({
   voteAccount?: PublicKey
   authority?: PublicKey | Keypair | Signer | WalletInterface // signer
   rentCollector?: PublicKey
+  logger?: LoggerPlaceholder
 }): Promise<{
   instruction: TransactionInstruction
   bondAccount: PublicKey
@@ -84,6 +87,11 @@ export async function cancelWithdrawRequestInstruction({
     )
   }
   if (!bondAccount && !configAccount) {
+    logWarn(
+      logger,
+      'cancelWithdrawRequest SDK: config is not provided, using default config address: ' +
+        MARINADE_CONFIG_ADDRESS.toBase58(),
+    )
     configAccount = MARINADE_CONFIG_ADDRESS
   }
   bondAccount = checkAndGetBondAddress(

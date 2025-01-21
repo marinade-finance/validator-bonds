@@ -1,7 +1,7 @@
 import { parsePubkey, parseWalletOrPubkey } from '@marinade.finance/cli-common'
 import { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
 import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
+import { setProgramIdByOwner } from '@marinade.finance/validator-bonds-cli-core'
 import {
   Wallet,
   executeTx,
@@ -14,7 +14,7 @@ import {
   emergencyPauseInstruction,
   emergencyResumeInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
-import { EMERGENCY_LIMIT_UNITS } from '../../computeUnits'
+import { EMERGENCY_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
 
 export function installEmergencyPause(program: Command) {
   program
@@ -42,7 +42,7 @@ export function installEmergencyPause(program: Command) {
       ) => {
         await manageEmergencyPauseAndResume({
           action: 'pause',
-          address: await address,
+          address: (await address) ?? MARINADE_CONFIG_ADDRESS,
           authority: await authority,
         })
       },
@@ -75,7 +75,7 @@ export function installEmergencyResume(program: Command) {
       ) => {
         await manageEmergencyPauseAndResume({
           action: 'resume',
-          address: await address,
+          address: (await address) ?? MARINADE_CONFIG_ADDRESS,
           authority: await authority,
         })
       },
@@ -84,11 +84,11 @@ export function installEmergencyResume(program: Command) {
 
 async function manageEmergencyPauseAndResume({
   action,
-  address = MARINADE_CONFIG_ADDRESS,
+  address,
   authority,
 }: {
   action: 'pause' | 'resume'
-  address?: PublicKey
+  address: PublicKey
   authority?: WalletInterface | PublicKey
 }) {
   const {
@@ -119,12 +119,14 @@ async function manageEmergencyPauseAndResume({
       program,
       configAccount: address,
       pauseAuthority: authority,
+      logger,
     }))
   } else {
     ;({ instruction } = await emergencyResumeInstruction({
       program,
       configAccount: address,
       pauseAuthority: authority,
+      logger,
     }))
   }
   tx.add(instruction)

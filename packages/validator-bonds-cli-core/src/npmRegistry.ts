@@ -2,12 +2,9 @@
 
 import { Logger } from 'pino'
 
-export const VALIDATOR_BONDS_NPM_URL =
-  'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli'
-
 export async function fetchLatestVersionInNpmRegistry(
   logger: Logger,
-  npmRegistryUrl: string = VALIDATOR_BONDS_NPM_URL,
+  npmRegistryUrl: string,
 ): Promise<string> {
   try {
     const fetched = await fetch(npmRegistryUrl, {

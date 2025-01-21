@@ -10,6 +10,7 @@ import { MARINADE_CONFIG_ADDRESS, ValidatorBondsProgram } from '../sdk'
 import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
 import { getBond } from '../api'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import { LoggerPlaceholder, logWarn } from '@marinade.finance/ts-common'
 
 /**
  * Generate instruction to fund bond with a stake account.
@@ -24,6 +25,7 @@ export async function fundBondInstruction({
   stakeAccountAuthority = anchorProgramWalletPubkey(program),
   configAccount,
   voteAccount,
+  logger,
 }: {
   program: ValidatorBondsProgram
   bondAccount?: PublicKey
@@ -31,11 +33,17 @@ export async function fundBondInstruction({
   stakeAccountAuthority?: PublicKey | Keypair | Signer | WalletInterface // signer
   configAccount?: PublicKey
   voteAccount?: PublicKey
+  logger?: LoggerPlaceholder
 }): Promise<{
   instruction: TransactionInstruction
   bondAccount: PublicKey
 }> {
   if (!bondAccount && !configAccount && voteAccount) {
+    logWarn(
+      logger,
+      'fundBond SDK: config is not provided, using default address: ' +
+        MARINADE_CONFIG_ADDRESS.toBase58(),
+    )
     configAccount = MARINADE_CONFIG_ADDRESS
   }
   bondAccount = checkAndGetBondAddress(

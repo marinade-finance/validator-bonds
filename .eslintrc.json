@@ -6,6 +6,9 @@
     "node/no-extraneous-import": ["error", {
       "allowModules": ["@marinade.finance/jest-utils"]
      }],
+     "n/no-unpublished-import": ["error", {
+        "allowModules": ["@marinade.finance/jest-utils"]
+      }],
      "@typescript-eslint/no-extra-semi" : "off"
   },
   "settings": {

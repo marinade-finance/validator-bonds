@@ -1,13 +1,13 @@
 import { parsePubkey } from '@marinade.finance/cli-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
+import { setProgramIdByOwner } from '@marinade.finance/validator-bonds-cli-core'
 import { Wallet, executeTx, transaction } from '@marinade.finance/web3js-common'
 import {
   MARINADE_CONFIG_ADDRESS,
   mergeStakeInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
-import { MERGE_STAKE_LIMIT_UNITS } from '../../computeUnits'
+import { MERGE_STAKE_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
 
 export function installStakeMerge(program: Command) {
   program
@@ -52,7 +52,7 @@ export function installStakeMerge(program: Command) {
         await manageMerge({
           source: await source,
           destination: await destination,
-          config: await config,
+          config: (await config) ?? MARINADE_CONFIG_ADDRESS,
           settlement: await settlement,
         })
       },
@@ -62,12 +62,12 @@ export function installStakeMerge(program: Command) {
 async function manageMerge({
   source,
   destination,
-  config = MARINADE_CONFIG_ADDRESS,
+  config,
   settlement = PublicKey.default,
 }: {
   source: PublicKey
   destination: PublicKey
-  config?: PublicKey
+  config: PublicKey
   settlement?: PublicKey
 }) {
   const {
