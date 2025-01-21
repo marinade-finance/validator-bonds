@@ -1,4 +1,4 @@
-# Engine to generate protected event Settlements
+# Engine to generate protected event Settlements for Bidding
 
 ## Usage
 
@@ -22,9 +22,8 @@ gcloud storage cp "gs://$bucket/$epoch/evaluation.json" "evaluation.json"
 # native stake authority, liquid stake authority, and the exit native staker authority
 export WHITELIST_STAKE_AUTHORITY="stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N"
 
-# TODO: fix arguments based on the changes happened in the code
 # Build & run
-cargo run --release --bin protected-event-distribution-cli -- \
+cargo run --release --bin bid-psr-distribution-cli -- \
     --settlement-config settlement-config.yaml \
     --validator-meta-collection "./validators.json" \
     --stake-meta-collection "./stakes.json" \

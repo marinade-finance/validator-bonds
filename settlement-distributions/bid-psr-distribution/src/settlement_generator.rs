@@ -1,76 +1,12 @@
-#![allow(clippy::type_complexity)]
-
-use crate::{
-    protected_events::ProtectedEvent,
-    settlement_config::{build_protected_event_matcher, SettlementConfig},
-    stake_meta_index::StakeMetaIndex,
+use crate::protected_events::ProtectedEventCollection;
+use crate::settlement_collection::{
+    Settlement, SettlementClaim, SettlementCollection, SettlementReason,
 };
+use crate::settlement_config::{build_protected_event_matcher, SettlementConfig};
+use crate::stake_meta_index::StakeMetaIndex;
 use log::{debug, info};
 use solana_sdk::pubkey::Pubkey;
-use std::fmt::Display;
-
-use {
-    crate::protected_events::ProtectedEventCollection,
-    merkle_tree::serde_serialize::{map_pubkey_string_conversion, pubkey_string_conversion},
-    serde::{Deserialize, Serialize},
-    std::collections::HashMap,
-};
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct SettlementClaim {
-    #[serde(with = "pubkey_string_conversion")]
-    pub withdraw_authority: Pubkey,
-    #[serde(with = "pubkey_string_conversion")]
-    pub stake_authority: Pubkey,
-    #[serde(with = "map_pubkey_string_conversion")]
-    pub stake_accounts: HashMap<Pubkey, u64>,
-    pub active_stake: u64,
-    pub claim_amount: u64,
-}
-
-#[derive(Clone, Deserialize, Serialize, Debug, utoipa::ToSchema)]
-pub enum SettlementReason {
-    ProtectedEvent(Box<ProtectedEvent>),
-    Bidding,
-}
-
-impl Display for SettlementReason {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SettlementReason::ProtectedEvent(_) => write!(f, "ProtectedEvent"),
-            SettlementReason::Bidding => write!(f, "Bidding"),
-        }
-    }
-}
-
-#[derive(Clone, Deserialize, Serialize, Debug, Eq, PartialEq, Hash, utoipa::ToSchema)]
-pub enum SettlementFunder {
-    ValidatorBond,
-    Marinade,
-}
-
-#[derive(Clone, Deserialize, Serialize, Debug, Eq, PartialEq, Hash, utoipa::ToSchema)]
-pub struct SettlementMeta {
-    pub funder: SettlementFunder,
-}
-
-#[derive(Clone, Deserialize, Serialize, Debug)]
-pub struct Settlement {
-    pub reason: SettlementReason,
-    pub meta: SettlementMeta,
-    #[serde(with = "pubkey_string_conversion")]
-    pub vote_account: Pubkey,
-    pub claims_count: usize,
-    pub claims_amount: u64,
-    pub claims: Vec<SettlementClaim>,
-}
-
-#[derive(Clone, Deserialize, Serialize, Debug)]
-pub struct SettlementCollection {
-    pub slot: u64,
-    pub epoch: u64,
-    pub settlements: Vec<Settlement>,
-}
+use std::collections::HashMap;
 
 pub fn generate_settlements(
     stake_meta_index: &StakeMetaIndex,

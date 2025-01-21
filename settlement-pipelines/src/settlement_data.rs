@@ -1,8 +1,8 @@
 use crate::json_data::{CombinedMerkleTreeSettlementCollections, MerkleTreeMetaSettlement};
 use anchor_client::anchor_lang::prelude::Pubkey;
 use anyhow::anyhow;
+use bid_psr_distribution::settlement_collection::{SettlementFunder, SettlementReason};
 use merkle_tree::psr_claim::TreeNode;
-use protected_event_distribution::settlement_claims::{SettlementFunder, SettlementReason};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
