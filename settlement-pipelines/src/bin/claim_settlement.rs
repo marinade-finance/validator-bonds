@@ -459,7 +459,7 @@ fn get_settlement_from_json<'a>(
         settlement_merkle_tree
     } else {
         return Err(CliError::Critical(anyhow!(
-                "No JSON merkle tree data found for settlement {} epoch {}, probably missing JSON input data for epoch (e.g., bidding or protected-events data)",
+                "No JSON merkle tree data found for settlement {} epoch {}, probably missing JSON input data for epoch (e.g., bidding/rewards or protected-events data)",
                 on_chain_settlement.settlement_address,
                 settlement_epoch
             )));

@@ -46,14 +46,14 @@ steps:
 
   - wait: ~
 
-  - label: ":gear: :one: Setup trigger for prepare-protected-events"
+  - label: ":gear: :one: Setup trigger for prepare-bid-psr-distribution"
     commands:
     - 'epoch=$(buildkite-agent meta-data get epoch)'
     - |
       cat <<EOF | buildkite-agent pipeline upload
       steps:
-        - trigger: "prepare-protected-events"
-          label: ":rocket: Trigger: Prepare Protected Events ($$epoch)"
+        - trigger: "prepare-bid-psr-distribution"
+          label: ":rocket: Trigger: Prepare Bid PSR Distribution ($$epoch)"
           async: false
           build:
             branch: $$BUILDKITE_BRANCH
@@ -62,14 +62,14 @@ steps:
               gs_bucket: $gs_bucket
       EOF
 
-  - label: ":gear: :two: Setup trigger for prepare-bidding"
+  - label: ":gear: :two: Setup trigger for prepare-bid-distribution"
     commands:
     - 'epoch=$(buildkite-agent meta-data get epoch)'
     - |
       cat <<EOF | buildkite-agent pipeline upload
       steps:
-        - trigger: "prepare-bidding"
-          label: ":rocket: Trigger: Prepare Bidding ($$epoch)"
+        - trigger: "prepare-bid-distribution"
+          label: ":rocket: Trigger: Prepare Bid Distribution ($$epoch)"
           async: false
           build:
             branch: $$BUILDKITE_BRANCH

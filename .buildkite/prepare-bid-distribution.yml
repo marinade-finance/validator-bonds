@@ -4,7 +4,7 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   MARINADE_SCORING_API_URL: https://scoring.marinade.finance/api/v1
-  CLAIM_TYPE: "bidding"
+  CLAIM_TYPE: "bid-distribution"
   MARINADE_FEE_BPS: 5000
   MARINADE_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
   MARINADE_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
@@ -30,7 +30,7 @@ steps:
 
   - label: ":closed_lock_with_key: Concurrency gate lock"
     command: echo "--> Start of concurrency gate"
-    concurrency_group: 'validator-bonds/prepare-bidding'
+    concurrency_group: 'validator-bonds/prepare-bid-distribution'
     concurrency: 1
 
   - wait: ~
@@ -98,7 +98,7 @@ steps:
 
   - wait: ~
 
-  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Prepare Bidding"
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Prepare Bid Distribution"
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .
@@ -149,5 +149,5 @@ steps:
 
   - label: ":unlock: Concurrency gate unlock"
     command: echo "End of concurrency gate <--"
-    concurrency_group: 'validator-bonds/prepare-bidding'
+    concurrency_group: 'validator-bonds/prepare-bid-distribution'
     concurrency: 1
