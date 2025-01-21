@@ -13,7 +13,8 @@ Mono repository for Validator Bonds product
   ([SDK](./packages/validator-bonds-sdk/), [CLI](./packages/validator-bonds-cli/))
 * [`api/`](./api/) - in Rust developed OpenAPI service that publishes bonds data ([API endpoint](https://validator-bonds-api.marinade.finance/docs))
 * [`.buildkite/`](./.buildkite/) - automated pipelines that prepare data for bonds claiming, updating API data and similar
-* [`settlement-engine/`](settlement-distributions/bid-psr-distribution/) - code for a CLI creating protected event data that is published in form of JSON and packed as a settlement on-chain
+* [`settlement-distribution/`](settlement-distributions/) - CLIs for generating Settlement and Merkle Tree JSON data,
+  which serve as the foundation for on-chain initialization and claim settlement transactions
 * [`merkle-tree/`](./merkle-tree/) - generic Rust library implementing the merkle tree data structure management
 * [`migrations/`](./migrations/) - SQL scripts to prepare and change DB schemas
 * [`scripts/`](./scripts/) - scripts used in pipeline and to manage and integrate various repository parts
@@ -27,11 +28,18 @@ Mono repository for Validator Bonds product
 The system works with flow of data.
 The flow is encoded in code within [`buildkite` pipelines](./.buildkite)
 
-- `scheduler` checks the epoch and makes processing happens each one
-- `copy-parsed-snapshot` gets data from [`gs://marinade-solana-snapshot-mainnet`](./scripts/fetch-parsed-snapshot.bash)
-- `prepare-claims` creates JSON data that reflects the protected events based on the performance of validators, the data is stored at GCloud (data is publicly available but google login is required) at https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet
-- `init-settlements` the [`Settlement`](./programs/validator-bonds/src/state/settlement.rs) accounts are created based on the generated JSON data, settlements are created by public key `bnwBM3RBrvnVmEJJAWEGXe81wtkzGvb9MMWjXcu99KR`
-- `claim-settlements` claiming the `Settlement accounts` to provides SOLs to holders affected by protected events
+- `scheduler`: Checks the epoch and makes processing happens each one
+- `copy-parsed-snapshot`: Gets data from [`gs://marinade-solana-snapshot-mainnet`](./scripts/fetch-parsed-snapshot.bash)
+- `prepare-*`: Creates JSON data that reflects bidding and PSR events, the data is stored at GCloud
+  (data is publicly available but google login is required)
+  at https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet
+- `init-settlements`: Creating the [`Settlement`](./programs/validator-bonds/src/state/settlement.rs) accounts
+   based on the generated JSON data, settlements are created by public key `bnwBM3RBrvnVmEJJAWEGXe81wtkzGvb9MMWjXcu99KR`
+- `fund-settlements`: Funds the `Settlement accounts` from the Bonds account based on data loaded by `init-settlements`
+- `claim-settlements`: Claims the `Settlement accounts` to distribute SOL to holders affected by protected events
+- `close-settlements` Reset (close) the `Settlement accounts` when they expire
+  (defined in `Config` by value of field `epochs_to_claim_settlement`)
+
 
 
 ## Development
