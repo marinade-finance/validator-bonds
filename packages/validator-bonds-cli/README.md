@@ -378,7 +378,7 @@ validator-bonds -um init-withdraw-request <bond-or-vote-account-address> \
   --amount <number-of-requested-lamports-to-be-withdrawn __OR__ "ALL">
 
 # 2) Claim existing withdraw request
-validator-bonds -um claim-withdraw-request <withdraw-request-or-bond-account-address> \
+validator-bonds -um claim-withdraw-request <withdraw-request-or-bond-or-vote-account-address> \
   --authority <bond-authority-keypair> \
   --withdrawer <user-pubkey>
 ```
