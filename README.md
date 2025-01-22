@@ -36,7 +36,9 @@ The flow is encoded in code within [`buildkite` pipelines](./.buildkite)
 - `init-settlements`: Creating the [`Settlement`](./programs/validator-bonds/src/state/settlement.rs) accounts
    based on the generated JSON data, settlements are created by public key `bnwBM3RBrvnVmEJJAWEGXe81wtkzGvb9MMWjXcu99KR`
 - `fund-settlements`: Funds the `Settlement accounts` from the Bonds account based on data loaded by `init-settlements`
-- `claim-settlements`: Claims the `Settlement accounts` to distribute SOL to holders affected by protected events
+- `claim-settlements`: Claims the `Settlement accounts` to distribute SOL to holders affected by PSR (protected events),
+   bidding or other settlement events
+  or other reasons of creating the settlement
 - `close-settlements` Reset (close) the `Settlement accounts` when they expire
   (defined in `Config` by value of field `epochs_to_claim_settlement`)
 

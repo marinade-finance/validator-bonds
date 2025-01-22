@@ -15,7 +15,7 @@ gcloud storage cp "gs://$bucket/$epoch/stakes.json" "stakes.json"
 gcloud storage cp "gs://$bucket/$epoch/evaluation.json" "evaluation.json"
 ```
 
-### 2. Generating protected events
+### 2. Generating protected events (PSR) for Bidding
 
 ```bash
 # Setup whitelisting (check .buildkite/prepare-claims.yml)
