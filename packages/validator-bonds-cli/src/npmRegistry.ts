@@ -7,7 +7,7 @@ export const VALIDATOR_BONDS_NPM_URL =
 
 export async function fetchLatestVersionInNpmRegistry(
   logger: Logger,
-  npmRegistryUrl: string = VALIDATOR_BONDS_NPM_URL
+  npmRegistryUrl: string = VALIDATOR_BONDS_NPM_URL,
 ): Promise<string> {
   try {
     const fetched = await fetch(npmRegistryUrl, {
@@ -21,7 +21,7 @@ export async function fetchLatestVersionInNpmRegistry(
     return latestVersion
   } catch (err) {
     logger.debug(
-      `Failed to fetch latest version from NPM registry ${npmRegistryUrl}: ${err}`
+      `Failed to fetch latest version from NPM registry ${npmRegistryUrl}: ${err}`,
     )
     return '0.0.0'
   }

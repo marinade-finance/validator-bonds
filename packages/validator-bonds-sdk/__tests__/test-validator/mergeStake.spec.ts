@@ -43,7 +43,7 @@ describe('Validator Bonds fund bond', () => {
     await waitForNextEpoch(provider.connection, 25)
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId
+      program.programId,
     )
     const [lamports1, lamports2] = [2, 3].map(n => n * LAMPORTS_PER_SOL)
     const {
@@ -94,9 +94,7 @@ describe('Validator Bonds fund bond', () => {
     expect(stakeAccountData.withdrawer).toEqual(bondWithdrawer)
     expect(stakeAccountData.isLockedUp).toBeFalsy()
     expect(stakeAccountData.balanceLamports).toEqual(lamports1 + lamports2)
-    expect(
-      provider.connection.getAccountInfo(stakeAccount2)
-    ).resolves.toBeNull()
+    expect(await provider.connection.getAccountInfo(stakeAccount2)).toBeNull()
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, MERGE_STAKE_EVENT)

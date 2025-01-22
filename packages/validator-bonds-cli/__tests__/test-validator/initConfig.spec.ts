@@ -59,24 +59,24 @@ describe('Init config account using CLI', () => {
           fromPubkey: provider.wallet.publicKey,
           toPubkey: rentPayerKeypair.publicKey,
           lamports: rentPayerFunds,
-        })
-      )
+        }),
+      ),
     )
     await expect(
-      provider.connection.getBalance(rentPayerKeypair.publicKey)
-    ).resolves.toStrictEqual(rentPayerFunds)
+      await provider.connection.getBalance(rentPayerKeypair.publicKey),
+    ).toStrictEqual(rentPayerFunds)
     await provider.sendAndConfirm(
       new Transaction().add(
         SystemProgram.transfer({
           fromPubkey: provider.wallet.publicKey,
           toPubkey: keypairFeePayerKeypair.publicKey,
           lamports: LAMPORTS_PER_SOL,
-        })
-      )
+        }),
+      ),
     )
     await expect(
-      provider.connection.getBalance(keypairFeePayerKeypair.publicKey)
-    ).resolves.toStrictEqual(LAMPORTS_PER_SOL)
+      await provider.connection.getBalance(keypairFeePayerKeypair.publicKey),
+    ).toStrictEqual(LAMPORTS_PER_SOL)
 
     const admin = Keypair.generate().publicKey
     const operator = Keypair.generate().publicKey
@@ -129,8 +129,8 @@ describe('Init config account using CLI', () => {
     expect(configData.slotsToStartSettlementClaiming).toEqual(11)
     expect(configData.withdrawLockupEpochs).toEqual(43)
     await expect(
-      provider.connection.getBalance(rentPayerKeypair.publicKey)
-    ).resolves.toBeLessThan(rentPayerFunds)
+      await provider.connection.getBalance(rentPayerKeypair.publicKey),
+    ).toBeLessThan(rentPayerFunds)
   })
 
   // this is a "mock test" that just checks that print only command works
@@ -159,7 +159,7 @@ describe('Init config account using CLI', () => {
       stdout: /successfully created/,
     })
     await expect(
-      provider.connection.getAccountInfo(configKeypair.publicKey)
-    ).resolves.toBeNull()
+      await provider.connection.getAccountInfo(configKeypair.publicKey),
+    ).toBeNull()
   })
 })

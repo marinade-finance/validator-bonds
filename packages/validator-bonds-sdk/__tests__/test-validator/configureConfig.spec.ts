@@ -38,7 +38,7 @@ describe('Validator Bonds configure config', () => {
       account: await getConfig(program, configAccount),
     }
     expect(configInitialized.account.adminAuthority).toEqual(
-      adminAuth.publicKey
+      adminAuth.publicKey,
     )
     expect(configInitialized.account.epochsToClaimSettlement).toEqual(1)
     expect(configInitialized.account.withdrawLockupEpochs).toEqual(2)

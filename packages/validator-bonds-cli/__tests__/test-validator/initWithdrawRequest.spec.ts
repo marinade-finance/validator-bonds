@@ -54,8 +54,8 @@ describe('Init withdraw request using CLI', () => {
       provider,
     }))
     expect(
-      provider.connection.getAccountInfo(configAccount)
-    ).resolves.not.toBeNull()
+      await provider.connection.getAccountInfo(configAccount),
+    ).not.toBeNull()
     ;({ voteAccount } = await createVoteAccount({
       provider,
       validatorIdentity: validatorIdentityKeypair,
@@ -114,11 +114,11 @@ describe('Init withdraw request using CLI', () => {
 
     const [withdrawRequestAddr] = withdrawRequestAddress(
       bondAccount,
-      program.programId
+      program.programId,
     )
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAddr
+      withdrawRequestAddr,
     )
     expect(withdrawRequestData.bond).toEqual(bondAccount)
     expect(withdrawRequestData.voteAccount).toEqual(voteAccount)
@@ -129,18 +129,18 @@ describe('Init withdraw request using CLI', () => {
     )?.lamports
     expect(
       (await provider.connection.getAccountInfo(rentPayerKeypair.publicKey))
-        ?.lamports
+        ?.lamports,
     ).toEqual(userFunding - rentExempt!)
 
     await executeCancelWithdrawRequestInstruction(
       program,
       provider,
       withdrawRequestAddr,
-      validatorIdentityKeypair
+      validatorIdentityKeypair,
     )
     expect(
-      provider.connection.getAccountInfo(withdrawRequestAddr)
-    ).resolves.toBeNull()
+      await provider.connection.getAccountInfo(withdrawRequestAddr),
+    ).toBeNull()
 
     await (
       expect([
@@ -171,7 +171,7 @@ describe('Init withdraw request using CLI', () => {
     })
     const withdrawRequestDataAll = await getWithdrawRequest(
       program,
-      withdrawRequestAddr
+      withdrawRequestAddr,
     )
     expect(withdrawRequestDataAll.bond).toEqual(bondAccount)
     expect(withdrawRequestDataAll.requestedAmount).toEqual(U64_MAX)
@@ -208,10 +208,10 @@ describe('Init withdraw request using CLI', () => {
   it('init withdraw request in print-only mode', async () => {
     const [withdrawRequestAddr] = withdrawRequestAddress(
       bondAccount,
-      program.programId
+      program.programId,
     )
     const toMatch = new RegExp(
-      `${withdrawRequestAddr.toBase58()}.*successfully initialized`
+      `${withdrawRequestAddr.toBase58()}.*successfully initialized`,
     )
     await (
       expect([
@@ -241,7 +241,7 @@ describe('Init withdraw request using CLI', () => {
     })
 
     expect(
-      provider.connection.getAccountInfo(withdrawRequestAddr)
-    ).resolves.toBeNull()
+      await provider.connection.getAccountInfo(withdrawRequestAddr),
+    ).toBeNull()
   })
 })

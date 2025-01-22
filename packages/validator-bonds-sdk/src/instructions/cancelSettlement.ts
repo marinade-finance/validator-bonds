@@ -22,7 +22,7 @@ import {
 export async function cancelSettlementInstruction(
   params: CloseSettlementParams & {
     authority?: PublicKey | Keypair | Signer | WalletInterface // signer
-  }
+  },
 ): Promise<{
   instruction: TransactionInstruction
 }> {

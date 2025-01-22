@@ -48,7 +48,7 @@ export async function getBondFromAddress({
     accountInfo = await checkAccountExistence(
       program.provider.connection,
       address,
-      'Account of type bond or voteAccount or withdrawRequest was not found'
+      'Account of type bond or voteAccount or withdrawRequest was not found',
     )
   } else {
     accountInfo = address.account
@@ -96,7 +96,7 @@ export async function getBondFromAddress({
       if (voteAccountAddress !== null) {
         logger.info(
           `Address ${address.toBase58()} is a STAKE ACCOUNT delegated to vote account ` +
-            `${voteAccountAddress.toBase58()}. Using the vote account to show bond data.`
+            `${voteAccountAddress.toBase58()}. Using the vote account to show bond data.`,
         )
       } else {
         isStakeAccountError = true
@@ -146,7 +146,7 @@ export async function getBondFromAddress({
   try {
     const bondData = program.coder.accounts.decode<Bond>(
       program.account.bond.idlAccount.name,
-      accountInfo.data
+      accountInfo.data,
     )
     return programAccountInfo(address, accountInfo, bondData)
   } catch (e) {
@@ -180,7 +180,7 @@ async function isVoteAccount({
     // Ignore error, we will try to fetch the address as the bond account data
     logger.debug(
       'Address is not a vote account, considering being it a bond',
-      e
+      e,
     )
   }
   return voteAccountAddress
@@ -199,7 +199,7 @@ function decodeWithdrawRequest({
 }): WithdrawRequest {
   return program.coder.accounts.decode<WithdrawRequest>(
     program.account.withdrawRequest.idlAccount.name,
-    accountInfo.data
+    accountInfo.data,
   )
 }
 
@@ -221,7 +221,7 @@ export async function getWithdrawRequestFromAddress({
   let accountInfo: AccountInfo<Buffer> = await checkAccountExistence(
     program.provider.connection,
     address,
-    'type of voteAccount or bond or withdrawRequest'
+    'type of voteAccount or bond or withdrawRequest',
   )
 
   try {
@@ -249,7 +249,7 @@ export async function getWithdrawRequestFromAddress({
       if (voteAccountAddress !== null) {
         logger.info(
           `Address ${address.toBase58()} is a STAKE ACCOUNT delegated to vote account ` +
-            `${voteAccountAddress.toBase58()}. Using the vote account to get the withdraw request data.`
+            `${voteAccountAddress.toBase58()}. Using the vote account to get the withdraw request data.`,
         )
       }
     } catch (e) {
@@ -264,7 +264,7 @@ export async function getWithdrawRequestFromAddress({
     ;[bondAccountAddress] = bondAddress(
       config,
       voteAccountAddress,
-      program.programId
+      program.programId,
     )
   } else {
     // expecting it's not a vote account but an address belonging to the bond contract
@@ -276,7 +276,7 @@ export async function getWithdrawRequestFromAddress({
   accountInfo = await checkAccountExistence(
     program.provider.connection,
     address,
-    `WithdrawRequest generated from bond address ${bondAccountAddress.toBase58()} does not exist`
+    `WithdrawRequest generated from bond address ${bondAccountAddress.toBase58()} does not exist`,
   )
 
   // final decoding of withdraw request account from account info
@@ -284,7 +284,7 @@ export async function getWithdrawRequestFromAddress({
   try {
     const withdrawRequestData = program.coder.accounts.decode<WithdrawRequest>(
       program.account.withdrawRequest.idlAccount.name,
-      accountInfo.data
+      accountInfo.data,
     )
     return programAccountInfo(address, accountInfo, withdrawRequestData)
   } catch (e) {
@@ -336,7 +336,7 @@ export function formatUnit(value: BN | number | BigInt, unit: string): string {
 async function checkAccountExistence(
   connection: Connection,
   address: PublicKey,
-  errorMsg: string
+  errorMsg: string,
 ): Promise<AccountInfo<Buffer>> {
   const accountInfo = await connection.getAccountInfo(address)
   if (accountInfo === null) {
@@ -355,14 +355,14 @@ async function checkAccountExistence(
 // Checking the error comes through web3js-common with an expected anchor error.
 export async function isExpectedAnchorTransactionError(
   err: unknown,
-  anchorErrMsg: string
+  anchorErrMsg: string,
 ) {
   if (err instanceof ExecutionError) {
     if (err.cause !== null && err.cause instanceof SendTransactionError) {
       const sendTransactionError = err.cause
       const parsedCustomError =
         sendTransactionError.transactionError.message.match(
-          /custom program error: 0x([0-9a-fA-F]+)/
+          /custom program error: 0x([0-9a-fA-F]+)/,
         )
       const decimalValue =
         parsedCustomError !== null ? parseInt(parsedCustomError[1], 16) : null

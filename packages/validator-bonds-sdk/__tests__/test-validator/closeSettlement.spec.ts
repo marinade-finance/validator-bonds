@@ -43,7 +43,7 @@ describe('Validator Bonds close settlement', () => {
         program,
         provider,
         epochsToClaimSettlement: 0,
-      }
+      },
     ))
     ;({ voteAccount, bondAccount } = await executeInitBondInstruction({
       configAccount,
@@ -81,8 +81,8 @@ describe('Validator Bonds close settlement', () => {
       provider.wallet,
     ])
     expect(
-      provider.connection.getAccountInfo(settlementAccount)
-    ).resolves.toBeNull()
+      await provider.connection.getAccountInfo(settlementAccount),
+    ).toBeNull()
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, CLOSE_SETTLEMENT_EVENT)
