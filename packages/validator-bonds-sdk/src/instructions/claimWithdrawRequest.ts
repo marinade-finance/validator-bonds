@@ -66,7 +66,7 @@ export async function claimWithdrawRequestInstruction({
   ) {
     withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount
+      withdrawRequestAccount,
     )
     bondAccount = bondAccount ?? withdrawRequestData.bond
     voteAccount = voteAccount ?? withdrawRequestData.voteAccount
@@ -74,7 +74,7 @@ export async function claimWithdrawRequestInstruction({
   if (bondAccount !== undefined && withdrawRequestAccount === undefined) {
     withdrawRequestAccount = withdrawRequestAddress(
       bondAccount,
-      program.programId
+      program.programId,
     )[0]
   }
   if (
@@ -88,13 +88,13 @@ export async function claimWithdrawRequestInstruction({
 
   if (voteAccount === undefined) {
     throw new Error(
-      'voteAccount not provided and could not be derived from other parameters'
+      'voteAccount not provided and could not be derived from other parameters',
     )
   }
   if (withdrawRequestAccount === undefined) {
     throw new Error(
       'claimWithdrawRequest: ' +
-        'withdrawRequestAccount not provided and could not be derived from other parameters'
+        'withdrawRequestAccount not provided and could not be derived from other parameters',
     )
   }
   if (!bondAccount && !configAccount) {
@@ -104,7 +104,7 @@ export async function claimWithdrawRequestInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId
+    program.programId,
   )
 
   if (withdrawer === undefined) {
@@ -113,7 +113,7 @@ export async function claimWithdrawRequestInstruction({
       (await getWithdrawRequest(program, withdrawRequestAccount))
     const voteAccountData = await getVoteAccount(
       program,
-      withdrawRequestData.voteAccount
+      withdrawRequestData.voteAccount,
     )
     withdrawer = voteAccountData.account.data.nodePubkey
   }

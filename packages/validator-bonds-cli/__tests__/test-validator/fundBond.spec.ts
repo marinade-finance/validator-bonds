@@ -48,8 +48,8 @@ describe('Fund bond account using CLI', () => {
       withdrawLockupEpochs: 2,
     }))
     expect(
-      provider.connection.getAccountInfo(configAccount)
-    ).resolves.not.toBeNull()
+      await provider.connection.getAccountInfo(configAccount),
+    ).not.toBeNull()
     const { voteAccount: voteAccountAddress, validatorIdentity } =
       await createVoteAccount({ provider })
     voteAccount = voteAccountAddress
@@ -70,7 +70,7 @@ describe('Fund bond account using CLI', () => {
   it('fund bond account', async () => {
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId
+      program.programId,
     )
 
     const { stakeAccount: stakeAccount1 } = await delegatedStakeAccount({
@@ -88,14 +88,14 @@ describe('Fund bond account using CLI', () => {
 
     const stakeAccountData1Before = await getStakeAccount(
       provider,
-      stakeAccount1
+      stakeAccount1,
     )
     expect(stakeAccountData1Before.withdrawer).toEqual(
-      stakeWithdrawerKeypair.publicKey
+      stakeWithdrawerKeypair.publicKey,
     )
 
     console.debug(
-      `Waiting for stake account ${stakeAccount1.toBase58()} to be fully activated`
+      `Waiting for stake account ${stakeAccount1.toBase58()} to be fully activated`,
     )
     await waitForStakeAccountActivation({
       stakeAccount: stakeAccount1,

@@ -59,7 +59,7 @@ describe('Validator Bonds init bond', () => {
   it('init bond', async () => {
     const { voteAccount } = await createVoteAccountWithIdentity(
       provider,
-      validatorIdentity
+      validatorIdentity,
     )
 
     const tx = await transaction(provider)
@@ -93,7 +93,7 @@ describe('Validator Bonds init bond', () => {
     const [bondCalculatedAddress, bondBump] = bondAddress(
       configAccount,
       voteAccount,
-      program.programId
+      program.programId,
     )
     expect(bondCalculatedAddress).toEqual(bondAccount)
     expect(bondData.authority).toEqual(bondAuthority)
@@ -128,7 +128,7 @@ describe('Validator Bonds init bond', () => {
     for (let i = 1; i <= numberOfBonds; i++) {
       const { voteAccount: voteAccount } = await createVoteAccountWithIdentity(
         provider,
-        validatorIdentity
+        validatorIdentity,
       )
       voteAccounts.push([voteAccount, validatorIdentity])
       signers.push(signer(validatorIdentity))

@@ -42,7 +42,7 @@ export async function fundBondInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId
+    program.programId,
   )
   if (configAccount === undefined) {
     const bondData = await getBond(program, bondAccount)

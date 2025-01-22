@@ -46,7 +46,7 @@ describe('Validator Bonds pause and resume', () => {
         program,
         configAccount: config.publicKey,
         newPauseAuthority: pauseAuthority.publicKey,
-      }
+      },
     )
     await provider.sendIx([adminAuth], configureConfigIx)
   })
@@ -61,7 +61,7 @@ describe('Validator Bonds pause and resume', () => {
     const executionReturnPause = await executeTxSimple(
       provider.connection,
       tx,
-      [provider.wallet, pauseAuthority]
+      [provider.wallet, pauseAuthority],
     )
 
     let configData = await getConfig(program, config.publicKey)
@@ -76,7 +76,7 @@ describe('Validator Bonds pause and resume', () => {
     const executionReturnResume = await executeTxSimple(
       provider.connection,
       tx,
-      [provider.wallet, pauseAuthority]
+      [provider.wallet, pauseAuthority],
     )
 
     configData = await getConfig(program, config.publicKey)
@@ -90,7 +90,7 @@ describe('Validator Bonds pause and resume', () => {
 
     const eventsResume = parseCpiEvents(
       program,
-      executionReturnResume?.response
+      executionReturnResume?.response,
     )
     const eResume = assertEvent(eventsResume, EMERGENCY_RESUME_EVENT)
     expect(eResume.config).toEqual(config.publicKey)

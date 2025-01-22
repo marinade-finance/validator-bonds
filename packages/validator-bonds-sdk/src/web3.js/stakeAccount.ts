@@ -39,7 +39,7 @@ export function deserializeStakeState(data: Buffer | undefined): StakeState {
   return deserializeUnchecked(
     STAKE_STATE_BORSH_SCHEMA,
     StakeState,
-    adjustedData
+    adjustedData,
   )
 }
 
@@ -59,7 +59,7 @@ export type StakeAccountParsed = {
 }
 
 function getMeta(
-  stakeAccountInfo: ProgramAccountInfo<StakeState>
+  stakeAccountInfo: ProgramAccountInfo<StakeState>,
 ): Meta | undefined {
   return (
     stakeAccountInfo.account.data.Stake?.meta ||
@@ -70,7 +70,7 @@ function getMeta(
 async function parseStakeAccountData(
   connection: Connection,
   stakeAccountInfo: ProgramAccountInfo<StakeState>,
-  currentEpoch?: BN | number | bigint
+  currentEpoch?: BN | number | bigint,
 ): Promise<StakeAccountParsed> {
   const meta = getMeta(stakeAccountInfo)
   const delegation = stakeAccountInfo.account.data.Stake?.stake.delegation
@@ -111,7 +111,7 @@ async function parseStakeAccountData(
 export async function getStakeAccount(
   connection: Provider | Connection | HasProvider,
   address: PublicKey,
-  currentEpoch?: number | BN | bigint
+  currentEpoch?: number | BN | bigint,
 ): Promise<StakeAccountParsed> {
   connection = getConnection(connection)
   const accountInfo = await connection.getAccountInfo(address)
@@ -119,14 +119,14 @@ export async function getStakeAccount(
   if (!accountInfo) {
     throw new Error(
       `Failed to find the stake account ${address.toBase58()}` +
-        `at ${connection.rpcEndpoint}`
+        `at ${connection.rpcEndpoint}`,
     )
   }
   if (!accountInfo.owner.equals(StakeProgram.programId)) {
     throw new Error(
       `${address.toBase58()} is not a stake account because owner is ${
         accountInfo.owner
-      } at ${connection.rpcEndpoint}`
+      } at ${connection.rpcEndpoint}`,
     )
   }
   const stakeState = deserializeStakeState(accountInfo.data)
@@ -140,7 +140,7 @@ export async function getStakeAccount(
         data: stakeState,
       },
     },
-    currentEpoch
+    currentEpoch,
   )
 }
 
@@ -205,14 +205,20 @@ export async function loadStakeAccounts({
 }): Promise<ProgramAccountInfo<StakeAccountParsed>[]> {
   const innerConnection = getConnection(connection)
   if (addresses.length === 0) {
+    // console.log('addresses: ', addresses)
     return []
   }
   addresses = addresses
     .map(d => (isWithPublicKey(d) ? d.publicKey : d))
     .map(d => d as PublicKey)
-  const accounts = (
-    await getMultipleAccounts({ connection: innerConnection, addresses })
-  )
+  const accountsFirst = await getMultipleAccounts({ connection, addresses })
+  // console.log('addresses', addresses.map(m => m.toBase58()).join('; '))
+  // console.log(
+  //   'found',
+  //   accountsFirst.length,
+  //   accountsFirst.map(v => v.publicKey.toBase58()).join(', '),
+  // )
+  const accounts = accountsFirst
     .filter(d => d.account !== null)
     .map(async d => {
       assert(d.account !== null, 'findStakeAccounts: already filtered out')
@@ -226,8 +232,8 @@ export async function loadStakeAccounts({
             publicKey: d.publicKey,
             account: { ...d.account, data: stakeState },
           },
-          currentEpoch
-        )
+          currentEpoch,
+        ),
       )
     })
   return Promise.all(accounts)
@@ -261,24 +267,24 @@ export async function findStakeAccounts({
 
 export async function getRentExemptStake(
   provider: Provider,
-  rentExempt?: number
+  rentExempt?: number,
 ): Promise<number> {
   return (
     rentExempt ??
     (await provider.connection.getMinimumBalanceForRentExemption(
-      StakeProgram.space
+      StakeProgram.space,
     ))
   )
 }
 
 function pubkeyOrNull(
-  value?: ConstructorParameters<typeof PublicKey>[0] | null
+  value?: ConstructorParameters<typeof PublicKey>[0] | null,
 ): PublicKey | null {
   return value === null || value === undefined ? null : new PublicKey(value)
 }
 
 function bnOrNull(
-  value?: ConstructorParameters<typeof BN>[0] | null
+  value?: ConstructorParameters<typeof BN>[0] | null,
 ): BN | null {
   return value === null || value === undefined ? null : new BN(value)
 }

@@ -36,25 +36,25 @@ export function installInitWithdrawRequest(program: Command) {
     .description(
       'Initializing withdrawal by creating a request ticket. ' +
         'The withdrawal request ticket is used to indicate a desire to withdraw the specified amount ' +
-        'of lamports after the lockup period expires.'
+        'of lamports after the lockup period expires.',
     )
     .argument(
       '[address]',
       'Address of the bond account to withdraw funds from. Provide: bond or vote account address. ' +
         'When the [address] is not provided, both the --config and --vote-account options are required.',
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--config <pubkey>',
       '(optional when the argument "address" is NOT provided, used to derive the bond address) ' +
         `The config account that the bond is created under (default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--vote-account <pubkey>',
       '(optional when the argument "address" is NOT provided, used to derive the bond address) ' +
         'Validator vote account that the bond is bound to',
-      parsePubkeyOrPubkeyFromWallet
+      parsePubkeyOrPubkeyFromWallet,
     )
     .option(
       '--authority <keypair_or_ledger_or_pubkey>',
@@ -62,18 +62,18 @@ export function installInitWithdrawRequest(program: Command) {
         'It is either the authority defined in the bond account or ' +
         'vote account validator identity that the bond account is connected to. ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkey
+      parseWalletOrPubkey,
     )
     .requiredOption(
       '--amount <lamports | ALL>',
       'Maximal number of **lamports** to withdraw from the bond ' +
         '(NOTE: consider staking rewards can be added to stake accounts during the time the withdraw request claiming time is elapsing). ' +
-        'If the bond should be fully withdrawn, use "ALL" instead of the amount.'
+        'If the bond should be fully withdrawn, use "ALL" instead of the amount.',
     )
     .option(
       '--rent-payer <keypair_or_ledger_or_pubkey>',
       'Rent payer for the account creation (default: wallet keypair)',
-      parseWalletOrPubkey
+      parseWalletOrPubkey,
     )
     .action(
       async (
@@ -90,7 +90,7 @@ export function installInitWithdrawRequest(program: Command) {
           authority?: Promise<WalletInterface | PublicKey>
           amount: string
           rentPayer?: Promise<WalletInterface | PublicKey>
-        }
+        },
       ) => {
         await manageInitWithdrawRequest({
           address: await address,
@@ -100,7 +100,7 @@ export function installInitWithdrawRequest(program: Command) {
           amount,
           rentPayer: await rentPayer,
         })
-      }
+      },
     )
 }
 
@@ -164,7 +164,7 @@ async function manageInitWithdrawRequest({
     bondAccountAddress,
     config,
     voteAccount,
-    program.programId
+    program.programId,
   )
   if (voteAccount === undefined || config === undefined) {
     const bondData = await getBond(program, bondAccountAddress)
@@ -183,7 +183,7 @@ async function manageInitWithdrawRequest({
     const configData = await getConfig(program, config)
     const rentExemptStake = await getRentExemptStake(provider)
     const minimalAmountToWithdraw = configData.minimumStakeLamports.add(
-      new BN(rentExemptStake)
+      new BN(rentExemptStake),
     )
     if (amountBN.lt(minimalAmountToWithdraw)) {
       throw new CliCommandError({
@@ -211,8 +211,8 @@ async function manageInitWithdrawRequest({
   logger.info(
     `Initializing withdraw request account ${withdrawRequestAccount.toBase58()} (amount: ` +
       `${formatToSolWithAll(
-        amountBN
-      )}) for bond account ${bondAccount.toBase58()}`
+        amountBN,
+      )}) for bond account ${bondAccount.toBase58()}`,
   )
   try {
     await executeTx({
@@ -231,10 +231,10 @@ async function manageInitWithdrawRequest({
     })
     logger.info(
       `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +
-        `for bond account ${bondAccount.toBase58()} successfully initialized`
+        `for bond account ${bondAccount.toBase58()} successfully initialized`,
     )
   } catch (err) {
-    failIfUnexpectedError({
+    await failIfUnexpectedError({
       err,
       logger,
       program,
@@ -260,18 +260,18 @@ async function failIfUnexpectedError({
   ) {
     const withdrawRequestData =
       await program.account.withdrawRequest.fetchNullable(
-        withdrawRequestAccount
+        withdrawRequestAccount,
       )
     if (withdrawRequestData !== null) {
       logger.info(
         `The withdraw request ${withdrawRequestAccount.toBase58()} ALREADY exists on-chain. ` +
           `The requested amount ${formatToSolWithAll(
-            withdrawRequestData.requestedAmount
+            withdrawRequestData.requestedAmount,
           )}, ` +
           `with withdrawn amount ${formatToSolWithAll(
-            withdrawRequestData.withdrawnAmount
+            withdrawRequestData.withdrawnAmount,
           )}.\n` +
-          '  If you want to withdraw more, consider canceling the existing request and creating a new withdraw request.'
+          '  If you want to withdraw more, consider canceling the existing request and creating a new withdraw request.',
       )
       return
     }

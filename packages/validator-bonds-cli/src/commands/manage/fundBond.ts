@@ -28,31 +28,31 @@ export function installFundBond(program: Command) {
   program
     .command('fund-bond')
     .description(
-      'Funding a bond account with amount of SOL within a stake account.'
+      'Funding a bond account with amount of SOL within a stake account.',
     )
     .argument(
       '<address>',
       'Address of the bond account or vote account.',
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--config <pubkey>',
       'The config account that the bond account is created under ' +
         '(optional; to derive bond address from vote account address) ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey
+      parsePubkey,
     )
     .requiredOption(
       '--stake-account <pubkey>',
       'Stake account that is used to fund the bond account',
-      parsePubkeyOrPubkeyFromWallet
+      parsePubkeyOrPubkeyFromWallet,
     )
     .option(
       '--stake-authority <keypair_or_ledger_or_pubkey>',
       'Stake account authority (probably the withdrawer authority) ' +
         'that is permitted to sign stake account authority changes. ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkey
+      parseWalletOrPubkey,
     )
     .action(
       async (
@@ -65,7 +65,7 @@ export function installFundBond(program: Command) {
           config?: Promise<PublicKey>
           stakeAccount: Promise<PublicKey>
           stakeAuthority?: Promise<WalletInterface | PublicKey>
-        }
+        },
       ) => {
         await manageFundBond({
           address: await address,
@@ -73,7 +73,7 @@ export function installFundBond(program: Command) {
           stakeAccount: await stakeAccount,
           stakeAuthority: await stakeAuthority,
         })
-      }
+      },
     )
 }
 
@@ -149,10 +149,10 @@ async function manageFundBond({
     })
     logger.info(
       `Bond account ${bondAccount.toBase58()} successfully funded ` +
-        `with stake account ${stakeAccount.toBase58()}`
+        `with stake account ${stakeAccount.toBase58()}`,
     )
   } catch (err) {
-    failIfUnexpectedError({
+    await failIfUnexpectedError({
       err,
       logger,
       provider,
@@ -164,7 +164,7 @@ async function manageFundBond({
   }
 }
 
-async function failIfUnexpectedError({
+export async function failIfUnexpectedError({
   err,
   logger,
   provider,
@@ -184,22 +184,22 @@ async function failIfUnexpectedError({
   if (
     await isExpectedAnchorTransactionError(
       err,
-      'wrong withdrawer authority of the stake account'
+      'wrong withdrawer authority of the stake account',
     )
   ) {
     // it could be a stake account that's already funded, let's check it
     const [bondsWithdrawerAuth] = bondsWithdrawerAuthority(config, programId)
     const stakeAccountData = await getStakeAccount(
       provider.connection,
-      stakeAccount
+      stakeAccount,
     )
     if (stakeAccountData.withdrawer?.equals(bondsWithdrawerAuth)) {
       logger.debug(
-        `Bonds withdrawer authority '${bondsWithdrawerAuth.toBase58()}' for config '${config.toBase58()}' and program id '${programId?.toBase58()}'`
+        `Bonds withdrawer authority '${bondsWithdrawerAuth.toBase58()}' for config '${config.toBase58()}' and program id '${programId?.toBase58()}'`,
       )
       logger.info(
         `The stake account ${stakeAccount.toBase58()} is ALREADY funded ` +
-          `to bond account ${bondAccount.toBase58()}.`
+          `to bond account ${bondAccount.toBase58()}.`,
       )
       return
     }

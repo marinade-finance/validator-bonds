@@ -52,7 +52,7 @@ export async function initBondInstruction({
   const [bondAccount] = bondAddress(
     configAccount,
     voteAccount,
-    program.programId
+    program.programId,
   )
 
   const instruction = await program.methods

@@ -48,7 +48,7 @@ export type SetLockupStakeParams = {
 }
 
 export function setLockup(
-  params: SetLockupStakeParams
+  params: SetLockupStakeParams,
 ): TransactionInstruction {
   const { stakePubkey, authorizedPubkey, unixTimestamp, epoch, custodian } =
     params
@@ -105,12 +105,12 @@ export enum StakeStates {
 export async function getAndCheckStakeAccount(
   provider: Provider,
   account: PublicKey,
-  stakeStateCheck?: StakeStates
+  stakeStateCheck?: StakeStates,
 ): Promise<[StakeState, AccountInfo<Buffer>]> {
   let accountInfo: AccountInfo<Buffer>
   try {
     accountInfo = (await provider.connection.getAccountInfo(
-      account
+      account,
     )) as AccountInfo<Buffer>
   } catch (e) {
     console.error(e)
@@ -147,7 +147,7 @@ export type VoteAccountKeys = {
 
 export async function createVoteAccountWithIdentity(
   provider: ExtendedProvider,
-  validatorIdentity: Keypair
+  validatorIdentity: Keypair,
 ): Promise<VoteAccountKeys> {
   return await createVoteAccount({
     provider,
@@ -196,7 +196,7 @@ export async function createVoteAccount({
   await provider.sendIx(
     [voteAccount, validatorIdentity],
     ixCreate,
-    ixInitialize
+    ixInitialize,
   )
   return {
     voteAccount: voteAccount.publicKey,
@@ -303,7 +303,7 @@ export async function delegatedStakeAccount({
     await provider.sendIx(
       [stakeAccount, staker],
       createStakeAccountIx,
-      delegateStakeAccountIx
+      delegateStakeAccountIx,
     )
   } catch (e) {
     console.error(e)
@@ -360,7 +360,7 @@ export async function createSettlementFundedDelegatedStake({
   const [bondsAuth] = bondsWithdrawerAuthority(configAccount, program.programId)
   const [settlementAuth] = settlementStakerAuthority(
     settlementAccount,
-    program.programId
+    program.programId,
   )
   return await createDelegatedStakeAccount({
     provider,
@@ -387,7 +387,7 @@ export async function createSettlementFundedInitializedStake({
   const [bondsAuth] = bondsWithdrawerAuthority(configAccount, program.programId)
   const [settlementAuth] = settlementStakerAuthority(
     settlementAccount,
-    program.programId
+    program.programId,
   )
 
   const { stakeAccount, withdrawer } = await createInitializedStakeAccount({
@@ -436,7 +436,7 @@ export async function createDelegatedStakeAccount({
 
 export async function nonInitializedStakeAccount(
   provider: ExtendedProvider,
-  rentExempt?: number
+  rentExempt?: number,
 ): Promise<[PublicKey, Keypair]> {
   const accountKeypair = Keypair.generate()
   const createSystemAccountIx = SystemProgram.createAccount({

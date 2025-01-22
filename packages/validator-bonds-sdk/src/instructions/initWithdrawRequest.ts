@@ -50,7 +50,7 @@ export async function initWithdrawRequestInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId
+    program.programId,
   )
   if (!voteAccount || !configAccount) {
     const bondData = await getBond(program, bondAccount)
@@ -62,7 +62,7 @@ export async function initWithdrawRequestInstruction({
   rentPayer = rentPayer instanceof PublicKey ? rentPayer : rentPayer.publicKey
   const [withdrawRequest] = withdrawRequestAddress(
     bondAccount,
-    program.programId
+    program.programId,
   )
 
   const instruction = await program.methods

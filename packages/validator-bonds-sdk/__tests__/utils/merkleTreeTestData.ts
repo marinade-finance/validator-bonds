@@ -6,7 +6,7 @@ import { ExtendedProvider } from '@marinade.finance/web3js-common'
 import { createUserAndFund } from '@marinade.finance/web3js-common'
 
 export const configAccount = new PublicKey(
-  '4wQELTA1RMEM3cKN7gjbiNN247e3GY9Sga7MKpNV38kL'
+  '4wQELTA1RMEM3cKN7gjbiNN247e3GY9Sga7MKpNV38kL',
 )
 export const configAccountKeypair = Keypair.fromSecretKey(
   new Uint8Array([
@@ -14,11 +14,11 @@ export const configAccountKeypair = Keypair.fromSecretKey(
     208, 118, 243, 242, 24, 147, 123, 88, 139, 227, 106, 207, 94, 218, 99, 100,
     58, 130, 176, 204, 178, 57, 15, 228, 92, 42, 250, 174, 237, 156, 164, 110,
     140, 9, 134, 240, 11, 218, 244, 246, 119, 158, 226, 206, 102, 189, 44, 189,
-  ])
+  ]),
 )
 
 export const voteAccount1 = new PublicKey(
-  'FHUuZcuLB3ZLWZhKoY7metTEJ2Y2Xton99TTuDmzFmgW'
+  'FHUuZcuLB3ZLWZhKoY7metTEJ2Y2Xton99TTuDmzFmgW',
 )
 export const voteAccount1Keypair = Keypair.fromSecretKey(
   new Uint8Array([
@@ -26,10 +26,10 @@ export const voteAccount1Keypair = Keypair.fromSecretKey(
     170, 199, 146, 119, 157, 49, 109, 243, 195, 101, 77, 247, 84, 24, 140, 91,
     212, 60, 118, 175, 30, 52, 179, 95, 71, 227, 218, 208, 181, 105, 0, 118,
     215, 81, 90, 129, 131, 7, 0, 112, 16, 195, 54, 165, 197, 132, 148, 99,
-  ])
+  ]),
 )
 export const voteAccount2 = new PublicKey(
-  '9D6EuvndvhgDBLRzpxNjHdvLWicJE1WvZrdTbapjhKR6'
+  '9D6EuvndvhgDBLRzpxNjHdvLWicJE1WvZrdTbapjhKR6',
 )
 export const voteAccount2Keypair = Keypair.fromSecretKey(
   new Uint8Array([
@@ -37,11 +37,11 @@ export const voteAccount2Keypair = Keypair.fromSecretKey(
     229, 88, 46, 52, 155, 70, 76, 191, 107, 215, 89, 254, 81, 194, 210, 246,
     121, 246, 99, 205, 241, 99, 163, 208, 21, 194, 189, 10, 12, 150, 243, 133,
     109, 226, 97, 167, 38, 231, 184, 41, 76, 143, 181, 153, 145, 234, 174, 125,
-  ])
+  ]),
 )
 
 export const withdrawer1 = new PublicKey(
-  '3vGstFWWyQbDknu9WKr9vbTn2Kw5qgorP7UkRXVrfe9t'
+  '3vGstFWWyQbDknu9WKr9vbTn2Kw5qgorP7UkRXVrfe9t',
 )
 export const withdrawer1Keypair = Keypair.fromSecretKey(
   new Uint8Array([
@@ -49,10 +49,10 @@ export const withdrawer1Keypair = Keypair.fromSecretKey(
     246, 232, 231, 211, 169, 98, 182, 164, 121, 32, 13, 149, 173, 20, 162, 79,
     43, 93, 27, 248, 91, 110, 139, 170, 254, 199, 133, 92, 39, 0, 152, 214, 250,
     62, 25, 69, 251, 157, 144, 190, 219, 23, 97, 15, 224, 80, 64, 55,
-  ])
+  ]),
 )
 export const withdrawer2 = new PublicKey(
-  'DBnWKq1Ln9y8HtGwYxFMqMWLY1Ld9xpB28ayKfHejiTs'
+  'DBnWKq1Ln9y8HtGwYxFMqMWLY1Ld9xpB28ayKfHejiTs',
 )
 export const withdrawer2Keypair = Keypair.fromSecretKey(
   new Uint8Array([
@@ -60,10 +60,10 @@ export const withdrawer2Keypair = Keypair.fromSecretKey(
     157, 52, 187, 22, 120, 178, 211, 8, 225, 71, 217, 211, 169, 238, 96, 10,
     181, 15, 129, 42, 37, 41, 183, 202, 199, 50, 186, 123, 22, 52, 73, 23, 52,
     93, 14, 155, 96, 140, 165, 205, 167, 146, 16, 93, 55, 109, 137, 58,
-  ])
+  ]),
 )
 export const withdrawer3 = new PublicKey(
-  'CgoqXy3e1hsnuNw6bJ8iuzqZwr93CA4jsRa1AnsseJ53'
+  'CgoqXy3e1hsnuNw6bJ8iuzqZwr93CA4jsRa1AnsseJ53',
 )
 export const withdrawer3Keypair = Keypair.fromSecretKey(
   new Uint8Array([
@@ -71,10 +71,10 @@ export const withdrawer3Keypair = Keypair.fromSecretKey(
     221, 133, 64, 199, 252, 158, 244, 226, 80, 66, 188, 168, 164, 93, 248, 173,
     163, 42, 144, 216, 187, 230, 250, 231, 216, 255, 149, 48, 250, 11, 4, 144,
     101, 205, 13, 212, 139, 234, 174, 137, 193, 203, 120, 62, 72, 48, 54,
-  ])
+  ]),
 )
 export const withdrawer4 = new PublicKey(
-  'DdWhr91hqajDZRaRVt4QhD5yJasjmyeweST5VUbfCKGy'
+  'DdWhr91hqajDZRaRVt4QhD5yJasjmyeweST5VUbfCKGy',
 )
 export const withdrawer4Keypair = Keypair.fromSecretKey(
   new Uint8Array([
@@ -82,11 +82,11 @@ export const withdrawer4Keypair = Keypair.fromSecretKey(
     169, 123, 60, 47, 124, 240, 31, 152, 202, 22, 22, 219, 120, 37, 14, 187,
     166, 189, 44, 111, 242, 7, 250, 248, 14, 163, 244, 255, 202, 153, 170, 45,
     159, 43, 102, 71, 254, 58, 222, 149, 1, 233, 215, 141, 139, 98, 62,
-  ])
+  ]),
 )
 
 export const staker1 = new PublicKey(
-  '82ewSU2zNH87PajZHf7betFbZAaGR8bwDp8azSHNCAnA'
+  '82ewSU2zNH87PajZHf7betFbZAaGR8bwDp8azSHNCAnA',
 )
 export const staker1Keypair = Keypair.fromSecretKey(
   new Uint8Array([
@@ -94,10 +94,10 @@ export const staker1Keypair = Keypair.fromSecretKey(
     133, 29, 137, 201, 158, 185, 75, 229, 195, 218, 84, 224, 18, 132, 90, 104,
     110, 73, 95, 79, 243, 182, 90, 217, 252, 233, 229, 107, 63, 197, 97, 76, 0,
     105, 145, 196, 120, 55, 249, 125, 102, 175, 0, 14, 54, 242, 71,
-  ])
+  ]),
 )
 export const staker2 = new PublicKey(
-  'yrWTX1AuJRqziVpdhg3eAWYhDcY6z1kmEaG4sn1uDDj'
+  'yrWTX1AuJRqziVpdhg3eAWYhDcY6z1kmEaG4sn1uDDj',
 )
 export const staker2Keypair = Keypair.fromSecretKey(
   new Uint8Array([
@@ -105,10 +105,10 @@ export const staker2Keypair = Keypair.fromSecretKey(
     152, 17, 11, 137, 123, 190, 100, 200, 171, 63, 129, 97, 104, 31, 242, 166,
     14, 144, 129, 9, 100, 247, 64, 23, 90, 4, 129, 164, 60, 147, 105, 30, 178,
     32, 53, 241, 69, 223, 221, 163, 160, 7, 206, 122, 243, 20, 34, 210,
-  ])
+  ]),
 )
 export const staker3 = new PublicKey(
-  '121WqnefAgXvLZdW42LsGUbkFjv7LVUqvcpkskxyVgeu'
+  '121WqnefAgXvLZdW42LsGUbkFjv7LVUqvcpkskxyVgeu',
 )
 export const staker3Keypair = Keypair.fromSecretKey(
   new Uint8Array([
@@ -116,7 +116,7 @@ export const staker3Keypair = Keypair.fromSecretKey(
     66, 16, 48, 162, 0, 97, 208, 207, 253, 76, 61, 110, 116, 53, 132, 40, 0, 66,
     41, 157, 121, 136, 32, 33, 19, 3, 237, 196, 175, 7, 83, 87, 142, 142, 63,
     35, 239, 229, 200, 90, 175, 201, 48, 138, 37, 141, 5, 18,
-  ])
+  ]),
 )
 
 // To get GENERATED new values for the following constants,
@@ -130,7 +130,7 @@ export type MerkleTreeNodeWithProof = {
 export const MERKLE_PROOF_VOTE_ACCOUNT_1 =
   'HKerG5LfsZVyV8o5pJCQa9UGcBwoNdpprgNEhF6Jqkkn'
 export const MERKLE_ROOT_VOTE_ACCOUNT_1_BUF = bs58.decode(
-  MERKLE_PROOF_VOTE_ACCOUNT_1
+  MERKLE_PROOF_VOTE_ACCOUNT_1,
 )
 export const ITEMS_VOTE_ACCOUNT_1: MerkleTreeNodeWithProof[] = [
   {
@@ -260,7 +260,7 @@ export const ITEMS_VOTE_ACCOUNT_1: MerkleTreeNodeWithProof[] = [
 export const MERKLE_PROOF_VOTE_ACCOUNT_2 =
   'SA4YRkCch9fKu2RKEJ37LXzZY7DEYJiMNEgy6EKxo6C'
 export const MERKLE_ROOT_VOTE_ACCOUNT_2_BUF = bs58.decode(
-  MERKLE_PROOF_VOTE_ACCOUNT_2
+  MERKLE_PROOF_VOTE_ACCOUNT_2,
 )
 export const ITEMS_VOTE_ACCOUNT_2: MerkleTreeNodeWithProof[] = [
   {
@@ -337,17 +337,17 @@ export const ITEMS_OPERATOR: MerkleTreeNodeWithProof[] = [
 export const treeNodesVoteAccount1 = ITEMS_VOTE_ACCOUNT_1
 export const totalClaimVoteAccount1 = treeNodesVoteAccount1.reduce(
   (acc, item) => acc.add(item.treeNode.data.claim),
-  new BN(0)
+  new BN(0),
 )
 export const treeNodesVoteAccount2 = ITEMS_VOTE_ACCOUNT_2
 export const totalClaimVoteAccount2 = treeNodesVoteAccount2.reduce(
   (acc, item) => acc.add(item.treeNode.data.claim),
-  new BN(0)
+  new BN(0),
 )
 
 export function treeNodeBy(
   voteAccount: PublicKey,
-  withdrawer: PublicKey
+  withdrawer: PublicKey,
 ): MerkleTreeNodeWithProof {
   if (voteAccount.equals(voteAccount1)) {
     return treeNodeByWithdrawer(ITEMS_VOTE_ACCOUNT_1, withdrawer)
@@ -355,14 +355,14 @@ export function treeNodeBy(
     return treeNodeByWithdrawer(ITEMS_VOTE_ACCOUNT_2, withdrawer)
   } else {
     throw new Error(
-      `tree node for vote account ${voteAccount.toBase58()} not found`
+      `tree node for vote account ${voteAccount.toBase58()} not found`,
     )
   }
 }
 
 export function treeNodeByWithdrawer(
   treeNodeList: MerkleTreeNodeWithProof[],
-  withdrawer: PublicKey
+  withdrawer: PublicKey,
 ): MerkleTreeNodeWithProof {
   const treeNodesByWithdrawer = treeNodeList
     .map((item, index) => {
@@ -371,7 +371,7 @@ export function treeNodeByWithdrawer(
     .find(({ item }) => item.treeNode.data.withdrawAuthority.equals(withdrawer))
   if (!treeNodesByWithdrawer) {
     throw new Error(
-      `tree node for withdrawer ${withdrawer.toBase58()} not found`
+      `tree node for withdrawer ${withdrawer.toBase58()} not found`,
     )
   }
   return treeNodesByWithdrawer.item

@@ -33,40 +33,40 @@ export function installInitBond(program: Command) {
       '--config <pubkey>',
       'The config account that the bond is created under. ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey
+      parsePubkey,
     )
     .requiredOption(
       '--vote-account <pubkey>',
       'Validator vote account that this bond is bound to',
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--validator-identity <keypair_or_ledger_or_pubkey>',
       'Validator identity linked to the vote account. ' +
         'Permission-ed execution requires the validator identity signature, possible possible to configure --bond-authority. ' +
         'Permission-less execution requires no signature, bond account configuration is possible later with validator identity signature (default: NONE)',
-      parseWalletOrPubkey
+      parseWalletOrPubkey,
     )
     .option(
       '--bond-authority <pubkey>',
       'Authority that is permitted to operate with bond account. ' +
         'Only possible to set in permission-ed mode (see above, default: vote account validator identity)',
-      parsePubkeyOrPubkeyFromWallet
+      parsePubkeyOrPubkeyFromWallet,
     )
     .option(
       '--rent-payer <keypair_or_ledger_or_pubkey>',
       'Rent payer for the account creation (default: wallet keypair)',
-      parseWalletOrPubkey
+      parseWalletOrPubkey,
     )
     .option(
       '--cpmpe <number>',
       'Cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch. (default: 0)',
-      value => toBN(value)
+      value => toBN(value),
     )
     .option(
       '--max-stake-wanted <number>',
       'The maximum stake amount, in lamports, that the validator wants to be delegated to them (default: 0).',
-      value => toBN(value)
+      value => toBN(value),
     )
     .action(
       async ({
@@ -95,7 +95,7 @@ export function installInitBond(program: Command) {
           cpmpe,
           maxStakeWanted,
         })
-      }
+      },
     )
 }
 
@@ -161,7 +161,7 @@ async function manageInitBond({
   tx.add(instruction)
 
   logger.info(
-    `Initializing bond account ${bondAccount.toBase58()} (finalization may take seconds)`
+    `Initializing bond account ${bondAccount.toBase58()} (finalization may take seconds)`,
   )
 
   try {
@@ -182,10 +182,10 @@ async function manageInitBond({
       sendOpts: { skipPreflight },
     })
     logger.info(
-      `Bond account ${bondAccount.toBase58()} of config ${config.toBase58()} successfully created`
+      `Bond account ${bondAccount.toBase58()} of config ${config.toBase58()} successfully created`,
     )
   } catch (err) {
-    failIfUnexpectedError({
+    await failIfUnexpectedError({
       err,
       logger,
       program,
@@ -212,7 +212,7 @@ async function failIfUnexpectedError({
     const bondData = await program.account.bond.fetchNullable(bondAccount)
     if (bondData !== null) {
       logger.info(
-        `The bond account ${bondAccount.toBase58()} is ALREADY initialized.`
+        `The bond account ${bondAccount.toBase58()} is ALREADY initialized.`,
       )
       return
     }

@@ -66,7 +66,7 @@ describe('Validator Bonds init bond account', () => {
     await provider.sendIx([signer(rentWallet), validatorIdentity], instruction)
 
     const rentWalletInfo = await provider.connection.getAccountInfo(
-      pubkey(rentWallet)
+      pubkey(rentWallet),
     )
     const bondAccountInfo =
       await provider.connection.getAccountInfo(bondAccount)
@@ -75,7 +75,7 @@ describe('Validator Bonds init bond account', () => {
     }
     const rentExempt =
       await provider.connection.getMinimumBalanceForRentExemption(
-        bondAccountInfo.data.length
+        bondAccountInfo.data.length,
       )
     expect(rentWalletInfo!.lamports).toEqual(LAMPORTS_PER_SOL - rentExempt)
     // NO overflow of account size from the first deployment on mainnet
@@ -85,7 +85,7 @@ describe('Validator Bonds init bond account', () => {
     const bondData = await getBond(program, bondAccount)
     expect(bondData.authority).toEqual(bondAuthority.publicKey)
     expect(bondData.bump).toEqual(
-      bondAddress(configAccount, voteAccount, program.programId)[1]
+      bondAddress(configAccount, voteAccount, program.programId)[1],
     )
     expect(bondData.config).toEqual(configAccount)
     expect(bondData.cpmpe).toEqual(30)
@@ -111,7 +111,7 @@ describe('Validator Bonds init bond account', () => {
     const bondData = await getBond(program, bondAccount)
     expect(bondData.authority).toEqual(validatorIdentity.publicKey)
     expect(bondData.bump).toEqual(
-      bondAddress(configAccount, voteAccount, program.programId)[1]
+      bondAddress(configAccount, voteAccount, program.programId)[1],
     )
     expect(bondData.config).toEqual(configAccount)
     expect(bondData.cpmpe).toEqual(0)
@@ -141,7 +141,7 @@ describe('Validator Bonds init bond account', () => {
         e,
         Errors,
         6037,
-        'does not match to provided validator identity'
+        'does not match to provided validator identity',
       )
     }
   })
@@ -153,9 +153,7 @@ describe('Validator Bonds init bond account', () => {
         provider,
         configAccount,
       })
-    expect(
-      provider.connection.getAccountInfo(bondAccount)
-    ).resolves.not.toBeNull()
+    expect(await provider.connection.getAccountInfo(bondAccount)).not.toBeNull()
 
     try {
       const { instruction } = await initBondInstruction({
@@ -172,7 +170,7 @@ describe('Validator Bonds init bond account', () => {
       if (!(e as Error).message.includes('custom program error: 0x0')) {
         console.error(
           `Expected failure as bond account ${bondAccount} should already exist` +
-            `'${(e as Error).message}'`
+            `'${(e as Error).message}'`,
         )
         throw e
       }
@@ -189,7 +187,7 @@ describe('Validator Bonds init bond account', () => {
       lamports: LAMPORTS_PER_SOL,
     })
 
-    executeConfigureConfigInstruction({
+    await executeConfigureConfigInstruction({
       program,
       provider,
       configAccount,
@@ -209,7 +207,7 @@ describe('Validator Bonds init bond account', () => {
     try {
       await provider.sendIx(
         [signer(rentWallet), validatorIdentity],
-        initLowerToConfigIx
+        initLowerToConfigIx,
       )
       throw new Error('failure expected as minimum stake under config value')
     } catch (e) {
@@ -246,8 +244,6 @@ describe('Validator Bonds init bond account', () => {
       voteAccount: voteAccount,
     })
     await provider.sendIx([], initCurrentTx)
-    expect(
-      provider.connection.getAccountInfo(voteAccount)
-    ).resolves.not.toBeNull()
+    expect(await provider.connection.getAccountInfo(voteAccount)).not.toBeNull()
   }
 })

@@ -101,7 +101,7 @@ describe('Find stake account', () => {
 
   function includesPubkey(
     arr: ProgramAccountInfo<StakeAccountParsed>[],
-    pubkey: PublicKey
+    pubkey: PublicKey,
   ): boolean {
     return arr.map(r => r.publicKey.toBase58()).includes(pubkey.toBase58())
   }

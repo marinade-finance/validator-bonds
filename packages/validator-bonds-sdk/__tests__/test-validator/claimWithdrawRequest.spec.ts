@@ -62,7 +62,7 @@ describe('Validator Bonds claim withdraw request', () => {
       voteAccountToDelegate: voteAccount,
     })
     console.debug(
-      `Waiting for activation of stake account: ${stakeAccount.toBase58()}`
+      `Waiting for activation of stake account: ${stakeAccount.toBase58()}`,
     )
     await waitForStakeAccountActivation({
       stakeAccount,
@@ -79,13 +79,13 @@ describe('Validator Bonds claim withdraw request', () => {
     let stakeAccountData = await getStakeAccount(program, stakeAccount)
     const [bondsWithdrawerAuth] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId
+      program.programId,
     )
     expect(stakeAccountData.staker).toEqual(bondsWithdrawerAuth)
     expect(stakeAccountData.withdrawer).toEqual(bondsWithdrawerAuth)
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount
+      withdrawRequestAccount,
     )
     expect(withdrawRequestData.bond).toEqual(bondAccount)
     expect(withdrawRequestData.withdrawnAmount).toEqual(0)
@@ -109,15 +109,15 @@ describe('Validator Bonds claim withdraw request', () => {
     stakeAccountData = await getStakeAccount(provider, stakeAccount)
     const voteAccountData = await getVoteAccount(provider, voteAccount)
     expect(stakeAccountData.staker).toEqual(
-      voteAccountData.account.data.nodePubkey
+      voteAccountData.account.data.nodePubkey,
     )
     expect(stakeAccountData.withdrawer).toEqual(
-      voteAccountData.account.data.nodePubkey
+      voteAccountData.account.data.nodePubkey,
     )
 
     const withdrawRequestDataAfter = await getWithdrawRequest(
       program,
-      withdrawRequestAccount
+      withdrawRequestAccount,
     )
     expect(withdrawRequestDataAfter.withdrawnAmount).toEqual(requestedAmount)
     expect(withdrawRequestDataAfter.requestedAmount).toEqual(requestedAmount)
@@ -131,7 +131,7 @@ describe('Validator Bonds claim withdraw request', () => {
     expect(e.bond).toEqual(bondAccount)
     expect(e.stakeAccount).toEqual(stakeAccount)
     expect(e.newStakeAccountOwner).toEqual(
-      voteAccountData.account.data.nodePubkey
+      voteAccountData.account.data.nodePubkey,
     )
     expect(e.splitStake?.amount).toEqual(splitStakeLamports)
     expect(e.splitStake?.address).toEqual(splitStakeAccount.publicKey)

@@ -24,7 +24,7 @@ export async function executeTxWithError(
   try {
     await provider.sendIx(signers, ...ixes)
     throw new Error(
-      `Expected failure '${checkMessage}', but it hasn't happened`
+      `Expected failure '${checkMessage}', but it hasn't happened`,
     )
   } catch (e) {
     info = info ? info + ' ' : ''
@@ -33,7 +33,7 @@ export async function executeTxWithError(
     } else {
       console.error(
         `${info}wrong failure thrown, expected error: '${checkMessage}'`,
-        e
+        e,
       )
       throw e
     }
@@ -42,11 +42,11 @@ export async function executeTxWithError(
 
 export async function getRentExempt(
   provider: ExtendedProvider,
-  account: PublicKey
+  account: PublicKey,
 ): Promise<number> {
   const accountInfo = await provider.connection.getAccountInfo(account)
   assert(accountInfo !== null)
   return await provider.connection.getMinimumBalanceForRentExemption(
-    accountInfo.data.length
+    accountInfo.data.length,
   )
 }

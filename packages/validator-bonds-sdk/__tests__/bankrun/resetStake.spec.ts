@@ -43,7 +43,7 @@ describe('Validator Bonds reset stake', () => {
       {
         program,
         provider,
-      }
+      },
     ))
     ;({ voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
@@ -80,25 +80,25 @@ describe('Validator Bonds reset stake', () => {
     const epochNow = await currentEpoch(provider)
     const [bondsAuth] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId
+      program.programId,
     )
     const [stakeAccountData] = await getAndCheckStakeAccount(
       provider,
       stakeAccount,
-      StakeStates.Delegated
+      StakeStates.Delegated,
     )
     expect(stakeAccountData.Stake?.stake.delegation.voterPubkey).toEqual(
-      voteAccount
+      voteAccount,
     )
     expect(stakeAccountData.Stake?.stake.delegation.activationEpoch).toEqual(
-      epochNow
+      epochNow,
     )
     expect(stakeAccountData.Stake?.stake.delegation.deactivationEpoch).toEqual(
-      U64_MAX
+      U64_MAX,
     )
     expect(stakeAccountData.Stake?.meta.authorized.staker).toEqual(bondsAuth)
     expect(stakeAccountData.Stake?.meta.authorized.withdrawer).toEqual(
-      bondsAuth
+      bondsAuth,
     )
   })
 
@@ -146,7 +146,7 @@ describe('Validator Bonds reset stake', () => {
     try {
       await provider.sendIx([], instruction)
       throw new Error(
-        'Expected error as stake account is not funded to a settlement'
+        'Expected error as stake account is not funded to a settlement',
       )
     } catch (e) {
       verifyError(e, Errors, 6046, 'Stake account staker authority mismatches')
