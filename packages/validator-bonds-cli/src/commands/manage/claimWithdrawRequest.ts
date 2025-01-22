@@ -34,9 +34,9 @@ export function installClaimWithdrawRequest(program: Command) {
     )
     .argument(
       '[address]',
-      'Address of the withdrawal request account to claim. Provide: withdraw request or bond or vote account address.' +
+      'Address of the withdrawal request or bond or vote account. ' +
         'When the [address] is not provided, both the --config and --vote-account options are required.',
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--config <pubkey>',
