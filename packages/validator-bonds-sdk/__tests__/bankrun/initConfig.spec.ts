@@ -51,8 +51,8 @@ describe('Validator Bonds config account tests', () => {
       })
     expect(configAccount).toEqual(configAccountKeypair.publicKey)
     expect(
-      provider.connection.getAccountInfo(configAccount)
-    ).resolves.not.toBeNull()
+      await provider.connection.getAccountInfo(configAccount),
+    ).not.toBeNull()
 
     try {
       const { instruction } = await initConfigInstruction({
@@ -69,7 +69,7 @@ describe('Validator Bonds config account tests', () => {
     } catch (e) {
       if (!(e as Error).message.includes('custom program error: 0x0')) {
         console.error(
-          `Expected failure as config account ${configAccount} should already exist`
+          `Expected failure as config account ${configAccount} should already exist`,
         )
         throw e
       }

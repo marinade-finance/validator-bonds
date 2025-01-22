@@ -33,14 +33,14 @@ export function installConfigureBond(program: Command) {
     .argument(
       '<address>',
       'Address of the bond account or vote account.',
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--config <pubkey>',
       'The config account that the bond account is created under ' +
         '(optional; to derive bond address from vote account address) ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--authority <keypair_or_ledger_or_pubkey>',
@@ -48,29 +48,29 @@ export function installConfigureBond(program: Command) {
         'It is either the authority defined in bonds account OR ' +
         'vote account validator identity OR owner of bond configuration token (see "mint-bond" command). ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkey
+      parseWalletOrPubkey,
     )
     .option(
       '--with-token',
       'Use the bond token to authorize the transaction. If this option is enabled, ' +
         'it requires the "--authority" to be the owner of the bond token and possession of the bond token at the ATA account.',
-      false
+      false,
     )
     .option(
       '--bond-authority <pubkey>',
       'New value of "bond authority" that is permitted to operate with the bond account.',
-      parsePubkeyOrPubkeyFromWallet
+      parsePubkeyOrPubkeyFromWallet,
     )
     .option(
       '--cpmpe <number>',
       'New value of cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch.',
-      value => toBN(value)
+      value => toBN(value),
     )
     .option(
       '--max-stake-wanted <number>',
       'New value of maximum stake amount, in lamports, the validator wants to be delegated to them. ' +
         'The actual amount delegated will depend on the auction and may be equal to or less than this value.',
-      value => toBN(value)
+      value => toBN(value),
     )
     .action(
       async (
@@ -91,7 +91,7 @@ export function installConfigureBond(program: Command) {
           bondAuthority?: Promise<PublicKey>
           cpmpe?: BN
           maxStakeWanted?: BN
-        }
+        },
       ) => {
         await manageConfigureBond({
           address: await address,
@@ -103,7 +103,7 @@ export function installConfigureBond(program: Command) {
           cpmpe,
           maxStakeWanted,
         })
-      }
+      },
     )
 }
 
@@ -189,7 +189,7 @@ async function manageConfigureBond({
   tx.add(instruction)
 
   logger.info(
-    `Configuring bond account ${bondAccount.toBase58()} with authority ${authority.toBase58()} (finalization may take seconds)`
+    `Configuring bond account ${bondAccount.toBase58()} with authority ${authority.toBase58()} (finalization may take seconds)`,
   )
   await executeTx({
     connection: provider.connection,

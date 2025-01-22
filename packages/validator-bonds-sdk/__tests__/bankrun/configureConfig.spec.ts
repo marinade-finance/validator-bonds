@@ -52,7 +52,7 @@ describe('Validator Bonds configure config tests', () => {
       account: await getConfig(program, configAccount),
     }
     expect(configInitialized.account.adminAuthority).toEqual(
-      adminAuth.publicKey
+      adminAuth.publicKey,
     )
     expect(configInitialized.account.epochsToClaimSettlement).toEqual(1)
     expect(configInitialized.account.withdrawLockupEpochs).toEqual(2)
@@ -75,12 +75,12 @@ describe('Validator Bonds configure config tests', () => {
     const config = await getConfig(program, configInitialized.publicKey)
     expect(config.adminAuthority).toEqual(newAdminAuthority.publicKey)
     expect(config.operatorAuthority).toEqual(
-      configInitialized.account.operatorAuthority
+      configInitialized.account.operatorAuthority,
     )
     expect(config.epochsToClaimSettlement).toEqual(3)
     expect(config.slotsToStartSettlementClaiming).toEqual(10)
     expect(config.withdrawLockupEpochs).toEqual(
-      configInitialized.account.withdrawLockupEpochs
+      configInitialized.account.withdrawLockupEpochs,
     )
     expect(config.minBondMaxStakeWanted).toEqual(LAMPORTS_PER_SOL * 10_000)
 
@@ -96,7 +96,7 @@ describe('Validator Bonds configure config tests', () => {
     await bankrunExecuteIx(
       provider,
       [provider.wallet, newAdminAuthority],
-      instruction2
+      instruction2,
     )
     const config2 = await getConfig(program, configInitialized.publicKey)
     expect(config2.adminAuthority).toEqual(newAdminAuthority.publicKey)
@@ -126,7 +126,7 @@ describe('Validator Bonds configure config tests', () => {
       await bankrunExecuteIx(
         provider,
         [provider.wallet, operatorAuthority],
-        txOperator
+        txOperator,
       )
       throw new Error('failure expected as wrong admin')
     } catch (e) {
@@ -135,7 +135,7 @@ describe('Validator Bonds configure config tests', () => {
   })
 
   async function getConfigureConfigTx(
-    adminAuthority?: PublicKey
+    adminAuthority?: PublicKey,
   ): Promise<Transaction> {
     const tx = await bankrunTransaction(provider)
     const { instruction } = await configureConfigInstruction({
@@ -145,7 +145,7 @@ describe('Validator Bonds configure config tests', () => {
       newWithdrawLockupEpochs: 42,
     })
     tx.add(instruction)
-    provider.wallet.signTransaction(tx)
+    await provider.wallet.signTransaction(tx)
     return tx
   }
 })

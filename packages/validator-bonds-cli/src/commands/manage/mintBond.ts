@@ -24,24 +24,24 @@ export function installMintBond(program: Command) {
         'without requiring a direct signature for the on-chain transaction. ' +
         'The workflow is as follows: first, use this "mint-bond" to mint a bond token ' +
         'to the validator identity public key. Next, transfer the token to any account desired. ' +
-        'Finally, utilize the command "configure-bond --with-token" to configure the bond account.'
+        'Finally, utilize the command "configure-bond --with-token" to configure the bond account.',
     )
     .argument(
       '<address>',
       'Address of the bond account or vote account.',
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--config <pubkey>',
       'The config account that the bond account is created under ' +
         '(optional; to derive bond address from vote account address) ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--rent-payer <keypair_or_ledger_orl_pubkey>',
       'Rent payer for the mint token account creation (default: wallet keypair)',
-      parseWalletOrPubkey
+      parseWalletOrPubkey,
     )
     .action(
       async (
@@ -54,7 +54,7 @@ export function installMintBond(program: Command) {
           config?: Promise<PublicKey>
           voteAccount?: Promise<PublicKey>
           rentPayer?: Promise<WalletInterface | PublicKey>
-        }
+        },
       ) => {
         await manageMintBond({
           address: await address,
@@ -62,7 +62,7 @@ export function installMintBond(program: Command) {
           voteAccount: await voteAccount,
           rentPayer: await rentPayer,
         })
-      }
+      },
     )
 }
 
@@ -121,7 +121,7 @@ async function manageMintBond({
 
   logger.info(
     `Minting bond ${bondAccount.toBase58()} token ${bondMint.toBase58()} ` +
-      `for validator identity ${validatorIdentity.toBase58()}`
+      `for validator identity ${validatorIdentity.toBase58()}`,
   )
   await executeTx({
     connection: provider.connection,
@@ -138,6 +138,6 @@ async function manageMintBond({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Bond ${bondAccount.toBase58()} token ${bondMint.toBase58()} was minted successfully`
+    `Bond ${bondAccount.toBase58()} token ${bondMint.toBase58()} was minted successfully`,
   )
 }

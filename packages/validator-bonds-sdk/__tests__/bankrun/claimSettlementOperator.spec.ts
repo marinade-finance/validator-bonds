@@ -59,7 +59,7 @@ describe('Validator Bonds claim settlement', () => {
         provider,
         epochsToClaimSettlement,
         configAccountKeypair: configAccountKeypair,
-      }
+      },
     ))
     ;({ voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
@@ -91,7 +91,7 @@ describe('Validator Bonds claim settlement', () => {
   it('claim settlement as operator with initialized stake account', async () => {
     const treeNode1Withdrawer1 = treeNodeByWithdrawer(
       ITEMS_VOTE_ACCOUNT_1,
-      withdrawer1
+      withdrawer1,
     )
     // note: initialized stake account cannot be deactivated as it's de-active from the start
     const stakeBefore = LAMPORTS_PER_SOL * 100
@@ -129,21 +129,21 @@ describe('Validator Bonds claim settlement', () => {
 
     const settlementClaims = await getSettlementClaims(
       program,
-      settlementClaimsAccount
+      settlementClaimsAccount,
     )
     expect(settlementClaims.account.settlement).toEqual(settlementAccount)
     expect(settlementClaims.account.maxRecords).toEqual(maxMerkleNodes)
     expect(settlementClaims.account.version).toEqual(0)
     expect(settlementClaims.bitmap.bitSet.counter).toEqual(1)
     expect(
-      settlementClaims.bitmap.isSet(treeNode1Withdrawer1.treeNode.index)
+      settlementClaims.bitmap.isSet(treeNode1Withdrawer1.treeNode.index),
     ).toBe(true)
     expect(
       (await provider.connection.getAccountInfo(stakeOperatorWithdrawer))
-        ?.lamports
+        ?.lamports,
     ).toEqual(
       treeNode1Withdrawer1.treeNode.claim.toNumber() +
-        stakeWithdrawerLamportsBefore
+        stakeWithdrawerLamportsBefore,
     )
 
     // closing the settlement
@@ -155,8 +155,8 @@ describe('Validator Bonds claim settlement', () => {
         configAccount,
       })
     await provider.sendIx([], closeSettlementIx)
-    assertNotExist(provider, settlementAccount)
-    assertNotExist(provider, settlementClaimsAccount)
+    await assertNotExist(provider, settlementAccount)
+    await assertNotExist(provider, settlementClaimsAccount)
 
     // let's try to reset the operator based stake account
     const { instruction: resetStakeIx } = await resetStakeInstruction({
@@ -170,13 +170,13 @@ describe('Validator Bonds claim settlement', () => {
     try {
       await provider.sendIx([], resetStakeIx)
       throw new Error(
-        'failure expected; cannot reset non-delegated stake accounts'
+        'failure expected; cannot reset non-delegated stake accounts',
       )
     } catch (e) {
       verifyError(e, Errors, 6019, 'not delegated')
     }
     const withdrawToUser = pubkey(
-      await createUserAndFund({ provider, lamports: LAMPORTS_PER_SOL })
+      await createUserAndFund({ provider, lamports: LAMPORTS_PER_SOL }),
     )
     const { instruction: withdrawStakeIx } = await withdrawStakeInstruction({
       program,
@@ -188,11 +188,11 @@ describe('Validator Bonds claim settlement', () => {
     })
     await provider.sendIx([operatorAuthority], withdrawStakeIx)
     expect(
-      (await provider.connection.getAccountInfo(withdrawToUser))?.lamports
+      (await provider.connection.getAccountInfo(withdrawToUser))?.lamports,
     ).toEqual(
       LAMPORTS_PER_SOL +
         stakeBefore -
-        treeNode1Withdrawer1.treeNode.claim.toNumber()
+        treeNode1Withdrawer1.treeNode.claim.toNumber(),
     )
   })
 })

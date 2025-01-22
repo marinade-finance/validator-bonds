@@ -48,7 +48,7 @@ describe('Validator Bonds fund settlement', () => {
         program,
         provider,
         epochsToClaimSettlement: 0,
-      }
+      },
     ))
     ;({ voteAccount, bondAccount } = await executeInitBondInstruction({
       configAccount,
@@ -79,7 +79,7 @@ describe('Validator Bonds fund settlement', () => {
     // not needed to activate for this test case
     const [bondsAuth] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId
+      program.programId,
     )
     await authorizeStakeAccount({
       provider,
@@ -128,7 +128,7 @@ describe('Validator Bonds fund settlement', () => {
     expect(e.splitRentCollector).toEqual(pubkey(splitRentPayer))
     expect(e.splitStakeAccount?.address).toEqual(pubkey(splitStakeAccount))
     expect(e.splitStakeAccount?.amount).toEqual(
-      fundedAmount - 2 * LAMPORTS_PER_SOL - minimalStakeAccountSize
+      fundedAmount - 2 * LAMPORTS_PER_SOL - minimalStakeAccountSize,
     )
   })
 })

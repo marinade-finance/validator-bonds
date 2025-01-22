@@ -72,11 +72,11 @@ describe('Validator Bonds reset settlement stake account', () => {
 
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId
+      program.programId,
     )
     const [settlementAuth] = settlementStakerAuthority(
       fakeSettlement,
-      program.programId
+      program.programId,
     )
 
     let stakeAccountData = await getStakeAccount(provider, stakeAccount)
@@ -104,7 +104,7 @@ describe('Validator Bonds reset settlement stake account', () => {
     expect(stakeAccountData.voter).toEqual(voteAccount)
     expect(stakeAccountData.deactivationEpoch).toEqual(U64_MAX)
     expect(stakeAccountData.activationEpoch).toEqual(
-      (await provider.connection.getEpochInfo()).epoch
+      (await provider.connection.getEpochInfo()).epoch,
     )
     expect(stakeAccountData.isCoolingDown).toEqual(false)
     expect(stakeAccountData.isLockedUp).toBeFalsy()

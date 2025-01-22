@@ -32,7 +32,7 @@ describe('Validator Bonds withdraw settlement stake account', () => {
       {
         program,
         provider,
-      }
+      },
     ))
   })
 
@@ -40,11 +40,11 @@ describe('Validator Bonds withdraw settlement stake account', () => {
     const fakeSettlement = Keypair.generate().publicKey
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId
+      program.programId,
     )
     const [settlementAuth] = settlementStakerAuthority(
       fakeSettlement,
-      program.programId
+      program.programId,
     )
 
     const stakeAccount = await createSettlementFundedInitializedStake({
@@ -79,9 +79,9 @@ describe('Validator Bonds withdraw settlement stake account', () => {
       provider.wallet,
     ])
 
-    expect(provider.connection.getAccountInfo(stakeAccount)).resolves.toBeNull()
+    expect(await provider.connection.getAccountInfo(stakeAccount)).toBeNull()
     expect(
-      (await provider.connection.getAccountInfo(pubkey(user)))?.lamports
+      (await provider.connection.getAccountInfo(pubkey(user)))?.lamports,
     ).toEqual(LAMPORTS_PER_SOL * 2)
 
     const events = parseCpiEvents(program, executionReturn?.response)

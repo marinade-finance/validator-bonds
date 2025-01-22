@@ -51,7 +51,7 @@ export async function configureBondWithMintInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId
+    program.programId,
   )
   if (configAccount === undefined || voteAccount === undefined) {
     const bondData = await getBond(program, bondAccount)
@@ -71,7 +71,7 @@ export async function configureBondWithMintInstruction({
   const [bondMint] = bondMintAddress(
     bondAccount,
     validatorIdentity,
-    program.programId
+    program.programId,
   )
   if (tokenAccount === undefined) {
     tokenAccount = getAssociatedTokenAddressSync(bondMint, tokenAuthority, true)

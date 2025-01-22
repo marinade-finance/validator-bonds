@@ -75,7 +75,7 @@ describe('Validator Bonds fund settlement', () => {
         program,
         provider,
         epochsToClaimSettlement,
-      }
+      },
     ))
     config = await getConfig(program, configAccount)
     ;({ voteAccount, validatorIdentity } = await createVoteAccount({
@@ -131,21 +131,21 @@ describe('Validator Bonds fund settlement', () => {
       })
     await provider.sendIx(
       [signer(splitRentPayer), signer(splitStakeAccount), operatorAuthority],
-      ix1
+      ix1,
     )
 
     settlementData = await getSettlement(program, settlementAccount)
     expect(settlementData.lamportsFunded).toEqual(
-      lamportsToFund1 - stakeAccountMinimalAmount
+      lamportsToFund1 - stakeAccountMinimalAmount,
     )
     expect(settlementData.splitRentAmount).toEqual(0)
     expect(settlementData.splitRentCollector).toEqual(null)
     expect(
       (await provider.connection.getAccountInfo(pubkey(splitRentPayer)))
-        ?.lamports
+        ?.lamports,
     ).toEqual(LAMPORTS_PER_SOL)
     expect(
-      (await provider.connection.getAccountInfo(stakeAccount1))?.lamports
+      (await provider.connection.getAccountInfo(stakeAccount1))?.lamports,
     ).toEqual(lamportsToFund1)
     await assertNotExist(provider, pubkey(splitStakeAccount))
 
@@ -160,7 +160,7 @@ describe('Validator Bonds fund settlement', () => {
     })
     await provider.sendIx(
       [signer(splitRentPayer), signer(splitStakeAccount), operatorAuthority],
-      ix2
+      ix2,
     )
 
     settlementData = await getSettlement(program, settlementAccount)
@@ -169,15 +169,15 @@ describe('Validator Bonds fund settlement', () => {
     expect(settlementData.splitRentCollector).toEqual(null)
     expect(
       (await provider.connection.getAccountInfo(pubkey(splitRentPayer)))
-        ?.lamports
+        ?.lamports,
     ).toEqual(LAMPORTS_PER_SOL)
     expect(
-      (await provider.connection.getAccountInfo(stakeAccount2))?.lamports
+      (await provider.connection.getAccountInfo(stakeAccount2))?.lamports,
     ).toEqual(lamportsToFund2)
     await assertNotExist(provider, pubkey(splitStakeAccount))
 
     const stakeAccount3 = await createBondsFundedStakeAccountActivated(
-      LAMPORTS_PER_SOL * 2
+      LAMPORTS_PER_SOL * 2,
     )
     const { instruction: ix3 } = await fundSettlementInstruction({
       program,
@@ -194,11 +194,11 @@ describe('Validator Bonds fund settlement', () => {
         signer(splitStakeAccount),
         operatorAuthority,
       ],
-      ix3
+      ix3,
     )
 
     expect(
-      txLog.logMessages.find(v => v.includes('already fully funded'))
+      txLog.logMessages.find(v => v.includes('already fully funded')),
     ).toBeDefined()
     settlementData = await getSettlement(program, settlementAccount)
     expect(settlementData.lamportsFunded).toEqual(maxTotalClaim)
@@ -241,22 +241,22 @@ describe('Validator Bonds fund settlement', () => {
         signer(splitStakeAccount),
         operatorAuthority,
       ],
-      instruction
+      instruction,
     )
 
     const settlementData = await getSettlement(program, settlementAccount)
     expect(settlementData.lamportsFunded).toEqual(
-      lamportsToFund - stakeAccountMinimalAmount
+      lamportsToFund - stakeAccountMinimalAmount,
     )
     expect(settlementData.splitRentAmount).toEqual(0)
     expect(settlementData.splitRentCollector).toEqual(null)
     expect(
-      (await provider.connection.getAccountInfo(stakeAccount))?.lamports
+      (await provider.connection.getAccountInfo(stakeAccount))?.lamports,
     ).toEqual(lamportsToFund)
 
     expect(
       (await provider.connection.getAccountInfo(pubkey(splitStakeRentPayer)))
-        ?.lamports
+        ?.lamports,
     ).toEqual(LAMPORTS_PER_SOL)
     await assertNotExist(provider, pubkey(splitStakeAccount))
   })
@@ -285,15 +285,15 @@ describe('Validator Bonds fund settlement', () => {
     let [stakeAccountData] = await getAndCheckStakeAccount(
       provider,
       stakeAccount,
-      StakeStates.Delegated
+      StakeStates.Delegated,
     )
 
     const executionEpoch = await currentEpoch(provider)
     expect(stakeAccountData.Stake?.stake.delegation.deactivationEpoch).toEqual(
-      U64_MAX
+      U64_MAX,
     )
     expect(stakeAccountData.Stake?.stake.delegation.activationEpoch).toEqual(
-      executionEpoch - BigInt(1)
+      executionEpoch - BigInt(1),
     )
 
     const { instruction, splitStakeAccount } = await fundSettlementInstruction({
@@ -308,28 +308,28 @@ describe('Validator Bonds fund settlement', () => {
         signer(splitStakeAccount),
         operatorAuthority,
       ],
-      instruction
+      instruction,
     )
 
     const settlementData = await getSettlement(program, settlementAccount)
     expect(settlementData.lamportsFunded).toEqual(maxTotalClaim)
     expect(settlementData.splitRentAmount).toEqual(rentExemptStake)
     expect(settlementData.splitRentCollector).toEqual(
-      pubkey(splitStakeRentPayer)
+      pubkey(splitStakeRentPayer),
     )
     expect(
       (await provider.connection.getAccountInfo(pubkey(splitStakeRentPayer)))
-        ?.lamports
+        ?.lamports,
     ).toEqual(LAMPORTS_PER_SOL - rentExemptStake)
     const splitStakeAccountInfo = await provider.connection.getAccountInfo(
-      pubkey(splitStakeAccount)
+      pubkey(splitStakeAccount),
     )
     expect(splitStakeAccountInfo?.lamports).toEqual(
-      lamportsToFund - maxTotalClaim - stakeAccountMinimalAmount
+      lamportsToFund - maxTotalClaim - stakeAccountMinimalAmount,
     )
     // stake account consist of what to be claimed + amount needed for existence a stake account + rent exempt to refund split payer
     expect(
-      (await provider.connection.getAccountInfo(stakeAccount))?.lamports
+      (await provider.connection.getAccountInfo(stakeAccount))?.lamports,
     ).toEqual(maxTotalClaim + stakeAccountMinimalAmount + rentExemptStake)
 
     // stake account expected to be deactivated in next epoch
@@ -338,13 +338,13 @@ describe('Validator Bonds fund settlement', () => {
     ;[stakeAccountData] = await getAndCheckStakeAccount(
       provider,
       stakeAccount,
-      StakeStates.Delegated
+      StakeStates.Delegated,
     )
     expect(stakeAccountData.Stake?.stake.delegation.deactivationEpoch).toEqual(
-      epochNow - BigInt(1)
+      epochNow - BigInt(1),
     )
     expect(stakeAccountData.Stake?.stake.delegation.activationEpoch).toEqual(
-      executionEpoch - BigInt(1)
+      executionEpoch - BigInt(1),
     )
   })
 
@@ -375,18 +375,18 @@ describe('Validator Bonds fund settlement', () => {
     })
     await provider.sendIx(
       [signer(splitStakeAccount), operatorAuthority],
-      instruction
+      instruction,
     )
 
     const settlementData = await getSettlement(program, settlementAccount)
     expect(settlementData.lamportsFunded).toEqual(
-      maxTotalClaim - stakeAccountMinimalAmount
+      maxTotalClaim - stakeAccountMinimalAmount,
     )
     expect(settlementData.splitRentAmount).toEqual(0)
     expect(settlementData.splitRentCollector).toEqual(null)
     expect(
       (await provider.connection.getAccountInfo(bondsFundedStakeAccount))
-        ?.lamports
+        ?.lamports,
     ).toEqual(maxTotalClaim)
     await assertNotExist(provider, pubkey(splitStakeAccount))
   })
@@ -414,11 +414,11 @@ describe('Validator Bonds fund settlement', () => {
     await provider.sendIx([staker], deactivateIx)
     const [bondAuth] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId
+      program.programId,
     )
     const [settlementAuth] = settlementStakerAuthority(
       settlementAccount,
-      program.programId
+      program.programId,
     )
     await authorizeStakeAccount({
       provider,
@@ -440,7 +440,7 @@ describe('Validator Bonds fund settlement', () => {
     })
     await provider.sendIx(
       [signer(splitStakeAccount), operatorAuthority],
-      instruction
+      instruction,
     )
     const settlementData = await getSettlement(program, settlementAccount)
     // funded only 1 lamport; the lamports of the stake account is min lamports + rent exempt + 1 lamport
@@ -449,7 +449,7 @@ describe('Validator Bonds fund settlement', () => {
     stakeAccountInfo = await provider.connection.getAccountInfo(stakeAccount)
     stakeAccountData = deserializeStakeState(stakeAccountInfo?.data)
     expect(stakeAccountData.Stake?.meta.authorized.staker).toEqual(
-      settlementAuth
+      settlementAuth,
     )
     expect(stakeAccountData.Stake?.meta.authorized.withdrawer).toEqual(bondAuth)
   })
@@ -492,13 +492,13 @@ describe('Validator Bonds fund settlement', () => {
     try {
       await provider.sendIx(
         [signer(splitStakeAccount), operatorAuthority],
-        fundIx
+        fundIx,
       )
       throw new Error('cannot fund closed settlement')
     } catch (e) {
       // 3012. Error Message: The program expected this account to be already initialized.
       expect(
-        (e as Error).message.includes('custom program error: 0xbc4')
+        (e as Error).message.includes('custom program error: 0xbc4'),
       ).toBeTruthy()
     }
   })
@@ -531,15 +531,15 @@ describe('Validator Bonds fund settlement', () => {
     try {
       await provider.sendIx(
         [wrongOperator, signer(splitStakeAccount)],
-        instruction
+        instruction,
       )
       throw new Error('cannot fund as wrong authority')
     } catch (e) {
       verifyError(e, Errors, 6003, 'operator authority signature')
     }
-    assertNotExist(provider, pubkey(splitStakeAccount))
+    await assertNotExist(provider, pubkey(splitStakeAccount))
     expect(
-      (await getSettlement(program, settlementAccount)).lamportsFunded
+      (await getSettlement(program, settlementAccount)).lamportsFunded,
     ).toEqual(0)
   })
 
@@ -571,32 +571,32 @@ describe('Validator Bonds fund settlement', () => {
     })
     await provider.sendIx(
       [operatorAuthority, signer(splitStakeAccount)],
-      instruction
+      instruction,
     )
     const beingFunded = 2 * LAMPORTS_PER_SOL - stakeAccountMinimalAmount
     expect(
-      (await getSettlement(program, settlementAccount)).lamportsFunded
+      (await getSettlement(program, settlementAccount)).lamportsFunded,
     ).toEqual(beingFunded)
-    assertNotExist(provider, pubkey(splitStakeAccount))
+    await assertNotExist(provider, pubkey(splitStakeAccount))
 
     await warpToNextEpoch(provider)
     try {
       await provider.sendIx(
         [operatorAuthority, signer(splitStakeAccount)],
-        instruction
+        instruction,
       )
       throw new Error('cannot fund as already funded')
     } catch (e) {
       verifyError(e, Errors, 6028, 'has been already funded')
     }
-    assertNotExist(provider, pubkey(splitStakeAccount))
+    await assertNotExist(provider, pubkey(splitStakeAccount))
     expect(
-      (await getSettlement(program, settlementAccount)).lamportsFunded
+      (await getSettlement(program, settlementAccount)).lamportsFunded,
     ).toEqual(beingFunded)
 
     const manuallyCreated = await createSettlementFundedStakeAccountActivated(
       maxTotalClaim * 20,
-      settlementAccount
+      settlementAccount,
     )
     const { instruction: ixManual, splitStakeAccount: splitManual } =
       await fundSettlementInstruction({
@@ -615,9 +615,9 @@ describe('Validator Bonds fund settlement', () => {
     } catch (e) {
       verifyError(e, Errors, 6028, 'has been already funded')
     }
-    assertNotExist(provider, pubkey(splitManual))
+    await assertNotExist(provider, pubkey(splitManual))
     expect(
-      (await getSettlement(program, settlementAccount)).lamportsFunded
+      (await getSettlement(program, settlementAccount)).lamportsFunded,
     ).toEqual(beingFunded)
   })
 
@@ -650,11 +650,11 @@ describe('Validator Bonds fund settlement', () => {
     let stakeAccountData =
       await provider.connection.getAccountInfo(stakeAccount)
     expect(stakeAccountData?.lamports).toEqual(
-      stakedLamports + additionalSolTransfer
+      stakedLamports + additionalSolTransfer,
     )
     let stakeState = (await getAndCheckStakeAccount(provider, stakeAccount))[0]
     expect(stakeState.Stake!.stake.delegation.stake).toEqual(
-      stakedLamports - rentExemptStake
+      stakedLamports - rentExemptStake,
     )
 
     const { instruction, splitStakeAccount } = await fundSettlementInstruction({
@@ -664,13 +664,13 @@ describe('Validator Bonds fund settlement', () => {
     })
     await provider.sendIx(
       [signer(splitStakeAccount), operatorAuthority],
-      instruction
+      instruction,
     )
 
     stakeAccountData = await provider.connection.getAccountInfo(stakeAccount)
     stakeState = (await getAndCheckStakeAccount(provider, stakeAccount))[0]
     const splitStakeAccountData = await provider.connection.getAccountInfo(
-      pubkey(splitStakeAccount)
+      pubkey(splitStakeAccount),
     )
     // funded stake account has to have enough sol to fund the settlement, i.e., maxTotalClaim
     // then there has to be enough lamports after withdrawing all claiming that the stake account may still exist
@@ -678,7 +678,7 @@ describe('Validator Bonds fund settlement', () => {
     expect(stakeAccountData?.lamports).toEqual(
       maxTotalClaim +
         config.minimumStakeLamports.toNumber() +
-        2 * rentExemptStake
+        2 * rentExemptStake,
     )
     // as the split uses the original stake account then the non-delegated lamports should be available
     // in the settlement funded stake account
@@ -687,7 +687,7 @@ describe('Validator Bonds fund settlement', () => {
       maxTotalClaim +
         config.minimumStakeLamports.toNumber() +
         rentExemptStake -
-        additionalSolTransfer
+        additionalSolTransfer,
     )
     // check if split stake mount matches what was original in stake account
     // minus what was funded to the settlement
@@ -697,32 +697,32 @@ describe('Validator Bonds fund settlement', () => {
         additionalSolTransfer -
         maxTotalClaim -
         config.minimumStakeLamports.toNumber() -
-        rentExemptStake
+        rentExemptStake,
     )
     // check the stake account is delegated to settlement
     const [bondsAuthority] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId
+      program.programId,
     )
     expect(stakeState.Stake!.meta.authorized.staker).toEqual(
-      settlementStakerAuthority(settlementAccount, program.programId)[0]
+      settlementStakerAuthority(settlementAccount, program.programId)[0],
     )
     expect(stakeState.Stake!.meta.authorized.withdrawer).toEqual(bondsAuthority)
     // all lamports are delegated in split stake account (except of rent exempt lamports)
     const [splitStakeState] = await getAndCheckStakeAccount(
       provider,
       pubkey(splitStakeAccount),
-      StakeStates.Delegated
+      StakeStates.Delegated,
     )
     expect(splitStakeState.Stake!.stake.delegation.stake).toEqual(
-      (splitStakeAccountData?.lamports ?? 0) - rentExemptStake
+      (splitStakeAccountData?.lamports ?? 0) - rentExemptStake,
     )
     // split stake account is funded to bond
     expect(splitStakeState.Stake!.meta.authorized.staker).toEqual(
-      bondsAuthority
+      bondsAuthority,
     )
     expect(splitStakeState.Stake!.meta.authorized.withdrawer).toEqual(
-      bondsAuthority
+      bondsAuthority,
     )
   })
 
@@ -759,11 +759,11 @@ describe('Validator Bonds fund settlement', () => {
       await getAndCheckStakeAccount(
         provider,
         stakeAccount,
-        StakeStates.Delegated
+        StakeStates.Delegated,
       )
       stakeAccountData = await provider.connection.getAccountInfo(stakeAccount)
       expect(stakeAccountData?.lamports).toEqual(
-        lamportsToFund + stakeAccountTransferredLamports
+        lamportsToFund + stakeAccountTransferredLamports,
       )
 
       let settlementData = await getSettlement(program, settlementAccount)
@@ -777,29 +777,29 @@ describe('Validator Bonds fund settlement', () => {
         })
       await provider.sendIx(
         [signer(splitStakeAccount), operatorAuthority],
-        instruction
+        instruction,
       )
 
       settlementData = await getSettlement(program, settlementAccount)
       stakeAccountData = await provider.connection.getAccountInfo(stakeAccount)
       const splitStakeAccountData = await provider.connection.getAccountInfo(
-        pubkey(splitStakeAccount)
+        pubkey(splitStakeAccount),
       )
 
       expect(stakeAccountData?.lamports).toEqual(
         maxTotalClaim +
           2 * rentExemptStake + // rent for stake account + for returning rent exempt for split stake account
-          config.minimumStakeLamports.toNumber()
+          config.minimumStakeLamports.toNumber(),
       )
       expect(splitStakeAccountData?.lamports).toEqual(
         lamportsToFund +
           stakeAccountTransferredLamports -
           maxTotalClaim -
           config.minimumStakeLamports.toNumber() -
-          rentExemptStake
+          rentExemptStake,
       )
       expect(settlementData.lamportsFunded).toEqual(maxTotalClaim)
-    }
+    },
   )
 
   it.each([50, 0.5, 0.1])(
@@ -833,11 +833,11 @@ describe('Validator Bonds fund settlement', () => {
       await getAndCheckStakeAccount(
         provider,
         stakeAccount,
-        StakeStates.Delegated
+        StakeStates.Delegated,
       )
       stakeAccountData = await provider.connection.getAccountInfo(stakeAccount)
       expect(stakeAccountData?.lamports).toEqual(
-        lamportsToFund + stakeAccountTransferredLamports
+        lamportsToFund + stakeAccountTransferredLamports,
       )
 
       let settlementData = await getSettlement(program, settlementAccount)
@@ -851,34 +851,34 @@ describe('Validator Bonds fund settlement', () => {
         })
       await provider.sendIx(
         [signer(splitStakeAccount), operatorAuthority],
-        instruction
+        instruction,
       )
 
       settlementData = await getSettlement(program, settlementAccount)
       stakeAccountData = await provider.connection.getAccountInfo(stakeAccount)
       const splitStakeAccountData = await provider.connection.getAccountInfo(
-        pubkey(splitStakeAccount)
+        pubkey(splitStakeAccount),
       )
 
       expect(stakeAccountData?.lamports).toEqual(
         maxTotalClaim +
           2 * rentExemptStake + // rent for stake account + for returning rent exempt for split stake account
-          config.minimumStakeLamports.toNumber()
+          config.minimumStakeLamports.toNumber(),
       )
       expect(splitStakeAccountData?.lamports).toEqual(
         lamportsToFund +
           stakeAccountTransferredLamports -
           maxTotalClaim -
           config.minimumStakeLamports.toNumber() -
-          rentExemptStake
+          rentExemptStake,
       )
       expect(settlementData.lamportsFunded).toEqual(maxTotalClaim)
       await getAndCheckStakeAccount(
         provider,
         pubkey(splitStakeAccount),
-        StakeStates.Delegated
+        StakeStates.Delegated,
       )
-    }
+    },
   )
 
   it('double fund settlement minimum delegated amount', async () => {
@@ -913,11 +913,11 @@ describe('Validator Bonds fund settlement', () => {
     await getAndCheckStakeAccount(
       provider,
       stakeAccount1,
-      StakeStates.Delegated
+      StakeStates.Delegated,
     )
     stakeAccountData1 = await provider.connection.getAccountInfo(stakeAccount1)
     expect(stakeAccountData1?.lamports).toEqual(
-      lamportsToFund + stakeAccountTransferredLamports1
+      lamportsToFund + stakeAccountTransferredLamports1,
     )
 
     // 2nd stake account
@@ -936,11 +936,11 @@ describe('Validator Bonds fund settlement', () => {
     await getAndCheckStakeAccount(
       provider,
       stakeAccount2,
-      StakeStates.Delegated
+      StakeStates.Delegated,
     )
     stakeAccountData2 = await provider.connection.getAccountInfo(stakeAccount2)
     expect(stakeAccountData2?.lamports).toEqual(
-      lamportsToFund + stakeAccountTransferredLamports2
+      lamportsToFund + stakeAccountTransferredLamports2,
     )
 
     const { instruction: ixFund1, splitStakeAccount: split1 } =
@@ -950,10 +950,10 @@ describe('Validator Bonds fund settlement', () => {
         stakeAccount: stakeAccount1,
       })
     await provider.sendIx([signer(split1), operatorAuthority], ixFund1)
-    assertNotExist(provider, pubkey(split1))
+    await assertNotExist(provider, pubkey(split1))
     settlementData = await getSettlement(program, settlementAccount)
     expect(settlementData.lamportsFunded).toEqual(
-      stakeAccountTransferredLamports1
+      stakeAccountTransferredLamports1,
     )
 
     const { instruction: ixFund2, splitStakeAccount: split2 } =
@@ -970,33 +970,33 @@ describe('Validator Bonds fund settlement', () => {
     stakeAccountData1 = await provider.connection.getAccountInfo(stakeAccount1)
     stakeAccountData2 = await provider.connection.getAccountInfo(stakeAccount2)
     const splitStakeAccountData2 = await provider.connection.getAccountInfo(
-      pubkey(split2)
+      pubkey(split2),
     )
 
     expect(stakeAccountData1?.lamports).toEqual(
       stakeAccountTransferredLamports1 +
         rentExemptStake + // no split, just rent for stake account
-        config.minimumStakeLamports.toNumber()
+        config.minimumStakeLamports.toNumber(),
     )
     expect(stakeAccountData2?.lamports).toEqual(
       maxTotalClaim -
         stakeAccountTransferredLamports1 +
         2 * rentExemptStake + // rent for stake account + for returning rent exempt for split stake account
-        config.minimumStakeLamports.toNumber()
+        config.minimumStakeLamports.toNumber(),
     )
     expect(splitStakeAccountData2?.lamports).toEqual(
       stakeAccountTransferredLamports2 -
-        (maxTotalClaim - stakeAccountTransferredLamports1)
+        (maxTotalClaim - stakeAccountTransferredLamports1),
     )
     await getAndCheckStakeAccount(
       provider,
       pubkey(split2),
-      StakeStates.Delegated
+      StakeStates.Delegated,
     )
   })
 
   async function createBondsFundedStakeAccountActivated(
-    lamports: number
+    lamports: number,
   ): Promise<PublicKey> {
     const sa = await createBondsFundedStakeAccount({
       program,
@@ -1011,7 +1011,7 @@ describe('Validator Bonds fund settlement', () => {
 
   async function createSettlementFundedStakeAccountActivated(
     lamports: number,
-    settlementAccount: PublicKey
+    settlementAccount: PublicKey,
   ): Promise<PublicKey> {
     const sa = await createSettlementFundedDelegatedStake({
       program,
