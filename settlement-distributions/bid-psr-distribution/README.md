@@ -28,7 +28,7 @@ cargo run --release --bin bid-psr-distribution-cli -- \
     --validator-meta-collection "./validators.json" \
     --stake-meta-collection "./stakes.json" \
     --revenue-expectation-collection "./evaluation.json" \
-    --output-protected-event-collection "./protected-event.json" \
-    --output-settlement-collection "./protected-event-settlements.json" \
-    --output-merkle-tree-collection "./protected-event-merkle-trees.json"
+    --output-protected-event-collection "./bid-psr-distribution.json" \
+    --output-settlement-collection "./bid-psr-distribution-settlements.json" \
+    --output-merkle-tree-collection "./bid-psr-distribution-merkle-trees.json"
 ```
