@@ -6,6 +6,7 @@ import { installConfigureBond } from './configureBond'
 import { installMintBond } from './mintBond'
 import { installStakeMerge } from './mergeStake'
 import { installFundBond } from './fundBond'
+import { installFundBondWithSol } from './fundBondWithSol'
 import { installInitWithdrawRequest } from './initWithdrawRequest'
 import { installCancelWithdrawRequest } from './cancelWithdrawRequest'
 import { installClaimWithdrawRequest } from './claimWithdrawRequest'
@@ -22,6 +23,7 @@ export function installManage(program: Command) {
   installConfigureBond(program)
   installStakeMerge(program)
   installFundBond(program)
+  installFundBondWithSol(program)
   installInitWithdrawRequest(program)
   installCancelWithdrawRequest(program)
   installClaimWithdrawRequest(program)
