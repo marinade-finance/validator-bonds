@@ -210,8 +210,9 @@ export async function loadStakeAccounts({
   addresses = addresses
     .map(d => (isWithPublicKey(d) ? d.publicKey : d))
     .map(d => d as PublicKey)
-  const accountsFirst = await getMultipleAccounts({ connection, addresses })
-  const accounts = accountsFirst
+  const accounts = (
+    await getMultipleAccounts({ connection: innerConnection, addresses })
+  )
     .filter(d => d.account !== null)
     .map(async d => {
       assert(d.account !== null, 'findStakeAccounts: already filtered out')
