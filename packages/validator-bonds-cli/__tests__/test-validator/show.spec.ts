@@ -514,7 +514,6 @@ describe('Show command using CLI', () => {
       l => l * LAMPORTS_PER_SOL,
     )
     let lastStakeAccount: PublicKey
-    const stakeAccounts: PublicKey[] = []
     const sumLamports = stakeAccountLamports.reduce((a, b) => a + b, 0)
     for (const lamports of stakeAccountLamports) {
       lastStakeAccount = await createBondsFundedStakeAccount({
@@ -524,7 +523,6 @@ describe('Show command using CLI', () => {
         voteAccount,
         lamports,
       })
-      stakeAccounts.push(lastStakeAccount)
     }
 
     const expectedDataNoFunding = {

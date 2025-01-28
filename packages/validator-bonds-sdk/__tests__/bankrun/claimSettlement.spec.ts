@@ -604,6 +604,7 @@ describe('Validator Bonds claim settlement', () => {
         settlementAccount1,
         treeNode1Withdrawer3.treeNode.index,
       )
+      throw new Error('should have failed; too late to claim')
     } catch (e) {
       expect((e as Error).message).toEqual('Index 2 out of range')
     }
