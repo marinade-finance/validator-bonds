@@ -73,7 +73,7 @@ describe('Validator Bonds configure bond with mint', () => {
 
     const tokenData = await getTokenAccount(
       provider.connection,
-      validatorIdentityTokenAccount
+      validatorIdentityTokenAccount,
     )
     expect(tokenData.amount).toEqual(0) // burnt
     const bondData = await getBond(program, bondAccount)

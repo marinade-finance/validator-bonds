@@ -6,6 +6,10 @@ test = "pnpm _test"
 [test.validator]
 slots_per_epoch = "32"
 
+[[test.genesis]]
+address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"  
+program = "fixtures/programs/metaplex_token_metadata_program.so"
+
 [[test.validator.account_dir]]
 directory = "fixtures/accounts"
 

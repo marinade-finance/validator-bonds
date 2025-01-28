@@ -93,7 +93,7 @@ export async function configureConfigInstruction({
 
   if (Object.values(args).every(v => v === null)) {
     throw new Error(
-      'configureConfigInstruction: method parameters provided no new property to configure'
+      'configureConfigInstruction: method parameters provided no new property to configure',
     )
   }
 

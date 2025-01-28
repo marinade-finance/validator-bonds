@@ -9,12 +9,12 @@ export const VOTE_ACCOUNT_SIZE = 3762
 
 export async function getRentExemptVote(
   provider: Provider,
-  rentExempt?: number
+  rentExempt?: number,
 ): Promise<number> {
   return (
     rentExempt ??
     (await provider.connection.getMinimumBalanceForRentExemption(
-      VOTE_ACCOUNT_SIZE
+      VOTE_ACCOUNT_SIZE,
     ))
   )
 }

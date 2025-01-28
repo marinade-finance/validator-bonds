@@ -32,7 +32,7 @@ export type CloseSettlementParams = {
  * the settlement can be closed when timeout elapses (configured in config).
  */
 export async function closeSettlementV2Instruction(
-  params: CloseSettlementParams
+  params: CloseSettlementParams,
 ): Promise<{
   instruction: TransactionInstruction
 }> {
@@ -122,7 +122,7 @@ export async function getCloseSettlementAccounts({
   } else if (splitRentRefundAccount === undefined) {
     const [settlementAuth] = settlementStakerAuthority(
       settlementAccount,
-      program.programId
+      program.programId,
     )
     const stakeAccounts = await findStakeAccounts({
       connection: program,
@@ -134,7 +134,7 @@ export async function getCloseSettlementAccounts({
     if (stakeAccounts.length === 0) {
       throw new Error(
         'Cannot find any stake account usable to close settlement: ' +
-          `${settlementAccount.toBase58()} of vote account ${voteAccount?.toBase58()}`
+          `${settlementAccount.toBase58()} of vote account ${voteAccount?.toBase58()}`,
       )
     }
     splitRentRefundAccount = stakeAccounts[0].publicKey
