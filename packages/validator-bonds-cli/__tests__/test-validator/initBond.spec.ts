@@ -50,13 +50,13 @@ describe('Init bond account using CLI', () => {
       withdrawLockupEpochs: 2,
     }))
     expect(
-      provider.connection.getAccountInfo(configAccount)
-    ).resolves.not.toBeNull()
+      await provider.connection.getAccountInfo(configAccount),
+    ).not.toBeNull()
     ;({ validatorIdentity, validatorIdentityPath } =
       await getAnchorValidatorInfo(provider.connection))
     ;({ voteAccount } = await createVoteAccountWithIdentity(
       provider,
-      validatorIdentity
+      validatorIdentity,
     ))
 
     const tx = new Transaction().add(
@@ -64,12 +64,12 @@ describe('Init bond account using CLI', () => {
         fromPubkey: provider.wallet.publicKey,
         toPubkey: rentPayerKeypair.publicKey,
         lamports: rentPayerFunds,
-      })
+      }),
     )
     await provider.sendAndConfirm!(tx)
     await expect(
-      provider.connection.getBalance(rentPayerKeypair.publicKey)
-    ).resolves.toStrictEqual(rentPayerFunds)
+      await provider.connection.getBalance(rentPayerKeypair.publicKey),
+    ).toStrictEqual(rentPayerFunds)
   })
 
   afterEach(async () => {
@@ -117,7 +117,7 @@ describe('Init bond account using CLI', () => {
     const [bondAccount, bump] = bondAddress(
       configAccount,
       voteAccount,
-      program.programId
+      program.programId,
     )
     const bondsData = await getBond(program, bondAccount)
     expect(bondsData.config).toEqual(configAccount)
@@ -127,8 +127,8 @@ describe('Init bond account using CLI', () => {
     expect(bondsData.maxStakeWanted).toEqual(1000 * LAMPORTS_PER_SOL)
     expect(bondsData.bump).toEqual(bump)
     await expect(
-      provider.connection.getBalance(rentPayerKeypair.publicKey)
-    ).resolves.toBeLessThan(rentPayerFunds)
+      await provider.connection.getBalance(rentPayerKeypair.publicKey),
+    ).toBeLessThan(rentPayerFunds)
   })
 
   it('init bond account permission-ed with default values', async () => {
@@ -164,7 +164,7 @@ describe('Init bond account using CLI', () => {
     const [bondAccount, bump] = bondAddress(
       configAccount,
       voteAccount,
-      program.programId
+      program.programId,
     )
     const bondsData = await getBond(program, bondAccount)
     expect(bondsData.config).toEqual(configAccount)
@@ -174,8 +174,8 @@ describe('Init bond account using CLI', () => {
     expect(bondsData.maxStakeWanted).toEqual(0)
     expect(bondsData.bump).toEqual(bump)
     await expect(
-      provider.connection.getBalance(rentPayerKeypair.publicKey)
-    ).resolves.toBeLessThan(rentPayerFunds)
+      await provider.connection.getBalance(rentPayerKeypair.publicKey),
+    ).toBeLessThan(rentPayerFunds)
   })
 
   it('init bond account permission-less', async () => {
@@ -209,7 +209,7 @@ describe('Init bond account using CLI', () => {
     const [bondAccount, bump] = bondAddress(
       configAccount,
       voteAccount,
-      program.programId
+      program.programId,
     )
     const bondsData = await getBond(program, bondAccount)
     expect(bondsData.config).toEqual(configAccount)
@@ -247,10 +247,10 @@ describe('Init bond account using CLI', () => {
     const [bondAccount] = bondAddress(
       configAccount,
       voteAccount,
-      program.programId
+      program.programId,
     )
     await expect(
-      provider.connection.getAccountInfo(bondAccount)
-    ).resolves.toBeNull()
+      await provider.connection.getAccountInfo(bondAccount),
+    ).toBeNull()
   })
 })

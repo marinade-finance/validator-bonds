@@ -47,7 +47,7 @@ describe('Show command using CLI', () => {
 
   beforeAll(async () => {
     shellMatchers()
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = await initTest('processed'))
   })
 
   it('show config', async () => {
@@ -108,7 +108,7 @@ describe('Show command using CLI', () => {
         },
         bondsWithdrawerAuthority: bondsWithdrawerAuthority(
           configPubkey,
-          program.programId
+          program.programId,
         )[0].toBase58(),
       }),
     })
@@ -156,7 +156,7 @@ describe('Show command using CLI', () => {
           },
           bondsWithdrawerAuthority: bondsWithdrawerAuthority(
             configPubkey,
-            program.programId
+            program.programId,
           )[0].toBase58(),
         },
       ]),
@@ -228,7 +228,7 @@ describe('Show command using CLI', () => {
           },
           bondsWithdrawerAuthority: bondsWithdrawerAuthority(
             configPubkey,
-            program.programId
+            program.programId,
           )[0].toBase58(),
         },
       ]),
@@ -251,8 +251,8 @@ describe('Show command using CLI', () => {
       newMinBondMaxStakeWanted: 1000,
     })
     expect(
-      provider.connection.getAccountInfo(configAccount)
-    ).resolves.not.toBeNull()
+      await provider.connection.getAccountInfo(configAccount),
+    ).not.toBeNull()
     const { voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
     })
@@ -270,7 +270,7 @@ describe('Show command using CLI', () => {
 
     const voteAccountShow = await loadTestingVoteAccount(
       provider.connection,
-      voteAccount
+      voteAccount,
     )
     const expectedDataNoFunding = {
       programId: program.programId,
@@ -495,8 +495,8 @@ describe('Show command using CLI', () => {
       withdrawLockupEpochs,
     })
     expect(
-      provider.connection.getAccountInfo(configAccount)
-    ).resolves.not.toBeNull()
+      await provider.connection.getAccountInfo(configAccount),
+    ).not.toBeNull()
     const { voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
     })
@@ -511,9 +511,10 @@ describe('Show command using CLI', () => {
       cpmpe: 1,
     })
     const stakeAccountLamports: number[] = [3, 10, 23].map(
-      l => l * LAMPORTS_PER_SOL
+      l => l * LAMPORTS_PER_SOL,
     )
     let lastStakeAccount: PublicKey
+    const stakeAccounts: PublicKey[] = []
     const sumLamports = stakeAccountLamports.reduce((a, b) => a + b, 0)
     for (const lamports of stakeAccountLamports) {
       lastStakeAccount = await createBondsFundedStakeAccount({
@@ -523,6 +524,7 @@ describe('Show command using CLI', () => {
         voteAccount,
         lamports,
       })
+      stakeAccounts.push(lastStakeAccount)
     }
 
     const expectedDataNoFunding = {
@@ -538,7 +540,7 @@ describe('Show command using CLI', () => {
     }
     const voteAccountShow = await loadTestingVoteAccount(
       provider.connection,
-      voteAccount
+      voteAccount,
     )
     const expectedData = {
       ...expectedDataNoFunding,
@@ -565,6 +567,8 @@ describe('Show command using CLI', () => {
           'show-bond',
           bondAccount.toBase58(),
           '--with-funding',
+          '--commitment',
+          'processed',
           '-f',
           'yaml',
         ],
@@ -592,7 +596,7 @@ describe('Show command using CLI', () => {
       })
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount
+      withdrawRequestAccount,
     )
     const withdrawRequestAmount = withdrawRequestData.requestedAmount.toNumber()
 
@@ -735,7 +739,7 @@ describe('Show command using CLI', () => {
       signal: '',
       // stderr: '',
       stdout: new RegExp(
-        `${lastStakeAccount!.toBase58()} is a STAKE ACCOUNT.*vote account ${voteAccount.toBase58()}`
+        `${lastStakeAccount!.toBase58()} is a STAKE ACCOUNT.*vote account ${voteAccount.toBase58()}`,
       ),
     })
 
@@ -785,11 +789,11 @@ describe('Show command using CLI', () => {
     const withdrawingAmount =
       stakeAccountLamports[stakeAccountLamports.length - 1]
     const { div: withdrawingDiv } = new BN(withdrawingAmount).divmod(
-      bnLamportsPerSol
+      bnLamportsPerSol,
     )
     // sum of all numbers in stakeAccountLamports.
     const leftStakeAccountAmount = new BN(
-      stakeAccountLamports.reduce((a, b) => a + b, 0) - withdrawingAmount
+      stakeAccountLamports.reduce((a, b) => a + b, 0) - withdrawingAmount,
     )
       .div(bnLamportsPerSol)
       .toNumber()
@@ -811,7 +815,7 @@ describe('Show command using CLI', () => {
         bondAccount,
         stakeAccount: lastStakeAccount!,
       })
-    provider.sendIx([bondAuthority, splitStakeAccount], instruction)
+    await provider.sendIx([bondAuthority, splitStakeAccount], instruction)
     await (
       expect([
         'pnpm',
@@ -860,7 +864,7 @@ describe('Show command using CLI', () => {
 
 async function loadTestingVoteAccount(
   connection: Connection,
-  voteAccount: PublicKey
+  voteAccount: PublicKey,
 ): Promise<VoteAccountShow> {
   const voteAccountInfo = await connection.getAccountInfo(voteAccount)
   expect(voteAccountInfo).not.toBeNull()

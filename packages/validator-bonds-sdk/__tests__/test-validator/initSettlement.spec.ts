@@ -48,7 +48,7 @@ describe('Validator Bonds init settlement', () => {
       {
         program,
         provider,
-      }
+      },
     ))
     ;({ voteAccount, bondAccount } = await executeInitBondInstruction({
       configAccount,
@@ -91,15 +91,15 @@ describe('Validator Bonds init settlement', () => {
       bondAccount,
       merkleRoot,
       currentEpoch,
-      program.programId
+      program.programId,
     )
     const [settlementAuth, authorityBump] = settlementStakerAuthority(
       settlementAccount,
-      program.programId
+      program.programId,
     )
     const [, settlementClaimsBump] = settlementClaimsAddress(
       settlementAccount,
-      program.programId
+      program.programId,
     )
 
     expect(settlementData.bond).toEqual(bondAccount)
@@ -145,9 +145,7 @@ describe('Validator Bonds init settlement', () => {
       .epoch
     const buffers: Buffer[] = []
     for (let i = 1; i <= numberOfSettlements; i++) {
-      const buffer = Buffer.from(
-        Array.from({ length: 32 }, () => Math.floor(Math.random() * 256))
-      )
+      const buffer = Buffer.from(crypto.getRandomValues(new Uint8Array(32)))
       buffers.push(buffer)
       const { instruction } = await initSettlementInstruction({
         program,

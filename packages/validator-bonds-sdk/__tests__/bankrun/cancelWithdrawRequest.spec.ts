@@ -25,6 +25,7 @@ import assert from 'assert'
 import { createUserAndFund, pubkey } from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { initBankrunTest } from './bankrun'
+import { getSecureRandomInt } from '../utils/helpers'
 
 describe('Validator Bonds cancel withdraw request', () => {
   let provider: BankrunExtendedProvider
@@ -34,7 +35,7 @@ describe('Validator Bonds cancel withdraw request', () => {
   let bondAuthority: Keypair
   let validatorIdentity: Keypair
   let withdrawRequestAccount: PublicKey
-  const startUpEpoch = Math.floor(Math.random() * 100) + 100
+  const startUpEpoch = getSecureRandomInt(100, 200)
 
   beforeAll(async () => {
     ;({ provider, program } = await initBankrunTest())
@@ -75,18 +76,18 @@ describe('Validator Bonds cancel withdraw request', () => {
       lamports: LAMPORTS_PER_SOL,
     })
     let rentCollectorInfo = await provider.connection.getAccountInfo(
-      pubkey(rentCollector)
+      pubkey(rentCollector),
     )
     expect(rentCollectorInfo).not.toBeNull()
     assert(rentCollectorInfo !== null)
     expect(rentCollectorInfo.lamports).toEqual(LAMPORTS_PER_SOL)
     const withdrawRequestInfo = await provider.connection.getAccountInfo(
-      withdrawRequestAccount
+      withdrawRequestAccount,
     )
     assert(withdrawRequestInfo !== null)
     const rentExempt =
       await provider.connection.getMinimumBalanceForRentExemption(
-        withdrawRequestInfo.data.length
+        withdrawRequestInfo.data.length,
       )
 
     const { instruction } = await cancelWithdrawRequestInstruction({
@@ -100,7 +101,7 @@ describe('Validator Bonds cancel withdraw request', () => {
     await assertNotExist(provider, withdrawRequestAccount)
 
     rentCollectorInfo = await provider.connection.getAccountInfo(
-      pubkey(rentCollector)
+      pubkey(rentCollector),
     )
     expect(rentCollectorInfo).not.toBeNull()
     assert(rentCollectorInfo !== null)
@@ -251,8 +252,8 @@ describe('Validator Bonds cancel withdraw request', () => {
       verifyError(e, Errors, 6002, 'Invalid authority')
     }
     expect(
-      provider.connection.getAccountInfo(withdrawRequestAccount)
-    ).resolves.not.toBeNull()
+      await provider.connection.getAccountInfo(withdrawRequestAccount),
+    ).not.toBeNull()
   })
 
   it('withdraw request can be recreated when deleted', async () => {
@@ -260,9 +261,9 @@ describe('Validator Bonds cancel withdraw request', () => {
       program,
       provider,
       withdrawRequestAccount,
-      bondAuthority
+      bondAuthority,
     )
-    assertNotExist(provider, withdrawRequestAccount)
+    await assertNotExist(provider, withdrawRequestAccount)
     await warpToNextEpoch(provider)
     await executeInitWithdrawRequestInstruction({
       program,
@@ -271,15 +272,15 @@ describe('Validator Bonds cancel withdraw request', () => {
       validatorIdentity,
     })
     expect(
-      provider.connection.getAccountInfo(withdrawRequestAccount)
-    ).resolves.not.toBeNull()
+      await provider.connection.getAccountInfo(withdrawRequestAccount),
+    ).not.toBeNull()
 
     await executeCancelWithdrawRequestInstruction(
       program,
       provider,
       withdrawRequestAccount,
-      bondAuthority
+      bondAuthority,
     )
-    assertNotExist(provider, withdrawRequestAccount)
+    await assertNotExist(provider, withdrawRequestAccount)
   })
 })

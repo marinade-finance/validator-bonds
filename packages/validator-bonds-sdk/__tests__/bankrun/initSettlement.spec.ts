@@ -28,6 +28,7 @@ import { createVoteAccount } from '../utils/staking'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { initBankrunTest } from './bankrun'
 import { isInitialized } from '../../src/settlementClaims'
+import { getRandomByte } from '../utils/helpers'
 
 // maximum increase in account size per instruction
 //   see https://github.com/anza-xyz/agave/blob/v2.0.1/sdk/program/src/entrypoint.rs#L263
@@ -61,7 +62,7 @@ describe('Validator Bonds init settlement', () => {
       {
         program,
         provider,
-      }
+      },
     ))
     ;({ voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
@@ -81,7 +82,7 @@ describe('Validator Bonds init settlement', () => {
 
   it('init settlement', async () => {
     const merkleRoot = Buffer.from(
-      Array.from({ length: 32 }, () => Math.floor(Math.random() * 256))
+      Array.from({ length: 32 }, () => getRandomByte()),
     )
     const epochNow = await currentEpoch(provider)
     const rentCollector = Keypair.generate().publicKey
@@ -106,12 +107,12 @@ describe('Validator Bonds init settlement', () => {
       bond.publicKey,
       merkleRoot,
       epoch,
-      program.programId
+      program.programId,
     )
     expect(settlementAddr).toEqual(settlementAccount)
     const [authorityAddr, authorityBump] = settlementStakerAuthority(
       settlementAccount,
-      program.programId
+      program.programId,
     )
 
     const settlementData = await getSettlement(program, settlementAccount)
@@ -134,14 +135,14 @@ describe('Validator Bonds init settlement', () => {
       await provider.connection.getAccountInfo(settlementAccount)
     console.log(
       'settlement account length',
-      settlementAccountInfo?.data.byteLength
+      settlementAccountInfo?.data.byteLength,
     )
     // not account change size expected
     expect(settlementAccountInfo?.data.byteLength).toEqual(328)
 
     const [settlementClaimsAddr] = settlementClaimsAddress(
       settlementAccount,
-      program.programId
+      program.programId,
     )
     const settlementClaimsAccountInfo =
       await provider.connection.getAccountInfo(settlementClaimsAddr)
@@ -149,12 +150,12 @@ describe('Validator Bonds init settlement', () => {
     // the size for bitmap is calculated to be at least 8 bytes
     // 56 bytes is size for account header then 1 byte for bitmap
     expect(settlementClaimsAccountInfo?.data.byteLength).toEqual(
-      SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE + 1
+      SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE + 1,
     )
 
     const settlementClaims = await getSettlementClaimsBySettlement(
       program,
-      settlementAccount
+      settlementAccount,
     )
     expect(settlementClaims.bitmap.bitmapData.length).toEqual(1)
     expect(settlementClaims.bitmap.bitSet.asString.length).toEqual(1)
@@ -163,7 +164,7 @@ describe('Validator Bonds init settlement', () => {
 
   it('cannot init settlement with wrong buffer size', async () => {
     const merkleRoot = Buffer.from(
-      Array.from({ length: 30 }, () => Math.floor(Math.random() * 256))
+      Array.from({ length: 30 }, () => getRandomByte()),
     )
     const { instruction, settlementAccount } = await initSettlementInstruction({
       program,
@@ -184,7 +185,7 @@ describe('Validator Bonds init settlement', () => {
         throw e
       }
     }
-    assertNotExist(provider, settlementAccount)
+    await assertNotExist(provider, settlementAccount)
   })
 
   it('init settlement with future epoch', async () => {
@@ -203,7 +204,7 @@ describe('Validator Bonds init settlement', () => {
     })
     await provider.sendIx([operatorAuthority], instruction)
     expect(
-      await provider.connection.getAccountInfo(settlementAccount)
+      await provider.connection.getAccountInfo(settlementAccount),
     ).not.toBeNull()
   })
 
@@ -227,7 +228,7 @@ describe('Validator Bonds init settlement', () => {
     } catch (e) {
       verifyError(e, Errors, 6003, 'operator authority signature')
     }
-    assertNotExist(provider, settlementAccount)
+    await assertNotExist(provider, settlementAccount)
   })
 
   it('cannot init settlement with too many records', async () => {
@@ -250,7 +251,7 @@ describe('Validator Bonds init settlement', () => {
     } catch (e) {
       verifyError(e, Errors, 6068, 'exceed maximum to fit Solana')
     }
-    assertNotExist(provider, failureAccount)
+    await assertNotExist(provider, failureAccount)
   })
 
   it('init settlement not-fully initialized', async () => {
@@ -272,7 +273,7 @@ describe('Validator Bonds init settlement', () => {
     })
     await provider.sendIx([operatorAuthority], ix1)
     expect(
-      await provider.connection.getAccountInfo(settlementMaxSizeAccount)
+      await provider.connection.getAccountInfo(settlementMaxSizeAccount),
     ).not.toBeNull()
     const settlementClaimsAccountInfo1 =
       await provider.connection.getAccountInfo(settlementClaimsAccount)
@@ -289,7 +290,7 @@ describe('Validator Bonds init settlement', () => {
       await provider.connection.getAccountInfo(settlementClaimsAccount)
     expect(settlementClaimsAccountInfo2).not.toBeNull()
     expect(settlementClaimsAccountInfo2?.data.length).toEqual(
-      settlementClaimsAccountInfo1!.data.length + tenKilobytes
+      settlementClaimsAccountInfo1!.data.length + tenKilobytes,
     )
     expect(settlementClaimsAccountInfo2?.data.length).toEqual(2 * tenKilobytes)
     expect(isInitialized(program, settlementClaimsAccountInfo2!)).toBe(false)
@@ -309,7 +310,7 @@ describe('Validator Bonds init settlement', () => {
       await provider.connection.getAccountInfo(settlementClaimsAccount)
     expect(settlementClaimsAccountInfo12).not.toBeNull()
     expect(settlementClaimsAccountInfo12?.data.length).toEqual(
-      12 * tenKilobytes
+      12 * tenKilobytes,
     )
     expect(isInitialized(program, settlementClaimsAccountInfo12!)).toBe(false)
   })
@@ -338,16 +339,16 @@ describe('Validator Bonds init settlement', () => {
       await provider.connection.getAccountInfo(settlementClaimsAccount)
     expect(settlementClaimsAccountInfo).not.toBeNull()
     expect(settlementClaimsAccountInfo?.data.length).toEqual(
-      tenKilobytes + SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE
+      tenKilobytes + SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE,
     )
     expect(isInitialized(program, settlementClaimsAccountInfo!)).toBe(true)
     const settlementClaimsData = await getSettlementClaims(
       program,
-      settlementClaimsAccount
+      settlementClaimsAccount,
     )
     // the bitSet as string returns 8 chars(0s,1s) with comma (+1) where comma misses at the end
     expect(settlementClaimsData.bitmap.bitSet.asString.length).toEqual(
-      (8 + 1) * tenKilobytes - 1
+      (8 + 1) * tenKilobytes - 1,
     )
     expect(settlementClaimsData.bitmap.bitSet.counter).toEqual(0)
     expect(settlementClaimsData.bitmap.maxRecords).toEqual(8 * tenKilobytes)

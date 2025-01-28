@@ -65,7 +65,7 @@ describe('Validator Bonds claim settlement', () => {
         provider,
         configAccountKeypair: configAccountKeypair,
         epochsToClaimSettlement: 1,
-      }
+      },
     ))
     await createVoteAccount({
       voteAccount: voteAccount1Keypair,
@@ -104,7 +104,7 @@ describe('Validator Bonds claim settlement', () => {
       })
     await provider.sendIx(
       [signer(splitStakeAccount), operatorAuthority],
-      fundIx
+      fundIx,
     )
   })
 
@@ -116,7 +116,7 @@ describe('Validator Bonds claim settlement', () => {
     })
     const treeNodeVoteAccount1Withdrawer1 = treeNodeBy(
       voteAccount1,
-      withdrawer1
+      withdrawer1,
     )
     const stakeAccountTreeNodeVoteAccount1Withdrawer1 =
       await createDelegatedStakeAccount({
@@ -146,17 +146,17 @@ describe('Validator Bonds claim settlement', () => {
 
     const [settlementClaimsAddr] = settlementClaimsAddress(
       settlementAccount,
-      program.programId
+      program.programId,
     )
     expect(settlementClaimsAccount).toEqual(settlementClaimsAddr)
 
     expect(
-      isClaimed(
+      await isClaimed(
         program,
         settlementAccount,
-        treeNodeVoteAccount1Withdrawer1.treeNode.index
-      )
-    ).resolves.toBeTruthy()
+        treeNodeVoteAccount1Withdrawer1.treeNode.index,
+      ),
+    ).toBeTruthy()
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, CLAIM_SETTLEMENT_V2_EVENT)
@@ -167,21 +167,21 @@ describe('Validator Bonds claim settlement', () => {
     expect(e.settlement).toEqual(settlementAccount)
     expect(e.settlementLamportsClaimed.old).toEqual(
       new BN(treeNodeVoteAccount1Withdrawer1.treeNode.claim).sub(
-        treeNodeVoteAccount1Withdrawer1.treeNode.claim
-      )
+        treeNodeVoteAccount1Withdrawer1.treeNode.claim,
+      ),
     )
     expect(e.settlementLamportsClaimed.new).toEqual(
-      treeNodeVoteAccount1Withdrawer1.treeNode.claim
+      treeNodeVoteAccount1Withdrawer1.treeNode.claim,
     )
     expect(e.settlementMerkleNodesClaimed).toEqual(1)
     expect(e.stakeAccountStaker).toEqual(
-      treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority
+      treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority,
     )
     expect(e.stakeAccountWithdrawer).toEqual(
-      treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority
+      treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority,
     )
     expect(e.stakeAccountTo).toEqual(
-      stakeAccountTreeNodeVoteAccount1Withdrawer1
+      stakeAccountTreeNodeVoteAccount1Withdrawer1,
     )
   })
 
@@ -244,10 +244,18 @@ describe('Validator Bonds claim settlement', () => {
     expect(findSettlementListAll.length).toBeGreaterThanOrEqual(1)
 
     expect(
-      isClaimed(program, settlementAccount, treeNodeWithdrawer2.treeNode.index)
-    ).resolves.toBeTruthy()
+      await isClaimed(
+        program,
+        settlementAccount,
+        treeNodeWithdrawer2.treeNode.index,
+      ),
+    ).toBeTruthy()
     expect(
-      isClaimed(program, settlementAccount, treeNodeWithdrawer3.treeNode.index)
-    ).resolves.toBeTruthy()
+      await isClaimed(
+        program,
+        settlementAccount,
+        treeNodeWithdrawer3.treeNode.index,
+      ),
+    ).toBeTruthy()
   })
 })

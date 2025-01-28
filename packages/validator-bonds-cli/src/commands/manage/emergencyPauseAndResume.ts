@@ -24,12 +24,12 @@ export function installEmergencyPause(program: Command) {
       '[address]',
       'Address of the validator bonds config account to be paused ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--authority <keypair_or_ledger_or_pubkey>',
       'Pause authority with permission to pause the contract (default: wallet)',
-      parseWalletOrPubkey
+      parseWalletOrPubkey,
     )
     .action(
       async (
@@ -38,14 +38,14 @@ export function installEmergencyPause(program: Command) {
           authority,
         }: {
           authority?: Promise<WalletInterface | PublicKey>
-        }
+        },
       ) => {
         await manageEmergencyPauseAndResume({
           action: 'pause',
           address: await address,
           authority: await authority,
         })
-      }
+      },
     )
 }
 
@@ -57,12 +57,12 @@ export function installEmergencyResume(program: Command) {
       '[address]',
       'Address of the validator bonds config account to be resumed ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--authority <keypair_or_ledger_or_pubkey>',
       'Pause authority with permission to resume the contract (default: wallet)',
-      parseWalletOrPubkey
+      parseWalletOrPubkey,
     )
     .action(
       async (
@@ -71,14 +71,14 @@ export function installEmergencyResume(program: Command) {
           authority,
         }: {
           authority?: Promise<WalletInterface | PublicKey>
-        }
+        },
       ) => {
         await manageEmergencyPauseAndResume({
           action: 'resume',
           address: await address,
           authority: await authority,
         })
-      }
+      },
     )
 }
 
@@ -144,6 +144,6 @@ async function manageEmergencyPauseAndResume({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Succeeded to ${action} validator bonds config account ${address.toBase58()}`
+    `Succeeded to ${action} validator bonds config account ${address.toBase58()}`,
   )
 }

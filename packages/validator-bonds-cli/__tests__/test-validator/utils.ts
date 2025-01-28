@@ -23,12 +23,12 @@ export async function getRentPayer(provider: AnchorExtendedProvider): Promise<{
       fromPubkey: provider.walletPubkey,
       toPubkey: rentPayerKeypair.publicKey,
       lamports: rentPayerFunds,
-    })
+    }),
   )
   await provider.sendAndConfirm!(tx)
   await expect(
-    provider.connection.getBalance(rentPayerKeypair.publicKey)
-  ).resolves.toStrictEqual(rentPayerFunds)
+    await provider.connection.getBalance(rentPayerKeypair.publicKey),
+  ).toStrictEqual(rentPayerFunds)
   return {
     keypair: rentPayerKeypair,
     path: rentPayerPath,

@@ -55,8 +55,8 @@ describe('Validator Bonds cancel withdraw request', () => {
       validatorIdentity,
     ])
     expect(
-      provider.connection.getAccountInfo(withdrawRequestAccount)
-    ).resolves.toBeNull()
+      await provider.connection.getAccountInfo(withdrawRequestAccount),
+    ).toBeNull()
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, CANCEL_WITHDRAW_REQUEST_EVENT)

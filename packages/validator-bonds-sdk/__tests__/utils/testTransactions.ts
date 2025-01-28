@@ -22,19 +22,20 @@ import { createVoteAccount, createVoteAccountWithIdentity } from './staking'
 import BN from 'bn.js'
 import assert from 'assert'
 import { pubkey, signer } from '@marinade.finance/web3js-common'
+import { getRandomByte, getSecureRandomInt } from './helpers'
 
 export async function executeWithdraw(
   provider: ExtendedProvider,
   stakeAccount: PublicKey,
   withdrawAuthority: Keypair,
   toPubkey?: PublicKey,
-  lamports?: number
+  lamports?: number,
 ) {
   if (lamports === undefined) {
     const accountInfo = await provider.connection.getAccountInfo(stakeAccount)
     if (accountInfo === null) {
       throw new Error(
-        `executeWithdraw: cannot find the stake account ${stakeAccount.toBase58()}`
+        `executeWithdraw: cannot find the stake account ${stakeAccount.toBase58()}`,
       )
     }
     lamports = accountInfo.lamports
@@ -51,7 +52,7 @@ export async function executeWithdraw(
     console.error(
       `[executeWithdraw] stake account: ${stakeAccount.toBase58()}, ` +
         `withdrawer: ${withdrawAuthority.publicKey.toBase58()}`,
-      e
+      e,
     )
     throw e
   }
@@ -60,9 +61,9 @@ export async function executeWithdraw(
 export async function executeInitConfigInstruction({
   program,
   provider,
-  epochsToClaimSettlement = Math.floor(Math.random() * 10) + 1,
+  epochsToClaimSettlement = getSecureRandomInt(1, 10),
   slotsToStartSettlementClaiming = 0,
-  withdrawLockupEpochs = Math.floor(Math.random() * 10) + 1,
+  withdrawLockupEpochs = getSecureRandomInt(1, 10),
   adminAuthority,
   operatorAuthority,
   configAccountKeypair,
@@ -99,11 +100,11 @@ export async function executeInitConfigInstruction({
   } catch (e) {
     console.error(
       `executeInitConfigInstruction: config account ${pubkey(
-        configAccount
+        configAccount,
       ).toBase58()}, ` +
         `admin: ${adminAuthority.publicKey.toBase58()}, ` +
         `operator: ${operatorAuthority.publicKey.toBase58()}`,
-      e
+      e,
     )
     throw e
   }
@@ -163,7 +164,7 @@ export async function executeConfigureConfigInstruction({
     console.error(
       `executeConfigureConfigInstruction: config account ${configAccount.toBase58()}, ` +
         `admin: ${adminAuthority.publicKey.toBase58()}`,
-      e
+      e,
     )
     throw e
   }
@@ -180,7 +181,7 @@ export async function executeInitBondInstruction({
   bondAuthority,
   voteAccount,
   validatorIdentity,
-  cpmpe = Math.floor(Math.random() * 100) + 1,
+  cpmpe = getSecureRandomInt(1, 100),
   maxStakeWanted = 0,
 }: {
   program: ValidatorBondsProgram
@@ -202,7 +203,7 @@ export async function executeInitBondInstruction({
     if (validatorIdentity !== undefined) {
       ;({ voteAccount } = await createVoteAccountWithIdentity(
         provider,
-        validatorIdentity
+        validatorIdentity,
       ))
     } else {
       ;({ validatorIdentity, voteAccount } = await createVoteAccount({
@@ -222,21 +223,19 @@ export async function executeInitBondInstruction({
   try {
     await provider.sendIx(
       validatorIdentity ? [validatorIdentity] : [],
-      instruction
+      instruction,
     )
-    expect(
-      provider.connection.getAccountInfo(bondAccount)
-    ).resolves.not.toBeNull()
+    expect(await provider.connection.getAccountInfo(bondAccount)).not.toBeNull()
   } catch (e) {
     console.error(
       `executeInitBondInstruction: bond account ${pubkey(
-        bondAccount
+        bondAccount,
       ).toBase58()}, ` +
         `config: ${pubkey(configAccount).toBase58()}, ` +
         `bondAuthority: ${pubkey(bondAuthority).toBase58()}, ` +
         `voteAccount: ${pubkey(voteAccount).toBase58()}, ` +
         `validatorIdentity: ${pubkey(validatorIdentity).toBase58()}`,
-      e
+      e,
     )
     throw e
   }
@@ -293,7 +292,7 @@ export async function executeFundBondInstruction({
 
   const [bondWithdrawerAuth] = bondsWithdrawerAuthority(
     config,
-    program.programId
+    program.programId,
   )
 
   const { instruction } = await fundBondInstruction({
@@ -309,15 +308,15 @@ export async function executeFundBondInstruction({
   } catch (e) {
     console.error(
       `executeFundBondInstruction: bond account ${pubkey(
-        bondAccount
+        bondAccount,
       ).toBase58()}, ` +
         `config: ${config.toBase58()}, ` +
         `voteAccount: ${pubkey(voteAccount).toBase58()}, ` +
         `stakeAccount: ${stakeAccount.toBase58()}, ` +
         `stakeAccountAuthority: ${pubkey(
-          stakeAccountAuthority.publicKey
+          stakeAccountAuthority.publicKey,
         ).toBase58()}`,
-      e
+      e,
     )
     throw e
   }
@@ -380,7 +379,7 @@ export async function executeInitWithdrawRequestInstruction({
   }
   if (authority === undefined) {
     throw new Error(
-      'executeInitWithdrawRequestInstruction: bond not to be created in method, requiring validatorIdentity'
+      'executeInitWithdrawRequestInstruction: bond not to be created in method, requiring validatorIdentity',
     )
   }
   const { instruction, withdrawRequestAccount } =
@@ -396,16 +395,16 @@ export async function executeInitWithdrawRequestInstruction({
   } catch (e) {
     console.error(
       `executeInitWithdrawRequestInstruction: bond account ${pubkey(
-        bondAccount
+        bondAccount,
       ).toBase58()}, ` +
         `validatorIdentity: ${pubkey(validatorIdentity).toBase58()}`,
-      e
+      e,
     )
     throw e
   }
   expect(
-    provider.connection.getAccountInfo(withdrawRequestAccount)
-  ).resolves.not.toBeNull()
+    await provider.connection.getAccountInfo(withdrawRequestAccount),
+  ).not.toBeNull()
   return {
     withdrawRequestAccount,
     bondAccount,
@@ -464,7 +463,7 @@ export async function executeCancelWithdrawRequestInstruction(
   program: ValidatorBondsProgram,
   provider: ExtendedProvider,
   withdrawRequest: PublicKey,
-  authority: Keypair
+  authority: Keypair,
 ) {
   const { instruction } = await cancelWithdrawRequestInstruction({
     program,
@@ -477,7 +476,7 @@ export async function executeCancelWithdrawRequestInstruction(
     console.error(
       `executeCancelWithdrawRequest: withdraw request account ${withdrawRequest.toBase58()}, ` +
         `authority: ${pubkey(authority).toBase58()}`,
-      e
+      e,
     )
     throw e
   }
@@ -491,12 +490,10 @@ export async function executeInitSettlement({
   voteAccount,
   operatorAuthority,
   currentEpoch,
-  merkleRoot = Buffer.from(
-    Array.from({ length: 32 }, () => Math.floor(Math.random() * 256))
-  ),
+  merkleRoot = Buffer.from(Array.from({ length: 32 }, () => getRandomByte())),
   rentCollector = Keypair.generate().publicKey,
-  maxMerkleNodes = Math.floor(Math.random() * 100) + 1,
-  maxTotalClaim = Math.floor(Math.random() * 100) + 1,
+  maxMerkleNodes = getSecureRandomInt(1, 100),
+  maxTotalClaim = getSecureRandomInt(1, 100),
 }: {
   program: ValidatorBondsProgram
   provider: ExtendedProvider
@@ -537,8 +534,8 @@ export async function executeInitSettlement({
   })
   await provider.sendIx([operatorAuthority], instruction)
   expect(
-    provider.connection.getAccountInfo(settlementAccount)
-  ).resolves.not.toBeNull()
+    await provider.connection.getAccountInfo(settlementAccount),
+  ).not.toBeNull()
   return {
     settlementAccount,
     settlementClaimsAccount,

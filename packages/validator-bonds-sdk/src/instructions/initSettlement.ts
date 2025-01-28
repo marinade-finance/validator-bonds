@@ -88,11 +88,11 @@ export async function initSettlementInstruction({
     bondAccount,
     merkleRoot,
     epoch,
-    program.programId
+    program.programId,
   )
   const [settlementClaimsAccount] = settlementClaimsAddress(
     settlementAccount,
-    program.programId
+    program.programId,
   )
 
   merkleRoot = Array.isArray(merkleRoot) ? merkleRoot : Array.from(merkleRoot)

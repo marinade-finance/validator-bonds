@@ -38,6 +38,7 @@ import {
 } from '@marinade.finance/web3js-common'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { initBankrunTest, delegateAndFund } from './bankrun'
+import { getSecureRandomInt } from '../utils/helpers'
 
 // TODO: test the merging stake accounts through the orchestrate withdraw request, i.e., test orchestrators/orchestrateWithdrawRequest.ts
 
@@ -49,7 +50,7 @@ describe('Validator Bonds claim withdraw request', () => {
   let validatorIdentity: Keypair
   let bondAuthority: Keypair
   let voteAccount: PublicKey
-  const startUpEpoch = Math.floor(Math.random() * 100) + 100
+  const startUpEpoch = getSecureRandomInt(100, 200)
   const withdrawLockupEpochs = 1
 
   beforeAll(async () => {
@@ -84,7 +85,7 @@ describe('Validator Bonds claim withdraw request', () => {
 
   it('claim withdraw request with split stake account created', async () => {
     const epochAtTestStart = Number(
-      (await provider.context.banksClient.getClock()).epoch
+      (await provider.context.banksClient.getClock()).epoch,
     )
 
     const initAmount = 5 * LAMPORTS_PER_SOL
@@ -130,91 +131,91 @@ describe('Validator Bonds claim withdraw request', () => {
 
     assert(
       originalStakeAccountInfo !== null,
-      'original stake account not found'
+      'original stake account not found',
     )
     const rentExemptStakeAccount =
       await provider.connection.getMinimumBalanceForRentExemption(
-        originalStakeAccountInfo.data.length
+        originalStakeAccountInfo.data.length,
       )
     console.log('rentExemptStakeAccount', rentExemptStakeAccount)
 
     // -------- ORIGINAL STAKE ACCOUNT --------
     const originalStakeAccountData = deserializeStakeState(
-      originalStakeAccountInfo.data
+      originalStakeAccountInfo.data,
     )
     expect(originalStakeAccountData.Stake?.meta.authorized.staker).toEqual(
-      validatorIdentity.publicKey
+      validatorIdentity.publicKey,
     )
     expect(originalStakeAccountData.Stake?.meta.authorized.withdrawer).toEqual(
-      validatorIdentity.publicKey
+      validatorIdentity.publicKey,
     )
     expect(originalStakeAccountData.Stake?.meta.lockup.epoch).toEqual(0)
     expect(originalStakeAccountData.Stake?.meta.lockup.unixTimestamp).toEqual(0)
     expect(originalStakeAccountData.Stake?.meta.rentExemptReserve).toEqual(
-      rentExemptStakeAccount
+      rentExemptStakeAccount,
     )
     expect(originalStakeAccountData.Stake?.stake.delegation.stake).toEqual(
-      requestedAmount - rentExemptStakeAccount
+      requestedAmount - rentExemptStakeAccount,
     )
     expect(
-      originalStakeAccountData.Stake?.stake.delegation.voterPubkey
+      originalStakeAccountData.Stake?.stake.delegation.voterPubkey,
     ).toEqual(voteAccount)
     expect(
-      originalStakeAccountData.Stake?.stake.delegation.activationEpoch.toNumber()
+      originalStakeAccountData.Stake?.stake.delegation.activationEpoch.toNumber(),
     ).toEqual(epochAtTestStart)
     expect(
       new BN(
-        originalStakeAccountData.Stake!.stake.delegation.deactivationEpoch.toString()
-      ).gt(new BN(epochAtTestStart))
+        originalStakeAccountData.Stake!.stake.delegation.deactivationEpoch.toString(),
+      ).gt(new BN(epochAtTestStart)),
     ).toBeTruthy()
 
     // -------- SPLIT STAKE ACCOUNT --------
     const splitStakeAccountInfo = await provider.connection.getAccountInfo(
-      splitStakeAccount.publicKey
+      splitStakeAccount.publicKey,
     )
     expect(splitStakeAccountInfo).not.toBeNull()
     expect(splitStakeAccountInfo?.lamports).toEqual(
-      initAmount - requestedAmount + rentExemptStakeAccount
+      initAmount - requestedAmount + rentExemptStakeAccount,
     )
     assert(splitStakeAccountInfo !== null, 'split stake account not found')
 
     const [bondsAuthority] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId
+      program.programId,
     )
     const splitStakeAccountData = deserializeStakeState(
-      splitStakeAccountInfo?.data
+      splitStakeAccountInfo?.data,
     )
     expect(splitStakeAccountData.Stake?.meta.authorized.withdrawer).toEqual(
-      bondsAuthority
+      bondsAuthority,
     )
     expect(splitStakeAccountData.Stake?.meta.authorized.staker).toEqual(
-      bondsAuthority
+      bondsAuthority,
     )
     expect(splitStakeAccountData.Stake?.meta.lockup.epoch).toEqual(0)
     expect(splitStakeAccountData.Stake?.meta.lockup.unixTimestamp).toEqual(0)
     expect(splitStakeAccountData.Stake?.meta.rentExemptReserve).toEqual(
-      rentExemptStakeAccount
+      rentExemptStakeAccount,
     )
     expect(splitStakeAccountData.Stake?.stake.delegation.stake).toEqual(
-      initAmount - requestedAmount
+      initAmount - requestedAmount,
     )
     expect(splitStakeAccountData.Stake?.stake.delegation.voterPubkey).toEqual(
-      voteAccount
+      voteAccount,
     )
     expect(
-      splitStakeAccountData.Stake?.stake.delegation.activationEpoch.toNumber()
+      splitStakeAccountData.Stake?.stake.delegation.activationEpoch.toNumber(),
     ).toEqual(epochAtTestStart)
     expect(
       new BN(
-        splitStakeAccountData.Stake!.stake.delegation.deactivationEpoch.toString()
-      ).gt(new BN(epochAtTestStart))
+        splitStakeAccountData.Stake!.stake.delegation.deactivationEpoch.toString(),
+      ).gt(new BN(epochAtTestStart)),
     ).toBeTruthy()
   })
 
   it('claim withdraw request with stake fulfilling the whole', async () => {
     const epochAtTestStart = Number(
-      (await provider.context.banksClient.getClock()).epoch
+      (await provider.context.banksClient.getClock()).epoch,
     )
 
     const requestedAmount = 2 * LAMPORTS_PER_SOL
@@ -236,7 +237,7 @@ describe('Validator Bonds claim withdraw request', () => {
     // withdraw request exists until is cancelled
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequest
+      withdrawRequest,
     )
     expect(withdrawRequestData.withdrawnAmount).toEqual(requestedAmount)
     expect(withdrawRequestData.requestedAmount).toEqual(requestedAmount)
@@ -247,41 +248,41 @@ describe('Validator Bonds claim withdraw request', () => {
 
     assert(
       originalStakeAccountInfo !== null,
-      'original stake account not found'
+      'original stake account not found',
     )
     const rentExemptStakeAccount =
       await provider.connection.getMinimumBalanceForRentExemption(
-        originalStakeAccountInfo.data.length
+        originalStakeAccountInfo.data.length,
       )
 
     // -------- ORIGINAL STAKE ACCOUNT --------
     const originalStakeAccountData = deserializeStakeState(
-      originalStakeAccountInfo.data
+      originalStakeAccountInfo.data,
     )
     expect(originalStakeAccountData.Stake?.meta.authorized.staker).toEqual(
-      validatorIdentity.publicKey
+      validatorIdentity.publicKey,
     )
     expect(originalStakeAccountData.Stake?.meta.authorized.withdrawer).toEqual(
-      validatorIdentity.publicKey
+      validatorIdentity.publicKey,
     )
     expect(originalStakeAccountData.Stake?.meta.lockup.epoch).toEqual(0)
     expect(originalStakeAccountData.Stake?.meta.lockup.unixTimestamp).toEqual(0)
     expect(originalStakeAccountData.Stake?.meta.rentExemptReserve).toEqual(
-      rentExemptStakeAccount
+      rentExemptStakeAccount,
     )
     expect(originalStakeAccountData.Stake?.stake.delegation.stake).toEqual(
-      requestedAmount - rentExemptStakeAccount
+      requestedAmount - rentExemptStakeAccount,
     )
     expect(
-      originalStakeAccountData.Stake?.stake.delegation.voterPubkey
+      originalStakeAccountData.Stake?.stake.delegation.voterPubkey,
     ).toEqual(voteAccount)
     expect(
-      originalStakeAccountData.Stake?.stake.delegation.activationEpoch.toNumber()
+      originalStakeAccountData.Stake?.stake.delegation.activationEpoch.toNumber(),
     ).toEqual(epochAtTestStart)
     expect(
       new BN(
-        originalStakeAccountData.Stake!.stake.delegation.deactivationEpoch.toString()
-      ).gt(new BN(epochAtTestStart))
+        originalStakeAccountData.Stake!.stake.delegation.deactivationEpoch.toString(),
+      ).gt(new BN(epochAtTestStart)),
     ).toBeTruthy()
     // -------- SPLIT STAKE ACCOUNT --------
     await assertNotExist(provider, splitStakeAccount.publicKey)
@@ -302,7 +303,7 @@ describe('Validator Bonds claim withdraw request', () => {
     const { withdrawRequest, stakeAccount } =
       await createStakeAccountAndInitWithdraw(
         stakeAccountAmount,
-        requestedAmount
+        requestedAmount,
       )
     const rentPayerUser = await createUserAndFund({
       provider,
@@ -327,7 +328,7 @@ describe('Validator Bonds claim withdraw request', () => {
     await warpToUnlockClaiming()
     await provider.sendIx(
       [splitStakeAccount, signer(rentPayerUser), bondAuthority],
-      instruction
+      instruction,
     )
 
     const originalStakeAccountInfo =
@@ -335,26 +336,26 @@ describe('Validator Bonds claim withdraw request', () => {
     expect(originalStakeAccountInfo?.lamports).toEqual(requestedAmount)
     assert(originalStakeAccountInfo !== null)
     const originalStakeAccountData = deserializeStakeState(
-      originalStakeAccountInfo.data
+      originalStakeAccountInfo.data,
     )
     expect(originalStakeAccountData.Stake?.meta.authorized.staker).toEqual(
-      pubkey(withdrawer)
+      pubkey(withdrawer),
     )
     expect(originalStakeAccountData.Stake?.meta.authorized.withdrawer).toEqual(
-      pubkey(withdrawer)
+      pubkey(withdrawer),
     )
     const splitStakeAccountInfo = await provider.connection.getAccountInfo(
-      splitStakeAccount.publicKey
+      splitStakeAccount.publicKey,
     )
     expect(splitStakeAccountInfo).not.toBeNull()
     assert(splitStakeAccountInfo !== null, 'split stake account not found')
     const rentExemptStakeAccount =
       await provider.connection.getMinimumBalanceForRentExemption(
-        splitStakeAccountInfo.data.length
+        splitStakeAccountInfo.data.length,
       )
     expect(
       (await provider.connection.getAccountInfo(pubkey(rentPayerUser)))
-        ?.lamports
+        ?.lamports,
     ).toEqual(LAMPORTS_PER_SOL - rentExemptStakeAccount)
   })
 
@@ -415,7 +416,7 @@ describe('Validator Bonds claim withdraw request', () => {
     try {
       await provider.sendIx(
         [splitCannotSplit2, validatorIdentity],
-        ixCannotSplit2
+        ixCannotSplit2,
       )
       throw new Error('failure expected; cannot split')
     } catch (err) {
@@ -427,7 +428,7 @@ describe('Validator Bonds claim withdraw request', () => {
     const { withdrawRequest, stakeAccount } =
       await createStakeAccountAndInitWithdraw(
         4 * LAMPORTS_PER_SOL,
-        LAMPORTS_PER_SOL * 3
+        LAMPORTS_PER_SOL * 3,
       )
 
     const { instruction, splitStakeAccount } =
@@ -500,15 +501,15 @@ describe('Validator Bonds claim withdraw request', () => {
       [split1, split2, split3, validatorIdentity],
       ix1,
       ix2,
-      ix3
+      ix3,
     )
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequest
+      withdrawRequest,
     )
     expect(withdrawRequestData.requestedAmount).toEqual(requestedAmount)
     expect(withdrawRequestData.withdrawnAmount).toEqual(
-      stake1Amount + stake2Amount + stake3Amount
+      stake1Amount + stake2Amount + stake3Amount,
     )
 
     const { instruction: cancelIx } = await cancelWithdrawRequestInstruction({
@@ -526,7 +527,7 @@ describe('Validator Bonds claim withdraw request', () => {
     const { stakeAccount, withdrawRequest } =
       await createStakeAccountAndInitWithdraw(
         2 * LAMPORTS_PER_SOL,
-        10 * LAMPORTS_PER_SOL
+        10 * LAMPORTS_PER_SOL,
       )
     await warpToUnlockClaiming()
     const { instruction, splitStakeAccount } =
@@ -598,11 +599,11 @@ describe('Validator Bonds claim withdraw request', () => {
     const stakeAccountWithdrawer = new Keypair()
     const [bondsAuth] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId
+      program.programId,
     )
     const [settlementAuth] = settlementStakerAuthority(
       new Keypair().publicKey,
-      program.programId
+      program.programId,
     )
 
     const { stakeAccount, withdrawer } = await delegatedStakeAccount({
@@ -666,7 +667,7 @@ describe('Validator Bonds claim withdraw request', () => {
 
   async function createStakeAccountAndInitWithdraw(
     fundStakeLamports: number,
-    initWithdrawAmount: number
+    initWithdrawAmount: number,
   ): Promise<{
     withdrawRequest: PublicKey
     stakeAccount: PublicKey
@@ -683,7 +684,7 @@ describe('Validator Bonds claim withdraw request', () => {
   }
 
   async function initWithdrawRequest(
-    initWithdrawAmount: number
+    initWithdrawAmount: number,
   ): Promise<{ withdrawRequest: PublicKey }> {
     const { withdrawRequestAccount } =
       await executeInitWithdrawRequestInstruction({
@@ -695,7 +696,7 @@ describe('Validator Bonds claim withdraw request', () => {
       })
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount
+      withdrawRequestAccount,
     )
     expect(withdrawRequestData.voteAccount).toEqual(voteAccount)
     return { withdrawRequest: withdrawRequestAccount }

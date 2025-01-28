@@ -21,18 +21,18 @@ export function installShowBondAddress(program: Command) {
   program
     .command('bond-address')
     .description(
-      'From provided vote account address derives the bond account address'
+      'From provided vote account address derives the bond account address',
     )
     .argument(
       '<address>',
       'Address of the vote account to get derived bond account address',
-      parsePubkeyOrPubkeyFromWallet
+      parsePubkeyOrPubkeyFromWallet,
     )
     .option(
       '--config <pubkey>',
       'Config account to filter bonds accounts ' +
         `(no default, note: the Marinade config is: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey
+      parsePubkey,
     )
     .action(
       async (
@@ -41,13 +41,13 @@ export function installShowBondAddress(program: Command) {
           config,
         }: {
           config?: Promise<PublicKey>
-        }
+        },
       ) => {
         await showBondAddress({
           address: await address,
           config: await config,
         })
-      }
+      },
     )
 }
 
@@ -64,18 +64,18 @@ async function showBondAddress({
     const [bondAddr, bondBump] = bondAddress(config, address, program.programId)
     logger.debug(
       'Deriving bond account address from vote account: ' +
-        `${address.toBase58()}, config: ${config.toBase58()}, programId: ${program.programId.toBase58()}`
+        `${address.toBase58()}, config: ${config.toBase58()}, programId: ${program.programId.toBase58()}`,
     )
     const [withdrawRequestAddr, withdrawRequestBump] = withdrawRequestAddress(
       bondAddr,
-      program.programId
+      program.programId,
     )
     logger.debug(
       'Deriving withdraw request account address from bond account: ' +
-        `${bondAddr.toBase58()}, programId: ${program.programId.toBase58()}`
+        `${bondAddr.toBase58()}, programId: ${program.programId.toBase58()}`,
     )
     console.log(
-      `Bond account address: ${bondAddr.toBase58()} [bump: ${bondBump}], withdraw request address: ${withdrawRequestAddr.toBase58()} [bump: ${withdrawRequestBump}]`
+      `Bond account address: ${bondAddr.toBase58()} [bump: ${bondBump}], withdraw request address: ${withdrawRequestAddr.toBase58()} [bump: ${withdrawRequestBump}]`,
     )
   } catch (err) {
     throw new CliCommandError({

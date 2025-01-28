@@ -64,7 +64,7 @@ export async function orchestrateWithdrawDeposit({
   if (bondAccount === undefined && withdrawRequestAccount === undefined) {
     throw new Error(
       'orchestrateWithdrawDeposit: bondAccount and withdrawRequestAccount not provided, ' +
-        'at least one has to be provided'
+        'at least one has to be provided',
     )
   } else if (
     bondAccount === undefined &&
@@ -72,7 +72,7 @@ export async function orchestrateWithdrawDeposit({
   ) {
     withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount
+      withdrawRequestAccount,
     )
     bondAccount = withdrawRequestData.bond
   } else if (
@@ -81,16 +81,16 @@ export async function orchestrateWithdrawDeposit({
   ) {
     withdrawRequestAccount = withdrawRequestAddress(
       bondAccount,
-      program.programId
+      program.programId,
     )[0]
   }
   assert(
     withdrawRequestAccount !== undefined,
-    'this should not happen; withdrawRequestAccount is undefined'
+    'this should not happen; withdrawRequestAccount is undefined',
   )
   assert(
     bondAccount !== undefined,
-    'this should not happen; bondAccount is undefined'
+    'this should not happen; bondAccount is undefined',
   )
 
   if (configAccount === undefined) {
@@ -103,7 +103,7 @@ export async function orchestrateWithdrawDeposit({
     (await getWithdrawRequest(program, withdrawRequestAccount))
 
   let amountToWithdraw = withdrawRequestData.requestedAmount.sub(
-    withdrawRequestData.withdrawnAmount
+    withdrawRequestData.withdrawnAmount,
   )
   amountToWithdraw =
     amountToWithdraw <= new BN(0) ? new BN(0) : amountToWithdraw
@@ -111,7 +111,7 @@ export async function orchestrateWithdrawDeposit({
   // calculating what are the stake accounts we need to merge to easily withdraw the deposit
   const [bondWithdrawerAuthority] = bondsWithdrawerAuthority(
     configAccount,
-    program.programId
+    program.programId,
   )
   const currentEpoch = (await program.provider.connection.getEpochInfo()).epoch
   const stakeAccountsFunded = (
@@ -127,7 +127,7 @@ export async function orchestrateWithdrawDeposit({
       ? 1
       : x.account.lamports < y.account.lamports
         ? -1
-        : 0
+        : 0,
   )
   const stakeAccountsToWithdraw = stakeAccountsFunded.reduce<{
     stakesAmount: BN
@@ -143,7 +143,7 @@ export async function orchestrateWithdrawDeposit({
     {
       stakesAmount: new BN(0),
       accounts: [] as ProgramAccountInfo<StakeAccountParsed>[],
-    }
+    },
   )
 
   const instructions: TransactionInstruction[] = []
@@ -177,7 +177,7 @@ export async function orchestrateWithdrawDeposit({
         logDebug(
           logger,
           `Merging stake account: ${sourceStakeAccount.publicKey.toBase58()} -> ` +
-            `${destinationStakeAccount.publicKey.toBase58()}`
+            `${destinationStakeAccount.publicKey.toBase58()}`,
         )
         instructions.push(mergeIx.instruction)
       } else {
@@ -219,7 +219,7 @@ export async function orchestrateWithdrawDeposit({
   if (stakeAccountsFunded.length === 0 && amountToWithdraw > new BN(0)) {
     throw new Error(
       'Claim withdraw request failed: No stake accounts found for bond account ' +
-        `(${bondAccount.toBase58()}) to process the withdrawal.`
+        `(${bondAccount.toBase58()}) to process the withdrawal.`,
     )
   }
 
@@ -234,9 +234,9 @@ export async function orchestrateWithdrawDeposit({
 
 function isFullyActive(
   stakeAccount: ProgramAccountInfo<StakeAccountParsed>,
-  epoch: BN | number
+  epoch: BN | number,
 ): boolean {
   return new BN(
-    stakeAccount.account.data.activationEpoch || Number.MAX_SAFE_INTEGER
+    stakeAccount.account.data.activationEpoch || Number.MAX_SAFE_INTEGER,
   ).lt(new BN(epoch))
 }
