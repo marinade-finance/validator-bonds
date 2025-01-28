@@ -205,19 +205,12 @@ export async function loadStakeAccounts({
 }): Promise<ProgramAccountInfo<StakeAccountParsed>[]> {
   const innerConnection = getConnection(connection)
   if (addresses.length === 0) {
-    // console.log('addresses: ', addresses)
     return []
   }
   addresses = addresses
     .map(d => (isWithPublicKey(d) ? d.publicKey : d))
     .map(d => d as PublicKey)
   const accountsFirst = await getMultipleAccounts({ connection, addresses })
-  // console.log('addresses', addresses.map(m => m.toBase58()).join('; '))
-  // console.log(
-  //   'found',
-  //   accountsFirst.length,
-  //   accountsFirst.map(v => v.publicKey.toBase58()).join(', '),
-  // )
   const accounts = accountsFirst
     .filter(d => d.account !== null)
     .map(async d => {
