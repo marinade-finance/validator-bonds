@@ -52,6 +52,10 @@ export async function getRentExempt(
   )
 }
 
+/**
+ * Generate a random number in the range [min, max] using a secure random number generator.
+ * The range is inclusive.
+ */
 export function getSecureRandomInt(min: number, max: number): number {
   const range = max - min + 1
   const bitsNeeded = Math.ceil(Math.log2(range))
