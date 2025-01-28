@@ -210,7 +210,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
 
     const randomMerkleTree =
       loadedJson.merkle_trees[
-        getSecureRandomInt(0, loadedJson.merkle_trees.length)
+        getSecureRandomInt(0, loadedJson.merkle_trees.length - 1)
       ]
     currentEpoch = (await program.provider.connection.getEpochInfo()).epoch
     await executeInitSettlement({
