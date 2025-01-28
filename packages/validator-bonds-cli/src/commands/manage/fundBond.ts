@@ -164,7 +164,7 @@ async function manageFundBond({
   }
 }
 
-async function failIfUnexpectedError({
+export async function failIfUnexpectedError({
   err,
   logger,
   provider,
