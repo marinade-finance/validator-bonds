@@ -46,8 +46,9 @@
             }
         },
         "overrides": {
-            "cross-spawn": "7.0.5",
-            "braces": "3.0.3"
+            "cross-spawn@<7.0.5": "7.0.5",
+            "braces@<3.0.3": "3.0.3",
+            "micromatch@<4.0.8": "4.0.8"
         }
     },
     "engines": {
