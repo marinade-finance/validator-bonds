@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## TS CLI&SDK [2.1.0](https://github.com/marinade-finance/validator-bonds/compare/v2.0.6...v2.1.0) (2025-01-31)
+
+### Updates
+
+* cli: `fund-bond-sol` subcommand provides a way to fund bond directly from the user's wallet without a need to manually creating a stake account
+* cli institutional: creating a new package `@marinade.finance/validator-bonds-cli-institutional` where functionality is based on
+  the original `validator-bonds-cli` while streamlining the experience to focus strictly on managing bond accounts
+
 ## TS CLI&SDK [2.0.6](https://github.com/marinade-finance/validator-bonds/compare/v2.0.5...v2.0.6) (2025-01-13)
 
 ### Fixes
