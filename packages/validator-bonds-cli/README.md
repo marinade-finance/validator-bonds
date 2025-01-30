@@ -764,9 +764,8 @@ Commands:
   configure-bond [options] <address>              Configure existing bond account.
   merge-stake [options]                           Merging stake accounts belonging to validator bonds program.
   fund-bond [options] <address>                   Funding a bond account with amount of SOL within a stake account.
-  fund-bond-sol [options] <address>               Funding a bond account with amount SOL amount. The command creates a stake account, transfers SOLs to it and delegate it to bond.
-  init-withdraw-request [options] [address]       Initializing withdrawal by creating a request ticket. The withdrawal request ticket is used to indicate a desire to withdraw the specified amount
-                                                  of lamports after the lockup period expires.
+  fund-bond-sol [options] <address>               Funding a bond account with amount of SOL. The command creates a stake account, transfers SOLs to it and delegates it to bond.
+  init-withdraw-request [options] [address]       Initializing withdrawal by creating a request ticket. The withdrawal request ticket is used to indicate a desire to withdraw the specified amount of lamports after the lockup period expires.
   cancel-withdraw-request [options] [address]     Cancelling the withdraw request account, which is the withdrawal request ticket, by removing the account from the chain.
   claim-withdraw-request [options] [address]      Claiming an existing withdrawal request for an existing on-chain account, where the lockup period has expired. Withdrawing funds involves
                                                   transferring ownership of a funded stake account to the specified "--withdrawer" public key. To withdraw, the authority signature of the bond

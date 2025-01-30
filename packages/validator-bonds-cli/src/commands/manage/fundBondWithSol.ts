@@ -31,8 +31,8 @@ export function installFundBondWithSol(program: Command) {
   program
     .command('fund-bond-sol')
     .description(
-      'Funding a bond account with amount SOL amount. ' +
-        'The command creates a stake account, transfers SOLs to it and delegate it to bond.',
+      'Funding a bond account with amount of SOL. ' +
+        'The command creates a stake account, transfers SOLs to it and delegates it to bond.'
     )
     .argument(
       '<address>',
@@ -52,7 +52,7 @@ export function installFundBondWithSol(program: Command) {
       n => parseFloat(n),
     )
     .option(
-      '--from <keypair_or_ledger_or_keypair>',
+      '--from <keypair_or_ledger_or_pubkey>',
       'A wallet address where the SOL is transferred from. ' +
         '(default: wallet keypair)',
       parseWalletOrPubkey,
@@ -134,11 +134,11 @@ async function manageFundBondWithSol({
     throw new Error(
       `Provided amount ${amount} SOL is lower than minimal amount ` +
         'that is permitted to be funded. Minimal is ' +
-        `${minimalAmountToFund.toNumber() / LAMPORTS_PER_SOL} SOL. ` +
-        'Please, use a bigger number of SOLs for funding.',
+        `${minimalAmountToFund.divn(LAMPORTS_PER_SOL).toString()} SOL. ` +
+        'Please, use a bigger number of SOLs for funding.'
     )
   }
-  if (amountLamports.toNumber() > Number.MAX_SAFE_INTEGER) {
+  if (amountLamports.gt(new BN(Number.MAX_SAFE_INTEGER))) {
     throw new Error(
       `Provided amount ${amount} SOL cannot be safely converted ` +
         'to number of lamports. Please, use a lower number.',
