@@ -45,34 +45,44 @@ validator-bonds --help
 In terms of CLI commands in the most simplistic way:
 
 ```sh
+# STEP 1: INITIALIZE BOND
 # initializing the bond account for vote-account
 validator-bonds init-bond --vote-account <vote-account-address> \
   --validator-identity ./validator-identity.json
 > Bond account BondAddress9iRYo3ZEK6dpmm9jYWX3Kb63Ed7RAFfUc of config vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 successfully created
 
-# create a random keypair for a stake account to be created and funded to bond
-# the Validator Bonds program does not preserve stake account public keys as it merges and splits them
+# STEP 2: FUND BOND
+# ---
+# OPTION A STEP 2: Funding from a wallet
+# In background SOL is transferred to a stake account that is assigned under Validator Bonds program
+validator-bonds fund-bond-sol <vote-account-address> --from <wallet-keypair> --amount <Amount of SOL
+# ---
+# OPTION B STEP 2: Funding with a stake account
+# Create a random keypair for a stake account to be created and funded to bond
+# The Validator Bonds program does not preserve stake account public keys as it merges and splits them
 solana-keygen new -o /tmp/stake-account-keypair.json
-
 # Creating a stake account. The SOLs will be funded to the Bond
 solana create-stake-account <stake-account-keypair> <Amount of SOL 1 for every 10,000 staked>
-
 # To couple the created stake account with the vote account
 # This causes the stake account to be in the Activating state.
 solana delegate-stake <stake-account-pubkey> <vote-account-address>
-
 # Funding Bond by assigning the stake account with the SOL amount in it
 validator-bonds fund-bond <vote-account-address> --stake-account <stake-account-pubkey>
 
-# Bidding the auction
+# STEP 3: PARTICIPATE IN AUCTION
+# validator needs to participate in bidding to get the stake
 # --max-stake-wanted specifies the maximum amount of stake the validator aims to receive. The actual amount delegated will depend on the auction and may be equal to or less than this value.
 # --cpmpe defines how many lamports the validator is willing to pay for every 1000 SOLs delegated
 validator-bonds configure-bond <vote-account-address> --authority ./validator-identity.json \
   --cpmpe <lamports> --max-stake-wanted <lamports>
 > Bond account BondAddress9iRYo3ZEK6dpmm9jYWX3Kb63Ed7RAFfUc successfully configured
 
-# Check the new configuration and track the funding
+# VERIFICATION
+# Check the new configuration
 validator-bonds show-bond <vote-account-address>
+# Track the funding
+RPC_URL=<url-to-solana-rpc-node>
+validator-bonds -u $RPC_URL show-bond <vote-account-address> --with-funding
 ```
 
 
@@ -726,8 +736,8 @@ Usage: validator-bonds [options] [command]
 
 Options:
   -V, --version                                   output the version number
-  -u, --cluster <cluster>                         solana cluster URL or a moniker (m/mainnet/mainnet-beta, d/devnet, t/testnet, l/localhost) (default: "mainnet")
-  -c <cluster>                                    alias for "-u, --cluster"
+  -u, --url <rpc-url>                             solana RPC URL or a moniker (m/mainnet/mainnet-beta, d/devnet, t/testnet, l/localhost), see https://solana.com/rpc (default: "mainnet")
+  -c, --cluster <cluster>                         alias for "-u, --url"
   -k, --keypair <keypair-or-ledger>               Wallet keypair (path or ledger url in format usb://ledger/[<pubkey>][?key=<derivedPath>]). Wallet keypair is used to pay for the transaction fees
                                                   and as default value for signers. (default: loaded from solana config file or ~/.config/solana/id.json)
   --program-id <pubkey>                           Program id of validator bonds contract (default: vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
@@ -748,14 +758,14 @@ Commands:
   init-config [options]                           Create a new config account.
   configure-config [options] [address]            Configure existing config account.
   mint-bond [options] <address>                   Mint a Validator Bond token, providing a means to configure the bond account without requiring a direct signature for the on-chain transaction.
-                                                  The workflow is as follows: first, use this "mint-bond" to mint a bond token to the validator identity public key. Next, transfer the token to
-                                                  any account desired. Finally, utilize the command "configure-bond --with-token" to configure the bond account.
+                                                  The workflow is as follows: first, use this "mint-bond" to mint a bond token to the validator identity public key. Next, transfer the token to any
+                                                  account desired. Finally, utilize the command "configure-bond --with-token" to configure the bond account.
   init-bond [options]                             Create a new bond account.
   configure-bond [options] <address>              Configure existing bond account.
   merge-stake [options]                           Merging stake accounts belonging to validator bonds program.
   fund-bond [options] <address>                   Funding a bond account with amount of SOL within a stake account.
-  init-withdraw-request [options] [address]       Initializing withdrawal by creating a request ticket. The withdrawal request ticket is used to indicate a desire to withdraw the specified amount
-                                                  of lamports after the lockup period expires.
+  fund-bond-sol [options] <address>               Funding a bond account with amount of SOL. The command creates a stake account, transfers SOLs to it and delegates it to bond.
+  init-withdraw-request [options] [address]       Initializing withdrawal by creating a request ticket. The withdrawal request ticket is used to indicate a desire to withdraw the specified amount of lamports after the lockup period expires.
   cancel-withdraw-request [options] [address]     Cancelling the withdraw request account, which is the withdrawal request ticket, by removing the account from the chain.
   claim-withdraw-request [options] [address]      Claiming an existing withdrawal request for an existing on-chain account, where the lockup period has expired. Withdrawing funds involves
                                                   transferring ownership of a funded stake account to the specified "--withdrawer" public key. To withdraw, the authority signature of the bond
