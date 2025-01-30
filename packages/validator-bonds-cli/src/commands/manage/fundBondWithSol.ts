@@ -134,7 +134,7 @@ async function manageFundBondWithSol({
     throw new Error(
       `Provided amount ${amount} SOL is lower than minimal amount ` +
         'that is permitted to be funded. Minimal is ' +
-        `${minimalAmountToFund.div(new BN(LAMPORTS_PER_SOL.toString())).toString()} SOL. ` +
+        `${minimalAmountToFund.div(new BN(LAMPORTS_PER_SOL)).toString()} SOL. ` +
         'Please, use a bigger number of SOLs for funding.'
     )
   }
