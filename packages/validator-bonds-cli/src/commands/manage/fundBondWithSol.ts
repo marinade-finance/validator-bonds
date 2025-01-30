@@ -173,7 +173,7 @@ async function manageFundBondWithSol({
   tx.add(createStakeAccountIx, delegateStakeAccountIx, fundBondIx)
 
   logger.info(
-    `Funding bond account ${bondAccount.toBase58()} of vote account ${voteAccount.toBase58()} ` +
+    `Funding bond account ${bondAccount.toBase58()} of vote account ${voteAccount.toBase58()}` +
       ` with ${amount} SOL from wallet ${from.toBase58()}`,
   )
   try {
