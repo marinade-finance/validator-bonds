@@ -67,7 +67,7 @@ solana create-stake-account <stake-account-keypair> <Amount of SOL 1 for every 1
 # This causes the stake account to be in the Activating state.
 solana delegate-stake <stake-account-pubkey> <vote-account-address>
 # Funding Bond by assigning the stake account with the SOL amount in it
-validator-bonds fund-bond <vote-account-address> --stake-account <stake-account-pubkey> 
+validator-bonds fund-bond <vote-account-address> --stake-account <stake-account-pubkey>
 
 # STEP 3: PARTICIPATE IN AUCTION
 # validator needs to participate in bidding to get the stake
