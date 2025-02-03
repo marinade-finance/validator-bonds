@@ -239,7 +239,7 @@ connected to the bond account than before the Settlement was created.
 These stake accounts can later be merged if needed to create a larger, compound amount for future settlement funding.
 
 
-## `Validator Bonds Institutional CLI Reference`
+## Validator Bonds Institutional CLI Reference
 
 ### `validator-bonds-institutional --help`
 ```sh
