@@ -100,7 +100,7 @@ The bond account exists to be funded to cover rewards distribution.
 
 Funding the bond means underlaying stake account is created.
 Such stake account is delegated to the validator vote account
-and are still generating staking rewards.
+and is still generating staking rewards.
 
 User may either fund bond from a wallet or assigning a stake account under the Bond program.
 
