@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file. See [standa
 
 ### Updates
 
-* cli: `fund-bond-sol` subcommand provides a way to fund bond directly from the user's wallet without a need to manually creating a stake account
+* cli: `fund-bond-sol` subcommand provides a way to fund bond directly from the user's wallet without a need to manually create a stake account
 * cli institutional: creating a new package `@marinade.finance/validator-bonds-cli-institutional` where functionality is based on
   the original `validator-bonds-cli` while streamlining the experience to focus strictly on managing bond accounts
 
