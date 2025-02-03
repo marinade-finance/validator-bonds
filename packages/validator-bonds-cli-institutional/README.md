@@ -194,7 +194,7 @@ Expected output on created bond is like
   "amountOwned": "10.407 SOLs",
   "amountActive": "10.407 SOLs",
   "numberActiveStakeAccounts": 0,
-  "amountAtSettlements": "0 SOLs",
+  "amountAtSettlements": "0 SOL",
   "numberSettlementStakeAccounts": 0,
   "amountToWithdraw": "0 SOL",
 }

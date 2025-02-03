@@ -126,7 +126,7 @@ export async function manageFundBond({
         `with stake account ${stakeAccount.toBase58()}`,
     )
   } catch (err) {
-    await failIfUnexpectedError({
+    await failIfUnexpectedFundingError({
       err,
       logger,
       provider,
@@ -138,7 +138,7 @@ export async function manageFundBond({
   }
 }
 
-export async function failIfUnexpectedError({
+export async function failIfUnexpectedFundingError({
   err,
   logger,
   provider,

@@ -24,7 +24,7 @@ import {
 import { getBondFromAddress } from '../../utils'
 import { FUND_BOND_WITH_SOL_LIMIT_UNITS } from '../../computeUnits'
 import { BN } from 'bn.js'
-import { failIfUnexpectedError } from './fundBond'
+import { failIfUnexpectedFundingError } from './fundBond'
 
 export function configureFundBondWithSol(program: Command): Command {
   return program
@@ -167,7 +167,7 @@ export async function manageFundBondWithSol({
         `with amount ${amount} from ${from.toBase58()}`,
     )
   } catch (err) {
-    await failIfUnexpectedError({
+    await failIfUnexpectedFundingError({
       err,
       logger,
       provider,

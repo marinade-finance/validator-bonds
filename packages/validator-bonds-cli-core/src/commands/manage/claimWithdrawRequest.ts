@@ -191,7 +191,6 @@ export async function manageClaimWithdrawRequest({
 
   if (instructionsToProcess.length === 0) {
     throw new CliCommandError({
-      commandName: '--claim-withdraw-request',
       valueName: 'address',
       value: withdrawRequestAddress.toBase58(),
       msg:

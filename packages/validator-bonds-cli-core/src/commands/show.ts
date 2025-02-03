@@ -592,14 +592,14 @@ export function reformatBond(key: string, value: any): ReformatAction {
     }
   }
   if (key === 'requestedAmount') {
-    return format_sol_exclusive(key, value)
+    return formatSolExclusive(key, value)
   }
   if (
     key.startsWith('amount') ||
     key.includes('Amount') ||
     key.startsWith('max')
   ) {
-    return format_sol_exclusive(key, value)
+    return formatSolExclusive(key, value)
   }
   if (key.toLocaleLowerCase() === 'withdrawrequest' && value === undefined) {
     return {
@@ -616,7 +616,7 @@ export function reformatBond(key: string, value: any): ReformatAction {
   return { type: 'UsePassThrough' }
 }
 
-function format_sol_exclusive(key: string, value: BN): ReformatAction {
+function formatSolExclusive(key: string, value: BN): ReformatAction {
   return {
     type: 'UseExclusively',
     records: [
