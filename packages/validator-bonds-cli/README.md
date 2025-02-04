@@ -23,7 +23,7 @@ added 165 packages in 35s
 
 # to verify installed version
 validator-bonds --version
-2.0.6
+2.1.0
 ```
 
 To get info on available commands
@@ -159,31 +159,36 @@ Gathering all the details require multiple calls to RPC node and does not work
 properly with public RPC node (moniker `-um` or `--rpc-url mainnet-beta`).
 Use some other RPC node url as described at https://solana.com/rpc.
 
-```
+```sh
 RPC_URL=<url-to-solana-rpc-node>
 validator-bonds -u$RPC_URL show-bond <bond-or-vote-account-address> --with-funding --verbose
 ```
 
 Expected output on created bond is like
 
-```
+```json
 {
-  programId: 'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4',
-  publicKey: '...',
-  account: {
-    config: 'vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU',
-    voteAccount: '...',
-    authority: '...'
-    costPerMillePerEpoch: "1000 lamports",
-    maxStakeWanted: "10000 SOLs"
+  "programId": "vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4",
+  "publicKey": "...",
+  "account": {
+    "config": "vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU",
+    "voteAccount": "...",
+    "authority": "...",
+    "costPerMillePerEpoch": "1000 lamports",
+    "maxStakeWanted": "10000 SOLs"
   },
-  amountOwned: "10.024261277 SOLs",
-  amountActive: "10.024261277 SOLs,
-  numberActiveStakeAccounts: 1,
-  amountAtSettlements: "0 SOL",
-  numberSettlementStakeAccounts: 0,
-  amountToWithdraw: "0 SOL",
-  withdrawRequest: '<NOT EXISTING>'
+  "voteAccount": {
+    "nodePubkey": "...",
+    "authorizedWithdrawer": "...",
+    "commission": 0
+  },
+  "amountOwned": "10.407 SOLs",
+  "amountActive": "10.407 SOLs",
+  "numberActiveStakeAccounts": 0,
+  "amountAtSettlements": "0 SOL",
+  "numberSettlementStakeAccounts": 0,
+  "amountToWithdraw": "0 SOL",
+  "withdrawRequest": "<NOT EXISTING>"
 }
 ```
 
@@ -288,13 +293,21 @@ validator-bonds -um configure-bond <bond-or-vote-account-address> \
 
 ### Funding Bond Account
 
-**! NEVER fund a bond with a SOL transfer. Bond funding happens by assigning a stake account to the `Bond`.**
+**! NEVER fund a bond with a direct SOL transfer. The actual Bond funding always happens by assigning a stake account to the `Bond`.**
 
 **! NEVER fund a bond by manually assigning the [withdraw authority](https://solana.com/docs/economics/staking/stake-accounts#understanding-account-authorities) under the Bond PDA. Funding a `Bond` should be done using the [`fund_bond`](https://github.com/marinade-finance/validator-bonds/blob/main/programs/validator-bonds/src/instructions/bond/fund_bond.rs#L13) instruction.**
 
-The bond account exists to be funded, where the funds may be used to cover a protected event
-when a validator under-performs or experiences a serious issue.
-The funds are used when the validator bids in an auction.
+The bond account exists to be funded, where the funds may be used to cover payments for bidding in auctions
+and for a protected event (when a validator under-performs or experiences a serious issue).
+
+#### Funding with wallet
+
+```sh
+validator-bonds fund-bond-sol <vote-account-address> --from <wallet-keypair> --amount <Amount of SOL>
+```
+
+#### Funding the stake account
+
 "Funding the bond" consists of two steps:
 
 1. Charging lamports to a stake account.
@@ -345,6 +358,7 @@ returned to the bond's available resources, making them eligible for withdrawal.
 As a result, there are now two stake accounts.
 These stake accounts can later be merged if needed to create a larger,
 compound amount for future settlement funding.
+
 
 ### Withdrawing Bond Account
 
@@ -607,7 +621,7 @@ WITHDRAWER_OFFSET = 44 // 4 + 8 + staker pubkey
 VOTER_PUBKEY_OFFSET = 124 // 4 for enum + 120 for Meta
 ```
 
-```
+```sh
 RPC_URL='https://api.mainnet-beta.solana.com'
 curl $RPC_URL -X POST -H "Content-Type: application/json" -d '
   {
@@ -675,7 +689,7 @@ To check where NPM packages are and will be installed:
 # Get npm global installation folder
 npm list -g
 > /usr/lib
-> +-- @marinade.finance/validator-bonds-cli@2.0.6
+> +-- @marinade.finance/validator-bonds-cli@2.1.0
 > ...
 # In this case, the `bin` folder is located at /usr/bin
 ```
@@ -701,7 +715,7 @@ With this configuration, NPM packages will be installed under the `prefix` direc
 npm i -g @marinade.finance/validator-bonds-cli@latest
 npm list -g
 > ~/.local/share/npm/lib
-> `-- @marinade.finance/validator-bonds-cli@2.0.6
+> `-- @marinade.finance/validator-bonds-cli@2.1.0
 ```
 
 To execute the installed packages from any location,
@@ -727,11 +741,11 @@ ls node_modules
 npm exec -- validator-bonds --version
 ```
 
-## `validator-bonds CLI Reference`
+## `Validator Bonds CLI Reference`
 
-### `validator-bonds cli --help`
+### `validator-bonds --help`
 ```sh
-validator-bonds cli --help
+validator-bonds --help
 Usage: validator-bonds [options] [command]
 
 Options:
@@ -860,7 +874,7 @@ Commands:
   # Get npm global installation folder
   npm list -g
   > ~/.local/share/npm/lib
-  > `-- @marinade.finance/validator-bonds-cli@2.0.6
+  > `-- @marinade.finance/validator-bonds-cli@2.1.0
   # In this case, the 'bin' folder is located at ~/.local/share/npm/bin
 
   # Get validator-bonds binary folder

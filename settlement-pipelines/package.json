@@ -1,6 +1,6 @@
 {
     "name": "@marinade.finance/settlement-pipelines",
-    "version": "2.0.6",
+    "version": "2.1.0",
     "description": "Tests for settlement pipelines CLI",
     "repository": {
       "type": "git",
@@ -17,14 +17,14 @@
     "author": "Marinade.Finance",
     "license": "ISC",
     "devDependencies": {
-      "@marinade.finance/validator-bonds-sdk": "workspace: ^2.0.7",
+      "@marinade.finance/validator-bonds-sdk": "workspace: ^2.1.0",
       "@coral-xyz/anchor": "^0.29.0",
       "@solana/web3.js": "^1.98.0",
       "@marinade.finance/ledger-utils": "^3.0.1",
-      "@marinade.finance/cli-common": "=2.4.12",
-      "@marinade.finance/anchor-common": "=2.4.12",
-      "@marinade.finance/web3js-common": "=2.4.12",
-      "@marinade.finance/ts-common": "=2.4.12",
+      "@marinade.finance/cli-common": "=2.4.13",
+      "@marinade.finance/anchor-common": "=2.4.13",
+      "@marinade.finance/web3js-common": "=2.4.13",
+      "@marinade.finance/ts-common": "=2.4.13",
       "bn.js": "^5.2.1",
       "jsbi": "^4.3.0",
       "commander": "^13.1.0",
@@ -32,7 +32,7 @@
       "pino-pretty": "^10.3.1",
       "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
       "yaml": "^2.4.5",
-      "@marinade.finance/jest-utils": "=2.4.12"
+      "@marinade.finance/jest-utils": "=2.4.13"
     }
   }
   

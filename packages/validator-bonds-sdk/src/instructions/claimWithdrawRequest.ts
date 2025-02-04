@@ -17,6 +17,7 @@ import { getBond, getWithdrawRequest } from '../api'
 import { getVoteAccount } from '@marinade.finance/web3js-common'
 import { anchorProgramWalletPubkey, checkAndGetBondAddress } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import { LoggerPlaceholder, logWarn } from '@marinade.finance/ts-common'
 
 /**
  * Generate instruction to withdraw amount defined within the withdraw request.
@@ -37,6 +38,7 @@ export async function claimWithdrawRequestInstruction({
   authority = anchorProgramWalletPubkey(program),
   splitStakeRentPayer = anchorProgramWalletPubkey(program),
   withdrawer,
+  logger,
 }: {
   program: ValidatorBondsProgram
   withdrawRequestAccount?: PublicKey
@@ -47,6 +49,7 @@ export async function claimWithdrawRequestInstruction({
   authority?: PublicKey | Keypair | Signer | WalletInterface // signer
   splitStakeRentPayer?: PublicKey | Keypair | Signer | WalletInterface // signer
   withdrawer?: PublicKey
+  logger?: LoggerPlaceholder
 }): Promise<{
   instruction: TransactionInstruction
   splitStakeAccount: Keypair
@@ -98,6 +101,11 @@ export async function claimWithdrawRequestInstruction({
     )
   }
   if (!bondAccount && !configAccount) {
+    logWarn(
+      logger,
+      'claimWithdrawRequest SDK: config is not provided, using default config address: ' +
+        MARINADE_CONFIG_ADDRESS.toBase58(),
+    )
     configAccount = MARINADE_CONFIG_ADDRESS
   }
   bondAccount = checkAndGetBondAddress(

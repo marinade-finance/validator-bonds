@@ -23,6 +23,9 @@ import BN from 'bn.js'
 export const MARINADE_CONFIG_ADDRESS = new PublicKey(
   'vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU',
 )
+export const MARINADE_INSTITUTIONAL_CONFIG_ADDRESS = new PublicKey(
+  'VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE',
+)
 
 export const ValidatorBondsIDL = generated.IDL
 

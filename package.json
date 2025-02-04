@@ -3,7 +3,7 @@
     "scripts": {
         "anchor:build": "anchor build",
         "compile": "pnpm anchor:build && tsc --project tsconfig.build.json",
-        "_copy-readme": "cp packages/validator-bonds-sdk/README.md build/packages/validator-bonds-sdk/ && cp packages/validator-bonds-cli/README.md build/packages/validator-bonds-cli/",
+        "_copy-readme": "cp packages/validator-bonds-sdk/README.md build/packages/validator-bonds-sdk/ && cp packages/validator-bonds-cli-core/README.md build/packages/validator-bonds-cli-core/ && cp packages/validator-bonds-cli/README.md build/packages/validator-bonds-cli/ && cp packages/validator-bonds-cli-institutional/README.md build/packages/validator-bonds-cli-institutional/",
         "build": "pnpm compile && pnpm _copy-readme",
         "_test": "pnpm jest --config jest.config.test-validator.js --verbose --runInBand -- \"$FILE\"",
         "pretest:validator": "node -e \"if (process.versions.node.split('.')[0] < 20) { console.error('Node.js 20 or higher is required for running tests (crypto module is in use)'); process.exit(1); }\"",
@@ -13,6 +13,7 @@
         "test:fuzz": "trident fuzz run fuzz_0",
         "test": "pnpm test:cargo && pnpm test:bankrun && pnpm test:validator",
         "cli": "ts-node ./packages/validator-bonds-cli/src/",
+        "cli:institutional": "ts-node ./packages/validator-bonds-cli-institutional/src/",
         "lint:cargo": "cargo fmt -- --check && cargo clippy --release",
         "lint:cargo-fix": "cargo fmt --all && cargo clippy --fix --allow-staged --allow-dirty",
         "lint:ts": "gts lint",
@@ -21,12 +22,12 @@
         "lint:fix": "pnpm lint:ts-fix && pnpm lint:cargo-fix",
         "lint": "pnpm lint:cargo && pnpm lint:ts",
         "publish:sdk": "pnpm build && pnpm publish build/packages/validator-bonds-sdk",
-        "publish:cli": "pnpm build && pnpm publish build/packages/validator-bonds-cli",
+        "publish:cli": "pnpm build && pnpm publish build/packages/validator-bonds-cli-core && pnpm publish build/packages/validator-bonds-cli && pnpm publish build/packages/validator-bonds-cli-institutional",
         "publish:all": "pnpm publish:sdk && pnpm publish:cli"
     },
     "devDependencies": {
         "@jest/globals": "^29.7.0",
-        "@marinade.finance/jest-utils": "=2.4.12",
+        "@marinade.finance/jest-utils": "=2.4.13",
         "@types/bn.js": "^5.1.5",
         "@types/jest": "^29.5.12",
         "@types/node": "^22.10.7",

@@ -25,8 +25,9 @@ import {
   StakeProgram,
 } from '@solana/web3.js'
 import { Logger } from 'pino'
-import { setProgramIdByOwner } from '../context'
+import { setProgramIdByOwner } from './context'
 import BN from 'bn.js'
+import { logDebug } from '@marinade.finance/ts-common'
 
 /**
  * Expecting the provided address is a bond or vote account,
@@ -118,6 +119,11 @@ export async function getBondFromAddress({
   // If the address is a vote account, derive the bond account address from it
   if (voteAccountAddress !== null) {
     if (config === undefined) {
+      logDebug(
+        logger,
+        'getBondFromAddress SDK: config is not provided, using default config address: ' +
+          MARINADE_CONFIG_ADDRESS.toBase58(),
+      )
       config = MARINADE_CONFIG_ADDRESS
     }
     ;({ program } = await setProgramIdByOwner(config))
@@ -259,6 +265,11 @@ export async function getWithdrawRequestFromAddress({
 
   if (voteAccountAddress !== null) {
     if (config === undefined) {
+      logDebug(
+        logger,
+        'getWithdrawRequestAddress SDK: config is not provided, using default config address: ' +
+          MARINADE_CONFIG_ADDRESS.toBase58(),
+      )
       config = MARINADE_CONFIG_ADDRESS
     }
     ;[bondAccountAddress] = bondAddress(
@@ -381,4 +392,8 @@ export async function isExpectedAnchorTransactionError(
     }
   }
   return false
+}
+
+export function toBN(value: string): BN {
+  return new BN(value.replace(/_/g, ''), 10)
 }

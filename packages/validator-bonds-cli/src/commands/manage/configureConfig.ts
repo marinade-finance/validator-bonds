@@ -5,7 +5,7 @@ import {
 } from '@marinade.finance/cli-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
+import { setProgramIdByOwner } from '@marinade.finance/validator-bonds-cli-core'
 import {
   Wallet,
   executeTx,
@@ -18,9 +18,11 @@ import {
   configureConfigInstruction,
   getConfig,
 } from '@marinade.finance/validator-bonds-sdk'
-import { CONFIGURE_CONFIG_LIMIT_UNITS } from '../../computeUnits'
+import {
+  CONFIGURE_CONFIG_LIMIT_UNITS,
+  toBN,
+} from '@marinade.finance/validator-bonds-cli-core'
 import BN from 'bn.js'
-import { toBN } from '../../parsers'
 
 export function installConfigureConfig(program: Command) {
   program
@@ -103,7 +105,7 @@ export function installConfigureConfig(program: Command) {
         },
       ) => {
         await manageConfigureConfig({
-          address: await address,
+          address: (await address) ?? MARINADE_CONFIG_ADDRESS,
           adminAuthority: await adminAuthority,
           admin: await admin,
           operator: await operator,
@@ -119,7 +121,7 @@ export function installConfigureConfig(program: Command) {
 }
 
 async function manageConfigureConfig({
-  address = MARINADE_CONFIG_ADDRESS,
+  address,
   adminAuthority,
   admin,
   operator,
@@ -130,7 +132,7 @@ async function manageConfigureConfig({
   minimumStakeLamports,
   minBondMaxStakeWanted,
 }: {
-  address?: PublicKey
+  address: PublicKey
   adminAuthority?: WalletInterface | PublicKey
   admin?: PublicKey
   operator?: PublicKey
@@ -184,6 +186,7 @@ async function manageConfigureConfig({
     newWithdrawLockupEpochs: withdrawLockupEpochs,
     newMinimumStakeLamports: minimumStakeLamports,
     newMinBondMaxStakeWanted: minBondMaxStakeWanted,
+    logger,
   })
   tx.add(instruction)
 

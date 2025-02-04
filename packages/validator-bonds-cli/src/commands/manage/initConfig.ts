@@ -5,7 +5,7 @@ import {
 } from '@marinade.finance/cli-common'
 import { Keypair, PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
-import { getCliContext } from '../../context'
+import { getCliContext } from '@marinade.finance/validator-bonds-cli-core'
 import {
   Wallet,
   executeTx,
@@ -14,7 +14,7 @@ import {
 } from '@marinade.finance/web3js-common'
 import { initConfigInstruction } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
-import { INIT_CONFIG_LIMIT_UNITS } from '../../computeUnits'
+import { INIT_CONFIG_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
 
 export function installInitConfig(program: Command) {
   program

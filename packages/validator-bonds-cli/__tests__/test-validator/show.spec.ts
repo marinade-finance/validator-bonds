@@ -6,6 +6,7 @@ import {
   getWithdrawRequest,
   cancelWithdrawRequestInstruction,
   bondsWithdrawerAuthority,
+  claimWithdrawRequestInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
   U64_MAX,
@@ -33,9 +34,8 @@ import {
   createVoteAccount,
 } from '../../../validator-bonds-sdk/__tests__/utils/staking'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
-import { VoteAccountShow } from '../../src/commands/show'
+import { VoteAccountShow } from '@marinade.finance/validator-bonds-cli-core'
 import BN from 'bn.js'
-import { claimWithdrawRequestInstruction } from '@marinade.finance/validator-bonds-sdk/src/instructions/claimWithdrawRequest'
 
 beforeAll(() => {
   shellMatchers()
@@ -779,7 +779,6 @@ describe('Show command using CLI', () => {
     })
 
     // withdraw what's possible, i.e., ALL
-    const epoch2 = (await provider.connection.getEpochInfo()).epoch
     const bnLamportsPerSol = new BN(LAMPORTS_PER_SOL)
     const { div: activeDiv, mod: activeMod } = new BN(sumLamports)
       .sub(U64_MAX)
@@ -804,6 +803,7 @@ describe('Show command using CLI', () => {
         validatorIdentity,
         amount: U64_MAX,
       })
+    const epoch2 = (await provider.connection.getEpochInfo()).epoch
     await waitForNextEpoch(provider.connection, 15)
     const { instruction, splitStakeAccount } =
       await claimWithdrawRequestInstruction({
@@ -860,7 +860,7 @@ describe('Show command using CLI', () => {
   })
 })
 
-async function loadTestingVoteAccount(
+export async function loadTestingVoteAccount(
   connection: Connection,
   voteAccount: PublicKey,
 ): Promise<VoteAccountShow> {
