@@ -3,7 +3,7 @@ import {
   parsePubkeyOrPubkeyFromWallet,
   CliCommandError,
   FORMAT_TYPE_DEF,
-  print_data,
+  printData,
   FormatType,
   reformat,
   reformatReserved,
@@ -246,7 +246,7 @@ async function showConfig({
   }
 
   const reformatted = reformat(data, reformatConfig)
-  print_data(reformatted, format)
+  printData(reformatted, format)
 }
 
 export type VoteAccountShow = Partial<
@@ -419,7 +419,7 @@ export async function showBond({
   }
 
   const reformatted = reformat(data, reformatBondFunction ?? reformatBond)
-  print_data(reformatted, format)
+  printData(reformatted, format)
 }
 
 export async function showSettlement({
@@ -512,7 +512,7 @@ export async function showSettlement({
   }
 
   const reformatted = reformat(data, reformatSettlement)
-  print_data(reformatted, format)
+  printData(reformatted, format)
 }
 
 async function showEvent({
@@ -542,7 +542,7 @@ async function showEvent({
   }
 
   const reformattedData = reformat(decodedData)
-  print_data(reformattedData, format)
+  printData(reformattedData, format)
 }
 
 /**

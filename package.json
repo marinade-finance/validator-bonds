@@ -27,7 +27,7 @@
     },
     "devDependencies": {
         "@jest/globals": "^29.7.0",
-        "@marinade.finance/jest-utils": "=2.4.12",
+        "@marinade.finance/jest-utils": "=2.4.13",
         "@types/bn.js": "^5.1.5",
         "@types/jest": "^29.5.12",
         "@types/node": "^22.10.7",
