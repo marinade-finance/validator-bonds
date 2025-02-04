@@ -22,7 +22,10 @@
         "lint:fix": "pnpm lint:ts-fix && pnpm lint:cargo-fix",
         "lint": "pnpm lint:cargo && pnpm lint:ts",
         "publish:sdk": "pnpm build && pnpm publish build/packages/validator-bonds-sdk",
-        "publish:cli": "pnpm build && pnpm publish build/packages/validator-bonds-cli-core && pnpm publish build/packages/validator-bonds-cli && pnpm publish build/packages/validator-bonds-cli-institutional",
+        "publish:cli-core": "pnpm build && pnpm publish build/packages/validator-bonds-cli-core",
+        "publish:cli-bidding": "pnpm build && pnpm publish build/packages/validator-bonds-cli",
+        "publish:cli-institutional": "pnpm build && pnpm publish build/packages/validator-bonds-cli-institutional",
+        "publish:cli": "pnpm publish:cli-core && pnpm publish:cli-bidding && pnpm publish:cli-institutional",
         "publish:all": "pnpm publish:sdk && pnpm publish:cli"
     },
     "devDependencies": {
