@@ -5,9 +5,9 @@ import {
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
 } from '@marinade.finance/validator-bonds-sdk'
 import { Keypair } from '@solana/web3.js'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
-import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
+import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { executeInitBondInstruction } from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
+import { createVoteAccount } from '../../../validator-bonds-sdk/__tests__/utils/staking'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import { loadTestingVoteAccount } from '../../../validator-bonds-cli/__tests__/test-validator/show.spec'
 
