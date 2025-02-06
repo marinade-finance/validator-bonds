@@ -4,6 +4,7 @@ target
 node_modules
 dist
 build
+scripts
 test-ledger
 
 packages/**/generated/*

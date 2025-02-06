@@ -1,0 +1,33 @@
+{
+  "name": "@marinade.finance/validator-bonds-codama",
+  "version": "1.0.0-beta.0",
+  "description": "Validator Bonds client generated with Codama",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:marinade-finance/validator-bonds.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified, go to project root\" && exit 1"
+  },
+  "keywords": [
+    "solana",
+    "marinade.finance",
+    "DeFi"
+  ],
+  "author": "Marinade Finance",
+  "license": "ISC",
+  "main": "src/index",
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "@solana/web3.js": "2"
+  },
+  "devDependencies": {
+    "@solana/web3.js": "2"
+  }
+}

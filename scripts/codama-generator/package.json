@@ -1,0 +1,26 @@
+{
+  "name": "mycli",
+  "version": "1.0.0",
+  "description": "A CLI application built with TypeScript and Commander.js",
+  "main": "dist/index.js",
+  "bin": {
+    "mycli": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "generate": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "@codama/nodes-from-anchor": "^1.1.4",
+    "@codama/renderers-js": "^1.2.3",
+    "@solana/web3.js": "2",
+    "codama": "^1.2.4",
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}

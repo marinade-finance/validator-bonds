@@ -54,6 +54,7 @@
   "peerDependencies": {
     "@coral-xyz/anchor": "^0.29.0",
     "@solana/web3.js": "^1.98.0",
+    "@marinade.finance/jest-utils": "=2.4.13",
     "@marinade.finance/ts-common": "=2.4.13",
     "@marinade.finance/web3js-common": "=2.4.13",
     "@marinade.finance/marinade-ts-sdk": "^5.0.10",
