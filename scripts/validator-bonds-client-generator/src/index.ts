@@ -28,6 +28,6 @@ program
 try {
   program.parse(process.argv);
 } catch (err) {
-    console.log('Generator Error', err);
+    console.error('Generator Error', err);
     process.exit(1);
 }
