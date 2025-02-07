@@ -3,7 +3,7 @@
 Generating TypeScript client from Bonds contract IDL with
 [Codama generator library](https://github.com/codama-idl/codama).
 
-For some details check [QuickNode blogpost](https://www.quicknode.com/guides/solana-development/tooling/web3-2/program-clientshttps://www.quicknode.com/guides/solana-development/tooling/web3-2/program-clients)
+For some details check [QuickNode blogpost](https://www.quicknode.com/guides/solana-development/tooling/web3-2/program-clients)
 
 ## HOWTO
 
