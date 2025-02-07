@@ -25,18 +25,9 @@ program
     );
   });
 
-// Error handling
-program.exitOverride();
-
 try {
   program.parse(process.argv);
 } catch (err) {
-    if (err && err instanceof CommanderError && err.code === 'commander.help') {
-        process.exit(0);
-    }
-    
-    if (err && err instanceof Error) {
-        console.error('Error:', err.message);
-    }
+    console.log('Generator Error', err);
     process.exit(1);
 }

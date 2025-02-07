@@ -25,9 +25,9 @@
     "README.md"
   ],
   "peerDependencies": {
-    "@solana/web3.js": "2"
+    "@solana/web3.js": "^2.0.0"
   },
   "devDependencies": {
-    "@solana/web3.js": "2"
+    "@solana/web3.js": "^2.0.0"
   }
 }

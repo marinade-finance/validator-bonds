@@ -11,7 +11,7 @@ For some details check [QuickNode blogpost](https://www.quicknode.com/guides/sol
 2. Generate TS client with
 
 ```sh
-cd scripts/codama-generator
+cd scripts/validator-bonds-client-generator
 pnpm install
 pnpm generate
 ```

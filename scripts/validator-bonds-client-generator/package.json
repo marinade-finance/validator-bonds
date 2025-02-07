@@ -1,10 +1,10 @@
 {
-  "name": "mycli",
+  "name": "@marinade.finance/validator-bonds-client-generator",
   "version": "1.0.0",
   "description": "A CLI application built with TypeScript and Commander.js",
   "main": "dist/index.js",
   "bin": {
-    "mycli": "./dist/index.js"
+    "validator-bonds-client-generator": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",

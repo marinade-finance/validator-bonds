@@ -9,7 +9,7 @@
       "skipLibCheck": true,
       "forceConsistentCasingInFileNames": true,
       "resolveJsonModule": true,
-      "types": ["mocha", "chai", "node"],
+      "types": ["node"],
       "typeRoots": ["./node_modules/@types"],
     },
     "include": ["src/**/*"],
