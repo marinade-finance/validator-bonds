@@ -9,15 +9,13 @@ import path from 'path';
 
 const program = new Command();
 
-// Configure the CLI
 program
-  .name('kodama-generate')
-  .description('Kodama client generator')
+  .name('codama-generate')
+  .description('Codama client generator')
   .version(version);
 
-// Example command
 program
-  .description('Generate Kodama client')
+  .description('Generate Codama client')
   .option('-o, --output <directory>', 'Where client should be generated', path.join(__dirname, '..', '..', '..', 'packages', 'validator-bonds-codama', 'src'))
   .action((options: { output: string }) => {
     const codama = createFromRoot(rootNodeFromAnchor(anchorIdl as AnchorIdl));
