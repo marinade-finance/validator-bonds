@@ -1,4 +1,4 @@
-# Kodama TypeScript Client Generator
+# Codama TypeScript Client Generator
 
 Generating TypeScript client from Bonds contract IDL with
 [Codama generator library](https://github.com/codama-idl/codama).
