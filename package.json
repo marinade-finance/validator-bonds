@@ -3,7 +3,7 @@
     "scripts": {
         "anchor:build": "anchor build",
         "compile": "pnpm anchor:build && tsc --project tsconfig.build.json",
-        "_copy-readme": "cp packages/validator-bonds-sdk/README.md build/packages/validator-bonds-sdk/ && cp packages/validator-bonds-cli-core/README.md build/packages/validator-bonds-cli-core/ && cp packages/validator-bonds-cli/README.md build/packages/validator-bonds-cli/ && cp packages/validator-bonds-cli-institutional/README.md build/packages/validator-bonds-cli-institutional/",
+        "_copy-readme": "cp packages/validator-bonds-sdk/README.md build/packages/validator-bonds-sdk/ && cp packages/validator-bonds-cli-core/README.md build/packages/validator-bonds-cli-core/ && cp packages/validator-bonds-cli/README.md build/packages/validator-bonds-cli/ && cp packages/validator-bonds-cli-institutional/README.md build/packages/validator-bonds-cli-institutional/ && cp packages/validator-bonds-codama/README.md build/packages/validator-bonds-codama/",
         "build": "pnpm compile && pnpm _copy-readme",
         "_test": "pnpm jest --config jest.config.test-validator.js --verbose --runInBand -- \"$FILE\"",
         "pretest:validator": "node -e \"if (process.versions.node.split('.')[0] < 20) { console.error('Node.js 20 or higher is required for running tests (crypto module is in use)'); process.exit(1); }\"",
@@ -21,6 +21,7 @@
         "lint:ts-clean": "gts clean",
         "lint:fix": "pnpm lint:ts-fix && pnpm lint:cargo-fix",
         "lint": "pnpm lint:cargo && pnpm lint:ts",
+        "publish:codama": "pnpm build && pnpm publish build/packages/validator-bonds-codama",
         "publish:sdk": "pnpm build && pnpm publish build/packages/validator-bonds-sdk",
         "publish:cli-core": "pnpm build && pnpm publish build/packages/validator-bonds-cli-core",
         "publish:cli-bidding": "pnpm build && pnpm publish build/packages/validator-bonds-cli",
@@ -30,7 +31,6 @@
     },
     "devDependencies": {
         "@jest/globals": "^29.7.0",
-        "@marinade.finance/jest-utils": "=2.4.13",
         "@types/bn.js": "^5.1.5",
         "@types/jest": "^29.5.12",
         "@types/node": "^22.10.7",

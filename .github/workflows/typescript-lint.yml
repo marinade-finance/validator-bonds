@@ -3,8 +3,8 @@ name: Cargo lint and test
 on:
   push:
     branches: [ main ]
-  # pull_request:
-  #   branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 env:
   # Not needed in CI, should make things a bit faster
