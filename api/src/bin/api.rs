@@ -8,13 +8,17 @@ use std::convert::Infallible;
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::RwLock;
-use tokio_postgres::NoTls;
+use openssl::ssl::{SslConnector, SslMethod};
+use postgres_openssl::MakeTlsConnector;
 use warp::Filter;
 
 #[derive(Debug, StructOpt)]
 pub struct Params {
     #[structopt(long = "postgres-url")]
     pub postgres_url: String,
+
+    #[structopt(long = "postgres-ssl-root-cert", env = "PG_SSLROOTCERT")]
+    pub postgres_ssl_root_cert: String,
 
     #[structopt(long = "gcp-project-id")]
     pub gcp_project_id: Option<String>,
@@ -32,7 +36,12 @@ async fn main() -> anyhow::Result<()> {
     info!("Launching API");
 
     let params = Params::from_args();
-    let (psql_client, psql_conn) = tokio_postgres::connect(&params.postgres_url, NoTls).await?;
+
+    let mut builder = SslConnector::builder(SslMethod::tls())?;
+    builder.set_ca_file(&params.postgres_ssl_root_cert)?;
+    let connector = MakeTlsConnector::new(builder.build());
+
+    let (psql_client, psql_conn) = tokio_postgres::connect(&params.postgres_url, connector).await?;
     tokio::spawn(async move {
         if let Err(err) = psql_conn.await {
             error!("PSQL Connection error: {}", err);
@@ -48,7 +57,7 @@ async fn main() -> anyhow::Result<()> {
 
     match (params.gcp_project_id, params.gcp_sa_key) {
         (Some(gcp_project_id), Some(gcp_sa_key)) => {
-            error!("Spawning protected events cache.");
+            info!("Spawning protected events cache.");
             spawn_protected_events_cache(gcp_sa_key, gcp_project_id, protected_event_records).await;
         }
         (None, None) => {
