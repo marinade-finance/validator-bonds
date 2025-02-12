@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use rust_decimal::Decimal;
 use openssl::ssl::{SslConnector, SslMethod};
 use postgres_openssl::MakeTlsConnector;
-use tokio_postgres::{types::ToSql, Client, NoTls};
+use tokio_postgres::{types::ToSql, Client};
 
 use crate::dto::ValidatorBondRecord;
 

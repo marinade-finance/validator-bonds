@@ -401,7 +401,6 @@ dependencies = [
  "structopt",
  "tokio",
  "tokio-postgres",
- "tokio-postgres-rustls",
  "tracing",
  "tracing-log 0.1.4",
  "tracing-subscriber",
@@ -6831,20 +6830,6 @@ dependencies = [
  "tokio",
  "tokio-util 0.7.10",
  "whoami",
-]
-
-[[package]]
-name = "tokio-postgres-rustls"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd5831152cb0d3f79ef5523b357319ba154795d64c7078b2daa95a803b54057f"
-dependencies = [
- "futures",
- "ring 0.16.20",
- "rustls",
- "tokio",
- "tokio-postgres",
- "tokio-rustls",
 ]
 
 [[package]]

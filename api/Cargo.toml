@@ -31,7 +31,6 @@ solana-sdk = { workspace = true }
 structopt = { workspace = true }
 tokio = { workspace = true }
 tokio-postgres = { workspace = true }
-tokio-postgres-rustls = { workspace = true }
 tracing = { workspace = true }
 tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true }
