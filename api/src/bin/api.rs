@@ -4,12 +4,12 @@ use api::handlers::{bonds, docs, protected_events};
 use api::repositories::protected_events::spawn_protected_events_cache;
 use env_logger::Env;
 use log::{error, info};
+use openssl::ssl::{SslConnector, SslMethod};
+use postgres_openssl::MakeTlsConnector;
 use std::convert::Infallible;
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::RwLock;
-use openssl::ssl::{SslConnector, SslMethod};
-use postgres_openssl::MakeTlsConnector;
 use warp::Filter;
 
 #[derive(Debug, StructOpt)]

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use rust_decimal::Decimal;
 use openssl::ssl::{SslConnector, SslMethod};
 use postgres_openssl::MakeTlsConnector;
+use rust_decimal::Decimal;
 use tokio_postgres::{types::ToSql, Client};
 
 use crate::dto::ValidatorBondRecord;
@@ -51,7 +51,8 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
     builder.set_ca_file(&options.postgres_ssl_root_cert)?;
     let connector = MakeTlsConnector::new(builder.build());
 
-    let (psql_client, psql_conn) = tokio_postgres::connect(&options.postgres_url, connector).await?;
+    let (psql_client, psql_conn) =
+        tokio_postgres::connect(&options.postgres_url, connector).await?;
 
     tokio::spawn(async move {
         if let Err(err) = psql_conn.await {
