@@ -41,9 +41,10 @@ steps:
     - 'buildkite-agent artifact download --include-retried-jobs target/release/validator-bonds-api-cli .'
     - 'buildkite-agent artifact download --include-retried-jobs bonds.yaml .'
     - 'chmod +x target/release/validator-bonds-api-cli'
+    - 'curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem'
     - |
       ./target/release/validator-bonds-api-cli \
-        store-bonds --postgres-url "$POSTGRES_URL" --input-file bonds.yaml
+        store-bonds --postgres-url "$POSTGRES_URL" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file bonds.yaml
 
   - command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/collect-bonds'
