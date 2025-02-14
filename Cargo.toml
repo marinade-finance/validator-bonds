@@ -41,6 +41,8 @@ hex = "0.4.3"
 honggfuzz = "0.5.56"
 log = "0.4.14"
 merkle-tree = { path = "./merkle-tree" }
+openssl = "0.10.70"
+postgres-openssl = "0.5.1"
 regex = "1.10.4"
 rust_decimal = { version = "1.26", features = ["db-postgres"] }
 serde = "1.0.197"

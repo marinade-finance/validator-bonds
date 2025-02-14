@@ -25,6 +25,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 bid-psr-distribution = { workspace = true }
+openssl = { workspace = true }
+postgres-openssl = { workspace = true }
 solana-sdk = { workspace = true }
 structopt = { workspace = true }
 tokio = { workspace = true }
