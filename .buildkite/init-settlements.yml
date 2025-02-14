@@ -211,7 +211,7 @@ steps:
       $$split_command -C 2000 "./discord-public-report.txt" './discord-public-report.txt.chunk-'
       for report_chunk in './discord-public-report.txt.chunk-'*; do
         report=$(cat "$$report_chunk")
-        curl "$$DISCORD_WEBHOOK_PSR_FEED" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": null, "attachments": []}')"
+        # curl "$$DISCORD_WEBHOOK_PSR_FEED" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": null, "attachments": []}')"
       done
     depends_on: "notification-setup-init"
     allow_dependency_failure: true
