@@ -1,6 +1,6 @@
 {
   "name": "@marinade.finance/validator-bonds-cli-core",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "description": "Common CLI Core of the validator bonds contract",
   "repository": {
     "type": "git",
@@ -22,7 +22,7 @@
   "main": "src/index",
   "devDependencies": {
     "@marinade.finance/jest-utils": "^2.4.9",
-    "@marinade.finance/validator-bonds-sdk": "^2.1.2",
+    "@marinade.finance/validator-bonds-sdk": "workspace: ^2.1.3",
     "@coral-xyz/anchor": "^0.29.0",
     "@marinade.finance/anchor-common": "=2.4.13",
     "@marinade.finance/cli-common": "=2.4.13",
@@ -40,7 +40,7 @@
     "yaml": "^2.4.5"
   },
   "peerDependencies": {
-    "@marinade.finance/validator-bonds-sdk": "^2.1.2",
+    "@marinade.finance/validator-bonds-sdk": "workspace: ^2.1.3",
     "@coral-xyz/anchor": "^0.29.0",
     "@marinade.finance/anchor-common": "=2.4.13",
     "@marinade.finance/cli-common": "=2.4.13",
