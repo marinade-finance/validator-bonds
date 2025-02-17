@@ -1,6 +1,12 @@
-import { FormatType, parsePubkey } from '@marinade.finance/cli-common'
+import {
+  FormatType,
+  ReformatAction,
+  parsePubkey,
+} from '@marinade.finance/cli-common'
 import {
   configureShowBond,
+  getCliContext,
+  reformatBond,
   showBond,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { MARINADE_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
@@ -37,7 +43,25 @@ export function installShowBond(program: Command) {
           bondAuthority: await bondAuthority,
           withFunding,
           format,
+          reformatBondFunction: reformatBondBidding,
         })
       },
     )
+}
+
+export function reformatBondBidding(
+  key: string,
+  value: unknown,
+): ReformatAction {
+  if (!getCliContext().logger.isLevelEnabled('debug')) {
+    if (
+      typeof key === 'string' &&
+      // max stake wanted was removed from bidding auction (MIP.10)
+      (key as string).startsWith('maxStakeWanted')
+    ) {
+      return { type: 'Remove' }
+    }
+  }
+
+  return reformatBond(key, value)
 }

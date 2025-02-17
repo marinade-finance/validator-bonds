@@ -8,6 +8,7 @@ import { ValidatorBondsProgram, bondAddress } from '../sdk'
 import { anchorProgramWalletPubkey } from '../utils'
 import BN from 'bn.js'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import { getConfig } from '../api'
 
 /**
  * Generate instruction to initialize bond account. The bond account is coupled to a vote account.
@@ -22,7 +23,7 @@ export async function initBondInstruction({
   validatorIdentity,
   bondAuthority = anchorProgramWalletPubkey(program),
   cpmpe = 0,
-  maxStakeWanted = 0,
+  maxStakeWanted,
   rentPayer = anchorProgramWalletPubkey(program),
 }: {
   program: ValidatorBondsProgram
@@ -50,6 +51,11 @@ export async function initBondInstruction({
     voteAccount,
     program.programId,
   )
+
+  if (maxStakeWanted === undefined) {
+    const config = await getConfig(program, configAccount)
+    maxStakeWanted = config.minBondMaxStakeWanted
+  }
 
   const instruction = await program.methods
     .initBond({

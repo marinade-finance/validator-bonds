@@ -57,12 +57,13 @@ export function configureConfigureBond(program: Command): Command {
       'New value of cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch.',
       value => toBN(value),
     )
-    .option(
-      '--max-stake-wanted <number>',
-      'New value of maximum stake amount, in lamports, the validator wants to be delegated to them. ' +
-        'The actual amount delegated will depend on the auction and may be equal to or less than this value.',
-      value => toBN(value),
-    )
+  // MIP.10 removed maxStakeWanted from bidding auction, institutional staking does not support this option
+  // .option(
+  //   '--max-stake-wanted <number>',
+  //   'New value of maximum stake amount, in lamports, the validator wants to be delegated to them. ' +
+  //     'The actual amount delegated will depend on the auction and may be equal to or less than this value.',
+  //   value => toBN(value),
+  // )
 }
 
 export async function manageConfigureBond({

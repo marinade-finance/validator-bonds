@@ -28,7 +28,6 @@ export function installConfigureBond(program: Command) {
           withToken,
           bondAuthority,
           cpmpe,
-          maxStakeWanted,
         }: {
           config?: Promise<PublicKey>
           voteAccount?: Promise<PublicKey>
@@ -36,7 +35,6 @@ export function installConfigureBond(program: Command) {
           withToken: boolean
           bondAuthority?: Promise<PublicKey>
           cpmpe?: BN
-          maxStakeWanted?: BN
         },
       ) => {
         await manageConfigureBond({
@@ -47,7 +45,7 @@ export function installConfigureBond(program: Command) {
           withToken,
           newBondAuthority: await bondAuthority,
           cpmpe,
-          maxStakeWanted,
+          maxStakeWanted: undefined,
         })
       },
     )

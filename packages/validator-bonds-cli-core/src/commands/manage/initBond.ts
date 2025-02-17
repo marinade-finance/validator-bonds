@@ -56,11 +56,12 @@ export function configureInitBond(program: Command): Command {
       'Cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch. (default: 0)',
       value => toBN(value),
     )
-    .option(
-      '--max-stake-wanted <number>',
-      'The maximum stake amount, in lamports, that the validator wants to be delegated to them (default: 0).',
-      value => toBN(value),
-    )
+  // MIP.10 removed maxStakeWanted from bidding auction, institutional staking does not support this option
+  // .option(
+  //   '--max-stake-wanted <number>',
+  //   'The maximum stake amount, in lamports, that the validator wants to be delegated to them (default: 0).',
+  //   value => toBN(value),
+  // )
 }
 
 export async function manageInitBond({
@@ -78,7 +79,7 @@ export async function manageInitBond({
   bondAuthority: PublicKey
   rentPayer?: WalletInterface | PublicKey
   cpmpe: BN
-  maxStakeWanted: BN
+  maxStakeWanted?: BN
 }) {
   const {
     program,

@@ -198,8 +198,6 @@ describe('Configure bond account using CLI (institutional)', () => {
           newBondAuthority.toBase58(),
           '--cpmpe',
           2,
-          '--max-stake-wanted',
-          999000000000,
           '--with-token',
           '--confirmation-finality',
           'confirmed',
@@ -215,6 +213,5 @@ describe('Configure bond account using CLI (institutional)', () => {
     const bondsData = await getBond(program, bondAccount)
     expect(bondsData.authority).toEqual(newBondAuthority)
     expect(bondsData.cpmpe).toEqual(2)
-    expect(bondsData.maxStakeWanted).toEqual(999 * LAMPORTS_PER_SOL)
   })
 })
