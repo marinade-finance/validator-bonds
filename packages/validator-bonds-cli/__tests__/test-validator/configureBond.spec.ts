@@ -4,7 +4,7 @@ import {
   pubkey,
 } from '@marinade.finance/web3js-common'
 import { shellMatchers } from '@marinade.finance/jest-utils'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import { Keypair, PublicKey } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
   bondAddress,
