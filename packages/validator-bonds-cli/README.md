@@ -370,7 +370,8 @@ the original owner (i.e., stake account authorities are transferred to `--withdr
 This process involves two steps:
 
 1. Initialize a withdrawal request, which means creating an on-chain account (a ticket) informing the protected event system about the intention to withdraw funds.
-2. Only after the lockup period elapses — currently after 3 epochs — can one claim the withdrawal request and regain ownership of the funds held in the stake account.
+2. Only after the lockup period elapses — currently after 3 epochs — can one claim the withdrawal request and regain ownership of the funds.
+   Claiming withdrawal request is assigning ownership of stake account(s) to `--withdrawer`.
 
 <a id='withdraw-all'></a>
 
@@ -405,6 +406,17 @@ validator-bonds -um init-withdraw-request <bond-or-vote-account-address> \
 validator-bonds -um claim-withdraw-request <withdraw-request-or-bond-or-vote-account-address> \
   --authority <bond-authority-keypair> \
   --withdrawer <user-pubkey>
+
+
+# 3) OPTIONAL: Transfer funds from the claimed stake account to a wallet
+#   - `STAKE_ACCOUNT_ADDRESS` is provided in the output of the `claim-withdraw-request` command
+#   - `USER_KEYPAIR` is the keypair of the `--withdrawer <user-pubkey>`
+# 3.a) Deactivate the stake transferred out of the Bonds Program
+solana deactivate-stake --stake-authority <USER_KEYPAIR> <STAKE_ACCOUNT_ADDRESS> \
+    --fee-payer <KEYPAIR>
+# 3.b) Withdraw the stake to the user’s wallet
+solana withdraw-stake --withdraw-authority <USER_KEYPAIR> <STAKE_ACCOUNT_ADDRESS> \
+    <user-pubkey> <AMOUNT> --fee-payer <KEYPAIR>
 ```
 
 The meanings of parameters are as follows:
