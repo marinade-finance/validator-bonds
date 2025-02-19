@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-## TS CLI&SDK [2.1.3](https://github.com/marinade-finance/validator-bonds/compare/v2.1.2...v2.1.3) (2025-02-20)
+## TS CLI&SDK [2.1.3](https://github.com/marinade-finance/validator-bonds/compare/v2.1.2...v2.1.3) (2025-02-19)
 
 ### Updates
 
