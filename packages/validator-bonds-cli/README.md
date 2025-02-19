@@ -23,7 +23,7 @@ added 165 packages in 35s
 
 # to verify installed version
 validator-bonds --version
-2.1.2
+2.1.3
 ```
 
 To get info on available commands
@@ -71,10 +71,8 @@ validator-bonds fund-bond <vote-account-address> --stake-account <stake-account-
 
 # STEP 3: PARTICIPATE IN AUCTION
 # validator needs to participate in bidding to get the stake
-# --max-stake-wanted specifies the maximum amount of stake the validator aims to receive. The actual amount delegated will depend on the auction and may be equal to or less than this value.
 # --cpmpe defines how many lamports the validator is willing to pay for every 1000 SOLs delegated
-validator-bonds configure-bond <vote-account-address> --authority ./validator-identity.json \
-  --cpmpe <lamports> --max-stake-wanted <lamports>
+validator-bonds configure-bond <vote-account-address> --authority ./validator-identity.json --cpmpe <lamports>
 > Bond account BondAddress9iRYo3ZEK6dpmm9jYWX3Kb63Ed7RAFfUc successfully configured
 
 # VERIFICATION
@@ -139,13 +137,13 @@ The parameters and their meanings are explained in detail below:
    The bond's security is established by providing a stake account. The lamports in the stake account then corresponds to the SOL amount added to the security of the bond account.
    There is no direct payment of SOLs to the bond; it is accomplished solely by allocating stake accounts.
 * `--cpmpe`: Cost per mille per epoch, in lamports. How many lamports the validator is willing to pay for every 1000 SOLs delegated.
-  The property configures the bid the `Bond` owner wishes to pay for receiving delegated stake. The maximum delegated stake is defined by `max-stake-wanted`.
-  The actual amount of delegated stake is influenced by constraints defined by the [delegation strategy](https://docs.marinade.finance/marinade-protocol/validators).
+  The property configures the bid the `Bond` owner wishes to pay for receiving delegated stake. The maximum delegated stake is defined as a percent of full Marinade TVL.
+  The percentage is configured within project [ds-sam-pipeline](https://github.com/marinade-finance/ds-sam-pipeline/)
+  in [the config as `maxMarinadeTvlSharePerValidatorDec`](https://github.com/marinade-finance/ds-sam-pipeline/blob/main/auction-config.json).
+  The actual amount of delegated stake is defined by the [delegation strategy](https://docs.marinade.finance/marinade-protocol/validators).
   The `cpmpe` value goes into the auction where compared with other bids the delegation strategy determines
   the actual amount of stake delegated to the vote account linked to the `Bond` account.
-* `--max-stake-wanted`: The maximum stake, in lamports(!), that the `Bond` owner desires to get delegated
-  from the [delegation strategy](https://docs.marinade.finance/marinade-protocol/validators).
-  The funded bond is charged only for the amount of stake that was actually delegated
+* The funded bond is charged only for the amount of stake that was actually delegated
   (if nothing is delegated, nothing is charged).
 
 ### Show the bond account
@@ -174,8 +172,7 @@ Expected output on created bond is like
     "config": "vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU",
     "voteAccount": "...",
     "authority": "...",
-    "costPerMillePerEpoch": "1000 lamports",
-    "maxStakeWanted": "10000 SOLs"
+    "costPerMillePerEpoch": "1000 lamports"
   },
   "voteAccount": {
     "nodePubkey": "...",
@@ -233,7 +230,6 @@ Subtracting this from the available amount results in a negative `amountActive`,
 signifying that no funds are available for Settlement funding.
 
 
-
 ### Bond account configuration
 
 The `Bond` owner may configure following properties of the account:
@@ -245,8 +241,7 @@ The `Bond` owner may configure following properties of the account:
 * `--cpmpe`: Cost per mille per epoch (in lamports). It's a bid used in the delegation strategy
   auction. The Bond owner agrees to pay this amount in lamports to get stake delegated to the vote
   account for one epoch.
-* `--max-stake-wanted` In lamports, the maximum amount of stake that the Bond owner desires to get delegated
-  to their vote account.
+
 
 #### Permission-ed Configure workflow
 
@@ -507,7 +502,7 @@ Configuration parameters:
 * `slotsToStartSettlementClaiming`: Number of slots that must elapse after a `Settlement` is created before claiming is permitted.
 * `withdrawLockupEpochs`: Number of epochs that must elapse before a Bonds withdrawal request can be claimed.
 * `minimumStakeLamports`: Minimum size of a stake account when working with split stakes.
-* `minBondMaxStakeWanted`: Minimal value in lamports to be permitted being defined for bond `--max-stake-wanted` parameter.
+* `minBondMaxStakeWanted`: Minimal value in lamports to be permitted being defined for bond.
 
 ```sh
 # Global configuration of Marinade Validator Bonds Program
@@ -701,7 +696,7 @@ To check where NPM packages are and will be installed:
 # Get npm global installation folder
 npm list -g
 > /usr/lib
-> +-- @marinade.finance/validator-bonds-cli@2.1.2
+> +-- @marinade.finance/validator-bonds-cli@2.1.3
 > ...
 # In this case, the `bin` folder is located at /usr/bin
 ```
@@ -727,7 +722,7 @@ With this configuration, NPM packages will be installed under the `prefix` direc
 npm i -g @marinade.finance/validator-bonds-cli@latest
 npm list -g
 > ~/.local/share/npm/lib
-> `-- @marinade.finance/validator-bonds-cli@2.1.2
+> `-- @marinade.finance/validator-bonds-cli@2.1.3
 ```
 
 To execute the installed packages from any location,
@@ -886,7 +881,7 @@ Commands:
   # Get npm global installation folder
   npm list -g
   > ~/.local/share/npm/lib
-  > `-- @marinade.finance/validator-bonds-cli@2.1.2
+  > `-- @marinade.finance/validator-bonds-cli@2.1.3
   # In this case, the 'bin' folder is located at ~/.local/share/npm/bin
 
   # Get validator-bonds binary folder

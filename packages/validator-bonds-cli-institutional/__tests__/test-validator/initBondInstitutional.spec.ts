@@ -91,8 +91,6 @@ describe('CLI init bond account (institutional)', () => {
           rentPayerPath,
           '--cpmpe',
           33,
-          '--max-stake-wanted',
-          1000_000_000_000,
           '--confirmation-finality',
           'confirmed',
         ],
@@ -114,7 +112,6 @@ describe('CLI init bond account (institutional)', () => {
     expect(bondsData.voteAccount).toEqual(voteAccount)
     expect(bondsData.authority).toEqual(bondAuthority.publicKey)
     expect(bondsData.cpmpe).toEqual(33)
-    expect(bondsData.maxStakeWanted).toEqual(1000 * LAMPORTS_PER_SOL)
     expect(bondsData.bump).toEqual(bump)
     await expect(
       await provider.connection.getBalance(rentPayerKeypair.publicKey),

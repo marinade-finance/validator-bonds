@@ -14,14 +14,12 @@ export function installInitBond(program: Command) {
       bondAuthority,
       rentPayer,
       cpmpe = new BN(0),
-      maxStakeWanted = new BN(0),
     }: {
       voteAccount: Promise<PublicKey>
       validatorIdentity?: Promise<WalletInterface | PublicKey>
       bondAuthority: Promise<PublicKey>
       rentPayer?: Promise<WalletInterface | PublicKey>
       cpmpe: BN
-      maxStakeWanted: BN
     }) => {
       await manageInitBond({
         config: MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
@@ -30,7 +28,7 @@ export function installInitBond(program: Command) {
         bondAuthority: await bondAuthority,
         rentPayer: await rentPayer,
         cpmpe,
-        maxStakeWanted,
+        maxStakeWanted: undefined,
       })
     },
   )
