@@ -8,7 +8,6 @@ use log::info;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 use solana_sdk::pubkey::Pubkey;
-use std::cmp::min;
 use std::collections::HashMap;
 
 pub fn generate_bid_settlement_collection(
@@ -59,7 +58,6 @@ pub fn generate_bid_settlements(
                 validator.marinade_sam_target_sol * Decimal::from_f64(1e9).unwrap();
             let mnde_target_stake =
                 validator.marinade_mnde_target_sol * Decimal::from_f64(1e9).unwrap();
-            let max_wanted_stake = validator.max_stake_wanted * Decimal::from_f64(1e9).unwrap();
             let marinade_payment_percentage =
                 Decimal::from(*settlement_config.marinade_fee_bps()) / Decimal::from(10000);
             let effective_bid = validator.effective_bid / Decimal::from(1000);
@@ -81,8 +79,7 @@ pub fn generate_bid_settlements(
             let initial_sam_stake = (Decimal::from(total_active_stake) * stake_sam_percentage)
                 .to_u64()
                 .unwrap();
-            let effective_sam_stake: u64 =
-                min(initial_sam_stake, max_wanted_stake.to_u64().unwrap());
+            let effective_sam_stake: u64 = initial_sam_stake;
             let effective_total_claim = Decimal::from(effective_sam_stake) * effective_bid;
             let marinade_fee_claim = (effective_total_claim * marinade_payment_percentage)
                 .to_u64()
