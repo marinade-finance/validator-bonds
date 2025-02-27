@@ -1,4 +1,9 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["packages/**/__tests__", "settlement-pipelines/**"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "packages/**/__tests__",
+    "settlement-pipelines/**"
+  ]
 }

@@ -3,37 +3,39 @@
 SCRIPT_PATH=`readlink -f "$0"`
 SCRIPT_DIR=`dirname "$SCRIPT_PATH"`
 
-SDK_PACKAGE_JSON="$SCRIPT_DIR/../packages/validator-bonds-sdk/package.json"
-CLI_PACKAGE_JSON="$SCRIPT_DIR/../packages/validator-bonds-cli/package.json"
-CLI_CORE_PACKAGE_JSON="$SCRIPT_DIR/../packages/validator-bonds-cli-core/package.json"
-CLI_INSTITUTIONAL_PACKAGE_JSON="$SCRIPT_DIR/../packages/validator-bonds-cli-institutional/package.json"
-PIPELINES_PACKAGE_JSON="$SCRIPT_DIR/../settlement-pipelines/package.json"
 CLI_INDEX="$SCRIPT_DIR/../packages/validator-bonds-cli/src/index.ts"
+CLI_INSTITUTIONAL_INDEX="$SCRIPT_DIR/../packages/validator-bonds-cli-institutional/src/index.ts"
 README="$SCRIPT_DIR/../README.md"
 README_CLI="$SCRIPT_DIR/../packages/validator-bonds-cli/README.md"
 README_INSTITUTIONAL_CLI="$SCRIPT_DIR/../packages/validator-bonds-cli-institutional/README.md"
 
-VERSION=`cat $SDK_PACKAGE_JSON | grep version | cut -d '"' -f 4`
-ESCAPED_VERSION=$(echo $VERSION | sed 's/\./\\./g')
-NEW_VERSION=`echo $VERSION | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g'`
-NEW_VERSION=${1:-$NEW_VERSION}
+SDK_PACKAGE_JSON="$SCRIPT_DIR/../packages/validator-bonds-sdk/package.json"
+[ ! -f "$SDK_PACKAGE_JSON" ] && echo "$SDK_PACKAGE_JSON not found" && exit 1
+PREVIOUS_VERSION=`cat $SDK_PACKAGE_JSON | grep version | cut -d '"' -f 4`
+PREVIOUS_ESCAPED_VERSION=$(echo $PREVIOUS_VERSION | sed 's/\./\\./g')
 
-echo "Updating CLI version $VERSION to $NEW_VERSION"
-read -p "Press enter to continue"
+# update package.json minor version
+for I in "$SCRIPT_DIR/../packages/"*sdk* "$SCRIPT_DIR/../packages/"*cli*; do
+  echo "Package: $I"
+  cd "$I"
+  pnpm version patch
+  cd -
+done
 
-# A fix/hack of issue on pnpm publish that does not comply with npm publishing and usage
-# https://github.com/pnpm/pnpm/issues/4348
-sed -i 's/workspace://' "$CLI_PACKAGE_JSON"
+NEW_VERSION=`cat $SDK_PACKAGE_JSON | grep version | cut -d '"' -f 4`
 
-for I in "$SDK_PACKAGE_JSON" "$CLI_CORE_PACKAGE_JSON" "$CLI_PACKAGE_JSON" "$CLI_INSTITUTIONAL_PACKAGE_JSON" "$PIPELINES_PACKAGE_JSON" "$CLI_INDEX" "$README" "$README_CLI" "$README_INSTITUTIONAL_CLI"; do
+echo "$PREVIOUS_VERSION -> $NEW_VERSION"
+for I in "$CLI_INDEX" "$CLI_INSTITUTIONAL_INDEX" "$README" "$README_CLI" "$README_INSTITUTIONAL_CLI"; do
     UPDATE_FILE=`readlink -f "$I"`
     echo "Updating ${UPDATE_FILE}"
-    sed -i "s/$ESCAPED_VERSION/$NEW_VERSION/" "$UPDATE_FILE"
+    sed -i "s/$PREVIOUS_ESCAPED_VERSION/$NEW_VERSION/" "$UPDATE_FILE"
 done
 
 if [ -e "./package.json" ]; then
     pnpm install
+    echo -n "pnpm cli version: "
     pnpm cli --version
 fi
 
 echo "Done"
+echo "Consider updating CHANGELOG.md"

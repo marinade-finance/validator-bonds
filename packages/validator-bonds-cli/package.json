@@ -9,23 +9,27 @@
   "publishConfig": {
     "access": "public"
   },
-  "bin": {
-    "validator-bonds": "./src/index.js"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "bin": {
+    "validator-bonds": "./dist/src/index.js"
+  },
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "test": "echo \"Error: run tests from root directory\" && exit 1",
+    "cli": "pnpm ts-node ./src/",
+    "postbuild": "cp README.md dist/"
+  },
   "files": [
-    "src",
-    "README.md"
+    "dist/",
+    "!dist/src/__tests__"
   ],
-  "main": "src/index",
   "dependencies": {
-    "@marinade.finance/validator-bonds-sdk": "^2.1.3",
-    "@marinade.finance/validator-bonds-cli-core": "^2.1.3",
+    "@marinade.finance/validator-bonds-sdk": "workspace: *",
+    "@marinade.finance/validator-bonds-cli-core": "workspace: *",
     "@coral-xyz/anchor": "^0.29.0",
     "@marinade.finance/anchor-common": "=2.4.13",
     "@marinade.finance/cli-common": "=2.4.13",

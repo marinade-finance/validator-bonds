@@ -3,7 +3,7 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  modulePathIgnorePatterns: ['<rootDir>/build/'],
+  modulePathIgnorePatterns: ['dist/'],
   testRegex: ['__tests__/test-validator/.*.spec.ts'],
   testPathIgnorePatterns: ['.*utils.*'],
   testTimeout: 1200000,
