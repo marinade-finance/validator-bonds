@@ -6,23 +6,26 @@
     "type": "git",
     "url": "git@github.com:marinade-finance/validator-bonds.git"
   },
-  "publishConfig": {
-    "access": "public"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "files": [
-    "src",
-    "README.md"
+    "dist/",
+    "!dist/src/__tests__"
   ],
-  "main": "src/index",
+  "scripts": {
+    "build": "tsc --build",
+    "test": "echo \"Error: run tests from root directory\" && exit 1",
+    "postbuild": "cp README.md dist/"
+  },
   "devDependencies": {
     "@marinade.finance/jest-utils": "^2.4.9",
-    "@marinade.finance/validator-bonds-sdk": "workspace: 2.1.4",
+    "@marinade.finance/validator-bonds-sdk": "workspace: *",
     "@coral-xyz/anchor": "^0.29.0",
     "@marinade.finance/anchor-common": "=2.4.13",
     "@marinade.finance/cli-common": "=2.4.13",
@@ -40,7 +43,7 @@
     "yaml": "^2.4.5"
   },
   "peerDependencies": {
-    "@marinade.finance/validator-bonds-sdk": "workspace: 2.1.4",
+    "@marinade.finance/validator-bonds-sdk": "workspace: *",
     "@coral-xyz/anchor": "^0.29.0",
     "@marinade.finance/anchor-common": "=2.4.13",
     "@marinade.finance/cli-common": "=2.4.13",

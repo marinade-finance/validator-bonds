@@ -106,10 +106,14 @@ pnpm build
 pnpm test
 # running single cargo test
 cargo test --package bid-psr-distribution ts_cross_check_hash_generate
+
 # bankrun part of the tests
 pnpm test:bankrun
+
 # local validator part of the tests
+# NOTE: for testing is needed nodejs20 because of support of `crypto` package used for generating test data
 pnpm test:validator
+
 # cargo tests in rust code
 pnpm test:cargo
 ```

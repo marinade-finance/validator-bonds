@@ -65,10 +65,10 @@ importers:
         specifier: '=2.4.13'
         version: 2.4.13
       '@marinade.finance/validator-bonds-cli-core':
-        specifier: 'workspace: 2.1.4'
+        specifier: 'workspace: *'
         version: link:../validator-bonds-cli-core
       '@marinade.finance/validator-bonds-sdk':
-        specifier: 'workspace: 2.1.4'
+        specifier: 'workspace: *'
         version: link:../validator-bonds-sdk
       '@marinade.finance/web3js-common':
         specifier: '=2.4.13'
@@ -129,7 +129,7 @@ importers:
         specifier: '=2.4.13'
         version: 2.4.13
       '@marinade.finance/validator-bonds-sdk':
-        specifier: 'workspace: 2.1.4'
+        specifier: 'workspace: *'
         version: link:../validator-bonds-sdk
       '@marinade.finance/web3js-common':
         specifier: '=2.4.13'
@@ -180,10 +180,10 @@ importers:
         specifier: '=2.4.13'
         version: 2.4.13
       '@marinade.finance/validator-bonds-cli-core':
-        specifier: 'workspace: 2.1.4'
+        specifier: 'workspace: *'
         version: link:../validator-bonds-cli-core
       '@marinade.finance/validator-bonds-sdk':
-        specifier: 'workspace: 2.1.4'
+        specifier: 'workspace: *'
         version: link:../validator-bonds-sdk
       '@marinade.finance/web3js-common':
         specifier: '=2.4.13'
@@ -323,7 +323,7 @@ importers:
         specifier: '=2.4.13'
         version: 2.4.13
       '@marinade.finance/validator-bonds-sdk':
-        specifier: 'workspace: 2.1.4'
+        specifier: 'workspace: *'
         version: link:../packages/validator-bonds-sdk
       '@marinade.finance/web3js-common':
         specifier: '=2.4.13'
