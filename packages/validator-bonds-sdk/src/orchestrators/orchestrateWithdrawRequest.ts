@@ -20,7 +20,11 @@ import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRe
 import { anchorProgramWalletPubkey } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import { ProgramAccountInfo } from '@marinade.finance/web3js-common'
-import { LoggerPlaceholder, logDebug } from '@marinade.finance/ts-common'
+import {
+  LoggerPlaceholder,
+  logDebug,
+  logInfo,
+} from '@marinade.finance/ts-common'
 
 /**
  * Returning the instructions for withdrawing the deposit (on top of the withdraw request)
@@ -113,6 +117,10 @@ export async function orchestrateWithdrawDeposit({
     configAccount,
     program.programId,
   )
+  logInfo(
+    logger,
+    'Getting vote account: ' + withdrawRequestData.voteAccount.toBase58(),
+  )
   const currentEpoch = (await program.provider.connection.getEpochInfo()).epoch
   const stakeAccountsFunded = (
     await findStakeAccounts({
@@ -128,6 +136,11 @@ export async function orchestrateWithdrawDeposit({
       : x.account.lamports < y.account.lamports
         ? -1
         : 0,
+  )
+  logInfo(
+    logger,
+    'Found stake accounts: ' +
+      JSON.stringify(stakeAccountsFunded.map(s => s.publicKey.toBase58())),
   )
   const stakeAccountsToWithdraw = stakeAccountsFunded.reduce<{
     stakesAmount: BN
@@ -164,9 +177,7 @@ export async function orchestrateWithdrawDeposit({
 
       if (
         isFullyActive(sourceStakeAccount, currentEpoch) ===
-          isFullyActive(destinationStakeAccount, currentEpoch) &&
-        sourceStakeAccount.account.data.isCoolingDown ===
-          destinationStakeAccount.account.data.isCoolingDown
+        isFullyActive(destinationStakeAccount, currentEpoch)
       ) {
         const mergeIx = await mergeStakeInstruction({
           program,
