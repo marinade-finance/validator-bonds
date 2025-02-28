@@ -6,23 +6,26 @@
     "type": "git",
     "url": "git@github.com:marinade-finance/validator-bonds.git"
   },
+  "author": "Marinade Finance",
+  "license": "ISC",
   "publishConfig": {
     "access": "public"
   },
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "files": [
+    "src",
+    "README.md"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified, go to project root\" && exit 1"
+    "build": "tsc --build",
+    "test": "echo \"Error: run tests from root directory\" && exit 1",
+    "postbuild": "cp README.md dist/"
   },
   "keywords": [
     "solana",
     "marinade.finance",
     "DeFi"
-  ],
-  "author": "Marinade Finance",
-  "license": "ISC",
-  "main": "src/index",
-  "files": [
-    "src",
-    "README.md"
   ],
   "peerDependencies": {
     "@solana/web3.js": "^2.0.0"
