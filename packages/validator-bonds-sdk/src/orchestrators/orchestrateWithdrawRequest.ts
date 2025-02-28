@@ -129,6 +129,11 @@ export async function orchestrateWithdrawDeposit({
         ? -1
         : 0,
   )
+  logDebug(
+    logger,
+    'Found stake accounts: ' +
+      JSON.stringify(stakeAccountsFunded.map(s => s.publicKey.toBase58())),
+  )
   const stakeAccountsToWithdraw = stakeAccountsFunded.reduce<{
     stakesAmount: BN
     accounts: ProgramAccountInfo<StakeAccountParsed>[]
@@ -164,9 +169,7 @@ export async function orchestrateWithdrawDeposit({
 
       if (
         isFullyActive(sourceStakeAccount, currentEpoch) ===
-          isFullyActive(destinationStakeAccount, currentEpoch) &&
-        sourceStakeAccount.account.data.isCoolingDown ===
-          destinationStakeAccount.account.data.isCoolingDown
+        isFullyActive(destinationStakeAccount, currentEpoch)
       ) {
         const mergeIx = await mergeStakeInstruction({
           program,
@@ -236,7 +239,9 @@ function isFullyActive(
   stakeAccount: ProgramAccountInfo<StakeAccountParsed>,
   epoch: BN | number,
 ): boolean {
-  return new BN(
-    stakeAccount.account.data.activationEpoch || Number.MAX_SAFE_INTEGER,
-  ).lt(new BN(epoch))
+  return (
+    new BN(
+      stakeAccount.account.data.activationEpoch || Number.MAX_SAFE_INTEGER,
+    ).lt(new BN(epoch)) && !stakeAccount.account.data.isCoolingDown
+  )
 }
