@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## TS CLI&SDK [2.1.4](https://github.com/marinade-finance/validator-bonds/compare/v2.1.3...v2.1.4) (2025-02-28)
+
+### Fixes
+
+* cli: `claim-withdraw-request` fixing stake account merge issue
+  `Transaction simulation failed: Error processing Instruction 2: custom program error: 0x5.`
+
 ## TS CLI&SDK [2.1.3](https://github.com/marinade-finance/validator-bonds/compare/v2.1.2...v2.1.3) (2025-02-19)
 
 ### Updates
