@@ -225,8 +225,9 @@ pub async fn obtain_settlement_closing_refunds(
             } else {
                 split_rent_refund_accounts?
             };
-            let split_rent_refund_account = if let Some(first_account) =
-                split_rent_refund_accounts.first()
+            let split_rent_refund_account = if let Some(first_account) = split_rent_refund_accounts
+                .iter()
+                .find(|collected_stake| collected_stake.2.delegation().is_some())
             {
                 first_account.0
             } else {
