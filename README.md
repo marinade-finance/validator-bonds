@@ -89,7 +89,8 @@ For details for on-chain part see
 
 Contract audits:
 
-* [Neodyme](https://neodyme.io), tag [`contract-v1.4.0`](https://github.com/marinade-finance/validator-bonds/tree/contract-v1.4.0), commit `7e6d35e`, see [audit document](./resources/audit/neodytme-audit-validator-bonds.pdf)
+* [Neodyme](https://neodyme.io), tag [`contract-v1.4.0`](https://github.com/marinade-finance/validator-bonds/tree/contract-v1.4.0), commit `7e6d35e`, see [audit document](./resources/audit/v1.4.0-neodyme-audit-validator-bonds.pdf)
+* [Neodyme](https://neodyme.io), tag [`contract-v2.1.0`](https://github.com/marinade-finance/validator-bonds/tree/contract-v2.1.0), commit `4a5b009`, see [audit document](./resources/audit/v2.1.0-neodyme-audit-validator-bonds.pdf)
 
 For information on tracking on-chain transactions, refer to the [On-Chain Analysis](./programs/validator-bonds/ON_CHAIN_ANALYSIS.md) document.
 
