@@ -132,7 +132,7 @@ describe('Fund bond account with SOL using CLI', () => {
       (await provider.connection.getEpochInfo()).epoch,
     )
 
-    const fundBondSolsSecond = 2
+    const fundBondSolsSecond = 2.22
     await (
       expect([
         'pnpm',
