@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## TS CLI&SDK [2.1.5](https://github.com/marinade-finance/validator-bonds/compare/v2.1.4...v2.1.5) (2025-03-11)
+
+### Fixes
+
+* cli: `fund-bond-sol` fixing wrong rounding of input SOL parameter
+
 ## TS CLI&SDK [2.1.4](https://github.com/marinade-finance/validator-bonds/compare/v2.1.3...v2.1.4) (2025-02-28)
 
 ### Fixes
