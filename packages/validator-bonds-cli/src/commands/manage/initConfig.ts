@@ -43,19 +43,19 @@ export function installInitConfig(program: Command) {
     .option(
       '--epochs-to-claim-settlement <number>',
       'number of epochs after which claim can be settled',
-      parseFloat,
+      v => parseInt(v, 10),
       3,
     )
     .option(
       '--withdraw-lockup-epochs <number>',
       'number of epochs after which withdraw can be executed',
-      parseFloat,
+      v => parseInt(v, 10),
       3,
     )
     .option(
       '--slots-to-start-settlement-claiming <number>',
       'number of slots after which settlement claim can be settled',
-      parseFloat,
+      v => parseInt(v, 10),
       0,
     )
     .action(

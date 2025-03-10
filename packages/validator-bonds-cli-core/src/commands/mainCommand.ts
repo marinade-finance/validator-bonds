@@ -68,7 +68,7 @@ export function launchCliProgram({
     .option(
       '--with-compute-unit-price <compute-unit-price>',
       'Set compute unit price for transaction, in increments of 0.000001 lamports per compute unit.',
-      parseFloat,
+      v => parseInt(v, 10),
       10,
     )
     .option(

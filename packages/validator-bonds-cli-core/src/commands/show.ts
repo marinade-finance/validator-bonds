@@ -131,7 +131,7 @@ export function installShowSettlement(program: Command) {
     .option(
       '--epoch <number>',
       'Epoch number to filter the settlements for.',
-      parseFloat,
+      v => parseInt(v, 10),
     )
     .option(
       `-f, --format <${FORMAT_TYPE_DEF.join('|')}>`,
