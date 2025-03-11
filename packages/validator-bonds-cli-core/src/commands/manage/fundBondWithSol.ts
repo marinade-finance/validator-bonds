@@ -21,9 +21,9 @@ import {
   Signer,
   StakeProgram,
 } from '@solana/web3.js'
-import { getBondFromAddress } from '../../utils'
+import { formatToSol, getBondFromAddress } from '../../utils'
 import { FUND_BOND_WITH_SOL_LIMIT_UNITS } from '../../computeUnits'
-import { BN } from 'bn.js'
+import BN from 'bn.js'
 import { failIfUnexpectedFundingError } from './fundBond'
 
 export function configureFundBondWithSol(program: Command): Command {
@@ -100,12 +100,17 @@ export async function manageFundBondWithSol({
   const minimalAmountToFund = configData.minimumStakeLamports.add(
     new BN(rentExemptStake),
   )
-  const amountLamports = new BN(amount).mul(new BN(LAMPORTS_PER_SOL))
+  let amountLamports: BN
+  if (Number.isFinite(amount * LAMPORTS_PER_SOL)) {
+    amountLamports = new BN(amount * LAMPORTS_PER_SOL)
+  } else {
+    amountLamports = new BN(amount).mul(new BN(LAMPORTS_PER_SOL))
+  }
   if (amountLamports.lt(minimalAmountToFund)) {
     throw new Error(
       `Provided amount ${amount} SOL is lower than minimal amount ` +
         'that is permitted to be funded. Minimal is ' +
-        `${minimalAmountToFund.div(new BN(LAMPORTS_PER_SOL)).toString()} SOL. ` +
+        `${formatToSol(minimalAmountToFund)} SOL. ` +
         'Please, use a bigger number of SOLs for funding.',
     )
   }
