@@ -3,12 +3,13 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
+  slack_feed: "feed-pipeline-sam-psr"
 
 # This pipeline is responsible for verifying the settlements of the past epochs
 # It will download the past settlements from gcloud and checks their existence on-chain
 # If unknown Settlement is found it may mean a mallicious actor stolen operator keypair and tries to withdraw funds.
 # If that happens we need to act fast as the Validator Bonds emergency or operator authority may cancel any Settlement at any time.
-# The Settlement cannot be claimed immediately but it takes several slots (~ 1/2 of epoch) to get it permitted for claiming.
+# The Settlement cannot be claimed immediately, but it takes several slots (~ 1/2 of epoch) to get it permitted for claiming.
 # See
 #  * Config.slots_to_start_settlement_claiming
 #  * programs/validator-bonds/src/instructions/settlement/claim_settlement.rs
@@ -33,7 +34,7 @@ steps:
 
   - label: " Loading past settlements json files"
     env:
-      past_epochs_to_load: 10
+      past_epochs_to_load: 7
     commands:
     - |
       current_epoch=$(curl --silent "$$RPC_URL" -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1, "method":"getEpochInfo"}' | jq '.result.epoch')
@@ -125,18 +126,35 @@ steps:
       if [ $$number_unknown_settlements -gt 0 ]; then
         echo " => $$number_unknown_settlements unknown Settlements found"
         unknown_settlements=$(jq -rc '. | join(", ")' ./verify-report.json)
-        curl "$$DISCORD_WEBHOOK_VALIDATOR_BONDS" \
-          -F 'payload_json={
-              "embeds":[{
-                "title": "🚨❗🚨 Unknown settlements :: <<'"$$number_unknown_settlements"'>>",
-                "url": "'"$$BUILDKITE_BUILD_URL"'",
-                "color": "15158332",
-                "fields": [{
-                  "name": "Unknown settlements",
-                  "value": "'"$$unknown_settlements"'",
-                  "inline": true
-                }]
-              }]
+        curl https://slack.com/api/chat.postMessage -X POST -H 'Content-type: application/json; charset=utf-8' \
+            -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
+              "channel": "'"$slack_feed"'",
+              "text": "🚨 Unknown settlements detected",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🚨❗🚨 Unknown settlements detected ('"$$number_unknown_settlements"')"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Unknown settlements:*\n```'"$$unknown_settlements"'```"
+                  }
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "<'"$BUILDKITE_BUILD_URL"'|View in Buildkite>"
+                    }
+                  ]
+                }
+              ]
           }'
         exit 2
       fi
