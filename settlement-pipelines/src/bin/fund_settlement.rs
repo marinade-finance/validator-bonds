@@ -674,7 +674,7 @@ async fn fund_settlements(
         transaction_executor.clone(),
         &mut transaction_builder,
         priority_fee_policy,
-        true, // TODO: set false when contract 2.1.0 is deployed (https://github.com/marinade-finance/validator-bonds/pull/77)
+        false,
     )
     .await;
     reporting.add_tx_execution_result(execute_result_funding, "FundSettlements");
