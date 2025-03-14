@@ -1,0 +1,22 @@
+[[bin]]
+name = "institutional-distribution-cli"
+path = "src/bin/cli.rs"
+
+[package]
+name = "institutional-distribution"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+bid-psr-distribution = { workspace = true }
+clap = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+merkle-tree = { workspace = true }
+rust_decimal = { workspace = true }
+serde = { workspace = true }
+solana-sdk = { workspace = true }
+
+[dev-dependencies]
+serde_json = "1.0.114"

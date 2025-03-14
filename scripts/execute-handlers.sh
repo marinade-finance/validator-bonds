@@ -42,9 +42,9 @@ handle_command_execution() {
 }
 
 # COLORS
-readonly SUCCESS_COLOR="52224"      # Green
-readonly WARNING_COLOR="16355909"   # Orange/Yellow
-readonly ERROR_COLOR="14431557"     # Red
+readonly SUCCESS_COLOR="#00CC00"    # Green
+readonly WARNING_COLOR="#F99A15"    # Orange/Yellow
+readonly ERROR_COLOR="#DC3545"      # Red
 
 # Function to set global variables for notification details
 set_notification_details() {

@@ -4,6 +4,8 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   CLAIM_TYPE: "bid-psr-distribution"
+  SLACK_API: https://slack.com/api/chat.postMessage
+  SLACK_FEED: "feed-pipeline-sam-psr"
   ds_sam_auction_github_api_link: "https://api.github.com/repos/marinade-finance/ds-sam-pipeline/contents/auctions/"
   ds_sam_auction_download_link: "https://raw.githubusercontent.com/marinade-finance/ds-sam-pipeline/main/auctions/"
 
@@ -21,6 +23,7 @@ steps:
         key: "epoch"
         format: "[0-9]+"
     if: "build.env('EPOCH') == null"
+    blocked_state: running
   - command: "echo 'Epoch is: $EPOCH'"
     if: "build.env('EPOCH') != null"
 
@@ -38,13 +41,10 @@ steps:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
       buildkite-agent meta-data set epoch "$$epoch"
-    - |
-      discord_webhook="${DISCORD_WEBHOOK:-$$DISCORD_WEBHOOK_VALIDATOR_BONDS}"
-      buildkite-agent meta-data set discord_webhook "$$discord_webhook"
 
   - wait: ~
 
-  - label: ":cloud: :arrow_right: :floppy_disk: Downloading Settlements JSON data"
+  - label: ":cloud: :arrow_right: :floppy_disk: Downloading Input JSON data"
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - |
@@ -143,8 +143,8 @@ steps:
 
   - label: "📓 Generating report"
     commands:
-    - 'buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .'
-    - './scripts/generate-discord-public-report.bash "./${CLAIM_TYPE}-settlements.json" "Protected Events" > "./discord-public-report.txt"'
+    - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .
+    - ./scripts/generate-discord-public-report.bash "./${CLAIM_TYPE}-settlements.json" "Protected Events" > "./discord-public-report.txt"
     artifact_paths:
       - "./discord-public-report.txt"
 
@@ -168,17 +168,21 @@ steps:
 
   - label: ":mega: Notification"
     commands:
-    - |
-      epoch=$(buildkite-agent meta-data get epoch)
-      curl "$(buildkite-agent meta-data get discord_webhook)" -H "Content-Type: application/json" -d '{
-        "embeds": [
-          {
-            "title": "Claims for Validator Bonds ('"${CLAIM_TYPE}"') generated ('"$$epoch"').",
-            "url": "'"$$BUILDKITE_BUILD_URL"'",
-            "color": "52224"
-          }
-        ]
-      }'
+      - |
+        epoch=$(buildkite-agent meta-data get epoch)
+        curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
+          -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
+            "channel": "'"$SLACK_FEED"'",
+            "attachments": [
+              {
+                "color": "#8000ff",
+                "title": "Claims for Validator Bonds ('"${CLAIM_TYPE}"') generated ('"$$epoch"').",
+                "title_link": "'"$$BUILDKITE_BUILD_URL"'",
+                "footer": "<'"$$BUILDKITE_BUILD_URL"'|View in Buildkite>"
+              }
+            ]
+        }'
+    if: "build.env('NOTIFY_FEED') == 'true'"
 
   - wait: ~
 
@@ -196,8 +200,9 @@ steps:
             env:
               EPOCH: $$epoch
               CLAIM_TYPE: $CLAIM_TYPE
-              DISCORD_WEBHOOK: $(buildkite-agent meta-data get discord_webhook)
-              NOTIFY_PSR_FEED: true
+              NOTIFY_FEED: $NOTIFY_FEED
+              NOTIFY_DISCORD_FEED: true
+              SLACK_FEED: $SLACK_FEED
               gs_bucket: $gs_bucket
       EOF
 
