@@ -81,6 +81,27 @@ steps:
     artifact_paths:
     - "./${CLAIM_TYPE}*.json"
 
+  # Evaluation of dynamic fees for bidding
+  - label: ":scales: Evaluate Marinade Bids - Marinade Fee 0"
+    env:
+      WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
+    commands:
+    - buildkite-agent artifact download --include-retried-jobs sam-scores.json .
+    - buildkite-agent artifact download --include-retried-jobs stakes.json .
+    - buildkite-agent artifact download --include-retried-jobs target/release/bid-distribution-cli .
+    - chmod +x target/release/bid-distribution-cli
+    - |
+      ./target/release/bid-distribution-cli \
+        --sam-meta-collection ./sam-scores.json \
+        --stake-meta-collection ./stakes.json \
+        --marinade-fee-bps 0 \
+        --marinade-fee-stake-authority ${MARINADE_FEE_STAKE_AUTHORITY} \
+        --marinade-fee-withdraw-authority ${MARINADE_FEE_WITHDRAW_AUTHORITY} \
+        --output-settlement-collection "./${CLAIM_TYPE}-settlements.json" \
+        --output-merkle-tree-collection "./${CLAIM_TYPE}-settlement-merkle-trees.json"
+    - claim_amount=$(jq '[.settlements[].claims_amount] | add' "./${CLAIM_TYPE}-settlements.json")
+    - 'echo "Total claims with Marinade fee 0 bps: $$claim_amount"'
+
   - wait: ~
 
   - label: "📓 Generating report"
