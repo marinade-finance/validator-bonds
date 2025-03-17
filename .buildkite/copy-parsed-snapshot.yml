@@ -27,7 +27,7 @@ steps:
     - |
     - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
     - buildkite-agent meta-data set epoch "$$epoch"
-    - echo "Epoch: $$epoch"
+    - 'echo "Epoch: $$epoch"'
 
   - wait: ~
 
