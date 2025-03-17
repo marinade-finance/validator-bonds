@@ -121,7 +121,8 @@ steps:
         exit 42
       fi
     - 'echo "--- Verify report: ---"'
-    - 'cat ./verify-report.json'
+    - cat ./verify-report.json
+    - 'echo "--- End of Verify report ---"'
     - |
       number_unknown_settlements=$(jq '. | length' ./verify-report.json)
       if [ $$number_unknown_settlements -gt 0 ]; then
@@ -151,7 +152,7 @@ steps:
                   "elements": [
                     {
                       "type": "mrkdwn",
-                      "text": "<'"$BUILDKITE_BUILD_URL"'|View in Buildkite>"
+                      "text": "<'"${BUILDKITE_BUILD_URL}"'|View in Buildkite>"
                     }
                   ]
                 }

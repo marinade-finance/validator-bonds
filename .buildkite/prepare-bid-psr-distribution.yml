@@ -24,8 +24,6 @@ steps:
         format: "[0-9]+"
     if: "build.env('EPOCH') == null"
     blocked_state: running
-  - command: "echo 'Epoch is: $EPOCH'"
-    if: "build.env('EPOCH') != null"
 
   - wait: ~
 
@@ -41,6 +39,7 @@ steps:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
       buildkite-agent meta-data set epoch "$$epoch"
+      echo "Epoch: '$$epoch'"
 
   - wait: ~
 

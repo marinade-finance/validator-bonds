@@ -130,33 +130,31 @@ steps:
     depends_on: "notification-setup-close"
     allow_dependency_failure: true
 
-  - label: ":atom_symbol: Report printing"
+  - label: ":mega: Notification Closing"
     commands:
     - buildkite-agent artifact download --include-retried-jobs close-report.txt . || echo 'UNKNOWN ERROR' > './close-report.txt'
     - cat ./close-report.txt
-    depends_on: "notification-setup-close"
-    allow_dependency_failure: true
-
-  - label: ":mega: Notification Closing"
-    commands:
+    - echo '-----------------------------------------------------------------------------------'
     - source ./scripts/execute-handlers.sh
     - check_command_execution_status "close-settlement" || true
+    - slack_feed=${SLACK_FEED:-'feed-pipeline-sam-psr'}
     - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
     - |
       curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
         -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
-          "channel": "feed-pipeline-sam-psr",
+          "channel": "'"$$slack_feed"'",
           "attachments": [
             {
               "color": "'"$$notification_color"'",
               "title": "Close Settlements '"$$notification_result"', '"$$attempts_count"' attempts",
-              "title_link": "'"$$BUILDKITE_BUILD_URL"'",
-              "footer": "<'"$$BUILDKITE_BUILD_URL"'|View in Buildkite>"
+              "title_link": "'"${BUILDKITE_BUILD_URL}"'",
+              "footer": "<'"${BUILDKITE_BUILD_URL}"'|View in Buildkite>"
             }
           ]
       }'
     depends_on: "notification-setup-close"
     allow_dependency_failure: true
+    if: "build.env('NOTIFY_FEED') == 'true'"
 
   - wait: ~
 

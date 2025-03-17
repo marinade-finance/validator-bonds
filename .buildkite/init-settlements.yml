@@ -16,9 +16,6 @@ steps:
     if: "build.env('EPOCH') == null"
     blocked_state: running
 
-  - command: "echo 'Epoch is: $EPOCH'"
-    if: "build.env('EPOCH') != null"
-
   - input: "What is the claim type to init?"
     fields:
       - select: "Claim type"
@@ -33,18 +30,6 @@ steps:
     if: "build.env('CLAIM_TYPE') == null"
     blocked_state: running
 
-  - input: "What is slack feed to emit messages into?"
-    fields:
-      - select: "Slack feed"
-        key: "slack_feed"
-        options:
-          - label: "Feed Pipeline SAM PSR"
-            value: "feed-pipeline-sam-psr"
-          - label: "Feed Institutional Staking"
-            value: "feed-institutional-staking"
-    if: "build.env('SLACK_FEED') == null && build.env('NOTIFY_FEED') == 'true'"
-    blocked_state: running
-
   - wait: ~
 
   - label: ":black_nib: Env variables setup: Init Settlements"
@@ -56,9 +41,17 @@ steps:
       claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
       buildkite-agent meta-data set claim_type "$$claim_type"
     - |
-      slack_feed=${SLACK_FEED:-$(buildkite-agent meta-data get slack_feed)}
+      slack_feed=${SLACK_FEED:-$(buildkite-agent meta-data get slack_feed || echo "")}
+      if [[ -z "$$slack_feed" ]]; then
+        if [[ "$$claim_type" =~ ^"bid-".* ]]; then
+          slack_feed="feed-pipeline-sam-psr"
+        else
+          slack_feed="feed-institutional-staking"
+        fi
+      fi
       buildkite-agent meta-data set slack_feed "$$slack_feed"
-    - 'echo "Epoch: $$epoch", Claim Type: $$claim_type, Slack Feed: $$slack_feed"'
+    - |
+      echo "Epoch: '$$epoch', Claim Type: '$$claim_type', Slack Feed: '$$slack_feed'"
 
   - wait: ~
 
@@ -81,7 +74,7 @@ steps:
             }
           ]
       }'
-    if: "build.env('NOTIFY_FEED') == 'true"
+    if: "build.env('NOTIFY_FEED') == 'true'"
 
   - wait: ~
 
@@ -146,7 +139,8 @@ steps:
     - chmod +x target/release/init-settlement
     - source ./scripts/execute-handlers.sh
     - |
-      handle_command_execution ./target/release/init-settlement \
+      handle_command_execution "$$command_name" \
+      ./target/release/init-settlement \
         --rpc-url $$RPC_URL \
         --input-merkle-tree-collection "./settlement-merkle-trees.json" \
         --input-settlement-collection "./settlements.json" \
@@ -187,15 +181,11 @@ steps:
     depends_on: "notification-setup-init"
     allow_dependency_failure: true
 
-  - label: ":atom_symbol: Report printing"
+  - label: ":mega: Notification :fast_forward: Monitoring Initialize Settlements"
     commands:
     - buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt
     - cat ./init-report.txt
-    depends_on: "notification-setup-init"
-    allow_dependency_failure: true
-
-  - label: ":mega: Notification :fast_forward: Monitoring Initialize Settlements"
-    commands:
+    - echo "--------------------------------------------\n\n"
     - source ./scripts/execute-handlers.sh
     - check_command_execution_status "init-settlement" || true
     - epoch=$(buildkite-agent meta-data get epoch)
@@ -210,9 +200,9 @@ steps:
           {
             "color": "'"$$notification_color"'",
             "title": "Init Settlements ('"$$claim_type"'): '"$$notification_result"'",
-            "title_link": "'"$$BUILDKITE_BUILD_URL"'",
+            "title_link": "'"${BUILDKITE_BUILD_URL}"'",
             "text": "'"$$claim_type"' Init Settlements Validator Bonds ('"$$epoch"') after '"$$attempts_count"' attempts",
-            "footer": "<'"$$BUILDKITE_BUILD_URL"'|View in Buildkite>"
+            "footer": "<'"${BUILDKITE_BUILD_URL}"'|View in Buildkite>"
           }
         ]
       }'
@@ -246,6 +236,9 @@ steps:
       - epoch=$(buildkite-agent meta-data get epoch)
       - claim_type=$(buildkite-agent meta-data get claim_type)
       - slack_feed=$(buildkite-agent meta-data get slack_feed)
+      - export EPOCH="$$epoch"
+      - export CLAIM_TYPE="$$claim_type"
+      - export SLACK_FEED="$$slack_feed"
       - 'echo "Epoch: $$epoch, Claim type: $$claim_type, Slack Feed: $$slack_feed"'
       - buildkite-agent pipeline upload .buildkite/fund-settlements.yml
     depends_on: "init-settlement"
