@@ -599,7 +599,7 @@ pub mod validator_bonds_fuzz_instructions {
                 config: config.pubkey(),
                 rent_payer: rent_payer.pubkey(),
                 system_program: solana_sdk::system_program::ID,
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -666,7 +666,7 @@ pub mod validator_bonds_fuzz_instructions {
             let acc_meta = validator_bonds::accounts::ConfigureConfig {
                 config: config.config.pubkey(),
                 admin_authority: config.admin_authority.pubkey(),
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -727,7 +727,7 @@ pub mod validator_bonds_fuzz_instructions {
                 bond,
                 rent_payer: rent_payer.pubkey(),
                 system_program: solana_sdk::system_program::ID,
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -777,7 +777,7 @@ pub mod validator_bonds_fuzz_instructions {
                 bond: bond.bond.pubkey(),
                 authority: bond.bond_authority.pubkey(),
                 vote_account: bond.vote_account.pubkey(),
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -834,7 +834,7 @@ pub mod validator_bonds_fuzz_instructions {
                 associated_token_program: anchor_spl::associated_token::ID,
                 metadata_program: anchor_spl::metadata::ID,
                 rent: solana_sdk::sysvar::rent::ID,
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -887,7 +887,7 @@ pub mod validator_bonds_fuzz_instructions {
                 clock: solana_sdk::sysvar::clock::ID,
                 stake_history: solana_sdk::sysvar::stake_history::ID,
                 stake_program: anchor_lang::solana_program::stake::program::ID,
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -974,7 +974,7 @@ pub mod validator_bonds_fuzz_instructions {
                 token_account,
                 token_authority: token_authority.pubkey(),
                 token_program: anchor_spl::token::ID,
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -1026,7 +1026,7 @@ pub mod validator_bonds_fuzz_instructions {
                 withdraw_request: find_withdraw_request_address(&bond.bond.pubkey()).0,
                 rent_payer: rent_payer.pubkey(),
                 system_program: solana_sdk::system_program::ID,
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -1078,7 +1078,7 @@ pub mod validator_bonds_fuzz_instructions {
                 authority: bond.bond_authority.pubkey(),
                 withdraw_request: withdraw_request.0,
                 rent_collector: rent_collector.pubkey(),
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -1158,7 +1158,7 @@ pub mod validator_bonds_fuzz_instructions {
                 system_program: solana_sdk::system_program::ID,
                 stake_history: solana_sdk::sysvar::stake_history::ID,
                 clock: solana_sdk::sysvar::clock::ID,
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -1276,7 +1276,7 @@ pub mod validator_bonds_fuzz_instructions {
                 operator_authority: config.operator_authority.pubkey(),
                 rent_payer: rent_payer.pubkey(),
                 system_program: solana_sdk::system_program::ID,
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -1384,7 +1384,7 @@ pub mod validator_bonds_fuzz_instructions {
                 clock: solana_sdk::sysvar::clock::ID,
                 stake_program: anchor_lang::solana_program::stake::program::ID,
                 stake_history: solana_sdk::sysvar::stake_history::ID,
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -1462,7 +1462,7 @@ pub mod validator_bonds_fuzz_instructions {
                 rent: solana_sdk::sysvar::rent::ID,
                 stake_program: anchor_lang::solana_program::stake::program::ID,
                 stake_config: solana_sdk::stake::config::ID,
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -1535,7 +1535,7 @@ pub mod validator_bonds_fuzz_instructions {
                 stake_history: solana_sdk::sysvar::stake_history::ID,
                 clock: solana_sdk::sysvar::clock::ID,
                 stake_program: anchor_lang::solana_program::stake::program::ID,
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -1579,7 +1579,7 @@ pub mod validator_bonds_fuzz_instructions {
                 stake_config: solana_sdk::stake::config::ID,
                 clock: solana_sdk::sysvar::clock::ID,
                 stake_program: anchor_lang::solana_program::stake::program::ID,
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -1620,7 +1620,7 @@ pub mod validator_bonds_fuzz_instructions {
                 stake_history: solana_sdk::sysvar::stake_history::ID,
                 clock: solana_sdk::sysvar::clock::ID,
                 stake_program: anchor_lang::solana_program::stake::program::ID,
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -1654,7 +1654,7 @@ pub mod validator_bonds_fuzz_instructions {
             let acc_meta = validator_bonds::accounts::EmergencyPauseResume {
                 config: config.config.pubkey(),
                 pause_authority: config.pause_authority.pubkey(),
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -1685,7 +1685,7 @@ pub mod validator_bonds_fuzz_instructions {
             let acc_meta = validator_bonds::accounts::EmergencyPauseResume {
                 config: config.config.pubkey(),
                 pause_authority: config.pause_authority.pubkey(),
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -1730,7 +1730,7 @@ pub mod validator_bonds_fuzz_instructions {
                 clock: solana_sdk::sysvar::clock::ID,
                 stake_program: anchor_lang::solana_program::stake::program::ID,
                 stake_history: solana_sdk::sysvar::stake_history::ID,
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);
@@ -1783,7 +1783,7 @@ pub mod validator_bonds_fuzz_instructions {
                 stake_program: anchor_lang::solana_program::stake::program::ID,
                 stake_history: solana_sdk::sysvar::stake_history::ID,
                 clock: solana_sdk::sysvar::clock::ID,
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(&config.config.pubkey()).0,
                 program: validator_bonds::ID,
             }
             .to_account_metas(None);

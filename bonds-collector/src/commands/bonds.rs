@@ -1,10 +1,9 @@
 use crate::commands::common::CommonCollectOptions;
-use crate::{dto::ValidatorBondRecord, utils::rpc::get_rpc_client};
+use crate::utils::rpc::get_rpc_client;
+use log::{log, Level};
 use serde_yaml;
-use solana_sdk::pubkey::Pubkey;
-use std::str::FromStr;
 use std::sync::Arc;
-use validator_bonds_common::constants::MARINADE_CONFIG_ADDRESS;
+use validator_bonds_common::dto::ValidatorBondRecord;
 use validator_bonds_common::funded_bonds::collect_validator_bonds_with_funds;
 
 pub async fn collect_bonds(options: CommonCollectOptions) -> anyhow::Result<()> {
@@ -13,7 +12,13 @@ pub async fn collect_bonds(options: CommonCollectOptions) -> anyhow::Result<()> 
         options.commitment.to_string(),
     ));
 
-    let config_address = Pubkey::from_str(MARINADE_CONFIG_ADDRESS)?;
+    let config_address = options.bond_type.config_address();
+    log!(
+        Level::Info,
+        "Collecting bonds '{}', config: {}",
+        options.bond_type,
+        config_address
+    );
     let funded_bonds =
         collect_validator_bonds_with_funds(rpc_client.clone(), config_address).await?;
 
@@ -36,6 +41,7 @@ pub async fn collect_bonds(options: CommonCollectOptions) -> anyhow::Result<()> 
             effective_amount: funds.effective_amount.into(),
             remaining_witdraw_request_amount: funds.remaining_witdraw_request_amount.into(),
             remainining_settlement_claim_amount: funds.remainining_settlement_claim_amount.into(),
+            bond_type: options.bond_type.clone(),
         })
     }
 

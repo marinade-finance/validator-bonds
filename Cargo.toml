@@ -4,7 +4,7 @@ members = [
     "common-rs",
     "merkle-tree",
     "programs/*",
-    "validator-bonds-cli",
+    "bonds-collector",
     "settlement-pipelines",
     "settlement-distributions/bid-distribution",
     "settlement-distributions/bid-psr-distribution",
@@ -53,14 +53,8 @@ bid-psr-distribution = { path = "settlement-distributions/bid-psr-distribution" 
 snapshot-parser-types = { git = "https://github.com/marinade-finance/solana-snapshot-parser", branch = "master" }
 shellexpand = "3.1.0"
 solana-account-decoder = "1.17.22"
-solana-accounts-db = "=1.17.22"
-solana-clap-utils = "1.17.22"
-solana-cli-config = "1.17.22"
 solana-client = "=1.17.22"
-solana-ledger = "=1.17.22"
-solana-logger = "1.17.22"
 solana-program = "=1.17.22"
-solana-runtime = "=1.17.22"
 solana-sdk = "=1.17.22"
 solana-security-txt = "1.1.1"
 solana-transaction-executor = { git = "https://github.com/marinade-finance/solana-transaction-executor", branch = "master" }

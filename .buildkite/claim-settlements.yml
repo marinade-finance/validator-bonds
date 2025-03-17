@@ -8,19 +8,44 @@ env:
 steps:
   - label: ":closed_lock_with_key: Concurrency gate lock"
     command: echo "--> Start of concurrency gate"
-    concurrency_group: 'validator-bonds/claim-settlements'
+    concurrency_group: 'validator-bonds/claim-settlements-${CLAIM_TYPE}'
     concurrency: 1
+
+  - input: "What is the Bonds Config type to claim?"
+    fields:
+      - select: "Claim type"
+        key: "claim_type"
+        options:
+          - label: "Bidding Settlements"
+            value: "bid"
+          - label: "Institutional Settlements"
+            value: "institutional"
+    if: "build.env('CLAIM_TYPE') == null"
+    blocked_state: running
 
   - wait: ~
 
   - label: ":hammer_and_wrench: :rust: Build claim-settlement"
     commands:
-    - '. "$HOME/.cargo/env"'
-    - 'cargo build --release --bin list-claimable-epoch'
-    - 'cargo build --release --bin claim-settlement'
+    - . "$HOME/.cargo/env"
+    - cargo build --release --bin list-claimable-epoch
+    - cargo build --release --bin claim-settlement
     artifact_paths:
       - target/release/list-claimable-epoch
       - target/release/claim-settlement
+
+  - label: ":black_nib: Env variables setup: Close Settlements"
+    commands:
+      - |
+        claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
+        buildkite-agent meta-data set claim_type "$$claim_type"
+        config_pubkey=$(./scripts/bonds-config-pubkey.sh "$$claim_type")
+        buildkite-agent meta-data set config_pubkey "$$config_pubkey"
+      - |
+        slack_feed=$(./scripts/bonds-slack-feed.sh "$$claim_type")
+        buildkite-agent meta-data set slack_feed "$$slack_feed"
+      - |
+        echo "Claim Type: '$$claim_type'/'$$config_pubkey', Slack feed: '$$slack_feed'"
 
   - wait: ~
 
@@ -28,11 +53,12 @@ steps:
     env:
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,list_claimable_epoch=debug
     commands:
-    - '. "$HOME/.cargo/env"'
-    - 'buildkite-agent artifact download --include-retried-jobs target/release/list-claimable-epoch .'
-    - 'chmod +x target/release/list-claimable-epoch'
-    - 'possible_epochs_json=$(./target/release/list-claimable-epoch --rpc-url $$RPC_URL)'
-    - 'buildkite-agent meta-data set possible_epochs_json "$$possible_epochs_json"'
+    - . "$HOME/.cargo/env"
+    - buildkite-agent artifact download --include-retried-jobs target/release/list-claimable-epoch .
+    - config_pubkey=$(buildkite-agent meta-data get config_pubkey)
+    - chmod +x target/release/list-claimable-epoch
+    - possible_epochs_json=$(./target/release/list-claimable-epoch --rpc-url $$RPC_URL --config "$$config_pubkey")
+    - buildkite-agent meta-data set possible_epochs_json "$$possible_epochs_json"
 
   - wait: ~
 
@@ -41,12 +67,15 @@ steps:
       # epoch when the contract v2 was deployed, using different structure of merkle tree than v1
       starting_epoch_contract_v2: 640
     commands:
-    - 'mkdir ./merkle-trees/'
-    - 'possible_epochs_json=$(buildkite-agent meta-data get possible_epochs_json)'
-    - 'possible_epochs_num=$(echo "$$possible_epochs_json" | jq "length")'
+    - |
+      claim_type=$(buildkite-agent meta-data get claim_type)
+      claim_type_prefix="$${claim_type%%-*}"
+    - mkdir ./merkle-trees/
+    - possible_epochs_json=$(buildkite-agent meta-data get possible_epochs_json)
+    - possible_epochs_num=$(echo "$$possible_epochs_json" | jq "length")
     - 'echo "Possible claimable epochs [$$possible_epochs_num]: $$possible_epochs_json"'
-    - 'claimable_epochs_num=0'
-    - 'claimable_epochs_json=()'
+    - claimable_epochs_num=0
+    - claimable_epochs_json=()
     - |
       for epoch in $(echo "$$possible_epochs_json" | jq ".[]"); do
         if [[ $$epoch -lt $$starting_epoch_contract_v2 ]]; then
@@ -55,7 +84,7 @@ steps:
         fi
         claimable_epochs_num=$(($$claimable_epochs_num + 1))
         claimable_epochs_json+=($$epoch)     
-        for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/*settlement-merkle-trees.json"); do
+        for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/$${claim_type_prefix}*settlement-merkle-trees.json"); do
           base_name=$(basename "$$merkle_tree_file")
           prefix_name="$${base_name%settlement-merkle-trees.json}"
           target_dir="./merkle-trees/$${epoch}_$${prefix_name%-*}/"
@@ -73,12 +102,10 @@ steps:
 
   - wait: ~
 
-  # We need to wait for the fund-settlements trigger to get finished before we can proceed
+  # waiting for the fund-settlements get finished before we proceed next steps
   - label: ":gear: Upload and trigger fund-settlements pipeline"
     commands:
-      - slack_feed=${SLACK_FEED:-'feed-pipeline-sam-psr'}
-      - buildkite-agent meta-data set slack_feed "$$slack_feed"
-      - export SLACK_FEED="$$slack_feed"
+      - "echo Claim Type: '${CLAIM_TYPE}'"
       - buildkite-agent pipeline upload .buildkite/fund-settlements.yml
 
   - wait: ~
@@ -121,6 +148,7 @@ steps:
     - |
       handle_command_execution "claim-settlement" \
       ./target/release/claim-settlement \
+        --config $(buildkite-agent meta-data get config_pubkey) \
         --rpc-url $$RPC_URL \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$PSR_TX_FEE_WALLET" \
@@ -165,10 +193,11 @@ steps:
     commands:
     - buildkite-agent artifact download --include-retried-jobs claiming-report.txt . || echo "UNKNOWN ERROR" > claiming-report.txt
     - cat ./claiming-report.txt
-    - echo '-----------------------------------------------------------------------------------'
+    - echo "--------------------------------------------"
     - source ./scripts/execute-handlers.sh
     - check_command_execution_status "claim-settlement" || true
-    - slack_feed=$(buildkite-agent meta-data get slack_feed)
+    - claim_type=$(buildkite-agent meta-data get claim_type)
+    - config_pubkey=$(buildkite-agent meta-data get config_pubkey)
     - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
     - |
       claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json || echo "[]")
@@ -176,13 +205,13 @@ steps:
     - |
       curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
         -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
-          "channel": "'"$$slack_feed"'",
+          "channel": "'$(buildkite-agent meta-data get slack_feed)'",
           "attachments": [
             {
               "color": "'"$$notification_color"'",
-              "title": "Claim Settlements '"$$notification_result"'",
+              "title": "Claim Settlements '"$$claim_type"' '"$$notification_result"'",
               "title_link": "'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'",
-              "text": "for epochs: '"$$claimable_epochs"' after '"$$attempts_count"' attempts",
+              "text": "Claim type: '"$$claim_type"'/'"$$config_pubkey"', for epochs: '"$$claimable_epochs"' after '"$$attempts_count"' attempts",
               "footer": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>"
             }
           ]
@@ -195,5 +224,5 @@ steps:
 
   - label: ":unlock: Concurrency gate unlock"
     command: echo "End of concurrency gate <--"
-    concurrency_group: 'validator-bonds/claim-settlements'
+    concurrency_group: 'validator-bonds/claim-settlements-${CLAIM_TYPE}'
     concurrency: 1

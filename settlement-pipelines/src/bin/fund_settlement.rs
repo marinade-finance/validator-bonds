@@ -636,7 +636,7 @@ async fn fund_settlements(
                             stake_program: stake_program_id,
                             stake_config: stake_config_id,
                             program: validator_bonds_id,
-                            event_authority: find_event_authority().0,
+                            event_authority: find_event_authority(config_address).0,
                         })
                         .args(validator_bonds::instruction::FundSettlement {});
                     transaction_builder.add_signer_checked(&split_stake_account_keypair);
