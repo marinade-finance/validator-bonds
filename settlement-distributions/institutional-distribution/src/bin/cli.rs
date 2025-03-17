@@ -62,7 +62,7 @@ fn main() -> anyhow::Result<()> {
     let merkle_tree_collection = generate_merkle_tree_collection(settlement_collection)?;
     write_to_json_file(&merkle_tree_collection, &args.output_merkle_tree_collection).map_err(
         file_error(
-            "output_merkle-tree-collection",
+            "output-merkle-tree-collection",
             &args.output_merkle_tree_collection,
         ),
     )?;
