@@ -3,7 +3,8 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
-  slack_feed: "feed-pipeline-sam-psr"
+  SLACK_FEED: "feed-pipeline-sam-psr"
+  SLACK_API: https://slack.com/api/chat.postMessage
 
 # This pipeline is responsible for verifying the settlements of the past epochs
 # It will download the past settlements from gcloud and checks their existence on-chain
@@ -120,15 +121,16 @@ steps:
         exit 42
       fi
     - 'echo "--- Verify report: ---"'
-    - 'cat ./verify-report.json'
+    - cat ./verify-report.json
+    - 'echo "--- End of Verify report ---"'
     - |
       number_unknown_settlements=$(jq '. | length' ./verify-report.json)
       if [ $$number_unknown_settlements -gt 0 ]; then
         echo " => $$number_unknown_settlements unknown Settlements found"
         unknown_settlements=$(jq -rc '. | join(", ")' ./verify-report.json)
-        curl https://slack.com/api/chat.postMessage -X POST -H 'Content-type: application/json; charset=utf-8' \
+        curl ${SLACK_API} -X POST -H 'Content-type: application/json; charset=utf-8' \
             -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
-              "channel": "'"$slack_feed"'",
+              "channel": "'"$SLACK_FEED"'",
               "text": "🚨 Unknown settlements detected",
               "blocks": [
                 {
@@ -150,7 +152,7 @@ steps:
                   "elements": [
                     {
                       "type": "mrkdwn",
-                      "text": "<'"$BUILDKITE_BUILD_URL"'|View in Buildkite>"
+                      "text": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>"
                     }
                   ]
                 }

@@ -3,6 +3,7 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
+  SLACK_API: https://slack.com/api/chat.postMessage
 
 steps:
   - label: ":closed_lock_with_key: Concurrency gate lock"
@@ -20,20 +21,6 @@ steps:
     artifact_paths:
       - target/release/list-claimable-epoch
       - target/release/claim-settlement
-
-  - label: ":black_nib: Find Discord webhook"
-    commands:
-    - |
-      discord_webhook=$(buildkite-agent meta-data get discord_webhook) || true
-      if [[ -z "$$discord_webhook" ]]; then
-        # env defined by job definition
-        discord_webhook="${DISCORD_WEBHOOK}"
-      fi
-      if [[ -z "$$discord_webhook" ]]; then
-        # env defined by buildkite environment
-        discord_webhook="$${DISCORD_WEBHOOK_VALIDATOR_BONDS}"
-      fi
-      buildkite-agent meta-data set discord_webhook "$$discord_webhook"
 
   - wait: ~
 
@@ -89,7 +76,10 @@ steps:
   # We need to wait for the fund-settlements trigger to get finished before we can proceed
   - label: ":gear: Upload and trigger fund-settlements pipeline"
     commands:
-      - 'buildkite-agent pipeline upload .buildkite/fund-settlements.yml'
+      - slack_feed=${SLACK_FEED:-'feed-pipeline-sam-psr'}
+      - buildkite-agent meta-data set slack_feed "$$slack_feed"
+      - export SLACK_FEED="$$slack_feed"
+      - buildkite-agent pipeline upload .buildkite/fund-settlements.yml
 
   - wait: ~
     continue_on_failure: true
@@ -173,27 +163,33 @@ steps:
 
   - label: ":mega: Notification Claiming"
     commands:
+    - buildkite-agent artifact download --include-retried-jobs claiming-report.txt . || echo "UNKNOWN ERROR" > claiming-report.txt
+    - cat ./claiming-report.txt
+    - echo '-----------------------------------------------------------------------------------'
     - source ./scripts/execute-handlers.sh
     - check_command_execution_status "claim-settlement" || true
+    - slack_feed=$(buildkite-agent meta-data get slack_feed)
     - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
-    - buildkite-agent artifact download --include-retried-jobs claiming-report.txt . || echo "UNKNOWN ERROR" > claiming-report.txt
     - |
       claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json || echo "[]")
       claimable_epochs=$(echo "$$claimable_epochs_json" | jq ". | join(\",\")" | tr -d '"')
     - |
-      curl "$(buildkite-agent meta-data get discord_webhook)" \
-        -F 'payload_json={
-            "embeds":[{
-              "title": "Claim Settlements '"$$notification_result"' for epochs: '"$$claimable_epochs"' after '"$$attempts_count"' attempts",
-              "url": "'"$$BUILDKITE_BUILD_URL"'",
-              "color": "'"$$notification_color"'"
-            }]
-        }' \
-        -F "file1=@./claiming-report.txt"
-    - |
-      build_result=$(buildkite-agent step get "outcome" --step "claim-settlement")
+      curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
+        -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
+          "channel": "'"$$slack_feed"'",
+          "attachments": [
+            {
+              "color": "'"$$notification_color"'",
+              "title": "Claim Settlements '"$$notification_result"'",
+              "title_link": "'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'",
+              "text": "for epochs: '"$$claimable_epochs"' after '"$$attempts_count"' attempts",
+              "footer": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>"
+            }
+          ]
+      }'
     depends_on: "notification-setup-claim"
     allow_dependency_failure: true
+    if: "build.env('NOTIFY_FEED') == 'true'"
 
   - wait: ~
 

@@ -2747,6 +2747,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "institutional-distribution"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bid-psr-distribution",
+ "clap 4.4.8",
+ "env_logger 0.10.1",
+ "log",
+ "merkle-tree",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "solana-sdk",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7426,16 +7442,9 @@ dependencies = [
  "anchor-client",
  "anyhow",
  "bincode",
- "futures",
  "log",
- "serde",
- "serde_json",
- "serde_yaml 0.8.26",
  "solana-account-decoder",
- "solana-clap-utils",
- "solana-cli-config",
  "solana-client",
- "solana-logger",
  "solana-program",
  "solana-sdk",
  "tokio",

@@ -3,6 +3,7 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
+  SLACK_API: https://slack.com/api/chat.postMessage
 
 steps:
   # epoch number provided in ENV and then waiting for confirmation to proceed
@@ -13,8 +14,7 @@ steps:
         key: "epoch"
         format: "[0-9]+"
     if: "build.env('EPOCH') == null"
-  - command: "echo 'Epoch is: $EPOCH'"
-    if: "build.env('EPOCH') != null"
+    blocked_state: running
 
   - input: "What is the claim type to init?"
     fields:
@@ -25,22 +25,33 @@ steps:
             value: "bid-psr-distribution"
           - label: "Bid Distribution"
             value: "bid-distribution"
+          - label: "Institutional Distribution"
+            value: "institutional-distribution"
     if: "build.env('CLAIM_TYPE') == null"
+    blocked_state: running
 
   - wait: ~
 
   - label: ":black_nib: Env variables setup: Init Settlements"
     commands:
     - |
-      discord_webhook="${DISCORD_WEBHOOK:-$$DISCORD_WEBHOOK_VALIDATOR_BONDS}"
-      buildkite-agent meta-data set discord_webhook "$$discord_webhook"
-    - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
       buildkite-agent meta-data set epoch "$$epoch"
     - |
       claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
       buildkite-agent meta-data set claim_type "$$claim_type"
-    - 'echo "Epoch: $$epoch", Claim Type: $$claim_type'
+    - |
+      slack_feed=${SLACK_FEED:-$(buildkite-agent meta-data get slack_feed || echo "")}
+      if [[ -z "$$slack_feed" ]]; then
+        if [[ "$$claim_type" =~ ^"bid-".* ]]; then
+          slack_feed="feed-pipeline-sam-psr"
+        else
+          slack_feed="feed-institutional-staking"
+        fi
+      fi
+      buildkite-agent meta-data set slack_feed "$$slack_feed"
+    - |
+      echo "Epoch: '$$epoch', Claim Type: '$$claim_type', Slack Feed: '$$slack_feed'"
 
   - wait: ~
 
@@ -48,18 +59,22 @@ steps:
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - claim_type=$(buildkite-agent meta-data get claim_type)
+    - slack_feed=$(buildkite-agent meta-data get slack_feed)
     - |
-      curl "$(buildkite-agent meta-data get discord_webhook)" \
-        -H "Content-Type: application/json" -d '{
-        "embeds": [
-          {
-            "title": "Confirm Settlements Initialization for Validator Bonds ('"$$epoch"')/('"$$claim_type"').",
-            "description": "Please review the 'Unblock' if ready to proceed.",
-            "url": "'"$$BUILDKITE_BUILD_URL"'",
-            "color": "8388863"
-          }
-        ]
+      curl $SLACK_API -X POST -H 'Content-Type: application/json; charset=utf-8' \
+        -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
+          "channel": "'"$$slack_feed"'",
+          "attachments": [
+            {
+              "color": "#8000ff",
+              "title": "Confirm Settlements Initialization for Validator Bonds ('"$$epoch"')/('"$$claim_type"')",
+              "title_link": "'"$$BUILDKITE_BUILD_URL"'",
+              "text": "Please review the *'"'"'Unblock'"'"'* if ready to proceed",
+              "footer": "<'"$$BUILDKITE_BUILD_URL"'|View in Buildkite>"
+            }
+          ]
       }'
+    if: "build.env('NOTIFY_FEED') == 'true'"
 
   - wait: ~
 
@@ -99,7 +114,7 @@ steps:
 
   - label: ":closed_lock_with_key: Concurrency gate lock"
     command: echo "--> Start of concurrency gate"
-    concurrency_group: 'validator-bonds/init-settlements${CLAIM_TYPE}'
+    concurrency_group: 'validator-bonds/init-settlements-${CLAIM_TYPE}'
     concurrency: 1
 
   - wait: ~
@@ -122,8 +137,9 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
     - buildkite-agent artifact download --include-retried-jobs settlements.json .
     - chmod +x target/release/init-settlement
+    - source ./scripts/execute-handlers.sh
     - |
-      set -o pipefail
+      handle_command_execution "$$command_name" \
       ./target/release/init-settlement \
         --rpc-url $$RPC_URL \
         --input-merkle-tree-collection "./settlement-merkle-trees.json" \
@@ -131,7 +147,7 @@ steps:
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$PSR_TX_FEE_WALLET" \
         --rent-payer "$$PSR_RENT_PAYER_WALLET" \
-        --epoch "$$epoch" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
+        --epoch "$$epoch"
     key: 'init-settlement'
     artifact_paths:
     - "./execution-report.*"
@@ -142,19 +158,6 @@ steps:
 
   - label: ":memo: Notification setup: Init Settlements"
     commands:
-     - 'epoch=$(buildkite-agent meta-data get epoch)'
-     - |
-        build_result=$(buildkite-agent step get "outcome" --step "init-settlement")
-        if [[ -z "$$build_result" || "$$build_result" =~ "failed" ]]; then
-          notification_result="FAILED"
-          notification_color="15158332"
-        else
-          notification_result="SUCCEEDED"
-          notification_color="52224"
-        fi
-     - buildkite-agent meta-data set notification_color "$$notification_color"
-     - buildkite-agent meta-data set notification_result "$$notification_result"
-     - 'echo "Notification result: $$notification_result, color: $$notification_color"'
      - mkdir ./reports
      - command_name='init-settlement'
      - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name.*" ./reports/ || echo "No report ERROR" > ./reports/execution-report.$$command_name.error
@@ -180,26 +183,34 @@ steps:
 
   - label: ":mega: Notification :fast_forward: Monitoring Initialize Settlements"
     commands:
+    - buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt
+    - cat ./init-report.txt
+    - echo "--------------------------------------------\n\n"
+    - source ./scripts/execute-handlers.sh
+    - check_command_execution_status "init-settlement" || true
     - epoch=$(buildkite-agent meta-data get epoch)
-    - notification_result=$(buildkite-agent meta-data get notification_result || echo "UNKNOWN")
-    - notification_color=$(buildkite-agent meta-data get notification_color || echo "15158332")
+    - slack_feed=$(buildkite-agent meta-data get slack_feed)
     - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
     - claim_type=$(buildkite-agent meta-data get claim_type || echo "UNKNOWN")
-    - buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt
     - |
-        curl "$(buildkite-agent meta-data get discord_webhook)" \
-        -F 'payload_json={
-            "embeds":[{
-              "title": "Init Settlements '"$$notification_result"' for '"$$claim_type"' Validator Bonds ('"$$epoch"') after '"$$attempts_count"' attempts",
-              "url": "'"$$BUILDKITE_BUILD_URL"'",
-              "color": "'"$$notification_color"'"
-            }]
-        }' \
-        -F "file1=@./init-report.txt"
+      curl $SLACK_API -X POST -H 'Content-Type: application/json; charset=utf-8' \
+        -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
+        "channel": "'"$$slack_feed"'",
+        "attachments": [
+          {
+            "color": "'"$$notification_color"'",
+            "title": "Init Settlements ('"$$claim_type"'): '"$$notification_result"'",
+            "title_link": "'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'",
+            "text": "'"$$claim_type"' Init Settlements Validator Bonds ('"$$epoch"') after '"$$attempts_count"' attempts",
+            "footer": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>"
+          }
+        ]
+      }'
     depends_on: "notification-setup-init"
     allow_dependency_failure: true
+    if: "build.env('NOTIFY_FEED') == 'true'"
 
-  - label: ":mega: Notification :fast_forward: PSR feed"
+  - label: ":mega: Notification :fast_forward: Discord PSR feed"
     commands:
     - claim_type=$(buildkite-agent meta-data get claim_type)
     - epoch=$(buildkite-agent meta-data get epoch)
@@ -215,16 +226,20 @@ steps:
       done
     depends_on: "notification-setup-init"
     allow_dependency_failure: true
-    if: "build.env('NOTIFY_PSR_FEED') != null"
+    if: "build.env('NOTIFY_DISCORD_FEED') != null"
 
   - wait: ~
     continue_on_failure: true
 
-  - label: ":gear: Upload and trigger fund-settlements pipeline"
+  - label: ":gear: Upload and get running fund-settlements pipeline"
     commands:
       - epoch=$(buildkite-agent meta-data get epoch)
       - claim_type=$(buildkite-agent meta-data get claim_type)
-      - 'echo "Epoch: $$epoch, Claim type: $$claim_type"'
+      - slack_feed=$(buildkite-agent meta-data get slack_feed)
+      - export EPOCH="$$epoch"
+      - export CLAIM_TYPE="$$claim_type"
+      - export SLACK_FEED="$$slack_feed"
+      - 'echo "Epoch: $$epoch, Claim type: $$claim_type, Slack Feed: $$slack_feed"'
       - buildkite-agent pipeline upload .buildkite/fund-settlements.yml
     depends_on: "init-settlement"
     allow_dependency_failure: true
@@ -233,5 +248,5 @@ steps:
 
   - label: ":unlock: Concurrency gate unlock"
     command: echo "End of concurrency gate <--"
-    concurrency_group: 'validator-bonds/init-settlements${CLAIM_TYPE}'
+    concurrency_group: 'validator-bonds/init-settlements-${CLAIM_TYPE}'
     concurrency: 1
