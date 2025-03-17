@@ -200,9 +200,9 @@ steps:
           {
             "color": "'"$$notification_color"'",
             "title": "Init Settlements ('"$$claim_type"'): '"$$notification_result"'",
-            "title_link": "'"${BUILDKITE_BUILD_URL}"'",
+            "title_link": "'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'",
             "text": "'"$$claim_type"' Init Settlements Validator Bonds ('"$$epoch"') after '"$$attempts_count"' attempts",
-            "footer": "<'"${BUILDKITE_BUILD_URL}"'|View in Buildkite>"
+            "footer": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>"
           }
         ]
       }'

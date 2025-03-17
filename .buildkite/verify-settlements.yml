@@ -152,7 +152,7 @@ steps:
                   "elements": [
                     {
                       "type": "mrkdwn",
-                      "text": "<'"${BUILDKITE_BUILD_URL}"'|View in Buildkite>"
+                      "text": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>"
                     }
                   ]
                 }

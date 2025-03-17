@@ -181,9 +181,9 @@ steps:
             {
               "color": "'"$$notification_color"'",
               "title": "Claim Settlements '"$$notification_result"'",
-              "title_link": "'"${BUILDKITE_BUILD_URL}"'",
+              "title_link": "'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'",
               "text": "for epochs: '"$$claimable_epochs"' after '"$$attempts_count"' attempts",
-              "footer": "<'"${BUILDKITE_BUILD_URL}"'|View in Buildkite>"
+              "footer": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>"
             }
           ]
       }'

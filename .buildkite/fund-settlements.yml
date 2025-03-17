@@ -207,8 +207,8 @@ steps:
         "attachments": [{
           "color": "'"$$notification_color"'",
           "title": "Fund Settlements '"$${notification_result}$${claim_type}"', '"$$attempts_count"' attempts",
-          "title_link": "'"${BUILDKITE_BUILD_URL}"'",
-          "footer": "<'"${BUILDKITE_BUILD_URL}"'|View in Buildkite>" 
+          "title_link": "'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'",
+          "footer": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>" 
         }]
       }'
     depends_on: "notification-setup-funding"
