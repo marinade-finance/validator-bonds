@@ -56,8 +56,8 @@ steps:
   - label: ":scales: Prepare Validator Bonds Merkle Tree"
     env:
     commands:
-    - 'buildkite-agent artifact download --include-retried-jobs institutional-payouts.json .'
-    - 'chmod +x target/release/institutional-distribution-cli'
+    - buildkite-agent artifact download --include-retried-jobs institutional-payouts.json .
+    - chmod +x target/release/institutional-distribution-cli
     - |
       ./target/release/institutional-distribution-cli -- \
         --institutional-payouts institutional-payouts.json \
