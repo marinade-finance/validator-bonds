@@ -18,7 +18,7 @@ MARINADE_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
 MARINADE_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
 ```
 
-### 2. Generating protected events
+### 3. Generating protected events
 
 ```bash
 # Build & run
