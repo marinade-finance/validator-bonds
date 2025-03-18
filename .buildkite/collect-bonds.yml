@@ -30,7 +30,7 @@ steps:
     - 'chmod +x target/release/validator-bonds-cli'
     - |
       ./target/release/validator-bonds-cli \
-        collect-bonds -u "$RPC_URL" > bonds.yaml
+        collect-bonds -u "$$RPC_URL" > bonds.yaml
     artifact_paths:
       - bonds.yaml
 
@@ -44,7 +44,7 @@ steps:
     - 'curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem'
     - |
       ./target/release/validator-bonds-api-cli \
-        store-bonds --postgres-url "$POSTGRES_URL" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file bonds.yaml
+        store-bonds --postgres-url "$$POSTGRES_URL" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file bonds.yaml
 
   - command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/collect-bonds'
