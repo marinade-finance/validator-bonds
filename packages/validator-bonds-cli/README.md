@@ -205,7 +205,8 @@ amountActive = amountOwned - amountAtSettlements - amountToWithdraw
 - **`amountAtSettlements`**: The amount reserved in existing Settlements, waiting to be claimed by stakers.
   If not claimed, this amount is returned to the Bond account and reflected in `amountActive`.
 - **`amountToWithdraw`**: The amount the user has requested to withdraw, which is no longer considered
-  active for Settlement funding.
+  active for bond bidding. However, the funds may still be used for settlement funding
+  until they are fully withdrawn from the Bonds program.
 
 When a user decides to [withdraw from their Bond account](#withdrawing-bond-account), a special on-chain withdrawal request
 is created. This request acts as a ticket authorizing withdrawal after a delay (~4 epochs).
