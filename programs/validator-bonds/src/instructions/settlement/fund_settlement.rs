@@ -398,9 +398,16 @@ impl<'info> FundSettlement<'info> {
 
         ctx.accounts.settlement.lamports_funded += funding_amount;
 
+        msg!(
+            "Funded {} lamports to settlement {} of epoch {}",
+            funding_amount,
+            ctx.accounts.settlement.key(),
+            ctx.accounts.settlement.epoch_created_for
+        );
         emit_cpi!(FundSettlementEvent {
             bond: ctx.accounts.bond.key(),
             settlement: ctx.accounts.settlement.key(),
+            settlement_epoch: ctx.accounts.settlement.epoch_created_for,
             funding_amount,
             stake_account: ctx.accounts.stake_account.key(),
             lamports_funded: ctx.accounts.settlement.lamports_funded,

@@ -31,6 +31,7 @@ pub struct CloseSettlementEvent {
     pub rent_collector: Pubkey,
     pub expiration_epoch: u64,
     pub current_epoch: u64,
+    pub settlement_epoch: u64,
 }
 
 #[event]
@@ -47,6 +48,7 @@ pub struct CancelSettlementEvent {
     pub split_rent_refund: Option<Pubkey>,
     pub rent_collector: Pubkey,
     pub authority: Pubkey,
+    pub settlement_epoch: u64,
 }
 
 #[event]
@@ -61,4 +63,5 @@ pub struct FundSettlementEvent {
     pub split_stake_account: Option<SplitStakeData>,
     pub split_rent_collector: Option<Pubkey>,
     pub split_rent_amount: u64,
+    pub settlement_epoch: u64,
 }

@@ -114,6 +114,7 @@ impl<'info> CloseSettlementV2<'info> {
         emit_cpi!(CloseSettlementEvent {
             bond: ctx.accounts.settlement.bond.key(),
             settlement: ctx.accounts.settlement.key(),
+            settlement_epoch: ctx.accounts.settlement.epoch_created_for,
             merkle_root: ctx.accounts.settlement.merkle_root,
             max_total_claim: ctx.accounts.settlement.max_total_claim,
             max_merkle_nodes: ctx.accounts.settlement.max_merkle_nodes,
