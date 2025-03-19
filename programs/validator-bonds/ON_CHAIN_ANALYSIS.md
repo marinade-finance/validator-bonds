@@ -31,8 +31,12 @@ with
     from solana.core.fact_transactions,
       LATERAL FLATTEN(input => instructions) ixs,
     where 1=1
+      and SUCCEEDED = TRUE
+      -- -- timestamp range
       and BLOCK_TIMESTAMP > CURRENT_DATE - 7
-      -- and BLOCK_TIMESTAMP <= CURRENT_DATE - 7
+      -- -- epoch range
+      -- and floor(block_id / 432000) >= 744
+      -- and floor(block_id / 432000) <= 748
       and ixs.value:programId = 'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4'
       -- FundBond Anchor IX discriminator: '[58, 44, 212, 175, 30, 17, 68, 62]'
       -- base58: AjNYrvLyYzh
@@ -89,7 +93,10 @@ with
     from solana.core.fact_transactions,
       LATERAL FLATTEN(input => instructions) ixs,
     where 1=1
-      and BLOCK_ID >= 298080000
+      and SUCCEEDED = TRUE
+      -- range of epochs to search for
+      and floor(block_id / 432000) > 740
+      and floor(block_id / 432000) <= 750
       and bond_account = '<<bond-account-pubkey>>'
       and ixs.value:programId = 'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4'
       -- FundSettlement Anchor IX discriminator: '[179, 146, 113, 34, 30, 92, 26, 19]'
@@ -97,7 +104,8 @@ with
       and ixs.value:data = 'X35Gz7Wk1Y6'
   )
 select
-  floor(block_id / 432000) AS epoch,
+  (floor(block_id / 432000) - 1) AS possible_for_epoch,
+  floor(block_id / 432000) AS emission_epoch,
   block_timestamp,
   block_id,
   tx_id,
@@ -134,15 +142,12 @@ INNER JOIN
 WHERE fe.succeeded
 -- and fe.block_id >= 700*432000
 and fe.program_id = 'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4'
-
 -- Type of INSTRUCTION searching for
 -- and array_contains('Program log: Instruction: FundBond'::variant, ft.log_messages)
 and array_contains('Program log: Instruction: FundSettlement'::variant, ft.log_messages)
 -- and array_contains('Program log: Instruction: ClaimWithdrawRequest'::variant, ft.log_messages)
-
 -- filter instructions by Bond pubkey
 and array_contains('<<bond-account-pubkey>>'::variant, fe.instruction:accounts)
-
 -- from the list of inner instructions getting only those that contains the CPI event data
 -- the CPI PDA call address is always the same for bond program
 and array_contains('j6cZKhHTFuWsiCgPT5wriQpZWqWWUSQqjDJ8S2YDvDL'::variant, ixs.value:accounts)
