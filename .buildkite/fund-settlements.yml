@@ -166,7 +166,7 @@ steps:
      - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name.*" ./reports/ || echo "No report ERROR" > ./reports/execution-report.$$command_name.error
      - report_path="./reports/$(ls -v1 reports/ | tail -n 1)"
      - cp "$$report_path" ./fund-report.txt
-     - buildkite-agent meta-data set --redacted-vars "" attempts_count "$(grep -c ATTEMPT ./fund-report.txt)"
+     - buildkite-agent meta-data set --redacted-vars='' attempts_count "$(grep -c ATTEMPT ./fund-report.txt)"
     artifact_paths:
     - "./fund-report.txt"
     key: 'notification-setup-funding'
