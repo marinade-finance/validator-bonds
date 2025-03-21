@@ -384,9 +384,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bid-psr-distribution",
- "bincode",
  "chrono",
- "clap 4.4.8",
  "env_logger 0.10.1",
  "gcp-bigquery-client",
  "log",
@@ -405,6 +403,7 @@ dependencies = [
  "tracing-log 0.1.4",
  "tracing-subscriber",
  "utoipa",
+ "validator-bonds-common",
  "warp",
 ]
 
@@ -863,6 +862,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
+name = "bonds-collector"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap 4.4.8",
+ "log",
+ "rust_decimal",
+ "serde",
+ "serde_yaml 0.8.26",
+ "solana-client",
+ "solana-sdk",
+ "structopt",
+ "tokio",
+ "tracing",
+ "tracing-log 0.1.4",
+ "tracing-subscriber",
+ "validator-bonds",
+ "validator-bonds-common",
+]
+
+[[package]]
 name = "borsh"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1078,9 +1099,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
-version = "1.5.0"
+version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2bd12c1caf447e69cd4528f47f94d203fd2582878ecb9e9465484c4148a8223"
+checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
 name = "bzip2"
@@ -7403,46 +7424,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "validator-bonds-cli"
-version = "0.0.0"
-dependencies = [
- "anchor-lang",
- "anchor-spl",
- "anyhow",
- "bincode",
- "chrono",
- "clap 4.4.8",
- "env_logger 0.10.1",
- "log",
- "merkle-tree",
- "rust_decimal",
- "serde",
- "serde_json",
- "serde_yaml 0.8.26",
- "solana-account-decoder",
- "solana-clap-utils",
- "solana-cli-config",
- "solana-client",
- "solana-logger",
- "solana-program",
- "solana-sdk",
- "structopt",
- "tokio",
- "tracing",
- "tracing-log 0.1.4",
- "tracing-subscriber",
- "validator-bonds",
- "validator-bonds-common",
-]
-
-[[package]]
 name = "validator-bonds-common"
 version = "0.0.0"
 dependencies = [
  "anchor-client",
  "anyhow",
  "bincode",
+ "chrono",
  "log",
+ "rust_decimal",
+ "serde",
  "solana-account-decoder",
  "solana-client",
  "solana-program",

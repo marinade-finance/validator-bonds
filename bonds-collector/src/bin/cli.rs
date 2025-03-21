@@ -1,7 +1,7 @@
+use bonds_collector::commands::bonds::collect_bonds;
+use bonds_collector::commands::common::CommonCollectOptions;
 use structopt::StructOpt;
 use tracing_log::LogTracer;
-use validator_bonds_cli::commands::bonds::collect_bonds;
-use validator_bonds_cli::commands::common::CommonCollectOptions;
 
 #[derive(Debug, StructOpt)]
 pub struct Common {
@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
         .compact()
         .finish();
 
-    tracing::subscriber::set_global_default(subscriber).unwrap();
+    tracing::subscriber::set_global_default(subscriber)?;
 
     let default_panic = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {

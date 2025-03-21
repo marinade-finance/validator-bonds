@@ -6,6 +6,7 @@ use std::{str::FromStr, sync::Arc};
 pub mod bonds;
 pub mod config;
 pub mod constants;
+pub mod dto;
 pub mod funded_bonds;
 pub mod settlement_claims;
 pub mod settlements;

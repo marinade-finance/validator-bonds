@@ -95,8 +95,6 @@ async fn real_main(reporting: &mut ReportHandler<CloseSettlementReport>) -> anyh
 
     let marinade_wallet = load_pubkey(&args.marinade_wallet)
         .map_err(|e| anyhow!("Failed to load --marinade-wallet: {:?}", e))?;
-    let past_settlements: Vec<BondSettlement> = read_from_json_file(&args.past_settlements)
-        .map_err(|e| anyhow!("Failed to load --past-settlements: {:?}", e))?;
 
     let config_address = args.global_opts.config;
     info!(
@@ -106,8 +104,14 @@ async fn real_main(reporting: &mut ReportHandler<CloseSettlementReport>) -> anyh
     let config = get_config(rpc_client.clone(), config_address)
         .await
         .map_err(CliError::retry_able)?;
-
     reporting.reportable.init(marinade_wallet, &config);
+
+    let past_settlements: Vec<BondSettlement> =
+        read_from_json_file::<PathBuf, Vec<BondSettlement>>(&args.past_settlements)
+            .map_err(|e| anyhow!("Failed to load --past-settlements: {:?}", e))?
+            .into_iter()
+            .filter(|bs| bs.config_address == config_address)
+            .collect();
 
     let mut transaction_builder = TransactionBuilder::limited(fee_payer_keypair.clone());
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
@@ -207,7 +211,7 @@ async fn close_settlements(
                 stake_program: stake_program_id,
                 stake_history: stake_history_sysvar_id,
                 program: validator_bonds_id,
-                event_authority: find_event_authority().0,
+                event_authority: find_event_authority(config_address).0,
             })
             .args(validator_bonds::instruction::CloseSettlementV2 {});
         add_instruction_to_builder(
@@ -273,11 +277,12 @@ async fn reset_stake_accounts(
     let clock = get_clock(rpc_client.clone())
         .await
         .map_err(CliError::retry_able)?;
-    let all_stake_accounts =
+    let all_bonds_stake_accounts =
         collect_stake_accounts(rpc_client.clone(), Some(&bonds_withdrawer_authority), None)
             .await
             .map_err(CliError::retry_able)?;
-    let settlement_funded_stake_accounts = filter_settlement_funded(all_stake_accounts, &clock);
+    let settlement_funded_stake_accounts =
+        filter_settlement_funded(all_bonds_stake_accounts, &clock);
     for (stake_pubkey, lamports, stake_state) in settlement_funded_stake_accounts {
         let staker_authority = if let Some(authorized) = stake_state.authorized() {
             authorized.staker
@@ -322,7 +327,7 @@ async fn reset_stake_accounts(
                     clock: clock_sysvar_id,
                     stake_program: stake_program_id,
                     program: validator_bonds_id,
-                    event_authority: find_event_authority().0,
+                    event_authority: find_event_authority(config_address).0,
                 })
                 .args(validator_bonds::instruction::WithdrawStake {});
             add_instruction_to_builder(
@@ -355,7 +360,7 @@ async fn reset_stake_accounts(
                     clock: clock_sysvar_id,
                     stake_program: stake_program_id,
                     program: validator_bonds_id,
-                    event_authority: find_event_authority().0,
+                    event_authority: find_event_authority(config_address).0,
                 })
                 .args(validator_bonds::instruction::ResetStake {});
             add_instruction_to_builder(
@@ -436,22 +441,27 @@ fn get_expired_stake_accounts(
     expired_settlements
         .into_iter()
         .map(|(settlement_address, settlement, bond)| {
+            let (bond_config, bond_vote_account) =
+                bond.map_or_else(|| (None, None), |b| (Some(b.config), Some(b.vote_account)));
             (
+                bond_config,
                 settlement_address,
                 settlement.epoch_created_for,
                 settlement.bond,
-                bond.map_or_else(|| None, |b| Some(b.vote_account)),
+                bond_vote_account,
             )
         })
         .chain(not_existing_past_settlements.into_iter().map(
             |&BondSettlement {
+                 config_address,
                  bond_address,
                  settlement_address,
                  vote_account_address,
-                 merkle_root: _,
                  epoch,
+                 merkle_root: _,
              }| {
                 (
+                    Some(config_address),
                     settlement_address,
                     epoch,
                     bond_address,
@@ -459,10 +469,11 @@ fn get_expired_stake_accounts(
                 )
             },
         ))
-        .map(|(settlement, epoch, bond, vote_account)| {
+        .map(|(config, settlement, epoch, bond, vote_account)| {
             (
                 find_settlement_staker_authority(&settlement).0,
                 ResetStakeData {
+                    _config: config,
                     vote_account,
                     bond,
                     settlement,
@@ -475,6 +486,7 @@ fn get_expired_stake_accounts(
 }
 
 struct ResetStakeData {
+    _config: Option<Pubkey>,
     bond: Pubkey,
     vote_account: Option<Pubkey>,
     settlement: Pubkey,

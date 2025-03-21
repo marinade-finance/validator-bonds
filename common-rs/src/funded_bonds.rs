@@ -1,14 +1,14 @@
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::pubkey::Pubkey;
-use std::{collections::HashMap, sync::Arc};
-use validator_bonds::state::{bond::Bond, config::find_bonds_withdrawer_authority};
-
 use crate::{
-    bonds::get_bonds,
-    settlements::get_settlements,
+    bonds::get_bonds_for_config,
+    settlements::get_settlements_for_config,
     stake_accounts::{collect_stake_accounts, get_clock},
     withdraw_requests::get_withdraw_requests,
 };
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::pubkey::Pubkey;
+use std::{collections::HashMap, sync::Arc};
+use validator_bonds::state::withdraw_request::WithdrawRequest;
+use validator_bonds::state::{bond::Bond, config::find_bonds_withdrawer_authority};
 
 #[derive(Default, Clone, Debug)]
 pub struct Funds {
@@ -23,22 +23,30 @@ pub async fn collect_validator_bonds_with_funds(
     config_address: Pubkey,
 ) -> anyhow::Result<Vec<(Pubkey, Bond, Funds)>> {
     let (withdraw_authority, _) = find_bonds_withdrawer_authority(&config_address);
-    log::info!("{withdraw_authority:?}");
+    log::info!("Config withdraw authority: {withdraw_authority:?}");
 
     let mut validator_funds: HashMap<Pubkey, Funds> = HashMap::new();
 
-    let bonds: HashMap<_, _> = get_bonds(rpc_client.clone()).await?.into_iter().collect();
+    let bonds: HashMap<_, _> = get_bonds_for_config(rpc_client.clone(), &config_address)
+        .await?
+        .into_iter()
+        .collect();
     let stake_accounts =
         collect_stake_accounts(rpc_client.clone(), Some(&withdraw_authority), None).await?;
-    let witdraw_requests = get_withdraw_requests(rpc_client.clone()).await?;
-    let settlements = get_settlements(rpc_client.clone()).await?;
-    let clock = get_clock(rpc_client.clone()).await?;
+    let settlements = get_settlements_for_config(rpc_client.clone(), &config_address).await?;
+    let withdraw_requests: Vec<(Pubkey, WithdrawRequest)> =
+        get_withdraw_requests(rpc_client.clone())
+            .await?
+            .into_iter()
+            .filter(|(_, wr)| bonds.get(&wr.bond).is_some())
+            .collect();
 
     log::info!("Found bonds: {}", bonds.len());
     log::info!("Found stake accounts: {}", stake_accounts.len());
-    log::info!("Found witdraw requests: {}", witdraw_requests.len());
+    log::info!("Found withdraw requests: {}", withdraw_requests.len());
     log::info!("Found settlements: {}", settlements.len());
 
+    let clock = get_clock(rpc_client.clone()).await?;
     for (pubkey, lamports_available, stake_account) in stake_accounts {
         if let Some(lockup) = stake_account.lockup() {
             if lockup.is_in_force(&clock, None) {
@@ -52,7 +60,7 @@ pub async fn collect_validator_bonds_with_funds(
         }
     }
 
-    for (_, withdraw_request) in witdraw_requests {
+    for (_, withdraw_request) in withdraw_requests {
         let funded_bond = validator_funds
             .entry(withdraw_request.vote_account)
             .or_default();

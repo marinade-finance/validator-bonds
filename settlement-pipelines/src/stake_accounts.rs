@@ -208,7 +208,7 @@ pub async fn prepare_merge_instructions(
                     staker_authority: *staker_authority,
                     stake_program: stake_program_id,
                     program: validator_bonds_id,
-                    event_authority: find_event_authority().0,
+                    event_authority: find_event_authority(config_address).0,
                 })
                 .args(validator_bonds::instruction::MergeStake {
                     merge_args: MergeStakeArgs {

@@ -6,11 +6,16 @@ edition = "2021"
 [dependencies]
 anchor-client = { workspace = true }
 anyhow = { workspace = true }
+chrono = { workspace = true }
 bincode = { workspace = true }
 log = { workspace = true }
+serde = { workspace = true }
 solana-sdk = { workspace = true }
+rust_decimal = { workspace = true }
 solana-client = { workspace = true }
 solana-account-decoder = { workspace = true }
 solana-program = { workspace = true }
-tokio = {workspace = true}
+tokio = { workspace = true }
 validator-bonds = { workspace = true }
+
+

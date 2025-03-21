@@ -8,21 +8,21 @@ env:
 steps:
   - label: ":closed_lock_with_key: Concurrency gate lock"
     command: echo "--> Start of concurrency gate"
-    concurrency_group: 'validator-bonds/fund-settlements'
+    concurrency_group: 'validator-bonds/fund-settlements-${CLAIM_TYPE}'
     concurrency: 1
 
   - wait: ~
 
-  - input: "What is slack feed to emit messages into?"
+  - input: "What is the Bonds Config type to fund?"
     fields:
-      - select: "Slack feed"
-        key: "slack_feed"
+      - select: "Claim type"
+        key: "claim_type"
         options:
-          - label: "Feed Pipeline SAM PSR"
-            value: "feed-pipeline-sam-psr"
-          - label: "Feed Institutional Staking"
-            value: "feed-institutional-staking"
-    if: "build.env('SLACK_FEED') == null && build.env('NOTIFY_FEED') == 'true'"
+          - label: "Bidding Settlements"
+            value: "bid"
+          - label: "Institutional Settlements"
+            value: "institutional"
+    if: "build.env('CLAIM_TYPE') == null"
     blocked_state: running
 
   - wait: ~
@@ -37,21 +37,15 @@ steps:
         unset epoch
       fi
     - |
-      claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type || echo "")}
-      if [[ -n "$$claim_type" ]]; then
-        buildkite-agent meta-data set claim_type "$$claim_type"
-      else
-        unset claim_type
-      fi
+      claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
+      buildkite-agent meta-data set claim_type "$$claim_type"
+      config_pubkey=$(./scripts/bonds-config-pubkey.sh "$$claim_type")
+      buildkite-agent meta-data set config_pubkey "$$config_pubkey"
     - |
-      slack_feed=${SLACK_FEED:-$(buildkite-agent meta-data get slack_feed || echo "")}
-      if [[ -n "$$slack_feed" ]]; then
-        buildkite-agent meta-data set slack_feed "$$slack_feed"
-      else
-        unset slack_feed
-      fi
+      slack_feed=$(./scripts/bonds-slack-feed.sh "$$claim_type")
+      buildkite-agent meta-data set slack_feed "$$slack_feed"
     - |
-      echo "Epoch: '$$epoch', Claim Type: '$$claim_type', Slack Feed: '$$slack_feed'"
+      echo "Epoch: '$$epoch', Claim Type: '$$claim_type'/'$$config_pubkey', Slack Feed: '$$slack_feed'"
 
   - wait: ~
 
@@ -68,7 +62,6 @@ steps:
       # epoch when the contract v2 was deployed, using different structure of merkle tree than v1
       starting_epoch_contract_v2: 640
     commands:
-    - claim_type=$(buildkite-agent meta-data get claim_type) || true
     - epoch=$(buildkite-agent meta-data get epoch) || true
     - |
       if [[ -z "$$epoch" ]]; then
@@ -87,6 +80,9 @@ steps:
         echo "Merkle trees already downloaded"
         exit 0
       fi
+    - |
+      claim_type=$(buildkite-agent meta-data get claim_type)
+      claim_type_prefix="$${claim_type%%-*}"
     - 'mkdir ./merkle-trees/'
     - |
       for epoch in $(seq $$epochs_start_index $$current_epoch); do
@@ -94,21 +90,14 @@ steps:
           echo "Skipping epoch $$epoch, because it's before the contract v2 deployment epoch $$starting_epoch_contract_v2"
           continue
         fi
-        if [[ -z "$$claim_type" ]]; then
-          for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/*settlement-merkle-trees.json"); do
-            base_name=$(basename "$$merkle_tree_file")
-            prefix_name="$${base_name%settlement-merkle-trees.json}"
-            target_dir="./merkle-trees/$${epoch}_$${prefix_name%-*}/"
-            mkdir -p "$$target_dir"
-            gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlement-merkle-trees.json" "$$target_dir"
-            gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlements.json" "$$target_dir"
-          done
-        else
-          target_dir="./merkle-trees/$${epoch}_$${claim_type}/"
+        for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/$${claim_type_prefix}*settlement-merkle-trees.json"); do
+          base_name=$(basename "$$merkle_tree_file")
+          prefix_name="$${base_name%settlement-merkle-trees.json}"
+          target_dir="./merkle-trees/$${epoch}_$${prefix_name%-*}/"
           mkdir -p "$$target_dir"
-          gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlement-merkle-trees.json" "$$target_dir"
-          gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlements.json" "$$target_dir"
-        fi
+          gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlement-merkle-trees.json" "$$target_dir"
+          gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlements.json" "$$target_dir"
+        done
       done
     artifact_paths:
       - "./merkle-trees/**/*"
@@ -145,6 +134,7 @@ steps:
     - |
       handle_command_execution "$$command_name" \
       ./target/release/fund-settlement \
+        --config $(buildkite-agent meta-data get config_pubkey) \
         --rpc-url "$$RPC_URL" \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$PSR_TX_FEE_WALLET" \
@@ -192,22 +182,21 @@ steps:
     commands:
     - buildkite-agent artifact download --include-retried-jobs fund-report.txt . || echo 'UNKNOWN ERROR' > './fund-report.txt'
     - cat ./fund-report.txt
-    - echo "--------------------------------------------\n\n"
+    - echo "--------------------------------------------"
     - source ./scripts/execute-handlers.sh
     - check_command_execution_status "fund-settlement" || true
-    - |
-      claim_type=$(buildkite-agent meta-data get claim_type) || true
-      [[ -n "$$claim_type" ]] && claim_type=" [$$claim_type]"
-    - slack_feed=$(buildkite-agent meta-data get slack_feed)
+    - claim_type=$(buildkite-agent meta-data get claim_type)
+    - config_pubkey=$(buildkite-agent meta-data get config_pubkey)
     - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
     - |
       curl $SLACK_API -X POST -H 'Content-Type: application/json; charset=utf-8' \
         -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
-        "channel": "'"$$slack_feed"'",
+        "channel": "'$(buildkite-agent meta-data get slack_feed)'",
         "attachments": [{
           "color": "'"$$notification_color"'",
-          "title": "Fund Settlements '"$${notification_result}$${claim_type}"', '"$$attempts_count"' attempts",
+          "title": "Fund '"$$claim_type Settlements"' '"$${notification_result}"', '"$$attempts_count"' attempts",
           "title_link": "'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'",
+          "text": "Claim type: '"$$claim_type"'/'"$$config_pubkey"'",
           "footer": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>" 
         }]
       }'
@@ -219,5 +208,5 @@ steps:
 
   - label: ":unlock: Concurrency gate unlock"
     command: echo "End of concurrency gate <--"
-    concurrency_group: 'validator-bonds/fund-settlements'
+    concurrency_group: 'validator-bonds/fund-settlements-${CLAIM_TYPE}'
     concurrency: 1
