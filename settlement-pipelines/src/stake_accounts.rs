@@ -12,6 +12,7 @@ use solana_sdk::sysvar::{
     clock::ID as clock_sysvar_id, stake_history::ID as stake_history_sysvar_id,
 };
 use solana_transaction_builder::TransactionBuilder;
+use std::cmp::Ordering;
 use std::str::FromStr;
 use std::sync::Arc;
 use validator_bonds::instructions::MergeStakeArgs;
@@ -24,8 +25,9 @@ use validator_bonds_common::stake_accounts::{
 // TODO: better to be loaded from chain
 pub const STAKE_ACCOUNT_RENT_EXEMPTION: u64 = 2282880;
 
-// 4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk
 pub const MARINADE_LIQUID_STAKER_AUTHORITY: &str = "4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk";
+pub const MARINADE_INSTITUTIONAL_STAKER_AUTHORITY: &str =
+    "STNi1NHDUi6Hvibvonawgze8fM83PFLeJhuGMEXyGps";
 
 // Prioritize collected stake accounts where to claim to.
 // - error if all are locked or no stake accounts
@@ -38,8 +40,8 @@ pub fn prioritize_for_claiming(
         .iter()
         .filter(|(_, _, stake)| !is_locked(stake, clock))
         .collect::<Vec<_>>();
-    non_locked_stake_accounts.sort_by_cached_key(|(_, _, stake_account)| {
-        get_claiming_priority_key(stake_account, clock, stake_history)
+    non_locked_stake_accounts.sort_by_cached_key(|(_, lamports, stake_account)| {
+        get_claiming_priority_key(stake_account, *lamports, clock, stake_history)
     });
     return if let Some((pubkey, _, _)) = non_locked_stake_accounts.first() {
         Ok(*pubkey)
@@ -114,34 +116,93 @@ pub fn get_delegated_amount(
     }
 }
 
+/// Ordering key for define priority of stake accounts for claiming
+#[derive(Debug, Clone, Copy)]
+struct ClaimingPriorityKey {
+    priority: u8,
+    second_priority: u64,
+}
+
+impl ClaimingPriorityKey {
+    fn simple(priority: u8) -> Self {
+        Self {
+            priority,
+            second_priority: 0,
+        }
+    }
+
+    fn full(priority: u8, second_priority: u64) -> Self {
+        Self {
+            priority,
+            second_priority,
+        }
+    }
+}
+
+impl PartialEq for ClaimingPriorityKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.priority == other.priority && self.second_priority == other.second_priority
+    }
+}
+impl Eq for ClaimingPriorityKey {}
+
+impl PartialOrd for ClaimingPriorityKey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ClaimingPriorityKey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.priority.cmp(&other.priority) {
+            Ordering::Equal => self.second_priority.cmp(&other.second_priority),
+            ordering => ordering,
+        }
+    }
+}
+
 fn get_claiming_priority_key(
     stake_account: &StakeStateV2,
+    lamports: u64,
     clock: &Clock,
     stake_history: &StakeHistory,
-) -> u8 {
-    // HOTFIX: Marinade liquid staking stake accounts need a different priority to other types
+) -> ClaimingPriorityKey {
     let staker = if let Some(authorized) = stake_account.authorized() {
         authorized.staker
     } else {
         Pubkey::default()
     };
+    // Marinade liquid and institutional stake accounts need a different priority to other types
     if staker == Pubkey::from_str(MARINADE_LIQUID_STAKER_AUTHORITY).unwrap() {
         match get_stake_state_type(stake_account, clock, stake_history) {
-            StakeAccountStateType::DelegatedAndActive => 0,
-            StakeAccountStateType::DelegatedAndActivating => 1,
-            StakeAccountStateType::DelegatedAndDeactivating => 2,
-            StakeAccountStateType::Initialized => 3,
-            StakeAccountStateType::DelegatedAndDeactivated => 4,
-            StakeAccountStateType::NonAuthorized => 255,
+            StakeAccountStateType::DelegatedAndActive => ClaimingPriorityKey::simple(0),
+            StakeAccountStateType::DelegatedAndActivating => ClaimingPriorityKey::simple(1),
+            StakeAccountStateType::DelegatedAndDeactivating => ClaimingPriorityKey::simple(2),
+            StakeAccountStateType::Initialized => ClaimingPriorityKey::simple(3),
+            StakeAccountStateType::DelegatedAndDeactivated => ClaimingPriorityKey::simple(4),
+            StakeAccountStateType::NonAuthorized => ClaimingPriorityKey::simple(255),
+        }
+    } else if staker == Pubkey::from_str(MARINADE_INSTITUTIONAL_STAKER_AUTHORITY).unwrap() {
+        match get_stake_state_type(stake_account, clock, stake_history) {
+            StakeAccountStateType::DelegatedAndDeactivated => {
+                ClaimingPriorityKey::full(0, lamports)
+            }
+            StakeAccountStateType::DelegatedAndDeactivating => {
+                ClaimingPriorityKey::full(1, lamports)
+            }
+            StakeAccountStateType::Initialized => ClaimingPriorityKey::full(2, lamports),
+            StakeAccountStateType::DelegatedAndActive => ClaimingPriorityKey::full(3, lamports),
+            StakeAccountStateType::DelegatedAndActivating => ClaimingPriorityKey::full(4, lamports),
+            StakeAccountStateType::NonAuthorized => ClaimingPriorityKey::full(255, lamports),
         }
     } else {
         match get_stake_state_type(stake_account, clock, stake_history) {
-            StakeAccountStateType::Initialized => 0,
-            StakeAccountStateType::DelegatedAndDeactivated => 1,
-            StakeAccountStateType::DelegatedAndDeactivating => 2,
-            StakeAccountStateType::DelegatedAndActive => 3,
-            StakeAccountStateType::DelegatedAndActivating => 4,
-            StakeAccountStateType::NonAuthorized => 255,
+            StakeAccountStateType::Initialized => ClaimingPriorityKey::simple(0),
+            StakeAccountStateType::DelegatedAndDeactivated => ClaimingPriorityKey::simple(1),
+            StakeAccountStateType::DelegatedAndDeactivating => ClaimingPriorityKey::simple(2),
+            StakeAccountStateType::DelegatedAndActive => ClaimingPriorityKey::simple(3),
+            StakeAccountStateType::DelegatedAndActivating => ClaimingPriorityKey::simple(4),
+            StakeAccountStateType::NonAuthorized => ClaimingPriorityKey::simple(255),
         }
     }
 }
