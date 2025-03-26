@@ -19,11 +19,10 @@ pub async fn get_bonds_for_config(
     config_address: &Pubkey,
 ) -> anyhow::Result<Vec<(Pubkey, Bond)>> {
     let program = get_validator_bonds_program(rpc_client, None)?;
-    let mut filters = vec![];
-    filters.push(RpcFilterType::Memcmp(Memcmp::new(
+    let filters = vec![RpcFilterType::Memcmp(Memcmp::new(
         CONFIG_ADDRESS_OFFSET,
         solana_client::rpc_filter::MemcmpEncodedBytes::Base58(config_address.to_string()),
-    )));
+    ))];
     Ok(program.accounts(filters).await?)
 }
 

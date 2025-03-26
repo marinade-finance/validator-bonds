@@ -19,7 +19,6 @@ Mono repository for Validator Bonds product
 * [`merkle-tree/`](./merkle-tree/) - generic Rust library implementing the merkle tree data structure management
 * [`migrations/`](./migrations/) - SQL scripts to prepare and change DB schemas
 * [`scripts/`](./scripts/) - scripts used in pipeline and to manage and integrate various repository parts
-* [`validator-bonds-cli`](bonds-collector/) - CLI used by operator to manage bonds (user related CLI is [packages/CLI](./packages/validator-bonds-cli/))
 * [`settlement-pipelines`](./settlement-pipelines/) - a set of CLI binaries that works as a pipeline off-chain management for the Validator Bonds Program 
 
 ## Validator Bonds Programs Flow

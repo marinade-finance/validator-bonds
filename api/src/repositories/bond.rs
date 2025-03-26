@@ -1,6 +1,6 @@
 use super::common::CommonStoreOptions;
 use crate::dto::SqlSerializableBondType;
-use log::{log, Level};
+
 use openssl::ssl::{SslConnector, SslMethod};
 use postgres_openssl::MakeTlsConnector;
 use rust_decimal::Decimal;
@@ -139,7 +139,6 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
             ",
             insert_values
         );
-        log!(Level::Info, "Executing query: {}", query);
 
         let params = params
             .iter()

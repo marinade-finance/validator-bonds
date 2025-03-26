@@ -16,7 +16,7 @@ steps:
         key: "claim_type"
         options:
           - label: "Bidding Bonds Config"
-            value: "bidding"
+            value: "bid"
           - label: "Institutional Bonds Config"
             value: "institutional"
     if: "build.env('CLAIM_TYPE') == null"
@@ -33,11 +33,13 @@ steps:
 
   - label: ":microscope: Collect Bonds"
     commands:
-    - claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
+    - |
+      claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
+      bond_type=$([[ "$$claim_type" == "bid" ]] && echo "bidding" || echo "institutional")
     - buildkite-agent artifact download --include-retried-jobs target/release/bonds-collector .
     - chmod +x target/release/bonds-collector
     - |
-      ./target/release/bonds-collector --bond-type $$claim_type \
+      ./target/release/bonds-collector --bond-type $$bond_type \
         collect-bonds -u "$$RPC_URL" > bonds.yaml
     artifact_paths:
       - bonds.yaml
