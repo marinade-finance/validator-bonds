@@ -31,12 +31,13 @@ impl std::fmt::Debug for CustomError {
 #[utoipa::path(
     get,
     tag = "Bonds",
-    operation_id = "List validator bonds",
+    operation_id = "List bidding validator bonds (deprecated)",
     path = "/bonds",
     responses(
         (status = 200, description = "DEPRECATED: Please use /bonds/bidding instead", body = BondsResponse),
     )
 )]
+#[deprecated]
 pub async fn handler(
     query_params: QueryParams,
     context: WrappedContext,
