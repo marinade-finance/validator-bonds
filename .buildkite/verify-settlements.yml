@@ -137,7 +137,7 @@ steps:
      - report_path="./reports/$(ls -v1 reports/ | tail -n 1)"
      - |
        ATTEMPT_COUNT=$(grep -c ATTEMPT "$$report_path" | sed 's/.*ATTEMPT //g')
-       buildkite-agent meta-data set attempts_count "$${ATTEMPT_COUNT:-0}"
+       buildkite-agent meta-data set --redacted-vars='' attempts_count "$${ATTEMPT_COUNT:-0}"
      - 'cat "$$report_path" | grep -v "ATTEMPT" > ./verify-report.json'
     artifact_paths:
     - "./verify-report.json"

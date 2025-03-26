@@ -75,7 +75,7 @@ steps:
     - possible_epochs_num=$(echo "$$possible_epochs_json" | jq "length")
     - 'echo "Possible claimable epochs [$$possible_epochs_num]: $$possible_epochs_json"'
     - claimable_epochs_num=0
-    - claimable_epochs_json=()
+    - declare -a claimable_epochs_array
     - |
       for epoch in $(echo "$$possible_epochs_json" | jq ".[]"); do
         if [[ $$epoch -lt $$starting_epoch_contract_v2 ]]; then
@@ -83,7 +83,7 @@ steps:
           continue
         fi
         claimable_epochs_num=$(($$claimable_epochs_num + 1))
-        claimable_epochs_json+=($$epoch)     
+        claimable_epochs_array+=("$${epoch}")    
         for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/$${claim_type_prefix}*settlement-merkle-trees.json"); do
           base_name=$(basename "$$merkle_tree_file")
           prefix_name="$${base_name%settlement-merkle-trees.json}"
@@ -93,9 +93,9 @@ steps:
           gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlements.json" "$$target_dir"
         done
       done
-      claimable_epochs_json=$(jq --compact-output --null-input '$ARGS.positional' --args -- "$${claimable_epochs_json[@]}")
-    - 'buildkite-agent meta-data set claimable_epochs_json "$$claimable_epochs_json"'
-    - 'buildkite-agent meta-data set claimable_epochs_num "$$claimable_epochs_num"'
+      claimable_epochs_json=$(jq --compact-output --null-input '$ARGS.positional' --args -- "$${claimable_epochs_array[@]}")
+    - buildkite-agent meta-data set claimable_epochs_json "$$claimable_epochs_json"
+    - buildkite-agent meta-data set claimable_epochs_num "$$claimable_epochs_num"
     - 'echo "Claimable epochs [$$claimable_epochs_num]: $$claimable_epochs_json"'
     artifact_paths:
       - "./merkle-trees/**/*"
@@ -168,7 +168,7 @@ steps:
      - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name.*" ./reports/ || echo "No report ERROR" > ./reports/execution-report.$$command_name.error
      - report_path="./reports/$(ls -v1 reports/ | tail -n 1)"
      - cp "$$report_path" ./claiming-report.txt
-     - buildkite-agent meta-data set attempts_count "$(grep -c ATTEMPT ./claiming-report.txt)"
+     - buildkite-agent meta-data set --redacted-vars='' attempts_count "$(grep -c ATTEMPT ./claiming-report.txt)"
     artifact_paths:
     - "./claiming-report.txt"
     key: 'notification-setup-claim'
