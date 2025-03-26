@@ -111,7 +111,7 @@ async fn main() -> anyhow::Result<()> {
         .and(with_context(context.clone()))
         .and_then(bonds::handler_institutional);
 
-    let route_bonds_bidding_protected_events = warp::path!("protected-events")
+    let route_protected_events = warp::path!("protected-events")
         .and(warp::path::end())
         .and(warp::get())
         .and(warp::query::<protected_events::QueryParams>())
@@ -124,7 +124,7 @@ async fn main() -> anyhow::Result<()> {
         .or(route_bonds)
         .or(route_bonds_bidding)
         .or(route_bonds_institutional)
-        .or(route_bonds_bidding_protected_events)
+        .or(route_protected_events)
         .with(cors)
         .with(warp::filters::compression::gzip());
 
