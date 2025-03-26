@@ -187,10 +187,10 @@ fn get_claiming_priority_key(
             StakeAccountStateType::DelegatedAndDeactivated => {
                 ClaimingPriorityKey::full(0, lamports)
             }
+            StakeAccountStateType::Initialized => ClaimingPriorityKey::full(1, lamports),
             StakeAccountStateType::DelegatedAndDeactivating => {
-                ClaimingPriorityKey::full(1, lamports)
+                ClaimingPriorityKey::full(2, lamports)
             }
-            StakeAccountStateType::Initialized => ClaimingPriorityKey::full(2, lamports),
             StakeAccountStateType::DelegatedAndActive => ClaimingPriorityKey::full(3, lamports),
             StakeAccountStateType::DelegatedAndActivating => ClaimingPriorityKey::full(4, lamports),
             StakeAccountStateType::NonAuthorized => ClaimingPriorityKey::full(255, lamports),
