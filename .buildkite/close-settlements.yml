@@ -53,7 +53,7 @@ steps:
         done
         latest_funded_epoch=$$epoch
       done
-    - buildkite-agent meta-data set latest_funded_epoch "$$latest_funded_epoch"
+    - buildkite-agent meta-data set --redacted-vars='' latest_funded_epoch "$$latest_funded_epoch"
     artifact_paths:
       - "./merkle-trees/*"
 
