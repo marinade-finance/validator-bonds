@@ -194,7 +194,7 @@ steps:
         "channel": "'$(buildkite-agent meta-data get slack_feed)'",
         "attachments": [{
           "color": "'"$$notification_color"'",
-          "title": "Fund '"$$claim_type Settlements"' '"$${notification_result}"', '"$$attempts_count"' attempts",
+          "title": "Fund '"$$claim_type"' Settlements '"$${notification_result}"', '"$$attempts_count"' attempts",
           "title_link": "'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'",
           "text": "Claim type: '"$$claim_type"'/'"$$config_pubkey"'",
           "footer": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>" 
