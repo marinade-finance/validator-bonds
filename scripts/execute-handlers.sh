@@ -16,7 +16,7 @@ handle_command_execution() {
     "$@" | tee -a "./execution-report.${command_name}.${BUILDKITE_RETRY_COUNT}"
     local exit_code=$?
 
-    buildkite-agent meta-data set "${command_name}_status" "$exit_code"
+    buildkite-agent meta-data set --redacted-vars="" "${command_name}_status" "$exit_code"
 
     # Handle different exit codes
     case $exit_code in
@@ -26,7 +26,7 @@ handle_command_execution() {
         99)
             echo "${command_name}: completed with warnings"
             # Store warning state for next step
-            buildkite-agent meta-data set "${command_name}_warning" "true"
+            buildkite-agent meta-data set --redacted-vars="" "${command_name}_warning" "true"
             # Exit with 0 to continue pipeline but with warning flag
             exit 0
             ;;
