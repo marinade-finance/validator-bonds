@@ -32,13 +32,13 @@ steps:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch || echo "")}
       if [[ -n "$$epoch" ]]; then
-        buildkite-agent meta-data set epoch "$$epoch"
+        buildkite-agent meta-data set --redacted-vars='' epoch "$$epoch"
       else
         unset epoch
       fi
     - |
       claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
-      buildkite-agent meta-data set claim_type "$$claim_type"
+      buildkite-agent meta-data set --redacted-vars='' claim_type "$$claim_type"
       config_pubkey=$(./scripts/bonds-config-pubkey.sh "$$claim_type")
       buildkite-agent meta-data set config_pubkey "$$config_pubkey"
     - |
@@ -73,7 +73,7 @@ steps:
         epochs_start_index=$$epoch
         latest_funded_epoch=$$epoch
       fi
-    - buildkite-agent meta-data set latest_funded_epoch "$$latest_funded_epoch"
+    - buildkite-agent meta-data set --redacted-vars='' latest_funded_epoch "$$latest_funded_epoch"
     - |
       merkle_trees=$(buildkite-agent artifact search "merkle-trees/*" || echo "")
       if [[ "x$$merkle_trees" != "x" && ! "$$merkle_trees" =~ 'fatal' ]]; then

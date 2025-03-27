@@ -58,7 +58,7 @@ steps:
     - config_pubkey=$(buildkite-agent meta-data get config_pubkey)
     - chmod +x target/release/list-claimable-epoch
     - possible_epochs_json=$(./target/release/list-claimable-epoch --rpc-url $$RPC_URL --config "$$config_pubkey")
-    - buildkite-agent meta-data set possible_epochs_json "$$possible_epochs_json"
+    - buildkite-agent meta-data set --redacted-vars="" possible_epochs_json "$$possible_epochs_json"
 
   - wait: ~
 
@@ -94,8 +94,8 @@ steps:
         done
       done
       claimable_epochs_json=$(jq --compact-output --null-input '$ARGS.positional' --args -- "$${claimable_epochs_array[@]}")
-    - buildkite-agent meta-data set claimable_epochs_json "$$claimable_epochs_json"
-    - buildkite-agent meta-data set claimable_epochs_num "$$claimable_epochs_num"
+    - buildkite-agent meta-data set --redacted-vars='' claimable_epochs_json "$$claimable_epochs_json"
+    - buildkite-agent meta-data set --redacted-vars='' claimable_epochs_num "$$claimable_epochs_num"
     - 'echo "Claimable epochs [$$claimable_epochs_num]: $$claimable_epochs_json"'
     artifact_paths:
       - "./merkle-trees/**/*"

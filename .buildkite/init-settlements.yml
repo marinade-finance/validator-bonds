@@ -34,10 +34,10 @@ steps:
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
-      buildkite-agent meta-data set epoch "$$epoch"
+      buildkite-agent meta-data set --redacted-vars='' epoch "$$epoch"
     - |
       claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
-      buildkite-agent meta-data set claim_type "$$claim_type"
+      buildkite-agent meta-data set --redacted-vars='' claim_type "$$claim_type"
       config_pubkey=$(./scripts/bonds-config-pubkey.sh "$$claim_type")
       buildkite-agent meta-data set config_pubkey "$$config_pubkey"
     - |
