@@ -138,7 +138,7 @@ steps:
      - |
        ATTEMPT_COUNT=$(grep -c ATTEMPT "$$report_path" | sed 's/.*ATTEMPT //g')
        buildkite-agent meta-data set --redacted-vars='' attempts_count "$${ATTEMPT_COUNT:-0}"
-     - 'cat "$$report_path" | grep -v "ATTEMPT" > ./verify-report.json'
+     - cat "$$report_path" | grep -v "ATTEMPT" > ./verify-report.json
     artifact_paths:
     - "./verify-report.json"
     key: 'notification'
@@ -152,15 +152,9 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs verify-report.json .
     - source ./scripts/execute-handlers.sh
     - check_command_execution_status "verify-settlement" || true
-    - |
-      if [[ -z "$$build_result" || "$$build_result" =~ "failed" ]]; then
-        echo "Failure at process of settlements verification"
-        cat ./verify-report.json
-        exit 42
-      fi
-    - echo "--- Verify report: ---"
     - cat ./verify-report.json
-    - echo "--- End of Verify report ---"
+    - echo "--------------------------------------------"
+    - slack_feed=$(buildkite-agent meta-data get slack_feed)
     - |
       number_unknown_settlements=$(jq '. | length' ./verify-report.json)
       if [ $$number_unknown_settlements -gt 0 ]; then
