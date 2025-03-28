@@ -39,8 +39,8 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs target/release/bonds-collector .
     - chmod +x target/release/bonds-collector
     - |
-      ./target/release/bonds-collector --bond-type $$bond_type \
-        collect-bonds -u "$$RPC_URL" > bonds.yaml
+      ./target/release/bonds-collector collect-bonds \
+        --bond-type $$bond_type -u "$$RPC_URL" > bonds.yaml
     artifact_paths:
       - bonds.yaml
 
