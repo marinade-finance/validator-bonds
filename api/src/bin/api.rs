@@ -89,12 +89,27 @@ async fn main() -> anyhow::Result<()> {
 
     let route_api_docs_html = warp::path("docs").and(warp::get()).and_then(docs::handler);
 
+    #[allow(deprecated)] // backwards compatibility
     let route_bonds = warp::path!("bonds")
         .and(warp::path::end())
         .and(warp::get())
         .and(warp::query::<bonds::QueryParams>())
         .and(with_context(context.clone()))
         .and_then(bonds::handler);
+
+    let route_bonds_bidding = warp::path!("bonds" / "bidding")
+        .and(warp::path::end())
+        .and(warp::get())
+        .and(warp::query::<bonds::QueryParams>())
+        .and(with_context(context.clone()))
+        .and_then(bonds::handler_bidding);
+
+    let route_bonds_institutional = warp::path!("bonds" / "institutional")
+        .and(warp::path::end())
+        .and(warp::get())
+        .and(warp::query::<bonds::QueryParams>())
+        .and(with_context(context.clone()))
+        .and_then(bonds::handler_institutional);
 
     let route_protected_events = warp::path!("protected-events")
         .and(warp::path::end())
@@ -107,6 +122,8 @@ async fn main() -> anyhow::Result<()> {
         .or(route_api_docs_oas)
         .or(route_api_docs_html)
         .or(route_bonds)
+        .or(route_bonds_bidding)
+        .or(route_bonds_institutional)
         .or(route_protected_events)
         .with(cors)
         .with(warp::filters::compression::gzip());

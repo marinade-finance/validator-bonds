@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ### ---- Call with json file arguments
-# settlement-json-listing.sh --settlements 1_settlements.json --merkle-trees 1_settlement-merkle-trees.json
+# settlement-json-listing.sh --settlements 1_settlements.json --merkle-trees 1_settlement-merkle-trees.json [--claim-type bid-claim]
 ### ----
 
 solsdecimal() {
@@ -19,24 +19,26 @@ solsdecimal() {
 # finding value of amount of delegated stake to be locked when funding
 # https://github.com/marinade-finance/validator-bonds/blob/contract-v2.0.0/programs/validator-bonds/src/state/config.rs#L19
 config_min_stake() {
+  CONFIG_PUBKEY="$1"
+  [[ -z "$CONFIG_PUBKEY" ]] && echo "config_min_stake: Bond config pubkey was not defined" && exit 2
   # create a temporary file and then delete it
   TMP_FILE=$(mktemp)
   # marinade config account 'vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU' for program 'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4'
   # value 'minimum_stake_lamports' is at index 88 (89th byte) and it's u64 (8 bytes)
-  MIMIMUM_STAKE_LAMPORTS_BYTE=89
+  MINIMUM_STAKE_LAMPORTS_BYTE=89
   curl https://api.mainnet-beta.solana.com -X POST -H "Content-Type: application/json" -s -d '
     {
       "jsonrpc": "2.0",
       "id": 1,
       "method": "getAccountInfo",
       "params": [
-        "vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU",
+        "'$CONFIG_PUBKEY'",
         {
           "encoding": "base64"
         }
       ]
     }
-  ' | jq -r '.result.value.data[0]' | base64 -d | tail -c+${MIMIMUM_STAKE_LAMPORTS_BYTE} | head -c8 > "$TMP_FILE"
+  ' | jq -r '.result.value.data[0]' | base64 -d | tail -c+${MINIMUM_STAKE_LAMPORTS_BYTE} | head -c8 > "$TMP_FILE"
   hex=$(xxd -p -l 8 -c 8 "$TMP_FILE" | sed 's/\(..\)/\\x\1/g')
   decimal=$(printf "$hex" | od -An -tu8 | tr -d ' ')
   echo $decimal
@@ -48,6 +50,7 @@ while [[ "$#" -gt 0 ]]; do
     case $1 in
         --settlements) SETTLEMENTS_JSON_FILE="$2"; shift ;;
         --merkle-trees) MERKLE_TREES_JSON_FILE="$2"; shift ;;
+        --claim-type) CLAIM_TYPE="$2"; shift ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
@@ -58,8 +61,12 @@ if [ -z "$SETTLEMENTS_JSON_FILE" ] || [ -z "$MERKLE_TREES_JSON_FILE" ]; then
     exit 1
 fi
 
+SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
+CONFIG_PUBKEY=$("$SCRIPT_DIR"/bonds-config-pubkey.sh "$CLAIM_TYPE")
+[[ -z "$CONFIG_PUBKEY" ]] && echo "Error: Bond config pubkey was not defined" && exit 2
+
 # stake account minimal size
-CONFIG_MIN_STAKE=$(config_min_stake)
+CONFIG_MIN_STAKE=$(config_min_stake "$CONFIG_PUBKEY")
 STAKE_ACCOUNT_MINIMAL_SIZE=$(($CONFIG_MIN_STAKE + 2282880))
 echo "Minimal delegated stake accout lamports: ${STAKE_ACCOUNT_MINIMAL_SIZE}"
 

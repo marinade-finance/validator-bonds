@@ -10,7 +10,7 @@ use solana_transaction_executor::{PriorityFeePolicy, TipPolicy};
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
-use validator_bonds_common::{constants::MARINADE_CONFIG_ADDRESS, get_validator_bonds_program};
+use validator_bonds_common::get_validator_bonds_program;
 
 pub const DEFAULT_KEYPAIR_PATH: &str = "~/.config/solana/id.json";
 
@@ -33,7 +33,7 @@ pub struct GlobalOpts {
     #[arg(long)]
     pub fee_payer: Option<String>,
 
-    #[arg(long, default_value = MARINADE_CONFIG_ADDRESS)]
+    #[arg(long)]
     pub config: Pubkey,
 
     #[arg(short = 'o', long)]

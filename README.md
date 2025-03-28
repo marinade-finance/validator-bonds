@@ -12,13 +12,13 @@ Mono repository for Validator Bonds product
 * [`packages/`](./packages/) - TypeScript packages related to on-chain program (SDK, CLI)
   ([SDK](./packages/validator-bonds-sdk/), [CLI](./packages/validator-bonds-cli/))
 * [`api/`](./api/) - in Rust developed OpenAPI service that publishes bonds data ([API endpoint](https://validator-bonds-api.marinade.finance/docs))
+* [`bonds-collector`](./bonds-collector/) - a CLI tool for loading on-chain bond data into a YAML file
 * [`.buildkite/`](./.buildkite/) - automated pipelines that prepare data for bonds claiming, updating API data and similar
 * [`settlement-distribution/`](settlement-distributions/) - CLIs for generating Settlement and Merkle Tree JSON data,
   which serve as the foundation for on-chain initialization and claim settlement transactions
 * [`merkle-tree/`](./merkle-tree/) - generic Rust library implementing the merkle tree data structure management
 * [`migrations/`](./migrations/) - SQL scripts to prepare and change DB schemas
 * [`scripts/`](./scripts/) - scripts used in pipeline and to manage and integrate various repository parts
-* [`validator-bonds-cli`](./validator-bonds-cli/) - CLI used by operator to manage bonds (user related CLI is [packages/CLI](./packages/validator-bonds-cli/))
 * [`settlement-pipelines`](./settlement-pipelines/) - a set of CLI binaries that works as a pipeline off-chain management for the Validator Bonds Program 
 
 ## Validator Bonds Programs Flow
@@ -58,13 +58,17 @@ pnpm install
 pnpm cli --help
 ```
 
-### Validator Bonds data loading CLI
+### Validator Bonds data loading
+
+A CLI tool that loads on-chain data and stores it in a YAML file.
+The YAML file can then be used as a DTO for storing the data in a PostgreSQL database,
+which is accessed by a REST API to serve the data.
 
 ```sh
 cargo build --release
 
 # Collect bonds data in YAML format
-./target/release/validator-bonds-cli \
+./target/release/bonds-collector \
   collect-bonds -u "$RPC_URL" > bonds.yaml
 
 # Store YAML bonds data to a POSTGRES DB

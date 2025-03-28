@@ -4,32 +4,42 @@ agents:
 steps:
   - label: ":hammer_and_wrench: :rust: Build"
     commands:
-    - '. "$HOME/.cargo/env"'
-    - 'cargo build --release --bin validator-bonds-cli --bin validator-bonds-api-cli'
+    - source "$HOME/.cargo/env"
+    - cargo build --release --bin bonds-collector --bin validator-bonds-api-cli
     artifact_paths:
-      - target/release/validator-bonds-cli
+      - target/release/bonds-collector
       - target/release/validator-bonds-api-cli
 
+  - input: "What is the Bonds Config type to collect?"
+    fields:
+      - select: "Claim type"
+        key: "claim_type"
+        options:
+          - label: "Bidding Bonds Config"
+            value: "bid"
+          - label: "Institutional Bonds Config"
+            value: "institutional"
+    if: "build.env('CLAIM_TYPE') == null"
+    blocked_state: running
+
   - wait: ~
 
-  - label: ":gear: Setup"
-    commands:
-    - '. "$HOME/.cargo/env"'
-
-  - wait: ~
-
-  - command: echo "--> Start of concurrency gate"
-    concurrency_group: 'validator-bonds/collect-bonds'
+  - label: ":closed_lock_with_key: Concurrency gate lock"
+    command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/collect-bonds-${CLAIM_TYPE}'
     concurrency: 1
 
   - wait: ~
 
   - label: ":microscope: Collect Bonds"
     commands:
-    - 'buildkite-agent artifact download --include-retried-jobs target/release/validator-bonds-cli .'
-    - 'chmod +x target/release/validator-bonds-cli'
     - |
-      ./target/release/validator-bonds-cli \
+      claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
+      bond_type=$([[ "$$claim_type" == "bid" ]] && echo "bidding" || echo "institutional")
+    - buildkite-agent artifact download --include-retried-jobs target/release/bonds-collector .
+    - chmod +x target/release/bonds-collector
+    - |
+      ./target/release/bonds-collector --bond-type $$bond_type \
         collect-bonds -u "$$RPC_URL" > bonds.yaml
     artifact_paths:
       - bonds.yaml
@@ -38,14 +48,15 @@ steps:
 
   - label: ":microscope: Store Bonds"
     commands:
-    - 'buildkite-agent artifact download --include-retried-jobs target/release/validator-bonds-api-cli .'
-    - 'buildkite-agent artifact download --include-retried-jobs bonds.yaml .'
-    - 'chmod +x target/release/validator-bonds-api-cli'
-    - 'curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem'
+    - buildkite-agent artifact download --include-retried-jobs target/release/validator-bonds-api-cli .
+    - buildkite-agent artifact download --include-retried-jobs bonds.yaml .
+    - chmod +x target/release/validator-bonds-api-cli
+    - curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem
     - |
       ./target/release/validator-bonds-api-cli \
         store-bonds --postgres-url "$$POSTGRES_URL" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file bonds.yaml
 
-  - command: echo "End of concurrency gate <--"
-    concurrency_group: 'validator-bonds/collect-bonds'
+  - label: ":unlock: Concurrency gate unlock"
+    command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/collect-bonds-${CLAIM_TYPE}'
     concurrency: 1

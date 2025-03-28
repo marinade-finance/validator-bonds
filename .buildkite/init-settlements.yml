@@ -6,8 +6,6 @@ env:
   SLACK_API: https://slack.com/api/chat.postMessage
 
 steps:
-  # epoch number provided in ENV and then waiting for confirmation to proceed
-  # or waiting to be prompted by the user after notification is sent
   - input: "What is the epoch to init settlements for?"
     fields:
       - text: "Epoch"
@@ -40,18 +38,13 @@ steps:
     - |
       claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
       buildkite-agent meta-data set --redacted-vars='' claim_type "$$claim_type"
+      config_pubkey=$(./scripts/bonds-config-pubkey.sh "$$claim_type")
+      buildkite-agent meta-data set config_pubkey "$$config_pubkey"
     - |
-      slack_feed=${SLACK_FEED:-$(buildkite-agent meta-data get slack_feed || echo "")}
-      if [[ -z "$$slack_feed" ]]; then
-        if [[ "$$claim_type" =~ ^"bid-".* ]]; then
-          slack_feed="feed-pipeline-sam-psr"
-        else
-          slack_feed="feed-institutional-staking"
-        fi
-      fi
+      slack_feed=$(./scripts/bonds-slack-feed.sh "$$claim_type")
       buildkite-agent meta-data set slack_feed "$$slack_feed"
     - |
-      echo "Epoch: '$$epoch', Claim Type: '$$claim_type', Slack Feed: '$$slack_feed'"
+      echo "Epoch: '$$epoch', Claim Type: '$$claim_type'/'$$config_pubkey', Slack Feed: '$$slack_feed'"
 
   - wait: ~
 
@@ -101,7 +94,8 @@ steps:
     commands:
      - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
      - buildkite-agent artifact download --include-retried-jobs settlements.json .
-     - bash ./scripts/settlement-json-listing.sh --settlements settlements.json --merkle-trees settlement-merkle-trees.json
+     - claim_type=$(buildkite-agent meta-data get claim_type)
+     - bash ./scripts/settlement-json-listing.sh --settlements settlements.json --merkle-trees settlement-merkle-trees.json --claim-type $$claim_type
     depends_on: "download-json"
 
   - wait: ~
@@ -124,7 +118,7 @@ steps:
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,init_settlement=debug
       #  RUST_BACKTRACE: full
     commands:
-    - . "$HOME/.cargo/env"
+    - source "$HOME/.cargo/env"
     - epoch=$(buildkite-agent meta-data get epoch)
     - prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))
     - command_name='init-settlement'
@@ -141,6 +135,7 @@ steps:
     - |
       handle_command_execution "$$command_name" \
       ./target/release/init-settlement \
+        --config $(buildkite-agent meta-data get config_pubkey) \
         --rpc-url $$RPC_URL \
         --input-merkle-tree-collection "./settlement-merkle-trees.json" \
         --input-settlement-collection "./settlements.json" \
@@ -185,13 +180,14 @@ steps:
     commands:
     - buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt
     - cat ./init-report.txt
-    - echo "--------------------------------------------\n\n"
+    - echo "--------------------------------------------"
     - source ./scripts/execute-handlers.sh
     - check_command_execution_status "init-settlement" || true
     - epoch=$(buildkite-agent meta-data get epoch)
     - slack_feed=$(buildkite-agent meta-data get slack_feed)
     - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
-    - claim_type=$(buildkite-agent meta-data get claim_type || echo "UNKNOWN")
+    - claim_type=$(buildkite-agent meta-data get claim_type)
+    - config_pubkey=$(buildkite-agent meta-data get config_pubkey)
     - |
       curl $SLACK_API -X POST -H 'Content-Type: application/json; charset=utf-8' \
         -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
@@ -201,7 +197,7 @@ steps:
             "color": "'"$$notification_color"'",
             "title": "Init Settlements ('"$$claim_type"'): '"$$notification_result"'",
             "title_link": "'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'",
-            "text": "'"$$claim_type"' Init Settlements Validator Bonds ('"$$epoch"') after '"$$attempts_count"' attempts",
+            "text": "Claim type: '"$$claim_type"'/'"$$config_pubkey"', init Settlements ('"$$epoch"') after '"$$attempts_count"' attempts",
             "footer": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>"
           }
         ]
@@ -226,20 +222,16 @@ steps:
       done
     depends_on: "notification-setup-init"
     allow_dependency_failure: true
-    if: "build.env('NOTIFY_DISCORD_FEED') != null"
+    if: "build.env('NOTIFY_DISCORD_FEED') == 'true'"
 
   - wait: ~
     continue_on_failure: true
 
   - label: ":gear: Upload and get running fund-settlements pipeline"
     commands:
-      - epoch=$(buildkite-agent meta-data get epoch)
-      - claim_type=$(buildkite-agent meta-data get claim_type)
-      - slack_feed=$(buildkite-agent meta-data get slack_feed)
-      - export EPOCH="$$epoch"
-      - export CLAIM_TYPE="$$claim_type"
-      - export SLACK_FEED="$$slack_feed"
-      - 'echo "Epoch: $$epoch, Claim type: $$claim_type, Slack Feed: $$slack_feed"'
+      # NOTE: there is no way easily to define env variable in upload step
+      #       if needed in future, it is needed to generate dynamically new pipeline or use trigger
+      - "echo Claim Type: '${CLAIM_TYPE}'"
       - buildkite-agent pipeline upload .buildkite/fund-settlements.yml
     depends_on: "init-settlement"
     allow_dependency_failure: true

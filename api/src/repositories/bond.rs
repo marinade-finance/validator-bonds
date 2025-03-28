@@ -1,28 +1,44 @@
-use std::collections::HashMap;
+use super::common::CommonStoreOptions;
+use crate::dto::SqlSerializableBondType;
 
 use openssl::ssl::{SslConnector, SslMethod};
 use postgres_openssl::MakeTlsConnector;
 use rust_decimal::Decimal;
+use std::collections::HashMap;
 use tokio_postgres::{types::ToSql, Client};
+use validator_bonds_common::dto::{BondType, ValidatorBondRecord};
 
-use crate::dto::ValidatorBondRecord;
-
-use super::common::CommonStoreOptions;
+pub async fn get_bonds_by_type(
+    psql_client: &Client,
+    bond_type: BondType,
+) -> anyhow::Result<Vec<ValidatorBondRecord>> {
+    get_bonds_query(psql_client, Some(bond_type.into())).await
+}
 
 pub async fn get_bonds(psql_client: &Client) -> anyhow::Result<Vec<ValidatorBondRecord>> {
-    let rows = psql_client
-        .query(
-            "
-            WITH cluster AS (SELECT MAX(epoch) as last_epoch FROM bonds)
-            SELECT
-                pubkey, vote_account, authority, cpmpe, max_stake_wanted, updated_at, epoch, funded_amount, effective_amount, remaining_witdraw_request_amount, remainining_settlement_claim_amount
-            FROM bonds, cluster WHERE epoch = cluster.last_epoch",
-            &[],
-        )
-        .await?;
+    get_bonds_query(psql_client, None).await
+}
+
+async fn get_bonds_query(
+    psql_client: &Client,
+    bond_type: Option<SqlSerializableBondType>,
+) -> anyhow::Result<Vec<ValidatorBondRecord>> {
+    let query_string = "WITH cluster AS (SELECT MAX(epoch) as last_epoch FROM bonds)
+        SELECT
+        pubkey, vote_account, authority, cpmpe, max_stake_wanted, updated_at, epoch, funded_amount, effective_amount, remaining_witdraw_request_amount, remainining_settlement_claim_amount, bond_type
+        FROM bonds, cluster
+        WHERE epoch = cluster.last_epoch";
+    let rows = match bond_type {
+        Some(bond_type) => {
+            let query = format!("{} {}", query_string, "AND bond_type = $1");
+            psql_client.query(&query, &[&bond_type]).await?
+        }
+        None => psql_client.query(query_string, &[]).await?,
+    };
 
     let mut bonds: Vec<ValidatorBondRecord> = vec![];
     for row in rows {
+        let bond_type: SqlSerializableBondType = row.get("bond_type");
         bonds.push(ValidatorBondRecord {
             pubkey: row.get("pubkey"),
             vote_account: row.get("vote_account"),
@@ -37,6 +53,7 @@ pub async fn get_bonds(psql_client: &Client) -> anyhow::Result<Vec<ValidatorBond
                 .get::<_, Decimal>("remaining_witdraw_request_amount"),
             remainining_settlement_claim_amount: row
                 .get::<_, Decimal>("remainining_settlement_claim_amount"),
+            bond_type: bond_type.into(),
         })
     }
 
@@ -45,7 +62,7 @@ pub async fn get_bonds(psql_client: &Client) -> anyhow::Result<Vec<ValidatorBond
 
 pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
     const CHUNK_SIZE: usize = 512;
-    const PARAMS_PER_INSERT: usize = 11;
+    const PARAMS_PER_INSERT: usize = 12;
 
     let mut builder = SslConnector::builder(SslMethod::tls())?;
     builder.set_ca_file(&options.postgres_ssl_root_cert)?;
@@ -97,13 +114,16 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
             params.push(Box::new(bond.effective_amount));
             params.push(Box::new(bond.remaining_witdraw_request_amount));
             params.push(Box::new(bond.remainining_settlement_claim_amount));
+            params.push(Box::<SqlSerializableBondType>::new(
+                bond.bond_type.clone().into(),
+            ));
         }
 
         insert_values.pop();
 
         let query = format!(
             "
-            INSERT INTO bonds (pubkey, vote_account, authority, epoch, updated_at, cpmpe, max_stake_wanted, funded_amount, effective_amount, remaining_witdraw_request_amount, remainining_settlement_claim_amount)
+            INSERT INTO bonds (pubkey, vote_account, authority, epoch, updated_at, cpmpe, max_stake_wanted, funded_amount, effective_amount, remaining_witdraw_request_amount, remainining_settlement_claim_amount, bond_type)
             VALUES {}
             ON CONFLICT (pubkey, epoch) DO UPDATE
             SET vote_account = EXCLUDED.vote_account,
@@ -114,7 +134,8 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
                 funded_amount = EXCLUDED.funded_amount,
                 effective_amount = EXCLUDED.effective_amount,
                 remaining_witdraw_request_amount = EXCLUDED.remaining_witdraw_request_amount,
-                remainining_settlement_claim_amount = EXCLUDED.remainining_settlement_claim_amount
+                remainining_settlement_claim_amount = EXCLUDED.remainining_settlement_claim_amount,
+                bond_type = EXCLUDED.bond_type
             ",
             insert_values
         );

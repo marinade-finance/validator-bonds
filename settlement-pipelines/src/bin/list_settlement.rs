@@ -60,6 +60,7 @@ async fn main() -> anyhow::Result<()> {
             let (settlement_address, _) =
                 find_settlement_address(&bond_address, &merkle_root, epoch);
             BondSettlement {
+                config_address,
                 bond_address,
                 vote_account_address: merkle_tree.vote_account,
                 settlement_address,

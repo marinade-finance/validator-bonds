@@ -1,5 +1,6 @@
+use crate::dto::ValidatorBondRecordSchema;
 use crate::{
-    dto::{ProtectedEventRecord, ValidatorBondRecord},
+    dto::ProtectedEventRecord,
     handlers::{bonds, docs, protected_events},
 };
 use bid_psr_distribution::{
@@ -23,7 +24,7 @@ use utoipa::{
         )
     ),
     components(
-        schemas(ValidatorBondRecord),
+        schemas(ValidatorBondRecordSchema),
         schemas(ProtectedEventRecord),
         schemas(SettlementMeta),
         schemas(SettlementReason),
@@ -32,7 +33,7 @@ use utoipa::{
         schemas(bonds::BondsResponse),
         schemas(protected_events::ProtectedEventsResponse),
     ),
-    paths(docs::handler, bonds::handler, protected_events::handler),
+    paths(docs::handler, bonds::handler, bonds::handler_institutional, bonds::handler_bidding, protected_events::handler),
     modifiers(&PubkeyScheme),
 )]
 pub struct ApiDoc;

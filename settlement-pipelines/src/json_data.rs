@@ -23,6 +23,8 @@ use validator_bonds_common::settlements::get_settlements_for_pubkeys;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BondSettlement {
     #[serde(with = "pubkey_string_conversion")]
+    pub config_address: Pubkey,
+    #[serde(with = "pubkey_string_conversion")]
     pub bond_address: Pubkey,
     #[serde(with = "pubkey_string_conversion")]
     pub vote_account_address: Pubkey,
