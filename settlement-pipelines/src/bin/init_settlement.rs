@@ -240,7 +240,7 @@ async fn init_settlements(
                     program: validator_bonds_id,
                     settlement: record.settlement_address,
                     settlement_claims: find_settlement_claims_address(&record.settlement_address).0,
-                    event_authority: find_event_authority(config_address).0,
+                    event_authority: find_event_authority().0,
                 })
                 .args(validator_bonds::instruction::InitSettlement {
                     init_settlement_args: InitSettlementArgs {
