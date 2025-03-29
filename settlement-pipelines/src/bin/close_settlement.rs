@@ -211,7 +211,7 @@ async fn close_settlements(
                 stake_program: stake_program_id,
                 stake_history: stake_history_sysvar_id,
                 program: validator_bonds_id,
-                event_authority: find_event_authority(config_address).0,
+                event_authority: find_event_authority().0,
             })
             .args(validator_bonds::instruction::CloseSettlementV2 {});
         add_instruction_to_builder(
@@ -327,7 +327,7 @@ async fn reset_stake_accounts(
                     clock: clock_sysvar_id,
                     stake_program: stake_program_id,
                     program: validator_bonds_id,
-                    event_authority: find_event_authority(config_address).0,
+                    event_authority: find_event_authority().0,
                 })
                 .args(validator_bonds::instruction::WithdrawStake {});
             add_instruction_to_builder(
@@ -360,7 +360,7 @@ async fn reset_stake_accounts(
                     clock: clock_sysvar_id,
                     stake_program: stake_program_id,
                     program: validator_bonds_id,
-                    event_authority: find_event_authority(config_address).0,
+                    event_authority: find_event_authority().0,
                 })
                 .args(validator_bonds::instruction::ResetStake {});
             add_instruction_to_builder(

@@ -408,7 +408,7 @@ async fn claim_settlement<'a>(
                 stake_program: stake_program_id,
                 program: validator_bonds_id,
                 clock: clock_id,
-                event_authority: find_event_authority(config_address).0,
+                event_authority: find_event_authority().0,
             })
             .args(validator_bonds::instruction::ClaimSettlementV2 {
                 claim_settlement_args: ClaimSettlementV2Args {
