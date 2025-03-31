@@ -38,12 +38,12 @@ steps:
     commands:
       - |
         claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
-        buildkite-agent meta-data set claim_type "$$claim_type"
+        buildkite-agent meta-data set --redacted-vars='' claim_type "$$claim_type"
         config_pubkey=$(./scripts/bonds-config-pubkey.sh "$$claim_type")
-        buildkite-agent meta-data set config_pubkey "$$config_pubkey"
+        buildkite-agent meta-data set --redacted-vars='' config_pubkey "$$config_pubkey"
       - |
         slack_feed=$(./scripts/bonds-slack-feed.sh "$$claim_type")
-        buildkite-agent meta-data set slack_feed "$$slack_feed"
+        buildkite-agent meta-data set --redacted-vars='' slack_feed "$$slack_feed"
       - |
         echo "Claim Type: '$$claim_type'/'$$config_pubkey', Slack feed: '$$slack_feed'"
 
@@ -58,7 +58,7 @@ steps:
     - config_pubkey=$(buildkite-agent meta-data get config_pubkey)
     - chmod +x target/release/list-claimable-epoch
     - possible_epochs_json=$(./target/release/list-claimable-epoch --rpc-url $$RPC_URL --config "$$config_pubkey")
-    - buildkite-agent meta-data set --redacted-vars="" possible_epochs_json "$$possible_epochs_json"
+    - buildkite-agent meta-data set --redacted-vars='' possible_epochs_json "$$possible_epochs_json"
 
   - wait: ~
 
