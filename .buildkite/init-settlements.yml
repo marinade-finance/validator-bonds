@@ -39,10 +39,10 @@ steps:
       claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
       buildkite-agent meta-data set --redacted-vars='' claim_type "$$claim_type"
       config_pubkey=$(./scripts/bonds-config-pubkey.sh "$$claim_type")
-      buildkite-agent meta-data set config_pubkey "$$config_pubkey"
+      buildkite-agent meta-data set --redacted-vars='' config_pubkey "$$config_pubkey"
     - |
       slack_feed=$(./scripts/bonds-slack-feed.sh "$$claim_type")
-      buildkite-agent meta-data set slack_feed "$$slack_feed"
+      buildkite-agent meta-data set --redacted-vars='' slack_feed "$$slack_feed"
     - |
       echo "Epoch: '$$epoch', Claim Type: '$$claim_type'/'$$config_pubkey', Slack Feed: '$$slack_feed'"
 
