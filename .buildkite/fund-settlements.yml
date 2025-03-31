@@ -80,17 +80,15 @@ steps:
         echo "Merkle trees already downloaded"
         exit 0
       fi
-    - |
-      claim_type=$(buildkite-agent meta-data get claim_type)
-      claim_type_prefix="$${claim_type%%-*}"
-    - 'mkdir ./merkle-trees/'
+    - claim_type=$(buildkite-agent meta-data get claim_type)
+    - mkdir ./merkle-trees/
     - |
       for epoch in $(seq $$epochs_start_index $$current_epoch); do
         if [[ $$epoch -lt $$starting_epoch_contract_v2 ]]; then
           echo "Skipping epoch $$epoch, because it's before the contract v2 deployment epoch $$starting_epoch_contract_v2"
           continue
         fi
-        for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/$${claim_type_prefix}*settlement-merkle-trees.json"); do
+        for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/$${claim_type}*settlement-merkle-trees.json"); do
           base_name=$(basename "$$merkle_tree_file")
           prefix_name="$${base_name%settlement-merkle-trees.json}"
           target_dir="./merkle-trees/$${epoch}_$${prefix_name%-*}/"
