@@ -65,7 +65,7 @@ steps:
     - epoch=$(buildkite-agent meta-data get epoch) || true
     - |
       if [[ -z "$$epoch" ]]; then
-        current_epoch=$(curl --silent "$$RPC_URL" -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1, "method":"getEpochInfo"}' | jq '.result.epoch')
+        current_epoch=$(curl --silent "https://api.devnet.solana.com" -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1, "method":"getEpochInfo"}' | jq '.result.epoch')
         epochs_start_index=$((current_epoch - past_epochs_to_load))
         latest_funded_epoch=$((current_epoch - 1))
       else
@@ -104,7 +104,7 @@ steps:
 
   - label: ":campfire::arrow_right: Fund settlements"
     env:
-      RPC_URL: "$$RPC_URL"
+      RPC_URL: "https://api.devnet.solana.com"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,fund_settlement=debug
     commands:
     - . "$HOME/.cargo/env"
