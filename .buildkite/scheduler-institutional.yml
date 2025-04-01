@@ -32,7 +32,7 @@ steps:
             branch: $$BUILDKITE_BRANCH
             env:
               EPOCH: $$max_available_epoch
-              NOTIFY_FEED: true
+              NOTIFY_FEED: false
       EOF
 
       echo Scheduling complete

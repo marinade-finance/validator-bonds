@@ -33,7 +33,7 @@ steps:
 
   - label: ":microscope: Collect Bonds"
     env:
-      RPC_URL: "$$RPC_URL"
+      RPC_URL: "https://api.devnet.solana.com"
     commands:
     - |
       claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
