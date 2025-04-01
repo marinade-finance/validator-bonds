@@ -51,7 +51,7 @@ steps:
 
   - label: ":campfire: List claimable epochs"
     env:
-      RPC_URL: "$$RPC_URL"
+      RPC_URL: "https://api.devnet.solana.com"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,list_claimable_epoch=debug
     commands:
     - . "$HOME/.cargo/env"
@@ -114,7 +114,7 @@ steps:
 
   - label: ":campfire::arrow_right: Claim settlements"
     env:
-      RPC_URL: "$$RPC_URL"
+      RPC_URL: "https://api.devnet.solana.com"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,claim_settlement=debug
       # RUST_BACKTRACE: full
     commands:
