@@ -1,5 +1,5 @@
 /* eslint-disable no-process-exit */
-import { Command } from 'commander'
+import { Command, Option } from 'commander'
 import {
   configureLogger,
   parseWalletFromOpts,
@@ -32,11 +32,14 @@ export function launchCliProgram({
     .version(version)
     .allowExcessArguments(false)
     .configureHelp({ showGlobalOptions: true })
-    .option(
-      '-u, --url <rpc-url>',
-      'solana RPC URL or a moniker ' +
-        '(m/mainnet/mainnet-beta, d/devnet, t/testnet, l/localhost), see https://solana.com/rpc',
-      'mainnet',
+    .addOption(
+      new Option(
+        '-u, --url <rpc-url>',
+        'solana RPC URL or a moniker ' +
+          '(m/mainnet/mainnet-beta, d/devnet, t/testnet, l/localhost), see https://solana.com/rpc',
+      )
+        .default('mainnet')
+        .env('RPC_URL'),
     )
     .option('-c, --cluster <cluster>', 'alias for "-u, --url"')
     .option(

@@ -51,13 +51,14 @@ steps:
 
   - label: ":campfire: List claimable epochs"
     env:
+      RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,list_claimable_epoch=debug
     commands:
     - . "$HOME/.cargo/env"
     - buildkite-agent artifact download --include-retried-jobs target/release/list-claimable-epoch .
     - config_pubkey=$(buildkite-agent meta-data get config_pubkey)
     - chmod +x target/release/list-claimable-epoch
-    - possible_epochs_json=$(./target/release/list-claimable-epoch --rpc-url $$RPC_URL --config "$$config_pubkey")
+    - possible_epochs_json=$(./target/release/list-claimable-epoch --config "$$config_pubkey")
     - buildkite-agent meta-data set --redacted-vars='' possible_epochs_json "$$possible_epochs_json"
 
   - wait: ~
@@ -113,6 +114,7 @@ steps:
 
   - label: ":campfire::arrow_right: Claim settlements"
     env:
+      RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,claim_settlement=debug
       # RUST_BACKTRACE: full
     commands:
@@ -149,7 +151,6 @@ steps:
       handle_command_execution "claim-settlement" \
       ./target/release/claim-settlement \
         --config $(buildkite-agent meta-data get config_pubkey) \
-        --rpc-url $$RPC_URL \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$PSR_TX_FEE_WALLET" \
         $$files

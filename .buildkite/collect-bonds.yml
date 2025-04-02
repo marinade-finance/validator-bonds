@@ -32,6 +32,8 @@ steps:
   - wait: ~
 
   - label: ":microscope: Collect Bonds"
+    env:
+      RPC_URL: "$$RPC_URL"
     commands:
     - |
       claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
@@ -40,7 +42,7 @@ steps:
     - chmod +x target/release/bonds-collector
     - |
       ./target/release/bonds-collector collect-bonds \
-        --bond-type $$bond_type -u "$$RPC_URL" > bonds.yaml
+        --bond-type $$bond_type > bonds.yaml
     artifact_paths:
       - bonds.yaml
 

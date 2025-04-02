@@ -104,6 +104,7 @@ steps:
 
   - label: ":campfire::arrow_right: Fund settlements"
     env:
+      RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,fund_settlement=debug
     commands:
     - . "$HOME/.cargo/env"
@@ -133,7 +134,6 @@ steps:
       handle_command_execution "$$command_name" \
       ./target/release/fund-settlement \
         --config $(buildkite-agent meta-data get config_pubkey) \
-        --rpc-url "$$RPC_URL" \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$PSR_TX_FEE_WALLET" \
         --marinade-wallet "$$PSR_MARINADE_DAO_FUNDER_WALLET" \
