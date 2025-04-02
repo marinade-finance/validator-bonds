@@ -9,21 +9,21 @@
 import {
   AccountRole,
   isProgramDerivedAddress,
-  isTransactionSigner as web3JsIsTransactionSigner,
+  isTransactionSigner as kitIsTransactionSigner,
   type Address,
   type IAccountMeta,
   type IAccountSignerMeta,
   type ProgramDerivedAddress,
   type TransactionSigner,
   upgradeRoleToSigner,
-} from '@solana/web3.js'
+} from '@solana/kit'
 
 /**
  * Asserts that the given value is not null or undefined.
  * @internal
  */
 export function expectSome<T>(value: T | null | undefined): T {
-  if (value === undefined || value === null) {
+  if (value === null) {
     throw new Error('Expected a value but received null or undefined.')
   }
   return value
@@ -159,6 +159,6 @@ export function isTransactionSigner<TAddress extends string = string>(
     !!value &&
     typeof value === 'object' &&
     'address' in value &&
-    web3JsIsTransactionSigner(value)
+    kitIsTransactionSigner(value)
   )
 }
