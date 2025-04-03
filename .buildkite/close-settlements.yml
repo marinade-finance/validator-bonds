@@ -91,6 +91,7 @@ steps:
 
   - label: ":campfire: List past settlements"
     env:
+      RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,list_settlement=debug
     commands:
     - . "$HOME/.cargo/env"
@@ -99,7 +100,6 @@ steps:
     - chmod +x target/release/list-settlement
     - |
       ./target/release/list-settlement \
-        -u $$RPC_URL \
         -m ./merkle-trees/* \
         --config $(buildkite-agent meta-data get config_pubkey) \
         --out ./past-settlements.json
@@ -110,6 +110,7 @@ steps:
 
   - label: ":campfire::arrow_right: Close settlements"
     env:
+      RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,close_settlement=debug
       # RUST_BACKTRACE: full
     commands:
@@ -129,7 +130,6 @@ steps:
       handle_command_execution "close-settlement" \
       ./target/release/close-settlement \
         --config $(buildkite-agent meta-data get config_pubkey) \
-        --rpc-url $$RPC_URL \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$PSR_TX_FEE_WALLET" \
         --marinade-wallet "$$PSR_MARINADE_DAO_FUNDER_WALLET" \

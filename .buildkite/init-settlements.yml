@@ -115,6 +115,7 @@ steps:
 
   - label: ":campfire::arrow_right: Create settlements"
     env:
+      RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,init_settlement=debug
       #  RUST_BACKTRACE: full
     commands:
@@ -136,7 +137,6 @@ steps:
       handle_command_execution "$$command_name" \
       ./target/release/init-settlement \
         --config $(buildkite-agent meta-data get config_pubkey) \
-        --rpc-url $$RPC_URL \
         --input-merkle-tree-collection "./settlement-merkle-trees.json" \
         --input-settlement-collection "./settlements.json" \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \

@@ -86,6 +86,7 @@ steps:
 
   - label: ":campfire: List past settlements"
     env:
+      RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,list_settlement=debug
     commands:
     - . "$HOME/.cargo/env"
@@ -94,7 +95,6 @@ steps:
     - chmod +x target/release/list-settlement
     - |
       ./target/release/list-settlement \
-        -u $$RPC_URL \
         -m ./merkle-trees/* \
         --config $(buildkite-agent meta-data get config_pubkey) \
         --out ./past-settlements.json
@@ -105,6 +105,7 @@ steps:
 
   - label: ":campfire::arrow_right: Verify settlements"
     env:
+      RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,verify_settlement=debug
     commands:
     - . "$HOME/.cargo/env"
@@ -119,7 +120,6 @@ steps:
       handle_command_execution "$$command_name" \
       ./target/release/verify-settlement \
         --config $(buildkite-agent meta-data get config_pubkey) \
-        --rpc-url $$RPC_URL \
         --past-settlements ./past-settlements.json
     key: 'verify-settlement'
     artifact_paths:
