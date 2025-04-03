@@ -47,8 +47,7 @@ steps:
   - label: ":floppy_disk: :arrow_left: :cloud: Downloading Input JSON data"
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
-    - |
-      gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" "."
+    - gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" .
     key: 'download-json'
     artifact_paths:
       - "./institutional-payouts.json"
@@ -58,11 +57,12 @@ steps:
   - label: ":scales: Prepare Validator Bonds Merkle Tree"
     env:
     commands:
-    - buildkite-agent artifact download --include-retried-jobs institutional-payouts.json .
+    - buildkite-agent artifact download --include-retried-jobs target/release/institutional-distribution-cli .
     - chmod +x target/release/institutional-distribution-cli
+    - buildkite-agent artifact download --include-retried-jobs institutional-payouts.json .
     - |
-      ./target/release/institutional-distribution-cli -- \
-        --institutional-payouts institutional-payouts.json \
+      ./target/release/institutional-distribution-cli \
+        --institutional-payouts ./institutional-payouts.json \
         --marinade-fee-stake-authority ${MARINADE_FEE_STAKE_AUTHORITY} \
         --marinade-fee-withdraw-authority ${MARINADE_FEE_WITHDRAW_AUTHORITY} \
         --output-settlement-collection "./${CLAIM_TYPE}-settlements.json" \
