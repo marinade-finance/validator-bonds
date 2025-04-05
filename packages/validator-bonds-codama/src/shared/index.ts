@@ -23,7 +23,7 @@ import {
  * @internal
  */
 export function expectSome<T>(value: T | null | undefined): T {
-  if (value === null) {
+  if (value === null || value === undefined) {
     throw new Error('Expected a value but received null or undefined.')
   }
   return value
