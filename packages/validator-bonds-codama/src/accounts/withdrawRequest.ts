@@ -37,7 +37,7 @@ import {
   type MaybeAccount,
   type MaybeEncodedAccount,
   type ReadonlyUint8Array,
-} from '@solana/web3.js'
+} from '@solana/kit'
 
 export const WITHDRAW_REQUEST_DISCRIMINATOR = new Uint8Array([
   186, 239, 174, 191, 189, 13, 47, 196,

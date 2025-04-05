@@ -37,7 +37,7 @@ import {
   type MaybeAccount,
   type MaybeEncodedAccount,
   type ReadonlyUint8Array,
-} from '@solana/web3.js'
+} from '@solana/kit'
 
 export const SETTLEMENT_CLAIMS_DISCRIMINATOR = new Uint8Array([
   32, 130, 62, 175, 231, 54, 170, 114,

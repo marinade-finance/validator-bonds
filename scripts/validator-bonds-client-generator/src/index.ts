@@ -1,4 +1,4 @@
-import { Command, CommanderError } from 'commander';
+import { Command } from 'commander';
 import { version } from '../package.json';
 
 import { createFromRoot } from 'codama';
@@ -16,7 +16,11 @@ program
 
 program
   .description('Generate Codama client')
-  .option('-o, --output <directory>', 'Where client should be generated', path.join(__dirname, '..', '..', '..', 'packages', 'validator-bonds-codama', 'src'))
+  .option(
+    '-o, --output <directory>',
+    'Where client should be generated',
+    path.join(__dirname, '..', '..', '..', 'packages', 'validator-bonds-codama', 'src')
+  )
   .action((options: { output: string }) => {
     const codama = createFromRoot(rootNodeFromAnchor(anchorIdl as AnchorIdl));
     const outputDir = path.join(options.output);
