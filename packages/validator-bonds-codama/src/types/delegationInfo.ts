@@ -18,7 +18,7 @@ import {
   type Codec,
   type Decoder,
   type Encoder,
-} from '@solana/web3.js'
+} from '@solana/kit'
 
 export type DelegationInfo = {
   /** to whom the stake is delegated */

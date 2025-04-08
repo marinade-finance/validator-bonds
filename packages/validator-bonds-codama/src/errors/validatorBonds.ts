@@ -11,7 +11,7 @@ import {
   type Address,
   type SOLANA_ERROR__INSTRUCTION_ERROR__CUSTOM,
   type SolanaError,
-} from '@solana/web3.js'
+} from '@solana/kit'
 import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
 /** InvalidProgramId: Program id in context does not match with the validator bonds id */
