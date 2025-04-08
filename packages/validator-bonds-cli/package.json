@@ -20,12 +20,12 @@
   "scripts": {
     "build": "tsc --build",
     "test": "echo \"Error: run tests from root directory\" && exit 1",
-    "cli": "pnpm ts-node ./src/",
-    "postbuild": "cp README.md dist/"
+    "cli": "pnpm ts-node ./src/"
   },
   "files": [
     "dist/",
-    "!dist/src/__tests__"
+    "!dist/src/__tests__",
+    "README.md"
   ],
   "dependencies": {
     "@marinade.finance/validator-bonds-sdk": "workspace: *",
