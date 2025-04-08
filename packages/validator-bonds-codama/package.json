@@ -1,6 +1,6 @@
 {
   "name": "@marinade.finance/validator-bonds-codama",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Validator Bonds client generated with Codama",
   "repository": {
     "type": "git",
@@ -14,13 +14,13 @@
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "files": [
-    "src",
+    "dist/",
+    "!dist/src/__tests__",
     "README.md"
   ],
   "scripts": {
     "build": "tsc --build",
-    "test": "echo \"Error: run tests from root directory\" && exit 1",
-    "postbuild": "cp README.md dist/"
+    "test": "echo \"Error: run tests from root directory\" && exit 1"
   },
   "keywords": [
     "solana",

@@ -15,14 +15,14 @@
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "files": [
-    "src",
+    "dist/",
+    "!dist/src/__tests__",
     "README.md"
   ],
   "scripts": {
     "build": "tsc --build",
     "test": "echo \"Error: run tests from root directory\" && exit 1",
-    "cli": "pnpm ts-node ./src/",
-    "postbuild": "cp README.md dist/"
+    "cli": "pnpm ts-node ./src/"
   },
   "keywords": [],
   "author": "",
