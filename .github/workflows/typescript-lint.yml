@@ -14,8 +14,6 @@ env:
   WASM_BUILD_CLEAN_TARGET: 1
   # Stripping symbols and optimizing for binary size
   RUSTFLAGS: -C strip=symbols -C opt-level=s
-  RUSTC_WRAPPER: sccache
-  SCCACHE_GHA_ENABLED: true
 
 jobs:
   lint-and-test:
@@ -52,9 +50,6 @@ jobs:
         uses: dtolnay/rust-toolchain@1.73.0
         with:
           components: rustfmt, clippy
-
-      - name: 🫙 Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.4
  
       - run: pnpm install
       - run: pnpm lint
