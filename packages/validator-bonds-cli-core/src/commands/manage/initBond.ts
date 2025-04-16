@@ -19,7 +19,6 @@ import {
 } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
-import { toBN } from '../../utils'
 import { INIT_BOND_LIMIT_UNITS } from '../../computeUnits'
 import BN from 'bn.js'
 import { Logger } from 'pino'
@@ -50,11 +49,6 @@ export function configureInitBond(program: Command): Command {
       '--rent-payer <keypair_or_ledger_or_pubkey>',
       'Rent payer for the account creation (default: wallet keypair)',
       parseWalletOrPubkey,
-    )
-    .option(
-      '--cpmpe <number>',
-      'Cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch. (default: 0)',
-      value => toBN(value),
     )
   // MIP.10 removed maxStakeWanted from bidding auction, institutional staking does not support this option
   // .option(
