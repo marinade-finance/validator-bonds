@@ -1,7 +1,7 @@
 use crate::cli_result::CliError;
 use crate::settlement_data::{parse_settlements_from_json, SettlementRecord};
 use anchor_client::anchor_lang::prelude::Pubkey;
-use anyhow::anyhow;
+use anyhow::{anyhow, format_err};
 use bid_psr_distribution::merkle_tree_collection::{MerkleTreeCollection, MerkleTreeMeta};
 use bid_psr_distribution::settlement_collection::{Settlement, SettlementCollection};
 use bid_psr_distribution::utils::read_from_json_file;
@@ -108,9 +108,10 @@ fn insert_json_parsed_data(
     // Get the epoch and handle mismatches
     match (&merkle_tree_collection, &settlement_collection) {
         (Some(mc), Some(sc)) if mc.epoch != sc.epoch => {
-            return Err(CliError::critical(format!(
+            return Err(CliError::critical(format_err!(
                 "Epoch mismatch between merkle tree collection and settlement collection: {} != {}",
-                mc.epoch, sc.epoch
+                mc.epoch,
+                sc.epoch
             )));
         }
         (Some(mc), _) => mc.epoch,

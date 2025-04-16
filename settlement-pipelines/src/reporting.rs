@@ -1,4 +1,5 @@
 use crate::cli_result::{CliError, CliResult};
+use anyhow::format_err;
 use log::{error, info};
 use solana_transaction_builder_executor::TransactionBuilderExecutionErrors;
 use std::fmt::Display;
@@ -111,7 +112,7 @@ impl ErrorHandler {
             for warning in &self.warnings {
                 println!("{}", warning);
             }
-            result = Err(CliError::warning(format!(
+            result = Err(CliError::warning(format_err!(
                 "Some warnings occurred during processing: {} warnings",
                 self.warnings.len()
             )));
@@ -122,7 +123,7 @@ impl ErrorHandler {
             for error in &self.errors {
                 println!("{}", error);
             }
-            result = Err(CliError::critical(format!(
+            result = Err(CliError::critical(format_err!(
                 "Some errors occurred during processing: {} errors",
                 self.errors.len()
             )));
@@ -133,7 +134,7 @@ impl ErrorHandler {
             for error in &self.retry_able_errors {
                 println!("{}", error);
             }
-            result = Err(CliError::retry_able(format!(
+            result = Err(CliError::retry_able(format_err!(
                 "Some retry-able errors occurred: {} errors",
                 self.retry_able_errors.len()
             )));

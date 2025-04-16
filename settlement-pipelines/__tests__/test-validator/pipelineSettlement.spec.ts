@@ -297,7 +297,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 2,
+      code: 99, // code 99 => Warning, test did not prepare all stake accounts
       stdout: /funded 1.10 settlements/,
       stderr: /no stake account available/,
     })
@@ -358,7 +358,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 2,
+      code: 99,
       stdout: /funded 0.10 settlements/,
       stderr: /no stake account available/,
     })
@@ -390,7 +390,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 2,
+      code: 99,
       stdout: /funded 0.10 settlements/,
       stderr: /no stake account available/,
     })
@@ -468,7 +468,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 2,
+      code: 99,
       stdout: /funded 9.10 settlements/,
       stderr:
         /will be funded with 2 stake accounts(.|\n|\r)*9 executed successfully/,
@@ -508,9 +508,10 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 0,
-      stdout: /funded 0.10 settlements/,
-      stderr: /already funded(.|\n|\r)*0 executed successfully/,
+      code: 99,
+      stdout: /ProtectedEvent: funded 0.10 settlements/,
+      stderr:
+        /already funded.*skipping funding(.|\n|\r)*ixes 0 executed successfully/,
     })
     previousTest = TestNames.InitSettlement
   })
@@ -603,7 +604,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 2,
+      code: 99,
       stderr: /All stake accounts are locked for claiming/,
       stdout: /claimed 1[1-2][0-9][0-9][0-9].[0-9]+ merkle nodes/,
     })
@@ -634,7 +635,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 0,
+      code: 99,
       stdout: /funded 0.10 settlements/,
       stderr: /already funded(.|\n|\r)*0 executed successfully/,
     })
@@ -662,7 +663,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 2,
+      code: 99,
       stderr: /already claimed merkle tree nodes 414/,
       stdout:
         /claimed 0.[0-9]+ merkle nodes(.|\n|\r)*No stake account found with enough SOLs to claim/,
