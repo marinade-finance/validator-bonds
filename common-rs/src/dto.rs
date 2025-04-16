@@ -23,7 +23,7 @@ impl BondType {
         }
     }
 
-    pub fn from_str(s: &str) -> anyhow::Result<Self> {
+    pub fn parse_from_str(s: &str) -> anyhow::Result<Self> {
         match s.to_lowercase().as_str() {
             "bidding" => Ok(BondType::Bidding),
             "institutional" => Ok(BondType::Institutional),
@@ -45,7 +45,7 @@ impl FromStr for BondType {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        BondType::from_str(s)
+        BondType::parse_from_str(s)
     }
 }
 
