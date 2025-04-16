@@ -16,7 +16,7 @@ pub fn generate_institutional_settlement_collection(
 
     SettlementCollection {
         epoch: institutional_payout.epoch,
-        slot: institutional_payout.slot,
+        slot: config.snapshot_slot,
         settlements,
     }
 }
@@ -46,7 +46,7 @@ fn merge_payouts(
             stake_accounts: payout_staker
                 .stake_accounts
                 .iter()
-                .map(|account| (account.address, account.active_stake))
+                .map(|account| (account.address, account.effective_stake))
                 .collect(),
         });
     }
@@ -60,13 +60,13 @@ fn merge_payouts(
                 .stake_accounts
                 .iter()
                 .fold(0u64, |acc, account| {
-                    acc.saturating_add(account.active_stake)
+                    acc.saturating_add(account.effective_stake)
                 }),
             payout_lamports: payout_distributor.payout_lamports,
             stake_accounts: payout_distributor
                 .stake_accounts
                 .iter()
-                .map(|account| (account.address, account.active_stake))
+                .map(|account| (account.address, account.effective_stake))
                 .collect(),
         });
     }
@@ -146,6 +146,7 @@ mod tests {
         marinade_stake_authority: TEST_PUBKEY,
         marinade_withdraw_authority: TEST_PUBKEY,
         settlement_reason: SettlementReason::InstitutionalPayout,
+        snapshot_slot: 0,
     };
 
     #[derive(Debug, Eq, PartialEq, Hash)]

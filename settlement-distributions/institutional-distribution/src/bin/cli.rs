@@ -23,6 +23,9 @@ struct Args {
     marinade_fee_withdraw_authority: Pubkey,
 
     #[arg(long, env)]
+    snapshot_slot: u64,
+
+    #[arg(long, env)]
     output_settlement_collection: String,
 
     #[arg(long, env)]
@@ -39,6 +42,7 @@ fn main() -> anyhow::Result<()> {
     let config = InstitutionalDistributionConfig::new(ConfigParams {
         stake_authority: args.marinade_fee_stake_authority,
         withdraw_authority: args.marinade_fee_withdraw_authority,
+        snapshot_slot: args.snapshot_slot,
     });
 
     info!("Loading Institutional Payout collection...");

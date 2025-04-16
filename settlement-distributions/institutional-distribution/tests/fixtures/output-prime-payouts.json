@@ -1,6 +1,5 @@
 {
   "epoch": 710,
-  "slot": "307151999",
   "institutionalStakerAuthorities": [
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
     "11111111111111111111111111111111",
@@ -12,7 +11,7 @@
       "stakeAccounts": [
         {
           "address": "StakeAccount2111111111111111111111111111111",
-          "activeStake": "1000000002282880"
+          "effectiveStake": "1000000002282880"
         }
       ],
       "staker": "STNi1NHDUi6Hvibvonawgze8fM83PFLeJhuGMEXyGps",
@@ -20,9 +19,12 @@
       "activeStake": "1000000000000000",
       "activatingStake": "0",
       "deactivatingStake": "0",
+      "effectiveStake": "1000000000000000",
       "balanceLamports": "1000000002282880",
       "shareInstitutional": 1,
       "shareDeactivation": 0,
+      "effectivePayoutLamports": "192926079149",
+      "deactivatingPayoutLamports": "0",
       "payoutLamports": "192926079149"
     },
     {
@@ -30,7 +32,7 @@
       "stakeAccounts": [
         {
           "address": "StakeAccount5111111111111111111111111111111",
-          "activeStake": "1000000002282880"
+          "effectiveStake": "1000000002282880"
         }
       ],
       "staker": "STNi1NHDUi6Hvibvonawgze8fM83PFLeJhuGMEXyGps",
@@ -38,9 +40,12 @@
       "activeStake": "1000000000000000",
       "activatingStake": "0",
       "deactivatingStake": "0",
+      "effectiveStake": "1000000000000000",
       "balanceLamports": "1000000002282880",
       "shareInstitutional": 1,
       "shareDeactivation": 0,
+      "effectivePayoutLamports": "229240416229",
+      "deactivatingPayoutLamports": "0",
       "payoutLamports": "229240416229"
     },
     {
@@ -48,11 +53,11 @@
       "stakeAccounts": [
         {
           "address": "StakeAccount7111111111111111111111111111111",
-          "activeStake": "500000002282880"
+          "effectiveStake": "500000002282880"
         },
         {
           "address": "StakeAccount9111111111111111111111111111111",
-          "activeStake": "250000002282880"
+          "effectiveStake": "250000002282880"
         }
       ],
       "staker": "STNi1NHDUi6Hvibvonawgze8fM83PFLeJhuGMEXyGps",
@@ -60,9 +65,12 @@
       "activeStake": "750000000000000",
       "activatingStake": "0",
       "deactivatingStake": "0",
+      "effectiveStake": "750000000000000",
       "balanceLamports": "750000004565760",
       "shareInstitutional": 0.75,
       "shareDeactivation": 0,
+      "effectivePayoutLamports": "160796638378",
+      "deactivatingPayoutLamports": "0",
       "payoutLamports": "160796638378"
     },
     {
@@ -70,7 +78,7 @@
       "stakeAccounts": [
         {
           "address": "StakeAccount8111111111111111111111111111111",
-          "activeStake": "250000002282880"
+          "effectiveStake": "250000002282880"
         }
       ],
       "staker": "STNi1NHDUi6Hvibvonawgze8fM83PFLeJhuGMEXyGps",
@@ -78,9 +86,12 @@
       "activeStake": "250000000000000",
       "activatingStake": "0",
       "deactivatingStake": "0",
+      "effectiveStake": "250000000000000",
       "balanceLamports": "250000002282880",
       "shareInstitutional": 0.25,
       "shareDeactivation": 0,
+      "effectivePayoutLamports": "53598879459",
+      "deactivatingPayoutLamports": "0",
       "payoutLamports": "53598879459"
     },
     {
@@ -88,7 +99,7 @@
       "stakeAccounts": [
         {
           "address": "StakeAccountA211111111111111111111111111111",
-          "activeStake": "1000000002282880"
+          "effectiveStake": "1000000002282880"
         }
       ],
       "staker": "STNi1NHDUi6Hvibvonawgze8fM83PFLeJhuGMEXyGps",
@@ -96,9 +107,12 @@
       "activeStake": "1000000000000000",
       "activatingStake": "0",
       "deactivatingStake": "0",
+      "effectiveStake": "1000000000000000",
       "balanceLamports": "1000000002282880",
       "shareInstitutional": 1,
       "shareDeactivation": 0,
+      "effectivePayoutLamports": "234416766528",
+      "deactivatingPayoutLamports": "0",
       "payoutLamports": "234416766528"
     },
     {
@@ -106,7 +120,7 @@
       "stakeAccounts": [
         {
           "address": "StakeAccountA311111111111111111111111111111",
-          "activeStake": "100000002282880"
+          "effectiveStake": "100000002282880"
         }
       ],
       "staker": "STNi1NHDUi6Hvibvonawgze8fM83PFLeJhuGMEXyGps",
@@ -114,9 +128,12 @@
       "activeStake": "100000000000000",
       "activatingStake": "0",
       "deactivatingStake": "0",
+      "effectiveStake": "100000000000000",
       "balanceLamports": "100000002282880",
       "shareInstitutional": 1,
       "shareDeactivation": 0,
+      "effectivePayoutLamports": "20883944494",
+      "deactivatingPayoutLamports": "0",
       "payoutLamports": "20883944494"
     },
     {
@@ -124,7 +141,7 @@
       "stakeAccounts": [
         {
           "address": "StakeAccountB211111111111111111111111111111",
-          "activeStake": "750000002282880"
+          "effectiveStake": "750000002282880"
         }
       ],
       "staker": "STNi1NHDUi6Hvibvonawgze8fM83PFLeJhuGMEXyGps",
@@ -132,17 +149,20 @@
       "activeStake": "250000000000000",
       "activatingStake": "0",
       "deactivatingStake": "500000000000000",
+      "effectiveStake": "750000000000000",
       "balanceLamports": "750000002282880",
-      "shareInstitutional": 0.5,
+      "shareInstitutional": 0.75,
       "shareDeactivation": 1,
-      "payoutLamports": "409074345067"
+      "effectivePayoutLamports": "156389316501",
+      "deactivatingPayoutLamports": "356939017345",
+      "payoutLamports": "513328333846"
     },
     {
       "voteAccount": "Va1iDAToRx611111111111111111111111111111111",
       "stakeAccounts": [
         {
           "address": "StakeAccountB311111111111111111111111111111",
-          "activeStake": "250000002282880"
+          "effectiveStake": "250000002282880"
         }
       ],
       "staker": "STNi1NHDUi6Hvibvonawgze8fM83PFLeJhuGMEXyGps",
@@ -150,37 +170,22 @@
       "activeStake": "250000000000000",
       "activatingStake": "0",
       "deactivatingStake": "0",
+      "effectiveStake": "250000000000000",
       "balanceLamports": "250000002282880",
-      "shareInstitutional": 0.5,
+      "shareInstitutional": 0.25,
       "shareDeactivation": 0,
-      "payoutLamports": "52135327722"
+      "effectivePayoutLamports": "52129772167",
+      "deactivatingPayoutLamports": "0",
+      "payoutLamports": "52129772167"
     }
   ],
   "payoutDistributors": [
-    {
-      "voteAccount": "Va1iDAToRx111111111111111111111111111111111",
-      "stakeAccounts": [
-        {
-          "address": "StakeAccount1111111111111111111111111111112",
-          "activeStake": "0"
-        },
-        {
-          "address": "StakeAccount1111111111111111111111111111113",
-          "activeStake": "0"
-        },
-        {
-          "address": "StakeAccount2111111111111111111111111111111",
-          "activeStake": "1000000000000000"
-        }
-      ],
-      "payoutLamports": "25581560383"
-    },
     {
       "voteAccount": "Va1iDAToRx211111111111111111111111111111111",
       "stakeAccounts": [
         {
           "address": "StakeAccount5111111111111111111111111111111",
-          "activeStake": "1000000000000000"
+          "effectiveStake": "1000000000000000"
         }
       ],
       "payoutLamports": "25581560383"
@@ -190,15 +195,15 @@
       "stakeAccounts": [
         {
           "address": "StakeAccount7111111111111111111111111111111",
-          "activeStake": "500000000000000"
+          "effectiveStake": "500000000000000"
         },
         {
           "address": "StakeAccount8111111111111111111111111111111",
-          "activeStake": "250000000000000"
+          "effectiveStake": "250000000000000"
         },
         {
           "address": "StakeAccount9111111111111111111111111111111",
-          "activeStake": "250000000000000"
+          "effectiveStake": "250000000000000"
         }
       ],
       "payoutLamports": "25581560383"
@@ -208,7 +213,7 @@
       "stakeAccounts": [
         {
           "address": "StakeAccountA211111111111111111111111111111",
-          "activeStake": "1000000000000000"
+          "effectiveStake": "1000000000000000"
         }
       ],
       "payoutLamports": "25581560383"
@@ -218,24 +223,42 @@
       "stakeAccounts": [
         {
           "address": "StakeAccountA311111111111111111111111111111",
-          "activeStake": "100000000000000"
+          "effectiveStake": "100000000000000"
         }
       ],
       "payoutLamports": "2558027753"
+    },
+    {
+      "voteAccount": "Va1iDAToRx111111111111111111111111111111111",
+      "stakeAccounts": [
+        {
+          "address": "StakeAccount1111111111111111111111111111112",
+          "effectiveStake": "0"
+        },
+        {
+          "address": "StakeAccount1111111111111111111111111111113",
+          "effectiveStake": "0"
+        },
+        {
+          "address": "StakeAccount2111111111111111111111111111111",
+          "effectiveStake": "1000000000000000"
+        }
+      ],
+      "payoutLamports": "25581560383"
     },
     {
       "voteAccount": "Va1iDAToRx611111111111111111111111111111111",
       "stakeAccounts": [
         {
           "address": "StakeAccountB211111111111111111111111111111",
-          "activeStake": "250000000000000"
+          "effectiveStake": "750000000000000"
         },
         {
           "address": "StakeAccountB311111111111111111111111111111",
-          "activeStake": "250000000000000"
+          "effectiveStake": "250000000000000"
         }
       ],
-      "payoutLamports": "25581560382"
+      "payoutLamports": "38372340574"
     }
   ],
   "percentileData": {
@@ -245,53 +268,24 @@
   },
   "validators": [
     {
-      "voteAccount": "Va1iDAToRx111111111111111111111111111111111",
-      "stakedAmounts": {
-        "voteAccount": "Va1iDAToRx111111111111111111111111111111111",
-        "stakeAccounts": [
-          {
-            "address": "StakeAccount1111111111111111111111111111112",
-            "activeStake": "0"
-          },
-          {
-            "address": "StakeAccount1111111111111111111111111111113",
-            "activeStake": "0"
-          },
-          {
-            "address": "StakeAccount2111111111111111111111111111111",
-            "activeStake": "1000000000000000"
-          }
-        ],
-        "totalActive": "6000000000000000",
-        "totalActivating": "5000001000000000",
-        "totalDeactivating": "5000001000000000",
-        "institutionalActive": "1000000000000000",
-        "institutionalActivating": "5000000000000000",
-        "institutionalDeactivating": "5000000000000000"
-      },
-      "validatorRewards": "1236000000000",
-      "stakersRewards": "3135000000000",
-      "totalRewards": "4371000000000",
-      "apy": "0.1422430024829143769",
-      "institutionalStakedRatio": "0.16666666666666666667",
-      "apyPercentileDiff": "-0.00228680414186247866"
-    },
-    {
       "voteAccount": "Va1iDAToRx211111111111111111111111111111111",
+      "name": "Validator 2",
       "stakedAmounts": {
         "voteAccount": "Va1iDAToRx211111111111111111111111111111111",
         "stakeAccounts": [
           {
             "address": "StakeAccount5111111111111111111111111111111",
-            "activeStake": "1000000000000000"
+            "effectiveStake": "1000000000000000"
           }
         ],
         "totalActive": "11000000000000000",
         "totalActivating": "1000000000",
-        "totalDeactivating": "1000000000",
+        "totalDeactivating": "0",
+        "totalEffective": "11000000000000000",
         "institutionalActive": "1000000000000000",
         "institutionalActivating": "0",
-        "institutionalDeactivating": "0"
+        "institutionalDeactivating": "0",
+        "institutionalEffective": "1000000000000000"
       },
       "validatorRewards": "2674000000000",
       "stakersRewards": "5347000000000",
@@ -302,28 +296,31 @@
     },
     {
       "voteAccount": "Va1iDAToRx311111111111111111111111111111111",
+      "name": "Validator 3",
       "stakedAmounts": {
         "voteAccount": "Va1iDAToRx311111111111111111111111111111111",
         "stakeAccounts": [
           {
             "address": "StakeAccount7111111111111111111111111111111",
-            "activeStake": "500000000000000"
+            "effectiveStake": "500000000000000"
           },
           {
             "address": "StakeAccount8111111111111111111111111111111",
-            "activeStake": "250000000000000"
+            "effectiveStake": "250000000000000"
           },
           {
             "address": "StakeAccount9111111111111111111111111111111",
-            "activeStake": "250000000000000"
+            "effectiveStake": "250000000000000"
           }
         ],
         "totalActive": "10000000000000000",
         "totalActivating": "2000000000",
-        "totalDeactivating": "3000000000",
+        "totalDeactivating": "0",
+        "totalEffective": "10000000000000000",
         "institutionalActive": "1000000000000000",
         "institutionalActivating": "0",
-        "institutionalDeactivating": "0"
+        "institutionalDeactivating": "0",
+        "institutionalEffective": "1000000000000000"
       },
       "validatorRewards": "2236000000000",
       "stakersRewards": "5015000000000",
@@ -334,20 +331,23 @@
     },
     {
       "voteAccount": "Va1iDAToRx411111111111111111111111111111111",
+      "name": "Validator 4",
       "stakedAmounts": {
         "voteAccount": "Va1iDAToRx411111111111111111111111111111111",
         "stakeAccounts": [
           {
             "address": "StakeAccountA211111111111111111111111111111",
-            "activeStake": "1000000000000000"
+            "effectiveStake": "1000000000000000"
           }
         ],
-        "totalActive": "12000000000000000",
+        "totalActive": "6500000000000000",
         "totalActivating": "0",
-        "totalDeactivating": "0",
+        "totalDeactivating": "5500000000000000",
+        "totalEffective": "12000000000000000",
         "institutionalActive": "1000000000000000",
         "institutionalActivating": "0",
-        "institutionalDeactivating": "0"
+        "institutionalDeactivating": "0",
+        "institutionalEffective": "1000000000000000"
       },
       "validatorRewards": "2979000000000",
       "stakersRewards": "5771000000000",
@@ -358,20 +358,23 @@
     },
     {
       "voteAccount": "Va1iDAToRx511111111111111111111111111111111",
+      "name": "Staked",
       "stakedAmounts": {
         "voteAccount": "Va1iDAToRx511111111111111111111111111111111",
         "stakeAccounts": [
           {
             "address": "StakeAccountA311111111111111111111111111111",
-            "activeStake": "100000000000000"
+            "effectiveStake": "100000000000000"
           }
         ],
         "totalActive": "100000000000000",
         "totalActivating": "0",
         "totalDeactivating": "0",
+        "totalEffective": "100000000000000",
         "institutionalActive": "100000000000000",
         "institutionalActivating": "0",
-        "institutionalDeactivating": "0"
+        "institutionalDeactivating": "0",
+        "institutionalEffective": "100000000000000"
       },
       "validatorRewards": "26000000000",
       "stakersRewards": "48000000000",
@@ -382,63 +385,79 @@
     },
     {
       "voteAccount": "Va1iDAToRx611111111111111111111111111111111",
+      "name": "",
       "stakedAmounts": {
         "voteAccount": "Va1iDAToRx611111111111111111111111111111111",
         "stakeAccounts": [
           {
             "address": "StakeAccountB211111111111111111111111111111",
-            "activeStake": "250000000000000"
+            "effectiveStake": "750000000000000"
           },
           {
             "address": "StakeAccountB311111111111111111111111111111",
-            "activeStake": "250000000000000"
+            "effectiveStake": "250000000000000"
           }
         ],
-        "totalActive": "4500000000000000",
+        "totalActive": "3500000000000000",
         "totalActivating": "0",
-        "totalDeactivating": "500000000000000",
+        "totalDeactivating": "1500000000000000",
+        "totalEffective": "5000000000000000",
         "institutionalActive": "500000000000000",
         "institutionalActivating": "0",
-        "institutionalDeactivating": "500000000000000"
+        "institutionalDeactivating": "500000000000000",
+        "institutionalEffective": "1000000000000000"
       },
-      "validatorRewards": "964000000000",
-      "stakersRewards": "2285000000000",
-      "totalRewards": "3249000000000",
+      "validatorRewards": "1071000000000",
+      "stakersRewards": "2539000000000",
+      "totalRewards": "3610000000000",
       "apy": "0.1408888746061239362",
-      "institutionalStakedRatio": "0.11111111111111111111",
+      "institutionalStakedRatio": "0.2",
       "apyPercentileDiff": "-0.00364093201865291936"
+    },
+    {
+      "voteAccount": "Va1iDAToRx111111111111111111111111111111111",
+      "name": "Validator 1",
+      "stakedAmounts": {
+        "voteAccount": "Va1iDAToRx111111111111111111111111111111111",
+        "stakeAccounts": [
+          {
+            "address": "StakeAccount1111111111111111111111111111112",
+            "effectiveStake": "0"
+          },
+          {
+            "address": "StakeAccount1111111111111111111111111111113",
+            "effectiveStake": "0"
+          },
+          {
+            "address": "StakeAccount2111111111111111111111111111111",
+            "effectiveStake": "1000000000000000"
+          }
+        ],
+        "totalActive": "6000000000000000",
+        "totalActivating": "5000002000000000",
+        "totalDeactivating": "0",
+        "totalEffective": "6000000000000000",
+        "institutionalActive": "1000000000000000",
+        "institutionalActivating": "5000001000000000",
+        "institutionalDeactivating": "0",
+        "institutionalEffective": "1000000000000000"
+      },
+      "validatorRewards": "1236000000000",
+      "stakersRewards": "3135000000000",
+      "totalRewards": "4371000000000",
+      "apy": "0.1422430024829143769",
+      "institutionalStakedRatio": "0.16666666666666666667",
+      "apyPercentileDiff": "-0.00228680414186247866"
     }
   ],
   "validatorPayoutInfo": [
-    {
-      "voteAccount": "Va1iDAToRx111111111111111111111111111111111",
-      "isInstitutional": true,
-      "stakeAccounts": [
-        {
-          "address": "StakeAccount1111111111111111111111111111112",
-          "activeStake": "0"
-        },
-        {
-          "address": "StakeAccount1111111111111111111111111111113",
-          "activeStake": "0"
-        },
-        {
-          "address": "StakeAccount2111111111111111111111111111111",
-          "activeStake": "1000000000000000"
-        }
-      ],
-      "payoutType": "institutional-psr",
-      "distributorFeeLamports": "25581560383",
-      "validatorFeeLamports": "0",
-      "distributeToStakersLamports": "192926079149"
-    },
     {
       "voteAccount": "Va1iDAToRx211111111111111111111111111111111",
       "isInstitutional": true,
       "stakeAccounts": [
         {
           "address": "StakeAccount5111111111111111111111111111111",
-          "activeStake": "1000000000000000"
+          "effectiveStake": "1000000000000000"
         }
       ],
       "payoutType": "institutional-psr",
@@ -452,15 +471,15 @@
       "stakeAccounts": [
         {
           "address": "StakeAccount7111111111111111111111111111111",
-          "activeStake": "500000000000000"
+          "effectiveStake": "500000000000000"
         },
         {
           "address": "StakeAccount8111111111111111111111111111111",
-          "activeStake": "250000000000000"
+          "effectiveStake": "250000000000000"
         },
         {
           "address": "StakeAccount9111111111111111111111111111111",
-          "activeStake": "250000000000000"
+          "effectiveStake": "250000000000000"
         }
       ],
       "payoutType": "institutional-psr",
@@ -474,7 +493,7 @@
       "stakeAccounts": [
         {
           "address": "StakeAccountA211111111111111111111111111111",
-          "activeStake": "1000000000000000"
+          "effectiveStake": "1000000000000000"
         }
       ],
       "payoutType": "institutional-psr",
@@ -488,7 +507,7 @@
       "stakeAccounts": [
         {
           "address": "StakeAccountA311111111111111111111111111111",
-          "activeStake": "100000000000000"
+          "effectiveStake": "100000000000000"
         }
       ],
       "payoutType": "institutional",
@@ -497,22 +516,26 @@
       "distributeToStakersLamports": "20883944494"
     },
     {
-      "voteAccount": "Va1iDAToRx611111111111111111111111111111111",
-      "isInstitutional": false,
+      "voteAccount": "Va1iDAToRx111111111111111111111111111111111",
+      "isInstitutional": true,
       "stakeAccounts": [
         {
-          "address": "StakeAccountB211111111111111111111111111111",
-          "activeStake": "250000000000000"
+          "address": "StakeAccount1111111111111111111111111111112",
+          "effectiveStake": "0"
         },
         {
-          "address": "StakeAccountB311111111111111111111111111111",
-          "activeStake": "250000000000000"
+          "address": "StakeAccount1111111111111111111111111111113",
+          "effectiveStake": "0"
+        },
+        {
+          "address": "StakeAccount2111111111111111111111111111111",
+          "effectiveStake": "1000000000000000"
         }
       ],
-      "payoutType": "non-institutional-psr",
-      "distributorFeeLamports": "12790780191",
+      "payoutType": "institutional-psr",
+      "distributorFeeLamports": "25581560383",
       "validatorFeeLamports": "0",
-      "distributeToStakersLamports": "104270655445"
+      "distributeToStakersLamports": "192926079149"
     },
     {
       "voteAccount": "Va1iDAToRx611111111111111111111111111111111",
@@ -520,11 +543,29 @@
       "stakeAccounts": [
         {
           "address": "StakeAccountB211111111111111111111111111111",
-          "activeStake": "250000000000000"
+          "effectiveStake": "750000000000000"
         },
         {
           "address": "StakeAccountB311111111111111111111111111111",
-          "activeStake": "250000000000000"
+          "effectiveStake": "250000000000000"
+        }
+      ],
+      "payoutType": "non-institutional-psr",
+      "distributorFeeLamports": "25581560383",
+      "validatorFeeLamports": "0",
+      "distributeToStakersLamports": "208519088668"
+    },
+    {
+      "voteAccount": "Va1iDAToRx611111111111111111111111111111111",
+      "isInstitutional": false,
+      "stakeAccounts": [
+        {
+          "address": "StakeAccountB211111111111111111111111111111",
+          "effectiveStake": "750000000000000"
+        },
+        {
+          "address": "StakeAccountB311111111111111111111111111111",
+          "effectiveStake": "250000000000000"
         }
       ],
       "payoutType": "stake-deactivation-psr",
