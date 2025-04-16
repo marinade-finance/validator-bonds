@@ -14,8 +14,6 @@ env:
   WASM_BUILD_CLEAN_TARGET: 1
   # Stripping symbols and optimizing for binary size
   RUSTFLAGS: -C strip=symbols -C opt-level=s
-  RUSTC_WRAPPER: sccache
-  SCCACHE_GHA_ENABLED: true
 
 jobs:
   lint-and-test:
@@ -53,9 +51,24 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: 🫙 Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.4
- 
-      - run: pnpm install
-      - run: pnpm lint
-      - run: cargo test --release -- --nocapture
+      - name: 🧠 Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: 🏋️ Install dependencies
+        run: pnpm install
+
+      - name: 🧭 Run lint
+        run: pnpm lint
+
+      - name: 🧨 Run test
+        run: cargo test --release -- --nocapture
