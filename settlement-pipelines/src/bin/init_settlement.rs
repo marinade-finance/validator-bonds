@@ -15,7 +15,7 @@ use settlement_pipelines::json_data::{
     load_json, load_json_with_on_chain, CombinedMerkleTreeSettlementCollections,
 };
 use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
-use settlement_pipelines::reporting_data::SettlementsReportData;
+use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
 use settlement_pipelines::settlement_data::SettlementRecord;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::native_token::lamports_to_sol;
@@ -520,22 +520,21 @@ impl InitSettlementReport {
     /// The returned data contains a tuple of (Loaded, Created) SettlementsReportData.
     fn list_settlements_data_by_reason(
         &self,
-    ) -> HashMap<String, (SettlementsReportData, SettlementsReportData)> {
+    ) -> HashMap<ReportingReasonSettlement, (SettlementsReportData, SettlementsReportData)> {
         let mut data = HashMap::new();
-        data.insert(
-            "Bidding".to_string(),
-            (
-                SettlementsReportData::calculate_bidding(&self.json_loaded_settlements),
-                SettlementsReportData::calculate_bidding(&self.created_settlements),
-            ),
-        );
-        data.insert(
-            "ProtectedEvent".to_string(),
-            (
-                SettlementsReportData::calculate_protected_event(&self.json_loaded_settlements),
-                SettlementsReportData::calculate_protected_event(&self.created_settlements),
-            ),
-        );
+        for report_type in ReportingReasonSettlement::items() {
+            let (loaded_data, created_data) = (
+                SettlementsReportData::calculate_for_reason(
+                    &report_type,
+                    &self.json_loaded_settlements,
+                ),
+                SettlementsReportData::calculate_for_reason(
+                    &report_type,
+                    &self.created_settlements,
+                ),
+            );
+            data.insert(report_type, (loaded_data, created_data));
+        }
         data
     }
 
