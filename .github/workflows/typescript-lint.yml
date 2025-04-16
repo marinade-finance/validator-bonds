@@ -50,7 +50,12 @@ jobs:
         uses: dtolnay/rust-toolchain@1.73.0
         with:
           components: rustfmt, clippy
- 
-      - run: pnpm install
-      - run: pnpm lint
-      - run: cargo test --release -- --nocapture
+
+      - name: 🏋️ Install dependencies
+        run: pnpm install
+
+      - name: 🧭 Run lint
+        run: pnpm lint
+
+      - name: 🧨 Run test
+        run: cargo test --release -- --nocapture
