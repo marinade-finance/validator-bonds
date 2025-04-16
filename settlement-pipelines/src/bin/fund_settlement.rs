@@ -14,7 +14,7 @@ use settlement_pipelines::executor::execute_in_sequence;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::{load_json, load_json_with_on_chain};
 use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
-use settlement_pipelines::reporting_data::SettlementsReportData;
+use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
 use settlement_pipelines::settlement_data::{
     SettlementFunderMarinade, SettlementFunderType, SettlementFunderValidatorBond, SettlementRecord,
 };
@@ -818,6 +818,42 @@ impl FundSettlementsReport {
     fn mut_ref(&mut self, epoch: u64) -> &mut FundSettlementReport {
         self.settlements_per_epoch.entry(epoch).or_default()
     }
+
+    fn add_reason_specific_report(
+        report: &mut Vec<String>,
+        reason: ReportingReasonSettlement,
+        funded_data: &FundSettlementReport,
+    ) {
+        let json_loaded = SettlementsReportData::calculate_for_reason(
+            &reason,
+            &funded_data.json_loaded_settlements,
+        );
+
+        let funded = SettlementsReportData::calculate_sum_amount_for_reason(
+            &reason,
+            &funded_data.funded_settlements,
+        );
+
+        let already_funded = SettlementsReportData::calculate_sum_amount_for_reason(
+            &reason,
+            &funded_data.already_funded_settlements,
+        );
+
+        if json_loaded.settlements_count > 0 {
+            report.push(format!(
+                "  - {}: funded {}/{} settlements with {}/{} SOLs (before this already funded {}/{} settlements with {}/{} SOLs)",
+                reason,
+                funded.0.settlements_count,
+                json_loaded.settlements_count,
+                lamports_to_sol(funded.1),
+                lamports_to_sol(json_loaded.settlements_max_claim_sum),
+                already_funded.0.settlements_count,
+                json_loaded.settlements_count,
+                lamports_to_sol(already_funded.1),
+                lamports_to_sol(json_loaded.settlements_max_claim_sum),
+            ));
+        }
+    }
 }
 
 impl PrintReportable for FundSettlementsReport {
@@ -853,50 +889,8 @@ impl PrintReportable for FundSettlementsReport {
                     lamports_to_sol(funded_data.already_funded_amount()),
                     lamports_to_sol(json_loaded.settlements_max_claim_sum),
                 ));
-                let bidding_json_loaded =
-                    SettlementsReportData::calculate_bidding(&funded_data.json_loaded_settlements);
-                let bidding_funded = SettlementsReportData::calculate_sum_amount_bidding(
-                    &funded_data.funded_settlements,
-                );
-                let bidding_already_funded = SettlementsReportData::calculate_sum_amount_bidding(
-                    &funded_data.already_funded_settlements,
-                );
-                if bidding_json_loaded.settlements_count > 0 {
-                    report.push(format!(
-                        "  - Bidding: funded {}/{} settlements with {}/{} SOLs (before this already funded {}/{} settlements with {}/{} SOLs)",
-                        bidding_funded.0.settlements_count,
-                        bidding_json_loaded.settlements_count,
-                        lamports_to_sol(bidding_funded.1),
-                        lamports_to_sol(bidding_json_loaded.settlements_max_claim_sum),
-                        bidding_already_funded.0.settlements_count,
-                        bidding_json_loaded.settlements_count,
-                        lamports_to_sol(bidding_already_funded.1),
-                        lamports_to_sol(bidding_json_loaded.settlements_max_claim_sum),
-                    ));
-                }
-                let protected_event_json_loaded = SettlementsReportData::calculate_protected_event(
-                    &funded_data.json_loaded_settlements,
-                );
-                let protected_event_funded =
-                    SettlementsReportData::calculate_sum_amount_protected_event(
-                        &funded_data.funded_settlements,
-                    );
-                let protected_event_already_funded =
-                    SettlementsReportData::calculate_sum_amount_protected_event(
-                        &funded_data.already_funded_settlements,
-                    );
-                if protected_event_json_loaded.settlements_count > 0 {
-                    report.push(format!(
-                        "  - Protected Events: funded {}/{} settlements with {}/{} SOLs (before this already funded {}/{} settlements with {}/{} SOLs)",
-                        protected_event_funded.0.settlements_count,
-                        protected_event_json_loaded.settlements_count,
-                        lamports_to_sol(protected_event_funded.1),
-                        lamports_to_sol(protected_event_json_loaded.settlements_max_claim_sum),
-                        protected_event_already_funded.0.settlements_count,
-                        protected_event_json_loaded.settlements_count,
-                        lamports_to_sol(protected_event_already_funded.1),
-                        lamports_to_sol(protected_event_json_loaded.settlements_max_claim_sum),
-                    ));
+                for reason in ReportingReasonSettlement::items() {
+                    Self::add_reason_specific_report(&mut report, reason, funded_data);
                 }
                 if funded_data.not_funded_by_validator_bond_count > 0 {
                     report.push(format!(
