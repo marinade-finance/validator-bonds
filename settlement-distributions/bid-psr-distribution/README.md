@@ -18,7 +18,7 @@ gcloud storage cp "gs://$bucket/$epoch/evaluation.json" "evaluation.json"
 ### 2. Generating protected events (PSR) for Bidding
 
 ```bash
-# Setup whitelisting (check .buildkite/prepare-claims.yml)
+# Setup whitelisting (check .buildkite/prepare-bid-psr-distribution.yml)
 # native stake authority, liquid stake authority, and the exit native staker authority
 export WHITELIST_STAKE_AUTHORITY="stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N"
 
