@@ -17,7 +17,7 @@ import {
   configureBondWithMintInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
-import { getBondFromAddress, toBN } from '../../utils'
+import { getBondFromAddress } from '../../utils'
 import {
   CONFIGURE_BOND_LIMIT_UNITS,
   CONFIGURE_BOND_MINT_LIMIT_UNITS,
@@ -51,11 +51,6 @@ export function configureConfigureBond(program: Command): Command {
       '--bond-authority <pubkey>',
       'New value of "bond authority" that is permitted to operate with the bond account.',
       parsePubkeyOrPubkeyFromWallet,
-    )
-    .option(
-      '--cpmpe <number>',
-      'New value of cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch.',
-      value => toBN(value),
     )
   // MIP.10 removed maxStakeWanted from bidding auction, institutional staking does not support this option
   // .option(

@@ -196,8 +196,6 @@ describe('Configure bond account using CLI (institutional)', () => {
           userPath,
           '--bond-authority',
           newBondAuthority.toBase58(),
-          '--cpmpe',
-          2,
           '--with-token',
           '--confirmation-finality',
           'confirmed',
@@ -212,6 +210,5 @@ describe('Configure bond account using CLI (institutional)', () => {
 
     const bondsData = await getBond(program, bondAccount)
     expect(bondsData.authority).toEqual(newBondAuthority)
-    expect(bondsData.cpmpe).toEqual(2)
   })
 })

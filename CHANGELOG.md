@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## TS CLI&SDK [2.1.6](https://github.com/marinade-finance/validator-bonds/compare/v2.1.5...v2.1.6) (2025-04-25)
+
+### Fixes
+
+* cli: `--cpmpe` configuration for init and config of bond is relevant only for non-institutional CLI variant
+
 ## TS CLI&SDK [2.1.5](https://github.com/marinade-finance/validator-bonds/compare/v2.1.4...v2.1.5) (2025-03-11)
 
 ### Fixes

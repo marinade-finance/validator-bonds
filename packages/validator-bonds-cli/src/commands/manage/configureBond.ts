@@ -4,6 +4,7 @@ import { Command } from 'commander'
 import {
   configureConfigureBond,
   manageConfigureBond,
+  toBN,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { MARINADE_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
@@ -17,6 +18,11 @@ export function installConfigureBond(program: Command) {
         '(optional; to derive bond address from vote account address) ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey,
+    )
+    .option(
+      '--cpmpe <number>',
+      'Cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch. (default: 0)',
+      value => toBN(value),
     )
     .action(
       async (

@@ -1,6 +1,9 @@
 import { parsePubkey } from '@marinade.finance/cli-common'
 import { Command } from 'commander'
-import { manageInitBond } from '@marinade.finance/validator-bonds-cli-core'
+import {
+  manageInitBond,
+  toBN,
+} from '@marinade.finance/validator-bonds-cli-core'
 import { MARINADE_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey } from '@solana/web3.js'
@@ -14,6 +17,11 @@ export function installInitBond(program: Command) {
       'The config account that the bond is created under. ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey,
+    )
+    .option(
+      '--cpmpe <number>',
+      'New value of cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch.',
+      value => toBN(value),
     )
     .action(
       async ({

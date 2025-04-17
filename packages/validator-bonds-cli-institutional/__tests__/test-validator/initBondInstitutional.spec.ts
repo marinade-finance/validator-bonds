@@ -89,8 +89,6 @@ describe('CLI init bond account (institutional)', () => {
           bondAuthority.publicKey.toBase58(),
           '--rent-payer',
           rentPayerPath,
-          '--cpmpe',
-          33,
           '--confirmation-finality',
           'confirmed',
         ],
@@ -111,7 +109,6 @@ describe('CLI init bond account (institutional)', () => {
     expect(bondsData.config).toEqual(MARINADE_INSTITUTIONAL_CONFIG_ADDRESS)
     expect(bondsData.voteAccount).toEqual(voteAccount)
     expect(bondsData.authority).toEqual(bondAuthority.publicKey)
-    expect(bondsData.cpmpe).toEqual(33)
     expect(bondsData.bump).toEqual(bump)
     await expect(
       await provider.connection.getBalance(rentPayerKeypair.publicKey),
