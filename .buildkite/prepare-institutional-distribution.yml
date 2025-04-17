@@ -59,7 +59,6 @@ steps:
     - gcloud storage cp "$gs_bucket_snapshots/$$epoch/validators.json" .
     - slot=$(jq -r '.slot' validators.json)
     - buildkite-agent meta-data set --redacted-vars='' snapshot_slot "$$slot"
-    key: 'parse-snapshot-slot'
 
   - wait: ~
 
