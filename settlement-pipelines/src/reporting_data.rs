@@ -17,7 +17,6 @@ pub enum ReportingReasonSettlement {
     ProtectedEvent,
     Bidding,
     InstitutionalPayout,
-    InstitutionalRewards,
 }
 
 impl ReportingReasonSettlement {
@@ -26,7 +25,6 @@ impl ReportingReasonSettlement {
             ReportingReasonSettlement::ProtectedEvent,
             ReportingReasonSettlement::Bidding,
             ReportingReasonSettlement::InstitutionalPayout,
-            ReportingReasonSettlement::InstitutionalRewards,
         ]
     }
 }
@@ -36,10 +34,7 @@ impl Display for ReportingReasonSettlement {
         match self {
             ReportingReasonSettlement::ProtectedEvent => write!(f, "ProtectedEvent"),
             ReportingReasonSettlement::Bidding => write!(f, "Bidding"),
-            ReportingReasonSettlement::InstitutionalPayout => {
-                write!(f, "InstitutionalProtectedEvent")
-            }
-            ReportingReasonSettlement::InstitutionalRewards => write!(f, "InstitutionalRewards"),
+            ReportingReasonSettlement::InstitutionalPayout => write!(f, "InstitutionalPayout"),
         }
     }
 }
@@ -59,81 +54,59 @@ impl SettlementsReportData {
         }
     }
 
-    pub fn calculate_bidding(
+    pub fn calculate_for_reason(
+        reason: &ReportingReasonSettlement,
         settlement_records: &HashSet<SettlementRecord>,
     ) -> SettlementsReportData {
-        Self::calculate_filter_by_reason(ReportingReasonSettlement::Bidding, settlement_records)
+        Self::calculate_filter_by_reason(reason, settlement_records)
     }
 
-    pub fn calculate_protected_event(
-        settlement_records: &HashSet<SettlementRecord>,
-    ) -> SettlementsReportData {
-        Self::calculate_filter_by_reason(
-            ReportingReasonSettlement::ProtectedEvent,
-            settlement_records,
+    fn matches_reason(
+        reporting_reason: &ReportingReasonSettlement,
+        settlement_reason: &SettlementReason,
+    ) -> bool {
+        matches!(
+            (reporting_reason, settlement_reason),
+            (
+                ReportingReasonSettlement::ProtectedEvent,
+                SettlementReason::ProtectedEvent(_)
+            ) | (
+                ReportingReasonSettlement::Bidding,
+                SettlementReason::Bidding
+            ) | (
+                ReportingReasonSettlement::InstitutionalPayout,
+                SettlementReason::InstitutionalPayout,
+            )
         )
     }
 
     fn calculate_filter_by_reason(
-        reason_match: ReportingReasonSettlement,
+        reason_match: &ReportingReasonSettlement,
         settlement_records: &HashSet<SettlementRecord>,
     ) -> SettlementsReportData {
         let filtered_settlement_records = settlement_records
             .iter()
-            .filter(|s| {
-                matches!(
-                    (&reason_match, &s.reason),
-                    (
-                        ReportingReasonSettlement::ProtectedEvent,
-                        SettlementReason::ProtectedEvent(_)
-                    ) | (
-                        ReportingReasonSettlement::Bidding,
-                        SettlementReason::Bidding
-                    )
-                )
-            })
+            .filter(|s| SettlementsReportData::matches_reason(reason_match, &s.reason))
             .collect::<Vec<&SettlementRecord>>();
         Self::calculate(&filtered_settlement_records)
     }
 
-    pub fn calculate_sum_amount_bidding(
+    pub fn calculate_sum_amount_for_reason(
+        reason: &ReportingReasonSettlement,
         settlement_records: &HashMap<Pubkey, (SettlementRecord, u64)>,
     ) -> (SettlementsReportData, u64) {
-        Self::calculate_sum_amount_filter_by_reason(
-            ReportingReasonSettlement::Bidding,
-            settlement_records,
-        )
-    }
-
-    pub fn calculate_sum_amount_protected_event(
-        settlement_records: &HashMap<Pubkey, (SettlementRecord, u64)>,
-    ) -> (SettlementsReportData, u64) {
-        Self::calculate_sum_amount_filter_by_reason(
-            ReportingReasonSettlement::ProtectedEvent,
-            settlement_records,
-        )
+        Self::calculate_sum_amount_filter_by_reason(reason, settlement_records)
     }
 
     fn calculate_sum_amount_filter_by_reason(
-        reason_match: ReportingReasonSettlement,
+        reason_match: &ReportingReasonSettlement,
         settlement_records: &HashMap<Pubkey, (SettlementRecord, u64)>,
     ) -> (SettlementsReportData, u64) {
         let mut sum_amount: u64 = 0;
         let filtered_settlement_records = settlement_records
             .iter()
             .filter(|(_, (_, amount))| *amount > 0)
-            .filter(|(_, (s, _))| {
-                matches!(
-                    (&reason_match, &s.reason),
-                    (
-                        ReportingReasonSettlement::ProtectedEvent,
-                        SettlementReason::ProtectedEvent(_)
-                    ) | (
-                        ReportingReasonSettlement::Bidding,
-                        SettlementReason::Bidding
-                    )
-                )
-            })
+            .filter(|(_, (s, _))| SettlementsReportData::matches_reason(reason_match, &s.reason))
             .map(|(_, (s, amount))| {
                 sum_amount += amount;
                 s
