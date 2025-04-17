@@ -10,11 +10,13 @@ pub struct InstitutionalDistributionConfig {
     pub settlement_reason: SettlementReason,
     pub marinade_withdraw_authority: Pubkey,
     pub marinade_stake_authority: Pubkey,
+    pub snapshot_slot: u64,
 }
 
 pub struct ConfigParams {
     pub withdraw_authority: Pubkey,
     pub stake_authority: Pubkey,
+    pub snapshot_slot: u64,
 }
 
 impl InstitutionalDistributionConfig {
@@ -26,6 +28,7 @@ impl InstitutionalDistributionConfig {
             settlement_reason: SettlementReason::InstitutionalPayout,
             marinade_withdraw_authority: params.withdraw_authority,
             marinade_stake_authority: params.stake_authority,
+            snapshot_slot: params.snapshot_slot,
         }
     }
 }

@@ -54,7 +54,7 @@ pub struct StakeAccount {
     pub address: Pubkey,
 
     #[serde(deserialize_with = "deserialize_bigint")]
-    pub active_stake: u64,
+    pub effective_stake: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -143,9 +143,6 @@ pub struct PercentileData {
 #[serde(rename_all = "camelCase")]
 pub struct InstitutionalPayout {
     pub epoch: u64,
-
-    #[serde(deserialize_with = "deserialize_bigint")]
-    pub slot: u64,
 
     #[serde(with = "vec_pubkey_string_conversion")]
     pub institutional_staker_authorities: Vec<Pubkey>,
