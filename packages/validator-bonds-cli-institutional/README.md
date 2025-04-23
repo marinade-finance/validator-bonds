@@ -51,7 +51,7 @@ validator-bonds-institutional init-bond --vote-account <vote-account-address> \
 
 # STEP 2: FUND BOND
 # SOL is transferred to a stake account that is assigned under Validator Bonds program
-validator-bonds-institutional fund-bond-sol <vote-account-address> --from <wallet-keypair> --amount <Amount of SOL
+validator-bonds-institutional fund-bond-sol <vote-account-address> --from <wallet-keypair> --amount <1 SOL for every 1,000 SOL staked>
 
 # STEP 3: SHOW BOND DATA
 RPC_URL=<url-to-solana-rpc-node>
@@ -107,7 +107,7 @@ User may either fund bond from a wallet or assigning a stake account under the B
 #### Funding with wallet
 
 ```sh
-validator-bonds-institutional fund-bond-sol <vote-account-address> --from <wallet-keypair> --amount <Amount of SOL
+validator-bonds-institutional fund-bond-sol <vote-account-address> --from <wallet-keypair> --amount <1 SOL for every 1,000 SOL staked>
 ```
 
 #### Funding the stake account
@@ -130,7 +130,7 @@ The funded stake account:
 solana-keygen new -o /tmp/stake-account-keypair.json
 
 # Creating a stake account. The SOLs will be funded to the Bond
-solana create-stake-account <stake-account-keypair> <Amount of SOL 1 for every 10,000 staked>
+solana create-stake-account <stake-account-keypair> <1 SOL for every 1,000 SOL staked>
 
 # To couple the created stake account with the vote account
 # This causes the stake account to be in the Activating state.
