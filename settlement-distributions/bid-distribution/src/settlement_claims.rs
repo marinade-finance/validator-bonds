@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Result, Error};
 use crate::sam_meta::ValidatorSamMeta;
 use crate::settlement_config::SettlementConfig;
 use bid_psr_distribution::settlement_collection::{
@@ -10,17 +11,39 @@ use rust_decimal::Decimal;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
+#[derive(Clone, Debug)]
+pub enum DistributionType {
+    Bidding,
+    BidTooLowPenalty,
+}
+
+impl FromStr for DistributionType {
+    type Err = Error;
+    fn from_str(value: &str) -> Result<Self> {
+        if value == "Bidding" {
+            Ok(DistributionType::Bidding)
+        } else if value == "BidTooLowPenalty" {
+            Ok(DistributionType::BidTooLowPenalty)
+        } else {
+            Err(anyhow!("No such DistributionType: {value}"))
+        }
+    }
+}
+
+
 pub fn generate_bid_settlement_collection(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &Vec<ValidatorSamMeta>,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     settlement_config: &SettlementConfig,
+    distribution_type: &DistributionType,
 ) -> SettlementCollection {
     let settlements = generate_bid_settlements(
         stake_meta_index,
         sam_validator_metas,
         &stake_authority_filter,
         settlement_config,
+        distribution_type,
     );
 
     SettlementCollection {
@@ -35,6 +58,7 @@ pub fn generate_bid_settlements(
     sam_validator_metas: &Vec<ValidatorSamMeta>,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     settlement_config: &SettlementConfig,
+    distribution_type: &DistributionType,
 ) -> Vec<Settlement> {
     info!("Generating bid settlements...");
 
@@ -51,16 +75,17 @@ pub fn generate_bid_settlements(
         if let Some(grouped_stake_metas) =
             stake_meta_index.iter_grouped_stake_metas(&validator.vote_account)
         {
-            if validator.effective_bid == Decimal::ZERO {
-                continue;
-            }
             let sam_target_stake =
                 validator.marinade_sam_target_sol * Decimal::from_f64(1e9).unwrap();
             let mnde_target_stake =
                 validator.marinade_mnde_target_sol * Decimal::from_f64(1e9).unwrap();
             let marinade_payment_percentage =
                 Decimal::from(*settlement_config.marinade_fee_bps()) / Decimal::from(10000);
-            let effective_bid = validator.effective_bid / Decimal::from(1000);
+
+            let effective_bid = match distribution_type {
+                DistributionType::Bidding => validator.effective_bid / Decimal::from(1000),
+                DistributionType::BidTooLowPenalty => validator.rev_share.bid_too_low_penalty_pmpe / Decimal::from(1000),
+            };
 
             let total_active_stake: u64 = stake_meta_index
                 .iter_grouped_stake_metas(&validator.vote_account)
@@ -111,7 +136,7 @@ pub fn generate_bid_settlements(
                         claims.push(SettlementClaim {
                             withdraw_authority: **withdraw_authority,
                             stake_authority: **stake_authority,
-                            stake_accounts,
+                            stake_accounts: stake_accounts.clone(),
                             claim_amount,
                             active_stake,
                         });
@@ -139,29 +164,43 @@ pub fn generate_bid_settlements(
                 .map(|s| (s.pubkey, s.active_delegation_lamports))
                 .collect();
 
-            if initial_sam_stake > 0 && marinade_fee_claim > 0 {
-                claims.push(SettlementClaim {
-                    withdraw_authority: *settlement_config.marinade_withdraw_authority(),
-                    stake_authority: *settlement_config.marinade_stake_authority(),
-                    stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
-                    claim_amount: marinade_fee_claim,
-                    active_stake: total_active_stake,
-                });
-                claims_amount += marinade_fee_claim;
+            if initial_sam_stake > 0 {
+                if marinade_fee_claim > 0 {
+                    claims.push(SettlementClaim {
+                        withdraw_authority: *settlement_config.marinade_withdraw_authority(),
+                        stake_authority: *settlement_config.marinade_stake_authority(),
+                        stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
+                        claim_amount: marinade_fee_claim,
+                        active_stake: total_active_stake,
+                    });
+                    claims_amount += marinade_fee_claim;
 
-                assert!(
-                    claims_amount <= effective_total_claim.to_u64().unwrap(),
-                    "The sum of total claims exceeds the sum of total staker and marinade fee claims"
-                );
+                    assert!(
+                        claims_amount <= effective_total_claim.to_u64().unwrap(),
+                        "The sum of total claims exceeds the sum of total staker and marinade fee claims"
+                    );
+                }
             }
             if !claims.is_empty() {
+                let reason = match distribution_type {
+                    DistributionType::Bidding => SettlementReason::Bidding,
+                    DistributionType::BidTooLowPenalty => SettlementReason::BidTooLowPenalty,
+                };
                 settlement_claim_collections.push(Settlement {
-                    reason: SettlementReason::Bidding,
+                    Bid,
                     meta: settlement_config.meta().clone(),
                     vote_account: validator.vote_account,
                     claims_count: claims.len(),
                     claims_amount,
-                    claims,
+                    bid_claims,
+                });
+                settlement_claim_collections.push(Settlement {
+                    Penalty,
+                    meta: settlement_config.meta().clone(),
+                    vote_account: validator.vote_account,
+                    claims_count: claims.len(),
+                    sum(claims_amount),
+                    penalty_claims,
                 });
             }
         }
