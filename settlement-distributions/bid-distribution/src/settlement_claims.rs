@@ -91,10 +91,7 @@ pub fn generate_bid_settlements(
             let marinade_penalty_claim = (penalty_total_claim * marinade_payment_percentage)
                 .to_u64()
                 .unwrap();
-            let stakers_penalty_claim = (penalty_total_claim
-                * (Decimal::from(1) - marinade_payment_percentage))
-                .to_u64()
-                .unwrap();
+            let stakers_penalty_claim = penalty_total_claim.to_u64().unwrap() - marinade_penalty_claim;
 
             let mut claims = vec![];
             let mut claims_amount = 0;
@@ -112,19 +109,14 @@ pub fn generate_bid_settlements(
                     .collect();
                 let active_stake: u64 = stake_accounts.values().sum();
                 if active_stake > 0 {
-                    info!("stake : {active_stake}");
-                    let claim_amount = ((Decimal::from(active_stake)
-                        / Decimal::from(total_active_stake))
-                        * Decimal::from(stakers_total_claim))
+                    let staker_share = Decimal::from(active_stake) / Decimal::from(total_active_stake);
+                    let claim_amount = (staker_share * Decimal::from(stakers_total_claim))
                     .to_u64()
                     .unwrap();
-                    let penalty_claim_amount = ((Decimal::from(active_stake)
-                        / Decimal::from(total_active_stake))
-                        * Decimal::from(stakers_total_claim))
+                    let penalty_claim_amount = (staker_share * Decimal::from(stakers_penalty_claim))
                     .to_u64()
                     .unwrap();
                     if claim_amount > 0 {
-                        info!("claim : {claim_amount}");
                         claims.push(SettlementClaim {
                             withdraw_authority: **withdraw_authority,
                             stake_authority: **stake_authority,
@@ -135,7 +127,6 @@ pub fn generate_bid_settlements(
                         claims_amount += claim_amount;
                     }
                     if penalty_claim_amount > 0 {
-                        info!("penalty : {penalty_claim_amount}");
                         penalty_claims.push(SettlementClaim {
                             withdraw_authority: **withdraw_authority,
                             stake_authority: **stake_authority,
@@ -213,6 +204,8 @@ pub fn generate_bid_settlements(
                     claims_amount,
                     claims,
                 });
+            }
+            if !penalty_claims.is_empty() {
                 settlement_claim_collections.push(Settlement {
                     reason: SettlementReason::BidTooLowPenalty,
                     meta: settlement_config.meta().clone(),

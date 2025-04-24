@@ -12,7 +12,7 @@ bucket=marinade-validator-bonds-mainnet
 gcloud storage cp "gs://$bucket/$epoch/stakes.json" "stakes.json"
 
 # Download input files from Github
-curl https://raw.githubusercontent.com/marinade-finance/ds-sam-pipeline/refs/heads/main/auctions/${epoch}.17265/outputs/results.json | jq '.auctionData.stakeAmounts as $s | .auctionData.validators | map(. + .auctionStake + { metadata: { scoringId: "0", delegationStrategyMndeVotes: 0, scoringConfig: "{}", tvl: $s }, maxStakeWanted: (.maxStakeWanted + 0), effectiveBid: (.revShare.auctionEffectiveBid + 0), constraints: (.lastCapConstraints.constraintType|tostring), scoringRunId: 0, epoch: '$epoch'})' > sam-scores.json
+curl https://raw.githubusercontent.com/marinade-finance/ds-sam-pipeline/refs/heads/main/auctions/${epoch}.17265/outputs/results.json | jq '.auctionData.stakeAmounts as $s | .auctionData.validators | map(. + .auctionStake + { metadata: { scoringId: "0", delegationStrategyMndeVotes: 0, scoringConfig: "{}", tvl: $s }, maxStakeWanted: (.maxStakeWanted + 0), effectiveBid: (.revShare.auctionEffectiveBidPmpe + 0), constraints: (.lastCapConstraints.constraintType|tostring), scoringRunId: 0, epoch: '$epoch'})' > sam-scores.json
 
 # Or from the scoring api
 curl scoring.marinade.finance/api/v1/scores/sam?epoch=${epoch} > sam-scores.json
