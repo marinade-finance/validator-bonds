@@ -4,7 +4,6 @@ use bid_distribution::settlement_config::SettlementConfig;
 use bid_psr_distribution::merkle_tree_collection::generate_merkle_tree_collection;
 use bid_psr_distribution::settlement_collection::SettlementFunder;
 use bid_psr_distribution::settlement_collection::SettlementMeta;
-use bid_distribution::settlement_claims::DistributionType;
 use bid_psr_distribution::settlement_config::no_filter;
 use bid_psr_distribution::settlement_config::stake_authorities_filter;
 use bid_psr_distribution::stake_meta_index::StakeMetaIndex;
@@ -41,9 +40,6 @@ struct Args {
 
     #[arg(long, env, value_delimiter = ',')]
     whitelist_stake_authority: Option<Vec<Pubkey>>,
-
-    #[arg(long, env)]
-    distribution_type: DistributionType,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -93,13 +89,12 @@ fn main() -> anyhow::Result<()> {
             .map_or(no_filter(), |whitelisted_stake_authorities| {
                 stake_authorities_filter(HashSet::from_iter(whitelisted_stake_authorities))
             });
-    info!("Generating settlement collection for {:?}...", args.distribution_type);
+    info!("Generating settlement collection...");
     let settlement_collection = generate_bid_settlement_collection(
         &stake_meta_index,
         &validator_sam_metas,
         &stake_authority_filter,
         &settlement_config,
-        &args.distribution_type,
     );
     write_to_json_file(&settlement_collection, &args.output_settlement_collection)?;
 
