@@ -131,7 +131,10 @@ impl SettlementsReportData {
         result.insert(ReportingReasonSettlement::ProtectedEvent, HashSet::new());
         result.insert(ReportingReasonSettlement::BidTooLowPenalty, HashSet::new());
         result.insert(ReportingReasonSettlement::Bidding, HashSet::new());
-        result.insert(ReportingReasonSettlement::InstitutionalPayout, HashSet::new());
+        result.insert(
+            ReportingReasonSettlement::InstitutionalPayout,
+            HashSet::new(),
+        );
 
         // Mapping provided pubkeys to type based on the settlement records
         for pubkey in pubkeys {
