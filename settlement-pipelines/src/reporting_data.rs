@@ -16,6 +16,7 @@ pub struct SettlementsReportData {
 pub enum ReportingReasonSettlement {
     ProtectedEvent,
     Bidding,
+    BidTooLowPenalty,
     InstitutionalPayout,
 }
 
@@ -24,6 +25,7 @@ impl ReportingReasonSettlement {
         vec![
             ReportingReasonSettlement::ProtectedEvent,
             ReportingReasonSettlement::Bidding,
+            ReportingReasonSettlement::BidTooLowPenalty,
             ReportingReasonSettlement::InstitutionalPayout,
         ]
     }
@@ -34,6 +36,7 @@ impl Display for ReportingReasonSettlement {
         match self {
             ReportingReasonSettlement::ProtectedEvent => write!(f, "ProtectedEvent"),
             ReportingReasonSettlement::Bidding => write!(f, "Bidding"),
+            ReportingReasonSettlement::BidTooLowPenalty => write!(f, "BidTooLowPenalty"),
             ReportingReasonSettlement::InstitutionalPayout => write!(f, "InstitutionalPayout"),
         }
     }
@@ -73,6 +76,9 @@ impl SettlementsReportData {
             ) | (
                 ReportingReasonSettlement::Bidding,
                 SettlementReason::Bidding
+            ) | (
+                ReportingReasonSettlement::BidTooLowPenalty,
+                SettlementReason::BidTooLowPenalty
             ) | (
                 ReportingReasonSettlement::InstitutionalPayout,
                 SettlementReason::InstitutionalPayout,
@@ -123,7 +129,9 @@ impl SettlementsReportData {
     ) -> HashMap<ReportingReasonSettlement, HashSet<Pubkey>> {
         let mut result: HashMap<ReportingReasonSettlement, HashSet<Pubkey>> = HashMap::new();
         result.insert(ReportingReasonSettlement::ProtectedEvent, HashSet::new());
+        result.insert(ReportingReasonSettlement::BidTooLowPenalty, HashSet::new());
         result.insert(ReportingReasonSettlement::Bidding, HashSet::new());
+        result.insert(ReportingReasonSettlement::InstitutionalPayout, HashSet::new());
 
         // Mapping provided pubkeys to type based on the settlement records
         for pubkey in pubkeys {
@@ -136,6 +144,9 @@ impl SettlementsReportData {
                         ReportingReasonSettlement::ProtectedEvent
                     }
                     SettlementReason::Bidding => ReportingReasonSettlement::Bidding,
+                    SettlementReason::BidTooLowPenalty => {
+                        ReportingReasonSettlement::BidTooLowPenalty
+                    }
                     SettlementReason::InstitutionalPayout => {
                         ReportingReasonSettlement::InstitutionalPayout
                     }

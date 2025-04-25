@@ -56,8 +56,14 @@ pub fn generate_merkle_tree_meta(settlement: &Settlement) -> anyhow::Result<Merk
     let max_total_claim_sum: u64 = tree_nodes.iter().map(|node| node.claim).sum();
     let max_total_claims = tree_nodes.len();
 
-    assert_eq!(max_total_claim_sum, settlement.claims_amount, "claims_amount does not match");
-    assert_eq!(max_total_claims, settlement.claims_count, "claim_count does not match");
+    assert_eq!(
+        max_total_claim_sum, settlement.claims_amount,
+        "claims_amount does not match"
+    );
+    assert_eq!(
+        max_total_claims, settlement.claims_count,
+        "claim_count does not match"
+    );
 
     let hashed_nodes: Vec<[u8; 32]> = tree_nodes.iter().map(|n| n.hash().to_bytes()).collect();
     let merkle_tree = MerkleTree::new(&hashed_nodes[..], true);

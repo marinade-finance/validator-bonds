@@ -58,7 +58,8 @@ pub fn generate_bid_settlements(
             let marinade_payment_percentage =
                 Decimal::from(*settlement_config.marinade_fee_bps()) / Decimal::from(10000);
             let effective_bid = validator.effective_bid / Decimal::from(1000);
-            let penalty = validator.rev_share.bid_too_low_penalty_pmpe / Decimal::from(1000);
+            let bid_too_low_penalty =
+                validator.rev_share.bid_too_low_penalty_pmpe / Decimal::from(1000);
 
             let total_active_stake: u64 = stake_meta_index
                 .iter_grouped_stake_metas(&validator.vote_account)
@@ -87,11 +88,12 @@ pub fn generate_bid_settlements(
                 .to_u64()
                 .unwrap();
 
-            let penalty_total_claim = Decimal::from(effective_sam_stake) * penalty;
+            let penalty_total_claim = Decimal::from(effective_sam_stake) * bid_too_low_penalty;
             let marinade_penalty_claim = (penalty_total_claim * marinade_payment_percentage)
                 .to_u64()
                 .unwrap();
-            let stakers_penalty_claim = penalty_total_claim.to_u64().unwrap() - marinade_penalty_claim;
+            let stakers_penalty_claim =
+                penalty_total_claim.to_u64().unwrap() - marinade_penalty_claim;
 
             let mut claims = vec![];
             let mut claims_amount = 0;
@@ -109,13 +111,15 @@ pub fn generate_bid_settlements(
                     .collect();
                 let active_stake: u64 = stake_accounts.values().sum();
                 if active_stake > 0 {
-                    let staker_share = Decimal::from(active_stake) / Decimal::from(total_active_stake);
+                    let staker_share =
+                        Decimal::from(active_stake) / Decimal::from(total_active_stake);
                     let claim_amount = (staker_share * Decimal::from(stakers_total_claim))
+                        .to_u64()
+                        .expect("claim_amount is not integral");
+                    let penalty_claim_amount = (staker_share
+                        * Decimal::from(stakers_penalty_claim))
                     .to_u64()
-                    .unwrap();
-                    let penalty_claim_amount = (staker_share * Decimal::from(stakers_penalty_claim))
-                    .to_u64()
-                    .unwrap();
+                    .expect("penalty_claim_amount is not integral");
                     if claim_amount > 0 {
                         claims.push(SettlementClaim {
                             withdraw_authority: **withdraw_authority,
