@@ -99,6 +99,7 @@ steps:
       - '[[ ! -f "./outputs/results.json" ]] && echo "results.json not found" && exit 2'
       - 'past_validators_arg=$( [[ -f ./past-validators.json ]] && echo "--snapshot-past-validators-file-path ../past-validators.json" || echo "" )'
       - 'git clone git@github.com:marinade-finance/ds-sam.git'
+      - 'cd ds-sam && git reset --hard c7a849f434c718d093667f4fd65ee4f5265c2359 && cd -'
       - |
         cd ds-sam
         git status
