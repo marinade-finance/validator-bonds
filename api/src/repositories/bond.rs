@@ -23,18 +23,34 @@ async fn get_bonds_query(
     psql_client: &Client,
     bond_type: Option<SqlSerializableBondType>,
 ) -> anyhow::Result<Vec<ValidatorBondRecord>> {
-    let query_string = "WITH cluster AS (SELECT MAX(epoch) as last_epoch FROM bonds)
+    let base_query = "
+        WITH filtered_bonds AS (
+            SELECT * FROM bonds
+            WHERE 1=1
+            {bond_type_filter}
+        ),
+        cluster AS (
+            SELECT MAX(epoch) as last_epoch FROM filtered_bonds
+        )
         SELECT
-        pubkey, vote_account, authority, cpmpe, max_stake_wanted, updated_at, epoch, funded_amount, effective_amount, remaining_witdraw_request_amount, remainining_settlement_claim_amount, bond_type
-        FROM bonds, cluster
+            pubkey, vote_account, authority, cpmpe, max_stake_wanted,
+            updated_at, epoch, funded_amount, effective_amount,
+            remaining_witdraw_request_amount, remainining_settlement_claim_amount, bond_type
+        FROM filtered_bonds, cluster
         WHERE epoch = cluster.last_epoch";
-    let rows = match bond_type {
-        Some(bond_type) => {
-            let query = format!("{} {}", query_string, "AND bond_type = $1");
-            psql_client.query(&query, &[&bond_type]).await?
+
+    let (query_string, params): (String, Vec<&(dyn ToSql + Sync)>) = match bond_type {
+        Some(ref bt) => {
+            let query = base_query.replace("{bond_type_filter}", "AND bond_type = $1");
+            (query, vec![bt])
         }
-        None => psql_client.query(query_string, &[]).await?,
+        None => {
+            let query = base_query.replace("{bond_type_filter}", "");
+            (query, vec![])
+        }
     };
+
+    let rows = psql_client.query(&query_string, &params).await?;
 
     let mut bonds: Vec<ValidatorBondRecord> = vec![];
     for row in rows {

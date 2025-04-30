@@ -83,7 +83,8 @@ cargo build --release
 
 # Run API on port 8000 (default) or set a custom one using --port
 ./target/release/api \
-  --postgres-url "$POSTGRES_URL"
+  --postgres-url "$POSTGRES_URL" \
+  --postgres-ssl-root-cert "$POSTGRES_SSL_ROOT_CERT"
 ```
 
 ### On-Chain related parts
