@@ -64,6 +64,7 @@ steps:
 
   - label: ":scales: Prepare Validator Bonds Merkle Tree"
     env:
+      RUST_BACKTRACE: 1
     commands:
     - snapshot_slot=$(buildkite-agent meta-data get snapshot_slot)
     - buildkite-agent artifact download --include-retried-jobs target/release/institutional-distribution-cli .
