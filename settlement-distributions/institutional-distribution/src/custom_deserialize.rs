@@ -24,7 +24,7 @@ where
     let s: String = serde::Deserialize::deserialize(deserializer)?;
     let value = s.trim().to_lowercase();
     // For extremely large values, return a maximum Decimal
-    if value.contains('e') && value.contains('+') {
+    if value.contains("e+") {
         let parsed_value = value.split('e').collect::<Vec<&str>>()[1]
             .parse::<i32>()
             .unwrap_or(0);
