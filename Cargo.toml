@@ -45,7 +45,7 @@ merkle-tree = { path = "./merkle-tree" }
 openssl = "0.10.72"
 postgres-openssl = "0.5.1"
 regex = "1.10.4"
-rust_decimal = { version = "1.26", features = ["db-postgres"] }
+rust_decimal = { version = "1.37.1", features = ["db-postgres"] }
 serde = "1.0.197"
 serde_json = "1.0.114"
 serde_yaml = "0.8"

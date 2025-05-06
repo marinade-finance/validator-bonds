@@ -1,3 +1,4 @@
+use crate::custom_deserialize::{deserialize_bigint, deserialize_large_decimal};
 use merkle_tree::serde_serialize::{pubkey_string_conversion, vec_pubkey_string_conversion};
 use rust_decimal::Decimal;
 use serde::Deserialize;
@@ -40,10 +41,12 @@ pub struct Validator {
     #[serde(deserialize_with = "deserialize_bigint")]
     pub total_rewards: u64,
 
+    #[serde(deserialize_with = "deserialize_large_decimal")]
     pub apy: Decimal,
 
     pub institutional_staked_ratio: Decimal,
 
+    #[serde(deserialize_with = "deserialize_large_decimal")]
     pub apy_percentile_diff: Decimal,
 }
 
@@ -133,6 +136,7 @@ pub struct PayoutDistributor {
 pub struct PercentileData {
     pub percentile: u16,
 
+    #[serde(deserialize_with = "deserialize_large_decimal")]
     pub apy: Decimal,
 
     #[serde(deserialize_with = "deserialize_bigint")]
@@ -156,14 +160,4 @@ pub struct InstitutionalPayout {
     pub validators: Vec<Validator>,
 
     pub validator_payout_info: Vec<ValidatorPayoutInfo>,
-}
-
-/// The custom deserialize_bigint function handles parsing string representations of big integers.
-/// As the TypeScript codebase uses strings to represent big integers, this function is necessary.
-fn deserialize_bigint<'de, D>(deserializer: D) -> Result<u64, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let s: String = serde::Deserialize::deserialize(deserializer)?;
-    s.parse::<u64>().map_err(serde::de::Error::custom)
 }
