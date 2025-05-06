@@ -13,7 +13,7 @@ where
 }
 
 /// The custom deserialize_large_decimal function handles parsing string representations of large decimal numbers.
-/// The TypeScript institutional staking codebase uses saves the decimal as sientific notation.
+/// The TypeScript institutional staking codebase saves the decimal as scientific notation.
 /// This function tries to handle specific cases where the decimal is extremely large and Rust is not capable of parsing it.
 /// This happened e.g., for epoch 779 with validator '6H9J5xtcqGwh2hd2GpBHfvrnDicWk8GtvpnypH7piktA' that has got with stake 0.01 SOL
 /// extremely high MEV (39 SOLs)/block(29 SOLs) rewards (https://console.cloud.google.com/storage/browser/_details/jito-mainnet/779/tip-router-rpc-1/779-stake-meta-collection.json)
