@@ -24,7 +24,7 @@ where
     let s: String = serde::Deserialize::deserialize(deserializer)?;
     let value = s.trim().to_lowercase();
     // For extremely large values, return a maximum Decimal
-    if value.contains("e+") {
+    if value.contains("e+") || value.contains("e-") {
         let parsed_value = value.split('e').collect::<Vec<&str>>()[1]
             .parse::<i32>()
             .unwrap_or(0);
@@ -40,4 +40,48 @@ where
     Decimal::from_str(value.as_str())
         .or_else(|_| Decimal::from_scientific(value.as_str()))
         .map_err(|_| de::Error::custom(format!("Failed to parse as Decimal: {}", value)))
+}
+
+// test deserialize_large_decimal
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::Deserialize;
+
+    #[derive(Deserialize)]
+    struct TestStruct {
+        #[serde(deserialize_with = "deserialize_large_decimal")]
+        value: Decimal,
+    }
+
+    #[test]
+    fn test_deserialize_large_decimal() {
+        let json_data = r#"{"value": "1.1"}"#;
+        let result: TestStruct = serde_json::from_str(json_data).unwrap();
+        assert_eq!(result.value, Decimal::new(11, 1));
+        assert_eq!(result.value.to_string(), "1.1");
+
+        let json_data = r#"{"value": "-12.3"}"#;
+        let result: TestStruct = serde_json::from_str(json_data).unwrap();
+        assert_eq!(result.value, Decimal::new(-123, 1));
+        assert_eq!(result.value.to_string(), "-12.3");
+
+        let json_data = r#"{"value": "4.8076269033743718234e+882"}"#;
+        let result: TestStruct = serde_json::from_str(json_data).unwrap();
+        assert_eq!(result.value, Decimal::MAX);
+
+        let json_data = r#"{"value": "4.8076269033743718234e-111"}"#;
+        let result: TestStruct = serde_json::from_str(json_data).unwrap();
+        assert_eq!(result.value, Decimal::ZERO);
+
+        let json_data = r#"{"value": "4.4e+10"}"#;
+        let result: TestStruct = serde_json::from_str(json_data).unwrap();
+        assert_eq!(result.value, Decimal::new(44000000000, 0));
+        assert_eq!(result.value.to_string(), "44000000000");
+
+        let json_data = r#"{"value": "42e-9"}"#;
+        let result: TestStruct = serde_json::from_str(json_data).unwrap();
+        assert_eq!(result.value, Decimal::new(42, 9));
+        assert_eq!(result.value.to_string(), "0.000000042");
+    }
 }
