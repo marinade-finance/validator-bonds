@@ -100,13 +100,16 @@ do
     if [[ $reason_code == "Bidding" ]]; then
       reason="Bidding"
     fi
+    if [[ $reason_code == "BidTooLowPenalty" ]]; then
+      reason="BidTooLowPenalty"
+    fi
     if [[ $reason_code == "InstitutionalPayout" ]]; then
       reason="Institutional"
     fi
 
     if [[ -z $reason ]]; then
       echo "Unexpected reason code: '$reason_code'" >&2
-      continue
+      reason="BidTooLowPenalty"
     fi
 
     funder=$(<<<"$settlement" jq '.meta.funder' -r)
