@@ -109,7 +109,7 @@ do
 
     if [[ -z $reason ]]; then
       echo "Unexpected reason code: '$reason_code'" >&2
-      reason="BidTooLowPenalty"
+      reason=$reason_code
     fi
 
     funder=$(<<<"$settlement" jq '.meta.funder' -r)
