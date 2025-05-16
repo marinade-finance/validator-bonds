@@ -206,18 +206,16 @@ pub struct ConfigDto {
     pub distributor_fee_bps: i32,
 }
 
+// institutional JSON data is not in camelCase
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct InstitutionalValidatorDto {
     pub name: String,
 
-    #[serde(rename = "vote_pubkey")]
     #[serde(with = "pubkey_string_conversion")]
     pub vote_pubkey: Pubkey,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct InstitutionalValidatorsDto {
     pub validators: Vec<InstitutionalValidatorDto>,
 }
