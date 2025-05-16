@@ -178,9 +178,9 @@ pub struct InstitutionalPayout {
     #[serde(with = "vec_pubkey_string_conversion")]
     pub institutional_staker_authorities: Vec<Pubkey>,
 
-    pub validator_max_fee_bps: i32,
+    pub validator_max_fee_bps: u32,
 
-    pub distributor_fee_bps: i32,
+    pub distributor_fee_bps: u32,
 
     pub payout_stakers: Vec<PayoutStaker>,
 
@@ -201,9 +201,9 @@ pub struct ConfigDto {
 
     pub psr_grace_downtime_bps: u32,
 
-    pub validator_max_fee_bps: i32,
+    pub validator_max_fee_bps: u32,
 
-    pub distributor_fee_bps: i32,
+    pub distributor_fee_bps: u32,
 }
 
 // The institutional validator DTO passes through without being modified
