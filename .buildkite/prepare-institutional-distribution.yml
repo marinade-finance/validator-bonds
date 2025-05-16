@@ -48,9 +48,11 @@ steps:
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" .
+    - gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
     key: 'download-json'
     artifact_paths:
       - "./institutional-payouts.json"
+      - "./stakes.json"
 
   - wait: ~
 
@@ -61,9 +63,11 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs target/release/institutional-distribution-cli .
     - chmod +x target/release/institutional-distribution-cli
     - buildkite-agent artifact download --include-retried-jobs institutional-payouts.json .
+    - buildkite-agent artifact download --include-retried-jobs stakes.json .
     - |
       ./target/release/institutional-distribution-cli \
         --institutional-payouts ./institutional-payouts.json \
+        --stake-meta-collection ./stakes.json \
         --marinade-fee-stake-authority ${MARINADE_FEE_STAKE_AUTHORITY} \
         --marinade-fee-withdraw-authority ${MARINADE_FEE_WITHDRAW_AUTHORITY} \
         --output-settlement-collection "./${CLAIM_TYPE}-settlements.json" \
