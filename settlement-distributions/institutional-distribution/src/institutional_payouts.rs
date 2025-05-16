@@ -206,7 +206,8 @@ pub struct ConfigDto {
     pub distributor_fee_bps: i32,
 }
 
-// institutional JSON data is not in camelCase
+// The institutional validator DTO passes through without being modified
+// in the TypeScript institutional-calculation code, so the JSON data is not in camelCase
 #[derive(Debug, Deserialize)]
 pub struct InstitutionalValidatorDto {
     pub name: String,
