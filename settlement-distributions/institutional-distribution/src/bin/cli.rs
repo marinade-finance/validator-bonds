@@ -23,9 +23,6 @@ struct Args {
     marinade_fee_withdraw_authority: Pubkey,
 
     #[arg(long, env)]
-    snapshot_slot: u64,
-
-    #[arg(long, env)]
     output_settlement_collection: String,
 
     #[arg(long, env)]
@@ -39,18 +36,18 @@ fn main() -> anyhow::Result<()> {
     info!("Starting Institutional Payout Settlements calculation...");
     let args: Args = Args::parse();
 
-    let config = InstitutionalDistributionConfig::new(ConfigParams {
-        stake_authority: args.marinade_fee_stake_authority,
-        withdraw_authority: args.marinade_fee_withdraw_authority,
-        snapshot_slot: args.snapshot_slot,
-    });
-
     info!("Loading Institutional Payout collection...");
     let institutional_payouts: InstitutionalPayout =
         read_from_json_file(&args.institutional_payouts).map_err(file_error(
             "institutional-payouts",
             &args.institutional_payouts,
         ))?;
+
+    let config = InstitutionalDistributionConfig::new(ConfigParams {
+        stake_authority: args.marinade_fee_stake_authority,
+        withdraw_authority: args.marinade_fee_withdraw_authority,
+        snapshot_slot: institutional_payouts.slot,
+    });
 
     info!("Generating Institutional Payout Settlement collection...");
     let settlement_collection =

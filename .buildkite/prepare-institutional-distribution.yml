@@ -3,7 +3,6 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
-  gs_bucket_snapshots: gs://marinade-solana-snapshot-mainnet
   gs_bucket_institutional: gs://marinade-institutional-staking-mainnet
   SLACK_API: https://slack.com/api/chat.postMessage
   SLACK_FEED: "feed-institutional-staking"
@@ -53,26 +52,17 @@ steps:
     artifact_paths:
       - "./institutional-payouts.json"
 
-  - label: ":arrow_up: :cloud: Searching slot of the snapshot"
-    commands:
-    - epoch=$(buildkite-agent meta-data get epoch)
-    - gcloud storage cp "$gs_bucket_snapshots/$$epoch/validators.json" .
-    - slot=$(jq -r '.slot' validators.json)
-    - buildkite-agent meta-data set --redacted-vars='' snapshot_slot "$$slot"
-
   - wait: ~
 
   - label: ":scales: Prepare Validator Bonds Merkle Tree"
     env:
       RUST_BACKTRACE: 1
     commands:
-    - snapshot_slot=$(buildkite-agent meta-data get snapshot_slot)
     - buildkite-agent artifact download --include-retried-jobs target/release/institutional-distribution-cli .
     - chmod +x target/release/institutional-distribution-cli
     - buildkite-agent artifact download --include-retried-jobs institutional-payouts.json .
     - |
       ./target/release/institutional-distribution-cli \
-        --snapshot-slot $$snapshot_slot \
         --institutional-payouts ./institutional-payouts.json \
         --marinade-fee-stake-authority ${MARINADE_FEE_STAKE_AUTHORITY} \
         --marinade-fee-withdraw-authority ${MARINADE_FEE_WITHDRAW_AUTHORITY} \

@@ -22,6 +22,9 @@ pub struct ValidatorPayoutInfo {
 
     #[serde(deserialize_with = "deserialize_bigint")]
     pub distribute_to_stakers_lamports: u64,
+
+    #[serde(deserialize_with = "deserialize_bigint")]
+    pub psr_fee_lamports: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -48,6 +51,19 @@ pub struct Validator {
 
     #[serde(deserialize_with = "deserialize_large_decimal")]
     pub apy_percentile_diff: Decimal,
+
+    pub commission: u32,
+
+    pub mev_commission: Option<u32>,
+
+    #[serde(deserialize_with = "deserialize_bigint")]
+    pub credits: u64,
+
+    #[serde(deserialize_with = "deserialize_large_decimal")]
+    pub uptime: Decimal,
+
+    #[serde(deserialize_with = "deserialize_large_decimal")]
+    pub uptime_deviation_bps: Decimal,
 }
 
 #[derive(Debug, Deserialize)]
@@ -133,14 +149,16 @@ pub struct PayoutDistributor {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PercentileData {
-    pub percentile: u16,
+pub struct PsrPercentileData {
+    pub psr_percentile: u16,
 
     #[serde(deserialize_with = "deserialize_large_decimal")]
-    pub apy: Decimal,
+    pub psr_percentile_apy: Decimal,
 
     #[serde(deserialize_with = "deserialize_bigint")]
-    pub stake: u64,
+    pub psr_percentile_effective_stake: u64,
+
+    pub psr_grace_downtime_bps: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -148,10 +166,21 @@ pub struct PercentileData {
 pub struct InstitutionalPayout {
     pub epoch: u64,
 
+    #[serde(deserialize_with = "deserialize_bigint")]
+    pub slot: u64,
+
+    pub config: ConfigDto,
+
+    pub institutional_validators: InstitutionalValidatorsDto,
+
+    pub psr_percentile_data: PsrPercentileData,
+
     #[serde(with = "vec_pubkey_string_conversion")]
     pub institutional_staker_authorities: Vec<Pubkey>,
 
-    pub percentile_data: PercentileData,
+    pub validator_max_fee_bps: u32,
+
+    pub distributor_fee_bps: u32,
 
     pub payout_stakers: Vec<PayoutStaker>,
 
@@ -160,4 +189,34 @@ pub struct InstitutionalPayout {
     pub validators: Vec<Validator>,
 
     pub validator_payout_info: Vec<ValidatorPayoutInfo>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigDto {
+    #[serde(with = "vec_pubkey_string_conversion")]
+    pub staker_authority_filter: Vec<Pubkey>,
+
+    pub psr_percentile: u16,
+
+    pub psr_grace_downtime_bps: u32,
+
+    pub validator_max_fee_bps: u32,
+
+    pub distributor_fee_bps: u32,
+}
+
+// The institutional validator DTO passes through without being modified
+// in the TypeScript institutional-calculation code, so the JSON data is not in camelCase
+#[derive(Debug, Deserialize)]
+pub struct InstitutionalValidatorDto {
+    pub name: String,
+
+    #[serde(with = "pubkey_string_conversion")]
+    pub vote_pubkey: Pubkey,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InstitutionalValidatorsDto {
+    pub validators: Vec<InstitutionalValidatorDto>,
 }
