@@ -59,7 +59,7 @@ pub fn generate_bid_settlements(
                 Decimal::from(*settlement_config.marinade_fee_bps()) / Decimal::from(10000);
             let effective_bid = validator.effective_bid / Decimal::from(1000);
             let bid_too_low_penalty =
-                validator.rev_share.bid_too_low_penalty_pmpe / Decimal::from(1000);
+                validator.rev_share.bid_too_low_penalty_pmpe.unwrap_or(Decimal::from(0)) / Decimal::from(1000);
 
             let total_active_stake: u64 = stake_meta_index
                 .iter_grouped_stake_metas(&validator.vote_account)
