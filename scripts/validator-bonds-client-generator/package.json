@@ -16,11 +16,11 @@
     "@codama/renderers-js": "1.2.10",
     "@solana/kit": "2.1.0",
     "codama": "1.2.11",
-    "commander": "^13.1.0"
+    "commander": "14.0.0"
   },
   "devDependencies": {
-    "@types/node": "^22.13.1",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.8.2"
+    "@types/node": "22.13.1",
+    "ts-node": "10.9.2",
+    "typescript": "5.8.2"
   }
 }
