@@ -28,16 +28,16 @@
         "publish:all": "pnpm publish:sdk && pnpm publish:cli"
     },
     "devDependencies": {
-        "@jest/globals": "^29.7.0",
-        "@types/bn.js": "^5.1.5",
-        "@types/jest": "^29.5.12",
-        "@types/node": "^22.10.7",
-        "gts": "^6.0.2",
+        "@jest/globals": "29.7.0",
+        "@types/bn.js": "5.1.5",
+        "@types/jest": "29.5.12",
+        "@types/node": "22.10.7",
+        "gts": "6.0.2",
         "eslint": "8.57.1",
         "eslint-plugin-node": "11.1.0",
-        "jest": "^29.7.0",
-        "ts-jest": "^29.1.4",
-        "ts-node": "^10.9.2",
+        "jest": "29.7.0",
+        "ts-jest": "29.1.4",
+        "ts-node": "10.9.2",
         "typescript": "5.4.5"
     },
     "pnpm": {
