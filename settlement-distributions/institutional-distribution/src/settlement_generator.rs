@@ -5,14 +5,17 @@ use bid_psr_distribution::settlement_collection::{
 use log::info;
 
 use crate::settlement_config::InstitutionalDistributionConfig;
+use bid_psr_distribution::stake_meta_index::StakeMetaIndex;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
 pub fn generate_institutional_settlement_collection(
     config: &InstitutionalDistributionConfig,
     institutional_payout: &InstitutionalPayout,
+    stake_meta_index: &StakeMetaIndex,
 ) -> SettlementCollection {
-    let settlements = generate_institutional_settlements(config, institutional_payout);
+    let settlements =
+        generate_institutional_settlements(config, institutional_payout, stake_meta_index);
 
     SettlementCollection {
         epoch: institutional_payout.epoch,
@@ -33,6 +36,7 @@ struct Payout {
 fn merge_payouts(
     config: &InstitutionalDistributionConfig,
     institutional_payout: &InstitutionalPayout,
+    stake_meta_index: &StakeMetaIndex,
 ) -> Vec<Payout> {
     let mut payouts: Vec<Payout> = Vec::new();
 
@@ -51,6 +55,18 @@ fn merge_payouts(
         });
     }
 
+    let marinade_fee_deposit_stake_accounts: HashMap<_, _> = stake_meta_index
+        .stake_meta_collection
+        .stake_metas
+        .iter()
+        .find(|x| {
+            x.withdraw_authority.eq(&config.marinade_withdraw_authority)
+                && x.stake_authority.eq(&config.marinade_stake_authority)
+        })
+        .iter()
+        .map(|s| (s.pubkey, s.active_delegation_lamports))
+        .collect();
+
     for payout_distributor in institutional_payout.payout_distributors.iter() {
         payouts.push(Payout {
             vote_account: payout_distributor.vote_account,
@@ -63,11 +79,7 @@ fn merge_payouts(
                     acc.saturating_add(account.effective_stake)
                 }),
             payout_lamports: payout_distributor.payout_lamports,
-            stake_accounts: payout_distributor
-                .stake_accounts
-                .iter()
-                .map(|account| (account.address, account.effective_stake))
-                .collect(),
+            stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
         });
     }
 
@@ -77,13 +89,14 @@ fn merge_payouts(
 fn generate_institutional_settlements(
     config: &InstitutionalDistributionConfig,
     institutional_payout: &InstitutionalPayout,
+    stake_meta_index: &StakeMetaIndex,
 ) -> Vec<Settlement> {
     info!("Generating Institutional Payout Bonds settlements...");
 
     // vote account -> Settlement
     let mut settlements: HashMap<Pubkey, Settlement> = HashMap::new();
 
-    let payouts = merge_payouts(config, institutional_payout);
+    let payouts = merge_payouts(config, institutional_payout, stake_meta_index);
     for payout in payouts {
         let settlement = settlements
             .entry(payout.vote_account)
@@ -129,6 +142,7 @@ mod tests {
     };
     use std::collections::HashSet;
 
+    use snapshot_parser_types::stake_meta::StakeMetaCollection;
     use solana_sdk::pubkey::Pubkey;
     use std::fs::File;
     use std::io::BufReader;
@@ -206,7 +220,12 @@ mod tests {
     fn test_generate_marinade() {
         let institutional_payout = read_json_payout("marinade");
 
-        let settlements = generate_institutional_settlements(&TEST_CONFIG, &institutional_payout);
+        let stake_meta_index = default_stake_meta_index();
+        let settlements = generate_institutional_settlements(
+            &TEST_CONFIG,
+            &institutional_payout,
+            &stake_meta_index,
+        );
 
         // 4 different validators
         assert_eq!(settlements.len(), 4);
@@ -230,7 +249,12 @@ mod tests {
     fn test_generate_prime() {
         let institutional_payout = read_json_payout("prime");
 
-        let settlements = generate_institutional_settlements(&TEST_CONFIG, &institutional_payout);
+        let stake_meta_index = default_stake_meta_index();
+        let settlements = generate_institutional_settlements(
+            &TEST_CONFIG,
+            &institutional_payout,
+            &stake_meta_index,
+        );
 
         // 6 different validators
         assert_eq!(settlements.len(), 6);
@@ -248,5 +272,15 @@ mod tests {
             .flat_map(|s| s.claims.iter().map(|c| c.claim_amount))
             .sum::<u64>();
         assert_eq!(sum_payout_lamports(&institutional_payout), claiming_amount);
+    }
+
+    fn default_stake_meta_index() -> StakeMetaIndex<'static> {
+        static EMPTY_COLLECTION: once_cell::sync::Lazy<StakeMetaCollection> =
+            once_cell::sync::Lazy::new(|| StakeMetaCollection {
+                epoch: 0,
+                slot: 0,
+                stake_metas: vec![],
+            });
+        StakeMetaIndex::new(&EMPTY_COLLECTION)
     }
 }
