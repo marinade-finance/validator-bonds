@@ -85,6 +85,24 @@ steps:
     artifact_paths:
       - "./discord-public-report.txt"
 
+  - label: "📓 Details from payouts data"
+    commands:
+    - buildkite-agent artifact download --include-retried-jobs institutional-payouts.json .
+    - |
+      jq '[.validators[].stakedAmounts | {
+        institutionalActive,
+        institutionalActivating,
+        institutionalDeactivating,
+        institutionalEffective
+      }] | {
+        institutionalActive: (map(.institutionalActive | tonumber) | add / 1e9),
+        institutionalActivating: (map(.institutionalActivating | tonumber) | add / 1e9),
+        institutionalDeactivating: (map(.institutionalDeactivating | tonumber) | add / 1e9),
+        institutionalEffective: (map(.institutionalEffective | tonumber) | add / 1e9)
+      }' ./institutional-payouts.json | jq -r 'to_entries | (.[] | " \(.key): \(.value)")' > './institutional-payouts-summary.txt'
+    artifact_paths:
+      - "./institutional-payouts-summary.txt"
+
   - wait: ~
 
   - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Prepare Bid Distribution"
@@ -99,8 +117,17 @@ steps:
 
   - wait: ~
 
+  - label: ":information_source::printer: Aggregated report"
+    commands:
+    - buildkite-agent artifact download --include-retried-jobs institutional-payouts-summary.txt .
+    - cat './institutional-payouts-summary.txt'
+    - buildkite-agent artifact download --include-retried-jobs institutional-payouts.json .
+    - ./scripts/generate-select-validator-report.bash './institutional-payouts.json'
+
   - label: ":mega: Notification"
     commands:
+    - buildkite-agent artifact download --include-retried-jobs institutional-payouts-summary.txt .
+    - institutional_payouts_summary=$(cat ./institutional-payouts-summary.txt)
     - |
       epoch=$(buildkite-agent meta-data get epoch)
       curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
@@ -110,8 +137,9 @@ steps:
             {
               "color": "#8000ff",
               "title": "Claims for Validator Bonds ('"${CLAIM_TYPE}"') generated ('"$$epoch"').",
-              "title_link": "'"$$BUILDKITE_BUILD_URL"'",
-              "footer": "<'"$$BUILDKITE_BUILD_URL"'|View in Buildkite>"
+              "title_link": "'"$$BUILDKITE_BUILD_URL/#$${BUILDKITE_JOB_ID}"'",
+              "text": "'"$$institutional_payouts_summary"'",
+              "footer": "<'"$$BUILDKITE_BUILD_URL/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>"
             }
           ]
       }'
