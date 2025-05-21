@@ -19,7 +19,6 @@ pub struct SamMetadata {
     scoring_id: String,
     tvl: Tvl,
     delegation_strategy_mnde_votes: Decimal,
-    scoring_config: String,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
