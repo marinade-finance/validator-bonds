@@ -147,36 +147,39 @@ get_next_funder() {
     fi
 }
 
+echo "Index | Vote Account                                 | Max Claim Sum | Claims Sum  | Claims | Funder"
+echo "------+----------------------------------------------+---------------+-------------+--------+--------"
+
 index=0
 while IFS= read -r tree; do
-  echo "Index: $index"
   VOTE_ACCOUNT=$(echo "$tree" | jq -r '.vote_account')
   LAMPORTS_MAX=$(echo "$tree" | jq -r '.max_total_claim_sum')
   LAMPORTS_SUM=$(echo "$tree" | jq '.tree_nodes[].claim' | paste -s -d+ | bc)
   CLAIMS_SUM=$(solsdecimal "$LAMPORTS_SUM")
   MAX_CLAIM_SUM=$(solsdecimal "$LAMPORTS_MAX")
-
-  echo "Vote account: $VOTE_ACCOUNT"
-  echo "Max claim sum/Claims sum: ${MAX_CLAIM_SUM}/${CLAIMS_SUM}"
-
-  echo -n 'Number of claims: '
-  echo "$tree" | jq '.tree_nodes | length'
+  CLAIMS_COUNT=$(echo "$tree" | jq '.tree_nodes | length')
 
   # Query the settlement data once per loop
   FUNDER_PARSED=$(echo "$settlements" | jq -c 'select((.vote_account == "'$VOTE_ACCOUNT'") and (.claims_amount == '$LAMPORTS_MAX')) | .meta.funder')
   get_next_funder "$VOTE_ACCOUNT" "$LAMPORTS_MAX" "$FUNDER_PARSED"
   FUNDER="$SELECTED_FUNDER"
-  echo "Funder: $FUNDER"
+
+  printf "%5d | %-44s | %13s | %11s | %6s | %s\n" \
+    "$index" \
+    "$VOTE_ACCOUNT" \
+    "$MAX_CLAIM_SUM" \
+    "$CLAIMS_SUM" \
+    "$CLAIMS_COUNT" \
+    "$FUNDER"
 
   current_sum=${claims_amounts[$FUNDER]}
   claims_amounts[$FUNDER]=$(($current_sum+$LAMPORTS_MAX))
   current_number=${claims_number[$FUNDER]}
   claims_number[$FUNDER]=$((current_number+1))
-  echo '----------------'
+  
   index=$((index + 1))
 done <<< "$merkle_trees"
 
-echo
 echo '========================='
 echo 'Summary of claims:'
 for FUNDER in "${!claims_amounts[@]}"; do
