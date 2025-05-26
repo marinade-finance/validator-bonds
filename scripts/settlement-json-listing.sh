@@ -57,7 +57,7 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 if [ -z "$SETTLEMENTS_JSON_FILE" ] || [ -z "$MERKLE_TREES_JSON_FILE" ] || [ -z "$CLAIM_TYPE" ]; then
-    echo "Both --settlements <path> and --merkle-trees <path> and --claim-type <bid*|institutional*> parameters are required"
+    echo "Parameters --settlements <path> and --merkle-trees <path> and --claim-type <bid*|institutional*> are required"
     exit 1
 fi
 
