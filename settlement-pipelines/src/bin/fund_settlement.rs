@@ -12,8 +12,12 @@ use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
 use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::execute_in_sequence;
 use settlement_pipelines::init::{get_executor, init_log};
+use settlement_pipelines::institutional_validators::{fetch_validator_data, ValidatorsData};
 use settlement_pipelines::json_data::{load_json, load_json_with_on_chain};
-use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
+use settlement_pipelines::reporting::ErrorEntry::{Generic, VoteAccount};
+use settlement_pipelines::reporting::{
+    with_reporting, ErrorEntry, ErrorSeverity, PrintReportable, ReportHandler,
+};
 use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
 use settlement_pipelines::settlement_data::{
     SettlementFunderMarinade, SettlementFunderType, SettlementFunderValidatorBond, SettlementRecord,
@@ -85,7 +89,7 @@ struct Args {
 async fn main() -> CliResult {
     let mut reporting = FundSettlementsReport::report_handler();
     let result = real_main(&mut reporting).await;
-    with_reporting::<FundSettlementsReport>(&reporting, result).await
+    with_reporting::<FundSettlementsReport>(&mut reporting, result).await
 }
 
 async fn real_main(reporting: &mut ReportHandler<FundSettlementsReport>) -> anyhow::Result<()> {
@@ -137,7 +141,13 @@ async fn real_main(reporting: &mut ReportHandler<FundSettlementsReport>) -> anyh
 
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
 
-    reporting.reportable.init(&settlement_records_per_epoch);
+    reporting
+        .reportable
+        .init(
+            &settlement_records_per_epoch,
+            args.global_opts.institutional_url,
+        )
+        .await;
 
     prepare_funding(
         &program,
@@ -227,36 +237,36 @@ async fn prepare_funding(
         let epoch = settlement_record.epoch;
 
         if settlement_record.settlement_account.is_none() {
-            reporting.add_error_string(format!(
+            reporting.error().with_msg(format!(
                 "Settlement {} (vote account {}, bond {}, epoch {}, reason {}) does not exist on-chain, cannot be funded",
                 settlement_record.settlement_address,
                 settlement_record.vote_account_address,
                 settlement_record.bond_address,
                 epoch,
                 settlement_record.reason,
-            ));
+            )).add();
             continue;
         }
         if epoch + config.epochs_to_claim_settlement < clock.epoch {
-            reporting.add_warning_string(format!(
+            reporting.warning().with_msg(format!(
                 "Settlement {} (vote account {}, bond {}, epoch {}, reason {}) is too old to be funded, skipping funding",
                 settlement_record.settlement_address,
                 settlement_record.vote_account_address,
                 settlement_record.bond_address,
                 epoch,
                 settlement_record.reason,
-            ));
+            )).with_vote(settlement_record.vote_account_address).add();
             continue;
         }
         if settlement_record.bond_account.is_none() {
-            reporting.add_error_string(format!(
+            reporting.error().with_msg(format!(
                 "Settlement {} (vote account {}, bond {}, epoch {}, reason {}) funding skipped. Bond account does not exist.",
                 settlement_record.settlement_address,
                 settlement_record.vote_account_address,
                 settlement_record.bond_address,
                 epoch,
                 settlement_record.reason,
-            ));
+            )).with_vote(settlement_record.vote_account_address).add();
             reporting
                 .reportable
                 .mut_ref(epoch)
@@ -434,7 +444,7 @@ async fn prepare_funding(
                         .cmp(&(amount_to_fund + minimal_stake_lamports))
                     {
                         Ordering::Less => {
-                            reporting.add_warning_string( format!(
+                            reporting.warning().with_msg( format!(
                                 "Cannot fully fund settlement {} (vote account {}, epoch {}, reason: {}, max claim {} SOLs, funder: ValidatorBond). To fund {} SOLs, to fund with min stake amount {}, only {} SOLs were found in stake accounts",
                                 settlement_record.settlement_address,
                                 settlement_record.vote_account_address,
@@ -444,7 +454,7 @@ async fn prepare_funding(
                                 lamports_to_sol(amount_to_fund),
                                 lamports_to_sol(amount_to_fund + minimal_stake_lamports),
                                 lamports_to_sol(funding_lamports_accumulated)
-                            ));
+                            )).with_vote(settlement_record.vote_account_address).add();
                             reporting.reportable.add_funded_settlement(
                                 settlement_record,
                                 funding_lamports_accumulated.saturating_sub(minimal_stake_lamports),
@@ -479,14 +489,14 @@ async fn prepare_funding(
                         }
                     }
                 } else {
-                    reporting.add_warning_string(format!(
+                    reporting.warning().with_msg(format!(
                         "Settlement {} (vote account {}, epoch {}, reason: {}, max claim {} SOLs, funder: ValidatorBond) not funded as no stake account available",
                         settlement_record.settlement_address,
                         settlement_record.vote_account_address,
                         epoch,
                         settlement_record.reason,
                         lamports_to_sol(settlement_record.max_total_claim_sum),
-                    ));
+                    )).with_vote(settlement_record.vote_account_address).add();
                 }
                 // we've got to place in code where we wanted to fund something
                 // it does not matter if it was successful or not (e.g., no stake account is available)
@@ -744,8 +754,10 @@ async fn get_on_chain_bond_stake_accounts(
     Ok(result_map)
 }
 
+#[derive(Default)]
 struct FundSettlementsReport {
     settlements_per_epoch: HashMap<u64, FundSettlementReport>,
+    institutional_validators: Option<ValidatorsData>,
 }
 
 #[derive(Default)]
@@ -775,13 +787,15 @@ impl FundSettlementReport {
 
 impl FundSettlementsReport {
     fn report_handler() -> ReportHandler<Self> {
-        let fund_settlement_report = Self {
-            settlements_per_epoch: HashMap::new(),
-        };
+        let fund_settlement_report = Self::default();
         ReportHandler::new(fund_settlement_report)
     }
 
-    fn init(&mut self, json_loaded_data: &HashMap<u64, Vec<SettlementRecord>>) {
+    async fn init(
+        &mut self,
+        json_loaded_data: &HashMap<u64, Vec<SettlementRecord>>,
+        institutional_url: Option<String>,
+    ) {
         for (epoch, record) in json_loaded_data {
             self.settlements_per_epoch.insert(
                 *epoch,
@@ -790,6 +804,9 @@ impl FundSettlementsReport {
                     ..Default::default()
                 },
             );
+        }
+        if let Some(institutional_url) = institutional_url {
+            self.institutional_validators = Some(fetch_validator_data(&institutional_url).await);
         }
     }
 
@@ -901,5 +918,26 @@ impl PrintReportable for FundSettlementsReport {
             }
             report
         })
+    }
+
+    fn transform_on_finalize(&self, entries: &mut Vec<ErrorEntry>) {
+        if let Some(institutional_validators) = &self.institutional_validators {
+            entries.iter_mut().for_each(|entry| {
+                match entry {
+                    Generic(_) => {
+                        // nothing
+                    }
+                    VoteAccount(vae) => {
+                        if institutional_validators
+                            .validators
+                            .iter()
+                            .all(|v| v.vote_pubkey != vae.vote_account)
+                        {
+                            vae.base.severity = ErrorSeverity::Info;
+                        }
+                    }
+                }
+            });
+        }
     }
 }

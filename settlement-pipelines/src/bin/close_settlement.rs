@@ -73,7 +73,7 @@ struct Args {
 async fn main() -> CliResult {
     let mut reporting = CloseSettlementReport::report_handler();
     let result = real_main(&mut reporting).await;
-    with_reporting::<CloseSettlementReport>(&reporting, result).await
+    with_reporting::<CloseSettlementReport>(&mut reporting, result).await
 }
 
 async fn real_main(reporting: &mut ReportHandler<CloseSettlementReport>) -> anyhow::Result<()> {
@@ -191,7 +191,7 @@ async fn close_settlements(
                     split_rent_refund_account,
                 }) => (split_rent_collector, split_rent_refund_account),
                 Err(e) => {
-                    reporting.add_error(e);
+                    reporting.error().with_err(e).add();
                     continue;
                 }
             };
@@ -303,10 +303,10 @@ async fn reset_stake_accounts(
                 .is_none()
             {
                 // -> not existing settlement for this stake account, and we know nothing is about
-                reporting.add_error_string(format!(
+                reporting.error().with_msg(format!(
                     "For stake account {} (staker authority: {}) is required to know Settlement address but that was lost. Manual intervention needed.",
                     stake_pubkey, staker_authority
-                ));
+                )).add();
             }
             continue;
         };
@@ -378,10 +378,10 @@ async fn reset_stake_accounts(
                 lamports,
             );
         } else {
-            reporting.add_error_string(format!(
+            reporting.error().with_msg(format!(
                 "To reset stake account {} (bond: {}, staker authority: {}) is required to know vote account address but that was lost. Manual intervention needed.",
                 stake_pubkey, reset_data.bond, staker_authority
-            ));
+            )).add();
         }
     }
 

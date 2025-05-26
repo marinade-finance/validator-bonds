@@ -79,7 +79,7 @@ struct Args {
 async fn main() -> CliResult {
     let mut reporting = ClaimSettlementsReport::report_handler();
     let result = real_main(&mut reporting).await;
-    with_reporting::<ClaimSettlementsReport>(&reporting, result).await
+    with_reporting::<ClaimSettlementsReport>(&mut reporting, result).await
 }
 async fn real_main(reporting: &mut ReportHandler<ClaimSettlementsReport>) -> anyhow::Result<()> {
     let args: Args = Args::parse();
@@ -305,14 +305,14 @@ async fn claim_settlement<'a>(
         let proof = if let Some(proof) = tree_node.proof.clone() {
             proof
         } else {
-            reporting.add_error_string(format!(
+            reporting.error().with_msg(format!(
                 "No proof found for tree node stake:{}/withdrawer:{}/claim:{}/index:{}, settlement {}",
                 tree_node.stake_authority,
                 tree_node.withdraw_authority,
                 lamports_to_sol(tree_node.claim),
                 tree_node.index,
                 settlement_json_data.settlement_address,
-            ));
+            )).add();
             continue;
         };
 
@@ -340,13 +340,13 @@ async fn claim_settlement<'a>(
             if let Some((pubkey, _, _)) = stake_account_from {
                 *pubkey
             } else {
-                reporting.add_warning_string(format!(
+                reporting.warning().with_msg(format!(
                     "No stake account found with enough SOLs to claim {} from, settlement {}, index: {}, epoch {}",
                     lamports_to_sol(tree_node.claim),
                     settlement_json_data.settlement_address,
                     tree_node.index,
                     claimable_settlement.settlement.epoch_created_for
-                ));
+                )).add();
                 reporting
                     .reportable
                     .update_no_account_from(settlement_json_data, tree_node.claim);
@@ -363,7 +363,7 @@ async fn claim_settlement<'a>(
             .await
             .map_or_else(
                 |e| {
-                    reporting.add_error(e);
+                    reporting.error().with_err(e).add();
                     &empty_stake_accounts
                 },
                 |v| v,
@@ -373,7 +373,7 @@ async fn claim_settlement<'a>(
             clock,
             stake_history,
         ).map_or_else(|e| {
-            reporting.add_warning_string(format!(
+            reporting.warning().with_msg(format!(
                 "No available stake account found where to claim into of staker/withdraw authorities {}/{} (epoch: {}, settlement: {}, claim: {}, index: {}): {:?}",
                 tree_node.stake_authority, tree_node.withdraw_authority,
                 settlement_json_data.epoch,
@@ -381,7 +381,7 @@ async fn claim_settlement<'a>(
                 tree_node.claim,
                 tree_node.index,
                 e
-            ));
+            )).add();
             None
         }, Some);
         let stake_account_to: Pubkey = if let Some(stake_account_to) = stake_account_to {

@@ -5,6 +5,7 @@ pub mod arguments;
 pub mod cli_result;
 pub mod executor;
 pub mod init;
+pub mod institutional_validators;
 pub mod json_data;
 pub mod reporting;
 pub mod reporting_data;
