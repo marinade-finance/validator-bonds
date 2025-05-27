@@ -5,7 +5,6 @@ use solana_sdk::pubkey::Pubkey;
 use solana_transaction_builder_executor::TransactionBuilderExecutionErrors;
 use std::fmt::{self, Display};
 use std::future::Future;
-use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 
 pub trait PrintReportable {
@@ -34,19 +33,37 @@ impl<T: PrintReportable> ReportHandler<T> {
             println!("{}", report);
         }
     }
-}
 
-impl<T: PrintReportable> Deref for ReportHandler<T> {
-    type Target = ErrorHandler;
-
-    fn deref(&self) -> &Self::Target {
-        &self.error_handler
+    pub fn warning(&mut self) -> ErrorHandlerBuilder {
+        self.error_handler.warning()
     }
-}
 
-impl<T: PrintReportable> DerefMut for ReportHandler<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.error_handler
+    pub fn error(&mut self) -> ErrorHandlerBuilder {
+        self.error_handler.error()
+    }
+
+    pub fn retryable(&mut self) -> ErrorHandlerBuilder {
+        self.error_handler.retryable()
+    }
+
+    pub fn add_cli_error(&mut self, error: CliError) {
+        self.error_handler.add_cli_error(error);
+    }
+
+    pub fn add_tx_execution_result<D: Display>(
+        &mut self,
+        execution_result: Result<(usize, usize), TransactionBuilderExecutionErrors>,
+        message: D,
+    ) {
+        self.error_handler
+            .add_tx_execution_result(execution_result, message);
+    }
+
+    pub fn finalize(&mut self) -> anyhow::Result<()> {
+        // before finalize make possible to adjust entries
+        self.reportable
+            .transform_on_finalize(&mut self.error_handler.entries);
+        self.error_handler.finalize()
     }
 }
 
@@ -211,6 +228,10 @@ impl ErrorEntry {
     pub fn is_warning(&self) -> bool {
         self.severity().is_warning()
     }
+
+    pub fn is_info(&self) -> bool {
+        self.severity().is_info()
+    }
 }
 
 impl Display for ErrorEntry {
@@ -347,10 +368,7 @@ impl ErrorHandler {
     }
 
     pub fn get_infos(&self) -> Vec<&ErrorEntry> {
-        self.entries
-            .iter()
-            .filter(|e| e.severity() == ErrorSeverity::Info)
-            .collect()
+        self.entries.iter().filter(|e| e.is_info()).collect()
     }
 
     pub fn finalize(&self) -> anyhow::Result<()> {
@@ -412,13 +430,7 @@ pub async fn with_reporting<T: PrintReportable>(
     report_handler.print_report().await;
     match main_result {
         // when Ok is returned we consult the reality with report handler
-        Ok(_) => {
-            // before returning result from finalize make possible to adjust entries
-            report_handler
-                .reportable
-                .transform_on_finalize(&mut report_handler.error_handler.entries);
-            CliResult(report_handler.finalize())
-        }
+        Ok(_) => CliResult(report_handler.finalize()),
         // when main returned some error we pass it to terminate with it
         Err(err) => {
             println!("ERROR: {}", err);
