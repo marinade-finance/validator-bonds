@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ### ---- Call with json file arguments
-# settlement-json-listing.sh --settlements 1_settlements.json --merkle-trees 1_settlement-merkle-trees.json [--claim-type bid-claim]
+# settlement-json-listing.sh --settlements 1_settlements.json --merkle-trees 1_settlement-merkle-trees.json --claim-type <bid|institutional>
 ### ----
 
 solsdecimal() {
@@ -56,8 +56,8 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-if [ -z "$SETTLEMENTS_JSON_FILE" ] || [ -z "$MERKLE_TREES_JSON_FILE" ]; then
-    echo "Both --settlements and --merkle-trees parameters are required"
+if [ -z "$SETTLEMENTS_JSON_FILE" ] || [ -z "$MERKLE_TREES_JSON_FILE" ] || [ -z "$CLAIM_TYPE" ]; then
+    echo "Parameters --settlements <path> and --merkle-trees <path> and --claim-type <bid*|institutional*> are required"
     exit 1
 fi
 
@@ -100,35 +100,86 @@ settlements=$(jq -c '.settlements[]' "$SETTLEMENTS_JSON_FILE")
 
 declare -A claims_amounts
 declare -A claims_number
+declare -A unique_funders
+
+declare -A funder_map
+SELECTED_FUNDER=""
+get_next_funder() {
+    SELECTED_FUNDER="<UNKNOWN>"
+    local vote_account="$1"
+    local amount="$2"
+    local funder_data="$3"
+    
+    local preset_key="${vote_account}_${amount}"
+    
+    # Check if funder_data contains multiple funders (separated by newlines)
+    if [[ -n "$funder_data" ]]; then
+        # Convert funder_data to array, splitting by newlines
+        local funder_array
+        readarray -t funder_array <<< "$funder_data"
+        
+        local cleaned_funders=()
+        local funder
+        for funder in "${funder_array[@]}"; do
+            local clean_funder # Remove quotes and trim whitespace
+            clean_funder=$(echo "$funder" | sed 's/^"//; s/"$//' | xargs)
+            if [[ -n "$clean_funder" ]]; then
+                cleaned_funders+=("$clean_funder")
+            fi
+        done
+        if [[ ${#cleaned_funders[@]} -gt 0 ]]; then
+            local count=0
+            local map_key
+            for map_key in "${!funder_map[@]}"; do
+                if [[ "$map_key" == "${preset_key}_"* ]]; then
+                    count=$((count + 1))
+                fi
+            done
+            # Calculate index based on count (cycling through available funders)
+            local current_index=$((count % ${#cleaned_funders[@]}))
+            # Get the funder at current index
+            local selected_funder="${cleaned_funders[$current_index]}"            
+            # Store in map with unique suffix to track multiple entries
+            funder_map["${preset_key}_${count}"]="$selected_funder"
+            
+            SELECTED_FUNDER="$selected_funder"
+        fi
+    fi
+}
+
+echo "Index | Vote Account                                 | Max Claim Sum | Claims Sum  | Claims | Funder"
+echo "------+----------------------------------------------+---------------+-------------+--------+--------"
 
 index=0
 while IFS= read -r tree; do
-  echo "Index: $index"
   VOTE_ACCOUNT=$(echo "$tree" | jq -r '.vote_account')
   LAMPORTS_MAX=$(echo "$tree" | jq -r '.max_total_claim_sum')
   LAMPORTS_SUM=$(echo "$tree" | jq '.tree_nodes[].claim' | paste -s -d+ | bc)
   CLAIMS_SUM=$(solsdecimal "$LAMPORTS_SUM")
   MAX_CLAIM_SUM=$(solsdecimal "$LAMPORTS_MAX")
-
-  echo "Vote account: $VOTE_ACCOUNT"
-  echo "Max claim sum/Claims sum: ${MAX_CLAIM_SUM}/${CLAIMS_SUM}"
-
-  echo -n 'Number of claims: '
-  echo "$tree" | jq '.tree_nodes | length'
+  CLAIMS_COUNT=$(echo "$tree" | jq '.tree_nodes | length')
 
   # Query the settlement data once per loop
-  FUNDER=$(echo "$settlements" | jq -c 'select((.vote_account == "'$VOTE_ACCOUNT'") and (.claims_amount == '$LAMPORTS_MAX')) | .meta.funder')
-  echo "Funder: ${FUNDER:-<UNKNOWN>}"
+  FUNDER_PARSED=$(echo "$settlements" | jq -c 'select((.vote_account == "'$VOTE_ACCOUNT'") and (.claims_amount == '$LAMPORTS_MAX')) | .meta.funder')
+  get_next_funder "$VOTE_ACCOUNT" "$LAMPORTS_MAX" "$FUNDER_PARSED"
+  FUNDER="$SELECTED_FUNDER"
+
+  printf "%5d | %-44s | %13s | %11s | %6s | %s\n" \
+    "$index" \
+    "$VOTE_ACCOUNT" \
+    "$MAX_CLAIM_SUM" \
+    "$CLAIMS_SUM" \
+    "$CLAIMS_COUNT" \
+    "$FUNDER"
 
   current_sum=${claims_amounts[$FUNDER]}
   claims_amounts[$FUNDER]=$(($current_sum+$LAMPORTS_MAX))
   current_number=${claims_number[$FUNDER]}
   claims_number[$FUNDER]=$((current_number+1))
-  echo '----------------'
+  
   index=$((index + 1))
 done <<< "$merkle_trees"
 
-echo
 echo '========================='
 echo 'Summary of claims:'
 for FUNDER in "${!claims_amounts[@]}"; do
