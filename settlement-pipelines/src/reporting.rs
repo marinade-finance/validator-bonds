@@ -265,7 +265,7 @@ impl<'a> ErrorHandlerBuilder<'a> {
     pub fn add(self) {
         let message = self
             .message
-            .expect("Message is required - use with_msg() or with()");
+            .expect("Message is required - use with_msg() or with_err()");
 
         let entry = if let Some(vote_account) = self.vote_account {
             let mut vote_error = VoteAccountError::new(message, self.severity, vote_account);
