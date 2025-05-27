@@ -1,7 +1,7 @@
 use log::error;
 use merkle_tree::serde_serialize::pubkey_string_conversion;
+use reqwest;
 use serde::Deserialize;
-use solana_client::client_error::reqwest;
 use solana_sdk::pubkey::Pubkey;
 
 #[derive(Debug, Deserialize)]
