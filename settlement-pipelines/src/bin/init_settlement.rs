@@ -322,15 +322,20 @@ async fn upsize_settlements(
     let reloaded_settlements_records = reloaded_settlements_data
         .map_err(CliError::retry_able)?
         .into_iter()
-        .filter(|(settlement_address, info)| {
-            if info.is_none() {
-                reporting
-                    .error()
-                    .with_msg(format!(
-                        "[UpsizeElements] Settlement account {} does not exist on-chain",
-                        settlement_address
-                    ))
-                    .add();
+        .filter(|(settlement_address, settlement_data)| {
+            if settlement_data.is_none() {
+                let mut builder = reporting.error().with_msg(format!(
+                    "[UpsizeElements] Settlement account {} does not exist on-chain",
+                    settlement_address
+                ));
+                if let Some(vote_account) = settlement_records
+                    .iter()
+                    .find(|s| s.settlement_address == *settlement_address)
+                    .map(|s| s.vote_account_address)
+                {
+                    builder = builder.with_vote(vote_account);
+                }
+                builder.add();
                 false
             } else {
                 true
