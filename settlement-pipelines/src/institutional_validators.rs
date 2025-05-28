@@ -1,4 +1,4 @@
-use log::error;
+use log::{error, warn};
 use merkle_tree::serde_serialize::pubkey_string_conversion;
 use reqwest;
 use serde::Deserialize;
@@ -17,6 +17,10 @@ pub struct ValidatorsData {
 }
 
 pub async fn fetch_validator_data(url: &str) -> ValidatorsData {
+    warn!(
+        "Institutional URL {} defined - reporting will be adjusted. Fetching data.",
+        url
+    );
     try_fetch_validator_data(url).await.unwrap_or_else(|e| {
         error!("Error fetching '{}' validator data: {}", url, e);
         ValidatorsData {

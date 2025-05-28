@@ -244,7 +244,7 @@ async fn prepare_funding(
                 settlement_record.bond_address,
                 epoch,
                 settlement_record.reason,
-            )).add();
+            )).with_vote(settlement_record.vote_account_address).add();
             continue;
         }
         if epoch + config.epochs_to_claim_settlement < clock.epoch {
@@ -934,6 +934,8 @@ impl PrintReportable for FundSettlementsReport {
                             .all(|v| v.vote_pubkey != vae.vote_account)
                         {
                             vae.base.severity = ErrorSeverity::Info;
+                            vae.base.message =
+                                format!("(non-institutional validator) {}", vae.base.message);
                         }
                     }
                 }
