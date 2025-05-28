@@ -61,6 +61,10 @@ impl<T: PrintReportable> ReportHandler<T> {
 
     pub fn finalize(&mut self) -> anyhow::Result<()> {
         // before finalize make possible to adjust entries
+        info!(
+            "Finalizing report with {} entries",
+            self.error_handler.entries.len()
+        );
         self.reportable
             .transform_on_finalize(&mut self.error_handler.entries);
         self.error_handler.finalize()

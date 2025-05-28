@@ -921,18 +921,22 @@ impl PrintReportable for FundSettlementsReport {
     }
 
     fn transform_on_finalize(&self, entries: &mut Vec<ErrorEntry>) {
+        info!("Transforming FundSettlementsReport on finalize");
         if let Some(institutional_validators) = &self.institutional_validators {
             entries.iter_mut().for_each(|entry| {
                 match entry {
                     Generic(_) => {
                         // nothing
+                        info!("Processing entry that is generic: {:?}", entry);
                     }
                     VoteAccount(vae) => {
+                        info!("Processing entry that is vote account: {:?}", vae);
                         if institutional_validators
                             .validators
                             .iter()
                             .all(|v| v.vote_pubkey != vae.vote_account)
                         {
+                            info!("VoteAccount {} is not part of institutional validators, setting severity to Info", vae.vote_account);
                             vae.base.severity = ErrorSeverity::Info;
                             vae.base.message = format!("(non-institutional validator) {}", vae.base.message);
                         }
