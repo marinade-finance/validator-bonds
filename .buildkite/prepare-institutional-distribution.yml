@@ -9,6 +9,7 @@ env:
   CLAIM_TYPE: "institutional-distribution"
   MARINADE_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
   MARINADE_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
+  INSTITUTIONAL_URL: 'https://institutional-staking.marinade.finance/v1/validators'
 
 steps:
   - label: ":hammer_and_wrench: :rust: Build"
@@ -164,6 +165,7 @@ steps:
               NOTIFY_FEED: $NOTIFY_FEED
               SLACK_FEED: $SLACK_FEED
               NOTIFY_DISCORD_FEED: false
+              INSTITUTIONAL_URL: $INSTITUTIONAL_URL
               gs_bucket: $gs_bucket
       EOF
 

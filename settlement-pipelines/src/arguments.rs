@@ -45,6 +45,11 @@ pub struct GlobalOpts {
 
     #[arg(long)]
     pub skip_preflight: bool,
+
+    /// URL to fetch institutional validators (e.g., https://institutional-staking.marinade.finance/v1/validators).
+    /// When set, CLI reporting changes: errors for non-institutional validators are not treated as critical.
+    #[arg(long, env)]
+    pub institutional_url: Option<String>,
 }
 
 #[derive(Debug, Args)]

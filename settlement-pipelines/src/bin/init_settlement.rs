@@ -11,10 +11,14 @@ use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
 use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::execute_parallel;
 use settlement_pipelines::init::{get_executor, init_log};
+use settlement_pipelines::institutional_validators::{fetch_validator_data, ValidatorsData};
 use settlement_pipelines::json_data::{
     load_json, load_json_with_on_chain, CombinedMerkleTreeSettlementCollections,
 };
-use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
+use settlement_pipelines::reporting::ErrorEntry::{Generic, VoteAccount};
+use settlement_pipelines::reporting::{
+    with_reporting, ErrorEntry, ErrorSeverity, PrintReportable, ReportHandler,
+};
 use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
 use settlement_pipelines::settlement_data::SettlementRecord;
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -30,14 +34,13 @@ use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
-
 use validator_bonds::instructions::InitSettlementArgs;
 use validator_bonds::state::settlement::find_settlement_claims_address;
 use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::constants::find_event_authority;
 use validator_bonds_common::settlements::get_settlements_for_pubkeys;
 use validator_bonds_common::utils::try_get_all_account_infos_for_pubkeys;
-use validator_bonds_common::utils_rpc_retry::retry_get_pubkeys_operation;
+use validator_bonds_common::utils_rpc_retry::{retry_get_pubkeys_operation, RetryConfig};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -72,7 +75,7 @@ struct Args {
 async fn main() -> CliResult {
     let mut reporting = InitSettlementReport::report_handler();
     let result = real_main(&mut reporting).await;
-    with_reporting::<InitSettlementReport>(&reporting, result).await
+    with_reporting::<InitSettlementReport>(&mut reporting, result).await
 }
 
 async fn real_main(reporting: &mut ReportHandler<InitSettlementReport>) -> anyhow::Result<()> {
@@ -121,7 +124,14 @@ async fn real_main(reporting: &mut ReportHandler<InitSettlementReport>) -> anyho
     let epoch = args
         .epoch
         .map_or_else(|| settlement_records.first().unwrap().epoch, |v| v);
-    reporting.reportable.init(epoch, &settlement_records);
+    reporting
+        .reportable
+        .init(
+            epoch,
+            &settlement_records,
+            args.global_opts.institutional_url,
+        )
+        .await;
 
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
     init_settlements(
@@ -197,25 +207,25 @@ async fn init_settlements(
     for record in settlement_records {
         if record.bond_account.is_none() {
             // the existence of the Bond is required for any init Settlement, when not exists, we skip the init
-            reporting.add_error_string(format!(
+            reporting.error().with_msg(format!(
                 "Cannot find bond account {} for vote account {}, funder {}, claim amount {} SOLs (settlement to init: {})",
                 record.bond_address,
                 record.vote_account_address,
                 record.funder,
                 lamports_to_sol(record.max_total_claim_sum),
                 record.settlement_address,
-            ));
+            )).with_vote(record.vote_account_address).add();
             continue;
         }
         if record.max_total_claim == 0 || record.max_total_claim_sum == 0 {
-            reporting.add_error_string(format!(
+            reporting.error().with_msg(format!(
                 "Cannot init Settlement with 0 at max_total_claim({}) or max_total_claim_sum({} SOLs), vote account {}, funder {} (settlement to init: {})",
                 record.max_total_claim,
                 lamports_to_sol(record.max_total_claim_sum),
                 record.vote_account_address,
                 record.funder,
                 record.settlement_address,
-            ));
+            )).with_vote(record.vote_account_address).add();
             continue;
         }
 
@@ -300,7 +310,11 @@ async fn upsize_settlements(
             .map(|s| s.settlement_address)
             .collect::<Vec<Pubkey>>(),
         get_settlements_for_pubkeys,
-        None,
+        Some(RetryConfig {
+            max_retries: Some(5),
+            timeout_duration: Some(std::time::Duration::from_secs(300)),
+            retry_delay: std::time::Duration::from_secs(20),
+        }),
         true,
     )
     .await
@@ -310,10 +324,13 @@ async fn upsize_settlements(
         .into_iter()
         .filter(|(settlement_address, info)| {
             if info.is_none() {
-                reporting.add_error_string(format!(
-                    "[UpsizeElements] Settlement account {} does not exist on-chain",
-                    settlement_address
-                ));
+                reporting
+                    .error()
+                    .with_msg(format!(
+                        "[UpsizeElements] Settlement account {} does not exist on-chain",
+                        settlement_address
+                    ))
+                    .add();
                 false
             } else {
                 true
@@ -339,10 +356,10 @@ async fn upsize_settlements(
         let claims = if let Some(settlement_claims) = settlement_claims_info {
             settlement_claims
         } else {
-            reporting.add_error_string(format!(
+            reporting.error().with_msg(format!(
                 "CRITICAL [upsize_settlements]: No SettlementClaims account {} for an existing Settlement {}",
                 settlement_claims_address, settlement_address
-            ));
+            )).add();
             continue;
         };
         let required_size = validator_bonds::state::settlement_claims::account_size(
@@ -366,10 +383,13 @@ async fn upsize_settlements(
         {
             settlement_record.vote_account_address
         } else {
-            reporting.add_error_string(format!(
-                "CRITICAL [upsize_settlements]: No vote account found for Settlement {}",
-                settlement_address
-            ));
+            reporting
+                .error()
+                .with_msg(format!(
+                    "CRITICAL [upsize_settlements]: No vote account found for Settlement {}",
+                    settlement_address
+                ))
+                .add();
             continue;
         };
         for _ in 0..number_of_upsize_calls {
@@ -410,12 +430,14 @@ async fn upsize_settlements(
     Ok(())
 }
 
+#[derive(Default)]
 struct InitSettlementReport {
     epoch: u64,
     json_loaded_settlements: HashSet<SettlementRecord>,
     created_settlements: HashSet<SettlementRecord>,
     existing_settlements: HashSet<Pubkey>,
     upsized_settlements: HashMap<Pubkey, u32>,
+    institutional_validators: Option<ValidatorsData>,
 }
 
 impl PrintReportable for InitSettlementReport {
@@ -463,23 +485,54 @@ impl PrintReportable for InitSettlementReport {
             result_vec
         })
     }
+
+    fn transform_on_finalize(&self, entries: &mut Vec<ErrorEntry>) {
+        if let Some(institutional_validators) = &self.institutional_validators {
+            entries.iter_mut().for_each(|entry| {
+                match entry {
+                    Generic(_) => {
+                        // nothing
+                    }
+                    VoteAccount(vae) => {
+                        // when validator is not in institutional validators, we set severity to Info
+                        // the non-institutional validator is expected to not having a bond account created,
+                        // when re-staking from non-institutional validator to institutional validator,
+                        // we do not want to report its non-existence as an error
+                        // on the other hand when a validator is removed intentionally from institutional set,
+                        // the settlement should be created for it
+                        // that's the reason why we cannot just remove the non-institutional validators from settlement preparation
+                        if institutional_validators
+                            .validators
+                            .iter()
+                            .all(|v| v.vote_pubkey != vae.vote_account)
+                        {
+                            vae.base.severity = ErrorSeverity::Info;
+                        }
+                    }
+                }
+            });
+        }
+    }
 }
 
 impl InitSettlementReport {
     fn report_handler() -> ReportHandler<Self> {
-        let init_settlement_report = Self {
-            epoch: 0,
-            json_loaded_settlements: HashSet::new(),
-            created_settlements: HashSet::new(),
-            existing_settlements: HashSet::new(),
-            upsized_settlements: HashMap::new(),
-        };
+        let init_settlement_report = Self::default();
         ReportHandler::new(init_settlement_report)
     }
 
-    fn init(&mut self, epoch: u64, json_settlements: &[SettlementRecord]) {
+    async fn init(
+        &mut self,
+        epoch: u64,
+        json_settlements: &[SettlementRecord],
+        institutional_url: Option<String>,
+    ) {
         self.epoch = epoch;
         self.json_loaded_settlements = json_settlements.iter().cloned().collect();
+        if let Some(institutional_url_existing) = institutional_url {
+            self.institutional_validators =
+                Some(fetch_validator_data(&institutional_url_existing).await);
+        }
     }
 
     fn add_created_settlement(&mut self, settlement_record: &SettlementRecord) {
