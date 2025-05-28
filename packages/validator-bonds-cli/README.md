@@ -185,7 +185,11 @@ Expected output on created bond is like
   "amountAtSettlements": "0 SOL",
   "numberSettlementStakeAccounts": 0,
   "amountToWithdraw": "0 SOL",
-  "withdrawRequest": "<NOT EXISTING>"
+  "withdrawRequest": "<NOT EXISTING>",
+  "bondMint": "...",
+  "bondFundedStakeAccounts": [],
+  "settlementFundedStakeAccounts": []
+
 }
 ```
 
@@ -748,6 +752,13 @@ ls node_modules
 # Execute from the local directory
 npm exec -- validator-bonds --version
 ```
+
+## On-Chain Technical Information
+
+* On-chain Validator Bonds Program address: `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
+* Bonds Select Config address: `vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU`
+* Native Staking Select Staker authority: `stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq`
+* Validator Bonds Stake Account Withdrawer authority: `7cgg6KhPd1G8oaoB48RyPDWu7uZs51jUpDYB3eq4VebH`
 
 ## `Validator Bonds CLI Reference`
 

@@ -11,7 +11,7 @@ npm install -g @marinade.finance/validator-bonds-cli-institutional@latest
 ```
 
 Successful installation will be shown in similar fashion to this output
-(it is recommended to use NodeJS 20+).
+<!-- TODO: update the output when the CLI package is published -->
 
 ```
 added 165 packages in 35s
@@ -197,6 +197,18 @@ Expected output on created bond is like
   "amountAtSettlements": "0 SOL",
   "numberSettlementStakeAccounts": 0,
   "amountToWithdraw": "0 SOL",
+
+  "amountOwned": "10.407 SOLs",
+  "amountActive": "10.407 SOLs",
+  "numberActiveStakeAccounts": 1,
+  "amountAtSettlements": "0 SOLs",
+  "numberSettlementStakeAccounts": 1,
+  "amountToWithdraw": "0 SOL",
+  "withdrawRequest": "<NOT EXISTING>",
+  "bondMint": "...",
+  "bondFundedStakeAccounts": [
+    {...}
+  ]
 }
 ```
 
@@ -238,13 +250,12 @@ are returned to the bond's available resources. As a result, there may be more s
 connected to the bond account than before the Settlement was created.
 These stake accounts can later be merged if needed to create a larger, compound amount for future settlement funding.
 
+## On-Chain Technical Information
 
-# Technical Information
-
-* on-chain Validator Bonds Program address: ``
-* Bonds Select Config address: ``
-* Native Staking Select Staker authority: ``
-* Bonds 
+* On-chain Validator Bonds Program address: `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
+* Bonds Select Config address: `VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE`
+* Native Staking Select Staker authority: `STNi1NHDUi6Hvibvonawgze8fM83PFLeJhuGMEXyGps`
+* Validator Bonds Stake Account Withdrawer authority: `8CsAFqTh75jtiYGjTXxCUbWEurQcupNknuYTiaZPhzz3`
 
 ## Validator Bonds Institutional CLI Reference
 

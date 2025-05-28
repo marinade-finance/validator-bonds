@@ -75,7 +75,7 @@ describe('Init withdraw request using CLI (institutional)', () => {
       expect([
         'pnpm',
         [
-          'cli',
+          'cli:institutional',
           '-u',
           provider.connection.rpcEndpoint,
           'init-withdraw-request',
