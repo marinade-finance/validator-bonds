@@ -185,7 +185,11 @@ Expected output on created bond is like
   "amountAtSettlements": "0 SOL",
   "numberSettlementStakeAccounts": 0,
   "amountToWithdraw": "0 SOL",
-  "withdrawRequest": "<NOT EXISTING>"
+  "withdrawRequest": "<NOT EXISTING>",
+  "bondMint": "...",
+  "bondFundedStakeAccounts": [],
+  "settlementFundedStakeAccounts": []
+
 }
 ```
 
@@ -358,30 +362,33 @@ compound amount for future settlement funding.
 
 ### Withdrawing Bond Account
 
-When someone chooses to stop participating in covering the bonds for
+When someone chooses to stop participating in auction and in covering the bonds for
 [protected events](https://marinade.finance/blog/introducing-protected-staking-rewards/),
 they can withdraw the funds **by transferring ownership** of the stake accounts back to
 the original owner (i.e., stake account authorities are transferred to `--withdrawer`).
 
 This process involves two steps:
 
-1. Initialize a withdrawal request, which means creating an on-chain account (a ticket) informing the protected event system about the intention to withdraw funds.
-2. Only after the lockup period elapses — currently after 3 epochs — can one claim the withdrawal request and regain ownership of the funds.
+1. Initialize a withdrawal request, which means creating an on-chain account (a ticket) informing
+   the Bond on-chain program about the intention to withdraw funds.
+2. Only after the lockup period elapses — currently after 3 epochs — can one claim the withdrawal request
+   and regain ownership of the funds.
    Claiming withdrawal request is assigning ownership of stake account(s) to `--withdrawer`.
 
 <a id='withdraw-all'></a>
 
-**IMPORTANT:** If you want to withdraw all SOLs from the funded bond,
-               use **ALL** as value for `--amount` argument.
-               Using **ALL** means creating a withdrawal request ticket with an amount approximately equal to [`18e18`](https://doc.rust-lang.org/std/u64/constant.MAX.html).
+> **IMPORTANT:** If you want to withdraw all SOLs from the funded bond,
+>                use **ALL** as value for `--amount` argument.
+>                Using **ALL** means creating a withdrawal request ticket with an amount
+>                approximately equal to [`18e18`](https://doc.rust-lang.org/std/u64/constant.MAX.html).
 
-**WARNING:** The amount specified in the withdrawal request ticket account is no longer
-             counted as part of the funded bond amount.
-             When participating in bond auctions,
-             always verify the active stake recognized by the system using the `show-bond` CLI command.
+> **WARNING:** The amount specified in the withdrawal request ticket account is no longer
+>              counted as part of the funded bond amount.
+>              When participating in bond auctions,
+>              always verify the active stake recognized by the system using the `show-bond` CLI command.
 
-**NOTE:** The withdrawal request account remains on-chain until canceled.
-          See details and consequences in the section [Cancelling Withdraw Request](#cancelling-withdraw-request-account).
+> **NOTE:** The withdrawal request account remains on-chain until canceled.
+>           See details and consequences in the section [Cancelling Withdraw Request](#cancelling-withdraw-request-account).
 
 To initialize the withdrawal request, one needs to define the maximum number of lamports
 that are requested to be withdrawn upon claiming.
@@ -484,11 +491,11 @@ If the bond owner wishes to change the withdrawal amount or have the amount cons
 as part of the funded bond again, they must cancel the existing request
 and create [a new withdrawal request](#withdrawing-bond-account) if needed.
 
-**NOTE:** When the owner uses `--amount ALL` during withdrawal, the system sets the amount
-          to the maximum possible value. Any future bond funding will also be considered as
-          withdrawable and thus not counted to bond funded amount.
-          The existence of a withdrawal request can be verified using
-          the `show-bond` command.
+> **NOTE:** When the owner uses `--amount ALL` during withdrawal, the system sets the amount
+>           to the maximum possible value. Any future bond funding will also be considered as
+>           withdrawable and thus not counted to bond funded amount.
+>           The existence of a withdrawal request can be verified using
+>           the `show-bond` command.
 
 ### Show Validator Bonds Program Configuration
 
@@ -581,7 +588,7 @@ For advanced on-chain queries, refer to the [on-chain analysis documentation](..
 ## Searching Bonds funded stake accounts
 
 Bond program assigns the funded stake accounts with `withdrawal` authority of address
-`7cgg6KhPd1G8oaoB48RyPDWu7uZs51jUpDYB3eq4VebH`.
+`7cgg6KhPd1G8oaoB48RyPDWu7uZs51jUpDYB3eq4VebH` (see [on-chain technical information](#on-chain-technical-information))
 
 Technical details of the stake account layout can be found in Solana source code [for staker and withdrawer](https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/state.rs#L60)
 and for [voter pubkey](https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/state.rs#L414).
@@ -749,9 +756,17 @@ ls node_modules
 npm exec -- validator-bonds --version
 ```
 
+## On-Chain Technical Information
+
+* On-chain Validator Bonds Program address: `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
+* Bonds Select Config address: `vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU`
+* Native Staking Select Staker authority: `stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq`
+* Validator Bonds Stake Account Withdrawer authority: `7cgg6KhPd1G8oaoB48RyPDWu7uZs51jUpDYB3eq4VebH`
+
 ## `Validator Bonds CLI Reference`
 
 ### `validator-bonds --help`
+
 ```sh
 validator-bonds --help
 Usage: validator-bonds [options] [command]

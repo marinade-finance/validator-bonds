@@ -11,7 +11,7 @@ npm install -g @marinade.finance/validator-bonds-cli-institutional@latest
 ```
 
 Successful installation will be shown in similar fashion to this output
-<!-- TODO: update the output when the CLI package is published -->
+(it is recommended to use NodeJS 20+).
 
 ```
 added 165 packages in 35s
@@ -58,10 +58,9 @@ RPC_URL=<url-to-solana-rpc-node>
 validator-bonds-institutional -u $RPC_URL show-bond <vote-account-address> --with-funding
 ```
 
-
 ### Creating a bond
 
-Creating a bond means creating an on-chain account. 
+Creating a bond means creating an on-chain account.
 The bond account is strictly coupled with a vote account.
 
 It can be created in two ways:
@@ -72,11 +71,6 @@ It can be created in two ways:
 * permission-less: anybody may create the bond account. For any future configuration change
   of bond account, or for withdrawal funds, the validator identity signature is needed(**!**)
   (the bond authority is set to identity of the validator at this point).
-
-On the bond account:
-
-* there can be only one bond for a vote account
-* every bond is attached to a vote account
 
 ```sh
 # permission-ed: bond account at mainnet
@@ -93,6 +87,62 @@ validator-bonds-institutional -um init-bond -k <fee-payer-keypair> \
 validator-bonds-institutional -um configure-bond --help
 ```
 
+For technical details on the bond creation process, please refer to the
+[`Bond creation details` in the Validator Bonds CLI README](https://github.com/marinade-finance/validator-bonds/blob/main/packages/validator-bonds-cli/README.md#bond-creation-details).
+
+### Permission-ed and Permission-less Bonds Creation and Configuration
+
+When the Bond Account is created in permission-ed way then the Bond account can be configured
+and withdrawn by signing the transaction with validator's identity keypair
+or with keypair configured as `--bond-authority`.
+
+When the Bond Account is created in permission-less way then the Bond account can be configured
+and withdrawn by signing the transaction with validator's identity keypair
+or by minting a "configuration token" that permits the owner of the token
+to operate with the Bond Account. The intention is here that a user could not be
+in confidence with Validator Bonds CLI to provide a keypair for the signature of the validator's identity.
+With that he can permission-less way mint a token that is strictly minted only to validator's identity pubkey.
+The owner of the identity keypair can then transfer the token to whatever (possibly, a newly created) address.
+The owner of the address is then an owner of the validator bonds account.
+
+When a Bond Account is created in a permission-ed way, it can be configured and withdrawn from by signing
+the transaction with either the validator's identity keypair or a keypair specified using the `--bond-authority` flag.
+
+When a Bond Account is created in a permission-less way, it can be configured and withdrawn from by signing
+the transaction with the validator's identity keypair or by minting a "configuration token."
+This token allows its holder to operate the Bond Account.
+The intention behind this is to support cases where a user does not have direct access to the Validator Bonds CLI
+or the validator’s identity keypair. In such cases, the user can mint a configuration token in a permission-less manner.
+This token is minted exclusively to the validator’s identity public key. The owner of the identity keypair can
+then transfer the token to any address (for example, a newly created one).
+The owner of that address becomes the effective owner of the Bond Account.
+
+```sh
+# minting the validator bonds' configuration token to validator's identity address
+validator-bonds-institutional -um mint-bond <bond-or-vote-account-address>
+
+# example on transferring the token to different address (Solana CLI is required)
+#  - the recipient keypair is to be used to sign configure-bond instead of identity key
+#  - use show-bond command verify what is the configuration token mint for bond
+spl-token transfer -um <token-mint-address> 1 <recipient-wallet-address>
+
+# configure bond to permit configuration and withdrawal to a specific address
+#  - here we configure the recipient wallet being the new authority for the bond account
+validator-bonds-institutional configure-bond --authority <recipient-wallet-keypair> \
+  --with-token --bond-authority <new-bond-authority--recipient-wallet-address> <bond-or-vote-account-address>
+
+```
+
+### Show the bond account
+
+```sh
+RPC_URL=<url-to-solana-rpc-node>
+validator-bonds-institutional -u$RPC_URL show-bond <bond-or-vote-account-address> --with-funding --verbose
+```
+
+For details on meanings of the particular fields in the listing, please refer to
+[`Show the bond account` in the Validator Bonds CLI README](https://github.com/marinade-finance/validator-bonds/blob/main/packages/validator-bonds-cli/README.md#show-the-bond-account).
+
 
 ### Funding Bond Account
 
@@ -104,151 +154,182 @@ and is still generating staking rewards.
 
 User may either fund bond from a wallet or assigning a stake account under the Bond program.
 
+For more details on the process and restrictions, please refer to
+[`Funding Bond Account` in the Validator Bonds CLI README](https://github.com/marinade-finance/validator-bonds/blob/main/packages/validator-bonds-cli/README.md#funding-bond-account).
+
 #### Funding with wallet
 
 ```sh
-validator-bonds-institutional fund-bond-sol <vote-account-address> --from <wallet-keypair> --amount <1 SOL for every 1,000 SOL staked>
+validator-bonds-institutional fund-bond-sol <vote-account-address> \
+  --from <wallet-keypair> --amount <1 SOL for every 1,000 SOL staked>
 ```
 
 #### Funding the stake account
 
-"Funding the bond" consists of two steps:
-
-1. Charging lamports to a stake account.
-2. Assigning ownership of the stake account to the Validator Bonds program using
-   the `fund-bond` CLI command.
-
-The funded stake account:
-
-- **Must be delegated** to the vote account belonging to the bond account.
-- **Must be activating or activated**.
-
-
 ```sh
 # Create a random keypair for a stake account to be created and funded to bond
 # The Validator Bonds program does not preserve stake account public keys as it merges and splits them
-solana-keygen new -o /tmp/stake-account-keypair.json
+STAKE_ACCOUNT='/tmp/stake-account-keypair.json'
+solana-keygen new -o "$STAKE_ACCOUNT"
 
 # Creating a stake account. The SOLs will be funded to the Bond
-solana create-stake-account <stake-account-keypair> <1 SOL for every 1,000 SOL staked>
+solana create-stake-account "$STAKE_ACCOUNT" <1 SOL for every 1,000 SOL staked>
 
 # To couple the created stake account with the vote account
 # This causes the stake account to be in the Activating state.
-solana delegate-stake <stake-account-pubkey> <vote-account-address>
+solana delegate-stake "$STAKE_ACCOUNT" <vote-account-address>
 
 # Funding Bond by assigning the stake account with the SOL amount in it
-validator-bonds-institutional -um fund-bond <bond-or-vote-account-address> \
-  --stake-account <stake-account-address> \
-  --stake-authority <withdrawer-stake-account-authority-keypair>
+validator-bonds-institutional fund-bond <bond-or-vote-account-address> \
+  --stake-account "$STAKE_ACCOUNT"
 ```
 
-The meanings of parameters are as follows:
+### Withdrawing Bond Account
 
-- `<bond-or-vote-account-address>`: bond account that will be funded by the amount of
-  lamports from the stake account.
-- `--stake-account`: address of the stake account that will be assigned under the bonds program.
-- `--stake-authority`: signature of the stake account authority (probably withdrawer)
-  that permits to change the stake account authorities
+Withdrawing funds from the Bond on-chain program consists of two steps:
 
-#### How to add more funds under the bond?
+1. **Initialize a withdrawal request** — This creates an on-chain account (a *ticket*)
+   that informs the Bond program of the intention to withdraw funds.
+2. **Claim the withdrawal** — After the lockup period elapses (currently 3 epochs),
+   the withdrawal request can be claimed to regain control of the funds.
+   Claiming a withdrawal request means reassigning ownership of the stake account(s) to the `--withdrawer`.
 
-It's as simple as creating a new stake account and funding it into the bond program.
-The amounts of SOLs delegated to the same validator are summed together.
-The validator bonds program may merge or split the accounts delegated to the same validator.
-It's not guaranteed to maintain the same stake accounts in the bond,
-but the amount of SOLs is always associated with the validator.
+> **NOTE:** All funds managed by the Bond on-chain program are SOL deposited into delegated stake accounts.
+> The Bond program only interacts with stake accounts and does not hold any funds in a central vault.
 
-### Show the bond account
+> **TIP:** To withdraw all available funds from the Bond program, use the `--amount ALL` flag.
+
 
 ```sh
-validator-bonds-institutional -um show-bond <bond-or-vote-account-address>
+# 1) Initialize withdraw request
+validator-bonds-institutional -um init-withdraw-request <bond-or-vote-account-address> \
+  --authority <bond-authority-keypair> \
+  --amount <number-of-requested-lamports-to-be-withdrawn __OR__ "ALL">
+
+# 2) Claim existing withdraw request after 3 epochs by assigning ownership of the stake accounts
+#    to wallet <user-pubkey>
+validator-bonds-institutional -um claim-withdraw-request <withdraw-request-or-bond-or-vote-account-address> \
+  --authority <bond-authority-keypair> \
+  --withdrawer <user-pubkey>
+
+# 3) OPTIONAL: Transfer funds from the claimed stake account to a wallet
+#   - `STAKE_ACCOUNT_ADDRESS` is provided in the output of the `claim-withdraw-request` command
+#   - `user-pubkey-keypair` is the keypair of the `--withdrawer <user-pubkey>`
+# 3.a) Deactivate the stake transferred out of the Bonds Program
+solana deactivate-stake --stake-authority <user-pubkey-keypair> <STAKE_ACCOUNT_ADDRESS>
+# 3.b) Withdraw SOLs from the stake account to the user’s wallet of address <user-pubkey>
+solana withdraw-stake --withdraw-authority <user-pubkey-keypair> <STAKE_ACCOUNT_ADDRESS> <user-pubkey> <AMOUNT>
 ```
 
-To display all details about the Bond use `--with-funding` and `--verbose` parameters.
-Gathering all the details require multiple calls to RPC node and does not work
-properly with public RPC node (moniker `-um` or `--rpc-url mainnet-beta`).
-Use some other RPC node url as described at https://solana.com/rpc.
+For technical details on creating withdraw request and claiming, please refer to
+[`Technical details on creating withdraw request and claiming` in the Validator Bonds CLI README](https://github.com/marinade-finance/validator-bonds/blob/main/packages/validator-bonds-cli/README.md#technical-details-on-creating-withdraw-request-and-claiming).
 
-```sh
-RPC_URL=<url-to-solana-rpc-node>
-validator-bonds-institutional -u$RPC_URL show-bond <bond-or-vote-account-address> \
-  --with-funding --verbose
+## Support for Ledger signing
+
+For details please refer to
+[`Support for Ledger signing` in the Validator Bonds CLI README](https://github.com/marinade-finance/validator-bonds/tree/main/packages/validator-bonds-cli#support-for-ledger-signing).
+
+## Details on Bond Processing and Select Programme Calculation
+
+Bond calculation and settlement occur with a one-epoch delay.
+Funds are debited at the start of epoch X+1 based on data parsed from the last slot of epoch X.
+
+The Select calculation aggregates all rewards earned by a validator (inflation/voting rewards, MEV rewards, block rewards)
+and computes the APY based on the `effective` stake (active + deactivating) delegated to the validator.
+The resulting APY is then weighted by the ratio of the Select stake
+(stake managed by the [Select staker authority](#on-chain-technical-information)).
+
+The APY is calculated using the formula:
+
+```typescript
+APY = (1 + rewardsPerEpoch / stakedAmount) ^ epochsInYear - 1
 ```
 
-Expected output on created bond is like
+The Select program guarantees a maximum yield of 50 basis points (bps) from the validator's APY for the Select stake.
+Some of the rewards, as of the APY ratio, is then returned via Bonds claims to Marinade, the operator of the program.
 
-```
-{
-  "programId": "vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4",
-  "publicKey": "...",
-  "account": {
-    "config": "vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU",
-    "voteAccount": "...",
-    "authority": "..."
-  },
-  "voteAccount": {
-    "nodePubkey": "...",
-    "authorizedWithdrawer": "...",
-    "commission": 0
-  },
-  "amountOwned": "10.407 SOLs",
-  "amountActive": "10.407 SOLs",
-  "numberActiveStakeAccounts": 0,
-  "amountAtSettlements": "0 SOL",
-  "numberSettlementStakeAccounts": 0,
-  "amountToWithdraw": "0 SOL",
-}
+Let’s continue with an example:
+Assume the validator’s APY is 11.5%. The validator captures a 50bps share, and Marinade charges a 30bps fee.
+This means the overall APY that has to be delivered to stakers is 10.7%, calculated as:
+
+```ts
+REWARDS_TO_STAKERS = (11.5 - 0.5 - 0.3)/11.5 * SELECT_REWARDS
+                   = 10.7 / 11.5 * SELECT_REWARDS
 ```
 
-#### Amount Values and the `amountActive` Field
+The reward data comes from a snapshot of the blockchain at the last slot of the epoch.
+The snapshot defines what rewards were already distributed to stakers by the Solana network (in dependence on `commission`).
+If the amount distributed to stakers by Solana network is less than calculated `REWARDS_TO_STAKERS`,
+the difference is charged from the validator’s bond account.
 
-The `amountActive` field represents the amount of SOL available for funding Settlements and is considered
-as funded to the Bond account. It is calculated as:
+> **IMPORTANT**:
+> The Select program allows a validator to earn up to 50bps from rewards generated by the Select stake.
+> However, Select **cannot** reclaim any SOL that was already distributed to stakers by the Solana network.
+> In practice, this means if the rewards assigned to the validator by Solana are less than
+> `0.5 / VALIDATOR_APY * SELECT_REWARDS`, the validator only keeps the rewards it received.
+> It is the validator’s responsibility to configure their commission settings appropriately.
+> This becomes especially important once [SIMD-0123](https://github.com/solana-foundation/solana-improvement-documents/pull/123) is implemented by the network.
 
-```
-amountActive = amountOwned - amountAtSettlements - amountToWithdraw
-```
+> **MATHEMATICAL NOTE**:
+> Select promises to deliver 50 basis points (bps) of APY rewards to the validator.
+> This might be interpreted as receiving exactly 50 bps multiplied by the Marinade Select TVL in year, calculated as:
+> `((epoch 1 TVL + epoch 2 TVL + ... + last epoch of the year TVL) / number of epochs per year) * 0.005`.
+> However, this is not entirely precise. A small discrepancy arises because rewards are paid out on an epoch-by-epoch basis,
+> which slightly reduces the compounding base compared to a theoretical full-year compounding calculation.
 
-- **`amountOwned`**: The total amount available at the Bond account.
-- **`amountAtSettlements`**: The amount reserved in existing Settlements, waiting to be claimed by stakers.
-  If not claimed, this amount is returned to the Bond account and reflected in `amountActive`.
-- **`amountToWithdraw`**: The amount the user has requested to withdraw, which is no longer considered
-  active for Settlement funding.
+### Protected Stake Rewards (PSR) Penalty
 
+Select monitors validator voting performance using earned credits, weighted by stake, and compares it
+to the standard network average (i.e., the stake-weighted average of earned credits across all validators).
+If a validator experiences prolonged downtime, it must compensate for the lost rewards by paying back the corresponding amount.
 
-#### Stake accounts in Validator Bonds and concept of Settlements
+### Exiting the Set of Select Validators
 
-The concept of Bonds revolves around managing stake accounts delegated to validators.
-This allows the validator to lock funds under the Validator Bonds Program while still earning inflation rewards.
-However, the Validator Bonds Program does not preserve the specific stake accounts (i.e., their public keys)
-that were initially funded. Instead, the funding is considered as the total sum of lamports across various stake accounts
-assigned by `delegate` to `vote account` connected with the `bond account`.
+Exiting the Select set is **not** a permission-less action and must be coordinated with the Marinade team.
 
-At the start of the epoch, rewards payment calculation is performed,
-and a `Settlement` account is created for the calculated amount.
-A Settlement represents a payment event for the delegated SOLs.
-The `Settlement` account splits the amount into multiple claimable events
-that can be permissionlessly claimed and later withdrawn by owners
-of the stake accounts delegated to a particular validator.
+When a validator exits the Select set, it is charged (from its bond) for one epoch of rewards
+it would have earned from delegated Select stake.
+The *effective stake*—that which yields rewards—is defined as the sum of stake in the `active` and `deactivating` states.
 
-When a settlement event occurs, some of the stake accounts funded to the `Bond` may be split,
-and a portion of the funds (in the value of the amount) is assigned under the `Settlement`.
-After the settlement is closed, any non-claimed lamports remaining in the stake account
-are returned to the bond's available resources. As a result, there may be more stake accounts
-connected to the bond account than before the Settlement was created.
-These stake accounts can later be merged if needed to create a larger, compound amount for future settlement funding.
+Upon exiting, the system initiates deactivation of the validator’s stake so it can be re-delegated to other validators in the set.
+The validator must pay rewards for the `deactivating` stake, calculated using that epoch’s APY.
 
+In the following epoch, the `deactivating` stake transitions to the `deactivated` state by the Solana network,
+at which point it can be re-delegated and re-activated. Note that stake in the `activating` state yields no rewards.
+
+### Data endpoints of the Select Program
+
+Validators can verify the charged amounts and funded SOL directly on-chain.
+
+**Options:**
+- **Current State:** Use the [CLI show command](#show-the-bond-account) to see the current on-chain Bond state
+  - _NOTE:_ data from `show-bond` represents current on-chain data not data used for bonds calculation of particular epoch
+- **Historical Data:**
+  - Dashboard: [Select Bonds Dashboard](https://select.marinade.finance/).
+  - Select API calculation data: [Select API](https://institutional-staking.marinade.finance/docs)
+  - Select calculation data: [as JSON files form Google Cloud storage](https://console.cloud.google.com/storage/browser/marinade-institutional-staking-mainnet)
+  - Settlement data: [Google Cloud storage](https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet).
+
+For advanced on-chain queries, refer to the [on-chain analysis documentation](../../programs/validator-bonds/ON_CHAIN_ANALYSIS.md).
+
+## On-Chain Technical Information
+
+* On-chain Validator Bonds Program address: `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
+* Bonds Select Config address: `VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE`
+* Native Staking Select Staker authority: `STNi1NHDUi6Hvibvonawgze8fM83PFLeJhuGMEXyGps`
+* Validator Bonds Stake Account Withdrawer authority: `8CsAFqTh75jtiYGjTXxCUbWEurQcupNknuYTiaZPhzz3`
 
 ## Validator Bonds Institutional CLI Reference
 
 ### `validator-bonds-institutional --help`
+
 ```sh
 validator-bonds-institutional --help
 Usage: validator-bonds-institutional [options] [command]
 
 Options:
   -V, --version                                   output the version number
-  -u, --url <rpc-url>                             solana RPC URL or a moniker (m/mainnet/mainnet-beta, d/devnet, t/testnet, l/localhost), see https://solana.com/rpc (default: "mainnet")
+  -u, --url <rpc-url>                             solana RPC URL or a moniker (m/mainnet/mainnet-beta, d/devnet, t/testnet, l/localhost), see https://solana.com/rpc (default: "mainnet", env: RPC_URL)
   -c, --cluster <cluster>                         alias for "-u, --url"
   -k, --keypair <keypair-or-ledger>               Wallet keypair (path or ledger url in format usb://ledger/[<pubkey>][?key=<derivedPath>]). Wallet keypair is used to pay for the transaction fees and as default value for signers. (default: loaded from solana
                                                   config file or ~/.config/solana/id.json)
@@ -271,7 +352,9 @@ Commands:
   fund-bond-sol [options] <address>               Funding a bond account with amount of SOL. The command creates a stake account, transfers SOLs to it and delegates it to bond.
   mint-bond [options] <address>                   Mint a Validator Bond token, providing a means to configure the bond account without requiring a direct signature for the on-chain transaction. The workflow is as follows: first, use this "mint-bond" to mint a
                                                   bond token to the validator identity public key. Next, transfer the token to any account desired. Finally, utilize the command "configure-bond --with-token" to configure the bond account.
+  init-withdraw-request [options] [address]       Initializing withdrawal by creating a request ticket. The withdrawal request ticket is used to indicate a desire to withdraw the specified amount of lamports after the lockup period expires.
+  claim-withdraw-request [options] [address]      Claiming an existing withdrawal request for an existing on-chain account, where the lockup period has expired. Withdrawing funds involves transferring ownership of a funded stake account to the specified
+                                                  "--withdrawer" public key. To withdraw, the authority signature of the bond account is required, specified by the "--authority" parameter (default wallet).
+  cancel-withdraw-request [options] [address]     Cancelling the withdraw request account, which is the withdrawal request ticket, by removing the account from the chain.
   help [command]                                  display help for command
-
-
 ```
