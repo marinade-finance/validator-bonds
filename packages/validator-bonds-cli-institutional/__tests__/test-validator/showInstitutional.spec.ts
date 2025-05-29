@@ -3,6 +3,8 @@ import YAML from 'yaml'
 import {
   ValidatorBondsProgram,
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
+  withdrawRequestAddress,
+  bondMintAddress,
 } from '@marinade.finance/validator-bonds-sdk'
 import { Keypair } from '@solana/web3.js'
 import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
@@ -64,6 +66,12 @@ describe('Show command using CLI (institutional)', () => {
       amountAtSettlements: '0 SOL',
       numberSettlementStakeAccounts: 0,
       amountToWithdraw: '0 SOL',
+      withdrawRequest: '<NOT EXISTING>',
+      bondMint: bondMintAddress(
+        bondAccount,
+        voteAccountShow.nodePubkey!,
+        program.programId,
+      )[0].toBase58(),
     }
 
     await (

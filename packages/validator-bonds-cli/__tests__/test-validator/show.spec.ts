@@ -7,6 +7,7 @@ import {
   cancelWithdrawRequestInstruction,
   bondsWithdrawerAuthority,
   claimWithdrawRequestInstruction,
+  bondMintAddress,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
   U64_MAX,
@@ -272,6 +273,11 @@ describe('Show command using CLI', () => {
       provider.connection,
       voteAccount,
     )
+    const bondMint = bondMintAddress(
+      bondAccount,
+      voteAccountShow.nodePubkey!,
+      program.programId,
+    )[0].toBase58()
     const expectedDataNoFunding = {
       programId: program.programId,
       publicKey: bondAccount.toBase58(),
@@ -292,6 +298,7 @@ describe('Show command using CLI', () => {
       numberSettlementStakeAccounts: 0,
       amountToWithdraw: '0 SOL',
       withdrawRequest: '<NOT EXISTING>',
+      bondMint,
     }
     const expectedDataFundingMultipleItems = {
       ...expectedDataNoFunding,
@@ -523,6 +530,11 @@ describe('Show command using CLI', () => {
         lamports,
       })
     }
+    const bondMint = bondMintAddress(
+      bondAccount,
+      validatorIdentity.publicKey,
+      program.programId,
+    )[0].toBase58()
 
     const expectedDataNoFunding = {
       programId: program.programId,
@@ -548,6 +560,7 @@ describe('Show command using CLI', () => {
       numberSettlementStakeAccounts: 0,
       amountToWithdraw: '0 SOL',
       withdrawRequest: '<NOT EXISTING>',
+      bondMint,
     }
 
     await (
@@ -619,6 +632,7 @@ describe('Show command using CLI', () => {
           withdrawnAmount: '0 SOL',
         },
       },
+      bondMint,
     }
     // waiting for next epoch to make sure the withdraw request claiming is over
     await waitForNextEpoch(provider.connection, 15)

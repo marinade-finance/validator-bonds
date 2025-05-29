@@ -30,25 +30,25 @@
   "dependencies": {
     "@marinade.finance/validator-bonds-sdk": "workspace: *",
     "@marinade.finance/validator-bonds-cli-core": "workspace: *",
-    "@coral-xyz/anchor": "^0.29.0",
-    "@marinade.finance/anchor-common": "=2.4.13",
-    "@marinade.finance/cli-common": "=2.4.13",
-    "@marinade.finance/ledger-utils": "^3.0.1",
-    "@marinade.finance/ts-common": "=2.4.13",
-    "@marinade.finance/web3js-common": "=2.4.13",
-    "@solana/web3.js": "^1.98.0",
-    "bn.js": "^5.2.1",
-    "bs58": "^6.0.0",
-    "commander": "^13.1.0",
-    "jsbi": "^4.3.0",
-    "pino": "^9.6.0",
-    "pino-pretty": "^13.0.0",
+    "@coral-xyz/anchor": "0.29.0",
+    "@marinade.finance/anchor-common": "=2.4.16",
+    "@marinade.finance/cli-common": "=2.4.16",
+    "@marinade.finance/ledger-utils": "3.0.1",
+    "@marinade.finance/ts-common": "=2.4.16",
+    "@marinade.finance/web3js-common": "=2.4.16",
+    "@solana/web3.js": "1.98.2",
+    "bn.js": "5.2.2",
+    "bs58": "6.0.0",
+    "commander": "14.0.0",
+    "jsbi": "4.3.2",
+    "pino": "9.7.0",
+    "pino-pretty": "13.0.0",
     "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
-    "yaml": "^2.4.5"
+    "yaml": "2.8.0"
   },
   "devDependencies": {
-    "crypto-js": "^4.2.0",
-    "@marinade.finance/jest-utils": "=2.4.13"
+    "crypto-js": "4.2.0",
+    "@marinade.finance/jest-utils": "=2.4.16"
   },
   "engines": {
     "node": ">=16"
