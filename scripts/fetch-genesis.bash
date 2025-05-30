@@ -16,6 +16,6 @@ then
     exit 1
 fi
 
-gcloud storage cp gs://mainnet-beta-ledger-us-ny5/genesis.tar.bz2 "$target_dir"
+wget --retry-connrefused --waitretry=1 --tries=10 --timeout=30 -P "$target_dir" http://api.mainnet-beta.solana.com/genesis.tar.bz2
 
 pv "$target_dir"/genesis.tar.bz2 | tar -xj -C "$target_dir"
