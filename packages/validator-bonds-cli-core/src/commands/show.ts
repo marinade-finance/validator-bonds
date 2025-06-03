@@ -26,6 +26,8 @@ import {
   findStakeAccounts,
   withdrawRequestAddress,
   settlementClaimsAddress,
+  bondMintAddress,
+  ValidatorBondsProgram,
 } from '@marinade.finance/validator-bonds-sdk'
 import { ProgramAccount } from '@coral-xyz/anchor'
 import { getBondFromAddress, formatUnit, formatToSolWithAll } from '../utils'
@@ -254,6 +256,7 @@ export type VoteAccountShow = Partial<
 >
 export type BondShow<T> = ProgramAccountWithProgramId<T> & {
   voteAccount?: VoteAccountShow
+  bondMint?: PublicKey
 } & Partial<Omit<BondDataWithFunding, 'voteAccount' | 'bondAccount'>>
 
 export async function showBond({
@@ -335,6 +338,7 @@ export async function showBond({
       data.amountToWithdraw = bondFunding[0].amountToWithdraw
       data.epochsToElapseToWithdraw = bondFunding[0].epochsToElapseToWithdraw
       data.withdrawRequest = bondFunding[0].withdrawRequest
+      data.bondMint = constructBondMintAddress(data, program)
       if (cliContext.logger.isLevelEnabled('debug')) {
         data.bondFundedStakeAccounts = bondFunding[0].bondFundedStakeAccounts
         data.settlementFundedStakeAccounts =
@@ -356,6 +360,7 @@ export async function showBond({
       } else {
         data.withdrawRequest = undefined // output shows it does not exist
       }
+      data.bondMint = constructBondMintAddress(data, program)
     }
   } else {
     // CLI did not provide an address, searching for accounts based on filter parameters
@@ -420,6 +425,20 @@ export async function showBond({
 
   const reformatted = reformat(data, reformatBondFunction ?? reformatBond)
   printData(reformatted, format)
+}
+
+function constructBondMintAddress(
+  bond: BondShow<Bond>,
+  program: ValidatorBondsProgram,
+): PublicKey | undefined {
+  if (bond.voteAccount?.nodePubkey !== undefined) {
+    return bondMintAddress(
+      bond.publicKey,
+      bond.voteAccount.nodePubkey,
+      program.programId,
+    )[0]
+  }
+  return undefined
 }
 
 export async function showSettlement({

@@ -197,6 +197,18 @@ Expected output on created bond is like
   "amountAtSettlements": "0 SOL",
   "numberSettlementStakeAccounts": 0,
   "amountToWithdraw": "0 SOL",
+
+  "amountOwned": "10.407 SOLs",
+  "amountActive": "10.407 SOLs",
+  "numberActiveStakeAccounts": 1,
+  "amountAtSettlements": "0 SOLs",
+  "numberSettlementStakeAccounts": 1,
+  "amountToWithdraw": "0 SOL",
+  "withdrawRequest": "<NOT EXISTING>",
+  "bondMint": "...",
+  "bondFundedStakeAccounts": [
+    {...}
+  ]
 }
 ```
 
@@ -238,6 +250,12 @@ are returned to the bond's available resources. As a result, there may be more s
 connected to the bond account than before the Settlement was created.
 These stake accounts can later be merged if needed to create a larger, compound amount for future settlement funding.
 
+## On-Chain Technical Information
+
+* On-chain Validator Bonds Program address: `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
+* Bonds Select Config address: `VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE`
+* Native Staking Select Staker authority: `STNi1NHDUi6Hvibvonawgze8fM83PFLeJhuGMEXyGps`
+* Validator Bonds Stake Account Withdrawer authority: `8CsAFqTh75jtiYGjTXxCUbWEurQcupNknuYTiaZPhzz3`
 
 ## Validator Bonds Institutional CLI Reference
 
@@ -248,7 +266,7 @@ Usage: validator-bonds-institutional [options] [command]
 
 Options:
   -V, --version                                   output the version number
-  -u, --url <rpc-url>                             solana RPC URL or a moniker (m/mainnet/mainnet-beta, d/devnet, t/testnet, l/localhost), see https://solana.com/rpc (default: "mainnet")
+  -u, --url <rpc-url>                             solana RPC URL or a moniker (m/mainnet/mainnet-beta, d/devnet, t/testnet, l/localhost), see https://solana.com/rpc (default: "mainnet", env: RPC_URL)
   -c, --cluster <cluster>                         alias for "-u, --url"
   -k, --keypair <keypair-or-ledger>               Wallet keypair (path or ledger url in format usb://ledger/[<pubkey>][?key=<derivedPath>]). Wallet keypair is used to pay for the transaction fees and as default value for signers. (default: loaded from solana
                                                   config file or ~/.config/solana/id.json)
@@ -271,7 +289,9 @@ Commands:
   fund-bond-sol [options] <address>               Funding a bond account with amount of SOL. The command creates a stake account, transfers SOLs to it and delegates it to bond.
   mint-bond [options] <address>                   Mint a Validator Bond token, providing a means to configure the bond account without requiring a direct signature for the on-chain transaction. The workflow is as follows: first, use this "mint-bond" to mint a
                                                   bond token to the validator identity public key. Next, transfer the token to any account desired. Finally, utilize the command "configure-bond --with-token" to configure the bond account.
+  init-withdraw-request [options] [address]       Initializing withdrawal by creating a request ticket. The withdrawal request ticket is used to indicate a desire to withdraw the specified amount of lamports after the lockup period expires.
+  claim-withdraw-request [options] [address]      Claiming an existing withdrawal request for an existing on-chain account, where the lockup period has expired. Withdrawing funds involves transferring ownership of a funded stake account to the specified
+                                                  "--withdrawer" public key. To withdraw, the authority signature of the bond account is required, specified by the "--authority" parameter (default wallet).
+  cancel-withdraw-request [options] [address]     Cancelling the withdraw request account, which is the withdrawal request ticket, by removing the account from the chain.
   help [command]                                  display help for command
-
-
 ```
