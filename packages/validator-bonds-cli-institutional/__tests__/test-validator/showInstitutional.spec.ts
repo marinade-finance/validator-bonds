@@ -3,7 +3,6 @@ import YAML from 'yaml'
 import {
   ValidatorBondsProgram,
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
-  withdrawRequestAddress,
   bondMintAddress,
 } from '@marinade.finance/validator-bonds-sdk'
 import { Keypair } from '@solana/web3.js'

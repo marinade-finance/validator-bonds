@@ -431,10 +431,7 @@ function constructBondMintAddress(
   bond: BondShow<Bond>,
   program: ValidatorBondsProgram,
 ): PublicKey | undefined {
-  if (
-    bond.voteAccount !== undefined &&
-    bond.voteAccount.nodePubkey !== undefined
-  ) {
+  if (bond.voteAccount?.nodePubkey !== undefined) {
     return bondMintAddress(
       bond.publicKey,
       bond.voteAccount.nodePubkey,
