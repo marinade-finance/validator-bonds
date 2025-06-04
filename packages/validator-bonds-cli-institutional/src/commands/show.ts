@@ -1,7 +1,6 @@
 import { FormatType, ReformatAction } from '@marinade.finance/cli-common'
 import {
   configureShowBond,
-  getCliContext,
   reformatBond,
   showBond,
 } from '@marinade.finance/validator-bonds-cli-core'
@@ -40,15 +39,12 @@ export function reformatBondInstitutional(
   key: string,
   value: unknown,
 ): ReformatAction {
-  if (!getCliContext().logger.isLevelEnabled('debug')) {
-    if (
-      typeof key === 'string' &&
-      ((key as string).startsWith('cpmpe') ||
-        (key as string).startsWith('maxStakeWanted') ||
-        (key as string).startsWith('withdrawRequest'))
-    ) {
-      return { type: 'Remove' }
-    }
+  if (
+    typeof key === 'string' &&
+    ((key as string).startsWith('cpmpe') ||
+      (key as string).startsWith('maxStakeWanted'))
+  ) {
+    return { type: 'Remove' }
   }
 
   return reformatBond(key, value)
