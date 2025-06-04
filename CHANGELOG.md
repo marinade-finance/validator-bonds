@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file. See [standa
 
 * cli: institutional CLI implements withdraw request management
 * cli: `show` command prints address of configure bonds token mint that is used for permission-less configuration
-* cli: institutional CLI `show-bond` provide information on withdraw request
+* cli: institutional CLI `show-bond` provides information on withdraw request
 
 ## TS CLI&SDK [2.1.6](https://github.com/marinade-finance/validator-bonds/compare/v2.1.5...v2.1.6) (2025-04-25)
 
