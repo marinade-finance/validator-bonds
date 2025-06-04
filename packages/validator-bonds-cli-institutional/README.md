@@ -123,7 +123,7 @@ validator-bonds-institutional -um mint-bond <bond-or-vote-account-address>
 
 # example on transferring the token to different address (Solana CLI is required)
 #  - the recipient keypair is to be used to sign configure-bond instead of identity key
-#  - use show-bond command verify what is the configuration token mint for bond
+#  - use show-bond command to verify what the configuration token mint for bond is
 spl-token transfer -um <token-mint-address> 1 <recipient-wallet-address>
 
 # configure bond to permit configuration and withdrawal to a specific address
