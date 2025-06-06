@@ -24,6 +24,11 @@ export function installConfigureBond(program: Command) {
       'Cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch. (default: 0)',
       value => toBN(value),
     )
+    .option(
+      '--max-stake-wanted <number>',
+      'The maximum stake amount, in lamports, that the validator wants to be delegated to them (default: Infinity).',
+      value => toBN(value),
+    )
     .action(
       async (
         address: Promise<PublicKey>,
@@ -34,6 +39,7 @@ export function installConfigureBond(program: Command) {
           withToken,
           bondAuthority,
           cpmpe,
+          maxStakeWanted,
         }: {
           config?: Promise<PublicKey>
           voteAccount?: Promise<PublicKey>
@@ -41,6 +47,7 @@ export function installConfigureBond(program: Command) {
           withToken: boolean
           bondAuthority?: Promise<PublicKey>
           cpmpe?: BN
+          maxStakeWanted?: BN
         },
       ) => {
         await manageConfigureBond({
@@ -51,7 +58,7 @@ export function installConfigureBond(program: Command) {
           withToken,
           newBondAuthority: await bondAuthority,
           cpmpe,
-          maxStakeWanted: undefined,
+          maxStakeWanted,
         })
       },
     )

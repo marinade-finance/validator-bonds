@@ -32,9 +32,9 @@
         "@types/bn.js": "5.1.5",
         "@types/jest": "29.5.12",
         "@types/node": "22.10.7",
-        "gts": "6.0.2",
         "eslint": "8.57.1",
         "eslint-plugin-node": "11.1.0",
+        "gts": "6.0.2",
         "jest": "29.7.0",
         "ts-jest": "29.1.4",
         "ts-node": "10.9.2",
@@ -51,7 +51,13 @@
             "cross-spawn@<7.0.5": "7.0.5",
             "braces@<3.0.3": "3.0.3",
             "micromatch@<4.0.8": "4.0.8"
-        }
+        },
+        "onlyBuiltDependencies": [
+            "bigint-buffer",
+            "bufferutil",
+            "node-hid",
+            "utf-8-validate"
+        ]
     },
     "engines": {
         "node": ">=16"

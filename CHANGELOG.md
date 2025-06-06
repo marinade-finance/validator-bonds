@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## TS CLI&SDK [2.1.8](https://github.com/marinade-finance/validator-bonds/compare/v2.1.7...v2.1.8) (2025-06-06)
+
+### Updates
+
+* cli: `configure-bond`, `init-bond`, `show-bond` addition of `--max-stake-wanted` parameter
+  as the bidding auction now supports this option again
+
 ## TS CLI&SDK [2.1.7](https://github.com/marinade-finance/validator-bonds/compare/v2.1.6...v2.1.7) (2025-06-03)
 
 ### Fixes

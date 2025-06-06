@@ -1,11 +1,6 @@
-import {
-  FormatType,
-  ReformatAction,
-  parsePubkey,
-} from '@marinade.finance/cli-common'
+import { FormatType, parsePubkey } from '@marinade.finance/cli-common'
 import {
   configureShowBond,
-  reformatBond,
   showBond,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { MARINADE_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
@@ -42,24 +37,7 @@ export function installShowBond(program: Command) {
           bondAuthority: await bondAuthority,
           withFunding,
           format,
-          reformatBondFunction: reformatBondBidding,
         })
       },
     )
-}
-
-export function reformatBondBidding(
-  key: string,
-  value: unknown,
-): ReformatAction {
-  if (
-    typeof key === 'string' &&
-    // Max Stake Wanted is no longer used in ds-sam bidding auctions (MIP-10).
-    // The on-chain data still exists but is not useful to users, so the CLI no longer displays it.
-    (key as string).startsWith('maxStakeWanted')
-  ) {
-    return { type: 'Remove' }
-  }
-
-  return reformatBond(key, value)
 }
