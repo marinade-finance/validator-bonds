@@ -22,7 +22,7 @@ export async function initBondInstruction({
   validatorIdentity,
   bondAuthority = anchorProgramWalletPubkey(program),
   cpmpe = new BN(0),
-  maxStakeWanted = new BN(18e18),
+  maxStakeWanted = new BN(18e9).mul(new BN(1e9)),
   rentPayer = anchorProgramWalletPubkey(program),
 }: {
   program: ValidatorBondsProgram

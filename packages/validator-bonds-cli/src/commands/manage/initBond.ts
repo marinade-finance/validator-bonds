@@ -36,7 +36,7 @@ export function installInitBond(program: Command) {
         bondAuthority,
         rentPayer,
         cpmpe = new BN(0),
-        maxStakeWanted = new BN(18e18),
+        maxStakeWanted = new BN(18e9).mul(new BN(1e9)),
       }: {
         config?: Promise<PublicKey>
         voteAccount: Promise<PublicKey>
