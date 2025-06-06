@@ -23,6 +23,11 @@ export function installInitBond(program: Command) {
       'New value of cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch.',
       value => toBN(value),
     )
+    .option(
+      '--max-stake-wanted <number>',
+      'The maximum stake amount, in lamports, that the validator wants to be delegated to them (default: not-set).',
+      value => toBN(value),
+    )
     .action(
       async ({
         config,
@@ -31,6 +36,7 @@ export function installInitBond(program: Command) {
         bondAuthority,
         rentPayer,
         cpmpe = new BN(0),
+        maxStakeWanted = new BN(0),
       }: {
         config?: Promise<PublicKey>
         voteAccount: Promise<PublicKey>
@@ -38,6 +44,7 @@ export function installInitBond(program: Command) {
         bondAuthority: Promise<PublicKey>
         rentPayer?: Promise<WalletInterface | PublicKey>
         cpmpe: BN
+        maxStakeWanted: BN
       }) => {
         await manageInitBond({
           config: (await config) ?? MARINADE_CONFIG_ADDRESS,
@@ -46,7 +53,7 @@ export function installInitBond(program: Command) {
           bondAuthority: await bondAuthority,
           rentPayer: await rentPayer,
           cpmpe,
-          maxStakeWanted: undefined,
+          maxStakeWanted,
         })
       },
     )

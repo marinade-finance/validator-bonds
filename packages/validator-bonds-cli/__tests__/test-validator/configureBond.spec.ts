@@ -4,7 +4,7 @@ import {
   pubkey,
 } from '@marinade.finance/web3js-common'
 import { shellMatchers } from '@marinade.finance/jest-utils'
-import { Keypair, PublicKey } from '@solana/web3.js'
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
   bondAddress,
@@ -147,6 +147,8 @@ describe('Configure bond account using CLI', () => {
           newBondAuthority.toBase58(),
           '--cpmpe',
           32,
+          '--max-stake-wanted',
+          1000_000_000_000,
           '--confirmation-finality',
           'confirmed',
         ],
@@ -161,6 +163,7 @@ describe('Configure bond account using CLI', () => {
     const bondsData2 = await getBond(program, bondAccount)
     expect(bondsData2.authority).toEqual(newBondAuthority)
     expect(bondsData2.cpmpe).toEqual(32)
+    expect(bondsData2.maxStakeWanted).toEqual(1000 * LAMPORTS_PER_SOL)
   })
 
   it('configure bond account with mint', async () => {
@@ -246,6 +249,8 @@ describe('Configure bond account using CLI', () => {
           newBondAuthority.toBase58(),
           '--cpmpe',
           2,
+          '--max-stake-wanted',
+          999000000000,
           '--with-token',
           '--confirmation-finality',
           'confirmed',
@@ -261,6 +266,7 @@ describe('Configure bond account using CLI', () => {
     const bondsData = await getBond(program, bondAccount)
     expect(bondsData.authority).toEqual(newBondAuthority)
     expect(bondsData.cpmpe).toEqual(2)
+    expect(bondsData.maxStakeWanted).toEqual(999 * LAMPORTS_PER_SOL)
   })
 
   it('configure bond in print-only mode', async () => {

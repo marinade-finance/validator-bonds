@@ -52,13 +52,6 @@ export function configureConfigureBond(program: Command): Command {
       'New value of "bond authority" that is permitted to operate with the bond account.',
       parsePubkeyOrPubkeyFromWallet,
     )
-  // MIP.10 removed maxStakeWanted from bidding auction, institutional staking does not support this option
-  // .option(
-  //   '--max-stake-wanted <number>',
-  //   'New value of maximum stake amount, in lamports, the validator wants to be delegated to them. ' +
-  //     'The actual amount delegated will depend on the auction and may be equal to or less than this value.',
-  //   value => toBN(value),
-  // )
 }
 
 export async function manageConfigureBond({

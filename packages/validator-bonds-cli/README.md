@@ -23,7 +23,7 @@ added 165 packages in 35s
 
 # to verify installed version
 validator-bonds --version
-2.1.7
+2.1.8
 ```
 
 To get info on available commands
@@ -246,6 +246,7 @@ The `Bond` owner may configure following properties of the account:
 * `--cpmpe`: Cost per mille per epoch (in lamports). It's a bid used in the delegation strategy
   auction. The Bond owner agrees to pay this amount in lamports to get stake delegated to the vote
   account for one epoch.
+* `--max-stake-wanted`: The maximum stake amount (in lamports) that the validator wants to be delegated to them.
 
 
 #### Permission-ed Configure workflow
@@ -704,7 +705,7 @@ To check where NPM packages are and will be installed:
 # Get npm global installation folder
 npm list -g
 > /usr/lib
-> +-- @marinade.finance/validator-bonds-cli@2.1.7
+> +-- @marinade.finance/validator-bonds-cli@2.1.8
 > ...
 # In this case, the `bin` folder is located at /usr/bin
 ```
@@ -730,7 +731,7 @@ With this configuration, NPM packages will be installed under the `prefix` direc
 npm i -g @marinade.finance/validator-bonds-cli@latest
 npm list -g
 > ~/.local/share/npm/lib
-> `-- @marinade.finance/validator-bonds-cli@2.1.7
+> `-- @marinade.finance/validator-bonds-cli@2.1.8
 ```
 
 To execute the installed packages from any location,
@@ -897,7 +898,7 @@ Commands:
   # Get npm global installation folder
   npm list -g
   > ~/.local/share/npm/lib
-  > `-- @marinade.finance/validator-bonds-cli@2.1.7
+  > `-- @marinade.finance/validator-bonds-cli@2.1.8
   # In this case, the 'bin' folder is located at ~/.local/share/npm/bin
 
   # Get validator-bonds binary folder

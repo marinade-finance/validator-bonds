@@ -11,7 +11,6 @@ import {
   ValidatorBondsProgram,
   bondAddress,
   getBond,
-  getConfig,
 } from '@marinade.finance/validator-bonds-sdk'
 import { executeInitConfigInstruction } from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
 import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
@@ -102,6 +101,8 @@ describe('Init bond account using CLI', () => {
           rentPayerPath,
           '--cpmpe',
           33,
+          '--max-stake-wanted',
+          1000_000_000_000,
           '--confirmation-finality',
           'confirmed',
         ],
@@ -123,6 +124,7 @@ describe('Init bond account using CLI', () => {
     expect(bondsData.voteAccount).toEqual(voteAccount)
     expect(bondsData.authority).toEqual(bondAuthority.publicKey)
     expect(bondsData.cpmpe).toEqual(33)
+    expect(bondsData.maxStakeWanted).toEqual(1000 * LAMPORTS_PER_SOL)
     expect(bondsData.bump).toEqual(bump)
     await expect(
       await provider.connection.getBalance(rentPayerKeypair.publicKey),
@@ -159,7 +161,6 @@ describe('Init bond account using CLI', () => {
       stdout: /Bond account .* successfully created/,
     })
 
-    const config = await getConfig(program, configAccount)
     const [bondAccount, bump] = bondAddress(
       configAccount,
       voteAccount,
@@ -170,7 +171,7 @@ describe('Init bond account using CLI', () => {
     expect(bondsData.voteAccount).toEqual(voteAccount)
     expect(bondsData.authority).toEqual(validatorIdentity.publicKey)
     expect(bondsData.cpmpe).toEqual(0)
-    expect(bondsData.maxStakeWanted).toEqual(config.minBondMaxStakeWanted)
+    expect(bondsData.maxStakeWanted).toEqual(0)
     expect(bondsData.bump).toEqual(bump)
     await expect(
       await provider.connection.getBalance(rentPayerKeypair.publicKey),
@@ -192,6 +193,8 @@ describe('Init bond account using CLI', () => {
           configAccount.toBase58(),
           '--vote-account',
           voteAccount.toBase58(),
+          '--max-stake-wanted',
+          1000000000000,
           '--confirmation-finality',
           'confirmed',
         ],
@@ -213,6 +216,7 @@ describe('Init bond account using CLI', () => {
     expect(bondsData.voteAccount).toEqual(voteAccount)
     expect(bondsData.authority).toEqual(validatorIdentity.publicKey)
     expect(bondsData.cpmpe).toEqual(0)
+    expect(bondsData.maxStakeWanted).toEqual(0)
     expect(bondsData.bump).toEqual(bump)
   })
 

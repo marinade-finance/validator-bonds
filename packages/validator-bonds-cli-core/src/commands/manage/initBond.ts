@@ -50,12 +50,6 @@ export function configureInitBond(program: Command): Command {
       'Rent payer for the account creation (default: wallet keypair)',
       parseWalletOrPubkey,
     )
-  // MIP.10 removed maxStakeWanted from bidding auction, institutional staking does not support this option
-  // .option(
-  //   '--max-stake-wanted <number>',
-  //   'The maximum stake amount, in lamports, that the validator wants to be delegated to them (default: 0).',
-  //   value => toBN(value),
-  // )
 }
 
 export async function manageInitBond({
@@ -73,7 +67,7 @@ export async function manageInitBond({
   bondAuthority: PublicKey
   rentPayer?: WalletInterface | PublicKey
   cpmpe: BN
-  maxStakeWanted?: BN
+  maxStakeWanted: BN
 }) {
   const {
     program,
