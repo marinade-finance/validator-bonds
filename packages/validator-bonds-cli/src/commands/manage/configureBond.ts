@@ -21,12 +21,12 @@ export function installConfigureBond(program: Command) {
     )
     .option(
       '--cpmpe <number>',
-      'Cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch. (default: 0)',
+      'Cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch.',
       value => toBN(value),
     )
     .option(
       '--max-stake-wanted <number>',
-      'The maximum stake amount, in lamports, that the validator wants to be delegated to them (default: Infinity).',
+      'The maximum stake amount, in lamports, that the validator wants to be delegated to them.',
       value => toBN(value),
     )
     .action(

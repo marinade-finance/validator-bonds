@@ -25,7 +25,7 @@ export function installInitBond(program: Command) {
     )
     .option(
       '--max-stake-wanted <number>',
-      'The maximum stake amount, in lamports, that the validator wants to be delegated to them (default: Infinity).',
+      'The maximum stake amount, in lamports, that the validator wants to be delegated to them (default: not-set).',
       value => toBN(value),
     )
     .action(
@@ -36,7 +36,7 @@ export function installInitBond(program: Command) {
         bondAuthority,
         rentPayer,
         cpmpe = new BN(0),
-        maxStakeWanted = new BN(18e9).mul(new BN(1e9)),
+        maxStakeWanted = new BN(0),
       }: {
         config?: Promise<PublicKey>
         voteAccount: Promise<PublicKey>
