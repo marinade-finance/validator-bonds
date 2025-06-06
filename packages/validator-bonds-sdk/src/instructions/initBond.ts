@@ -21,8 +21,8 @@ export async function initBondInstruction({
   voteAccount,
   validatorIdentity,
   bondAuthority = anchorProgramWalletPubkey(program),
-  cpmpe = 0,
-  maxStakeWanted = 0,
+  cpmpe = new BN(0),
+  maxStakeWanted = new BN(18e18),
   rentPayer = anchorProgramWalletPubkey(program),
 }: {
   program: ValidatorBondsProgram
