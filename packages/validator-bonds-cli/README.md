@@ -246,6 +246,7 @@ The `Bond` owner may configure following properties of the account:
 * `--cpmpe`: Cost per mille per epoch (in lamports). It's a bid used in the delegation strategy
   auction. The Bond owner agrees to pay this amount in lamports to get stake delegated to the vote
   account for one epoch.
+* `--max-stake-wanted`: The maximum stake amount (in lamports) that the validator wants to be delegated to them.
 
 
 #### Permission-ed Configure workflow
