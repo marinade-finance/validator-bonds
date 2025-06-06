@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## TS CLI&SDK [2.1.7](https://github.com/marinade-finance/validator-bonds/compare/v2.1.6...v2.1.7) (2025-06-03)
+
+### Fixes
+
+* cli: institutional CLI implements withdraw request management
+* cli: `show` command prints address of configure bonds token mint that is used for permission-less configuration
+* cli: institutional CLI `show-bond` provides information on withdraw request
+
 ## TS CLI&SDK [2.1.6](https://github.com/marinade-finance/validator-bonds/compare/v2.1.5...v2.1.6) (2025-04-25)
 
 ### Fixes
