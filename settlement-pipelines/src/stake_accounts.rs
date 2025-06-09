@@ -29,6 +29,14 @@ pub const MARINADE_LIQUID_STAKER_AUTHORITY: &str = "4bZ6o3eUUNXhKuqjdCnCoPAoLgWi
 pub const MARINADE_INSTITUTIONAL_STAKER_AUTHORITY: &str =
     "STNi1NHDUi6Hvibvonawgze8fM83PFLeJhuGMEXyGps";
 
+// Stake accounts that were not closed by pipeline for some prevalent reasons
+pub const IGNORE_DANGLING_NOT_CLOSABLE_STAKE_ACCOUNTS_LIST: [&str; 2] = [
+    // [GEN-5105]: stake accounts belonging to validator accounts that were closed before stake account could be reset (the Settlement was closed)
+    // these are for vote account: 84gebYpPpEafPeGJUVA8QzfaTQC3GeyVufCTHpqsQqE2, bond account: Agw2pSmo64BSduy7Q9Ua7ABYzLXGz4zxsqM9u1YMxWS3
+    "5u7Dk8JqVJ5CFmxtXEfZJ53wELX4tibwVur9k5k2KGPJ",
+    "HZa2FDjWXepz58NwnuDxNp3T7FXCDNKt7YzpPBBpPdtj",
+];
+
 // Prioritize collected stake accounts where to claim to.
 // - error if all are locked or no stake accounts
 pub fn prioritize_for_claiming(
