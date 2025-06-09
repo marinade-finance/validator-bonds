@@ -34,6 +34,8 @@ pub struct ClaimSettlementV2Args {
 }
 
 /// Claims a settlement by withdrawing settlement funded stake account
+/// Note that stakes-etl depends on the name of this ix during parsing
+/// Details: https://github.com/marinade-finance/stakes-etl/pull/37/files#diff-ad9542b32b7cdc67ba56f59d71997f611c0ba3ad23bfb024822e5c52304145f7R32
 #[event_cpi]
 #[derive(Accounts)]
 #[instruction(params: ClaimSettlementV2Args)]
