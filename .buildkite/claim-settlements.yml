@@ -94,7 +94,7 @@ steps:
           gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlements.json" "$$target_dir"
         done
       done
-      claimable_epochs_json=$(jq --compact-output --null-input '$ARGS.positional' --args -- "$${claimable_epochs_array[@]}")
+      claimable_epochs_json=$(jq --compact-output --null-input '$$ARGS.positional' --args -- "$${claimable_epochs_array[@]}")
     - buildkite-agent meta-data set --redacted-vars='' claimable_epochs_json "$$claimable_epochs_json"
     - buildkite-agent meta-data set --redacted-vars='' claimable_epochs_num "$$claimable_epochs_num"
     - 'echo "Claimable epochs [$$claimable_epochs_num]: $$claimable_epochs_json"'
