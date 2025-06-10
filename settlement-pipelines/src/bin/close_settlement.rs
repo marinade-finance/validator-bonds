@@ -19,7 +19,8 @@ use settlement_pipelines::settlements::{
     load_expired_settlements, obtain_settlement_closing_refunds, SettlementRefundPubkeys,
 };
 use settlement_pipelines::stake_accounts::{
-    filter_settlement_funded, STAKE_ACCOUNT_RENT_EXEMPTION,
+    filter_settlement_funded, IGNORE_DANGLING_NOT_CLOSABLE_STAKE_ACCOUNTS_LIST,
+    STAKE_ACCOUNT_RENT_EXEMPTION,
 };
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
@@ -290,23 +291,34 @@ async fn reset_stake_accounts(
             // this should be already filtered out, not correctly funded settlement
             continue;
         };
-        // there is a stake account that belongs to a settlement that does not exist
+        // there is a stake account that belongs to a settlement that does not exist on-chain,
+        //  but we know about it as it was loaded from JSON files, these settlements are most probably
+        //  those that were not created as the Bond owner did not fund the Bond account (he exited the bidding program)
         let reset_data = if let Some(reset_data) =
             non_existing_settlement_to_staker_authority.get(&staker_authority)
         {
             reset_data
         } else {
-            // if the stake account does not belong to a non-existent settlement then it has to belongs
+            // if the stake account does not belong to a non-existent (but known from JSON) settlement then it has to belongs
             // to an existing settlement, if not than we have dangling stake account that should be reported
             if staker_authority_to_existing_settlements
                 .get(&staker_authority)
                 .is_none()
             {
-                // -> not existing settlement for this stake account, and we know nothing is about
-                reporting.error().with_msg(format!(
-                    "For stake account {} (staker authority: {}) is required to know Settlement address but that was lost. Manual intervention needed.",
-                    stake_pubkey, staker_authority
-                )).add();
+                // -> not existing settlement for this stake account, and we know nothing is about (maybe for some reason the stake account was not reset in the past)
+                if IGNORE_DANGLING_NOT_CLOSABLE_STAKE_ACCOUNTS_LIST
+                    .contains(&stake_pubkey.to_string().as_ref())
+                {
+                    debug!(
+                        "Stake account {} is dangling but it is in the list of known problematic stake accounts, skipping it.",
+                        stake_pubkey
+                    );
+                } else {
+                    reporting.error().with_msg(format!(
+                        "Stake account {} is dangling, not belonging to any Settlement. Manual intervention needed.",
+                        stake_pubkey
+                    )).add();
+                }
             }
             continue;
         };
