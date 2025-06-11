@@ -34,7 +34,7 @@ steps:
       - target/release/list-claimable-epoch
       - target/release/claim-settlement
 
-  - label: ":black_nib: Env variables setup: Close Settlements"
+  - label: ":black_nib: Env variables setup: Claim Settlements"
     commands:
       - |
         claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
