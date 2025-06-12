@@ -591,6 +591,10 @@ For advanced on-chain queries, refer to the [on-chain analysis documentation](..
 Bond program assigns the funded stake accounts with `withdrawal` authority of address
 `7cgg6KhPd1G8oaoB48RyPDWu7uZs51jUpDYB3eq4VebH` (see [on-chain technical information](#on-chain-technical-information))
 
+> NOTE: The `withdrawer` authority for
+> [Select (institutional) Marinade Bonds](https://github.com/marinade-finance/validator-bonds/tree/main/packages/validator-bonds-cli-institutional#on-chain-technical-information)
+> is `8CsAFqTh75jtiYGjTXxCUbWEurQcupNknuYTiaZPhzz3`.
+
 Technical details of the stake account layout can be found in Solana source code [for staker and withdrawer](https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/state.rs#L60)
 and for [voter pubkey](https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/state.rs#L414).
 
