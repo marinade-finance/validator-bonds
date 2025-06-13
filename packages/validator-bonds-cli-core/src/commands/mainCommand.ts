@@ -123,6 +123,7 @@ export function launchCliProgram({
   program.parseAsync(process.argv).then(
     () => {
       logger.debug({ resolution: 'Success', args: process.argv })
+      logger.flush()
     },
     (err: Error) => {
       logger.error(
@@ -148,6 +149,7 @@ export function launchCliProgram({
           logger.debug(`Failed to check the latest version: ${err}`)
         })
 
+      logger.flush()
       process.exitCode = 200
     },
   )
