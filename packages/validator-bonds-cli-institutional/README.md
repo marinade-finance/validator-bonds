@@ -293,8 +293,12 @@ at which point it can be re-delegated and re-activated. Note that stake in the `
 Validators can verify the charged amounts and funded SOL directly on-chain.
 
 **Options:**
-- **Current State:** Use the [CLI show command](#show-the-bond-account) to see the current on-chain Bond state
-  - _NOTE:_ data from `show-bond` represents current on-chain data not data used for bonds calculation of particular epoch
+- **Current State:**
+  - Use the [CLI show command](#show-the-bond-account) to see the current on-chain Bond state
+    >_NOTE:_ data from `show-bond` represents current on-chain data not data used for
+    >        bonds calculation of particular epoch
+  - [Bonds API](https://validator-bonds-api.marinade.finance/bonds/institutional)
+    that shows the current state of the Bond accounts. Data is updated once per hour.
 - **Historical Data:**
   - Dashboard: [Select Bonds Dashboard](https://select.marinade.finance/).
   - Select API calculation data: [Select API](https://institutional-staking.marinade.finance/docs)
