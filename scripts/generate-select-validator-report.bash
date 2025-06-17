@@ -88,7 +88,7 @@ done < <(<"$json_file" jq -r '.payoutStakers[] | "\(.voteAccount)|\(.deactivatin
 declare -a select_validators
 declare -a non_select_validators
 
-while IFS='|' read -r vote_account apy total_rewards validator_rewards institutional_effective institutional_deactivating commission mev_commission psr_fee_lamports deactivating_payout; do
+while IFS='|' read -r vote_account apy total_rewards total_effective validator_rewards institutional_effective institutional_deactivating commission mev_commission psr_fee_lamports deactivating_payout; do
     psr_penalty="${psr_fee_lamports:-0}"
     staker_payout="${staker_payouts[$vote_account]:-0}"
     distributor_payout="${distributor_payouts[$vote_account]:-0}"
@@ -101,69 +101,76 @@ while IFS='|' read -r vote_account apy total_rewards validator_rewards instituti
         # This is a select validator
         name="${institutional_validators[$vote_account]}"
         display_name="${name:0:15}"
-        select_validators+=("$vote_account|$display_name|$apy|$total_rewards|$validator_rewards|$institutional_effective|$psr_penalty|$staker_payout|$distributor_payout|$commission_display")
+        select_validators+=("$vote_account|$display_name|$apy|$total_rewards|$total_effective|$validator_rewards|$institutional_effective|$psr_penalty|$staker_payout|$distributor_payout|$commission_display")
     else
         # This is a non-select validator / skip if no institutional stake
         if [[ "$institutional_effective" == "0" ]]; then
             continue
         fi
         deactivating_payout="${deactivating_payouts[$vote_account]:-0}"
-        non_select_validators+=("$vote_account|$apy|$total_rewards|$validator_rewards|$institutional_effective|$institutional_deactivating|$psr_penalty|$staker_payout|$distributor_payout|$commission_display|$deactivating_payout")
+        non_select_validators+=("$vote_account|$apy|$total_rewards|$institutional_effective|$institutional_deactivating|$psr_penalty|$staker_payout|$distributor_payout|$commission_display|$deactivating_payout")
     fi
-done < <(<"$json_file" jq -r '.validators[] | "\(.voteAccount)|\(.apy // "0")|\(.totalRewards // "0")|\(.validatorRewards // "0")|\(.stakedAmounts.institutionalEffective // "0")|\(.stakedAmounts.institutionalDeactivating // "0")|\(.commission // "0")|\(.mevCommission // "null")|\(.psrFeeLamports // "0")|\(.deactivatingPayoutLamports // "0")"')
+done < <(<"$json_file" jq -r '.validators[] | "\(.voteAccount)|\(.apy // "0")|\(.totalRewards // "0")|\(.stakedAmounts.totalEffective // "0")|\(.validatorRewards // "0")|\(.stakedAmounts.institutionalEffective // "0")|\(.stakedAmounts.institutionalDeactivating // "0")|\(.commission // "0")|\(.mevCommission // "null")|\(.psrFeeLamports // "0")|\(.deactivatingPayoutLamports // "0")"')
 
 # --- Print Select Validators ---
 select_count=${#select_validators[@]}
 if [[ $select_count -gt 0 ]]; then
-    echo "Select Vote Account ($select_count)                     | Name            |          APY | Infl./MEV |   Total Rewards | Validator Rewards |   Select Effective |  PSR Penalty | Staker Payout | Distributor Payout"
-    echo "---------------------------------------------+-----------------+--------------+-----------+-----------------+-------------------+--------------------+--------------+---------------+--------------------+"
+    echo "Select Vote Account ($select_count)                     | Name            |       APY | Infl./MEV | Total Rewards | Total Effective | Validator Rewards | Select Effective |  PSR Penalty | Staker Payout | Distributor Payout"
+            DIVIDER="---------------------------------------------+-----------------+-----------+-----------+---------------+-----------------+-------------------+------------------+--------------+---------------+--------------------+"
+            PRINTER_FORMAT="%-44s | %-15s | %9s | %9s | %13s | %15s | %17s | %16s | %12s | %13s | %18s"
+    echo "$DIVIDER"
 
     total_total_rewards=0
     total_effective=0
+    total_institutional_effective=0
     total_psr_penalty=0
     total_staker_payout=0
     total_distributor_payout=0
 
     for validator_data in "${select_validators[@]}"; do
-        IFS='|' read -r vote_account name apy total_rewards validator_rewards institutional_effective psr_penalty staker_payout distributor_payout commission_display <<< "$validator_data"
+        IFS='|' read -r vote_account name apy total_rewards total_effective validator_rewards institutional_effective psr_penalty staker_payout distributor_payout commission_display <<< "$validator_data"
 
         formatted_apy=$(format_percentage "$apy")
         formatted_total_rewards=$(format_sol_amount "$total_rewards")
+        formatted_total_effective=$(format_sol_amount "$total_effective")
         formatted_validator_rewards=$(format_sol_amount "$validator_rewards")
-        formatted_effective=$(format_sol_amount "$institutional_effective")
+        formatted_institutional_effective=$(format_sol_amount "$institutional_effective")
         formatted_penalty=$(format_sol_amount "$psr_penalty")
         formatted_staker_payout=$(format_sol_amount "$staker_payout")
         formatted_distributor_payout=$(format_sol_amount "$distributor_payout")
 
-        printf "%-44s | %-15s | %12s | %9s | %15s | %17s | %18s | %12s | %13s | %18s\n" \
+        printf "${PRINTER_FORMAT} |\n" \
             "$vote_account" \
             "$name" \
             "$formatted_apy" \
             "$commission_display" \
             "$formatted_total_rewards" \
+            "$formatted_total_effective" \
             "$formatted_validator_rewards" \
-            "$formatted_effective" \
+            "$formatted_institutional_effective" \
             "$formatted_penalty" \
             "$formatted_staker_payout" \
             "$formatted_distributor_payout"
 
         total_total_rewards=$((total_total_rewards + total_rewards))
+        total_effective=$((total_effective + total_effective))
         total_validator_rewards=$((total_validator_rewards + validator_rewards))
-        total_effective=$((total_effective + institutional_effective))
+        total_institutional_effective=$((total_institutional_effective + institutional_effective))
         total_psr_penalty=$((total_psr_penalty + psr_penalty))
         total_staker_payout=$((total_staker_payout + staker_payout))
         total_distributor_payout=$((total_distributor_payout + distributor_payout))
     done
 
-    echo "---------------------------------------------+-----------------+--------------+-----------+-----------------+-------------------+--------------------+--------------+---------------+--------------------+--------------"
-    printf "%-44s | %-15s | %12s | %9s | %15s | %17s | %18s | %12s | %13s | %18s\n" \
+    echo "$DIVIDER"
+    printf "${PRINTER_FORMAT} | %12s \n" \
         "TOTAL" \
         "" \
         "" \
         "" \
         "$(format_sol_amount "$total_total_rewards")" \
-        "$(format_sol_amount "$total_validator_rewards")" \
         "$(format_sol_amount "$total_effective")" \
+        "$(format_sol_amount "$total_validator_rewards")" \
+        "$(format_sol_amount "$total_institutional_effective")" \
         "$(format_sol_amount "$total_psr_penalty")" \
         "$(format_sol_amount "$total_staker_payout")" \
         "$(format_sol_amount "$total_distributor_payout")" \
@@ -176,8 +183,10 @@ echo ""
 # --- Print Non-Select Validators ---
 non_select_count=${#non_select_validators[@]}
 if [[ $non_select_count -gt 0 ]]; then
-    echo "Non-Select Vote Account ($non_select_count)                  |          APY | Infl./MEV |   Total Rewards | Validator Rewards |   Select Effective | Select Deactiv. |  PSR Penalty |  Deactiv. Payout  | Staker Payout | Distributor Payout"
-                    echo "---------------------------------------------+--------------+-----------+-----------------+-------------------+--------------------+-----------------+--------------+-------------------+---------------+--------------------+"
+    echo "Non-Select Vote Account ($non_select_count)                  |          APY | Infl./MEV |   Total Rewards |   Select Effective | Select Deactiv. |  PSR Penalty |  Deactiv. Payout  | Staker Payout | Distributor Payout"
+                 DIVIDER="---------------------------------------------+--------------+-----------+-----------------+--------------------+-----------------+--------------+-------------------+---------------+--------------------+"
+                 PRINTER_FORMAT="%-44s | %12s | %9s | %15s | %18s | %15s | %12s | %17s | %13s | %18s"
+    echo "$DIVIDER"
 
     total_total_rewards=0
     total_effective=0
@@ -197,7 +206,7 @@ if [[ $non_select_count -gt 0 ]]; then
         formatted_distributor_payout=$(format_sol_amount "$distributor_payout")
         formatted_deactivating_payout=$(format_sol_amount "$deactivating_payout")
 
-        printf "%-44s | %12s | %9s | %15s | %18s | %15s | %12s | %17s | %13s | %18s\n" \
+        printf "${PRINTER_FORMAT} |\n" \
             "$vote_account" \
             "$formatted_apy" \
             "$commission_display" \
@@ -218,8 +227,8 @@ if [[ $non_select_count -gt 0 ]]; then
         total_deactivating_payout=$((total_deactivating_payout + deactivating_payout))
     done
 
-    echo "---------------------------------------------+--------------+-----------+-----------------+--------------------+-----------------+--------------+-------------------+---------------+--------------------+--------------"
-    printf "%-44s | %12s | %9s | %15s | %18s | %15s | %12s | %17s | %13s | %18s | %12s \n" \
+    echo "$DIVIDER"
+    printf "${PRINTER_FORMAT} | %12s \n" \
         "TOTAL" \
         "" \
         "" \
