@@ -122,6 +122,7 @@ if [[ $select_count -gt 0 ]]; then
 
     total_total_rewards=0
     total_effective=0
+    total_validator_rewards=0
     total_institutional_effective=0
     total_psr_penalty=0
     total_staker_payout=0
