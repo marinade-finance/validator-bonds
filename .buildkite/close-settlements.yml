@@ -116,7 +116,7 @@ steps:
   - label: ":campfire::arrow_right: Close settlements"
     env:
       RPC_URL: "$$RPC_URL"
-      RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,close_settlement=debug
+      RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,close_settlement=debug,settlement_pipelines=debug
       # RUST_BACKTRACE: full
     commands:
     - . "$HOME/.cargo/env"
