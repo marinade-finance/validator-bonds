@@ -58,6 +58,12 @@ while IFS='|' read -r vote_account name; do
     institutional_validators["$vote_account"]="$name"
 done < <(<"$json_file" jq -r '.institutionalValidators.validators[] | "\(.vote_pubkey)|\(.name // "")"')
 
+# Information about PSR fee
+declare -A validator_payouts
+while IFS='|' read -r vote_account psr_fee; do
+    validator_payouts["$vote_account"]="$psr_fee"
+done < <(<"$json_file" jq -r '.validatorPayoutInfo[] | "\(.voteAccount)|\(.psrFeeLamports // "0")"')
+
 # Calculate staker payouts per validator
 declare -A staker_payouts
 while IFS='|' read -r vote_account payout_lamports; do
@@ -88,10 +94,10 @@ done < <(<"$json_file" jq -r '.payoutStakers[] | "\(.voteAccount)|\(.deactivatin
 declare -a select_validators
 declare -a non_select_validators
 
-while IFS='|' read -r vote_account apy total_rewards total_effective validator_rewards institutional_effective institutional_deactivating commission mev_commission psr_fee_lamports deactivating_payout; do
-    psr_penalty="${psr_fee_lamports:-0}"
+while IFS='|' read -r vote_account apy total_rewards total_effective validator_rewards institutional_effective institutional_deactivating commission mev_commission deactivating_payout; do
     staker_payout="${staker_payouts[$vote_account]:-0}"
     distributor_payout="${distributor_payouts[$vote_account]:-0}"
+    psr_penalty="${validator_payouts[$vote_account]:-0}"
 
     infl_comm=$(format_commission "$commission")
     mev_comm=$(format_commission "$mev_commission")
@@ -110,7 +116,7 @@ while IFS='|' read -r vote_account apy total_rewards total_effective validator_r
         deactivating_payout="${deactivating_payouts[$vote_account]:-0}"
         non_select_validators+=("$vote_account|$apy|$total_rewards|$institutional_effective|$institutional_deactivating|$psr_penalty|$staker_payout|$distributor_payout|$commission_display|$deactivating_payout")
     fi
-done < <(<"$json_file" jq -r '.validators[] | "\(.voteAccount)|\(.apy // "0")|\(.totalRewards // "0")|\(.stakedAmounts.totalEffective // "0")|\(.validatorRewards // "0")|\(.stakedAmounts.institutionalEffective // "0")|\(.stakedAmounts.institutionalDeactivating // "0")|\(.commission // "0")|\(.mevCommission // "null")|\(.psrFeeLamports // "0")|\(.deactivatingPayoutLamports // "0")"')
+done < <(<"$json_file" jq -r '.validators[] | "\(.voteAccount)|\(.apy // "0")|\(.totalRewards // "0")|\(.stakedAmounts.totalEffective // "0")|\(.validatorRewards // "0")|\(.stakedAmounts.institutionalEffective // "0")|\(.stakedAmounts.institutionalDeactivating // "0")|\(.commission // "0")|\(.mevCommission // "null")|\(.deactivatingPayoutLamports // "0")"')
 
 # --- Print Select Validators ---
 select_count=${#select_validators[@]}
