@@ -50,6 +50,16 @@ function format_commission {
     echo "${percentage}%"
 }
 
+function format_commission_bps {
+    local value="$1"
+    if [[ -z "$value" || "$value" == "null" ]]; then
+        echo "0%"
+        return
+    fi
+    local percentage=$(LC_NUMERIC=C awk "BEGIN {printf \"%.0f\", $value / 100}")
+    echo "${percentage}%"
+}
+
 echo "Payouts data for epoch: $(<"$json_file" jq -r '.epoch')"
 
 # Get institutional validator vote accounts as associative array
@@ -100,7 +110,7 @@ while IFS='|' read -r vote_account apy total_rewards total_effective validator_r
     psr_penalty="${validator_payouts[$vote_account]:-0}"
 
     infl_comm=$(format_commission "$commission")
-    mev_comm=$(format_commission "$mev_commission")
+    mev_comm=$(format_commission_bps "$mev_commission")
     commission_display="${infl_comm}/${mev_comm}"
 
     if [[ -n "${institutional_validators[$vote_account]}" ]]; then
