@@ -136,13 +136,18 @@ pub async fn get_bonds_for_settlements(
         .collect::<Vec<Pubkey>>();
 
     let bonds = get_bonds_for_pubkeys(rpc_client, &bond_pubkeys).await?;
+    debug!(
+        "Found {} bonds for {} unique bond pubkeys",
+        bonds.len(),
+        bond_pubkeys.len()
+    );
 
     let settlements_bonds = settlements
         .iter()
-        .map(|(pubkey, settlement)| {
+        .map(|(_, settlement)| {
             bonds
                 .iter()
-                .find(|(bond_pubkey, bond)| bond_pubkey == pubkey && bond.is_some())
+                .find(|(bond_pubkey, bond)| *bond_pubkey == settlement.bond && bond.is_some())
                 .map_or_else(
                     || (settlement.bond, None),
                     |(_, bond)| {
