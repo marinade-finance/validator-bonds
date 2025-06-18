@@ -57,13 +57,18 @@ steps:
       starting_epoch_contract_v2: 640
     commands:
     - |
-      set -x
-      current_epoch=$(curl --silent "$$RPC_URL" -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1, "method":"getEpochInfo"}' | jq '.result.epoch')
-      epochs_end_index=$((current_epoch - config_epochs_non_closable))
-      epochs_start_index=$((epochs_end_index - past_epochs_to_load))
-    - |
       claim_type=$(buildkite-agent meta-data get claim_type)
       claim_type_prefix="$${claim_type%%-*}"
+    - |
+      if [[ -n "$EPOCH" ]]; then
+        echo "EPOCH environment variable is set, closing settlements only for epoch '$EPOCH' ($$claim_type)"
+        epochs_start_index=$EPOCH
+        epochs_end_index=$EPOCH
+      else
+        current_epoch=$(curl --silent "$$RPC_URL" -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1, "method":"getEpochInfo"}' | jq '.result.epoch')
+        epochs_end_index=$((current_epoch - config_epochs_non_closable))
+        epochs_start_index=$((epochs_end_index - past_epochs_to_load))
+      fi
     - 'mkdir ./merkle-trees/'
     - |
       if [[ $$epochs_start_index -lt 1 ]]; then
