@@ -172,6 +172,11 @@ pub async fn load_expired_settlements(
         get_bonds_for_settlements(rpc_client.clone(), &all_settlements).await?;
 
     assert_eq!(all_settlements.len(), bonds_for_settlements.len());
+    debug!(
+        "Current epoch: {}, all settlements: {}",
+        current_epoch,
+        all_settlements.len()
+    );
 
     let filtered_settlements: (Vec<_>, Vec<_>) = all_settlements.into_iter().zip(bonds_for_settlements.into_iter())
         .filter(|((settlement_address, settlement), (_, bond))| {
@@ -185,7 +190,7 @@ pub async fn load_expired_settlements(
             current_epoch,
             config.epochs_to_claim_settlement,
             is_for_config,
-            is_expired
+            is_expired,
         );
 
         is_for_config && is_expired
