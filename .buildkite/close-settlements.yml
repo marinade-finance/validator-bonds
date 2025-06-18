@@ -57,6 +57,7 @@ steps:
       starting_epoch_contract_v2: 640
     commands:
     - |
+      set -x
       claim_type=$(buildkite-agent meta-data get claim_type)
       claim_type_prefix="$${claim_type%%-*}"
     - |
