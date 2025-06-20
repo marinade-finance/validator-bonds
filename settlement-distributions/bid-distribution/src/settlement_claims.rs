@@ -60,6 +60,8 @@ pub fn generate_bid_settlements(
             let effective_bid = validator.effective_bid / Decimal::from(1000);
             let bid_too_low_penalty =
                 validator.rev_share.bid_too_low_penalty_pmpe / Decimal::from(1000);
+            let blacklist_penalty =
+                validator.rev_share.blacklist_penalty_pmpe / Decimal::from(1000);
 
             let total_active_stake: u64 = stake_meta_index
                 .iter_grouped_stake_metas(&validator.vote_account)
@@ -88,18 +90,26 @@ pub fn generate_bid_settlements(
                 .to_u64()
                 .unwrap();
 
-            let penalty_total_claim = Decimal::from(effective_sam_stake) * bid_too_low_penalty;
-            let marinade_penalty_claim = (penalty_total_claim * marinade_payment_percentage)
+            let bid_penalty_total_claim = Decimal::from(effective_sam_stake) * bid_too_low_penalty;
+            let marinade_bid_penalty_claim = (bid_penalty_total_claim
+                * marinade_payment_percentage)
                 .to_u64()
                 .unwrap();
-            let stakers_penalty_claim =
-                penalty_total_claim.to_u64().unwrap() - marinade_penalty_claim;
+            let stakers_bid_penalty_claim =
+                bid_penalty_total_claim.to_u64().unwrap() - marinade_bid_penalty_claim;
+
+            let blacklist_penalty_total_claim =
+                Decimal::from(effective_sam_stake) * blacklist_penalty;
+            let stakers_blacklist_penalty_claim = blacklist_penalty_total_claim.to_u64().unwrap();
 
             let mut claims = vec![];
             let mut claims_amount = 0;
 
-            let mut penalty_claims = vec![];
-            let mut claimed_penalty_amount = 0;
+            let mut bid_penalty_claims = vec![];
+            let mut claimed_bid_penalty_amount = 0;
+
+            let mut blacklist_penalty_claims = vec![];
+            let mut claimed_blacklist_penalty_amount = 0;
 
             for ((withdraw_authority, stake_authority), stake_metas) in grouped_stake_metas {
                 if !stake_authority_filter(stake_authority) {
@@ -116,10 +126,14 @@ pub fn generate_bid_settlements(
                     let claim_amount = (staker_share * Decimal::from(stakers_total_claim))
                         .to_u64()
                         .expect("claim_amount is not integral");
-                    let penalty_claim_amount = (staker_share
-                        * Decimal::from(stakers_penalty_claim))
+                    let bid_penalty_claim_amount = (staker_share
+                        * Decimal::from(stakers_bid_penalty_claim))
                     .to_u64()
-                    .expect("penalty_claim_amount is not integral");
+                    .expect("bid_penalty_claim_amount is not integral");
+                    let blacklist_penalty_claim_amount = (staker_share
+                        * Decimal::from(stakers_blacklist_penalty_claim))
+                    .to_u64()
+                    .expect("blacklist_penalty_claim_amount is not integral");
                     if claim_amount > 0 {
                         claims.push(SettlementClaim {
                             withdraw_authority: **withdraw_authority,
@@ -130,15 +144,25 @@ pub fn generate_bid_settlements(
                         });
                         claims_amount += claim_amount;
                     }
-                    if penalty_claim_amount > 0 {
-                        penalty_claims.push(SettlementClaim {
+                    if bid_penalty_claim_amount > 0 {
+                        bid_penalty_claims.push(SettlementClaim {
+                            withdraw_authority: **withdraw_authority,
+                            stake_authority: **stake_authority,
+                            stake_accounts: stake_accounts.clone(),
+                            claim_amount: bid_penalty_claim_amount,
+                            active_stake,
+                        });
+                        claimed_bid_penalty_amount += bid_penalty_claim_amount;
+                    }
+                    if blacklist_penalty_claim_amount > 0 {
+                        blacklist_penalty_claims.push(SettlementClaim {
                             withdraw_authority: **withdraw_authority,
                             stake_authority: **stake_authority,
                             stake_accounts,
-                            claim_amount: penalty_claim_amount,
+                            claim_amount: blacklist_penalty_claim_amount,
                             active_stake,
                         });
-                        claimed_penalty_amount += penalty_claim_amount;
+                        claimed_blacklist_penalty_amount += blacklist_penalty_claim_amount;
                     }
                 }
             }
@@ -149,8 +173,13 @@ pub fn generate_bid_settlements(
             );
 
             assert!(
-                claimed_penalty_amount <= stakers_penalty_claim,
-                "Total claimed penalty amount is bigger than stakers penalty claim"
+                claimed_bid_penalty_amount <= stakers_bid_penalty_claim,
+                "Total claimed bid_penalty amount is bigger than stakers bid_penalty claim"
+            );
+
+            assert!(
+                claimed_blacklist_penalty_amount <= stakers_blacklist_penalty_claim,
+                "Total claimed blacklist_penalty amount is bigger than stakers blacklist_penalty claim"
             );
 
             let marinade_fee_deposit_stake_accounts: HashMap<_, _> = stake_meta_index
@@ -183,18 +212,18 @@ pub fn generate_bid_settlements(
                         "The sum of total claims exceeds the sum of total staker and marinade fee claims"
                     );
                 }
-                if marinade_penalty_claim > 0 {
-                    penalty_claims.push(SettlementClaim {
+                if marinade_bid_penalty_claim > 0 {
+                    bid_penalty_claims.push(SettlementClaim {
                         withdraw_authority: *settlement_config.marinade_withdraw_authority(),
                         stake_authority: *settlement_config.marinade_stake_authority(),
                         stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
-                        claim_amount: marinade_penalty_claim,
+                        claim_amount: marinade_bid_penalty_claim,
                         active_stake: total_active_stake,
                     });
-                    claimed_penalty_amount += marinade_penalty_claim;
+                    claimed_bid_penalty_amount += marinade_bid_penalty_claim;
 
                     assert!(
-                        claimed_penalty_amount <= penalty_total_claim.to_u64().unwrap(),
+                        claimed_bid_penalty_amount <= bid_penalty_total_claim.to_u64().unwrap(),
                         "The sum of total claims exceeds the sum of total staker and marinade fee claims"
                     );
                 }
@@ -209,14 +238,24 @@ pub fn generate_bid_settlements(
                     claims,
                 });
             }
-            if !penalty_claims.is_empty() {
+            if !bid_penalty_claims.is_empty() {
                 settlement_claim_collections.push(Settlement {
                     reason: SettlementReason::BidTooLowPenalty,
                     meta: settlement_config.meta().clone(),
                     vote_account: validator.vote_account,
-                    claims_count: penalty_claims.len(),
-                    claims_amount: claimed_penalty_amount,
-                    claims: penalty_claims,
+                    claims_count: bid_penalty_claims.len(),
+                    claims_amount: claimed_bid_penalty_amount,
+                    claims: bid_penalty_claims,
+                });
+            }
+            if !blacklist_penalty_claims.is_empty() {
+                settlement_claim_collections.push(Settlement {
+                    reason: SettlementReason::BlacklistPenalty,
+                    meta: settlement_config.meta().clone(),
+                    vote_account: validator.vote_account,
+                    claims_count: blacklist_penalty_claims.len(),
+                    claims_amount: claimed_blacklist_penalty_amount,
+                    claims: blacklist_penalty_claims,
                 });
             }
         }

@@ -48,4 +48,5 @@ pub struct RevShare {
     bid_pmpe: Decimal,
     auction_effective_bid_pmpe: Decimal,
     pub bid_too_low_penalty_pmpe: Decimal,
+    pub blacklist_penalty_pmpe: Decimal,
 }
