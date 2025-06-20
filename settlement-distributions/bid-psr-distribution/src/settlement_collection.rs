@@ -27,6 +27,7 @@ pub enum SettlementReason {
     ProtectedEvent(Box<ProtectedEvent>),
     Bidding,
     BidTooLowPenalty,
+    BlacklistPenalty,
     InstitutionalPayout,
 }
 
@@ -36,6 +37,7 @@ impl Display for SettlementReason {
             SettlementReason::ProtectedEvent(_) => write!(f, "ProtectedEvent"),
             SettlementReason::Bidding => write!(f, "Bidding"),
             SettlementReason::BidTooLowPenalty => write!(f, "BidTooLowPenalty"),
+            SettlementReason::BlacklistPenalty => write!(f, "BlacklistPenalty"),
             SettlementReason::InstitutionalPayout => {
                 write!(f, "InstitutionalPayout")
             }

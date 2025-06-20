@@ -17,6 +17,7 @@ pub enum ReportingReasonSettlement {
     ProtectedEvent,
     Bidding,
     BidTooLowPenalty,
+    BlacklistPenalty,
     InstitutionalPayout,
 }
 
@@ -26,6 +27,7 @@ impl ReportingReasonSettlement {
             ReportingReasonSettlement::ProtectedEvent,
             ReportingReasonSettlement::Bidding,
             ReportingReasonSettlement::BidTooLowPenalty,
+            ReportingReasonSettlement::BlacklistPenalty,
             ReportingReasonSettlement::InstitutionalPayout,
         ]
     }
@@ -37,6 +39,7 @@ impl Display for ReportingReasonSettlement {
             ReportingReasonSettlement::ProtectedEvent => write!(f, "ProtectedEvent"),
             ReportingReasonSettlement::Bidding => write!(f, "Bidding"),
             ReportingReasonSettlement::BidTooLowPenalty => write!(f, "BidTooLowPenalty"),
+            ReportingReasonSettlement::BlacklistPenalty => write!(f, "BlacklistPenalty"),
             ReportingReasonSettlement::InstitutionalPayout => write!(f, "InstitutionalPayout"),
         }
     }
@@ -79,6 +82,9 @@ impl SettlementsReportData {
             ) | (
                 ReportingReasonSettlement::BidTooLowPenalty,
                 SettlementReason::BidTooLowPenalty
+            ) | (
+                ReportingReasonSettlement::BlacklistPenalty,
+                SettlementReason::BlacklistPenalty
             ) | (
                 ReportingReasonSettlement::InstitutionalPayout,
                 SettlementReason::InstitutionalPayout,
@@ -149,6 +155,9 @@ impl SettlementsReportData {
                     SettlementReason::Bidding => ReportingReasonSettlement::Bidding,
                     SettlementReason::BidTooLowPenalty => {
                         ReportingReasonSettlement::BidTooLowPenalty
+                    }
+                    SettlementReason::BlacklistPenalty => {
+                        ReportingReasonSettlement::BlacklistPenalty
                     }
                     SettlementReason::InstitutionalPayout => {
                         ReportingReasonSettlement::InstitutionalPayout
