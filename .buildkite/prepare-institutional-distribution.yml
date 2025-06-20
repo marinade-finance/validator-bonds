@@ -91,15 +91,13 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs institutional-payouts.json .
     - |
       jq '[.validators[].stakedAmounts | {
-        institutionalActive,
+        institutionalEffective,
         institutionalActivating,
-        institutionalDeactivating,
-        institutionalEffective
+        institutionalDeactivating
       }] | {
-        institutionalActive: (map(.institutionalActive | tonumber) | add / 1e9),
+        institutionalEffective: (map(.institutionalEffective | tonumber) | add / 1e9),
         institutionalActivating: (map(.institutionalActivating | tonumber) | add / 1e9),
-        institutionalDeactivating: (map(.institutionalDeactivating | tonumber) | add / 1e9),
-        institutionalEffective: (map(.institutionalEffective | tonumber) | add / 1e9)
+        institutionalDeactivating: (map(.institutionalDeactivating | tonumber) | add / 1e9)
       }' ./institutional-payouts.json | jq -r 'to_entries | (.[] | " \(.key): \(.value)")' > './institutional-payouts-summary.txt'
     artifact_paths:
       - "./institutional-payouts-summary.txt"
