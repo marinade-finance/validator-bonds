@@ -91,13 +91,15 @@ pub fn generate_bid_settlements(
                 .unwrap();
 
             let bid_penalty_total_claim = Decimal::from(effective_sam_stake) * bid_too_low_penalty;
-            let marinade_bid_penalty_claim = (bid_penalty_total_claim * marinade_payment_percentage)
+            let marinade_bid_penalty_claim = (bid_penalty_total_claim
+                * marinade_payment_percentage)
                 .to_u64()
                 .unwrap();
             let stakers_bid_penalty_claim =
                 bid_penalty_total_claim.to_u64().unwrap() - marinade_bid_penalty_claim;
 
-            let blacklist_penalty_total_claim = Decimal::from(effective_sam_stake) * blacklist_penalty;
+            let blacklist_penalty_total_claim =
+                Decimal::from(effective_sam_stake) * blacklist_penalty;
             let stakers_blacklist_penalty_claim = blacklist_penalty_total_claim.to_u64().unwrap();
 
             let mut claims = vec![];
