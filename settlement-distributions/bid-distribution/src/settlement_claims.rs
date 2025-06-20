@@ -127,11 +127,11 @@ pub fn generate_bid_settlements(
                     let bid_penalty_claim_amount = (staker_share
                         * Decimal::from(stakers_bid_penalty_claim))
                     .to_u64()
-                    .expect("blacklist_penalty_claim_amount is not integral");
+                    .expect("bid_penalty_claim_amount is not integral");
                     let blacklist_penalty_claim_amount = (staker_share
                         * Decimal::from(stakers_blacklist_penalty_claim))
                     .to_u64()
-                    .expect("bid_penalty_claim_amount is not integral");
+                    .expect("blacklist_penalty_claim_amount is not integral");
                     if claim_amount > 0 {
                         claims.push(SettlementClaim {
                             withdraw_authority: **withdraw_authority,
