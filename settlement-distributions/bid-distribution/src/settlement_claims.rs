@@ -61,7 +61,8 @@ pub fn generate_bid_settlements(
             let bid_too_low_penalty =
                 validator.rev_share.bid_too_low_penalty_pmpe / Decimal::from(1000);
             let blacklist_penalty =
-                validator.rev_share.blacklist_penalty_pmpe.unwrap_or(Decimal::from(0)) / Decimal::from(1000);
+                validator.rev_share.blacklist_penalty_pmpe.unwrap_or(Decimal::from(0))
+                / Decimal::from(1000);
 
             let total_active_stake: u64 = stake_meta_index
                 .iter_grouped_stake_metas(&validator.vote_account)
