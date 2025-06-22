@@ -63,7 +63,6 @@ pub fn generate_bid_settlements(
             let blacklist_penalty = validator
                 .rev_share
                 .blacklist_penalty_pmpe
-                .unwrap_or(Decimal::from(0))
                 / Decimal::from(1000);
 
             let total_active_stake: u64 = stake_meta_index
