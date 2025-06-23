@@ -18,6 +18,7 @@ pub enum ReportingReasonSettlement {
     Bidding,
     BidTooLowPenalty,
     BlacklistPenalty,
+    BondRiskFee,
     InstitutionalPayout,
 }
 
@@ -28,6 +29,7 @@ impl ReportingReasonSettlement {
             ReportingReasonSettlement::Bidding,
             ReportingReasonSettlement::BidTooLowPenalty,
             ReportingReasonSettlement::BlacklistPenalty,
+            ReportingReasonSettlement::BondRiskFee,
             ReportingReasonSettlement::InstitutionalPayout,
         ]
     }
@@ -40,6 +42,7 @@ impl Display for ReportingReasonSettlement {
             ReportingReasonSettlement::Bidding => write!(f, "Bidding"),
             ReportingReasonSettlement::BidTooLowPenalty => write!(f, "BidTooLowPenalty"),
             ReportingReasonSettlement::BlacklistPenalty => write!(f, "BlacklistPenalty"),
+            ReportingReasonSettlement::BondRiskFee => write!(f, "BondRiskFee"),
             ReportingReasonSettlement::InstitutionalPayout => write!(f, "InstitutionalPayout"),
         }
     }
@@ -85,6 +88,9 @@ impl SettlementsReportData {
             ) | (
                 ReportingReasonSettlement::BlacklistPenalty,
                 SettlementReason::BlacklistPenalty
+            ) | (
+                ReportingReasonSettlement::BondRiskFee,
+                SettlementReason::BondRiskFee
             ) | (
                 ReportingReasonSettlement::InstitutionalPayout,
                 SettlementReason::InstitutionalPayout,
@@ -137,6 +143,8 @@ impl SettlementsReportData {
         result.insert(ReportingReasonSettlement::ProtectedEvent, HashSet::new());
         result.insert(ReportingReasonSettlement::BidTooLowPenalty, HashSet::new());
         result.insert(ReportingReasonSettlement::Bidding, HashSet::new());
+        result.insert(ReportingReasonSettlement::BlacklistPenalty, HashSet::new());
+        result.insert(ReportingReasonSettlement::BondRiskFee, HashSet::new());
         result.insert(
             ReportingReasonSettlement::InstitutionalPayout,
             HashSet::new(),
@@ -158,6 +166,9 @@ impl SettlementsReportData {
                     }
                     SettlementReason::BlacklistPenalty => {
                         ReportingReasonSettlement::BlacklistPenalty
+                    }
+                    SettlementReason::BondRiskFee => {
+                        ReportingReasonSettlement::BondRiskFee
                     }
                     SettlementReason::InstitutionalPayout => {
                         ReportingReasonSettlement::InstitutionalPayout

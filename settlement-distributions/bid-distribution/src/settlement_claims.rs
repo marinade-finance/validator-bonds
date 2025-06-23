@@ -286,7 +286,7 @@ pub fn generate_bid_settlements(
             }
             if !bond_risk_fee_claims.is_empty() {
                 settlement_claim_collections.push(Settlement {
-                    reason: SettlementReason::BlacklistPenalty,
+                    reason: SettlementReason::BondRiskFee,
                     meta: settlement_config.meta().clone(),
                     vote_account: validator.vote_account,
                     claims_count: bond_risk_fee_claims.len(),
