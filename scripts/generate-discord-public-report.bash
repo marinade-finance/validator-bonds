@@ -97,15 +97,23 @@ do
       esac
     fi
 
-    if [[ $reason_code == "Bidding" ]]; then
-      reason="Bidding"
-    fi
-    if [[ $reason_code == "BidTooLowPenalty" ]]; then
-      reason="BidTooLow"
-    fi
-    if [[ $reason_code == "InstitutionalPayout" ]]; then
-      reason="Institutional"
-    fi
+    case $reason_code in
+        Bidding)
+            reason="Bidding"
+            ;;
+        BidTooLowPenalty)
+            reason="BidTooLow"
+            ;;
+        BlacklistPenalty)
+            reason="Blacklist"
+            ;;
+        BondRiskFee)
+            reason="BondRisk"
+            ;;
+        InstitutionalPayout)
+            reason="Institutional"
+            ;;
+    esac
 
     if [[ -z $reason ]]; then
       echo "Unexpected reason code: '$reason_code'" >&2
