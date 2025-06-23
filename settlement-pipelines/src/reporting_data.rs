@@ -167,9 +167,7 @@ impl SettlementsReportData {
                     SettlementReason::BlacklistPenalty => {
                         ReportingReasonSettlement::BlacklistPenalty
                     }
-                    SettlementReason::BondRiskFee => {
-                        ReportingReasonSettlement::BondRiskFee
-                    }
+                    SettlementReason::BondRiskFee => ReportingReasonSettlement::BondRiskFee,
                     SettlementReason::InstitutionalPayout => {
                         ReportingReasonSettlement::InstitutionalPayout
                     }
