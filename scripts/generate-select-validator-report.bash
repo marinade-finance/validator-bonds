@@ -137,7 +137,7 @@ if [[ $select_count -gt 0 ]]; then
     echo "$DIVIDER"
 
     total_total_rewards=0
-    total_effective=0
+    total_total_effective=0
     total_validator_rewards=0
     total_institutional_effective=0
     total_psr_penalty=0
@@ -170,7 +170,7 @@ if [[ $select_count -gt 0 ]]; then
             "$formatted_distributor_payout"
 
         total_total_rewards=$((total_total_rewards + total_rewards))
-        total_effective=$((total_effective + total_effective))
+        total_total_effective=$((total_total_effective + total_effective))
         total_validator_rewards=$((total_validator_rewards + validator_rewards))
         total_institutional_effective=$((total_institutional_effective + institutional_effective))
         total_psr_penalty=$((total_psr_penalty + psr_penalty))
@@ -185,7 +185,7 @@ if [[ $select_count -gt 0 ]]; then
         "" \
         "" \
         "$(format_sol_amount "$total_total_rewards")" \
-        "$(format_sol_amount "$total_effective")" \
+        "$(format_sol_amount "$total_total_effective")" \
         "$(format_sol_amount "$total_validator_rewards")" \
         "$(format_sol_amount "$total_institutional_effective")" \
         "$(format_sol_amount "$total_psr_penalty")" \
@@ -206,7 +206,7 @@ if [[ $non_select_count -gt 0 ]]; then
     echo "$DIVIDER"
 
     total_total_rewards=0
-    total_effective=0
+    total_total_effective=0
     total_psr_penalty=0
     total_staker_payout=0
     total_distributor_payout=0
@@ -236,7 +236,7 @@ if [[ $non_select_count -gt 0 ]]; then
             "$formatted_distributor_payout"
 
         total_total_rewards=$((total_total_rewards + total_rewards))
-        total_effective=$((total_effective + institutional_effective))
+        total_total_effective=$((total_total_effective + institutional_effective))
         total_deactivating=$((total_deactivating + institutional_deactivating))
         total_psr_penalty=$((total_psr_penalty + psr_penalty))
         total_staker_payout=$((total_staker_payout + staker_payout))
@@ -250,7 +250,7 @@ if [[ $non_select_count -gt 0 ]]; then
         "" \
         "" \
         "$(format_sol_amount "$total_total_rewards")" \
-        "$(format_sol_amount "$total_effective")" \
+        "$(format_sol_amount "$total_total_effective")" \
         "$(format_sol_amount "$total_deactivating")" \
         "$(format_sol_amount "$total_psr_penalty")" \
         "$(format_sol_amount "$total_deactivating_payout")" \
