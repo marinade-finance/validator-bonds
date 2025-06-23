@@ -151,8 +151,8 @@ validator-bonds-institutional fund-bond-sol <vote-account-address> \
   --from <wallet-keypair> --amount <1 SOL per 1,000 SOL staked>
 ```
 
-> **NOTE:** `--amount`  is the SOL sent to the stake account.
->           This command is a wrapper that creates and delegates a stake account to the vote account.
+> **NOTE:** This command is a wrapper that creates and delegates a stake account to the vote account.
+>           `--amount` is the amount of SOL that will be transferred to the stake account.
 
 #### Funding the stake account
 
