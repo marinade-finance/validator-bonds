@@ -54,7 +54,7 @@ validator-bonds init-bond --vote-account <vote-account-address> \
 # STEP 2: FUND BOND
 # ---
 # OPTION A STEP 2: Funding from a wallet
-# In background SOL is transferred to a stake account that is assigned under Validator Bonds program
+# In background the number of SOL is transferred to a stake account and assigned under Validator Bonds program
 validator-bonds fund-bond-sol <vote-account-address> --from <wallet-keypair> --amount <Amount of SOL
 # ---
 # OPTION B STEP 2: Funding with a stake account
@@ -306,6 +306,8 @@ and for a protected event (when a validator under-performs or experiences a seri
 ```sh
 validator-bonds fund-bond-sol <vote-account-address> --from <wallet-keypair> --amount <Amount of SOL>
 ```
+
+> **NOTE:** This command is a wrapper that creates and delegates a stake account to the vote account.
 
 #### Funding the stake account
 

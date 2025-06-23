@@ -50,7 +50,7 @@ validator-bonds-institutional init-bond --vote-account <vote-account-address> \
 > Bond account BondAddress... of config VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE successfully created
 
 # STEP 2: FUND BOND
-# SOL is transferred to a stake account that is assigned under Validator Bonds program
+# number of SOL is transferred to a stake account that is assigned under Validator Bonds program
 validator-bonds-institutional fund-bond-sol <vote-account-address> --from <wallet-keypair> --amount <1 SOL for every 1,000 SOL staked>
 
 # STEP 3: SHOW BOND DATA
@@ -148,8 +148,11 @@ For more details on the process and restrictions, please refer to
 
 ```sh
 validator-bonds-institutional fund-bond-sol <vote-account-address> \
-  --from <wallet-keypair> --amount <1 SOL for every 1,000 SOL staked>
+  --from <wallet-keypair> --amount <1 SOL per 1,000 SOL staked>
 ```
+
+> **NOTE:** This command is a wrapper that creates and delegates a stake account to the vote account.
+>           `--amount` is the amount of SOL that will be transferred to the stake account.
 
 #### Funding the stake account
 
