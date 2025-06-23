@@ -37,6 +37,13 @@ pub struct ValidatorSamMeta {
     pub metadata: SamMetadata,
     pub scoring_run_id: u32,
     pub epoch: u32,
+    pub values: ValidatorValues,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidatorValues {
+    pub bond_risk_fee: Decimal,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -7,6 +7,7 @@ use bid_psr_distribution::stake_meta_index::StakeMetaIndex;
 use log::info;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
@@ -51,20 +52,20 @@ pub fn generate_bid_settlements(
         if let Some(grouped_stake_metas) =
             stake_meta_index.iter_grouped_stake_metas(&validator.vote_account)
         {
-            let sam_target_stake =
-                validator.marinade_sam_target_sol * Decimal::from_f64(1e9).unwrap();
-            let mnde_target_stake =
-                validator.marinade_mnde_target_sol * Decimal::from_f64(1e9).unwrap();
+            let sam_target_stake = validator.marinade_sam_target_sol * dec!(1e9);
+            let mnde_target_stake = validator.marinade_mnde_target_sol * dec!(1e9);
             let marinade_payment_percentage =
-                Decimal::from(*settlement_config.marinade_fee_bps()) / Decimal::from(10000);
-            let effective_bid = validator.effective_bid / Decimal::from(1000);
-            let bid_too_low_penalty =
-                validator.rev_share.bid_too_low_penalty_pmpe / Decimal::from(1000);
+                Decimal::from(*settlement_config.marinade_fee_bps()) / dec!(10000);
+            let effective_bid = validator.effective_bid / dec!(1000);
+            let bid_too_low_penalty = validator.rev_share.bid_too_low_penalty_pmpe / dec!(1000);
             let blacklist_penalty = validator
                 .rev_share
                 .blacklist_penalty_pmpe
-                .unwrap_or(Decimal::from(0))
-                / Decimal::from(1000);
+                .unwrap_or(Decimal::ZERO)
+                / dec!(1000);
+            let stakers_bond_risk_fee_claim = (validator.values.bond_risk_fee * dec!(1e9))
+                .to_u64()
+                .unwrap();
 
             let total_active_stake: u64 = stake_meta_index
                 .iter_grouped_stake_metas(&validator.vote_account)
@@ -114,6 +115,9 @@ pub fn generate_bid_settlements(
             let mut blacklist_penalty_claims = vec![];
             let mut claimed_blacklist_penalty_amount = 0;
 
+            let mut bond_risk_fee_claims = vec![];
+            let mut claimed_bond_risk_fee_amount = 0;
+
             for ((withdraw_authority, stake_authority), stake_metas) in grouped_stake_metas {
                 if !stake_authority_filter(stake_authority) {
                     continue;
@@ -137,6 +141,10 @@ pub fn generate_bid_settlements(
                         * Decimal::from(stakers_blacklist_penalty_claim))
                     .to_u64()
                     .expect("blacklist_penalty_claim_amount is not integral");
+                    let bond_risk_fee_claim_amount = (staker_share
+                        * Decimal::from(stakers_bond_risk_fee_claim))
+                    .to_u64()
+                    .expect("bond_risk_fee_claim_amount is not integral");
                     if claim_amount > 0 {
                         claims.push(SettlementClaim {
                             withdraw_authority: **withdraw_authority,
@@ -161,11 +169,21 @@ pub fn generate_bid_settlements(
                         blacklist_penalty_claims.push(SettlementClaim {
                             withdraw_authority: **withdraw_authority,
                             stake_authority: **stake_authority,
-                            stake_accounts,
+                            stake_accounts: stake_accounts.clone(),
                             claim_amount: blacklist_penalty_claim_amount,
                             active_stake,
                         });
                         claimed_blacklist_penalty_amount += blacklist_penalty_claim_amount;
+                    }
+                    if bond_risk_fee_claim_amount > 0 {
+                        bond_risk_fee_claims.push(SettlementClaim {
+                            withdraw_authority: **withdraw_authority,
+                            stake_authority: **stake_authority,
+                            stake_accounts,
+                            claim_amount: bond_risk_fee_claim_amount,
+                            active_stake,
+                        });
+                        claimed_bond_risk_fee_amount += bond_risk_fee_claim_amount;
                     }
                 }
             }
@@ -183,6 +201,11 @@ pub fn generate_bid_settlements(
             assert!(
                 claimed_blacklist_penalty_amount <= stakers_blacklist_penalty_claim,
                 "Total claimed blacklist_penalty amount is bigger than stakers blacklist_penalty claim"
+            );
+
+            assert!(
+                claimed_bond_risk_fee_amount <= stakers_bond_risk_fee_claim,
+                "Total claimed bond_risk_fee amount is bigger than stakers bond_risk_fee claim"
             );
 
             let marinade_fee_deposit_stake_accounts: HashMap<_, _> = stake_meta_index
@@ -259,6 +282,16 @@ pub fn generate_bid_settlements(
                     claims_count: blacklist_penalty_claims.len(),
                     claims_amount: claimed_blacklist_penalty_amount,
                     claims: blacklist_penalty_claims,
+                });
+            }
+            if !bond_risk_fee_claims.is_empty() {
+                settlement_claim_collections.push(Settlement {
+                    reason: SettlementReason::BlacklistPenalty,
+                    meta: settlement_config.meta().clone(),
+                    vote_account: validator.vote_account,
+                    claims_count: bond_risk_fee_claims.len(),
+                    claims_amount: claimed_bond_risk_fee_amount,
+                    claims: bond_risk_fee_claims,
                 });
             }
         }
