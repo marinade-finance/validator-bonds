@@ -102,12 +102,11 @@ impl ProtectedEvent {
                         penalty_threshold_bps,
                         ..
                     } => {
-                        let markup =
-                            if base_cps <= bps_to_fraction(*penalty_threshold_bps) {
-                                *base_markup_bps
-                            } else {
-                                *penalty_markup_bps
-                            };
+                        let markup = if base_cps <= bps_to_fraction(*penalty_threshold_bps) {
+                            *base_markup_bps
+                        } else {
+                            *penalty_markup_bps
+                        };
                         base_cps * (Decimal::ONE + bps_to_fraction(markup))
                     }
                     _ => {
