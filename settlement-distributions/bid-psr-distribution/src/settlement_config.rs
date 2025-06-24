@@ -22,6 +22,9 @@ pub enum SettlementConfig {
         min_settlement_lamports: u64,
         grace_increase_bps: Option<u64>,
         covered_range_bps: [u64; 2],
+        penalty_threshold_bps: u64,
+        base_markup_bps: u64,
+        penalty_markup_bps: u64,
     },
 }
 
