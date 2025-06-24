@@ -63,7 +63,7 @@ pub fn generate_bid_settlements(
                 .blacklist_penalty_pmpe
                 .unwrap_or(Decimal::ZERO)
                 / dec!(1000);
-            let stakers_bond_risk_fee_claim = (validator.values.bond_risk_fee * dec!(1e9))
+            let stakers_bond_risk_fee_claim = (validator.values.bond_risk_fee_sol * dec!(1e9))
                 .to_u64()
                 .unwrap();
 
