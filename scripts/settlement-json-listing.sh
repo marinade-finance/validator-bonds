@@ -109,15 +109,15 @@ get_next_funder() {
     local vote_account="$1"
     local amount="$2"
     local funder_data="$3"
-   
+
     local preset_key="${vote_account}_${amount}"
-   
+
     # Check if funder_data contains multiple funders (separated by newlines)
     if [[ -n "$funder_data" ]]; then
         # Convert funder_data to array, splitting by newlines
         local funder_array
         readarray -t funder_array <<< "$funder_data"
-       
+
         local cleaned_funders=()
         local funder
         for funder in "${funder_array[@]}"; do
@@ -141,13 +141,13 @@ get_next_funder() {
             local selected_funder="${cleaned_funders[$current_index]}"
             # Store in map with unique suffix to track multiple entries
             funder_map["${preset_key}_${count}"]="$selected_funder"
-           
+
             SELECTED_FUNDER="$selected_funder"
         fi
     fi
 }
 
-echo "Num.  | Vote Account                                 | Max Claim Sum | Claims Sum    | Claims | Active Stake      | Reason                     | Funder"
+echo "Num.  | Vote Account                                 | Max Claim Sum | Claims Sum    | Claims | Claim Stake       | Reason                     | Funder"
 echo "------+----------------------------------------------+---------------+---------------+--------+-------------------+----------------------------+-------------"
 
 counter=1
@@ -162,10 +162,10 @@ while IFS= read -r tree; do
   if [[ $CLAIMS_COUNT -ne $TOTAL_CLAIMS ]]; then
     echo "Data inconsistency: $VOTE_ACCOUNT mismatch number of merkle trees $CLAIMS_COUNT and defined number of claims $TOTAL_CLAIMS"
   fi
- 
+
   SETTLEMENT_DATA=$(echo "$settlements" | jq -c 'select((.vote_account == "'$VOTE_ACCOUNT'") and (.claims_amount == '$LAMPORTS_MAX') and (.claims_count == '$TOTAL_CLAIMS'))')
   FUNDER_PARSED=$(echo "$SETTLEMENT_DATA" | jq -r '.meta.funder')
- 
+
   get_next_funder "$VOTE_ACCOUNT" "$LAMPORTS_MAX" "$FUNDER_PARSED"
   FUNDER="$SELECTED_FUNDER"
 
