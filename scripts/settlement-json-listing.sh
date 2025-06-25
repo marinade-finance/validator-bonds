@@ -138,7 +138,7 @@ get_next_funder() {
             # Calculate index based on count (cycling through available funders)
             local current_index=$((count % ${#cleaned_funders[@]}))
             # Get the funder at current index
-            local selected_funder="${cleaned_funders[$current_index]}"           
+            local selected_funder="${cleaned_funders[$current_index]}"
             # Store in map with unique suffix to track multiple entries
             funder_map["${preset_key}_${count}"]="$selected_funder"
            
