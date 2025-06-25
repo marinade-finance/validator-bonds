@@ -163,7 +163,6 @@ while IFS= read -r tree; do
     echo "Data inconsistency: $VOTE_ACCOUNT mismatch number of merkle trees $CLAIMS_COUNT and defined number of claims $TOTAL_CLAIMS"
   fi
  
-  # Query the settlement data once per loop - now getting funder, reason, and active stake sum
   SETTLEMENT_DATA=$(echo "$settlements" | jq -c 'select((.vote_account == "'$VOTE_ACCOUNT'") and (.claims_amount == '$LAMPORTS_MAX') and (.claims_count == '$TOTAL_CLAIMS'))')
   FUNDER_PARSED=$(echo "$SETTLEMENT_DATA" | jq -r '.meta.funder')
  
