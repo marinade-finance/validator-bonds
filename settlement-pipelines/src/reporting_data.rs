@@ -133,14 +133,11 @@ impl SettlementsReportData {
         settlement_records: &HashSet<SettlementRecord>,
         pubkeys: &[Pubkey],
     ) -> HashMap<ReportingReasonSettlement, HashSet<Pubkey>> {
-        let mut result: HashMap<ReportingReasonSettlement, HashSet<Pubkey>> = HashMap::new();
-        result.insert(ReportingReasonSettlement::ProtectedEvent, HashSet::new());
-        result.insert(ReportingReasonSettlement::BidTooLowPenalty, HashSet::new());
-        result.insert(ReportingReasonSettlement::Bidding, HashSet::new());
-        result.insert(
-            ReportingReasonSettlement::InstitutionalPayout,
-            HashSet::new(),
-        );
+        let mut result: HashMap<ReportingReasonSettlement, HashSet<Pubkey>> =
+            ReportingReasonSettlement::items()
+                .into_iter()
+                .map(|reason| (reason, HashSet::new()))
+                .collect();
 
         // Mapping provided pubkeys to type based on the settlement records
         for pubkey in pubkeys {
