@@ -92,6 +92,9 @@ pub struct StakedAmounts {
     pub total_deactivating: u64,
 
     #[serde(deserialize_with = "deserialize_bigint")]
+    pub total_effective: u64,
+
+    #[serde(deserialize_with = "deserialize_bigint")]
     pub institutional_active: u64,
 
     #[serde(deserialize_with = "deserialize_bigint")]
@@ -99,6 +102,9 @@ pub struct StakedAmounts {
 
     #[serde(deserialize_with = "deserialize_bigint")]
     pub institutional_deactivating: u64,
+
+    #[serde(deserialize_with = "deserialize_bigint")]
+    pub institutional_effective: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -117,6 +123,9 @@ pub struct PayoutStaker {
 
     #[serde(deserialize_with = "deserialize_bigint")]
     pub active_stake: u64,
+
+    #[serde(deserialize_with = "deserialize_bigint")]
+    pub effective_stake: u64,
 
     #[serde(deserialize_with = "deserialize_bigint")]
     pub activating_stake: u64,

@@ -41,17 +41,20 @@ fn merge_payouts(
     let mut payouts: Vec<Payout> = Vec::new();
 
     for payout_staker in institutional_payout.payout_stakers.iter() {
+        let stake_accounts = payout_staker
+            .stake_accounts
+            .iter()
+            .map(|account| (account.address, account.effective_stake))
+            .collect::<HashMap<Pubkey, u64>>();
+        let effective_stake: u64 = stake_accounts.values().sum();
+        assert_eq!(effective_stake, payout_staker.effective_stake);
         payouts.push(Payout {
             vote_account: payout_staker.vote_account,
             withdrawer: payout_staker.withdrawer,
             staker: payout_staker.staker,
-            active_stake: payout_staker.active_stake,
+            active_stake: payout_staker.effective_stake,
             payout_lamports: payout_staker.payout_lamports,
-            stake_accounts: payout_staker
-                .stake_accounts
-                .iter()
-                .map(|account| (account.address, account.effective_stake))
-                .collect(),
+            stake_accounts,
         });
     }
 
@@ -72,12 +75,9 @@ fn merge_payouts(
             vote_account: payout_distributor.vote_account,
             withdrawer: config.marinade_withdraw_authority,
             staker: config.marinade_stake_authority,
-            active_stake: payout_distributor
-                .stake_accounts
+            active_stake: marinade_fee_deposit_stake_accounts
                 .iter()
-                .fold(0u64, |acc, account| {
-                    acc.saturating_add(account.effective_stake)
-                }),
+                .fold(0, |acc, (_, v)| acc.saturating_add(*v)),
             payout_lamports: payout_distributor.payout_lamports,
             stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
         });
@@ -116,15 +116,15 @@ fn generate_institutional_settlements(
         }) {
             existing_claim.claim_amount += payout.payout_lamports;
             existing_claim.active_stake += payout.active_stake;
-            existing_claim
-                .stake_accounts
-                .extend(payout.stake_accounts.iter().map(|(k, v)| (*k, *v)));
+            for (k, v) in &payout.stake_accounts {
+                existing_claim.stake_accounts.entry(*k).or_insert(*v);
+            }
         } else {
             settlement.claims.push(SettlementClaim {
                 withdraw_authority: payout.withdrawer,
                 stake_authority: payout.staker,
-                stake_accounts: payout.stake_accounts,
                 active_stake: payout.active_stake,
+                stake_accounts: payout.stake_accounts,
                 claim_amount: payout.payout_lamports,
             });
         }
