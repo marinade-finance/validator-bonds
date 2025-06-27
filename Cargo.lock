@@ -768,6 +768,7 @@ dependencies = [
  "log",
  "merkle-tree",
  "rust_decimal",
+ "rust_decimal_macros",
  "serde",
  "serde_json",
  "serde_yaml 0.8.26",
@@ -4364,6 +4365,16 @@ dependencies = [
  "rkyv",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "rust_decimal_macros"
+version = "1.37.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6268b74858287e1a062271b988a0c534bf85bbeb567fe09331bf40ed78113d5"
+dependencies = [
+ "quote 1.0.35",
+ "syn 2.0.50",
 ]
 
 [[package]]
