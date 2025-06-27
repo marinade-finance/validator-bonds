@@ -65,11 +65,6 @@ SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
 CONFIG_PUBKEY=$("$SCRIPT_DIR"/bonds-config-pubkey.sh "$CLAIM_TYPE")
 [[ -z "$CONFIG_PUBKEY" ]] && echo "Error: Bond config pubkey was not defined" && exit 2
 
-# stake account minimal size
-CONFIG_MIN_STAKE=$(config_min_stake "$CONFIG_PUBKEY")
-STAKE_ACCOUNT_MINIMAL_SIZE=$(($CONFIG_MIN_STAKE + 2282880))
-echo "Minimal delegated stake accout lamports: ${STAKE_ACCOUNT_MINIMAL_SIZE}"
-
 SETTLEMENTS_EPOCH=$(jq '.epoch' "$SETTLEMENTS_JSON_FILE")
 MERKLE_TREES_EPOCH=$(jq '.epoch' "$MERKLE_TREES_JSON_FILE")
 if [ "$SETTLEMENTS_EPOCH" != "$MERKLE_TREES_EPOCH" ]; then
@@ -78,17 +73,27 @@ if [ "$SETTLEMENTS_EPOCH" != "$MERKLE_TREES_EPOCH" ]; then
 fi
 echo "EPOCH: $SETTLEMENTS_EPOCH"
 
+# stake account minimal size
+CONFIG_MIN_STAKE=$(config_min_stake "$CONFIG_PUBKEY")
+STAKE_ACCOUNT_MINIMAL_SIZE=$(($CONFIG_MIN_STAKE + 2282880))
+echo "  (minimal delegated stake account lamports: ${STAKE_ACCOUNT_MINIMAL_SIZE})"
+
 # Preload the JSON data into a variable to avoid reading from the file multiple times
+number_of_merkle_trees=$(jq '.merkle_trees | length' "$MERKLE_TREES_JSON_FILE")
+echo "Number of merkle trees: ${number_of_merkle_trees}"
+if [[ $number_of_merkle_trees -eq 0 ]]; then
+    echo "    No merkle trees found. Exiting..."
+    exit 0
+fi
+
 merkle_trees=$(jq -c '.merkle_trees[]' "$MERKLE_TREES_JSON_FILE")
 
 # sum of max total claim from json
-echo -n "Sum of max total claim at '$MERKLE_TREES_JSON_FILE': "
-LAMPORTS=$(echo "$merkle_trees" | jq -r '.max_total_claim_sum' | paste -s -d+ | bc)
-solsdecimal $LAMPORTS
 NUMBER_OF_CLAIMS=$(echo "$merkle_trees" | jq -r '.tree_nodes | length' |  paste -s -d+ | bc)
 echo "Number of all claims: $NUMBER_OF_CLAIMS"
-COUNT=$(echo "$merkle_trees" | wc -l)
-echo "Number of merkle trees: $COUNT"
+echo -n "Sum of max total claim at '$(basename "$MERKLE_TREES_JSON_FILE")': "
+LAMPORTS=$(echo "$merkle_trees" | jq -r '.max_total_claim_sum' | paste -s -d+ | bc)
+solsdecimal $LAMPORTS
 echo '----------------'
 
 # listing data of claims
