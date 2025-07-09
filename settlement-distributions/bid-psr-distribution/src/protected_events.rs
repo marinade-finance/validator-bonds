@@ -89,11 +89,12 @@ impl ProtectedEvent {
     fn claim_per_stake(&self, cfg: &SettlementConfig) -> Decimal {
         match self {
             ProtectedEvent::CommissionSamIncrease {
+                actual_inflation_commission,
+                actual_mev_commission,
                 expected_epr,
                 actual_epr,
                 ..
             } => {
-                // TODO ... should be based on the "target" APY, not the difference
                 let base_cps = expected_epr - actual_epr;
                 match cfg {
                     SettlementConfig::CommissionSamIncreaseSettlement {
@@ -102,12 +103,13 @@ impl ProtectedEvent {
                         penalty_threshold_bps,
                         ..
                     } => {
-                        let markup = if base_cps <= bps_to_fraction(*penalty_threshold_bps) {
+                        let threshold = bps_to_fraction(*penalty_threshold_bps);
+                        let markup = if actual_inflation_commission <= threshold && actual_mev_commission <= threshold {
                             *base_markup_bps
                         } else {
                             *penalty_markup_bps
                         };
-                        base_cps * (Decimal::ONE + bps_to_fraction(markup))
+                        base_cps + base_cps * bps_to_fraction(markup)
                     }
                     _ => {
                         panic!("Can not process CommissionSamIncrease settlement with wrong config: {cfg:?}")
