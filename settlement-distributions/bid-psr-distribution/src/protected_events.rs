@@ -104,7 +104,9 @@ impl ProtectedEvent {
                         ..
                     } => {
                         let threshold = bps_to_fraction(*penalty_threshold_bps);
-                        let markup = if actual_inflation_commission <= threshold && actual_mev_commission <= threshold {
+                        let markup = if *actual_inflation_commission <= threshold
+                            && actual_mev_commission.unwrap_or(Decimal::ZERO) <= threshold
+                        {
                             *base_markup_bps
                         } else {
                             *penalty_markup_bps
