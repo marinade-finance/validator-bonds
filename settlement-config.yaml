@@ -16,6 +16,6 @@
     min_settlement_lamports: 10000000 # 0.01 SOL
     grace_increase_bps: 100 # 1 %
     covered_range_bps: [0, 10000] # 0 % - 100 %
-    penalty_threshold_bps: 700 # 7%
+    extra_penalty_threshold_bps: 700 # 7%
     base_markup_bps: 1000 # 10%
     penalty_markup_bps: 10000 # 100%
