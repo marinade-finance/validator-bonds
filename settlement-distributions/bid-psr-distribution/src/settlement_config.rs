@@ -25,8 +25,9 @@ pub enum SettlementConfig {
         grace_increase_bps: Option<u64>,
         /// range of bps that are covered by the settlement, usually differentiated by type of funder
         covered_range_bps: [u64; 2],
-        /// if the EPR change exceeds this value the penalty markup will be applied
-        penalty_threshold_bps: u64,
+        /// if any of the commissions exceeds this value the penalty markup will be applied,
+        /// base markup is applied otherwise
+        extra_penalty_threshold_bps: u64,
         /// base settlement markup, in basis points, applied if EPR change is low
         base_markup_bps: u64,
         /// penalty settlement markup, in basis points, applied if EPR change is large
