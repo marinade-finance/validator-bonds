@@ -19,9 +19,19 @@ pub enum SettlementConfig {
     /// configuration for protected event [protected_events::ProtectedEvent::CommissionSamIncrease]
     CommissionSamIncreaseSettlement {
         meta: SettlementMeta,
+        /// when settlement sum of claims is under this value, it is not generated
         min_settlement_lamports: u64,
+        /// when downtime of the validator is lower to the grace period the settlement is not generated
         grace_increase_bps: Option<u64>,
+        /// range of bps that are covered by the settlement, usually differentiated by type of funder
         covered_range_bps: [u64; 2],
+        /// if any of the commissions exceeds this value the penalty markup will be applied,
+        /// base markup is applied otherwise
+        extra_penalty_threshold_bps: u64,
+        /// base settlement markup, in basis points, applied if EPR change is low
+        base_markup_bps: u64,
+        /// penalty settlement markup, in basis points, applied if EPR change is large
+        penalty_markup_bps: u64,
     },
 }
 

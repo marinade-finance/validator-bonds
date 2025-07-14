@@ -1,5 +1,6 @@
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::Path;
 use std::{
@@ -62,7 +63,7 @@ pub fn bps_decimal(value: Decimal, max: Decimal) -> u64 {
 }
 
 pub fn bps_to_fraction(value: u64) -> Decimal {
-    Decimal::from(value) / Decimal::from(10000)
+    Decimal::from(value) / dec!(10000)
 }
 
 pub fn file_error<'a>(

@@ -1,7 +1,9 @@
 use crate::revenue_expectation_meta::{RevenueExpectationMeta, RevenueExpectationMetaCollection};
+use crate::settlement_config::SettlementConfig;
 use crate::utils::bps_decimal;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 
 use {
     crate::utils::{bps, bps_to_fraction},
@@ -84,14 +86,38 @@ impl ProtectedEvent {
         }
     }
 
-    fn claim_per_stake(&self) -> Decimal {
+    fn claim_per_stake(&self, cfg: &SettlementConfig) -> Decimal {
         match self {
             ProtectedEvent::CommissionSamIncrease {
+                actual_inflation_commission,
+                actual_mev_commission,
                 expected_epr,
                 actual_epr,
                 ..
-            } => expected_epr - actual_epr,
-
+            } => {
+                let base_cps = expected_epr - actual_epr;
+                match cfg {
+                    SettlementConfig::CommissionSamIncreaseSettlement {
+                        base_markup_bps,
+                        penalty_markup_bps,
+                        extra_penalty_threshold_bps,
+                        ..
+                    } => {
+                        let threshold = bps_to_fraction(*extra_penalty_threshold_bps);
+                        let markup = if *actual_inflation_commission <= threshold
+                            && actual_mev_commission.unwrap_or(Decimal::ZERO) <= threshold
+                        {
+                            *base_markup_bps
+                        } else {
+                            *penalty_markup_bps
+                        };
+                        base_cps + base_cps * bps_to_fraction(markup)
+                    }
+                    _ => {
+                        panic!("Can not process CommissionSamIncrease settlement with wrong config: {cfg:?}")
+                    }
+                }
+            }
             ProtectedEvent::DowntimeRevenueImpact {
                 expected_epr,
                 actual_epr,
@@ -104,20 +130,15 @@ impl ProtectedEvent {
         }
     }
 
-    pub fn claim_amount(&self, stake: u64) -> u64 {
-        (self.claim_per_stake() * Decimal::from(stake))
-            .to_u64()
-            .expect("claim_amount: cannot convert to u64")
-    }
-
-    pub fn claim_amount_in_loss_range(&self, range_bps: &[u64; 2], stake: u64) -> u64 {
+    pub fn claim_amount_in_loss_range(&self, cfg: &SettlementConfig, stake: u64) -> u64 {
+        let range_bps = cfg.covered_range_bps();
         let lower_bps = range_bps[0];
         let upper_bps = range_bps[1];
 
         let max_claim_per_stake = bps_to_fraction(upper_bps) * self.expected_epr();
         let ignored_claim_per_stake = bps_to_fraction(lower_bps) * self.expected_epr();
         let claim_per_stake =
-            self.claim_per_stake().min(max_claim_per_stake) - ignored_claim_per_stake;
+            self.claim_per_stake(cfg).min(max_claim_per_stake) - ignored_claim_per_stake;
 
         (Decimal::from(stake) * claim_per_stake)
             .max(Decimal::ZERO)
@@ -138,8 +159,6 @@ pub fn collect_commission_increase_events(
     revenue_expectation_map: &HashMap<Pubkey, RevenueExpectationMeta>,
 ) -> Vec<ProtectedEvent> {
     info!("Collecting commission increase events...");
-    let decimal_1000 = Decimal::from(1000);
-
     validator_meta_collection
         .validator_metas
         .iter()
@@ -169,8 +188,8 @@ pub fn collect_commission_increase_events(
                             before_sam_commission_increase_pmpe: revenue_expectation.before_sam_commission_increase_pmpe,
                             // expected_non_bid_pmpe is what how many SOLs was expected to gain per 1000 of staked SOLs
                             // expected_epr is ratio of how many SOLS to pay for 1 staked SOL (it does not matter if in lamports or SOLs when ratio)
-                            expected_epr: expected_commission_pmpe / decimal_1000,
-                            actual_epr: revenue_expectation.actual_non_bid_pmpe / decimal_1000,
+                            expected_epr: expected_commission_pmpe / dec!(1000),
+                            actual_epr: revenue_expectation.actual_non_bid_pmpe / dec!(1000),
                             epr_loss_bps: bps_decimal(
                                 expected_commission_pmpe - revenue_expectation.actual_non_bid_pmpe,
                                 expected_commission_pmpe
@@ -200,8 +219,6 @@ pub fn collect_downtime_revenue_impact_events(
     let total_stake_weighted_credits = validator_meta_collection.total_stake_weighted_credits();
     let expected_credits =
         (total_stake_weighted_credits / validator_meta_collection.total_stake() as u128) as u64;
-    let decimal_1000 = Decimal::from(1000);
-
     validator_meta_collection
         .validator_metas
         .iter()
@@ -218,8 +235,8 @@ pub fn collect_downtime_revenue_impact_events(
                             vote_account,
                             actual_credits: credits,
                             expected_credits,
-                            expected_epr: revenue_expectation.actual_non_bid_pmpe / decimal_1000,
-                            actual_epr: (revenue_expectation.actual_non_bid_pmpe / decimal_1000) * uptime,
+                            expected_epr: revenue_expectation.actual_non_bid_pmpe / dec!(1000),
+                            actual_epr: revenue_expectation.actual_non_bid_pmpe / dec!(1000) * uptime,
                             epr_loss_bps: bps(
                                 expected_credits - credits,
                                 expected_credits
