@@ -7,7 +7,7 @@ env:
   SLACK_API: https://slack.com/api/chat.postMessage
   SLACK_FEED: "feed-pipeline-sam-psr"
   CLAIM_TYPE: "bid-distribution"
-  MARINADE_FEE_BPS: 5000
+  MARINADE_FEE_BPS: 7500
   MARINADE_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
   MARINADE_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
 
