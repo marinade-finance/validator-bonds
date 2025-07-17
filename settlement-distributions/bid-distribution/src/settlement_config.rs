@@ -9,6 +9,9 @@ pub enum SettlementConfig {
         marinade_fee_bps: u64,
         marinade_withdraw_authority: Pubkey,
         marinade_stake_authority: Pubkey,
+        dao_fee_split_share_bps: u64,
+        dao_withdraw_authority: Pubkey,
+        dao_stake_authority: Pubkey,
     },
 }
 
@@ -39,6 +42,30 @@ impl SettlementConfig {
             SettlementConfig::Bidding {
                 marinade_fee_bps, ..
             } => marinade_fee_bps,
+        }
+    }
+    pub fn dao_withdraw_authority(&self) -> &Pubkey {
+        match self {
+            SettlementConfig::Bidding {
+                dao_withdraw_authority,
+                ..
+            } => dao_withdraw_authority,
+        }
+    }
+    pub fn dao_stake_authority(&self) -> &Pubkey {
+        match self {
+            SettlementConfig::Bidding {
+                dao_stake_authority,
+                ..
+            } => dao_stake_authority,
+        }
+    }
+    pub fn dao_fee_split_share_bps(&self) -> &u64 {
+        match self {
+            SettlementConfig::Bidding {
+                dao_fee_split_share_bps,
+                ..
+            } => dao_fee_split_share_bps,
         }
     }
 }
