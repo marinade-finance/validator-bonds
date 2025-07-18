@@ -9,6 +9,9 @@ env:
   CLAIM_TYPE: "institutional-distribution"
   MARINADE_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
   MARINADE_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
+  DAO_FEE_SPLIT_SHARE_BPS: 5000
+  DAO_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
+  DAO_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
   INSTITUTIONAL_URL: 'https://institutional-staking.marinade.finance/v1/validators'
 
 steps:
@@ -71,6 +74,9 @@ steps:
         --stake-meta-collection ./stakes.json \
         --marinade-fee-stake-authority ${MARINADE_FEE_STAKE_AUTHORITY} \
         --marinade-fee-withdraw-authority ${MARINADE_FEE_WITHDRAW_AUTHORITY} \
+        --dao-fee-split-share-bps ${DAO_FEE_SPLIT_SHARE_BPS} \
+        --dao-fee-stake-authority ${DAO_FEE_STAKE_AUTHORITY} \
+        --dao-fee-withdraw-authority ${DAO_FEE_WITHDRAW_AUTHORITY} \
         --output-settlement-collection "./${CLAIM_TYPE}-settlements.json" \
         --output-merkle-tree-collection "./${CLAIM_TYPE}-settlement-merkle-trees.json"
     artifact_paths:
