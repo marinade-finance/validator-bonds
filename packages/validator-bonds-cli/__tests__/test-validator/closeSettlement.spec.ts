@@ -75,7 +75,8 @@ describe('Close settlement using CLI', () => {
     ).not.toBeNull()
     const currentEpoch = (await program.provider.connection.getEpochInfo())
       .epoch
-    if (expirationEpoch <= currentEpoch) {
+    if (expirationEpoch === currentEpoch) {
+      // true if running this as a solo test
       await waitForNextEpoch(provider.connection, 15)
     }
 
