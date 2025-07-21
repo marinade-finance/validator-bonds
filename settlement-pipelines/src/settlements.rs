@@ -246,7 +246,7 @@ pub async fn obtain_settlement_closing_refunds(
             } else {
                 return Err(anyhow!(
                     "To close settlement {}, rent must be returned (collector: {}), but no funded stake account with at least {} (split rent amount) was found (found stake accounts: {})",
-                    settlement_address, split_rent_collector, settlement.split_rent_amount, splint_rent_accounts_msg
+                    settlement_address, split_rent_collector, settlement.split_rent_amount, split_rent_accounts_msg
                 ));
             };
             debug!(
