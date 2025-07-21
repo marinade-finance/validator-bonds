@@ -14,6 +14,7 @@ import {
 } from '../sdk'
 import { getBond, getSettlement } from '../api'
 import { findStakeAccounts } from '../web3.js'
+import { LoggerPlaceholder, logDebug } from '@marinade.finance/ts-common'
 
 export type CloseSettlementParams = {
   program: ValidatorBondsProgram
@@ -24,6 +25,7 @@ export type CloseSettlementParams = {
   rentCollector?: PublicKey
   splitRentCollector?: PublicKey | null
   splitRentRefundAccount?: PublicKey
+  logger?: LoggerPlaceholder
 }
 
 /**
@@ -75,6 +77,7 @@ export async function getCloseSettlementAccounts({
   rentCollector,
   splitRentCollector,
   splitRentRefundAccount,
+  logger,
 }: CloseSettlementParams): Promise<{
   configAccount: PublicKey
   bondAccount: PublicKey
@@ -83,6 +86,7 @@ export async function getCloseSettlementAccounts({
   bondsAuth: PublicKey
   splitRentCollector: PublicKey
   splitRentRefundAccount: PublicKey
+  logger?: LoggerPlaceholder
 }> {
   if (
     voteAccount !== undefined &&
@@ -138,6 +142,11 @@ export async function getCloseSettlementAccounts({
       )
     }
     splitRentRefundAccount = stakeAccounts[0].publicKey
+    logDebug(
+      logger,
+      `'splitRentRefundAccount' not provided. From chain found [${stakeAccounts.length}][${stakeAccounts.map(s => s.publicKey.toBase58()).join(', ')}]. ` +
+        `To refund rent using stake account ${splitRentRefundAccount.toBase58()}`,
+    )
   }
 
   return {

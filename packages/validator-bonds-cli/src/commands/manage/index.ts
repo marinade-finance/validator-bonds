@@ -10,6 +10,7 @@ import { installFundBondWithSol } from './fundBondWithSol'
 import { installInitWithdrawRequest } from './initWithdrawRequest'
 import { installCancelWithdrawRequest } from './cancelWithdrawRequest'
 import { installClaimWithdrawRequest } from './claimWithdrawRequest'
+import { installCloseSettlement } from './closeSettlement'
 import {
   installEmergencyPause,
   installEmergencyResume,
@@ -29,4 +30,5 @@ export function installManage(program: Command) {
   installClaimWithdrawRequest(program)
   installEmergencyPause(program)
   installEmergencyResume(program)
+  installCloseSettlement(program)
 }
