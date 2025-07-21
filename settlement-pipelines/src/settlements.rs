@@ -239,7 +239,9 @@ pub async fn obtain_settlement_closing_refunds(
             let split_rent_refund_account = if let Some(found_matching_account) =
                 split_rent_refund_accounts.iter().find(|collected_stake| {
                     collected_stake.2.delegation().is_some()
-                        && collected_stake.1 - STAKE_ACCOUNT_RENT_EXEMPTION
+                        && collected_stake
+                            .1
+                            .saturating_sub(STAKE_ACCOUNT_RENT_EXEMPTION)
                             >= settlement.split_rent_amount
                 }) {
                 found_matching_account.0
