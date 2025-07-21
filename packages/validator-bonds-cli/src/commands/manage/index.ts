@@ -11,6 +11,7 @@ import { installInitWithdrawRequest } from './initWithdrawRequest'
 import { installCancelWithdrawRequest } from './cancelWithdrawRequest'
 import { installClaimWithdrawRequest } from './claimWithdrawRequest'
 import { installCloseSettlement } from './closeSettlement'
+import { installResetStake } from './resetStake'
 import {
   installEmergencyPause,
   installEmergencyResume,
@@ -31,4 +32,5 @@ export function installManage(program: Command) {
   installEmergencyPause(program)
   installEmergencyResume(program)
   installCloseSettlement(program)
+  installResetStake(program)
 }
