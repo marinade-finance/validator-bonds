@@ -251,7 +251,7 @@ pub async fn obtain_settlement_closing_refunds(
             };
             debug!(
                 "For settlement {} found split rent collector: {}, split rent refund account: {} from stake accounts: {}",
-                settlement_address, split_rent_collector, split_rent_refund_account, splint_rent_accounts_msg
+                settlement_address, split_rent_collector, split_rent_refund_account, split_rent_accounts_msg
             );
             (split_rent_collector, split_rent_refund_account)
         } else {
