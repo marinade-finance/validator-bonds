@@ -231,7 +231,7 @@ pub async fn obtain_settlement_closing_refunds(
             } else {
                 split_rent_refund_accounts?
             };
-            let splint_rent_accounts_msg = split_rent_refund_accounts
+            let split_rent_accounts_msg = split_rent_refund_accounts
                 .iter()
                 .map(|s| s.0.to_string())
                 .collect::<Vec<_>>()
