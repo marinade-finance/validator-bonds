@@ -7,6 +7,7 @@ use std::sync::Arc;
 use validator_bonds::state::config::{find_bonds_withdrawer_authority, Config};
 use validator_bonds::state::settlement::{find_settlement_staker_authority, Settlement};
 
+use crate::stake_accounts::STAKE_ACCOUNT_RENT_EXEMPTION;
 use crate::CONTRACT_V2_DEPLOYMENT_EPOCH;
 use validator_bonds_common::settlement_claims::SettlementClaimsBitmap;
 use validator_bonds_common::settlements::{
@@ -230,17 +231,28 @@ pub async fn obtain_settlement_closing_refunds(
             } else {
                 split_rent_refund_accounts?
             };
-            let split_rent_refund_account = if let Some(first_account) = split_rent_refund_accounts
+            let splint_rent_accounts_msg = split_rent_refund_accounts
                 .iter()
-                .find(|collected_stake| collected_stake.2.delegation().is_some())
-            {
-                first_account.0
+                .map(|s| s.0.to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let split_rent_refund_account = if let Some(found_matching_account) =
+                split_rent_refund_accounts.iter().find(|collected_stake| {
+                    collected_stake.2.delegation().is_some()
+                        && collected_stake.1 - STAKE_ACCOUNT_RENT_EXEMPTION
+                            >= settlement.split_rent_amount
+                }) {
+                found_matching_account.0
             } else {
                 return Err(anyhow!(
-                    "For closing settlement {} is required return rent (collector field: {}), no settlement funded stake account found to use for returning rent",
-                    settlement_address, split_rent_collector
+                    "To close settlement {}, rent must be returned (collector: {}), but no funded stake account with at least {} (split rent amount) was found (found stake accounts: {})",
+                    settlement_address, split_rent_collector, settlement.split_rent_amount, splint_rent_accounts_msg
                 ));
             };
+            debug!(
+                "For settlement {} found split rent collector: {}, split rent refund account: {} from stake accounts: {}",
+                settlement_address, split_rent_collector, split_rent_refund_account, splint_rent_accounts_msg
+            );
             (split_rent_collector, split_rent_refund_account)
         } else {
             // whatever existing account, NOTE: anchor does not like Pubkey::default as a mutable account
