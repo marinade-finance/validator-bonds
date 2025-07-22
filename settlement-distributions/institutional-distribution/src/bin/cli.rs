@@ -51,6 +51,11 @@ fn main() -> anyhow::Result<()> {
     info!("Starting Institutional Payout Settlements calculation...");
     let args: Args = Args::parse();
 
+    info!(
+        "DAO fee split share bps {:?} loaded",
+        &args.dao_fee_split_share_bps
+    );
+
     info!("Loading Institutional Payout collection...");
     let institutional_payouts: InstitutionalPayout =
         read_from_json_file(&args.institutional_payouts).map_err(file_error(

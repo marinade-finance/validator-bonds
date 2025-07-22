@@ -60,10 +60,9 @@ fn main() -> anyhow::Result<()> {
     info!("Starting bid distribution...");
     let args: Args = Args::parse();
 
-    info!("Marinade fee bps loaded: {:?}", &args.marinade_fee_bps);
     info!(
-        "DAO fee split share bps loaded: {:?}",
-        &args.dao_fee_split_share_bps
+        "Marinade fee bps {:?} and DAO fee split share bps {:?} loaded",
+        &args.marinade_fee_bps, &args.dao_fee_split_share_bps
     );
 
     let settlement_meta = SettlementMeta {
