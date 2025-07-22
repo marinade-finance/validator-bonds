@@ -57,7 +57,7 @@ pub fn generate_bid_settlements(
                 validator.marinade_mnde_target_sol * Decimal::from_f64(1e9).unwrap();
             let distributor_fee_percentage =
                 Decimal::from(*settlement_config.marinade_fee_bps()) / Decimal::from(10_000);
-            let dao_fee_share =
+            let dao_fee_share_percentage =
                 Decimal::from(*settlement_config.dao_fee_split_share_bps()) / Decimal::from(10_000);
             let effective_bid = validator.effective_bid / Decimal::ONE_THOUSAND;
             let bid_too_low_penalty =
@@ -96,7 +96,9 @@ pub fn generate_bid_settlements(
                 .max(effective_bid_claim - total_fee_claim)
                 .to_u64()
                 .unwrap();
-            let dao_fee_claim = (total_fee_claim * dao_fee_share).to_u64().unwrap();
+            let dao_fee_claim = (total_fee_claim * dao_fee_share_percentage)
+                .to_u64()
+                .unwrap();
             let marinade_fee_claim = (total_fee_claim - Decimal::from(dao_fee_claim))
                 .to_u64()
                 .unwrap();
@@ -109,7 +111,7 @@ pub fn generate_bid_settlements(
             let stakers_bid_penalty_claim =
                 bid_penalty_total_claim.to_u64().unwrap() - distributor_bid_penalty_claim;
             let dao_bid_penalty_claim = (Decimal::from(distributor_bid_penalty_claim)
-                * dao_fee_share)
+                * dao_fee_share_percentage)
                 .to_u64()
                 .unwrap();
             let marinade_bid_penalty_claim = (distributor_bid_penalty_claim
