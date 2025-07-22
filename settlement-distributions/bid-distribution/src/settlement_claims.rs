@@ -51,10 +51,10 @@ pub fn generate_bid_settlements(
         if let Some(grouped_stake_metas) =
             stake_meta_index.iter_grouped_stake_metas(&validator.vote_account)
         {
-            let sam_target_stake =
-                validator.marinade_sam_target_sol * Decimal::from_f64(1e9).unwrap();
-            let mnde_target_stake =
-                validator.marinade_mnde_target_sol * Decimal::from_f64(1e9).unwrap();
+            let sam_target_stake = validator.marinade_sam_target_sol
+                * Decimal::from_f64(1e9).expect("Failed from_f64 for 1e9");
+            let mnde_target_stake = validator.marinade_mnde_target_sol
+                * Decimal::from_f64(1e9).expect("Failed from_f64 for 1e9");
             let distributor_fee_percentage =
                 Decimal::from(*settlement_config.marinade_fee_bps()) / Decimal::from(10_000);
             let dao_fee_share_percentage =
@@ -70,7 +70,7 @@ pub fn generate_bid_settlements(
 
             let total_active_stake: u64 = stake_meta_index
                 .iter_grouped_stake_metas(&validator.vote_account)
-                .unwrap()
+                .expect("No items from iter_grouped_stake_metas")
                 .filter(|(&(_, &stake_authority), _)| stake_authority_filter(&stake_authority))
                 .flat_map(|(_, metas)| metas.iter())
                 .map(|meta| meta.active_delegation_lamports)
@@ -84,7 +84,7 @@ pub fn generate_bid_settlements(
 
             let initial_sam_stake = (Decimal::from(total_active_stake) * stake_sam_percentage)
                 .to_u64()
-                .unwrap();
+                .expect("Failed to_u64 for initial_sam_stake");
             let effective_sam_stake: u64 = initial_sam_stake;
             let effective_bid_claim = Decimal::from(effective_sam_stake) * effective_bid;
             let total_rev_share = validator.rev_share.total_pmpe / Decimal::ONE_THOUSAND;
@@ -95,33 +95,37 @@ pub fn generate_bid_settlements(
             let stakers_total_claim = Decimal::ZERO
                 .max(effective_bid_claim - total_fee_claim)
                 .to_u64()
-                .unwrap();
+                .expect("Failed to_u64 for initial_sam_stake");
             let dao_fee_claim = (total_fee_claim * dao_fee_share_percentage)
                 .to_u64()
-                .unwrap();
+                .expect("Failed to_u64 for initial_sam_stake");
             let marinade_fee_claim = (total_fee_claim - Decimal::from(dao_fee_claim))
                 .to_u64()
-                .unwrap();
+                .expect("Failed to_u64 for initial_sam_stake");
 
             let bid_penalty_total_claim = Decimal::from(effective_sam_stake) * bid_too_low_penalty;
             let distributor_bid_penalty_claim = (bid_penalty_total_claim
                 * distributor_fee_percentage)
                 .to_u64()
-                .unwrap();
-            let stakers_bid_penalty_claim =
-                bid_penalty_total_claim.to_u64().unwrap() - distributor_bid_penalty_claim;
+                .expect("Failed to_u64 for initial_sam_stake");
+            let stakers_bid_penalty_claim = bid_penalty_total_claim
+                .to_u64()
+                .expect("Failed to_u64 for initial_sam_stake")
+                - distributor_bid_penalty_claim;
             let dao_bid_penalty_claim = (Decimal::from(distributor_bid_penalty_claim)
                 * dao_fee_share_percentage)
                 .to_u64()
-                .unwrap();
+                .expect("Failed to_u64 for initial_sam_stake");
             let marinade_bid_penalty_claim = (distributor_bid_penalty_claim
                 - dao_bid_penalty_claim)
                 .to_u64()
-                .unwrap();
+                .expect("Failed to_u64 for initial_sam_stake");
 
             let blacklist_penalty_total_claim =
                 Decimal::from(effective_sam_stake) * blacklist_penalty;
-            let stakers_blacklist_penalty_claim = blacklist_penalty_total_claim.to_u64().unwrap();
+            let stakers_blacklist_penalty_claim = blacklist_penalty_total_claim
+                .to_u64()
+                .expect("Failed to_u64 for initial_sam_stake");
 
             let mut claims = vec![];
             let mut claims_amount = 0;
@@ -242,7 +246,7 @@ pub fn generate_bid_settlements(
                     claims_amount += marinade_fee_claim;
 
                     assert!(
-                        claims_amount <= effective_bid_claim.to_u64().unwrap(),
+                        claims_amount <= effective_bid_claim.to_u64().expect("Failed to_u64 for effective_bid_claim"),
                         "The sum of total claims exceeds the bid amount after adding the Marinade fee"
                     );
                 }
@@ -257,7 +261,10 @@ pub fn generate_bid_settlements(
                     claims_amount += dao_fee_claim;
 
                     assert!(
-                        claims_amount <= effective_bid_claim.to_u64().unwrap(),
+                        claims_amount
+                            <= effective_bid_claim
+                                .to_u64()
+                                .expect("Failed to_u64 for effective_bid_claim"),
                         "The sum of total claims exceeds the bid amount after adding the DAO fee"
                     );
                 }
@@ -272,7 +279,7 @@ pub fn generate_bid_settlements(
                     claimed_bid_penalty_amount += marinade_bid_penalty_claim;
 
                     assert!(
-                        claimed_bid_penalty_amount <= bid_penalty_total_claim.to_u64().unwrap(),
+                        claimed_bid_penalty_amount <= bid_penalty_total_claim.to_u64().expect("Failed to_u64 for bid_penalty_total_claim"),
                         "The sum of total claims exceeds the bid penalty amount after adding the Marinade fee"
                     );
                 }
@@ -287,7 +294,7 @@ pub fn generate_bid_settlements(
                     claimed_bid_penalty_amount += dao_bid_penalty_claim;
 
                     assert!(
-                        claimed_bid_penalty_amount <= bid_penalty_total_claim.to_u64().unwrap(),
+                        claimed_bid_penalty_amount <= bid_penalty_total_claim.to_u64().expect("Failed to_u64 for bid_penalty_total_claim"),
                         "The sum of total claims exceeds the bid penalty amount after adding the DAO fee"
                     );
                 }
