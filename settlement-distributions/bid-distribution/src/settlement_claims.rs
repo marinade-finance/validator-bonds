@@ -95,37 +95,37 @@ pub fn generate_bid_settlements(
             let stakers_total_claim = Decimal::ZERO
                 .max(effective_bid_claim - total_fee_claim)
                 .to_u64()
-                .expect("Failed to_u64 for initial_sam_stake");
+                .expect("Failed to_u64 for stakers_total_claim");
             let dao_fee_claim = (total_fee_claim * dao_fee_share_percentage)
                 .to_u64()
-                .expect("Failed to_u64 for initial_sam_stake");
+                .expect("Failed to_u64 for dao_fee_claim");
             let marinade_fee_claim = (total_fee_claim - Decimal::from(dao_fee_claim))
                 .to_u64()
-                .expect("Failed to_u64 for initial_sam_stake");
+                .expect("Failed to_u64 for marinade_fee_claim");
 
             let bid_penalty_total_claim = Decimal::from(effective_sam_stake) * bid_too_low_penalty;
             let distributor_bid_penalty_claim = (bid_penalty_total_claim
                 * distributor_fee_percentage)
                 .to_u64()
-                .expect("Failed to_u64 for initial_sam_stake");
+                .expect("Failed to_u64 for distributor_bid_penalty_claim");
             let stakers_bid_penalty_claim = bid_penalty_total_claim
                 .to_u64()
-                .expect("Failed to_u64 for initial_sam_stake")
+                .expect("Failed to_u64 for stakers_bid_penalty_claim")
                 - distributor_bid_penalty_claim;
             let dao_bid_penalty_claim = (Decimal::from(distributor_bid_penalty_claim)
                 * dao_fee_share_percentage)
                 .to_u64()
-                .expect("Failed to_u64 for initial_sam_stake");
+                .expect("Failed to_u64 for dao_bid_penalty_claim");
             let marinade_bid_penalty_claim = (distributor_bid_penalty_claim
                 - dao_bid_penalty_claim)
                 .to_u64()
-                .expect("Failed to_u64 for initial_sam_stake");
+                .expect("Failed to_u64 for marinade_bid_penalty_claim");
 
             let blacklist_penalty_total_claim =
                 Decimal::from(effective_sam_stake) * blacklist_penalty;
             let stakers_blacklist_penalty_claim = blacklist_penalty_total_claim
                 .to_u64()
-                .expect("Failed to_u64 for initial_sam_stake");
+                .expect("Failed to_u64 for stakers_blacklist_penalty_claim");
 
             let mut claims = vec![];
             let mut claims_amount = 0;
