@@ -7,9 +7,11 @@ env:
   SLACK_API: https://slack.com/api/chat.postMessage
   SLACK_FEED: "feed-pipeline-sam-psr"
   CLAIM_TYPE: "bid-distribution"
+  # Total Marinade (distributor) fee split between Marinade and DAO
   MARINADE_FEE_BPS: 500
   MARINADE_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
   MARINADE_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
+  # DAO share of the total Marinade (distributor) fee
   DAO_FEE_SPLIT_SHARE_BPS: 5000
   DAO_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
   DAO_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
