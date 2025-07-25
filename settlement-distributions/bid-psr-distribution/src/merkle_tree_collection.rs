@@ -28,7 +28,10 @@ pub struct MerkleTreeCollection {
 
 pub fn generate_merkle_tree_meta(settlement: &Settlement) -> anyhow::Result<MerkleTreeMeta> {
     let vote_account = settlement.vote_account;
-    info!("Generation merkle tree for settlements of validator: {vote_account}...");
+    info!(
+        "Generation merkle tree settlement of validator: {vote_account}, funder: {:?}",
+        settlement.meta.funder
+    );
     let mut tree_nodes: Vec<_> = settlement
         .claims
         .iter()
@@ -89,6 +92,11 @@ pub fn generate_merkle_tree_collection(
     for settlement in settlement_collection.settlements.iter() {
         merkle_trees.push(generate_merkle_tree_meta(settlement)?);
     }
+    info!(
+        "Generated {} merkle trees for epoch {}",
+        merkle_trees.len(),
+        settlement_collection.epoch
+    );
 
     Ok(MerkleTreeCollection {
         epoch: settlement_collection.epoch,

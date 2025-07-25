@@ -315,6 +315,17 @@ async fn claim_settlement<'a>(
             )).add();
             continue;
         };
+        if tree_node.claim == 0 {
+            reporting.warning().with_msg(format!(
+                "Tree node claim is zero for stake:{}/withdrawer:{}/claim:{}/index:{}, settlement {}",
+                tree_node.stake_authority,
+                tree_node.withdraw_authority,
+                lamports_to_sol(tree_node.claim),
+                tree_node.index,
+                settlement_json_data.settlement_address,
+            )).add();
+            continue;
+        }
 
         let stake_account_from = {
             let stake_account_from =

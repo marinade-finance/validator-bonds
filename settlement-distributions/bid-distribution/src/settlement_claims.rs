@@ -4,6 +4,7 @@ use bid_psr_distribution::settlement_collection::{
     Settlement, SettlementClaim, SettlementCollection, SettlementReason,
 };
 use bid_psr_distribution::stake_meta_index::StakeMetaIndex;
+use bid_psr_distribution::utils::sort_claims_deterministically;
 use log::info;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
@@ -232,6 +233,7 @@ pub fn generate_bid_settlements(
                 }
             }
             if !claims.is_empty() {
+                sort_claims_deterministically(&mut claims);
                 settlement_claim_collections.push(Settlement {
                     reason: SettlementReason::Bidding,
                     meta: settlement_config.meta().clone(),
@@ -242,6 +244,7 @@ pub fn generate_bid_settlements(
                 });
             }
             if !bid_penalty_claims.is_empty() {
+                sort_claims_deterministically(&mut bid_penalty_claims);
                 settlement_claim_collections.push(Settlement {
                     reason: SettlementReason::BidTooLowPenalty,
                     meta: settlement_config.meta().clone(),
@@ -252,6 +255,7 @@ pub fn generate_bid_settlements(
                 });
             }
             if !blacklist_penalty_claims.is_empty() {
+                sort_claims_deterministically(&mut blacklist_penalty_claims);
                 settlement_claim_collections.push(Settlement {
                     reason: SettlementReason::BlacklistPenalty,
                     meta: settlement_config.meta().clone(),

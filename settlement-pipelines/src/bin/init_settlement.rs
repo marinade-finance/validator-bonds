@@ -179,6 +179,11 @@ async fn load_on_chain_data(
         )));
     }
     if let Some(settlement_records) = settlement_records_per_epoch.into_iter().next() {
+        debug!(
+            "Loaded {} settlement records for epoch {}",
+            settlement_records.1.len(),
+            settlement_records.0
+        );
         Ok(settlement_records.1)
     } else {
         Err(CliError::Critical(anyhow!(

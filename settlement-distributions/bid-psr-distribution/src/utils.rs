@@ -1,3 +1,4 @@
+use crate::settlement_collection::SettlementClaim;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -71,4 +72,16 @@ pub fn file_error<'a>(
     file_path: &'a str,
 ) -> impl Fn(anyhow::Error) -> anyhow::Error + 'a {
     move |e| anyhow::anyhow!("Failure at '--{param_name} {file_path}': {:?}", e)
+}
+
+/// Sort claims to ensure a deterministic order for identical input data
+/// This guarantees the same Merkle root is generated from the same claims
+pub fn sort_claims_deterministically(claims: &mut [SettlementClaim]) {
+    claims.sort_by_key(|claim| {
+        (
+            claim.withdraw_authority,
+            claim.stake_authority,
+            claim.claim_amount,
+        )
+    });
 }
