@@ -14,9 +14,11 @@ export function installFundBond(program: Command) {
       {
         stakeAccount,
         stakeAuthority,
+        computeUnitLimit,
       }: {
         stakeAccount: Promise<PublicKey>
         stakeAuthority?: Promise<WalletInterface | PublicKey>
+        computeUnitLimit: number
       },
     ) => {
       await manageFundBond({
@@ -24,6 +26,7 @@ export function installFundBond(program: Command) {
         config: MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
         stakeAccount: await stakeAccount,
         stakeAuthority: await stakeAuthority,
+        computeUnitLimit,
       })
     },
   )

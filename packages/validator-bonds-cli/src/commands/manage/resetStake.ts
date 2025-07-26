@@ -30,21 +30,30 @@ export function installResetStake(program: Command) {
       'Bond account that the closed settlement account was associated with.',
       parseWalletOrPubkey,
     )
+    .option(
+      '--compute-unit-limit <number>',
+      'Compute unit limit for the transaction',
+      v => parseInt(v, 10),
+      RESET_STAKE_LIMIT_UNITS,
+    )
     .action(
       async (
         address: Promise<PublicKey>,
         {
           settlement,
           bond,
+          computeUnitLimit,
         }: {
           settlement: Promise<PublicKey>
           bond: Promise<PublicKey>
+          computeUnitLimit: number
         },
       ) => {
         await manageResetStake({
           address: await address,
           settlement: await settlement,
           bond: await bond,
+          computeUnitLimit,
         })
       },
     )
@@ -54,10 +63,12 @@ export async function manageResetStake({
   address,
   settlement,
   bond,
+  computeUnitLimit,
 }: {
   address: PublicKey
   settlement: PublicKey
   bond: PublicKey
+  computeUnitLimit: number
 }) {
   const {
     program,
@@ -88,7 +99,6 @@ export async function manageResetStake({
 
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]
-  const computeUnitLimit = RESET_STAKE_LIMIT_UNITS
   tx.add(instruction)
 
   logger.info(

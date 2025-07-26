@@ -50,6 +50,12 @@ export function configureInitBond(program: Command): Command {
       'Rent payer for the account creation (default: wallet keypair)',
       parseWalletOrPubkey,
     )
+    .option(
+      '--compute-unit-limit <number>',
+      'Compute unit limit for the transaction (default value based on the operation type)',
+      v => parseInt(v, 10),
+      INIT_BOND_LIMIT_UNITS,
+    )
 }
 
 export async function manageInitBond({
@@ -60,6 +66,7 @@ export async function manageInitBond({
   rentPayer,
   cpmpe,
   maxStakeWanted,
+  computeUnitLimit,
 }: {
   config: PublicKey
   voteAccount: PublicKey
@@ -68,6 +75,7 @@ export async function manageInitBond({
   rentPayer?: WalletInterface | PublicKey
   cpmpe: BN
   maxStakeWanted: BN
+  computeUnitLimit: number
 }) {
   const {
     program,
@@ -126,7 +134,7 @@ export async function manageInitBond({
         ` of config ${config.toBase58()}`,
       signers,
       logger,
-      computeUnitLimit: INIT_BOND_LIMIT_UNITS,
+      computeUnitLimit,
       computeUnitPrice,
       simulate,
       printOnly,

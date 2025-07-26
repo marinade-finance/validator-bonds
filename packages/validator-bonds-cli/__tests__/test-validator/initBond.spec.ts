@@ -67,7 +67,7 @@ describe('Init bond account using CLI', () => {
       }),
     )
     await provider.sendAndConfirm!(tx)
-    await expect(
+    expect(
       await provider.connection.getBalance(rentPayerKeypair.publicKey),
     ).toStrictEqual(rentPayerFunds)
   })
@@ -126,7 +126,7 @@ describe('Init bond account using CLI', () => {
     expect(bondsData.cpmpe).toEqual(33)
     expect(bondsData.maxStakeWanted).toEqual(1000 * LAMPORTS_PER_SOL)
     expect(bondsData.bump).toEqual(bump)
-    await expect(
+    expect(
       await provider.connection.getBalance(rentPayerKeypair.publicKey),
     ).toBeLessThan(rentPayerFunds)
   })
@@ -173,7 +173,7 @@ describe('Init bond account using CLI', () => {
     expect(bondsData.cpmpe).toEqual(0)
     expect(bondsData.maxStakeWanted).toEqual(0)
     expect(bondsData.bump).toEqual(bump)
-    await expect(
+    expect(
       await provider.connection.getBalance(rentPayerKeypair.publicKey),
     ).toBeLessThan(rentPayerFunds)
   })
@@ -249,8 +249,6 @@ describe('Init bond account using CLI', () => {
       voteAccount,
       program.programId,
     )
-    await expect(
-      await provider.connection.getAccountInfo(bondAccount),
-    ).toBeNull()
+    expect(await provider.connection.getAccountInfo(bondAccount)).toBeNull()
   })
 })

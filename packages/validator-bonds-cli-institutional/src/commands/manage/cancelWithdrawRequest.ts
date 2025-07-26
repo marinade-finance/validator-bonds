@@ -15,10 +15,12 @@ export function installCancelWithdrawRequest(program: Command) {
         voteAccount,
         authority,
         rentCollector,
+        computeUnitLimit,
       }: {
         voteAccount?: Promise<PublicKey>
         authority?: Promise<WalletInterface | PublicKey>
         rentCollector?: Promise<PublicKey>
+        computeUnitLimit: number
       },
     ) => {
       await manageCancelWithdrawRequest({
@@ -27,6 +29,7 @@ export function installCancelWithdrawRequest(program: Command) {
         voteAccount: await voteAccount,
         authority: await authority,
         rentCollector: await rentCollector,
+        computeUnitLimit,
       })
     },
   )

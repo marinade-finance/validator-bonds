@@ -49,6 +49,12 @@ export function configureFundBond(program: Command): Command {
         '(default: wallet keypair)',
       parseWalletOrPubkey,
     )
+    .option(
+      '--compute-unit-limit <number>',
+      'Compute unit limit for the transaction (default value based on the operation type)',
+      v => parseInt(v, 10),
+      FUND_BOND_LIMIT_UNITS,
+    )
 }
 
 export async function manageFundBond({
@@ -56,11 +62,13 @@ export async function manageFundBond({
   config,
   stakeAccount,
   stakeAuthority,
+  computeUnitLimit,
 }: {
   address: PublicKey
   config?: PublicKey
   stakeAccount: PublicKey
   stakeAuthority?: WalletInterface | PublicKey
+  computeUnitLimit: number
 }) {
   const {
     program,
@@ -113,7 +121,7 @@ export async function manageFundBond({
       errMessage: `'Failed to fund bond account ${bondAccount.toBase58()}`,
       signers,
       logger,
-      computeUnitLimit: FUND_BOND_LIMIT_UNITS,
+      computeUnitLimit,
       computeUnitPrice,
       simulate,
       printOnly,
