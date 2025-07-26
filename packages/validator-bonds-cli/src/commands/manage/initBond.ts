@@ -37,6 +37,7 @@ export function installInitBond(program: Command) {
         rentPayer,
         cpmpe = new BN(0),
         maxStakeWanted = new BN(0),
+        computeUnitLimit,
       }: {
         config?: Promise<PublicKey>
         voteAccount: Promise<PublicKey>
@@ -45,6 +46,7 @@ export function installInitBond(program: Command) {
         rentPayer?: Promise<WalletInterface | PublicKey>
         cpmpe: BN
         maxStakeWanted: BN
+        computeUnitLimit: number
       }) => {
         await manageInitBond({
           config: (await config) ?? MARINADE_CONFIG_ADDRESS,
@@ -54,6 +56,7 @@ export function installInitBond(program: Command) {
           rentPayer: await rentPayer,
           cpmpe,
           maxStakeWanted,
+          computeUnitLimit,
         })
       },
     )

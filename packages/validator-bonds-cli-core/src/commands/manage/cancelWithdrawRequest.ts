@@ -50,6 +50,12 @@ export function configureCancelWithdrawRequest(program: Command): Command {
       'Collector of rent from initialized withdraw request account (default: wallet pubkey)',
       parsePubkeyOrPubkeyFromWallet,
     )
+    .option(
+      '--compute-unit-limit <number>',
+      'Compute unit limit for the transaction',
+      v => parseInt(v, 10),
+      CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS,
+    )
 }
 
 export async function manageCancelWithdrawRequest({
@@ -58,12 +64,14 @@ export async function manageCancelWithdrawRequest({
   voteAccount,
   authority,
   rentCollector,
+  computeUnitLimit,
 }: {
   address?: PublicKey
   config?: PublicKey
   voteAccount?: PublicKey
   authority?: WalletInterface | PublicKey
   rentCollector?: PublicKey
+  computeUnitLimit: number
 }) {
   const {
     program,
@@ -124,7 +132,7 @@ export async function manageCancelWithdrawRequest({
     errMessage: `Failed to cancel withdraw request ${withdrawRequestAccount.toBase58()}`,
     signers,
     logger,
-    computeUnitLimit: CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS,
+    computeUnitLimit,
     computeUnitPrice,
     simulate,
     printOnly,

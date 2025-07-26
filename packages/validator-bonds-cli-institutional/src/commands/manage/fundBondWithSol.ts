@@ -14,9 +14,11 @@ export function installFundBondWithSol(program: Command) {
       {
         amount,
         from,
+        computeUnitLimit,
       }: {
         amount: number
         from?: Promise<WalletInterface | PublicKey>
+        computeUnitLimit: number
       },
     ) => {
       await manageFundBondWithSol({
@@ -24,6 +26,7 @@ export function installFundBondWithSol(program: Command) {
         config: MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
         amount,
         from: await from,
+        computeUnitLimit,
       })
     },
   )

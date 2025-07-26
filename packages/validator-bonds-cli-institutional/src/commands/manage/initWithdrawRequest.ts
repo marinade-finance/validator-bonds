@@ -16,11 +16,13 @@ export function installInitWithdrawRequest(program: Command) {
         authority,
         amount,
         rentPayer,
+        computeUnitLimit,
       }: {
         voteAccount?: Promise<PublicKey>
         authority?: Promise<WalletInterface | PublicKey>
         amount: string
         rentPayer?: Promise<WalletInterface | PublicKey>
+        computeUnitLimit: number
       },
     ) => {
       await manageInitWithdrawRequest({
@@ -30,6 +32,7 @@ export function installInitWithdrawRequest(program: Command) {
         authority: await authority,
         amount,
         rentPayer: await rentPayer,
+        computeUnitLimit,
       })
     },
   )

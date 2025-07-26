@@ -12,6 +12,7 @@ import {
 } from '@marinade.finance/validator-bonds-sdk'
 import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import { airdrop } from './utils'
 
 describe('Init config account using CLI', () => {
   let provider: AnchorExtendedProvider
@@ -39,6 +40,7 @@ describe('Init config account using CLI', () => {
       keypair: keypairFeePayerKeypair,
       cleanup: keypairFeePayerCleanup,
     } = await createTempFileKeypair())
+    await airdrop(provider.connection, keypairFeePayerKeypair.publicKey)
   })
 
   afterEach(async () => {
@@ -62,21 +64,9 @@ describe('Init config account using CLI', () => {
         }),
       ),
     )
-    await expect(
+    expect(
       await provider.connection.getBalance(rentPayerKeypair.publicKey),
     ).toStrictEqual(rentPayerFunds)
-    await provider.sendAndConfirm(
-      new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: provider.wallet.publicKey,
-          toPubkey: keypairFeePayerKeypair.publicKey,
-          lamports: LAMPORTS_PER_SOL,
-        }),
-      ),
-    )
-    await expect(
-      await provider.connection.getBalance(keypairFeePayerKeypair.publicKey),
-    ).toStrictEqual(LAMPORTS_PER_SOL)
 
     const admin = Keypair.generate().publicKey
     const operator = Keypair.generate().publicKey
@@ -128,9 +118,39 @@ describe('Init config account using CLI', () => {
     expect(configData.epochsToClaimSettlement).toEqual(42)
     expect(configData.slotsToStartSettlementClaiming).toEqual(11)
     expect(configData.withdrawLockupEpochs).toEqual(43)
-    await expect(
+    expect(
       await provider.connection.getBalance(rentPayerKeypair.publicKey),
     ).toBeLessThan(rentPayerFunds)
+  })
+
+  it('fails with low compute unit limit', async () => {
+    await (
+      expect([
+        'pnpm',
+        [
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '-k',
+          keypairFeePayerPath,
+          '--program-id',
+          program.programId.toBase58(),
+          'init-config',
+          '--address',
+          configPath,
+          '--simulate',
+          '--compute-unit-limit',
+          1,
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 200,
+      stdout: /exceeded CUs meter/,
+    })
+    expect(
+      await provider.connection.getAccountInfo(configKeypair.publicKey),
+    ).toBeNull()
   })
 
   // this is a "mock test" that just checks that print only command works
@@ -158,7 +178,7 @@ describe('Init config account using CLI', () => {
       // stderr: '',
       stdout: /successfully created/,
     })
-    await expect(
+    expect(
       await provider.connection.getAccountInfo(configKeypair.publicKey),
     ).toBeNull()
   })

@@ -52,6 +52,11 @@ export function configureConfigureBond(program: Command): Command {
       'New value of "bond authority" that is permitted to operate with the bond account.',
       parsePubkeyOrPubkeyFromWallet,
     )
+    .option(
+      '--compute-unit-limit <number>',
+      'Compute unit limit for the transaction (default value based on the operation type)',
+      v => parseInt(v, 10),
+    )
 }
 
 export async function manageConfigureBond({
@@ -63,6 +68,7 @@ export async function manageConfigureBond({
   newBondAuthority,
   cpmpe,
   maxStakeWanted,
+  computeUnitLimit,
 }: {
   address: PublicKey
   config: PublicKey
@@ -72,6 +78,7 @@ export async function manageConfigureBond({
   newBondAuthority?: PublicKey
   cpmpe?: BN
   maxStakeWanted?: BN
+  computeUnitLimit?: number
 }) {
   const {
     program,
@@ -107,9 +114,8 @@ export async function manageConfigureBond({
 
   let bondAccount: PublicKey
   let instruction: TransactionInstruction
-  let computeUnitLimit: number
   if (withToken) {
-    computeUnitLimit = CONFIGURE_BOND_MINT_LIMIT_UNITS
+    computeUnitLimit = computeUnitLimit ?? CONFIGURE_BOND_MINT_LIMIT_UNITS
     ;({ instruction, bondAccount } = await configureBondWithMintInstruction({
       program,
       bondAccount: bondAccountAddress,
@@ -121,7 +127,7 @@ export async function manageConfigureBond({
       newMaxStakeWanted: maxStakeWanted,
     }))
   } else {
-    computeUnitLimit = CONFIGURE_BOND_LIMIT_UNITS
+    computeUnitLimit = computeUnitLimit ?? CONFIGURE_BOND_LIMIT_UNITS
     ;({ instruction, bondAccount } = await configureBondInstruction({
       program,
       bondAccount: bondAccountAddress,

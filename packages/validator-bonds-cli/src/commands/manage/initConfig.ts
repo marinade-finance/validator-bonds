@@ -58,6 +58,12 @@ export function installInitConfig(program: Command) {
       v => parseInt(v, 10),
       0,
     )
+    .option(
+      '--compute-unit-limit <number>',
+      'Compute unit limit for the transaction',
+      v => parseInt(v, 10),
+      INIT_CONFIG_LIMIT_UNITS,
+    )
     .action(
       async ({
         address,
@@ -67,6 +73,7 @@ export function installInitConfig(program: Command) {
         epochsToClaimSettlement,
         slotsToStartSettlementClaiming,
         withdrawLockupEpochs,
+        computeUnitLimit,
       }: {
         address?: Promise<Keypair>
         admin?: Promise<PublicKey>
@@ -75,6 +82,7 @@ export function installInitConfig(program: Command) {
         epochsToClaimSettlement: number
         slotsToStartSettlementClaiming: number
         withdrawLockupEpochs: number
+        computeUnitLimit: number
       }) => {
         await manageInitConfig({
           address: await address,
@@ -84,6 +92,7 @@ export function installInitConfig(program: Command) {
           epochsToClaimSettlement,
           slotsToStartSettlementClaiming,
           withdrawLockupEpochs,
+          computeUnitLimit,
         })
       },
     )
@@ -97,6 +106,7 @@ async function manageInitConfig({
   epochsToClaimSettlement,
   slotsToStartSettlementClaiming,
   withdrawLockupEpochs,
+  computeUnitLimit,
 }: {
   address?: Keypair
   admin?: PublicKey
@@ -105,6 +115,7 @@ async function manageInitConfig({
   epochsToClaimSettlement: number
   slotsToStartSettlementClaiming: number
   withdrawLockupEpochs: number
+  computeUnitLimit: number
 }) {
   const {
     program,
@@ -149,7 +160,7 @@ async function manageInitConfig({
     errMessage: `'Failed to create config account ${address.publicKey.toBase58()}`,
     signers,
     logger,
-    computeUnitLimit: INIT_CONFIG_LIMIT_UNITS,
+    computeUnitLimit,
     computeUnitPrice,
     simulate,
     printOnly,

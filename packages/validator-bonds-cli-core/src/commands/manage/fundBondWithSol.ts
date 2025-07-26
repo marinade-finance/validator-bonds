@@ -49,6 +49,12 @@ export function configureFundBondWithSol(program: Command): Command {
         '(default: wallet keypair)',
       parseWalletOrPubkey,
     )
+    .option(
+      '--compute-unit-limit <number>',
+      'Compute unit limit for the transaction',
+      v => parseInt(v, 10),
+      FUND_BOND_WITH_SOL_LIMIT_UNITS,
+    )
 }
 
 export async function manageFundBondWithSol({
@@ -56,11 +62,13 @@ export async function manageFundBondWithSol({
   config,
   amount,
   from,
+  computeUnitLimit,
 }: {
   address: PublicKey
   config?: PublicKey
   amount: number
   from?: WalletInterface | PublicKey
+  computeUnitLimit: number
 }) {
   const {
     program,
@@ -159,7 +167,7 @@ export async function manageFundBondWithSol({
       errMessage: `'Failed to fund bond account ${bondAccount.toBase58()} with ${amount} from ${from.toBase58()}`,
       signers,
       logger,
-      computeUnitLimit: FUND_BOND_WITH_SOL_LIMIT_UNITS,
+      computeUnitLimit,
       computeUnitPrice,
       simulate,
       printOnly,

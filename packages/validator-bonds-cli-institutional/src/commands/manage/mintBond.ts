@@ -14,9 +14,11 @@ export function installMintBond(program: Command) {
       {
         voteAccount,
         rentPayer,
+        computeUnitLimit,
       }: {
         voteAccount?: Promise<PublicKey>
         rentPayer?: Promise<WalletInterface | PublicKey>
+        computeUnitLimit: number
       },
     ) => {
       await manageMintBond({
@@ -24,6 +26,7 @@ export function installMintBond(program: Command) {
         config: MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
         voteAccount: await voteAccount,
         rentPayer: await rentPayer,
+        computeUnitLimit,
       })
     },
   )

@@ -31,19 +31,28 @@ export function installEmergencyPause(program: Command) {
       'Pause authority with permission to pause the contract (default: wallet)',
       parseWalletOrPubkey,
     )
+    .option(
+      '--compute-unit-limit <number>',
+      'Compute unit limit for the transaction',
+      v => parseInt(v, 10),
+      EMERGENCY_LIMIT_UNITS,
+    )
     .action(
       async (
         address: Promise<undefined | PublicKey>,
         {
           authority,
+          computeUnitLimit,
         }: {
           authority?: Promise<WalletInterface | PublicKey>
+          computeUnitLimit: number
         },
       ) => {
         await manageEmergencyPauseAndResume({
           action: 'pause',
           address: (await address) ?? MARINADE_CONFIG_ADDRESS,
           authority: await authority,
+          computeUnitLimit,
         })
       },
     )
@@ -64,19 +73,28 @@ export function installEmergencyResume(program: Command) {
       'Pause authority with permission to resume the contract (default: wallet)',
       parseWalletOrPubkey,
     )
+    .option(
+      '--compute-unit-limit <number>',
+      'Compute unit limit for the transaction',
+      v => parseInt(v, 10),
+      EMERGENCY_LIMIT_UNITS,
+    )
     .action(
       async (
         address: Promise<undefined | PublicKey>,
         {
           authority,
+          computeUnitLimit,
         }: {
           authority?: Promise<WalletInterface | PublicKey>
+          computeUnitLimit: number
         },
       ) => {
         await manageEmergencyPauseAndResume({
           action: 'resume',
           address: (await address) ?? MARINADE_CONFIG_ADDRESS,
           authority: await authority,
+          computeUnitLimit,
         })
       },
     )
@@ -86,10 +104,12 @@ async function manageEmergencyPauseAndResume({
   action,
   address,
   authority,
+  computeUnitLimit,
 }: {
   action: 'pause' | 'resume'
   address: PublicKey
   authority?: WalletInterface | PublicKey
+  computeUnitLimit: number
 }) {
   const {
     program,
@@ -137,7 +157,7 @@ async function manageEmergencyPauseAndResume({
     errMessage: `'Failed to ${action} validator bonds contract config account ${address.toBase58()}`,
     signers,
     logger,
-    computeUnitLimit: EMERGENCY_LIMIT_UNITS,
+    computeUnitLimit,
     computeUnitPrice,
     simulate,
     printOnly,
