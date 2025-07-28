@@ -62,7 +62,7 @@ describe('CLI init bond account (institutional)', () => {
       }),
     )
     await provider.sendAndConfirm!(tx)
-    await expect(
+    expect(
       await provider.connection.getBalance(rentPayerKeypair.publicKey),
     ).toStrictEqual(rentPayerFunds)
   })
@@ -110,7 +110,7 @@ describe('CLI init bond account (institutional)', () => {
     expect(bondsData.voteAccount).toEqual(voteAccount)
     expect(bondsData.authority).toEqual(bondAuthority.publicKey)
     expect(bondsData.bump).toEqual(bump)
-    await expect(
+    expect(
       await provider.connection.getBalance(rentPayerKeypair.publicKey),
     ).toBeLessThan(rentPayerFunds)
   })

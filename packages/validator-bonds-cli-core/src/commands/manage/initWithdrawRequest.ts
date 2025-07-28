@@ -30,7 +30,10 @@ import {
   formatToSolWithAll,
   getBondFromAddress,
 } from '../../utils'
-import { INIT_WITHDRAW_REQUEST_LIMIT_UNITS } from '../../computeUnits'
+import {
+  INIT_WITHDRAW_REQUEST_LIMIT_UNITS,
+  computeUnitLimitOption,
+} from '../../computeUnits'
 import { Logger } from 'pino'
 
 export function configureInitWithdrawRequest(program: Command): Command {
@@ -72,6 +75,7 @@ export function configureInitWithdrawRequest(program: Command): Command {
       'Rent payer for the account creation (default: wallet keypair)',
       parseWalletOrPubkey,
     )
+    .addOption(computeUnitLimitOption(INIT_WITHDRAW_REQUEST_LIMIT_UNITS))
 }
 
 export async function manageInitWithdrawRequest({
@@ -81,6 +85,7 @@ export async function manageInitWithdrawRequest({
   authority,
   amount,
   rentPayer,
+  computeUnitLimit,
 }: {
   address?: PublicKey
   config: PublicKey
@@ -88,6 +93,7 @@ export async function manageInitWithdrawRequest({
   authority?: WalletInterface | PublicKey
   amount: string
   rentPayer?: WalletInterface | PublicKey
+  computeUnitLimit: number
 }) {
   const {
     program,
@@ -192,7 +198,7 @@ export async function manageInitWithdrawRequest({
       errMessage: `Failed to initialize withdraw request ${withdrawRequestAccount.toBase58()}`,
       signers,
       logger,
-      computeUnitLimit: INIT_WITHDRAW_REQUEST_LIMIT_UNITS,
+      computeUnitLimit,
       computeUnitPrice,
       simulate,
       printOnly,

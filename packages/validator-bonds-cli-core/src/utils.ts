@@ -372,9 +372,9 @@ export async function isExpectedAnchorTransactionError(
     if (err.cause !== null && err.cause instanceof SendTransactionError) {
       const sendTransactionError = err.cause
       const parsedCustomError =
-        sendTransactionError.transactionError.message.match(
-          /custom program error: 0x([0-9a-fA-F]+)/,
-        )
+        sendTransactionError.transactionError?.message
+          ?.toString()
+          .match(/custom program error: 0x([0-9a-fA-F]+)/) ?? null
       const decimalValue =
         parsedCustomError !== null ? parseInt(parsedCustomError[1], 16) : null
       if (decimalValue !== null) {

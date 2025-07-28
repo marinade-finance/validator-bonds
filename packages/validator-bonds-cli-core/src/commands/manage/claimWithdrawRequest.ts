@@ -19,7 +19,10 @@ import {
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
 import { getWithdrawRequestFromAddress } from '../../utils'
-import { CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS } from '../../computeUnits'
+import {
+  CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS,
+  computeUnitLimitOption,
+} from '../../computeUnits'
 import { BN } from 'bn.js'
 
 export function configureClaimWithdrawRequest(program: Command): Command {
@@ -73,6 +76,7 @@ export function configureClaimWithdrawRequest(program: Command): Command {
         'using this parameter enforces direct use of the stake account.',
       parsePubkey,
     )
+    .addOption(computeUnitLimitOption(CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS))
 }
 
 export async function manageClaimWithdrawRequest({
@@ -83,6 +87,7 @@ export async function manageClaimWithdrawRequest({
   withdrawer,
   splitStakeRentPayer,
   stakeAccount,
+  computeUnitLimit,
 }: {
   address?: PublicKey
   config?: PublicKey
@@ -91,6 +96,7 @@ export async function manageClaimWithdrawRequest({
   withdrawer?: PublicKey
   splitStakeRentPayer?: WalletInterface | PublicKey
   stakeAccount?: PublicKey
+  computeUnitLimit: number
 }) {
   const {
     program,
@@ -211,7 +217,7 @@ export async function manageClaimWithdrawRequest({
     errMessage: `Failed to claim withdraw requests ${withdrawRequestAddress.toBase58()}`,
     signers,
     logger,
-    computeUnitLimit: CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS,
+    computeUnitLimit,
     computeUnitPrice,
     simulate,
     printOnly,

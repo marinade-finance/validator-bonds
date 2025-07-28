@@ -4,6 +4,7 @@ import { PublicKey, Signer } from '@solana/web3.js'
 import { Wallet, executeTx, transaction } from '@marinade.finance/web3js-common'
 import {
   CLOSE_SETTLEMENT_LIMIT_UNITS,
+  computeUnitLimitOption,
   setProgramIdByOwner,
 } from '@marinade.finance/validator-bonds-cli-core'
 import {
@@ -27,18 +28,22 @@ export function installCloseSettlement(program: Command) {
         'When not provided the blockchain is parsed to find some.',
       parseWalletOrPubkey,
     )
+    .addOption(computeUnitLimitOption(CLOSE_SETTLEMENT_LIMIT_UNITS))
     .action(
       async (
         address: Promise<PublicKey>,
         {
           refundStakeAccount,
+          computeUnitLimit,
         }: {
           refundStakeAccount?: Promise<PublicKey>
+          computeUnitLimit: number
         },
       ) => {
         await manageCloseSettlement({
           address: await address,
           refundStakeAccount: await refundStakeAccount,
+          computeUnitLimit,
         })
       },
     )
@@ -47,9 +52,11 @@ export function installCloseSettlement(program: Command) {
 export async function manageCloseSettlement({
   address,
   refundStakeAccount,
+  computeUnitLimit,
 }: {
   address: PublicKey
   refundStakeAccount?: PublicKey
+  computeUnitLimit: number
 }) {
   const {
     program,
@@ -81,7 +88,6 @@ export async function manageCloseSettlement({
 
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]
-  const computeUnitLimit = CLOSE_SETTLEMENT_LIMIT_UNITS
   tx.add(instruction)
 
   logger.info(`Closing settlement account ${address.toBase58()}`)

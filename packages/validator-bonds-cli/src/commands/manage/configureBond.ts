@@ -40,6 +40,7 @@ export function installConfigureBond(program: Command) {
           bondAuthority,
           cpmpe,
           maxStakeWanted,
+          computeUnitLimit,
         }: {
           config?: Promise<PublicKey>
           voteAccount?: Promise<PublicKey>
@@ -48,6 +49,7 @@ export function installConfigureBond(program: Command) {
           bondAuthority?: Promise<PublicKey>
           cpmpe?: BN
           maxStakeWanted?: BN
+          computeUnitLimit?: number
         },
       ) => {
         await manageConfigureBond({
@@ -59,6 +61,7 @@ export function installConfigureBond(program: Command) {
           newBondAuthority: await bondAuthority,
           cpmpe,
           maxStakeWanted,
+          computeUnitLimit,
         })
       },
     )
