@@ -19,7 +19,10 @@ import {
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
 import { getWithdrawRequestFromAddress } from '../../utils'
-import { CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS } from '../../computeUnits'
+import {
+  CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS,
+  computeUnitLimitOption,
+} from '../../computeUnits'
 import { BN } from 'bn.js'
 
 export function configureClaimWithdrawRequest(program: Command): Command {
@@ -73,12 +76,7 @@ export function configureClaimWithdrawRequest(program: Command): Command {
         'using this parameter enforces direct use of the stake account.',
       parsePubkey,
     )
-    .option(
-      '--compute-unit-limit <number>',
-      'Compute unit limit for the transaction',
-      v => parseInt(v, 10),
-      CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS,
-    )
+    .addOption(computeUnitLimitOption(CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS))
 }
 
 export async function manageClaimWithdrawRequest({

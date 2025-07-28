@@ -5,7 +5,10 @@ import {
 } from '@marinade.finance/cli-common'
 import { Keypair, PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
-import { getCliContext } from '@marinade.finance/validator-bonds-cli-core'
+import {
+  computeUnitLimitOption,
+  getCliContext,
+} from '@marinade.finance/validator-bonds-cli-core'
 import {
   Wallet,
   executeTx,
@@ -58,12 +61,7 @@ export function installInitConfig(program: Command) {
       v => parseInt(v, 10),
       0,
     )
-    .option(
-      '--compute-unit-limit <number>',
-      'Compute unit limit for the transaction',
-      v => parseInt(v, 10),
-      INIT_CONFIG_LIMIT_UNITS,
-    )
+    .addOption(computeUnitLimitOption(INIT_CONFIG_LIMIT_UNITS))
     .action(
       async ({
         address,

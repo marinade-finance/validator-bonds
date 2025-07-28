@@ -15,7 +15,10 @@ import { cancelWithdrawRequestInstruction } from '@marinade.finance/validator-bo
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { getWithdrawRequestFromAddress } from '../../utils'
-import { CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS } from '../../computeUnits'
+import {
+  CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS,
+  computeUnitLimitOption,
+} from '../../computeUnits'
 
 export function configureCancelWithdrawRequest(program: Command): Command {
   return program
@@ -50,12 +53,7 @@ export function configureCancelWithdrawRequest(program: Command): Command {
       'Collector of rent from initialized withdraw request account (default: wallet pubkey)',
       parsePubkeyOrPubkeyFromWallet,
     )
-    .option(
-      '--compute-unit-limit <number>',
-      'Compute unit limit for the transaction',
-      v => parseInt(v, 10),
-      CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS,
-    )
+    .addOption(computeUnitLimitOption(CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS))
 }
 
 export async function manageCancelWithdrawRequest({

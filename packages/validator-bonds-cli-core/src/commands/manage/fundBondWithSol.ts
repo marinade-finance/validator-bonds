@@ -22,7 +22,10 @@ import {
   StakeProgram,
 } from '@solana/web3.js'
 import { formatToSol, getBondFromAddress } from '../../utils'
-import { FUND_BOND_WITH_SOL_LIMIT_UNITS } from '../../computeUnits'
+import {
+  FUND_BOND_WITH_SOL_LIMIT_UNITS,
+  computeUnitLimitOption,
+} from '../../computeUnits'
 import BN from 'bn.js'
 import { failIfUnexpectedFundingError } from './fundBond'
 
@@ -49,12 +52,7 @@ export function configureFundBondWithSol(program: Command): Command {
         '(default: wallet keypair)',
       parseWalletOrPubkey,
     )
-    .option(
-      '--compute-unit-limit <number>',
-      'Compute unit limit for the transaction',
-      v => parseInt(v, 10),
-      FUND_BOND_WITH_SOL_LIMIT_UNITS,
-    )
+    .addOption(computeUnitLimitOption(FUND_BOND_WITH_SOL_LIMIT_UNITS))
 }
 
 export async function manageFundBondWithSol({

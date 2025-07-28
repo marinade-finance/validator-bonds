@@ -1,7 +1,10 @@
 import { parsePubkey, parseWalletOrPubkey } from '@marinade.finance/cli-common'
 import { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
 import { Command } from 'commander'
-import { setProgramIdByOwner } from '@marinade.finance/validator-bonds-cli-core'
+import {
+  computeUnitLimitOption,
+  setProgramIdByOwner,
+} from '@marinade.finance/validator-bonds-cli-core'
 import {
   Wallet,
   executeTx,
@@ -31,12 +34,7 @@ export function installEmergencyPause(program: Command) {
       'Pause authority with permission to pause the contract (default: wallet)',
       parseWalletOrPubkey,
     )
-    .option(
-      '--compute-unit-limit <number>',
-      'Compute unit limit for the transaction',
-      v => parseInt(v, 10),
-      EMERGENCY_LIMIT_UNITS,
-    )
+    .addOption(computeUnitLimitOption(EMERGENCY_LIMIT_UNITS))
     .action(
       async (
         address: Promise<undefined | PublicKey>,
@@ -73,12 +71,7 @@ export function installEmergencyResume(program: Command) {
       'Pause authority with permission to resume the contract (default: wallet)',
       parseWalletOrPubkey,
     )
-    .option(
-      '--compute-unit-limit <number>',
-      'Compute unit limit for the transaction',
-      v => parseInt(v, 10),
-      EMERGENCY_LIMIT_UNITS,
-    )
+    .addOption(computeUnitLimitOption(EMERGENCY_LIMIT_UNITS))
     .action(
       async (
         address: Promise<undefined | PublicKey>,

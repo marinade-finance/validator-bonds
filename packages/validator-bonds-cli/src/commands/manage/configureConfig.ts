@@ -5,7 +5,10 @@ import {
 } from '@marinade.finance/cli-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
-import { setProgramIdByOwner } from '@marinade.finance/validator-bonds-cli-core'
+import {
+  computeUnitLimitOption,
+  setProgramIdByOwner,
+} from '@marinade.finance/validator-bonds-cli-core'
 import {
   Wallet,
   executeTx,
@@ -79,12 +82,7 @@ export function installConfigureConfig(program: Command) {
       'New value of minimum for max-stake-wanted field, in lamports, configured by validators in bond.',
       value => toBN(value),
     )
-    .option(
-      '--compute-unit-limit <number>',
-      'Compute unit limit for the transaction',
-      v => parseInt(v, 10),
-      CONFIGURE_CONFIG_LIMIT_UNITS,
-    )
+    .addOption(computeUnitLimitOption(CONFIGURE_CONFIG_LIMIT_UNITS))
     .action(
       async (
         address: Promise<undefined | PublicKey>,

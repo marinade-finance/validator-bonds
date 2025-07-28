@@ -8,6 +8,7 @@ import { PublicKey, Signer } from '@solana/web3.js'
 import { Wallet, executeTx, transaction } from '@marinade.finance/web3js-common'
 import {
   RESET_STAKE_LIMIT_UNITS,
+  computeUnitLimitOption,
   setProgramIdByOwner,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { resetStakeInstruction } from '@marinade.finance/validator-bonds-sdk'
@@ -30,12 +31,7 @@ export function installResetStake(program: Command) {
       'Bond account that the closed settlement account was associated with.',
       parseWalletOrPubkey,
     )
-    .option(
-      '--compute-unit-limit <number>',
-      'Compute unit limit for the transaction',
-      v => parseInt(v, 10),
-      RESET_STAKE_LIMIT_UNITS,
-    )
+    .addOption(computeUnitLimitOption(RESET_STAKE_LIMIT_UNITS))
     .action(
       async (
         address: Promise<PublicKey>,

@@ -19,7 +19,10 @@ import {
 } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
-import { INIT_BOND_LIMIT_UNITS } from '../../computeUnits'
+import {
+  INIT_BOND_LIMIT_UNITS,
+  computeUnitLimitOption,
+} from '../../computeUnits'
 import BN from 'bn.js'
 import { Logger } from 'pino'
 
@@ -50,12 +53,7 @@ export function configureInitBond(program: Command): Command {
       'Rent payer for the account creation (default: wallet keypair)',
       parseWalletOrPubkey,
     )
-    .option(
-      '--compute-unit-limit <number>',
-      'Compute unit limit for the transaction (default value based on the operation type)',
-      v => parseInt(v, 10),
-      INIT_BOND_LIMIT_UNITS,
-    )
+    .addOption(computeUnitLimitOption(INIT_BOND_LIMIT_UNITS))
 }
 
 export async function manageInitBond({

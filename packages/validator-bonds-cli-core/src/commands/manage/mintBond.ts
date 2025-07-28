@@ -11,7 +11,10 @@ import {
 import { mintBondInstruction } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { getBondFromAddress } from '../../utils'
-import { MINT_BOND_LIMIT_UNITS } from '../../computeUnits'
+import {
+  MINT_BOND_LIMIT_UNITS,
+  computeUnitLimitOption,
+} from '../../computeUnits'
 
 export function configureMintBond(program: Command) {
   return program
@@ -33,12 +36,7 @@ export function configureMintBond(program: Command) {
       'Rent payer for the mint token account creation (default: wallet keypair)',
       parseWalletOrPubkey,
     )
-    .option(
-      '--compute-unit-limit <number>',
-      'Compute unit limit for the transaction (default value based on the operation type)',
-      v => parseInt(v, 10),
-      MINT_BOND_LIMIT_UNITS,
-    )
+    .addOption(computeUnitLimitOption(MINT_BOND_LIMIT_UNITS))
 }
 
 export async function manageMintBond({

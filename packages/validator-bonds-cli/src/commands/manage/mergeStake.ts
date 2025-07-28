@@ -1,7 +1,10 @@
 import { parsePubkey } from '@marinade.finance/cli-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
-import { setProgramIdByOwner } from '@marinade.finance/validator-bonds-cli-core'
+import {
+  computeUnitLimitOption,
+  setProgramIdByOwner,
+} from '@marinade.finance/validator-bonds-cli-core'
 import { Wallet, executeTx, transaction } from '@marinade.finance/web3js-common'
 import {
   MARINADE_CONFIG_ADDRESS,
@@ -37,12 +40,7 @@ export function installStakeMerge(program: Command) {
       'Settlement account address used to derive stake accounts authority. (default: not used)',
       parsePubkey,
     )
-    .option(
-      '--compute-unit-limit <number>',
-      'Compute unit limit for the transaction',
-      v => parseInt(v, 10),
-      MERGE_STAKE_LIMIT_UNITS,
-    )
+    .addOption(computeUnitLimitOption(MERGE_STAKE_LIMIT_UNITS))
     .action(
       async ({
         source,

@@ -4,6 +4,7 @@ import { PublicKey, Signer } from '@solana/web3.js'
 import { Wallet, executeTx, transaction } from '@marinade.finance/web3js-common'
 import {
   CLOSE_SETTLEMENT_LIMIT_UNITS,
+  computeUnitLimitOption,
   setProgramIdByOwner,
 } from '@marinade.finance/validator-bonds-cli-core'
 import {
@@ -27,12 +28,7 @@ export function installCloseSettlement(program: Command) {
         'When not provided the blockchain is parsed to find some.',
       parseWalletOrPubkey,
     )
-    .option(
-      '--compute-unit-limit <number>',
-      'Compute unit limit for the transaction',
-      v => parseInt(v, 10),
-      CLOSE_SETTLEMENT_LIMIT_UNITS,
-    )
+    .addOption(computeUnitLimitOption(CLOSE_SETTLEMENT_LIMIT_UNITS))
     .action(
       async (
         address: Promise<PublicKey>,

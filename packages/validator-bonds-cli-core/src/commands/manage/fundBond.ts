@@ -23,7 +23,10 @@ import {
   getBondFromAddress,
   isExpectedAnchorTransactionError,
 } from '../../utils'
-import { FUND_BOND_LIMIT_UNITS } from '../../computeUnits'
+import {
+  FUND_BOND_LIMIT_UNITS,
+  computeUnitLimitOption,
+} from '../../computeUnits'
 import { Logger } from 'pino'
 
 export function configureFundBond(program: Command): Command {
@@ -49,12 +52,7 @@ export function configureFundBond(program: Command): Command {
         '(default: wallet keypair)',
       parseWalletOrPubkey,
     )
-    .option(
-      '--compute-unit-limit <number>',
-      'Compute unit limit for the transaction (default value based on the operation type)',
-      v => parseInt(v, 10),
-      FUND_BOND_LIMIT_UNITS,
-    )
+    .addOption(computeUnitLimitOption(FUND_BOND_LIMIT_UNITS))
 }
 
 export async function manageFundBond({
