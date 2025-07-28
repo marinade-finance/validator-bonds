@@ -6,6 +6,7 @@ use log::info;
 
 use crate::settlement_config::InstitutionalDistributionConfig;
 use bid_psr_distribution::stake_meta_index::StakeMetaIndex;
+use bid_psr_distribution::utils::sort_claims_deterministically;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
@@ -130,7 +131,13 @@ fn generate_institutional_settlements(
         }
     }
 
-    settlements.into_values().collect()
+    settlements
+        .into_values()
+        .map(|mut settlement| {
+            sort_claims_deterministically(&mut settlement.claims);
+            settlement
+        })
+        .collect()
 }
 
 #[cfg(test)]
