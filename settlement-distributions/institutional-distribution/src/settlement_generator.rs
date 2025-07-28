@@ -131,11 +131,13 @@ fn generate_institutional_settlements(
         }
     }
 
-    let mut settlements_vec: Vec<Settlement> = settlements.into_values().collect();
-    settlements_vec.iter_mut().for_each(|settlement| {
-        sort_claims_deterministically(&mut settlement.claims);
-    });
-    settlements_vec
+    settlements
+        .into_values()
+        .map(|mut settlement| {
+            sort_claims_deterministically(&mut settlement.claims);
+            settlement
+        })
+        .collect()
 }
 
 #[cfg(test)]

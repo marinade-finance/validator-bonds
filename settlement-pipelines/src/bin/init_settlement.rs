@@ -178,13 +178,12 @@ async fn load_on_chain_data(
             settlement_records_per_epoch.keys().len()
         )));
     }
-    if let Some(settlement_records) = settlement_records_per_epoch.into_iter().next() {
+    if let Some((epoch, records)) = settlement_records_per_epoch.into_iter().next() {
         debug!(
-            "Loaded {} settlement records for epoch {}",
-            settlement_records.1.len(),
-            settlement_records.0
+            "Loaded {} settlement records for epoch {epoch}",
+            records.len(),
         );
-        Ok(settlement_records.1)
+        Ok(records)
     } else {
         Err(CliError::Critical(anyhow!(
             "Loading Settlements from JSON data failed to get Settlement records"
