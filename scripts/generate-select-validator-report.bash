@@ -79,7 +79,8 @@ declare -A staker_payouts
 while IFS='|' read -r vote_account payout_lamports; do
     if [[ -n "$vote_account" && "$vote_account" != "null" ]]; then
         current_total="${staker_payouts[$vote_account]:-0}"
-        staker_payouts["$vote_account"]=$(awk "BEGIN {print $current_total + $payout_lamports}")
+        staker_payout=$(LC_NUMERIC=C awk "BEGIN {printf \"%.0f\", $current_total + $payout_lamports}")
+        staker_payouts["$vote_account"]="$staker_payout"
     fi
 done < <(<"$json_file" jq -r '.payoutStakers[] | "\(.voteAccount)|\(.payoutLamports // "0")"')
 
