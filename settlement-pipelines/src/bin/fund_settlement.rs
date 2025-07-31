@@ -44,6 +44,7 @@ use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::Arc;
 use validator_bonds::state::config::{find_bonds_withdrawer_authority, Config};
 use validator_bonds::ID as validator_bonds_id;
@@ -202,6 +203,18 @@ async fn prepare_funding(
         collect_stake_accounts(rpc_client.clone(), Some(&withdrawer_authority), None)
             .await
             .map_err(CliError::retry_able)?;
+    let problematic = Pubkey::from_str("HC1NSDR9cbBeQ8V1XJ62VNceUAbjGdnCcH7f5wVFVZw3").unwrap();
+    all_stake_accounts.iter().for_each(|(p, a, s)| match s {
+        StakeStateV2::Stake(m, s, _) => {
+            if s.delegation.voter_pubkey == problematic {
+                info!(
+                    "HERE: p: {p}, amount: {a}, del: {:?}, meta: {:?}",
+                    s.delegation, m
+                );
+            }
+        }
+        _ => {}
+    });
 
     let clock = get_clock(rpc_client.clone())
         .await
