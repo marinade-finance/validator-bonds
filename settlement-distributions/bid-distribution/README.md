@@ -29,6 +29,9 @@ cargo run --release --bin bid-distribution-cli -- \
     --marinade-fee-bps 5000 \
     --marinade-fee-stake-authority 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB \
     --marinade-fee-withdraw-authority 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB \
+    --dao-fee-split-share-bps 5000 \
+    --dao-fee-stake-authority 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB \
+    --dao-fee-withdraw-authority 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB \
     --output-settlement-collection bid-distribution-settlements.json \
     --output-merkle-tree-collection bid-distribution-settlement-merkle-trees.json
 ```
