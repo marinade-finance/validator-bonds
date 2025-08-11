@@ -152,7 +152,7 @@ get_next_funder() {
     fi
 }
 
-echo "Num.  | Vote Account                                 | Max Claim Sum | Claims Sum    | Claims | Claim Stake       | Reason                     | Funder"
+echo "Num.  | Vote Account                                 | Max Claim Sum | Claims Sum    | Claims | Active Stake      | Reason                     | Funder      "
 echo "------+----------------------------------------------+---------------+---------------+--------+-------------------+----------------------------+-------------"
 
 counter=1

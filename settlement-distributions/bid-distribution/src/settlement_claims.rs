@@ -204,7 +204,7 @@ pub fn generate_bid_settlements(
                         stake_authority: *settlement_config.marinade_stake_authority(),
                         stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
                         claim_amount: marinade_fee_claim,
-                        active_stake: total_active_stake,
+                        active_stake: marinade_fee_deposit_stake_accounts.values().sum(),
                     });
                     claims_amount += marinade_fee_claim;
 
@@ -219,7 +219,7 @@ pub fn generate_bid_settlements(
                         stake_authority: *settlement_config.marinade_stake_authority(),
                         stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
                         claim_amount: marinade_bid_penalty_claim,
-                        active_stake: total_active_stake,
+                        active_stake: marinade_fee_deposit_stake_accounts.values().sum(),
                     });
                     claimed_bid_penalty_amount += marinade_bid_penalty_claim;
 
