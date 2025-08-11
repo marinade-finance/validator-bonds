@@ -68,6 +68,7 @@ pub fn generate_settlements(
 
             sort_claims_deterministically(&mut claims);
 
+            // Adding a "NULL claim" to the claims vector
             // To distinguish between Validator and Marinade funders in cases where both are funding the same amount
             // (i.e., the Merkle root would be identical), we add a 'null' claim with a zero amount
             if settlement_config.meta().funder == SettlementFunder::Marinade {

@@ -12,7 +12,8 @@ bucket=marinade-validator-bonds-mainnet
 gcloud storage cp "gs://$bucket/$epoch/stakes.json" "stakes.json"
 
 # Download input files from Github
-curl https://raw.githubusercontent.com/marinade-finance/ds-sam-pipeline/refs/heads/main/auctions/${epoch}.17265/outputs/results.json | jq '.auctionData.stakeAmounts as $s | .auctionData.validators | map(. + .auctionStake + { metadata: { scoringId: "0", delegationStrategyMndeVotes: 0, scoringConfig: "{}", tvl: $s }, maxStakeWanted: (.maxStakeWanted + 0), effectiveBid: (.revShare.auctionEffectiveBidPmpe + 0), constraints: (.lastCapConstraints.constraintType|tostring), scoringRunId: 0, epoch: '$epoch'})' > sam-scores.json
+result_number=... # e.g. 17265, verify at https://github.com/marinade-finance/ds-sam-pipeline/tree/main/auctions
+curl https://raw.githubusercontent.com/marinade-finance/ds-sam-pipeline/refs/heads/main/auctions/${epoch}.${result_number}/outputs/results.json | jq '.auctionData.stakeAmounts as $s | .auctionData.validators | map(. + .auctionStake + { metadata: { scoringId: "0", delegationStrategyMndeVotes: 0, scoringConfig: "{}", tvl: $s }, maxStakeWanted: (.maxStakeWanted + 0), effectiveBid: (.revShare.auctionEffectiveBidPmpe + 0), constraints: (.lastCapConstraints.constraintType|tostring), scoringRunId: 0, epoch: '$epoch'})' > sam-scores.json
 
 # Or from the scoring api
 curl scoring.marinade.finance/api/v1/scores/sam?epoch=${epoch} > sam-scores.json
@@ -22,6 +23,9 @@ curl scoring.marinade.finance/api/v1/scores/sam?epoch=${epoch} > sam-scores.json
 ### 2. Generating Bidding Settlements
 
 ```bash
+# See prepare-bid-distribution.yaml
+export WHITELIST_STAKE_AUTHORITY='stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N'
+
 # Build & run
 cargo run --release --bin bid-distribution-cli -- \
     --sam-meta-collection sam-scores.json \
