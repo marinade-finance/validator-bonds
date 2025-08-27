@@ -27,6 +27,16 @@ struct Args {
     #[arg(long, env)]
     marinade_fee_withdraw_authority: Pubkey,
 
+    // DAO share of the total Marinade (distributor) fee
+    #[arg(long, env)]
+    dao_fee_split_share_bps: u64,
+
+    #[arg(long, env)]
+    dao_fee_stake_authority: Pubkey,
+
+    #[arg(long, env)]
+    dao_fee_withdraw_authority: Pubkey,
+
     #[arg(long, env)]
     output_settlement_collection: String,
 
@@ -40,6 +50,11 @@ fn main() -> anyhow::Result<()> {
 
     info!("Starting Institutional Payout Settlements calculation...");
     let args: Args = Args::parse();
+
+    info!(
+        "DAO fee split share bps {:?} loaded",
+        &args.dao_fee_split_share_bps
+    );
 
     info!("Loading Institutional Payout collection...");
     let institutional_payouts: InstitutionalPayout =
@@ -58,8 +73,11 @@ fn main() -> anyhow::Result<()> {
     let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
 
     let config = InstitutionalDistributionConfig::new(ConfigParams {
-        stake_authority: args.marinade_fee_stake_authority,
-        withdraw_authority: args.marinade_fee_withdraw_authority,
+        marinade_stake_authority: args.marinade_fee_stake_authority,
+        marinade_withdraw_authority: args.marinade_fee_withdraw_authority,
+        dao_fee_split_share_bps: args.dao_fee_split_share_bps,
+        dao_stake_authority: args.dao_fee_stake_authority,
+        dao_withdraw_authority: args.dao_fee_withdraw_authority,
         snapshot_slot: institutional_payouts.slot,
     });
 
