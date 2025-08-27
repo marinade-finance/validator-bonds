@@ -1,9 +1,10 @@
 use crate::protected_events::ProtectedEventCollection;
 use crate::settlement_collection::{
-    Settlement, SettlementClaim, SettlementCollection, SettlementReason,
+    Settlement, SettlementClaim, SettlementCollection, SettlementFunder, SettlementReason,
 };
 use crate::settlement_config::{build_protected_event_matcher, SettlementConfig};
 use crate::stake_meta_index::StakeMetaIndex;
+use crate::utils::sort_claims_deterministically;
 use log::{debug, info};
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
@@ -63,6 +64,22 @@ pub fn generate_settlements(
                     });
                     claims_amount += claim_amount;
                 }
+            }
+
+            sort_claims_deterministically(&mut claims);
+
+            // Adding a "NULL claim" to the claims vector
+            // To distinguish between Validator and Marinade funders in cases where both are funding the same amount
+            // (i.e., the Merkle root would be identical), we add a 'null' claim with a zero amount
+            if settlement_config.meta().funder == SettlementFunder::Marinade {
+                claims.push(SettlementClaim {
+                    withdraw_authority: Pubkey::default(),
+                    stake_authority: Pubkey::default(),
+                    stake_accounts: HashMap::new(),
+                    active_stake: 0,
+                    claim_amount: 0,
+                });
+                claims_amount += 0;
             }
 
             if claims_amount >= settlement_config.min_settlement_lamports() {

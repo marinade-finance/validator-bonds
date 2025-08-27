@@ -131,17 +131,23 @@ export function launchCliProgram({
           ? err.messageWithTransactionError()
           : err.message,
       )
-      logger.debug({ resolution: 'Failure', err, args: process.argv })
+      logger.debug({
+        resolution: 'Failure',
+        err,
+        error_stack:
+          err instanceof Error ? JSON.stringify(err.stack, null, 2) : undefined,
+        args: process.argv,
+      })
 
       // Check for the latest version to inform user to update
       fetchLatestVersionInNpmRegistry(logger, npmRegistryUrl)
-        .then(latestVersion => {
+        .then(npmData => {
           if (
-            compareVersions(program.version() ?? '0.0.0', latestVersion) < 0
+            compareVersions(program.version() ?? '0.0.0', npmData.version) < 0
           ) {
             logger.error(
-              `CLI version ${program.version()} is lower than the latest available version: ${latestVersion}. Please consider updating it:\n` +
-                '  npm install -g @marinade.finance/validator-bonds-cli',
+              `CLI version ${program.version()} is lower than the latest available version: ${npmData.version}. Please consider updating it:\n` +
+                `  npm install -g ${npmData.name}@latest\n`,
             )
           }
         })

@@ -1,26 +1,31 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { Logger } from 'pino'
+
+export type NpmPackageData = {
+  name: string
+  version: string
+}
 
 export async function fetchLatestVersionInNpmRegistry(
   logger: Logger,
   npmRegistryUrl: string,
-): Promise<string> {
+): Promise<NpmPackageData> {
   try {
     const fetched = await fetch(npmRegistryUrl, {
       method: 'GET',
     })
     const fetchedJson = await fetched.json()
+    const name: string = (fetchedJson as any).name
     const versionsData: any[] = (fetchedJson as any).versions
     const versions = Object.keys(versionsData) // ['1.0.0', 1.0.1', '1.0.2']
     const sortedVersions = versions.sort(compareVersions)
     const latestVersion = sortedVersions[sortedVersions.length - 1]
-    return latestVersion
+    return { name, version: latestVersion }
   } catch (err) {
     logger.debug(
       `Failed to fetch latest version from NPM registry ${npmRegistryUrl}: ${err}`,
     )
-    return '0.0.0'
+    return { name: '@marinade.finance/validator-bonds-...', version: '0.0.0' }
   }
 }
 

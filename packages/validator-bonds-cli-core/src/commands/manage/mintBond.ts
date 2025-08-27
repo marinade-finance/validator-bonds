@@ -11,7 +11,10 @@ import {
 import { mintBondInstruction } from '@marinade.finance/validator-bonds-sdk'
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { getBondFromAddress } from '../../utils'
-import { MINT_BOND_LIMIT_UNITS } from '../../computeUnits'
+import {
+  MINT_BOND_LIMIT_UNITS,
+  computeUnitLimitOption,
+} from '../../computeUnits'
 
 export function configureMintBond(program: Command) {
   return program
@@ -33,6 +36,7 @@ export function configureMintBond(program: Command) {
       'Rent payer for the mint token account creation (default: wallet keypair)',
       parseWalletOrPubkey,
     )
+    .addOption(computeUnitLimitOption(MINT_BOND_LIMIT_UNITS))
 }
 
 export async function manageMintBond({
@@ -40,11 +44,13 @@ export async function manageMintBond({
   config,
   voteAccount,
   rentPayer,
+  computeUnitLimit,
 }: {
   address: PublicKey
   config: PublicKey
   voteAccount?: PublicKey
   rentPayer?: WalletInterface | PublicKey
+  computeUnitLimit: number
 }) {
   const {
     program,
@@ -98,7 +104,7 @@ export async function manageMintBond({
     errMessage: `'Failed to mint token for bond ${bondAccount.toBase58()}`,
     signers,
     logger,
-    computeUnitLimit: MINT_BOND_LIMIT_UNITS,
+    computeUnitLimit,
     computeUnitPrice,
     simulate,
     printOnly,

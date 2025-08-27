@@ -24,10 +24,12 @@ export function installFundBond(program: Command) {
           config,
           stakeAccount,
           stakeAuthority,
+          computeUnitLimit,
         }: {
           config?: Promise<PublicKey>
           stakeAccount: Promise<PublicKey>
           stakeAuthority?: Promise<WalletInterface | PublicKey>
+          computeUnitLimit: number
         },
       ) => {
         await manageFundBond({
@@ -35,6 +37,7 @@ export function installFundBond(program: Command) {
           config: await config,
           stakeAccount: await stakeAccount,
           stakeAuthority: await stakeAuthority,
+          computeUnitLimit,
         })
       },
     )

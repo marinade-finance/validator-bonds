@@ -4,6 +4,7 @@ use bid_psr_distribution::settlement_collection::{
     Settlement, SettlementClaim, SettlementCollection, SettlementReason,
 };
 use bid_psr_distribution::stake_meta_index::StakeMetaIndex;
+use bid_psr_distribution::utils::sort_claims_deterministically;
 use log::info;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
@@ -62,11 +63,8 @@ pub fn generate_bid_settlements(
             let effective_bid = validator.effective_bid / Decimal::ONE_THOUSAND;
             let bid_too_low_penalty =
                 validator.rev_share.bid_too_low_penalty_pmpe / Decimal::ONE_THOUSAND;
-            let blacklist_penalty = validator
-                .rev_share
-                .blacklist_penalty_pmpe
-                .unwrap_or(Decimal::ZERO)
-                / Decimal::ONE_THOUSAND;
+            let blacklist_penalty =
+                validator.rev_share.blacklist_penalty_pmpe / Decimal::ONE_THOUSAND;
 
             let total_active_stake: u64 = stake_meta_index
                 .iter_grouped_stake_metas(&validator.vote_account)
@@ -241,7 +239,7 @@ pub fn generate_bid_settlements(
                         stake_authority: *settlement_config.marinade_stake_authority(),
                         stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
                         claim_amount: marinade_fee_claim,
-                        active_stake: total_active_stake,
+                        active_stake: marinade_fee_deposit_stake_accounts.values().sum(),
                     });
                     claims_amount += marinade_fee_claim;
 
@@ -274,7 +272,7 @@ pub fn generate_bid_settlements(
                         stake_authority: *settlement_config.marinade_stake_authority(),
                         stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
                         claim_amount: marinade_bid_penalty_claim,
-                        active_stake: total_active_stake,
+                        active_stake: marinade_fee_deposit_stake_accounts.values().sum(),
                     });
                     claimed_bid_penalty_amount += marinade_bid_penalty_claim;
 
@@ -300,6 +298,7 @@ pub fn generate_bid_settlements(
                 }
             }
             if !claims.is_empty() {
+                sort_claims_deterministically(&mut claims);
                 settlement_claim_collections.push(Settlement {
                     reason: SettlementReason::Bidding,
                     meta: settlement_config.meta().clone(),
@@ -310,6 +309,7 @@ pub fn generate_bid_settlements(
                 });
             }
             if !bid_penalty_claims.is_empty() {
+                sort_claims_deterministically(&mut bid_penalty_claims);
                 settlement_claim_collections.push(Settlement {
                     reason: SettlementReason::BidTooLowPenalty,
                     meta: settlement_config.meta().clone(),
@@ -320,6 +320,7 @@ pub fn generate_bid_settlements(
                 });
             }
             if !blacklist_penalty_claims.is_empty() {
+                sort_claims_deterministically(&mut blacklist_penalty_claims);
                 settlement_claim_collections.push(Settlement {
                     reason: SettlementReason::BlacklistPenalty,
                     meta: settlement_config.meta().clone(),

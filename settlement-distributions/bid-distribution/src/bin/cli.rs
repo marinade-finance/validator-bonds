@@ -7,7 +7,7 @@ use bid_psr_distribution::settlement_collection::SettlementMeta;
 use bid_psr_distribution::settlement_config::no_filter;
 use bid_psr_distribution::settlement_config::stake_authorities_filter;
 use bid_psr_distribution::stake_meta_index::StakeMetaIndex;
-use bid_psr_distribution::utils::{read_from_json_file, write_to_json_file};
+use bid_psr_distribution::utils::{file_error, read_from_json_file, write_to_json_file};
 use env_logger::{Builder, Env};
 use snapshot_parser_types::stake_meta::StakeMetaCollection;
 use solana_sdk::pubkey::Pubkey;
@@ -80,12 +80,15 @@ fn main() -> anyhow::Result<()> {
     };
 
     info!("Loading SAM scoring meta collection...");
-    let validator_sam_metas: Vec<ValidatorSamMeta> =
-        read_from_json_file(&args.sam_meta_collection)?;
+    let validator_sam_metas: Vec<ValidatorSamMeta> = read_from_json_file(&args.sam_meta_collection)
+        .map_err(file_error("sam-meta-collection", &args.sam_meta_collection))?;
 
     info!("Loading stake meta collection...");
     let stake_meta_collection: StakeMetaCollection =
-        read_from_json_file(&args.stake_meta_collection)?;
+        read_from_json_file(&args.stake_meta_collection).map_err(file_error(
+            "stake-meta-collection",
+            &args.stake_meta_collection,
+        ))?;
 
     info!("Building stake meta collection index...");
     let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
@@ -113,11 +116,21 @@ fn main() -> anyhow::Result<()> {
         &stake_authority_filter,
         &settlement_config,
     );
-    write_to_json_file(&settlement_collection, &args.output_settlement_collection)?;
+    write_to_json_file(&settlement_collection, &args.output_settlement_collection).map_err(
+        file_error(
+            "output-settlement-collection",
+            &args.output_settlement_collection,
+        ),
+    )?;
 
     info!("Generating merkle tree collection...");
     let merkle_tree_collection = generate_merkle_tree_collection(settlement_collection)?;
-    write_to_json_file(&merkle_tree_collection, &args.output_merkle_tree_collection)?;
+    write_to_json_file(&merkle_tree_collection, &args.output_merkle_tree_collection).map_err(
+        file_error(
+            "output-merkle-tree-collection",
+            &args.output_merkle_tree_collection,
+        ),
+    )?;
 
     info!("Finished.");
     Ok(())

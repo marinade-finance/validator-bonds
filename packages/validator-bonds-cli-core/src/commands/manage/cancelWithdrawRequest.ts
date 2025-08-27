@@ -15,7 +15,10 @@ import { cancelWithdrawRequestInstruction } from '@marinade.finance/validator-bo
 import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { getWithdrawRequestFromAddress } from '../../utils'
-import { CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS } from '../../computeUnits'
+import {
+  CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS,
+  computeUnitLimitOption,
+} from '../../computeUnits'
 
 export function configureCancelWithdrawRequest(program: Command): Command {
   return program
@@ -50,6 +53,7 @@ export function configureCancelWithdrawRequest(program: Command): Command {
       'Collector of rent from initialized withdraw request account (default: wallet pubkey)',
       parsePubkeyOrPubkeyFromWallet,
     )
+    .addOption(computeUnitLimitOption(CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS))
 }
 
 export async function manageCancelWithdrawRequest({
@@ -58,12 +62,14 @@ export async function manageCancelWithdrawRequest({
   voteAccount,
   authority,
   rentCollector,
+  computeUnitLimit,
 }: {
   address?: PublicKey
   config?: PublicKey
   voteAccount?: PublicKey
   authority?: WalletInterface | PublicKey
   rentCollector?: PublicKey
+  computeUnitLimit: number
 }) {
   const {
     program,
@@ -124,7 +130,7 @@ export async function manageCancelWithdrawRequest({
     errMessage: `Failed to cancel withdraw request ${withdrawRequestAccount.toBase58()}`,
     signers,
     logger,
-    computeUnitLimit: CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS,
+    computeUnitLimit,
     computeUnitPrice,
     simulate,
     printOnly,

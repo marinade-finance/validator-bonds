@@ -1,8 +1,10 @@
 import { createTempFileKeypair } from '@marinade.finance/web3js-common'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import {
+  Connection,
   Keypair,
   LAMPORTS_PER_SOL,
+  PublicKey,
   SystemProgram,
   Transaction,
 } from '@solana/web3.js'
@@ -26,12 +28,25 @@ export async function getRentPayer(provider: AnchorExtendedProvider): Promise<{
     }),
   )
   await provider.sendAndConfirm!(tx)
-  await expect(
+  expect(
     await provider.connection.getBalance(rentPayerKeypair.publicKey),
   ).toStrictEqual(rentPayerFunds)
   return {
     keypair: rentPayerKeypair,
     path: rentPayerPath,
     cleanup: cleanupRentPayer,
+  }
+}
+
+export async function airdrop(
+  connection: Connection,
+  publicKey: PublicKey,
+  amount: number = LAMPORTS_PER_SOL,
+): Promise<void> {
+  const signature = await connection.requestAirdrop(publicKey, amount)
+  await connection.confirmTransaction(signature, 'confirmed')
+  const account = await connection.getAccountInfo(publicKey)
+  if (!account) {
+    throw new Error(`Account ${publicKey} not found after airdrop`)
   }
 }

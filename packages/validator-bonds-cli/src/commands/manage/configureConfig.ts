@@ -5,7 +5,10 @@ import {
 } from '@marinade.finance/cli-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
-import { setProgramIdByOwner } from '@marinade.finance/validator-bonds-cli-core'
+import {
+  computeUnitLimitOption,
+  setProgramIdByOwner,
+} from '@marinade.finance/validator-bonds-cli-core'
 import {
   Wallet,
   executeTx,
@@ -79,6 +82,7 @@ export function installConfigureConfig(program: Command) {
       'New value of minimum for max-stake-wanted field, in lamports, configured by validators in bond.',
       value => toBN(value),
     )
+    .addOption(computeUnitLimitOption(CONFIGURE_CONFIG_LIMIT_UNITS))
     .action(
       async (
         address: Promise<undefined | PublicKey>,
@@ -92,6 +96,7 @@ export function installConfigureConfig(program: Command) {
           withdrawLockupEpochs,
           minimumStakeLamports,
           minBondMaxStakeWanted,
+          computeUnitLimit,
         }: {
           adminAuthority?: Promise<WalletInterface | PublicKey>
           admin?: Promise<PublicKey>
@@ -102,6 +107,7 @@ export function installConfigureConfig(program: Command) {
           withdrawLockupEpochs?: number
           minimumStakeLamports?: BN
           minBondMaxStakeWanted?: BN
+          computeUnitLimit: number
         },
       ) => {
         await manageConfigureConfig({
@@ -115,6 +121,7 @@ export function installConfigureConfig(program: Command) {
           withdrawLockupEpochs,
           minimumStakeLamports,
           minBondMaxStakeWanted,
+          computeUnitLimit,
         })
       },
     )
@@ -131,6 +138,7 @@ async function manageConfigureConfig({
   withdrawLockupEpochs,
   minimumStakeLamports,
   minBondMaxStakeWanted,
+  computeUnitLimit,
 }: {
   address: PublicKey
   adminAuthority?: WalletInterface | PublicKey
@@ -142,6 +150,7 @@ async function manageConfigureConfig({
   withdrawLockupEpochs?: number
   minimumStakeLamports?: BN
   minBondMaxStakeWanted?: BN
+  computeUnitLimit: number
 }) {
   const {
     program,
@@ -196,7 +205,7 @@ async function manageConfigureConfig({
     errMessage: `'Failed to configure config account ${address.toBase58()}`,
     signers,
     logger,
-    computeUnitLimit: CONFIGURE_CONFIG_LIMIT_UNITS,
+    computeUnitLimit,
     computeUnitPrice,
     simulate,
     printOnly,

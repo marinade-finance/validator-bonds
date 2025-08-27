@@ -1,7 +1,10 @@
 import { parsePubkey } from '@marinade.finance/cli-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
-import { setProgramIdByOwner } from '@marinade.finance/validator-bonds-cli-core'
+import {
+  computeUnitLimitOption,
+  setProgramIdByOwner,
+} from '@marinade.finance/validator-bonds-cli-core'
 import { Wallet, executeTx, transaction } from '@marinade.finance/web3js-common'
 import {
   MARINADE_CONFIG_ADDRESS,
@@ -37,23 +40,27 @@ export function installStakeMerge(program: Command) {
       'Settlement account address used to derive stake accounts authority. (default: not used)',
       parsePubkey,
     )
+    .addOption(computeUnitLimitOption(MERGE_STAKE_LIMIT_UNITS))
     .action(
       async ({
         source,
         destination,
         config,
         settlement,
+        computeUnitLimit,
       }: {
         source: Promise<PublicKey>
         destination: Promise<PublicKey>
         config?: Promise<PublicKey>
         settlement?: Promise<PublicKey>
+        computeUnitLimit: number
       }) => {
         await manageMerge({
           source: await source,
           destination: await destination,
           config: (await config) ?? MARINADE_CONFIG_ADDRESS,
           settlement: await settlement,
+          computeUnitLimit,
         })
       },
     )
@@ -64,11 +71,13 @@ async function manageMerge({
   destination,
   config,
   settlement = PublicKey.default,
+  computeUnitLimit,
 }: {
   source: PublicKey
   destination: PublicKey
   config: PublicKey
   settlement?: PublicKey
+  computeUnitLimit: number
 }) {
   const {
     program,
@@ -103,7 +112,7 @@ async function manageMerge({
       `[source: ${source.toBase58()}, destination: ${destination.toBase58()}]`,
     signers,
     logger,
-    computeUnitLimit: MERGE_STAKE_LIMIT_UNITS,
+    computeUnitLimit,
     computeUnitPrice,
     simulate,
     printOnly,

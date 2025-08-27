@@ -22,7 +22,10 @@ import {
   StakeProgram,
 } from '@solana/web3.js'
 import { formatToSol, getBondFromAddress } from '../../utils'
-import { FUND_BOND_WITH_SOL_LIMIT_UNITS } from '../../computeUnits'
+import {
+  FUND_BOND_WITH_SOL_LIMIT_UNITS,
+  computeUnitLimitOption,
+} from '../../computeUnits'
 import BN from 'bn.js'
 import { failIfUnexpectedFundingError } from './fundBond'
 
@@ -49,6 +52,7 @@ export function configureFundBondWithSol(program: Command): Command {
         '(default: wallet keypair)',
       parseWalletOrPubkey,
     )
+    .addOption(computeUnitLimitOption(FUND_BOND_WITH_SOL_LIMIT_UNITS))
 }
 
 export async function manageFundBondWithSol({
@@ -56,11 +60,13 @@ export async function manageFundBondWithSol({
   config,
   amount,
   from,
+  computeUnitLimit,
 }: {
   address: PublicKey
   config?: PublicKey
   amount: number
   from?: WalletInterface | PublicKey
+  computeUnitLimit: number
 }) {
   const {
     program,
@@ -159,7 +165,7 @@ export async function manageFundBondWithSol({
       errMessage: `'Failed to fund bond account ${bondAccount.toBase58()} with ${amount} from ${from.toBase58()}`,
       signers,
       logger,
-      computeUnitLimit: FUND_BOND_WITH_SOL_LIMIT_UNITS,
+      computeUnitLimit,
       computeUnitPrice,
       simulate,
       printOnly,

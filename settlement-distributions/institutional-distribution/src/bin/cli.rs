@@ -65,7 +65,10 @@ fn main() -> anyhow::Result<()> {
 
     info!("Loading Stake Meta Collection...");
     let stake_meta_collection: StakeMetaCollection =
-        read_from_json_file(&args.stake_meta_collection)?;
+        read_from_json_file(&args.stake_meta_collection).map_err(file_error(
+            "stake-meta-collection",
+            &args.stake_meta_collection,
+        ))?;
     info!("Building Stake Meta Collection Index...");
     let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
 

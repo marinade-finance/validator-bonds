@@ -94,7 +94,7 @@ describe('Validator Bonds claim settlement', () => {
       provider,
       configAccount: configAccount,
       voteAccount: voteAccount1,
-      lamports: totalClaimVoteAccount1.toNumber() + LAMPORTS_PER_SOL * 555,
+      lamports: totalClaimVoteAccount1.toNumber() + LAMPORTS_PER_SOL * 1111,
     })
     const { instruction: fundIx, splitStakeAccount } =
       await fundSettlementInstruction({
@@ -111,7 +111,7 @@ describe('Validator Bonds claim settlement', () => {
   it('claim settlement', async () => {
     await createUserAndFund({
       provider,
-      lamports: LAMPORTS_PER_SOL,
+      lamports: LAMPORTS_PER_SOL * 10,
       user: withdrawer1Keypair,
     })
     const treeNodeVoteAccount1Withdrawer1 = treeNodeBy(
@@ -121,7 +121,7 @@ describe('Validator Bonds claim settlement', () => {
     const stakeAccountTreeNodeVoteAccount1Withdrawer1 =
       await createDelegatedStakeAccount({
         provider,
-        lamports: 4 * LAMPORTS_PER_SOL,
+        lamports: 42 * LAMPORTS_PER_SOL,
         voteAccount: voteAccount1,
         staker: treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority,
         withdrawer: treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority,
