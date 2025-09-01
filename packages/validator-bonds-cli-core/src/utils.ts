@@ -23,11 +23,13 @@ import {
   PublicKey,
   SendTransactionError,
   StakeProgram,
+  SystemProgram,
 } from '@solana/web3.js'
 import { Logger } from 'pino'
 import { setProgramIdByOwner } from './context'
 import BN from 'bn.js'
 import { logDebug } from '@marinade.finance/ts-common'
+import { findVoteAccountByIdentity } from '@marinade.finance/validator-bonds-sdk'
 
 /**
  * Expecting the provided address is a bond or vote account,
@@ -44,23 +46,45 @@ export async function getBondFromAddress({
   logger: Logger
   config: PublicKey | undefined
 }): Promise<ProgramAccountInfo<Bond>> {
-  let accountInfo: AccountInfo<Buffer>
-  if (address instanceof PublicKey) {
-    accountInfo = await checkAccountExistence(
-      program.provider.connection,
-      address,
-      'Account of type bond or voteAccount or withdrawRequest was not found',
-    )
+  let accountInfo: AccountInfo<Buffer> | null
+  if (address instanceof PublicKey || address.publicKey === undefined) {
+    address = new PublicKey(address)
+    accountInfo = await program.provider.connection.getAccountInfo(address)
   } else {
     accountInfo = address.account
     address = address.publicKey
   }
 
-  let voteAccountAddress = await isVoteAccount({
-    address,
-    accountInfo,
-    logger,
-  })
+  // Let's consider this could be a validator identity account
+  let voteAccountAddress: PublicKey | null = null
+  if (
+    accountInfo === null || // no account exists at the address
+    (accountInfo !== null && accountInfo.owner.equals(SystemProgram.programId))
+  ) {
+    const voteAccount = await findVoteAccountByIdentity({
+      connection: program.provider.connection,
+      identity: address,
+    })
+    if (voteAccount === undefined) {
+      throw new CliCommandError({
+        valueName: '[account address]',
+        value: address.toBase58(),
+        msg: 'Provided address is neither a bond, vote account, withdraw request, stake account nor validator identity',
+      })
+    }
+    logger.info(
+      `Address ${address.toBase58()} is a VALIDATOR IDENTITY account. ` +
+        `Using the vote account ${voteAccount.publicKey.toBase58()} to show bond data.`,
+    )
+    voteAccountAddress = voteAccount.publicKey
+    accountInfo = voteAccount.account
+  } else {
+    voteAccountAddress = await isVoteAccount({
+      address,
+      accountInfo,
+      logger,
+    })
+  }
 
   if (voteAccountAddress === null) {
     // it could be withdraw request address or bond, let's try to decode it as withdraw request
@@ -159,7 +183,7 @@ export async function getBondFromAddress({
     throw new CliCommandError({
       valueName: '[address]',
       value: address.toBase58(),
-      msg: 'Failed to decode the address as bond account data. It is not a bond, vote, or withdraw account.',
+      msg: 'Failed to decode the address as bond account data. It is not a bond, vote, identity or withdraw account.',
       cause: e as Error,
     })
   }

@@ -362,6 +362,32 @@ describe('Show command using CLI', () => {
       // stderr: '',
       stdout: YAML.stringify(expectedDataFundingSingleItem),
     })
+    await (
+      expect([
+        'pnpm',
+        [
+          '--silent',
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          'show-bond',
+          '--config',
+          configAccount.toBase58(),
+          validatorIdentity.publicKey.toBase58(),
+          '--with-funding',
+          '-f',
+          'yaml',
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ]) as any
+    ).toHaveMatchingSpawnOutput({
+      code: 0,
+      signal: '',
+      // stderr: '',
+      stdout: YAML.stringify(expectedDataFundingSingleItem),
+    })
 
     await (
       expect([
@@ -485,11 +511,11 @@ describe('Show command using CLI', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ]) as any
     ).toHaveMatchingSpawnOutput({
-      code: 1,
+      code: 200,
       signal: '',
       // stderr: '',
       stdout:
-        /Account of type bond or voteAccount or withdrawRequest was not found/,
+        /Provided address is neither a bond, vote account, withdraw request, stake account nor validator identity/,
     })
   })
 
