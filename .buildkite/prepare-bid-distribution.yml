@@ -8,13 +8,13 @@ env:
   SLACK_FEED: "feed-pipeline-sam-psr"
   CLAIM_TYPE: "bid-distribution"
   # Total Marinade (distributor) fee split between Marinade and DAO
-  MARINADE_FEE_BPS: 500
-  MARINADE_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
-  MARINADE_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
+  MARINADE_FEE_BPS: 950
+  MARINADE_FEE_STAKE_AUTHORITY: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
+  MARINADE_FEE_WITHDRAW_AUTHORITY: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
   # DAO share of the total Marinade (distributor) fee
   DAO_FEE_SPLIT_SHARE_BPS: 5000
-  DAO_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
-  DAO_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
+  DAO_FEE_STAKE_AUTHORITY: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
+  DAO_FEE_WITHDRAW_AUTHORITY: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
 
 steps:
   - label: ":hammer_and_wrench: :rust: Build"
