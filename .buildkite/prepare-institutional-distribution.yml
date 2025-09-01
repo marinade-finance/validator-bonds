@@ -7,12 +7,12 @@ env:
   SLACK_API: https://slack.com/api/chat.postMessage
   SLACK_FEED: "feed-institutional-staking"
   CLAIM_TYPE: "institutional-distribution"
-  MARINADE_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
-  MARINADE_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
+  MARINADE_FEE_STAKE_AUTHORITY: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
+  MARINADE_FEE_WITHDRAW_AUTHORITY: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
   # DAO share of the total Marinade (distributor) fee
   DAO_FEE_SPLIT_SHARE_BPS: 5000
-  DAO_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
-  DAO_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
+  DAO_FEE_STAKE_AUTHORITY: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
+  DAO_FEE_WITHDRAW_AUTHORITY: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
   INSTITUTIONAL_URL: 'https://institutional-staking.marinade.finance/v1/validators'
 
 steps:
