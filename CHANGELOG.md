@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## TS CLI&SDK [2.1.10](https://github.com/marinade-finance/validator-bonds/compare/v2.1.9...v2.1.10) (2025-09-02)
+
+### Updates
+
+* cli: `show-bond` command to display the bond information when provided validator identity address
+
 ## TS CLI&SDK [2.1.9](https://github.com/marinade-finance/validator-bonds/compare/v2.1.8...v2.1.9) (2025-07-26)
 
 ### Fixes
