@@ -30,9 +30,12 @@ export WHITELIST_STAKE_AUTHORITY='stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4b
 cargo run --release --bin bid-distribution-cli -- \
     --sam-meta-collection sam-scores.json \
     --stake-meta-collection stakes.json \
-    --marinade-fee-bps 5000 \
-    --marinade-fee-stake-authority 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB \
-    --marinade-fee-withdraw-authority 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB \
+    --marinade-fee-bps 950 \
+    --marinade-fee-stake-authority BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x \
+    --marinade-fee-withdraw-authority BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x \
+    --dao-fee-split-share-bps 5000 \
+    --dao-fee-stake-authority mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz \
+    --dao-fee-withdraw-authority mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz \
     --output-settlement-collection bid-distribution-settlements.json \
     --output-merkle-tree-collection bid-distribution-settlement-merkle-trees.json
 ```

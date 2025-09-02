@@ -42,7 +42,7 @@ pub struct ValidatorSamMeta {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RevShare {
-    total_pmpe: Decimal,
+    pub total_pmpe: Decimal,
     inflation_pmpe: Decimal,
     mev_pmpe: Decimal,
     bid_pmpe: Decimal,

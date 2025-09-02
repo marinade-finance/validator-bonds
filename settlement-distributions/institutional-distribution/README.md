@@ -13,11 +13,16 @@ gcloud storage cp "gs://$bucket/$epoch/institutional-payouts.json" "institutiona
 gcloud storage cp "gs://$bonds_bucket/$epoch/stakes.json" "stakes.json"
 ```
 
-### 2. Define stake account for payouts for stake distributor
+### 2. Define stake accounts for payouts for stake distributor
+
+Distributor payouts are split between Marinade and DAO based on split share bps
 
 ```bash
-MARINADE_FEE_STAKE_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
-MARINADE_FEE_WITHDRAW_AUTHORITY: 89SrbjbuNyqSqAALKBsKBqMSh463eLvzS4iVWCeArBgB
+MARINADE_FEE_STAKE_AUTHORITY: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
+MARINADE_FEE_WITHDRAW_AUTHORITY: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
+DAO_FEE_SPLIT_SHARE_BPS: 5000
+DAO_FEE_STAKE_AUTHORITY: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
+DAO_FEE_WITHDRAW_AUTHORITY: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
 ```
 
 ### 3. Generating Institutional Settlements
@@ -29,6 +34,9 @@ cargo run --release --bin institutional-distribution-cli -- \
     --stake-meta-collection stakes.json \
     --marinade-fee-stake-authority ${MARINADE_FEE_STAKE_AUTHORITY} \
     --marinade-fee-withdraw-authority ${MARINADE_FEE_WITHDRAW_AUTHORITY} \
+    --dao-fee-split-share-bps ${DAO_FEE_SPLIT_SHARE_BPS} \
+    --dao-fee-stake-authority ${DAO_FEE_STAKE_AUTHORITY} \
+    --dao-fee-withdraw-authority ${DAO_FEE_WITHDRAW_AUTHORITY} \
     --output-settlement-collection "./institutional-settlements.json" \
     --output-merkle-tree-collection "./institutional-merkle-trees.json"
 ```
@@ -53,6 +61,9 @@ merkle tree generation CLI you can do:
     --stake-meta-collection stakes.json \
     --marinade-fee-stake-authority $(solana-keygen pubkey) \
     --marinade-fee-withdraw-authority $(solana-keygen pubkey) \
+    --dao-fee-split-share-bps 5000 \
+    --dao-fee-stake-authority $(solana-keygen pubkey) \
+    --dao-fee-withdraw-authority $(solana-keygen pubkey) \
     --output-settlement-collection "$TARGET/institutional-settlements.json" \
     --output-merkle-tree-collection "$TARGET/institutional-merkle-trees.json"
    echo "Generated data in '$TARGET'"

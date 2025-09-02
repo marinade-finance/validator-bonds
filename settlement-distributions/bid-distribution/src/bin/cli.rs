@@ -29,6 +29,7 @@ struct Args {
     #[arg(long, env)]
     output_merkle_tree_collection: String,
 
+    // Total Marinade (distributor) fee split between Marinade and DAO
     #[arg(long, env)]
     marinade_fee_bps: u64,
 
@@ -37,6 +38,16 @@ struct Args {
 
     #[arg(long, env)]
     marinade_fee_withdraw_authority: Pubkey,
+
+    // DAO share of the total Marinade (distributor) fee
+    #[arg(long, env)]
+    dao_fee_split_share_bps: u64,
+
+    #[arg(long, env)]
+    dao_fee_stake_authority: Pubkey,
+
+    #[arg(long, env)]
+    dao_fee_withdraw_authority: Pubkey,
 
     #[arg(long, env, value_delimiter = ',')]
     whitelist_stake_authority: Option<Vec<Pubkey>>,
@@ -49,7 +60,10 @@ fn main() -> anyhow::Result<()> {
     info!("Starting bid distribution...");
     let args: Args = Args::parse();
 
-    info!("Marinade fee bps loaded: {:?}", &args.marinade_fee_bps);
+    info!(
+        "Marinade fee bps {:?} and DAO fee split share bps {:?} loaded",
+        &args.marinade_fee_bps, &args.dao_fee_split_share_bps
+    );
 
     let settlement_meta = SettlementMeta {
         funder: SettlementFunder::ValidatorBond,
@@ -60,6 +74,9 @@ fn main() -> anyhow::Result<()> {
         marinade_fee_bps: args.marinade_fee_bps,
         marinade_stake_authority: args.marinade_fee_stake_authority,
         marinade_withdraw_authority: args.marinade_fee_withdraw_authority,
+        dao_fee_split_share_bps: args.dao_fee_split_share_bps,
+        dao_stake_authority: args.dao_fee_stake_authority,
+        dao_withdraw_authority: args.dao_fee_withdraw_authority,
     };
 
     info!("Loading SAM scoring meta collection...");
