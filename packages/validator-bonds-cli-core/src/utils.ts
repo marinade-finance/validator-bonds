@@ -59,7 +59,7 @@ export async function getBondFromAddress({
   let voteAccountAddress: PublicKey | null = null
   if (
     accountInfo === null || // no account exists at the address
-    (accountInfo !== null && accountInfo.owner.equals(SystemProgram.programId))
+    accountInfo.owner.equals(SystemProgram.programId)
   ) {
     const voteAccount = await findVoteAccountByIdentity({
       connection: program.provider.connection,

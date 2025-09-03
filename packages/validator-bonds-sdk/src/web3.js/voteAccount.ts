@@ -42,13 +42,14 @@ export async function findVoteAccountByIdentity({
   identity: PublicKey
   logger?: LoggerPlaceholder
 }): Promise<ProgramAccountInfo<Buffer> | undefined> {
-  const filters: GetProgramAccountsFilter[] = []
-  filters.push({
-    memcmp: {
-      offset: VALIDATOR_IDENTITY_OFFSET,
-      bytes: identity.toBase58(),
+  const filters: GetProgramAccountsFilter[] = [
+    {
+      memcmp: {
+        offset: VALIDATOR_IDENTITY_OFFSET,
+        bytes: identity.toBase58(),
+      },
     },
-  })
+  ]
 
   connection = getConnection(connection)
   const accounts = await connection.getProgramAccounts(VOTE_PROGRAM_ID, {
