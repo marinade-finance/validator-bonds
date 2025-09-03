@@ -48,6 +48,8 @@ pub fn generate_bid_settlements(
 
     let mut settlement_claim_collections = vec![];
 
+    // MARINADE_FEE_BPS: 950
+    // DAO_FEE_SPLIT_SHARE_BPS: 5000
     for validator in sam_validator_metas {
         if let Some(grouped_stake_metas) =
             stake_meta_index.iter_grouped_stake_metas(&validator.vote_account)
@@ -124,6 +126,73 @@ pub fn generate_bid_settlements(
             let stakers_blacklist_penalty_claim = blacklist_penalty_total_claim
                 .to_u64()
                 .expect("Failed to_u64 for stakers_blacklist_penalty_claim");
+
+            // Add this info! statement after your calculations are complete
+            info!(
+                "\n┌─────────────────────────────────────────────────────────────────┐\
+     \n│                    VALIDATOR SETTLEMENT DATA                    │\
+     \n├─────────────────────────────────────────────────────────────────┤\
+     \n│ Vote Account: {:44} │\
+     \n│ SAM Target Stake:        {:>15.6} SOL           │\
+     \n│ MNDE Target Stake:       {:>15.6} SOL           │\
+     \n│ Total Active Stake:      {:>15.6} SOL           │\
+     \n│ SAM Stake Percentage:    {:>15.4}%               │\
+     \n│ Effective SAM Stake:     {:>15.6} SOL           │\
+     \n├─────────────────────────────────────────────────────────────────┤\
+     \n│                         RATES & FEES                           │\
+     \n├─────────────────────────────────────────────────────────────────┤\
+     \n│ Distributor Fee:         {:>15.4}%               │\
+     \n│ DAO Fee Share:           {:>15.4}%               │\
+     \n│ Effective Bid:           {:>15.6} (per mille)    │\
+     \n│ Bid Too Low Penalty:     {:>15.6} (per mille)    │\
+     \n│ Blacklist Penalty:       {:>15.6} (per mille)    │\
+     \n│ Total Rev Share:         {:>15.6} (per mille)    │\
+     \n├─────────────────────────────────────────────────────────────────┤\
+     \n│                       REWARD CLAIMS                             │\
+     \n├─────────────────────────────────────────────────────────────────┤\
+     \n│ Effective Bid Claim:     {:>15.6} SOL           │\
+     \n│ Expected Total Rewards:  {:>15.6} SOL           │\
+     \n│ Total Fee Claim:         {:>15.6} SOL           │\
+     \n│ Stakers Total Claim:     {:>15.6} SOL           │\
+     \n│ DAO Fee Claim:           {:>15.6} SOL           │\
+     \n│ Marinade Fee Claim:      {:>15.6} SOL           │\
+     \n├─────────────────────────────────────────────────────────────────┤\
+     \n│                      PENALTY CLAIMS                             │\
+     \n├─────────────────────────────────────────────────────────────────┤\
+     \n│ Bid Penalty Total:       {:>15.6} SOL           │\
+     \n│ Distributor Bid Penalty: {:>15.6} SOL           │\
+     \n│ Stakers Bid Penalty:     {:>15.6} SOL           │\
+     \n│ DAO Bid Penalty:         {:>15.6} SOL           │\
+     \n│ Marinade Bid Penalty:    {:>15.6} SOL           │\
+     \n│ Blacklist Penalty Total: {:>15.6} SOL           │\
+     \n│ Stakers Blacklist Pen.:  {:>15.6} SOL           │\
+     \n└─────────────────────────────────────────────────────────────────┘",
+                validator.vote_account,
+                sam_target_stake.to_u64().unwrap_or(0) as f64 / 1e9,
+                mnde_target_stake.to_u64().unwrap_or(0) as f64 / 1e9,
+                total_active_stake as f64 / 1e9,
+                stake_sam_percentage * Decimal::from(100),
+                effective_sam_stake as f64 / 1e9,
+                distributor_fee_percentage * Decimal::from(100),
+                dao_fee_share_percentage * Decimal::from(100),
+                effective_bid,
+                bid_too_low_penalty,
+                blacklist_penalty,
+                total_rev_share,
+                effective_bid_claim.to_u64().unwrap_or(0) as f64 / 1e9,
+                expected_total_rewards.to_u64().unwrap_or(0) as f64 / 1e9,
+                total_fee_claim.to_u64().unwrap_or(0) as f64 / 1e9,
+                stakers_total_claim as f64 / 1e9,
+                dao_fee_claim as f64 / 1e9,
+                marinade_fee_claim as f64 / 1e9,
+                bid_penalty_total_claim.to_u64().unwrap_or(0) as f64 / 1e9,
+                distributor_bid_penalty_claim as f64 / 1e9,
+                stakers_bid_penalty_claim as f64 / 1e9,
+                dao_bid_penalty_claim as f64 / 1e9,
+                marinade_bid_penalty_claim as f64 / 1e9,
+                blacklist_penalty_total_claim.to_u64().unwrap_or(0) as f64 / 1e9,
+                stakers_blacklist_penalty_claim as f64 / 1e9
+            );
 
             let mut claims = vec![];
             let mut claims_amount = 0;
