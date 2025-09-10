@@ -52,7 +52,7 @@ do
     claims_amount=$(<<<"$settlement" jq '.claims_amount / 1e9' -r | xargs printf $decimal_format)
      
     if [[ $ignore_marinade_fee_active_stake == "true" ]]; then
-        protected_stake=$(<<<"$settlement" jq "[.claims[] | select(.withdraw_authority != \"$marinade_fee_withdraw_authority\" and .withdraw_authority != \"$dao_fee_stake_authority\" and .stake_authority != \"$marinade_fee_stake_authority\" and .stake_authority != \"$dao_fee_stake_authority\") | .active_stake] | add // 0 | . / 1e9" -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
+        protected_stake=$(<<<"$settlement" jq "[.claims[] | select(.withdraw_authority != \"$marinade_fee_withdraw_authority\" and .withdraw_authority != \"$dao_fee_withdraw_authority\" and .stake_authority != \"$marinade_fee_stake_authority\" and .stake_authority != \"$dao_fee_stake_authority\") | .active_stake] | add // 0 | . / 1e9" -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
     else
         protected_stake=$(<<<"$settlement" jq '[.claims[].active_stake] | add / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
     fi
