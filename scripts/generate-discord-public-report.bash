@@ -17,8 +17,8 @@ then
 fi
 
 if [[ $ignore_marinade_fee_active_stake == "true" ]]; then
-  if [[ -z $marinade_fee_stake_authority || -z $marinade_fee_withdraw_authority ]]; then
-    echo "Error: When ignore_marinade_fee_active_stake is set to true, both MARINADE_FEE_STAKE_AUTHORITY and MARINADE_FEE_WITHDRAW_AUTHORITY must be provided." >&2
+  if [[ -z $marinade_fee_stake_authority || -z $marinade_fee_withdraw_authority || -z $dao_fee_stake_authority || -z $dao_fee_withdraw_authority ]]; then
+    echo "Error: When ignore_marinade_fee_active_stake is set to true, all fee authorities must be provided." >&2
     exit 1
   fi
 fi
