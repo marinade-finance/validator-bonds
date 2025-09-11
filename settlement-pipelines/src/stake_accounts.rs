@@ -64,7 +64,7 @@ pub fn prioritize_for_claiming(
     };
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum StakeAccountStateType {
     DelegatedAndDeactivating,
     DelegatedAndActivating,

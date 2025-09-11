@@ -113,7 +113,7 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs execution-report.$$command_name.$$prior_build_number . || true
     - |
       cp "execution-report.$$command_name.$$prior_build_number" "execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT" || true
-      rm -f "fund-execution-report.$$command_name.$$prior_build_number"
+      rm -f "execution-report.$$command_name.$$prior_build_number"
       echo "#ATTEMPT FUND SETTLEMENT $$BUILDKITE_RETRY_COUNT" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
     - |
       buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .

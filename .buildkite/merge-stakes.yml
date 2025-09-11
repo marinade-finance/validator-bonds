@@ -1,0 +1,116 @@
+agents:
+  queue: "snapshots"
+
+env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+  SLACK_API: https://slack.com/api/chat.postMessage
+  CONFIG_ADDRESSES: "vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU,VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE"
+
+steps:
+  - label: ":closed_lock_with_key: Concurrency gate lock"
+    command: echo "--> Start of concurrency gate"
+    concurrency_group: "validator-bonds/merge-stakes"
+    concurrency: 1
+
+  - wait: ~
+
+  - label: ":hammer_and_wrench: :rust: Build Merge Stakes"
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'cargo build --release --bin merge-stakes'
+    artifact_paths:
+      - target/release/merge-stakes
+
+  - wait: ~
+
+  - label: ":campfire::arrow_right: Merge Stakes"
+    env:
+      RPC_URL: "$$RPC_URL"
+      RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,merge_stakes=debug
+    commands:
+    - . "$HOME/.cargo/env"
+    - prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))
+    - command_name='merge-stakes'
+    - buildkite-agent artifact download --include-retried-jobs execution-report.$$command_name.$$prior_build_number . || true
+    - |
+      cp "execution-report.$$command_name.$$prior_build_number" "execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT" || true
+      rm -f "execution-report.$$command_name.$$prior_build_number"
+      echo "#ATTEMPT $$command_name $$BUILDKITE_RETRY_COUNT" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
+    - buildkite-agent artifact download --include-retried-jobs target/release/$${command_name} .
+    - chmod +x target/release/$${command_name}
+    - source ./scripts/execute-handlers.sh
+    - |
+      echo "$CONFIG_ADDRESSES" | tr ',' '\n' | while read -r address; do
+        echo "Merging stakes for config address $$address"
+        handle_command_execution "$$command_name" \
+        ./target/release/$$command_name \
+          --config $$address \
+          --keypair "$$PSR_TX_FEE_WALLET"
+      done
+    key: 'merge-stakes'
+    artifact_paths:
+      - "./execution-report.*"
+    retry:
+      automatic:
+        - exit_status: 100
+          limit: 5
+
+  - label: ":memo: Notification setup: Merge Stakes"
+    commands:
+     - mkdir ./reports
+     - command_name='merge-stakes'
+     - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name.*" ./reports/ || echo "No report ERROR" > ./reports/execution-report.$$command_name.error
+     - report_path="./reports/$(ls -v1 reports/ | tail -n 1)"
+     - cp "$$report_path" ./$${command_name}-report.txt
+     - buildkite-agent meta-data set --redacted-vars='' attempts_count "$(grep -c ATTEMPT ./$${command_name}-report.txt)"
+    artifact_paths:
+    - "./merge-stakes-report.txt"
+    key: 'notification-setup-merge-stakes'
+    depends_on: "merge-stakes"
+    allow_dependency_failure: true
+
+  - wait: ~
+
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Merge Stakes"
+    commands:
+    - report_file='merge-stakes-report.txt'
+    - buildkite-agent artifact download --include-retried-jobs $${report_file} . || echo "UNKNOWN ERROR" > ./$${report_file}
+    - cat ./merge-stakes-report.txt
+    - |
+      current_epoch=$(curl --silent "$$RPC_URL" -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1, "method":"getEpochInfo"}' | jq '.result.epoch')
+    - report_epoch=$((current_epoch - 1))
+    - |
+      echo "Checking existence of path '$gs_bucket/$$report_epoch' to upload the report"
+      if [[ -n "$$report_epoch" && $(gcloud storage ls "$gs_bucket/$$report_epoch" 2> /dev/null) ]]; then
+        gcloud storage cp ./$${report_file} "$gs_bucket/$$report_epoch/buildkite/merge-stakes-report.$(date +%s).txt"
+      fi
+    depends_on: "notification-setup-merge-stakes"
+    allow_dependency_failure: true
+
+  - label: ":mega: Notification Merge Stakes"
+    commands:
+    - source ./scripts/execute-handlers.sh
+    - check_command_execution_status "merge-stakes" || true
+    - claim_type=$(buildkite-agent meta-data get claim_type)
+    - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
+    - |
+      curl $SLACK_API -X POST -H 'Content-Type: application/json; charset=utf-8' \
+        -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
+        "channel": "'$(buildkite-agent meta-data get slack_feed)'",
+        "attachments": [{
+          "color": "'"$$notification_color"'",
+          "title": "Merge Stakes '"$${notification_result}"', '"$$attempts_count"' attempts",
+          "title_link": "'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'",
+          "footer": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>" 
+        }]
+      }'
+    depends_on: "notification-setup-merge-stakes"
+    allow_dependency_failure: true
+    if: "build.env('NOTIFY_FEED') == 'true'"
+
+  - wait: ~
+
+  - label: ":unlock: Concurrency gate unlock"
+    command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/merge-stakes'
+    concurrency: 1

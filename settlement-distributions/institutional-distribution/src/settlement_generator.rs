@@ -263,7 +263,7 @@ mod tests {
         sum_stakers_payout(payout) + sum_distributors_payout(payout)
     }
 
-    fn sum_claims_for_authority(settlements: &Vec<Settlement>, auth: &Pubkey) -> u64 {
+    fn sum_claims_for_authority(settlements: &[Settlement], auth: &Pubkey) -> u64 {
         settlements
             .iter()
             .flat_map(|s| {
