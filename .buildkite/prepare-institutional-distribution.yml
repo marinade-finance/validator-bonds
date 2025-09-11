@@ -89,7 +89,7 @@ steps:
     commands:
     - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .
     - |
-      ./scripts/generate-discord-public-report.bash "./${CLAIM_TYPE}-settlements.json" "Institutional" true > "./discord-public-report.txt"
+      ./scripts/generate-discord-public-report.bash "./${CLAIM_TYPE}-settlements.json" "Institutional" > "./discord-public-report.txt"
     artifact_paths:
       - "./discord-public-report.txt"
 

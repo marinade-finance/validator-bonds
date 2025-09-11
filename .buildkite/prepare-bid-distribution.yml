@@ -119,11 +119,7 @@ steps:
     commands:
     - 'buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .'
     - |
-      if [[ "$MARINADE_FEE_BPS" == "10000" ]]; then
-        ./scripts/generate-discord-public-report.bash "./${CLAIM_TYPE}-settlements.json" "Bidding" > "./discord-public-report.txt"
-      else
-        ./scripts/generate-discord-public-report.bash "./${CLAIM_TYPE}-settlements.json" "Bidding" true > "./discord-public-report.txt"
-      fi
+      ./scripts/generate-discord-public-report.bash "./${CLAIM_TYPE}-settlements.json" "Bidding" > "./discord-public-report.txt"
     artifact_paths:
       - "./discord-public-report.txt"
 
