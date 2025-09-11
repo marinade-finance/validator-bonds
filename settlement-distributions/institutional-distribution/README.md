@@ -73,5 +73,7 @@ merkle tree generation CLI you can do:
    ```bash
    export MARINADE_FEE_STAKE_AUTHORITY=$(solana-keygen pubkey)
    export MARINADE_FEE_WITHDRAW_AUTHORITY=$(solana-keygen pubkey)
-   ./scripts/generate-discord-public-report.bash "$TARGET"/institutional-settlements.json "Institutional"
+   export DAO_FEE_STAKE_AUTHORITY=$(solana-keygen pubkey)
+   export DAO_FEE_WITHDRAW_AUTHORITY=$(solana-keygen pubkey)
+   ./scripts/generate-discord-public-report.bash "$TARGET"/institutional-settlements.json "Institutional" true
    ```
