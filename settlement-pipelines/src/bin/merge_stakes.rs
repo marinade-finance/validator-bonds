@@ -244,7 +244,7 @@ async fn merge_stake(
             .push((destination_stake.0, merging_pubkeys));
     }
 
-    let execute_result_funding = execute_parallel_with_rate(
+    let execute_result_merge = execute_parallel_with_rate(
         rpc_client.clone(),
         transaction_executor.clone(),
         &mut transaction_builder,
@@ -252,7 +252,7 @@ async fn merge_stake(
         10,
     )
     .await;
-    reporting.add_tx_execution_result(execute_result_funding, "FundSettlements");
+    reporting.add_tx_execution_result(execute_result_merge, "MergeStakeAccounts");
 
     Ok(())
 }
