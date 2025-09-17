@@ -1,7 +1,7 @@
 use anchor_client::{DynSigner, Program};
 use anyhow::{anyhow, Context};
 use clap::Parser;
-use log::{debug, info};
+use log::{debug, info, warn};
 
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
@@ -111,6 +111,13 @@ async fn real_main(reporting: &mut ReportHandler<InitSettlementReport>) -> anyho
         args.input_merkle_tree_collection,
         args.input_settlement_collection,
     ])?;
+    if json_data
+        .iter()
+        .all(|c| c.merkle_tree_settlements.is_empty())
+    {
+        warn!("No merkle tree settlements");
+        return Ok(());
+    }
 
     // Load on-chain data for Settlement accounts that we need to create
     let mut settlement_records = load_on_chain_data(
