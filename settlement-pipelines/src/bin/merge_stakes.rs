@@ -30,6 +30,7 @@ use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::future::Future;
 
+use solana_sdk::stake::state::Stake;
 use std::pin::Pin;
 use std::sync::Arc;
 use validator_bonds::state::config::find_bonds_withdrawer_authority;
@@ -127,6 +128,14 @@ async fn real_main(reporting: &mut ReportHandler<MergeConfigReport>) -> anyhow::
 type GetMergeType =
     HashMap<(Pubkey, StakeAccountStateType), Vec<(CollectedStakeAccount, StakeAccountStateType)>>;
 
+/// transient stake cannot be merged, MergeTransientStake (0x5)
+/// https://github.com/solana-program/stake/blob/a4ab3b6f82608b430d6f432ccadaeb6af52dac34/program/src/helpers/merge.rs#L38-L70
+fn is_transient_stake(inner_stake: &Stake, state_type: StakeAccountStateType) -> bool {
+    (state_type == StakeAccountStateType::DelegatedAndActivating
+        || state_type == StakeAccountStateType::DelegatedAndDeactivating)
+        && inner_stake.delegation.stake > 0
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn get_merge_stake_accounts(
     rpc_client: Arc<RpcClient>,
@@ -150,15 +159,17 @@ async fn get_merge_stake_accounts(
         if let StakeStateV2::Stake(_, inner_stake, _) = stake.2 {
             let state_type = get_stake_state_type(&stake.2, clock, stake_history);
             let key = (inner_stake.delegation.voter_pubkey, state_type);
+
+            if is_transient_stake(&inner_stake, state_type) {
+                report_handler.reportable.add_transient(stake.0);
+                continue;
+            }
             delegation_stake_accounts
                 .entry(key)
                 .or_default()
                 .push((stake, state_type));
         } else {
-            report_handler
-                .reportable
-                .non_delegated_stake_accounts
-                .push(stake.0);
+            report_handler.reportable.add_non_delegated(stake.0);
         }
     }
 
@@ -233,7 +244,7 @@ async fn merge_stake(
             .push((destination_stake.0, merging_pubkeys));
     }
 
-    let execute_result_funding = execute_parallel_with_rate(
+    let execute_result_merge = execute_parallel_with_rate(
         rpc_client.clone(),
         transaction_executor.clone(),
         &mut transaction_builder,
@@ -241,7 +252,7 @@ async fn merge_stake(
         10,
     )
     .await;
-    reporting.add_tx_execution_result(execute_result_funding, "FundSettlements");
+    reporting.add_tx_execution_result(execute_result_merge, "MergeStakeAccounts");
 
     Ok(())
 }
@@ -251,6 +262,7 @@ struct MergeConfigReport {
     config: Pubkey,
     merging_stake_accounts: Vec<(Pubkey, Vec<Pubkey>)>, // (destination, multiple sources)
     non_delegated_stake_accounts: Vec<Pubkey>,
+    transient_stake_accounts: Vec<Pubkey>,
 }
 
 impl MergeConfigReport {
@@ -262,34 +274,49 @@ impl MergeConfigReport {
     async fn init(&mut self, config: &Pubkey) {
         self.config = *config;
     }
+
+    fn add_non_delegated(&mut self, stake_account: Pubkey) {
+        self.non_delegated_stake_accounts.push(stake_account);
+    }
+
+    fn add_transient(&mut self, stake_account: Pubkey) {
+        self.transient_stake_accounts.push(stake_account);
+    }
 }
 
 impl PrintReportable for MergeConfigReport {
     fn get_report(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + '_>> {
         Box::pin(async {
+            fn format_accounts<T: ToString>(accounts: &[T]) -> String {
+                accounts
+                    .iter()
+                    .map(|p| p.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            }
+
             let mut report = vec![];
             report.push(format!(
                 "Merge Report for validator-bonds config: {}",
                 self.config
             ));
+
             if !self.non_delegated_stake_accounts.is_empty() {
                 report.push(format!(
                     "Non-delegated stake accounts (cannot be merged): {}",
-                    self.non_delegated_stake_accounts
-                        .iter()
-                        .map(|p| p.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ")
+                    format_accounts(&self.non_delegated_stake_accounts)
                 ));
             }
-            for (destination, multiple_sources) in self.merging_stake_accounts.iter() {
+            if !self.transient_stake_accounts.is_empty() {
+                report.push(format!(
+                    "Transient stake accounts (cannot be merged): {}",
+                    format_accounts(&self.transient_stake_accounts)
+                ));
+            }
+            for (destination, sources) in &self.merging_stake_accounts {
                 report.push(format!(
                     "Merging to destination {destination}, sources [{}]",
-                    multiple_sources
-                        .iter()
-                        .map(|p| p.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ")
+                    format_accounts(sources)
                 ));
             }
             report
