@@ -15,7 +15,7 @@ import {
   getMultipleAccounts,
   isWithPublicKey,
   programAccountInfo,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import { deserializeUnchecked } from 'borsh'
 import {
   Meta,

@@ -858,7 +858,7 @@ Commands:
         "message": "... : Transaction ... not found, failed to get from ...",
         "stack":
             Error: ...
-                at executeTx (/usr/local/lib/node_modules/@marinade.finance/validator-bonds-cli/node_modules/@marinade.finance/web3js-common/src/tx.js:86:15)
+                at executeTx (/usr/local/lib/node_modules/@marinade.finance/validator-bonds-cli/node_modules/@marinade.finance/web3js-1x/src/tx.js:86:15)
   ```
 
   **Solution:** Verify if the transaction `XYX` is at blockchain with a transaction explorer,

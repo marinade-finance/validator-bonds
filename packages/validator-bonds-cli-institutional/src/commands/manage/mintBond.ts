@@ -5,7 +5,7 @@ import {
   manageMintBond,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { MARINADE_INSTITUTIONAL_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+import { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 
 export function installMintBond(program: Command) {
   configureMintBond(program).action(

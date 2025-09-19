@@ -2,8 +2,8 @@ import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import { MerkleTreeNode } from '../../src'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
-import { ExtendedProvider } from '@marinade.finance/web3js-common'
-import { createUserAndFund } from '@marinade.finance/web3js-common'
+import { ExtendedProvider } from '@marinade.finance/web3js-1x'
+import { createUserAndFund } from '@marinade.finance/web3js-1x'
 
 export const configAccount = new PublicKey(
   '4wQELTA1RMEM3cKN7gjbiNN247e3GY9Sga7MKpNV38kL',

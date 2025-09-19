@@ -10,7 +10,7 @@ module.exports = {
   detectOpenHandles: true,
   setupFilesAfterEnv: [
     /// https://github.com/marinade-finance/marinade-ts-cli/blob/main/packages/lib/jest-utils/src/equalityTesters.ts
-    '<rootDir>/packages/validator-bonds-sdk/node_modules/@marinade.finance/jest-utils/src/equalityTesters',
+    '<rootDir>/packages/validator-bonds-sdk/node_modules/@marinade.finance/web3js-1x/dist/src/equalityTesters',
   ],
   maxWorkers: 1,
 }

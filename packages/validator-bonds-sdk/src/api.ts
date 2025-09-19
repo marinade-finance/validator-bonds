@@ -27,7 +27,7 @@ import {
   ProgramAccountInfoNoData,
   ProgramAccountInfoNullable,
   ProgramAccountWithInfoNullable,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import { findStakeAccounts, StakeAccountParsed } from './web3.js'
 import assert from 'assert'
 import {

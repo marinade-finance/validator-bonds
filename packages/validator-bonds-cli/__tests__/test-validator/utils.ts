@@ -1,4 +1,4 @@
-import { createTempFileKeypair } from '@marinade.finance/web3js-common'
+import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import {
   Connection,

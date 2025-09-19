@@ -2,9 +2,9 @@ import {
   createTempFileKeypair,
   createUserAndFund,
   waitForNextEpoch,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import { sleep } from '@marinade.finance/ts-common'
-import { shellMatchers } from '@marinade.finance/jest-utils'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import {
   Authorized,
   Keypair,
@@ -102,7 +102,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
   let previousTest = TestNames.None
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest('processed'))
     ;({
       path: operatorAuthorityPath,

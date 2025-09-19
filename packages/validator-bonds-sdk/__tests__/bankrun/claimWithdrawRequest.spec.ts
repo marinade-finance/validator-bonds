@@ -31,11 +31,7 @@ import {
 } from '../utils/staking'
 import assert from 'assert'
 import BN from 'bn.js'
-import {
-  createUserAndFund,
-  pubkey,
-  signer,
-} from '@marinade.finance/web3js-common'
+import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { initBankrunTest, delegateAndFund } from './bankrun'
 import { getSecureRandomInt } from '../utils/helpers'

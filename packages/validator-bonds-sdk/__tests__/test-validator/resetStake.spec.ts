@@ -19,7 +19,7 @@ import {
   executeTxSimple,
   transaction,
   waitForNextEpoch,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   createSettlementFundedDelegatedStake,
   createVoteAccount,

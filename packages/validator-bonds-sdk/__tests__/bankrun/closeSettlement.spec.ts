@@ -27,11 +27,7 @@ import {
 } from '../utils/staking'
 import { getRentExempt, executeTxWithError } from '../utils/helpers'
 import assert from 'assert'
-import {
-  createUserAndFund,
-  pubkey,
-  signer,
-} from '@marinade.finance/web3js-common'
+import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { initBankrunTest } from './bankrun'
 

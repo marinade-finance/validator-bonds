@@ -31,16 +31,15 @@
   "devDependencies": {
     "@coral-xyz/anchor": "0.29.0",
     "@marinade.finance/marinade-ts-sdk": "5.0.15",
-    "@marinade.finance/anchor-common": "=2.4.16",
-    "@marinade.finance/ts-common": "=2.4.16",
-    "@marinade.finance/web3js-common": "=2.4.16",
-    "@marinade.finance/umi-utils": "=2.4.16",
+    "@marinade.finance/anchor-common": "file:/home/chalda/marinade/typescript-common/packages/anchor-common/",
+    "@marinade.finance/ts-common": "file:/home/chalda/marinade/typescript-common/packages/ts-common/",
+    "@marinade.finance/web3js-1x": "file:/home/chalda/marinade/typescript-common/packages/web3js-1x/",
     "@metaplex-foundation/umi-bundle-defaults": "0.8.10",
     "@metaplex-foundation/umi": "0.8.10",
     "@metaplex-foundation/umi-options": "0.8.9",
-    "@marinade.finance/bankrun-utils": "=2.4.16",
+    "@marinade.finance/bankrun-utils": "file:/home/chalda/marinade/typescript-common/packages/bankrun-utils/",
     "bs58": "6.0.0",
-    "@solana/web3.js": "1.98.2",
+    "@solana/web3.js": "1.98.4",
     "crypto-js": "4.2.0",
     "@types/crypto-js": "4.2.1",
     "anchor-bankrun": "0.2.0",
@@ -51,21 +50,24 @@
     "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
     "@metaplex-foundation/mpl-token-metadata": "3.2.0",
     "class-transformer": "0.5.1",
-    "reflect-metadata": "0.2.1"
+    "reflect-metadata": "0.2.2"
   },
   "peerDependencies": {
-    "@coral-xyz/anchor": "0.29.0",
-    "@solana/web3.js": "1.98.2",
-    "@marinade.finance/jest-utils": "=2.4.16",
-    "@marinade.finance/ts-common": "=2.4.16",
-    "@marinade.finance/web3js-common": "=2.4.16",
-    "@marinade.finance/marinade-ts-sdk": "5.0.15",
-    "borsh": "0.7.0",
-    "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
-    "crypto-js": "4.2.0",
-    "bn.js": "5.2.2",
-    "bs58": "6.0.0",
-    "jsbi": "4.3.2"
+    "@coral-xyz/anchor": "^0.29.0",
+    "@solana/web3.js": "^1.98.4",
+    "@marinade.finance/ts-common": "^4.0.0",
+    "@marinade.finance/web3js-1x": "^4.0.0",
+    "@marinade.finance/marinade-ts-sdk": "^5.0.15",
+    "borsh": "~0.7.0",
+    "crypto-js": "^4.2.0",
+    "bn.js": "^5.2.2",
+    "bs58": "^6.0.0",
+    "jsbi": "^4.3.2"
+  },  
+  "peerDependenciesMeta": {
+    "solana-spl-token-modern": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=16"

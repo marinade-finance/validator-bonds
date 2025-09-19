@@ -14,14 +14,14 @@ import {
   LAMPORTS_PER_SOL,
   Signer,
 } from '@solana/web3.js'
-import { ExtendedProvider } from '@marinade.finance/web3js-common'
+import { ExtendedProvider } from '@marinade.finance/web3js-1x'
 import { StakeState } from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
 import assert from 'assert'
 import {
   pubkey,
   signer,
   Wallet as WalletInterface,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   ValidatorBondsProgram,
   settlementStakerAuthority,

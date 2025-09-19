@@ -1,8 +1,8 @@
 import {
   createTempFileKeypair,
   createUserAndFund,
-} from '@marinade.finance/web3js-common'
-import { shellMatchers } from '@marinade.finance/jest-utils'
+} from '@marinade.finance/web3js-1x'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
@@ -26,7 +26,7 @@ describe('Init withdraw request using CLI (institutional)', () => {
   let rentPayerCleanup: () => Promise<void>
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest())
   })
 

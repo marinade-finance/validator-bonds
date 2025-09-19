@@ -17,11 +17,11 @@ import {
   PublicKey,
   StakeProgram,
 } from '@solana/web3.js'
-import { ExtendedProvider } from '@marinade.finance/web3js-common'
+import { ExtendedProvider } from '@marinade.finance/web3js-1x'
 import { createVoteAccount, createVoteAccountWithIdentity } from './staking'
 import BN from 'bn.js'
 import assert from 'assert'
-import { pubkey, signer } from '@marinade.finance/web3js-common'
+import { pubkey, signer } from '@marinade.finance/web3js-1x'
 import { getRandomByte, getSecureRandomInt } from './helpers'
 
 export async function executeWithdraw(

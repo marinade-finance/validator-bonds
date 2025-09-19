@@ -26,7 +26,7 @@ import {
   SignerType,
   createUserAndFund,
   signer,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import { initBankrunTest } from './bankrun'
 
 describe('Validator Bonds withdraw stake', () => {

@@ -14,7 +14,7 @@ import {
   MARINADE_CONFIG_ADDRESS,
 } from '../sdk'
 import { getBond, getWithdrawRequest } from '../api'
-import { getVoteAccount } from '@marinade.finance/web3js-common'
+import { getVoteAccount } from '@marinade.finance/web3js-1x'
 import { anchorProgramWalletPubkey, checkAndGetBondAddress } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import { LoggerPlaceholder, logWarn } from '@marinade.finance/ts-common'

@@ -11,7 +11,7 @@ import {
   executeInitConfigInstruction,
   executeNewWithdrawRequest,
 } from '../utils/testTransactions'
-import { executeTxSimple, transaction } from '@marinade.finance/web3js-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import assert from 'assert'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
