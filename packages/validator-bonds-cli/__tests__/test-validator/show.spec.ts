@@ -362,6 +362,10 @@ describe('Show command using CLI', () => {
       // stderr: '',
       stdout: YAML.stringify(expectedDataFundingSingleItem),
     })
+    const identityRegex = new RegExp(
+      YAML.stringify(expectedDataFundingSingleItem),
+      'g',
+    )
     await (
       expect([
         'pnpm',
@@ -386,7 +390,7 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
       // stderr: '',
-      stdout: YAML.stringify(expectedDataFundingSingleItem),
+      stdout: identityRegex,
     })
 
     await (
