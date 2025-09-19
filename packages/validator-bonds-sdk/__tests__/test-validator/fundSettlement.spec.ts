@@ -15,13 +15,9 @@ import {
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { executeTxSimple, transaction } from '@marinade.finance/web3js-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import { authorizeStakeAccount, delegatedStakeAccount } from '../utils/staking'
-import {
-  createUserAndFund,
-  pubkey,
-  signer,
-} from '@marinade.finance/web3js-common'
+import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
 import {
   AnchorExtendedProvider,
   getAnchorValidatorInfo,

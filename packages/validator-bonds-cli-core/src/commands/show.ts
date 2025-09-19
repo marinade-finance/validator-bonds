@@ -1,13 +1,8 @@
 import {
-  parsePubkey,
-  parsePubkeyOrPubkeyFromWallet,
   CliCommandError,
   FORMAT_TYPE_DEF,
   printData,
   FormatType,
-  reformat,
-  reformatReserved,
-  ReformatAction,
 } from '@marinade.finance/cli-common'
 import { AccountInfo, PublicKey } from '@solana/web3.js'
 import { Command } from 'commander'
@@ -34,10 +29,15 @@ import { getBondFromAddress, formatUnit, formatToSolWithAll } from '../utils'
 import BN from 'bn.js'
 import {
   ProgramAccountInfoNullable,
+  ReformatAction,
   VoteAccount,
   getMultipleAccounts,
   getVoteAccountFromData,
-} from '@marinade.finance/web3js-common'
+  parsePubkey,
+  parsePubkeyOrPubkeyFromWallet,
+  reformat,
+  reformatReserved,
+} from '@marinade.finance/web3js-1x'
 import { base64, bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 
 export type ProgramAccountWithProgramId<T> = ProgramAccount<T> & {

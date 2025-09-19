@@ -41,7 +41,7 @@ import {
   StakeStates,
   createBondsFundedStakeAccount,
 } from '../utils/staking'
-import { pubkey, signer } from '@marinade.finance/web3js-common'
+import { pubkey, signer } from '@marinade.finance/web3js-1x'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { initBankrunTest } from './bankrun'
 import { getSecureRandomInt } from '../utils/helpers'

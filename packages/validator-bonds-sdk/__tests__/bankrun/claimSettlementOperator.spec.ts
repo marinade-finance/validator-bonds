@@ -25,7 +25,7 @@ import {
   createVoteAccount,
   createInitializedStakeAccount,
 } from '../utils/staking'
-import { createUserAndFund, pubkey } from '@marinade.finance/web3js-common'
+import { createUserAndFund, pubkey } from '@marinade.finance/web3js-1x'
 import {
   ITEMS_VOTE_ACCOUNT_1,
   MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,

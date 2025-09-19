@@ -19,11 +19,7 @@ import {
 import { ProgramAccount } from '@coral-xyz/anchor'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import { createVoteAccount } from '../utils/staking'
-import {
-  createUserAndFund,
-  pubkey,
-  signer,
-} from '@marinade.finance/web3js-common'
+import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { initBankrunTest } from './bankrun'
 import { getSecureRandomInt } from '../utils/helpers'

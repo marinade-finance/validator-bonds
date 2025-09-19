@@ -47,7 +47,7 @@ import {
   createVoteAccount,
   delegatedStakeAccount,
 } from '../utils/staking'
-import { Wallet, signer } from '@marinade.finance/web3js-common'
+import { Wallet, signer } from '@marinade.finance/web3js-1x'
 import {
   MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
   configAccountKeypair,

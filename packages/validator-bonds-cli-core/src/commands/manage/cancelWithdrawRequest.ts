@@ -1,18 +1,16 @@
-import {
-  parsePubkey,
-  parsePubkeyOrPubkeyFromWallet,
-  parseWalletOrPubkey,
-} from '@marinade.finance/cli-common'
 import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
   Wallet,
   executeTx,
   instanceOfWallet,
+  parsePubkey,
+  parsePubkeyOrPubkeyFromWallet,
+  parseWalletOrPubkey,
   transaction,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import { cancelWithdrawRequestInstruction } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+import { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { getWithdrawRequestFromAddress } from '../../utils'
 import {
@@ -46,7 +44,7 @@ export function configureCancelWithdrawRequest(program: Command): Command {
         'It is either the authority defined in the bond account or ' +
         'vote account validator identity that the bond account is connected to. ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkey,
+      value => parseWalletOrPubkey(value, undefined),
     )
     .option(
       '--rent-collector <pubkey>',

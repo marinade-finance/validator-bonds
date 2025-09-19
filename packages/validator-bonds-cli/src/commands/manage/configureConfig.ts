@@ -1,8 +1,3 @@
-import {
-  parsePubkey,
-  parsePubkeyOrPubkeyFromWallet,
-  parseWalletOrPubkey,
-} from '@marinade.finance/cli-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
 import {
@@ -13,9 +8,11 @@ import {
   Wallet,
   executeTx,
   instanceOfWallet,
+  parsePubkey,
+  parseWalletOrPubkey,
   transaction,
-} from '@marinade.finance/web3js-common'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
+import { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 import {
   MARINADE_CONFIG_ADDRESS,
   configureConfigInstruction,
@@ -40,22 +37,20 @@ export function installConfigureConfig(program: Command) {
     .option(
       '--admin-authority <keypair_or_ledger_or_pubkey>',
       'Admin authority that is permitted to do the configuration change (default: wallet)',
-      parseWalletOrPubkey,
+      value => parseWalletOrPubkey(value, undefined),
     )
-    .option(
-      '--admin <pubkey>',
-      'New admin authority to be configured',
-      parsePubkeyOrPubkeyFromWallet,
+    .option('--admin <pubkey>', 'New admin authority to be configured', value =>
+      parseWalletOrPubkey(value, undefined),
     )
     .option(
       '--operator <pubkey>',
       'New operator authority to be configured',
-      parsePubkeyOrPubkeyFromWallet,
+      value => parseWalletOrPubkey(value, undefined),
     )
     .option(
       '--pause-authority <pubkey>',
       'New pause authority to be configured',
-      parsePubkeyOrPubkeyFromWallet,
+      value => parseWalletOrPubkey(value, undefined),
     )
     .option(
       '--epochs-to-claim-settlement <number>',

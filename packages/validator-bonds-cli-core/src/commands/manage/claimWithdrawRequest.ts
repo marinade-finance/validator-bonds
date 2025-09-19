@@ -1,9 +1,4 @@
-import {
-  CliCommandError,
-  parsePubkey,
-  parsePubkeyOrPubkeyFromWallet,
-  parseWalletOrPubkey,
-} from '@marinade.finance/cli-common'
+import { CliCommandError } from '@marinade.finance/cli-common'
 import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
@@ -11,12 +6,15 @@ import {
   instanceOfWallet,
   transaction,
   splitAndExecuteTx,
-} from '@marinade.finance/web3js-common'
+  parsePubkey,
+  parsePubkeyOrPubkeyFromWallet,
+  parseWalletOrPubkey,
+} from '@marinade.finance/web3js-1x'
 import {
   orchestrateWithdrawDeposit,
   claimWithdrawRequestInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+import { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 import { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
 import { getWithdrawRequestFromAddress } from '../../utils'
 import {
@@ -53,7 +51,7 @@ export function configureClaimWithdrawRequest(program: Command): Command {
         'It is either the authority defined in the bond account or ' +
         'vote account validator identity that the bond account is connected to. ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkey,
+      value => parseWalletOrPubkey(value, undefined),
     )
     .option(
       '--withdrawer <pubkey>',
@@ -67,7 +65,7 @@ export function configureClaimWithdrawRequest(program: Command): Command {
         'The split stake account is needed when the amount of lamports in the --stake-account ' +
         'is greater than the amount of lamports defined within the existing withdraw request account, ' +
         'then the splitted stake account remains under bond as funded (default: wallet keypair)',
-      parseWalletOrPubkey,
+      value => parseWalletOrPubkey(value, undefined),
     )
     .option(
       '--stake-account <pubkey>',

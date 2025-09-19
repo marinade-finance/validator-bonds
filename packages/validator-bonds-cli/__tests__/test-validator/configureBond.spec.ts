@@ -2,8 +2,8 @@ import {
   createTempFileKeypair,
   createUserAndFund,
   pubkey,
-} from '@marinade.finance/web3js-common'
-import { shellMatchers } from '@marinade.finance/jest-utils'
+} from '@marinade.finance/web3js-1x'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
@@ -46,7 +46,7 @@ describe('Configure bond account using CLI', () => {
   let validatorIdentityPath: string
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest())
   })
 

@@ -17,8 +17,8 @@ importers:
         specifier: 29.7.0
         version: 29.7.0
       '@types/bn.js':
-        specifier: 5.1.5
-        version: 5.1.5
+        specifier: 5.2.0
+        version: 5.2.0
       '@types/jest':
         specifier: 29.5.12
         version: 29.5.12
@@ -53,29 +53,29 @@ importers:
         specifier: 0.29.0
         version: 0.29.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       '@marinade.finance/anchor-common':
-        specifier: '=2.4.16'
-        version: 2.4.16(@anza-xyz/solana-rpc-get-stake-activation@1.0.1(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@coral-xyz/anchor@0.29.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@marinade.finance/ts-common@2.4.16)(@marinade.finance/web3js-common@2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)
+        specifier: file:/home/chalda/marinade/typescript-common/packages/anchor-common/
+        version: file:../typescript-common/packages/anchor-common(2589d655a1586a446f4942946c0a7f3b)
       '@marinade.finance/cli-common':
-        specifier: '=2.4.16'
-        version: 2.4.16(@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@2.4.16)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@marinade.finance/ts-common@2.4.16)(@marinade.finance/web3js-common@2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)(pino@9.7.0)(yaml@2.8.0)
+        specifier: file:/home/chalda/marinade/typescript-common/packages/cli-common/
+        version: file:../typescript-common/packages/cli-common(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(class-validator@0.14.2)
       '@marinade.finance/ledger-utils':
         specifier: 3.0.1
-        version: 3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@2.4.16)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+        version: 3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
       '@marinade.finance/ts-common':
-        specifier: '=2.4.16'
-        version: 2.4.16
+        specifier: file:/home/chalda/marinade/typescript-common/packages/ts-common/
+        version: file:../typescript-common/packages/ts-common
       '@marinade.finance/validator-bonds-cli-core':
         specifier: 'workspace: *'
         version: link:../validator-bonds-cli-core
       '@marinade.finance/validator-bonds-sdk':
         specifier: 'workspace: *'
         version: link:../validator-bonds-sdk
-      '@marinade.finance/web3js-common':
-        specifier: '=2.4.16'
-        version: 2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)
+      '@marinade.finance/web3js-1x':
+        specifier: file:/home/chalda/marinade/typescript-common/packages/web3js-1x/
+        version: file:../typescript-common/packages/web3js-1x(@jest/globals@29.7.0)(@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@types/bn.js@5.2.0)(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)
       '@solana/web3.js':
-        specifier: 1.98.2
-        version: 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+        specifier: 1.98.4
+        version: 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       bn.js:
         specifier: 5.2.2
         version: 5.2.2
@@ -96,14 +96,14 @@ importers:
         version: 13.0.0
       solana-spl-token-modern:
         specifier: npm:@solana/spl-token@^0.3.11
-        version: '@solana/spl-token@0.3.11(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'
+        version: '@solana/spl-token@0.3.11(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'
       yaml:
         specifier: 2.8.0
         version: 2.8.0
     devDependencies:
-      '@marinade.finance/jest-utils':
-        specifier: '=2.4.16'
-        version: 2.4.16(@jest/globals@29.7.0)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(jest-shell-matchers@1.0.2(jest@29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5))))
+      '@marinade.finance/jest-shell-matcher':
+        specifier: 1.1.1
+        version: 1.1.1(@jest/globals@29.7.0)(expect@29.7.0)(jest-mock@29.7.0)(jest@29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5)))(spawn-with-mocks@1.0.2)
       crypto-js:
         specifier: 4.2.0
         version: 4.2.0
@@ -114,29 +114,29 @@ importers:
         specifier: 0.29.0
         version: 0.29.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       '@marinade.finance/anchor-common':
-        specifier: '=2.4.16'
-        version: 2.4.16(@anza-xyz/solana-rpc-get-stake-activation@1.0.1(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@coral-xyz/anchor@0.29.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@marinade.finance/ts-common@2.4.16)(@marinade.finance/web3js-common@2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)
+        specifier: file:/home/chalda/marinade/typescript-common/packages/anchor-common/
+        version: file:../typescript-common/packages/anchor-common(2589d655a1586a446f4942946c0a7f3b)
       '@marinade.finance/cli-common':
-        specifier: '=2.4.16'
-        version: 2.4.16(@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@2.4.16)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@marinade.finance/ts-common@2.4.16)(@marinade.finance/web3js-common@2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)(pino@9.7.0)(yaml@2.8.0)
-      '@marinade.finance/jest-utils':
-        specifier: '=2.4.16'
-        version: 2.4.16(@jest/globals@29.7.0)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(jest-shell-matchers@1.0.2(jest@29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5))))
+        specifier: file:/home/chalda/marinade/typescript-common/packages/cli-common/
+        version: file:../typescript-common/packages/cli-common(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(class-validator@0.14.2)
+      '@marinade.finance/jest-shell-matcher':
+        specifier: file:/home/chalda/marinade/typescript-common/packages/jest-shell-matcher/
+        version: file:../typescript-common/packages/jest-shell-matcher(@jest/globals@29.7.0)(expect@29.7.0)(jest-mock@29.7.0)(jest@29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5)))(spawn-with-mocks@1.0.2)
       '@marinade.finance/ledger-utils':
         specifier: 3.0.1
-        version: 3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@2.4.16)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+        version: 3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
       '@marinade.finance/ts-common':
-        specifier: '=2.4.16'
-        version: 2.4.16
+        specifier: file:/home/chalda/marinade/typescript-common/packages/ts-common/
+        version: file:../typescript-common/packages/ts-common
       '@marinade.finance/validator-bonds-sdk':
         specifier: 'workspace: *'
         version: link:../validator-bonds-sdk
-      '@marinade.finance/web3js-common':
-        specifier: '=2.4.16'
-        version: 2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)
+      '@marinade.finance/web3js-1x':
+        specifier: file:/home/chalda/marinade/typescript-common/packages/web3js-1x/
+        version: file:../typescript-common/packages/web3js-1x(@jest/globals@29.7.0)(@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@types/bn.js@5.2.0)(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)
       '@solana/web3.js':
-        specifier: 1.98.2
-        version: 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+        specifier: 1.98.4
+        version: 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       bn.js:
         specifier: 5.2.2
         version: 5.2.2
@@ -157,7 +157,7 @@ importers:
         version: 13.0.0
       solana-spl-token-modern:
         specifier: npm:@solana/spl-token@^0.3.11
-        version: '@solana/spl-token@0.3.11(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'
+        version: '@solana/spl-token@0.3.11(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'
       yaml:
         specifier: 2.8.0
         version: 2.8.0
@@ -168,29 +168,29 @@ importers:
         specifier: 0.29.0
         version: 0.29.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       '@marinade.finance/anchor-common':
-        specifier: '=2.4.16'
-        version: 2.4.16(@anza-xyz/solana-rpc-get-stake-activation@1.0.1(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@coral-xyz/anchor@0.29.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@marinade.finance/ts-common@2.4.16)(@marinade.finance/web3js-common@2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)
+        specifier: file:/home/chalda/marinade/typescript-common/packages/anchor-common/
+        version: file:../typescript-common/packages/anchor-common(2589d655a1586a446f4942946c0a7f3b)
       '@marinade.finance/cli-common':
-        specifier: '=2.4.16'
-        version: 2.4.16(@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@2.4.16)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@marinade.finance/ts-common@2.4.16)(@marinade.finance/web3js-common@2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)(pino@9.7.0)(yaml@2.8.0)
+        specifier: file:/home/chalda/marinade/typescript-common/packages/cli-common/
+        version: file:../typescript-common/packages/cli-common(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(class-validator@0.14.2)
       '@marinade.finance/ledger-utils':
         specifier: 3.0.1
-        version: 3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@2.4.16)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+        version: 3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
       '@marinade.finance/ts-common':
-        specifier: '=2.4.16'
-        version: 2.4.16
+        specifier: file:/home/chalda/marinade/typescript-common/packages/ts-common/
+        version: file:../typescript-common/packages/ts-common
       '@marinade.finance/validator-bonds-cli-core':
         specifier: 'workspace: *'
         version: link:../validator-bonds-cli-core
       '@marinade.finance/validator-bonds-sdk':
         specifier: 'workspace: *'
         version: link:../validator-bonds-sdk
-      '@marinade.finance/web3js-common':
-        specifier: '=2.4.16'
-        version: 2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)
+      '@marinade.finance/web3js-1x':
+        specifier: file:/home/chalda/marinade/typescript-common/packages/web3js-1x/
+        version: file:../typescript-common/packages/web3js-1x(@jest/globals@29.7.0)(@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@types/bn.js@5.2.0)(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)
       '@solana/web3.js':
-        specifier: 1.98.2
-        version: 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+        specifier: 1.98.4
+        version: 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       bn.js:
         specifier: 5.2.2
         version: 5.2.2
@@ -211,14 +211,14 @@ importers:
         version: 13.0.0
       solana-spl-token-modern:
         specifier: npm:@solana/spl-token@^0.3.11
-        version: '@solana/spl-token@0.3.11(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'
+        version: '@solana/spl-token@0.3.11(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'
       yaml:
         specifier: 2.8.0
         version: 2.8.0
     devDependencies:
-      '@marinade.finance/jest-utils':
-        specifier: '=2.4.16'
-        version: 2.4.16(@jest/globals@29.7.0)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(jest-shell-matchers@1.0.2(jest@29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5))))
+      '@marinade.finance/jest-shell-matcher':
+        specifier: 1.1.1
+        version: 1.1.1(@jest/globals@29.7.0)(expect@29.7.0)(jest-mock@29.7.0)(jest@29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5)))(spawn-with-mocks@1.0.2)
 
   packages/validator-bonds-codama:
     devDependencies:
@@ -227,32 +227,25 @@ importers:
         version: 2.1.0(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(ws@8.18.0(bufferutil@4.0.8)(utf-8-validate@5.0.10))
 
   packages/validator-bonds-sdk:
-    dependencies:
-      '@marinade.finance/jest-utils':
-        specifier: '=2.4.16'
-        version: 2.4.16(@jest/globals@29.7.0)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(jest-shell-matchers@1.0.2(jest@29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5))))
     devDependencies:
       '@coral-xyz/anchor':
         specifier: 0.29.0
         version: 0.29.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       '@marinade.finance/anchor-common':
-        specifier: '=2.4.16'
-        version: 2.4.16(@anza-xyz/solana-rpc-get-stake-activation@1.0.1(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@coral-xyz/anchor@0.29.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@marinade.finance/ts-common@2.4.16)(@marinade.finance/web3js-common@2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)
+        specifier: file:/home/chalda/marinade/typescript-common/packages/anchor-common/
+        version: file:../typescript-common/packages/anchor-common(2589d655a1586a446f4942946c0a7f3b)
       '@marinade.finance/bankrun-utils':
-        specifier: '=2.4.16'
-        version: 2.4.16(@marinade.finance/web3js-common@2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(anchor-bankrun@0.2.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(class-transformer@0.5.1)(solana-bankrun@0.2.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+        specifier: file:/home/chalda/marinade/typescript-common/packages/bankrun-utils/
+        version: file:../typescript-common/packages/bankrun-utils(@marinade.finance/web3js-1x@file:../typescript-common/packages/web3js-1x(@jest/globals@29.7.0)(@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@types/bn.js@5.2.0)(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(anchor-bankrun@0.2.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(class-transformer@0.5.1)(solana-bankrun@0.2.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
       '@marinade.finance/marinade-ts-sdk':
         specifier: 5.0.15
-        version: 5.0.15(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(jsbi@4.3.2)(typescript@5.4.5)(utf-8-validate@5.0.10)
+        version: 5.0.15(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(jsbi@4.3.2)(typescript@5.4.5)(utf-8-validate@5.0.10)
       '@marinade.finance/ts-common':
-        specifier: '=2.4.16'
-        version: 2.4.16
-      '@marinade.finance/umi-utils':
-        specifier: '=2.4.16'
-        version: 2.4.16(@marinade.finance/web3js-common@2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@metaplex-foundation/umi-bundle-defaults@0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
-      '@marinade.finance/web3js-common':
-        specifier: '=2.4.16'
-        version: 2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)
+        specifier: file:/home/chalda/marinade/typescript-common/packages/ts-common/
+        version: file:../typescript-common/packages/ts-common
+      '@marinade.finance/web3js-1x':
+        specifier: file:/home/chalda/marinade/typescript-common/packages/web3js-1x/
+        version: file:../typescript-common/packages/web3js-1x(@jest/globals@29.7.0)(@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@types/bn.js@5.2.0)(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)
       '@metaplex-foundation/mpl-token-metadata':
         specifier: 3.2.0
         version: 3.2.0(@metaplex-foundation/umi@0.8.10)
@@ -261,13 +254,13 @@ importers:
         version: 0.8.10
       '@metaplex-foundation/umi-bundle-defaults':
         specifier: 0.8.10
-        version: 0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+        version: 0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
       '@metaplex-foundation/umi-options':
         specifier: 0.8.9
         version: 0.8.9
       '@solana/web3.js':
-        specifier: 1.98.2
-        version: 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+        specifier: 1.98.4
+        version: 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       '@types/crypto-js':
         specifier: 4.2.1
         version: 4.2.1
@@ -293,14 +286,14 @@ importers:
         specifier: 4.3.2
         version: 4.3.2
       reflect-metadata:
-        specifier: 0.2.1
-        version: 0.2.1
+        specifier: 0.2.2
+        version: 0.2.2
       solana-bankrun:
         specifier: 0.2.0
         version: 0.2.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       solana-spl-token-modern:
         specifier: npm:@solana/spl-token@^0.3.11
-        version: '@solana/spl-token@0.3.11(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'
+        version: '@solana/spl-token@0.3.11(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'
 
   settlement-pipelines:
     devDependencies:
@@ -308,29 +301,29 @@ importers:
         specifier: 0.29.0
         version: 0.29.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       '@marinade.finance/anchor-common':
-        specifier: '=2.4.16'
-        version: 2.4.16(@anza-xyz/solana-rpc-get-stake-activation@1.0.1(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@coral-xyz/anchor@0.29.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@marinade.finance/ts-common@2.4.16)(@marinade.finance/web3js-common@2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)
+        specifier: file:/home/chalda/marinade/typescript-common/packages/anchor-common/
+        version: file:../typescript-common/packages/anchor-common(2589d655a1586a446f4942946c0a7f3b)
       '@marinade.finance/cli-common':
-        specifier: '=2.4.16'
-        version: 2.4.16(@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@2.4.16)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@marinade.finance/ts-common@2.4.16)(@marinade.finance/web3js-common@2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)(pino@9.7.0)(yaml@2.8.0)
-      '@marinade.finance/jest-utils':
-        specifier: '=2.4.16'
-        version: 2.4.16(@jest/globals@29.7.0)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(jest-shell-matchers@1.0.2(jest@29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5))))
+        specifier: file:/home/chalda/marinade/typescript-common/packages/cli-common/
+        version: file:../typescript-common/packages/cli-common(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(class-validator@0.14.2)
+      '@marinade.finance/jest-shell-matcher':
+        specifier: file:/home/chalda/marinade/typescript-common/packages/jest-shell-matcher/
+        version: file:../typescript-common/packages/jest-shell-matcher(@jest/globals@29.7.0)(expect@29.7.0)(jest-mock@29.7.0)(jest@29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5)))(spawn-with-mocks@1.0.2)
       '@marinade.finance/ledger-utils':
         specifier: 3.0.1
-        version: 3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@2.4.16)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+        version: 3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
       '@marinade.finance/ts-common':
-        specifier: '=2.4.16'
-        version: 2.4.16
+        specifier: file:/home/chalda/marinade/typescript-common/packages/ts-common/
+        version: file:../typescript-common/packages/ts-common
       '@marinade.finance/validator-bonds-sdk':
         specifier: 'workspace: *'
         version: link:../packages/validator-bonds-sdk
-      '@marinade.finance/web3js-common':
-        specifier: '=2.4.16'
-        version: 2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)
+      '@marinade.finance/web3js-1x':
+        specifier: file:/home/chalda/marinade/typescript-common/packages/web3js-1x/
+        version: file:../typescript-common/packages/web3js-1x(@jest/globals@29.7.0)(@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@types/bn.js@5.2.0)(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)
       '@solana/web3.js':
-        specifier: 1.98.2
-        version: 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+        specifier: 1.98.4
+        version: 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       bn.js:
         specifier: 5.2.2
         version: 5.2.2
@@ -348,7 +341,7 @@ importers:
         version: 10.3.1
       solana-spl-token-modern:
         specifier: npm:@solana/spl-token@^0.3.11
-        version: '@solana/spl-token@0.3.11(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'
+        version: '@solana/spl-token@0.3.11(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'
       yaml:
         specifier: 2.8.0
         version: 2.8.0
@@ -715,40 +708,33 @@ packages:
   '@ledgerhq/logs@6.13.0':
     resolution: {integrity: sha512-4+qRW2Pc8V+btL0QEmdB2X+uyx0kOWMWE1/LWsq5sZy3Q5tpi4eItJS6mB0XL3wGW59RQ+8bchNQQ1OW/va8Og==}
 
-  '@marinade.finance/anchor-common@2.4.16':
-    resolution: {integrity: sha512-jLyU5/QwVZCUB0oqob8wRzxiP+MLNRA1eTovq38Zc+p9+7o37zUnHTBgmJ9klCAZIx656lDz05kLvDUSAJ6E+w==}
+  '@marinade.finance/anchor-common@file:../typescript-common/packages/anchor-common':
+    resolution: {directory: ../typescript-common/packages/anchor-common, type: directory}
     engines: {node: '>=16'}
     peerDependencies:
-      '@anza-xyz/solana-rpc-get-stake-activation': 1.0.1
-      '@coral-xyz/anchor': 0.29.0
-      '@marinade.finance/ts-common': 2.4.16
-      '@marinade.finance/web3js-common': 2.4.16
-      '@solana/web3.js': 1.98.2
-      bn.js: 5.2.2
+      '@anza-xyz/solana-rpc-get-stake-activation': ^1.0.1
+      '@coral-xyz/anchor': ^0.29.0
+      '@marinade.finance/ts-common': 'workspace: *'
+      '@marinade.finance/web3js-1x': workspace:*
+      '@solana/web3.js': ^1.98.4
+      bn.js: ^5.2.2
 
-  '@marinade.finance/bankrun-utils@2.4.16':
-    resolution: {integrity: sha512-PxVWLAftJQqKUhXJi2OKWtgDdzJKdq/UZOw0LlhiKNvHFH1siiUvHsCtHfYEG/rIczDrtMrXQH3tZTuWe1w8jg==}
-    engines: {node: '>=16.0.0'}
+  '@marinade.finance/bankrun-utils@file:../typescript-common/packages/bankrun-utils':
+    resolution: {directory: ../typescript-common/packages/bankrun-utils, type: directory}
+    engines: {node: '>=16'}
     peerDependencies:
-      '@marinade.finance/web3js-common': 2.4.16
-      '@solana/web3.js': 1.98.2
-      anchor-bankrun: 0.2.0
-      class-transformer: 0.5.1
-      solana-bankrun: 0.2.0
+      '@marinade.finance/web3js-1x': workspace:*
+      '@solana/web3.js': ^1.98.4
+      anchor-bankrun: ^0.2.0
+      class-transformer: ^0.5.1
+      solana-bankrun: ^0.2.0
 
-  '@marinade.finance/cli-common@2.4.16':
-    resolution: {integrity: sha512-8iaKeJ8alwEbFE4iQPR6qEX1LdDzC1xQyVZPSdiFu5xVoio0lm0qhN0Q4D9Y/i460JQ2fzJcjshF2A+WRQ39oQ==}
-    engines: {node: '>=16.0.0'}
+  '@marinade.finance/cli-common@file:../typescript-common/packages/cli-common':
+    resolution: {directory: ../typescript-common/packages/cli-common, type: directory}
+    engines: {node: '>=16'}
     peerDependencies:
-      '@marinade.finance/ledger-utils': 3.0.1
-      '@marinade.finance/ts-common': 2.4.16
-      '@marinade.finance/web3js-common': 2.4.16
-      '@solana/web3.js': 1.98.2
-      bn.js: 5.2.2
-      borsh: 0.7.0
-      bs58: 6.0.0
-      pino: 9.7.0
-      yaml: 2.8.0
+      '@marinade.finance/ts-common': workspace:*
+      class-validator: ^0.14.0
 
   '@marinade.finance/directed-stake-sdk@0.1.0':
     resolution: {integrity: sha512-jpdz5XYMa/5tTe5W2isUWT8P38X49KeFNrqYlzPouhYPxqjdt4a/aSzuMqhP5s1xILFxRmqpZIv02iYeH0xjiA==}
@@ -758,16 +744,27 @@ packages:
       bn.js: ^5.2.1
       jsbi: ^4.3.0
 
-  '@marinade.finance/jest-utils@2.4.16':
-    resolution: {integrity: sha512-tXXjchg/BBHfTA7tOZbuObhWBnYGo33vs+e7ehUgdUB4CfF8PzulxfL5u5dQJUkKCFECLp1lzxwsXyz1dpqqAQ==}
+  '@marinade.finance/jest-shell-matcher@1.1.1':
+    resolution: {integrity: sha512-8u7AG9tfcp/eTq3KsTZD2jsDDqjxnh4frNpS1ChC739HyyS/aGr5PgQGLbsQ7hcVVJ1xpnasTnRP+t0fy1AE+Q==}
     peerDependencies:
-      '@jest/globals': 29.7.0
-      '@solana/web3.js': 1.98.2
-      bn.js: 5.2.2
-      jest-shell-matchers: 1.0.2
+      '@jest/globals': ^29 || ^30
+      expect: ^29 || ^30
+      jest: ^29 || ^30
+      jest-mock: ^29 || ^30
+      spawn-with-mocks: ^1.0.2
+
+  '@marinade.finance/jest-shell-matcher@file:../typescript-common/packages/jest-shell-matcher':
+    resolution: {directory: ../typescript-common/packages/jest-shell-matcher, type: directory}
+    peerDependencies:
+      '@jest/globals': ^29 || ^30
+      expect: ^29 || ^30
+      jest: ^29 || ^30
+      jest-mock: ^29 || ^30
+      spawn-with-mocks: ^1.0.2
 
   '@marinade.finance/ledger-utils@3.0.1':
     resolution: {integrity: sha512-EIklQpxQHJ8f/YpE/HVYz4b6097I0kFR2aAZpgHocagSHuERRhXxoI46Ge7iDkLPnkjOaYOUtMxTdm2a1Hc4Wg==}
+    version: 3.0.1
     peerDependencies:
       '@ledgerhq/errors': ^6.16.1
       '@ledgerhq/hw-app-solana': ^7.1.2
@@ -782,28 +779,23 @@ packages:
   '@marinade.finance/native-staking-sdk@1.3.3':
     resolution: {integrity: sha512-bnjCiKj4AG7fiBXPjX0AOcsJ/VRYlGV9/vy83YM2Cg30L9tlkVYWEBf+WVcHDMMYAqTlO49nq9zTDCxu9Ui2JA==}
 
-  '@marinade.finance/ts-common@2.4.16':
-    resolution: {integrity: sha512-ZSGqJBUei7WNRAfKHWurUdBxtq4SNOMTcVZowJPPevB1P9KxlAdY2/zQ0TD9Hkj5mmqdqI+r1pZ25gJgtS16wA==}
+  '@marinade.finance/ts-common@file:../typescript-common/packages/ts-common':
+    resolution: {directory: ../typescript-common/packages/ts-common, type: directory}
+    engines: {node: '>=14'}
 
-  '@marinade.finance/umi-utils@2.4.16':
-    resolution: {integrity: sha512-ymeZ5B6Y1MzKTY1AqqsAN59+yCwvexLLVSr0RuCGC6xsBBed8rVFR9RKVuhH8DG3EvjO/sMCqcB0u9RmUkT41g==}
-    engines: {node: '>=16.0.0'}
+  '@marinade.finance/web3js-1x@file:../typescript-common/packages/web3js-1x':
+    resolution: {directory: ../typescript-common/packages/web3js-1x, type: directory}
+    engines: {node: '>=20'}
     peerDependencies:
-      '@marinade.finance/web3js-common': 2.4.16
-      '@metaplex-foundation/umi': 0.8.10
-      '@metaplex-foundation/umi-bundle-defaults': 0.8.10
-      '@solana/web3.js': 1.98.2
-
-  '@marinade.finance/web3js-common@2.4.16':
-    resolution: {integrity: sha512-IVvZuOJ8cflguH/G61hYn2LB5CxbX1f5KfEQTULm+gULar/zOCOGSYj441sxXgDuuKXwk/m5J4hgNmaxnq4J4w==}
-    engines: {node: '>=16.0.0'}
-    peerDependencies:
-      '@marinade.finance/ts-common': 2.4.16
-      '@solana/buffer-layout': 4.0.1
-      '@solana/web3.js': 1.98.2
-      bn.js: 5.2.2
-      borsh: 0.7.0
-      bs58: 6.0.0
+      '@jest/globals': ^29 || ^30
+      '@marinade.finance/ledger-utils': ^3.0.1
+      '@marinade.finance/ts-common': workspace:*
+      '@solana/buffer-layout': ^4.0.1
+      '@solana/web3.js': ^1.98.4
+      '@types/bn.js': ^5.2.0
+      bn.js: ^5.2.2
+      borsh: ~0.7.0
+      bs58: ^6.0.0
 
   '@metaplex-foundation/mpl-token-metadata@3.2.0':
     resolution: {integrity: sha512-IP+orxAIkQwSa9M+xsYi7IopV+/0od5rgXTxp0988cHeB0hR1RpXQT8RrcTH/PeOs/tPCU5HvU01NaavV9EEcw==}
@@ -1197,8 +1189,8 @@ packages:
     peerDependencies:
       typescript: '>=5'
 
-  '@solana/web3.js@1.98.2':
-    resolution: {integrity: sha512-BqVwEG+TaG2yCkBMbD3C4hdpustR4FpuUFRPUmqRZYYlPI9Hg4XMWxHWOWRzHE9Lkc9NDjzXFX7lDXSgzC7R1A==}
+  '@solana/web3.js@1.98.4':
+    resolution: {integrity: sha512-vv9lfnvjUsRiq//+j5pBdXig0IQdtzA0BRZ3bXEP4KaIyF1CcaydWqgyzQgfZMNIsWNWmG+AUHwPy4AHOD6gpw==}
 
   '@swc/helpers@0.5.11':
     resolution: {integrity: sha512-YNlnKRWF2sVojTpIyzwou9XoTNbzbzONwRhOoniEioF1AtaitTvVZblaQRrAzChWQ1bLYyYSWzM18y4WwgzJ+A==}
@@ -1227,8 +1219,8 @@ packages:
   '@types/babel__traverse@7.20.5':
     resolution: {integrity: sha512-WXCyOcRtH37HAUkpXhUduaxdm82b4GSlyTqajXviN4EfiuPgNYR109xMCKvpl6zPIpua0DGlMEDCq+g8EdoheQ==}
 
-  '@types/bn.js@5.1.5':
-    resolution: {integrity: sha512-V46N0zwKRF5Q00AZ6hWtN0T8gGmDUaUzLWQvHFo5yThtVwK/VCenFY3wXVbOvNfajEpsTfQM4IN9k/d6gUVX3A==}
+  '@types/bn.js@5.2.0':
+    resolution: {integrity: sha512-DLbJ1BPqxvQhIGbeu8VbUC1DiAiahHtAYvA0ZEAa4P31F7IaArc8z3C3BRQdWX4mtLQuABG4yzp76ZrS02Ui1Q==}
 
   '@types/connect@3.4.37':
     resolution: {integrity: sha512-zBUSRqkfZ59OcwXon4HVxhx5oWCJmc0OtBTK05M+p0dYjgN6iTwIL2T/WbsQZrEsdnwaF9cWQ+azOnpPvIqY3Q==}
@@ -1274,6 +1266,9 @@ packages:
 
   '@types/uuid@8.3.4':
     resolution: {integrity: sha512-c/I8ZRb51j+pYGAu5CrFMRxqZ2ke4y2grEBO5AUjgSkSk+qT2Ea+OdWElz/OiMf5MNpn2b17kuVBwZLQJXzihw==}
+
+  '@types/validator@13.15.3':
+    resolution: {integrity: sha512-7bcUmDyS6PN3EuD9SlGGOxM77F8WLVsrwkxyWxKnxzmXoequ6c7741QBrANq6htVRGOITJ7z72mTP6Z4XyuG+Q==}
 
   '@types/ws@7.4.7':
     resolution: {integrity: sha512-JQbbmxZTZehdc2iszGKs5oC3NFnjeay7mtAWrdt7qNtAVK0g19muApzAy4bm9byz79xa2ZnO/BOBC2R8RC5Lww==}
@@ -1587,6 +1582,9 @@ packages:
   class-transformer@0.5.1:
     resolution: {integrity: sha512-SQa1Ws6hUbfC98vKGxZH3KFY0Y1lm5Zm0SY8XX9zbK7FJCyVEac3ATW0RIpwzW+oOfmHE5PMPufDG9hCfoEOMw==}
 
+  class-validator@0.14.2:
+    resolution: {integrity: sha512-3kMVRF2io8N8pY1IFIXlho9r8IPUUIfHe2hYVtiebvAzU2XeQFXTv+XI4WX+TnXmtwXMDcjngcpkiPM0O9PvLw==}
+
   cli-cursor@3.1.0:
     resolution: {integrity: sha512-I/zHAwsKf9FqGoXM4WWRACob9+SNukZTd94DWF57E4toouRulbCxcUh6RKUEOQlYTHJnzkPMySvPNaaSLNfLZw==}
     engines: {node: '>=8'}
@@ -1680,6 +1678,9 @@ packages:
   decamelize@1.2.0:
     resolution: {integrity: sha512-z2S+W9X73hAUUki+N+9Za2lBlun89zigOyGrsax+KUQ6wKW4ZoWpEYBkGhQjwAjjDCkWxhY0VKEhk8wzY7F5cA==}
     engines: {node: '>=0.10.0'}
+
+  decimal.js@10.6.0:
+    resolution: {integrity: sha512-YpgQiITW3JXGntzdUmyUR1V812Hn8T1YVXhCu+wO3OpS4eU9l4YdD3qjyiKdV6mvV29zapkMeD390UVEf2lkUg==}
 
   decompress-response@6.0.0:
     resolution: {integrity: sha512-aW35yZM6Bb/4oJlZncMH2LCoZtJXTRxES17vE3hoRiowU2kWHaJKFkSBDnDR+cm9J+9QhXmREyIfv0pji9ejCQ==}
@@ -2317,12 +2318,6 @@ packages:
     resolution: {integrity: sha512-gUnLjgwdGqW7B4LvOIkbKs9WGbn+QLqRQQ9juC6HndeDiezIwhDP+mhMwHWCEcfQ5RUXa6OPnFF8BJh5xegwwQ==}
     engines: {node: ^14.15.0 || ^16.10.0 || >=18.0.0}
 
-  jest-shell-matchers@1.0.2:
-    resolution: {integrity: sha512-5yHC8FOZlTA8wPqzez3PSE9FWrBqiuIC188kGxobTHhSP5GO98grEj5mbGA4+EabOMzudBXMfI0xtG5zOxvzwA==}
-    engines: {node: '>=8'}
-    peerDependencies:
-      jest: ^23.0.0
-
   jest-snapshot@29.7.0:
     resolution: {integrity: sha512-Rm0BMWtxBcioHr1/OX5YCP8Uov4riHvKPknOGs804Zg9JGZgmIBkbtlxJC/7Z4msKYVbIJtfU+tKb8xlYNfdkw==}
     engines: {node: ^14.15.0 || ^16.10.0 || >=18.0.0}
@@ -2421,6 +2416,9 @@ packages:
   levn@0.4.1:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
     engines: {node: '>= 0.8.0'}
+
+  libphonenumber-js@1.12.17:
+    resolution: {integrity: sha512-bsxi8FoceAYR/bjHcLYc2ShJ/aVAzo5jaxAYiMHF0BD+NTp47405CGuPNKYpw+lHadN9k/ClFGc9X5vaZswIrA==}
 
   lines-and-columns@1.2.4:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==}
@@ -2770,9 +2768,8 @@ packages:
     resolution: {integrity: sha512-6tDA8g98We0zd0GvVeMT9arEOnTw9qM03L9cJXaCjrip1OO764RDBLBfrB4cwzNGDj5OA5ioymC9GkizgWJDUg==}
     engines: {node: '>=8'}
 
-  reflect-metadata@0.2.1:
-    resolution: {integrity: sha512-i5lLI6iw9AU3Uu4szRNPPEkomnkjRTaVt9hy/bn5g/oSzekBSMeLZblcjP74AW0vBabqERLLIrz+gR8QYR54Tw==}
-    deprecated: This version has a critical bug in fallback handling. Please upgrade to reflect-metadata@0.2.2 or newer.
+  reflect-metadata@0.2.2:
+    resolution: {integrity: sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q==}
 
   regenerator-runtime@0.14.0:
     resolution: {integrity: sha512-srw17NI0TUWHuGa5CFGGmhfNIeja30WMBfbslPNhf6JrqQlLN5gcrvig1oqPxiVaXb0oW0XRKtH6Nngs5lKCIA==}
@@ -3198,6 +3195,10 @@ packages:
   validate-npm-package-license@3.0.4:
     resolution: {integrity: sha512-DpKm2Ui/xN7/HQKCtpZxoRWBhZ9Z0kqtygG8XCgNQ8ZlDnxuQmWhj566j8fN4Cu3/JmbhsDo7fcAJq4s9h27Ew==}
 
+  validator@13.15.15:
+    resolution: {integrity: sha512-BgWVbCI72aIQy937xbawcs+hrVaN/CZ2UwutgaJ36hGqRrLNM+f5LUT/YPRbo8IV/ASeFzXszezV+y2+rq3l8A==}
+    engines: {node: '>= 0.10'}
+
   walker@1.0.8:
     resolution: {integrity: sha512-ts/8E8l5b7kY0vlWLewOkDXMmPdLcVV4GmOQLyxuSswIJsweeFZtAsMF7k1Nszz+TYBQrlYRmzOnr398y1JemQ==}
 
@@ -3262,6 +3263,11 @@ packages:
     engines: {node: '>= 14.6'}
     hasBin: true
 
+  yaml@2.8.1:
+    resolution: {integrity: sha512-lcYcMxX2PO9XMGvAJkJ3OsNMw+/7FKes7/hgerGUYWIoWu5j/+YQqcZr5JnPZWzOsEBgMbSbiSTn/dv/69Mkpw==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
+
   yargs-parser@20.2.9:
     resolution: {integrity: sha512-y11nGElTIV+CT3Zv9t7VKl+Q3hTQoT9a1Qzezhhl6Rp21gJ/IVTW7Z3y9EWXhuUBC2Shnf+DX0antecpAwSP8w==}
     engines: {node: '>=10'}
@@ -3293,7 +3299,7 @@ snapshots:
 
   '@anza-xyz/solana-rpc-get-stake-activation@1.0.1(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)':
     dependencies:
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
     transitivePeerDependencies:
       - bufferutil
       - encoding
@@ -3505,8 +3511,8 @@ snapshots:
 
   '@coral-xyz/anchor@0.27.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)':
     dependencies:
-      '@coral-xyz/borsh': 0.27.0(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@coral-xyz/borsh': 0.27.0(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       base64-js: 1.5.1
       bn.js: 5.2.2
       bs58: 4.0.1
@@ -3528,8 +3534,8 @@ snapshots:
 
   '@coral-xyz/anchor@0.28.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)':
     dependencies:
-      '@coral-xyz/borsh': 0.28.0(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@coral-xyz/borsh': 0.28.0(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       base64-js: 1.5.1
       bn.js: 5.2.2
       bs58: 4.0.1
@@ -3551,9 +3557,9 @@ snapshots:
 
   '@coral-xyz/anchor@0.29.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)':
     dependencies:
-      '@coral-xyz/borsh': 0.29.0(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+      '@coral-xyz/borsh': 0.29.0(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
       '@noble/hashes': 1.7.1
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       bn.js: 5.2.2
       bs58: 4.0.1
       buffer-layout: 1.2.2
@@ -3571,21 +3577,21 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@coral-xyz/borsh@0.27.0(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
+  '@coral-xyz/borsh@0.27.0(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
     dependencies:
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       bn.js: 5.2.2
       buffer-layout: 1.2.2
 
-  '@coral-xyz/borsh@0.28.0(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
+  '@coral-xyz/borsh@0.28.0(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
     dependencies:
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       bn.js: 5.2.2
       buffer-layout: 1.2.2
 
-  '@coral-xyz/borsh@0.29.0(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
+  '@coral-xyz/borsh@0.29.0(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
     dependencies:
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       bn.js: 5.2.2
       buffer-layout: 1.2.2
 
@@ -3854,39 +3860,34 @@ snapshots:
 
   '@ledgerhq/logs@6.13.0': {}
 
-  '@marinade.finance/anchor-common@2.4.16(@anza-xyz/solana-rpc-get-stake-activation@1.0.1(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@coral-xyz/anchor@0.29.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@marinade.finance/ts-common@2.4.16)(@marinade.finance/web3js-common@2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)':
+  '@marinade.finance/anchor-common@file:../typescript-common/packages/anchor-common(2589d655a1586a446f4942946c0a7f3b)':
     dependencies:
       '@anza-xyz/solana-rpc-get-stake-activation': 1.0.1(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       '@coral-xyz/anchor': 0.29.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
-      '@marinade.finance/ts-common': 2.4.16
-      '@marinade.finance/web3js-common': 2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@marinade.finance/ts-common': file:../typescript-common/packages/ts-common
+      '@marinade.finance/web3js-1x': file:../typescript-common/packages/web3js-1x(@jest/globals@29.7.0)(@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@types/bn.js@5.2.0)(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       bn.js: 5.2.2
 
-  '@marinade.finance/bankrun-utils@2.4.16(@marinade.finance/web3js-common@2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(anchor-bankrun@0.2.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(class-transformer@0.5.1)(solana-bankrun@0.2.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
+  '@marinade.finance/bankrun-utils@file:../typescript-common/packages/bankrun-utils(@marinade.finance/web3js-1x@file:../typescript-common/packages/web3js-1x(@jest/globals@29.7.0)(@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@types/bn.js@5.2.0)(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(anchor-bankrun@0.2.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(class-transformer@0.5.1)(solana-bankrun@0.2.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
     dependencies:
-      '@marinade.finance/web3js-common': 2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@marinade.finance/web3js-1x': file:../typescript-common/packages/web3js-1x(@jest/globals@29.7.0)(@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@types/bn.js@5.2.0)(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       anchor-bankrun: 0.2.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       class-transformer: 0.5.1
       solana-bankrun: 0.2.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
 
-  '@marinade.finance/cli-common@2.4.16(@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@2.4.16)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@marinade.finance/ts-common@2.4.16)(@marinade.finance/web3js-common@2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)(pino@9.7.0)(yaml@2.8.0)':
+  '@marinade.finance/cli-common@file:../typescript-common/packages/cli-common(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(class-validator@0.14.2)':
     dependencies:
-      '@marinade.finance/ledger-utils': 3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@2.4.16)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
-      '@marinade.finance/ts-common': 2.4.16
-      '@marinade.finance/web3js-common': 2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
-      bn.js: 5.2.2
-      borsh: 0.7.0
-      bs58: 6.0.0
-      pino: 9.7.0
-      yaml: 2.8.0
+      '@marinade.finance/ts-common': file:../typescript-common/packages/ts-common
+      class-transformer: 0.5.1
+      class-validator: 0.14.2
+      yaml: 2.8.1
 
-  '@marinade.finance/directed-stake-sdk@0.1.0(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(bufferutil@4.0.8)(jsbi@4.3.2)(typescript@5.4.5)(utf-8-validate@5.0.10)':
+  '@marinade.finance/directed-stake-sdk@0.1.0(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(bufferutil@4.0.8)(jsbi@4.3.2)(typescript@5.4.5)(utf-8-validate@5.0.10)':
     dependencies:
       '@coral-xyz/anchor': 0.27.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       bn.js: 5.2.2
       bs58: 5.0.0
       jsbi: 4.3.2
@@ -3896,28 +3897,37 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@marinade.finance/jest-utils@2.4.16(@jest/globals@29.7.0)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(jest-shell-matchers@1.0.2(jest@29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5))))':
+  '@marinade.finance/jest-shell-matcher@1.1.1(@jest/globals@29.7.0)(expect@29.7.0)(jest-mock@29.7.0)(jest@29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5)))(spawn-with-mocks@1.0.2)':
     dependencies:
       '@jest/globals': 29.7.0
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
-      bn.js: 5.2.2
-      jest-shell-matchers: 1.0.2(jest@29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5)))
+      expect: 29.7.0
+      jest: 29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5))
+      jest-mock: 29.7.0
+      spawn-with-mocks: 1.0.2
 
-  '@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@2.4.16)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
+  '@marinade.finance/jest-shell-matcher@file:../typescript-common/packages/jest-shell-matcher(@jest/globals@29.7.0)(expect@29.7.0)(jest-mock@29.7.0)(jest@29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5)))(spawn-with-mocks@1.0.2)':
+    dependencies:
+      '@jest/globals': 29.7.0
+      expect: 29.7.0
+      jest: 29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5))
+      jest-mock: 29.7.0
+      spawn-with-mocks: 1.0.2
+
+  '@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
     dependencies:
       '@ledgerhq/errors': 6.22.0
       '@ledgerhq/hw-app-solana': 7.1.4
       '@ledgerhq/hw-transport-node-hid-noevents': 6.29.4
-      '@marinade.finance/ts-common': 2.4.16
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@marinade.finance/ts-common': file:../typescript-common/packages/ts-common
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
 
-  '@marinade.finance/marinade-ts-sdk@5.0.15(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(jsbi@4.3.2)(typescript@5.4.5)(utf-8-validate@5.0.10)':
+  '@marinade.finance/marinade-ts-sdk@5.0.15(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(jsbi@4.3.2)(typescript@5.4.5)(utf-8-validate@5.0.10)':
     dependencies:
       '@coral-xyz/anchor': 0.28.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
-      '@marinade.finance/directed-stake-sdk': 0.1.0(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(bufferutil@4.0.8)(jsbi@4.3.2)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@marinade.finance/directed-stake-sdk': 0.1.0(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(bufferutil@4.0.8)(jsbi@4.3.2)(typescript@5.4.5)(utf-8-validate@5.0.10)
       '@marinade.finance/native-staking-sdk': 1.3.3(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       '@solana/spl-stake-pool': 0.6.5(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
-      '@solana/spl-token-3.x': '@solana/spl-token@0.3.11(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'
+      '@solana/spl-token-3.x': '@solana/spl-token@0.3.11(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'
       borsh: 0.7.0
       bs58: 5.0.0
     transitivePeerDependencies:
@@ -3932,8 +3942,8 @@ snapshots:
 
   '@marinade.finance/native-staking-sdk@1.3.3(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)':
     dependencies:
-      '@solana/spl-memo': 0.2.5(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/spl-memo': 0.2.5(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       bn.js: 5.2.2
     transitivePeerDependencies:
       - bufferutil
@@ -3941,23 +3951,22 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@marinade.finance/ts-common@2.4.16': {}
-
-  '@marinade.finance/umi-utils@2.4.16(@marinade.finance/web3js-common@2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0))(@metaplex-foundation/umi-bundle-defaults@0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
+  '@marinade.finance/ts-common@file:../typescript-common/packages/ts-common':
     dependencies:
-      '@marinade.finance/web3js-common': 2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)
-      '@metaplex-foundation/umi': 0.8.10
-      '@metaplex-foundation/umi-bundle-defaults': 0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      decimal.js: 10.6.0
 
-  '@marinade.finance/web3js-common@2.4.16(@marinade.finance/ts-common@2.4.16)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)':
+  '@marinade.finance/web3js-1x@file:../typescript-common/packages/web3js-1x(@jest/globals@29.7.0)(@marinade.finance/ledger-utils@3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)))(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/buffer-layout@4.0.1)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@types/bn.js@5.2.0)(bn.js@5.2.2)(borsh@0.7.0)(bs58@6.0.0)':
     dependencies:
-      '@marinade.finance/ts-common': 2.4.16
+      '@jest/globals': 29.7.0
+      '@marinade.finance/ledger-utils': 3.0.1(@ledgerhq/errors@6.22.0)(@ledgerhq/hw-app-solana@7.1.4)(@ledgerhq/hw-transport-node-hid-noevents@6.29.4)(@marinade.finance/ts-common@file:../typescript-common/packages/ts-common)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+      '@marinade.finance/ts-common': file:../typescript-common/packages/ts-common
       '@solana/buffer-layout': 4.0.1
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@types/bn.js': 5.2.0
       bn.js: 5.2.2
       borsh: 0.7.0
       bs58: 6.0.0
+      yaml: 2.8.1
 
   '@metaplex-foundation/mpl-token-metadata@3.2.0(@metaplex-foundation/umi@0.8.10)':
     dependencies:
@@ -3968,18 +3977,18 @@ snapshots:
     dependencies:
       '@metaplex-foundation/umi': 0.8.10
 
-  '@metaplex-foundation/umi-bundle-defaults@0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
+  '@metaplex-foundation/umi-bundle-defaults@0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
     dependencies:
       '@metaplex-foundation/umi': 0.8.10
       '@metaplex-foundation/umi-downloader-http': 0.8.10(@metaplex-foundation/umi@0.8.10)
-      '@metaplex-foundation/umi-eddsa-web3js': 0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+      '@metaplex-foundation/umi-eddsa-web3js': 0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
       '@metaplex-foundation/umi-http-fetch': 0.8.10(@metaplex-foundation/umi@0.8.10)
       '@metaplex-foundation/umi-program-repository': 0.8.10(@metaplex-foundation/umi@0.8.10)
       '@metaplex-foundation/umi-rpc-chunk-get-accounts': 0.8.10(@metaplex-foundation/umi@0.8.10)
-      '@metaplex-foundation/umi-rpc-web3js': 0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+      '@metaplex-foundation/umi-rpc-web3js': 0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
       '@metaplex-foundation/umi-serializer-data-view': 0.8.10(@metaplex-foundation/umi@0.8.10)
-      '@metaplex-foundation/umi-transaction-factory-web3js': 0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@metaplex-foundation/umi-transaction-factory-web3js': 0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
     transitivePeerDependencies:
       - encoding
 
@@ -3987,12 +3996,12 @@ snapshots:
     dependencies:
       '@metaplex-foundation/umi': 0.8.10
 
-  '@metaplex-foundation/umi-eddsa-web3js@0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
+  '@metaplex-foundation/umi-eddsa-web3js@0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
     dependencies:
       '@metaplex-foundation/umi': 0.8.10
-      '@metaplex-foundation/umi-web3js-adapters': 0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+      '@metaplex-foundation/umi-web3js-adapters': 0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
       '@noble/curves': 1.8.1
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
 
   '@metaplex-foundation/umi-http-fetch@0.8.10(@metaplex-foundation/umi@0.8.10)':
     dependencies:
@@ -4015,11 +4024,11 @@ snapshots:
     dependencies:
       '@metaplex-foundation/umi': 0.8.10
 
-  '@metaplex-foundation/umi-rpc-web3js@0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
+  '@metaplex-foundation/umi-rpc-web3js@0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
     dependencies:
       '@metaplex-foundation/umi': 0.8.10
-      '@metaplex-foundation/umi-web3js-adapters': 0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@metaplex-foundation/umi-web3js-adapters': 0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
 
   '@metaplex-foundation/umi-serializer-data-view@0.8.10(@metaplex-foundation/umi@0.8.10)':
     dependencies:
@@ -4043,16 +4052,16 @@ snapshots:
       '@metaplex-foundation/umi-serializers-encodings': 0.8.9
       '@metaplex-foundation/umi-serializers-numbers': 0.8.9
 
-  '@metaplex-foundation/umi-transaction-factory-web3js@0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
+  '@metaplex-foundation/umi-transaction-factory-web3js@0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
     dependencies:
       '@metaplex-foundation/umi': 0.8.10
-      '@metaplex-foundation/umi-web3js-adapters': 0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@metaplex-foundation/umi-web3js-adapters': 0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
 
-  '@metaplex-foundation/umi-web3js-adapters@0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
+  '@metaplex-foundation/umi-web3js-adapters@0.8.10(@metaplex-foundation/umi@0.8.10)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
     dependencies:
       '@metaplex-foundation/umi': 0.8.10
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       buffer: 6.0.3
 
   '@metaplex-foundation/umi@0.8.10':
@@ -4081,9 +4090,9 @@ snapshots:
 
   '@pkgr/core@0.1.1': {}
 
-  '@project-serum/borsh@0.2.5(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
+  '@project-serum/borsh@0.2.5(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
     dependencies:
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       bn.js: 5.2.2
       buffer-layout: 1.2.2
 
@@ -4127,7 +4136,7 @@ snapshots:
   '@solana/buffer-layout-utils@0.2.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)':
     dependencies:
       '@solana/buffer-layout': 4.0.1
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       bigint-buffer: 1.1.5
       bignumber.js: 9.1.2
     transitivePeerDependencies:
@@ -4413,17 +4422,17 @@ snapshots:
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
 
-  '@solana/spl-memo@0.2.5(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
+  '@solana/spl-memo@0.2.5(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))':
     dependencies:
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       buffer: 6.0.3
 
   '@solana/spl-stake-pool@0.6.5(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)':
     dependencies:
-      '@project-serum/borsh': 0.2.5(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
+      '@project-serum/borsh': 0.2.5(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))
       '@solana/buffer-layout': 4.0.1
       '@solana/spl-token': 0.1.8(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       bn.js: 5.2.2
       buffer: 6.0.3
     transitivePeerDependencies:
@@ -4432,7 +4441,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@solana/spl-token-metadata@0.1.2(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(fastestsmallesttextencoderdecoder@1.0.22)':
+  '@solana/spl-token-metadata@0.1.2(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(fastestsmallesttextencoderdecoder@1.0.22)':
     dependencies:
       '@solana/codecs-core': 2.0.0-experimental.8618508
       '@solana/codecs-data-structures': 2.0.0-experimental.8618508
@@ -4440,14 +4449,14 @@ snapshots:
       '@solana/codecs-strings': 2.0.0-experimental.8618508(fastestsmallesttextencoderdecoder@1.0.22)
       '@solana/options': 2.0.0-experimental.8618508
       '@solana/spl-type-length-value': 0.1.0
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
 
   '@solana/spl-token@0.1.8(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)':
     dependencies:
       '@babel/runtime': 7.26.0
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       bn.js: 5.2.2
       buffer: 6.0.3
       buffer-layout: 1.2.2
@@ -4458,12 +4467,12 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@solana/spl-token@0.3.11(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)':
+  '@solana/spl-token@0.3.11(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)':
     dependencies:
       '@solana/buffer-layout': 4.0.1
       '@solana/buffer-layout-utils': 0.2.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
-      '@solana/spl-token-metadata': 0.1.2(@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(fastestsmallesttextencoderdecoder@1.0.22)
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/spl-token-metadata': 0.1.2(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(fastestsmallesttextencoderdecoder@1.0.22)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       buffer: 6.0.3
     transitivePeerDependencies:
       - bufferutil
@@ -4539,7 +4548,7 @@ snapshots:
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
 
-  '@solana/web3.js@1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)':
+  '@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)':
     dependencies:
       '@babel/runtime': 7.26.0
       '@noble/curves': 1.8.1
@@ -4595,7 +4604,7 @@ snapshots:
     dependencies:
       '@babel/types': 7.23.9
 
-  '@types/bn.js@5.1.5':
+  '@types/bn.js@5.2.0':
     dependencies:
       '@types/node': 22.10.7
 
@@ -4641,6 +4650,8 @@ snapshots:
   '@types/stack-utils@2.0.3': {}
 
   '@types/uuid@8.3.4': {}
+
+  '@types/validator@13.15.3': {}
 
   '@types/ws@7.4.7':
     dependencies:
@@ -5003,6 +5014,12 @@ snapshots:
 
   class-transformer@0.5.1: {}
 
+  class-validator@0.14.2:
+    dependencies:
+      '@types/validator': 13.15.3
+      libphonenumber-js: 1.12.17
+      validator: 13.15.15
+
   cli-cursor@3.1.0:
     dependencies:
       restore-cursor: 3.1.0
@@ -5088,6 +5105,8 @@ snapshots:
       map-obj: 1.0.1
 
   decamelize@1.2.0: {}
+
+  decimal.js@10.6.0: {}
 
   decompress-response@6.0.0:
     dependencies:
@@ -5876,11 +5895,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  jest-shell-matchers@1.0.2(jest@29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5))):
-    dependencies:
-      jest: 29.7.0(@types/node@22.10.7)(ts-node@10.9.2(@types/node@22.10.7)(typescript@5.4.5))
-      spawn-with-mocks: 1.0.2
-
   jest-snapshot@29.7.0:
     dependencies:
       '@babel/core': 7.23.9
@@ -6001,6 +6015,8 @@ snapshots:
     dependencies:
       prelude-ls: 1.2.1
       type-check: 0.4.0
+
+  libphonenumber-js@1.12.17: {}
 
   lines-and-columns@1.2.4: {}
 
@@ -6379,7 +6395,7 @@ snapshots:
       indent-string: 4.0.0
       strip-indent: 3.0.0
 
-  reflect-metadata@0.2.1: {}
+  reflect-metadata@0.2.2: {}
 
   regenerator-runtime@0.14.0: {}
 
@@ -6499,7 +6515,7 @@ snapshots:
 
   solana-bankrun@0.2.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10):
     dependencies:
-      '@solana/web3.js': 1.98.2(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      '@solana/web3.js': 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
       bs58: 4.0.1
     optionalDependencies:
       solana-bankrun-darwin-arm64: 0.2.0
@@ -6760,6 +6776,8 @@ snapshots:
       spdx-correct: 3.2.0
       spdx-expression-parse: 3.0.1
 
+  validator@13.15.15: {}
+
   walker@1.0.8:
     dependencies:
       makeerror: 1.0.12
@@ -6805,6 +6823,8 @@ snapshots:
   yallist@4.0.0: {}
 
   yaml@2.8.0: {}
+
+  yaml@2.8.1: {}
 
   yargs-parser@20.2.9: {}
 

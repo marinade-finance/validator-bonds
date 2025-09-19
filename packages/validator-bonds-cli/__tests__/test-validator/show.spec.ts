@@ -1,4 +1,4 @@
-import { shellMatchers } from '@marinade.finance/jest-utils'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import YAML from 'yaml'
 import {
   initConfigInstruction,
@@ -16,7 +16,7 @@ import {
   signerWithPubkey,
   transaction,
   waitForNextEpoch,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   Connection,
   Keypair,
@@ -39,7 +39,7 @@ import { VoteAccountShow } from '@marinade.finance/validator-bonds-cli-core'
 import BN from 'bn.js'
 
 beforeAll(() => {
-  shellMatchers()
+  extendJestWithShellMatchers()
 })
 
 describe('Show command using CLI', () => {
@@ -47,7 +47,7 @@ describe('Show command using CLI', () => {
   let program: ValidatorBondsProgram
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest('processed'))
   })
 
@@ -362,6 +362,10 @@ describe('Show command using CLI', () => {
       // stderr: '',
       stdout: YAML.stringify(expectedDataFundingSingleItem),
     })
+    const identityRegex = new RegExp(
+      YAML.stringify(expectedDataFundingSingleItem),
+      'g',
+    )
     await (
       expect([
         'pnpm',
@@ -386,7 +390,7 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
       // stderr: '',
-      stdout: YAML.stringify(expectedDataFundingSingleItem),
+      stdout: identityRegex,
     })
 
     await (

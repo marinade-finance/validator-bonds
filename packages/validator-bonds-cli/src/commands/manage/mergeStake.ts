@@ -1,11 +1,15 @@
-import { parsePubkey } from '@marinade.finance/cli-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
 import {
   computeUnitLimitOption,
   setProgramIdByOwner,
 } from '@marinade.finance/validator-bonds-cli-core'
-import { Wallet, executeTx, transaction } from '@marinade.finance/web3js-common'
+import {
+  Wallet,
+  executeTx,
+  parsePubkey,
+  transaction,
+} from '@marinade.finance/web3js-1x'
 import {
   MARINADE_CONFIG_ADDRESS,
   mergeStakeInstruction,

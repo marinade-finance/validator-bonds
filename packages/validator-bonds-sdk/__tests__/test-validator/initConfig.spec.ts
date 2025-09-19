@@ -16,7 +16,7 @@ import {
   signerWithPubkey,
   splitAndExecuteTx,
   transaction,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import assert from 'assert'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
