@@ -15,10 +15,7 @@ import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import {
-  executeTxSimple,
-  waitForNextEpoch,
-} from '@marinade.finance/web3js-common'
+import { executeTxSimple, waitForNextEpoch } from '@marinade.finance/web3js-1x'
 import {
   createVoteAccount,
   createVoteAccountWithIdentity,
@@ -29,7 +26,7 @@ import {
   splitAndExecuteTx,
   signer,
   transaction,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   AnchorExtendedProvider,
   getAnchorValidatorInfo,

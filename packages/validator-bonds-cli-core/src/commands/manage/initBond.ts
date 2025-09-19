@@ -1,8 +1,3 @@
-import {
-  parsePubkey,
-  parsePubkeyOrPubkeyFromWallet,
-  parseWalletOrPubkey,
-} from '@marinade.finance/cli-common'
 import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
@@ -11,20 +6,23 @@ import {
   executeTx,
   getVoteAccount,
   instanceOfWallet,
+  parsePubkey,
+  parsePubkeyOrPubkeyFromWallet,
+  parseWalletOrPubkeyOption,
   transaction,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   ValidatorBondsProgram,
   initBondInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+import { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 import { PublicKey, Signer } from '@solana/web3.js'
 import {
   INIT_BOND_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
 import BN from 'bn.js'
-import { Logger } from 'pino'
+import { LoggerPlaceholder, logInfo } from '@marinade.finance/ts-common'
 
 export function configureInitBond(program: Command): Command {
   return program
@@ -40,7 +38,7 @@ export function configureInitBond(program: Command): Command {
       'Validator identity linked to the vote account. ' +
         'Permission-ed execution requires the validator identity signature, possible possible to configure --bond-authority. ' +
         'Permission-less execution requires no signature, bond account configuration is possible later with validator identity signature (default: NONE)',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .option(
       '--bond-authority <pubkey>',
@@ -51,7 +49,7 @@ export function configureInitBond(program: Command): Command {
     .option(
       '--rent-payer <keypair_or_ledger_or_pubkey>',
       'Rent payer for the account creation (default: wallet keypair)',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .addOption(computeUnitLimitOption(INIT_BOND_LIMIT_UNITS))
 }
@@ -160,7 +158,7 @@ async function failIfUnexpectedError({
   bondAccount,
 }: {
   err: unknown
-  logger: Logger
+  logger: LoggerPlaceholder
   program: ValidatorBondsProgram
   bondAccount: PublicKey
 }) {
@@ -170,7 +168,8 @@ async function failIfUnexpectedError({
   ) {
     const bondData = await program.account.bond.fetchNullable(bondAccount)
     if (bondData !== null) {
-      logger.info(
+      logInfo(
+        logger,
         `The bond account ${bondAccount.toBase58()} is ALREADY initialized.`,
       )
       return

@@ -9,7 +9,7 @@ import {
 import {
   ProgramAccountInfo,
   ExtendedProvider,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 
 describe('Find stake account', () => {
   let provider: ExtendedProvider

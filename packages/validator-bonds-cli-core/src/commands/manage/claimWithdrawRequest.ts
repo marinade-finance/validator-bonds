@@ -1,9 +1,4 @@
-import {
-  CliCommandError,
-  parsePubkey,
-  parsePubkeyOrPubkeyFromWallet,
-  parseWalletOrPubkey,
-} from '@marinade.finance/cli-common'
+import { CliCommandError } from '@marinade.finance/cli-common'
 import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
@@ -11,12 +6,15 @@ import {
   instanceOfWallet,
   transaction,
   splitAndExecuteTx,
-} from '@marinade.finance/web3js-common'
+  parsePubkeyOrPubkeyFromWallet,
+  parseWalletOrPubkeyOption,
+  parsePubkey,
+} from '@marinade.finance/web3js-1x'
 import {
   orchestrateWithdrawDeposit,
   claimWithdrawRequestInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+import { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 import { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
 import { getWithdrawRequestFromAddress } from '../../utils'
 import {
@@ -53,13 +51,13 @@ export function configureClaimWithdrawRequest(program: Command): Command {
         'It is either the authority defined in the bond account or ' +
         'vote account validator identity that the bond account is connected to. ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .option(
       '--withdrawer <pubkey>',
       'Pubkey to be new owner (withdrawer authority) ' +
         'of the stake accounts that are taken out of the Validator Bonds (default: wallet publickey)',
-      parsePubkey,
+      parsePubkeyOrPubkeyFromWallet,
     )
     .option(
       '--split-stake-rent-payer <keypair_or_ledger_or_pubkey>',
@@ -67,14 +65,14 @@ export function configureClaimWithdrawRequest(program: Command): Command {
         'The split stake account is needed when the amount of lamports in the --stake-account ' +
         'is greater than the amount of lamports defined within the existing withdraw request account, ' +
         'then the splitted stake account remains under bond as funded (default: wallet keypair)',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .option(
       '--stake-account <pubkey>',
       'Use this parameter to force the CLI to use particular stake account for withdrawal. ' +
         'By default, the stake account searched from the list of available accounts assigned to Bond account, ' +
         'using this parameter enforces direct use of the stake account.',
-      parsePubkey,
+      parsePubkeyOrPubkeyFromWallet,
     )
     .addOption(computeUnitLimitOption(CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS))
 }

@@ -21,14 +21,11 @@ import {
   setLockup,
   createSettlementFundedDelegatedStake,
 } from '../utils/staking'
-import {
-  ExtendedProvider,
-  waitForNextEpoch,
-} from '@marinade.finance/web3js-common'
+import { ExtendedProvider, waitForNextEpoch } from '@marinade.finance/web3js-1x'
 import { initTest } from './testValidator'
 import { rand } from '@marinade.finance/ts-common'
 import { BN } from 'bn.js'
-import { pubkey, signer } from '@marinade.finance/web3js-common'
+import { pubkey, signer } from '@marinade.finance/web3js-1x'
 import { getSecureRandomInt } from '../utils/helpers'
 
 describe('Validator Bonds api call to stake accounts', () => {

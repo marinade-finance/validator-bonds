@@ -13,7 +13,7 @@ import {
 } from '../../src'
 import { ProgramAccount } from '@coral-xyz/anchor'
 import { initTest } from './testValidator'
-import { executeTxSimple, transaction } from '@marinade.finance/web3js-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import assert from 'assert'

@@ -1,5 +1,5 @@
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { ExtendedProvider } from '@marinade.finance/web3js-common'
+import { ExtendedProvider } from '@marinade.finance/web3js-1x'
 import {
   PublicKey,
   Signer,

@@ -1,9 +1,4 @@
-import {
-  CliCommandError,
-  parsePubkey,
-  parsePubkeyOrPubkeyFromWallet,
-  parseWalletOrPubkey,
-} from '@marinade.finance/cli-common'
+import { CliCommandError } from '@marinade.finance/cli-common'
 import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
@@ -12,8 +7,11 @@ import {
   Wallet,
   executeTx,
   instanceOfWallet,
+  parsePubkey,
+  parsePubkeyOrPubkeyFromWallet,
+  parseWalletOrPubkeyOption,
   transaction,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   checkAndGetBondAddress,
   getBond,
@@ -22,7 +20,7 @@ import {
   initWithdrawRequestInstruction,
   ValidatorBondsProgram,
 } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+import { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 import { PublicKey, Signer } from '@solana/web3.js'
 import BN from 'bn.js'
 import {
@@ -34,7 +32,7 @@ import {
   INIT_WITHDRAW_REQUEST_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
-import { Logger } from 'pino'
+import { LoggerPlaceholder, logInfo } from '@marinade.finance/ts-common'
 
 export function configureInitWithdrawRequest(program: Command): Command {
   return program
@@ -62,7 +60,7 @@ export function configureInitWithdrawRequest(program: Command): Command {
         'It is either the authority defined in the bond account or ' +
         'vote account validator identity that the bond account is connected to. ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .requiredOption(
       '--amount <lamports | ALL>',
@@ -73,7 +71,7 @@ export function configureInitWithdrawRequest(program: Command): Command {
     .option(
       '--rent-payer <keypair_or_ledger_or_pubkey>',
       'Rent payer for the account creation (default: wallet keypair)',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .addOption(computeUnitLimitOption(INIT_WITHDRAW_REQUEST_LIMIT_UNITS))
 }
@@ -227,7 +225,7 @@ async function failIfUnexpectedError({
   withdrawRequestAccount,
 }: {
   err: unknown
-  logger: Logger
+  logger: LoggerPlaceholder
   program: ValidatorBondsProgram
   withdrawRequestAccount: PublicKey
 }) {
@@ -240,7 +238,8 @@ async function failIfUnexpectedError({
         withdrawRequestAccount,
       )
     if (withdrawRequestData !== null) {
-      logger.info(
+      logInfo(
+        logger,
         `The withdraw request ${withdrawRequestAccount.toBase58()} ALREADY exists on-chain. ` +
           `The requested amount ${formatToSolWithAll(
             withdrawRequestData.requestedAmount,

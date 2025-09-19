@@ -31,12 +31,12 @@
     "@marinade.finance/validator-bonds-sdk": "workspace: *",
     "@marinade.finance/validator-bonds-cli-core": "workspace: *",
     "@coral-xyz/anchor": "0.29.0",
-    "@marinade.finance/anchor-common": "=2.4.16",
-    "@marinade.finance/cli-common": "=2.4.16",
+    "@marinade.finance/anchor-common": "file:/home/chalda/marinade/typescript-common/packages/anchor-common/",
+    "@marinade.finance/cli-common": "file:/home/chalda/marinade/typescript-common/packages/cli-common/",
     "@marinade.finance/ledger-utils": "3.0.1",
-    "@marinade.finance/ts-common": "=2.4.16",
-    "@marinade.finance/web3js-common": "=2.4.16",
-    "@solana/web3.js": "1.98.2",
+    "@marinade.finance/ts-common": "file:/home/chalda/marinade/typescript-common/packages/ts-common/",
+    "@marinade.finance/web3js-1x": "file:/home/chalda/marinade/typescript-common/packages/web3js-1x/",
+    "@solana/web3.js": "1.98.4",
     "bn.js": "5.2.2",
     "bs58": "6.0.0",
     "commander": "14.0.0",
@@ -48,7 +48,7 @@
   },
   "devDependencies": {
     "crypto-js": "4.2.0",
-    "@marinade.finance/jest-utils": "=2.4.16"
+    "@marinade.finance/jest-shell-matcher": "1.1.1"
   },
   "engines": {
     "node": ">=16"

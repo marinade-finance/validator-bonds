@@ -16,7 +16,7 @@ import {
   signer,
   splitAndExecuteTx,
   transaction,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   executeConfigureConfigInstruction,
   executeInitConfigInstruction,

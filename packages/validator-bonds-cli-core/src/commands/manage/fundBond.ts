@@ -1,8 +1,3 @@
-import {
-  parsePubkey,
-  parsePubkeyOrPubkeyFromWallet,
-  parseWalletOrPubkey,
-} from '@marinade.finance/cli-common'
 import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
@@ -11,13 +6,16 @@ import {
   executeTx,
   getStakeAccount,
   instanceOfWallet,
+  parsePubkey,
+  parsePubkeyOrPubkeyFromWallet,
+  parseWalletOrPubkeyOption,
   transaction,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   bondsWithdrawerAuthority,
   fundBondInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+import { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 import { PublicKey, Signer } from '@solana/web3.js'
 import {
   getBondFromAddress,
@@ -27,7 +25,11 @@ import {
   FUND_BOND_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
-import { Logger } from 'pino'
+import {
+  LoggerPlaceholder,
+  logDebug,
+  logInfo,
+} from '@marinade.finance/ts-common'
 
 export function configureFundBond(program: Command): Command {
   return program
@@ -50,7 +52,7 @@ export function configureFundBond(program: Command): Command {
       'Stake account authority (probably the withdrawer authority) ' +
         'that is permitted to sign stake account authority changes. ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .addOption(computeUnitLimitOption(FUND_BOND_LIMIT_UNITS))
 }
@@ -154,7 +156,7 @@ export async function failIfUnexpectedFundingError({
   bondAccount,
 }: {
   err: unknown
-  logger: Logger
+  logger: LoggerPlaceholder
   provider: Provider
   config: PublicKey
   programId: PublicKey | undefined
@@ -174,10 +176,12 @@ export async function failIfUnexpectedFundingError({
       stakeAccount,
     )
     if (stakeAccountData.withdrawer?.equals(bondsWithdrawerAuth)) {
-      logger.debug(
+      logDebug(
+        logger,
         `Bonds withdrawer authority '${bondsWithdrawerAuth.toBase58()}' for config '${config.toBase58()}' and program id '${programId?.toBase58()}'`,
       )
-      logger.info(
+      logInfo(
+        logger,
         `The stake account ${stakeAccount.toBase58()} is ALREADY funded ` +
           `to bond account ${bondAccount.toBase58()}.`,
       )

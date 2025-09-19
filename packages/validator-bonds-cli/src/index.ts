@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import { parsePubkey } from '@marinade.finance/cli-common'
 import { launchCliProgram } from '@marinade.finance/validator-bonds-cli-core'
 import { VALIDATOR_BONDS_PROGRAM_ID } from '@marinade.finance/validator-bonds-sdk'
 import { installCommands } from './commands'
+import { parsePubkey } from '@marinade.finance/web3js-1x'
 
 export const VALIDATOR_BONDS_NPM_URL =
   'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli'

@@ -19,7 +19,7 @@ import { mergeStakeInstruction } from '../instructions/mergeStake'
 import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRequest'
 import { anchorProgramWalletPubkey } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { ProgramAccountInfo } from '@marinade.finance/web3js-common'
+import { ProgramAccountInfo } from '@marinade.finance/web3js-1x'
 import { LoggerPlaceholder, logDebug } from '@marinade.finance/ts-common'
 
 /**

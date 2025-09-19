@@ -10,7 +10,7 @@ import BN from 'bn.js'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import { getAssociatedTokenAddressSync } from 'solana-spl-token-modern'
 import { getBond } from '../api'
-import { getVoteAccount } from '@marinade.finance/web3js-common'
+import { getVoteAccount } from '@marinade.finance/web3js-1x'
 
 /**
  * Generate instruction to configure bond account with ownership of bond minted token.

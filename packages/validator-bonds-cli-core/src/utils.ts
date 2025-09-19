@@ -15,7 +15,7 @@ import {
   getVoteAccountFromData,
   ExecutionError,
   U64_MAX,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   AccountInfo,
   Connection,
@@ -25,10 +25,13 @@ import {
   StakeProgram,
   SystemProgram,
 } from '@solana/web3.js'
-import { Logger } from 'pino'
 import { setProgramIdByOwner } from './context'
 import BN from 'bn.js'
-import { logDebug } from '@marinade.finance/ts-common'
+import {
+  logDebug,
+  LoggerPlaceholder,
+  logInfo,
+} from '@marinade.finance/ts-common'
 import { findVoteAccountByIdentity } from '@marinade.finance/validator-bonds-sdk'
 
 /**
@@ -43,7 +46,7 @@ export async function getBondFromAddress({
 }: {
   program: ValidatorBondsProgram
   address: PublicKey | ProgramAccountInfo<Buffer>
-  logger: Logger
+  logger: LoggerPlaceholder
   config: PublicKey | undefined
 }): Promise<ProgramAccountInfo<Bond>> {
   let accountInfo: AccountInfo<Buffer> | null
@@ -72,7 +75,8 @@ export async function getBondFromAddress({
         msg: 'Provided address is neither a bond, vote account, withdraw request, stake account nor validator identity',
       })
     }
-    logger.info(
+    logInfo(
+      logger,
       `Address ${address.toBase58()} is a VALIDATOR IDENTITY account. ` +
         `Using the vote account ${voteAccount.publicKey.toBase58()} to show bond data.`,
     )
@@ -119,7 +123,8 @@ export async function getBondFromAddress({
       voteAccountAddress =
         stakeAccountData.Stake?.stake.delegation.voterPubkey || null
       if (voteAccountAddress !== null) {
-        logger.info(
+        logInfo(
+          logger,
           `Address ${address.toBase58()} is a STAKE ACCOUNT delegated to vote account ` +
             `${voteAccountAddress.toBase58()}. Using the vote account to show bond data.`,
         )
@@ -199,7 +204,7 @@ async function isVoteAccount({
 }: {
   address: PublicKey
   accountInfo: AccountInfo<Buffer>
-  logger: Logger
+  logger: LoggerPlaceholder
 }) {
   // Check if the address is a vote account
   let voteAccountAddress = null
@@ -245,7 +250,7 @@ export async function getWithdrawRequestFromAddress({
 }: {
   program: ValidatorBondsProgram
   address: PublicKey
-  logger: Logger
+  logger: LoggerPlaceholder
   config: PublicKey | undefined
 }): Promise<ProgramAccountInfo<WithdrawRequest>> {
   let accountInfo: AccountInfo<Buffer> = await checkAccountExistence(
@@ -277,7 +282,8 @@ export async function getWithdrawRequestFromAddress({
       voteAccountAddress =
         stakeAccountData.Stake?.stake.delegation.voterPubkey ?? null
       if (voteAccountAddress !== null) {
-        logger.info(
+        logInfo(
+          logger,
           `Address ${address.toBase58()} is a STAKE ACCOUNT delegated to vote account ` +
             `${voteAccountAddress.toBase58()}. Using the vote account to get the withdraw request data.`,
         )
@@ -387,7 +393,7 @@ async function checkAccountExistence(
 }
 
 // Something wrong happened during the execution of the transaction.
-// Checking the error comes through web3js-common with an expected anchor error.
+// Checking the error comes through web3js-1x with an expected anchor error.
 export async function isExpectedAnchorTransactionError(
   err: unknown,
   anchorErrMsg: string,

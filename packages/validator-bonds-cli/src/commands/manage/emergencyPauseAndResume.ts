@@ -1,4 +1,3 @@
-import { parsePubkey, parseWalletOrPubkey } from '@marinade.finance/cli-common'
 import { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
 import { Command } from 'commander'
 import {
@@ -9,9 +8,11 @@ import {
   Wallet,
   executeTx,
   instanceOfWallet,
+  parsePubkey,
+  parseWalletOrPubkeyOption,
   transaction,
-} from '@marinade.finance/web3js-common'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
+import { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 import {
   MARINADE_CONFIG_ADDRESS,
   emergencyPauseInstruction,
@@ -32,7 +33,7 @@ export function installEmergencyPause(program: Command) {
     .option(
       '--authority <keypair_or_ledger_or_pubkey>',
       'Pause authority with permission to pause the contract (default: wallet)',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .addOption(computeUnitLimitOption(EMERGENCY_LIMIT_UNITS))
     .action(
@@ -69,7 +70,7 @@ export function installEmergencyResume(program: Command) {
     .option(
       '--authority <keypair_or_ledger_or_pubkey>',
       'Pause authority with permission to resume the contract (default: wallet)',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .addOption(computeUnitLimitOption(EMERGENCY_LIMIT_UNITS))
     .action(

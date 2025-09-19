@@ -23,7 +23,7 @@ import {
   StakeProgram,
 } from '@solana/web3.js'
 import BN from 'bn.js'
-import { signer } from '@marinade.finance/web3js-common'
+import { signer } from '@marinade.finance/web3js-1x'
 import { verifyError } from '@marinade.finance/anchor-common'
 import {
   StakeActivationState,

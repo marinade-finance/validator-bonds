@@ -1,4 +1,4 @@
-import { shellMatchers } from '@marinade.finance/jest-utils'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import YAML from 'yaml'
 import {
   ValidatorBondsProgram,
@@ -13,7 +13,7 @@ import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import { loadTestingVoteAccount } from '../../../validator-bonds-cli/__tests__/test-validator/show.spec'
 
 beforeAll(() => {
-  shellMatchers()
+  extendJestWithShellMatchers()
 })
 
 describe('Show command using CLI (institutional)', () => {
@@ -21,7 +21,7 @@ describe('Show command using CLI (institutional)', () => {
   let program: ValidatorBondsProgram
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest('processed'))
   })
 

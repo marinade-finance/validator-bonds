@@ -34,11 +34,7 @@ import {
   createInitializedStakeAccount,
   delegatedStakeAccount,
 } from '../utils/staking'
-import {
-  signer,
-  pubkey,
-  createUserAndFund,
-} from '@marinade.finance/web3js-common'
+import { signer, pubkey, createUserAndFund } from '@marinade.finance/web3js-1x'
 import {
   MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
   MERKLE_ROOT_VOTE_ACCOUNT_2_BUF,

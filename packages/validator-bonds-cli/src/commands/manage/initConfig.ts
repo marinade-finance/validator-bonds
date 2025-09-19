@@ -1,8 +1,3 @@
-import {
-  parseKeypair,
-  parsePubkeyOrPubkeyFromWallet,
-  parseWalletOrPubkey,
-} from '@marinade.finance/cli-common'
 import { Keypair, PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
 import {
@@ -13,10 +8,13 @@ import {
   Wallet,
   executeTx,
   instanceOfWallet,
+  parseKeypair,
+  parsePubkeyOrPubkeyFromWallet,
+  parseWalletOrPubkeyOption,
   transaction,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import { initConfigInstruction } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+import { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 import { INIT_CONFIG_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
 
 export function installInitConfig(program: Command) {
@@ -41,7 +39,7 @@ export function installInitConfig(program: Command) {
     .option(
       '--rent-payer <keypair_or_ledger_or_pubkey>',
       'Rent payer for the account creation (default: wallet keypair)',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .option(
       '--epochs-to-claim-settlement <number>',

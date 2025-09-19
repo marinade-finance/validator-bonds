@@ -13,7 +13,7 @@ import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { executeTxSimple, transaction } from '@marinade.finance/web3js-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import { getAccount as getTokenAccount } from 'solana-spl-token-modern'
 import {
   AnchorExtendedProvider,

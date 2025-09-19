@@ -1,11 +1,13 @@
-import { parsePubkey } from '@marinade.finance/cli-common'
 import { Command } from 'commander'
 import {
   configureFundBondWithSol,
   manageFundBondWithSol,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { MARINADE_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+import {
+  Wallet as WalletInterface,
+  parsePubkey,
+} from '@marinade.finance/web3js-1x'
 import { PublicKey } from '@solana/web3.js'
 
 export function installFundBondWithSol(program: Command) {

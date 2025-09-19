@@ -4,7 +4,7 @@ import {
   Provider,
   getConnection,
   ProgramAccountInfo,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   Connection,
   GetProgramAccountsFilter,
