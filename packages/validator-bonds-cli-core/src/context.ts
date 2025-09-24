@@ -1,25 +1,33 @@
-import { Connection, Finality, PublicKey } from '@solana/web3.js'
-import { Logger } from 'pino'
-import { AnchorProvider, Provider } from '@coral-xyz/anchor'
-import {
-  Context,
-  parseClusterUrl,
-  getContext,
-  parseCommitment,
-  setContext,
-  parseConfirmationFinality,
-} from '@marinade.finance/cli-common'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+import { AnchorProvider } from '@coral-xyz/anchor'
+import { CLIContext } from '@marinade.finance/cli-common'
+import { getContext, setContext } from '@marinade.finance/ts-common'
 import {
   VALIDATOR_BONDS_PROGRAM_ID,
-  ValidatorBondsProgram,
   getProgram as getValidatorBondsProgram,
 } from '@marinade.finance/validator-bonds-sdk'
+import {
+  parseClusterUrl,
+  parseCommitment,
+  parseConfirmationFinality,
+} from '@marinade.finance/web3js-1x'
+import { Connection } from '@solana/web3.js'
 
-export class ValidatorBondsCliContext extends Context {
+import type { Provider } from '@coral-xyz/anchor'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
+import type { Finality, PublicKey } from '@solana/web3.js'
+import type { Logger } from 'pino'
+
+export class ValidatorBondsCliContext extends CLIContext {
   private bondsProgramId?: PublicKey
   readonly provider: Provider
   readonly confirmWaitTime: number
+  readonly wallet: WalletInterface
+  readonly skipPreflight: boolean
+  readonly simulate: boolean
+  readonly printOnly: boolean
+  readonly computeUnitPrice: number
+  readonly confirmationFinality: Finality
 
   constructor({
     programId,
@@ -47,18 +55,18 @@ export class ValidatorBondsCliContext extends Context {
     commandName: string
   }) {
     super({
-      wallet,
       logger,
-      skipPreflight,
-      simulate,
-      printOnly,
       commandName,
-      computeUnitPrice,
-      confirmationFinality,
     })
     this.provider = provider
     this.bondsProgramId = programId
     this.confirmWaitTime = confirmWaitTime
+    this.wallet = wallet
+    this.simulate = simulate
+    this.printOnly = printOnly
+    this.skipPreflight = skipPreflight
+    this.confirmationFinality = confirmationFinality
+    this.computeUnitPrice = computeUnitPrice
   }
 
   set programId(programId: PublicKey | undefined) {
@@ -165,5 +173,5 @@ export function setProgramIdOrDefault(): ValidatorBondsCliContext {
 }
 
 export function getCliContext(): ValidatorBondsCliContext {
-  return getContext() as ValidatorBondsCliContext
+  return getContext<ValidatorBondsCliContext>()
 }

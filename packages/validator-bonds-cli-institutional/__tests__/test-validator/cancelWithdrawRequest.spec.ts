@@ -2,8 +2,8 @@ import {
   createTempFileKeypair,
   createUserAndFund,
   pubkey,
-} from '@marinade.finance/web3js-common'
-import { shellMatchers } from '@marinade.finance/jest-utils'
+} from '@marinade.finance/web3js-1x'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
@@ -13,9 +13,9 @@ import {
 import {
   executeInitBondInstruction,
   executeInitWithdrawRequestInstruction,
-} from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
-import { createVoteAccount } from '../../../validator-bonds-sdk/__tests__/utils/staking'
+} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import { rand } from '@marinade.finance/ts-common'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
@@ -31,7 +31,7 @@ describe('Cancel withdraw request using CLI (institutional)', () => {
   let validatorIdentityCleanup: () => Promise<void>
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest())
   })
 

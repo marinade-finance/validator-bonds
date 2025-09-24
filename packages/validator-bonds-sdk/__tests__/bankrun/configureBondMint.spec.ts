@@ -26,7 +26,7 @@ import {
   createUserAndFund,
   getVoteAccount,
   signer,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { executeTxWithError } from '../utils/helpers'
 import { initBankrunTest } from './bankrun'

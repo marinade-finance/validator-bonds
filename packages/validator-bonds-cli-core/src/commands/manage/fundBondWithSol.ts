@@ -1,18 +1,17 @@
-import { parsePubkey, parseWalletOrPubkey } from '@marinade.finance/cli-common'
 import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
-  Wallet,
   executeTx,
   instanceOfWallet,
+  parsePubkey,
+  parseWalletOrPubkeyOption,
   transaction,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   fundBondInstruction,
   getConfig,
   getRentExemptStake,
 } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import {
   Authorized,
   Keypair,
@@ -28,6 +27,11 @@ import {
 } from '../../computeUnits'
 import BN from 'bn.js'
 import { failIfUnexpectedFundingError } from './fundBond'
+
+import type {
+  Wallet,
+  Wallet as WalletInterface,
+} from '@marinade.finance/web3js-1x'
 
 export function configureFundBondWithSol(program: Command): Command {
   return program
@@ -50,7 +54,7 @@ export function configureFundBondWithSol(program: Command): Command {
       '--from <keypair_or_ledger_or_pubkey>',
       'A wallet address where the SOL is transferred from. ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .addOption(computeUnitLimitOption(FUND_BOND_WITH_SOL_LIMIT_UNITS))
 }

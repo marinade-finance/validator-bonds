@@ -1,5 +1,5 @@
-import { createTempFileKeypair } from '@marinade.finance/web3js-common'
-import { shellMatchers } from '@marinade.finance/jest-utils'
+import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import {
   Keypair,
   LAMPORTS_PER_SOL,
@@ -10,7 +10,7 @@ import {
   ValidatorBondsProgram,
   getConfig,
 } from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import { airdrop } from './utils'
 
@@ -25,7 +25,7 @@ describe('Init config account using CLI', () => {
   let keypairFeePayerCleanup: () => Promise<void>
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest())
   })
 

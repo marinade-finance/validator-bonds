@@ -2,8 +2,8 @@ import {
   createTempFileKeypair,
   createUserAndFund,
   pubkey,
-} from '@marinade.finance/web3js-common'
-import { shellMatchers } from '@marinade.finance/jest-utils'
+} from '@marinade.finance/web3js-1x'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
@@ -14,13 +14,13 @@ import {
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
-} from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
+} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import {
   AnchorExtendedProvider,
   getAnchorValidatorInfo,
 } from '@marinade.finance/anchor-common'
-import { createVoteAccountWithIdentity } from '../../../validator-bonds-sdk/__tests__/utils/staking'
+import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import {
   createAssociatedTokenAccountInstruction,
   createTransferInstruction,
@@ -46,7 +46,7 @@ describe('Configure bond account using CLI', () => {
   let validatorIdentityPath: string
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest())
   })
 

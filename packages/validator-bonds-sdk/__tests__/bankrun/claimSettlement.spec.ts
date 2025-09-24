@@ -34,11 +34,7 @@ import {
   createInitializedStakeAccount,
   delegatedStakeAccount,
 } from '../utils/staking'
-import {
-  signer,
-  pubkey,
-  createUserAndFund,
-} from '@marinade.finance/web3js-common'
+import { signer, pubkey, createUserAndFund } from '@marinade.finance/web3js-1x'
 import {
   MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
   MERKLE_ROOT_VOTE_ACCOUNT_2_BUF,
@@ -769,6 +765,7 @@ describe('Validator Bonds claim settlement', () => {
     )
 
     const treeNode = treeNodesVoteAccount1[0]
+    assert(treeNode !== undefined)
     const lamportsTo = 10 * LAMPORTS_PER_SOL
     const stakeAccountTo = await createDelegatedStakeAccount({
       provider,

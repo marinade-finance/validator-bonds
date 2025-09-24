@@ -10,15 +10,12 @@ import {
   parseCpiEvents,
   withdrawRequestAddress,
 } from '../../src'
-import { initTest } from './testValidator'
+import { initTest } from '../utils/testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import {
-  executeTxSimple,
-  waitForNextEpoch,
-} from '@marinade.finance/web3js-common'
+import { executeTxSimple, waitForNextEpoch } from '@marinade.finance/web3js-1x'
 import {
   createVoteAccount,
   createVoteAccountWithIdentity,
@@ -29,7 +26,7 @@ import {
   splitAndExecuteTx,
   signer,
   transaction,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   AnchorExtendedProvider,
   getAnchorValidatorInfo,
@@ -133,7 +130,9 @@ describe('Validator Bonds init withdraw request', () => {
     const bondAuthority = Keypair.generate()
     signers.push(signer(bondAuthority))
     for (let i = 1; i <= numberOfBonds; i++) {
-      const [voteAccount] = voteAndBonds[i - 1]
+      const voteBondEntry = voteAndBonds[i - 1]
+      assert(voteBondEntry !== undefined)
+      const [voteAccount] = voteBondEntry
       const { instruction, bondAccount } = await initBondInstruction({
         program,
         configAccount,
@@ -143,11 +142,13 @@ describe('Validator Bonds init withdraw request', () => {
         validatorIdentity,
       })
       tx.add(instruction)
-      voteAndBonds[i - 1][1] = bondAccount
+      voteBondEntry[1] = bondAccount
     }
     await waitForNextEpoch(provider.connection, 15)
     for (let i = 1; i <= numberOfBonds; i++) {
-      const [voteAccount, bondAccount] = voteAndBonds[i - 1]
+      const voteBondEntry = voteAndBonds[i - 1]
+      assert(voteBondEntry !== undefined)
+      const [voteAccount, bondAccount] = voteBondEntry
       const { instruction } = await initWithdrawRequestInstruction({
         program,
         bondAccount,
@@ -177,8 +178,8 @@ describe('Validator Bonds init withdraw request', () => {
 
     withdrawRequestList = await findWithdrawRequests({
       program,
-      bond: voteAndBonds[0][1],
-      voteAccount: voteAndBonds[0][0],
+      bond: voteAndBonds[0]?.[1],
+      voteAccount: voteAndBonds[0]?.[0],
       epoch: currentEpoch,
     })
     expect(withdrawRequestList.length).toEqual(1)
@@ -187,7 +188,9 @@ describe('Validator Bonds init withdraw request', () => {
     expect(withdrawRequestList.length).toBeGreaterThanOrEqual(numberOfBonds)
 
     for (let i = 1; i <= numberOfBonds; i++) {
-      const [voteAccount, bondAccount] = voteAndBonds[i - 1]
+      const voteBondEntry = voteAndBonds[i - 1]
+      assert(voteBondEntry !== undefined)
+      const [voteAccount, bondAccount] = voteBondEntry
       withdrawRequestList = await findWithdrawRequests({
         program,
         bond: bondAccount,

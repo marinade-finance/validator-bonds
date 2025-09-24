@@ -1,11 +1,13 @@
-import {
-  CliCommandError,
-  parsePubkey,
-  parseWalletOrPubkey,
-} from '@marinade.finance/cli-common'
+import { CliCommandError } from '@marinade.finance/cli-common'
 import { Command } from 'commander'
 import { PublicKey, Signer } from '@solana/web3.js'
-import { Wallet, executeTx, transaction } from '@marinade.finance/web3js-common'
+import {
+  Wallet,
+  executeTx,
+  parsePubkey,
+  parseWalletOrPubkeyOption,
+  transaction,
+} from '@marinade.finance/web3js-1x'
 import {
   RESET_STAKE_LIMIT_UNITS,
   computeUnitLimitOption,
@@ -24,12 +26,12 @@ export function installResetStake(program: Command) {
     .requiredOption(
       '--settlement <pubkey>',
       'The closed settlement account that the stake account is associated with.',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .requiredOption(
       '--bond <pubkey>',
       'Bond account that the closed settlement account was associated with.',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .addOption(computeUnitLimitOption(RESET_STAKE_LIMIT_UNITS))
     .action(

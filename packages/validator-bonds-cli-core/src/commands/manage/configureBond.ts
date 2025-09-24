@@ -1,28 +1,28 @@
-import {
-  parsePubkey,
-  parsePubkeyOrPubkeyFromWallet,
-  parseWalletOrPubkey,
-} from '@marinade.finance/cli-common'
 import { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
 import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
-  Wallet,
   executeTx,
   instanceOfWallet,
+  parsePubkey,
+  parsePubkeyOrPubkeyFromWallet,
+  parseWalletOrPubkeyOption,
   transaction,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   configureBondInstruction,
   configureBondWithMintInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { getBondFromAddress } from '../../utils'
 import {
   CONFIGURE_BOND_LIMIT_UNITS,
   CONFIGURE_BOND_MINT_LIMIT_UNITS,
 } from '../../computeUnits'
 import BN from 'bn.js'
+import type {
+  Wallet as WalletInterface,
+  Wallet,
+} from '@marinade.finance/web3js-1x'
 
 export function configureConfigureBond(program: Command): Command {
   return program
@@ -39,7 +39,7 @@ export function configureConfigureBond(program: Command): Command {
         'It is either the authority defined in bonds account OR ' +
         'vote account validator identity OR owner of bond configuration token (see "mint-bond" command). ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .option(
       '--with-token',

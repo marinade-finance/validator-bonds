@@ -25,7 +25,7 @@ To get info on available commands
 ```sh
 # to verify installed version
 validator-bonds-institutional --version
-2.1.10
+2.2.0
 
 # get reference of available commands
 validator-bonds-institutional --help

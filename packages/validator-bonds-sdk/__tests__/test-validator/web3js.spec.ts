@@ -1,6 +1,6 @@
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import { findStakeAccounts, StakeAccountParsed } from '../../src'
-import { initTest } from './testValidator'
+import { initTest } from '../utils/testValidator'
 import {
   createInitializedStakeAccount,
   createDelegatedStakeAccount,
@@ -9,7 +9,7 @@ import {
 import {
   ProgramAccountInfo,
   ExtendedProvider,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 
 describe('Find stake account', () => {
   let provider: ExtendedProvider

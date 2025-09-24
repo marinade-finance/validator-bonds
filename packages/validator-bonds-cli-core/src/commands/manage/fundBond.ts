@@ -1,23 +1,18 @@
-import {
-  parsePubkey,
-  parsePubkeyOrPubkeyFromWallet,
-  parseWalletOrPubkey,
-} from '@marinade.finance/cli-common'
 import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
-  Provider,
-  Wallet,
   executeTx,
   getStakeAccount,
   instanceOfWallet,
+  parsePubkey,
+  parsePubkeyOrPubkeyFromWallet,
+  parseWalletOrPubkeyOption,
   transaction,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   bondsWithdrawerAuthority,
   fundBondInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import {
   getBondFromAddress,
@@ -27,7 +22,13 @@ import {
   FUND_BOND_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
-import { Logger } from 'pino'
+
+import type {
+  Wallet as WalletInterface,
+  Provider,
+  Wallet,
+} from '@marinade.finance/web3js-1x'
+import { LoggerWrapper } from '@marinade.finance/ts-common'
 
 export function configureFundBond(program: Command): Command {
   return program
@@ -50,7 +51,7 @@ export function configureFundBond(program: Command): Command {
       'Stake account authority (probably the withdrawer authority) ' +
         'that is permitted to sign stake account authority changes. ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .addOption(computeUnitLimitOption(FUND_BOND_LIMIT_UNITS))
 }
@@ -154,7 +155,7 @@ export async function failIfUnexpectedFundingError({
   bondAccount,
 }: {
   err: unknown
-  logger: Logger
+  logger: LoggerWrapper
   provider: Provider
   config: PublicKey
   programId: PublicKey | undefined

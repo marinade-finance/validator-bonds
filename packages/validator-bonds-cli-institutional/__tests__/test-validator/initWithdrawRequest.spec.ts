@@ -1,16 +1,16 @@
 import {
   createTempFileKeypair,
   createUserAndFund,
-} from '@marinade.finance/web3js-common'
-import { shellMatchers } from '@marinade.finance/jest-utils'
+} from '@marinade.finance/web3js-1x'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
   ValidatorBondsProgram,
 } from '@marinade.finance/validator-bonds-sdk'
-import { executeInitBondInstruction } from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
-import { createVoteAccount } from '../../../validator-bonds-sdk/__tests__/utils/staking'
+import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
 describe('Init withdraw request using CLI (institutional)', () => {
@@ -26,7 +26,7 @@ describe('Init withdraw request using CLI (institutional)', () => {
   let rentPayerCleanup: () => Promise<void>
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest())
   })
 

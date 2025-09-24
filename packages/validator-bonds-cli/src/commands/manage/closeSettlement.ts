@@ -1,7 +1,12 @@
-import { parsePubkey, parseWalletOrPubkey } from '@marinade.finance/cli-common'
 import { Command } from 'commander'
 import { PublicKey, Signer } from '@solana/web3.js'
-import { Wallet, executeTx, transaction } from '@marinade.finance/web3js-common'
+import {
+  Wallet,
+  executeTx,
+  parsePubkey,
+  parseWalletOrPubkeyOption,
+  transaction,
+} from '@marinade.finance/web3js-1x'
 import {
   CLOSE_SETTLEMENT_LIMIT_UNITS,
   computeUnitLimitOption,
@@ -26,7 +31,7 @@ export function installCloseSettlement(program: Command) {
       'Refund stake account to be used to take funds from to return rent. ' +
         'The stake account has to be assigned to the Settlement address. ' +
         'When not provided the blockchain is parsed to find some.',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .addOption(computeUnitLimitOption(CLOSE_SETTLEMENT_LIMIT_UNITS))
     .action(

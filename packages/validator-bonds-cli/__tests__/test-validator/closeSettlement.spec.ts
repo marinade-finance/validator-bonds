@@ -1,8 +1,8 @@
 import {
   createTempFileKeypair,
   waitForNextEpoch,
-} from '@marinade.finance/web3js-common'
-import { shellMatchers } from '@marinade.finance/jest-utils'
+} from '@marinade.finance/web3js-1x'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { Keypair, PublicKey } from '@solana/web3.js'
 import { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 import {
@@ -10,7 +10,7 @@ import {
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
@@ -24,7 +24,7 @@ describe('Close settlement using CLI', () => {
   let operatorAuthority: Keypair
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest())
   })
 

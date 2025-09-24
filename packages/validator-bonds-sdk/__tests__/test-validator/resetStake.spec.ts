@@ -9,7 +9,7 @@ import {
   parseCpiEvents,
   assertEvent,
 } from '../../src'
-import { initTest } from './testValidator'
+import { initTest } from '../utils/testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
@@ -19,7 +19,7 @@ import {
   executeTxSimple,
   transaction,
   waitForNextEpoch,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   createSettlementFundedDelegatedStake,
   createVoteAccount,

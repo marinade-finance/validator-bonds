@@ -9,14 +9,14 @@ import {
   initBondInstruction,
   parseCpiEvents,
 } from '../../src'
-import { initTest } from './testValidator'
+import { initTest } from '../utils/testValidator'
 import {
   Wallet,
   executeTxSimple,
   signer,
   splitAndExecuteTx,
   transaction,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   executeConfigureConfigInstruction,
   executeInitConfigInstruction,
@@ -135,7 +135,9 @@ describe('Validator Bonds init bond', () => {
     }
 
     for (let i = 1; i <= numberOfBonds; i++) {
-      const [voteAccount, nodeIdentity] = voteAccounts[i - 1]
+      const voteAccountNodeId = voteAccounts[i - 1]
+      assert(voteAccountNodeId !== undefined)
+      const [voteAccount, nodeIdentity] = voteAccountNodeId
       const { instruction } = await initBondInstruction({
         program,
         configAccount,
@@ -164,7 +166,9 @@ describe('Validator Bonds init bond', () => {
     expect(bondDataFromList.length).toEqual(numberOfBonds)
 
     for (let i = 1; i <= numberOfBonds; i++) {
-      const [voteAccount] = voteAccounts[i - 1]
+      const voteAccountNodeId = voteAccounts[i - 1]
+      assert(voteAccountNodeId !== undefined)
+      const [voteAccount] = voteAccountNodeId
       bondDataFromList = await findBonds({
         program,
         voteAccount,

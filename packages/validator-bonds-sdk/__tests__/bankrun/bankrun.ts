@@ -21,7 +21,7 @@ import {
 } from '../utils/testTransactions'
 import 'reflect-metadata'
 import BN from 'bn.js'
-import { U64_MAX } from '@marinade.finance/web3js-common'
+import { U64_MAX } from '@marinade.finance/web3js-1x'
 
 export async function initBankrunTest(
   programId?: PublicKey,

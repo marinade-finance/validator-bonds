@@ -1,7 +1,4 @@
-import {
-  parsePubkeyOrPubkeyFromWallet,
-  CliCommandError,
-} from '@marinade.finance/cli-common'
+import { CliCommandError } from '@marinade.finance/cli-common'
 import { PublicKey } from '@solana/web3.js'
 import { Command } from 'commander'
 import { setProgramIdOrDefault } from '../context'
@@ -9,6 +6,7 @@ import {
   bondAddress,
   withdrawRequestAddress,
 } from '@marinade.finance/validator-bonds-sdk'
+import { parsePubkeyOrPubkeyFromWallet } from '@marinade.finance/web3js-1x'
 
 export function configureShowBondAddress(program: Command): Command {
   return program

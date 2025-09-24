@@ -1,5 +1,5 @@
-import { createTempFileKeypair } from '@marinade.finance/web3js-common'
-import { shellMatchers } from '@marinade.finance/jest-utils'
+import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import {
   Keypair,
   LAMPORTS_PER_SOL,
@@ -13,8 +13,8 @@ import {
   bondAddress,
   getBond,
 } from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
-import { createVoteAccountWithIdentity } from '../../../validator-bonds-sdk/__tests__/utils/staking'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import {
   AnchorExtendedProvider,
   getAnchorValidatorInfo,
@@ -32,7 +32,7 @@ describe('CLI init bond account (institutional)', () => {
   let validatorIdentityPath: string
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest())
   })
 

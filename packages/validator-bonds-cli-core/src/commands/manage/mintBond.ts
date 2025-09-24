@@ -1,20 +1,24 @@
-import { parsePubkey, parseWalletOrPubkey } from '@marinade.finance/cli-common'
 import { PublicKey, Signer } from '@solana/web3.js'
 import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
-  Wallet,
   executeTx,
   instanceOfWallet,
+  parsePubkey,
+  parseWalletOrPubkeyOption,
   transaction,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import { mintBondInstruction } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { getBondFromAddress } from '../../utils'
 import {
   MINT_BOND_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
+
+import type {
+  Wallet as WalletInterface,
+  Wallet,
+} from '@marinade.finance/web3js-1x'
 
 export function configureMintBond(program: Command) {
   return program
@@ -32,9 +36,9 @@ export function configureMintBond(program: Command) {
       parsePubkey,
     )
     .option(
-      '--rent-payer <keypair_or_ledger_orl_pubkey>',
+      '--rent-payer <keypair_or_ledger_or_pubkey>',
       'Rent payer for the mint token account creation (default: wallet keypair)',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .addOption(computeUnitLimitOption(MINT_BOND_LIMIT_UNITS))
 }

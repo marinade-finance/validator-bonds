@@ -21,15 +21,13 @@ import {
   setLockup,
   createSettlementFundedDelegatedStake,
 } from '../utils/staking'
-import {
-  ExtendedProvider,
-  waitForNextEpoch,
-} from '@marinade.finance/web3js-common'
-import { initTest } from './testValidator'
+import { ExtendedProvider, waitForNextEpoch } from '@marinade.finance/web3js-1x'
+import { initTest } from '../utils/testValidator'
 import { rand } from '@marinade.finance/ts-common'
 import { BN } from 'bn.js'
-import { pubkey, signer } from '@marinade.finance/web3js-common'
+import { pubkey, signer } from '@marinade.finance/web3js-1x'
 import { getSecureRandomInt } from '../utils/helpers'
+import assert from 'assert'
 
 describe('Validator Bonds api call to stake accounts', () => {
   const NUMBER_OF_BONDS = 100
@@ -86,20 +84,22 @@ describe('Validator Bonds api call to stake accounts', () => {
     })
     const promiseStakeAccounts: Promise<PublicKey>[] = []
     for (let i = 0; i < inputData.length; i++) {
-      for (let j = 0; j < inputData[i].lamports.length; j++) {
+      const inputDataItem = inputData[i]
+      assert(inputDataItem !== undefined)
+      for (let j = 0; j < inputDataItem.lamports.length; j++) {
         promiseStakeAccounts.push(
           createBondsFundedStakeAccount({
             program,
             provider,
             configAccount,
-            lamports: inputData[i].lamports[j],
-            voteAccount: inputData[i].voteAccount,
+            lamports: inputDataItem.lamports[j] || 0,
+            voteAccount: inputDataItem.voteAccount,
           }),
         )
       }
     }
     ;(await Promise.all(promiseStakeAccounts)).forEach((stakeAccount, i) => {
-      inputData[i % inputData.length].stakeAccounts.push(stakeAccount)
+      inputData[i % inputData.length]?.stakeAccounts.push(stakeAccount)
     })
     await waitForNextEpoch(provider.connection, 15) // activate all stake accounts
     expect(promiseBonds.length).toEqual(NUMBER_OF_BONDS)
@@ -109,9 +109,11 @@ describe('Validator Bonds api call to stake accounts', () => {
       program.programId,
     )
     const randomIndex = rand(inputData.length) - 1
+    const stakeAccountRandomAddress = inputData[randomIndex]?.stakeAccounts[0]
+    assert(stakeAccountRandomAddress !== undefined)
     const randomStakeAccount = await getStakeAccount(
       program,
-      inputData[randomIndex].stakeAccounts[0],
+      stakeAccountRandomAddress,
     )
     expect(randomStakeAccount.withdrawer).toEqual(withdrawerAuthority)
     expect(randomStakeAccount.staker).toEqual(withdrawerAuthority)
@@ -136,7 +138,7 @@ describe('Validator Bonds api call to stake accounts', () => {
     const { stakeAccount: delStakeAccount, withdrawer: delWithdrawer } =
       await delegatedStakeAccount({
         provider,
-        voteAccountToDelegate: inputData[randomIndex].voteAccount,
+        voteAccountToDelegate: inputData[randomIndex]?.voteAccount,
         lamports: LAMPORTS_PER_SOL * 3,
       })
     const custodian = Keypair.generate()
@@ -212,14 +214,16 @@ describe('Validator Bonds api call to stake accounts', () => {
     }[] = []
     let totalWithdrawRequestAmount = 0
     for (let i = 0; i < inputData.length; i += 2) {
+      const inputDataItem = inputData[i]
+      assert(inputDataItem !== undefined)
       const amount = rand(100) * LAMPORTS_PER_SOL
       const { withdrawRequestAccount } =
         await executeInitWithdrawRequestInstruction({
           program,
           provider,
           configAccount,
-          bondAccount: inputData[i].bondAccount,
-          validatorIdentity: inputData[i].validatorIdentity,
+          bondAccount: inputDataItem.bondAccount,
+          validatorIdentity: inputDataItem.validatorIdentity,
           amount,
         })
       withdrawRequests.push({ withdrawRequestAccount, amount })
@@ -248,7 +252,7 @@ describe('Validator Bonds api call to stake accounts', () => {
       provider,
       voteAccount: randomStakeAccount.voter!,
       configAccount,
-      bondAccount: inputData[randomIndex].bondAccount,
+      bondAccount: inputData[randomIndex]?.bondAccount,
       operatorAuthority,
     })
     const settlementLamports = 10 * LAMPORTS_PER_SOL

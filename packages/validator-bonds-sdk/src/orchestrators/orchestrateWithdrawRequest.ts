@@ -19,7 +19,7 @@ import { mergeStakeInstruction } from '../instructions/mergeStake'
 import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRequest'
 import { anchorProgramWalletPubkey } from '../utils'
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { ProgramAccountInfo } from '@marinade.finance/web3js-common'
+import { ProgramAccountInfo } from '@marinade.finance/web3js-1x'
 import { LoggerPlaceholder, logDebug } from '@marinade.finance/ts-common'
 
 /**
@@ -158,6 +158,7 @@ export async function orchestrateWithdrawDeposit({
   // there are some stake accounts to withdraw from
   if (stakeAccountsToWithdraw.accounts.length > 0) {
     const destinationStakeAccount = stakeAccountsToWithdraw.accounts[0]
+    assert(destinationStakeAccount !== undefined)
     // going through from the second item that we want to merge all to the first one
     for (
       let mergeIndex = 1;
@@ -166,6 +167,7 @@ export async function orchestrateWithdrawDeposit({
     ) {
       // merging possible only for the stake accounts of the same state
       const sourceStakeAccount = stakeAccountsToWithdraw.accounts[mergeIndex]
+      assert(sourceStakeAccount !== undefined)
 
       if (
         isFullyActive(sourceStakeAccount, currentEpoch) ===

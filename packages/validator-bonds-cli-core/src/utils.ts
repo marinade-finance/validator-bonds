@@ -15,7 +15,7 @@ import {
   getVoteAccountFromData,
   ExecutionError,
   U64_MAX,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   AccountInfo,
   Connection,
@@ -25,11 +25,11 @@ import {
   StakeProgram,
   SystemProgram,
 } from '@solana/web3.js'
-import { Logger } from 'pino'
 import { setProgramIdByOwner } from './context'
 import BN from 'bn.js'
-import { logDebug } from '@marinade.finance/ts-common'
+import { logDebug, LoggerWrapper } from '@marinade.finance/ts-common'
 import { findVoteAccountByIdentity } from '@marinade.finance/validator-bonds-sdk'
+import { VoteAccountShow } from './commands'
 
 /**
  * Expecting the provided address is a bond or vote account,
@@ -43,7 +43,7 @@ export async function getBondFromAddress({
 }: {
   program: ValidatorBondsProgram
   address: PublicKey | ProgramAccountInfo<Buffer>
-  logger: Logger
+  logger: LoggerWrapper
   config: PublicKey | undefined
 }): Promise<ProgramAccountInfo<Bond>> {
   let accountInfo: AccountInfo<Buffer> | null
@@ -199,7 +199,7 @@ async function isVoteAccount({
 }: {
   address: PublicKey
   accountInfo: AccountInfo<Buffer>
-  logger: Logger
+  logger: LoggerWrapper
 }) {
   // Check if the address is a vote account
   let voteAccountAddress = null
@@ -245,7 +245,7 @@ export async function getWithdrawRequestFromAddress({
 }: {
   program: ValidatorBondsProgram
   address: PublicKey
-  logger: Logger
+  logger: LoggerWrapper
   config: PublicKey | undefined
 }): Promise<ProgramAccountInfo<WithdrawRequest>> {
   let accountInfo: AccountInfo<Buffer> = await checkAccountExistence(
@@ -400,7 +400,9 @@ export async function isExpectedAnchorTransactionError(
           ?.toString()
           .match(/custom program error: 0x([0-9a-fA-F]+)/) ?? null
       const decimalValue =
-        parsedCustomError !== null ? parseInt(parsedCustomError[1], 16) : null
+        parsedCustomError !== null && parsedCustomError[1]
+          ? parseInt(parsedCustomError[1], 16)
+          : null
       if (decimalValue !== null) {
         const anchorErrorMessage = Errors.get(decimalValue)
         if (anchorErrorMessage !== undefined) {
@@ -420,4 +422,19 @@ export async function isExpectedAnchorTransactionError(
 
 export function toBN(value: string): BN {
   return new BN(value.replace(/_/g, ''), 10)
+}
+
+export async function loadTestingVoteAccount(
+  connection: Connection,
+  voteAccount: PublicKey,
+): Promise<VoteAccountShow> {
+  const voteAccountInfo = await connection.getAccountInfo(voteAccount)
+  expect(voteAccountInfo).not.toBeNull()
+  const voteAccountData = getVoteAccountFromData(voteAccount, voteAccountInfo!)
+    .account.data
+  return {
+    nodePubkey: voteAccountData.nodePubkey,
+    authorizedWithdrawer: voteAccountData.authorizedWithdrawer,
+    commission: voteAccountData.commission,
+  }
 }

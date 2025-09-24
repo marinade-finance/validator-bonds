@@ -1,20 +1,17 @@
-import { shellMatchers } from '@marinade.finance/jest-utils'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
   bondsWithdrawerAuthority,
 } from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
-import { executeInitConfigInstruction } from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import {
   authorizeStakeAccount,
   delegatedStakeAccount,
-} from '../../../validator-bonds-sdk/__tests__/utils/staking'
+} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
-import {
-  ExtendedProvider,
-  waitForNextEpoch,
-} from '@marinade.finance/web3js-common'
+import { ExtendedProvider, waitForNextEpoch } from '@marinade.finance/web3js-1x'
 
 describe('Merge stake accounts using CLI', () => {
   let provider: AnchorExtendedProvider
@@ -22,7 +19,7 @@ describe('Merge stake accounts using CLI', () => {
   let configAccount: PublicKey
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest())
     // we want to be at the beginning of the epoch
     // otherwise the merge instruction could fail as the stake account is in different state (0x6)

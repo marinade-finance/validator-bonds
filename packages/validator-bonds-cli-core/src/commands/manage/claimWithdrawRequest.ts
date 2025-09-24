@@ -1,22 +1,18 @@
-import {
-  CliCommandError,
-  parsePubkey,
-  parsePubkeyOrPubkeyFromWallet,
-  parseWalletOrPubkey,
-} from '@marinade.finance/cli-common'
+import { CliCommandError } from '@marinade.finance/cli-common'
 import { Command } from 'commander'
 import { setProgramIdByOwner } from '../../context'
 import {
-  Wallet,
   instanceOfWallet,
   transaction,
   splitAndExecuteTx,
-} from '@marinade.finance/web3js-common'
+  parsePubkeyOrPubkeyFromWallet,
+  parseWalletOrPubkeyOption,
+  parsePubkey,
+} from '@marinade.finance/web3js-1x'
 import {
   orchestrateWithdrawDeposit,
   claimWithdrawRequestInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
 import { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
 import { getWithdrawRequestFromAddress } from '../../utils'
 import {
@@ -24,6 +20,11 @@ import {
   computeUnitLimitOption,
 } from '../../computeUnits'
 import { BN } from 'bn.js'
+
+import type {
+  Wallet as WalletInterface,
+  Wallet,
+} from '@marinade.finance/web3js-1x'
 
 export function configureClaimWithdrawRequest(program: Command): Command {
   return program
@@ -53,7 +54,7 @@ export function configureClaimWithdrawRequest(program: Command): Command {
         'It is either the authority defined in the bond account or ' +
         'vote account validator identity that the bond account is connected to. ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .option(
       '--withdrawer <pubkey>',
@@ -67,7 +68,7 @@ export function configureClaimWithdrawRequest(program: Command): Command {
         'The split stake account is needed when the amount of lamports in the --stake-account ' +
         'is greater than the amount of lamports defined within the existing withdraw request account, ' +
         'then the splitted stake account remains under bond as funded (default: wallet keypair)',
-      parseWalletOrPubkey,
+      parseWalletOrPubkeyOption,
     )
     .option(
       '--stake-account <pubkey>',
@@ -187,7 +188,7 @@ export async function manageClaimWithdrawRequest({
     stakeAccountsToWithdraw = withdrawStakeAccounts
     if (amountToWithdraw <= new BN(0)) {
       logger.info(
-        `Withdraw request ${withdrawRequestAddress.toBase58()} for bond account ${bondAccount?.toBase58()}` +
+        `Withdraw request ${withdrawRequestAddress?.toBase58()} for bond account ${bondAccount?.toBase58()}` +
           'has been fully withdrawn, with nothing left to claim.\n' +
           'If you want to withdraw more funds, please cancel the current request and create a new one.',
       )
@@ -198,7 +199,7 @@ export async function manageClaimWithdrawRequest({
   if (instructionsToProcess.length === 0) {
     throw new CliCommandError({
       valueName: 'address',
-      value: withdrawRequestAddress.toBase58(),
+      value: withdrawRequestAddress?.toBase58(),
       msg:
         'CLI internal error. No instruction for claiming generated. ' +
         'Try to run with --debug to get more info.',
@@ -207,14 +208,14 @@ export async function manageClaimWithdrawRequest({
   tx.add(...instructionsToProcess)
 
   logger.info(
-    `Claiming withdraw request ${withdrawRequestAddress.toBase58()} ` +
+    `Claiming withdraw request ${withdrawRequestAddress?.toBase58()} ` +
       `for bond account ${bondAccount?.toBase58()} with stake accounts: [` +
       `${stakeAccountsToWithdraw.map(s => s.toBase58()).join(',')}]`,
   )
   await splitAndExecuteTx({
     connection: provider.connection,
     transaction: tx,
-    errMessage: `Failed to claim withdraw requests ${withdrawRequestAddress.toBase58()}`,
+    errMessage: `Failed to claim withdraw requests ${withdrawRequestAddress?.toBase58()}`,
     signers,
     logger,
     computeUnitLimit,
@@ -226,7 +227,7 @@ export async function manageClaimWithdrawRequest({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Withdraw request accounts: ${withdrawRequestAddress.toBase58()} ` +
+    `Withdraw request accounts: ${withdrawRequestAddress?.toBase58()} ` +
       `for bond account ${bondAccount?.toBase58()} successfully claimed`,
   )
 }
