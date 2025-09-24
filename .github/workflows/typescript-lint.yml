@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 50
     steps:
       - name: 🛀🏼 Maximize build space
-        uses: AdityaGarg8/remove-unwanted-software@v3
+        uses: AdityaGarg8/remove-unwanted-software@v5
         with:
           remove-android: 'true'
           remove-dotnet: 'true'
@@ -42,9 +42,9 @@ jobs:
           node-version: 20
 
       - name: 👩‍🔧 Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
 
       - name: 🦿 Install Rust tookchain
         uses: dtolnay/rust-toolchain@1.73.0
@@ -65,10 +65,14 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: 🏋️ Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      - name: 🏋🏽‍♂️ Build TypeScript projects
+        run: pnpm -r build
 
       - name: 🧭 Run lint check
-        run: pnpm check
+        run: |
+          pnpm check
 
       - name: 🧨 Run test
         run: cargo test --release -- --nocapture
