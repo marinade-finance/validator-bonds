@@ -1,19 +1,23 @@
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import assert from 'assert'
+
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+
 import {
   CANCEL_WITHDRAW_REQUEST_EVENT,
-  ValidatorBondsProgram,
   assertEvent,
   cancelWithdrawRequestInstruction,
   parseCpiEvents,
 } from '../../src'
-import { initTest } from './testValidator'
 import {
   executeInitConfigInstruction,
   executeNewWithdrawRequest,
 } from '../utils/testTransactions'
-import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
-import assert from 'assert'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import { initTest } from '../utils/testValidator'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { Keypair, PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds cancel withdraw request', () => {
   let provider: AnchorExtendedProvider
@@ -24,8 +28,8 @@ describe('Validator Bonds cancel withdraw request', () => {
   let validatorIdentity: Keypair
   const requestedAmount = 2 * LAMPORTS_PER_SOL
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+  beforeAll(() => {
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -55,7 +59,7 @@ describe('Validator Bonds cancel withdraw request', () => {
       validatorIdentity,
     ])
     expect(
-      await provider.connection.getAccountInfo(withdrawRequestAccount),
+      await provider.connection.getAccountInfo(withdrawRequestAccount)
     ).toBeNull()
 
     const events = parseCpiEvents(program, executionReturn?.response)

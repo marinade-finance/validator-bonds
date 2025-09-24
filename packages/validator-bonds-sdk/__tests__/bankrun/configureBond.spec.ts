@@ -1,23 +1,24 @@
+import { verifyError } from '@marinade.finance/anchor-common'
+import { Keypair, PublicKey } from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
 import {
-  Bond,
   Errors,
-  ValidatorBondsProgram,
   configureBondInstruction,
   getBond,
   getConfig,
   initBondInstruction,
 } from '../../src'
-import { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import { createVoteAccount } from '../utils/staking'
 import {
   executeConfigureConfigInstruction,
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { ProgramAccount } from '@coral-xyz/anchor'
-import { Keypair, PublicKey } from '@solana/web3.js'
-import { createVoteAccount } from '../utils/staking'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest } from './bankrun'
+
+import type { Bond, ValidatorBondsProgram } from '../../src'
+import type { ProgramAccount } from '@coral-xyz/anchor'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 
 describe('Validator Bonds configure bond account', () => {
   let provider: BankrunExtendedProvider

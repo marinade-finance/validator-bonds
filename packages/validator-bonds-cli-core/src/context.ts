@@ -1,19 +1,22 @@
-import { Connection, Finality, PublicKey } from '@solana/web3.js'
-import { Logger } from 'pino'
-import { AnchorProvider, Provider } from '@coral-xyz/anchor'
+import { AnchorProvider } from '@coral-xyz/anchor'
 import { CLIContext } from '@marinade.finance/cli-common'
+import { getContext, setContext } from '@marinade.finance/ts-common'
 import {
-  Wallet as WalletInterface,
+  VALIDATOR_BONDS_PROGRAM_ID,
+  getProgram as getValidatorBondsProgram,
+} from '@marinade.finance/validator-bonds-sdk'
+import {
   parseClusterUrl,
   parseCommitment,
   parseConfirmationFinality,
 } from '@marinade.finance/web3js-1x'
-import {
-  VALIDATOR_BONDS_PROGRAM_ID,
-  ValidatorBondsProgram,
-  getProgram as getValidatorBondsProgram,
-} from '@marinade.finance/validator-bonds-sdk'
-import { getContext, setContext } from '@marinade.finance/ts-common'
+import { Connection } from '@solana/web3.js'
+
+import type { Provider } from '@coral-xyz/anchor'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
+import type { Finality, PublicKey } from '@solana/web3.js'
+import type { Logger } from 'pino'
 
 export class ValidatorBondsCliContext extends CLIContext {
   private bondsProgramId?: PublicKey
@@ -130,10 +133,10 @@ export function setValidatorBondsCliContext({
         confirmWaitTime,
         computeUnitPrice,
         commandName: command,
-      }),
+      })
     )
     logger.debug(
-      `RPC url: ${clusterUrl}, keypair: ${wallet.publicKey.toBase58()}`,
+      `RPC url: ${clusterUrl}, keypair: ${wallet.publicKey.toBase58()}`
     )
   } catch (e) {
     logger.debug(e)
@@ -144,7 +147,7 @@ export function setValidatorBondsCliContext({
 // Configures the CLI validator bonds program id but only when it's not setup already.
 // It searches for owner of the provided account and sets the programId as its owner.
 export async function setProgramIdByOwner(
-  accountPubkey?: PublicKey,
+  accountPubkey?: PublicKey
 ): Promise<ValidatorBondsCliContext> {
   const cliContext = getCliContext()
   if (cliContext.programId === undefined && accountPubkey !== undefined) {
@@ -153,7 +156,7 @@ export async function setProgramIdByOwner(
     if (accountInfo === null) {
       throw new Error(
         `setProgramIdByOwner: account ${accountPubkey.toBase58()} does not exist` +
-          ` on cluster ${cliContext.provider.connection.rpcEndpoint}`,
+          ` on cluster ${cliContext.provider.connection.rpcEndpoint}`
       )
     }
     cliContext.programId = accountInfo.owner

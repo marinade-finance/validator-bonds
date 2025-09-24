@@ -1,14 +1,13 @@
-import { PublicKey } from '@solana/web3.js'
-import { Command } from 'commander'
 import {
   configureMintBond,
   manageMintBond,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { MARINADE_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
-import {
-  Wallet as WalletInterface,
-  parsePubkey,
-} from '@marinade.finance/web3js-1x'
+import { parsePubkey } from '@marinade.finance/web3js-1x'
+
+import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
+import type { PublicKey } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function installMintBond(program: Command) {
   configureMintBond(program)
@@ -17,7 +16,7 @@ export function installMintBond(program: Command) {
       'The config account that the bond account is created under ' +
         '(optional; to derive bond address from vote account address) ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey,
+      parsePubkey
     )
     .action(
       async (
@@ -32,7 +31,7 @@ export function installMintBond(program: Command) {
           voteAccount?: Promise<PublicKey>
           rentPayer?: Promise<WalletInterface | PublicKey>
           computeUnitLimit: number
-        },
+        }
       ) => {
         await manageMintBond({
           address: await address,
@@ -41,6 +40,6 @@ export function installMintBond(program: Command) {
           rentPayer: await rentPayer,
           computeUnitLimit,
         })
-      },
+      }
     )
 }

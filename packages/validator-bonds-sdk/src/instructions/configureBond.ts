@@ -1,14 +1,12 @@
-import {
-  Keypair,
-  PublicKey,
-  Signer,
-  TransactionInstruction,
-} from '@solana/web3.js'
-import { ValidatorBondsProgram } from '../sdk'
-import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
+import { PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
+
 import { getBond } from '../api'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { Keypair, Signer, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to configure bond account. Signature of validator identity of vote account
@@ -28,7 +26,7 @@ export async function configureBondInstruction({
   bondAccount?: PublicKey
   configAccount?: PublicKey
   voteAccount?: PublicKey
-  authority?: PublicKey | Keypair | Signer | WalletInterface | WalletInterface // signer
+  authority?: PublicKey | Keypair | Signer | WalletInterface // signer
   newBondAuthority?: PublicKey
   newCpmpe?: BN | number
   newMaxStakeWanted?: BN | number
@@ -40,7 +38,7 @@ export async function configureBondInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId,
+    program.programId
   )
   if (voteAccount === undefined) {
     const bondData = await getBond(program, bondAccount)

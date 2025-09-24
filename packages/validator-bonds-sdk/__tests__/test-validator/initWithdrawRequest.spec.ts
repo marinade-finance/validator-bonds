@@ -1,7 +1,16 @@
-import { Keypair, LAMPORTS_PER_SOL, PublicKey, Signer } from '@solana/web3.js'
+import assert from 'assert'
+
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+import { executeTxSimple, waitForNextEpoch } from '@marinade.finance/web3js-1x'
+import {
+  splitAndExecuteTx,
+  signer,
+  transaction,
+} from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+
 import {
   INIT_WITHDRAW_REQUEST_EVENT,
-  ValidatorBondsProgram,
   assertEvent,
   findWithdrawRequests,
   getWithdrawRequest,
@@ -10,29 +19,21 @@ import {
   parseCpiEvents,
   withdrawRequestAddress,
 } from '../../src'
-import { initTest } from './testValidator'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-} from '../utils/testTransactions'
-import { executeTxSimple, waitForNextEpoch } from '@marinade.finance/web3js-1x'
+import { getSecureRandomInt } from '../utils/helpers'
 import {
   createVoteAccount,
   createVoteAccountWithIdentity,
 } from '../utils/staking'
+import {
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+} from '../utils/testTransactions'
+import { initTest } from '../utils/testValidator'
 
-import {
-  Wallet,
-  splitAndExecuteTx,
-  signer,
-  transaction,
-} from '@marinade.finance/web3js-1x'
-import {
-  AnchorExtendedProvider,
-  getAnchorValidatorInfo,
-} from '@marinade.finance/anchor-common'
-import assert from 'assert'
-import { getSecureRandomInt } from '../utils/helpers'
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { Wallet } from '@marinade.finance/web3js-1x'
+import type { Signer } from '@solana/web3.js'
 
 describe('Validator Bonds init withdraw request', () => {
   let provider: AnchorExtendedProvider
@@ -44,7 +45,7 @@ describe('Validator Bonds init withdraw request', () => {
   let validatorIdentity: Keypair
 
   beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 
@@ -92,7 +93,7 @@ describe('Validator Bonds init withdraw request', () => {
     const [, bump] = withdrawRequestAddress(bondAccount, program.programId)
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount,
+      withdrawRequestAccount
     )
     expect(withdrawRequestData.bond).toEqual(bondAccount)
     expect(withdrawRequestData.bump).toEqual(bump)
@@ -122,7 +123,7 @@ describe('Validator Bonds init withdraw request', () => {
     for (let i = 1; i <= numberOfBonds; i++) {
       const { voteAccount: voteAccount } = await createVoteAccountWithIdentity(
         provider,
-        validatorIdentity,
+        validatorIdentity
       )
       voteAndBonds.push([voteAccount, PublicKey.default])
     }
@@ -130,7 +131,9 @@ describe('Validator Bonds init withdraw request', () => {
     const bondAuthority = Keypair.generate()
     signers.push(signer(bondAuthority))
     for (let i = 1; i <= numberOfBonds; i++) {
-      const [voteAccount] = voteAndBonds[i - 1]
+      const voteAndBondEntry = voteAndBonds[i - 1]
+      assert(voteAndBondEntry !== undefined)
+      const [voteAccount] = voteAndBondEntry
       const { instruction, bondAccount } = await initBondInstruction({
         program,
         configAccount,
@@ -140,11 +143,13 @@ describe('Validator Bonds init withdraw request', () => {
         validatorIdentity,
       })
       tx.add(instruction)
-      voteAndBonds[i - 1][1] = bondAccount
+      voteAndBondEntry[1] = bondAccount
     }
     await waitForNextEpoch(provider.connection, 15)
     for (let i = 1; i <= numberOfBonds; i++) {
-      const [voteAccount, bondAccount] = voteAndBonds[i - 1]
+      const voteAndBondEntry = voteAndBonds[i - 1]
+      assert(voteAndBondEntry !== undefined)
+      const [voteAccount, bondAccount] = voteAndBondEntry
       const { instruction } = await initWithdrawRequestInstruction({
         program,
         bondAccount,
@@ -157,7 +162,7 @@ describe('Validator Bonds init withdraw request', () => {
     }
     expect(tx.instructions.length).toEqual(numberOfBonds * 2)
     const currentEpoch = Number(
-      (await provider.connection.getEpochInfo()).epoch,
+      (await provider.connection.getEpochInfo()).epoch
     )
     await splitAndExecuteTx({
       connection: provider.connection,
@@ -174,8 +179,8 @@ describe('Validator Bonds init withdraw request', () => {
 
     withdrawRequestList = await findWithdrawRequests({
       program,
-      bond: voteAndBonds[0][1],
-      voteAccount: voteAndBonds[0][0],
+      bond: voteAndBonds[0]?.[1],
+      voteAccount: voteAndBonds[0]?.[0],
       epoch: currentEpoch,
     })
     expect(withdrawRequestList.length).toEqual(1)
@@ -184,7 +189,9 @@ describe('Validator Bonds init withdraw request', () => {
     expect(withdrawRequestList.length).toBeGreaterThanOrEqual(numberOfBonds)
 
     for (let i = 1; i <= numberOfBonds; i++) {
-      const [voteAccount, bondAccount] = voteAndBonds[i - 1]
+      const voteAndBondEntry = voteAndBonds[i - 1]
+      assert(voteAndBondEntry !== undefined)
+      const [voteAccount, bondAccount] = voteAndBondEntry
       withdrawRequestList = await findWithdrawRequests({
         program,
         bond: bondAccount,

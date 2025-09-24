@@ -1,23 +1,27 @@
+import assert from 'assert'
+
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
+import {
+  getWithdrawRequest,
+  withdrawRequestAddress,
+} from '@marinade.finance/validator-bonds-sdk'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+import {
+  executeCancelWithdrawRequestInstruction,
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import {
   U64_MAX,
   createTempFileKeypair,
   createUserAndFund,
 } from '@marinade.finance/web3js-1x'
-import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import {
-  ValidatorBondsProgram,
-  getWithdrawRequest,
-  withdrawRequestAddress,
-} from '@marinade.finance/validator-bonds-sdk'
-import {
-  executeCancelWithdrawRequestInstruction,
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-} from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
-import { createVoteAccount } from '../../../validator-bonds-sdk/__tests__/utils/staking'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import type { Keypair, PublicKey } from '@solana/web3.js'
 
 describe('Init withdraw request using CLI', () => {
   const stakeAccountLamports = LAMPORTS_PER_SOL * 88
@@ -33,9 +37,9 @@ describe('Init withdraw request using CLI', () => {
   let rentPayerKeypair: Keypair
   let rentPayerCleanup: () => Promise<void>
 
-  beforeAll(async () => {
+  beforeAll(() => {
     extendJestWithShellMatchers()
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -53,9 +57,7 @@ describe('Init withdraw request using CLI', () => {
       program,
       provider,
     }))
-    expect(
-      await provider.connection.getAccountInfo(configAccount),
-    ).not.toBeNull()
+    assert((await provider.connection.getAccountInfo(configAccount)) != null)
     ;({ voteAccount } = await createVoteAccount({
       provider,
       validatorIdentity: validatorIdentityKeypair,
@@ -81,32 +83,29 @@ describe('Init withdraw request using CLI', () => {
       user: rentPayerKeypair,
     })
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'init-withdraw-request',
-          bondAccount.toBase58(),
-          '--config',
-          configAccount.toBase58(),
-          '--authority',
-          validatorIdentityPath,
-          '--amount',
-          stakeAccountLamports.toString(),
-          '--rent-payer',
-          rentPayerPath,
-          '--confirmation-finality',
-          'confirmed',
-          '--verbose',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'init-withdraw-request',
+        bondAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--authority',
+        validatorIdentityPath,
+        '--amount',
+        stakeAccountLamports.toString(),
+        '--rent-payer',
+        rentPayerPath,
+        '--confirmation-finality',
+        'confirmed',
+        '--verbose',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /successfully initialized/,
@@ -114,11 +113,11 @@ describe('Init withdraw request using CLI', () => {
 
     const [withdrawRequestAddr] = withdrawRequestAddress(
       bondAccount,
-      program.programId,
+      program.programId
     )
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAddr,
+      withdrawRequestAddr
     )
     expect(withdrawRequestData.bond).toEqual(bondAccount)
     expect(withdrawRequestData.voteAccount).toEqual(voteAccount)
@@ -129,76 +128,70 @@ describe('Init withdraw request using CLI', () => {
     )?.lamports
     expect(
       (await provider.connection.getAccountInfo(rentPayerKeypair.publicKey))
-        ?.lamports,
+        ?.lamports
     ).toEqual(userFunding - rentExempt!)
 
     await executeCancelWithdrawRequestInstruction(
       program,
       provider,
       withdrawRequestAddr,
-      validatorIdentityKeypair,
+      validatorIdentityKeypair
     )
     expect(
-      await provider.connection.getAccountInfo(withdrawRequestAddr),
+      await provider.connection.getAccountInfo(withdrawRequestAddr)
     ).toBeNull()
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'init-withdraw-request',
-          bondAccount.toBase58(),
-          '--config',
-          configAccount.toBase58(),
-          '--authority',
-          validatorIdentityPath,
-          '--amount',
-          'ALL',
-          '--confirmation-finality',
-          'confirmed',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'init-withdraw-request',
+        bondAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--authority',
+        validatorIdentityPath,
+        '--amount',
+        'ALL',
+        '--confirmation-finality',
+        'confirmed',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /successfully initialized/,
     })
     const withdrawRequestDataAll = await getWithdrawRequest(
       program,
-      withdrawRequestAddr,
+      withdrawRequestAddr
     )
     expect(withdrawRequestDataAll.bond).toEqual(bondAccount)
     expect(withdrawRequestDataAll.requestedAmount).toEqual(U64_MAX)
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'init-withdraw-request',
-          bondAccount.toBase58(),
-          '--config',
-          configAccount.toBase58(),
-          '--authority',
-          validatorIdentityPath,
-          '--amount',
-          '100', // lamports
-          '--confirmation-finality',
-          'confirmed',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'init-withdraw-request',
+        bondAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--authority',
+        validatorIdentityPath,
+        '--amount',
+        '100', // lamports
+        '--confirmation-finality',
+        'confirmed',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 200,
       stdout:
         /100 lamports is less than the minimal amount 1002282880 lamports/,
@@ -208,40 +201,37 @@ describe('Init withdraw request using CLI', () => {
   it('init withdraw request in print-only mode', async () => {
     const [withdrawRequestAddr] = withdrawRequestAddress(
       bondAccount,
-      program.programId,
+      program.programId
     )
     const toMatch = new RegExp(
-      `${withdrawRequestAddr.toBase58()}.*successfully initialized`,
+      `${withdrawRequestAddr.toBase58()}.*successfully initialized`
     )
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'init-withdraw-request',
-          voteAccount.toBase58(),
-          '--config',
-          configAccount.toBase58(),
-          '--authority',
-          validatorIdentityPath,
-          '--amount',
-          LAMPORTS_PER_SOL * 3,
-          '--print-only',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'init-withdraw-request',
+        voteAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--authority',
+        validatorIdentityPath,
+        '--amount',
+        LAMPORTS_PER_SOL * 3,
+        '--print-only',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: toMatch,
     })
 
     expect(
-      await provider.connection.getAccountInfo(withdrawRequestAddr),
+      await provider.connection.getAccountInfo(withdrawRequestAddr)
     ).toBeNull()
   })
 })

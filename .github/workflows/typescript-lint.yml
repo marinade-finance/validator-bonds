@@ -2,9 +2,9 @@ name: Cargo lint and test
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
   # Not needed in CI, should make things a bit faster
@@ -39,12 +39,12 @@ jobs:
       - name: 👨‍🔧 Install Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 20
 
       - name: 👩‍🔧 Install pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 9
 
       - name: 🦿 Install Rust tookchain
         uses: dtolnay/rust-toolchain@1.73.0
@@ -67,8 +67,8 @@ jobs:
       - name: 🏋️ Install dependencies
         run: pnpm install
 
-      - name: 🧭 Run lint
-        run: pnpm lint
+      - name: 🧭 Run lint check
+        run: pnpm check
 
       - name: 🧨 Run test
         run: cargo test --release -- --nocapture

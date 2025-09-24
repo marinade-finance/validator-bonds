@@ -1,20 +1,18 @@
+/* eslint-disable sonarjs/no-duplicate-string, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
+
+import assert from 'assert'
+
+import { base64, bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import {
   CliCommandError,
   FORMAT_TYPE_DEF,
   printData,
-  FormatType,
 } from '@marinade.finance/cli-common'
-import { AccountInfo, PublicKey } from '@solana/web3.js'
-import { Command } from 'commander'
-import { getCliContext, setProgramIdByOwner } from '../context'
 import {
-  Bond,
-  Config,
   findBonds,
   findConfigs,
   getConfig,
   getBondsFunding,
-  BondDataWithFunding,
   bondsWithdrawerAuthority,
   getSettlement,
   findSettlements,
@@ -22,15 +20,8 @@ import {
   withdrawRequestAddress,
   settlementClaimsAddress,
   bondMintAddress,
-  ValidatorBondsProgram,
 } from '@marinade.finance/validator-bonds-sdk'
-import { ProgramAccount } from '@coral-xyz/anchor'
-import { getBondFromAddress, formatUnit, formatToSolWithAll } from '../utils'
-import BN from 'bn.js'
 import {
-  ProgramAccountInfoNullable,
-  ReformatAction,
-  VoteAccount,
   getMultipleAccounts,
   getVoteAccountFromData,
   parsePubkey,
@@ -38,7 +29,26 @@ import {
   reformat,
   reformatReserved,
 } from '@marinade.finance/web3js-1x'
-import { base64, bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
+import BN from 'bn.js'
+
+import { getCliContext, setProgramIdByOwner } from '../context'
+import { getBondFromAddress, formatUnit, formatToSolWithAll } from '../utils'
+
+import type { ProgramAccount } from '@coral-xyz/anchor'
+import type { FormatType } from '@marinade.finance/cli-common'
+import type {
+  Bond,
+  Config,
+  BondDataWithFunding,
+  ValidatorBondsProgram,
+} from '@marinade.finance/validator-bonds-sdk'
+import type {
+  ProgramAccountInfoNullable,
+  ReformatAction,
+  VoteAccount,
+} from '@marinade.finance/web3js-1x'
+import type { AccountInfo, PublicKey } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export type ProgramAccountWithProgramId<T> = ProgramAccount<T> & {
   programId: PublicKey
@@ -51,22 +61,22 @@ export function installShowConfig(program: Command) {
     .argument(
       '[address]',
       'Address of the config account to show (when the argument is provided other filter options are ignored)',
-      parsePubkey,
+      parsePubkey
     )
     .option(
       '--admin <pubkey>',
       'Admin authority to filter the config accounts with',
-      parsePubkeyOrPubkeyFromWallet,
+      parsePubkeyOrPubkeyFromWallet
     )
     .option(
       '--operator <pubkey>',
       'Operator authority to filter the config accounts with',
-      parsePubkeyOrPubkeyFromWallet,
+      parsePubkeyOrPubkeyFromWallet
     )
     .option(
       `-f, --format <${FORMAT_TYPE_DEF.join('|')}>`,
       'Format of output',
-      'json',
+      'json'
     )
     .action(
       async (
@@ -79,7 +89,7 @@ export function installShowConfig(program: Command) {
           admin?: Promise<PublicKey>
           operator?: Promise<PublicKey>
           format: FormatType
-        },
+        }
       ) => {
         await showConfig({
           address: await address,
@@ -87,7 +97,7 @@ export function installShowConfig(program: Command) {
           operatorAuthority: await operator,
           format,
         })
-      },
+      }
     )
 }
 
@@ -99,24 +109,24 @@ export function configureShowBond(program: Command): Command {
       '[address]',
       'Address of the bond account or vote account or withdraw request. ' +
         'It will show bond account data (when the argument is provided other filter options are ignored)',
-      parsePubkey,
+      parsePubkey
     )
     .option(
       '--bond-authority <pubkey>',
       'Bond authority to filter bonds accounts',
-      parsePubkeyOrPubkeyFromWallet,
+      parsePubkeyOrPubkeyFromWallet
     )
     .option(
       '--with-funding',
       'Show information about funding of the Bond account. This option requires a query search ' +
         'for stake accounts at the RPC, which is rate-limited by some operators, especially public RPC endpoints. ' +
         "If you receive the error '429 Too Many Requests,' consider using a private RPC node.",
-      false,
+      false
     )
     .option(
       `-f, --format <${FORMAT_TYPE_DEF.join('|')}>`,
       'Format of output',
-      'json',
+      'json'
     )
 }
 
@@ -128,17 +138,17 @@ export function installShowSettlement(program: Command) {
     .option(
       '--bond <pubkey>',
       'Bond account to filter settlements accounts. Provide bond account or vote account address.',
-      parsePubkey,
+      parsePubkey
     )
     .option(
       '--epoch <number>',
       'Epoch number to filter the settlements for.',
-      v => parseInt(v, 10),
+      v => parseInt(v, 10)
     )
     .option(
       `-f, --format <${FORMAT_TYPE_DEF.join('|')}>`,
       'Format of output',
-      'json',
+      'json'
     )
     .action(
       async (
@@ -151,7 +161,7 @@ export function installShowSettlement(program: Command) {
           bond?: Promise<PublicKey>
           epoch?: number
           format: FormatType
-        },
+        }
       ) => {
         await showSettlement({
           address: await address,
@@ -159,7 +169,7 @@ export function installShowSettlement(program: Command) {
           epoch,
           format,
         })
-      },
+      }
     )
 }
 
@@ -171,10 +181,10 @@ export function installShowEvent(program: Command) {
     .option(
       `-f, --format <${FORMAT_TYPE_DEF.join('|')}>`,
       'Format of output',
-      'json',
+      'json'
     )
-    .action(async (eventData: string, { format }: { format: FormatType }) => {
-      await showEvent({
+    .action((eventData: string, { format }: { format: FormatType }) => {
+      showEvent({
         eventData,
         format,
       })
@@ -209,7 +219,7 @@ async function showConfig({
         account: configData,
         bondsWithdrawerAuthority: bondsWithdrawerAuthority(
           address,
-          program.programId,
+          program.programId
         )[0],
       }
     } catch (e) {
@@ -234,7 +244,7 @@ async function showConfig({
         account: configData.account,
         bondsWithdrawerAuthority: bondsWithdrawerAuthority(
           configData.publicKey,
-          program.programId,
+          program.programId
         )[0],
       }))
     } catch (err) {
@@ -297,6 +307,7 @@ export async function showBond({
     if (
       voteAccounts !== undefined &&
       voteAccounts.length > 0 &&
+      voteAccounts[0] !== undefined &&
       voteAccounts[0].account !== null
     ) {
       const voteAccountData = voteAccounts[0].account.data
@@ -322,10 +333,10 @@ export async function showBond({
         bondAccounts: [address],
         voteAccounts: [bondData.account.data.voteAccount],
       })
-      if (bondFunding.length !== 1) {
+      if (bondFunding.length !== 1 || bondFunding[0] === undefined) {
         throw new CliCommandError({
           valueName: '[vote account address]|[bond address]',
-          value: `${bondData.account.data.voteAccount}|${address.toBase58()}`,
+          value: `${bondData.account.data.voteAccount.toBase58()}|${address.toBase58()}`,
           msg: 'For argument "--with-funding", failed to fetch stake accounts to check evaluate',
         })
       }
@@ -348,7 +359,7 @@ export async function showBond({
       // funding data is not requested, let's search for withdraw request data at least
       const [withdrawRequestAddr] = withdrawRequestAddress(
         address,
-        program.programId,
+        program.programId
       )
       const withdrawRequestData =
         await program.account.withdrawRequest.fetchNullable(withdrawRequestAddr)
@@ -378,10 +389,11 @@ export async function showBond({
       }))
 
       if (withFunding && bondDataArray.length > 0) {
+        assert(bondDataArray[0] !== undefined)
         const configAccount = config ?? bondDataArray[0].account.config
         const bondAccounts = bondDataArray.map(bondData => bondData.publicKey)
         const voteAccounts = bondDataArray.map(
-          bondData => bondData.account.voteAccount,
+          bondData => bondData.account.voteAccount
         )
         const bondsFunding = await getBondsFunding({
           program,
@@ -391,24 +403,23 @@ export async function showBond({
         })
         for (let i = 0; i < data.length; i++) {
           const bond = data[i]
+          assert(bond !== undefined)
           const bondFunding = bondsFunding.find(bondFunding =>
-            bondFunding.bondAccount.equals(bond.publicKey),
+            bondFunding.bondAccount.equals(bond.publicKey)
           )
-          data[i].amountOwned = bondFunding?.amountOwned
-          data[i].amountActive = bondFunding?.amountActive
-          data[i].numberActiveStakeAccounts =
+          bond.amountOwned = bondFunding?.amountOwned
+          bond.amountActive = bondFunding?.amountActive
+          bond.numberActiveStakeAccounts =
             bondFunding?.numberActiveStakeAccounts
-          data[i].amountAtSettlements = bondFunding?.amountAtSettlements
-          data[i].numberSettlementStakeAccounts =
+          bond.amountAtSettlements = bondFunding?.amountAtSettlements
+          bond.numberSettlementStakeAccounts =
             bondFunding?.numberSettlementStakeAccounts
-          data[i].amountToWithdraw = bondFunding?.amountToWithdraw
-          data[i].epochsToElapseToWithdraw =
-            bondFunding?.epochsToElapseToWithdraw
-          data[i].withdrawRequest = bondFunding?.withdrawRequest
+          bond.amountToWithdraw = bondFunding?.amountToWithdraw
+          bond.epochsToElapseToWithdraw = bondFunding?.epochsToElapseToWithdraw
+          bond.withdrawRequest = bondFunding?.withdrawRequest
           if (cliContext.logger.isLevelEnabled('debug')) {
-            data[i].bondFundedStakeAccounts =
-              bondFunding?.bondFundedStakeAccounts
-            data[i].settlementFundedStakeAccounts =
+            bond.bondFundedStakeAccounts = bondFunding?.bondFundedStakeAccounts
+            bond.settlementFundedStakeAccounts =
               bondFunding?.settlementFundedStakeAccounts
           }
         }
@@ -429,13 +440,13 @@ export async function showBond({
 
 function constructBondMintAddress(
   bond: BondShow<Bond>,
-  program: ValidatorBondsProgram,
+  program: ValidatorBondsProgram
 ): PublicKey | undefined {
   if (bond.voteAccount?.nodePubkey !== undefined) {
     return bondMintAddress(
       bond.publicKey,
       bond.voteAccount.nodePubkey,
-      program.programId,
+      program.programId
     )[0]
   }
   return undefined
@@ -456,7 +467,7 @@ export async function showSettlement({
   const program = cliContext.program
   const logger = cliContext.logger
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-redundant-type-constituents
   let data: any | any[]
 
   if (address !== undefined) {
@@ -474,7 +485,7 @@ export async function showSettlement({
       })
       const [withdrawalAuth] = bondsWithdrawerAuthority(
         bondData.account.data.config,
-        program.programId,
+        program.programId
       )
       const stakeAccounts = await findStakeAccounts({
         connection: program,
@@ -517,7 +528,7 @@ export async function showSettlement({
         account: settlementData.account,
         settlementClaims: settlementClaimsAddress(
           settlementData.publicKey,
-          program.programId,
+          program.programId
         )[0],
       }))
     } catch (err) {
@@ -534,7 +545,7 @@ export async function showSettlement({
   printData(reformatted, format)
 }
 
-async function showEvent({
+function showEvent({
   eventData,
   format,
 }: {
@@ -578,7 +589,7 @@ function parseAsTransactionCpiData(log: string): string | null {
   try {
     // verification if log is transaction cpi data encoded with base58
     encodedLog = bs58.decode(log)
-  } catch (e) {
+  } catch (_e) {
     return null
   }
   const disc = encodedLog.subarray(0, 8)
@@ -594,7 +605,7 @@ function parseAsTransactionCpiData(log: string): string | null {
 export function reformatBond(key: string, value: any): ReformatAction {
   if (
     typeof key === 'string' &&
-    (key as string).startsWith('reserved') &&
+    key.startsWith('reserved') &&
     (Array.isArray(value) || value instanceof Uint8Array)
   ) {
     return { type: 'Remove' }
@@ -673,6 +684,7 @@ function reformatSettlement(key: string, value: any): ReformatAction {
       records: [
         {
           key: 'maxMerkleNodes',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           value: value.toString(),
         },
       ],
@@ -695,13 +707,13 @@ function reformatConfig(key: string, value: any): ReformatAction {
 }
 
 async function loadVoteAccounts(
-  addresses: PublicKey[],
+  addresses: PublicKey[]
 ): Promise<ProgramAccountInfoNullable<VoteAccount>[] | undefined> {
   const { provider, logger } = getCliContext()
 
   const toVoteAccount = (
     publicKey: PublicKey,
-    account: AccountInfo<Buffer> | null,
+    account: AccountInfo<Buffer> | null
   ) => {
     if (account === null) {
       return {
@@ -715,27 +727,27 @@ async function loadVoteAccounts(
 
   if (addresses.length === 0) {
     return []
-  } else if (addresses.length === 1) {
+  } else if (addresses.length === 1 && addresses[0] !== undefined) {
     try {
       const account = await provider.connection.getAccountInfo(addresses[0])
       return [toVoteAccount(addresses[0], account)]
     } catch (e) {
       logger.debug(
-        `Failed to fetch vote account ${addresses[0].toBase58()} data: ${e}`,
+        `Failed to fetch vote account ${addresses[0].toBase58()} data: ${String(e)}`
       )
       return undefined
     }
   }
   try {
-    const voteAccounts: Promise<
-      ProgramAccount<AccountInfo<VoteAccount> | null>
-    >[] = (
+    const voteAccounts: ProgramAccount<AccountInfo<VoteAccount> | null>[] = (
       await getMultipleAccounts({ connection: provider.connection, addresses })
-    ).map(async ({ publicKey, account }) => toVoteAccount(publicKey, account))
-    return Promise.all(voteAccounts)
+    ).map(({ publicKey, account }) => toVoteAccount(publicKey, account))
+    return voteAccounts
   } catch (e) {
     const voteAccounts = addresses.map(address => address.toBase58()).join(', ')
-    logger.debug(`Failed to fetch vote accounts [${voteAccounts}] data: ${e}`)
+    logger.debug(
+      `Failed to fetch vote accounts [${voteAccounts}] data: ${String(e)}`
+    )
     return undefined
   }
 }

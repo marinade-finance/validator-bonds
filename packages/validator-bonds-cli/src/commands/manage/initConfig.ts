@@ -1,11 +1,10 @@
-import { Keypair, PublicKey, Signer } from '@solana/web3.js'
-import { Command } from 'commander'
 import {
   computeUnitLimitOption,
   getCliContext,
 } from '@marinade.finance/validator-bonds-cli-core'
+import { INIT_CONFIG_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
+import { initConfigInstruction } from '@marinade.finance/validator-bonds-sdk'
 import {
-  Wallet,
   executeTx,
   instanceOfWallet,
   parseKeypair,
@@ -13,9 +12,12 @@ import {
   parseWalletOrPubkeyOption,
   transaction,
 } from '@marinade.finance/web3js-1x'
-import { initConfigInstruction } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
-import { INIT_CONFIG_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
+import { Keypair } from '@solana/web3.js'
+
+import type { Wallet } from '@marinade.finance/web3js-1x'
+import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
+import type { PublicKey, Signer } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function installInitConfig(program: Command) {
   program
@@ -24,40 +26,40 @@ export function installInitConfig(program: Command) {
     .option(
       '--address <keypair>',
       'Keypair of the new config account, when not set a random keypair is generated',
-      parseKeypair,
+      parseKeypair
     )
     .option(
       '--admin <pubkey>',
       'Admin authority to initialize the config account with (default: wallet pubkey)',
-      parsePubkeyOrPubkeyFromWallet,
+      parsePubkeyOrPubkeyFromWallet
     )
     .option(
       '--operator <pubkey>',
       'Operator authority to initialize the config account with (default: admin authority)',
-      parsePubkeyOrPubkeyFromWallet,
+      parsePubkeyOrPubkeyFromWallet
     )
     .option(
       '--rent-payer <keypair_or_ledger_or_pubkey>',
       'Rent payer for the account creation (default: wallet keypair)',
-      parseWalletOrPubkeyOption,
+      parseWalletOrPubkeyOption
     )
     .option(
       '--epochs-to-claim-settlement <number>',
       'number of epochs after which claim can be settled',
       v => parseInt(v, 10),
-      3,
+      3
     )
     .option(
       '--withdraw-lockup-epochs <number>',
       'number of epochs after which withdraw can be executed',
       v => parseInt(v, 10),
-      3,
+      3
     )
     .option(
       '--slots-to-start-settlement-claiming <number>',
       'number of slots after which settlement claim can be settled',
       v => parseInt(v, 10),
-      0,
+      0
     )
     .addOption(computeUnitLimitOption(INIT_CONFIG_LIMIT_UNITS))
     .action(
@@ -90,7 +92,7 @@ export function installInitConfig(program: Command) {
           withdrawLockupEpochs,
           computeUnitLimit,
         })
-      },
+      }
     )
 }
 
@@ -165,6 +167,6 @@ async function manageInitConfig({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Config account ${address.publicKey.toBase58()} successfully created`,
+    `Config account ${address.publicKey.toBase58()} successfully created`
   )
 }

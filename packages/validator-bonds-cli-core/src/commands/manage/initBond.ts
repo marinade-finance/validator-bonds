@@ -1,8 +1,7 @@
-import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
+import { logInfo } from '@marinade.finance/ts-common'
+import { initBondInstruction } from '@marinade.finance/validator-bonds-sdk'
 import {
   ExecutionError,
-  Wallet,
   executeTx,
   getVoteAccount,
   instanceOfWallet,
@@ -11,18 +10,22 @@ import {
   parseWalletOrPubkeyOption,
   transaction,
 } from '@marinade.finance/web3js-1x'
-import {
-  ValidatorBondsProgram,
-  initBondInstruction,
-} from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
-import { PublicKey, Signer } from '@solana/web3.js'
+
 import {
   INIT_BOND_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
-import BN from 'bn.js'
-import { LoggerPlaceholder, logInfo } from '@marinade.finance/ts-common'
+import { setProgramIdByOwner } from '../../context'
+
+import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import type {
+  Wallet as WalletInterface,
+  Wallet,
+} from '@marinade.finance/web3js-1x'
+import type { PublicKey, Signer } from '@solana/web3.js'
+import type BN from 'bn.js'
+import type { Command } from 'commander'
 
 export function configureInitBond(program: Command): Command {
   return program
@@ -31,25 +34,25 @@ export function configureInitBond(program: Command): Command {
     .requiredOption(
       '--vote-account <pubkey>',
       'Validator vote account that this bond is bound to',
-      parsePubkey,
+      parsePubkey
     )
     .option(
       '--validator-identity <keypair_or_ledger_or_pubkey>',
       'Validator identity linked to the vote account. ' +
         'Permission-ed execution requires the validator identity signature, possible possible to configure --bond-authority. ' +
         'Permission-less execution requires no signature, bond account configuration is possible later with validator identity signature (default: NONE)',
-      parseWalletOrPubkeyOption,
+      parseWalletOrPubkeyOption
     )
     .option(
       '--bond-authority <pubkey>',
       'Authority that is permitted to operate with bond account. ' +
         'Only possible to set in permission-ed mode (see above, default: vote account validator identity)',
-      parsePubkeyOrPubkeyFromWallet,
+      parsePubkeyOrPubkeyFromWallet
     )
     .option(
       '--rent-payer <keypair_or_ledger_or_pubkey>',
       'Rent payer for the account creation (default: wallet keypair)',
-      parseWalletOrPubkeyOption,
+      parseWalletOrPubkeyOption
     )
     .addOption(computeUnitLimitOption(INIT_BOND_LIMIT_UNITS))
 }
@@ -118,7 +121,7 @@ export async function manageInitBond({
   tx.add(instruction)
 
   logger.info(
-    `Initializing bond account ${bondAccount.toBase58()} (finalization may take seconds)`,
+    `Initializing bond account ${bondAccount.toBase58()} (finalization may take seconds)`
   )
 
   try {
@@ -139,7 +142,7 @@ export async function manageInitBond({
       sendOpts: { skipPreflight },
     })
     logger.info(
-      `Bond account ${bondAccount.toBase58()} of config ${config.toBase58()} successfully created`,
+      `Bond account ${bondAccount.toBase58()} of config ${config.toBase58()} successfully created`
     )
   } catch (err) {
     await failIfUnexpectedError({
@@ -170,7 +173,7 @@ async function failIfUnexpectedError({
     if (bondData !== null) {
       logInfo(
         logger,
-        `The bond account ${bondAccount.toBase58()} is ALREADY initialized.`,
+        `The bond account ${bondAccount.toBase58()} is ALREADY initialized.`
       )
       return
     }

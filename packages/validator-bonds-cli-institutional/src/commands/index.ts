@@ -1,7 +1,8 @@
-import { Command } from 'commander'
 import { installShowBondAddress } from './address'
-import { installShowBond } from './show'
 import { installManage } from './manage'
+import { installShowBond } from './show'
+
+import type { Command } from 'commander'
 
 export function installCommands(program: Command) {
   installShowBondAddress(program)

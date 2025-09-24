@@ -1,35 +1,38 @@
+import assert from 'assert'
+
+import { verifyError } from '@marinade.finance/anchor-common'
 import {
-  Config,
+  assertNotExist,
+  currentEpoch,
+  warpOffsetEpoch,
+  warpToNextEpoch,
+} from '@marinade.finance/bankrun-utils'
+import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
+import {
   Errors,
-  ValidatorBondsProgram,
   closeSettlementV2Instruction,
   fundSettlementInstruction,
   getConfig,
   getRentExemptStake,
   getSettlement,
 } from '../../src'
+import { getRentExempt, executeTxWithError } from '../utils/helpers'
 import {
-  BankrunExtendedProvider,
-  assertNotExist,
-  currentEpoch,
-  warpOffsetEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
+  createBondsFundedStakeAccount,
+  createVoteAccount,
+} from '../utils/staking'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import {
-  createBondsFundedStakeAccount,
-  createVoteAccount,
-} from '../utils/staking'
-import { getRentExempt, executeTxWithError } from '../utils/helpers'
-import assert from 'assert'
-import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest } from './bankrun'
+
+import type { Config, ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds close settlement', () => {
   const epochsToClaimSettlement = 1
@@ -55,7 +58,7 @@ describe('Validator Bonds close settlement', () => {
         program,
         provider,
         epochsToClaimSettlement,
-      },
+      }
     ))
     config = await getConfig(program, configAccount)
     ;({ voteAccount, validatorIdentity } = await createVoteAccount({
@@ -81,7 +84,7 @@ describe('Validator Bonds close settlement', () => {
         rentCollector: rentCollector.publicKey,
       }))
     const settlementData = await getSettlement(program, settlementAccount)
-    expect(bondAccount).toEqual(settlementData.bond)
+    assert(bondAccount.toBase58() === settlementData.bond.toBase58())
   })
 
   it('close settlement', async () => {
@@ -91,17 +94,17 @@ describe('Validator Bonds close settlement', () => {
       user: rentCollector,
     })
     let rentCollectorInfo = await provider.connection.getAccountInfo(
-      rentCollector.publicKey,
+      rentCollector.publicKey
     )
     assert(rentCollectorInfo !== null)
     expect(rentCollectorInfo.lamports).toEqual(LAMPORTS_PER_SOL)
     const rentExemptSettlement = await getRentExempt(
       provider,
-      settlementAccount,
+      settlementAccount
     )
     const rentExemptSettlementClaims = await getRentExempt(
       provider,
-      settlementClaimsAccount,
+      settlementClaimsAccount
     )
 
     const { instruction } = await closeSettlementV2Instruction({
@@ -115,12 +118,12 @@ describe('Validator Bonds close settlement', () => {
     await assertNotExist(provider, settlementAccount)
 
     rentCollectorInfo = await provider.connection.getAccountInfo(
-      rentCollector.publicKey,
+      rentCollector.publicKey
     )
     expect(rentCollectorInfo).not.toBeNull()
     assert(rentCollectorInfo !== null)
     expect(rentCollectorInfo.lamports).toEqual(
-      LAMPORTS_PER_SOL + rentExemptSettlement + rentExemptSettlementClaims,
+      LAMPORTS_PER_SOL + rentExemptSettlement + rentExemptSettlementClaims
     )
   })
 
@@ -187,20 +190,20 @@ describe('Validator Bonds close settlement', () => {
         signer(splitStakeAccount),
         operatorAuthority,
       ],
-      fundIx,
+      fundIx
     )
 
     const rentExemptStake = await getRentExemptStake(provider)
     expect(
       (await provider.connection.getAccountInfo(pubkey(splitStakeRentPayer)))
-        ?.lamports,
+        ?.lamports
     ).toEqual(LAMPORTS_PER_SOL - rentExemptStake)
     expect(
-      (await provider.connection.getAccountInfo(stakeAccount))?.lamports,
+      (await provider.connection.getAccountInfo(stakeAccount))?.lamports
     ).toEqual(
       settlementData.maxTotalClaim.toNumber() +
         2 * rentExemptStake +
-        config.minimumStakeLamports.toNumber(),
+        config.minimumStakeLamports.toNumber()
     )
 
     const { instruction } = await closeSettlementV2Instruction({
@@ -233,7 +236,7 @@ describe('Validator Bonds close settlement', () => {
       '',
       'insufficient funds',
       [],
-      ixWrongStake,
+      ixWrongStake
     )
 
     const { instruction: ixWrongCollector } =
@@ -260,14 +263,14 @@ describe('Validator Bonds close settlement', () => {
 
     expect(
       (await provider.connection.getAccountInfo(pubkey(splitStakeRentPayer)))
-        ?.lamports,
+        ?.lamports
     ).toEqual(LAMPORTS_PER_SOL)
     expect(
-      (await provider.connection.getAccountInfo(stakeAccount))?.lamports,
+      (await provider.connection.getAccountInfo(stakeAccount))?.lamports
     ).toEqual(
       settlementData.maxTotalClaim.toNumber() +
         rentExemptStake +
-        config.minimumStakeLamports.toNumber(),
+        config.minimumStakeLamports.toNumber()
     )
   })
 

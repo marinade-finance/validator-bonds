@@ -1,42 +1,40 @@
+import assert from 'assert'
+
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
-import YAML from 'yaml'
+import { loadTestingVoteAccount } from '@marinade.finance/validator-bonds-cli-core'
 import {
   initConfigInstruction,
-  ValidatorBondsProgram,
   getWithdrawRequest,
   cancelWithdrawRequestInstruction,
   bondsWithdrawerAuthority,
   claimWithdrawRequestInstruction,
   bondMintAddress,
 } from '@marinade.finance/validator-bonds-sdk'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import {
-  U64_MAX,
-  executeTxSimple,
-  getVoteAccountFromData,
-  signerWithPubkey,
-  transaction,
-  waitForNextEpoch,
-} from '@marinade.finance/web3js-1x'
-import {
-  Connection,
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-} from '@solana/web3.js'
-import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
+  createBondsFundedStakeAccount,
+  createVoteAccount,
+} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import {
   executeConfigureConfigInstruction,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitWithdrawRequestInstruction,
-} from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
+} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import {
-  createBondsFundedStakeAccount,
-  createVoteAccount,
-} from '../../../validator-bonds-sdk/__tests__/utils/staking'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
-import { VoteAccountShow } from '@marinade.finance/validator-bonds-cli-core'
+  U64_MAX,
+  executeTxSimple,
+  signerWithPubkey,
+  transaction,
+  waitForNextEpoch,
+} from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
+import YAML from 'yaml'
+
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 
 beforeAll(() => {
   extendJestWithShellMatchers()
@@ -46,9 +44,9 @@ describe('Show command using CLI', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
 
-  beforeAll(async () => {
+  beforeAll(() => {
     extendJestWithShellMatchers()
-    ;({ provider, program } = await initTest('processed'))
+    ;({ provider, program } = initTest('processed'))
   })
 
   it('show config', async () => {
@@ -71,24 +69,21 @@ describe('Show command using CLI', () => {
       configKeypair,
     ])
 
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-config',
-          configPubkey.toBase58(),
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-config',
+        configPubkey.toBase58(),
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
@@ -109,33 +104,30 @@ describe('Show command using CLI', () => {
         },
         bondsWithdrawerAuthority: bondsWithdrawerAuthority(
           configPubkey,
-          program.programId,
+          program.programId
         )[0].toBase58(),
       }),
     })
 
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          // for show commands there is ok to provide a non-existing keypair
-          '--keypair',
-          '/a/b/c/d/e/f/g',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-config',
-          '--admin',
-          admin.toBase58(),
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        // for show commands there is ok to provide a non-existing keypair
+        '--keypair',
+        '/a/b/c/d/e/f/g',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-config',
+        '--admin',
+        admin.toBase58(),
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
@@ -157,31 +149,28 @@ describe('Show command using CLI', () => {
           },
           bondsWithdrawerAuthority: bondsWithdrawerAuthority(
             configPubkey,
-            program.programId,
+            program.programId
           )[0].toBase58(),
         },
       ]),
     })
 
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-config',
-          '--admin',
-          Keypair.generate().publicKey,
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-config',
+        '--admin',
+        Keypair.generate().publicKey,
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
@@ -189,25 +178,22 @@ describe('Show command using CLI', () => {
       stdout: YAML.stringify([]),
     })
 
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-config',
-          '--operator',
-          operator.toBase58(),
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-config',
+        '--operator',
+        operator.toBase58(),
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
@@ -229,7 +215,7 @@ describe('Show command using CLI', () => {
           },
           bondsWithdrawerAuthority: bondsWithdrawerAuthority(
             configPubkey,
-            program.programId,
+            program.programId
           )[0].toBase58(),
         },
       ]),
@@ -251,9 +237,7 @@ describe('Show command using CLI', () => {
       adminAuthority,
       newMinBondMaxStakeWanted: 1000,
     })
-    expect(
-      await provider.connection.getAccountInfo(configAccount),
-    ).not.toBeNull()
+    assert((await provider.connection.getAccountInfo(configAccount)) != null)
     const { voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
     })
@@ -271,12 +255,12 @@ describe('Show command using CLI', () => {
 
     const voteAccountShow = await loadTestingVoteAccount(
       provider.connection,
-      voteAccount,
+      voteAccount
     )
     const bondMint = bondMintAddress(
       bondAccount,
-      voteAccountShow.nodePubkey!,
-      program.programId,
+      voteAccountShow?.nodePubkey || PublicKey.default,
+      program.programId
     )[0].toBase58()
     const expectedDataNoFunding = {
       programId: program.programId,
@@ -312,51 +296,45 @@ describe('Show command using CLI', () => {
       withdrawRequest: '<NOT EXISTING>',
     }
 
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-bond',
-          bondAccount.toBase58(),
-          '--with-funding',
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-bond',
+        bondAccount.toBase58(),
+        '--with-funding',
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
       stdout: YAML.stringify(expectedDataFundingSingleItem),
     })
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-bond',
-          '--config',
-          configAccount.toBase58(),
-          voteAccount.toBase58(),
-          '--with-funding',
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-bond',
+        '--config',
+        configAccount.toBase58(),
+        voteAccount.toBase58(),
+        '--with-funding',
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
@@ -364,157 +342,139 @@ describe('Show command using CLI', () => {
     })
     const identityRegex = new RegExp(
       YAML.stringify(expectedDataFundingSingleItem),
-      'g',
+      'g'
     )
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-bond',
-          '--config',
-          configAccount.toBase58(),
-          validatorIdentity.publicKey.toBase58(),
-          '--with-funding',
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-bond',
+        '--config',
+        configAccount.toBase58(),
+        validatorIdentity.publicKey.toBase58(),
+        '--with-funding',
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
       stdout: identityRegex,
     })
 
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-bond',
-          '--config',
-          configAccount.toBase58(),
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-bond',
+        '--config',
+        configAccount.toBase58(),
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
       stdout: YAML.stringify([expectedDataNoFunding]),
     })
 
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-bond',
-          '--config',
-          configAccount.toBase58(),
-          '-f',
-          'yaml',
-          '--with-funding',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-bond',
+        '--config',
+        configAccount.toBase58(),
+        '-f',
+        'yaml',
+        '--with-funding',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
       stdout: YAML.stringify([expectedDataFundingMultipleItems]),
     })
 
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-bond',
-          '--bond-authority',
-          bondAuthority.publicKey.toBase58(),
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-bond',
+        '--bond-authority',
+        bondAuthority.publicKey.toBase58(),
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
       stdout: YAML.stringify([expectedDataNoFunding]),
     })
 
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-bond',
-          '--config',
-          configAccount.toBase58(),
-          '--bond-authority',
-          bondAuthority.publicKey.toBase58(),
-          '--with-funding',
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-bond',
+        '--config',
+        configAccount.toBase58(),
+        '--bond-authority',
+        bondAuthority.publicKey.toBase58(),
+        '--with-funding',
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
       stdout: YAML.stringify([expectedDataFundingMultipleItems]),
     })
 
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-bond',
-          Keypair.generate().publicKey,
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-bond',
+        Keypair.generate().publicKey,
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 200,
       signal: '',
       // stderr: '',
@@ -531,9 +491,7 @@ describe('Show command using CLI', () => {
       epochsToClaimSettlement: 1,
       withdrawLockupEpochs,
     })
-    expect(
-      await provider.connection.getAccountInfo(configAccount),
-    ).not.toBeNull()
+    assert((await provider.connection.getAccountInfo(configAccount)) != null)
     const { voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
     })
@@ -548,7 +506,7 @@ describe('Show command using CLI', () => {
       cpmpe: 1,
     })
     const stakeAccountLamports: number[] = [3, 10, 23].map(
-      l => l * LAMPORTS_PER_SOL,
+      l => l * LAMPORTS_PER_SOL
     )
     let lastStakeAccount: PublicKey
     const sumLamports = stakeAccountLamports.reduce((a, b) => a + b, 0)
@@ -564,7 +522,7 @@ describe('Show command using CLI', () => {
     const bondMint = bondMintAddress(
       bondAccount,
       validatorIdentity.publicKey,
-      program.programId,
+      program.programId
     )[0].toBase58()
 
     const expectedDataNoFunding = {
@@ -580,7 +538,7 @@ describe('Show command using CLI', () => {
     }
     const voteAccountShow = await loadTestingVoteAccount(
       provider.connection,
-      voteAccount,
+      voteAccount
     )
     const expectedData = {
       ...expectedDataNoFunding,
@@ -595,27 +553,24 @@ describe('Show command using CLI', () => {
       bondMint,
     }
 
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-bond',
-          bondAccount.toBase58(),
-          '--with-funding',
-          '--commitment',
-          'processed',
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-bond',
+        bondAccount.toBase58(),
+        '--with-funding',
+        '--commitment',
+        'processed',
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
@@ -637,7 +592,7 @@ describe('Show command using CLI', () => {
       })
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount,
+      withdrawRequestAccount
     )
     const withdrawRequestAmount = withdrawRequestData.requestedAmount.toNumber()
 
@@ -669,25 +624,22 @@ describe('Show command using CLI', () => {
     // waiting for next epoch to make sure the withdraw request claiming is over
     await waitForNextEpoch(provider.connection, 15)
 
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-bond',
-          bondAccount.toBase58(),
-          '--with-funding',
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-bond',
+        bondAccount.toBase58(),
+        '--with-funding',
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
@@ -698,27 +650,24 @@ describe('Show command using CLI', () => {
     })
 
     // check show-bond to work with vote account, withdraw request addresses and stake account
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-bond',
-          voteAccount.toBase58(),
-          '--config',
-          configAccount.toBase58(),
-          '--with-funding',
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-bond',
+        voteAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--with-funding',
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
@@ -728,25 +677,22 @@ describe('Show command using CLI', () => {
       }),
     })
 
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-bond',
-          withdrawRequestAccount.toBase58(),
-          '--with-funding',
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-bond',
+        withdrawRequestAccount.toBase58(),
+        '--with-funding',
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
@@ -756,32 +702,29 @@ describe('Show command using CLI', () => {
       }),
     })
 
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-bond',
-          lastStakeAccount!.toBase58(),
-          '--config',
-          configAccount.toBase58(),
-          '--with-funding',
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-bond',
+        lastStakeAccount!.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--with-funding',
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
       stdout: new RegExp(
-        `${lastStakeAccount!.toBase58()} is a STAKE ACCOUNT.*vote account ${voteAccount.toBase58()}`,
+        `${lastStakeAccount!.toBase58()} is a STAKE ACCOUNT.*vote account ${voteAccount.toBase58()}`
       ),
     })
 
@@ -793,25 +736,22 @@ describe('Show command using CLI', () => {
       voteAccount,
     })
     await provider.sendIx([validatorIdentity], ixCancel)
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-bond',
-          bondAccount.toBase58(),
-          '--with-funding',
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-bond',
+        bondAccount.toBase58(),
+        '--with-funding',
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
@@ -828,13 +768,13 @@ describe('Show command using CLI', () => {
       .sub(U64_MAX)
       .divmod(bnLamportsPerSol)
     const withdrawingAmount =
-      stakeAccountLamports[stakeAccountLamports.length - 1]
+      stakeAccountLamports[stakeAccountLamports.length - 1] || 0
     const { div: withdrawingDiv } = new BN(withdrawingAmount).divmod(
-      bnLamportsPerSol,
+      bnLamportsPerSol
     )
     // sum of all numbers in stakeAccountLamports.
     const leftStakeAccountAmount = new BN(
-      stakeAccountLamports.reduce((a, b) => a + b, 0) - withdrawingAmount,
+      stakeAccountLamports.reduce((a, b) => a + b, 0) - withdrawingAmount
     )
       .div(bnLamportsPerSol)
       .toNumber()
@@ -858,25 +798,22 @@ describe('Show command using CLI', () => {
         stakeAccount: lastStakeAccount!,
       })
     await provider.sendIx([bondAuthority, splitStakeAccount], instruction)
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'show-bond',
-          bondAccount.toBase58(),
-          '--with-funding',
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-bond',
+        bondAccount.toBase58(),
+        '--with-funding',
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       // stderr: '',
@@ -903,18 +840,3 @@ describe('Show command using CLI', () => {
     })
   })
 })
-
-export async function loadTestingVoteAccount(
-  connection: Connection,
-  voteAccount: PublicKey,
-): Promise<VoteAccountShow> {
-  const voteAccountInfo = await connection.getAccountInfo(voteAccount)
-  expect(voteAccountInfo).not.toBeNull()
-  const voteAccountData = getVoteAccountFromData(voteAccount, voteAccountInfo!)
-    .account.data
-  return {
-    nodePubkey: voteAccountData.nodePubkey,
-    authorizedWithdrawer: voteAccountData.authorizedWithdrawer,
-    commission: voteAccountData.commission,
-  }
-}

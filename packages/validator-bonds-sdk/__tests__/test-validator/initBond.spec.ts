@@ -1,7 +1,16 @@
-import { Keypair, PublicKey, Signer } from '@solana/web3.js'
+import assert from 'assert'
+
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+import {
+  executeTxSimple,
+  signer,
+  splitAndExecuteTx,
+  transaction,
+} from '@marinade.finance/web3js-1x'
+import { Keypair, PublicKey } from '@solana/web3.js'
+
 import {
   INIT_BOND_EVENT,
-  ValidatorBondsProgram,
   assertEvent,
   bondAddress,
   findBonds,
@@ -9,25 +18,17 @@ import {
   initBondInstruction,
   parseCpiEvents,
 } from '../../src'
-import { initTest } from './testValidator'
-import {
-  Wallet,
-  executeTxSimple,
-  signer,
-  splitAndExecuteTx,
-  transaction,
-} from '@marinade.finance/web3js-1x'
+import { createVoteAccountWithIdentity } from '../utils/staking'
 import {
   executeConfigureConfigInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { createVoteAccountWithIdentity } from '../utils/staking'
+import { initTest } from '../utils/testValidator'
 
-import {
-  AnchorExtendedProvider,
-  getAnchorValidatorInfo,
-} from '@marinade.finance/anchor-common'
-import assert from 'assert'
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { Wallet } from '@marinade.finance/web3js-1x'
+import type { Signer } from '@solana/web3.js'
 
 describe('Validator Bonds init bond', () => {
   let provider: AnchorExtendedProvider
@@ -36,7 +37,7 @@ describe('Validator Bonds init bond', () => {
   let configAccount: PublicKey
 
   beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 
@@ -59,7 +60,7 @@ describe('Validator Bonds init bond', () => {
   it('init bond', async () => {
     const { voteAccount } = await createVoteAccountWithIdentity(
       provider,
-      validatorIdentity,
+      validatorIdentity
     )
 
     const tx = await transaction(provider)
@@ -93,7 +94,7 @@ describe('Validator Bonds init bond', () => {
     const [bondCalculatedAddress, bondBump] = bondAddress(
       configAccount,
       voteAccount,
-      program.programId,
+      program.programId
     )
     expect(bondCalculatedAddress).toEqual(bondAccount)
     expect(bondData.authority).toEqual(bondAuthority)
@@ -128,14 +129,16 @@ describe('Validator Bonds init bond', () => {
     for (let i = 1; i <= numberOfBonds; i++) {
       const { voteAccount: voteAccount } = await createVoteAccountWithIdentity(
         provider,
-        validatorIdentity,
+        validatorIdentity
       )
       voteAccounts.push([voteAccount, validatorIdentity])
       signers.push(signer(validatorIdentity))
     }
 
     for (let i = 1; i <= numberOfBonds; i++) {
-      const [voteAccount, nodeIdentity] = voteAccounts[i - 1]
+      const voteAndBondEntry = voteAccounts[i - 1]
+      assert(voteAndBondEntry !== undefined)
+      const [voteAccount, nodeIdentity] = voteAndBondEntry
       const { instruction } = await initBondInstruction({
         program,
         configAccount,
@@ -164,7 +167,9 @@ describe('Validator Bonds init bond', () => {
     expect(bondDataFromList.length).toEqual(numberOfBonds)
 
     for (let i = 1; i <= numberOfBonds; i++) {
-      const [voteAccount] = voteAccounts[i - 1]
+      const voteAndBondEntry = voteAccounts[i - 1]
+      assert(voteAndBondEntry !== undefined)
+      const [voteAccount] = voteAndBondEntry
       bondDataFromList = await findBonds({
         program,
         voteAccount,

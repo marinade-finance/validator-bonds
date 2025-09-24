@@ -1,24 +1,25 @@
-import { Keypair, PublicKey } from '@solana/web3.js'
+import assert from 'assert'
+
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+import { executeTxSimple } from '@marinade.finance/web3js-1x'
+import { transaction } from '@marinade.finance/web3js-1x'
+
 import {
-  ValidatorBondsProgram,
   parseCpiEvents,
   assertEvent,
   cancelSettlementInstruction,
   CANCEL_SETTLEMENT_EVENT,
 } from '../../src'
-import { initTest } from './testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { executeTxSimple } from '@marinade.finance/web3js-1x'
-import { transaction } from '@marinade.finance/web3js-1x'
-import {
-  AnchorExtendedProvider,
-  getAnchorValidatorInfo,
-} from '@marinade.finance/anchor-common'
-import assert from 'assert'
+import { initTest } from '../utils/testValidator'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { Keypair, PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds cancel settlement', () => {
   let provider: AnchorExtendedProvider
@@ -30,7 +31,7 @@ describe('Validator Bonds cancel settlement', () => {
   let bondAccount: PublicKey
 
   beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 
@@ -39,7 +40,7 @@ describe('Validator Bonds cancel settlement', () => {
       {
         program,
         provider,
-      },
+      }
     ))
     ;({ voteAccount, bondAccount } = await executeInitBondInstruction({
       configAccount,
@@ -71,7 +72,7 @@ describe('Validator Bonds cancel settlement', () => {
       operatorAuthority,
     ])
     expect(
-      await provider.connection.getAccountInfo(settlementAccount),
+      await provider.connection.getAccountInfo(settlementAccount)
     ).toBeNull()
 
     const events = parseCpiEvents(program, executionReturn?.response)

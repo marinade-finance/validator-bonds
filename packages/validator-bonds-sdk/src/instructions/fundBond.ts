@@ -1,16 +1,18 @@
+import { logWarn } from '@marinade.finance/ts-common'
 import {
-  Keypair,
   PublicKey,
   SYSVAR_STAKE_HISTORY_PUBKEY,
-  Signer,
   StakeProgram,
-  TransactionInstruction,
 } from '@solana/web3.js'
-import { MARINADE_CONFIG_ADDRESS, ValidatorBondsProgram } from '../sdk'
-import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
+
 import { getBond } from '../api'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { LoggerPlaceholder, logWarn } from '@marinade.finance/ts-common'
+import { MARINADE_CONFIG_ADDRESS } from '../sdk'
+import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
+import type { Keypair, Signer, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to fund bond with a stake account.
@@ -42,7 +44,7 @@ export async function fundBondInstruction({
     logWarn(
       logger,
       'fundBond SDK: config is not provided, using default address: ' +
-        MARINADE_CONFIG_ADDRESS.toBase58(),
+        MARINADE_CONFIG_ADDRESS.toBase58()
     )
     configAccount = MARINADE_CONFIG_ADDRESS
   }
@@ -50,7 +52,7 @@ export async function fundBondInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId,
+    program.programId
   )
   if (configAccount === undefined) {
     const bondData = await getBond(program, bondAccount)

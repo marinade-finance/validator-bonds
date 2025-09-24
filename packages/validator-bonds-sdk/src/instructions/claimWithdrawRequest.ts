@@ -1,23 +1,24 @@
+import { logWarn } from '@marinade.finance/ts-common'
+import { getVoteAccount } from '@marinade.finance/web3js-1x'
 import {
   Keypair,
   PublicKey,
   SYSVAR_STAKE_HISTORY_PUBKEY,
-  Signer,
   StakeProgram,
-  TransactionInstruction,
 } from '@solana/web3.js'
+
+import { getBond, getWithdrawRequest } from '../api'
 import {
-  ValidatorBondsProgram,
-  WithdrawRequest,
   bondAddress,
   withdrawRequestAddress,
   MARINADE_CONFIG_ADDRESS,
 } from '../sdk'
-import { getBond, getWithdrawRequest } from '../api'
-import { getVoteAccount } from '@marinade.finance/web3js-1x'
 import { anchorProgramWalletPubkey, checkAndGetBondAddress } from '../utils'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { LoggerPlaceholder, logWarn } from '@marinade.finance/ts-common'
+
+import type { ValidatorBondsProgram, WithdrawRequest } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
+import type { Signer, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to withdraw amount defined within the withdraw request.
@@ -69,7 +70,7 @@ export async function claimWithdrawRequestInstruction({
   ) {
     withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount,
+      withdrawRequestAccount
     )
     bondAccount = bondAccount ?? withdrawRequestData.bond
     voteAccount = voteAccount ?? withdrawRequestData.voteAccount
@@ -77,7 +78,7 @@ export async function claimWithdrawRequestInstruction({
   if (bondAccount !== undefined && withdrawRequestAccount === undefined) {
     withdrawRequestAccount = withdrawRequestAddress(
       bondAccount,
-      program.programId,
+      program.programId
     )[0]
   }
   if (
@@ -91,20 +92,20 @@ export async function claimWithdrawRequestInstruction({
 
   if (voteAccount === undefined) {
     throw new Error(
-      'voteAccount not provided and could not be derived from other parameters',
+      'voteAccount not provided and could not be derived from other parameters'
     )
   }
   if (withdrawRequestAccount === undefined) {
     throw new Error(
       'claimWithdrawRequest: ' +
-        'withdrawRequestAccount not provided and could not be derived from other parameters',
+        'withdrawRequestAccount not provided and could not be derived from other parameters'
     )
   }
   if (!bondAccount && !configAccount) {
     logWarn(
       logger,
       'claimWithdrawRequest SDK: config is not provided, using default config address: ' +
-        MARINADE_CONFIG_ADDRESS.toBase58(),
+        MARINADE_CONFIG_ADDRESS.toBase58()
     )
     configAccount = MARINADE_CONFIG_ADDRESS
   }
@@ -112,7 +113,7 @@ export async function claimWithdrawRequestInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId,
+    program.programId
   )
 
   if (withdrawer === undefined) {
@@ -121,7 +122,7 @@ export async function claimWithdrawRequestInstruction({
       (await getWithdrawRequest(program, withdrawRequestAccount))
     const voteAccountData = await getVoteAccount(
       program,
-      withdrawRequestData.voteAccount,
+      withdrawRequestData.voteAccount
     )
     withdrawer = voteAccountData.account.data.nodePubkey
   }

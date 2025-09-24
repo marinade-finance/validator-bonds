@@ -1,6 +1,24 @@
+import assert from 'assert'
+
+import { verifyError } from '@marinade.finance/anchor-common'
+import {
+  assertNotExist,
+  currentEpoch,
+  warpOffsetEpoch,
+  warpToNextEpoch,
+} from '@marinade.finance/bankrun-utils'
+import { signer, pubkey, createUserAndFund } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import BN from 'bn.js'
+
+import {
+  StakeActivationState,
+  initBankrunTest,
+  stakeActivation,
+  warpOffsetSlot,
+} from './bankrun'
 import {
   Errors,
-  ValidatorBondsProgram,
   bondsWithdrawerAuthority,
   fundBondInstruction,
   claimSettlementV2Instruction,
@@ -13,28 +31,7 @@ import {
   getSettlementClaimsBySettlement,
   isClaimed,
 } from '../../src'
-import {
-  BankrunExtendedProvider,
-  assertNotExist,
-  currentEpoch,
-  warpOffsetEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-  executeInitSettlement,
-} from '../utils/testTransactions'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import {
-  createBondsFundedStakeAccount,
-  createSettlementFundedDelegatedStake,
-  createDelegatedStakeAccount,
-  createVoteAccount,
-  createInitializedStakeAccount,
-  delegatedStakeAccount,
-} from '../utils/staking'
-import { signer, pubkey, createUserAndFund } from '@marinade.finance/web3js-1x'
+import { executeTxWithError } from '../utils/helpers'
 import {
   MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
   MERKLE_ROOT_VOTE_ACCOUNT_2_BUF,
@@ -51,16 +48,23 @@ import {
   withdrawer3,
   withdrawer4,
 } from '../utils/merkleTreeTestData'
-import { verifyError } from '@marinade.finance/anchor-common'
-import BN from 'bn.js'
-import { executeTxWithError } from '../utils/helpers'
 import {
-  StakeActivationState,
-  initBankrunTest,
-  stakeActivation,
-  warpOffsetSlot,
-} from './bankrun'
-import assert from 'assert'
+  createBondsFundedStakeAccount,
+  createSettlementFundedDelegatedStake,
+  createDelegatedStakeAccount,
+  createVoteAccount,
+  createInitializedStakeAccount,
+  delegatedStakeAccount,
+} from '../utils/staking'
+import {
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+  executeInitSettlement,
+} from '../utils/testTransactions'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds claim settlement', () => {
   const epochsToClaimSettlement = 4
@@ -88,10 +92,10 @@ describe('Validator Bonds claim settlement', () => {
     ;({ provider, program } = await initBankrunTest())
 
     const epochNow = await currentEpoch(provider)
-    const firstSlotOfEpoch = await getFirstSlotOfEpoch(provider, epochNow)
-    const firstSlotOfNextEpoch = await getFirstSlotOfEpoch(
+    const firstSlotOfEpoch = getFirstSlotOfEpoch(provider, epochNow)
+    const firstSlotOfNextEpoch = getFirstSlotOfEpoch(
       provider,
-      epochNow + BigInt(1),
+      epochNow + BigInt(1)
     )
     slotsToStartSettlementClaiming =
       firstSlotOfNextEpoch - firstSlotOfEpoch + BigInt(3)
@@ -102,7 +106,7 @@ describe('Validator Bonds claim settlement', () => {
         epochsToClaimSettlement,
         slotsToStartSettlementClaiming,
         configAccountKeypair: configAccountKeypair,
-      },
+      }
     ))
     ;({ voteAccount: voteAccount1, validatorIdentity: validatorIdentity1 } =
       await createVoteAccount({
@@ -194,7 +198,7 @@ describe('Validator Bonds claim settlement', () => {
     await provider.sendIx(
       [signer(split1), signer(split2), operatorAuthority],
       fundIx1,
-      fundIx2,
+      fundIx2
     )
     await createWithdrawerUsers(provider)
   }
@@ -222,12 +226,12 @@ describe('Validator Bonds claim settlement', () => {
         stakeAccountTo: stakeAccountTreeNode1Withdrawer1,
         stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
         stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
-      },
+      }
     )
     try {
       await provider.sendIx([], ixWrongTreeNode)
       throw new Error(
-        'failure expected; slots to start settlement claiming not reached',
+        'failure expected; slots to start settlement claiming not reached'
       )
     } catch (e) {
       verifyError(e, Errors, 6061, 'slots to start claiming not expired yet')
@@ -237,7 +241,7 @@ describe('Validator Bonds claim settlement', () => {
     try {
       await provider.sendIx([], ixWrongTreeNode)
       throw new Error(
-        'failure expected; slots to start settlement claiming not reached',
+        'failure expected; slots to start settlement claiming not reached'
       )
     } catch (e) {
       verifyError(e, Errors, 6061, 'slots to start claiming not expired yet')
@@ -267,15 +271,15 @@ describe('Validator Bonds claim settlement', () => {
       '',
       'insufficient funds',
       [],
-      instruction,
+      instruction
     )
 
     expect(
       await isClaimed(
         program,
         settlementAccount1,
-        treeNode1Withdrawer1.treeNode.index,
-      ),
+        treeNode1Withdrawer1.treeNode.index
+      )
     ).toBeFalsy()
 
     const notAStakeAccount = await createUserAndFund({
@@ -294,12 +298,9 @@ describe('Validator Bonds claim settlement', () => {
         stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
         stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
       })
-    try {
-      await provider.sendIx([], ixWrongStakeAccountTo)
-      throw new Error('should have failed; wrong stake account')
-    } catch (e) {
-      expect((e as Error).message).toMatch('custom program error: 0xbbf')
-    }
+    await expect(provider.sendIx([], ixWrongStakeAccountTo)).rejects.toThrow(
+      /custom program error: 0xbbf/
+    )
     const stakeAccountWrongStaker = await createDelegatedStakeAccount({
       provider,
       lamports: 3 * LAMPORTS_PER_SOL,
@@ -362,7 +363,7 @@ describe('Validator Bonds claim settlement', () => {
           .subn(1)
           .toNumber(),
         voteAccount: voteAccount1,
-      },
+      }
     )
     const { instruction: fundIxBit, splitStakeAccount } =
       await fundSettlementInstruction({
@@ -372,7 +373,7 @@ describe('Validator Bonds claim settlement', () => {
       })
     await provider.sendIx(
       [operatorAuthority, signer(splitStakeAccount)],
-      fundIxBit,
+      fundIxBit
     )
     const { instruction: ixWrongStakeSize } =
       await claimSettlementV2Instruction({
@@ -398,18 +399,18 @@ describe('Validator Bonds claim settlement', () => {
     await provider.sendIx([], instruction)
 
     const stakeAccountInfo = await provider.connection.getAccountInfo(
-      stakeAccountTreeNode1Withdrawer1,
+      stakeAccountTreeNode1Withdrawer1
     )
     expect(stakeAccountInfo?.lamports).toEqual(
       stakeAccountLamportsBefore +
-        treeNode1Withdrawer1.treeNode.claim.toNumber(),
+        treeNode1Withdrawer1.treeNode.claim.toNumber()
     )
     const settlementClaims = await getSettlementClaimsBySettlement(
       program,
-      settlementAccount1,
+      settlementAccount1
     )
     expect(
-      settlementClaims.bitmap.isSet(treeNode1Withdrawer1.treeNode.index),
+      settlementClaims.bitmap.isSet(treeNode1Withdrawer1.treeNode.index)
     ).toBe(true)
     expect(settlementClaims.bitmap.bitSet.counter).toEqual(1)
     expect(settlementClaims.bitmap.bitSet.asString.includes('1')).toBe(true)
@@ -418,13 +419,13 @@ describe('Validator Bonds claim settlement', () => {
       await isClaimed(
         program,
         settlementAccount1,
-        treeNode1Withdrawer1.treeNode.index,
-      ),
+        treeNode1Withdrawer1.treeNode.index
+      )
     ).toBeTruthy()
 
     const settlementData = await getSettlement(program, settlementAccount1)
     expect(settlementData.lamportsClaimed).toEqual(
-      treeNode1Withdrawer1.treeNode.claim,
+      treeNode1Withdrawer1.treeNode.claim
     )
     expect(settlementData.merkleNodesClaimed).toEqual(1)
 
@@ -487,7 +488,7 @@ describe('Validator Bonds claim settlement', () => {
     try {
       await provider.sendIx([], treeNode2Withdrawer2Ix)
       throw new Error(
-        'should have failed; over claimed (wrong argument on settlement)',
+        'should have failed; over claimed (wrong argument on settlement)'
       )
     } catch (e) {
       verifyError(e, Errors, 6032, 'the max total claim')
@@ -556,14 +557,14 @@ describe('Validator Bonds claim settlement', () => {
 
     const settlementClaimsTreeNode2 = await getSettlementClaims(
       program,
-      treeNode2SettlementClaimsAccount,
+      treeNode2SettlementClaimsAccount
     )
     expect(settlementClaimsTreeNode2.account.maxRecords).toEqual(5)
     expect(settlementClaimsTreeNode2.bitmap.bitSet.counter).toEqual(1)
     expect(
       settlementClaimsTreeNode2.bitmap.isSet(
-        treeNode2Withdrawer1.treeNode.index,
-      ),
+        treeNode2Withdrawer1.treeNode.index
+      )
     ).toBe(true)
 
     await warpToNotBeClaimable()
@@ -594,16 +595,13 @@ describe('Validator Bonds claim settlement', () => {
       verifyError(e, Errors, 6023, 'already expired')
     }
 
-    try {
-      await isClaimed(
+    await expect(
+      isClaimed(
         program,
         settlementAccount1,
-        treeNode1Withdrawer3.treeNode.index,
+        treeNode1Withdrawer3.treeNode.index
       )
-      throw new Error('should have failed; too late to claim')
-    } catch (e) {
-      expect((e as Error).message).toEqual('Index 2 out of range')
-    }
+    ).rejects.toThrow('Index 2 out of range')
   })
 
   it('claim settlement with exact match on stake account size', async () => {
@@ -626,22 +624,22 @@ describe('Validator Bonds claim settlement', () => {
     })
     const [withdrawAuth] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId,
+      program.programId
     )
     const [stakeAuth] = settlementStakerAuthority(
       settlementAccount,
-      program.programId,
+      program.programId
     )
 
     const amount1 = LAMPORTS_PER_SOL * 1
     const amount2 = LAMPORTS_PER_SOL * 42
 
     const treeNode1Withdrawer4 = treeNodesVoteAccount1.filter(t =>
-      t.treeNode.data.withdrawAuthority.equals(withdrawer4),
+      t.treeNode.data.withdrawAuthority.equals(withdrawer4)
     )
     expect(treeNode1Withdrawer4.length).toEqual(2)
     const treeNode1OneLamport = treeNode1Withdrawer4.find(
-      t => t.treeNode.claim.toNumber() === amount1,
+      t => t.treeNode.claim.toNumber() === amount1
     )
     assert(treeNode1OneLamport !== undefined)
     const { stakeAccount: stakeAccountOneLamportFrom } =
@@ -652,7 +650,7 @@ describe('Validator Bonds claim settlement', () => {
         withdrawer: withdrawAuth,
       })
     const treeNode42Lamports = treeNode1Withdrawer4.find(
-      t => t.treeNode.claim.toNumber() === amount2,
+      t => t.treeNode.claim.toNumber() === amount2
     )
     assert(treeNode42Lamports !== undefined)
     const { stakeAccount: stakeAccount42LamportsFrom } =
@@ -732,7 +730,7 @@ describe('Validator Bonds claim settlement', () => {
       voteAccountToDelegate: voteAccount1,
     })
     expect(await stakeActivation(provider, stakeAccount)).toEqual(
-      StakeActivationState.Activating,
+      StakeActivationState.Activating
     )
     const { instruction: fundBondIx } = await fundBondInstruction({
       program,
@@ -754,17 +752,18 @@ describe('Validator Bonds claim settlement', () => {
     await provider.sendIx(
       [withdrawer, operatorAuthority, signer(splitStakeAccount)],
       fundBondIx,
-      fundSettlementIx,
+      fundSettlementIx
     )
 
     // warp to be able to claim (see slotsToStartSettlementClaiming)
     const config = await getConfig(program, configAccount)
     await warpOffsetSlot(
       provider,
-      config.slotsToStartSettlementClaiming.toNumber(),
+      config.slotsToStartSettlementClaiming.toNumber()
     )
 
     const treeNode = treeNodesVoteAccount1[0]
+    assert(treeNode !== undefined)
     const lamportsTo = 10 * LAMPORTS_PER_SOL
     const stakeAccountTo = await createDelegatedStakeAccount({
       provider,
@@ -787,7 +786,7 @@ describe('Validator Bonds claim settlement', () => {
     await provider.sendIx([], ix1)
 
     expect(
-      (await provider.connection.getAccountInfo(stakeAccountTo))?.lamports,
+      (await provider.connection.getAccountInfo(stakeAccountTo))?.lamports
     ).toEqual(lamportsTo + treeNode.treeNode.data.claim.toNumber())
   })
 
@@ -798,10 +797,10 @@ describe('Validator Bonds claim settlement', () => {
 
 // https://github.com/solana-labs/solana/blob/v1.17.7/sdk/program/src/epoch_schedule.rs#L29C1-L29C45
 // https://github.com/solana-labs/solana/blob/v1.17.7/sdk/program/src/epoch_schedule.rs#L167
-async function getFirstSlotOfEpoch(
+function getFirstSlotOfEpoch(
   provider: BankrunExtendedProvider,
-  epoch: number | bigint | BN,
-): Promise<bigint> {
+  epoch: number | bigint | BN
+): bigint {
   const epochBigInt = BigInt(epoch.toString())
   const { slotsPerEpoch, firstNormalEpoch, firstNormalSlot } =
     provider.context.genesisConfig.epochSchedule

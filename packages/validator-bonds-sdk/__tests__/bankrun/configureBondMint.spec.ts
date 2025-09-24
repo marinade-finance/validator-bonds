@@ -1,20 +1,11 @@
+import { verifyError } from '@marinade.finance/anchor-common'
+import { warpToNextEpoch } from '@marinade.finance/bankrun-utils'
 import {
-  Errors,
-  ValidatorBondsProgram,
-  configureBondWithMintInstruction,
-  getBond,
-  mintBondInstruction,
-} from '../../src'
-import {
-  BankrunExtendedProvider,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-} from '../utils/testTransactions'
+  createUserAndFund,
+  getVoteAccount,
+  signer,
+} from '@marinade.finance/web3js-1x'
 import { Keypair, PublicKey, VoteProgram } from '@solana/web3.js'
-import { createVoteAccount } from '../utils/staking'
 import {
   createAssociatedTokenAccountInstruction,
   createTransferInstruction,
@@ -22,14 +13,23 @@ import {
   getMint,
   getAssociatedTokenAddressSync,
 } from 'solana-spl-token-modern'
-import {
-  createUserAndFund,
-  getVoteAccount,
-  signer,
-} from '@marinade.finance/web3js-1x'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { executeTxWithError } from '../utils/helpers'
+
 import { initBankrunTest } from './bankrun'
+import {
+  Errors,
+  configureBondWithMintInstruction,
+  getBond,
+  mintBondInstruction,
+} from '../../src'
+import { executeTxWithError } from '../utils/helpers'
+import { createVoteAccount } from '../utils/staking'
+import {
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+} from '../utils/testTransactions'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 
 describe('Validator Bonds mint configure bond account', () => {
   let provider: BankrunExtendedProvider
@@ -82,7 +82,7 @@ describe('Validator Bonds mint configure bond account', () => {
 
     let validatorIdentityTokenData = await getTokenAccount(
       provider.connection,
-      validatorIdentityTokenAccount,
+      validatorIdentityTokenAccount
     )
     expect(validatorIdentityTokenData.amount).toEqual(1)
     expect(validatorIdentityTokenData.mint).toEqual(bondMint)
@@ -90,36 +90,36 @@ describe('Validator Bonds mint configure bond account', () => {
     expect(mintData.supply).toEqual(1)
 
     expect(
-      await provider.connection.getAccountInfo(tokenMetadataAccount),
+      await provider.connection.getAccountInfo(tokenMetadataAccount)
     ).not.toBeNull()
 
     const user = signer(await createUserAndFund({ provider }))
     const userTokenAccount = getAssociatedTokenAddressSync(
       bondMint,
-      user.publicKey,
+      user.publicKey
     )
     const ixCreateTokenAccount = createAssociatedTokenAccountInstruction(
       provider.wallet.publicKey,
       userTokenAccount,
       user.publicKey,
-      bondMint,
+      bondMint
     )
     const ixTransfer = createTransferInstruction(
       validatorIdentityTokenAccount,
       userTokenAccount,
       validatorIdentity.publicKey,
-      1,
+      1
     )
     await provider.sendIx([validatorIdentity], ixCreateTokenAccount, ixTransfer)
 
     validatorIdentityTokenData = await getTokenAccount(
       provider.connection,
-      validatorIdentityTokenAccount,
+      validatorIdentityTokenAccount
     )
     expect(validatorIdentityTokenData.amount).toEqual(0)
     const userTokenData = await getTokenAccount(
       provider.connection,
-      userTokenAccount,
+      userTokenAccount
     )
     expect(userTokenData.amount).toEqual(1)
 
@@ -133,7 +133,7 @@ describe('Validator Bonds mint configure bond account', () => {
         bondAccount,
         configAccount,
         tokenAuthority: user,
-      },
+      }
     )
     await provider.sendIx([user], ixConfigure)
 
@@ -174,19 +174,19 @@ describe('Validator Bonds mint configure bond account', () => {
     const user = signer(await createUserAndFund({ provider }))
     const userTokenAccount = getAssociatedTokenAddressSync(
       bondMint,
-      user.publicKey,
+      user.publicKey
     )
     const ixCreateTokenAccount = createAssociatedTokenAccountInstruction(
       provider.wallet.publicKey,
       userTokenAccount,
       user.publicKey,
-      bondMint,
+      bondMint
     )
     const ixTransfer = createTransferInstruction(
       validatorIdentityTokenAccount,
       userTokenAccount,
       validatorIdentity.publicKey,
-      1,
+      1
     )
     await provider.sendIx([validatorIdentity], ixCreateTokenAccount, ixTransfer)
 
@@ -198,7 +198,7 @@ describe('Validator Bonds mint configure bond account', () => {
         bondAccount,
         configAccount,
         tokenAuthority: user,
-      },
+      }
     )
     let mintData = await getMint(provider.connection, bondMint)
     expect(mintData.supply).toEqual(2)
@@ -215,10 +215,10 @@ describe('Validator Bonds mint configure bond account', () => {
     })
     await provider.sendIx(
       [authorizedWithdrawer, validatorIdentityNew],
-      ixUpdateValidatorIdentity,
+      ixUpdateValidatorIdentity
     )
     expect(
-      (await getVoteAccount(provider, voteAccount)).account.data.nodePubkey,
+      (await getVoteAccount(provider, voteAccount)).account.data.nodePubkey
     ).toEqual(validatorIdentityNew.publicKey)
 
     await warpToNextEpoch(provider)
@@ -242,25 +242,25 @@ describe('Validator Bonds mint configure bond account', () => {
     })
     const userTokenAccountNew = getAssociatedTokenAddressSync(
       bondMintNew,
-      user.publicKey,
+      user.publicKey
     )
     const ixCreateTokenAccountNew = createAssociatedTokenAccountInstruction(
       provider.wallet.publicKey,
       userTokenAccountNew,
       user.publicKey,
-      bondMintNew,
+      bondMintNew
     )
     const ixTransferNew = createTransferInstruction(
       newValidatorIdentityTokenAccount,
       userTokenAccountNew,
       validatorIdentityNew.publicKey,
-      1,
+      1
     )
     await provider.sendIx(
       [validatorIdentityNew],
       ixMintNew,
       ixCreateTokenAccountNew,
-      ixTransferNew,
+      ixTransferNew
     )
 
     // the same user can configure now
@@ -308,7 +308,7 @@ describe('Validator Bonds mint configure bond account', () => {
       '',
       'custom program error: 0x7d6',
       [],
-      ixMint,
+      ixMint
     )
   })
 

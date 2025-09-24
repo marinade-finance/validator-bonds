@@ -1,19 +1,15 @@
-import {
-  Keypair,
-  PublicKey,
-  Signer,
-  TransactionInstruction,
-} from '@solana/web3.js'
-import {
-  MARINADE_CONFIG_ADDRESS,
-  ValidatorBondsProgram,
-  withdrawRequestAddress,
-} from '../sdk'
-import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
+import { logWarn } from '@marinade.finance/ts-common'
+import { PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+
 import { getBond } from '../api'
-import { LoggerPlaceholder, logWarn } from '@marinade.finance/ts-common'
+import { MARINADE_CONFIG_ADDRESS, withdrawRequestAddress } from '../sdk'
+import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
+import type { Keypair, Signer, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to create withdraw request for bond account.
@@ -50,7 +46,7 @@ export async function initWithdrawRequestInstruction({
     logWarn(
       logger,
       'initWithdrawRequest SDK: config is not provided, using default address: ' +
-        MARINADE_CONFIG_ADDRESS.toBase58(),
+        MARINADE_CONFIG_ADDRESS.toBase58()
     )
     configAccount = MARINADE_CONFIG_ADDRESS
   }
@@ -58,7 +54,7 @@ export async function initWithdrawRequestInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId,
+    program.programId
   )
   if (!voteAccount || !configAccount) {
     const bondData = await getBond(program, bondAccount)
@@ -70,7 +66,7 @@ export async function initWithdrawRequestInstruction({
   rentPayer = rentPayer instanceof PublicKey ? rentPayer : rentPayer.publicKey
   const [withdrawRequest] = withdrawRequestAddress(
     bondAccount,
-    program.programId,
+    program.programId
   )
 
   const instruction = await program.methods

@@ -1,21 +1,22 @@
-import { Command } from 'commander'
-import { installInitConfig } from './initConfig'
-import { installConfigureConfig } from './configureConfig'
-import { installInitBond } from './initBond'
-import { installConfigureBond } from './configureBond'
-import { installMintBond } from './mintBond'
-import { installStakeMerge } from './mergeStake'
-import { installFundBond } from './fundBond'
-import { installFundBondWithSol } from './fundBondWithSol'
-import { installInitWithdrawRequest } from './initWithdrawRequest'
 import { installCancelWithdrawRequest } from './cancelWithdrawRequest'
 import { installClaimWithdrawRequest } from './claimWithdrawRequest'
 import { installCloseSettlement } from './closeSettlement'
-import { installResetStake } from './resetStake'
+import { installConfigureBond } from './configureBond'
+import { installConfigureConfig } from './configureConfig'
 import {
   installEmergencyPause,
   installEmergencyResume,
 } from './emergencyPauseAndResume'
+import { installFundBond } from './fundBond'
+import { installFundBondWithSol } from './fundBondWithSol'
+import { installInitBond } from './initBond'
+import { installInitConfig } from './initConfig'
+import { installInitWithdrawRequest } from './initWithdrawRequest'
+import { installStakeMerge } from './mergeStake'
+import { installMintBond } from './mintBond'
+import { installResetStake } from './resetStake'
+
+import type { Command } from 'commander'
 
 export function installManage(program: Command) {
   installInitConfig(program)

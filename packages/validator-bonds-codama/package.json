@@ -1,6 +1,6 @@
 {
   "name": "@marinade.finance/validator-bonds-codama",
-  "version": "2.0.1",
+  "version": "3.0.0",
   "description": "Validator Bonds client generated with Codama",
   "repository": {
     "type": "git",
@@ -15,12 +15,12 @@
   "types": "dist/src/index.d.ts",
   "files": [
     "dist/",
-    "!dist/src/__tests__",
+    "!dist/__tests__",
     "README.md"
   ],
   "scripts": {
     "build": "tsc --build",
-    "test": "echo \"Error: run tests from root directory\" && exit 1"
+    "test": "pnpm jest --config ../../jest.config.js --testPathPattern=\"$(pwd)\""
   },
   "keywords": [
     "solana",
@@ -28,9 +28,9 @@
     "DeFi"
   ],
   "peerDependencies": {
-    "@solana/kit": "^2 || ^3"
+    "@solana/kit": "^3"
   },
   "devDependencies": {
-    "@solana/kit": "2.1.0"
+    "@solana/kit": "3.0.3"
   }
 }

@@ -1,14 +1,13 @@
-import { Command } from 'commander'
 import {
   configureInitWithdrawRequest,
   manageInitWithdrawRequest,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { MARINADE_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
-import {
-  Wallet as WalletInterface,
-  parsePubkey,
-} from '@marinade.finance/web3js-1x'
-import { PublicKey } from '@solana/web3.js'
+import { parsePubkey } from '@marinade.finance/web3js-1x'
+
+import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
+import type { PublicKey } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function installInitWithdrawRequest(program: Command) {
   configureInitWithdrawRequest(program)
@@ -16,7 +15,7 @@ export function installInitWithdrawRequest(program: Command) {
       '--config <pubkey>',
       '(optional when the argument "address" is NOT provided, used to derive the bond address) ' +
         `The config account that the bond is created under (default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey,
+      parsePubkey
     )
     .action(
       async (
@@ -35,7 +34,7 @@ export function installInitWithdrawRequest(program: Command) {
           amount: string
           rentPayer?: Promise<WalletInterface | PublicKey>
           computeUnitLimit: number
-        },
+        }
       ) => {
         await manageInitWithdrawRequest({
           address: await address,
@@ -46,6 +45,6 @@ export function installInitWithdrawRequest(program: Command) {
           rentPayer: await rentPayer,
           computeUnitLimit,
         })
-      },
+      }
     )
 }

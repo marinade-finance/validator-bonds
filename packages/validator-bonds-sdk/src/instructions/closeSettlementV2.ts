@@ -1,20 +1,22 @@
+import { logDebug } from '@marinade.finance/ts-common'
 import {
-  PublicKey,
-  TransactionInstruction,
   StakeProgram,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   SYSVAR_CLOCK_PUBKEY,
   Keypair,
 } from '@solana/web3.js'
+
+import { getBond, getSettlement } from '../api'
 import {
-  ValidatorBondsProgram,
   bondAddress,
   settlementStakerAuthority,
   bondsWithdrawerAuthority,
 } from '../sdk'
-import { getBond, getSettlement } from '../api'
 import { findStakeAccounts } from '../web3.js'
-import { LoggerPlaceholder, logDebug } from '@marinade.finance/ts-common'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
+import type { PublicKey, TransactionInstruction } from '@solana/web3.js'
 
 export type CloseSettlementParams = {
   program: ValidatorBondsProgram
@@ -34,7 +36,7 @@ export type CloseSettlementParams = {
  * the settlement can be closed when timeout elapses (configured in config).
  */
 export async function closeSettlementV2Instruction(
-  params: CloseSettlementParams,
+  params: CloseSettlementParams
 ): Promise<{
   instruction: TransactionInstruction
 }> {
@@ -126,7 +128,7 @@ export async function getCloseSettlementAccounts({
   } else if (splitRentRefundAccount === undefined) {
     const [settlementAuth] = settlementStakerAuthority(
       settlementAccount,
-      program.programId,
+      program.programId
     )
     const stakeAccounts = await findStakeAccounts({
       connection: program,
@@ -135,17 +137,17 @@ export async function getCloseSettlementAccounts({
       voter: voteAccount,
       currentEpoch: 0,
     })
-    if (stakeAccounts.length === 0) {
+    if (stakeAccounts.length === 0 || stakeAccounts[0] === undefined) {
       throw new Error(
         'Cannot find any stake account usable to close settlement: ' +
-          `${settlementAccount.toBase58()} of vote account ${voteAccount?.toBase58()}`,
+          `${settlementAccount.toBase58()} of vote account ${voteAccount?.toBase58()}`
       )
     }
     splitRentRefundAccount = stakeAccounts[0].publicKey
     logDebug(
       logger,
       `'splitRentRefundAccount' not provided. From chain found [${stakeAccounts.length}][${stakeAccounts.map(s => s.publicKey.toBase58()).join(', ')}]. ` +
-        `To refund rent using stake account ${splitRentRefundAccount.toBase58()}`,
+        `To refund rent using stake account ${splitRentRefundAccount.toBase58()}`
     )
   }
 

@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { Logger } from 'pino'
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+import type { Logger } from 'pino'
 
 export type NpmPackageData = {
   name: string
@@ -8,22 +8,22 @@ export type NpmPackageData = {
 
 export async function fetchLatestVersionInNpmRegistry(
   logger: Logger,
-  npmRegistryUrl: string,
+  npmRegistryUrl: string
 ): Promise<NpmPackageData> {
   try {
     const fetched = await fetch(npmRegistryUrl, {
       method: 'GET',
     })
     const fetchedJson = await fetched.json()
-    const name: string = (fetchedJson as any).name
-    const versionsData: any[] = (fetchedJson as any).versions
+    const name: string = fetchedJson.name
+    const versionsData: any[] = fetchedJson.versions
     const versions = Object.keys(versionsData) // ['1.0.0', 1.0.1', '1.0.2']
     const sortedVersions = versions.sort(compareVersions)
-    const latestVersion = sortedVersions[sortedVersions.length - 1]
+    const latestVersion = sortedVersions[sortedVersions.length - 1] || '0.0.0'
     return { name, version: latestVersion }
   } catch (err) {
     logger.debug(
-      `Failed to fetch latest version from NPM registry ${npmRegistryUrl}: ${err}`,
+      `Failed to fetch latest version from NPM registry ${npmRegistryUrl}: ${String(err)}`
     )
     return { name: '@marinade.finance/validator-bonds-...', version: '0.0.0' }
   }

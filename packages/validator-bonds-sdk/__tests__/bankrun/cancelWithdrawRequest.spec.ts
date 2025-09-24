@@ -1,16 +1,17 @@
+import assert from 'assert'
+
+import { verifyError } from '@marinade.finance/anchor-common'
 import {
-  Bond,
-  Errors,
-  ValidatorBondsProgram,
-  cancelWithdrawRequestInstruction,
-  getBond,
-} from '../../src'
-import {
-  BankrunExtendedProvider,
   assertNotExist,
   warpToEpoch,
   warpToNextEpoch,
 } from '@marinade.finance/bankrun-utils'
+import { createUserAndFund, pubkey } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
+import { Errors, cancelWithdrawRequestInstruction, getBond } from '../../src'
+import { getSecureRandomInt } from '../utils/helpers'
 import {
   executeCancelWithdrawRequestInstruction,
   executeInitBondInstruction,
@@ -18,14 +19,11 @@ import {
   executeInitWithdrawRequestInstruction,
   executeNewWithdrawRequest,
 } from '../utils/testTransactions'
-import { ProgramAccount } from '@coral-xyz/anchor'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 
-import assert from 'assert'
-import { createUserAndFund, pubkey } from '@marinade.finance/web3js-1x'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest } from './bankrun'
-import { getSecureRandomInt } from '../utils/helpers'
+import type { Bond, ValidatorBondsProgram } from '../../src'
+import type { ProgramAccount } from '@coral-xyz/anchor'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds cancel withdraw request', () => {
   let provider: BankrunExtendedProvider
@@ -76,18 +74,18 @@ describe('Validator Bonds cancel withdraw request', () => {
       lamports: LAMPORTS_PER_SOL,
     })
     let rentCollectorInfo = await provider.connection.getAccountInfo(
-      pubkey(rentCollector),
+      pubkey(rentCollector)
     )
     expect(rentCollectorInfo).not.toBeNull()
     assert(rentCollectorInfo !== null)
     expect(rentCollectorInfo.lamports).toEqual(LAMPORTS_PER_SOL)
     const withdrawRequestInfo = await provider.connection.getAccountInfo(
-      withdrawRequestAccount,
+      withdrawRequestAccount
     )
     assert(withdrawRequestInfo !== null)
     const rentExempt =
       await provider.connection.getMinimumBalanceForRentExemption(
-        withdrawRequestInfo.data.length,
+        withdrawRequestInfo.data.length
       )
 
     const { instruction } = await cancelWithdrawRequestInstruction({
@@ -101,7 +99,7 @@ describe('Validator Bonds cancel withdraw request', () => {
     await assertNotExist(provider, withdrawRequestAccount)
 
     rentCollectorInfo = await provider.connection.getAccountInfo(
-      pubkey(rentCollector),
+      pubkey(rentCollector)
     )
     expect(rentCollectorInfo).not.toBeNull()
     assert(rentCollectorInfo !== null)
@@ -135,7 +133,7 @@ describe('Validator Bonds cancel withdraw request', () => {
       program,
       withdrawRequestAccount,
     })
-    await provider.sendIx([bondIdent!], instruction)
+    await provider.sendIx([bondIdent], instruction)
     await assertNotExist(provider, withdrawRequestAccount)
     ;({ withdrawRequestAccount, validatorIdentity: valIdent } =
       await executeNewWithdrawRequest({
@@ -148,7 +146,7 @@ describe('Validator Bonds cancel withdraw request', () => {
       withdrawRequestAccount,
       authority: valIdent,
     }))
-    await provider.sendIx([valIdent!], instruction)
+    await provider.sendIx([valIdent], instruction)
     await assertNotExist(provider, withdrawRequestAccount)
     ;({
       withdrawRequestAccount,
@@ -165,7 +163,7 @@ describe('Validator Bonds cancel withdraw request', () => {
       authority: valIdent,
       bondAccount,
     }))
-    await provider.sendIx([valIdent!], instruction)
+    await provider.sendIx([valIdent], instruction)
     await assertNotExist(provider, withdrawRequestAccount)
     ;({
       withdrawRequestAccount,
@@ -181,7 +179,7 @@ describe('Validator Bonds cancel withdraw request', () => {
       bondAccount,
       configAccount,
     }))
-    await provider.sendIx([bondIdent!], instruction)
+    await provider.sendIx([bondIdent], instruction)
     await assertNotExist(provider, withdrawRequestAccount)
     ;({
       withdrawRequestAccount,
@@ -198,7 +196,7 @@ describe('Validator Bonds cancel withdraw request', () => {
       configAccount,
       authority: valIdent,
     }))
-    await provider.sendIx([valIdent!], instruction)
+    await provider.sendIx([valIdent], instruction)
     await assertNotExist(provider, withdrawRequestAccount)
     ;({
       withdrawRequestAccount,
@@ -217,7 +215,7 @@ describe('Validator Bonds cancel withdraw request', () => {
       authority: valIdent,
       voteAccount,
     }))
-    await provider.sendIx([valIdent!], instruction)
+    await provider.sendIx([valIdent], instruction)
     await assertNotExist(provider, withdrawRequestAccount)
     ;({
       withdrawRequestAccount,
@@ -233,7 +231,7 @@ describe('Validator Bonds cancel withdraw request', () => {
       configAccount,
       voteAccount,
     }))
-    await provider.sendIx([bondIdent!], instruction)
+    await provider.sendIx([bondIdent], instruction)
     await assertNotExist(provider, withdrawRequestAccount)
   })
 
@@ -252,7 +250,7 @@ describe('Validator Bonds cancel withdraw request', () => {
       verifyError(e, Errors, 6002, 'Invalid authority')
     }
     expect(
-      await provider.connection.getAccountInfo(withdrawRequestAccount),
+      await provider.connection.getAccountInfo(withdrawRequestAccount)
     ).not.toBeNull()
   })
 
@@ -261,7 +259,7 @@ describe('Validator Bonds cancel withdraw request', () => {
       program,
       provider,
       withdrawRequestAccount,
-      bondAuthority,
+      bondAuthority
     )
     await assertNotExist(provider, withdrawRequestAccount)
     await warpToNextEpoch(provider)
@@ -272,14 +270,14 @@ describe('Validator Bonds cancel withdraw request', () => {
       validatorIdentity,
     })
     expect(
-      await provider.connection.getAccountInfo(withdrawRequestAccount),
+      await provider.connection.getAccountInfo(withdrawRequestAccount)
     ).not.toBeNull()
 
     await executeCancelWithdrawRequestInstruction(
       program,
       provider,
       withdrawRequestAccount,
-      bondAuthority,
+      bondAuthority
     )
     await assertNotExist(provider, withdrawRequestAccount)
   })

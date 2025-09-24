@@ -6,7 +6,9 @@
 // Having the defined limit of compute units make possible to tip the priority fee with bigger amount and pay less.
 // https://www.helius.dev/blog/priority-fees-understanding-solanas-transaction-fee-mechanics
 
-import { Option, createOption } from 'commander'
+import { createOption } from 'commander'
+
+import type { Option } from 'commander'
 
 export const CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS = 27_000
 // this is the limit for the claim withdraw request + merge as it is within the same CLI command
@@ -28,7 +30,7 @@ export const RESET_STAKE_LIMIT_UNITS = 50_000
 export function computeUnitLimitOption(defaultValue: number): Option {
   return createOption(
     '--compute-unit-limit <number>',
-    'Compute unit limit for the transaction',
+    'Compute unit limit for the transaction'
   )
     .default(defaultValue)
     .argParser(v => parseInt(v, 10))

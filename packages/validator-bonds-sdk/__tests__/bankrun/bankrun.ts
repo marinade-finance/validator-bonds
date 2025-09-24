@@ -1,15 +1,16 @@
+/* eslint-disable import/no-extraneous-dependencies */
+
 import {
-  ValidatorBondsProgram,
-  checkAndGetBondAddress,
-  getProgram,
-} from '../../src'
-import { Keypair, PublicKey } from '@solana/web3.js'
-import {
-  BankrunExtendedProvider,
   currentEpoch,
   testInit,
   warpToNextEpoch,
 } from '@marinade.finance/bankrun-utils'
+import { U64_MAX } from '@marinade.finance/web3js-1x'
+import BN from 'bn.js'
+
+import 'reflect-metadata'
+
+import { checkAndGetBondAddress, getProgram } from '../../src'
 import {
   StakeStates,
   delegatedStakeAccount,
@@ -19,13 +20,14 @@ import {
   executeFundBondInstruction,
   executeInitBondInstruction,
 } from '../utils/testTransactions'
-import 'reflect-metadata'
-import BN from 'bn.js'
-import { U64_MAX } from '@marinade.finance/web3js-1x'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { Keypair, PublicKey } from '@solana/web3.js'
 
 export async function initBankrunTest(
   programId?: PublicKey,
-  additionalAccounts?: string[],
+  additionalAccounts?: string[]
 ): Promise<{
   program: ValidatorBondsProgram
   provider: BankrunExtendedProvider
@@ -42,14 +44,14 @@ export async function initBankrunTest(
 }
 
 export async function currentSlot(
-  provider: BankrunExtendedProvider,
+  provider: BankrunExtendedProvider
 ): Promise<number> {
   return Number((await provider.context.banksClient.getClock()).slot)
 }
 
 export async function warpOffsetSlot(
   provider: BankrunExtendedProvider,
-  plusSlots: number,
+  plusSlots: number
 ) {
   const nextSlot = (await currentSlot(provider)) + plusSlots
   provider.context.warpToSlot(BigInt(nextSlot))
@@ -91,7 +93,7 @@ export async function delegateAndFund({
       undefined,
       configAccount,
       voteAccountDelegated,
-      program.programId,
+      program.programId
     )
     expect(bondAccount).toEqual(bondToCheck)
   }
@@ -136,19 +138,19 @@ export enum StakeActivationState {
 }
 
 export async function currentEpochBn(
-  provider: BankrunExtendedProvider,
+  provider: BankrunExtendedProvider
 ): Promise<BN> {
   return new BN((await currentEpoch(provider)).toString())
 }
 
 export async function stakeActivation(
   provider: BankrunExtendedProvider,
-  stakeAccount: PublicKey,
+  stakeAccount: PublicKey
 ): Promise<StakeActivationState> {
   const [stakeState] = await getAndCheckStakeAccount(
     provider,
     stakeAccount,
-    StakeStates.Delegated,
+    StakeStates.Delegated
   )
   if (stakeState.Stake !== undefined) {
     const activationEpoch = stakeState.Stake.stake.delegation.activationEpoch

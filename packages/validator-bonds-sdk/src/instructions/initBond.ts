@@ -1,13 +1,12 @@
-import {
-  Keypair,
-  PublicKey,
-  Signer,
-  TransactionInstruction,
-} from '@solana/web3.js'
-import { ValidatorBondsProgram, bondAddress } from '../sdk'
-import { anchorProgramWalletPubkey } from '../utils'
+import { PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+
+import { bondAddress } from '../sdk'
+import { anchorProgramWalletPubkey } from '../utils'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { Keypair, Signer, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to initialize bond account. The bond account is coupled to a vote account.
@@ -48,7 +47,7 @@ export async function initBondInstruction({
   const [bondAccount] = bondAddress(
     configAccount,
     voteAccount,
-    program.programId,
+    program.programId
   )
 
   const instruction = await program.methods

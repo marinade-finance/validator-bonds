@@ -1,20 +1,18 @@
+import { logWarn } from '@marinade.finance/ts-common'
+import { PublicKey } from '@solana/web3.js'
+
+import { getBond, getWithdrawRequest } from '../api'
 import {
-  Keypair,
-  PublicKey,
-  Signer,
-  TransactionInstruction,
-} from '@solana/web3.js'
-import {
-  ValidatorBondsProgram,
-  WithdrawRequest,
   bondAddress,
   withdrawRequestAddress,
   MARINADE_CONFIG_ADDRESS,
 } from '../sdk'
 import { anchorProgramWalletPubkey, checkAndGetBondAddress } from '../utils'
-import { getBond, getWithdrawRequest } from '../api'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { LoggerPlaceholder, logWarn } from '@marinade.finance/ts-common'
+
+import type { ValidatorBondsProgram, WithdrawRequest } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
+import type { Keypair, Signer, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to cancel withdraw request for bond account.
@@ -51,7 +49,7 @@ export async function cancelWithdrawRequestInstruction({
   ) {
     withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount,
+      withdrawRequestAccount
     )
     bondAccount = bondAccount ?? withdrawRequestData.bond
     voteAccount = voteAccount ?? withdrawRequestData.voteAccount
@@ -66,7 +64,7 @@ export async function cancelWithdrawRequestInstruction({
   if (bondAccount !== undefined && withdrawRequestAccount === undefined) {
     withdrawRequestAccount = withdrawRequestAddress(
       bondAccount,
-      program.programId,
+      program.programId
     )[0]
   }
   if (
@@ -83,14 +81,14 @@ export async function cancelWithdrawRequestInstruction({
   if (withdrawRequestAccount === undefined) {
     throw new Error(
       'cancelWithdrawRequestInstruction: ' +
-        'withdrawRequestAccount not provided and could not be derived from other parameters',
+        'withdrawRequestAccount not provided and could not be derived from other parameters'
     )
   }
   if (!bondAccount && !configAccount) {
     logWarn(
       logger,
       'cancelWithdrawRequest SDK: config is not provided, using default config address: ' +
-        MARINADE_CONFIG_ADDRESS.toBase58(),
+        MARINADE_CONFIG_ADDRESS.toBase58()
     )
     configAccount = MARINADE_CONFIG_ADDRESS
   }
@@ -98,7 +96,7 @@ export async function cancelWithdrawRequestInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId,
+    program.programId
   )
 
   const instruction = await program.methods
