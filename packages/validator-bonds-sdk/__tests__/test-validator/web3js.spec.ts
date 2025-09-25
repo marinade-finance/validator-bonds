@@ -1,21 +1,25 @@
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import { findStakeAccounts, StakeAccountParsed } from '../../src'
-import { initTest } from '../utils/testValidator'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import { findStakeAccounts } from '../../src'
 import {
   createInitializedStakeAccount,
   createDelegatedStakeAccount,
   createVoteAccount,
 } from '../utils/staking'
-import {
+import { initTest } from '../utils/testValidator'
+
+import type { StakeAccountParsed } from '../../src'
+import type {
   ProgramAccountInfo,
   ExtendedProvider,
 } from '@marinade.finance/web3js-1x'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Find stake account', () => {
   let provider: ExtendedProvider
 
-  beforeAll(async () => {
-    ;({ provider } = await initTest())
+  beforeAll(() => {
+    ;({ provider } = initTest())
   })
 
   it('find stake account', async () => {
@@ -101,7 +105,7 @@ describe('Find stake account', () => {
 
   function includesPubkey(
     arr: ProgramAccountInfo<StakeAccountParsed>[],
-    pubkey: PublicKey,
+    pubkey: PublicKey
   ): boolean {
     return arr.map(r => r.publicKey.toBase58()).includes(pubkey.toBase58())
   }

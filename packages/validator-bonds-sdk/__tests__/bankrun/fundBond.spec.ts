@@ -1,21 +1,6 @@
-import {
-  Bond,
-  Errors,
-  ValidatorBondsProgram,
-  fundBondInstruction,
-  getBond,
-  bondsWithdrawerAuthority,
-} from '../../src'
-import {
-  BankrunExtendedProvider,
-  warpToEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-} from '../utils/testTransactions'
-import { ProgramAccount } from '@coral-xyz/anchor'
+import { verifyError } from '@marinade.finance/anchor-common'
+import { warpToEpoch, warpToNextEpoch } from '@marinade.finance/bankrun-utils'
+import { signer } from '@marinade.finance/web3js-1x'
 import {
   Keypair,
   LAMPORTS_PER_SOL,
@@ -23,13 +8,19 @@ import {
   StakeProgram,
 } from '@solana/web3.js'
 import BN from 'bn.js'
-import { signer } from '@marinade.finance/web3js-1x'
-import { verifyError } from '@marinade.finance/anchor-common'
+
 import {
   StakeActivationState,
   initBankrunTest,
   stakeActivation,
 } from './bankrun'
+import {
+  Errors,
+  fundBondInstruction,
+  getBond,
+  bondsWithdrawerAuthority,
+} from '../../src'
+import { getSecureRandomInt } from '../utils/helpers'
 import {
   StakeStates,
   createInitializedStakeAccount,
@@ -37,7 +28,14 @@ import {
   delegatedStakeAccount,
   getAndCheckStakeAccount,
 } from '../utils/staking'
-import { getSecureRandomInt } from '../utils/helpers'
+import {
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+} from '../utils/testTransactions'
+
+import type { Bond, ValidatorBondsProgram } from '../../src'
+import type { ProgramAccount } from '@coral-xyz/anchor'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 
 describe('Validator Bonds fund bond account', () => {
   let provider: BankrunExtendedProvider
@@ -77,7 +75,7 @@ describe('Validator Bonds fund bond account', () => {
     }
     bondWithdrawAuthority = bondsWithdrawerAuthority(
       configAccount,
-      program.programId,
+      program.programId
     )[0]
   })
 
@@ -116,7 +114,7 @@ describe('Validator Bonds fund bond account', () => {
 
     // activating, wrongly delegated
     expect(await stakeActivation(provider, stakeAccount)).toEqual(
-      StakeActivationState.Activating,
+      StakeActivationState.Activating
     )
     try {
       await provider.sendIx([withdrawer], instruction)
@@ -128,7 +126,7 @@ describe('Validator Bonds fund bond account', () => {
     await warpToNextEpoch(provider)
     // activated, still wrongly delegated
     expect(await stakeActivation(provider, stakeAccount)).toEqual(
-      StakeActivationState.Activated,
+      StakeActivationState.Activated
     )
     try {
       await provider.sendIx([withdrawer], instruction)
@@ -145,7 +143,7 @@ describe('Validator Bonds fund bond account', () => {
       voteAccountToDelegate: bond.account.voteAccount,
     })
     expect(await stakeActivation(provider, stakeAccount)).toEqual(
-      StakeActivationState.Activating,
+      StakeActivationState.Activating
     )
 
     const deactivateIx = StakeProgram.deactivate({
@@ -154,7 +152,7 @@ describe('Validator Bonds fund bond account', () => {
     })
     await provider.sendIx([provider.wallet, staker], deactivateIx)
     expect(await stakeActivation(provider, stakeAccount)).toEqual(
-      StakeActivationState.Deactivated,
+      StakeActivationState.Deactivated
     )
 
     const { instruction } = await fundBondInstruction({
@@ -179,11 +177,11 @@ describe('Validator Bonds fund bond account', () => {
       voteAccountToDelegate: bond.account.voteAccount,
     })
     expect(await stakeActivation(provider, stakeAccount)).toEqual(
-      StakeActivationState.Activating,
+      StakeActivationState.Activating
     )
     await warpToNextEpoch(provider)
     expect(await stakeActivation(provider, stakeAccount)).toEqual(
-      StakeActivationState.Activated,
+      StakeActivationState.Activated
     )
     const deactivateIx = StakeProgram.deactivate({
       stakePubkey: stakeAccount,
@@ -191,7 +189,7 @@ describe('Validator Bonds fund bond account', () => {
     })
     await provider.sendIx([provider.wallet, staker], deactivateIx)
     expect(await stakeActivation(provider, stakeAccount)).toEqual(
-      StakeActivationState.Deactivating,
+      StakeActivationState.Deactivating
     )
 
     const { instruction } = await fundBondInstruction({
@@ -216,7 +214,7 @@ describe('Validator Bonds fund bond account', () => {
       voteAccountToDelegate: bond.account.voteAccount,
     })
     expect(await stakeActivation(provider, stakeAccount)).toEqual(
-      StakeActivationState.Activating,
+      StakeActivationState.Activating
     )
 
     const { instruction } = await fundBondInstruction({
@@ -270,19 +268,19 @@ describe('Validator Bonds fund bond account', () => {
     })
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId,
+      program.programId
     )
 
     const [stakeAccountData] = await getAndCheckStakeAccount(
       provider,
       stakeAccount,
-      StakeStates.Delegated,
+      StakeStates.Delegated
     )
     expect(stakeAccountData.Stake?.meta.authorized.withdrawer).not.toEqual(
-      bondWithdrawer,
+      bondWithdrawer
     )
     expect(stakeAccountData.Stake?.meta.authorized.staker).not.toEqual(
-      bondWithdrawer,
+      bondWithdrawer
     )
 
     const { instruction } = await fundBondInstruction({
@@ -294,21 +292,21 @@ describe('Validator Bonds fund bond account', () => {
     })
     await warpToNextEpoch(provider)
     expect(await stakeActivation(provider, stakeAccount)).toEqual(
-      StakeActivationState.Activated,
+      StakeActivationState.Activated
     )
     await provider.sendIx([withdrawer], instruction)
 
     const [stakeAccountData2, stakeAccountInfo] = await getAndCheckStakeAccount(
       provider,
       stakeAccount,
-      StakeStates.Delegated,
+      StakeStates.Delegated
     )
     expect(stakeAccountInfo.lamports).toEqual(LAMPORTS_PER_SOL * 2)
     expect(stakeAccountData2.Stake?.meta.authorized.staker).toEqual(
-      bondWithdrawer,
+      bondWithdrawer
     )
     expect(stakeAccountData2.Stake?.meta.authorized.withdrawer).toEqual(
-      bondWithdrawer,
+      bondWithdrawer
     )
     expect(stakeAccountData2.Stake?.meta.lockup).toEqual({
       custodian: PublicKey.default,
@@ -330,13 +328,13 @@ describe('Validator Bonds fund bond account', () => {
     const [stakeAccountDataFunded] = await getAndCheckStakeAccount(
       provider,
       stakeAccount,
-      StakeStates.Delegated,
+      StakeStates.Delegated
     )
     expect(stakeAccountDataFunded.Stake?.meta.authorized.withdrawer).toEqual(
-      bondWithdrawAuthority,
+      bondWithdrawAuthority
     )
     expect(stakeAccountDataFunded.Stake?.meta.authorized.staker).toEqual(
-      bondWithdrawAuthority,
+      bondWithdrawAuthority
     )
   }
 })

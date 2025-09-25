@@ -1,25 +1,27 @@
-import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import assert from 'assert'
+
+import { waitForStakeAccountActivation } from '@marinade.finance/anchor-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+
 import {
   FUND_BOND_EVENT,
-  ValidatorBondsProgram,
   fundBondInstruction,
   getStakeAccount,
   bondsWithdrawerAuthority,
   parseCpiEvents,
   assertEvent,
 } from '../../src'
-import { initTest } from '../utils/testValidator'
+import { createVoteAccount, delegatedStakeAccount } from '../utils/staking'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
-import { createVoteAccount, delegatedStakeAccount } from '../utils/staking'
-import {
-  AnchorExtendedProvider,
-  waitForStakeAccountActivation,
-} from '@marinade.finance/anchor-common'
-import assert from 'assert'
+import { initTest } from '../utils/testValidator'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds fund bond', () => {
   let provider: AnchorExtendedProvider
@@ -28,8 +30,8 @@ describe('Validator Bonds fund bond', () => {
   let bondAccount: PublicKey
   let voteAccount: PublicKey
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+  beforeAll(() => {
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -56,7 +58,7 @@ describe('Validator Bonds fund bond', () => {
       voteAccountToDelegate: voteAccount,
     })
     console.debug(
-      `Waiting for activation of stake account: ${stakeAccount.toBase58()}`,
+      `Waiting for activation of stake account: ${stakeAccount.toBase58()}`
     )
     await waitForStakeAccountActivation({
       stakeAccount,
@@ -82,7 +84,7 @@ describe('Validator Bonds fund bond', () => {
     const stakeAccountData = await getStakeAccount(provider, stakeAccount)
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId,
+      program.programId
     )
     expect(stakeAccountData.staker).toEqual(bondWithdrawer)
     expect(stakeAccountData.withdrawer).toEqual(bondWithdrawer)

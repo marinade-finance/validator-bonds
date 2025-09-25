@@ -1,22 +1,26 @@
+import assert from 'assert'
+
+import { verifyError } from '@marinade.finance/anchor-common'
+import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
 import {
   Errors,
-  ValidatorBondsProgram,
   bondAddress,
   getBond,
   getConfig,
   initBondInstruction,
 } from '../../src'
-import { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import { createVoteAccount } from '../utils/staking'
 import {
   executeConfigureConfigInstruction,
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import { createVoteAccount } from '../utils/staking'
-import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest } from './bankrun'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 
 describe('Validator Bonds init bond account', () => {
   let provider: BankrunExtendedProvider
@@ -36,8 +40,8 @@ describe('Validator Bonds init bond account', () => {
       withdrawLockupEpochs: 2,
     }))
     const config = await getConfig(program, configAccount)
-    expect(config.epochsToClaimSettlement).toEqual(1)
-    expect(config.withdrawLockupEpochs).toEqual(2)
+    assert(config.epochsToClaimSettlement.eqn(1))
+    assert(config.withdrawLockupEpochs.eqn(2))
   })
 
   it('init bond', async () => {
@@ -62,7 +66,7 @@ describe('Validator Bonds init bond account', () => {
     await provider.sendIx([signer(rentWallet), validatorIdentity], instruction)
 
     const rentWalletInfo = await provider.connection.getAccountInfo(
-      pubkey(rentWallet),
+      pubkey(rentWallet)
     )
     const bondAccountInfo =
       await provider.connection.getAccountInfo(bondAccount)
@@ -71,7 +75,7 @@ describe('Validator Bonds init bond account', () => {
     }
     const rentExempt =
       await provider.connection.getMinimumBalanceForRentExemption(
-        bondAccountInfo.data.length,
+        bondAccountInfo.data.length
       )
     expect(rentWalletInfo!.lamports).toEqual(LAMPORTS_PER_SOL - rentExempt)
     // NO overflow of account size from the first deployment on mainnet
@@ -81,7 +85,7 @@ describe('Validator Bonds init bond account', () => {
     const bondData = await getBond(program, bondAccount)
     expect(bondData.authority).toEqual(bondAuthority.publicKey)
     expect(bondData.bump).toEqual(
-      bondAddress(configAccount, voteAccount, program.programId)[1],
+      bondAddress(configAccount, voteAccount, program.programId)[1]
     )
     expect(bondData.config).toEqual(configAccount)
     expect(bondData.cpmpe).toEqual(30)
@@ -107,7 +111,7 @@ describe('Validator Bonds init bond account', () => {
     const bondData = await getBond(program, bondAccount)
     expect(bondData.authority).toEqual(validatorIdentity.publicKey)
     expect(bondData.bump).toEqual(
-      bondAddress(configAccount, voteAccount, program.programId)[1],
+      bondAddress(configAccount, voteAccount, program.programId)[1]
     )
     expect(bondData.config).toEqual(configAccount)
     expect(bondData.cpmpe).toEqual(0)
@@ -137,7 +141,7 @@ describe('Validator Bonds init bond account', () => {
         e,
         Errors,
         6037,
-        'does not match to provided validator identity',
+        'does not match to provided validator identity'
       )
     }
   })
@@ -165,8 +169,8 @@ describe('Validator Bonds init bond account', () => {
     } catch (e) {
       if (!(e as Error).message.includes('custom program error: 0x0')) {
         console.error(
-          `Expected failure as bond account ${bondAccount} should already exist` +
-            `'${(e as Error).message}'`,
+          `Expected failure as bond account ${bondAccount.toBase58()} should already exist` +
+            `'${(e as Error).message}'`
         )
         throw e
       }
@@ -203,7 +207,7 @@ describe('Validator Bonds init bond account', () => {
     try {
       await provider.sendIx(
         [signer(rentWallet), validatorIdentity],
-        initLowerToConfigIx,
+        initLowerToConfigIx
       )
       throw new Error('failure expected as minimum stake under config value')
     } catch (e) {

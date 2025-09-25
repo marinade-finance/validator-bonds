@@ -36,11 +36,10 @@ validator-bonds --help
 
 ## Required steps for a validator to be eligible for stake distribution
 
-* [creating a bond](#creating-a-bond)
-* [funding the bond](#funding-bond-account)
-* [bidding for the stake](#bond-account-configuration)
-* [track that the bond is sufficiently funded](#show-the-bond-account)
-
+- [creating a bond](#creating-a-bond)
+- [funding the bond](#funding-bond-account)
+- [bidding for the stake](#bond-account-configuration)
+- [track that the bond is sufficiently funded](#show-the-bond-account)
 
 In terms of CLI commands in the most simplistic way:
 
@@ -83,7 +82,6 @@ RPC_URL=<url-to-solana-rpc-node>
 validator-bonds -u $RPC_URL show-bond <vote-account-address> --with-funding
 ```
 
-
 ### Creating a bond
 
 A bond account can be created for any validator.
@@ -92,17 +90,17 @@ The bond account is strictly coupled with a vote account.
 
 It can be created in two ways:
 
-* permission-ed: `--validator-identity <keypair-wallet>` signature is needed.
+- permission-ed: `--validator-identity <keypair-wallet>` signature is needed.
   One may then configure additional authority that permits future changes at the bond account
   with argument `--bond-authority` (the bond authority can be set at this point to anything).
-* permission-less: anybody may create the bond account. For any future configuration change
+- permission-less: anybody may create the bond account. For any future configuration change
   of bond account, or for withdrawal funds, the validator identity signature is needed
   (the bond authority is set to identity of the validator at this point).
 
 On the bond account:
 
-* there can be only one bond for a vote account
-* every bond is attached to a vote account
+- there can be only one bond for a vote account
+- every bond is attached to a vote account
 
 ```sh
 # permission-ed: bond account at mainnet
@@ -127,23 +125,23 @@ The creation of a bond account requires a validator's identity signature, specif
 
 The parameters and their meanings are explained in detail below:
 
-* `--k <fee-payer-keypair>:` This parameter designates the account used to cover transaction costs (e.g., `5000` lamports).
-* `--vote-account`: Specifies the vote account on which the bond will be established.
-* `--validator-identity`: Represents the required signature; the validator identity must match one within the designated vote account.
-* `--bond-authority`: Refers to any public key with ownership rights. It is recommended to use a ledger or multisig.
+- `--k <fee-payer-keypair>:` This parameter designates the account used to cover transaction costs (e.g., `5000` lamports).
+- `--vote-account`: Specifies the vote account on which the bond will be established.
+- `--validator-identity`: Represents the required signature; the validator identity must match one within the designated vote account.
+- `--bond-authority`: Refers to any public key with ownership rights. It is recommended to use a ledger or multisig.
   This key does not necessarily need to correspond to an existing on-chain account (SOL preloading is unnecessary).
-* `--rent-payer`: This account covers the creation cost of the Solana bond account, and it is expected to be the same as the fee payer (default).
-   The rent cost is `0.00270048` SOL. Note that the `--rent-payer` is unrelated to bond security or "funding," which is addressed through a separate instruction.
-   The bond's security is established by providing a stake account. The lamports in the stake account then corresponds to the SOL amount added to the security of the bond account.
-   There is no direct payment of SOLs to the bond; it is accomplished solely by allocating stake accounts.
-* `--cpmpe`: Cost per mille per epoch, in lamports. How many lamports the validator is willing to pay for every 1000 SOLs delegated.
+- `--rent-payer`: This account covers the creation cost of the Solana bond account, and it is expected to be the same as the fee payer (default).
+  The rent cost is `0.00270048` SOL. Note that the `--rent-payer` is unrelated to bond security or "funding," which is addressed through a separate instruction.
+  The bond's security is established by providing a stake account. The lamports in the stake account then corresponds to the SOL amount added to the security of the bond account.
+  There is no direct payment of SOLs to the bond; it is accomplished solely by allocating stake accounts.
+- `--cpmpe`: Cost per mille per epoch, in lamports. How many lamports the validator is willing to pay for every 1000 SOLs delegated.
   The property configures the bid the `Bond` owner wishes to pay for receiving delegated stake. The maximum delegated stake is defined as a percent of full Marinade TVL.
   The percentage is configured within project [ds-sam-pipeline](https://github.com/marinade-finance/ds-sam-pipeline/)
   in [the config as `maxMarinadeTvlSharePerValidatorDec`](https://github.com/marinade-finance/ds-sam-pipeline/blob/main/auction-config.json).
   The actual amount of delegated stake is defined by the [delegation strategy](https://docs.marinade.finance/marinade-protocol/validators).
   The `cpmpe` value goes into the auction where compared with other bids the delegation strategy determines
   the actual amount of stake delegated to the vote account linked to the `Bond` account.
-* The funded bond is charged only for the amount of stake that was actually delegated
+- The funded bond is charged only for the amount of stake that was actually delegated
   (if nothing is delegated, nothing is charged).
 
 ### Show the bond account
@@ -189,12 +187,11 @@ Expected output on created bond is like
   "bondMint": "...",
   "bondFundedStakeAccounts": [],
   "settlementFundedStakeAccounts": []
-
 }
 ```
 
 _NOTE:_ for more details on `429 Too Many Requests` check the section
-        [Troubleshooting](#troubleshooting)
+[Troubleshooting](#troubleshooting)
 
 #### Amount Values and the `amountActive` Field
 
@@ -224,6 +221,7 @@ in the [`init-withdraw-request` CLI command](#withdrawing-bond-account), the sys
 to withdraw all funds from the Bond account. This may result in `amountActive` becoming negative.
 
 Example of a negative `amountActive`:
+
 ```json
 "amountActive": "-18446744053.751394957 SOL"
 ```
@@ -234,20 +232,18 @@ The system calculates `ALL` as an extremely large value
 Subtracting this from the available amount results in a negative `amountActive`,
 signifying that no funds are available for Settlement funding.
 
-
 ### Bond account configuration
 
 The `Bond` owner may configure following properties of the account:
 
-* `--bond-authority`: The authority that, when signing the configuration transaction,
+- `--bond-authority`: The authority that, when signing the configuration transaction,
   allows changes to the `Bond` account configuration and withdrawal of funds.
   The validator identity keypair of the linked `vote account` or the owner of the
   [SPL minted configuration token](#permission-less-mint---configure-workflow) also has this ability.
-* `--cpmpe`: Cost per mille per epoch (in lamports). It's a bid used in the delegation strategy
+- `--cpmpe`: Cost per mille per epoch (in lamports). It's a bid used in the delegation strategy
   auction. The Bond owner agrees to pay this amount in lamports to get stake delegated to the vote
   account for one epoch.
-* `--max-stake-wanted`: The maximum stake amount (in lamports) that the validator wants to be delegated to them.
-
+- `--max-stake-wanted`: The maximum stake amount (in lamports) that the validator wants to be delegated to them.
 
 #### Permission-ed Configure workflow
 
@@ -290,7 +286,6 @@ validator-bonds -um configure-bond <bond-or-vote-account-address> \
   --bond-authority <new-bond-authority-pubkey> \
   --with-token
 ```
-
 
 ### Funding Bond Account
 
@@ -362,7 +357,6 @@ As a result, there are now two stake accounts.
 These stake accounts can later be merged if needed to create a larger,
 compound amount for future settlement funding.
 
-
 ### Withdrawing Bond Account
 
 When someone chooses to stop participating in auction and in covering the bonds for
@@ -381,17 +375,17 @@ This process involves two steps:
 <a id='withdraw-all'></a>
 
 > **IMPORTANT:** If you want to withdraw all SOLs from the funded bond,
->                use **ALL** as value for `--amount` argument.
->                Using **ALL** means creating a withdrawal request ticket with an amount
->                approximately equal to [`18e18`](https://doc.rust-lang.org/std/u64/constant.MAX.html).
+> use **ALL** as value for `--amount` argument.
+> Using **ALL** means creating a withdrawal request ticket with an amount
+> approximately equal to [`18e18`](https://doc.rust-lang.org/std/u64/constant.MAX.html).
 
 > **WARNING:** The amount specified in the withdrawal request ticket account is no longer
->              counted as part of the funded bond amount.
->              When participating in bond auctions,
->              always verify the active stake recognized by the system using the `show-bond` CLI command.
+> counted as part of the funded bond amount.
+> When participating in bond auctions,
+> always verify the active stake recognized by the system using the `show-bond` CLI command.
 
 > **NOTE:** The withdrawal request account remains on-chain until canceled.
->           See details and consequences in the section [Cancelling Withdraw Request](#cancelling-withdraw-request-account).
+> See details and consequences in the section [Cancelling Withdraw Request](#cancelling-withdraw-request-account).
 
 To initialize the withdrawal request, one needs to define the maximum number of lamports
 that are requested to be withdrawn upon claiming.
@@ -440,7 +434,6 @@ The meanings of parameters are as follows:
 - `--withdrawer`: The new owner of the withdrawn stake accounts
   (the `staker` and `withdrawer` authorities are assigned to `--withdrawer` public key).
 
-
 #### Technical details on creating withdraw request and claiming
 
 When creating a withdrawal request, a specific number of lamports is designated for withdrawal after the delayed claiming period (3 epochs).
@@ -451,7 +444,7 @@ and the actual available lamports in the stake accounts.
 The system only allows withdrawal of the specified amount in the withdrawal request.
 
 At time of withdrawal (`claim-withdraw-request`), one must specify the stake account from which the amount
-will be taken. This typically results in __splitting the stake account__,
+will be taken. This typically results in **splitting the stake account**,
 where one portion of lamports is transferred to the withdrawer,
 while the remaining portion is retained in the validator bonds contract.
 
@@ -495,10 +488,10 @@ as part of the funded bond again, they must cancel the existing request
 and create [a new withdrawal request](#withdrawing-bond-account) if needed.
 
 > **NOTE:** When the owner uses `--amount ALL` during withdrawal, the system sets the amount
->           to the maximum possible value. Any future bond funding will also be considered as
->           withdrawable and thus not counted to bond funded amount.
->           The existence of a withdrawal request can be verified using
->           the `show-bond` command.
+> to the maximum possible value. Any future bond funding will also be considered as
+> withdrawable and thus not counted to bond funded amount.
+> The existence of a withdrawal request can be verified using
+> the `show-bond` command.
 
 ### Show Validator Bonds Program Configuration
 
@@ -509,11 +502,11 @@ The address of the Marinade config account is `vbMaRfmTCg92HWGzmd53APkMNpPnGVGZT
 
 Configuration parameters:
 
-* `epochsToClaimSettlement`: Number of epochs during which a `Settlement` is available for claiming after its creation.
-* `slotsToStartSettlementClaiming`: Number of slots that must elapse after a `Settlement` is created before claiming is permitted.
-* `withdrawLockupEpochs`: Number of epochs that must elapse before a Bonds withdrawal request can be claimed.
-* `minimumStakeLamports`: Minimum size of a stake account when working with split stakes.
-* `minBondMaxStakeWanted`: Minimal value in lamports to be permitted being defined for bond.
+- `epochsToClaimSettlement`: Number of epochs during which a `Settlement` is available for claiming after its creation.
+- `slotsToStartSettlementClaiming`: Number of slots that must elapse after a `Settlement` is created before claiming is permitted.
+- `withdrawLockupEpochs`: Number of epochs that must elapse before a Bonds withdrawal request can be claimed.
+- `minimumStakeLamports`: Minimum size of a stake account when working with split stakes.
+- `minBondMaxStakeWanted`: Minimal value in lamports to be permitted being defined for bond.
 
 ```sh
 # Global configuration of Marinade Validator Bonds Program
@@ -538,12 +531,13 @@ the payment is:
 `0.123 * 100,000 / 10,000 = 1.23 SOL`.
 
 **Access Data:**
-  - The results of the auction are stored within the pipeline results
-https://github.com/marinade-finance/ds-sam-pipeline/tree/main/auctions
-(see the JSON file `<epoch>/outputs/results.json`)
-  - The data are loaded to API and are available at
-https://scoring.marinade.finance/api/v1/scores/sam?epoch=X
-  - The data is displayed at dashboard https://psr.marinade.finance/
+
+- The results of the auction are stored within the pipeline results
+  https://github.com/marinade-finance/ds-sam-pipeline/tree/main/auctions
+  (see the JSON file `<epoch>/outputs/results.json`)
+- The data are loaded to API and are available at
+  https://scoring.marinade.finance/api/v1/scores/sam?epoch=X
+- The data is displayed at dashboard https://psr.marinade.finance/
 
 #### Settlement Creation
 
@@ -577,16 +571,16 @@ and a Settlement is created for this purpose.
 Validators can verify charged amounts and funded SOLs on-chain.
 
 **Options:**
+
 - **Current State:** Use the [CLI show command](#show-the-bond-account) to see the current on-chain Bond state
   - _NOTE:_ data from `show-bond` represents current on-chain data not data used
-        for bonds calculation of particular epoch
+    for bonds calculation of particular epoch
 - **Historical Data:**
   - Dashboard: [PSR Bonds Dashboard](https://psr.marinade.finance/).
   - Auction data: [Auction scores API](https://scoring.marinade.finance/api/v1/scores/sam?epoch=X).
   - Settlement data: [Google Cloud storage](https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet).
 
 For advanced on-chain queries, refer to the [on-chain analysis documentation](../../programs/validator-bonds/ON_CHAIN_ANALYSIS.md).
-
 
 ## Searching Bonds funded stake accounts
 
@@ -697,7 +691,6 @@ validator-bonds -um configure-bond \
 
 The support for ledger came from [`@marinade.finance/ledger-utils` TS implementation wrapper](https://github.com/marinade-finance/marinade-ts-cli/tree/main/packages/lib/ledger-utils) around `@ledgerhq/hw-app-solana`. The implementation tries to be compatible with way how [`solana` CLI](https://github.com/solana-labs/solana/blob/v1.14.19/clap-utils/src/keypair.rs#L613) behaves.
 
-
 ## NPM packages installation and execution
 
 To verify the installation folders for NPM and to install the package globally,
@@ -765,10 +758,10 @@ npm exec -- validator-bonds --version
 
 ## On-Chain Technical Information
 
-* On-chain Validator Bonds Program address: `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
-* Bonds Select Config address: `vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU`
-* Native Staking Select Staker authority: `stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq`
-* Validator Bonds Stake Account Withdrawer authority: `7cgg6KhPd1G8oaoB48RyPDWu7uZs51jUpDYB3eq4VebH`
+- On-chain Validator Bonds Program address: `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
+- Bonds Select Config address: `vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU`
+- Native Staking Select Staker authority: `stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq`
+- Validator Bonds Stake Account Withdrawer authority: `7cgg6KhPd1G8oaoB48RyPDWu7uZs51jUpDYB3eq4VebH`
 
 ## `Validator Bonds CLI Reference`
 
@@ -826,14 +819,15 @@ Commands:
 
 ## Troubleshooting
 
-* Verify using the latest available version: https://www.npmjs.com/package/@marinade.finance/validator-bonds-cli
-* Try running with `--verbose` to get more details on the CLI run
+- Verify using the latest available version: https://www.npmjs.com/package/@marinade.finance/validator-bonds-cli
+- Try running with `--verbose` to get more details on the CLI run
 
 ## FAQ and issues
 
-* **npm WARN EBADENGINE Unsupported engine {**<a id='troubleshooting-npm-ebadengine'></a>
+- **npm WARN EBADENGINE Unsupported engine {**<a id='troubleshooting-npm-ebadengine'></a>
 
   When running the `validator-bonds` cli the error continues as
+
   ```
   validator-bonds --help
   /usr/local/lib/node_modules/@marinade.finance/validator-bonds-cli/node_modules/@solana/web3.js/lib/index.cjs.js:645
@@ -846,7 +840,7 @@ Commands:
 
   **Solution:** old version of Node.js is installed on the machine. Node.js upgrade to version 16 or later is needed.
 
-* **ExecutionError: Transaction XYZ not found**<a id='troubleshooting-execution-error'></a>
+- **ExecutionError: Transaction XYZ not found**<a id='troubleshooting-execution-error'></a>
 
   The CLI sent the transaction to blockchain but because of a connection
   or RPC issue the client was not capable to verify that the transaction
@@ -867,7 +861,7 @@ Commands:
   you can run search with CLI `validator-bonds -um show-bond <bond-or-vote-account>`
   to check if account was created.
 
-* **bigint: Failed to load bindings, ...**<a id='troubleshooting-bigint-bindings'></a>
+- **bigint: Failed to load bindings, ...**<a id='troubleshooting-bigint-bindings'></a>
 
   CLI shows error `the bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)`
   is caused by system configuration requirements from `@solana/web3.js` (details at https://solana.stackexchange.com/questions/4077/bigint-failed-to-load-bindings-pure-js-will-be-used-try-npm-run-rebuild-whe). No functionality issues with this error.
@@ -878,11 +872,13 @@ Commands:
 
   To get rid of the warning, one can install packages `build-essential python3` and reinstall the cli package.
   Relevant for Ubuntu/Debian systems, for other OS search appropriate packages on your own.
+
   ```
   apt-get install build-essential python3
   npm i -g @marinade.finance/validator-bonds-cli@latest
   ```
-* **npm i -g @marinade.finance/validator-bonds-cli@latest**<a id='troubleshooting-latest-version'></a>
+
+- **npm i -g @marinade.finance/validator-bonds-cli@latest**<a id='troubleshooting-latest-version'></a>
   does not install the latest version
 
   Regardless the command `npm i -g @marinade.finance/validator-bonds-cli@latest` should install the latest
@@ -915,12 +911,11 @@ Commands:
   **Solution:**
 
   Apply one of the following suggestions:
+  - Remove the binary from the location reported by the `which` command, ``sudo rm -f `which validator-bonds` ``
+  - Change `PATH` to prioritize the `npm -g` folders, ``NPM_LIB=`npm list -g | head -n 1`; export PATH=${NPM_LIB/%lib/bin}:$PATH``
+  - Use local `npm exec` execution instead of global installation, see the section [_NPM Exec From Local Directory_](#npm-exec-from-local-directory)
 
-  * Remove the binary from the location reported by the `which` command, ``sudo rm -f `which validator-bonds` ``
-  * Change `PATH` to prioritize the `npm -g` folders, ``NPM_LIB=`npm list -g | head -n 1`; export PATH=${NPM_LIB/%lib/bin}:$PATH``
-  * Use local `npm exec` execution instead of global installation, see the section [*NPM Exec From Local Directory*](#npm-exec-from-local-directory)
-
-* **Command yields `The RPC call or parameters have been disabled`**<a id='troubleshooting-rpc-disabled'></a>
+- **Command yields `The RPC call or parameters have been disabled`**<a id='troubleshooting-rpc-disabled'></a>
 
   The command (most probably `show-` command) finishes with an error:
 
@@ -936,14 +931,13 @@ Commands:
   where the `getProgramAccounts` method is needed.
 
   **Solution:**
-
-  * To retrieve printed data about one particular bond account, this error should not be seen.
+  - To retrieve printed data about one particular bond account, this error should not be seen.
     Use a simple call of `show-bond <vote-account>`
     and **DO NOT** use filter arguments like `show-bond --vote-account <address>`.
-  * Use a private RPC endpoint (see https://solana.com/rpc). Most providers offer free plans
+  - Use a private RPC endpoint (see https://solana.com/rpc). Most providers offer free plans
     that can be easily used: `RPC_URL=<private-rpc-http-endpoint>; show-bond -u$RPC_URL...`
 
-* **command fails with `429 Too Many Requests`**<a id='troubleshooting-too-many-requests'></a>
+- **command fails with `429 Too Many Requests`**<a id='troubleshooting-too-many-requests'></a>
 
   This error often occurs when the `show-bond` command is used with the public RPC API endpoint
   `https://api.mainnet-beta.solana.com`, which is the default endpoint for CLI commands.
@@ -952,12 +946,11 @@ Commands:
   `429 Too Many Requests` error.
 
   **Solution:**
-
-  * Use a private RPC endpoint (see https://solana.com/rpc).
+  - Use a private RPC endpoint (see https://solana.com/rpc).
     Most providers offer free plans that can be easily utilized:
     `RPC_URL=<private-rpc-http-endpoint>; show-bond -u $RPC_URL...`
 
-* **node_modules/@solana/webljs/lib/index.cjs.js:643 keyMeta.isSigner ||= accountMeta.isSigner**
+- **node_modules/@solana/webljs/lib/index.cjs.js:643 keyMeta.isSigner ||= accountMeta.isSigner**
   <a id='troubleshooting-account-meta-signer'></a>
 
   ```
@@ -970,7 +963,7 @@ Commands:
 
   Upgrade Node.js to version 16 or later.
 
-* **Segmentation fault (core dumped)**<a id='troubleshooting-segmentation-fault'></a>
+- **Segmentation fault (core dumped)**<a id='troubleshooting-segmentation-fault'></a>
 
   This could be caused by the system containing two different versions of Node.js,
   one installed at the system level (e.g., via `apt`) and the other installed via `npm`.
@@ -985,7 +978,7 @@ Commands:
   node --version
   ```
 
-* **DeprecationWarning: The punycode module is deprecated. Please use a userland alternative instead.**
+- **DeprecationWarning: The punycode module is deprecated. Please use a userland alternative instead.**
   <a id='troubleshooting-deprecation-punycode'></a>
 
   **Explanation**
@@ -998,7 +991,7 @@ Commands:
 
   No functionality issue. The CLI can be used as is with this warning displayed.
 
-* **WithdrawRequestNotReady ... Withdraw request has not elapsed the epoch lockup period yet.**
+- **WithdrawRequestNotReady ... Withdraw request has not elapsed the epoch lockup period yet.**
   <a id='troubleshooting-withdraw-not-ready'></a>
 
   ```
@@ -1012,7 +1005,7 @@ Commands:
   Wait for a few `epochs` for the request to become available for claiming.
   More information can be found in the [Withdrawing Bond Account](#withdrawing-bond-account) section.
 
-* **Error processing Instruction 0: custom program error: 0xbbd**
+- **Error processing Instruction 0: custom program error: 0xbbd**
   <a id='troubleshooting-custom-error-0xbbd'></a>
 
   ```
@@ -1033,7 +1026,7 @@ Commands:
   npm i -g @marinade.finance/validator-bonds-cli@latest
   ```
 
-* **Failed to claim withdraw request ...***
+- **Failed to claim withdraw request ...\***
   <a id='troubleshooting-failed-to-claim'></a>
 
   ```
@@ -1075,7 +1068,7 @@ Commands:
   For example, the new withdrawal request could specify `--amount` as 5 SOLs instead of 4 SOLs for this particular example,
   or use term `"ALL"` (`--amount ALL`) to declare the desire to withdraw everything from the bond regardless of anything.
 
-* **Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.**
+- **Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.**
   <a id='troubleshooting-attempt-debit'></a>
 
   The executed command sends the transaction on-chain. For the transaction to be processed, a wallet must pay

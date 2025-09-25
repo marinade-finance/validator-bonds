@@ -1,33 +1,30 @@
+import { verifyError } from '@marinade.finance/anchor-common'
+import { assertNotExist, currentEpoch } from '@marinade.finance/bankrun-utils'
+import { createUserAndFund, signer } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
 import {
   Errors,
-  ValidatorBondsProgram,
   resetStakeInstruction,
   withdrawStakeInstruction,
 } from '../../src'
-import {
-  BankrunExtendedProvider,
-  assertNotExist,
-  currentEpoch,
-} from '@marinade.finance/bankrun-utils'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-  executeInitSettlement,
-} from '../utils/testTransactions'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   createBondsFundedStakeAccount,
   createSettlementFundedDelegatedStake,
   createSettlementFundedInitializedStake,
   createVoteAccount,
 } from '../utils/staking'
-import { verifyError } from '@marinade.finance/anchor-common'
 import {
-  SignerType,
-  createUserAndFund,
-  signer,
-} from '@marinade.finance/web3js-1x'
-import { initBankrunTest } from './bankrun'
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+  executeInitSettlement,
+} from '../utils/testTransactions'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { SignerType } from '@marinade.finance/web3js-1x'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds withdraw stake', () => {
   let provider: BankrunExtendedProvider
@@ -47,7 +44,7 @@ describe('Validator Bonds withdraw stake', () => {
       {
         program,
         provider,
-      },
+      }
     ))
     ;({ voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
@@ -60,7 +57,7 @@ describe('Validator Bonds withdraw stake', () => {
       validatorIdentity,
     })
     user = signer(
-      await createUserAndFund({ provider, lamports: LAMPORTS_PER_SOL }),
+      await createUserAndFund({ provider, lamports: LAMPORTS_PER_SOL })
     )
   })
 
@@ -84,7 +81,7 @@ describe('Validator Bonds withdraw stake', () => {
     await provider.sendIx([operatorAuthority], instruction)
     await assertNotExist(provider, stakeAccount)
     expect(
-      (await provider.connection.getAccountInfo(user.publicKey))?.lamports,
+      (await provider.connection.getAccountInfo(user.publicKey))?.lamports
     ).toEqual(2 * LAMPORTS_PER_SOL)
   })
 
@@ -113,10 +110,10 @@ describe('Validator Bonds withdraw stake', () => {
       verifyError(e, Errors, 6057, 'Wrong state')
     }
     expect(
-      await provider.connection.getAccountInfo(stakeAccount),
+      await provider.connection.getAccountInfo(stakeAccount)
     ).not.toBeNull()
     expect(
-      (await provider.connection.getAccountInfo(user.publicKey))?.lamports,
+      (await provider.connection.getAccountInfo(user.publicKey))?.lamports
     ).toEqual(LAMPORTS_PER_SOL)
   })
 
@@ -140,7 +137,7 @@ describe('Validator Bonds withdraw stake', () => {
     try {
       await provider.sendIx([], instruction)
       throw new Error(
-        'Expected error as stake account is not funded to a settlement',
+        'Expected error as stake account is not funded to a settlement'
       )
     } catch (e) {
       verifyError(e, Errors, 6046, 'Stake account staker authority mismatches')

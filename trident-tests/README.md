@@ -5,9 +5,9 @@ This module contains fuzz tests based on
 that is supported by [Honggfuzz-rs](https://github.com/google/honggfuzz) fuzzing framework.
 
 NOTE: the Trident framework recently added new usable features
-      ([1](https://github.com/Ackee-Blockchain/trident/pull/220), [2](https://github.com/Ackee-Blockchain/trident/pull/217)...)
-      unfortunately it's only supported with Anchor 0.30.x+ and Solana versions newer than 1.7.22.
-      Switching the project version dependencies is currently off the agenda.
+([1](https://github.com/Ackee-Blockchain/trident/pull/220), [2](https://github.com/Ackee-Blockchain/trident/pull/217)...)
+unfortunately it's only supported with Anchor 0.30.x+ and Solana versions newer than 1.7.22.
+Switching the project version dependencies is currently off the agenda.
 
 ## Prerequisites
 
@@ -128,7 +128,6 @@ verbose = true
   and mentioned it may work with a newer Agave Solana version).
 
 - See youtube tutorials for details on the framework
-    - [Solana Anchor Program Fuzzing with Trident I](https://www.youtube.com/watch?v=5JRVnxGW8kc)
-    - [Solana Anchor Program Fuzzing with Trident I](https://www.youtube.com/watch?v=gMk6hm0x44M)
-      Or check the [Solandy's Trident Solana tutorial](https://www.youtube.com/watch?v=gZo45atKgug).
-
+  - [Solana Anchor Program Fuzzing with Trident I](https://www.youtube.com/watch?v=5JRVnxGW8kc)
+  - [Solana Anchor Program Fuzzing with Trident I](https://www.youtube.com/watch?v=gMk6hm0x44M)
+    Or check the [Solandy's Trident Solana tutorial](https://www.youtube.com/watch?v=gZo45atKgug).

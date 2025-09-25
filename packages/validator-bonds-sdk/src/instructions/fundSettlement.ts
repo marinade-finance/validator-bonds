@@ -1,18 +1,20 @@
 import {
   PublicKey,
-  TransactionInstruction,
   StakeProgram,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   SYSVAR_CLOCK_PUBKEY,
   Keypair,
-  Signer,
   SYSVAR_RENT_PUBKEY,
   STAKE_CONFIG_ID,
 } from '@solana/web3.js'
-import { ValidatorBondsProgram, bondAddress } from '../sdk'
+
 import { getBond, getConfig, getSettlement } from '../api'
+import { bondAddress } from '../sdk'
 import { anchorProgramWalletPubkey } from '../utils'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { TransactionInstruction, Signer } from '@solana/web3.js'
 
 /**
  * Generate instruction to fund settlement protected event.

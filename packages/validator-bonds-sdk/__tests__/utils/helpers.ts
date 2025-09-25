@@ -1,15 +1,17 @@
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { ExtendedProvider } from '@marinade.finance/web3js-1x'
-import {
+import assert from 'assert'
+
+import { checkErrorMessage } from '@marinade.finance/ts-common'
+import CryptoJS from 'crypto-js'
+
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { ExtendedProvider } from '@marinade.finance/web3js-1x'
+import type {
   PublicKey,
   Signer,
   Transaction,
   TransactionInstruction,
   TransactionInstructionCtorFields,
 } from '@solana/web3.js'
-import { checkErrorMessage } from '@marinade.finance/ts-common'
-import assert from 'assert'
-import CryptoJS from 'crypto-js'
 
 export async function executeTxWithError(
   provider: ExtendedProvider,
@@ -25,7 +27,7 @@ export async function executeTxWithError(
   try {
     await provider.sendIx(signers, ...ixes)
     throw new Error(
-      `Expected failure '${checkMessage}', but it hasn't happened`,
+      `Expected failure '${checkMessage}', but it hasn't happened`
     )
   } catch (e) {
     info = info ? info + ' ' : ''
@@ -34,7 +36,7 @@ export async function executeTxWithError(
     } else {
       console.error(
         `${info}wrong failure thrown, expected error: '${checkMessage}'`,
-        e,
+        e
       )
       throw e
     }
@@ -43,12 +45,12 @@ export async function executeTxWithError(
 
 export async function getRentExempt(
   provider: ExtendedProvider,
-  account: PublicKey,
+  account: PublicKey
 ): Promise<number> {
   const accountInfo = await provider.connection.getAccountInfo(account)
   assert(accountInfo !== null)
   return await provider.connection.getMinimumBalanceForRentExemption(
-    accountInfo.data.length,
+    accountInfo.data.length
   )
 }
 

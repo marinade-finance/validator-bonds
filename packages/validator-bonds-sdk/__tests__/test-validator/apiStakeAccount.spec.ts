@@ -1,18 +1,19 @@
+import assert from 'assert'
+
+import { rand } from '@marinade.finance/ts-common'
+import { waitForNextEpoch } from '@marinade.finance/web3js-1x'
+import { pubkey, signer } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { BN } from 'bn.js'
+
 import {
   getBondsFunding,
   findBonds,
   findConfigStakeAccounts,
-  ValidatorBondsProgram,
   bondsWithdrawerAuthority,
   getStakeAccount,
 } from '../../src'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-  executeInitSettlement,
-  executeInitWithdrawRequestInstruction,
-} from '../utils/testTransactions'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import { getSecureRandomInt } from '../utils/helpers'
 import {
   authorizeStakeAccount,
   createBondsFundedStakeAccount,
@@ -21,13 +22,17 @@ import {
   setLockup,
   createSettlementFundedDelegatedStake,
 } from '../utils/staking'
-import { ExtendedProvider, waitForNextEpoch } from '@marinade.finance/web3js-1x'
+import {
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+  executeInitSettlement,
+  executeInitWithdrawRequestInstruction,
+} from '../utils/testTransactions'
 import { initTest } from '../utils/testValidator'
-import { rand } from '@marinade.finance/ts-common'
-import { BN } from 'bn.js'
-import { pubkey, signer } from '@marinade.finance/web3js-1x'
-import { getSecureRandomInt } from '../utils/helpers'
-import assert from 'assert'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { ExtendedProvider } from '@marinade.finance/web3js-1x'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds api call to stake accounts', () => {
   const NUMBER_OF_BONDS = 100
@@ -37,8 +42,8 @@ describe('Validator Bonds api call to stake accounts', () => {
   let operatorAuthority: Keypair
   const withdrawLockupEpochs = 1
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+  beforeAll(() => {
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -47,7 +52,7 @@ describe('Validator Bonds api call to stake accounts', () => {
         program,
         provider,
         withdrawLockupEpochs,
-      },
+      }
     ))
   })
 
@@ -66,13 +71,13 @@ describe('Validator Bonds api call to stake accounts', () => {
           program,
           provider,
           configAccount,
-        }),
+        })
       )
     }
     ;(await Promise.all(promiseBonds)).forEach(bond => {
       const count = rand(5)
       const randomLamports = [...Array(count)].map(() =>
-        getSecureRandomInt(2 * LAMPORTS_PER_SOL, 100 * LAMPORTS_PER_SOL),
+        getSecureRandomInt(2 * LAMPORTS_PER_SOL, 100 * LAMPORTS_PER_SOL)
       )
       inputData.push({
         bondAccount: bond.bondAccount,
@@ -94,7 +99,7 @@ describe('Validator Bonds api call to stake accounts', () => {
             configAccount,
             lamports: inputDataItem.lamports[j] || 0,
             voteAccount: inputDataItem.voteAccount,
-          }),
+          })
         )
       }
     }
@@ -106,14 +111,14 @@ describe('Validator Bonds api call to stake accounts', () => {
 
     const [withdrawerAuthority] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId,
+      program.programId
     )
     const randomIndex = rand(inputData.length) - 1
     const stakeAccountRandomAddress = inputData[randomIndex]?.stakeAccounts[0]
     assert(stakeAccountRandomAddress !== undefined)
     const randomStakeAccount = await getStakeAccount(
       program,
-      stakeAccountRandomAddress,
+      stakeAccountRandomAddress
     )
     expect(randomStakeAccount.withdrawer).toEqual(withdrawerAuthority)
     expect(randomStakeAccount.staker).toEqual(withdrawerAuthority)
@@ -160,15 +165,15 @@ describe('Validator Bonds api call to stake accounts', () => {
 
     const numberStakeAccounts = inputData.reduce(
       (acc, { lamports }) => acc + lamports.length,
-      0,
+      0
     )
     const lamportsStakeAccounts = inputData.reduce(
       (acc, { lamports }) => acc + lamports.reduce((a, b) => a + b, 0),
-      0,
+      0
     )
     console.log(
       `created ${inputData.length} bonds, ${numberStakeAccounts} stake accounts, ` +
-        `${lamportsStakeAccounts} lamports`,
+        `${lamportsStakeAccounts} lamports`
     )
     const stakeAccountsAtConfig = await findConfigStakeAccounts({
       program,
@@ -201,7 +206,7 @@ describe('Validator Bonds api call to stake accounts', () => {
       program,
       configAccount,
       bondAccounts,
-      voteAccounts,
+      voteAccounts
     )
     expect(amountActive).toEqual(lamportsStakeAccounts)
     expect(amountToWithdraw).toEqual(0)
@@ -239,10 +244,10 @@ describe('Validator Bonds api call to stake accounts', () => {
       program,
       configAccount,
       bondAccounts,
-      voteAccounts,
+      voteAccounts
     ))
     expect(amountActive).toEqual(
-      lamportsStakeAccounts - totalWithdrawRequestAmount,
+      lamportsStakeAccounts - totalWithdrawRequestAmount
     )
     expect(amountToWithdraw).toEqual(expectedAmountToWithdraw)
     expect(amountAtSettlements).toEqual(0)
@@ -273,10 +278,10 @@ describe('Validator Bonds api call to stake accounts', () => {
       program,
       configAccount,
       bondAccounts,
-      voteAccounts,
+      voteAccounts
     ))
     expect(amountActive).toEqual(
-      lamportsStakeAccounts - totalWithdrawRequestAmount,
+      lamportsStakeAccounts - totalWithdrawRequestAmount
     )
     expect(amountToWithdraw).toEqual(expectedAmountToWithdraw)
     expect(amountAtSettlements).toEqual(settlementLamports)
@@ -287,7 +292,7 @@ async function calculateFunding(
   program: ValidatorBondsProgram,
   configAccount: PublicKey,
   bondAccounts: PublicKey[],
-  voteAccounts: PublicKey[],
+  voteAccounts: PublicKey[]
 ) {
   const bondsFundingWithWithdraws = await getBondsFunding({
     program,
@@ -297,15 +302,15 @@ async function calculateFunding(
   })
   const amountActive = bondsFundingWithWithdraws.reduce(
     (acc, { amountActive }) => acc.add(amountActive),
-    new BN(0),
+    new BN(0)
   )
   const amountToWithdraw = bondsFundingWithWithdraws.reduce(
     (acc, { amountToWithdraw }) => acc.add(amountToWithdraw),
-    new BN(0),
+    new BN(0)
   )
   const amountAtSettlements = bondsFundingWithWithdraws.reduce(
     (acc, { amountAtSettlements }) => acc.add(amountAtSettlements),
-    new BN(0),
+    new BN(0)
   )
   const expectedAmountToWithdraw = bondsFundingWithWithdraws.reduce(
     (acc, { amountActive, amountFundedAtBond, amountToWithdraw }) => {
@@ -315,7 +320,7 @@ async function calculateFunding(
         return acc.add(amountToWithdraw)
       }
     },
-    new BN(0),
+    new BN(0)
   )
   return {
     amountActive,

@@ -1,7 +1,17 @@
+import assert from 'assert'
+
+import { verifyError } from '@marinade.finance/anchor-common'
 import {
-  Config,
+  currentEpoch,
+  warpOffsetEpoch,
+  warpToNextEpoch,
+} from '@marinade.finance/bankrun-utils'
+import { signer } from '@marinade.finance/web3js-1x'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
+import {
   Errors,
-  ValidatorBondsProgram,
   claimSettlementV2Instruction,
   closeSettlementV2Instruction,
   configureBondInstruction,
@@ -23,31 +33,8 @@ import {
   upsizeSettlementClaims,
   getSettlementClaims,
 } from '../../src'
-import {
-  BankrunExtendedProvider,
-  currentEpoch,
-  warpOffsetEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
-import { executeInitConfigInstruction } from '../utils/testTransactions'
-import {
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  Signer,
-  Transaction,
-  TransactionInstruction,
-  TransactionInstructionCtorFields,
-} from '@solana/web3.js'
-import {
-  createBondsFundedStakeAccount,
-  createSettlementFundedDelegatedStake,
-  createSettlementFundedInitializedStake,
-  createDelegatedStakeAccount,
-  createVoteAccount,
-  delegatedStakeAccount,
-} from '../utils/staking'
-import { Wallet, signer } from '@marinade.finance/web3js-1x'
+import { claimWithdrawRequestInstruction } from '../../src/instructions/claimWithdrawRequest'
+import { isInitialized } from '../../src/settlementClaims'
 import {
   MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
   configAccountKeypair,
@@ -58,11 +45,27 @@ import {
   voteAccount1Keypair,
   withdrawer1,
 } from '../utils/merkleTreeTestData'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { claimWithdrawRequestInstruction } from '../../src/instructions/claimWithdrawRequest'
-import { initBankrunTest } from './bankrun'
-import { isInitialized } from '../../src/settlementClaims'
-import assert from 'assert'
+import {
+  createBondsFundedStakeAccount,
+  createSettlementFundedDelegatedStake,
+  createSettlementFundedInitializedStake,
+  createDelegatedStakeAccount,
+  createVoteAccount,
+  delegatedStakeAccount,
+} from '../utils/staking'
+import { executeInitConfigInstruction } from '../utils/testTransactions'
+
+import type { Config, ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { Wallet } from '@marinade.finance/web3js-1x'
+import type {
+  Keypair,
+  PublicKey,
+  Signer,
+  Transaction,
+  TransactionInstruction,
+  TransactionInstructionCtorFields,
+} from '@solana/web3.js'
 
 describe('Validator Bonds pause&resume', () => {
   const epochsToClaimSettlement = BigInt(23)
@@ -236,11 +239,11 @@ describe('Validator Bonds pause&resume', () => {
       })
     await warpOffsetEpoch(
       provider,
-      initWithdrawerRequestEpoch + withdrawLockupEpochs + BigInt(1),
+      initWithdrawerRequestEpoch + withdrawLockupEpochs + BigInt(1)
     )
     await verifyIsPaused(
       [splitStakeAccount, validatorIdentity],
-      claimWithdrawIx,
+      claimWithdrawIx
     )
 
     // the split stake account is the new stake account to be used in further instructions
@@ -249,7 +252,7 @@ describe('Validator Bonds pause&resume', () => {
     await resume()
     await provider.sendIx(
       [splitStakeAccount, validatorIdentity],
-      claimWithdrawIx,
+      claimWithdrawIx
     )
 
     await pause()
@@ -303,13 +306,13 @@ describe('Validator Bonds pause&resume', () => {
 
     await verifyIsPaused(
       [adminAuthority, settlementSplitStake],
-      fundSettlementIx,
+      fundSettlementIx
     )
 
     await resume()
     await provider.sendIx(
       [adminAuthority, signer(settlementSplitStake)],
-      fundSettlementIx,
+      fundSettlementIx
     )
 
     await pause()
@@ -343,7 +346,7 @@ describe('Validator Bonds pause&resume', () => {
     await pause()
     await warpOffsetEpoch(
       provider,
-      initWithdrawerRequestEpoch + epochsToClaimSettlement + BigInt(1),
+      initWithdrawerRequestEpoch + epochsToClaimSettlement + BigInt(1)
     )
     const { instruction: closeSettlementIx } =
       await closeSettlementV2Instruction({
@@ -374,7 +377,7 @@ describe('Validator Bonds pause&resume', () => {
     await pause()
     await warpOffsetEpoch(
       provider,
-      initWithdrawerRequestEpoch + epochsToClaimSettlement + BigInt(1),
+      initWithdrawerRequestEpoch + epochsToClaimSettlement + BigInt(1)
     )
 
     await createSettlementFundedDelegatedStake({
@@ -427,7 +430,9 @@ describe('Validator Bonds pause&resume', () => {
       configAccount,
       pauseAuthority: pauseAuthority.publicKey,
     })
-    isWarp && (await warpToNextEpoch(provider))
+    if (isWarp) {
+      await warpToNextEpoch(provider)
+    }
     await provider.sendIx([pauseAuthority], instruction)
     const configData = await getConfig(program, configAccount)
     expect(configData.paused).toEqual(true)
@@ -440,7 +445,9 @@ describe('Validator Bonds pause&resume', () => {
       configAccount,
       pauseAuthority: pauseAuthority.publicKey,
     })
-    isWarp && (await warpToNextEpoch(provider))
+    if (isWarp) {
+      await warpToNextEpoch(provider)
+    }
     await provider.sendIx([pauseAuthority], instruction)
     const configData = await getConfig(program, configAccount)
     expect(configData.paused).toEqual(false)
@@ -458,7 +465,7 @@ describe('Validator Bonds pause&resume', () => {
     try {
       await provider.sendIx(
         signers.map(s => signer(s)),
-        ...ixes,
+        ...ixes
       )
       throw new Error('Failure expected; the contract is paused')
     } catch (e) {

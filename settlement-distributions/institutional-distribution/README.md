@@ -54,6 +54,7 @@ merkle tree generation CLI you can do:
    gcloud storage cp "gs://marinade-validator-bonds-mainnet/710/stakes.json" "stakes.json"
    ```
 2. Execute Merkle Tree Bonds CLI
+
    ```bash
    TARGET=`mktemp -d`
    cargo run --bin institutional-distribution-cli -- \

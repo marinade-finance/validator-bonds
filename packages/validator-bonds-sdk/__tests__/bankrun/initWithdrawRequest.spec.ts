@@ -1,28 +1,28 @@
+import { verifyError } from '@marinade.finance/anchor-common'
+import { warpToEpoch } from '@marinade.finance/bankrun-utils'
+import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
 import {
-  Bond,
   Errors,
-  ValidatorBondsProgram,
   getBond,
   getWithdrawRequest,
   initWithdrawRequestInstruction,
   withdrawRequestAddress,
 } from '../../src'
-import {
-  BankrunExtendedProvider,
-  warpToEpoch,
-} from '@marinade.finance/bankrun-utils'
+import { getSecureRandomInt } from '../utils/helpers'
+import { createVoteAccount } from '../utils/staking'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitWithdrawRequestInstruction,
 } from '../utils/testTransactions'
-import { ProgramAccount } from '@coral-xyz/anchor'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import { createVoteAccount } from '../utils/staking'
-import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest } from './bankrun'
-import { getSecureRandomInt } from '../utils/helpers'
+
+import type { Bond, ValidatorBondsProgram } from '../../src'
+import type { ProgramAccount } from '@coral-xyz/anchor'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds init withdraw request', () => {
   let provider: BankrunExtendedProvider
@@ -37,7 +37,7 @@ describe('Validator Bonds init withdraw request', () => {
     ;({ provider, program } = await initBankrunTest())
     const startUpEpochPlus = getSecureRandomInt(100, 200)
     const currentEpoch = Number(
-      (await provider.context.banksClient.getClock()).epoch,
+      (await provider.context.banksClient.getClock()).epoch
     )
     startUpEpoch = currentEpoch + startUpEpochPlus
     warpToEpoch(provider, startUpEpoch)
@@ -94,14 +94,14 @@ describe('Validator Bonds init withdraw request', () => {
 
     const [withdrawRequestAddr, bump] = withdrawRequestAddress(
       bond.publicKey,
-      program.programId,
+      program.programId
     )
     const epoch = Number((await provider.context.banksClient.getClock()).epoch)
 
     expect(withdrawRequestAccount).toEqual(withdrawRequestAddr)
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount,
+      withdrawRequestAccount
     )
     expect(withdrawRequestData.bond).toEqual(bond.publicKey)
     expect(withdrawRequestData.bump).toEqual(bump)
@@ -111,11 +111,11 @@ describe('Validator Bonds init withdraw request', () => {
     expect(withdrawRequestData.withdrawnAmount).toEqual(0)
 
     const withdrawRequestAccountInfo = await provider.connection.getAccountInfo(
-      withdrawRequestAccount,
+      withdrawRequestAccount
     )
     console.log(
       'withdraw request account length',
-      withdrawRequestAccountInfo?.data.byteLength,
+      withdrawRequestAccountInfo?.data.byteLength
     )
     // not account change size expected
     expect(withdrawRequestAccountInfo?.data.byteLength).toEqual(192)
@@ -138,25 +138,25 @@ describe('Validator Bonds init withdraw request', () => {
     await provider.sendIx([validatorIdentity, signer(rentWallet)], instruction)
 
     const rentWalletInfo = await provider.connection.getAccountInfo(
-      pubkey(rentWallet),
+      pubkey(rentWallet)
     )
     const withdrawRequestInfo = await provider.connection.getAccountInfo(
-      withdrawRequestAccount,
+      withdrawRequestAccount
     )
     if (withdrawRequestInfo === null) {
       throw new Error(
-        `Withdraw request account ${withdrawRequestAccount} not found`,
+        `Withdraw request account ${withdrawRequestAccount.toBase58()} not found`
       )
     }
     const rentExempt =
       await provider.connection.getMinimumBalanceForRentExemption(
-        withdrawRequestInfo.data.length,
+        withdrawRequestInfo.data.length
       )
     expect(rentWalletInfo!.lamports).toEqual(LAMPORTS_PER_SOL - rentExempt)
 
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount,
+      withdrawRequestAccount
     )
     expect(withdrawRequestData.bond).toEqual(bond.publicKey)
     expect(withdrawRequestData.requestedAmount).toEqual(123)
@@ -174,7 +174,7 @@ describe('Validator Bonds init withdraw request', () => {
       })
     const [withdrawRequestAddr] = withdrawRequestAddress(
       bond.publicKey,
-      program.programId,
+      program.programId
     )
     expect(withdrawRequestAccount).toEqual(withdrawRequestAddr)
 
@@ -191,7 +191,7 @@ describe('Validator Bonds init withdraw request', () => {
       if (!(e as Error).message.includes('custom program error: 0x0')) {
         console.error(
           'Expected existence of the init withdraw request account ' +
-            `${withdrawRequestAccount.toBase58()} and only one withdraw request per bond account may exist`,
+            `${withdrawRequestAccount.toBase58()} and only one withdraw request per bond account may exist`
         )
         throw e
       }

@@ -1,6 +1,11 @@
-import { Keypair, PublicKey } from '@solana/web3.js'
+import assert from 'assert'
+
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
+import { PublicKey } from '@solana/web3.js'
+import { getAccount as getTokenAccount } from 'solana-spl-token-modern'
+
 import {
-  ValidatorBondsProgram,
   configureBondWithMintInstruction,
   getBond,
   mintBondInstruction,
@@ -8,18 +13,15 @@ import {
   parseCpiEvents,
   assertEvent,
 } from '../../src'
-import { initTest } from '../utils/testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
-import { getAccount as getTokenAccount } from 'solana-spl-token-modern'
-import {
-  AnchorExtendedProvider,
-  getAnchorValidatorInfo,
-} from '@marinade.finance/anchor-common'
-import assert from 'assert'
+import { initTest } from '../utils/testValidator'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { Keypair } from '@solana/web3.js'
 
 describe('Validator Bonds configure bond with mint', () => {
   let provider: AnchorExtendedProvider
@@ -28,7 +30,7 @@ describe('Validator Bonds configure bond with mint', () => {
   let configAccount: PublicKey
 
   beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 
@@ -73,7 +75,7 @@ describe('Validator Bonds configure bond with mint', () => {
 
     const tokenData = await getTokenAccount(
       provider.connection,
-      validatorIdentityTokenAccount,
+      validatorIdentityTokenAccount
     )
     expect(tokenData.amount).toEqual(0) // burnt
     const bondData = await getBond(program, bondAccount)

@@ -1,52 +1,51 @@
 {
-    "name": "@marinade.finance/settlement-pipelines",
-    "version": "0.0.1",
-    "description": "Tests for settlement pipelines CLI",
-    "repository": {
-      "type": "git",
-      "url": "git@github.com:marinade-finance/validator-bonds.git"
-    },
-    "keywords": [
-      "solana",
-      "marinade.finance",
-      "blockchain",
-      "staking",
-      "mnde"
-    ],
-    "author": "Marinade.Finance",
-    "license": "ISC",
-    "publishConfig": {
-      "access": "public"
-    },
-    "main": "dist/src/index.js",
-    "types": "dist/src/index.d.ts",
-    "files": [
-      "dist/",
-      "!dist/__tests__",
-      "README.md"
-    ],
-    "scripts": {
-      "build": "tsc --build",
-      "test:validator": "pnpm jest --config ../../jest.config.test-validator.js --testPathPattern=\"$(pwd)\"",
-      "test": "pnpm test:validator"
-    },
-    "devDependencies": {
-      "@marinade.finance/validator-bonds-sdk": "workspace: *",
-      "@coral-xyz/anchor": "0.29.0",
-      "@solana/web3.js": "1.98.4",
-      "@marinade.finance/ledger-utils": "3.1.0",
-      "@marinade.finance/cli-common": "4.0.0",
-      "@marinade.finance/anchor-common": "4.0.0",
-      "@marinade.finance/web3js-1x": "4.0.0",
-      "@marinade.finance/ts-common": "4.0.0",
-      "bn.js": "5.2.2",
-      "jsbi": "4.3.2",
-      "commander": "14.0.0",
-      "pino": "9.7.0",
-      "pino-pretty": "13.1.1",
-      "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
-      "yaml": "2.8.0",
-      "@marinade.finance/jest-shell-matcher": "1.1.1"
-    }
+  "name": "@marinade.finance/settlement-pipelines",
+  "version": "0.0.1",
+  "description": "Tests for settlement pipelines CLI",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:marinade-finance/validator-bonds.git"
+  },
+  "keywords": [
+    "solana",
+    "marinade.finance",
+    "blockchain",
+    "staking",
+    "mnde"
+  ],
+  "author": "Marinade.Finance",
+  "license": "ISC",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "files": [
+    "dist/",
+    "!dist/__tests__",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "test:validator": "pnpm jest --config ../../jest.config.test-validator.js --testPathPattern=\"$(pwd)\"",
+    "test": "pnpm test:validator"
+  },
+  "devDependencies": {
+    "@marinade.finance/validator-bonds-sdk": "workspace: *",
+    "@coral-xyz/anchor": "0.29.0",
+    "@solana/web3.js": "1.98.4",
+    "@marinade.finance/ledger-utils": "3.1.0",
+    "@marinade.finance/cli-common": "4.0.0",
+    "@marinade.finance/anchor-common": "4.0.0",
+    "@marinade.finance/web3js-1x": "4.0.0",
+    "@marinade.finance/ts-common": "4.0.0",
+    "bn.js": "5.2.2",
+    "jsbi": "4.3.2",
+    "commander": "14.0.0",
+    "pino": "9.7.0",
+    "pino-pretty": "13.1.1",
+    "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
+    "yaml": "2.8.0",
+    "@marinade.finance/jest-shell-matcher": "1.1.1"
   }
-  
+}

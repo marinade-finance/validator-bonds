@@ -1,20 +1,18 @@
 import {
-  Keypair,
-  PublicKey,
-  SYSVAR_RENT_PUBKEY,
-  Signer,
-  TransactionInstruction,
-} from '@solana/web3.js'
-import { ValidatorBondsProgram, bondMintAddress } from '../sdk'
-import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
-import { getBond } from '../api'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import {
   getVoteAccount,
   MPL_TOKEN_METADATA_PROGRAM_ID,
   tokenMetadataAddress,
 } from '@marinade.finance/web3js-1x'
+import { PublicKey, SYSVAR_RENT_PUBKEY } from '@solana/web3.js'
 import { getAssociatedTokenAddressSync } from 'solana-spl-token-modern'
+
+import { getBond } from '../api'
+import { bondMintAddress } from '../sdk'
+import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { Keypair, Signer, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to mint configuration bond token. Permission-less operation.
@@ -48,7 +46,7 @@ export async function mintBondInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId,
+    program.programId
   )
 
   const renPayerPubkey =
@@ -67,12 +65,12 @@ export async function mintBondInstruction({
   const [bondMint] = bondMintAddress(
     bondAccount,
     validatorIdentity,
-    program.programId,
+    program.programId
   )
   const validatorIdentityTokenAccount = getAssociatedTokenAddressSync(
     bondMint,
     validatorIdentity,
-    true,
+    true
   )
 
   if (metadataAccount === undefined) {

@@ -1,7 +1,12 @@
-import { Keypair, PublicKey, Signer } from '@solana/web3.js'
+import assert from 'assert'
+
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+import { executeTxSimple } from '@marinade.finance/web3js-1x'
+import { transaction, splitAndExecuteTx } from '@marinade.finance/web3js-1x'
+import { Keypair } from '@solana/web3.js'
+
 import {
   INIT_SETTLEMENT_EVENT,
-  ValidatorBondsProgram,
   assertEvent,
   findSettlements,
   getSettlement,
@@ -11,23 +16,16 @@ import {
   settlementClaimsAddress,
   settlementStakerAuthority,
 } from '../../src'
-import { initTest } from '../utils/testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { executeTxSimple } from '@marinade.finance/web3js-1x'
-import {
-  transaction,
-  Wallet,
-  splitAndExecuteTx,
-} from '@marinade.finance/web3js-1x'
+import { initTest } from '../utils/testValidator'
 
-import {
-  AnchorExtendedProvider,
-  getAnchorValidatorInfo,
-} from '@marinade.finance/anchor-common'
-import assert from 'assert'
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { Wallet } from '@marinade.finance/web3js-1x'
+import type { PublicKey, Signer } from '@solana/web3.js'
 
 describe('Validator Bonds init settlement', () => {
   let provider: AnchorExtendedProvider
@@ -39,7 +37,7 @@ describe('Validator Bonds init settlement', () => {
   let bondAccount: PublicKey
 
   beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 
@@ -48,7 +46,7 @@ describe('Validator Bonds init settlement', () => {
       {
         program,
         provider,
-      },
+      }
     ))
     ;({ voteAccount, bondAccount } = await executeInitBondInstruction({
       configAccount,
@@ -91,15 +89,15 @@ describe('Validator Bonds init settlement', () => {
       bondAccount,
       merkleRoot,
       currentEpoch,
-      program.programId,
+      program.programId
     )
     const [settlementAuth, authorityBump] = settlementStakerAuthority(
       settlementAccount,
-      program.programId,
+      program.programId
     )
     const [, settlementClaimsBump] = settlementClaimsAddress(
       settlementAccount,
-      program.programId,
+      program.programId
     )
 
     expect(settlementData.bond).toEqual(bondAccount)

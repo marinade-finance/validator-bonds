@@ -1,15 +1,16 @@
 import {
-  PublicKey,
   SYSVAR_CLOCK_PUBKEY,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   StakeProgram,
-  TransactionInstruction,
   STAKE_CONFIG_ID,
 } from '@solana/web3.js'
-import { ValidatorBondsProgram } from '../sdk'
-import { checkAndGetBondAddress } from '../utils'
+
 import { getBond } from '../api'
+import { checkAndGetBondAddress } from '../utils'
 import { getStakeAccount } from '../web3.js'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { PublicKey, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to reset stake from closed settlement.
@@ -38,7 +39,7 @@ export async function resetStakeInstruction({
     const stakeAccountData = await getStakeAccount(program, stakeAccount, 0)
     if (stakeAccountData.voter === null) {
       throw new Error(
-        `Cannot load vote account address from stake account ${stakeAccount.toBase58()}`,
+        `Cannot load vote account address from stake account ${stakeAccount.toBase58()}`
       )
     }
     voteAccount = stakeAccountData.voter
@@ -47,7 +48,7 @@ export async function resetStakeInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId,
+    program.programId
   )
   if (configAccount === undefined) {
     const bondData = await getBond(program, bondAccount)

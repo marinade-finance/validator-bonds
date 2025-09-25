@@ -1,13 +1,8 @@
-import {
-  createTempFileKeypair,
-  createUserAndFund,
-  pubkey,
-  waitForNextEpoch,
-} from '@marinade.finance/web3js-1x'
+import assert from 'assert'
+
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import { rand } from '@marinade.finance/ts-common'
 import {
-  ValidatorBondsProgram,
   getBondsFunding,
   getStakeAccount,
   findStakeAccounts,
@@ -15,20 +10,29 @@ import {
   cancelWithdrawRequestInstruction,
   withdrawRequestAddress,
 } from '@marinade.finance/validator-bonds-sdk'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import {
+  createBondsFundedStakeAccount,
+  createVoteAccount,
+} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import {
   executeCancelWithdrawRequestInstruction,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitWithdrawRequestInstruction,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import {
-  createBondsFundedStakeAccount,
-  createVoteAccount,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
-import { rand } from '@marinade.finance/ts-common'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+  createTempFileKeypair,
+  createUserAndFund,
+  pubkey,
+  waitForNextEpoch,
+} from '@marinade.finance/web3js-1x'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import BN from 'bn.js'
+
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import type { Keypair, PublicKey } from '@solana/web3.js'
 
 describe('Claim withdraw request using CLI', () => {
   let withdrawRequestLamports: BN
@@ -42,9 +46,9 @@ describe('Claim withdraw request using CLI', () => {
   let validatorIdentityKeypair: Keypair
   let validatorIdentityCleanup: () => Promise<void>
 
-  beforeAll(async () => {
+  beforeAll(() => {
     extendJestWithShellMatchers()
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -59,9 +63,7 @@ describe('Claim withdraw request using CLI', () => {
       provider,
       withdrawLockupEpochs: 0,
     }))
-    expect(
-      await provider.connection.getAccountInfo(configAccount),
-    ).not.toBeNull()
+    assert((await provider.connection.getAccountInfo(configAccount)) != null)
     ;({ voteAccount } = await createVoteAccount({
       provider,
       validatorIdentity: validatorIdentityKeypair,
@@ -75,15 +77,15 @@ describe('Claim withdraw request using CLI', () => {
     try {
       const [withdrawRequestAddr] = withdrawRequestAddress(
         bondAccount,
-        program.programId,
+        program.programId
       )
       await executeCancelWithdrawRequestInstruction(
         program,
         provider,
         withdrawRequestAddr,
-        validatorIdentityKeypair,
+        validatorIdentityKeypair
       )
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
     ;({ withdrawRequestAccount } = await executeInitWithdrawRequestInstruction({
@@ -113,7 +115,7 @@ describe('Claim withdraw request using CLI', () => {
         voteAccount,
       })
       stakeAccountSumBalance = stakeAccountSumBalance.add(
-        (await getStakeAccount(provider, sa)).balanceLamports ?? new BN(0),
+        (await getStakeAccount(provider, sa)).balanceLamports ?? new BN(0)
       )
     }
 
@@ -124,7 +126,7 @@ describe('Claim withdraw request using CLI', () => {
     })
     expect(bondsFunding.length).toEqual(1)
     expect(bondsFunding[0]?.numberActiveStakeAccounts).toEqual(
-      stakeAccountNumber,
+      stakeAccountNumber
     )
     expect(stakeAccountSumBalance).toEqual(toFund.muln(stakeAccountNumber))
     const expectedActive = toFund
@@ -138,54 +140,48 @@ describe('Claim withdraw request using CLI', () => {
     // + needed to wait 1 epoch for the withdraw request to be claimable (config set 'withdrawLockupEpochs' to 0)
     await waitForNextEpoch(provider.connection, 15)
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'claim-withdraw-request',
-          voteAccount.toBase58(),
-          '--config',
-          configAccount.toBase58(),
-          '--authority',
-          validatorIdentityPath,
-          '--withdrawer',
-          pubkey(user).toBase58(),
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'claim-withdraw-request',
+        voteAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--authority',
+        validatorIdentityPath,
+        '--withdrawer',
+        pubkey(user).toBase58(),
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /successfully claimed/,
     })
 
     // second claim will not fail
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'claim-withdraw-request',
-          voteAccount.toBase58(),
-          '--config',
-          configAccount.toBase58(),
-          '--authority',
-          validatorIdentityPath,
-          '--withdrawer',
-          pubkey(user).toBase58(),
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'claim-withdraw-request',
+        voteAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--authority',
+        validatorIdentityPath,
+        '--withdrawer',
+        pubkey(user).toBase58(),
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /has been fully withdrawn/,
@@ -198,11 +194,11 @@ describe('Claim withdraw request using CLI', () => {
     })
     expect(userStakeAccounts.length).toEqual(1)
     expect(userStakeAccounts[0]?.account.lamports).toEqual(
-      withdrawRequestLamports,
+      withdrawRequestLamports
     )
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount,
+      withdrawRequestAccount
     )
     expect(withdrawRequestData.requestedAmount).toEqual(withdrawRequestLamports)
     expect(withdrawRequestData.withdrawnAmount).toEqual(withdrawRequestLamports)
@@ -233,27 +229,24 @@ describe('Claim withdraw request using CLI', () => {
       lamports: LAMPORTS_PER_SOL * 100,
       voteAccount,
     })
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'claim-withdraw-request',
-          withdrawRequestAccount.toBase58(),
-          '--config',
-          configAccount.toBase58(),
-          '--authority',
-          validatorIdentityPath,
-          '--withdrawer',
-          pubkey(user).toBase58(),
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'claim-withdraw-request',
+        withdrawRequestAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--authority',
+        validatorIdentityPath,
+        '--withdrawer',
+        pubkey(user).toBase58(),
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /successfully claimed/,
@@ -270,7 +263,7 @@ describe('Claim withdraw request using CLI', () => {
     expect(userStakeAccountsMerged.length).toEqual(3)
     expect(
       userStakeAccountsMerged.filter(s => s.publicKey.equals(activeStake))
-        .length,
+        .length
     ).toEqual(1)
   })
 
@@ -289,29 +282,26 @@ describe('Claim withdraw request using CLI', () => {
     // + needed to wait 1 epoch for the withdraw request to be claimable (config set 'withdrawLockupEpochs' to 0)
     await waitForNextEpoch(provider.connection, 15)
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'claim-withdraw-request',
-          voteAccount.toBase58(),
-          '--config',
-          configAccount.toBase58(),
-          '--authority',
-          validatorIdentityPath,
-          '--withdrawer',
-          pubkey(user).toBase58(),
-          '--stake-account',
-          stakeAccount.toBase58(),
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'claim-withdraw-request',
+        voteAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--authority',
+        validatorIdentityPath,
+        '--withdrawer',
+        pubkey(user).toBase58(),
+        '--stake-account',
+        stakeAccount.toBase58(),
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /successfully claimed/,
@@ -327,26 +317,23 @@ describe('Claim withdraw request using CLI', () => {
       voteAccount,
     })
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'claim-withdraw-request',
-          withdrawRequestAccount.toBase58(),
-          '--config',
-          configAccount.toBase58(),
-          '--authority',
-          validatorIdentityPath,
-          '--print-only',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'claim-withdraw-request',
+        withdrawRequestAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--authority',
+        validatorIdentityPath,
+        '--print-only',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /successfully claimed/,

@@ -1,32 +1,33 @@
-import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import {
+  executeTxSimple,
+  transaction,
+  waitForNextEpoch,
+} from '@marinade.finance/web3js-1x'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+
 import {
   MERGE_STAKE_EVENT,
-  ValidatorBondsProgram,
   getStakeAccount,
   mergeStakeInstruction,
   bondsWithdrawerAuthority,
   parseCpiEvents,
   assertEvent,
 } from '../../src'
-import { initTest } from '../utils/testValidator'
-import { executeInitConfigInstruction } from '../utils/testTransactions'
-import {
-  executeTxSimple,
-  transaction,
-  waitForNextEpoch,
-} from '@marinade.finance/web3js-1x'
 import { authorizeStakeAccount, delegatedStakeAccount } from '../utils/staking'
+import { executeInitConfigInstruction } from '../utils/testTransactions'
+import { initTest } from '../utils/testValidator'
 
-import { assert } from 'console'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds fund bond', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+  beforeAll(() => {
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -43,7 +44,7 @@ describe('Validator Bonds fund bond', () => {
     await waitForNextEpoch(provider.connection, 25)
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId,
+      program.programId
     )
     const [lamports1, lamports2] = [2, 3].map(n => n * LAMPORTS_PER_SOL)
     const {
@@ -94,13 +95,12 @@ describe('Validator Bonds fund bond', () => {
     expect(stakeAccountData.withdrawer).toEqual(bondWithdrawer)
     expect(stakeAccountData.isLockedUp).toBeFalsy()
     expect(stakeAccountData.balanceLamports).toEqual(
-      (lamports1 || -1) + (lamports2 || -1),
+      (lamports1 || -1) + (lamports2 || -1)
     )
     expect(await provider.connection.getAccountInfo(stakeAccount2)).toBeNull()
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, MERGE_STAKE_EVENT)
-    assert(e !== undefined)
     expect(e.config).toEqual(configAccount)
     expect(e.destinationStake).toEqual(stakeAccount1)
     expect(e.destinationDelegation?.voterPubkey).toEqual(voteAccount)

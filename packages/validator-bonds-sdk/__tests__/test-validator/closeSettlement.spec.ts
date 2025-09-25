@@ -1,24 +1,26 @@
-import { Keypair, PublicKey } from '@solana/web3.js'
+import assert from 'assert'
+
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+import { executeTxSimple, waitForNextEpoch } from '@marinade.finance/web3js-1x'
+import { transaction } from '@marinade.finance/web3js-1x'
+import { Keypair } from '@solana/web3.js'
+
 import {
-  ValidatorBondsProgram,
   CLOSE_SETTLEMENT_EVENT,
   closeSettlementV2Instruction,
   parseCpiEvents,
   assertEvent,
 } from '../../src'
-import { initTest } from '../utils/testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { executeTxSimple, waitForNextEpoch } from '@marinade.finance/web3js-1x'
-import { transaction } from '@marinade.finance/web3js-1x'
-import {
-  AnchorExtendedProvider,
-  getAnchorValidatorInfo,
-} from '@marinade.finance/anchor-common'
-import assert from 'assert'
+import { initTest } from '../utils/testValidator'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds close settlement', () => {
   let provider: AnchorExtendedProvider
@@ -30,7 +32,7 @@ describe('Validator Bonds close settlement', () => {
   let bondAccount: PublicKey
 
   beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 
@@ -40,7 +42,7 @@ describe('Validator Bonds close settlement', () => {
         program,
         provider,
         epochsToClaimSettlement: 0,
-      },
+      }
     ))
     ;({ voteAccount, bondAccount } = await executeInitBondInstruction({
       configAccount,
@@ -78,7 +80,7 @@ describe('Validator Bonds close settlement', () => {
       provider.wallet,
     ])
     expect(
-      await provider.connection.getAccountInfo(settlementAccount),
+      await provider.connection.getAccountInfo(settlementAccount)
     ).toBeNull()
 
     const events = parseCpiEvents(program, executionReturn?.response)

@@ -1,28 +1,29 @@
+import assert from 'assert'
+
+import { verifyError } from '@marinade.finance/anchor-common'
+import { assertNotExist, currentEpoch } from '@marinade.finance/bankrun-utils'
+import { createUserAndFund } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
 import {
   Errors,
-  ValidatorBondsProgram,
   cancelSettlementInstruction,
   closeSettlementV2Instruction,
   configureConfigInstruction,
   getSettlement,
 } from '../../src'
-import {
-  BankrunExtendedProvider,
-  assertNotExist,
-  currentEpoch,
-} from '@marinade.finance/bankrun-utils'
+import { getRentExempt } from '../utils/helpers'
+import { createVoteAccount } from '../utils/staking'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import { createVoteAccount } from '../utils/staking'
-import { getRentExempt } from '../utils/helpers'
-import assert from 'assert'
-import { createUserAndFund } from '@marinade.finance/web3js-1x'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest } from './bankrun'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds cancel settlement', () => {
   let provider: BankrunExtendedProvider
@@ -82,10 +83,10 @@ describe('Validator Bonds cancel settlement', () => {
     rentExemptSettlement = await getRentExempt(provider, settlementAccount)
     rentExemptSettlementClaims = await getRentExempt(
       provider,
-      settlementClaimsAccount,
+      settlementClaimsAccount
     )
     const settlementData = await getSettlement(program, settlementAccount)
-    expect(bondAccount).toEqual(settlementData.bond)
+    assert(bondAccount.toBase58() === settlementData.bond.toBase58())
   })
 
   it('cancel settlement with operator authority', async () => {
@@ -99,11 +100,11 @@ describe('Validator Bonds cancel settlement', () => {
     await assertNotExist(provider, settlementAccount)
 
     const rentCollectorInfo = await provider.connection.getAccountInfo(
-      rentCollector.publicKey,
+      rentCollector.publicKey
     )
     assert(rentCollectorInfo !== null)
     expect(rentCollectorInfo.lamports).toEqual(
-      LAMPORTS_PER_SOL + rentExemptSettlement + rentExemptSettlementClaims,
+      LAMPORTS_PER_SOL + rentExemptSettlement + rentExemptSettlementClaims
     )
   })
 
@@ -114,7 +115,7 @@ describe('Validator Bonds cancel settlement', () => {
         program,
         configAccount: configAccount,
         newPauseAuthority: pauseAuthority.publicKey,
-      },
+      }
     )
     await provider.sendIx([adminAuthority], configureConfigIx)
 
@@ -129,11 +130,11 @@ describe('Validator Bonds cancel settlement', () => {
     await assertNotExist(provider, settlementAccount)
 
     const rentCollectorInfo = await provider.connection.getAccountInfo(
-      rentCollector.publicKey,
+      rentCollector.publicKey
     )
     assert(rentCollectorInfo !== null)
     expect(rentCollectorInfo.lamports).toEqual(
-      LAMPORTS_PER_SOL + rentExemptSettlement + rentExemptSettlementClaims,
+      LAMPORTS_PER_SOL + rentExemptSettlement + rentExemptSettlementClaims
     )
   })
 
@@ -153,11 +154,11 @@ describe('Validator Bonds cancel settlement', () => {
         e,
         Errors,
         6060,
-        'permitted only to operator or pause authority',
+        'permitted only to operator or pause authority'
       )
     }
     expect(
-      await provider.connection.getAccountInfo(settlementAccount),
+      await provider.connection.getAccountInfo(settlementAccount)
     ).not.toBeNull()
   })
 

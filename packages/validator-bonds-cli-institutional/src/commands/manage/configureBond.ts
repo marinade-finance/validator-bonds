@@ -1,12 +1,13 @@
-import { PublicKey } from '@solana/web3.js'
-import { Command } from 'commander'
 import {
   configureConfigureBond,
   manageConfigureBond,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { MARINADE_INSTITUTIONAL_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
-import BN from 'bn.js'
+
+import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
+import type { PublicKey } from '@solana/web3.js'
+import type BN from 'bn.js'
+import type { Command } from 'commander'
 
 export function installConfigureBond(program: Command) {
   configureConfigureBond(program).action(
@@ -28,7 +29,7 @@ export function installConfigureBond(program: Command) {
         cpmpe?: BN
         maxStakeWanted?: BN
         computeUnitLimit?: number
-      },
+      }
     ) => {
       await manageConfigureBond({
         address: await address,
@@ -41,6 +42,6 @@ export function installConfigureBond(program: Command) {
         maxStakeWanted,
         computeUnitLimit,
       })
-    },
+    }
   )
 }

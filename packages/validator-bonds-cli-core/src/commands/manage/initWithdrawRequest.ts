@@ -1,6 +1,11 @@
 import { CliCommandError } from '@marinade.finance/cli-common'
-import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
+import {
+  checkAndGetBondAddress,
+  getBond,
+  getConfig,
+  getRentExemptStake,
+  initWithdrawRequestInstruction,
+} from '@marinade.finance/validator-bonds-sdk'
 import {
   ExecutionError,
   U64_MAX,
@@ -11,31 +16,27 @@ import {
   parseWalletOrPubkeyOption,
   transaction,
 } from '@marinade.finance/web3js-1x'
-import {
-  checkAndGetBondAddress,
-  getBond,
-  getConfig,
-  getRentExemptStake,
-  initWithdrawRequestInstruction,
-  ValidatorBondsProgram,
-} from '@marinade.finance/validator-bonds-sdk'
-import { PublicKey, Signer } from '@solana/web3.js'
 import BN from 'bn.js'
+
+import {
+  INIT_WITHDRAW_REQUEST_LIMIT_UNITS,
+  computeUnitLimitOption,
+} from '../../computeUnits'
+import { setProgramIdByOwner } from '../../context'
 import {
   formatToSol,
   formatToSolWithAll,
   getBondFromAddress,
 } from '../../utils'
-import {
-  INIT_WITHDRAW_REQUEST_LIMIT_UNITS,
-  computeUnitLimitOption,
-} from '../../computeUnits'
 
+import type { LoggerWrapper } from '@marinade.finance/ts-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 import type {
   Wallet as WalletInterface,
   Wallet,
 } from '@marinade.finance/web3js-1x'
-import { LoggerWrapper } from '@marinade.finance/ts-common'
+import type { PublicKey, Signer } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function configureInitWithdrawRequest(program: Command): Command {
   return program
@@ -43,19 +44,19 @@ export function configureInitWithdrawRequest(program: Command): Command {
     .description(
       'Initializing withdrawal by creating a request ticket. ' +
         'The withdrawal request ticket is used to indicate a desire to withdraw the specified amount ' +
-        'of lamports after the lockup period expires.',
+        'of lamports after the lockup period expires.'
     )
     .argument(
       '[address]',
       'Address of the bond account to withdraw funds from. Provide: bond or vote account address. ' +
         'When the [address] is not provided, both the --config and --vote-account options are required.',
-      parsePubkey,
+      parsePubkey
     )
     .option(
       '--vote-account <pubkey>',
       '(optional when the argument "address" is NOT provided, used to derive the bond address) ' +
         'Validator vote account that the bond is bound to',
-      parsePubkeyOrPubkeyFromWallet,
+      parsePubkeyOrPubkeyFromWallet
     )
     .option(
       '--authority <keypair_or_ledger_or_pubkey>',
@@ -63,18 +64,18 @@ export function configureInitWithdrawRequest(program: Command): Command {
         'It is either the authority defined in the bond account or ' +
         'vote account validator identity that the bond account is connected to. ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkeyOption,
+      parseWalletOrPubkeyOption
     )
     .requiredOption(
       '--amount <lamports | ALL>',
       'Maximal number of **lamports** to withdraw from the bond ' +
         '(NOTE: consider staking rewards can be added to stake accounts during the time the withdraw request claiming time is elapsing). ' +
-        'If the bond should be fully withdrawn, use "ALL" instead of the amount.',
+        'If the bond should be fully withdrawn, use "ALL" instead of the amount.'
     )
     .option(
       '--rent-payer <keypair_or_ledger_or_pubkey>',
       'Rent payer for the account creation (default: wallet keypair)',
-      parseWalletOrPubkeyOption,
+      parseWalletOrPubkeyOption
     )
     .addOption(computeUnitLimitOption(INIT_WITHDRAW_REQUEST_LIMIT_UNITS))
 }
@@ -141,7 +142,7 @@ export async function manageInitWithdrawRequest({
     bondAccountAddress,
     config,
     voteAccount,
-    program.programId,
+    program.programId
   )
   if (voteAccount === undefined || config === undefined) {
     const bondData = await getBond(program, bondAccountAddress)
@@ -160,7 +161,7 @@ export async function manageInitWithdrawRequest({
     const configData = await getConfig(program, config)
     const rentExemptStake = await getRentExemptStake(provider)
     const minimalAmountToWithdraw = configData.minimumStakeLamports.add(
-      new BN(rentExemptStake),
+      new BN(rentExemptStake)
     )
     if (amountBN.lt(minimalAmountToWithdraw)) {
       throw new CliCommandError({
@@ -189,8 +190,8 @@ export async function manageInitWithdrawRequest({
   logger.info(
     `Initializing withdraw request account ${withdrawRequestAccount.toBase58()} (amount: ` +
       `${formatToSolWithAll(
-        amountBN,
-      )}) for bond account ${bondAccount.toBase58()}`,
+        amountBN
+      )}) for bond account ${bondAccount.toBase58()}`
   )
   try {
     await executeTx({
@@ -209,7 +210,7 @@ export async function manageInitWithdrawRequest({
     })
     logger.info(
       `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +
-        `for bond account ${bondAccount.toBase58()} successfully initialized`,
+        `for bond account ${bondAccount.toBase58()} successfully initialized`
     )
   } catch (err) {
     await failIfUnexpectedError({
@@ -238,18 +239,18 @@ async function failIfUnexpectedError({
   ) {
     const withdrawRequestData =
       await program.account.withdrawRequest.fetchNullable(
-        withdrawRequestAccount,
+        withdrawRequestAccount
       )
     if (withdrawRequestData !== null) {
       logger.info(
         `The withdraw request ${withdrawRequestAccount.toBase58()} ALREADY exists on-chain. ` +
           `The requested amount ${formatToSolWithAll(
-            withdrawRequestData.requestedAmount,
+            withdrawRequestData.requestedAmount
           )}, ` +
           `with withdrawn amount ${formatToSolWithAll(
-            withdrawRequestData.withdrawnAmount,
+            withdrawRequestData.withdrawnAmount
           )}.\n` +
-          '  If you want to withdraw more, consider canceling the existing request and creating a new withdraw request.',
+          '  If you want to withdraw more, consider canceling the existing request and creating a new withdraw request.'
       )
       return
     }

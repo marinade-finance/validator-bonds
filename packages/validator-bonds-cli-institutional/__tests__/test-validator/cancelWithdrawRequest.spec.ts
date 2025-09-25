@@ -1,23 +1,27 @@
+import assert from 'assert'
+
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
+import { rand } from '@marinade.finance/ts-common'
+import {
+  MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
+  getWithdrawRequest,
+} from '@marinade.finance/validator-bonds-sdk'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+import {
+  executeInitBondInstruction,
+  executeInitWithdrawRequestInstruction,
+} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import {
   createTempFileKeypair,
   createUserAndFund,
   pubkey,
 } from '@marinade.finance/web3js-1x'
-import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import {
-  MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
-  ValidatorBondsProgram,
-  getWithdrawRequest,
-} from '@marinade.finance/validator-bonds-sdk'
-import {
-  executeInitBondInstruction,
-  executeInitWithdrawRequestInstruction,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
-import { rand } from '@marinade.finance/ts-common'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import type { Keypair, PublicKey } from '@solana/web3.js'
 
 describe('Cancel withdraw request using CLI (institutional)', () => {
   let stakeAccountLamports: number
@@ -30,9 +34,9 @@ describe('Cancel withdraw request using CLI (institutional)', () => {
   let validatorIdentityKeypair: Keypair
   let validatorIdentityCleanup: () => Promise<void>
 
-  beforeAll(async () => {
+  beforeAll(() => {
     extendJestWithShellMatchers()
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -42,11 +46,11 @@ describe('Cancel withdraw request using CLI (institutional)', () => {
       cleanup: validatorIdentityCleanup,
     } = await createTempFileKeypair())
     stakeAccountLamports = LAMPORTS_PER_SOL * rand(99, 5)
-    expect(
-      await provider.connection.getAccountInfo(
-        MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
-      ),
-    ).not.toBeNull()
+    assert(
+      (await provider.connection.getAccountInfo(
+        MARINADE_INSTITUTIONAL_CONFIG_ADDRESS
+      )) !== null
+    )
     ;({ voteAccount } = await createVoteAccount({
       provider,
       validatorIdentity: validatorIdentityKeypair,
@@ -74,7 +78,7 @@ describe('Cancel withdraw request using CLI (institutional)', () => {
   it('cancel withdraw request', async () => {
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount,
+      withdrawRequestAccount
     )
     expect(withdrawRequestData.requestedAmount).toEqual(stakeAccountLamports)
     const rentExempt = (
@@ -84,36 +88,33 @@ describe('Cancel withdraw request using CLI (institutional)', () => {
     const user = await createUserAndFund({ provider, lamports: userFunding })
     expect(await provider.connection.getAccountInfo(voteAccount)).not.toBeNull()
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli:institutional',
-          '-u',
-          provider.connection.rpcEndpoint,
-          'cancel-withdraw-request',
-          voteAccount.toBase58(),
-          '--authority',
-          validatorIdentityPath,
-          '--rent-collector',
-          pubkey(user).toBase58(),
-          '--confirmation-finality',
-          'confirmed',
-          '--verbose',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli:institutional',
+        '-u',
+        provider.connection.rpcEndpoint,
+        'cancel-withdraw-request',
+        voteAccount.toBase58(),
+        '--authority',
+        validatorIdentityPath,
+        '--rent-collector',
+        pubkey(user).toBase58(),
+        '--confirmation-finality',
+        'confirmed',
+        '--verbose',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /successfully cancelled/,
     })
 
     expect(
-      await provider.connection.getAccountInfo(withdrawRequestAccount),
+      await provider.connection.getAccountInfo(withdrawRequestAccount)
     ).toBeNull()
     expect(
-      (await provider.connection.getAccountInfo(pubkey(user)))?.lamports,
+      (await provider.connection.getAccountInfo(pubkey(user)))?.lamports
     ).toEqual(userFunding + rentExempt!)
   })
 })

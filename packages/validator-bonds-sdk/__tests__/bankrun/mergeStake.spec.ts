@@ -1,6 +1,21 @@
+import { verifyError } from '@marinade.finance/anchor-common'
+import {
+  assertNotExist,
+  currentEpoch,
+  warpToEpoch,
+  warpToNextEpoch,
+} from '@marinade.finance/bankrun-utils'
+import { pubkey, signer } from '@marinade.finance/web3js-1x'
+import {
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SYSVAR_STAKE_HISTORY_PUBKEY,
+  StakeProgram,
+} from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
 import {
   Errors,
-  ValidatorBondsProgram,
   bondAddress,
   mergeStakeInstruction,
   settlementAddress,
@@ -12,26 +27,7 @@ import {
   fundSettlementInstruction,
   getStakeAccount,
 } from '../../src'
-import {
-  BankrunExtendedProvider,
-  assertNotExist,
-  currentEpoch,
-  warpToEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-  executeInitSettlement,
-  executeWithdraw,
-} from '../utils/testTransactions'
-import {
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  SYSVAR_STAKE_HISTORY_PUBKEY,
-  StakeProgram,
-} from '@solana/web3.js'
+import { getSecureRandomInt } from '../utils/helpers'
 import {
   authorizeStakeAccount,
   createVoteAccount,
@@ -41,10 +37,16 @@ import {
   StakeStates,
   createBondsFundedStakeAccount,
 } from '../utils/staking'
-import { pubkey, signer } from '@marinade.finance/web3js-1x'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest } from './bankrun'
-import { getSecureRandomInt } from '../utils/helpers'
+import {
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+  executeInitSettlement,
+  executeWithdraw,
+} from '../utils/testTransactions'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { Keypair } from '@solana/web3.js'
 
 describe('Staking merge verification/investigation', () => {
   let provider: BankrunExtendedProvider
@@ -63,7 +65,7 @@ describe('Staking merge verification/investigation', () => {
       {
         program,
         provider,
-      },
+      }
     ))
   })
 
@@ -88,7 +90,7 @@ describe('Staking merge verification/investigation', () => {
     try {
       await provider.sendIx([], instruction)
       throw new Error(
-        'failure expected as accounts are not owned by bonds program',
+        'failure expected as accounts are not owned by bonds program'
       )
     } catch (e) {
       verifyError(e, Errors, 6045, 'does not belong to bonds program')
@@ -98,7 +100,7 @@ describe('Staking merge verification/investigation', () => {
   it('cannot merge same and with wrong withdrawer authorities', async () => {
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId,
+      program.programId
     )
     const { stakeAccount: nonDelegatedStakeAccount, staker } =
       await createInitializedStakeAccount({
@@ -143,7 +145,7 @@ describe('Staking merge verification/investigation', () => {
   it('merge possible when both is non delegated', async () => {
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId,
+      program.programId
     )
     const { stakeAccount: nonDelegatedStakeAccount } =
       await createInitializedStakeAccount({
@@ -184,7 +186,7 @@ describe('Staking merge verification/investigation', () => {
         e,
         Errors,
         6047,
-        'Delegation of provided stake account mismatches',
+        'Delegation of provided stake account mismatches'
       )
     }
 
@@ -200,7 +202,7 @@ describe('Staking merge verification/investigation', () => {
   it('cannot merge different delegation', async () => {
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId,
+      program.programId
     )
     const { stakeAccount: stakeAccount1, withdrawer: withdrawer1 } =
       await delegatedStakeAccount({
@@ -244,7 +246,7 @@ describe('Staking merge verification/investigation', () => {
         e,
         Errors,
         6047,
-        'Delegation of provided stake account mismatches',
+        'Delegation of provided stake account mismatches'
       )
     }
     const { instruction: instruction2 } = await mergeStakeInstruction({
@@ -261,7 +263,7 @@ describe('Staking merge verification/investigation', () => {
         e,
         Errors,
         6047,
-        'Delegation of provided stake account mismatches',
+        'Delegation of provided stake account mismatches'
       )
     }
   })
@@ -269,7 +271,7 @@ describe('Staking merge verification/investigation', () => {
   it('cannot merge different deactivated delegation', async () => {
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId,
+      program.programId
     )
     const {
       stakeAccount: stakeAccount1,
@@ -295,7 +297,7 @@ describe('Staking merge verification/investigation', () => {
     // warp to make the funds effective in stake account
     warpToEpoch(
       provider,
-      Number((await provider.context.banksClient.getClock()).epoch) + 1,
+      Number((await provider.context.banksClient.getClock()).epoch) + 1
     )
     const deactivate1Ix = StakeProgram.deactivate({
       stakePubkey: stakeAccount1,
@@ -324,7 +326,7 @@ describe('Staking merge verification/investigation', () => {
           'Expected failure as stake account funds are still effective, ' +
             `failure happens but with a wrong message: '${
               (e as Error).message
-            }'`,
+            }'`
         )
         throw e
       }
@@ -332,7 +334,7 @@ describe('Staking merge verification/investigation', () => {
     // making funds ineffective, withdraw works
     warpToEpoch(
       provider,
-      Number((await provider.context.banksClient.getClock()).epoch) + 1,
+      Number((await provider.context.banksClient.getClock()).epoch) + 1
     )
     await executeWithdraw(provider, stakeAccount1, withdrawer1, undefined, 1)
 
@@ -354,18 +356,18 @@ describe('Staking merge verification/investigation', () => {
     const [stakeAccount1Data] = await getAndCheckStakeAccount(
       provider,
       stakeAccount1,
-      StakeStates.Delegated,
+      StakeStates.Delegated
     )
     expect(stakeAccount1Data.Stake?.stake.delegation.voterPubkey).toEqual(
-      voteAccount1,
+      voteAccount1
     )
     const [stakeAccount2Data] = await getAndCheckStakeAccount(
       provider,
       stakeAccount2,
-      StakeStates.Delegated,
+      StakeStates.Delegated
     )
     expect(stakeAccount2Data.Stake?.stake.delegation.voterPubkey).toEqual(
-      voteAccount2,
+      voteAccount2
     )
 
     const { instruction } = await mergeStakeInstruction({
@@ -382,7 +384,7 @@ describe('Staking merge verification/investigation', () => {
         e,
         Errors,
         6047,
-        'Delegation of provided stake account mismatches',
+        'Delegation of provided stake account mismatches'
       )
     }
     const { instruction: instruction2 } = await mergeStakeInstruction({
@@ -399,7 +401,7 @@ describe('Staking merge verification/investigation', () => {
         e,
         Errors,
         6047,
-        'Delegation of provided stake account mismatches',
+        'Delegation of provided stake account mismatches'
       )
     }
   })
@@ -408,7 +410,7 @@ describe('Staking merge verification/investigation', () => {
     const voteAccount = (await createVoteAccount({ provider })).voteAccount
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId,
+      program.programId
     )
     const currentEpoch = (await provider.context.banksClient.getClock()).epoch
     const [bond] = bondAddress(configAccount, program.programId)
@@ -416,11 +418,11 @@ describe('Staking merge verification/investigation', () => {
       bond,
       Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
       currentEpoch,
-      program.programId,
+      program.programId
     )
     const [settlementStaker] = settlementStakerAuthority(
       settlement,
-      program.programId,
+      program.programId
     )
     const { stakeAccount: stakeAccount1, withdrawer: withdrawer1 } =
       await delegatedStakeAccount({
@@ -481,7 +483,7 @@ describe('Staking merge verification/investigation', () => {
   it('merging when funded to bond', async () => {
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId,
+      program.programId
     )
     const {
       stakeAccount: stakeAccount1,
@@ -564,14 +566,14 @@ describe('Staking merge verification/investigation', () => {
 
     const stakeAccount1 = await createBondsFundedStakeAccountActivated(
       voteAccount,
-      lamportsToFund1,
+      lamportsToFund1
     )
     const stakeAccountData1 =
       await provider.connection.getAccountInfo(stakeAccount1)
     expect(stakeAccountData1?.lamports).toEqual(lamportsToFund1)
     const stakeAccount2 = await createBondsFundedStakeAccountActivated(
       voteAccount,
-      lamportsToFund2,
+      lamportsToFund2
     )
     const stakeAccountData2 =
       await provider.connection.getAccountInfo(stakeAccount2)
@@ -595,33 +597,33 @@ describe('Staking merge verification/investigation', () => {
     await provider.sendIx(
       [signer(split1), signer(split2), operatorAuthority],
       ix1,
-      ix2,
+      ix2
     )
 
     let settlement = await getSettlement(program, settlementAccount)
     // the amount in stake accounts were set to over-fund by 1 sol that cannot be
     // split to a separate stake account and this one SOL is thus funded on top of required
     expect(settlement.lamportsFunded).toEqual(
-      maxTotalClaim + 1 * LAMPORTS_PER_SOL,
+      maxTotalClaim + 1 * LAMPORTS_PER_SOL
     )
 
     const [withdrawerAuthority] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId,
+      program.programId
     )
     const [stakerAuthority] = settlementStakerAuthority(
       settlementAccount,
-      program.programId,
+      program.programId
     )
     let stakeAccount1Data = await getStakeAccount(
       program.provider,
       stakeAccount1,
-      epoch,
+      epoch
     )
     const stakeAccount2Data = await getStakeAccount(
       program.provider,
       stakeAccount2,
-      epoch,
+      epoch
     )
     expect(stakeAccount1Data.balanceLamports).toEqual(lamportsToFund1)
     expect(stakeAccount1Data.voter).toEqual(voteAccount)
@@ -649,22 +651,22 @@ describe('Staking merge verification/investigation', () => {
     stakeAccount1Data = await getStakeAccount(
       program.provider,
       stakeAccount1,
-      epoch,
+      epoch
     )
     expect(stakeAccount1Data.staker).toEqual(stakerAuthority)
     expect(stakeAccount1Data.balanceLamports).toEqual(
-      lamportsToFund1 + lamportsToFund2,
+      lamportsToFund1 + lamportsToFund2
     )
 
     settlement = await getSettlement(program, settlementAccount)
     expect(settlement.lamportsFunded).toEqual(
-      maxTotalClaim + 1 * LAMPORTS_PER_SOL,
+      maxTotalClaim + 1 * LAMPORTS_PER_SOL
     )
   })
 
   async function createBondsFundedStakeAccountActivated(
     voteAccount: PublicKey,
-    lamports: number,
+    lamports: number
   ): Promise<PublicKey> {
     const sa = await createBondsFundedStakeAccount({
       program,

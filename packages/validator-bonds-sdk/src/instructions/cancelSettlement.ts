@@ -1,18 +1,16 @@
 import {
   PublicKey,
-  TransactionInstruction,
   StakeProgram,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   SYSVAR_CLOCK_PUBKEY,
-  Keypair,
-  Signer,
 } from '@solana/web3.js'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+
 import { anchorProgramWalletPubkey } from '../utils'
-import {
-  CloseSettlementParams,
-  getCloseSettlementAccounts,
-} from './closeSettlementV2'
+import { getCloseSettlementAccounts } from './closeSettlementV2'
+
+import type { CloseSettlementParams } from './closeSettlementV2'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { TransactionInstruction, Keypair, Signer } from '@solana/web3.js'
 
 /**
  * Generate instruction to cancel settlement.
@@ -22,7 +20,7 @@ import {
 export async function cancelSettlementInstruction(
   params: CloseSettlementParams & {
     authority?: PublicKey | Keypair | Signer | WalletInterface // signer
-  },
+  }
 ): Promise<{
   instruction: TransactionInstruction
 }> {

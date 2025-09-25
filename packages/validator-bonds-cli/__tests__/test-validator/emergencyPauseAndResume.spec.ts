@@ -1,14 +1,15 @@
-import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
-import { Keypair, PublicKey } from '@solana/web3.js'
 import {
-  ValidatorBondsProgram,
   configureConfigInstruction,
   getConfig,
 } from '@marinade.finance/validator-bonds-sdk'
-import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
+import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
+
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import type { Keypair, PublicKey } from '@solana/web3.js'
 
 describe('Pause and resume using CLI', () => {
   let provider: AnchorExtendedProvider
@@ -18,9 +19,9 @@ describe('Pause and resume using CLI', () => {
   let pauseAuthorityCleanup: () => Promise<void>
   let config: PublicKey
 
-  beforeAll(async () => {
+  beforeAll(() => {
     extendJestWithShellMatchers()
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -53,25 +54,22 @@ describe('Pause and resume using CLI', () => {
     let configData = await getConfig(program, config)
     expect(configData.paused).toEqual(false)
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'pause',
-          config.toBase58(),
-          '--authority',
-          pauseAuthorityPath,
-          '--confirmation-finality',
-          'confirmed',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'pause',
+        config.toBase58(),
+        '--authority',
+        pauseAuthorityPath,
+        '--confirmation-finality',
+        'confirmed',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /Succeeded to pause/,
@@ -79,25 +77,22 @@ describe('Pause and resume using CLI', () => {
     configData = await getConfig(program, config)
     expect(configData.paused).toEqual(true)
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'resume',
-          config.toBase58(),
-          '--authority',
-          pauseAuthorityPath,
-          '--confirmation-finality',
-          'confirmed',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'resume',
+        config.toBase58(),
+        '--authority',
+        pauseAuthorityPath,
+        '--confirmation-finality',
+        'confirmed',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /Succeeded to resume/,
@@ -107,44 +102,38 @@ describe('Pause and resume using CLI', () => {
   })
 
   it('pause and resume in print-only mode', async () => {
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '--program-id',
-          program.programId.toBase58(),
-          'pause',
-          config.toBase58(),
-          '--authority',
-          pauseAuthorityPath,
-          '--print-only',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '--program-id',
+        program.programId.toBase58(),
+        'pause',
+        config.toBase58(),
+        '--authority',
+        pauseAuthorityPath,
+        '--print-only',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /Succeeded to pause/,
     })
     expect((await getConfig(program, config)).paused).toEqual(false)
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '--program-id',
-          program.programId.toBase58(),
-          'resume',
-          config.toBase58(),
-          '--authority',
-          pauseAuthorityPath,
-          '--print-only',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '--program-id',
+        program.programId.toBase58(),
+        'resume',
+        config.toBase58(),
+        '--authority',
+        pauseAuthorityPath,
+        '--print-only',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /Succeeded to resume/,

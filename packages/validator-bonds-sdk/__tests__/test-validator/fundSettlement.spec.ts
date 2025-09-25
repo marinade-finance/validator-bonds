@@ -1,6 +1,11 @@
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import assert from 'assert'
+
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
+import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+
 import {
-  ValidatorBondsProgram,
   FUND_SETTLEMENT_EVENT,
   fundSettlementInstruction,
   bondsWithdrawerAuthority,
@@ -9,20 +14,17 @@ import {
   assertEvent,
   getRentExemptStake,
 } from '../../src'
-import { initTest } from '../utils/testValidator'
+import { authorizeStakeAccount, delegatedStakeAccount } from '../utils/staking'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
-import { authorizeStakeAccount, delegatedStakeAccount } from '../utils/staking'
-import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
-import {
-  AnchorExtendedProvider,
-  getAnchorValidatorInfo,
-} from '@marinade.finance/anchor-common'
-import assert from 'assert'
+import { initTest } from '../utils/testValidator'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds fund settlement', () => {
   let provider: AnchorExtendedProvider
@@ -34,7 +36,7 @@ describe('Validator Bonds fund settlement', () => {
   let bondAccount: PublicKey
 
   beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 
@@ -44,7 +46,7 @@ describe('Validator Bonds fund settlement', () => {
         program,
         provider,
         epochsToClaimSettlement: 0,
-      },
+      }
     ))
     ;({ voteAccount, bondAccount } = await executeInitBondInstruction({
       configAccount,
@@ -75,7 +77,7 @@ describe('Validator Bonds fund settlement', () => {
     // not needed to activate for this test case
     const [bondsAuth] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId,
+      program.programId
     )
     await authorizeStakeAccount({
       provider,
@@ -124,7 +126,7 @@ describe('Validator Bonds fund settlement', () => {
     expect(e.splitRentCollector).toEqual(pubkey(splitRentPayer))
     expect(e.splitStakeAccount?.address).toEqual(pubkey(splitStakeAccount))
     expect(e.splitStakeAccount?.amount).toEqual(
-      fundedAmount - 2 * LAMPORTS_PER_SOL - minimalStakeAccountSize,
+      fundedAmount - 2 * LAMPORTS_PER_SOL - minimalStakeAccountSize
     )
   })
 })

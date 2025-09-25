@@ -1,13 +1,14 @@
-import { FormatType } from '@marinade.finance/cli-common'
 import {
   configureShowBond,
   reformatBond,
   showBond,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { MARINADE_INSTITUTIONAL_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
-import { ReformatAction } from '@marinade.finance/web3js-1x'
-import { PublicKey } from '@solana/web3.js'
-import { Command } from 'commander'
+
+import type { FormatType } from '@marinade.finance/cli-common'
+import type { ReformatAction } from '@marinade.finance/web3js-1x'
+import type { PublicKey } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function installShowBond(program: Command) {
   program = configureShowBond(program)
@@ -22,7 +23,7 @@ export function installShowBond(program: Command) {
         bondAuthority?: Promise<PublicKey>
         withFunding: boolean
         format: FormatType
-      },
+      }
     ) => {
       await showBond({
         address: await address,
@@ -32,18 +33,17 @@ export function installShowBond(program: Command) {
         format,
         reformatBondFunction: reformatBondInstitutional,
       })
-    },
+    }
   )
 }
 
 export function reformatBondInstitutional(
   key: string,
-  value: unknown,
+  value: unknown
 ): ReformatAction {
   if (
     typeof key === 'string' &&
-    ((key as string).startsWith('cpmpe') ||
-      (key as string).startsWith('maxStakeWanted'))
+    (key.startsWith('cpmpe') || key.startsWith('maxStakeWanted'))
   ) {
     return { type: 'Remove' }
   }

@@ -1,11 +1,11 @@
-import BN from 'bn.js'
-import {
-  SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE,
-  SettlementClaims,
-  ValidatorBondsProgram,
-} from './sdk'
-import { AccountInfo } from '@solana/web3.js'
 import assert from 'assert'
+
+import BN from 'bn.js'
+
+import { SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE } from './sdk'
+
+import type { SettlementClaims, ValidatorBondsProgram } from './sdk'
+import type { AccountInfo } from '@solana/web3.js'
 
 export type SettlementClaimsBitmap = {
   account: SettlementClaims
@@ -23,15 +23,15 @@ export class Bitmap {
   public constructor(settlementClaims: SettlementClaims, accountData: Buffer) {
     if (!Bitmap.isInitialized(settlementClaims.maxRecords, accountData)) {
       throw new Error(
-        'Bitmap data is too small, SettlementClaims account is probably not fully initialized.',
+        'Bitmap data is too small, SettlementClaims account is probably not fully initialized.'
       )
     }
     const expectedBitmapSize = Bitmap.bitmapByteSize(
-      settlementClaims.maxRecords,
+      settlementClaims.maxRecords
     )
     this.bitmapData = accountData.subarray(
       SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE,
-      SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE + expectedBitmapSize,
+      SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE + expectedBitmapSize
     )
     this.maxRecords = settlementClaims.maxRecords
   }
@@ -83,7 +83,7 @@ export class Bitmap {
   assertValidIndex(index: BN | number) {
     index = new BN(index)
     if (index.ltn(0) || index.gte(this.maxRecords)) {
-      throw new Error(`Index ${index} out of range`)
+      throw new Error(`Index ${index.toString()} out of range`)
     }
   }
 
@@ -97,7 +97,7 @@ export class Bitmap {
 
 export function decodeSettlementClaimsData(
   program: ValidatorBondsProgram,
-  accountInfo: AccountInfo<Buffer>,
+  accountInfo: AccountInfo<Buffer>
 ): SettlementClaimsBitmap {
   const account = decode(program, accountInfo)
   return {
@@ -108,7 +108,7 @@ export function decodeSettlementClaimsData(
 
 export function isInitialized(
   program: ValidatorBondsProgram,
-  accountInfo: AccountInfo<Buffer>,
+  accountInfo: AccountInfo<Buffer>
 ): boolean {
   const account = decode(program, accountInfo)
   return Bitmap.isInitialized(account.maxRecords, accountInfo.data)
@@ -116,11 +116,11 @@ export function isInitialized(
 
 function decode(
   program: ValidatorBondsProgram,
-  accountInfo: AccountInfo<Buffer>,
+  accountInfo: AccountInfo<Buffer>
 ): SettlementClaims {
   return program.coder.accounts.decode<SettlementClaims>(
     'settlementClaims',
-    accountInfo.data,
+    accountInfo.data
   )
 }
 

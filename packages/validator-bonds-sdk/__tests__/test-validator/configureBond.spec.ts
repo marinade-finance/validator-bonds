@@ -1,24 +1,26 @@
-import { Keypair, PublicKey } from '@solana/web3.js'
+import assert from 'assert'
+
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
+import { Keypair } from '@solana/web3.js'
+
 import {
   CONFIGURE_BOND_EVENT,
-  ValidatorBondsProgram,
   assertEvent,
   configureBondInstruction,
   getBond,
   parseCpiEvents,
 } from '../../src'
-import { initTest } from '../utils/testValidator'
 import {
   executeConfigureConfigInstruction,
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
-import {
-  AnchorExtendedProvider,
-  getAnchorValidatorInfo,
-} from '@marinade.finance/anchor-common'
-import assert from 'assert'
+import { initTest } from '../utils/testValidator'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds configure bond', () => {
   let provider: AnchorExtendedProvider
@@ -27,7 +29,7 @@ describe('Validator Bonds configure bond', () => {
   let configAccount: PublicKey
 
   beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 

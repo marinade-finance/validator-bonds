@@ -1,7 +1,17 @@
-import { Keypair, Signer } from '@solana/web3.js'
+import assert from 'assert'
+
+import { sleep } from '@marinade.finance/ts-common'
+import {
+  executeTxSimple,
+  signer,
+  signerWithPubkey,
+  splitAndExecuteTx,
+  transaction,
+} from '@marinade.finance/web3js-1x'
+import { Keypair } from '@solana/web3.js'
+
 import {
   INIT_CONFIG_EVENT,
-  ValidatorBondsProgram,
   assertEvent,
   findConfigs,
   getConfig,
@@ -9,23 +19,18 @@ import {
   parseCpiEvents,
 } from '../../src'
 import { initTest } from '../utils/testValidator'
-import {
-  Wallet,
-  executeTxSimple,
-  signer,
-  signerWithPubkey,
-  splitAndExecuteTx,
-  transaction,
-} from '@marinade.finance/web3js-1x'
-import assert from 'assert'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { Wallet } from '@marinade.finance/web3js-1x'
+import type { Signer } from '@solana/web3.js'
 
 describe('Validator Bonds init config', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+  beforeAll(() => {
+    ;({ provider, program } = initTest())
   })
 
   afterAll(async () => {
@@ -36,7 +41,7 @@ describe('Validator Bonds init config', () => {
     // Solution 2: wait for timeout 500 ms defined in @solana/web3.js to close the WS connection
     //  when the WS connection is only closed then
     //  see https://github.com/solana-labs/solana-web3.js/blob/v1.87.3/packages/library-legacy/src/connection.ts#L6043-L6046
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await sleep(500)
   })
 
   it('init config', async () => {

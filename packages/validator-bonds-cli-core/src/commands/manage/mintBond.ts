@@ -1,6 +1,4 @@
-import { PublicKey, Signer } from '@solana/web3.js'
-import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
+import { mintBondInstruction } from '@marinade.finance/validator-bonds-sdk'
 import {
   executeTx,
   instanceOfWallet,
@@ -8,17 +6,20 @@ import {
   parseWalletOrPubkeyOption,
   transaction,
 } from '@marinade.finance/web3js-1x'
-import { mintBondInstruction } from '@marinade.finance/validator-bonds-sdk'
-import { getBondFromAddress } from '../../utils'
+
 import {
   MINT_BOND_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
+import { setProgramIdByOwner } from '../../context'
+import { getBondFromAddress } from '../../utils'
 
 import type {
   Wallet as WalletInterface,
   Wallet,
 } from '@marinade.finance/web3js-1x'
+import type { PublicKey, Signer } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function configureMintBond(program: Command) {
   return program
@@ -28,17 +29,17 @@ export function configureMintBond(program: Command) {
         'without requiring a direct signature for the on-chain transaction. ' +
         'The workflow is as follows: first, use this "mint-bond" to mint a bond token ' +
         'to the validator identity public key. Next, transfer the token to any account desired. ' +
-        'Finally, utilize the command "configure-bond --with-token" to configure the bond account.',
+        'Finally, utilize the command "configure-bond --with-token" to configure the bond account.'
     )
     .argument(
       '<address>',
       'Address of the bond account or vote account.',
-      parsePubkey,
+      parsePubkey
     )
     .option(
       '--rent-payer <keypair_or_ledger_or_pubkey>',
       'Rent payer for the mint token account creation (default: wallet keypair)',
-      parseWalletOrPubkeyOption,
+      parseWalletOrPubkeyOption
     )
     .addOption(computeUnitLimitOption(MINT_BOND_LIMIT_UNITS))
 }
@@ -100,7 +101,7 @@ export async function manageMintBond({
 
   logger.info(
     `Minting bond ${bondAccount.toBase58()} token ${bondMint.toBase58()} ` +
-      `for validator identity ${validatorIdentity.toBase58()}`,
+      `for validator identity ${validatorIdentity.toBase58()}`
   )
   await executeTx({
     connection: provider.connection,
@@ -117,6 +118,6 @@ export async function manageMintBond({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Bond ${bondAccount.toBase58()} token ${bondMint.toBase58()} was minted successfully`,
+    `Bond ${bondAccount.toBase58()} token ${bondMint.toBase58()} was minted successfully`
   )
 }

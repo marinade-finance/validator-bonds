@@ -1,19 +1,21 @@
+import assert from 'assert'
+
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+
 import {
   CONFIGURE_CONFIG_EVENT,
-  Config,
-  ValidatorBondsProgram,
   assertEvent,
   configureConfigInstruction,
   getConfig,
   parseCpiEvents,
 } from '../../src'
-import { ProgramAccount } from '@coral-xyz/anchor'
-import { initTest } from '../utils/testValidator'
-import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
-import assert from 'assert'
+import { initTest } from '../utils/testValidator'
+
+import type { Config, ValidatorBondsProgram } from '../../src'
+import type { ProgramAccount } from '@coral-xyz/anchor'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds configure config', () => {
   let provider: AnchorExtendedProvider
@@ -21,8 +23,8 @@ describe('Validator Bonds configure config', () => {
   let configInitialized: ProgramAccount<Config>
   let adminAuthority: Keypair
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+  beforeAll(() => {
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -37,11 +39,12 @@ describe('Validator Bonds configure config', () => {
       publicKey: configAccount,
       account: await getConfig(program, configAccount),
     }
-    expect(configInitialized.account.adminAuthority).toEqual(
-      adminAuth.publicKey,
+    assert(
+      configInitialized.account.adminAuthority.toBase58() ===
+        adminAuth.publicKey.toBase58()
     )
-    expect(configInitialized.account.epochsToClaimSettlement).toEqual(1)
-    expect(configInitialized.account.withdrawLockupEpochs).toEqual(2)
+    assert(configInitialized.account.epochsToClaimSettlement.eqn(1))
+    assert(configInitialized.account.withdrawLockupEpochs.eqn(2))
     adminAuthority = adminAuth
   })
 

@@ -1,30 +1,32 @@
-import {
-  createTempFileKeypair,
-  createUserAndFund,
-  pubkey,
-} from '@marinade.finance/web3js-1x'
+import assert from 'assert'
+
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
-import { Keypair, PublicKey } from '@solana/web3.js'
 import {
-  ValidatorBondsProgram,
   bondAddress,
   getBond,
   bondMintAddress,
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
 } from '@marinade.finance/validator-bonds-sdk'
-import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import {
-  AnchorExtendedProvider,
-  getAnchorValidatorInfo,
-} from '@marinade.finance/anchor-common'
-import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
+  createTempFileKeypair,
+  createUserAndFund,
+  pubkey,
+} from '@marinade.finance/web3js-1x'
+import { PublicKey } from '@solana/web3.js'
 import {
   createAssociatedTokenAccountInstruction,
   createTransferInstruction,
   getAccount as getTokenAccount,
   getAssociatedTokenAddressSync,
 } from 'solana-spl-token-modern'
+
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import type { Keypair } from '@solana/web3.js'
 
 jest.setTimeout(5000 * 1000)
 
@@ -41,9 +43,9 @@ describe('Configure bond account using CLI (institutional)', () => {
   let voteAccount: PublicKey
   let validatorIdentity: Keypair
 
-  beforeAll(async () => {
+  beforeAll(() => {
     extendJestWithShellMatchers()
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -57,15 +59,15 @@ describe('Configure bond account using CLI (institutional)', () => {
       keypair: userKeypair,
       cleanup: userCleanup,
     } = await createTempFileKeypair())
-    expect(
-      await provider.connection.getAccountInfo(
-        MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
-      ),
-    ).not.toBeNull()
+    assert(
+      (await provider.connection.getAccountInfo(
+        MARINADE_INSTITUTIONAL_CONFIG_ADDRESS
+      )) !== null
+    )
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
     ;({ voteAccount } = await createVoteAccountWithIdentity(
       provider,
-      validatorIdentity,
+      validatorIdentity
     ))
     ;({ bondAccount } = await executeInitBondInstruction({
       program,
@@ -85,23 +87,20 @@ describe('Configure bond account using CLI (institutional)', () => {
   })
 
   it('Configure bond account CLI (institutional)', async () => {
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli:institutional',
-          '-u',
-          provider.connection.rpcEndpoint,
-          'configure-bond',
-          bondAccount.toBase58(),
-          '--authority',
-          bondAuthorityPath,
-          '--confirmation-finality',
-          'confirmed',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli:institutional',
+        '-u',
+        provider.connection.rpcEndpoint,
+        'configure-bond',
+        bondAccount.toBase58(),
+        '--authority',
+        bondAuthorityPath,
+        '--confirmation-finality',
+        'confirmed',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /Bond account.*successfully configured/,
@@ -110,7 +109,7 @@ describe('Configure bond account using CLI (institutional)', () => {
     const [, bump] = bondAddress(
       MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
       voteAccount,
-      program.programId,
+      program.programId
     )
     const bondsData1 = await getBond(program, bondAccount)
     expect(bondsData1.config).toEqual(MARINADE_INSTITUTIONAL_CONFIG_ADDRESS)
@@ -122,22 +121,19 @@ describe('Configure bond account using CLI (institutional)', () => {
   })
 
   it('configure bond account with mint (institutional)', async () => {
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli:institutional',
-          '-u',
-          provider.connection.rpcEndpoint,
-          'mint-bond',
-          bondAccount.toBase58(),
-          '--confirmation-finality',
-          'confirmed',
-          '--verbose',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli:institutional',
+        '-u',
+        provider.connection.rpcEndpoint,
+        'mint-bond',
+        bondAccount.toBase58(),
+        '--confirmation-finality',
+        'confirmed',
+        '--verbose',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /Bond.*was minted successfully/,
@@ -146,16 +142,16 @@ describe('Configure bond account using CLI (institutional)', () => {
     const [bondMint] = bondMintAddress(
       bondAccount,
       validatorIdentity.publicKey,
-      program.programId,
+      program.programId
     )
     const validatorIdentityBondAta = getAssociatedTokenAddressSync(
       bondMint,
       validatorIdentity.publicKey,
-      true,
+      true
     )
     const tokenAccountValidatorIdentity = await getTokenAccount(
       provider.connection,
-      validatorIdentityBondAta,
+      validatorIdentityBondAta
     )
     expect(tokenAccountValidatorIdentity.amount).toEqual(1)
     const user = await createUserAndFund({
@@ -166,43 +162,40 @@ describe('Configure bond account using CLI (institutional)', () => {
     const userTokenBondAta = getAssociatedTokenAddressSync(
       bondMint,
       pubkey(user),
-      true,
+      true
     )
     const createTokenIx = createAssociatedTokenAccountInstruction(
       provider.wallet.publicKey,
       userTokenBondAta,
       pubkey(user),
-      bondMint,
+      bondMint
     )
     const transferIx = createTransferInstruction(
       validatorIdentityBondAta,
       userTokenBondAta,
       pubkey(validatorIdentity),
-      1,
+      1
     )
     await provider.sendIx([validatorIdentity], createTokenIx, transferIx)
 
     const newBondAuthority = PublicKey.unique()
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli:institutional',
-          '-u',
-          provider.connection.rpcEndpoint,
-          'configure-bond',
-          voteAccount.toBase58(),
-          '--authority',
-          userPath,
-          '--bond-authority',
-          newBondAuthority.toBase58(),
-          '--with-token',
-          '--confirmation-finality',
-          'confirmed',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli:institutional',
+        '-u',
+        provider.connection.rpcEndpoint,
+        'configure-bond',
+        voteAccount.toBase58(),
+        '--authority',
+        userPath,
+        '--bond-authority',
+        newBondAuthority.toBase58(),
+        '--with-token',
+        '--confirmation-finality',
+        'confirmed',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /Bond account.*successfully configured/,

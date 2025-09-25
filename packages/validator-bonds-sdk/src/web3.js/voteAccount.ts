@@ -1,15 +1,17 @@
-import { LoggerPlaceholder, logDebug } from '@marinade.finance/ts-common'
-import {
+import { logDebug } from '@marinade.finance/ts-common'
+import { getConnection } from '@marinade.finance/web3js-1x'
+import { VOTE_PROGRAM_ID } from '@solana/web3.js'
+
+import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
+import type {
   HasProvider,
   Provider,
-  getConnection,
   ProgramAccountInfo,
 } from '@marinade.finance/web3js-1x'
-import {
+import type {
   Connection,
   GetProgramAccountsFilter,
   PublicKey,
-  VOTE_PROGRAM_ID,
 } from '@solana/web3.js'
 
 // Depending if new vote account feature-set is gated on.
@@ -23,12 +25,12 @@ const VALIDATOR_IDENTITY_OFFSET = 4
 
 export async function getRentExemptVote(
   provider: Provider,
-  rentExempt?: number,
+  rentExempt?: number
 ): Promise<number> {
   return (
     rentExempt ??
     (await provider.connection.getMinimumBalanceForRentExemption(
-      VOTE_ACCOUNT_SIZE,
+      VOTE_ACCOUNT_SIZE
     ))
   )
 }
@@ -64,7 +66,7 @@ export async function findVoteAccountByIdentity({
     logDebug(
       logger,
       `Found ${accounts.length} (${accounts.map(a => a.pubkey.toBase58()).join(', ')}) vote accounts for identity ${identity.toBase58()}.` +
-        'Expectation was to have potentially find one vote account for the identity.',
+        'Expectation was to have potentially find one vote account for the identity.'
     )
     return undefined
   }

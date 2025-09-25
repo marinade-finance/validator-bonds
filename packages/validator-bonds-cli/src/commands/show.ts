@@ -1,12 +1,13 @@
-import { FormatType } from '@marinade.finance/cli-common'
 import {
   configureShowBond,
   showBond,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { MARINADE_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
 import { parsePubkey } from '@marinade.finance/web3js-1x'
-import { PublicKey } from '@solana/web3.js'
-import { Command } from 'commander'
+
+import type { FormatType } from '@marinade.finance/cli-common'
+import type { PublicKey } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function installShowBond(program: Command) {
   program = configureShowBond(program)
@@ -15,7 +16,7 @@ export function installShowBond(program: Command) {
       '--config <pubkey>',
       'Config account to filter bonds accounts ' +
         `(no default, note: the Marinade config is: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey,
+      parsePubkey
     )
     .action(
       async (
@@ -30,7 +31,7 @@ export function installShowBond(program: Command) {
           bondAuthority?: Promise<PublicKey>
           withFunding: boolean
           format: FormatType
-        },
+        }
       ) => {
         await showBond({
           address: await address,
@@ -39,6 +40,6 @@ export function installShowBond(program: Command) {
           withFunding,
           format,
         })
-      },
+      }
     )
 }

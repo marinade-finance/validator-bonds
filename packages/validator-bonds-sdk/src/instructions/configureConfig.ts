@@ -1,18 +1,14 @@
-import {
-  Keypair,
-  PublicKey,
-  Signer,
-  TransactionInstruction,
-} from '@solana/web3.js'
-import {
-  MARINADE_CONFIG_ADDRESS,
-  ConfigureConfigArgs,
-  ValidatorBondsProgram,
-} from '../sdk'
+import { logWarn } from '@marinade.finance/ts-common'
+import { PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
+
 import { getConfig } from '../api'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { LoggerPlaceholder, logWarn } from '@marinade.finance/ts-common'
+import { MARINADE_CONFIG_ADDRESS } from '../sdk'
+
+import type { ConfigureConfigArgs, ValidatorBondsProgram } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
+import type { Keypair, Signer, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to configure config account. Available for admin authority.
@@ -65,7 +61,7 @@ export async function configureConfigInstruction({
       logWarn(
         logger,
         'configureConfig SDK: config is not provided, using default config address: ' +
-          MARINADE_CONFIG_ADDRESS.toBase58(),
+          MARINADE_CONFIG_ADDRESS.toBase58()
       )
       configAccount = MARINADE_CONFIG_ADDRESS
     }
@@ -104,7 +100,7 @@ export async function configureConfigInstruction({
 
   if (Object.values(args).every(v => v === null)) {
     throw new Error(
-      'configureConfigInstruction: method parameters provided no new property to configure',
+      'configureConfigInstruction: method parameters provided no new property to configure'
     )
   }
 

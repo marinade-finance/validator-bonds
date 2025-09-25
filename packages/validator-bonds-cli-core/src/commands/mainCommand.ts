@@ -1,12 +1,14 @@
-/* eslint-disable no-process-exit */
-import { Command, Option } from 'commander'
+/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment */
+
 import { pinoConfiguration } from '@marinade.finance/ts-common'
 import {
   DEFAULT_KEYPAIR_PATH,
   ExecutionError,
   parseWalletFromOpts,
 } from '@marinade.finance/web3js-1x'
+import { Command, Option } from 'commander'
 import pino from 'pino'
+
 import { setValidatorBondsCliContext } from '../context'
 import {
   compareVersions,
@@ -36,29 +38,29 @@ export function launchCliProgram({
       new Option(
         '-u, --url <rpc-url>',
         'solana RPC URL or a moniker ' +
-          '(m/mainnet/mainnet-beta, d/devnet, t/testnet, l/localhost), see https://solana.com/rpc',
+          '(m/mainnet/mainnet-beta, d/devnet, t/testnet, l/localhost), see https://solana.com/rpc'
       )
         .default('mainnet')
-        .env('RPC_URL'),
+        .env('RPC_URL')
     )
     .option('-c, --cluster <cluster>', 'alias for "-u, --url"')
     .option(
       '-k, --keypair <keypair-or-ledger>',
       'Wallet keypair (path or ledger url in format usb://ledger/[<pubkey>][?key=<derivedPath>]). ' +
         'Wallet keypair is used to pay for the transaction fees and as default value for signers. ' +
-        `(default: loaded from solana config file or ${DEFAULT_KEYPAIR_PATH})`,
+        `(default: loaded from solana config file or ${DEFAULT_KEYPAIR_PATH})`
     )
     .option('-s, --simulate', 'Simulate', false)
     .option(
       '-p, --print-only',
       'Print only mode, no execution, instructions are printed in base64 to output. ' +
         'This can be used for placing the admin commands to SPL Governance UI by hand.',
-      false,
+      false
     )
     .option(
       '--skip-preflight',
       'Transaction execution flag "skip-preflight", see https://solanacookbook.com/guides/retrying-transactions.html#the-cost-of-skipping-preflight',
-      false,
+      false
     )
     .option('--commitment <commitment>', 'Commitment', 'confirmed')
     .option(
@@ -66,18 +68,18 @@ export function launchCliProgram({
       'Confirmation finality of sent transaction. ' +
         'Default is "confirmed" that means for majority of nodes confirms in cluster. ' +
         '"finalized" stands for full cluster finality that takes ~8 seconds.',
-      'confirmed',
+      'confirmed'
     )
     .option(
       '--with-compute-unit-price <compute-unit-price>',
       'Set compute unit price for transaction, in increments of 0.000001 lamports per compute unit.',
       v => parseInt(v, 10),
-      10,
+      10
     )
     .option(
       '-d, --debug',
       'Printing more detailed information of the CLI execution',
-      false,
+      false
     )
     .option('-v, --verbose', 'alias for --debug', false)
 
@@ -95,7 +97,7 @@ export function launchCliProgram({
       command.opts().keypair,
       printOnly,
       command.args,
-      logger,
+      logger
     )
 
     const programId = await command.opts().programId
@@ -129,7 +131,7 @@ export function launchCliProgram({
       logger.error(
         err instanceof ExecutionError
           ? err.messageWithTransactionError()
-          : err.message,
+          : err.message
       )
       logger.debug({
         resolution: 'Failure',
@@ -147,7 +149,7 @@ export function launchCliProgram({
           ) {
             logger.error(
               `CLI version ${program.version()} is lower than the latest available version: ${npmData.version}. Please consider updating it:\n` +
-                `  npm install -g ${npmData.name}@latest\n`,
+                `  npm install -g ${npmData.name}@latest\n`
             )
           }
         })
@@ -157,6 +159,6 @@ export function launchCliProgram({
 
       logger.flush()
       process.exitCode = 200
-    },
+    }
   )
 }

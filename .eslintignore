@@ -1,5 +1,0 @@
-build/
-dist/
-packages/**/generated/*
-target/types/*
-scripts/

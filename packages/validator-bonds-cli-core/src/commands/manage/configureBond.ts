@@ -1,6 +1,7 @@
-import { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
-import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
+import {
+  configureBondInstruction,
+  configureBondWithMintInstruction,
+} from '@marinade.finance/validator-bonds-sdk'
 import {
   executeTx,
   instanceOfWallet,
@@ -9,20 +10,21 @@ import {
   parseWalletOrPubkeyOption,
   transaction,
 } from '@marinade.finance/web3js-1x'
-import {
-  configureBondInstruction,
-  configureBondWithMintInstruction,
-} from '@marinade.finance/validator-bonds-sdk'
-import { getBondFromAddress } from '../../utils'
+
 import {
   CONFIGURE_BOND_LIMIT_UNITS,
   CONFIGURE_BOND_MINT_LIMIT_UNITS,
 } from '../../computeUnits'
-import BN from 'bn.js'
+import { setProgramIdByOwner } from '../../context'
+import { getBondFromAddress } from '../../utils'
+
 import type {
   Wallet as WalletInterface,
   Wallet,
 } from '@marinade.finance/web3js-1x'
+import type { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
+import type BN from 'bn.js'
+import type { Command } from 'commander'
 
 export function configureConfigureBond(program: Command): Command {
   return program
@@ -31,7 +33,7 @@ export function configureConfigureBond(program: Command): Command {
     .argument(
       '<address>',
       'Address of the bond account or vote account.',
-      parsePubkey,
+      parsePubkey
     )
     .option(
       '--authority <keypair_or_ledger_or_pubkey>',
@@ -39,23 +41,23 @@ export function configureConfigureBond(program: Command): Command {
         'It is either the authority defined in bonds account OR ' +
         'vote account validator identity OR owner of bond configuration token (see "mint-bond" command). ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkeyOption,
+      parseWalletOrPubkeyOption
     )
     .option(
       '--with-token',
       'Use the bond token to authorize the transaction. If this option is enabled, ' +
         'it requires the "--authority" to be the owner of the bond token and possession of the bond token at the ATA account.',
-      false,
+      false
     )
     .option(
       '--bond-authority <pubkey>',
       'New value of "bond authority" that is permitted to operate with the bond account.',
-      parsePubkeyOrPubkeyFromWallet,
+      parsePubkeyOrPubkeyFromWallet
     )
     .option(
       '--compute-unit-limit <number>',
       'Compute unit limit for the transaction (default value based on the operation type)',
-      v => parseInt(v, 10),
+      v => parseInt(v, 10)
     )
 }
 
@@ -142,7 +144,7 @@ export async function manageConfigureBond({
   tx.add(instruction)
 
   logger.info(
-    `Configuring bond account ${bondAccount.toBase58()} with authority ${authority.toBase58()} (finalization may take seconds)`,
+    `Configuring bond account ${bondAccount.toBase58()} with authority ${authority.toBase58()} (finalization may take seconds)`
   )
   await executeTx({
     connection: provider.connection,

@@ -37,14 +37,14 @@
    The operator calculates losses against standard validator performance in the epoch; these losses are recorded in the form of a merkle tree
    per `VoteAccount`, and a `Settlement` with a merkle root is created on-chain. The merkle tree contains the list of creditors and their entitlements to the protected event.
    - Operator authority funds the `Settlement` with amount of lamports equal to the sum of losses recorded in the merkle tree.
-      - The funding instruction assigns the bonds funded `StakeAccounts` under `Settlement` by assigning their staker authority
-        under derived `Settlement's` staker PDA.
-      - `StakeAccounts` funded to a `Settlement` cannot be used for withdrawing funded `Bond`
-      - Funding `StakeAccount` to `Settlement` deactivates the `StakeAccount` to make it possible to withdraw the lamports
-      - *Expectation:* To fully used the whole amount of lamports funded under the bond program by the validator
-        the operator is required to merge all the `StakeAccounts` of the validator (delegated to the same `VoteAccount`)
-        first and then fund such `StakeAccount` into `Settlement`. And the instruction is then capable to split `StakeAccount`
-        with spill amount when needed.
+     - The funding instruction assigns the bonds funded `StakeAccounts` under `Settlement` by assigning their staker authority
+       under derived `Settlement's` staker PDA.
+     - `StakeAccounts` funded to a `Settlement` cannot be used for withdrawing funded `Bond`
+     - Funding `StakeAccount` to `Settlement` deactivates the `StakeAccount` to make it possible to withdraw the lamports
+     - _Expectation:_ To fully used the whole amount of lamports funded under the bond program by the validator
+       the operator is required to merge all the `StakeAccounts` of the validator (delegated to the same `VoteAccount`)
+       first and then fund such `StakeAccount` into `Settlement`. And the instruction is then capable to split `StakeAccount`
+       with spill amount when needed.
    - The creditor may claim the calculated amount from the `Settlement`.
      From V2 there is created a bitmap structure on-chain named `SettlementClaims` that is created on-chain as a side-car to `Settlement` account.
      When the protected event has already been claimed by the creditor the bitmap is updated to reflect the claim.
@@ -63,7 +63,6 @@
      - withdrawn (in case of non-delegated in `Initialized` state ones); permissioned by operator authority
    - Any two `StakeAccounts` may be merged into single one when they consists of the same withdrawer authority,
      staker authority and they are both delegated to the same `VoteAccount`. Permission-less operation.
-
 
 ### Stake Account authorities transitions
 
@@ -96,4 +95,3 @@ The admin authority can utilize the `slots_to_start_settlement_claiming` option 
 In the event that the operator authority's hot wallet key is compromised, the admin authority gains time until the `slots_to_start_settlement_claiming` period elapses to switch the operator authority to another wallet and manage the cancellation of any unauthorized settlements.
 
 **IMPORTANT:** If the admin authority is held under a multisig or DAO management system, it must be positioned for immediate transaction execution to implement changes once all required signatures are obtained.
-
