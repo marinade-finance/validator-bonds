@@ -1,5 +1,5 @@
 import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { ExtendedProvider } from '@marinade.finance/web3js-common'
+import { ExtendedProvider } from '@marinade.finance/web3js-1x'
 import {
   PublicKey,
   Signer,
@@ -65,6 +65,7 @@ export function getSecureRandomInt(min: number, max: number): number {
   let result: number
   do {
     const wordArray = CryptoJS.lib.WordArray.random(bytesNeeded)
+    assert(wordArray.words[0] !== undefined)
     result = wordArray.words[0] >>> 0 // Convert to unsigned 32-bit
     result = result & mask // Apply mask to get required bits
   } while (result >= range)
@@ -74,5 +75,6 @@ export function getSecureRandomInt(min: number, max: number): number {
 
 export function getRandomByte() {
   const wordArray = CryptoJS.lib.WordArray.random(1)
+  assert(wordArray.words[0] !== undefined)
   return wordArray.words[0] & 0xff
 }

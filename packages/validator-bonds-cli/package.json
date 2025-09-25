@@ -1,6 +1,6 @@
 {
   "name": "@marinade.finance/validator-bonds-cli",
-  "version": "2.1.10",
+  "version": "2.2.0",
   "description": "CLI of the validator bonds contract",
   "repository": {
     "type": "git",
@@ -9,8 +9,14 @@
   "publishConfig": {
     "access": "public"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "solana",
+    "marinade.finance",
+    "blockchain",
+    "staking",
+    "mnde"
+  ],
+  "author": "Marinade.Finance",
   "license": "ISC",
   "bin": {
     "validator-bonds": "./dist/src/index.js"
@@ -19,24 +25,25 @@
   "types": "dist/src/index.d.ts",
   "scripts": {
     "build": "tsc --build",
-    "test": "echo \"Error: run tests from root directory\" && exit 1",
-    "cli": "pnpm ts-node ./src/"
+    "cli": "pnpm ts-node ./src/",
+    "test:validator": "pnpm jest --config ../../jest.config.test-validator.js --testPathPattern=\"$(pwd)\"",
+    "test": "pnpm test:validator"
   },
   "files": [
     "dist/",
-    "!dist/src/__tests__",
+    "!dist/__tests__",
     "README.md"
   ],
   "dependencies": {
     "@marinade.finance/validator-bonds-sdk": "workspace: *",
     "@marinade.finance/validator-bonds-cli-core": "workspace: *",
     "@coral-xyz/anchor": "0.29.0",
-    "@marinade.finance/anchor-common": "=2.4.16",
-    "@marinade.finance/cli-common": "=2.4.16",
-    "@marinade.finance/ledger-utils": "3.0.1",
-    "@marinade.finance/ts-common": "=2.4.16",
-    "@marinade.finance/web3js-common": "=2.4.16",
-    "@solana/web3.js": "1.98.2",
+    "@marinade.finance/anchor-common": "4.0.0",
+    "@marinade.finance/cli-common": "4.0.0",
+    "@marinade.finance/ts-common": "4.0.0",
+    "@marinade.finance/web3js-1x": "4.0.0",
+    "@marinade.finance/ledger-utils": "3.1.0",
+    "@solana/web3.js": "1.98.4",
     "bn.js": "5.2.2",
     "bs58": "6.0.0",
     "commander": "14.0.0",
@@ -48,7 +55,7 @@
   },
   "devDependencies": {
     "crypto-js": "4.2.0",
-    "@marinade.finance/jest-utils": "=2.4.16"
+    "@marinade.finance/jest-shell-matcher": "1.1.1"
   },
   "engines": {
     "node": ">=16"

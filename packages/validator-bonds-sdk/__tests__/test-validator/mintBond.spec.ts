@@ -6,21 +6,21 @@ import {
   mintBondInstruction,
   parseCpiEvents,
 } from '../../src'
-import { initTest } from './testValidator'
+import { initTest } from '../utils/testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { executeTxSimple, transaction } from '@marinade.finance/web3js-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import { getAccount as getTokenAccount } from 'solana-spl-token-modern'
 import { fetchMetadata } from '@metaplex-foundation/mpl-token-metadata'
 import { isSome } from '@metaplex-foundation/umi-options'
-import { getUmi, toUmiPubkey } from '@marinade.finance/umi-utils'
 import {
   AnchorExtendedProvider,
   getAnchorValidatorInfo,
 } from '@marinade.finance/anchor-common'
 import assert from 'assert'
+import { getUmi, toUmiPubkey } from '../utils/umi'
 
 describe('Validator Bonds mint bond', () => {
   let provider: AnchorExtendedProvider
@@ -74,7 +74,7 @@ describe('Validator Bonds mint bond', () => {
     expect(isSome(metadata.creators)).toBeTruthy()
     if (isSome(metadata.creators)) {
       expect(metadata.creators.value.length).toEqual(1)
-      expect(metadata.creators.value[0].address.toString()).toEqual(
+      expect(metadata.creators.value[0]?.address.toString()).toEqual(
         bondAccount.toBase58(),
       )
     } else {

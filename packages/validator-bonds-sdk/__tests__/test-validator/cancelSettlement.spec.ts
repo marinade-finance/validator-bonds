@@ -6,14 +6,14 @@ import {
   cancelSettlementInstruction,
   CANCEL_SETTLEMENT_EVENT,
 } from '../../src'
-import { initTest } from './testValidator'
+import { initTest } from '../utils/testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { executeTxSimple } from '@marinade.finance/web3js-common'
-import { transaction } from '@marinade.finance/web3js-common'
+import { executeTxSimple } from '@marinade.finance/web3js-1x'
+import { transaction } from '@marinade.finance/web3js-1x'
 import {
   AnchorExtendedProvider,
   getAnchorValidatorInfo,

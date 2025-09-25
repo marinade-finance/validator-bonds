@@ -8,7 +8,7 @@ import {
   getWithdrawRequest,
   parseCpiEvents,
 } from '../../src'
-import { initTest } from './testValidator'
+import { initTest } from '../utils/testValidator'
 import {
   executeFundBondInstruction,
   executeInitConfigInstruction,
@@ -21,7 +21,7 @@ import {
   executeTxSimple,
   getVoteAccount,
   transaction,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   AnchorExtendedProvider,
   waitForStakeAccountActivation,

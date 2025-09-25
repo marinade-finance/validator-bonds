@@ -45,7 +45,7 @@ import {
   createUserAndFund,
   pubkey,
   signer,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { initBankrunTest, delegateAndFund } from './bankrun'
 

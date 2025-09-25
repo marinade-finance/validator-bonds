@@ -2,9 +2,9 @@ import {
   createTempFileKeypair,
   createUserAndFund,
   waitForNextEpoch,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import { sleep } from '@marinade.finance/ts-common'
-import { shellMatchers } from '@marinade.finance/jest-utils'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import {
   Authorized,
   Keypair,
@@ -29,15 +29,15 @@ import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
-} from '../../../packages/validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '../../../packages/validator-bonds-sdk/__tests__/test-validator/testValidator'
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import fs from 'fs'
 import path from 'path'
-import { createDelegatedStakeAccount } from '../../../packages/validator-bonds-sdk/__tests__/utils/staking'
+import { createDelegatedStakeAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import BN from 'bn.js'
 import assert from 'assert'
-import { getSecureRandomInt } from '../../../packages/validator-bonds-sdk/__tests__/utils/helpers'
+import { getSecureRandomInt } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/helpers'
 
 const JEST_TIMEOUT_MS = 3000_000
 jest.setTimeout(JEST_TIMEOUT_MS)
@@ -102,7 +102,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
   let previousTest = TestNames.None
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest('processed'))
     ;({
       path: operatorAuthorityPath,
@@ -710,7 +710,7 @@ export async function chunkedCreateInitializedStakeAccounts({
     StakeProgram.createAccount({
       fromPubkey: provider.walletPubkey,
       stakePubkey: keypair.publicKey,
-      authorized: new Authorized(staker, withdrawer),
+      authorized: new Authorized(staker, withdrawer || PublicKey.default),
       lamports: rentExempt,
       lockup,
     }).instructions.forEach(ix => {

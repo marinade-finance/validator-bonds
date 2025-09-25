@@ -1,12 +1,12 @@
-import { createTempFileKeypair } from '@marinade.finance/web3js-common'
-import { shellMatchers } from '@marinade.finance/jest-utils'
+import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { Keypair, PublicKey } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
   getConfig,
 } from '@marinade.finance/validator-bonds-sdk'
-import { executeInitConfigInstruction } from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
+import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
 describe('Configure config account using CLI', () => {
@@ -19,7 +19,7 @@ describe('Configure config account using CLI', () => {
   let operatorAuthority: Keypair
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest())
   })
 

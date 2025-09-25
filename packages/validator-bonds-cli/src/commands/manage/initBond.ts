@@ -1,14 +1,15 @@
-import { parsePubkey } from '@marinade.finance/cli-common'
 import { Command } from 'commander'
 import {
   manageInitBond,
   toBN,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { MARINADE_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+import { parsePubkey } from '@marinade.finance/web3js-1x'
 import { PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
 import { configureInitBond } from '@marinade.finance/validator-bonds-cli-core'
+
+import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 
 export function installInitBond(program: Command) {
   configureInitBond(program)

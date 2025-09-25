@@ -20,7 +20,7 @@ export async function fetchLatestVersionInNpmRegistry(
     const versions = Object.keys(versionsData) // ['1.0.0', 1.0.1', '1.0.2']
     const sortedVersions = versions.sort(compareVersions)
     const latestVersion = sortedVersions[sortedVersions.length - 1]
-    return { name, version: latestVersion }
+    return { name, version: latestVersion || '0.0.0' }
   } catch (err) {
     logger.debug(
       `Failed to fetch latest version from NPM registry ${npmRegistryUrl}: ${err}`,

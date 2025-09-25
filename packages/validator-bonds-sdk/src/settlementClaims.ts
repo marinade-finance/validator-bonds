@@ -40,7 +40,10 @@ export class Bitmap {
     this.assertValidIndex(index)
     const { byteIndex, bitIndex } = Bitmap.byteIndexBitMod(index)
     assert(bitIndex < 8)
-    return (this.bitmapData[byteIndex] & (1 << (7 - bitIndex))) !== 0
+    const bitmapData = this.bitmapData[byteIndex]
+    return (
+      bitmapData !== undefined && (bitmapData & (1 << (7 - bitIndex))) !== 0
+    )
   }
 
   private static byteIndexBitMod(index: BN | number): {
@@ -61,14 +64,18 @@ export class Bitmap {
     const result: string[] = []
     let resultCounter = 0
     for (let i = 0; i < this.bitmapData.length; i++) {
-      const [outString, counter] = byte2bits(this.bitmapData[i])
+      const bitmapData = this.bitmapData[i]
+      assert(bitmapData !== undefined)
+      const [outString, counter] = byte2bits(bitmapData)
       result.push(outString)
       resultCounter += counter
     }
     // working only with bitmap data restricted to number of records
     const { bitIndex } = Bitmap.byteIndexBitMod(this.maxRecords)
     if (bitIndex > 0) {
-      result[result.length - 1] = result[result.length - 1].slice(0, bitIndex)
+      const lastResult = result[result.length - 1]
+      assert(lastResult !== undefined)
+      result[result.length - 1] = lastResult.slice(0, bitIndex)
     }
     return { asString: result.join(','), counter: resultCounter }
   }

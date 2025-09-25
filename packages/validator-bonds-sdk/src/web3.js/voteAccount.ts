@@ -4,7 +4,7 @@ import {
   Provider,
   getConnection,
   ProgramAccountInfo,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import {
   Connection,
   GetProgramAccountsFilter,
@@ -56,7 +56,11 @@ export async function findVoteAccountByIdentity({
     filters,
   })
 
-  if (accounts.length === 0 || accounts.length > 1) {
+  if (
+    accounts.length === 0 ||
+    accounts.length > 1 ||
+    accounts[0] === undefined
+  ) {
     logDebug(
       logger,
       `Found ${accounts.length} (${accounts.map(a => a.pubkey.toBase58()).join(', ')}) vote accounts for identity ${identity.toBase58()}.` +

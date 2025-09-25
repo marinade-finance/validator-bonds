@@ -27,7 +27,7 @@ import {
   ProgramAccountInfoNoData,
   ProgramAccountInfoNullable,
   ProgramAccountWithInfoNullable,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import { findStakeAccounts, StakeAccountParsed } from './web3.js'
 import assert from 'assert'
 import {
@@ -812,6 +812,9 @@ async function getMultiAccounts({
   const foundAccounts: ProgramAccountInfoNullable<Buffer>[] = []
   if (addresses.length === 1) {
     const [address] = addresses
+    if (address === undefined) {
+      return foundAccounts
+    }
     const accountNullable: ProgramAccountInfoNullable<Buffer> = {
       publicKey: address,
       account: await program.provider.connection.getAccountInfo(address),

@@ -11,17 +11,17 @@ import {
   settlementClaimsAddress,
   settlementStakerAuthority,
 } from '../../src'
-import { initTest } from './testValidator'
+import { initTest } from '../utils/testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { executeTxSimple } from '@marinade.finance/web3js-common'
+import { executeTxSimple } from '@marinade.finance/web3js-1x'
 import {
   transaction,
   Wallet,
   splitAndExecuteTx,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 
 import {
   AnchorExtendedProvider,

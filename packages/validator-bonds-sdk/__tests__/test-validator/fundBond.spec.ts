@@ -8,12 +8,12 @@ import {
   parseCpiEvents,
   assertEvent,
 } from '../../src'
-import { initTest } from './testValidator'
+import { initTest } from '../utils/testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { executeTxSimple, transaction } from '@marinade.finance/web3js-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import { createVoteAccount, delegatedStakeAccount } from '../utils/staking'
 import {
   AnchorExtendedProvider,

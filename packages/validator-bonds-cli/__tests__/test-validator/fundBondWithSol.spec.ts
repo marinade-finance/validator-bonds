@@ -2,8 +2,8 @@ import {
   createTempFileKeypair,
   createUserAndFund,
   getStakeAccount,
-} from '@marinade.finance/web3js-common'
-import { shellMatchers } from '@marinade.finance/jest-utils'
+} from '@marinade.finance/web3js-1x'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
@@ -15,9 +15,9 @@ import {
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
-} from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
-import { createVoteAccount } from '../../../validator-bonds-sdk/__tests__/utils/staking'
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
 describe('Fund bond account with SOL using CLI', () => {
@@ -31,7 +31,7 @@ describe('Fund bond account with SOL using CLI', () => {
   let fromCleanup: () => Promise<void>
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest())
   })
 
@@ -116,7 +116,7 @@ describe('Fund bond account with SOL using CLI', () => {
     expect(stakeAccounts.length).toEqual(1)
     const stakeAccount = await getStakeAccount(
       provider,
-      stakeAccounts[0].publicKey,
+      stakeAccounts[0]?.publicKey || PublicKey.default,
     )
     expect(stakeAccount.balanceLamports).toEqual(
       fundBondSols * LAMPORTS_PER_SOL,

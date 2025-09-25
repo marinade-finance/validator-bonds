@@ -1,4 +1,3 @@
-import { parsePubkey } from '@marinade.finance/cli-common'
 import { PublicKey } from '@solana/web3.js'
 import { Command } from 'commander'
 import {
@@ -6,7 +5,10 @@ import {
   manageMintBond,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { MARINADE_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-common'
+import {
+  Wallet as WalletInterface,
+  parsePubkey,
+} from '@marinade.finance/web3js-1x'
 
 export function installMintBond(program: Command) {
   configureMintBond(program)

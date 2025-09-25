@@ -3,8 +3,8 @@ import {
   createUserAndFund,
   pubkey,
   waitForNextEpoch,
-} from '@marinade.finance/web3js-common'
-import { shellMatchers } from '@marinade.finance/jest-utils'
+} from '@marinade.finance/web3js-1x'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   ValidatorBondsProgram,
@@ -20,12 +20,12 @@ import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitWithdrawRequestInstruction,
-} from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import {
   createBondsFundedStakeAccount,
   createVoteAccount,
-} from '../../../validator-bonds-sdk/__tests__/utils/staking'
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import { rand } from '@marinade.finance/ts-common'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import BN from 'bn.js'
@@ -43,7 +43,7 @@ describe('Claim withdraw request using CLI', () => {
   let validatorIdentityCleanup: () => Promise<void>
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest())
   })
 
@@ -123,14 +123,14 @@ describe('Claim withdraw request using CLI', () => {
       bondAccounts: [bondAccount],
     })
     expect(bondsFunding.length).toEqual(1)
-    expect(bondsFunding[0].numberActiveStakeAccounts).toEqual(
+    expect(bondsFunding[0]?.numberActiveStakeAccounts).toEqual(
       stakeAccountNumber,
     )
     expect(stakeAccountSumBalance).toEqual(toFund.muln(stakeAccountNumber))
     const expectedActive = toFund
       .muln(stakeAccountNumber)
       .sub(withdrawRequestLamports)
-    expect(expectedActive).toEqual(bondsFunding[0].amountActive)
+    expect(bondsFunding[0]?.amountActive).toEqual(expectedActive)
 
     const user = await createUserAndFund({ provider })
 
@@ -197,7 +197,7 @@ describe('Claim withdraw request using CLI', () => {
       withdrawer: pubkey(user),
     })
     expect(userStakeAccounts.length).toEqual(1)
-    expect(userStakeAccounts[0].account.lamports).toEqual(
+    expect(userStakeAccounts[0]?.account.lamports).toEqual(
       withdrawRequestLamports,
     )
     const withdrawRequestData = await getWithdrawRequest(

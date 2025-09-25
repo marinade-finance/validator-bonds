@@ -30,8 +30,15 @@ export function parseCpiEvents(
   const inner: CompiledInnerInstruction[] =
     transactionResponse?.meta?.innerInstructions ?? []
   for (let i = 0; i < inner.length; i++) {
-    for (let j = 0; j < inner[i].instructions.length; j++) {
-      const ix = inner[i].instructions[j]
+    const innerI = inner[i]
+    if (innerI === undefined) {
+      continue
+    }
+    for (let j = 0; j < innerI.instructions.length; j++) {
+      const ix = innerI.instructions[j]
+      if (ix === undefined) {
+        continue
+      }
       const programPubkey =
         transactionResponse?.transaction.message.staticAccountKeys[
           ix.programIdIndex

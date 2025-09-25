@@ -1,4 +1,4 @@
-import { shellMatchers } from '@marinade.finance/jest-utils'
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import YAML from 'yaml'
 import {
   initConfigInstruction,
@@ -9,37 +9,31 @@ import {
   claimWithdrawRequestInstruction,
   bondMintAddress,
 } from '@marinade.finance/validator-bonds-sdk'
+import { loadTestingVoteAccount } from '@marinade.finance/validator-bonds-cli-core'
 import {
   U64_MAX,
   executeTxSimple,
-  getVoteAccountFromData,
   signerWithPubkey,
   transaction,
   waitForNextEpoch,
-} from '@marinade.finance/web3js-common'
-import {
-  Connection,
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-} from '@solana/web3.js'
-import { initTest } from '../../../validator-bonds-sdk/__tests__/test-validator/testValidator'
+} from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import {
   executeConfigureConfigInstruction,
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitWithdrawRequestInstruction,
-} from '../../../validator-bonds-sdk/__tests__/utils/testTransactions'
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import {
   createBondsFundedStakeAccount,
   createVoteAccount,
-} from '../../../validator-bonds-sdk/__tests__/utils/staking'
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
-import { VoteAccountShow } from '@marinade.finance/validator-bonds-cli-core'
 import BN from 'bn.js'
 
 beforeAll(() => {
-  shellMatchers()
+  extendJestWithShellMatchers()
 })
 
 describe('Show command using CLI', () => {
@@ -47,7 +41,7 @@ describe('Show command using CLI', () => {
   let program: ValidatorBondsProgram
 
   beforeAll(async () => {
-    shellMatchers()
+    extendJestWithShellMatchers()
     ;({ provider, program } = await initTest('processed'))
   })
 
@@ -828,7 +822,7 @@ describe('Show command using CLI', () => {
       .sub(U64_MAX)
       .divmod(bnLamportsPerSol)
     const withdrawingAmount =
-      stakeAccountLamports[stakeAccountLamports.length - 1]
+      stakeAccountLamports[stakeAccountLamports.length - 1] || 0
     const { div: withdrawingDiv } = new BN(withdrawingAmount).divmod(
       bnLamportsPerSol,
     )
@@ -903,18 +897,3 @@ describe('Show command using CLI', () => {
     })
   })
 })
-
-export async function loadTestingVoteAccount(
-  connection: Connection,
-  voteAccount: PublicKey,
-): Promise<VoteAccountShow> {
-  const voteAccountInfo = await connection.getAccountInfo(voteAccount)
-  expect(voteAccountInfo).not.toBeNull()
-  const voteAccountData = getVoteAccountFromData(voteAccount, voteAccountInfo!)
-    .account.data
-  return {
-    nodePubkey: voteAccountData.nodePubkey,
-    authorizedWithdrawer: voteAccountData.authorizedWithdrawer,
-    commission: voteAccountData.commission,
-  }
-}

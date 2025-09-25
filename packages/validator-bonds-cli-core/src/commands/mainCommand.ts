@@ -1,13 +1,13 @@
 /* eslint-disable no-process-exit */
 import { Command, Option } from 'commander'
+import { pinoConfiguration } from '@marinade.finance/ts-common'
 import {
-  configureLogger,
-  parseWalletFromOpts,
   DEFAULT_KEYPAIR_PATH,
-} from '@marinade.finance/cli-common'
-import { Logger } from 'pino'
+  ExecutionError,
+  parseWalletFromOpts,
+} from '@marinade.finance/web3js-1x'
+import pino from 'pino'
 import { setValidatorBondsCliContext } from '../context'
-import { ExecutionError } from '@marinade.finance/web3js-common'
 import {
   compareVersions,
   fetchLatestVersionInNpmRegistry,
@@ -24,7 +24,7 @@ export function launchCliProgram({
   installSubcommands: (program: Command) => void
   npmRegistryUrl: string
 }) {
-  const logger: Logger = configureLogger()
+  const logger = pino(pinoConfiguration('info'), pino.destination())
   logger.level = 'debug'
   const program = new Command()
 

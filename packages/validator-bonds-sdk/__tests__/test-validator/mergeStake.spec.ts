@@ -8,13 +8,13 @@ import {
   parseCpiEvents,
   assertEvent,
 } from '../../src'
-import { initTest } from './testValidator'
+import { initTest } from '../utils/testValidator'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
 import {
   executeTxSimple,
   transaction,
   waitForNextEpoch,
-} from '@marinade.finance/web3js-common'
+} from '@marinade.finance/web3js-1x'
 import { authorizeStakeAccount, delegatedStakeAccount } from '../utils/staking'
 
 import { assert } from 'console'
@@ -93,7 +93,9 @@ describe('Validator Bonds fund bond', () => {
     expect(stakeAccountData.staker).toEqual(bondWithdrawer)
     expect(stakeAccountData.withdrawer).toEqual(bondWithdrawer)
     expect(stakeAccountData.isLockedUp).toBeFalsy()
-    expect(stakeAccountData.balanceLamports).toEqual(lamports1 + lamports2)
+    expect(stakeAccountData.balanceLamports).toEqual(
+      (lamports1 || -1) + (lamports2 || -1),
+    )
     expect(await provider.connection.getAccountInfo(stakeAccount2)).toBeNull()
 
     const events = parseCpiEvents(program, executionReturn?.response)

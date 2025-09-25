@@ -1,13 +1,8 @@
 import {
-  parsePubkey,
-  parsePubkeyOrPubkeyFromWallet,
   CliCommandError,
   FORMAT_TYPE_DEF,
   printData,
   FormatType,
-  reformat,
-  reformatReserved,
-  ReformatAction,
 } from '@marinade.finance/cli-common'
 import { AccountInfo, PublicKey } from '@solana/web3.js'
 import { Command } from 'commander'
@@ -33,12 +28,21 @@ import { ProgramAccount } from '@coral-xyz/anchor'
 import { getBondFromAddress, formatUnit, formatToSolWithAll } from '../utils'
 import BN from 'bn.js'
 import {
-  ProgramAccountInfoNullable,
-  VoteAccount,
   getMultipleAccounts,
   getVoteAccountFromData,
-} from '@marinade.finance/web3js-common'
+  parsePubkey,
+  parsePubkeyOrPubkeyFromWallet,
+  reformat,
+  reformatReserved,
+} from '@marinade.finance/web3js-1x'
 import { base64, bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
+
+import type {
+  ProgramAccountInfoNullable,
+  ReformatAction,
+  VoteAccount,
+} from '@marinade.finance/web3js-1x'
+import assert from 'assert'
 
 export type ProgramAccountWithProgramId<T> = ProgramAccount<T> & {
   programId: PublicKey
@@ -297,6 +301,7 @@ export async function showBond({
     if (
       voteAccounts !== undefined &&
       voteAccounts.length > 0 &&
+      voteAccounts[0] !== undefined &&
       voteAccounts[0].account !== null
     ) {
       const voteAccountData = voteAccounts[0].account.data
@@ -322,7 +327,7 @@ export async function showBond({
         bondAccounts: [address],
         voteAccounts: [bondData.account.data.voteAccount],
       })
-      if (bondFunding.length !== 1) {
+      if (bondFunding.length !== 1 || bondFunding[0] === undefined) {
         throw new CliCommandError({
           valueName: '[vote account address]|[bond address]',
           value: `${bondData.account.data.voteAccount}|${address.toBase58()}`,
@@ -378,6 +383,7 @@ export async function showBond({
       }))
 
       if (withFunding && bondDataArray.length > 0) {
+        assert(bondDataArray[0] !== undefined)
         const configAccount = config ?? bondDataArray[0].account.config
         const bondAccounts = bondDataArray.map(bondData => bondData.publicKey)
         const voteAccounts = bondDataArray.map(
@@ -391,24 +397,23 @@ export async function showBond({
         })
         for (let i = 0; i < data.length; i++) {
           const bond = data[i]
+          assert(bond !== undefined)
           const bondFunding = bondsFunding.find(bondFunding =>
             bondFunding.bondAccount.equals(bond.publicKey),
           )
-          data[i].amountOwned = bondFunding?.amountOwned
-          data[i].amountActive = bondFunding?.amountActive
-          data[i].numberActiveStakeAccounts =
+          bond.amountOwned = bondFunding?.amountOwned
+          bond.amountActive = bondFunding?.amountActive
+          bond.numberActiveStakeAccounts =
             bondFunding?.numberActiveStakeAccounts
-          data[i].amountAtSettlements = bondFunding?.amountAtSettlements
-          data[i].numberSettlementStakeAccounts =
+          bond.amountAtSettlements = bondFunding?.amountAtSettlements
+          bond.numberSettlementStakeAccounts =
             bondFunding?.numberSettlementStakeAccounts
-          data[i].amountToWithdraw = bondFunding?.amountToWithdraw
-          data[i].epochsToElapseToWithdraw =
-            bondFunding?.epochsToElapseToWithdraw
-          data[i].withdrawRequest = bondFunding?.withdrawRequest
+          bond.amountToWithdraw = bondFunding?.amountToWithdraw
+          bond.epochsToElapseToWithdraw = bondFunding?.epochsToElapseToWithdraw
+          bond.withdrawRequest = bondFunding?.withdrawRequest
           if (cliContext.logger.isLevelEnabled('debug')) {
-            data[i].bondFundedStakeAccounts =
-              bondFunding?.bondFundedStakeAccounts
-            data[i].settlementFundedStakeAccounts =
+            bond.bondFundedStakeAccounts = bondFunding?.bondFundedStakeAccounts
+            bond.settlementFundedStakeAccounts =
               bondFunding?.settlementFundedStakeAccounts
           }
         }
@@ -715,7 +720,7 @@ async function loadVoteAccounts(
 
   if (addresses.length === 0) {
     return []
-  } else if (addresses.length === 1) {
+  } else if (addresses.length === 1 && addresses[0] !== undefined) {
     try {
       const account = await provider.connection.getAccountInfo(addresses[0])
       return [toVoteAccount(addresses[0], account)]

@@ -3,8 +3,8 @@
     "compilerOptions": {
       "outDir": "./dist",
       "rootDir": ".",
-      "tsBuildInfoFile": "./dist/.tsbuildinfo"
+      "tsBuildInfoFile": ".tsbuildinfo"
     },
-    "include": ["src/**/*.ts", "./package.json"],
+    "include": ["src/**/*.ts", "__tests__/**/*.ts", "./package.json"],
     "exclude": ["node_modules", "dist"]
   }

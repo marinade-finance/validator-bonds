@@ -9,11 +9,11 @@ import {
   parseCpiEvents,
   assertEvent,
 } from '../../src'
-import { initTest } from './testValidator'
+import { initTest } from '../utils/testValidator'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
-import { executeTxSimple, transaction } from '@marinade.finance/web3js-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import { createSettlementFundedInitializedStake } from '../utils/staking'
-import { createUserAndFund, pubkey } from '@marinade.finance/web3js-common'
+import { createUserAndFund, pubkey } from '@marinade.finance/web3js-1x'
 import assert from 'assert'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 

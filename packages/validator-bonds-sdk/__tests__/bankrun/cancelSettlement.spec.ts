@@ -20,7 +20,7 @@ import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import { createVoteAccount } from '../utils/staking'
 import { getRentExempt } from '../utils/helpers'
 import assert from 'assert'
-import { createUserAndFund } from '@marinade.finance/web3js-common'
+import { createUserAndFund } from '@marinade.finance/web3js-1x'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { initBankrunTest } from './bankrun'
 

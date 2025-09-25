@@ -135,7 +135,7 @@ export async function getCloseSettlementAccounts({
       voter: voteAccount,
       currentEpoch: 0,
     })
-    if (stakeAccounts.length === 0) {
+    if (stakeAccounts.length === 0 || stakeAccounts[0] === undefined) {
       throw new Error(
         'Cannot find any stake account usable to close settlement: ' +
           `${settlementAccount.toBase58()} of vote account ${voteAccount?.toBase58()}`,
