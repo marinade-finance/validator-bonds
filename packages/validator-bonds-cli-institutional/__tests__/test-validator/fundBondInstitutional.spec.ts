@@ -7,12 +7,12 @@ import {
   bondsWithdrawerAuthority,
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
 } from '@marinade.finance/validator-bonds-sdk'
-import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
+import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import {
   createVoteAccount,
   delegatedStakeAccount,
-} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import {
   AnchorExtendedProvider,
   waitForStakeAccountActivation,

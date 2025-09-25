@@ -5,7 +5,7 @@ import {
   ValidatorBondsProgram,
   getConfig,
 } from '@marinade.finance/validator-bonds-sdk'
-import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
+import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 

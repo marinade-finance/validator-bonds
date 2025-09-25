@@ -8,9 +8,9 @@ import {
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
   ValidatorBondsProgram,
 } from '@marinade.finance/validator-bonds-sdk'
-import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
+import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
 describe('Init withdraw request using CLI (institutional)', () => {

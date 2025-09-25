@@ -12,13 +12,13 @@ import {
   bondMintAddress,
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
 } from '@marinade.finance/validator-bonds-sdk'
-import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
+import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import {
   AnchorExtendedProvider,
   getAnchorValidatorInfo,
 } from '@marinade.finance/anchor-common'
-import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import {
   createAssociatedTokenAccountInstruction,
   createTransferInstruction,

@@ -13,9 +13,9 @@ import {
 import {
   executeInitBondInstruction,
   executeInitWithdrawRequestInstruction,
-} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import { rand } from '@marinade.finance/ts-common'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 

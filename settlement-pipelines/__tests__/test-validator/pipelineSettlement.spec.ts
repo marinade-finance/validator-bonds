@@ -29,15 +29,15 @@ import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
-} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testValidator'
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import fs from 'fs'
 import path from 'path'
-import { createDelegatedStakeAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+import { createDelegatedStakeAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import BN from 'bn.js'
 import assert from 'assert'
-import { getSecureRandomInt } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/helpers'
+import { getSecureRandomInt } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/helpers'
 
 const JEST_TIMEOUT_MS = 3000_000
 jest.setTimeout(JEST_TIMEOUT_MS)

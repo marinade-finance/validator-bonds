@@ -7,8 +7,8 @@ import {
 } from '@marinade.finance/validator-bonds-sdk'
 import { Keypair } from '@solana/web3.js'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
-import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
+import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import { loadTestingVoteAccount } from '@marinade.finance/validator-bonds-cli-core'
 

@@ -5,11 +5,11 @@ import {
   bondsWithdrawerAuthority,
 } from '@marinade.finance/validator-bonds-sdk'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
+import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import {
   authorizeStakeAccount,
   delegatedStakeAccount,
-} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import { ExtendedProvider, waitForNextEpoch } from '@marinade.finance/web3js-1x'
 

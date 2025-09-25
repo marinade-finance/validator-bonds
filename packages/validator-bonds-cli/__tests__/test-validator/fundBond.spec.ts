@@ -9,12 +9,12 @@ import {
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
-} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import {
   createVoteAccount,
   delegatedStakeAccount,
-} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import {
   AnchorExtendedProvider,
   waitForStakeAccountActivation,
