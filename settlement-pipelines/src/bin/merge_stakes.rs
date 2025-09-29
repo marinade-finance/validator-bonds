@@ -297,8 +297,10 @@ impl PrintReportable for MergeConfigReport {
 
             let mut report = vec![];
             report.push(format!(
-                "Merge Report for validator-bonds config: {}",
-                self.config
+                "Merge Report for validator-bonds config: {}. Merged for {} bond(s), {} stake accounts",
+                self.config,
+                self.merging_stake_accounts.len(),
+                self.merging_stake_accounts.iter().map(|(_, sources)| sources.len()).sum::<usize>()
             ));
 
             if !self.non_delegated_stake_accounts.is_empty() {

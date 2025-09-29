@@ -4,7 +4,7 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   SLACK_API: https://slack.com/api/chat.postMessage
-  CONFIG_ADDRESSES: "vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU,VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE"
+  SLACK_FEED: "feed-pipeline-sam-psr"
 
 steps:
   - label: ":closed_lock_with_key: Concurrency gate lock"
@@ -23,7 +23,7 @@ steps:
 
   - wait: ~
 
-  - label: ":campfire::arrow_right: Merge Stakes"
+  - label: ":campfire::arrow_right: Merge Stakes: {{matrix}}"
     env:
       RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,merge_stakes=debug
@@ -40,13 +40,16 @@ steps:
     - chmod +x target/release/$${command_name}
     - source ./scripts/execute-handlers.sh
     - |
-      echo "$CONFIG_ADDRESSES" | tr ',' '\n' | while read -r address; do
+      echo "{{matrix}}" | tr ',' '\n' | while read -r address; do
         echo "Merging stakes for config address $$address"
         handle_command_execution "$$command_name" \
         ./target/release/$$command_name \
           --config $$address \
           --keypair "$$PSR_TX_FEE_WALLET"
       done
+    matrix:
+      - "vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU"
+      - "VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE"
     key: 'merge-stakes'
     artifact_paths:
       - "./execution-report.*"
@@ -91,12 +94,11 @@ steps:
     commands:
     - source ./scripts/execute-handlers.sh
     - check_command_execution_status "merge-stakes" || true
-    - claim_type=$(buildkite-agent meta-data get claim_type)
     - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
     - |
       curl $SLACK_API -X POST -H 'Content-Type: application/json; charset=utf-8' \
         -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
-        "channel": "'$(buildkite-agent meta-data get slack_feed)'",
+        "channel": "'"${SLACK_FEED}"'",
         "attachments": [{
           "color": "'"$$notification_color"'",
           "title": "Merge Stakes '"$${notification_result}"', '"$$attempts_count"' attempts",
