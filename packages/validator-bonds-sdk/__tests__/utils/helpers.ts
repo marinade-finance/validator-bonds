@@ -1,15 +1,17 @@
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { ExtendedProvider } from '@marinade.finance/web3js-1x'
-import {
+import assert from 'assert'
+
+import { checkErrorMessage } from '@marinade.finance/ts-common'
+import CryptoJS from 'crypto-js'
+
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { ExtendedProvider } from '@marinade.finance/web3js-1x'
+import type {
   PublicKey,
   Signer,
   Transaction,
   TransactionInstruction,
   TransactionInstructionCtorFields,
 } from '@solana/web3.js'
-import { checkErrorMessage } from '@marinade.finance/ts-common'
-import assert from 'assert'
-import CryptoJS from 'crypto-js'
 
 export async function executeTxWithError(
   provider: ExtendedProvider,

@@ -1,20 +1,18 @@
+/* eslint-disable sonarjs/no-duplicate-string, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
+
+import assert from 'assert'
+
+import { base64, bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import {
   CliCommandError,
   FORMAT_TYPE_DEF,
   printData,
-  FormatType,
 } from '@marinade.finance/cli-common'
-import { AccountInfo, PublicKey } from '@solana/web3.js'
-import { Command } from 'commander'
-import { getCliContext, setProgramIdByOwner } from '../context'
 import {
-  Bond,
-  Config,
   findBonds,
   findConfigs,
   getConfig,
   getBondsFunding,
-  BondDataWithFunding,
   bondsWithdrawerAuthority,
   getSettlement,
   findSettlements,
@@ -22,11 +20,7 @@ import {
   withdrawRequestAddress,
   settlementClaimsAddress,
   bondMintAddress,
-  ValidatorBondsProgram,
 } from '@marinade.finance/validator-bonds-sdk'
-import { ProgramAccount } from '@coral-xyz/anchor'
-import { getBondFromAddress, formatUnit, formatToSolWithAll } from '../utils'
-import BN from 'bn.js'
 import {
   getMultipleAccounts,
   getVoteAccountFromData,
@@ -35,14 +29,26 @@ import {
   reformat,
   reformatReserved,
 } from '@marinade.finance/web3js-1x'
-import { base64, bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
+import BN from 'bn.js'
 
+import { getCliContext, setProgramIdByOwner } from '../context'
+import { getBondFromAddress, formatUnit, formatToSolWithAll } from '../utils'
+
+import type { ProgramAccount } from '@coral-xyz/anchor'
+import type { FormatType } from '@marinade.finance/cli-common'
+import type {
+  Bond,
+  Config,
+  BondDataWithFunding,
+  ValidatorBondsProgram,
+} from '@marinade.finance/validator-bonds-sdk'
 import type {
   ProgramAccountInfoNullable,
   ReformatAction,
   VoteAccount,
 } from '@marinade.finance/web3js-1x'
-import assert from 'assert'
+import type { AccountInfo, PublicKey } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export type ProgramAccountWithProgramId<T> = ProgramAccount<T> & {
   programId: PublicKey
@@ -177,8 +183,8 @@ export function installShowEvent(program: Command) {
       'Format of output',
       'json',
     )
-    .action(async (eventData: string, { format }: { format: FormatType }) => {
-      await showEvent({
+    .action((eventData: string, { format }: { format: FormatType }) => {
+      showEvent({
         eventData,
         format,
       })
@@ -330,7 +336,7 @@ export async function showBond({
       if (bondFunding.length !== 1 || bondFunding[0] === undefined) {
         throw new CliCommandError({
           valueName: '[vote account address]|[bond address]',
-          value: `${bondData.account.data.voteAccount}|${address.toBase58()}`,
+          value: `${bondData.account.data.voteAccount.toBase58()}|${address.toBase58()}`,
           msg: 'For argument "--with-funding", failed to fetch stake accounts to check evaluate',
         })
       }
@@ -461,7 +467,7 @@ export async function showSettlement({
   const program = cliContext.program
   const logger = cliContext.logger
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-redundant-type-constituents
   let data: any | any[]
 
   if (address !== undefined) {
@@ -539,7 +545,7 @@ export async function showSettlement({
   printData(reformatted, format)
 }
 
-async function showEvent({
+function showEvent({
   eventData,
   format,
 }: {
@@ -583,7 +589,7 @@ function parseAsTransactionCpiData(log: string): string | null {
   try {
     // verification if log is transaction cpi data encoded with base58
     encodedLog = bs58.decode(log)
-  } catch (e) {
+  } catch (_e) {
     return null
   }
   const disc = encodedLog.subarray(0, 8)
@@ -599,7 +605,7 @@ function parseAsTransactionCpiData(log: string): string | null {
 export function reformatBond(key: string, value: any): ReformatAction {
   if (
     typeof key === 'string' &&
-    (key as string).startsWith('reserved') &&
+    key.startsWith('reserved') &&
     (Array.isArray(value) || value instanceof Uint8Array)
   ) {
     return { type: 'Remove' }
@@ -678,6 +684,7 @@ function reformatSettlement(key: string, value: any): ReformatAction {
       records: [
         {
           key: 'maxMerkleNodes',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           value: value.toString(),
         },
       ],
@@ -726,21 +733,21 @@ async function loadVoteAccounts(
       return [toVoteAccount(addresses[0], account)]
     } catch (e) {
       logger.debug(
-        `Failed to fetch vote account ${addresses[0].toBase58()} data: ${e}`,
+        `Failed to fetch vote account ${addresses[0].toBase58()} data: ${String(e)}`,
       )
       return undefined
     }
   }
   try {
-    const voteAccounts: Promise<
-      ProgramAccount<AccountInfo<VoteAccount> | null>
-    >[] = (
+    const voteAccounts: ProgramAccount<AccountInfo<VoteAccount> | null>[] = (
       await getMultipleAccounts({ connection: provider.connection, addresses })
-    ).map(async ({ publicKey, account }) => toVoteAccount(publicKey, account))
-    return Promise.all(voteAccounts)
+    ).map(({ publicKey, account }) => toVoteAccount(publicKey, account))
+    return voteAccounts
   } catch (e) {
     const voteAccounts = addresses.map(address => address.toBase58()).join(', ')
-    logger.debug(`Failed to fetch vote accounts [${voteAccounts}] data: ${e}`)
+    logger.debug(
+      `Failed to fetch vote accounts [${voteAccounts}] data: ${String(e)}`,
+    )
     return undefined
   }
 }

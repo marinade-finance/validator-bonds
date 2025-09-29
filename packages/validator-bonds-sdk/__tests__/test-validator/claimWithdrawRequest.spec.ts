@@ -1,33 +1,34 @@
-import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import assert from 'assert'
+
+import { waitForStakeAccountActivation } from '@marinade.finance/anchor-common'
+import {
+  executeTxSimple,
+  getVoteAccount,
+  transaction,
+} from '@marinade.finance/web3js-1x'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+import BN from 'bn.js'
+
 import {
   CLAIM_WITHDRAW_REQUEST_EVENT,
-  ValidatorBondsProgram,
   assertEvent,
   bondsWithdrawerAuthority,
   getStakeAccount,
   getWithdrawRequest,
   parseCpiEvents,
 } from '../../src'
-import { initTest } from '../utils/testValidator'
+import { claimWithdrawRequestInstruction } from '../../src/instructions/claimWithdrawRequest'
+import { delegatedStakeAccount } from '../utils/staking'
 import {
   executeFundBondInstruction,
   executeInitConfigInstruction,
   executeNewWithdrawRequest,
 } from '../utils/testTransactions'
-import { delegatedStakeAccount } from '../utils/staking'
-import { claimWithdrawRequestInstruction } from '../../src/instructions/claimWithdrawRequest'
-import BN from 'bn.js'
-import {
-  executeTxSimple,
-  getVoteAccount,
-  transaction,
-} from '@marinade.finance/web3js-1x'
-import {
-  AnchorExtendedProvider,
-  waitForStakeAccountActivation,
-} from '@marinade.finance/anchor-common'
+import { initTest } from '../utils/testValidator'
 
-import assert from 'assert'
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds claim withdraw request', () => {
   let provider: AnchorExtendedProvider
@@ -35,8 +36,8 @@ describe('Validator Bonds claim withdraw request', () => {
   let configAccount: PublicKey
   const requestedAmount = 2 * LAMPORTS_PER_SOL
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+  beforeAll(() => {
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {

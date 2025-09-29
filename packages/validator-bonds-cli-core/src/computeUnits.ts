@@ -6,7 +6,9 @@
 // Having the defined limit of compute units make possible to tip the priority fee with bigger amount and pay less.
 // https://www.helius.dev/blog/priority-fees-understanding-solanas-transaction-fee-mechanics
 
-import { Option, createOption } from 'commander'
+import { createOption } from 'commander'
+
+import type { Option } from 'commander'
 
 export const CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS = 27_000
 // this is the limit for the claim withdraw request + merge as it is within the same CLI command

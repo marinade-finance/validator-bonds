@@ -1,31 +1,35 @@
+import assert from 'assert'
+
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
+import { rand } from '@marinade.finance/ts-common'
+import {
+  getBondsFunding,
+  getStakeAccount,
+  withdrawRequestAddress,
+  MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
+} from '@marinade.finance/validator-bonds-sdk'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import {
+  createBondsFundedStakeAccount,
+  createVoteAccount,
+} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+import {
+  executeCancelWithdrawRequestInstruction,
+  executeInitBondInstruction,
+  executeInitWithdrawRequestInstruction,
+} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import {
   createTempFileKeypair,
   createUserAndFund,
   pubkey,
   waitForNextEpoch,
 } from '@marinade.finance/web3js-1x'
-import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import {
-  ValidatorBondsProgram,
-  getBondsFunding,
-  getStakeAccount,
-  withdrawRequestAddress,
-  MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
-} from '@marinade.finance/validator-bonds-sdk'
-import {
-  executeCancelWithdrawRequestInstruction,
-  executeInitBondInstruction,
-  executeInitWithdrawRequestInstruction,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import {
-  createBondsFundedStakeAccount,
-  createVoteAccount,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
-import { rand } from '@marinade.finance/ts-common'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import BN from 'bn.js'
+
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import type { Keypair, PublicKey } from '@solana/web3.js'
 
 describe('Claim withdraw request using CLI (institutional)', () => {
   let withdrawRequestLamports: BN
@@ -37,9 +41,9 @@ describe('Claim withdraw request using CLI (institutional)', () => {
   let validatorIdentityKeypair: Keypair
   let validatorIdentityCleanup: () => Promise<void>
 
-  beforeAll(async () => {
+  beforeAll(() => {
     extendJestWithShellMatchers()
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -49,11 +53,11 @@ describe('Claim withdraw request using CLI (institutional)', () => {
       keypair: validatorIdentityKeypair,
       cleanup: validatorIdentityCleanup,
     } = await createTempFileKeypair())
-    expect(
-      await provider.connection.getAccountInfo(
+    assert(
+      (await provider.connection.getAccountInfo(
         MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
-      ),
-    ).not.toBeNull()
+      )) !== null,
+    )
     ;({ voteAccount } = await createVoteAccount({
       provider,
       validatorIdentity: validatorIdentityKeypair,
@@ -75,7 +79,7 @@ describe('Claim withdraw request using CLI (institutional)', () => {
         withdrawRequestAddr,
         validatorIdentityKeypair,
       )
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
     await executeInitWithdrawRequestInstruction({
@@ -122,7 +126,7 @@ describe('Claim withdraw request using CLI (institutional)', () => {
     const expectedActive = toFund
       .muln(stakeAccountNumber)
       .sub(withdrawRequestLamports)
-    expect(expectedActive).toEqual(bondsFunding[0]?.amountActive)
+    expect(bondsFunding[0]?.amountActive).toEqual(expectedActive)
 
     const user = await createUserAndFund({ provider })
 
@@ -130,23 +134,20 @@ describe('Claim withdraw request using CLI (institutional)', () => {
     // + needed to wait 1 epoch for the withdraw request to be claimable (config set 'withdrawLockupEpochs' to 0)
     await waitForNextEpoch(provider.connection, 15)
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli:institutional',
-          '-u',
-          provider.connection.rpcEndpoint,
-          'claim-withdraw-request',
-          voteAccount.toBase58(),
-          '--authority',
-          validatorIdentityPath,
-          '--withdrawer',
-          pubkey(user).toBase58(),
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli:institutional',
+        '-u',
+        provider.connection.rpcEndpoint,
+        'claim-withdraw-request',
+        voteAccount.toBase58(),
+        '--authority',
+        validatorIdentityPath,
+        '--withdrawer',
+        pubkey(user).toBase58(),
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /successfully claimed/,

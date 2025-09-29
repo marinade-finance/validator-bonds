@@ -1,5 +1,8 @@
-import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
+import {
+  fundBondInstruction,
+  getConfig,
+  getRentExemptStake,
+} from '@marinade.finance/validator-bonds-sdk'
 import {
   executeTx,
   instanceOfWallet,
@@ -8,30 +11,27 @@ import {
   transaction,
 } from '@marinade.finance/web3js-1x'
 import {
-  fundBondInstruction,
-  getConfig,
-  getRentExemptStake,
-} from '@marinade.finance/validator-bonds-sdk'
-import {
   Authorized,
   Keypair,
   LAMPORTS_PER_SOL,
-  PublicKey,
-  Signer,
   StakeProgram,
 } from '@solana/web3.js'
-import { formatToSol, getBondFromAddress } from '../../utils'
+import BN from 'bn.js'
+
+import { failIfUnexpectedFundingError } from './fundBond'
 import {
   FUND_BOND_WITH_SOL_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
-import BN from 'bn.js'
-import { failIfUnexpectedFundingError } from './fundBond'
+import { setProgramIdByOwner } from '../../context'
+import { formatToSol, getBondFromAddress } from '../../utils'
 
 import type {
   Wallet,
   Wallet as WalletInterface,
 } from '@marinade.finance/web3js-1x'
+import type { PublicKey, Signer } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function configureFundBondWithSol(program: Command): Command {
   return program

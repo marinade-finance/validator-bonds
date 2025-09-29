@@ -1,7 +1,15 @@
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import assert from 'assert'
+
+import {
+  U64_MAX,
+  executeTxSimple,
+  transaction,
+  waitForNextEpoch,
+} from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+
 import {
   RESET_STAKE_EVENT,
-  ValidatorBondsProgram,
   getStakeAccount,
   resetStakeInstruction,
   settlementStakerAuthority,
@@ -9,23 +17,19 @@ import {
   parseCpiEvents,
   assertEvent,
 } from '../../src'
-import { initTest } from '../utils/testValidator'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-} from '../utils/testTransactions'
-import {
-  U64_MAX,
-  executeTxSimple,
-  transaction,
-  waitForNextEpoch,
-} from '@marinade.finance/web3js-1x'
 import {
   createSettlementFundedDelegatedStake,
   createVoteAccount,
 } from '../utils/staking'
-import assert from 'assert'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import {
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+} from '../utils/testTransactions'
+import { initTest } from '../utils/testValidator'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds reset settlement stake account', () => {
   let provider: AnchorExtendedProvider
@@ -34,8 +38,8 @@ describe('Validator Bonds reset settlement stake account', () => {
   let voteAccount: PublicKey
   let bondAccount: PublicKey
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+  beforeAll(() => {
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {

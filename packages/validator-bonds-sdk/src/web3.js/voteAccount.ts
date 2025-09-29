@@ -1,15 +1,17 @@
-import { LoggerPlaceholder, logDebug } from '@marinade.finance/ts-common'
-import {
+import { logDebug } from '@marinade.finance/ts-common'
+import { getConnection } from '@marinade.finance/web3js-1x'
+import { VOTE_PROGRAM_ID } from '@solana/web3.js'
+
+import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
+import type {
   HasProvider,
   Provider,
-  getConnection,
   ProgramAccountInfo,
 } from '@marinade.finance/web3js-1x'
-import {
+import type {
   Connection,
   GetProgramAccountsFilter,
   PublicKey,
-  VOTE_PROGRAM_ID,
 } from '@solana/web3.js'
 
 // Depending if new vote account feature-set is gated on.

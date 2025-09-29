@@ -2,8 +2,9 @@
 
 import { launchCliProgram } from '@marinade.finance/validator-bonds-cli-core'
 import { VALIDATOR_BONDS_PROGRAM_ID } from '@marinade.finance/validator-bonds-sdk'
-import { installCommands } from './commands'
 import { parsePubkey } from '@marinade.finance/web3js-1x'
+
+import { installCommands } from './commands'
 
 export const VALIDATOR_BONDS_NPM_URL =
   'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli'
@@ -13,7 +14,7 @@ launchCliProgram({
   installAdditionalOptions: program => {
     program.option(
       '--program-id <pubkey>',
-      `Program id of validator bonds contract (default: ${VALIDATOR_BONDS_PROGRAM_ID})`,
+      `Program id of validator bonds contract (default: ${VALIDATOR_BONDS_PROGRAM_ID.toBase58()})`,
       parsePubkey,
       Promise.resolve(VALIDATOR_BONDS_PROGRAM_ID),
     )

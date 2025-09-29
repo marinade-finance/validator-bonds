@@ -1,9 +1,11 @@
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
-import { MerkleTreeNode } from '../../src'
+import { createUserAndFund } from '@marinade.finance/web3js-1x'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
-import { ExtendedProvider } from '@marinade.finance/web3js-1x'
-import { createUserAndFund } from '@marinade.finance/web3js-1x'
+
+import { MerkleTreeNode } from '../../src'
+
+import type { ExtendedProvider } from '@marinade.finance/web3js-1x'
 
 export const configAccount = new PublicKey(
   '4wQELTA1RMEM3cKN7gjbiNN247e3GY9Sga7MKpNV38kL',
@@ -381,7 +383,7 @@ export async function createWithdrawerUsers(provider: ExtendedProvider) {
   let exists = false
   try {
     exists = (await provider.connection.getAccountInfo(withdrawer1)) !== null
-  } catch (e) {
+  } catch (_e) {
     exists = false
   }
   if (exists === false) {

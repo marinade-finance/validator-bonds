@@ -1,18 +1,22 @@
-import {
-  createTempFileKeypair,
-  waitForNextEpoch,
-} from '@marinade.finance/web3js-1x'
+import assert from 'assert'
+
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
-import { Keypair, PublicKey } from '@solana/web3.js'
-import { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import {
+  createTempFileKeypair,
+  waitForNextEpoch,
+} from '@marinade.finance/web3js-1x'
+import { Keypair } from '@solana/web3.js'
+
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Close settlement using CLI', () => {
   let provider: AnchorExtendedProvider
@@ -23,9 +27,9 @@ describe('Close settlement using CLI', () => {
   let validatorIdentityCleanup: () => Promise<void>
   let operatorAuthority: Keypair
 
-  beforeAll(async () => {
+  beforeAll(() => {
     extendJestWithShellMatchers()
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -38,9 +42,7 @@ describe('Close settlement using CLI', () => {
         epochsToClaimSettlement: 0,
       },
     ))
-    expect(
-      await provider.connection.getAccountInfo(configAccount),
-    ).not.toBeNull()
+    assert((await provider.connection.getAccountInfo(configAccount)) != null)
     ;({ voteAccount } = await createVoteAccount({
       provider,
       validatorIdentity: validatorIdentityKeypair,
@@ -80,22 +82,19 @@ describe('Close settlement using CLI', () => {
       await waitForNextEpoch(provider.connection, 15)
     }
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          'close-settlement',
-          settlementAccount.toBase58(),
-          '--confirmation-finality',
-          'confirmed',
-          '--verbose',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        'close-settlement',
+        settlementAccount.toBase58(),
+        '--confirmation-finality',
+        'confirmed',
+        '--verbose',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       stdout: /successfully closed/,
     })

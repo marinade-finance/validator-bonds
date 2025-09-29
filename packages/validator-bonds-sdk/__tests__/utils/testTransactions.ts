@@ -1,5 +1,17 @@
+import assert from 'assert'
+
+import { pubkey, signer } from '@marinade.finance/web3js-1x'
 import {
-  ValidatorBondsProgram,
+  ComputeBudgetProgram,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  StakeProgram,
+} from '@solana/web3.js'
+import BN from 'bn.js'
+
+import { getRandomByte, getSecureRandomInt } from './helpers'
+import { createVoteAccount, createVoteAccountWithIdentity } from './staking'
+import {
   cancelWithdrawRequestInstruction,
   fundBondInstruction,
   getBond,
@@ -10,19 +22,10 @@ import {
   bondsWithdrawerAuthority,
   configureConfigInstruction,
 } from '../../src'
-import {
-  ComputeBudgetProgram,
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  StakeProgram,
-} from '@solana/web3.js'
-import { ExtendedProvider } from '@marinade.finance/web3js-1x'
-import { createVoteAccount, createVoteAccountWithIdentity } from './staking'
-import BN from 'bn.js'
-import assert from 'assert'
-import { pubkey, signer } from '@marinade.finance/web3js-1x'
-import { getRandomByte, getSecureRandomInt } from './helpers'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { ExtendedProvider } from '@marinade.finance/web3js-1x'
+import type { PublicKey } from '@solana/web3.js'
 
 export async function executeWithdraw(
   provider: ExtendedProvider,
@@ -375,7 +378,7 @@ export async function executeInitWithdrawRequestInstruction({
   assert(bondAccount)
   let authority = validatorIdentity
   if (!authority && bondAuthority && bondAuthority instanceof Keypair) {
-    authority = bondAuthority as Keypair
+    authority = bondAuthority
   }
   if (authority === undefined) {
     throw new Error(

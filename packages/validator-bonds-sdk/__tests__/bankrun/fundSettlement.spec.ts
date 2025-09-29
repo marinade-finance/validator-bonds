@@ -1,6 +1,27 @@
+import { verifyError } from '@marinade.finance/anchor-common'
+import {
+  assertNotExist,
+  bankrunExecuteIx,
+  currentEpoch,
+  warpOffsetEpoch,
+  warpToNextEpoch,
+} from '@marinade.finance/bankrun-utils'
+import {
+  U64_MAX,
+  createUserAndFund,
+  pubkey,
+  signer,
+} from '@marinade.finance/web3js-1x'
+import {
+  Keypair,
+  LAMPORTS_PER_SOL,
+  StakeProgram,
+  SystemProgram,
+} from '@solana/web3.js'
+
+import { initBankrunTest, delegateAndFund } from './bankrun'
 import {
   Errors,
-  ValidatorBondsProgram,
   closeSettlementV2Instruction,
   fundSettlementInstruction,
   getConfig,
@@ -9,28 +30,7 @@ import {
   bondsWithdrawerAuthority,
   deserializeStakeState,
   getRentExemptStake,
-  Config,
 } from '../../src'
-import {
-  BankrunExtendedProvider,
-  assertNotExist,
-  bankrunExecuteIx,
-  currentEpoch,
-  warpOffsetEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-  executeInitSettlement,
-} from '../utils/testTransactions'
-import {
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  StakeProgram,
-  SystemProgram,
-} from '@solana/web3.js'
 import {
   StakeStates,
   authorizeStakeAccount,
@@ -41,13 +41,14 @@ import {
   getAndCheckStakeAccount,
 } from '../utils/staking'
 import {
-  U64_MAX,
-  createUserAndFund,
-  pubkey,
-  signer,
-} from '@marinade.finance/web3js-1x'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest, delegateAndFund } from './bankrun'
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+  executeInitSettlement,
+} from '../utils/testTransactions'
+
+import type { ValidatorBondsProgram, Config } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds fund settlement', () => {
   const epochsToClaimSettlement = 3
@@ -489,18 +490,10 @@ describe('Validator Bonds fund settlement', () => {
         operatorAuthority,
         voteAccount,
       })
-    try {
-      await provider.sendIx(
-        [signer(splitStakeAccount), operatorAuthority],
-        fundIx,
-      )
-      throw new Error('cannot fund closed settlement')
-    } catch (e) {
+    await expect(
+      provider.sendIx([signer(splitStakeAccount), operatorAuthority], fundIx),
       // 3012. Error Message: The program expected this account to be already initialized.
-      expect(
-        (e as Error).message.includes('custom program error: 0xbc4'),
-      ).toBeTruthy()
-    }
+    ).rejects.toThrow(/custom program error: 0xbc4/)
   })
 
   it('cannot fund settlement with wrong authority', async () => {

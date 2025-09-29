@@ -1,6 +1,11 @@
 import { CliCommandError } from '@marinade.finance/cli-common'
-import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
+import {
+  checkAndGetBondAddress,
+  getBond,
+  getConfig,
+  getRentExemptStake,
+  initWithdrawRequestInstruction,
+} from '@marinade.finance/validator-bonds-sdk'
 import {
   ExecutionError,
   U64_MAX,
@@ -11,31 +16,27 @@ import {
   parseWalletOrPubkeyOption,
   transaction,
 } from '@marinade.finance/web3js-1x'
-import {
-  checkAndGetBondAddress,
-  getBond,
-  getConfig,
-  getRentExemptStake,
-  initWithdrawRequestInstruction,
-  ValidatorBondsProgram,
-} from '@marinade.finance/validator-bonds-sdk'
-import { PublicKey, Signer } from '@solana/web3.js'
 import BN from 'bn.js'
+
+import {
+  INIT_WITHDRAW_REQUEST_LIMIT_UNITS,
+  computeUnitLimitOption,
+} from '../../computeUnits'
+import { setProgramIdByOwner } from '../../context'
 import {
   formatToSol,
   formatToSolWithAll,
   getBondFromAddress,
 } from '../../utils'
-import {
-  INIT_WITHDRAW_REQUEST_LIMIT_UNITS,
-  computeUnitLimitOption,
-} from '../../computeUnits'
 
+import type { LoggerWrapper } from '@marinade.finance/ts-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 import type {
   Wallet as WalletInterface,
   Wallet,
 } from '@marinade.finance/web3js-1x'
-import { LoggerWrapper } from '@marinade.finance/ts-common'
+import type { PublicKey, Signer } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function configureInitWithdrawRequest(program: Command): Command {
   return program

@@ -1,13 +1,11 @@
-import {
-  Keypair,
-  PublicKey,
-  Signer,
-  TransactionInstruction,
-} from '@solana/web3.js'
-import { ValidatorBondsProgram } from '../sdk'
+import { Keypair, PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
+
 import { anchorProgramWalletPubkey } from '../utils'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { Signer, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to init config root account.

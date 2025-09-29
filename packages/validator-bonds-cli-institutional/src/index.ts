@@ -2,6 +2,7 @@
 
 import { launchCliProgram } from '@marinade.finance/validator-bonds-cli-core'
 import { VALIDATOR_BONDS_PROGRAM_ID } from '@marinade.finance/validator-bonds-sdk'
+
 import { installCommands } from './commands'
 
 export const VALIDATOR_BONDS_NPM_URL =

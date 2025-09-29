@@ -1,8 +1,11 @@
+import { verifyError } from '@marinade.finance/anchor-common'
+import { assertNotExist, currentEpoch } from '@marinade.finance/bankrun-utils'
+import { Keypair } from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
 import {
-  Bond,
   Errors,
   SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE,
-  ValidatorBondsProgram,
   getBond,
   getSettlement,
   getSettlementClaims,
@@ -13,22 +16,18 @@ import {
   settlementStakerAuthority,
   upsizeSettlementClaims,
 } from '../../src'
-import {
-  BankrunExtendedProvider,
-  assertNotExist,
-  currentEpoch,
-} from '@marinade.finance/bankrun-utils'
+import { isInitialized } from '../../src/settlementClaims'
+import { getRandomByte } from '../utils/helpers'
+import { createVoteAccount } from '../utils/staking'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { ProgramAccount } from '@coral-xyz/anchor'
-import { Keypair, PublicKey } from '@solana/web3.js'
-import { createVoteAccount } from '../utils/staking'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest } from './bankrun'
-import { isInitialized } from '../../src/settlementClaims'
-import { getRandomByte } from '../utils/helpers'
+
+import type { Bond, ValidatorBondsProgram } from '../../src'
+import type { ProgramAccount } from '@coral-xyz/anchor'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { PublicKey } from '@solana/web3.js'
 
 // maximum increase in account size per instruction
 //   see https://github.com/anza-xyz/agave/blob/v2.0.1/sdk/program/src/entrypoint.rs#L263

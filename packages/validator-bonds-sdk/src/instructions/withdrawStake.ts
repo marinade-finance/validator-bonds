@@ -3,13 +3,13 @@ import {
   SYSVAR_CLOCK_PUBKEY,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   StakeProgram,
-  TransactionInstruction,
-  Keypair,
-  Signer,
 } from '@solana/web3.js'
-import { ValidatorBondsProgram } from '../sdk'
+
 import { getConfig } from '../api'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { TransactionInstruction, Keypair, Signer } from '@solana/web3.js'
 
 /**
  * Generate instruction to withdraw lamports from stake accounts

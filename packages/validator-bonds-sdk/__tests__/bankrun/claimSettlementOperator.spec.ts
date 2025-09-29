@@ -1,31 +1,22 @@
+import { verifyError } from '@marinade.finance/anchor-common'
+import {
+  assertNotExist,
+  currentEpoch,
+  warpOffsetEpoch,
+  warpToNextEpoch,
+} from '@marinade.finance/bankrun-utils'
+import { createUserAndFund, pubkey } from '@marinade.finance/web3js-1x'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
 import {
   Errors,
-  ValidatorBondsProgram,
   claimSettlementV2Instruction,
   closeSettlementV2Instruction,
   getSettlementClaims,
   resetStakeInstruction,
   withdrawStakeInstruction,
 } from '../../src'
-import {
-  BankrunExtendedProvider,
-  assertNotExist,
-  currentEpoch,
-  warpOffsetEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-  executeInitSettlement,
-} from '../utils/testTransactions'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import {
-  createSettlementFundedInitializedStake,
-  createVoteAccount,
-  createInitializedStakeAccount,
-} from '../utils/staking'
-import { createUserAndFund, pubkey } from '@marinade.finance/web3js-1x'
 import {
   ITEMS_VOTE_ACCOUNT_1,
   MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
@@ -35,8 +26,20 @@ import {
   treeNodeByWithdrawer,
   withdrawer1,
 } from '../utils/merkleTreeTestData'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest } from './bankrun'
+import {
+  createSettlementFundedInitializedStake,
+  createVoteAccount,
+  createInitializedStakeAccount,
+} from '../utils/staking'
+import {
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+  executeInitSettlement,
+} from '../utils/testTransactions'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { Keypair, PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds claim settlement', () => {
   const epochsToClaimSettlement = 3

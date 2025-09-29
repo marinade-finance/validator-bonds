@@ -1,6 +1,12 @@
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import assert from 'assert'
+
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
+import { createUserAndFund, signer } from '@marinade.finance/web3js-1x'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+import BN from 'bn.js'
+
 import {
-  ValidatorBondsProgram,
   claimSettlementV2Instruction,
   fundSettlementInstruction,
   findSettlementClaims,
@@ -10,14 +16,6 @@ import {
   isClaimed,
   CLAIM_SETTLEMENT_V2_EVENT,
 } from '../../src'
-import { initTest } from '../utils/testValidator'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-  executeInitSettlement,
-} from '../utils/testTransactions'
-import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
-import { createUserAndFund, signer } from '@marinade.finance/web3js-1x'
 import {
   MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
   configAccountKeypair,
@@ -38,13 +36,16 @@ import {
   createDelegatedStakeAccount,
   createVoteAccount,
 } from '../utils/staking'
-import BN from 'bn.js'
 import {
-  AnchorExtendedProvider,
-  getAnchorValidatorInfo,
-} from '@marinade.finance/anchor-common'
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+  executeInitSettlement,
+} from '../utils/testTransactions'
+import { initTest } from '../utils/testValidator'
 
-import assert from 'assert'
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { Keypair, PublicKey } from '@solana/web3.js'
 
 // NOTE: order of tests need to be maintained
 describe('Validator Bonds claim settlement', () => {
@@ -57,7 +58,7 @@ describe('Validator Bonds claim settlement', () => {
   let stakeAccount: PublicKey
 
   beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
     ;({ configAccount, operatorAuthority } = await executeInitConfigInstruction(
       {

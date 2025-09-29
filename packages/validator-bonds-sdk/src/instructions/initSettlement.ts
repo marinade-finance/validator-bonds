@@ -1,20 +1,18 @@
-import {
+import { PublicKey } from '@solana/web3.js'
+import BN from 'bn.js'
+
+import { getBond, getConfig } from '../api'
+import { bondAddress, settlementAddress, settlementClaimsAddress } from '../sdk'
+import { anchorProgramWalletPubkey } from '../utils'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type {
   EpochInfo,
   Keypair,
-  PublicKey,
   Signer,
   TransactionInstruction,
 } from '@solana/web3.js'
-import {
-  ValidatorBondsProgram,
-  bondAddress,
-  settlementAddress,
-  settlementClaimsAddress,
-} from '../sdk'
-import { anchorProgramWalletPubkey } from '../utils'
-import BN from 'bn.js'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { getBond, getConfig } from '../api'
 
 /**
  * Generate instruction to initialize settlement protected event.

@@ -1,11 +1,11 @@
-import BN from 'bn.js'
-import {
-  SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE,
-  SettlementClaims,
-  ValidatorBondsProgram,
-} from './sdk'
-import { AccountInfo } from '@solana/web3.js'
 import assert from 'assert'
+
+import BN from 'bn.js'
+
+import { SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE } from './sdk'
+
+import type { SettlementClaims, ValidatorBondsProgram } from './sdk'
+import type { AccountInfo } from '@solana/web3.js'
 
 export type SettlementClaimsBitmap = {
   account: SettlementClaims
@@ -83,7 +83,7 @@ export class Bitmap {
   assertValidIndex(index: BN | number) {
     index = new BN(index)
     if (index.ltn(0) || index.gte(this.maxRecords)) {
-      throw new Error(`Index ${index} out of range`)
+      throw new Error(`Index ${index.toString()} out of range`)
     }
   }
 

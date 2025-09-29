@@ -1,17 +1,20 @@
+import assert from 'assert'
+
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import {
-  ValidatorBondsProgram,
-  bondsWithdrawerAuthority,
-} from '@marinade.finance/validator-bonds-sdk'
+import { bondsWithdrawerAuthority } from '@marinade.finance/validator-bonds-sdk'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import {
   authorizeStakeAccount,
   delegatedStakeAccount,
-} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
-import { ExtendedProvider, waitForNextEpoch } from '@marinade.finance/web3js-1x'
+} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
+import { waitForNextEpoch } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import type { ExtendedProvider } from '@marinade.finance/web3js-1x'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Merge stake accounts using CLI', () => {
   let provider: AnchorExtendedProvider
@@ -20,7 +23,7 @@ describe('Merge stake accounts using CLI', () => {
 
   beforeAll(async () => {
     extendJestWithShellMatchers()
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
     // we want to be at the beginning of the epoch
     // otherwise the merge instruction could fail as the stake account is in different state (0x6)
     // https://github.com/solana-labs/solana/blob/v1.17.15/sdk/program/src/stake/instruction.rs#L42
@@ -36,9 +39,7 @@ describe('Merge stake accounts using CLI', () => {
       epochsToClaimSettlement: 1,
       withdrawLockupEpochs: 2,
     }))
-    expect(
-      await provider.connection.getAccountInfo(configAccount),
-    ).not.toBeNull()
+    assert((await provider.connection.getAccountInfo(configAccount)) != null)
   })
 
   it('merge stake accounts', async () => {
@@ -50,29 +51,26 @@ describe('Merge stake accounts using CLI', () => {
       lamports2: LAMPORTS_PER_SOL * 3,
     })
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'merge-stake',
-          '--source',
-          stakeAccount1.toBase58(),
-          '--destination',
-          stakeAccount2.toBase58(),
-          '--config',
-          configAccount.toBase58(),
-          '--confirmation-finality',
-          'confirmed',
-          '-v',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'merge-stake',
+        '--source',
+        stakeAccount1.toBase58(),
+        '--destination',
+        stakeAccount2.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--confirmation-finality',
+        'confirmed',
+        '-v',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /successfully merged/,
@@ -94,27 +92,24 @@ describe('Merge stake accounts using CLI', () => {
       configAccount,
     })
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'merge-stake',
-          '--source',
-          stakeAccount1.toBase58(),
-          '--destination',
-          stakeAccount2.toBase58(),
-          '--config',
-          configAccount.toBase58(),
-          '--print-only',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'merge-stake',
+        '--source',
+        stakeAccount1.toBase58(),
+        '--destination',
+        stakeAccount2.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--print-only',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /successfully merged/,

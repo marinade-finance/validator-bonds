@@ -1,10 +1,14 @@
-import {
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { utils as anchorUtils } from '@coral-xyz/anchor'
+import BN from 'bn.js'
+
+import type { ValidatorBonds, ValidatorBondsProgram } from './sdk'
+import type { Idl, IdlEvents } from '@coral-xyz/anchor'
+import type {
   CompiledInnerInstruction,
   VersionedTransactionResponse,
 } from '@solana/web3.js'
-import BN from 'bn.js'
-import { Idl, IdlEvents, utils as anchorUtils } from '@coral-xyz/anchor'
-import { ValidatorBonds, ValidatorBondsProgram } from './sdk'
 
 // https://github.com/coral-xyz/anchor/blob/v0.29.0/lang/src/event.rs
 export const EVENT_IX_TAG: BN = new BN('1d9acb512ea545e4', 'hex')
@@ -30,12 +34,12 @@ export function parseCpiEvents(
   const inner: CompiledInnerInstruction[] =
     transactionResponse?.meta?.innerInstructions ?? []
   for (let i = 0; i < inner.length; i++) {
-    const innerI = inner[i]
-    if (innerI === undefined) {
+    const innerData = inner[i]
+    if (innerData === undefined) {
       continue
     }
-    for (let j = 0; j < innerI.instructions.length; j++) {
-      const ix = innerI.instructions[j]
+    for (let j = 0; j < innerData.instructions.length; j++) {
+      const ix = innerData.instructions[j]
       if (ix === undefined) {
         continue
       }
@@ -69,17 +73,10 @@ export function parseCpiEvents(
 
 // Define a type guard function to check if an object instance contains all properties of a given type
 export function hasAllProperties<T>(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   obj: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   type: { [K in keyof T]: any },
 ): obj is T {
-  for (const key in type) {
-    if (!(key in obj)) {
-      return false
-    }
-  }
-  return true
+  return Object.keys(type).every(key => key in obj)
 }
 
 /**

@@ -1,5 +1,7 @@
-import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
+import {
+  bondsWithdrawerAuthority,
+  fundBondInstruction,
+} from '@marinade.finance/validator-bonds-sdk'
 import {
   executeTx,
   getStakeAccount,
@@ -9,26 +11,25 @@ import {
   parseWalletOrPubkeyOption,
   transaction,
 } from '@marinade.finance/web3js-1x'
-import {
-  bondsWithdrawerAuthority,
-  fundBondInstruction,
-} from '@marinade.finance/validator-bonds-sdk'
-import { PublicKey, Signer } from '@solana/web3.js'
-import {
-  getBondFromAddress,
-  isExpectedAnchorTransactionError,
-} from '../../utils'
+
 import {
   FUND_BOND_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
+import { setProgramIdByOwner } from '../../context'
+import {
+  getBondFromAddress,
+  isExpectedAnchorTransactionError,
+} from '../../utils'
 
+import type { LoggerWrapper } from '@marinade.finance/ts-common'
 import type {
   Wallet as WalletInterface,
   Provider,
   Wallet,
 } from '@marinade.finance/web3js-1x'
-import { LoggerWrapper } from '@marinade.finance/ts-common'
+import type { PublicKey, Signer } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function configureFundBond(program: Command): Command {
   return program
@@ -163,7 +164,7 @@ export async function failIfUnexpectedFundingError({
   bondAccount: PublicKey
 }) {
   if (
-    await isExpectedAnchorTransactionError(
+    isExpectedAnchorTransactionError(
       err,
       'wrong withdrawer authority of the stake account',
     )

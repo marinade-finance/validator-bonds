@@ -1,20 +1,22 @@
+import { logDebug } from '@marinade.finance/ts-common'
 import {
-  PublicKey,
-  TransactionInstruction,
   StakeProgram,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   SYSVAR_CLOCK_PUBKEY,
   Keypair,
 } from '@solana/web3.js'
+
+import { getBond, getSettlement } from '../api'
 import {
-  ValidatorBondsProgram,
   bondAddress,
   settlementStakerAuthority,
   bondsWithdrawerAuthority,
 } from '../sdk'
-import { getBond, getSettlement } from '../api'
 import { findStakeAccounts } from '../web3.js'
-import { LoggerPlaceholder, logDebug } from '@marinade.finance/ts-common'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
+import type { PublicKey, TransactionInstruction } from '@solana/web3.js'
 
 export type CloseSettlementParams = {
   program: ValidatorBondsProgram

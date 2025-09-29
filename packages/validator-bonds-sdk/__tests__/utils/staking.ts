@@ -1,29 +1,19 @@
-import { Provider } from '@coral-xyz/anchor'
+import assert from 'assert'
+
+import { pubkey, signer } from '@marinade.finance/web3js-1x'
 import {
-  AccountInfo,
   Authorized,
   Keypair,
-  Lockup,
-  PublicKey,
   StakeProgram,
   SystemProgram,
   VoteProgram,
   TransactionInstruction,
-  Transaction,
   StakeAuthorizationLayout,
   LAMPORTS_PER_SOL,
-  Signer,
 } from '@solana/web3.js'
-import { ExtendedProvider } from '@marinade.finance/web3js-1x'
-import { StakeState } from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
-import assert from 'assert'
+import BN from 'bn.js'
+
 import {
-  pubkey,
-  signer,
-  Wallet as WalletInterface,
-} from '@marinade.finance/web3js-1x'
-import {
-  ValidatorBondsProgram,
   settlementStakerAuthority,
   bondsWithdrawerAuthority,
   deserializeStakeState,
@@ -31,7 +21,19 @@ import {
   VOTE_ACCOUNT_SIZE,
   getRentExemptStake,
 } from '../../src'
-import BN from 'bn.js'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { Provider } from '@coral-xyz/anchor'
+import type { StakeState } from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
+import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
+import type { ExtendedProvider } from '@marinade.finance/web3js-1x'
+import type {
+  AccountInfo,
+  Lockup,
+  PublicKey,
+  Transaction,
+  Signer,
+} from '@solana/web3.js'
 
 /**
  * SetLockup stake instruction params

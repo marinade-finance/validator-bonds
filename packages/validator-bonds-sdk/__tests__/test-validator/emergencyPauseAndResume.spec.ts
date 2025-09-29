@@ -1,9 +1,11 @@
+import assert from 'assert'
+
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import { Keypair } from '@solana/web3.js'
+
 import {
-  Config,
   EMERGENCY_PAUSE_EVENT,
   EMERGENCY_RESUME_EVENT,
-  ValidatorBondsProgram,
   assertEvent,
   configureConfigInstruction,
   emergencyPauseInstruction,
@@ -11,12 +13,12 @@ import {
   getConfig,
   parseCpiEvents,
 } from '../../src'
-import { ProgramAccount } from '@coral-xyz/anchor'
-import { initTest } from '../utils/testValidator'
-import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
-import assert from 'assert'
+import { initTest } from '../utils/testValidator'
+
+import type { Config, ValidatorBondsProgram } from '../../src'
+import type { ProgramAccount } from '@coral-xyz/anchor'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 
 describe('Validator Bonds pause and resume', () => {
   let provider: AnchorExtendedProvider
@@ -24,8 +26,8 @@ describe('Validator Bonds pause and resume', () => {
   let config: ProgramAccount<Config>
   let pauseAuthority: Keypair
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+  beforeAll(() => {
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {

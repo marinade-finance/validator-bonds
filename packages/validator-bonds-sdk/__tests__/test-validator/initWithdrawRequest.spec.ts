@@ -1,7 +1,16 @@
-import { Keypair, LAMPORTS_PER_SOL, PublicKey, Signer } from '@solana/web3.js'
+import assert from 'assert'
+
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+import { executeTxSimple, waitForNextEpoch } from '@marinade.finance/web3js-1x'
+import {
+  splitAndExecuteTx,
+  signer,
+  transaction,
+} from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+
 import {
   INIT_WITHDRAW_REQUEST_EVENT,
-  ValidatorBondsProgram,
   assertEvent,
   findWithdrawRequests,
   getWithdrawRequest,
@@ -10,29 +19,21 @@ import {
   parseCpiEvents,
   withdrawRequestAddress,
 } from '../../src'
-import { initTest } from '../utils/testValidator'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-} from '../utils/testTransactions'
-import { executeTxSimple, waitForNextEpoch } from '@marinade.finance/web3js-1x'
+import { getSecureRandomInt } from '../utils/helpers'
 import {
   createVoteAccount,
   createVoteAccountWithIdentity,
 } from '../utils/staking'
+import {
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+} from '../utils/testTransactions'
+import { initTest } from '../utils/testValidator'
 
-import {
-  Wallet,
-  splitAndExecuteTx,
-  signer,
-  transaction,
-} from '@marinade.finance/web3js-1x'
-import {
-  AnchorExtendedProvider,
-  getAnchorValidatorInfo,
-} from '@marinade.finance/anchor-common'
-import assert from 'assert'
-import { getSecureRandomInt } from '../utils/helpers'
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { Wallet } from '@marinade.finance/web3js-1x'
+import type { Signer } from '@solana/web3.js'
 
 describe('Validator Bonds init withdraw request', () => {
   let provider: AnchorExtendedProvider
@@ -44,7 +45,7 @@ describe('Validator Bonds init withdraw request', () => {
   let validatorIdentity: Keypair
 
   beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 

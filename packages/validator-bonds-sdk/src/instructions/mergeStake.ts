@@ -2,9 +2,12 @@ import {
   PublicKey,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   StakeProgram,
-  TransactionInstruction,
 } from '@solana/web3.js'
-import { ValidatorBondsProgram, bondsWithdrawerAuthority } from '../sdk'
+
+import { bondsWithdrawerAuthority } from '../sdk'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to merge two stake accounts belonging under bonds program.

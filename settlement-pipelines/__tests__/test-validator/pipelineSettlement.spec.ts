@@ -1,21 +1,12 @@
-import {
-  createTempFileKeypair,
-  createUserAndFund,
-  waitForNextEpoch,
-} from '@marinade.finance/web3js-1x'
-import { sleep } from '@marinade.finance/ts-common'
+/* eslint-disable jest/no-disabled-tests */
+
+import assert from 'assert'
+import fs from 'fs'
+import path from 'path'
+
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
+import { sleep } from '@marinade.finance/ts-common'
 import {
-  Authorized,
-  Keypair,
-  LAMPORTS_PER_SOL,
-  Lockup,
-  PublicKey,
-  StakeProgram,
-  TransactionInstruction,
-} from '@solana/web3.js'
-import {
-  ValidatorBondsProgram,
   bondAddress,
   bondsWithdrawerAuthority,
   findConfigStakeAccounts,
@@ -25,19 +16,32 @@ import {
   getRentExemptStake,
   settlementAddress,
 } from '@marinade.finance/validator-bonds-sdk'
+import { getSecureRandomInt } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/helpers'
+import { createDelegatedStakeAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
-import fs from 'fs'
-import path from 'path'
-import { createDelegatedStakeAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
+import {
+  createTempFileKeypair,
+  createUserAndFund,
+  waitForNextEpoch,
+} from '@marinade.finance/web3js-1x'
+import {
+  Authorized,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  Lockup,
+  PublicKey,
+  StakeProgram,
+} from '@solana/web3.js'
 import BN from 'bn.js'
-import assert from 'assert'
-import { getSecureRandomInt } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/helpers'
+
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import type { TransactionInstruction } from '@solana/web3.js'
 
 const JEST_TIMEOUT_MS = 3000_000
 jest.setTimeout(JEST_TIMEOUT_MS)
@@ -103,7 +107,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
 
   beforeAll(async () => {
     extendJestWithShellMatchers()
-    ;({ provider, program } = await initTest('processed'))
+    ;({ provider, program } = initTest('processed'))
     ;({
       path: operatorAuthorityPath,
       keypair: operatorAuthorityKeypair,
@@ -122,12 +126,12 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       merkleTreesDir,
       fileEpoch + '_settlement-merkle-trees.json',
     )
-    expect(fs.existsSync(merkleTreeCollectionPath)).toBeTruthy()
+    assert(fs.existsSync(merkleTreeCollectionPath))
     settlementCollectionPath = path.join(
       merkleTreesDir,
       fileEpoch + '_settlements.json',
     )
-    expect(fs.existsSync(merkleTreeCollectionPath)).toBeTruthy()
+    assert(fs.existsSync(settlementCollectionPath))
     const fileBuffer = fs.readFileSync(merkleTreeCollectionPath)
     loadedJson = JSON.parse(fileBuffer.toString())
     ;({ configAccount } = await executeInitConfigInstruction({
@@ -198,13 +202,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
   it('init settlements', async () => {
     assert(previousTest === TestNames.None)
     await // build the rust before running the tests
-    (
-      expect([
-        'cargo',
-        ['build'],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    expect(['cargo', ['build']]).toHaveMatchingSpawnOutput({
       code: 0,
     })
 
@@ -241,123 +239,111 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         ' executed successfully(.|\n|\r)*' +
         'Upsize Settlement Claims.*0 executed successfully',
     )
-    await (
-      expect([
-        'cargo',
-        [
-          'run',
-          '--bin',
-          'init-settlement',
-          '--',
-          '--operator-authority',
-          operatorAuthorityPath,
-          '--config',
-          configAccount.toBase58(),
-          '--rpc-url',
-          provider.connection.rpcEndpoint,
-          '-m',
-          merkleTreeCollectionPath,
-          '-s',
-          settlementCollectionPath,
-          '--epoch',
-          currentEpoch.toString(),
-          '--fee-payer',
-          feePayerBase64,
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'cargo',
+      [
+        'run',
+        '--bin',
+        'init-settlement',
+        '--',
+        '--operator-authority',
+        operatorAuthorityPath,
+        '--config',
+        configAccount.toBase58(),
+        '--rpc-url',
+        provider.connection.rpcEndpoint,
+        '-m',
+        merkleTreeCollectionPath,
+        '-s',
+        settlementCollectionPath,
+        '--epoch',
+        currentEpoch.toString(),
+        '--fee-payer',
+        feePayerBase64,
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       stdout: /sum merkle nodes: 12397(.|\n|\r)*upsized settlements 0/,
       stderr: stdErrExecutionResult,
     })
 
-    await (
-      expect([
-        'cargo',
-        [
-          'run',
-          '--bin',
-          'fund-settlement',
-          '--',
-          '--operator-authority',
-          operatorAuthorityPath,
-          '--config',
-          configAccount.toBase58(),
-          '--rpc-url',
-          provider.connection.rpcEndpoint,
-          '-f',
-          settlementCollectionPath,
-          merkleTreeCollectionPath,
-          '--epoch',
-          currentEpoch.toString(),
-          '--fee-payer',
-          feePayerBase64,
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'cargo',
+      [
+        'run',
+        '--bin',
+        'fund-settlement',
+        '--',
+        '--operator-authority',
+        operatorAuthorityPath,
+        '--config',
+        configAccount.toBase58(),
+        '--rpc-url',
+        provider.connection.rpcEndpoint,
+        '-f',
+        settlementCollectionPath,
+        merkleTreeCollectionPath,
+        '--epoch',
+        currentEpoch.toString(),
+        '--fee-payer',
+        feePayerBase64,
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 99, // code 99 => Warning, test did not prepare all stake accounts
       stdout: /funded 1.10 settlements/,
       stderr: /no stake account available/,
     })
 
-    await (
-      expect([
-        'cargo',
-        [
-          'run',
-          '--bin',
-          'init-settlement',
-          '--',
-          '--operator-authority',
-          operatorAuthorityPath,
-          '--config',
-          configAccount.toBase58(),
-          '--rpc-url',
-          provider.connection.rpcEndpoint,
-          '-m',
-          merkleTreeCollectionPath,
-          '-s',
-          settlementCollectionPath,
-          '--epoch',
-          currentEpoch.toString(),
-          '--fee-payer',
-          feePayerBase64,
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'cargo',
+      [
+        'run',
+        '--bin',
+        'init-settlement',
+        '--',
+        '--operator-authority',
+        operatorAuthorityPath,
+        '--config',
+        configAccount.toBase58(),
+        '--rpc-url',
+        provider.connection.rpcEndpoint,
+        '-m',
+        merkleTreeCollectionPath,
+        '-s',
+        settlementCollectionPath,
+        '--epoch',
+        currentEpoch.toString(),
+        '--fee-payer',
+        feePayerBase64,
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       stdout: /created 0.10 settlements/,
       stderr: /0 executed successfully/,
     })
 
-    await (
-      expect([
-        'cargo',
-        [
-          'run',
-          '--bin',
-          'fund-settlement',
-          '--',
-          '--operator-authority',
-          operatorAuthorityPath,
-          '--config',
-          configAccount.toBase58(),
-          '--rpc-url',
-          provider.connection.rpcEndpoint,
-          '-f',
-          settlementCollectionPath,
-          merkleTreeCollectionPath,
-          '--epoch',
-          currentEpoch.toString(),
-          '--fee-payer',
-          feePayerBase64,
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'cargo',
+      [
+        'run',
+        '--bin',
+        'fund-settlement',
+        '--',
+        '--operator-authority',
+        operatorAuthorityPath,
+        '--config',
+        configAccount.toBase58(),
+        '--rpc-url',
+        provider.connection.rpcEndpoint,
+        '-f',
+        settlementCollectionPath,
+        merkleTreeCollectionPath,
+        '--epoch',
+        currentEpoch.toString(),
+        '--fee-payer',
+        feePayerBase64,
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 99,
       stdout: /funded 0.10 settlements/,
       stderr: /no stake account available/,
@@ -365,31 +351,28 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
 
     await waitForNextEpoch(provider.connection, 15)
 
-    await (
-      expect([
-        'cargo',
-        [
-          'run',
-          '--bin',
-          'fund-settlement',
-          '--',
-          '--operator-authority',
-          operatorAuthorityPath,
-          '--config',
-          configAccount.toBase58(),
-          '--rpc-url',
-          provider.connection.rpcEndpoint,
-          '-f',
-          settlementCollectionPath,
-          merkleTreeCollectionPath,
-          '--epoch',
-          currentEpoch.toString(),
-          '--fee-payer',
-          feePayerBase64,
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'cargo',
+      [
+        'run',
+        '--bin',
+        'fund-settlement',
+        '--',
+        '--operator-authority',
+        operatorAuthorityPath,
+        '--config',
+        configAccount.toBase58(),
+        '--rpc-url',
+        provider.connection.rpcEndpoint,
+        '-f',
+        settlementCollectionPath,
+        merkleTreeCollectionPath,
+        '--epoch',
+        currentEpoch.toString(),
+        '--fee-payer',
+        feePayerBase64,
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 99,
       stdout: /funded 0.10 settlements/,
       stderr: /no stake account available/,
@@ -443,31 +426,28 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     // activating stake accounts
     await waitForNextEpoch(provider.connection, 15)
 
-    await (
-      expect([
-        'cargo',
-        [
-          'run',
-          '--bin',
-          'fund-settlement',
-          '--',
-          '--operator-authority',
-          operatorAuthorityPath,
-          '--config',
-          configAccount.toBase58(),
-          '--rpc-url',
-          provider.connection.rpcEndpoint,
-          '-f',
-          settlementCollectionPath,
-          merkleTreeCollectionPath,
-          '--epoch',
-          currentEpoch.toString(),
-          '--fee-payer',
-          feePayerBase64,
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'cargo',
+      [
+        'run',
+        '--bin',
+        'fund-settlement',
+        '--',
+        '--operator-authority',
+        operatorAuthorityPath,
+        '--config',
+        configAccount.toBase58(),
+        '--rpc-url',
+        provider.connection.rpcEndpoint,
+        '-f',
+        settlementCollectionPath,
+        merkleTreeCollectionPath,
+        '--epoch',
+        currentEpoch.toString(),
+        '--fee-payer',
+        feePayerBase64,
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 99,
       stdout: /funded 9.10 settlements/,
       stderr:
@@ -483,31 +463,28 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     )
     expect(fundedStakeAccounts.length).toEqual(settlementAddresses.length)
 
-    await (
-      expect([
-        'cargo',
-        [
-          'run',
-          '--bin',
-          'fund-settlement',
-          '--',
-          '--operator-authority',
-          operatorAuthorityPath,
-          '--config',
-          configAccount.toBase58(),
-          '--rpc-url',
-          provider.connection.rpcEndpoint,
-          '-f',
-          settlementCollectionPath,
-          merkleTreeCollectionPath,
-          '--epoch',
-          currentEpoch.toString(),
-          '--fee-payer',
-          feePayerBase64,
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'cargo',
+      [
+        'run',
+        '--bin',
+        'fund-settlement',
+        '--',
+        '--operator-authority',
+        operatorAuthorityPath,
+        '--config',
+        configAccount.toBase58(),
+        '--rpc-url',
+        provider.connection.rpcEndpoint,
+        '-f',
+        settlementCollectionPath,
+        merkleTreeCollectionPath,
+        '--epoch',
+        currentEpoch.toString(),
+        '--fee-payer',
+        feePayerBase64,
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 99,
       stdout: /ProtectedEvent: funded 0.10 settlements/,
       stderr:
@@ -519,22 +496,19 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
   it('list claimable epochs', async () => {
     assert(previousTest === TestNames.InitSettlement)
     const epochRegexp = new RegExp('[' + currentEpoch + ']')
-    await (
-      expect([
-        'cargo',
-        [
-          'run',
-          '--bin',
-          'list-claimable-epoch',
-          '--',
-          '--config',
-          configAccount.toBase58(),
-          '--rpc-url',
-          provider.connection.rpcEndpoint,
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'cargo',
+      [
+        'run',
+        '--bin',
+        'list-claimable-epoch',
+        '--',
+        '--config',
+        configAccount.toBase58(),
+        '--rpc-url',
+        provider.connection.rpcEndpoint,
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       stdout: epochRegexp,
     })
@@ -581,60 +555,54 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
 
     // expecting some error as we have not fully funded settlements
     // the number of executed instructions is not clear, as some fails
-    await (
-      expect([
-        'cargo',
-        [
-          'run',
-          '--bin',
-          'claim-settlement',
-          '--',
-          '--config',
-          configAccount.toBase58(),
-          '--rpc-url',
-          provider.connection.rpcEndpoint,
-          '-f',
-          merkleTreeCollectionPath,
-          settlementCollectionPath,
-          '--epoch',
-          currentEpoch.toString(),
-          '--fee-payer',
-          feePayerBase64,
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'cargo',
+      [
+        'run',
+        '--bin',
+        'claim-settlement',
+        '--',
+        '--config',
+        configAccount.toBase58(),
+        '--rpc-url',
+        provider.connection.rpcEndpoint,
+        '-f',
+        merkleTreeCollectionPath,
+        settlementCollectionPath,
+        '--epoch',
+        currentEpoch.toString(),
+        '--fee-payer',
+        feePayerBase64,
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 99,
       stderr: /All stake accounts are locked for claiming/,
       stdout: /claimed 1[1-2][0-9][0-9][0-9].[0-9]+ merkle nodes/,
     })
 
     // fund is now run before claiming normally, simulating this situation here
-    await (
-      expect([
-        'cargo',
-        [
-          'run',
-          '--bin',
-          'fund-settlement',
-          '--',
-          '--operator-authority',
-          operatorAuthorityPath,
-          '--config',
-          configAccount.toBase58(),
-          '--rpc-url',
-          provider.connection.rpcEndpoint,
-          '-f',
-          settlementCollectionPath,
-          merkleTreeCollectionPath,
-          '--epoch',
-          currentEpoch.toString(),
-          '--fee-payer',
-          feePayerBase64,
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'cargo',
+      [
+        'run',
+        '--bin',
+        'fund-settlement',
+        '--',
+        '--operator-authority',
+        operatorAuthorityPath,
+        '--config',
+        configAccount.toBase58(),
+        '--rpc-url',
+        provider.connection.rpcEndpoint,
+        '-f',
+        settlementCollectionPath,
+        merkleTreeCollectionPath,
+        '--epoch',
+        currentEpoch.toString(),
+        '--fee-payer',
+        feePayerBase64,
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 99,
       stdout: /funded 0.10 settlements/,
       stderr: /already funded(.|\n|\r)*0 executed successfully/,
@@ -642,27 +610,24 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
 
     // still expecting some error as we have not fully funded settlements
     console.log('Rerunning when all is already claimed...')
-    await (
-      expect([
-        'cargo',
-        [
-          'run',
-          '--bin',
-          'claim-settlement',
-          '--',
-          '--config',
-          configAccount.toBase58(),
-          '--rpc-url',
-          provider.connection.rpcEndpoint,
-          '--json-files',
-          merkleTreeCollectionPath,
-          settlementCollectionPath,
-          '--epoch',
-          currentEpoch.toString(),
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'cargo',
+      [
+        'run',
+        '--bin',
+        'claim-settlement',
+        '--',
+        '--config',
+        configAccount.toBase58(),
+        '--rpc-url',
+        provider.connection.rpcEndpoint,
+        '--json-files',
+        merkleTreeCollectionPath,
+        settlementCollectionPath,
+        '--epoch',
+        currentEpoch.toString(),
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 99,
       stderr: /already claimed merkle tree nodes 414/,
       stdout:
@@ -672,7 +637,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
   })
 })
 
-export async function chunkedCreateInitializedStakeAccounts({
+async function chunkedCreateInitializedStakeAccounts({
   provider,
   stakers,
   withdrawers,
@@ -707,10 +672,11 @@ export async function chunkedCreateInitializedStakeAccounts({
       // some accounts will be locked
       lockup = new Lockup(0, Number.MAX_SAFE_INTEGER, PublicKey.default)
     }
+    assert(withdrawer !== undefined)
     StakeProgram.createAccount({
       fromPubkey: provider.walletPubkey,
       stakePubkey: keypair.publicKey,
-      authorized: new Authorized(staker, withdrawer || PublicKey.default),
+      authorized: new Authorized(staker, withdrawer),
       lamports: rentExempt,
       lockup,
     }).instructions.forEach(ix => {

@@ -1,21 +1,6 @@
-import {
-  Bond,
-  Errors,
-  ValidatorBondsProgram,
-  fundBondInstruction,
-  getBond,
-  bondsWithdrawerAuthority,
-} from '../../src'
-import {
-  BankrunExtendedProvider,
-  warpToEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-} from '../utils/testTransactions'
-import { ProgramAccount } from '@coral-xyz/anchor'
+import { verifyError } from '@marinade.finance/anchor-common'
+import { warpToEpoch, warpToNextEpoch } from '@marinade.finance/bankrun-utils'
+import { signer } from '@marinade.finance/web3js-1x'
 import {
   Keypair,
   LAMPORTS_PER_SOL,
@@ -23,13 +8,19 @@ import {
   StakeProgram,
 } from '@solana/web3.js'
 import BN from 'bn.js'
-import { signer } from '@marinade.finance/web3js-1x'
-import { verifyError } from '@marinade.finance/anchor-common'
+
 import {
   StakeActivationState,
   initBankrunTest,
   stakeActivation,
 } from './bankrun'
+import {
+  Errors,
+  fundBondInstruction,
+  getBond,
+  bondsWithdrawerAuthority,
+} from '../../src'
+import { getSecureRandomInt } from '../utils/helpers'
 import {
   StakeStates,
   createInitializedStakeAccount,
@@ -37,7 +28,14 @@ import {
   delegatedStakeAccount,
   getAndCheckStakeAccount,
 } from '../utils/staking'
-import { getSecureRandomInt } from '../utils/helpers'
+import {
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+} from '../utils/testTransactions'
+
+import type { Bond, ValidatorBondsProgram } from '../../src'
+import type { ProgramAccount } from '@coral-xyz/anchor'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 
 describe('Validator Bonds fund bond account', () => {
   let provider: BankrunExtendedProvider

@@ -72,7 +72,7 @@ jobs:
 
       - name: 🧭 Run lint
         run: |
-          pnpm lint
+          pnpm check
 
       - name: 🧨 Run test
         run: cargo test --release -- --nocapture

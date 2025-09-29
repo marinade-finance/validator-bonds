@@ -1,6 +1,24 @@
+import assert from 'assert'
+
+import { verifyError } from '@marinade.finance/anchor-common'
+import {
+  assertNotExist,
+  currentEpoch,
+  warpOffsetEpoch,
+  warpToNextEpoch,
+} from '@marinade.finance/bankrun-utils'
+import { signer, pubkey, createUserAndFund } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import BN from 'bn.js'
+
+import {
+  StakeActivationState,
+  initBankrunTest,
+  stakeActivation,
+  warpOffsetSlot,
+} from './bankrun'
 import {
   Errors,
-  ValidatorBondsProgram,
   bondsWithdrawerAuthority,
   fundBondInstruction,
   claimSettlementV2Instruction,
@@ -13,28 +31,7 @@ import {
   getSettlementClaimsBySettlement,
   isClaimed,
 } from '../../src'
-import {
-  BankrunExtendedProvider,
-  assertNotExist,
-  currentEpoch,
-  warpOffsetEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-  executeInitSettlement,
-} from '../utils/testTransactions'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import {
-  createBondsFundedStakeAccount,
-  createSettlementFundedDelegatedStake,
-  createDelegatedStakeAccount,
-  createVoteAccount,
-  createInitializedStakeAccount,
-  delegatedStakeAccount,
-} from '../utils/staking'
-import { signer, pubkey, createUserAndFund } from '@marinade.finance/web3js-1x'
+import { executeTxWithError } from '../utils/helpers'
 import {
   MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
   MERKLE_ROOT_VOTE_ACCOUNT_2_BUF,
@@ -51,16 +48,23 @@ import {
   withdrawer3,
   withdrawer4,
 } from '../utils/merkleTreeTestData'
-import { verifyError } from '@marinade.finance/anchor-common'
-import BN from 'bn.js'
-import { executeTxWithError } from '../utils/helpers'
 import {
-  StakeActivationState,
-  initBankrunTest,
-  stakeActivation,
-  warpOffsetSlot,
-} from './bankrun'
-import assert from 'assert'
+  createBondsFundedStakeAccount,
+  createSettlementFundedDelegatedStake,
+  createDelegatedStakeAccount,
+  createVoteAccount,
+  createInitializedStakeAccount,
+  delegatedStakeAccount,
+} from '../utils/staking'
+import {
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+  executeInitSettlement,
+} from '../utils/testTransactions'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds claim settlement', () => {
   const epochsToClaimSettlement = 4
@@ -88,8 +92,8 @@ describe('Validator Bonds claim settlement', () => {
     ;({ provider, program } = await initBankrunTest())
 
     const epochNow = await currentEpoch(provider)
-    const firstSlotOfEpoch = await getFirstSlotOfEpoch(provider, epochNow)
-    const firstSlotOfNextEpoch = await getFirstSlotOfEpoch(
+    const firstSlotOfEpoch = getFirstSlotOfEpoch(provider, epochNow)
+    const firstSlotOfNextEpoch = getFirstSlotOfEpoch(
       provider,
       epochNow + BigInt(1),
     )
@@ -294,12 +298,9 @@ describe('Validator Bonds claim settlement', () => {
         stakeAccountStaker: treeNode1Withdrawer1.treeNode.stakeAuthority,
         stakeAccountWithdrawer: treeNode1Withdrawer1.treeNode.withdrawAuthority,
       })
-    try {
-      await provider.sendIx([], ixWrongStakeAccountTo)
-      throw new Error('should have failed; wrong stake account')
-    } catch (e) {
-      expect((e as Error).message).toMatch('custom program error: 0xbbf')
-    }
+    await expect(provider.sendIx([], ixWrongStakeAccountTo)).rejects.toThrow(
+      /custom program error: 0xbbf/,
+    )
     const stakeAccountWrongStaker = await createDelegatedStakeAccount({
       provider,
       lamports: 3 * LAMPORTS_PER_SOL,
@@ -594,16 +595,13 @@ describe('Validator Bonds claim settlement', () => {
       verifyError(e, Errors, 6023, 'already expired')
     }
 
-    try {
-      await isClaimed(
+    await expect(
+      isClaimed(
         program,
         settlementAccount1,
         treeNode1Withdrawer3.treeNode.index,
-      )
-      throw new Error('should have failed; too late to claim')
-    } catch (e) {
-      expect((e as Error).message).toEqual('Index 2 out of range')
-    }
+      ),
+    ).rejects.toThrow('Index 2 out of range')
   })
 
   it('claim settlement with exact match on stake account size', async () => {
@@ -799,10 +797,10 @@ describe('Validator Bonds claim settlement', () => {
 
 // https://github.com/solana-labs/solana/blob/v1.17.7/sdk/program/src/epoch_schedule.rs#L29C1-L29C45
 // https://github.com/solana-labs/solana/blob/v1.17.7/sdk/program/src/epoch_schedule.rs#L167
-async function getFirstSlotOfEpoch(
+function getFirstSlotOfEpoch(
   provider: BankrunExtendedProvider,
   epoch: number | bigint | BN,
-): Promise<bigint> {
+): bigint {
   const epochBigInt = BigInt(epoch.toString())
   const { slotsPerEpoch, firstNormalEpoch, firstNormalSlot } =
     provider.context.genesisConfig.epochSchedule

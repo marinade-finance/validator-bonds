@@ -1,13 +1,13 @@
-import {
-  Keypair,
-  PublicKey,
-  Signer,
-  TransactionInstruction,
-} from '@solana/web3.js'
-import { MARINADE_CONFIG_ADDRESS, ValidatorBondsProgram } from '../sdk'
+import { logWarn } from '@marinade.finance/ts-common'
+import { PublicKey } from '@solana/web3.js'
+
 import { getConfig } from '../api'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { LoggerPlaceholder, logWarn } from '@marinade.finance/ts-common'
+import { MARINADE_CONFIG_ADDRESS } from '../sdk'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
+import type { Keypair, Signer, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to resume program.

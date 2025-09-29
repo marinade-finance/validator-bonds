@@ -1,6 +1,7 @@
-import { Program, Idl } from '@coral-xyz/anchor'
-import { PublicKey } from '@solana/web3.js'
 import { bondAddress as sdkBondAddress } from './sdk'
+
+import type { Program, Idl } from '@coral-xyz/anchor'
+import type { PublicKey } from '@solana/web3.js'
 
 // available at @marinade.finance/anchor-common
 export function anchorProgramWalletPubkey<IDL extends Idl = Idl>(
@@ -9,7 +10,8 @@ export function anchorProgramWalletPubkey<IDL extends Idl = Idl>(
   const pubkey = program.provider.publicKey
   if (pubkey === undefined) {
     throw new Error(
-      'Cannot get wallet pubkey from Anchor Program ' + program.programId,
+      'Cannot get wallet pubkey from Anchor Program ' +
+        program.programId.toBase58(),
     )
   }
   return pubkey

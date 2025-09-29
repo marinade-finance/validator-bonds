@@ -1,12 +1,13 @@
-import {
-  ValidatorBondsProgram,
-  getConfig,
-  initConfigInstruction,
-} from '../../src'
-import { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
-import { executeInitConfigInstruction } from '../utils/testTransactions'
+import assert from 'assert'
+
 import { Keypair } from '@solana/web3.js'
+
 import { initBankrunTest } from './bankrun'
+import { getConfig, initConfigInstruction } from '../../src'
+import { executeInitConfigInstruction } from '../utils/testTransactions'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 
 describe('Validator Bonds config account tests', () => {
   let provider: BankrunExtendedProvider
@@ -49,10 +50,10 @@ describe('Validator Bonds config account tests', () => {
         provider,
         configAccountKeypair,
       })
-    expect(configAccount).toEqual(configAccountKeypair.publicKey)
-    expect(
-      await provider.connection.getAccountInfo(configAccount),
-    ).not.toBeNull()
+    assert(
+      configAccount.toBase58() === configAccountKeypair.publicKey.toBase58(),
+    )
+    assert((await provider.connection.getAccountInfo(configAccount)) != null)
 
     try {
       const { instruction } = await initConfigInstruction({
@@ -69,7 +70,7 @@ describe('Validator Bonds config account tests', () => {
     } catch (e) {
       if (!(e as Error).message.includes('custom program error: 0x0')) {
         console.error(
-          `Expected failure as config account ${configAccount} should already exist`,
+          `Expected failure as config account ${configAccount.toBase58()} should already exist`,
         )
         throw e
       }

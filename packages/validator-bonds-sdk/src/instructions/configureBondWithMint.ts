@@ -1,16 +1,15 @@
-import {
-  Keypair,
-  PublicKey,
-  Signer,
-  TransactionInstruction,
-} from '@solana/web3.js'
-import { ValidatorBondsProgram, bondMintAddress } from '../sdk'
-import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
-import BN from 'bn.js'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { getAssociatedTokenAddressSync } from 'solana-spl-token-modern'
-import { getBond } from '../api'
 import { getVoteAccount } from '@marinade.finance/web3js-1x'
+import { PublicKey } from '@solana/web3.js'
+import BN from 'bn.js'
+import { getAssociatedTokenAddressSync } from 'solana-spl-token-modern'
+
+import { getBond } from '../api'
+import { bondMintAddress } from '../sdk'
+import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { Keypair, Signer, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to configure bond account with ownership of bond minted token.
@@ -34,12 +33,8 @@ export async function configureBondWithMintInstruction({
   voteAccount?: PublicKey
   validatorIdentity?: PublicKey
   tokenAccount?: PublicKey
-  tokenAuthority?:
-    | PublicKey
-    | Keypair
-    | Signer
-    | WalletInterface
-    | WalletInterface // signer
+  // signer
+  tokenAuthority?: PublicKey | Keypair | Signer | WalletInterface
   newBondAuthority?: PublicKey
   newCpmpe?: BN | number
   newMaxStakeWanted?: BN | number

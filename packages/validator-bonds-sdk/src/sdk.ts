@@ -1,24 +1,25 @@
-import * as generated from '../generated/validator_bonds'
+/* eslint-disable @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unsafe-argument */
+
 import {
-  Program as AnchorProgram,
-  IdlAccounts,
-  IdlEvents,
   AnchorProvider,
   Program,
   parseIdlErrors,
-  Provider,
   Wallet,
+} from '@coral-xyz/anchor'
+import { Connection, Keypair, PublicKey } from '@solana/web3.js'
+import BN from 'bn.js'
+
+import * as generated from '../generated/validator_bonds'
+
+import type {
+  Program as AnchorProgram,
+  IdlAccounts,
+  IdlEvents,
+  Provider,
   IdlTypes,
 } from '@coral-xyz/anchor'
-import { Wallet as AnchorWalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import {
-  ConfirmOptions,
-  Connection,
-  EpochInfo,
-  Keypair,
-  PublicKey,
-} from '@solana/web3.js'
-import BN from 'bn.js'
+import type { Wallet as AnchorWalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { ConfirmOptions, EpochInfo } from '@solana/web3.js'
 
 export const MARINADE_CONFIG_ADDRESS = new PublicKey(
   'vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU',

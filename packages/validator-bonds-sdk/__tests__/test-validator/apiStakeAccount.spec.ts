@@ -1,18 +1,19 @@
+import assert from 'assert'
+
+import { rand } from '@marinade.finance/ts-common'
+import { waitForNextEpoch } from '@marinade.finance/web3js-1x'
+import { pubkey, signer } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { BN } from 'bn.js'
+
 import {
   getBondsFunding,
   findBonds,
   findConfigStakeAccounts,
-  ValidatorBondsProgram,
   bondsWithdrawerAuthority,
   getStakeAccount,
 } from '../../src'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-  executeInitSettlement,
-  executeInitWithdrawRequestInstruction,
-} from '../utils/testTransactions'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import { getSecureRandomInt } from '../utils/helpers'
 import {
   authorizeStakeAccount,
   createBondsFundedStakeAccount,
@@ -21,13 +22,17 @@ import {
   setLockup,
   createSettlementFundedDelegatedStake,
 } from '../utils/staking'
-import { ExtendedProvider, waitForNextEpoch } from '@marinade.finance/web3js-1x'
+import {
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+  executeInitSettlement,
+  executeInitWithdrawRequestInstruction,
+} from '../utils/testTransactions'
 import { initTest } from '../utils/testValidator'
-import { rand } from '@marinade.finance/ts-common'
-import { BN } from 'bn.js'
-import { pubkey, signer } from '@marinade.finance/web3js-1x'
-import { getSecureRandomInt } from '../utils/helpers'
-import assert from 'assert'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { ExtendedProvider } from '@marinade.finance/web3js-1x'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds api call to stake accounts', () => {
   const NUMBER_OF_BONDS = 100
@@ -37,8 +42,8 @@ describe('Validator Bonds api call to stake accounts', () => {
   let operatorAuthority: Keypair
   const withdrawLockupEpochs = 1
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+  beforeAll(() => {
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {

@@ -1,20 +1,11 @@
+import { verifyError } from '@marinade.finance/anchor-common'
+import { warpToNextEpoch } from '@marinade.finance/bankrun-utils'
 import {
-  Errors,
-  ValidatorBondsProgram,
-  configureBondWithMintInstruction,
-  getBond,
-  mintBondInstruction,
-} from '../../src'
-import {
-  BankrunExtendedProvider,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-} from '../utils/testTransactions'
+  createUserAndFund,
+  getVoteAccount,
+  signer,
+} from '@marinade.finance/web3js-1x'
 import { Keypair, PublicKey, VoteProgram } from '@solana/web3.js'
-import { createVoteAccount } from '../utils/staking'
 import {
   createAssociatedTokenAccountInstruction,
   createTransferInstruction,
@@ -22,14 +13,23 @@ import {
   getMint,
   getAssociatedTokenAddressSync,
 } from 'solana-spl-token-modern'
-import {
-  createUserAndFund,
-  getVoteAccount,
-  signer,
-} from '@marinade.finance/web3js-1x'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { executeTxWithError } from '../utils/helpers'
+
 import { initBankrunTest } from './bankrun'
+import {
+  Errors,
+  configureBondWithMintInstruction,
+  getBond,
+  mintBondInstruction,
+} from '../../src'
+import { executeTxWithError } from '../utils/helpers'
+import { createVoteAccount } from '../utils/staking'
+import {
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+} from '../utils/testTransactions'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 
 describe('Validator Bonds mint configure bond account', () => {
   let provider: BankrunExtendedProvider

@@ -1,22 +1,27 @@
-import {
-  createTempFileKeypair,
-  createUserAndFund,
-  getStakeAccount,
-} from '@marinade.finance/web3js-1x'
+import assert from 'assert'
+
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
-  ValidatorBondsProgram,
   bondsWithdrawerAuthority,
   findStakeAccounts,
   getBond,
   getRentExemptStake,
 } from '@marinade.finance/validator-bonds-sdk'
-import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
+import {
+  createTempFileKeypair,
+  createUserAndFund,
+  getStakeAccount,
+} from '@marinade.finance/web3js-1x'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { PublicKey } from '@solana/web3.js'
+
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import type { Keypair } from '@solana/web3.js'
 
 describe('Fund bond account with SOL using CLI (institutional)', () => {
   let provider: AnchorExtendedProvider
@@ -27,9 +32,9 @@ describe('Fund bond account with SOL using CLI (institutional)', () => {
   let fromPath: string
   let fromCleanup: () => Promise<void>
 
-  beforeAll(async () => {
+  beforeAll(() => {
     extendJestWithShellMatchers()
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -38,11 +43,11 @@ describe('Fund bond account with SOL using CLI (institutional)', () => {
       keypair: fromKeypair,
       cleanup: fromCleanup,
     } = await createTempFileKeypair())
-    expect(
-      await provider.connection.getAccountInfo(
+    assert(
+      (await provider.connection.getAccountInfo(
         MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
-      ),
-    ).not.toBeNull()
+      )) !== null,
+    )
     const { voteAccount: voteAccountAddress, validatorIdentity } =
       await createVoteAccount({ provider })
     voteAccount = voteAccountAddress
@@ -68,24 +73,21 @@ describe('Fund bond account with SOL using CLI (institutional)', () => {
       user: fromKeypair.publicKey,
       lamports: baseLamports,
     })
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli:institutional',
-          '-u',
-          provider.connection.rpcEndpoint,
-          'fund-bond-sol',
-          bondAccount.toBase58(),
-          '--amount',
-          fundBondSols,
-          '--from',
-          fromPath,
-          '--verbose',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli:institutional',
+        '-u',
+        provider.connection.rpcEndpoint,
+        'fund-bond-sol',
+        bondAccount.toBase58(),
+        '--amount',
+        fundBondSols,
+        '--from',
+        fromPath,
+        '--verbose',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       stdout: /successfully funded with amount/,
     })

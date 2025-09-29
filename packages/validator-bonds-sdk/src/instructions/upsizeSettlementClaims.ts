@@ -1,12 +1,11 @@
-import {
-  Keypair,
-  PublicKey,
-  Signer,
-  TransactionInstruction,
-} from '@solana/web3.js'
-import { ValidatorBondsProgram, settlementClaimsAddress } from '../sdk'
+import { PublicKey } from '@solana/web3.js'
+
+import { settlementClaimsAddress } from '../sdk'
 import { anchorProgramWalletPubkey } from '../utils'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { Keypair, Signer, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to increase size of Solana account SettlementClaims.

@@ -1,24 +1,22 @@
-import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
+import assert from 'assert'
+
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
+import { bondAddress, getBond } from '@marinade.finance/validator-bonds-sdk'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
+import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
 import {
   Keypair,
   LAMPORTS_PER_SOL,
-  PublicKey,
   SystemProgram,
   Transaction,
 } from '@solana/web3.js'
-import {
-  ValidatorBondsProgram,
-  bondAddress,
-  getBond,
-} from '@marinade.finance/validator-bonds-sdk'
-import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
-import {
-  AnchorExtendedProvider,
-  getAnchorValidatorInfo,
-} from '@marinade.finance/anchor-common'
+
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Init bond account using CLI', () => {
   let provider: AnchorExtendedProvider
@@ -32,9 +30,9 @@ describe('Init bond account using CLI', () => {
   let validatorIdentity: Keypair
   let validatorIdentityPath: string
 
-  beforeAll(async () => {
+  beforeAll(() => {
     extendJestWithShellMatchers()
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -49,9 +47,7 @@ describe('Init bond account using CLI', () => {
       epochsToClaimSettlement: 1,
       withdrawLockupEpochs: 2,
     }))
-    expect(
-      await provider.connection.getAccountInfo(configAccount),
-    ).not.toBeNull()
+    assert((await provider.connection.getAccountInfo(configAccount)) != null)
     ;({ validatorIdentity, validatorIdentityPath } =
       await getAnchorValidatorInfo(provider.connection))
     ;({ voteAccount } = await createVoteAccountWithIdentity(
@@ -66,10 +62,11 @@ describe('Init bond account using CLI', () => {
         lamports: rentPayerFunds,
       }),
     )
-    await provider.sendAndConfirm!(tx)
-    expect(
-      await provider.connection.getBalance(rentPayerKeypair.publicKey),
-    ).toStrictEqual(rentPayerFunds)
+    await provider.sendAndConfirm(tx)
+    assert(
+      (await provider.connection.getBalance(rentPayerKeypair.publicKey)) ===
+        rentPayerFunds,
+    )
   })
 
   afterEach(async () => {
@@ -79,36 +76,33 @@ describe('Init bond account using CLI', () => {
   it('init bond account', async () => {
     const bondAuthority = Keypair.generate()
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'init-bond',
-          '--config',
-          configAccount.toBase58(),
-          '--vote-account',
-          voteAccount.toBase58(),
-          '--validator-identity',
-          validatorIdentityPath,
-          '--bond-authority',
-          bondAuthority.publicKey.toBase58(),
-          '--rent-payer',
-          rentPayerPath,
-          '--cpmpe',
-          33,
-          '--max-stake-wanted',
-          1000_000_000_000,
-          '--confirmation-finality',
-          'confirmed',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'init-bond',
+        '--config',
+        configAccount.toBase58(),
+        '--vote-account',
+        voteAccount.toBase58(),
+        '--validator-identity',
+        validatorIdentityPath,
+        '--bond-authority',
+        bondAuthority.publicKey.toBase58(),
+        '--rent-payer',
+        rentPayerPath,
+        '--cpmpe',
+        33,
+        '--max-stake-wanted',
+        1000_000_000_000,
+        '--confirmation-finality',
+        'confirmed',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /Bond account .* successfully created/,
@@ -132,30 +126,27 @@ describe('Init bond account using CLI', () => {
   })
 
   it('init bond account permission-ed with default values', async () => {
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'init-bond',
-          '--config',
-          configAccount.toBase58(),
-          '--vote-account',
-          voteAccount.toBase58(),
-          '--validator-identity',
-          validatorIdentityPath,
-          '--rent-payer',
-          rentPayerPath,
-          '--confirmation-finality',
-          'confirmed',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'init-bond',
+        '--config',
+        configAccount.toBase58(),
+        '--vote-account',
+        voteAccount.toBase58(),
+        '--validator-identity',
+        validatorIdentityPath,
+        '--rent-payer',
+        rentPayerPath,
+        '--confirmation-finality',
+        'confirmed',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /Bond account .* successfully created/,
@@ -179,28 +170,25 @@ describe('Init bond account using CLI', () => {
   })
 
   it('init bond account permission-less', async () => {
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'init-bond',
-          '--config',
-          configAccount.toBase58(),
-          '--vote-account',
-          voteAccount.toBase58(),
-          '--max-stake-wanted',
-          1000000000000,
-          '--confirmation-finality',
-          'confirmed',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'init-bond',
+        '--config',
+        configAccount.toBase58(),
+        '--vote-account',
+        voteAccount.toBase58(),
+        '--max-stake-wanted',
+        1000000000000,
+        '--confirmation-finality',
+        'confirmed',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /Bond account .* successfully created/,
@@ -221,25 +209,22 @@ describe('Init bond account using CLI', () => {
   })
 
   it('init bond in print-only mode', async () => {
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'init-bond',
-          '--config',
-          configAccount.toBase58(),
-          '--vote-account',
-          voteAccount.toBase58(),
-          '--print-only',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'init-bond',
+        '--config',
+        configAccount.toBase58(),
+        '--vote-account',
+        voteAccount.toBase58(),
+        '--print-only',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /successfully created/,

@@ -1,12 +1,14 @@
-import { Command } from 'commander'
-import { installManage } from './manage'
-import { installShowBondAddress } from './address'
 import {
   installShowConfig,
   installShowEvent,
   installShowSettlement,
 } from '@marinade.finance/validator-bonds-cli-core'
+
+import { installShowBondAddress } from './address'
+import { installManage } from './manage'
 import { installShowBond } from './show'
+
+import type { Command } from 'commander'
 
 export function installCommands(program: Command) {
   installManage(program)

@@ -1,26 +1,30 @@
+import assert from 'assert'
+
+import { logDebug } from '@marinade.finance/ts-common'
+import BN from 'bn.js'
+
+import { getBond, getWithdrawRequest } from '../api'
+import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRequest'
+import { mergeStakeInstruction } from '../instructions/mergeStake'
 import {
+  bondAddress,
+  bondsWithdrawerAuthority,
+  withdrawRequestAddress,
+} from '../sdk'
+import { anchorProgramWalletPubkey } from '../utils'
+import { findStakeAccounts } from '../web3.js'
+
+import type { ValidatorBondsProgram, WithdrawRequest } from '../sdk'
+import type { StakeAccountParsed } from '../web3.js'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
+import type { ProgramAccountInfo } from '@marinade.finance/web3js-1x'
+import type {
   Keypair,
   PublicKey,
   Signer,
   TransactionInstruction,
 } from '@solana/web3.js'
-import {
-  bondAddress,
-  bondsWithdrawerAuthority,
-  ValidatorBondsProgram,
-  WithdrawRequest,
-  withdrawRequestAddress,
-} from '../sdk'
-import { getBond, getWithdrawRequest } from '../api'
-import assert from 'assert'
-import { StakeAccountParsed, findStakeAccounts } from '../web3.js'
-import BN from 'bn.js'
-import { mergeStakeInstruction } from '../instructions/mergeStake'
-import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRequest'
-import { anchorProgramWalletPubkey } from '../utils'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { ProgramAccountInfo } from '@marinade.finance/web3js-1x'
-import { LoggerPlaceholder, logDebug } from '@marinade.finance/ts-common'
 
 /**
  * Returning the instructions for withdrawing the deposit (on top of the withdraw request)

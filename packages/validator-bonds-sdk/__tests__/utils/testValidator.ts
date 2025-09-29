@@ -1,12 +1,18 @@
-import * as anchor from '@coral-xyz/anchor'
-import { ValidatorBondsProgram, getProgram } from '../../src'
-import { Commitment, Connection } from '@solana/web3.js'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+/* eslint-disable import/no-extraneous-dependencies */
 
-export async function initTest(commitment?: Commitment): Promise<{
+import * as anchor from '@coral-xyz/anchor'
+import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import { Connection } from '@solana/web3.js'
+
+import { getProgram } from '../../src'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { Commitment } from '@solana/web3.js'
+
+export function initTest(commitment?: Commitment): {
   program: ValidatorBondsProgram
   provider: AnchorExtendedProvider
-}> {
+} {
   const anchorProvider = AnchorExtendedProvider.env()
   let connection = anchorProvider.connection
   // fix for IPv6 default resolution

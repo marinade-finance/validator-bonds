@@ -1,35 +1,38 @@
+import assert from 'assert'
+
+import { verifyError } from '@marinade.finance/anchor-common'
 import {
-  Config,
+  assertNotExist,
+  currentEpoch,
+  warpOffsetEpoch,
+  warpToNextEpoch,
+} from '@marinade.finance/bankrun-utils'
+import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
+import {
   Errors,
-  ValidatorBondsProgram,
   closeSettlementV2Instruction,
   fundSettlementInstruction,
   getConfig,
   getRentExemptStake,
   getSettlement,
 } from '../../src'
+import { getRentExempt, executeTxWithError } from '../utils/helpers'
 import {
-  BankrunExtendedProvider,
-  assertNotExist,
-  currentEpoch,
-  warpOffsetEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
+  createBondsFundedStakeAccount,
+  createVoteAccount,
+} from '../utils/staking'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import {
-  createBondsFundedStakeAccount,
-  createVoteAccount,
-} from '../utils/staking'
-import { getRentExempt, executeTxWithError } from '../utils/helpers'
-import assert from 'assert'
-import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest } from './bankrun'
+
+import type { Config, ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds close settlement', () => {
   const epochsToClaimSettlement = 1
@@ -81,7 +84,7 @@ describe('Validator Bonds close settlement', () => {
         rentCollector: rentCollector.publicKey,
       }))
     const settlementData = await getSettlement(program, settlementAccount)
-    expect(bondAccount).toEqual(settlementData.bond)
+    assert(bondAccount.toBase58() === settlementData.bond.toBase58())
   })
 
   it('close settlement', async () => {

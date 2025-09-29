@@ -1,7 +1,19 @@
+import assert from 'assert'
+
+import { verifyError } from '@marinade.finance/anchor-common'
 import {
-  Bond,
+  assertNotExist,
+  warpOffsetEpoch,
+  warpToEpoch,
+  warpToNextEpoch,
+} from '@marinade.finance/bankrun-utils'
+import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import BN from 'bn.js'
+
+import { initBankrunTest, delegateAndFund } from './bankrun'
+import {
   Errors,
-  ValidatorBondsProgram,
   cancelWithdrawRequestInstruction,
   getBond,
   getWithdrawRequest,
@@ -9,32 +21,23 @@ import {
   bondsWithdrawerAuthority,
   deserializeStakeState,
 } from '../../src'
-import {
-  BankrunExtendedProvider,
-  assertNotExist,
-  warpOffsetEpoch,
-  warpToEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-  executeInitWithdrawRequestInstruction,
-} from '../utils/testTransactions'
-import { ProgramAccount } from '@coral-xyz/anchor'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import { claimWithdrawRequestInstruction } from '../../src/instructions/claimWithdrawRequest'
+import { getSecureRandomInt } from '../utils/helpers'
 import {
   authorizeStakeAccount,
   delegatedStakeAccount,
   createInitializedStakeAccount,
 } from '../utils/staking'
-import assert from 'assert'
-import BN from 'bn.js'
-import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest, delegateAndFund } from './bankrun'
-import { getSecureRandomInt } from '../utils/helpers'
+import {
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+  executeInitWithdrawRequestInstruction,
+} from '../utils/testTransactions'
+
+import type { Bond, ValidatorBondsProgram } from '../../src'
+import type { ProgramAccount } from '@coral-xyz/anchor'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { PublicKey } from '@solana/web3.js'
 
 // TODO: test the merging stake accounts through the orchestrate withdraw request, i.e., test orchestrators/orchestrateWithdrawRequest.ts
 

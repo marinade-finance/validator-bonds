@@ -1,20 +1,22 @@
-import { PublicKey, Signer } from '@solana/web3.js'
-import { Command } from 'commander'
 import {
   computeUnitLimitOption,
   setProgramIdByOwner,
 } from '@marinade.finance/validator-bonds-cli-core'
-import {
-  Wallet,
-  executeTx,
-  parsePubkey,
-  transaction,
-} from '@marinade.finance/web3js-1x'
+import { MERGE_STAKE_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
 import {
   MARINADE_CONFIG_ADDRESS,
   mergeStakeInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
-import { MERGE_STAKE_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
+import {
+  executeTx,
+  parsePubkey,
+  transaction,
+} from '@marinade.finance/web3js-1x'
+import { PublicKey } from '@solana/web3.js'
+
+import type { Wallet } from '@marinade.finance/web3js-1x'
+import type { Signer } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function installStakeMerge(program: Command) {
   program

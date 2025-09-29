@@ -1,22 +1,21 @@
 import {
-  EpochInfo,
-  PublicKey,
   SYSVAR_CLOCK_PUBKEY,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   StakeProgram,
+} from '@solana/web3.js'
+import BN from 'bn.js'
+
+import { getBond, getSettlement } from '../api'
+import { MerkleTreeNode } from '../merkleTree'
+import { bondAddress, settlementAddress, settlementClaimsAddress } from '../sdk'
+import { getStakeAccount } from '../web3.js'
+
+import type { Settlement, ValidatorBondsProgram } from '../sdk'
+import type {
+  EpochInfo,
+  PublicKey,
   TransactionInstruction,
 } from '@solana/web3.js'
-import {
-  Settlement,
-  ValidatorBondsProgram,
-  bondAddress,
-  settlementAddress,
-  settlementClaimsAddress,
-} from '../sdk'
-import { getBond, getSettlement } from '../api'
-import { getStakeAccount } from '../web3.js'
-import { MerkleTreeNode } from '../merkleTree'
-import BN from 'bn.js'
 
 /**
  * Generate instruction to claim from settlement protected event.

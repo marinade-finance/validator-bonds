@@ -1,12 +1,13 @@
-import { FormatType } from '@marinade.finance/cli-common'
 import {
   configureShowBond,
   showBond,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { MARINADE_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
 import { parsePubkey } from '@marinade.finance/web3js-1x'
-import { PublicKey } from '@solana/web3.js'
-import { Command } from 'commander'
+
+import type { FormatType } from '@marinade.finance/cli-common'
+import type { PublicKey } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function installShowBond(program: Command) {
   program = configureShowBond(program)

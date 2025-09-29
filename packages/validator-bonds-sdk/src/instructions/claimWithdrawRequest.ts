@@ -1,23 +1,24 @@
+import { logWarn } from '@marinade.finance/ts-common'
+import { getVoteAccount } from '@marinade.finance/web3js-1x'
 import {
   Keypair,
   PublicKey,
   SYSVAR_STAKE_HISTORY_PUBKEY,
-  Signer,
   StakeProgram,
-  TransactionInstruction,
 } from '@solana/web3.js'
+
+import { getBond, getWithdrawRequest } from '../api'
 import {
-  ValidatorBondsProgram,
-  WithdrawRequest,
   bondAddress,
   withdrawRequestAddress,
   MARINADE_CONFIG_ADDRESS,
 } from '../sdk'
-import { getBond, getWithdrawRequest } from '../api'
-import { getVoteAccount } from '@marinade.finance/web3js-1x'
 import { anchorProgramWalletPubkey, checkAndGetBondAddress } from '../utils'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { LoggerPlaceholder, logWarn } from '@marinade.finance/ts-common'
+
+import type { ValidatorBondsProgram, WithdrawRequest } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
+import type { Signer, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to withdraw amount defined within the withdraw request.

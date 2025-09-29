@@ -1,13 +1,14 @@
-import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
+import assert from 'assert'
+
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
-import { Keypair, PublicKey } from '@solana/web3.js'
-import {
-  ValidatorBondsProgram,
-  getConfig,
-} from '@marinade.finance/validator-bonds-sdk'
-import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
+import { getConfig } from '@marinade.finance/validator-bonds-sdk'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
+import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
+import { Keypair, PublicKey } from '@solana/web3.js'
+
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 
 describe('Configure config account using CLI', () => {
   let provider: AnchorExtendedProvider
@@ -18,9 +19,9 @@ describe('Configure config account using CLI', () => {
   let configAccount: PublicKey
   let operatorAuthority: Keypair
 
-  beforeAll(async () => {
+  beforeAll(() => {
     extendJestWithShellMatchers()
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -39,9 +40,7 @@ describe('Configure config account using CLI', () => {
         withdrawLockupEpochs: 2,
       },
     ))
-    expect(
-      await provider.connection.getAccountInfo(configAccount),
-    ).not.toBeNull()
+    assert((await provider.connection.getAccountInfo(configAccount)) != null)
   })
 
   afterEach(async () => {
@@ -51,66 +50,60 @@ describe('Configure config account using CLI', () => {
   it('configure config account', async () => {
     const newAdmin = Keypair.generate()
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'configure-config',
-          configAccount.toBase58(),
-          '--admin-authority',
-          adminPath,
-          '--confirmation-finality',
-          'confirmed',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'configure-config',
+        configAccount.toBase58(),
+        '--admin-authority',
+        adminPath,
+        '--confirmation-finality',
+        'confirmed',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 200,
       // stderr: '',
       stdout: /no new property to configure/,
     })
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '--program-id',
-          program.programId.toBase58(),
-          'configure-config',
-          configAccount.toBase58(),
-          '--admin-authority',
-          adminPath,
-          '--operator',
-          PublicKey.default.toBase58(),
-          '--admin',
-          newAdmin.publicKey.toBase58(),
-          '--pause-authority',
-          PublicKey.default.toBase58(),
-          '--epochs-to-claim-settlement',
-          111,
-          '--slots-to-start-settlement-claiming',
-          143,
-          '--withdraw-lockup-epochs',
-          112,
-          '--minimum-stake-lamports',
-          134,
-          '--min-bond-max-stake-wanted',
-          111,
-          '--confirmation-finality',
-          'confirmed',
-          '-v',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'configure-config',
+        configAccount.toBase58(),
+        '--admin-authority',
+        adminPath,
+        '--operator',
+        PublicKey.default.toBase58(),
+        '--admin',
+        newAdmin.publicKey.toBase58(),
+        '--pause-authority',
+        PublicKey.default.toBase58(),
+        '--epochs-to-claim-settlement',
+        111,
+        '--slots-to-start-settlement-claiming',
+        143,
+        '--withdraw-lockup-epochs',
+        112,
+        '--minimum-stake-lamports',
+        134,
+        '--min-bond-max-stake-wanted',
+        111,
+        '--confirmation-finality',
+        'confirmed',
+        '-v',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /successfully configured/,
@@ -128,26 +121,23 @@ describe('Configure config account using CLI', () => {
   })
 
   it('configure config in print-only mode', async () => {
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          'configure-config',
-          configAccount.toBase58(),
-          '--admin-authority',
-          adminKeypair.publicKey.toBase58(),
-          '--operator',
-          PublicKey.default.toBase58(),
-          '--minimum-stake-lamports',
-          0,
-          '--print-only',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        'configure-config',
+        configAccount.toBase58(),
+        '--admin-authority',
+        adminKeypair.publicKey.toBase58(),
+        '--operator',
+        PublicKey.default.toBase58(),
+        '--minimum-stake-lamports',
+        0,
+        '--print-only',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /successfully configured/,

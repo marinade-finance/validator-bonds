@@ -1,20 +1,18 @@
+import { logWarn } from '@marinade.finance/ts-common'
+import { PublicKey } from '@solana/web3.js'
+
+import { getBond, getWithdrawRequest } from '../api'
 import {
-  Keypair,
-  PublicKey,
-  Signer,
-  TransactionInstruction,
-} from '@solana/web3.js'
-import {
-  ValidatorBondsProgram,
-  WithdrawRequest,
   bondAddress,
   withdrawRequestAddress,
   MARINADE_CONFIG_ADDRESS,
 } from '../sdk'
 import { anchorProgramWalletPubkey, checkAndGetBondAddress } from '../utils'
-import { getBond, getWithdrawRequest } from '../api'
-import { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
-import { LoggerPlaceholder, logWarn } from '@marinade.finance/ts-common'
+
+import type { ValidatorBondsProgram, WithdrawRequest } from '../sdk'
+import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
+import type { Keypair, Signer, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to cancel withdraw request for bond account.

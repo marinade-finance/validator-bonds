@@ -1,19 +1,14 @@
+import { verifyError } from '@marinade.finance/anchor-common'
+import { currentEpoch } from '@marinade.finance/bankrun-utils'
+import { U64_MAX } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
 import {
   Errors,
-  ValidatorBondsProgram,
   resetStakeInstruction,
   bondsWithdrawerAuthority,
 } from '../../src'
-import {
-  BankrunExtendedProvider,
-  currentEpoch,
-} from '@marinade.finance/bankrun-utils'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-  executeInitSettlement,
-} from '../utils/testTransactions'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   StakeStates,
   createBondsFundedStakeAccount,
@@ -22,9 +17,15 @@ import {
   createVoteAccount,
   getAndCheckStakeAccount,
 } from '../utils/staking'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest } from './bankrun'
-import { U64_MAX } from '@marinade.finance/web3js-1x'
+import {
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+  executeInitSettlement,
+} from '../utils/testTransactions'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds reset stake', () => {
   let provider: BankrunExtendedProvider

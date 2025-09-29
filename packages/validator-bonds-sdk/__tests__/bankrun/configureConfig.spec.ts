@@ -1,29 +1,24 @@
+import assert from 'assert'
+
+import { verifyError } from '@marinade.finance/anchor-common'
 import {
-  Config,
-  ValidatorBondsProgram,
-  getConfig,
-  configureConfigInstruction,
-  Errors,
-} from '../../src'
-import {
-  BankrunExtendedProvider,
   bankrunExecute,
   bankrunExecuteIx,
   bankrunTransaction,
 } from '@marinade.finance/bankrun-utils'
-import { ProgramAccount } from '@coral-xyz/anchor'
-import {
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  Transaction,
-} from '@solana/web3.js'
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
+import { getConfig, configureConfigInstruction, Errors } from '../../src'
 import {
   executeConfigureConfigInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest } from './bankrun'
+
+import type { Config, ValidatorBondsProgram } from '../../src'
+import type { ProgramAccount } from '@coral-xyz/anchor'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { Transaction } from '@solana/web3.js'
 
 describe('Validator Bonds configure config tests', () => {
   let provider: BankrunExtendedProvider
@@ -51,11 +46,12 @@ describe('Validator Bonds configure config tests', () => {
       publicKey: configAccount,
       account: await getConfig(program, configAccount),
     }
-    expect(configInitialized.account.adminAuthority).toEqual(
-      adminAuth.publicKey,
+    assert(
+      configInitialized.account.adminAuthority.toBase58() ===
+        adminAuth.publicKey.toBase58(),
     )
-    expect(configInitialized.account.epochsToClaimSettlement).toEqual(1)
-    expect(configInitialized.account.withdrawLockupEpochs).toEqual(2)
+    assert(configInitialized.account.epochsToClaimSettlement.eqn(1))
+    assert(configInitialized.account.withdrawLockupEpochs.eqn(2))
     adminAuthority = adminAuth
     operatorAuthority = operatorAuth
   })

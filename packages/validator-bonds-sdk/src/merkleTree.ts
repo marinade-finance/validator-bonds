@@ -1,6 +1,7 @@
+import assert from 'assert'
+
 import { base64, bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import { PublicKey } from '@solana/web3.js'
-import assert from 'assert'
 import BN from 'bn.js'
 import CryptoJS from 'crypto-js'
 

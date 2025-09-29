@@ -1,12 +1,14 @@
 import { CliCommandError } from '@marinade.finance/cli-common'
-import { PublicKey } from '@solana/web3.js'
-import { Command } from 'commander'
-import { setProgramIdOrDefault } from '../context'
 import {
   bondAddress,
   withdrawRequestAddress,
 } from '@marinade.finance/validator-bonds-sdk'
 import { parsePubkeyOrPubkeyFromWallet } from '@marinade.finance/web3js-1x'
+
+import { setProgramIdOrDefault } from '../context'
+
+import type { PublicKey } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function configureShowBondAddress(program: Command): Command {
   return program
@@ -21,7 +23,7 @@ export function configureShowBondAddress(program: Command): Command {
     )
 }
 
-export async function showBondAddress({
+export function showBondAddress({
   address,
   config,
 }: {

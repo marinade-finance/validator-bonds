@@ -1,6 +1,8 @@
 import { CliCommandError } from '@marinade.finance/cli-common'
-import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
+import {
+  orchestrateWithdrawDeposit,
+  claimWithdrawRequestInstruction,
+} from '@marinade.finance/validator-bonds-sdk'
 import {
   instanceOfWallet,
   transaction,
@@ -9,22 +11,21 @@ import {
   parseWalletOrPubkeyOption,
   parsePubkey,
 } from '@marinade.finance/web3js-1x'
-import {
-  orchestrateWithdrawDeposit,
-  claimWithdrawRequestInstruction,
-} from '@marinade.finance/validator-bonds-sdk'
-import { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
-import { getWithdrawRequestFromAddress } from '../../utils'
+import { BN } from 'bn.js'
+
 import {
   CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
-import { BN } from 'bn.js'
+import { setProgramIdByOwner } from '../../context'
+import { getWithdrawRequestFromAddress } from '../../utils'
 
 import type {
   Wallet as WalletInterface,
   Wallet,
 } from '@marinade.finance/web3js-1x'
+import type { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function configureClaimWithdrawRequest(program: Command): Command {
   return program

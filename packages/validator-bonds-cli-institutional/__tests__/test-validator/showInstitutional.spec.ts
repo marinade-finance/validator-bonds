@@ -1,16 +1,19 @@
+import assert from 'assert'
+
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
-import YAML from 'yaml'
+import { loadTestingVoteAccount } from '@marinade.finance/validator-bonds-cli-core'
 import {
-  ValidatorBondsProgram,
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
   bondMintAddress,
 } from '@marinade.finance/validator-bonds-sdk'
-import { Keypair } from '@solana/web3.js'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
-import { loadTestingVoteAccount } from '@marinade.finance/validator-bonds-cli-core'
+import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
+import { Keypair, PublicKey } from '@solana/web3.js'
+import YAML from 'yaml'
+
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 
 beforeAll(() => {
   extendJestWithShellMatchers()
@@ -20,17 +23,17 @@ describe('Show command using CLI (institutional)', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
 
-  beforeAll(async () => {
+  beforeAll(() => {
     extendJestWithShellMatchers()
-    ;({ provider, program } = await initTest('processed'))
+    ;({ provider, program } = initTest('processed'))
   })
 
   it('show bond (institutional)', async () => {
-    expect(
-      await provider.connection.getAccountInfo(
+    assert(
+      (await provider.connection.getAccountInfo(
         MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
-      ),
-    ).not.toBeNull()
+      )) !== null,
+    )
     const { voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
     })
@@ -68,28 +71,25 @@ describe('Show command using CLI (institutional)', () => {
       withdrawRequest: '<NOT EXISTING>',
       bondMint: bondMintAddress(
         bondAccount,
-        voteAccountShow.nodePubkey!,
+        voteAccountShow.nodePubkey || PublicKey.default,
         program.programId,
       )[0].toBase58(),
     }
 
-    await (
-      expect([
-        'pnpm',
-        [
-          '--silent',
-          'cli:institutional',
-          '-u',
-          provider.connection.rpcEndpoint,
-          'show-bond',
-          bondAccount.toBase58(),
-          '--with-funding',
-          '-f',
-          'yaml',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        '--silent',
+        'cli:institutional',
+        '-u',
+        provider.connection.rpcEndpoint,
+        'show-bond',
+        bondAccount.toBase58(),
+        '--with-funding',
+        '-f',
+        'yaml',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
       stdout: YAML.stringify(expectedDataFundingSingleItem),

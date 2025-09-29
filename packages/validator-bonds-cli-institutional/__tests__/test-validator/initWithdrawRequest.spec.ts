@@ -1,17 +1,19 @@
+import assert from 'assert'
+
+import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
+import { MARINADE_INSTITUTIONAL_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import {
   createTempFileKeypair,
   createUserAndFund,
 } from '@marinade.finance/web3js-1x'
-import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import {
-  MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
-  ValidatorBondsProgram,
-} from '@marinade.finance/validator-bonds-sdk'
-import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import type { Keypair, PublicKey } from '@solana/web3.js'
 
 describe('Init withdraw request using CLI (institutional)', () => {
   const stakeAccountLamports = LAMPORTS_PER_SOL * 88
@@ -25,9 +27,9 @@ describe('Init withdraw request using CLI (institutional)', () => {
   let rentPayerKeypair: Keypair
   let rentPayerCleanup: () => Promise<void>
 
-  beforeAll(async () => {
+  beforeAll(() => {
     extendJestWithShellMatchers()
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -41,11 +43,11 @@ describe('Init withdraw request using CLI (institutional)', () => {
       keypair: rentPayerKeypair,
       cleanup: rentPayerCleanup,
     } = await createTempFileKeypair())
-    expect(
-      await provider.connection.getAccountInfo(
+    assert(
+      (await provider.connection.getAccountInfo(
         MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
-      ),
-    ).not.toBeNull()
+      )) !== null,
+    )
     ;({ voteAccount } = await createVoteAccount({
       provider,
       validatorIdentity: validatorIdentityKeypair,
@@ -71,28 +73,25 @@ describe('Init withdraw request using CLI (institutional)', () => {
       user: rentPayerKeypair,
     })
 
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli:institutional',
-          '-u',
-          provider.connection.rpcEndpoint,
-          'init-withdraw-request',
-          voteAccount.toBase58(),
-          '--authority',
-          validatorIdentityPath,
-          '--amount',
-          stakeAccountLamports.toString(),
-          '--rent-payer',
-          rentPayerPath,
-          '--confirmation-finality',
-          'confirmed',
-          '--verbose',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli:institutional',
+        '-u',
+        provider.connection.rpcEndpoint,
+        'init-withdraw-request',
+        voteAccount.toBase58(),
+        '--authority',
+        validatorIdentityPath,
+        '--amount',
+        stakeAccountLamports.toString(),
+        '--rent-payer',
+        rentPayerPath,
+        '--confirmation-finality',
+        'confirmed',
+        '--verbose',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /successfully initialized/,

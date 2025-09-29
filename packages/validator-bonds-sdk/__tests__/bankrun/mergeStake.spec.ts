@@ -1,6 +1,21 @@
+import { verifyError } from '@marinade.finance/anchor-common'
+import {
+  assertNotExist,
+  currentEpoch,
+  warpToEpoch,
+  warpToNextEpoch,
+} from '@marinade.finance/bankrun-utils'
+import { pubkey, signer } from '@marinade.finance/web3js-1x'
+import {
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SYSVAR_STAKE_HISTORY_PUBKEY,
+  StakeProgram,
+} from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
 import {
   Errors,
-  ValidatorBondsProgram,
   bondAddress,
   mergeStakeInstruction,
   settlementAddress,
@@ -12,26 +27,7 @@ import {
   fundSettlementInstruction,
   getStakeAccount,
 } from '../../src'
-import {
-  BankrunExtendedProvider,
-  assertNotExist,
-  currentEpoch,
-  warpToEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-  executeInitSettlement,
-  executeWithdraw,
-} from '../utils/testTransactions'
-import {
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  SYSVAR_STAKE_HISTORY_PUBKEY,
-  StakeProgram,
-} from '@solana/web3.js'
+import { getSecureRandomInt } from '../utils/helpers'
 import {
   authorizeStakeAccount,
   createVoteAccount,
@@ -41,10 +37,16 @@ import {
   StakeStates,
   createBondsFundedStakeAccount,
 } from '../utils/staking'
-import { pubkey, signer } from '@marinade.finance/web3js-1x'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest } from './bankrun'
-import { getSecureRandomInt } from '../utils/helpers'
+import {
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+  executeInitSettlement,
+  executeWithdraw,
+} from '../utils/testTransactions'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { Keypair } from '@solana/web3.js'
 
 describe('Staking merge verification/investigation', () => {
   let provider: BankrunExtendedProvider

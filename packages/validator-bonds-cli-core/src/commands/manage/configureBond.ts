@@ -1,6 +1,7 @@
-import { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
-import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
+import {
+  configureBondInstruction,
+  configureBondWithMintInstruction,
+} from '@marinade.finance/validator-bonds-sdk'
 import {
   executeTx,
   instanceOfWallet,
@@ -9,20 +10,21 @@ import {
   parseWalletOrPubkeyOption,
   transaction,
 } from '@marinade.finance/web3js-1x'
-import {
-  configureBondInstruction,
-  configureBondWithMintInstruction,
-} from '@marinade.finance/validator-bonds-sdk'
-import { getBondFromAddress } from '../../utils'
+
 import {
   CONFIGURE_BOND_LIMIT_UNITS,
   CONFIGURE_BOND_MINT_LIMIT_UNITS,
 } from '../../computeUnits'
-import BN from 'bn.js'
+import { setProgramIdByOwner } from '../../context'
+import { getBondFromAddress } from '../../utils'
+
 import type {
   Wallet as WalletInterface,
   Wallet,
 } from '@marinade.finance/web3js-1x'
+import type { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
+import type BN from 'bn.js'
+import type { Command } from 'commander'
 
 export function configureConfigureBond(program: Command): Command {
   return program

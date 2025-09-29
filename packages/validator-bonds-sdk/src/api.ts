@@ -1,39 +1,45 @@
-import { ProgramAccount } from '@coral-xyz/anchor'
-import {
-  AccountInfo,
-  EpochInfo,
-  GetProgramAccountsFilter,
-  PublicKey,
-} from '@solana/web3.js'
-import {
-  ValidatorBondsProgram,
-  Config,
-  Bond,
-  WithdrawRequest,
-  bondAddress,
-  withdrawRequestAddress,
-  settlementAddress,
-  Settlement,
-  uintToBuffer,
-  bondsWithdrawerAuthority,
-  settlementClaimsAddress,
-} from './sdk'
-import BN from 'bn.js'
+import assert from 'assert'
+
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import {
   getAccountInfoAddresses,
   getMultipleAccounts,
+} from '@marinade.finance/web3js-1x'
+import { PublicKey } from '@solana/web3.js'
+import BN from 'bn.js'
+
+import {
+  bondAddress,
+  withdrawRequestAddress,
+  settlementAddress,
+  uintToBuffer,
+  bondsWithdrawerAuthority,
+  settlementClaimsAddress,
+} from './sdk'
+import { decodeSettlementClaimsData } from './settlementClaims'
+import { findStakeAccounts } from './web3.js'
+
+import type {
+  ValidatorBondsProgram,
+  Config,
+  Bond,
+  WithdrawRequest,
+  Settlement,
+} from './sdk'
+import type { SettlementClaimsBitmap } from './settlementClaims'
+import type { StakeAccountParsed } from './web3.js'
+import type { ProgramAccount } from '@coral-xyz/anchor'
+import type {
   ProgramAccountInfo,
   ProgramAccountInfoNoData,
   ProgramAccountInfoNullable,
   ProgramAccountWithInfoNullable,
 } from '@marinade.finance/web3js-1x'
-import { findStakeAccounts, StakeAccountParsed } from './web3.js'
-import assert from 'assert'
-import {
-  SettlementClaimsBitmap,
-  decodeSettlementClaimsData,
-} from './settlementClaims'
+import type {
+  AccountInfo,
+  EpochInfo,
+  GetProgramAccountsFilter,
+} from '@solana/web3.js'
 
 // const CONFIG_ACCOUNT_DISCRIMINATOR = bs58.encode([155, 12, 170, 224, 30, 250, 204, 130])
 const BOND_ACCOUNT_DISCRIMINATOR = bs58.encode([
@@ -343,7 +349,7 @@ export async function getSettlementClaims(
   const account = await program.provider.connection.getAccountInfo(address)
   if (account === null) {
     throw new Error(
-      `getSettlementClaims: account ${address} not found at ${program.provider.connection.rpcEndpoint}`,
+      `getSettlementClaims: account ${address.toBase58()} not found at ${program.provider.connection.rpcEndpoint}`,
     )
   }
   return decodeSettlementClaimsData(program, account)
@@ -584,7 +590,7 @@ export async function getBondsFunding({
   if (
     bondAccounts.some(
       (bondAccount, i) =>
-        bondAccount === undefined && voteAccounts![i] === undefined,
+        bondAccount === undefined && voteAccounts[i] === undefined,
     )
   ) {
     throw new Error(
@@ -767,6 +773,7 @@ export async function getBondsFunding({
   )
 }
 
+/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 function groupByVoter(
   stakeAccounts: ProgramAccountInfo<StakeAccountParsed>[],
 ): Map<string, ProgramAccountInfo<StakeAccountParsed>[]> {

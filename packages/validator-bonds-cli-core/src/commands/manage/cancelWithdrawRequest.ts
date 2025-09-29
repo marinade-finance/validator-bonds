@@ -1,5 +1,4 @@
-import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
+import { cancelWithdrawRequestInstruction } from '@marinade.finance/validator-bonds-sdk'
 import {
   executeTx,
   instanceOfWallet,
@@ -8,18 +7,20 @@ import {
   parseWalletOrPubkeyOption,
   transaction,
 } from '@marinade.finance/web3js-1x'
-import { cancelWithdrawRequestInstruction } from '@marinade.finance/validator-bonds-sdk'
-import { PublicKey, Signer } from '@solana/web3.js'
-import { getWithdrawRequestFromAddress } from '../../utils'
+
 import {
   CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
+import { setProgramIdByOwner } from '../../context'
+import { getWithdrawRequestFromAddress } from '../../utils'
 
 import type {
   Wallet,
   Wallet as WalletInterface,
 } from '@marinade.finance/web3js-1x'
+import type { PublicKey, Signer } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function configureCancelWithdrawRequest(program: Command): Command {
   return program

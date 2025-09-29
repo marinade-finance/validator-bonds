@@ -1,28 +1,29 @@
+import assert from 'assert'
+
+import { verifyError } from '@marinade.finance/anchor-common'
+import { assertNotExist, currentEpoch } from '@marinade.finance/bankrun-utils'
+import { createUserAndFund } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
 import {
   Errors,
-  ValidatorBondsProgram,
   cancelSettlementInstruction,
   closeSettlementV2Instruction,
   configureConfigInstruction,
   getSettlement,
 } from '../../src'
-import {
-  BankrunExtendedProvider,
-  assertNotExist,
-  currentEpoch,
-} from '@marinade.finance/bankrun-utils'
+import { getRentExempt } from '../utils/helpers'
+import { createVoteAccount } from '../utils/staking'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
 } from '../utils/testTransactions'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import { createVoteAccount } from '../utils/staking'
-import { getRentExempt } from '../utils/helpers'
-import assert from 'assert'
-import { createUserAndFund } from '@marinade.finance/web3js-1x'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest } from './bankrun'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds cancel settlement', () => {
   let provider: BankrunExtendedProvider
@@ -85,7 +86,7 @@ describe('Validator Bonds cancel settlement', () => {
       settlementClaimsAccount,
     )
     const settlementData = await getSettlement(program, settlementAccount)
-    expect(bondAccount).toEqual(settlementData.bond)
+    assert(bondAccount.toBase58() === settlementData.bond.toBase58())
   })
 
   it('cancel settlement with operator authority', async () => {

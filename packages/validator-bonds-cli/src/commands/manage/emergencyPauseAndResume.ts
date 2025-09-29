@@ -1,24 +1,27 @@
-import { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
-import { Command } from 'commander'
 import {
   computeUnitLimitOption,
   setProgramIdByOwner,
 } from '@marinade.finance/validator-bonds-cli-core'
+import { EMERGENCY_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
 import {
-  Wallet,
+  MARINADE_CONFIG_ADDRESS,
+  emergencyPauseInstruction,
+  emergencyResumeInstruction,
+} from '@marinade.finance/validator-bonds-sdk'
+import {
   executeTx,
   instanceOfWallet,
   parsePubkey,
   parseWalletOrPubkeyOption,
   transaction,
 } from '@marinade.finance/web3js-1x'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
-import {
-  MARINADE_CONFIG_ADDRESS,
-  emergencyPauseInstruction,
-  emergencyResumeInstruction,
-} from '@marinade.finance/validator-bonds-sdk'
-import { EMERGENCY_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
+
+import type {
+  Wallet as WalletInterface,
+  Wallet,
+} from '@marinade.finance/web3js-1x'
+import type { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function installEmergencyPause(program: Command) {
   program

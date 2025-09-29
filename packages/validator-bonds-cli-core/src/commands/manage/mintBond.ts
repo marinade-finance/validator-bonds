@@ -1,6 +1,4 @@
-import { PublicKey, Signer } from '@solana/web3.js'
-import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
+import { mintBondInstruction } from '@marinade.finance/validator-bonds-sdk'
 import {
   executeTx,
   instanceOfWallet,
@@ -8,17 +6,20 @@ import {
   parseWalletOrPubkeyOption,
   transaction,
 } from '@marinade.finance/web3js-1x'
-import { mintBondInstruction } from '@marinade.finance/validator-bonds-sdk'
-import { getBondFromAddress } from '../../utils'
+
 import {
   MINT_BOND_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
+import { setProgramIdByOwner } from '../../context'
+import { getBondFromAddress } from '../../utils'
 
 import type {
   Wallet as WalletInterface,
   Wallet,
 } from '@marinade.finance/web3js-1x'
+import type { PublicKey, Signer } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function configureMintBond(program: Command) {
   return program

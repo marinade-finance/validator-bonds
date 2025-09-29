@@ -5,8 +5,7 @@ we present here a analysis queries to [FlipSide Crypto](https://flipsidecrypto.x
 that bring the insight of the on-chain data processing.
 
 For details on available tables for Solana transactions table see
-[core__fact_transactions view](https://flipsidecrypto.github.io/solana-models/#!/model/model.solana_models.core__fact_transactions).
-
+[core\_\_fact_transactions view](https://flipsidecrypto.github.io/solana-models/#!/model/model.solana_models.core__fact_transactions).
 
 ## Query Validator Bonds Fund instructions
 
@@ -175,7 +174,7 @@ See following guideline:
    ![Download the `Results` CSV file](../../resources/onchain/howto-download-results.png)
 3. Get running the parsing script to list the funded amounts per transaction
    ```
-   ./scripts/parse-flipside-event-csv.sh ~/Downloads/download-query-results-37ee1ecb-3e1b-438d-b410-5a1d617ccbe3.csv 
+   ./scripts/parse-flipside-event-csv.sh ~/Downloads/download-query-results-37ee1ecb-3e1b-438d-b410-5a1d617ccbe3.csv
    ./scripts/parse-flipside-event-csv.sh: parsing file 'Downloads/download-query-results-37ee1ecb-3e1b-438d-b410-5a1d617ccbe3.csv'
    Skipping 'BLOCK_TIMESTAMP'
    2024-11-1600:13:35.000;698;7.335386511

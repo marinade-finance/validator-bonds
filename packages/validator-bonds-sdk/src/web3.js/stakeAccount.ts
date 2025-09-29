@@ -1,14 +1,10 @@
+import assert from 'assert'
+
 import {
-  Connection,
-  GetProgramAccountsFilter,
-  PublicKey,
-  StakeProgram,
-} from '@solana/web3.js'
+  StakeState,
+  STAKE_STATE_BORSH_SCHEMA,
+} from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
 import {
-  HasProvider,
-  ProgramAccountInfo,
-  ProgramAccountInfoNoData,
-  Provider,
   U64_MAX,
   getAccountInfoNoData,
   getConnection,
@@ -16,14 +12,18 @@ import {
   isWithPublicKey,
   programAccountInfo,
 } from '@marinade.finance/web3js-1x'
-import { deserializeUnchecked } from 'borsh'
-import {
-  Meta,
-  StakeState,
-  STAKE_STATE_BORSH_SCHEMA,
-} from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
-import assert from 'assert'
+import { PublicKey, StakeProgram } from '@solana/web3.js'
 import BN from 'bn.js'
+import { deserializeUnchecked } from 'borsh'
+
+import type { Meta } from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
+import type {
+  HasProvider,
+  ProgramAccountInfo,
+  ProgramAccountInfoNoData,
+  Provider,
+} from '@marinade.finance/web3js-1x'
+import type { Connection, GetProgramAccountsFilter } from '@solana/web3.js'
 
 // borrowed from https://github.com/marinade-finance/marinade-ts-sdk/blob/v5.0.6/src/marinade-state/marinade-state.ts#L234
 export function deserializeStakeState(data: Buffer | undefined): StakeState {
@@ -124,9 +124,7 @@ export async function getStakeAccount(
   }
   if (!accountInfo.owner.equals(StakeProgram.programId)) {
     throw new Error(
-      `${address.toBase58()} is not a stake account because owner is ${
-        accountInfo.owner
-      } at ${connection.rpcEndpoint}`,
+      `${address.toBase58()} is not a stake account because owner is ${accountInfo.owner.toBase58()} at ${connection.rpcEndpoint}`,
     )
   }
   const stakeState = deserializeStakeState(accountInfo.data)
@@ -209,7 +207,7 @@ export async function loadStakeAccounts({
   }
   addresses = addresses
     .map(d => (isWithPublicKey(d) ? d.publicKey : d))
-    .map(d => d as PublicKey)
+    .map(d => d)
   const accounts = (
     await getMultipleAccounts({ connection: innerConnection, addresses })
   )

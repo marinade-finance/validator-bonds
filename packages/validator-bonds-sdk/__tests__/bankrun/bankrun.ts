@@ -1,15 +1,16 @@
+/* eslint-disable import/no-extraneous-dependencies */
+
 import {
-  ValidatorBondsProgram,
-  checkAndGetBondAddress,
-  getProgram,
-} from '../../src'
-import { Keypair, PublicKey } from '@solana/web3.js'
-import {
-  BankrunExtendedProvider,
   currentEpoch,
   testInit,
   warpToNextEpoch,
 } from '@marinade.finance/bankrun-utils'
+import { U64_MAX } from '@marinade.finance/web3js-1x'
+import BN from 'bn.js'
+
+import 'reflect-metadata'
+
+import { checkAndGetBondAddress, getProgram } from '../../src'
 import {
   StakeStates,
   delegatedStakeAccount,
@@ -19,9 +20,10 @@ import {
   executeFundBondInstruction,
   executeInitBondInstruction,
 } from '../utils/testTransactions'
-import 'reflect-metadata'
-import BN from 'bn.js'
-import { U64_MAX } from '@marinade.finance/web3js-1x'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { Keypair, PublicKey } from '@solana/web3.js'
 
 export async function initBankrunTest(
   programId?: PublicKey,

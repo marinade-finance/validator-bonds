@@ -1,18 +1,14 @@
 import { PublicKey } from '@solana/web3.js'
-import {
-  MerkleTreeNode,
-  MerkleTreeNodeEncoded,
-  pubkeyToWordArray,
-} from '../../merkleTree'
-import {
-  VALIDATOR_BONDS_PROGRAM_ID,
-  ValidatorBondsProgram,
-  seedFromConstants,
-} from '../../sdk'
-import { ValidatorBonds } from '../../../generated/validator_bonds'
-import { IdlAccounts } from '@coral-xyz/anchor'
 import BN from 'bn.js'
 import CryptoJS from 'crypto-js'
+
+import { MerkleTreeNode, pubkeyToWordArray } from '../../merkleTree'
+import { VALIDATOR_BONDS_PROGRAM_ID, seedFromConstants } from '../../sdk'
+
+import type { ValidatorBonds } from '../../../generated/validator_bonds'
+import type { MerkleTreeNodeEncoded } from '../../merkleTree'
+import type { ValidatorBondsProgram } from '../../sdk'
+import type { IdlAccounts } from '@coral-xyz/anchor'
 
 // This is configuration of account SettlementClaim that was used in first version of contract (contract v1.0.0-v1.5.0).
 // The SettlementClaim account was a PDA that manages the deduplication of claims.

@@ -1,26 +1,27 @@
-import { Keypair, PublicKey } from '@solana/web3.js'
+import assert from 'assert'
+
+import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
+import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
+import { fetchMetadata } from '@metaplex-foundation/mpl-token-metadata'
+import { isSome } from '@metaplex-foundation/umi-options'
+import { getAccount as getTokenAccount } from 'solana-spl-token-modern'
+
 import {
   MINT_BOND_EVENT,
-  ValidatorBondsProgram,
   assertEvent,
   mintBondInstruction,
   parseCpiEvents,
 } from '../../src'
-import { initTest } from '../utils/testValidator'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
-import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
-import { getAccount as getTokenAccount } from 'solana-spl-token-modern'
-import { fetchMetadata } from '@metaplex-foundation/mpl-token-metadata'
-import { isSome } from '@metaplex-foundation/umi-options'
-import {
-  AnchorExtendedProvider,
-  getAnchorValidatorInfo,
-} from '@marinade.finance/anchor-common'
-import assert from 'assert'
+import { initTest } from '../utils/testValidator'
 import { getUmi, toUmiPubkey } from '../utils/umi'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { Keypair, PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds mint bond', () => {
   let provider: AnchorExtendedProvider
@@ -29,7 +30,7 @@ describe('Validator Bonds mint bond', () => {
   let configAccount: PublicKey
 
   beforeAll(async () => {
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
   })
 
@@ -71,15 +72,13 @@ describe('Validator Bonds mint bond', () => {
       getUmi(provider),
       toUmiPubkey(tokenMetadataAccount),
     )
-    expect(isSome(metadata.creators)).toBeTruthy()
-    if (isSome(metadata.creators)) {
-      expect(metadata.creators.value.length).toEqual(1)
-      expect(metadata.creators.value[0]?.address.toString()).toEqual(
-        bondAccount.toBase58(),
-      )
-    } else {
-      throw new Error('metadata.creators is not defined')
-    }
+
+    expect(isSome(metadata.creators)).toBe(true)
+    assert(isSome(metadata.creators))
+    expect(metadata.creators.value.length).toEqual(1)
+    expect(metadata.creators.value[0]?.address.toString()).toEqual(
+      bondAccount.toBase58(),
+    )
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, MINT_BOND_EVENT)

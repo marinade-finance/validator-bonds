@@ -1,3 +1,5 @@
+import { logInfo } from '@marinade.finance/ts-common'
+import { initBondInstruction } from '@marinade.finance/validator-bonds-sdk'
 import {
   ExecutionError,
   executeTx,
@@ -8,24 +10,22 @@ import {
   parseWalletOrPubkeyOption,
   transaction,
 } from '@marinade.finance/web3js-1x'
-import { Command } from 'commander'
-import { setProgramIdByOwner } from '../../context'
-import {
-  ValidatorBondsProgram,
-  initBondInstruction,
-} from '@marinade.finance/validator-bonds-sdk'
-import { PublicKey, Signer } from '@solana/web3.js'
+
 import {
   INIT_BOND_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
-import BN from 'bn.js'
+import { setProgramIdByOwner } from '../../context'
 
+import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 import type {
   Wallet as WalletInterface,
   Wallet,
 } from '@marinade.finance/web3js-1x'
-import { LoggerPlaceholder, logInfo } from '@marinade.finance/ts-common'
+import type { PublicKey, Signer } from '@solana/web3.js'
+import type BN from 'bn.js'
+import type { Command } from 'commander'
 
 export function configureInitBond(program: Command): Command {
   return program

@@ -1,19 +1,20 @@
 import { CliCommandError } from '@marinade.finance/cli-common'
-import { Command } from 'commander'
-import { PublicKey, Signer } from '@solana/web3.js'
-import {
-  Wallet,
-  executeTx,
-  parsePubkey,
-  parseWalletOrPubkeyOption,
-  transaction,
-} from '@marinade.finance/web3js-1x'
 import {
   RESET_STAKE_LIMIT_UNITS,
   computeUnitLimitOption,
   setProgramIdByOwner,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { resetStakeInstruction } from '@marinade.finance/validator-bonds-sdk'
+import {
+  executeTx,
+  parsePubkey,
+  parseWalletOrPubkeyOption,
+  transaction,
+} from '@marinade.finance/web3js-1x'
+
+import type { Wallet } from '@marinade.finance/web3js-1x'
+import type { PublicKey, Signer } from '@solana/web3.js'
+import type { Command } from 'commander'
 
 export function installResetStake(program: Command) {
   program

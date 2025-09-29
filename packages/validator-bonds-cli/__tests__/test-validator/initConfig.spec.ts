@@ -1,18 +1,20 @@
-import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
+import assert from 'assert'
+
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
+import { getConfig } from '@marinade.finance/validator-bonds-sdk'
+import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
 import {
   Keypair,
   LAMPORTS_PER_SOL,
   SystemProgram,
   Transaction,
 } from '@solana/web3.js'
-import {
-  ValidatorBondsProgram,
-  getConfig,
-} from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+
 import { airdrop } from './utils'
+
+import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 
 describe('Init config account using CLI', () => {
   let provider: AnchorExtendedProvider
@@ -24,9 +26,9 @@ describe('Init config account using CLI', () => {
   let keypairFeePayerKeypair: Keypair
   let keypairFeePayerCleanup: () => Promise<void>
 
-  beforeAll(async () => {
+  beforeAll(() => {
     extendJestWithShellMatchers()
-    ;({ provider, program } = await initTest())
+    ;({ provider, program } = initTest())
   })
 
   beforeEach(async () => {
@@ -64,46 +66,44 @@ describe('Init config account using CLI', () => {
         }),
       ),
     )
-    expect(
-      await provider.connection.getBalance(rentPayerKeypair.publicKey),
-    ).toStrictEqual(rentPayerFunds)
+    assert(
+      (await provider.connection.getBalance(rentPayerKeypair.publicKey)) ===
+        rentPayerFunds,
+    )
 
     const admin = Keypair.generate().publicKey
     const operator = Keypair.generate().publicKey
     try {
-      await (
-        expect([
-          'pnpm',
-          [
-            'cli',
-            '-u',
-            provider.connection.rpcEndpoint,
-            '-k',
-            keypairFeePayerPath,
-            '--program-id',
-            program.programId.toBase58(),
-            'init-config',
-            '--address',
-            configPath,
-            '--admin',
-            admin.toBase58(),
-            '--operator',
-            operator.toBase58(),
-            '--rent-payer',
-            rentPayerPath,
-            '--epochs-to-claim-settlement',
-            42,
-            '--slots-to-start-settlement-claiming',
-            11,
-            '--withdraw-lockup-epochs',
-            43,
-            '--confirmation-finality',
-            'confirmed',
-            '-v',
-          ],
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ]) as any
-      ).toHaveMatchingSpawnOutput({
+      await expect([
+        'pnpm',
+        [
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '-k',
+          keypairFeePayerPath,
+          '--program-id',
+          program.programId.toBase58(),
+          'init-config',
+          '--address',
+          configPath,
+          '--admin',
+          admin.toBase58(),
+          '--operator',
+          operator.toBase58(),
+          '--rent-payer',
+          rentPayerPath,
+          '--epochs-to-claim-settlement',
+          42,
+          '--slots-to-start-settlement-claiming',
+          11,
+          '--withdraw-lockup-epochs',
+          43,
+          '--confirmation-finality',
+          'confirmed',
+          '-v',
+        ],
+      ]).toHaveMatchingSpawnOutput({
         code: 0,
         // stderr: '',
         stdout: /successfully created/,
@@ -124,27 +124,24 @@ describe('Init config account using CLI', () => {
   })
 
   it('fails with low compute unit limit', async () => {
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '-k',
-          keypairFeePayerPath,
-          '--program-id',
-          program.programId.toBase58(),
-          'init-config',
-          '--address',
-          configPath,
-          '--simulate',
-          '--compute-unit-limit',
-          1,
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '-k',
+        keypairFeePayerPath,
+        '--program-id',
+        program.programId.toBase58(),
+        'init-config',
+        '--address',
+        configPath,
+        '--simulate',
+        '--compute-unit-limit',
+        1,
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 200,
       stdout: /exceeded CUs meter/,
     })
@@ -155,25 +152,22 @@ describe('Init config account using CLI', () => {
 
   // this is a "mock test" that just checks that print only command works
   it('creates config in print-only mode', async () => {
-    await (
-      expect([
-        'pnpm',
-        [
-          'cli',
-          '-u',
-          provider.connection.rpcEndpoint,
-          '-k',
-          keypairFeePayerPath,
-          '--program-id',
-          program.programId.toBase58(),
-          'init-config',
-          '--address',
-          configPath,
-          '--print-only',
-        ],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ]) as any
-    ).toHaveMatchingSpawnOutput({
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '-k',
+        keypairFeePayerPath,
+        '--program-id',
+        program.programId.toBase58(),
+        'init-config',
+        '--address',
+        configPath,
+        '--print-only',
+      ],
+    ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
       stdout: /successfully created/,

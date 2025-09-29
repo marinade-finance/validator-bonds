@@ -1,12 +1,14 @@
-/* eslint-disable no-process-exit */
-import { Command, Option } from 'commander'
+/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment */
+
 import { pinoConfiguration } from '@marinade.finance/ts-common'
 import {
   DEFAULT_KEYPAIR_PATH,
   ExecutionError,
   parseWalletFromOpts,
 } from '@marinade.finance/web3js-1x'
+import { Command, Option } from 'commander'
 import pino from 'pino'
+
 import { setValidatorBondsCliContext } from '../context'
 import {
   compareVersions,

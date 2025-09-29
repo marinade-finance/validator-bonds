@@ -1,33 +1,30 @@
+import { verifyError } from '@marinade.finance/anchor-common'
+import { assertNotExist, currentEpoch } from '@marinade.finance/bankrun-utils'
+import { createUserAndFund, signer } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
 import {
   Errors,
-  ValidatorBondsProgram,
   resetStakeInstruction,
   withdrawStakeInstruction,
 } from '../../src'
-import {
-  BankrunExtendedProvider,
-  assertNotExist,
-  currentEpoch,
-} from '@marinade.finance/bankrun-utils'
-import {
-  executeInitBondInstruction,
-  executeInitConfigInstruction,
-  executeInitSettlement,
-} from '../utils/testTransactions'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
   createBondsFundedStakeAccount,
   createSettlementFundedDelegatedStake,
   createSettlementFundedInitializedStake,
   createVoteAccount,
 } from '../utils/staking'
-import { verifyError } from '@marinade.finance/anchor-common'
 import {
-  SignerType,
-  createUserAndFund,
-  signer,
-} from '@marinade.finance/web3js-1x'
-import { initBankrunTest } from './bankrun'
+  executeInitBondInstruction,
+  executeInitConfigInstruction,
+  executeInitSettlement,
+} from '../utils/testTransactions'
+
+import type { ValidatorBondsProgram } from '../../src'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { SignerType } from '@marinade.finance/web3js-1x'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds withdraw stake', () => {
   let provider: BankrunExtendedProvider

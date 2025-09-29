@@ -1,4 +1,9 @@
 import {
+  assertNotExist,
+  bankrunExecuteIx,
+  warpToEpoch,
+} from '@marinade.finance/bankrun-utils'
+import {
   Authorized,
   Keypair,
   Lockup,
@@ -7,14 +12,12 @@ import {
   SystemProgram,
   LAMPORTS_PER_SOL,
 } from '@solana/web3.js'
-import { Clock } from 'solana-bankrun'
-import {
-  BankrunExtendedProvider,
-  assertNotExist,
-  bankrunExecuteIx,
-  warpToEpoch,
-} from '@marinade.finance/bankrun-utils'
 import { StakeProgram } from '@solana/web3.js'
+import { Clock } from 'solana-bankrun'
+
+import { initBankrunTest } from './bankrun'
+import { getRentExemptStake, getRentExemptVote } from '../../src'
+import { executeTxWithError } from '../utils/helpers'
 import {
   StakeStates,
   createVoteAccount,
@@ -24,9 +27,8 @@ import {
   nonInitializedStakeAccount,
   setLockup,
 } from '../utils/staking'
-import { executeTxWithError } from '../utils/helpers'
-import { initBankrunTest } from './bankrun'
-import { getRentExemptStake, getRentExemptVote } from '../../src'
+
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 
 describe('Solana stake account behavior verification', () => {
   let provider: BankrunExtendedProvider

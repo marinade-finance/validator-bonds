@@ -1,15 +1,16 @@
 import {
-  PublicKey,
   SYSVAR_CLOCK_PUBKEY,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   StakeProgram,
-  TransactionInstruction,
   STAKE_CONFIG_ID,
 } from '@solana/web3.js'
-import { ValidatorBondsProgram } from '../sdk'
-import { checkAndGetBondAddress } from '../utils'
+
 import { getBond } from '../api'
+import { checkAndGetBondAddress } from '../utils'
 import { getStakeAccount } from '../web3.js'
+
+import type { ValidatorBondsProgram } from '../sdk'
+import type { PublicKey, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to reset stake from closed settlement.

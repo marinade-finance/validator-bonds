@@ -1,28 +1,28 @@
+import { verifyError } from '@marinade.finance/anchor-common'
+import { warpToEpoch } from '@marinade.finance/bankrun-utils'
+import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import { initBankrunTest } from './bankrun'
 import {
-  Bond,
   Errors,
-  ValidatorBondsProgram,
   getBond,
   getWithdrawRequest,
   initWithdrawRequestInstruction,
   withdrawRequestAddress,
 } from '../../src'
-import {
-  BankrunExtendedProvider,
-  warpToEpoch,
-} from '@marinade.finance/bankrun-utils'
+import { getSecureRandomInt } from '../utils/helpers'
+import { createVoteAccount } from '../utils/staking'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitWithdrawRequestInstruction,
 } from '../utils/testTransactions'
-import { ProgramAccount } from '@coral-xyz/anchor'
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import { createVoteAccount } from '../utils/staking'
-import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
-import { verifyError } from '@marinade.finance/anchor-common'
-import { initBankrunTest } from './bankrun'
-import { getSecureRandomInt } from '../utils/helpers'
+
+import type { Bond, ValidatorBondsProgram } from '../../src'
+import type { ProgramAccount } from '@coral-xyz/anchor'
+import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds init withdraw request', () => {
   let provider: BankrunExtendedProvider
@@ -145,7 +145,7 @@ describe('Validator Bonds init withdraw request', () => {
     )
     if (withdrawRequestInfo === null) {
       throw new Error(
-        `Withdraw request account ${withdrawRequestAccount} not found`,
+        `Withdraw request account ${withdrawRequestAccount.toBase58()} not found`,
       )
     }
     const rentExempt =

@@ -1,11 +1,17 @@
-import { PublicKey, Signer } from '@solana/web3.js'
-import { Command } from 'commander'
 import {
   computeUnitLimitOption,
   setProgramIdByOwner,
 } from '@marinade.finance/validator-bonds-cli-core'
 import {
-  Wallet,
+  CONFIGURE_CONFIG_LIMIT_UNITS,
+  toBN,
+} from '@marinade.finance/validator-bonds-cli-core'
+import {
+  MARINADE_CONFIG_ADDRESS,
+  configureConfigInstruction,
+  getConfig,
+} from '@marinade.finance/validator-bonds-sdk'
+import {
   executeTx,
   instanceOfWallet,
   transaction,
@@ -13,17 +19,12 @@ import {
   parsePubkeyOrPubkeyFromWallet,
   parseWalletOrPubkeyOption,
 } from '@marinade.finance/web3js-1x'
-import { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
-import {
-  MARINADE_CONFIG_ADDRESS,
-  configureConfigInstruction,
-  getConfig,
-} from '@marinade.finance/validator-bonds-sdk'
-import {
-  CONFIGURE_CONFIG_LIMIT_UNITS,
-  toBN,
-} from '@marinade.finance/validator-bonds-cli-core'
-import BN from 'bn.js'
+
+import type { Wallet } from '@marinade.finance/web3js-1x'
+import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
+import type { PublicKey, Signer } from '@solana/web3.js'
+import type BN from 'bn.js'
+import type { Command } from 'commander'
 
 export function installConfigureConfig(program: Command) {
   program
