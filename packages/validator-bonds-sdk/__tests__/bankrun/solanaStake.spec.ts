@@ -46,22 +46,22 @@ describe('Solana stake account behavior verification', () => {
   it('cannot merge uninitialized + merge initialized with correct meta', async () => {
     const [sourcePubkey] = await nonInitializedStakeAccount(
       provider,
-      rentExemptStake
+      rentExemptStake,
     )
     const [destPubkey] = await nonInitializedStakeAccount(
       provider,
-      rentExemptStake
+      rentExemptStake,
     )
 
     await getAndCheckStakeAccount(
       provider,
       sourcePubkey,
-      StakeStates.Uninitialized
+      StakeStates.Uninitialized,
     )
     await getAndCheckStakeAccount(
       provider,
       destPubkey,
-      StakeStates.Uninitialized
+      StakeStates.Uninitialized,
     )
     const mergeUninitializedTx = StakeProgram.merge({
       stakePubkey: destPubkey,
@@ -74,7 +74,7 @@ describe('Solana stake account behavior verification', () => {
       '1.',
       'invalid account data for instruction',
       [provider.wallet],
-      mergeUninitializedTx
+      mergeUninitializedTx,
     )
 
     const sourceStaker = Keypair.generate()
@@ -85,7 +85,7 @@ describe('Solana stake account behavior verification', () => {
       stakePubkey: sourcePubkey,
       authorized: new Authorized(
         sourceStaker.publicKey,
-        sourceWithdrawer.publicKey
+        sourceWithdrawer.publicKey,
       ),
       lockup: undefined,
     })
@@ -93,7 +93,7 @@ describe('Solana stake account behavior verification', () => {
       stakePubkey: destPubkey,
       authorized: new Authorized(
         destStaker.publicKey,
-        destWithdrawer.publicKey
+        destWithdrawer.publicKey,
       ),
       lockup: undefined,
     })
@@ -101,13 +101,13 @@ describe('Solana stake account behavior verification', () => {
       provider,
       [provider.wallet],
       sourceInitIx,
-      destInitIx
+      destInitIx,
     )
 
     await getAndCheckStakeAccount(
       provider,
       sourcePubkey,
-      StakeStates.Initialized
+      StakeStates.Initialized,
     )
     await getAndCheckStakeAccount(provider, destPubkey, StakeStates.Initialized)
 
@@ -122,7 +122,7 @@ describe('Solana stake account behavior verification', () => {
       '2.',
       'missing required signature for instruction',
       [provider.wallet, sourceStaker],
-      mergeInitializedWrongAuthorityTx
+      mergeInitializedWrongAuthorityTx,
     )
 
     // staker authority change is ok to be signed by staker
@@ -136,12 +136,12 @@ describe('Solana stake account behavior verification', () => {
     await bankrunExecuteIx(
       provider,
       [provider.wallet, destStaker],
-      changeStakerAuthIx
+      changeStakerAuthIx,
     )
 
     // pushing clock forward to get new latest blockhash from the client
     provider.context.warpToSlot(
-      (await provider.context.banksClient.getClock()).slot + BigInt(1)
+      (await provider.context.banksClient.getClock()).slot + BigInt(1),
     )
 
     const mergeInitializedWrongWithdrawAuthorityTx = StakeProgram.merge({
@@ -156,7 +156,7 @@ describe('Solana stake account behavior verification', () => {
       '3.',
       'custom program error: 0x6',
       [provider.wallet, sourceStaker],
-      mergeInitializedWrongWithdrawAuthorityTx
+      mergeInitializedWrongWithdrawAuthorityTx,
     )
 
     const changeWithdrawerAuthIx = StakeProgram.authorize({
@@ -169,12 +169,12 @@ describe('Solana stake account behavior verification', () => {
     await bankrunExecuteIx(
       provider,
       [provider.wallet, destWithdrawer],
-      changeWithdrawerAuthIx
+      changeWithdrawerAuthIx,
     )
 
     // pushing clock forward to get new latest blockhash from the client
     provider.context.warpToSlot(
-      (await provider.context.banksClient.getClock()).slot + BigInt(1)
+      (await provider.context.banksClient.getClock()).slot + BigInt(1),
     )
 
     // 4. FINAL SUCCESSFUL MERGE
@@ -207,7 +207,7 @@ describe('Solana stake account behavior verification', () => {
         rentExempt: rentExemptStake,
         staker,
         withdrawer,
-      }
+      },
     )
     const custodian2 = Keypair.generate()
     const { stakeAccount: stakeAccount2 } = await createInitializedStakeAccount(
@@ -217,7 +217,7 @@ describe('Solana stake account behavior verification', () => {
         rentExempt: rentExemptStake,
         staker,
         withdrawer,
-      }
+      },
     )
     const mergeTx = StakeProgram.merge({
       stakePubkey: stakeAccount2,
@@ -225,14 +225,14 @@ describe('Solana stake account behavior verification', () => {
       authorizedPubkey: staker.publicKey,
     })
     console.log(
-      '1. CANNOT MERGE when active LOCKUP when meta data is different'
+      '1. CANNOT MERGE when active LOCKUP when meta data is different',
     )
     await executeTxWithError(
       provider,
       '1.',
       'custom program error: 0x6',
       [provider.wallet, staker],
-      mergeTx
+      mergeTx,
     )
 
     // we can change lockup data to match with custodian
@@ -244,7 +244,7 @@ describe('Solana stake account behavior verification', () => {
     await bankrunExecuteIx(provider, [provider.wallet, custodian2], setLockupIx)
 
     provider.context.warpToSlot(
-      (await provider.context.banksClient.getClock()).slot + BigInt(1)
+      (await provider.context.banksClient.getClock()).slot + BigInt(1),
     )
     const mergeTx2 = StakeProgram.merge({
       stakePubkey: stakeAccount2,
@@ -252,14 +252,14 @@ describe('Solana stake account behavior verification', () => {
       authorizedPubkey: staker.publicKey,
     })
     console.log(
-      '2. CANNOT MERGE EVEN WHEN active LOCKUP WHEN Lockup custodians are different'
+      '2. CANNOT MERGE EVEN WHEN active LOCKUP WHEN Lockup custodians are different',
     )
     await executeTxWithError(
       provider,
       '2.',
       'custom program error: 0x6', // MergeMismatch
       [provider.wallet, staker],
-      mergeTx2
+      mergeTx2,
     )
 
     // we can change lockup data to match the stake account 1
@@ -271,11 +271,11 @@ describe('Solana stake account behavior verification', () => {
     await bankrunExecuteIx(
       provider,
       [provider.wallet, custodian2],
-      setLockupIx2
+      setLockupIx2,
     )
 
     provider.context.warpToSlot(
-      (await provider.context.banksClient.getClock()).slot + BigInt(1)
+      (await provider.context.banksClient.getClock()).slot + BigInt(1),
     )
 
     // merging stakeAccount1 --> stakeAccount2
@@ -285,22 +285,22 @@ describe('Solana stake account behavior verification', () => {
       authorizedPubkey: staker.publicKey,
     })
     console.log(
-      '3. for active LOCKUP MERGING with the same LOCKUP metadata is permitted'
+      '3. for active LOCKUP MERGING with the same LOCKUP metadata is permitted',
     )
     await bankrunExecuteIx(provider, [provider.wallet, staker], mergeTx3)
     // merged, stakeAccount1 is gone
     await assertNotExist(provider, stakeAccount1)
 
     console.log(
-      '4. AUTHORIZE to new staker, lockup is over, not necessary to use custodian'
+      '4. AUTHORIZE to new staker, lockup is over, not necessary to use custodian',
     )
     let [stakeAccount2Data] = await getAndCheckStakeAccount(
       provider,
       stakeAccount2,
-      StakeStates.Initialized
+      StakeStates.Initialized,
     )
     expect(stakeAccount2Data.Initialized?.meta.authorized.staker).toEqual(
-      staker.publicKey
+      staker.publicKey,
     )
     const newStaker = Keypair.generate()
     const changeStakerAuthIx = StakeProgram.authorize({
@@ -312,19 +312,19 @@ describe('Solana stake account behavior verification', () => {
     await bankrunExecuteIx(
       provider,
       [provider.wallet, staker],
-      changeStakerAuthIx
+      changeStakerAuthIx,
     )
     ;[stakeAccount2Data] = await getAndCheckStakeAccount(
       provider,
       stakeAccount2,
-      StakeStates.Initialized
+      StakeStates.Initialized,
     )
     expect(stakeAccount2Data.Initialized?.meta.authorized.staker).toEqual(
-      newStaker.publicKey
+      newStaker.publicKey,
     )
 
     console.log(
-      '5. MERGE of inactive LOCKUP to active lockup is not possible without custodian'
+      '5. MERGE of inactive LOCKUP to active lockup is not possible without custodian',
     )
     const { stakeAccount: stakeAccountInactive } =
       await createInitializedStakeAccount({
@@ -345,7 +345,7 @@ describe('Solana stake account behavior verification', () => {
       '5.',
       'missing required signature for instruction',
       [provider.wallet, staker],
-      mergeTxInactive
+      mergeTxInactive,
     )
   })
 
@@ -363,7 +363,7 @@ describe('Solana stake account behavior verification', () => {
         rentExempt: rentExemptStake,
         staker,
         withdrawer,
-      }
+      },
     )
     const { stakeAccount: stakeAccount2 } = await createInitializedStakeAccount(
       {
@@ -372,7 +372,7 @@ describe('Solana stake account behavior verification', () => {
         rentExempt: rentExemptStake,
         staker,
         withdrawer,
-      }
+      },
     )
 
     console.log('1. AUTHORIZE STAKER is possible when lockup is running')
@@ -393,11 +393,11 @@ describe('Solana stake account behavior verification', () => {
       provider,
       [provider.wallet, staker],
       changeStakerAuthIx,
-      changeStakerAuthIx2
+      changeStakerAuthIx2,
     )
 
     console.log(
-      '2. AUTHORIZE WITHDRAWER with LOCKUP being active only possible with custodian signature'
+      '2. AUTHORIZE WITHDRAWER with LOCKUP being active only possible with custodian signature',
     )
     const newWithdrawer = Keypair.generate()
     const changeWithdrawerNoCustodianIx = StakeProgram.authorize({
@@ -412,7 +412,7 @@ describe('Solana stake account behavior verification', () => {
       '2.',
       'custom program error: 0x7', // CustodianMissing
       [provider.wallet, withdrawer],
-      changeWithdrawerNoCustodianIx
+      changeWithdrawerNoCustodianIx,
     )
     const changeWithdrawer1Ix = StakeProgram.authorize({
       stakePubkey: stakeAccount1,
@@ -432,7 +432,7 @@ describe('Solana stake account behavior verification', () => {
       provider,
       [provider.wallet, withdrawer, custodianWallet],
       changeWithdrawer1Ix,
-      changeWithdrawer2Ix
+      changeWithdrawer2Ix,
     )
 
     // stakeAccount2 --> merged to --> stakeAccount1
@@ -446,7 +446,7 @@ describe('Solana stake account behavior verification', () => {
     await getAndCheckStakeAccount(
       provider,
       stakeAccount1,
-      StakeStates.Initialized
+      StakeStates.Initialized,
     )
 
     // transferring some SOLs to have enough for delegation
@@ -471,7 +471,7 @@ describe('Solana stake account behavior verification', () => {
     await getAndCheckStakeAccount(
       provider,
       stakeAccount1,
-      StakeStates.Delegated
+      StakeStates.Delegated,
     )
 
     const deactivateIx = StakeProgram.deactivate({
@@ -492,11 +492,11 @@ describe('Solana stake account behavior verification', () => {
       '3.',
       'custom program error: 0x1', // LockupInForce
       [provider.wallet, newWithdrawer],
-      withdrawIx
+      withdrawIx,
     )
 
     console.log(
-      '4. WE CAN withdraw when withdrawer AND custodian sign when lockup is active'
+      '4. WE CAN withdraw when withdrawer AND custodian sign when lockup is active',
     )
     const withdrawIx2 = StakeProgram.withdraw({
       stakePubkey: stakeAccount1,
@@ -508,7 +508,7 @@ describe('Solana stake account behavior verification', () => {
     await bankrunExecuteIx(
       provider,
       [custodianWallet, newWithdrawer],
-      withdrawIx2
+      withdrawIx2,
     )
 
     console.log('5. WE CAN withdraw when lockup is over')
@@ -519,8 +519,8 @@ describe('Solana stake account behavior verification', () => {
         clock.epochStartTimestamp,
         clock.epoch,
         clock.leaderScheduleEpoch,
-        BigInt(unixTimestampLockup + 1)
-      )
+        BigInt(unixTimestampLockup + 1),
+      ),
     )
     const withdrawIx3 = StakeProgram.withdraw({
       stakePubkey: stakeAccount1,
@@ -531,10 +531,10 @@ describe('Solana stake account behavior verification', () => {
     await bankrunExecuteIx(
       provider,
       [provider.wallet, newWithdrawer],
-      withdrawIx3
+      withdrawIx3,
     )
     provider.context.warpToSlot(
-      (await provider.context.banksClient.getClock()).slot + BigInt(1)
+      (await provider.context.banksClient.getClock()).slot + BigInt(1),
     )
   })
 
@@ -561,7 +561,7 @@ describe('Solana stake account behavior verification', () => {
     })
 
     console.log(
-      '1. CANNOT MERGE WHEN STAKED TO DIFFERENT VOTE ACCOUNTS (the same lockup metadata)'
+      '1. CANNOT MERGE WHEN STAKED TO DIFFERENT VOTE ACCOUNTS (the same lockup metadata)',
     )
     const mergeTx = StakeProgram.merge({
       stakePubkey: stakeAccount1.stakeAccount,
@@ -573,11 +573,11 @@ describe('Solana stake account behavior verification', () => {
       '1.',
       'custom program error: 0x6', // MergeMismatch
       [provider.wallet, staker],
-      mergeTx
+      mergeTx,
     )
 
     console.log(
-      '2. MERGING WHEN STAKED TO THE SAME VOTE ACCOUNT (the same lockup meta data)'
+      '2. MERGING WHEN STAKED TO THE SAME VOTE ACCOUNT (the same lockup meta data)',
     )
     const delegateIx = StakeProgram.delegate({
       stakePubkey: stakeAccount2.stakeAccount,
@@ -609,10 +609,10 @@ describe('Solana stake account behavior verification', () => {
     let [stakeAccount3Data] = await getAndCheckStakeAccount(
       provider,
       stakeAccount3.stakeAccount,
-      StakeStates.Delegated
+      StakeStates.Delegated,
     )
     expect(
-      stakeAccount3Data.Stake?.stake.delegation.deactivationEpoch.toNumber()
+      stakeAccount3Data.Stake?.stake.delegation.deactivationEpoch.toNumber(),
     ).toEqual(nextEpoch)
     const mergeTx3 = StakeProgram.merge({
       stakePubkey: stakeAccount1.stakeAccount,
@@ -624,11 +624,11 @@ describe('Solana stake account behavior verification', () => {
       '3.',
       'custom program error: 0x5', // MergeTransientStake
       [provider.wallet, staker],
-      mergeTx3
+      mergeTx3,
     )
 
     console.log(
-      '4. CANNOT MERGE ON DIFFERENT STATE activated vs. deactivated (the same lockup meta data)'
+      '4. CANNOT MERGE ON DIFFERENT STATE activated vs. deactivated (the same lockup meta data)',
     )
     nextEpoch =
       Number((await provider.context.banksClient.getClock()).epoch) + 1
@@ -638,7 +638,7 @@ describe('Solana stake account behavior verification', () => {
       '4.',
       'custom program error: 0x6', // MergeMismatch
       [provider.wallet, staker],
-      mergeTx3
+      mergeTx3,
     )
 
     console.log('5. stake the deactivated tokens once again')
@@ -649,18 +649,18 @@ describe('Solana stake account behavior verification', () => {
     })
     await bankrunExecuteIx(provider, [provider.wallet, staker], delegateIx3)
     const currentEpoch = Number(
-      (await provider.context.banksClient.getClock()).epoch
+      (await provider.context.banksClient.getClock()).epoch,
     )
     ;[stakeAccount3Data] = await getAndCheckStakeAccount(
       provider,
       stakeAccount3.stakeAccount,
-      StakeStates.Delegated
+      StakeStates.Delegated,
     )
     expect(
-      stakeAccount3Data.Stake?.stake.delegation.deactivationEpoch.toString()
+      stakeAccount3Data.Stake?.stake.delegation.deactivationEpoch.toString(),
     ).toEqual('18446744073709551615') // max u64
     expect(
-      stakeAccount3Data.Stake?.stake.delegation.activationEpoch.toString()
+      stakeAccount3Data.Stake?.stake.delegation.activationEpoch.toString(),
     ).toEqual(currentEpoch.toString())
 
     console.log('6. MERGING ACTIVATED stake (the same lockup meta data)')
@@ -670,13 +670,13 @@ describe('Solana stake account behavior verification', () => {
     await getAndCheckStakeAccount(
       provider,
       stakeAccount1.stakeAccount,
-      StakeStates.Delegated
+      StakeStates.Delegated,
     )
     const stakeAccountInfo = await provider.connection.getAccountInfo(
-      stakeAccount1.stakeAccount
+      stakeAccount1.stakeAccount,
     )
     expect(stakeAccountInfo?.lamports).toEqual(
-      LAMPORTS_PER_SOL * 12 + LAMPORTS_PER_SOL * 13 + LAMPORTS_PER_SOL * 14
+      LAMPORTS_PER_SOL * 12 + LAMPORTS_PER_SOL * 13 + LAMPORTS_PER_SOL * 14,
     )
   })
 
@@ -711,7 +711,7 @@ describe('Solana stake account behavior verification', () => {
       lockup: new Lockup(
         lockedTimestamp - 1,
         lockedEpoch - 1,
-        PublicKey.unique()
+        PublicKey.unique(),
       ),
       lamports: LAMPORTS_PER_SOL * 6,
       staker,
@@ -720,24 +720,24 @@ describe('Solana stake account behavior verification', () => {
     const [stakeAccount1Data] = await getAndCheckStakeAccount(
       provider,
       stakeAccount1,
-      StakeStates.Delegated
+      StakeStates.Delegated,
     )
     const [stakeAccount2Data] = await getAndCheckStakeAccount(
       provider,
       stakeAccount2,
-      StakeStates.Delegated
+      StakeStates.Delegated,
     )
     expect(Number(clock.epoch)).toBeGreaterThan(lockedEpoch)
     expect(Number(clock.unixTimestamp)).toBeGreaterThan(lockedTimestamp)
     expect(stakeAccount1Data.Stake?.meta.lockup.epoch.toString()).toEqual(
-      lockedEpoch.toString()
+      lockedEpoch.toString(),
     )
     expect(stakeAccount2Data.Stake?.meta.lockup.epoch.toString()).toEqual(
-      (lockedEpoch - 1).toString()
+      (lockedEpoch - 1).toString(),
     )
 
     console.log(
-      '1. MERGING delegated to same vote account, non-locked stakes with different lockup meta data'
+      '1. MERGING delegated to same vote account, non-locked stakes with different lockup meta data',
     )
     const mergeIx = StakeProgram.merge({
       stakePubkey: stakeAccount1,
@@ -749,26 +749,26 @@ describe('Solana stake account behavior verification', () => {
     const [stakeAccountData, stakeAccountInfo] = await getAndCheckStakeAccount(
       provider,
       stakeAccount1,
-      StakeStates.Delegated
+      StakeStates.Delegated,
     )
     // lamports matches the sum of the two merged accounts
     expect(stakeAccountInfo.lamports).toEqual(11 * LAMPORTS_PER_SOL)
     expect(stakeAccountData.Stake?.stake.delegation.stake.toString()).toEqual(
-      (11 * LAMPORTS_PER_SOL - rentExemptStake).toString()
+      (11 * LAMPORTS_PER_SOL - rentExemptStake).toString(),
     )
     // lockup is the same as the first account
     expect(stakeAccountData.Stake?.meta.lockup.epoch.toString()).toEqual(
-      lockedEpoch.toString()
+      lockedEpoch.toString(),
     )
     expect(
-      stakeAccountData.Stake?.meta.lockup.unixTimestamp.toString()
+      stakeAccountData.Stake?.meta.lockup.unixTimestamp.toString(),
     ).toEqual(lockedTimestamp.toString())
     expect(stakeAccountData.Stake?.meta.lockup.custodian.toBase58()).toEqual(
-      lockedCustodian.toBase58()
+      lockedCustodian.toBase58(),
     )
 
     console.log(
-      '2. MERGING deactivated to activated not possible, lockup metadata is different'
+      '2. MERGING deactivated to activated not possible, lockup metadata is different',
     )
     const { stakeAccount: stakeAccountLocked } = await delegatedStakeAccount({
       provider,
@@ -780,10 +780,10 @@ describe('Solana stake account behavior verification', () => {
     })
     const [stakeAccountLockedData] = await getAndCheckStakeAccount(
       provider,
-      stakeAccountLocked
+      stakeAccountLocked,
     )
     expect(
-      stakeAccountLockedData.Stake?.stake.delegation.stake.toString()
+      stakeAccountLockedData.Stake?.stake.delegation.stake.toString(),
     ).toEqual((5 * LAMPORTS_PER_SOL - rentExemptStake).toString())
 
     // merging stakeAccountLocked --> stakeAccount1
@@ -797,7 +797,7 @@ describe('Solana stake account behavior verification', () => {
       '2.',
       'custom program error: 0x6', // MergeMismatch
       [provider.wallet, staker],
-      mergeWithLockedIx
+      mergeWithLockedIx,
     )
 
     console.log('3. MERGING deactivated with different delegation')
@@ -822,7 +822,7 @@ describe('Solana stake account behavior verification', () => {
       [provider.wallet, staker],
       delegateIx,
       deactivateIx1,
-      deactivateIx
+      deactivateIx,
     )
     // warping to next epoch to be sure the deactivation is done
     warpToEpoch(provider, Number(clock.epoch) + 2)
@@ -833,21 +833,21 @@ describe('Solana stake account behavior verification', () => {
       '3.b',
       'custom program error: 0x2', // AlreadyDeactivated
       [provider.wallet, staker],
-      deactivateIx1
+      deactivateIx1,
     )
     const [deactivatedAccount1Data] = await getAndCheckStakeAccount(
       provider,
-      stakeAccount1
+      stakeAccount1,
     )
     const [deactivatedLockedData] = await getAndCheckStakeAccount(
       provider,
-      stakeAccountLocked
+      stakeAccountLocked,
     )
     expect(
-      deactivatedAccount1Data.Stake?.stake.delegation.voterPubkey.toBase58()
+      deactivatedAccount1Data.Stake?.stake.delegation.voterPubkey.toBase58(),
     ).toEqual(voteAccount.toBase58())
     expect(
-      deactivatedLockedData.Stake?.stake.delegation.voterPubkey.toBase58()
+      deactivatedLockedData.Stake?.stake.delegation.voterPubkey.toBase58(),
     ).toEqual(otherVoteAccount.toBase58())
 
     const mergeIxDeactivated = StakeProgram.merge({
@@ -858,16 +858,16 @@ describe('Solana stake account behavior verification', () => {
     await bankrunExecuteIx(
       provider,
       [provider.wallet, staker],
-      mergeIxDeactivated
+      mergeIxDeactivated,
     )
     await assertNotExist(provider, stakeAccountLocked)
     const [, mergedDeactivatedInfo] = await getAndCheckStakeAccount(
       provider,
       stakeAccount1,
-      StakeStates.Delegated
+      StakeStates.Delegated,
     )
     expect(mergedDeactivatedInfo.lamports.toString()).toEqual(
-      (16 * LAMPORTS_PER_SOL).toString()
+      (16 * LAMPORTS_PER_SOL).toString(),
     )
   })
 
@@ -882,7 +882,7 @@ describe('Solana stake account behavior verification', () => {
     const lockedLockup = new Lockup(
       0,
       Number(clock.epoch) + 1,
-      custodian.publicKey
+      custodian.publicKey,
     )
     const lamports = LAMPORTS_PER_SOL * 5
     const {
@@ -904,13 +904,13 @@ describe('Solana stake account behavior verification', () => {
         splitStakePubkey: stakeAccount2.publicKey,
         lamports: spitLamports,
       },
-      0
+      0,
     )
     try {
       await bankrunExecuteIx(
         provider,
         [provider.wallet, staker, stakeAccount2],
-        splitIx
+        splitIx,
       )
     } catch (e) {
       console.error(e)
@@ -920,32 +920,32 @@ describe('Solana stake account behavior verification', () => {
       await getAndCheckStakeAccount(
         provider,
         stakeAccount1,
-        StakeStates.Delegated
+        StakeStates.Delegated,
       )
     const [stakeAccount2Data, stakeAccount2Info] =
       await getAndCheckStakeAccount(
         provider,
         stakeAccount2.publicKey,
-        StakeStates.Delegated
+        StakeStates.Delegated,
       )
     expect(stakeAccount1Data.Stake?.meta.lockup).toEqual(lockedLockup)
     expect(stakeAccount2Data.Stake?.meta.lockup).toEqual(lockedLockup)
     expect(stakeAccount1Data.Stake?.stake.delegation.stake.toNumber()).toEqual(
-      lamports - spitLamports - rentExemptStake
+      lamports - spitLamports - rentExemptStake,
     )
     expect(stakeAccount2Data.Stake?.stake.delegation.stake.toNumber()).toEqual(
-      spitLamports - rentExemptStake
+      spitLamports - rentExemptStake,
     )
     expect(stakeAccount1Info.lamports).toEqual(lamports - spitLamports)
     expect(stakeAccount2Info.lamports).toEqual(spitLamports)
     expect(stakeAccount2Data.Stake?.meta.authorized).toEqual(
-      stakeAccount1Data.Stake?.meta.authorized
+      stakeAccount1Data.Stake?.meta.authorized,
     )
     expect(stakeAccount1Data.Stake?.stake.delegation.voterPubkey).toEqual(
-      voteAccount
+      voteAccount,
     )
     expect(stakeAccount2Data.Stake?.stake.delegation.voterPubkey).toEqual(
-      voteAccount
+      voteAccount,
     )
   })
 })

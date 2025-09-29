@@ -40,7 +40,7 @@ describe('Close settlement using CLI', () => {
         program,
         provider,
         epochsToClaimSettlement: 0,
-      }
+      },
     ))
     assert((await provider.connection.getAccountInfo(configAccount)) != null)
     ;({ voteAccount } = await createVoteAccount({
@@ -73,7 +73,7 @@ describe('Close settlement using CLI', () => {
     })
 
     expect(
-      await provider.connection.getAccountInfo(settlementAccount)
+      await provider.connection.getAccountInfo(settlementAccount),
     ).not.toBeNull()
     const currentEpoch = (await program.provider.connection.getEpochInfo())
       .epoch

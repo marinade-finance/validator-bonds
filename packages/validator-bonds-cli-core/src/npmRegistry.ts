@@ -8,7 +8,7 @@ export type NpmPackageData = {
 
 export async function fetchLatestVersionInNpmRegistry(
   logger: Logger,
-  npmRegistryUrl: string
+  npmRegistryUrl: string,
 ): Promise<NpmPackageData> {
   try {
     const fetched = await fetch(npmRegistryUrl, {
@@ -23,7 +23,7 @@ export async function fetchLatestVersionInNpmRegistry(
     return { name, version: latestVersion }
   } catch (err) {
     logger.debug(
-      `Failed to fetch latest version from NPM registry ${npmRegistryUrl}: ${String(err)}`
+      `Failed to fetch latest version from NPM registry ${npmRegistryUrl}: ${String(err)}`,
     )
     return { name: '@marinade.finance/validator-bonds-...', version: '0.0.0' }
   }

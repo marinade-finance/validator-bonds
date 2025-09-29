@@ -18,17 +18,17 @@ export function installConfigureBond(program: Command) {
       'The config account that the bond account is created under ' +
         '(optional; to derive bond address from vote account address) ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--cpmpe <number>',
       'Cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch.',
-      value => toBN(value)
+      value => toBN(value),
     )
     .option(
       '--max-stake-wanted <number>',
       'The maximum stake amount, in lamports, that the validator wants to be delegated to them.',
-      value => toBN(value)
+      value => toBN(value),
     )
     .action(
       async (
@@ -51,7 +51,7 @@ export function installConfigureBond(program: Command) {
           cpmpe?: BN
           maxStakeWanted?: BN
           computeUnitLimit?: number
-        }
+        },
       ) => {
         await manageConfigureBond({
           address: await address,
@@ -64,6 +64,6 @@ export function installConfigureBond(program: Command) {
           maxStakeWanted,
           computeUnitLimit,
         })
-      }
+      },
     )
 }

@@ -39,7 +39,7 @@ export async function resetStakeInstruction({
     const stakeAccountData = await getStakeAccount(program, stakeAccount, 0)
     if (stakeAccountData.voter === null) {
       throw new Error(
-        `Cannot load vote account address from stake account ${stakeAccount.toBase58()}`
+        `Cannot load vote account address from stake account ${stakeAccount.toBase58()}`,
       )
     }
     voteAccount = stakeAccountData.voter
@@ -48,7 +48,7 @@ export async function resetStakeInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId
+    program.programId,
   )
   if (configAccount === undefined) {
     const bondData = await getBond(program, bondAccount)

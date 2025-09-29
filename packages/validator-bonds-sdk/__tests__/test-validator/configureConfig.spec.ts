@@ -41,7 +41,7 @@ describe('Validator Bonds configure config', () => {
     }
     assert(
       configInitialized.account.adminAuthority.toBase58() ===
-        adminAuth.publicKey.toBase58()
+        adminAuth.publicKey.toBase58(),
     )
     assert(configInitialized.account.epochsToClaimSettlement.eqn(1))
     assert(configInitialized.account.withdrawLockupEpochs.eqn(2))

@@ -72,7 +72,7 @@ export async function claimSettlementV2Instruction({
   }
   if (bondAccount === undefined) {
     throw new Error(
-      'Either [configAccount+voteAccount] or [bondAccount] must be provided'
+      'Either [configAccount+voteAccount] or [bondAccount] must be provided',
     )
   }
 
@@ -90,18 +90,18 @@ export async function claimSettlementV2Instruction({
       bondAccount,
       settlementMerkleRoot,
       settlementEpoch,
-      program.programId
+      program.programId,
     )
   }
   if (settlementAccount === undefined) {
     throw new Error(
-      '[settlementAccount] must be provided or needed to have [bondAccount, merkleProof] to derive the address'
+      '[settlementAccount] must be provided or needed to have [bondAccount, merkleProof] to derive the address',
     )
   }
 
   const [settlementClaimsAccount] = settlementClaimsAddress(
     settlementAccount,
-    program.programId
+    program.programId,
   )
 
   const merkleProofNumbers = merkleProof.map(proofPathRecord => {
@@ -122,7 +122,7 @@ export async function claimSettlementV2Instruction({
       stakeAccountToData.withdrawer === null
     ) {
       throw new Error(
-        'stakeAccountTo must be activated with staker and withdrawer defined'
+        'stakeAccountTo must be activated with staker and withdrawer defined',
       )
     }
     stakeAccountStaker = stakeAccountStaker || stakeAccountToData.staker

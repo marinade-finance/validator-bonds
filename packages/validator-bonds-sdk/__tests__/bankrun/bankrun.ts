@@ -27,7 +27,7 @@ import type { Keypair, PublicKey } from '@solana/web3.js'
 
 export async function initBankrunTest(
   programId?: PublicKey,
-  additionalAccounts?: string[]
+  additionalAccounts?: string[],
 ): Promise<{
   program: ValidatorBondsProgram
   provider: BankrunExtendedProvider
@@ -44,14 +44,14 @@ export async function initBankrunTest(
 }
 
 export async function currentSlot(
-  provider: BankrunExtendedProvider
+  provider: BankrunExtendedProvider,
 ): Promise<number> {
   return Number((await provider.context.banksClient.getClock()).slot)
 }
 
 export async function warpOffsetSlot(
   provider: BankrunExtendedProvider,
-  plusSlots: number
+  plusSlots: number,
 ) {
   const nextSlot = (await currentSlot(provider)) + plusSlots
   provider.context.warpToSlot(BigInt(nextSlot))
@@ -93,7 +93,7 @@ export async function delegateAndFund({
       undefined,
       configAccount,
       voteAccountDelegated,
-      program.programId
+      program.programId,
     )
     expect(bondAccount).toEqual(bondToCheck)
   }
@@ -138,19 +138,19 @@ export enum StakeActivationState {
 }
 
 export async function currentEpochBn(
-  provider: BankrunExtendedProvider
+  provider: BankrunExtendedProvider,
 ): Promise<BN> {
   return new BN((await currentEpoch(provider)).toString())
 }
 
 export async function stakeActivation(
   provider: BankrunExtendedProvider,
-  stakeAccount: PublicKey
+  stakeAccount: PublicKey,
 ): Promise<StakeActivationState> {
   const [stakeState] = await getAndCheckStakeAccount(
     provider,
     stakeAccount,
-    StakeStates.Delegated
+    StakeStates.Delegated,
   )
   if (stakeState.Stake !== undefined) {
     const activationEpoch = stakeState.Stake.stake.delegation.activationEpoch

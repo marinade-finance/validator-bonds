@@ -27,20 +27,20 @@ export function configureCancelWithdrawRequest(program: Command): Command {
     .command('cancel-withdraw-request')
     .description(
       'Cancelling the withdraw request account, which is the withdrawal request ticket, ' +
-        'by removing the account from the chain.'
+        'by removing the account from the chain.',
     )
     .argument(
       '[address]',
       'Withdraw request account to be cancelled. Provide: withdraw request, bond or vote account address. ' +
         'When the [address] is not provided, both the --config and --vote-account options are required.',
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--vote-account <pubkey>',
       '(optional when the argument "address" is NOT provided, ' +
         'used to derive the withdraw request address) ' +
         'Validator vote account that the bond is bound to',
-      parsePubkeyOrPubkeyFromWallet
+      parsePubkeyOrPubkeyFromWallet,
     )
     .option(
       '--authority <keypair_or_ledger_or_pubkey>',
@@ -48,12 +48,12 @@ export function configureCancelWithdrawRequest(program: Command): Command {
         'It is either the authority defined in the bond account or ' +
         'vote account validator identity that the bond account is connected to. ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkeyOption
+      parseWalletOrPubkeyOption,
     )
     .option(
       '--rent-collector <pubkey>',
       'Collector of rent from initialized withdraw request account (default: wallet pubkey)',
-      parsePubkeyOrPubkeyFromWallet
+      parsePubkeyOrPubkeyFromWallet,
     )
     .addOption(computeUnitLimitOption(CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS))
 }
@@ -124,7 +124,7 @@ export async function manageCancelWithdrawRequest({
 
   logger.info(
     `Cancelling withdraw request account ${withdrawRequestAccount.toBase58()} ` +
-      `for bond account ${bondAccount?.toBase58()}`
+      `for bond account ${bondAccount?.toBase58()}`,
   )
   await executeTx({
     connection: provider.connection,
@@ -142,6 +142,6 @@ export async function manageCancelWithdrawRequest({
   })
   logger.info(
     `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +
-      `for bond account ${bondAccount?.toBase58()} successfully cancelled`
+      `for bond account ${bondAccount?.toBase58()} successfully cancelled`,
   )
 }

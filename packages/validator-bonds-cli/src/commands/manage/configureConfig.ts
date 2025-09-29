@@ -34,52 +34,52 @@ export function installConfigureConfig(program: Command) {
       '[address]',
       'Address of the validator bonds config account ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--admin-authority <keypair_or_ledger_or_pubkey>',
       'Admin authority that is permitted to do the configuration change (default: wallet)',
-      parseWalletOrPubkeyOption
+      parseWalletOrPubkeyOption,
     )
     .option(
       '--admin <pubkey>',
       'New admin authority to be configured',
-      parsePubkeyOrPubkeyFromWallet
+      parsePubkeyOrPubkeyFromWallet,
     )
     .option(
       '--operator <pubkey>',
       'New operator authority to be configured',
-      parsePubkeyOrPubkeyFromWallet
+      parsePubkeyOrPubkeyFromWallet,
     )
     .option(
       '--pause-authority <pubkey>',
       'New pause authority to be configured',
-      parsePubkeyOrPubkeyFromWallet
+      parsePubkeyOrPubkeyFromWallet,
     )
     .option(
       '--epochs-to-claim-settlement <number>',
       'New number of epochs after which claim can be settled',
-      v => parseInt(v, 10)
+      v => parseInt(v, 10),
     )
     .option(
       '--slots-to-start-settlement-claiming <number>',
       'number of slots after which settlement claim can be settled',
-      v => parseInt(v, 10)
+      v => parseInt(v, 10),
     )
     .option(
       '--withdraw-lockup-epochs <number>',
       'New number of epochs after which withdraw can be executed',
-      v => parseInt(v, 10)
+      v => parseInt(v, 10),
     )
     .option(
       '--minimum-stake-lamports <number>',
       'New value of minimum stake lamports used when program do splitting of stake',
-      value => toBN(value)
+      value => toBN(value),
     )
     .option(
       '--min-bond-max-stake-wanted <number>',
       'New value of minimum for max-stake-wanted field, in lamports, configured by validators in bond.',
-      value => toBN(value)
+      value => toBN(value),
     )
     .addOption(computeUnitLimitOption(CONFIGURE_CONFIG_LIMIT_UNITS))
     .action(
@@ -107,7 +107,7 @@ export function installConfigureConfig(program: Command) {
           minimumStakeLamports?: BN
           minBondMaxStakeWanted?: BN
           computeUnitLimit: number
-        }
+        },
       ) => {
         await manageConfigureConfig({
           address: (await address) ?? MARINADE_CONFIG_ADDRESS,
@@ -122,7 +122,7 @@ export function installConfigureConfig(program: Command) {
           minBondMaxStakeWanted,
           computeUnitLimit,
         })
-      }
+      },
     )
 }
 
@@ -173,7 +173,7 @@ async function manageConfigureConfig({
     if (!printOnly && !adminAuthority.equals(wallet.publicKey)) {
       throw new Error(
         'Current wallet does not have permission to configure the config account. ' +
-          `Current admin authority: ${adminAuthority.toBase58()}`
+          `Current admin authority: ${adminAuthority.toBase58()}`,
       )
     }
   }

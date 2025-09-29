@@ -113,11 +113,11 @@ describe('Init withdraw request using CLI', () => {
 
     const [withdrawRequestAddr] = withdrawRequestAddress(
       bondAccount,
-      program.programId
+      program.programId,
     )
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAddr
+      withdrawRequestAddr,
     )
     expect(withdrawRequestData.bond).toEqual(bondAccount)
     expect(withdrawRequestData.voteAccount).toEqual(voteAccount)
@@ -128,17 +128,17 @@ describe('Init withdraw request using CLI', () => {
     )?.lamports
     expect(
       (await provider.connection.getAccountInfo(rentPayerKeypair.publicKey))
-        ?.lamports
+        ?.lamports,
     ).toEqual(userFunding - rentExempt!)
 
     await executeCancelWithdrawRequestInstruction(
       program,
       provider,
       withdrawRequestAddr,
-      validatorIdentityKeypair
+      validatorIdentityKeypair,
     )
     expect(
-      await provider.connection.getAccountInfo(withdrawRequestAddr)
+      await provider.connection.getAccountInfo(withdrawRequestAddr),
     ).toBeNull()
 
     await expect([
@@ -167,7 +167,7 @@ describe('Init withdraw request using CLI', () => {
     })
     const withdrawRequestDataAll = await getWithdrawRequest(
       program,
-      withdrawRequestAddr
+      withdrawRequestAddr,
     )
     expect(withdrawRequestDataAll.bond).toEqual(bondAccount)
     expect(withdrawRequestDataAll.requestedAmount).toEqual(U64_MAX)
@@ -201,10 +201,10 @@ describe('Init withdraw request using CLI', () => {
   it('init withdraw request in print-only mode', async () => {
     const [withdrawRequestAddr] = withdrawRequestAddress(
       bondAccount,
-      program.programId
+      program.programId,
     )
     const toMatch = new RegExp(
-      `${withdrawRequestAddr.toBase58()}.*successfully initialized`
+      `${withdrawRequestAddr.toBase58()}.*successfully initialized`,
     )
     await expect([
       'pnpm',
@@ -231,7 +231,7 @@ describe('Init withdraw request using CLI', () => {
     })
 
     expect(
-      await provider.connection.getAccountInfo(withdrawRequestAddr)
+      await provider.connection.getAccountInfo(withdrawRequestAddr),
     ).toBeNull()
   })
 })

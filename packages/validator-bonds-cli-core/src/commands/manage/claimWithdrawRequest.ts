@@ -34,20 +34,20 @@ export function configureClaimWithdrawRequest(program: Command): Command {
       'Claiming an existing withdrawal request for an existing on-chain account, ' +
         'where the lockup period has expired. Withdrawing funds involves transferring ownership ' +
         'of a funded stake account to the specified "--withdrawer" public key. ' +
-        'To withdraw, the authority signature of the bond account is required, specified by the "--authority" parameter (default wallet).'
+        'To withdraw, the authority signature of the bond account is required, specified by the "--authority" parameter (default wallet).',
     )
     .argument(
       '[address]',
       'Address of the withdrawal request or bond or vote account. ' +
         'When the [address] is not provided, both the --config and --vote-account options are required.',
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--vote-account <pubkey>',
       '(optional when the argument "address" is NOT provided, ' +
         'used to derive the withdraw request address) ' +
         'Validator vote account that the bond is bound to',
-      parsePubkeyOrPubkeyFromWallet
+      parsePubkeyOrPubkeyFromWallet,
     )
     .option(
       '--authority <keypair_or_ledger_or_pubkey>',
@@ -55,13 +55,13 @@ export function configureClaimWithdrawRequest(program: Command): Command {
         'It is either the authority defined in the bond account or ' +
         'vote account validator identity that the bond account is connected to. ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkeyOption
+      parseWalletOrPubkeyOption,
     )
     .option(
       '--withdrawer <pubkey>',
       'Pubkey to be new owner (withdrawer authority) ' +
         'of the stake accounts that are taken out of the Validator Bonds (default: wallet publickey)',
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--split-stake-rent-payer <keypair_or_ledger_or_pubkey>',
@@ -69,14 +69,14 @@ export function configureClaimWithdrawRequest(program: Command): Command {
         'The split stake account is needed when the amount of lamports in the --stake-account ' +
         'is greater than the amount of lamports defined within the existing withdraw request account, ' +
         'then the splitted stake account remains under bond as funded (default: wallet keypair)',
-      parseWalletOrPubkeyOption
+      parseWalletOrPubkeyOption,
     )
     .option(
       '--stake-account <pubkey>',
       'Use this parameter to force the CLI to use particular stake account for withdrawal. ' +
         'By default, the stake account searched from the list of available accounts assigned to Bond account, ' +
         'using this parameter enforces direct use of the stake account.',
-      parsePubkey
+      parsePubkey,
     )
     .addOption(computeUnitLimitOption(CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS))
 }
@@ -191,7 +191,7 @@ export async function manageClaimWithdrawRequest({
       logger.info(
         `Withdraw request ${withdrawRequestAddress?.toBase58()} for bond account ${bondAccount?.toBase58()}` +
           'has been fully withdrawn, with nothing left to claim.\n' +
-          'If you want to withdraw more funds, please cancel the current request and create a new one.'
+          'If you want to withdraw more funds, please cancel the current request and create a new one.',
       )
       return
     }
@@ -211,7 +211,7 @@ export async function manageClaimWithdrawRequest({
   logger.info(
     `Claiming withdraw request ${withdrawRequestAddress?.toBase58()} ` +
       `for bond account ${bondAccount?.toBase58()} with stake accounts: [` +
-      `${stakeAccountsToWithdraw.map(s => s.toBase58()).join(',')}]`
+      `${stakeAccountsToWithdraw.map(s => s.toBase58()).join(',')}]`,
   )
   await splitAndExecuteTx({
     connection: provider.connection,
@@ -229,6 +229,6 @@ export async function manageClaimWithdrawRequest({
   })
   logger.info(
     `Withdraw request accounts: ${withdrawRequestAddress?.toBase58()} ` +
-      `for bond account ${bondAccount?.toBase58()} successfully claimed`
+      `for bond account ${bondAccount?.toBase58()} successfully claimed`,
   )
 }

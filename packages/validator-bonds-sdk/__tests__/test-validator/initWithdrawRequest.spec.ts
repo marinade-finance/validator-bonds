@@ -93,7 +93,7 @@ describe('Validator Bonds init withdraw request', () => {
     const [, bump] = withdrawRequestAddress(bondAccount, program.programId)
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount
+      withdrawRequestAccount,
     )
     expect(withdrawRequestData.bond).toEqual(bondAccount)
     expect(withdrawRequestData.bump).toEqual(bump)
@@ -123,7 +123,7 @@ describe('Validator Bonds init withdraw request', () => {
     for (let i = 1; i <= numberOfBonds; i++) {
       const { voteAccount: voteAccount } = await createVoteAccountWithIdentity(
         provider,
-        validatorIdentity
+        validatorIdentity,
       )
       voteAndBonds.push([voteAccount, PublicKey.default])
     }
@@ -162,7 +162,7 @@ describe('Validator Bonds init withdraw request', () => {
     }
     expect(tx.instructions.length).toEqual(numberOfBonds * 2)
     const currentEpoch = Number(
-      (await provider.connection.getEpochInfo()).epoch
+      (await provider.connection.getEpochInfo()).epoch,
     )
     await splitAndExecuteTx({
       connection: provider.connection,

@@ -51,7 +51,7 @@ describe('Validator Bonds config account tests', () => {
         configAccountKeypair,
       })
     assert(
-      configAccount.toBase58() === configAccountKeypair.publicKey.toBase58()
+      configAccount.toBase58() === configAccountKeypair.publicKey.toBase58(),
     )
     assert((await provider.connection.getAccountInfo(configAccount)) != null)
 
@@ -70,7 +70,7 @@ describe('Validator Bonds config account tests', () => {
     } catch (e) {
       if (!(e as Error).message.includes('custom program error: 0x0')) {
         console.error(
-          `Expected failure as config account ${configAccount.toBase58()} should already exist`
+          `Expected failure as config account ${configAccount.toBase58()} should already exist`,
         )
         throw e
       }

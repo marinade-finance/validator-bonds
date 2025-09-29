@@ -49,7 +49,7 @@ export async function cancelWithdrawRequestInstruction({
   ) {
     withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount
+      withdrawRequestAccount,
     )
     bondAccount = bondAccount ?? withdrawRequestData.bond
     voteAccount = voteAccount ?? withdrawRequestData.voteAccount
@@ -64,7 +64,7 @@ export async function cancelWithdrawRequestInstruction({
   if (bondAccount !== undefined && withdrawRequestAccount === undefined) {
     withdrawRequestAccount = withdrawRequestAddress(
       bondAccount,
-      program.programId
+      program.programId,
     )[0]
   }
   if (
@@ -81,14 +81,14 @@ export async function cancelWithdrawRequestInstruction({
   if (withdrawRequestAccount === undefined) {
     throw new Error(
       'cancelWithdrawRequestInstruction: ' +
-        'withdrawRequestAccount not provided and could not be derived from other parameters'
+        'withdrawRequestAccount not provided and could not be derived from other parameters',
     )
   }
   if (!bondAccount && !configAccount) {
     logWarn(
       logger,
       'cancelWithdrawRequest SDK: config is not provided, using default config address: ' +
-        MARINADE_CONFIG_ADDRESS.toBase58()
+        MARINADE_CONFIG_ADDRESS.toBase58(),
     )
     configAccount = MARINADE_CONFIG_ADDRESS
   }
@@ -96,7 +96,7 @@ export async function cancelWithdrawRequestInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId
+    program.programId,
   )
 
   const instruction = await program.methods

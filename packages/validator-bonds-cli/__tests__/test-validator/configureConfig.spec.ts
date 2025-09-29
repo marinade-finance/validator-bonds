@@ -38,7 +38,7 @@ describe('Configure config account using CLI', () => {
         epochsToClaimSettlement: 1,
         slotsToStartSettlementClaiming: 3,
         withdrawLockupEpochs: 2,
-      }
+      },
     ))
     assert((await provider.connection.getAccountInfo(configAccount)) != null)
   })
@@ -143,7 +143,7 @@ describe('Configure config account using CLI', () => {
       stdout: /successfully configured/,
     })
     expect((await getConfig(program, configAccount)).operatorAuthority).toEqual(
-      operatorAuthority.publicKey
+      operatorAuthority.publicKey,
     )
   })
 })

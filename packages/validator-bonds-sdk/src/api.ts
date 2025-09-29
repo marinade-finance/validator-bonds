@@ -59,7 +59,7 @@ const ZERO_BN = new BN(0)
 
 export async function getConfig(
   program: ValidatorBondsProgram,
-  address: PublicKey
+  address: PublicKey,
 ): Promise<Config> {
   return program.account.config.fetch(address)
 }
@@ -97,7 +97,7 @@ export async function findConfigs({
 
 export async function getBond(
   program: ValidatorBondsProgram,
-  address: PublicKey
+  address: PublicKey,
 ): Promise<Bond> {
   return program.account.bond.fetch(address)
 }
@@ -115,8 +115,8 @@ export async function getMultipleBonds({
       program,
       accountInfo,
       publicKey,
-      program.account.bond.idlAccount.name
-    )
+      program.account.bond.idlAccount.name,
+    ),
   )
 }
 
@@ -135,7 +135,7 @@ export async function findBonds({
     const [bondAccount] = bondAddress(
       configAccount,
       voteAccount,
-      program.programId
+      program.programId,
     )
     const bondData = await program.account.bond.fetch(bondAccount)
     return bondData ? [{ publicKey: bondAccount, account: bondData }] : []
@@ -182,7 +182,7 @@ export async function findBonds({
 
 export async function getWithdrawRequest(
   program: ValidatorBondsProgram,
-  address: PublicKey
+  address: PublicKey,
 ): Promise<WithdrawRequest> {
   return program.account.withdrawRequest.fetch(address)
 }
@@ -200,8 +200,8 @@ export async function getMultipleWithdrawRequests({
       program,
       accountInfo,
       publicKey,
-      program.account.withdrawRequest.idlAccount.name
-    )
+      program.account.withdrawRequest.idlAccount.name,
+    ),
   )
 }
 
@@ -219,11 +219,11 @@ export async function findWithdrawRequests({
   if (bond) {
     const [withdrawRequestAccount] = withdrawRequestAddress(
       bond,
-      program.programId
+      program.programId,
     )
     const withdrawRequestData =
       await program.account.withdrawRequest.fetchNullable(
-        withdrawRequestAccount
+        withdrawRequestAccount,
       )
     return withdrawRequestData
       ? [{ publicKey: withdrawRequestAccount, account: withdrawRequestData }]
@@ -263,7 +263,7 @@ export async function findWithdrawRequests({
 
 export async function getSettlement(
   program: ValidatorBondsProgram,
-  address: PublicKey
+  address: PublicKey,
 ): Promise<Settlement> {
   return program.account.settlement.fetch(address)
 }
@@ -281,8 +281,8 @@ export async function getMultipleSettlements({
       program,
       accountInfo,
       publicKey,
-      program.account.settlement.idlAccount.name
-    )
+      program.account.settlement.idlAccount.name,
+    ),
   )
 }
 
@@ -302,7 +302,7 @@ export async function findSettlements({
       bond,
       merkleRoot,
       epoch,
-      program.programId
+      program.programId,
     )
     const settlementData =
       await program.account.settlement.fetchNullable(settlementAccount)
@@ -344,12 +344,12 @@ export async function findSettlements({
 
 export async function getSettlementClaims(
   program: ValidatorBondsProgram,
-  address: PublicKey
+  address: PublicKey,
 ): Promise<SettlementClaimsBitmap> {
   const account = await program.provider.connection.getAccountInfo(address)
   if (account === null) {
     throw new Error(
-      `getSettlementClaims: account ${address.toBase58()} not found at ${program.provider.connection.rpcEndpoint}`
+      `getSettlementClaims: account ${address.toBase58()} not found at ${program.provider.connection.rpcEndpoint}`,
     )
   }
   return decodeSettlementClaimsData(program, account)
@@ -357,7 +357,7 @@ export async function getSettlementClaims(
 
 export async function getSettlementClaimsBySettlement(
   program: ValidatorBondsProgram,
-  settlement: PublicKey
+  settlement: PublicKey,
 ): Promise<SettlementClaimsBitmap> {
   const [address] = settlementClaimsAddress(settlement, program.programId)
   return await getSettlementClaims(program, address)
@@ -366,11 +366,11 @@ export async function getSettlementClaimsBySettlement(
 export async function isClaimed(
   program: ValidatorBondsProgram,
   settlement: PublicKey,
-  index: number | BN
+  index: number | BN,
 ): Promise<boolean> {
   const settlementClaims = await getSettlementClaimsBySettlement(
     program,
-    settlement
+    settlement,
   )
   return settlementClaims.bitmap.isSet(index)
 }
@@ -428,10 +428,10 @@ export async function findSettlementClaims({
 }
 
 function parseNotLocked(
-  stakeAccounts: ProgramAccountInfo<StakeAccountParsed>[]
+  stakeAccounts: ProgramAccountInfo<StakeAccountParsed>[],
 ): ProgramAccountInfo<StakeAccountParsed>[] {
   return stakeAccounts.filter(
-    stakeAccount => !stakeAccount.account.data.isLockedUp
+    stakeAccount => !stakeAccount.account.data.isLockedUp,
   )
 }
 
@@ -450,7 +450,7 @@ export async function findConfigStakeAccounts({
 }): Promise<ProgramAccountInfo<StakeAccountParsed>[]> {
   if (withdrawer === undefined && configAccount === undefined) {
     throw new Error(
-      'findConfigStakeAccounts: configAccount or withdrawer must be provided'
+      'findConfigStakeAccounts: configAccount or withdrawer must be provided',
     )
   }
   if (withdrawer === undefined) {
@@ -489,7 +489,7 @@ async function findBondStakeAccountsHelper({
     bondAccount = bondAddress(configAccount, voteAccount, program.programId)[0]
   } else if (!bondAccount) {
     throw new Error(
-      'getBondData: bondAccount or (voteAccount and configAccount) must be provided'
+      'getBondData: bondAccount or (voteAccount and configAccount) must be provided',
     )
   }
   if (withdrawer === undefined) {
@@ -529,7 +529,7 @@ export async function findBondNonSettlementStakeAccounts(args: {
 }): Promise<ProgramAccountInfo<StakeAccountParsed>[]> {
   const [withdrawerAuthority] = bondsWithdrawerAuthority(
     args.configAccount,
-    args.program.programId
+    args.program.programId,
   )
   return findBondStakeAccountsHelper({ ...args, staker: withdrawerAuthority })
 }
@@ -553,7 +553,7 @@ export type BondDataWithFunding = {
 function calculateFundedAmount(
   stakeAccounts:
     | ProgramAccountInfoNoData[]
-    | ProgramAccountInfo<StakeAccountParsed>[]
+    | ProgramAccountInfo<StakeAccountParsed>[],
 ): { amount: BN } {
   const amount = stakeAccounts
     .map(stakeAccount => stakeAccount.account.lamports)
@@ -576,7 +576,7 @@ export async function getBondsFunding({
 }): Promise<BondDataWithFunding[]> {
   const maxLength = Math.max(
     bondAccounts?.length ?? 0,
-    voteAccounts?.length ?? 0
+    voteAccounts?.length ?? 0,
   )
   bondAccounts = bondAccounts?.length
     ? bondAccounts
@@ -590,11 +590,11 @@ export async function getBondsFunding({
   if (
     bondAccounts.some(
       (bondAccount, i) =>
-        bondAccount === undefined && voteAccounts[i] === undefined
+        bondAccount === undefined && voteAccounts[i] === undefined,
     )
   ) {
     throw new Error(
-      'getBondsFunding: bondAccounts or voteAccounts must be provided for every record'
+      'getBondsFunding: bondAccounts or voteAccounts must be provided for every record',
     )
   }
 
@@ -613,12 +613,12 @@ export async function getBondsFunding({
       bondAccountAddress = bondAddress(
         configAccount,
         voteAccountAddress,
-        program.programId
+        program.programId,
       )[0]
     }
     assert(
       bondAccountAddress !== undefined,
-      'bond account address is known here'
+      'bond account address is known here',
     )
     inputData.set(bondAccountAddress.toBase58(), {
       voteAccount: voteAccountAddress ?? PublicKey.default,
@@ -638,7 +638,7 @@ export async function getBondsFunding({
       throw new Error(
         'getBondsFunding: cannot get bond data for bond address ' +
           bondData.publicKey.toBase58() +
-          '; required for vote account derivation'
+          '; required for vote account derivation',
       )
     }
     const bondInnerSetData = inputData.get(bondData.publicKey.toBase58())
@@ -648,7 +648,7 @@ export async function getBondsFunding({
   // getting info on withdraw requests for each bond (maybe it does not exist)
   const withdrawRequestAddresses = Array.from(inputData.keys()).map(
     bondAccount =>
-      withdrawRequestAddress(new PublicKey(bondAccount), program.programId)[0]
+      withdrawRequestAddress(new PublicKey(bondAccount), program.programId)[0],
   )
   const withdrawRequestsData = await getMultipleWithdrawRequests({
     program,
@@ -662,7 +662,7 @@ export async function getBondsFunding({
       continue
     }
     const bondInnerSetData = inputData.get(
-      withdrawRequestData.account.bond.toBase58()
+      withdrawRequestData.account.bond.toBase58(),
     )
     assert(bondInnerSetData !== undefined, 'bondInnerSetData is known here')
     // we know the account is not null, i.e., we can set it as ProgramAccount instead of ProgramAccountNullable
@@ -689,8 +689,8 @@ export async function getBondsFunding({
         stakeAccount.account.data.withdrawer !== null &&
         stakeAccount.account.data.staker !== null &&
         stakeAccount.account.data.withdrawer.equals(
-          stakeAccount.account.data.staker
-        )
+          stakeAccount.account.data.staker,
+        ),
     )
   const settlementsStakeAccounts = allStakeAccounts
     // filter for the stake accounts that are IN a settlement
@@ -700,8 +700,8 @@ export async function getBondsFunding({
         stakeAccount.account.data.withdrawer !== null &&
         stakeAccount.account.data.staker !== null &&
         !stakeAccount.account.data.withdrawer.equals(
-          stakeAccount.account.data.staker
-        )
+          stakeAccount.account.data.staker,
+        ),
     )
   const bondFundedStakeAccountsMap = groupByVoter(bondFundedStakeAccounts)
   const settlementsStakeAccountsMap = groupByVoter(settlementsStakeAccounts)
@@ -744,7 +744,7 @@ export async function getBondsFunding({
       if (
         withdrawRequest !== undefined &&
         currentEpoch.lte(
-          withdrawRequest.account.epoch.add(withdrawLockupEpochs)
+          withdrawRequest.account.epoch.add(withdrawLockupEpochs),
         )
       ) {
         // withdraw request is locked as withdrawLockupEpochs have not elapsed yet
@@ -769,19 +769,19 @@ export async function getBondsFunding({
         bondFundedStakeAccounts: bondFunded,
         settlementFundedStakeAccounts: settlementFunded,
       }
-    }
+    },
   )
 }
 
 /* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 function groupByVoter(
-  stakeAccounts: ProgramAccountInfo<StakeAccountParsed>[]
+  stakeAccounts: ProgramAccountInfo<StakeAccountParsed>[],
 ): Map<string, ProgramAccountInfo<StakeAccountParsed>[]> {
   // group by vote account
   return stakeAccounts.reduce((acc, obj) => {
     assert(
       obj.account.data.voter !== null,
-      'voter is known here, has to be filtered from functions above'
+      'voter is known here, has to be filtered from functions above',
     )
     const voter = obj.account.data.voter
     const stakeAccounts = acc.get(voter.toBase58())
@@ -798,7 +798,7 @@ function mapAccountInfoToProgramAccount<T>(
   program: ValidatorBondsProgram,
   accountInfo: AccountInfo<Buffer> | null,
   publicKey: PublicKey,
-  programAccountName: string
+  programAccountName: string,
 ): ProgramAccountWithInfoNullable<T> {
   return {
     publicKey,
@@ -832,7 +832,7 @@ async function getMultiAccounts({
       ...(await getMultipleAccounts({
         connection: program.provider.connection,
         addresses,
-      }))
+      })),
     )
   }
   return foundAccounts

@@ -36,6 +36,6 @@ export function installInitBond(program: Command) {
         maxStakeWanted,
         computeUnitLimit,
       })
-    }
+    },
   )
 }

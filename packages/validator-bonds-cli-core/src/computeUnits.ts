@@ -30,7 +30,7 @@ export const RESET_STAKE_LIMIT_UNITS = 50_000
 export function computeUnitLimitOption(defaultValue: number): Option {
   return createOption(
     '--compute-unit-limit <number>',
-    'Compute unit limit for the transaction'
+    'Compute unit limit for the transaction',
   )
     .default(defaultValue)
     .argParser(v => parseInt(v, 10))

@@ -115,10 +115,10 @@ describe('Merge stake accounts using CLI', () => {
       stdout: /successfully merged/,
     })
     expect(
-      await provider.connection.getAccountInfo(stakeAccount1)
+      await provider.connection.getAccountInfo(stakeAccount1),
     ).not.toBeNull()
     expect(
-      await provider.connection.getAccountInfo(stakeAccount2)
+      await provider.connection.getAccountInfo(stakeAccount2),
     ).not.toBeNull()
   })
 })

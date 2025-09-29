@@ -229,7 +229,7 @@ The resulting APY is then weighted by the ratio of the Select stake
 The APY is calculated using the formula:
 
 ```typescript
-APY = (1 + rewardsPerEpoch / stakedAmount) ^ (epochsInYear - 1)
+APY = ((1 + rewardsPerEpoch / stakedAmount) ^ epochsInYear) - 1
 ```
 
 The Select program guarantees a maximum yield of 50 basis points (bps) from the validator's APY for the Select stake.

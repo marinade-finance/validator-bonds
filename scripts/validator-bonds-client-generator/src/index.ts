@@ -31,8 +31,8 @@ program
       '..',
       'packages',
       'validator-bonds-codama',
-      'src'
-    )
+      'src',
+    ),
   )
   .action((options: { output: string }) => {
     const codama = createFromRoot(rootNodeFromAnchor(anchorIdl as AnchorIdl))

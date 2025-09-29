@@ -61,13 +61,13 @@ describe('Configure bond account using CLI (institutional)', () => {
     } = await createTempFileKeypair())
     assert(
       (await provider.connection.getAccountInfo(
-        MARINADE_INSTITUTIONAL_CONFIG_ADDRESS
-      )) !== null
+        MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
+      )) !== null,
     )
     ;({ validatorIdentity } = await getAnchorValidatorInfo(provider.connection))
     ;({ voteAccount } = await createVoteAccountWithIdentity(
       provider,
-      validatorIdentity
+      validatorIdentity,
     ))
     ;({ bondAccount } = await executeInitBondInstruction({
       program,
@@ -109,7 +109,7 @@ describe('Configure bond account using CLI (institutional)', () => {
     const [, bump] = bondAddress(
       MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
       voteAccount,
-      program.programId
+      program.programId,
     )
     const bondsData1 = await getBond(program, bondAccount)
     expect(bondsData1.config).toEqual(MARINADE_INSTITUTIONAL_CONFIG_ADDRESS)
@@ -142,16 +142,16 @@ describe('Configure bond account using CLI (institutional)', () => {
     const [bondMint] = bondMintAddress(
       bondAccount,
       validatorIdentity.publicKey,
-      program.programId
+      program.programId,
     )
     const validatorIdentityBondAta = getAssociatedTokenAddressSync(
       bondMint,
       validatorIdentity.publicKey,
-      true
+      true,
     )
     const tokenAccountValidatorIdentity = await getTokenAccount(
       provider.connection,
-      validatorIdentityBondAta
+      validatorIdentityBondAta,
     )
     expect(tokenAccountValidatorIdentity.amount).toEqual(1)
     const user = await createUserAndFund({
@@ -162,19 +162,19 @@ describe('Configure bond account using CLI (institutional)', () => {
     const userTokenBondAta = getAssociatedTokenAddressSync(
       bondMint,
       pubkey(user),
-      true
+      true,
     )
     const createTokenIx = createAssociatedTokenAccountInstruction(
       provider.wallet.publicKey,
       userTokenBondAta,
       pubkey(user),
-      bondMint
+      bondMint,
     )
     const transferIx = createTransferInstruction(
       validatorIdentityBondAta,
       userTokenBondAta,
       pubkey(validatorIdentity),
-      1
+      1,
     )
     await provider.sendIx([validatorIdentity], createTokenIx, transferIx)
 

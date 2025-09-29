@@ -46,7 +46,7 @@ export async function initWithdrawRequestInstruction({
     logWarn(
       logger,
       'initWithdrawRequest SDK: config is not provided, using default address: ' +
-        MARINADE_CONFIG_ADDRESS.toBase58()
+        MARINADE_CONFIG_ADDRESS.toBase58(),
     )
     configAccount = MARINADE_CONFIG_ADDRESS
   }
@@ -54,7 +54,7 @@ export async function initWithdrawRequestInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId
+    program.programId,
   )
   if (!voteAccount || !configAccount) {
     const bondData = await getBond(program, bondAccount)
@@ -66,7 +66,7 @@ export async function initWithdrawRequestInstruction({
   rentPayer = rentPayer instanceof PublicKey ? rentPayer : rentPayer.publicKey
   const [withdrawRequest] = withdrawRequestAddress(
     bondAccount,
-    program.programId
+    program.programId,
   )
 
   const instruction = await program.methods

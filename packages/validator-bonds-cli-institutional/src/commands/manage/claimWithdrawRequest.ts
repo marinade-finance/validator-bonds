@@ -26,7 +26,7 @@ export function installClaimWithdrawRequest(program: Command) {
         splitStakeRentPayer?: Promise<WalletInterface | PublicKey>
         stakeAccount?: Promise<PublicKey>
         computeUnitLimit: number
-      }
+      },
     ) => {
       await manageClaimWithdrawRequest({
         address: await address,
@@ -38,6 +38,6 @@ export function installClaimWithdrawRequest(program: Command) {
         stakeAccount: await stakeAccount,
         computeUnitLimit,
       })
-    }
+    },
   )
 }

@@ -16,7 +16,7 @@ export function installMintBond(program: Command) {
       'The config account that the bond account is created under ' +
         '(optional; to derive bond address from vote account address) ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey
+      parsePubkey,
     )
     .action(
       async (
@@ -31,7 +31,7 @@ export function installMintBond(program: Command) {
           voteAccount?: Promise<PublicKey>
           rentPayer?: Promise<WalletInterface | PublicKey>
           computeUnitLimit: number
-        }
+        },
       ) => {
         await manageMintBond({
           address: await address,
@@ -40,6 +40,6 @@ export function installMintBond(program: Command) {
           rentPayer: await rentPayer,
           computeUnitLimit,
         })
-      }
+      },
     )
 }

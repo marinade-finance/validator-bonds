@@ -48,8 +48,8 @@ describe('Cancel withdraw request using CLI (institutional)', () => {
     stakeAccountLamports = LAMPORTS_PER_SOL * rand(99, 5)
     assert(
       (await provider.connection.getAccountInfo(
-        MARINADE_INSTITUTIONAL_CONFIG_ADDRESS
-      )) !== null
+        MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
+      )) !== null,
     )
     ;({ voteAccount } = await createVoteAccount({
       provider,
@@ -78,7 +78,7 @@ describe('Cancel withdraw request using CLI (institutional)', () => {
   it('cancel withdraw request', async () => {
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount
+      withdrawRequestAccount,
     )
     expect(withdrawRequestData.requestedAmount).toEqual(stakeAccountLamports)
     const rentExempt = (
@@ -111,10 +111,10 @@ describe('Cancel withdraw request using CLI (institutional)', () => {
     })
 
     expect(
-      await provider.connection.getAccountInfo(withdrawRequestAccount)
+      await provider.connection.getAccountInfo(withdrawRequestAccount),
     ).toBeNull()
     expect(
-      (await provider.connection.getAccountInfo(pubkey(user)))?.lamports
+      (await provider.connection.getAccountInfo(pubkey(user)))?.lamports,
     ).toEqual(userFunding + rentExempt!)
   })
 })

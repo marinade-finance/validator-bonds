@@ -15,7 +15,7 @@ export function installShowBondAddress(command: Command) {
       '--config <pubkey>',
       'Config account to filter bonds accounts ' +
         `(no default, note: the Marinade config is: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey
+      parsePubkey,
     )
     .action(
       async (
@@ -24,12 +24,12 @@ export function installShowBondAddress(command: Command) {
           config,
         }: {
           config?: Promise<PublicKey>
-        }
+        },
       ) => {
         showBondAddress({
           address: await address,
           config: (await config) ?? MARINADE_CONFIG_ADDRESS,
         })
-      }
+      },
     )
 }

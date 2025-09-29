@@ -22,18 +22,18 @@ export function initTest(commitment?: Commitment): {
   ) {
     connection = new Connection(
       'http://127.0.0.1:8899',
-      commitment ?? anchorProvider.connection.commitment
+      commitment ?? anchorProvider.connection.commitment,
     )
   } else {
     connection = new Connection(
       anchorProvider.connection.rpcEndpoint,
-      commitment ?? anchorProvider.connection.commitment
+      commitment ?? anchorProvider.connection.commitment,
     )
   }
   const provider = new AnchorExtendedProvider(
     connection,
     anchorProvider.wallet,
-    { ...anchorProvider.opts, skipPreflight: true }
+    { ...anchorProvider.opts, skipPreflight: true },
   )
   anchor.setProvider(provider)
   return { program: getProgram(provider), provider }

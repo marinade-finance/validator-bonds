@@ -239,11 +239,11 @@ describe('Validator Bonds pause&resume', () => {
       })
     await warpOffsetEpoch(
       provider,
-      initWithdrawerRequestEpoch + withdrawLockupEpochs + BigInt(1)
+      initWithdrawerRequestEpoch + withdrawLockupEpochs + BigInt(1),
     )
     await verifyIsPaused(
       [splitStakeAccount, validatorIdentity],
-      claimWithdrawIx
+      claimWithdrawIx,
     )
 
     // the split stake account is the new stake account to be used in further instructions
@@ -252,7 +252,7 @@ describe('Validator Bonds pause&resume', () => {
     await resume()
     await provider.sendIx(
       [splitStakeAccount, validatorIdentity],
-      claimWithdrawIx
+      claimWithdrawIx,
     )
 
     await pause()
@@ -306,13 +306,13 @@ describe('Validator Bonds pause&resume', () => {
 
     await verifyIsPaused(
       [adminAuthority, settlementSplitStake],
-      fundSettlementIx
+      fundSettlementIx,
     )
 
     await resume()
     await provider.sendIx(
       [adminAuthority, signer(settlementSplitStake)],
-      fundSettlementIx
+      fundSettlementIx,
     )
 
     await pause()
@@ -346,7 +346,7 @@ describe('Validator Bonds pause&resume', () => {
     await pause()
     await warpOffsetEpoch(
       provider,
-      initWithdrawerRequestEpoch + epochsToClaimSettlement + BigInt(1)
+      initWithdrawerRequestEpoch + epochsToClaimSettlement + BigInt(1),
     )
     const { instruction: closeSettlementIx } =
       await closeSettlementV2Instruction({
@@ -377,7 +377,7 @@ describe('Validator Bonds pause&resume', () => {
     await pause()
     await warpOffsetEpoch(
       provider,
-      initWithdrawerRequestEpoch + epochsToClaimSettlement + BigInt(1)
+      initWithdrawerRequestEpoch + epochsToClaimSettlement + BigInt(1),
     )
 
     await createSettlementFundedDelegatedStake({
@@ -465,7 +465,7 @@ describe('Validator Bonds pause&resume', () => {
     try {
       await provider.sendIx(
         signers.map(s => signer(s)),
-        ...ixes
+        ...ixes,
       )
       throw new Error('Failure expected; the contract is paused')
     } catch (e) {

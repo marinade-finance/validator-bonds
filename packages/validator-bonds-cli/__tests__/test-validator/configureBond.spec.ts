@@ -74,7 +74,7 @@ describe('Configure bond account using CLI', () => {
       await getAnchorValidatorInfo(provider.connection))
     ;({ voteAccount } = await createVoteAccountWithIdentity(
       provider,
-      validatorIdentity
+      validatorIdentity,
     ))
     ;({ bondAccount } = await executeInitBondInstruction({
       program,
@@ -184,16 +184,16 @@ describe('Configure bond account using CLI', () => {
     const [bondMint] = bondMintAddress(
       bondAccount,
       validatorIdentity.publicKey,
-      program.programId
+      program.programId,
     )
     const validatorIdentityBondAta = getAssociatedTokenAddressSync(
       bondMint,
       validatorIdentity.publicKey,
-      true
+      true,
     )
     const tokenAccountValidatorIdentity = await getTokenAccount(
       provider.connection,
-      validatorIdentityBondAta
+      validatorIdentityBondAta,
     )
     expect(tokenAccountValidatorIdentity.amount).toEqual(1)
     const user = await createUserAndFund({
@@ -204,19 +204,19 @@ describe('Configure bond account using CLI', () => {
     const userTokenBondAta = getAssociatedTokenAddressSync(
       bondMint,
       pubkey(user),
-      true
+      true,
     )
     const createTokenIx = createAssociatedTokenAccountInstruction(
       provider.wallet.publicKey,
       userTokenBondAta,
       pubkey(user),
-      bondMint
+      bondMint,
     )
     const transferIx = createTransferInstruction(
       validatorIdentityBondAta,
       userTokenBondAta,
       pubkey(validatorIdentity),
-      1
+      1,
     )
     await provider.sendIx([validatorIdentity], createTokenIx, transferIx)
 
@@ -281,7 +281,7 @@ describe('Configure bond account using CLI', () => {
     })
 
     expect((await getBond(program, bondAccount)).authority).toEqual(
-      bondAuthorityKeypair.publicKey
+      bondAuthorityKeypair.publicKey,
     )
   })
 })

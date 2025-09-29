@@ -28,7 +28,7 @@ export type ValidatorBondsEvent = {
 // https://github.com/coral-xyz/anchor/blob/v0.29.0/tests/events/tests/events.ts#L61-L62
 export function parseCpiEvents(
   program: ValidatorBondsProgram,
-  transactionResponse: VersionedTransactionResponse | undefined | null
+  transactionResponse: VersionedTransactionResponse | undefined | null,
 ): ValidatorBondsEvent[] {
   const e: ValidatorBondsEvent[] = []
   const inner: CompiledInnerInstruction[] =
@@ -74,7 +74,7 @@ export function parseCpiEvents(
 // Define a type guard function to check if an object instance contains all properties of a given type
 export function hasAllProperties<T>(
   obj: any,
-  type: { [K in keyof T]: any }
+  type: { [K in keyof T]: any },
 ): obj is T {
   return Object.keys(type).every(key => key in obj)
 }
@@ -84,21 +84,21 @@ export function hasAllProperties<T>(
  * `isEvent<typeof INIT_CONFIG_EVENT>(event)`
  */
 export function isEvent<E extends IdlEventKeys<ValidatorBonds>>(
-  event: IdlEventValues<ValidatorBonds> | undefined
+  event: IdlEventValues<ValidatorBonds> | undefined,
 ): event is IdlEvents<ValidatorBonds>[E] {
   return hasAllProperties<E>(event, {} as E)
 }
 
 export function findEvent<E extends IdlEventKeys<ValidatorBonds>>(
   events: ValidatorBondsEvent[],
-  eventName: E
+  eventName: E,
 ): ValidatorBondsEvent | undefined {
   return events.find(e => e.name === eventName)
 }
 
 export function assertEvent<E extends IdlEventKeys<ValidatorBonds>>(
   events: ValidatorBondsEvent[],
-  eventName: E
+  eventName: E,
 ): IdlEvents<ValidatorBonds>[E] {
   const event = findEvent(events, eventName)?.data
   if (event === undefined) {

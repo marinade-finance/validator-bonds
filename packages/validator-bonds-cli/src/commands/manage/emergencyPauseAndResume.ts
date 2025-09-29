@@ -31,12 +31,12 @@ export function installEmergencyPause(program: Command) {
       '[address]',
       'Address of the validator bonds config account to be paused ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--authority <keypair_or_ledger_or_pubkey>',
       'Pause authority with permission to pause the contract (default: wallet)',
-      parseWalletOrPubkeyOption
+      parseWalletOrPubkeyOption,
     )
     .addOption(computeUnitLimitOption(EMERGENCY_LIMIT_UNITS))
     .action(
@@ -48,7 +48,7 @@ export function installEmergencyPause(program: Command) {
         }: {
           authority?: Promise<WalletInterface | PublicKey>
           computeUnitLimit: number
-        }
+        },
       ) => {
         await manageEmergencyPauseAndResume({
           action: 'pause',
@@ -56,7 +56,7 @@ export function installEmergencyPause(program: Command) {
           authority: await authority,
           computeUnitLimit,
         })
-      }
+      },
     )
 }
 
@@ -68,12 +68,12 @@ export function installEmergencyResume(program: Command) {
       '[address]',
       'Address of the validator bonds config account to be resumed ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--authority <keypair_or_ledger_or_pubkey>',
       'Pause authority with permission to resume the contract (default: wallet)',
-      parseWalletOrPubkeyOption
+      parseWalletOrPubkeyOption,
     )
     .addOption(computeUnitLimitOption(EMERGENCY_LIMIT_UNITS))
     .action(
@@ -85,7 +85,7 @@ export function installEmergencyResume(program: Command) {
         }: {
           authority?: Promise<WalletInterface | PublicKey>
           computeUnitLimit: number
-        }
+        },
       ) => {
         await manageEmergencyPauseAndResume({
           action: 'resume',
@@ -93,7 +93,7 @@ export function installEmergencyResume(program: Command) {
           authority: await authority,
           computeUnitLimit,
         })
-      }
+      },
     )
 }
 
@@ -163,6 +163,6 @@ async function manageEmergencyPauseAndResume({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Succeeded to ${action} validator bonds config account ${address.toBase58()}`
+    `Succeeded to ${action} validator bonds config account ${address.toBase58()}`,
   )
 }

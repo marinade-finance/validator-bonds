@@ -63,12 +63,12 @@ describe('Init config account using CLI', () => {
           fromPubkey: provider.wallet.publicKey,
           toPubkey: rentPayerKeypair.publicKey,
           lamports: rentPayerFunds,
-        })
-      )
+        }),
+      ),
     )
     assert(
       (await provider.connection.getBalance(rentPayerKeypair.publicKey)) ===
-        rentPayerFunds
+        rentPayerFunds,
     )
 
     const admin = Keypair.generate().publicKey
@@ -119,7 +119,7 @@ describe('Init config account using CLI', () => {
     expect(configData.slotsToStartSettlementClaiming).toEqual(11)
     expect(configData.withdrawLockupEpochs).toEqual(43)
     expect(
-      await provider.connection.getBalance(rentPayerKeypair.publicKey)
+      await provider.connection.getBalance(rentPayerKeypair.publicKey),
     ).toBeLessThan(rentPayerFunds)
   })
 
@@ -146,7 +146,7 @@ describe('Init config account using CLI', () => {
       stdout: /exceeded CUs meter/,
     })
     expect(
-      await provider.connection.getAccountInfo(configKeypair.publicKey)
+      await provider.connection.getAccountInfo(configKeypair.publicKey),
     ).toBeNull()
   })
 
@@ -173,7 +173,7 @@ describe('Init config account using CLI', () => {
       stdout: /successfully created/,
     })
     expect(
-      await provider.connection.getAccountInfo(configKeypair.publicKey)
+      await provider.connection.getAccountInfo(configKeypair.publicKey),
     ).toBeNull()
   })
 })

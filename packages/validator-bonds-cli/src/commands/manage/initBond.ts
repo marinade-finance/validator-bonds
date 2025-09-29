@@ -17,17 +17,17 @@ export function installInitBond(program: Command) {
       '--config <pubkey>',
       'The config account that the bond is created under. ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--cpmpe <number>',
       'New value of cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch.',
-      value => toBN(value)
+      value => toBN(value),
     )
     .option(
       '--max-stake-wanted <number>',
       'The maximum stake amount, in lamports, that the validator wants to be delegated to them (default: not-set).',
-      value => toBN(value)
+      value => toBN(value),
     )
     .action(
       async ({
@@ -59,6 +59,6 @@ export function installInitBond(program: Command) {
           maxStakeWanted,
           computeUnitLimit,
         })
-      }
+      },
     )
 }

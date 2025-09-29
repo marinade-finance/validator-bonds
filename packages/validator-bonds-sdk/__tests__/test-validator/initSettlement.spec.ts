@@ -46,7 +46,7 @@ describe('Validator Bonds init settlement', () => {
       {
         program,
         provider,
-      }
+      },
     ))
     ;({ voteAccount, bondAccount } = await executeInitBondInstruction({
       configAccount,
@@ -89,15 +89,15 @@ describe('Validator Bonds init settlement', () => {
       bondAccount,
       merkleRoot,
       currentEpoch,
-      program.programId
+      program.programId,
     )
     const [settlementAuth, authorityBump] = settlementStakerAuthority(
       settlementAccount,
-      program.programId
+      program.programId,
     )
     const [, settlementClaimsBump] = settlementClaimsAddress(
       settlementAccount,
-      program.programId
+      program.programId,
     )
 
     expect(settlementData.bond).toEqual(bondAccount)

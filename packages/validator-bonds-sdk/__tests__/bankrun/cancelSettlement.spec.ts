@@ -83,7 +83,7 @@ describe('Validator Bonds cancel settlement', () => {
     rentExemptSettlement = await getRentExempt(provider, settlementAccount)
     rentExemptSettlementClaims = await getRentExempt(
       provider,
-      settlementClaimsAccount
+      settlementClaimsAccount,
     )
     const settlementData = await getSettlement(program, settlementAccount)
     assert(bondAccount.toBase58() === settlementData.bond.toBase58())
@@ -100,11 +100,11 @@ describe('Validator Bonds cancel settlement', () => {
     await assertNotExist(provider, settlementAccount)
 
     const rentCollectorInfo = await provider.connection.getAccountInfo(
-      rentCollector.publicKey
+      rentCollector.publicKey,
     )
     assert(rentCollectorInfo !== null)
     expect(rentCollectorInfo.lamports).toEqual(
-      LAMPORTS_PER_SOL + rentExemptSettlement + rentExemptSettlementClaims
+      LAMPORTS_PER_SOL + rentExemptSettlement + rentExemptSettlementClaims,
     )
   })
 
@@ -115,7 +115,7 @@ describe('Validator Bonds cancel settlement', () => {
         program,
         configAccount: configAccount,
         newPauseAuthority: pauseAuthority.publicKey,
-      }
+      },
     )
     await provider.sendIx([adminAuthority], configureConfigIx)
 
@@ -130,11 +130,11 @@ describe('Validator Bonds cancel settlement', () => {
     await assertNotExist(provider, settlementAccount)
 
     const rentCollectorInfo = await provider.connection.getAccountInfo(
-      rentCollector.publicKey
+      rentCollector.publicKey,
     )
     assert(rentCollectorInfo !== null)
     expect(rentCollectorInfo.lamports).toEqual(
-      LAMPORTS_PER_SOL + rentExemptSettlement + rentExemptSettlementClaims
+      LAMPORTS_PER_SOL + rentExemptSettlement + rentExemptSettlementClaims,
     )
   })
 
@@ -154,11 +154,11 @@ describe('Validator Bonds cancel settlement', () => {
         e,
         Errors,
         6060,
-        'permitted only to operator or pause authority'
+        'permitted only to operator or pause authority',
       )
     }
     expect(
-      await provider.connection.getAccountInfo(settlementAccount)
+      await provider.connection.getAccountInfo(settlementAccount),
     ).not.toBeNull()
   })
 

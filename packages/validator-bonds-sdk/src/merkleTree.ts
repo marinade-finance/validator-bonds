@@ -8,12 +8,12 @@ import CryptoJS from 'crypto-js'
 export const LEAF_NODE_PREFIX = new BN(0)
 export const LEAF_NODE_PREFIX_BUF = Buffer.alloc(
   1,
-  LEAF_NODE_PREFIX.toBuffer('le', 1)
+  LEAF_NODE_PREFIX.toBuffer('le', 1),
 )
 export const INTERMEDIATE_NODE_PREFIX = new BN(1)
 export const INTERMEDIATE_NODE_PREFIX_BUF = Buffer.alloc(
   1,
-  INTERMEDIATE_NODE_PREFIX.toBuffer('le', 1)
+  INTERMEDIATE_NODE_PREFIX.toBuffer('le', 1),
 )
 
 export type MerkleTreeNodeEncoded = {
@@ -120,11 +120,11 @@ export class MerkleTreeNode {
     sha256.update(pubkeyToWordArray(withdrawAuthority))
     claim = new BN(claim)
     sha256.update(
-      CryptoJS.enc.Hex.parse(claim.toBuffer('le', 8).toString('hex'))
+      CryptoJS.enc.Hex.parse(claim.toBuffer('le', 8).toString('hex')),
     )
     index = new BN(index)
     sha256.update(
-      CryptoJS.enc.Hex.parse(index.toBuffer('le', 8).toString('hex'))
+      CryptoJS.enc.Hex.parse(index.toBuffer('le', 8).toString('hex')),
     )
     const wordArray = sha256.finalize()
     return MerkleTreeNode.toEncodings(wordArray)
@@ -156,7 +156,7 @@ export class MerkleTreeNode {
   }
 
   public static toEncodings(
-    wordArray: CryptoJS.lib.WordArray
+    wordArray: CryptoJS.lib.WordArray,
   ): MerkleTreeNodeEncoded {
     const base64Hash = CryptoJS.enc.Base64.stringify(wordArray)
     const buffer = base64.decode(base64Hash)

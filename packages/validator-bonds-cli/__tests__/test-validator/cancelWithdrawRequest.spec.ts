@@ -77,7 +77,7 @@ describe('Cancel withdraw request using CLI', () => {
   it('cancel withdraw request', async () => {
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount
+      withdrawRequestAccount,
     )
     expect(withdrawRequestData.requestedAmount).toEqual(stakeAccountLamports)
     const rentExempt = (
@@ -113,16 +113,16 @@ describe('Cancel withdraw request using CLI', () => {
     })
 
     expect(
-      await provider.connection.getAccountInfo(withdrawRequestAccount)
+      await provider.connection.getAccountInfo(withdrawRequestAccount),
     ).toBeNull()
     expect(
-      (await provider.connection.getAccountInfo(pubkey(user)))?.lamports
+      (await provider.connection.getAccountInfo(pubkey(user)))?.lamports,
     ).toEqual(userFunding + rentExempt!)
   })
 
   it('cancel withdraw request in print-only mode', async () => {
     const toMatch = new RegExp(
-      `${withdrawRequestAccount.toBase58()}.*successfully cancelled`
+      `${withdrawRequestAccount.toBase58()}.*successfully cancelled`,
     )
     await expect([
       'pnpm',
@@ -148,7 +148,7 @@ describe('Cancel withdraw request using CLI', () => {
 
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount
+      withdrawRequestAccount,
     )
     expect(withdrawRequestData.requestedAmount).toEqual(stakeAccountLamports)
   })

@@ -31,8 +31,8 @@ describe('Show command using CLI (institutional)', () => {
   it('show bond (institutional)', async () => {
     assert(
       (await provider.connection.getAccountInfo(
-        MARINADE_INSTITUTIONAL_CONFIG_ADDRESS
-      )) !== null
+        MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
+      )) !== null,
     )
     const { voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
@@ -48,7 +48,7 @@ describe('Show command using CLI (institutional)', () => {
     })
     const voteAccountShow = await loadTestingVoteAccount(
       provider.connection,
-      voteAccount
+      voteAccount,
     )
     const expectedDataNoFunding = {
       programId: program.programId,
@@ -72,7 +72,7 @@ describe('Show command using CLI (institutional)', () => {
       bondMint: bondMintAddress(
         bondAccount,
         voteAccountShow.nodePubkey || PublicKey.default,
-        program.programId
+        program.programId,
       )[0].toBase58(),
     }
 

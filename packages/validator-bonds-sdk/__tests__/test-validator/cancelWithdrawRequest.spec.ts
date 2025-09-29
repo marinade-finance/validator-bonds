@@ -59,7 +59,7 @@ describe('Validator Bonds cancel withdraw request', () => {
       validatorIdentity,
     ])
     expect(
-      await provider.connection.getAccountInfo(withdrawRequestAccount)
+      await provider.connection.getAccountInfo(withdrawRequestAccount),
     ).toBeNull()
 
     const events = parseCpiEvents(program, executionReturn?.response)

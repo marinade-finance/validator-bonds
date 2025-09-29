@@ -23,7 +23,7 @@ export function installShowBond(program: Command) {
         bondAuthority?: Promise<PublicKey>
         withFunding: boolean
         format: FormatType
-      }
+      },
     ) => {
       await showBond({
         address: await address,
@@ -33,13 +33,13 @@ export function installShowBond(program: Command) {
         format,
         reformatBondFunction: reformatBondInstitutional,
       })
-    }
+    },
   )
 }
 
 export function reformatBondInstitutional(
   key: string,
-  value: unknown
+  value: unknown,
 ): ReformatAction {
   if (
     typeof key === 'string' &&

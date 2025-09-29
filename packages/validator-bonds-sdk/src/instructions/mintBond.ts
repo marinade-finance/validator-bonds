@@ -46,7 +46,7 @@ export async function mintBondInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId
+    program.programId,
   )
 
   const renPayerPubkey =
@@ -65,12 +65,12 @@ export async function mintBondInstruction({
   const [bondMint] = bondMintAddress(
     bondAccount,
     validatorIdentity,
-    program.programId
+    program.programId,
   )
   const validatorIdentityTokenAccount = getAssociatedTokenAddressSync(
     bondMint,
     validatorIdentity,
-    true
+    true,
   )
 
   if (metadataAccount === undefined) {

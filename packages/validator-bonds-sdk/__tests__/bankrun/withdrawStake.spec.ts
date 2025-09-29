@@ -44,7 +44,7 @@ describe('Validator Bonds withdraw stake', () => {
       {
         program,
         provider,
-      }
+      },
     ))
     ;({ voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
@@ -57,7 +57,7 @@ describe('Validator Bonds withdraw stake', () => {
       validatorIdentity,
     })
     user = signer(
-      await createUserAndFund({ provider, lamports: LAMPORTS_PER_SOL })
+      await createUserAndFund({ provider, lamports: LAMPORTS_PER_SOL }),
     )
   })
 
@@ -81,7 +81,7 @@ describe('Validator Bonds withdraw stake', () => {
     await provider.sendIx([operatorAuthority], instruction)
     await assertNotExist(provider, stakeAccount)
     expect(
-      (await provider.connection.getAccountInfo(user.publicKey))?.lamports
+      (await provider.connection.getAccountInfo(user.publicKey))?.lamports,
     ).toEqual(2 * LAMPORTS_PER_SOL)
   })
 
@@ -110,10 +110,10 @@ describe('Validator Bonds withdraw stake', () => {
       verifyError(e, Errors, 6057, 'Wrong state')
     }
     expect(
-      await provider.connection.getAccountInfo(stakeAccount)
+      await provider.connection.getAccountInfo(stakeAccount),
     ).not.toBeNull()
     expect(
-      (await provider.connection.getAccountInfo(user.publicKey))?.lamports
+      (await provider.connection.getAccountInfo(user.publicKey))?.lamports,
     ).toEqual(LAMPORTS_PER_SOL)
   })
 
@@ -137,7 +137,7 @@ describe('Validator Bonds withdraw stake', () => {
     try {
       await provider.sendIx([], instruction)
       throw new Error(
-        'Expected error as stake account is not funded to a settlement'
+        'Expected error as stake account is not funded to a settlement',
       )
     } catch (e) {
       verifyError(e, Errors, 6046, 'Stake account staker authority mismatches')

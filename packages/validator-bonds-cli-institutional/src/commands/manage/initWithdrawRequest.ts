@@ -24,7 +24,7 @@ export function installInitWithdrawRequest(program: Command) {
         amount: string
         rentPayer?: Promise<WalletInterface | PublicKey>
         computeUnitLimit: number
-      }
+      },
     ) => {
       await manageInitWithdrawRequest({
         address: await address,
@@ -35,6 +35,6 @@ export function installInitWithdrawRequest(program: Command) {
         rentPayer: await rentPayer,
         computeUnitLimit,
       })
-    }
+    },
   )
 }

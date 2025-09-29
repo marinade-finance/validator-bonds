@@ -44,7 +44,7 @@ export async function fundBondInstruction({
     logWarn(
       logger,
       'fundBond SDK: config is not provided, using default address: ' +
-        MARINADE_CONFIG_ADDRESS.toBase58()
+        MARINADE_CONFIG_ADDRESS.toBase58(),
     )
     configAccount = MARINADE_CONFIG_ADDRESS
   }
@@ -52,7 +52,7 @@ export async function fundBondInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId
+    program.programId,
   )
   if (configAccount === undefined) {
     const bondData = await getBond(program, bondAccount)

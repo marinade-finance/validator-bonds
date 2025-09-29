@@ -45,14 +45,14 @@ describe('CLI init bond account (institutional)', () => {
     } = await createTempFileKeypair())
     assert(
       (await provider.connection.getAccountInfo(
-        MARINADE_INSTITUTIONAL_CONFIG_ADDRESS
-      )) !== null
+        MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
+      )) !== null,
     )
     ;({ validatorIdentity, validatorIdentityPath } =
       await getAnchorValidatorInfo(provider.connection))
     ;({ voteAccount } = await createVoteAccountWithIdentity(
       provider,
-      validatorIdentity
+      validatorIdentity,
     ))
 
     const tx = new Transaction().add(
@@ -60,12 +60,12 @@ describe('CLI init bond account (institutional)', () => {
         fromPubkey: provider.wallet.publicKey,
         toPubkey: rentPayerKeypair.publicKey,
         lamports: rentPayerFunds,
-      })
+      }),
     )
     await provider.sendAndConfirm(tx)
     assert(
       (await provider.connection.getBalance(rentPayerKeypair.publicKey)) ===
-        rentPayerFunds
+        rentPayerFunds,
     )
   })
 
@@ -102,7 +102,7 @@ describe('CLI init bond account (institutional)', () => {
     const [bondAccount, bump] = bondAddress(
       MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
       voteAccount,
-      program.programId
+      program.programId,
     )
     const bondsData = await getBond(program, bondAccount)
     expect(bondsData.config).toEqual(MARINADE_INSTITUTIONAL_CONFIG_ADDRESS)
@@ -110,7 +110,7 @@ describe('CLI init bond account (institutional)', () => {
     expect(bondsData.authority).toEqual(bondAuthority.publicKey)
     expect(bondsData.bump).toEqual(bump)
     expect(
-      await provider.connection.getBalance(rentPayerKeypair.publicKey)
+      await provider.connection.getBalance(rentPayerKeypair.publicKey),
     ).toBeLessThan(rentPayerFunds)
   })
 })

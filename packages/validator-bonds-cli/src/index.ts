@@ -16,7 +16,7 @@ launchCliProgram({
       '--program-id <pubkey>',
       `Program id of validator bonds contract (default: ${VALIDATOR_BONDS_PROGRAM_ID.toBase58()})`,
       parsePubkey,
-      Promise.resolve(VALIDATOR_BONDS_PROGRAM_ID)
+      Promise.resolve(VALIDATOR_BONDS_PROGRAM_ID),
     )
   },
   installSubcommands: program => {

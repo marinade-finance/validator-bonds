@@ -20,11 +20,11 @@ export async function getRentPayer(provider: AnchorExtendedProvider): Promise<{
       fromPubkey: provider.walletPubkey,
       toPubkey: rentPayerKeypair.publicKey,
       lamports: rentPayerFunds,
-    })
+    }),
   )
   await provider.sendAndConfirm(tx)
   expect(
-    await provider.connection.getBalance(rentPayerKeypair.publicKey)
+    await provider.connection.getBalance(rentPayerKeypair.publicKey),
   ).toStrictEqual(rentPayerFunds)
   return {
     keypair: rentPayerKeypair,
@@ -36,7 +36,7 @@ export async function getRentPayer(provider: AnchorExtendedProvider): Promise<{
 export async function airdrop(
   connection: Connection,
   publicKey: PublicKey,
-  amount: number = LAMPORTS_PER_SOL
+  amount: number = LAMPORTS_PER_SOL,
 ): Promise<void> {
   const signature = await connection.requestAirdrop(publicKey, amount)
   await connection.confirmTransaction(signature, 'confirmed')

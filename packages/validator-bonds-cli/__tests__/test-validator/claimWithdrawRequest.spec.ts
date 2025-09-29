@@ -77,13 +77,13 @@ describe('Claim withdraw request using CLI', () => {
     try {
       const [withdrawRequestAddr] = withdrawRequestAddress(
         bondAccount,
-        program.programId
+        program.programId,
       )
       await executeCancelWithdrawRequestInstruction(
         program,
         provider,
         withdrawRequestAddr,
-        validatorIdentityKeypair
+        validatorIdentityKeypair,
       )
     } catch (_e) {
       // ignore
@@ -115,7 +115,7 @@ describe('Claim withdraw request using CLI', () => {
         voteAccount,
       })
       stakeAccountSumBalance = stakeAccountSumBalance.add(
-        (await getStakeAccount(provider, sa)).balanceLamports ?? new BN(0)
+        (await getStakeAccount(provider, sa)).balanceLamports ?? new BN(0),
       )
     }
 
@@ -126,7 +126,7 @@ describe('Claim withdraw request using CLI', () => {
     })
     expect(bondsFunding.length).toEqual(1)
     expect(bondsFunding[0]?.numberActiveStakeAccounts).toEqual(
-      stakeAccountNumber
+      stakeAccountNumber,
     )
     expect(stakeAccountSumBalance).toEqual(toFund.muln(stakeAccountNumber))
     const expectedActive = toFund
@@ -194,11 +194,11 @@ describe('Claim withdraw request using CLI', () => {
     })
     expect(userStakeAccounts.length).toEqual(1)
     expect(userStakeAccounts[0]?.account.lamports).toEqual(
-      withdrawRequestLamports
+      withdrawRequestLamports,
     )
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount
+      withdrawRequestAccount,
     )
     expect(withdrawRequestData.requestedAmount).toEqual(withdrawRequestLamports)
     expect(withdrawRequestData.withdrawnAmount).toEqual(withdrawRequestLamports)
@@ -263,7 +263,7 @@ describe('Claim withdraw request using CLI', () => {
     expect(userStakeAccountsMerged.length).toEqual(3)
     expect(
       userStakeAccountsMerged.filter(s => s.publicKey.equals(activeStake))
-        .length
+        .length,
     ).toEqual(1)
   })
 

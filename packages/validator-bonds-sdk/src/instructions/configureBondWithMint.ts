@@ -33,8 +33,8 @@ export async function configureBondWithMintInstruction({
   voteAccount?: PublicKey
   validatorIdentity?: PublicKey
   tokenAccount?: PublicKey
-  tokenAuthority?: PublicKey | Keypair | Signer | WalletInterface
   // signer
+  tokenAuthority?: PublicKey | Keypair | Signer | WalletInterface
   newBondAuthority?: PublicKey
   newCpmpe?: BN | number
   newMaxStakeWanted?: BN | number
@@ -46,7 +46,7 @@ export async function configureBondWithMintInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId
+    program.programId,
   )
   if (configAccount === undefined || voteAccount === undefined) {
     const bondData = await getBond(program, bondAccount)
@@ -66,7 +66,7 @@ export async function configureBondWithMintInstruction({
   const [bondMint] = bondMintAddress(
     bondAccount,
     validatorIdentity,
-    program.programId
+    program.programId,
   )
   if (tokenAccount === undefined) {
     tokenAccount = getAssociatedTokenAddressSync(bondMint, tokenAuthority, true)

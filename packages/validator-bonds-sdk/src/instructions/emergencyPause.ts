@@ -31,7 +31,7 @@ export async function emergencyPauseInstruction({
       logWarn(
         logger,
         'emergencyPause SDK: config is not provided, using default address: ' +
-          MARINADE_CONFIG_ADDRESS.toBase58()
+          MARINADE_CONFIG_ADDRESS.toBase58(),
       )
       configAccount = MARINADE_CONFIG_ADDRESS
     }

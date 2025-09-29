@@ -44,7 +44,7 @@ export async function mergeStakeInstruction({
     if (!bondsWithdrawer.equals(stakerAuthority)) {
       throw new Error(
         'When stakerAuthority provided, please, provide the Settlement account address as well.' +
-          ' Contract requires the Settlement address to derive the correct merge authority.'
+          ' Contract requires the Settlement address to derive the correct merge authority.',
       )
     }
   }

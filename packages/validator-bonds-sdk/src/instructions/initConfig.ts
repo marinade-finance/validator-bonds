@@ -55,7 +55,7 @@ export async function initConfigInstruction({
       epochsToClaimSettlement: new BN(epochsToClaimSettlement.toString()),
       withdrawLockupEpochs: new BN(withdrawLockupEpochs.toString()),
       slotsToStartSettlementClaiming: new BN(
-        slotsToStartSettlementClaiming.toString()
+        slotsToStartSettlementClaiming.toString(),
       ),
     })
     .accounts({

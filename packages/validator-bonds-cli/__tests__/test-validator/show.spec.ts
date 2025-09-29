@@ -104,7 +104,7 @@ describe('Show command using CLI', () => {
         },
         bondsWithdrawerAuthority: bondsWithdrawerAuthority(
           configPubkey,
-          program.programId
+          program.programId,
         )[0].toBase58(),
       }),
     })
@@ -149,7 +149,7 @@ describe('Show command using CLI', () => {
           },
           bondsWithdrawerAuthority: bondsWithdrawerAuthority(
             configPubkey,
-            program.programId
+            program.programId,
           )[0].toBase58(),
         },
       ]),
@@ -215,7 +215,7 @@ describe('Show command using CLI', () => {
           },
           bondsWithdrawerAuthority: bondsWithdrawerAuthority(
             configPubkey,
-            program.programId
+            program.programId,
           )[0].toBase58(),
         },
       ]),
@@ -255,12 +255,12 @@ describe('Show command using CLI', () => {
 
     const voteAccountShow = await loadTestingVoteAccount(
       provider.connection,
-      voteAccount
+      voteAccount,
     )
     const bondMint = bondMintAddress(
       bondAccount,
       voteAccountShow?.nodePubkey || PublicKey.default,
-      program.programId
+      program.programId,
     )[0].toBase58()
     const expectedDataNoFunding = {
       programId: program.programId,
@@ -342,7 +342,7 @@ describe('Show command using CLI', () => {
     })
     const identityRegex = new RegExp(
       YAML.stringify(expectedDataFundingSingleItem),
-      'g'
+      'g',
     )
     await expect([
       'pnpm',
@@ -506,7 +506,7 @@ describe('Show command using CLI', () => {
       cpmpe: 1,
     })
     const stakeAccountLamports: number[] = [3, 10, 23].map(
-      l => l * LAMPORTS_PER_SOL
+      l => l * LAMPORTS_PER_SOL,
     )
     let lastStakeAccount: PublicKey
     const sumLamports = stakeAccountLamports.reduce((a, b) => a + b, 0)
@@ -522,7 +522,7 @@ describe('Show command using CLI', () => {
     const bondMint = bondMintAddress(
       bondAccount,
       validatorIdentity.publicKey,
-      program.programId
+      program.programId,
     )[0].toBase58()
 
     const expectedDataNoFunding = {
@@ -538,7 +538,7 @@ describe('Show command using CLI', () => {
     }
     const voteAccountShow = await loadTestingVoteAccount(
       provider.connection,
-      voteAccount
+      voteAccount,
     )
     const expectedData = {
       ...expectedDataNoFunding,
@@ -592,7 +592,7 @@ describe('Show command using CLI', () => {
       })
     const withdrawRequestData = await getWithdrawRequest(
       program,
-      withdrawRequestAccount
+      withdrawRequestAccount,
     )
     const withdrawRequestAmount = withdrawRequestData.requestedAmount.toNumber()
 
@@ -724,7 +724,7 @@ describe('Show command using CLI', () => {
       signal: '',
       // stderr: '',
       stdout: new RegExp(
-        `${lastStakeAccount!.toBase58()} is a STAKE ACCOUNT.*vote account ${voteAccount.toBase58()}`
+        `${lastStakeAccount!.toBase58()} is a STAKE ACCOUNT.*vote account ${voteAccount.toBase58()}`,
       ),
     })
 
@@ -770,11 +770,11 @@ describe('Show command using CLI', () => {
     const withdrawingAmount =
       stakeAccountLamports[stakeAccountLamports.length - 1] || 0
     const { div: withdrawingDiv } = new BN(withdrawingAmount).divmod(
-      bnLamportsPerSol
+      bnLamportsPerSol,
     )
     // sum of all numbers in stakeAccountLamports.
     const leftStakeAccountAmount = new BN(
-      stakeAccountLamports.reduce((a, b) => a + b, 0) - withdrawingAmount
+      stakeAccountLamports.reduce((a, b) => a + b, 0) - withdrawingAmount,
     )
       .div(bnLamportsPerSol)
       .toNumber()

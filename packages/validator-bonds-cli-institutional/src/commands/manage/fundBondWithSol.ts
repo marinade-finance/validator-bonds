@@ -20,7 +20,7 @@ export function installFundBondWithSol(program: Command) {
         amount: number
         from?: Promise<WalletInterface | PublicKey>
         computeUnitLimit: number
-      }
+      },
     ) => {
       await manageFundBondWithSol({
         address: await address,
@@ -29,6 +29,6 @@ export function installFundBondWithSol(program: Command) {
         from: await from,
         computeUnitLimit,
       })
-    }
+    },
   )
 }

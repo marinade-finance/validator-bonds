@@ -30,20 +30,20 @@ export async function upsizeSettlementClaims({
   if (!settlementClaimsAccount && !settlementAccount) {
     throw new Error(
       'Cannot get settlement claims account address to be upsized. ' +
-        'Provide either settlementClaimsAccount or settlementAccount.'
+        'Provide either settlementClaimsAccount or settlementAccount.',
     )
   }
   if (settlementAccount) {
     const [derivedSettlementClaimsAccount] = settlementClaimsAddress(
       settlementAccount,
-      program.programId
+      program.programId,
     )
     if (
       settlementClaimsAccount &&
       !settlementClaimsAccount.equals(derivedSettlementClaimsAccount)
     ) {
       throw new Error(
-        'Provided settlementClaimsAccount does not match derived address from Settlement address.'
+        'Provided settlementClaimsAccount does not match derived address from Settlement address.',
       )
     }
     settlementClaimsAccount = derivedSettlementClaimsAccount

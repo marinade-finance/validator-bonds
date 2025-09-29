@@ -14,7 +14,7 @@ launchCliProgram({
     program.setOptionValueWithSource(
       'programId',
       VALIDATOR_BONDS_PROGRAM_ID,
-      'default'
+      'default',
     )
   },
   installSubcommands: program => {

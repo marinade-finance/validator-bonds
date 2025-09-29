@@ -29,7 +29,7 @@ export function installConfigureBond(program: Command) {
         cpmpe?: BN
         maxStakeWanted?: BN
         computeUnitLimit?: number
-      }
+      },
     ) => {
       await manageConfigureBond({
         address: await address,
@@ -42,6 +42,6 @@ export function installConfigureBond(program: Command) {
         maxStakeWanted,
         computeUnitLimit,
       })
-    }
+    },
   )
 }

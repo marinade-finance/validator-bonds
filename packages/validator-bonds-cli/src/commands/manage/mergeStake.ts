@@ -26,25 +26,25 @@ export function installStakeMerge(program: Command) {
       '--source <pubkey>',
       'Source stake account address to be merged from. ' +
         'This account will be drained and closed.',
-      parsePubkey
+      parsePubkey,
     )
     .requiredOption(
       '--destination <pubkey>',
       'Destination stake account address to be merged to. ' +
         'This account will be loaded with SOLs from --source.',
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--config <pubkey>',
       'Config account address used to derive stake accounts authority ' +
         'related to the validator bonds program instance.' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
-      parsePubkey
+      parsePubkey,
     )
     .option(
       '--settlement <pubkey>',
       'Settlement account address used to derive stake accounts authority. (default: not used)',
-      parsePubkey
+      parsePubkey,
     )
     .addOption(computeUnitLimitOption(MERGE_STAKE_LIMIT_UNITS))
     .action(
@@ -68,7 +68,7 @@ export function installStakeMerge(program: Command) {
           settlement: await settlement,
           computeUnitLimit,
         })
-      }
+      },
     )
 }
 
@@ -127,6 +127,6 @@ async function manageMerge({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Stake account ${source.toBase58()} successfully merged to ${destination.toBase58()}`
+    `Stake account ${source.toBase58()} successfully merged to ${destination.toBase58()}`,
   )
 }

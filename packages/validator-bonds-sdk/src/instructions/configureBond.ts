@@ -38,7 +38,7 @@ export async function configureBondInstruction({
     bondAccount,
     configAccount,
     voteAccount,
-    program.programId
+    program.programId,
   )
   if (voteAccount === undefined) {
     const bondData = await getBond(program, bondAccount)

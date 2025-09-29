@@ -22,16 +22,16 @@ import type { Wallet as AnchorWalletInterface } from '@coral-xyz/anchor/dist/cjs
 import type { ConfirmOptions, EpochInfo } from '@solana/web3.js'
 
 export const MARINADE_CONFIG_ADDRESS = new PublicKey(
-  'vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU'
+  'vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU',
 )
 export const MARINADE_INSTITUTIONAL_CONFIG_ADDRESS = new PublicKey(
-  'VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE'
+  'VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE',
 )
 
 export const ValidatorBondsIDL = generated.IDL
 
 export const VALIDATOR_BONDS_PROGRAM_ID = new PublicKey(
-  JSON.parse(generated.IDL.constants.find(x => x.name === 'PROGRAM_ID')!.value)
+  JSON.parse(generated.IDL.constants.find(x => x.name === 'PROGRAM_ID')!.value),
 )
 
 export type ValidatorBonds = generated.ValidatorBonds
@@ -56,7 +56,7 @@ function fromConstants(constantName: string): string {
   if (constant === undefined) {
     throw new Error(
       'SDK initialization failure. Validator bonds IDL does not define constant ' +
-        constant
+        constant,
     )
   }
   return constant.value
@@ -70,16 +70,16 @@ export const BOND_MINT_SEED = seedFromConstants('BOND_MINT_SEED')
 export const SETTLEMENT_SEED = seedFromConstants('SETTLEMENT_SEED')
 export const WITHDRAW_REQUEST_SEED = seedFromConstants('WITHDRAW_REQUEST_SEED')
 export const SETTLEMENT_CLAIMS_SEED = seedFromConstants(
-  'SETTLEMENT_CLAIMS_SEED'
+  'SETTLEMENT_CLAIMS_SEED',
 )
 export const BONDS_WITHDRAWER_AUTHORITY_SEED = seedFromConstants(
-  'BONDS_WITHDRAWER_AUTHORITY_SEED'
+  'BONDS_WITHDRAWER_AUTHORITY_SEED',
 )
 export const SETTLEMENT_STAKER_AUTHORITY_SEED = seedFromConstants(
-  'SETTLEMENT_STAKER_AUTHORITY_SEED'
+  'SETTLEMENT_STAKER_AUTHORITY_SEED',
 )
 export const SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE = Number(
-  fromConstants('SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE')
+  fromConstants('SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE'),
 )
 
 // --- EVENTS ---
@@ -191,7 +191,7 @@ export function getProgram({
     if (wallet === undefined) {
       throw new Error(
         'Wallet is required when connection is provided. ' +
-          'Please provide a wallet or a provider object.'
+          'Please provide a wallet or a provider object.',
       )
     }
     if (wallet instanceof Keypair) {
@@ -200,7 +200,7 @@ export function getProgram({
     provider = new AnchorProvider(
       connection,
       wallet,
-      opts ?? AnchorProvider.defaultOptions()
+      opts ?? AnchorProvider.defaultOptions(),
     )
   } else {
     provider = connection
@@ -211,21 +211,21 @@ export function getProgram({
 export function bondAddress(
   config: PublicKey,
   voteAccount: PublicKey,
-  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID,
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [BOND_SEED, config.toBytes(), voteAccount.toBytes()],
-    validatorBondsProgramId
+    validatorBondsProgramId,
   )
 }
 
 export function bondsWithdrawerAuthority(
   config: PublicKey,
-  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID,
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [BONDS_WITHDRAWER_AUTHORITY_SEED, config.toBytes()],
-    validatorBondsProgramId
+    validatorBondsProgramId,
   )
 }
 
@@ -245,7 +245,7 @@ export function settlementAddress(
   bond: PublicKey,
   merkleRoot: Uint8Array | Buffer | number[],
   epoch: EpochInfo | number | BN | bigint,
-  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID,
 ): [PublicKey, number] {
   if (Array.isArray(merkleRoot)) {
     merkleRoot = new Uint8Array(merkleRoot)
@@ -253,47 +253,47 @@ export function settlementAddress(
   const epochBuffer = uintToBuffer(epoch)
   return PublicKey.findProgramAddressSync(
     [SETTLEMENT_SEED, bond.toBytes(), merkleRoot, epochBuffer],
-    validatorBondsProgramId
+    validatorBondsProgramId,
   )
 }
 
 export function settlementStakerAuthority(
   settlement: PublicKey,
-  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID,
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [SETTLEMENT_STAKER_AUTHORITY_SEED, settlement.toBytes()],
-    validatorBondsProgramId
+    validatorBondsProgramId,
   )
 }
 
 export function settlementClaimsAddress(
   settlement: PublicKey,
-  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID,
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [SETTLEMENT_CLAIMS_SEED, settlement.toBytes()],
-    validatorBondsProgramId
+    validatorBondsProgramId,
   )
 }
 
 export function withdrawRequestAddress(
   bond: PublicKey,
-  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID,
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [WITHDRAW_REQUEST_SEED, bond.toBytes()],
-    validatorBondsProgramId
+    validatorBondsProgramId,
   )
 }
 
 export function bondMintAddress(
   bond: PublicKey,
   validatorIdentity: PublicKey,
-  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID,
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [BOND_MINT_SEED, bond.toBytes(), validatorIdentity.toBytes()],
-    validatorBondsProgramId
+    validatorBondsProgramId,
   )
 }

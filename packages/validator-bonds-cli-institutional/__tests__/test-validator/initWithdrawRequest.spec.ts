@@ -45,8 +45,8 @@ describe('Init withdraw request using CLI (institutional)', () => {
     } = await createTempFileKeypair())
     assert(
       (await provider.connection.getAccountInfo(
-        MARINADE_INSTITUTIONAL_CONFIG_ADDRESS
-      )) !== null
+        MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
+      )) !== null,
     )
     ;({ voteAccount } = await createVoteAccount({
       provider,

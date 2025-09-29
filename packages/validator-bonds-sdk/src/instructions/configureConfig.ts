@@ -61,7 +61,7 @@ export async function configureConfigInstruction({
       logWarn(
         logger,
         'configureConfig SDK: config is not provided, using default config address: ' +
-          MARINADE_CONFIG_ADDRESS.toBase58()
+          MARINADE_CONFIG_ADDRESS.toBase58(),
       )
       configAccount = MARINADE_CONFIG_ADDRESS
     }
@@ -100,7 +100,7 @@ export async function configureConfigInstruction({
 
   if (Object.values(args).every(v => v === null)) {
     throw new Error(
-      'configureConfigInstruction: method parameters provided no new property to configure'
+      'configureConfigInstruction: method parameters provided no new property to configure',
     )
   }
 

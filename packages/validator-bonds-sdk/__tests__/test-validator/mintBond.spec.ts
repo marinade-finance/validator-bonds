@@ -65,19 +65,19 @@ describe('Validator Bonds mint bond', () => {
 
     const tokenData = await getTokenAccount(
       provider.connection,
-      validatorIdentityTokenAccount
+      validatorIdentityTokenAccount,
     )
     expect(tokenData.amount).toEqual(1)
     const metadata = await fetchMetadata(
       getUmi(provider),
-      toUmiPubkey(tokenMetadataAccount)
+      toUmiPubkey(tokenMetadataAccount),
     )
 
     expect(isSome(metadata.creators)).toBe(true)
     assert(isSome(metadata.creators))
     expect(metadata.creators.value.length).toEqual(1)
     expect(metadata.creators.value[0]?.address.toString()).toEqual(
-      bondAccount.toBase58()
+      bondAccount.toBase58(),
     )
 
     const events = parseCpiEvents(program, executionReturn?.response)
@@ -86,7 +86,7 @@ describe('Validator Bonds mint bond', () => {
     expect(e.bond).toEqual(bondAccount)
     expect(e.validatorIdentity).toEqual(validatorIdentity.publicKey)
     expect(e.validatorIdentityTokenAccount).toEqual(
-      validatorIdentityTokenAccount
+      validatorIdentityTokenAccount,
     )
     expect(e.tokenMetadata).toEqual(tokenMetadataAccount)
   })

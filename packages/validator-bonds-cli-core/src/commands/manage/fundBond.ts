@@ -35,24 +35,24 @@ export function configureFundBond(program: Command): Command {
   return program
     .command('fund-bond')
     .description(
-      'Funding a bond account with amount of SOL within a stake account.'
+      'Funding a bond account with amount of SOL within a stake account.',
     )
     .argument(
       '<address>',
       'Address of the bond account or vote account.',
-      parsePubkey
+      parsePubkey,
     )
     .requiredOption(
       '--stake-account <pubkey>',
       'Stake account that is used to fund the bond account',
-      parsePubkeyOrPubkeyFromWallet
+      parsePubkeyOrPubkeyFromWallet,
     )
     .option(
       '--stake-authority <keypair_or_ledger_or_pubkey>',
       'Stake account authority (probably the withdrawer authority) ' +
         'that is permitted to sign stake account authority changes. ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkeyOption
+      parseWalletOrPubkeyOption,
     )
     .addOption(computeUnitLimitOption(FUND_BOND_LIMIT_UNITS))
 }
@@ -131,7 +131,7 @@ export async function manageFundBond({
     })
     logger.info(
       `Bond account ${bondAccount.toBase58()} successfully funded ` +
-        `with stake account ${stakeAccount.toBase58()}`
+        `with stake account ${stakeAccount.toBase58()}`,
     )
   } catch (err) {
     await failIfUnexpectedFundingError({
@@ -166,22 +166,22 @@ export async function failIfUnexpectedFundingError({
   if (
     isExpectedAnchorTransactionError(
       err,
-      'wrong withdrawer authority of the stake account'
+      'wrong withdrawer authority of the stake account',
     )
   ) {
     // it could be a stake account that's already funded, let's check it
     const [bondsWithdrawerAuth] = bondsWithdrawerAuthority(config, programId)
     const stakeAccountData = await getStakeAccount(
       provider.connection,
-      stakeAccount
+      stakeAccount,
     )
     if (stakeAccountData.withdrawer?.equals(bondsWithdrawerAuth)) {
       logger.debug(
-        `Bonds withdrawer authority '${bondsWithdrawerAuth.toBase58()}' for config '${config.toBase58()}' and program id '${programId?.toBase58()}'`
+        `Bonds withdrawer authority '${bondsWithdrawerAuth.toBase58()}' for config '${config.toBase58()}' and program id '${programId?.toBase58()}'`,
       )
       logger.info(
         `The stake account ${stakeAccount.toBase58()} is ALREADY funded ` +
-          `to bond account ${bondAccount.toBase58()}.`
+          `to bond account ${bondAccount.toBase58()}.`,
       )
       return
     }

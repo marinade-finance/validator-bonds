@@ -58,7 +58,7 @@ describe('Validator Bonds fund bond', () => {
       voteAccountToDelegate: voteAccount,
     })
     console.debug(
-      `Waiting for activation of stake account: ${stakeAccount.toBase58()}`
+      `Waiting for activation of stake account: ${stakeAccount.toBase58()}`,
     )
     await waitForStakeAccountActivation({
       stakeAccount,
@@ -84,7 +84,7 @@ describe('Validator Bonds fund bond', () => {
     const stakeAccountData = await getStakeAccount(provider, stakeAccount)
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId
+      program.programId,
     )
     expect(stakeAccountData.staker).toEqual(bondWithdrawer)
     expect(stakeAccountData.withdrawer).toEqual(bondWithdrawer)

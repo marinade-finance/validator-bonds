@@ -53,7 +53,7 @@ const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
     175, 62, 146, 129, 33, 153, 77, 189, 254, 166, 210, 202, 33, 248, 158, 49,
     85, 171, 80, 177, 237, 201, 127, 92, 110, 192, 28, 134, 162, 226, 7, 226,
     156, 183, 23, 80, 139, 58, 54, 160, 186, 75, 85, 77, 212, 82, 182,
-  ])
+  ]),
 )
 // const VOTE_ACCOUNT_WITHDRAWER = Keypair.fromSecretKey(
 //   new Uint8Array([
@@ -124,12 +124,12 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     merkleTreesDir = path.join(__dirname, '..', 'data')
     merkleTreeCollectionPath = path.join(
       merkleTreesDir,
-      fileEpoch + '_settlement-merkle-trees.json'
+      fileEpoch + '_settlement-merkle-trees.json',
     )
     assert(fs.existsSync(merkleTreeCollectionPath))
     settlementCollectionPath = path.join(
       merkleTreesDir,
-      fileEpoch + '_settlements.json'
+      fileEpoch + '_settlements.json',
     )
     assert(fs.existsSync(settlementCollectionPath))
     const fileBuffer = fs.readFileSync(merkleTreeCollectionPath)
@@ -165,13 +165,13 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       const [bondAccount] = bondAddress(
         configAccount,
         voteAccount,
-        program.programId
+        program.programId,
       )
       const [settlementAccount] = settlementAddress(
         bondAccount,
         merkleTree.merkle_root,
         beforeEpoch,
-        program.programId
+        program.programId,
       )
       settlementAddresses.push(settlementAccount)
       if (
@@ -188,7 +188,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
             voteAccount,
             validatorIdentity: VOTE_ACCOUNT_IDENTITY,
             cpmpe: 0,
-          })
+          }),
         )
       }
     }
@@ -237,7 +237,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       settlementAddresses.length -
         1 +
         ' executed successfully(.|\n|\r)*' +
-        'Upsize Settlement Claims.*0 executed successfully'
+        'Upsize Settlement Claims.*0 executed successfully',
     )
     await expect([
       'cargo',
@@ -403,7 +403,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
 
     const [withdrawerAuthority] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId
+      program.programId,
     )
     for (const merkleTree of loadedJson.merkle_trees) {
       const voteAccount = new PublicKey(merkleTree.vote_account)
@@ -459,7 +459,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       configAccount,
     })
     const fundedStakeAccounts = allConfigStakeAccounts.filter(
-      s => !s.account.data.staker?.equals(withdrawerAuthority)
+      s => !s.account.data.staker?.equals(withdrawerAuthority),
     )
     expect(fundedStakeAccounts.length).toEqual(settlementAddresses.length)
 
@@ -537,7 +537,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     console.log(
       `Claiming settlements;  epoch: ${currentEpoch}, config: ${configAccount.toBase58()} at ${
         provider.connection.rpcEndpoint
-      }`
+      }`,
     )
 
     // // TESTING purposes to check state manually
@@ -663,7 +663,7 @@ async function chunkedCreateInitializedStakeAccounts({
   let counter = 0
   let futures: Promise<void>[] = []
   const lockedAccounts = Array.from({ length: 20 }, () =>
-    getSecureRandomInt(1, combined.length)
+    getSecureRandomInt(1, combined.length),
   )
   for (const { staker, withdrawer, keypair } of combined) {
     counter++
@@ -697,7 +697,7 @@ async function chunkedCreateInitializedStakeAccounts({
     }
   }
   console.log(
-    `Waiting for counter stake accounts ${counter}/${combined.length} to be created`
+    `Waiting for counter stake accounts ${counter}/${combined.length} to be created`,
   )
   if (futures.length > 0) {
     await Promise.all(futures)

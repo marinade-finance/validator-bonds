@@ -81,7 +81,7 @@ export async function getBondFromAddress({
     logInfo(
       logger,
       `Address ${address.toBase58()} is a VALIDATOR IDENTITY account. ` +
-        `Using the vote account ${voteAccount.publicKey.toBase58()} to show bond data.`
+        `Using the vote account ${voteAccount.publicKey.toBase58()} to show bond data.`,
     )
     voteAccountAddress = voteAccount.publicKey
     accountInfo = voteAccount.account
@@ -103,7 +103,7 @@ export async function getBondFromAddress({
     } catch (e) {
       logger.debug(
         `Failed to decode account ${address.toBase58()} as withdraw request`,
-        e
+        e,
       )
     }
     // we found the provided address as the withdraw request, let's check the bond account
@@ -132,7 +132,7 @@ export async function getBondFromAddress({
         logInfo(
           logger,
           `Address ${address.toBase58()} is a STAKE ACCOUNT delegated to vote account ` +
-            `${voteAccountAddress.toBase58()}. Using the vote account to show bond data.`
+            `${voteAccountAddress.toBase58()}. Using the vote account to show bond data.`,
         )
       } else {
         isStakeAccountError = true
@@ -157,7 +157,7 @@ export async function getBondFromAddress({
       logDebug(
         logger,
         'getBondFromAddress SDK: config is not provided, using default config address: ' +
-          MARINADE_CONFIG_ADDRESS.toBase58()
+          MARINADE_CONFIG_ADDRESS.toBase58(),
       )
       config = MARINADE_CONFIG_ADDRESS
     }
@@ -187,7 +187,7 @@ export async function getBondFromAddress({
   try {
     const bondData = program.coder.accounts.decode<Bond>(
       program.account.bond.idlAccount.name,
-      accountInfo.data
+      accountInfo.data,
     )
     return programAccountInfo(address, accountInfo, bondData)
   } catch (e) {
@@ -221,7 +221,7 @@ function isVoteAccount({
     // Ignore error, we will try to fetch the address as the bond account data
     logger.debug(
       'Address is not a vote account, considering being it a bond',
-      e
+      e,
     )
   }
   return voteAccountAddress
@@ -240,7 +240,7 @@ function decodeWithdrawRequest({
 }): WithdrawRequest {
   return program.coder.accounts.decode<WithdrawRequest>(
     program.account.withdrawRequest.idlAccount.name,
-    accountInfo.data
+    accountInfo.data,
   )
 }
 
@@ -262,7 +262,7 @@ export async function getWithdrawRequestFromAddress({
   let accountInfo: AccountInfo<Buffer> = await checkAccountExistence(
     program.provider.connection,
     address,
-    'type of voteAccount or bond or withdrawRequest'
+    'type of voteAccount or bond or withdrawRequest',
   )
 
   try {
@@ -271,7 +271,7 @@ export async function getWithdrawRequestFromAddress({
   } catch (e) {
     logger.debug(
       `Failed to decode account ${address.toBase58()} as withdraw request`,
-      e
+      e,
     )
   }
 
@@ -294,13 +294,13 @@ export async function getWithdrawRequestFromAddress({
         logInfo(
           logger,
           `Address ${address.toBase58()} is a STAKE ACCOUNT delegated to vote account ` +
-            `${voteAccountAddress.toBase58()}. Using the vote account to get the withdraw request data.`
+            `${voteAccountAddress.toBase58()}. Using the vote account to get the withdraw request data.`,
         )
       }
     } catch (e) {
       logger.debug(
         `Failed to decode account ${address.toBase58()} as stake account`,
-        e
+        e,
       )
     }
   }
@@ -310,14 +310,14 @@ export async function getWithdrawRequestFromAddress({
       logDebug(
         logger,
         'getWithdrawRequestAddress SDK: config is not provided, using default config address: ' +
-          MARINADE_CONFIG_ADDRESS.toBase58()
+          MARINADE_CONFIG_ADDRESS.toBase58(),
       )
       config = MARINADE_CONFIG_ADDRESS
     }
     ;[bondAccountAddress] = bondAddress(
       config,
       voteAccountAddress,
-      program.programId
+      program.programId,
     )
   } else {
     // expecting it's not a vote account but an address belonging to the bond contract
@@ -329,7 +329,7 @@ export async function getWithdrawRequestFromAddress({
   accountInfo = await checkAccountExistence(
     program.provider.connection,
     address,
-    `WithdrawRequest generated from bond address ${bondAccountAddress.toBase58()} does not exist`
+    `WithdrawRequest generated from bond address ${bondAccountAddress.toBase58()} does not exist`,
   )
 
   // final decoding of withdraw request account from account info
@@ -337,7 +337,7 @@ export async function getWithdrawRequestFromAddress({
   try {
     const withdrawRequestData = program.coder.accounts.decode<WithdrawRequest>(
       program.account.withdrawRequest.idlAccount.name,
-      accountInfo.data
+      accountInfo.data,
     )
     return programAccountInfo(address, accountInfo, withdrawRequestData)
   } catch (e) {
@@ -389,7 +389,7 @@ export function formatUnit(value: BN | number | bigint, unit: string): string {
 async function checkAccountExistence(
   connection: Connection,
   address: PublicKey,
-  errorMsg: string
+  errorMsg: string,
 ): Promise<AccountInfo<Buffer>> {
   const accountInfo = await connection.getAccountInfo(address)
   if (accountInfo === null) {
@@ -408,7 +408,7 @@ async function checkAccountExistence(
 // Checking the error comes through web3js-1x with an expected anchor error.
 export function isExpectedAnchorTransactionError(
   err: unknown,
-  anchorErrMsg: string
+  anchorErrMsg: string,
 ) {
   if (err instanceof ExecutionError) {
     if (err.cause !== null && err.cause instanceof SendTransactionError) {
@@ -444,7 +444,7 @@ export function toBN(value: string): BN {
 
 export async function loadTestingVoteAccount(
   connection: Connection,
-  voteAccount: PublicKey
+  voteAccount: PublicKey,
 ): Promise<VoteAccountShow> {
   const voteAccountInfo = await connection.getAccountInfo(voteAccount)
   assert(voteAccountInfo !== null, 'Vote account not found')

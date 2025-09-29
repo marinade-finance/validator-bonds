@@ -38,23 +38,23 @@ export function configureFundBondWithSol(program: Command): Command {
     .command('fund-bond-sol')
     .description(
       'Funding a bond account with amount of SOL. ' +
-        'The command creates a stake account, transfers SOLs to it and delegates it to bond.'
+        'The command creates a stake account, transfers SOLs to it and delegates it to bond.',
     )
     .argument(
       '<address>',
       'Address of the bond account or vote account.',
-      parsePubkey
+      parsePubkey,
     )
     .requiredOption(
       '--amount <number>',
       'Number of SOLs to be funded to bond account.',
-      n => parseFloat(n)
+      n => parseFloat(n),
     )
     .option(
       '--from <keypair_or_ledger_or_pubkey>',
       'A wallet address where the SOL is transferred from. ' +
         '(default: wallet keypair)',
-      parseWalletOrPubkeyOption
+      parseWalletOrPubkeyOption,
     )
     .addOption(computeUnitLimitOption(FUND_BOND_WITH_SOL_LIMIT_UNITS))
 }
@@ -108,7 +108,7 @@ export async function manageFundBondWithSol({
   const configData = await getConfig(program, config)
   const rentExemptStake = await getRentExemptStake(provider)
   const minimalAmountToFund = configData.minimumStakeLamports.add(
-    new BN(rentExemptStake)
+    new BN(rentExemptStake),
   )
   let amountLamports: BN
   if (Number.isFinite(amount * LAMPORTS_PER_SOL)) {
@@ -121,13 +121,13 @@ export async function manageFundBondWithSol({
       `Provided amount ${amount} SOL is lower than minimal amount ` +
         'that is permitted to be funded. Minimal is ' +
         `${formatToSol(minimalAmountToFund)} SOL. ` +
-        'Please, use a bigger number of SOLs for funding.'
+        'Please, use a bigger number of SOLs for funding.',
     )
   }
   if (amountLamports.gt(new BN(Number.MAX_SAFE_INTEGER))) {
     throw new Error(
       `Provided amount ${amount} SOL cannot be safely converted ` +
-        'to number of lamports. Please, use a lower number.'
+        'to number of lamports. Please, use a lower number.',
     )
   }
   let stakeAccount: Keypair | PublicKey = Keypair.generate()
@@ -160,7 +160,7 @@ export async function manageFundBondWithSol({
 
   logger.info(
     `Funding bond account ${bondAccount.toBase58()} of vote account ${voteAccount.toBase58()} ` +
-      `with ${amount} SOL from wallet ${from.toBase58()}`
+      `with ${amount} SOL from wallet ${from.toBase58()}`,
   )
   try {
     await executeTx({
@@ -179,7 +179,7 @@ export async function manageFundBondWithSol({
     })
     logger.info(
       `Bond account ${bondAccount.toBase58()} successfully funded ` +
-        `with amount ${amount} from ${from.toBase58()}`
+        `with amount ${amount} from ${from.toBase58()}`,
     )
   } catch (err) {
     await failIfUnexpectedFundingError({

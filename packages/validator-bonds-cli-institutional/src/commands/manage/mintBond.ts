@@ -20,7 +20,7 @@ export function installMintBond(program: Command) {
         voteAccount?: Promise<PublicKey>
         rentPayer?: Promise<WalletInterface | PublicKey>
         computeUnitLimit: number
-      }
+      },
     ) => {
       await manageMintBond({
         address: await address,
@@ -29,6 +29,6 @@ export function installMintBond(program: Command) {
         rentPayer: await rentPayer,
         computeUnitLimit,
       })
-    }
+    },
   )
 }

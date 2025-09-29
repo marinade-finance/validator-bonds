@@ -22,7 +22,7 @@ export function installCancelWithdrawRequest(program: Command) {
         authority?: Promise<WalletInterface | PublicKey>
         rentCollector?: Promise<PublicKey>
         computeUnitLimit: number
-      }
+      },
     ) => {
       await manageCancelWithdrawRequest({
         address: await address,
@@ -32,6 +32,6 @@ export function installCancelWithdrawRequest(program: Command) {
         rentCollector: await rentCollector,
         computeUnitLimit,
       })
-    }
+    },
   )
 }

@@ -24,7 +24,7 @@ export function installCloseSettlement(program: Command) {
     .command('close-settlement')
     .description(
       'Closing Settlement. It is a permission-less action permitted when the Settlement expires. ' +
-        'To finalize closing the dangling stake accounts need to be reset.'
+        'To finalize closing the dangling stake accounts need to be reset.',
     )
     .argument('<address>', 'Settlement account to be closed.', parsePubkey)
     .option(
@@ -32,7 +32,7 @@ export function installCloseSettlement(program: Command) {
       'Refund stake account to be used to take funds from to return rent. ' +
         'The stake account has to be assigned to the Settlement address. ' +
         'When not provided the blockchain is parsed to find some.',
-      parseWalletOrPubkeyOption
+      parseWalletOrPubkeyOption,
     )
     .addOption(computeUnitLimitOption(CLOSE_SETTLEMENT_LIMIT_UNITS))
     .action(
@@ -44,14 +44,14 @@ export function installCloseSettlement(program: Command) {
         }: {
           refundStakeAccount?: Promise<PublicKey>
           computeUnitLimit: number
-        }
+        },
       ) => {
         await manageCloseSettlement({
           address: await address,
           refundStakeAccount: await refundStakeAccount,
           computeUnitLimit,
         })
-      }
+      },
     )
 }
 

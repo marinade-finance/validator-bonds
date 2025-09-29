@@ -99,15 +99,15 @@ describe('Fund bond account with SOL using CLI', () => {
       stdout: /successfully funded with amount/,
     })
     const userAccount = await provider.connection.getAccountInfo(
-      fromKeypair.publicKey
+      fromKeypair.publicKey,
     )
     expect(userAccount?.lamports).toEqual(
-      baseLamports - fundBondSols * LAMPORTS_PER_SOL
+      baseLamports - fundBondSols * LAMPORTS_PER_SOL,
     )
 
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       configAccount,
-      program.programId
+      program.programId,
     )
     const stakeAccounts = await findStakeAccounts({
       connection: provider,
@@ -116,20 +116,20 @@ describe('Fund bond account with SOL using CLI', () => {
     expect(stakeAccounts.length).toEqual(1)
     const stakeAccount = await getStakeAccount(
       provider,
-      stakeAccounts[0]?.publicKey || PublicKey.default
+      stakeAccounts[0]?.publicKey || PublicKey.default,
     )
     expect(stakeAccount.balanceLamports).toEqual(
-      fundBondSols * LAMPORTS_PER_SOL
+      fundBondSols * LAMPORTS_PER_SOL,
     )
     expect(stakeAccount.stakedLamports).toEqual(
-      fundBondSols * LAMPORTS_PER_SOL - (await getRentExemptStake(provider))
+      fundBondSols * LAMPORTS_PER_SOL - (await getRentExemptStake(provider)),
     )
     const bondAccountData = await getBond(program, bondAccount)
     expect(stakeAccount.voter).toEqual(bondAccountData.voteAccount)
     expect(stakeAccount.staker).toEqual(bondWithdrawer)
     expect(stakeAccount.withdrawer).toEqual(bondWithdrawer)
     expect(stakeAccount.activationEpoch).toEqual(
-      (await provider.connection.getEpochInfo()).epoch
+      (await provider.connection.getEpochInfo()).epoch,
     )
 
     const fundBondSolsSecond = 2.22
@@ -157,10 +157,10 @@ describe('Fund bond account with SOL using CLI', () => {
     })
 
     const userAccountAfter = await provider.connection.getAccountInfo(
-      fromKeypair.publicKey
+      fromKeypair.publicKey,
     )
     expect(userAccountAfter?.lamports).toEqual(
-      baseLamports - (fundBondSols + fundBondSolsSecond) * LAMPORTS_PER_SOL
+      baseLamports - (fundBondSols + fundBondSolsSecond) * LAMPORTS_PER_SOL,
     )
     const stakeAccountsSecond = await findStakeAccounts({
       connection: provider,

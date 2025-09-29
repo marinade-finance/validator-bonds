@@ -31,7 +31,7 @@ export async function emergencyResumeInstruction({
       logWarn(
         logger,
         'emergencyResume SDK: config is not provided, using default address: ' +
-          MARINADE_CONFIG_ADDRESS.toBase58()
+          MARINADE_CONFIG_ADDRESS.toBase58(),
       )
       configAccount = MARINADE_CONFIG_ADDRESS
     }

@@ -45,8 +45,8 @@ describe('Fund bond account with SOL using CLI (institutional)', () => {
     } = await createTempFileKeypair())
     assert(
       (await provider.connection.getAccountInfo(
-        MARINADE_INSTITUTIONAL_CONFIG_ADDRESS
-      )) !== null
+        MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
+      )) !== null,
     )
     const { voteAccount: voteAccountAddress, validatorIdentity } =
       await createVoteAccount({ provider })
@@ -93,14 +93,14 @@ describe('Fund bond account with SOL using CLI (institutional)', () => {
     })
 
     const userAccount = await provider.connection.getAccountInfo(
-      fromKeypair.publicKey
+      fromKeypair.publicKey,
     )
     expect(userAccount?.lamports).toEqual(
-      baseLamports - fundBondSols * LAMPORTS_PER_SOL
+      baseLamports - fundBondSols * LAMPORTS_PER_SOL,
     )
     const [bondWithdrawer] = bondsWithdrawerAuthority(
       MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
-      program.programId
+      program.programId,
     )
     const stakeAccounts = (
       await findStakeAccounts({
@@ -110,25 +110,25 @@ describe('Fund bond account with SOL using CLI (institutional)', () => {
     ).filter(
       s =>
         s.account.data.voter !== null &&
-        s.account.data.voter.equals(voteAccount)
+        s.account.data.voter.equals(voteAccount),
     )
     expect(stakeAccounts.length).toEqual(1)
     const stakeAccount = await getStakeAccount(
       provider,
-      stakeAccounts[0]?.publicKey || PublicKey.default
+      stakeAccounts[0]?.publicKey || PublicKey.default,
     )
     expect(stakeAccount.balanceLamports).toEqual(
-      fundBondSols * LAMPORTS_PER_SOL
+      fundBondSols * LAMPORTS_PER_SOL,
     )
     expect(stakeAccount.stakedLamports).toEqual(
-      fundBondSols * LAMPORTS_PER_SOL - (await getRentExemptStake(provider))
+      fundBondSols * LAMPORTS_PER_SOL - (await getRentExemptStake(provider)),
     )
     const bondAccountData = await getBond(program, bondAccount)
     expect(stakeAccount.voter).toEqual(bondAccountData.voteAccount)
     expect(stakeAccount.staker).toEqual(bondWithdrawer)
     expect(stakeAccount.withdrawer).toEqual(bondWithdrawer)
     expect(stakeAccount.activationEpoch).toEqual(
-      (await provider.connection.getEpochInfo()).epoch
+      (await provider.connection.getEpochInfo()).epoch,
     )
   })
 })

@@ -19,7 +19,7 @@ export const SETTLEMENT_CLAIM_SEED = seedFromConstants('SETTLEMENT_CLAIM_SEED')
 
 export async function getSettlementClaim(
   program: ValidatorBondsProgram,
-  address: PublicKey
+  address: PublicKey,
 ): Promise<SettlementClaim> {
   return program.account.settlementClaim.fetch(address)
 }
@@ -36,7 +36,7 @@ export function settlementClaimAddress(
     stakeAccountWithdrawer: PublicKey
     claim: BN | number
   },
-  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID,
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [
@@ -44,14 +44,14 @@ export function settlementClaimAddress(
       settlement.toBytes(),
       hashTreeV1(stakeAccountStaker, stakeAccountWithdrawer, claim).buffer,
     ],
-    validatorBondsProgramId
+    validatorBondsProgramId,
   )
 }
 
 export function hashTreeV1(
   stakeAuthority: PublicKey,
   withdrawAuthority: PublicKey,
-  claim: BN | number
+  claim: BN | number,
 ): MerkleTreeNodeEncoded {
   const sha256 = CryptoJS.algo.SHA256.create()
   sha256.update(pubkeyToWordArray(stakeAuthority))
