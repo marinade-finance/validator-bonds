@@ -12,12 +12,12 @@ import {
   mintBondInstruction,
   parseCpiEvents,
 } from '../../src'
-import { getUmi, toUmiPubkey } from '../utils/mi'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
 import { initTest } from '../utils/testValidator'
+import { getUmi, toUmiPubkey } from '../utils/umi'
 
 import type { ValidatorBondsProgram } from '../../src'
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
