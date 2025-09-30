@@ -7,7 +7,7 @@ env:
   PIPELINES_AUTO_APPROVAL: "false" # remove when verified to be stable
 
 steps:
-  - label: ":black_nib: Env variables setup: Fund Settlements"
+  - label: ":black_nib: Env variables setup: Sanity Institutional"
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch || echo "")}
@@ -21,6 +21,8 @@ steps:
   - wait: ~
 
   - label: ":broom: :one: Sanity Check - Institutional Data"
+    env:
+      CLONED_BRANCH: "main"
     key: "sanity-check-1"
     commands:
       - epoch=$(buildkite-agent meta-data get epoch)
@@ -35,7 +37,7 @@ steps:
         for past_epoch in $$(seq $$((epoch - past_epochs_to_check)) $$((epoch - 1))); do
           gcloud storage cp "$gs_bucket_institutional/$$past_epoch/institutional-payouts.json" "$$past_epochs_dir/institutional-payouts-$${past_epoch}.json"
         done
-      - git clone git@github.com:marinade-finance/institutional-staking.git --branch $$BUILDKITE_BRANCH --depth 1
+      - git clone git@github.com:marinade-finance/institutional-staking.git --branch $$CLONED_BRANCH --depth 1
       - |
         cd institutional-staking
         git status
@@ -47,7 +49,7 @@ steps:
           --current "$$current_epoch_dir"/*.json \
           --past "$$past_epochs_dir"/*.json \
           --correlation-threshold 0.15 \
-          --score-threshold 2
+          --score-threshold 2.0
     soft_fail:
       - exit_status: "*"
     artifact_paths:
@@ -94,6 +96,21 @@ steps:
     soft_fail:
       - exit_status: "*"
 
+  - label: ":broom: :three: Sanity Check - Merkle Tree & Settlement"
+    key: "sanity-check-3"
+    commands:
+      - buildkite-agent artifact download --include-retried-jobs settlements.json .
+      - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
+      - |
+        pnpm install
+        pnpm -r build
+      - |
+        pnpm cli:check check-settlement \
+          -s ./settlements.json \
+          -m ./settlement-merkle-trees.json
+    soft_fail:
+      - exit_status: "*"
+
   - wait: ~
 
   - label: ":thinking_face: Listing Institutional Summary"
@@ -105,8 +122,9 @@ steps:
     command : |
       outcome1=$$(buildkite-agent step get "outcome" --step "sanity-check-1")
       outcome2=$$(buildkite-agent step get "outcome" --step "sanity-check-2")
+      outcome3=$$(buildkite-agent step get "outcome" --step "sanity-check-3")
 
-      if [[ "$$outcome1 $$outcome2" =~ soft_failed ]]; then
+      if [[ "$$outcome1 $$outcome2 $$outcome3" =~ soft_failed ]]; then
          cat <<- YAML | buildkite-agent pipeline upload
          steps:
            - block: ":interrobang: Sanity check failed"
@@ -118,8 +136,10 @@ steps:
     depends_on: 
       - "sanity-check-1"
       - "sanity-check-2"
+      - "sanity-check-3"
 
   - block: ":interrobang: Confirm to get processed rewards loading"
     prompt: "[PIPELINES_AUTO_APPROVAL=${PIPELINES_AUTO_APPROVAL}] Review data + sanity check and 'Unblock' if ready to proceed."
     if: build.env('PIPELINES_AUTO_APPROVAL') != 'true'
     blocked_state: running
+

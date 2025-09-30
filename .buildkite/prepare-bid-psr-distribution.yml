@@ -34,7 +34,7 @@ steps:
 
   - wait: ~
 
-  - label: ":black_nib: Env variables setup: Bid PSR Distribution"
+  - label: ":black_nib: Env variables setup: Prepare Bid PSR Distribution"
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}

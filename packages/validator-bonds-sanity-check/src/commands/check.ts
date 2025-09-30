@@ -1,0 +1,132 @@
+import { CliCommandError } from '@marinade.finance/cli-common'
+import { loadFile, loadFileOrDirectory } from '@marinade.finance/ts-common'
+import { Option } from 'commander'
+import Decimal from 'decimal.js'
+
+import { reportAnomalies } from '../anomalyDetector'
+import { getCliContext } from '../context'
+import { parseSettlements } from '../dtoSettlements'
+
+import type { Command } from 'commander'
+
+export enum ProcessingType {
+  PSR = 'psr',
+  BID = 'bid',
+}
+
+export function installCheck(program: Command) {
+  program
+    .command('check')
+    .description('Check Bonds Settlements data from past and the current epoch')
+    .requiredOption(
+      '-c, --current <path>',
+      'Input file of validator bonds settlement (JSON)',
+    )
+    .requiredOption(
+      '-p, --past <paths...>',
+      'Input files or directory paths (can be used multiple times, space-separated)',
+    )
+    .option(
+      '--correlation-threshold <threshold_ratio>',
+      'Maximum correlation deviation threshold, expressed as a percentage ratio (0–1), used to define when an anomaly is detected.',
+      d => new Decimal(d),
+      Decimal(0.15),
+    )
+    .option(
+      '--score-threshold <threshold>',
+      'Maximum acceptable z-score for individual field anomaly detection. ' +
+        'Z-score threshold for flagging anomalies (how many standard deviations from mean). ' +
+        'Typical range: 1.5 (sensitive) to 3.0 (strict). Default 2.0 catches ~5% as anomalies.',
+      d => new Decimal(d),
+      Decimal(2.0),
+    )
+    .addOption(
+      new Option('-t, --type <type>', 'Type of processing to perform')
+        .choices(Object.values(ProcessingType))
+        .default(ProcessingType.BID),
+    )
+    .action(
+      async ({
+        current,
+        past,
+        correlationThreshold,
+        scoreThreshold,
+        type,
+      }: {
+        current: string
+        past: string[]
+        correlationThreshold: Decimal
+        scoreThreshold: Decimal
+        type: ProcessingType
+      }) => {
+        await manageCheck({
+          currentPath: current,
+          pastPaths: past,
+          correlationThreshold,
+          scoreThreshold,
+          type,
+        })
+      },
+    )
+}
+
+async function manageCheck({
+  currentPath,
+  pastPaths,
+  correlationThreshold,
+  scoreThreshold,
+  type,
+}: {
+  currentPath: string
+  pastPaths: string[]
+  correlationThreshold: Decimal
+  scoreThreshold: Decimal
+  type: ProcessingType
+}) {
+  const { logger } = getCliContext()
+
+  if (correlationThreshold.lt(0) || correlationThreshold.gt(1)) {
+    throw CliCommandError.instance(
+      `Correlation threshold ratio (${correlationThreshold.toString()}) must be between 0 and 1`,
+    )
+  }
+  if (scoreThreshold.lt(0)) {
+    throw CliCommandError.instance(
+      `Score threshold (${scoreThreshold.toString()}) must be a non-negative number`,
+    )
+  }
+
+  const currentData = await loadFile(currentPath)
+
+  const pastData = (
+    await Promise.all(pastPaths.map(path => loadFileOrDirectory(path)))
+  ).flat()
+  logger.debug(
+    `Successfully loaded current data (${currentPath}) and past data files (${pastPaths.join(', ')})`,
+  )
+
+  const currentSettlements = await parseSettlements(currentData, currentPath)
+  const historicalSettlements = await Promise.all(
+    pastData.map(async (data, index) =>
+      parseSettlements(data, pastPaths[index]),
+    ),
+  )
+
+  logger.info('Starting anomaly detection...')
+
+  const { anomalyDetected, report } = reportAnomalies({
+    currentSettlements,
+    historicalSettlements,
+    type,
+    logger,
+    correlationThreshold: new Decimal(correlationThreshold),
+    scoreThreshold: new Decimal(scoreThreshold),
+  })
+
+  if (anomalyDetected) {
+    logger.warn(report)
+    throw CliCommandError.instance('Anomalies detected in Validator Bonds!')
+  } else {
+    logger.info(report)
+  }
+}
