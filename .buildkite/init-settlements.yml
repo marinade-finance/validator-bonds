@@ -71,12 +71,12 @@ steps:
 
   - wait: ~
 
-  - label: ":hammer_and_wrench: :rust: Build init-settlement"
-    commands:
-    - '. "$HOME/.cargo/env"'
-    - 'cargo build --release --bin init-settlement'
-    artifact_paths:
-      - target/release/init-settlement
+  # - label: ":hammer_and_wrench: :rust: Build init-settlement"
+  #   commands:
+  #   - '. "$HOME/.cargo/env"'
+  #   - 'cargo build --release --bin init-settlement'
+  #   artifact_paths:
+  #     - target/release/init-settlement
 
   - label: ":floppy_disk: :arrow_left: :cloud: Downloading merkle trees"
     commands:
