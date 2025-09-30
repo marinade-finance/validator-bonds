@@ -1,0 +1,69 @@
+agents:
+  queue: "snapshots"
+env:
+  gs_bucket_institutional: gs://marinade-institutional-staking-mainnet
+  past_epochs_to_check: 10
+
+steps:
+  - label: ":black_nib: Env variables setup: Fund Settlements"
+    commands:
+    - |
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch || echo "")}
+      if [[ -n "$$epoch" ]]; then
+        buildkite-agent meta-data set --redacted-vars='' epoch "$$epoch"
+      else
+        echo "Epoch is not set, please set EPOCH env variable or define that within the outer pipeline first"
+        exit 1
+      fi
+
+  - wait: ~
+
+  - label: ":broom: Sanity Check"
+    key: "sanity-check"
+    commands:
+      - epoch=$(buildkite-agent meta-data get epoch)
+      - mkdir -p ./current-epoch
+      - gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" ./current-epoch/
+      - |
+        mkdir -p ./past-epochs
+        for past_epoch in $$(seq $$((epoch - past_epochs_to_check)) $$((epoch - 1))); do
+          gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" ./past-epochs/institutional-payouts-$${past_epoch}.json
+        done
+      - |
+        # removing wrong json files or empty json data
+        for file in ./past-epochs/*.json; do
+          ([[ ! -s "$file" ]] || ! jq empty "$file" >/dev/null 2>&1 || jq -e '.institutionalValidators | length == 0' "$file" >/dev/null 2>&1) && rm -vf "$file"
+        done
+      - git clone git@github.com:marinade-finance/institutional-staking.git --branch $$BUILDKITE_BRANCH --depth 1
+      - |
+        cd institutional-staking
+        git status
+        pnpm install
+        pnpm build
+      - pnpm cli:check print --current ./current-epoch/*.json
+      - |
+        pnpm cli:check check \
+          --current ./current-epoch/*.json \
+          --past ./past-epochs/*.json \
+          --correlation-threshold 15 \
+          --score-threshold 2
+    soft_fail:
+      - exit_status: "*"
+
+  - label: ":printer: Block processing when sanity check fails"
+    command : |
+      if [[ $$(buildkite-agent step get "outcome" --step "sanity-check") == "soft_failed" ]]; then
+         cat <<- YAML | buildkite-agent pipeline upload
+         steps:
+           - block: ":interrobang: Sanity check failed"
+             prompt: "Sanity check failed. Review and select 'Unblock' if ready to proceed."
+             if: build.env('PIPELINES_AUTO_APPROVAL') == 'true'
+             blocked_state: running
+      YAML
+      fi
+    depends_on: "sanity-check"
+
+  - block: ":interrobang: Confirm to get processed rewards loading"
+    prompt: "[PIPELINES_AUTO_APPROVAL=${PIPELINES_AUTO_APPROVAL}] Review data + sanity check and 'Unblock' if ready to proceed."
+    if: build.env('PIPELINES_AUTO_APPROVAL') != 'true'
+    blocked_state: running
