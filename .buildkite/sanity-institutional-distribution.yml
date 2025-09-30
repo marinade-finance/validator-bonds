@@ -22,16 +22,19 @@ steps:
     key: "sanity-check"
     commands:
       - epoch=$(buildkite-agent meta-data get epoch)
-      - mkdir -p ./current-epoch
-      - gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" ./current-epoch/
       - |
-        mkdir -p ./past-epochs
+        current_epoch_dir="$$(pwd)/current-epoch"
+        mkdir -p "$$current_epoch_dir"
+        gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" "$$current_epoch_dir/"
+      - |
+        past_epochs_dir="$$(pwd)/past-epochs"
+        mkdir -p "$$past_epochs_dir"
         for past_epoch in $$(seq $$((epoch - past_epochs_to_check)) $$((epoch - 1))); do
-          gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" ./past-epochs/institutional-payouts-$${past_epoch}.json
+          gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" "$$past_epochs_dir/institutional-payouts-$${past_epoch}.json"
         done
       - |
         # removing wrong json files or empty json data
-        for file in ./past-epochs/*.json; do
+        for file in "$$past_epochs_dir"/*.json; do
           ([[ ! -s "$file" ]] || ! jq empty "$file" >/dev/null 2>&1 || jq -e '.institutionalValidators | length == 0' "$file" >/dev/null 2>&1) && rm -vf "$file"
         done
       - git clone git@github.com:marinade-finance/institutional-staking.git --branch $$BUILDKITE_BRANCH --depth 1
@@ -40,11 +43,11 @@ steps:
         git status
         pnpm install
         pnpm build
-      - pnpm cli:check print --current ./current-epoch/*.json
+      - pnpm cli:check print --current "$$current_epoch_dir"/*.json
       - |
         pnpm cli:check check \
-          --current ./current-epoch/*.json \
-          --past ./past-epochs/*.json \
+          --current "$$current_epoch_dir"/*.json \
+          --past "$$past_epochs_dir"/*.json \
           --correlation-threshold 15 \
           --score-threshold 2
     soft_fail:
