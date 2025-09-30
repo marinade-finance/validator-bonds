@@ -121,15 +121,6 @@ steps:
       - gcloud storage cp "./${CLAIM_TYPE}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
       - gcloud storage cp "./discord-public-report.txt" "$gs_bucket/$$epoch/${CLAIM_TYPE}-discord-public-report.txt"
 
-  - wait: ~
-
-  - label: ":information_source::printer: Aggregated report"
-    commands:
-    - buildkite-agent artifact download --include-retried-jobs institutional-payouts-summary.txt .
-    - cat './institutional-payouts-summary.txt'
-    - buildkite-agent artifact download --include-retried-jobs institutional-payouts.json .
-    - ./scripts/generate-select-validator-report.bash './institutional-payouts.json'
-
   - label: ":mega: Notification"
     commands:
     - buildkite-agent artifact download --include-retried-jobs institutional-payouts-summary.txt .

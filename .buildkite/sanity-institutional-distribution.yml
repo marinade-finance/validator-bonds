@@ -1,0 +1,125 @@
+agents:
+  queue: "snapshots"
+env:
+  gs_bucket_institutional: gs://marinade-institutional-staking-mainnet
+  institutional_staking_api: "https://institutional-staking.marinade.finance/v1/validators"
+  past_epochs_to_check: 10
+  PIPELINES_AUTO_APPROVAL: "false" # remove when verified to be stable
+
+steps:
+  - label: ":black_nib: Env variables setup: Fund Settlements"
+    commands:
+    - |
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch || echo "")}
+      if [[ -n "$$epoch" ]]; then
+        buildkite-agent meta-data set --redacted-vars='' epoch "$$epoch"
+      else
+        echo "Epoch is not set, please set EPOCH env variable or define that within the outer pipeline first"
+        exit 1
+      fi
+
+  - wait: ~
+
+  - label: ":broom: :one: Sanity Check - Institutional Data"
+    key: "sanity-check-1"
+    commands:
+      - epoch=$(buildkite-agent meta-data get epoch)
+      - default_dir="$$(pwd)"
+      - |
+        current_epoch_dir="$${default_dir}/current-epoch"
+        mkdir -p "$$current_epoch_dir"
+        gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" "$$current_epoch_dir/"
+      - |
+        past_epochs_dir="$${default_dir}/past-epochs"
+        mkdir -p "$$past_epochs_dir"
+        for past_epoch in $$(seq $$((epoch - past_epochs_to_check)) $$((epoch - 1))); do
+          gcloud storage cp "$gs_bucket_institutional/$$past_epoch/institutional-payouts.json" "$$past_epochs_dir/institutional-payouts-$${past_epoch}.json"
+        done
+      - git clone git@github.com:marinade-finance/institutional-staking.git --branch $$BUILDKITE_BRANCH --depth 1
+      - |
+        cd institutional-staking
+        git status
+        pnpm install
+        pnpm build
+      - pnpm cli:check print --current "$$current_epoch_dir"/*.json > "$${default_dir}/summary.txt"
+      - |
+        pnpm cli:check check \
+          --current "$$current_epoch_dir"/*.json \
+          --past "$$past_epochs_dir"/*.json \
+          --correlation-threshold 15 \
+          --score-threshold 2
+    soft_fail:
+      - exit_status: "*"
+    artifact_paths:
+      - "./summary.txt"
+      - "./current-epoch/institutional-payouts.json"
+
+  - wait: ~
+
+  - label: ":broom: :two: Sanity Check - JSONs & Settlements"
+    key: "sanity-check-2"
+    commands:
+      - |
+        buildkite-agent artifact download --include-retried-jobs current-epoch/institutional-payouts.json .
+        mv current-epoch/institutional-payouts.json .
+      - buildkite-agent artifact download --include-retried-jobs settlements.json .
+      - |
+        INSTITUTIONAL_VALIDATORS_COUNT_API=$$(curl -qs "$institutional_staking_api" | jq '.[] | length')
+        INSTITUTIONAL_VALIDATORS_COUNT_JSON=$$(jq '.institutionalValidators.validators | length' ./institutional-payouts.json)
+        if [[ "$$INSTITUTIONAL_VALIDATORS_COUNT_API" -ne "$$INSTITUTIONAL_VALIDATORS_COUNT_JSON" ]]; then
+          echo "Mismatch in institutional validators count: API($$INSTITUTIONAL_VALIDATORS_COUNT_API) vs JSON($$INSTITUTIONAL_VALIDATORS_COUNT_JSON)"
+          exit 1
+        fi
+      - |
+        INSTITUTIONAL_PAYOUT_COUNT=$$(jq '[.validatorPayoutInfo[] | select(((.distributorFeeLamports | tonumber) + (.distributeToStakersLamports | tonumber)) > 0) | .voteAccount] | unique | length' ./institutional-payouts.json)
+        SETTLEMENTS_COUNT=$$(jq '.settlements | length' ./settlements.json)
+        if [[ "$$INSTITUTIONAL_PAYOUT_COUNT" -ne "$$SETTLEMENTS_COUNT" ]]; then
+          echo "Mismatch in number of institutional payouts: Payout JSON($$INSTITUTIONAL_PAYOUT_COUNT) vs Settlements($$SETTLEMENTS_COUNT)"
+          exit 10
+        fi
+      - |
+        INSTITUTIONAL_PAYOUT_SUM=$$(jq '[.validatorPayoutInfo[] | (.distributorFeeLamports | tonumber) + (.distributeToStakersLamports | tonumber)] | add' ./institutional-payouts.json)
+        SETTLEMENTS_SUM=$$(jq '[.settlements[].claims[].claim_amount] | add' ./settlements.json)
+        if [[ "$$INSTITUTIONAL_PAYOUT_SUM" -ne "$$SETTLEMENTS_SUM" ]]; then
+          echo "Mismatch in total institutional payouts: Payout JSON($$INSTITUTIONAL_PAYOUT_SUM) vs Settlements($$SETTLEMENTS_SUM)"
+          # because of rounding of created claims there can be slight difference
+          DIFF=$$(($$INSTITUTIONAL_PAYOUT_SUM - $$SETTLEMENTS_SUM))
+          DIFF_ABS=$$(($${DIFF#-}))
+          DIFF_PERMITTED_ABS=1000
+          if [[ $${DIFF_ABS} -gt $${DIFF_PERMITTED_ABS} ]]; then
+            echo "Difference between payout sum and settlement claims sum is more than $${DIFF_PERMITTED_ABS} lamports, failing"
+            exit 11
+          fi
+        fi
+    soft_fail:
+      - exit_status: "*"
+
+  - wait: ~
+
+  - label: ":thinking_face: Listing Institutional Summary"
+    commands:
+      - buildkite-agent artifact download summary.txt .
+      - cat ./summary.txt
+
+  - label: ":printer: Block processing when sanity check fails"
+    command : |
+      outcome1=$$(buildkite-agent step get "outcome" --step "sanity-check-1")
+      outcome2=$$(buildkite-agent step get "outcome" --step "sanity-check-2")
+
+      if [[ "$$outcome1 $$outcome2" =~ soft_failed ]]; then
+         cat <<- YAML | buildkite-agent pipeline upload
+         steps:
+           - block: ":interrobang: Sanity check failed"
+             prompt: "Sanity check(s) failed. Review and select 'Unblock' if ready to proceed."
+             if: build.env('PIPELINES_AUTO_APPROVAL') == 'true'
+             blocked_state: running
+      YAML
+      fi
+    depends_on: 
+      - "sanity-check-1"
+      - "sanity-check-2"
+
+  - block: ":interrobang: Confirm to get processed rewards loading"
+    prompt: "[PIPELINES_AUTO_APPROVAL=${PIPELINES_AUTO_APPROVAL}] Review data + sanity check and 'Unblock' if ready to proceed."
+    if: build.env('PIPELINES_AUTO_APPROVAL') != 'true'
+    blocked_state: running
