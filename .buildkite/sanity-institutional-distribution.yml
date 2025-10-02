@@ -35,11 +35,6 @@ steps:
         for past_epoch in $$(seq $$((epoch - past_epochs_to_check)) $$((epoch - 1))); do
           gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" "$$past_epochs_dir/institutional-payouts-$${past_epoch}.json"
         done
-      - |
-        # removing wrong json files or empty json data
-        for file in "$$past_epochs_dir"/*.json; do
-          ([[ ! -s "$file" ]] || ! jq empty "$file" >/dev/null 2>&1 || jq -e '.institutionalValidators | length == 0' "$file" >/dev/null 2>&1) && rm -vf "$file"
-        done
       - git clone git@github.com:marinade-finance/institutional-staking.git --branch $$BUILDKITE_BRANCH --depth 1
       - |
         cd institutional-staking

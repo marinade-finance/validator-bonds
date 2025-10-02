@@ -1,9 +1,108 @@
 agents:
   queue: "snapshots"
 env:
+  gs_bucket_bonds: gs://marinade-validator-bonds-mainnet
   past_epochs_to_check: 10
+  PIPELINES_AUTO_APPROVAL: "false" # remove when verified to be stable
 
 steps:
-  - block: "Confirm to get processed init settlements"
-    prompt: "Please review the 'Unblock' if ready to proceed."
+  - label: ":black_nib: Env variables setup: Fund Settlements"
+    commands:
+    - |
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch || echo "")}
+      if [[ -n "$$epoch" ]]; then
+        buildkite-agent meta-data set --redacted-vars='' epoch "$$epoch"
+      else
+        echo "Epoch is not set, please set EPOCH env variable or define that within the outer pipeline first"
+        exit 1
+      fi
+
+  - wait: ~
+
+  - label: ":broom: :one: Sanity Check - JSONs & Settlements"
+    key: "sanity-check-1"
+    commands:
+      - buildkite-agent artifact download --include-retried-jobs settlements.json .
+      - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json.
+      - |
+        SETTLEMENTS_COUNT=$$(jq '.settlements | length' ./settlements.json)
+        MERKLE_TREES_COUNT=$$(jq '[.merkle_trees[] | (.max_total_claims | tonumber)] | add' ./settlement-merkle-trees.json)
+        if [[ "$$SETTLEMENTS_COUNT" -ne "$$MERKLE_TREES_COUNT" ]]; then
+          echo "Mismatch in number of settlements and merkle tree count: Settlements($$SETTLEMENTS_COUNT) vs Merkle Trees($$MERKLE_TREES_COUNT)"
+          exit 10
+        fi
+      - |
+        SETTLEMENTS_SUM=$$(jq '[.settlements[].claims[].claim_amount] | add' ./settlements.json)
+        MERKLE_TREES_SUM=$$(jq '[.merkle_trees[] | (.max_total_claim_sum | tonumber)] | add' ./settlement-merkle-trees.json)
+        if [[ "$$MERKLE_TREES_SUM" -ne "$$SETTLEMENTS_SUM" ]]; then
+          echo "Mismatch in total settlements and merkle tree claim amount: Settlements($$SETTLEMENTS_SUM) vs Merkle Trees($$MERKLE_TREES_SUM)"
+          exit 11
+        fi
+    soft_fail:
+      - exit_status: "*"
+
+  - label: ":floppy_disk: :arrow_left: :cloud: Downloading past Settlements"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - claim_type=$(buildkite-agent meta-data get claim_type)
+    - |
+      past_epochs_dir="$${default_dir}/past-epochs"
+      mkdir -p "$$past_epochs_dir"
+      for past_epoch in $$(seq $$((epoch - past_epochs_to_check)) $$((epoch - 1))); do
+        gcloud storage cp "$gs_bucket_bonds/$${epoch}/$${claim_type}-settlements.json" "$$past_epochs_dir/$${past_epoch}-$${claim_type}-settlements.json"
+      done
+    artifact_paths:
+      - "./past-epochs/*.json"
+
+  - wait: ~
+
+  - label: ":broom: :two: Sanity Check - Institutional Data"
+    key: "sanity-check-2"
+    commands:
+      - epoch=$(buildkite-agent meta-data get epoch)
+      - buildkite-agent artifact download --include-retried-jobs settlements.json .
+      - buildkite-agent artifact download --include-retried-jobs past-epochs/*.json .
+      - |
+        SETTLEMENTS_COUNT=$$(jq '.settlements | length' ./settlements.json)
+        if: [[ "$$SETTLEMENTS_COUNT" -lt 1 ]]; then
+          echo "No PSR settlements found in the current settlements.json, nothing to check"
+          exit 0
+        fi
+      - |
+        # when no settlements in past data, not considering that for the check
+        for file in ./past-epochs/*.json; do
+          [[ ! -s "$file" ]] || jq -e '.settlements | length == 0' "$file" >/dev/null 2>&1 && rm -vf "$file"
+        done
+      - |
+        pnpm cli:check check \
+          --current .settlements.json \
+          --past ./past-epochs/*.json \
+          --correlation-threshold 15 \
+          --score-threshold 2
+    soft_fail:
+      - exit_status: "*"
+
+  - wait: ~
+
+  - label: ":printer: Block processing when sanity check fails"
+    command : |
+      outcome1=$$(buildkite-agent step get "outcome" --step "sanity-check-1")
+      outcome2=$$(buildkite-agent step get "outcome" --step "sanity-check-2")
+
+      if [[ "$$outcome1 $$outcome2" =~ soft_failed ]]; then
+         cat <<- YAML | buildkite-agent pipeline upload
+         steps:
+           - block: ":interrobang: Sanity check failed"
+             prompt: "Sanity check(s) failed. Review and select 'Unblock' if ready to proceed."
+             if: build.env('PIPELINES_AUTO_APPROVAL') == 'true'
+             blocked_state: running
+      YAML
+      fi
+    depends_on: 
+      - "sanity-check-1"
+      - "sanity-check-2"
+
+  - block: ":interrobang: Confirm to get processed rewards loading"
+    prompt: "[PIPELINES_AUTO_APPROVAL=${PIPELINES_AUTO_APPROVAL}] Review data + sanity check and 'Unblock' if ready to proceed."
+    if: build.env('PIPELINES_AUTO_APPROVAL') != 'true'
     blocked_state: running
