@@ -36,6 +36,28 @@ export function emptyStats(currentValue: number | bigint | Decimal): Stats {
   }
 }
 
+export function singleStats(
+  currentValue: number | bigint | Decimal,
+  singleValue: number | bigint | Decimal | undefined,
+): Stats {
+  const currentValueDecimal = new Decimal(currentValue.toString())
+  const singleValueDecimal = singleValue
+    ? new Decimal(String(singleValue))
+    : new Decimal(currentValue.toString())
+  return {
+    currentValue: currentValueDecimal,
+    mean: singleValueDecimal,
+    median: singleValueDecimal,
+    min: singleValueDecimal,
+    max: singleValueDecimal,
+    variance: DECIMAL_ZERO,
+    stdDev: DECIMAL_ZERO,
+    zScore: MAX_DECIMAL, // Can't determine if current value is an outlier
+    standardError: MAX_DECIMAL, // Undefined with n=1
+    count: 1,
+  }
+}
+
 export function calculateStats(
   currentValue: number | bigint | Decimal,
   values: (number | bigint | Decimal)[],
@@ -43,6 +65,10 @@ export function calculateStats(
   if (!values || !Array.isArray(values) || values.length === 0) {
     return emptyStats(currentValue)
   }
+  if (values.length === 1) {
+    return singleStats(currentValue, values[0])
+  }
+
   const currentValueDecimal = new Decimal(currentValue.toString())
   const valuesDecimal = values.map(v => new Decimal(v.toString()))
   const sorted = [...valuesDecimal].sort((a, b) => a.sub(b).toNumber())

@@ -7,24 +7,28 @@ CLI to check sanity of past and current epoch validator bonds program data.
 ### 1) Getting input data
 
 ```bash
-mkdir -p ./data
-epoch=850
+DIR="${PWD}/data"
+mkdir -p "$DIR"
+epoch=857
 past_epochs_to_check=10
 for one_epoch in $(seq $((epoch - past_epochs_to_check)) $epoch); do
   echo $one_epoch
-  mkdir ./tmp
-  gcloud storage cp  "gs://marinade-validator-bonds-mainnet/${one_epoch}/*settlements.json" ./tmp/
-  for I in ./tmp/*; do
-    mv "$I" "./data/${one_epoch}-$(basename $I)"
+  mkdir "$DIR/tmp"
+  gcloud storage cp  "gs://marinade-validator-bonds-mainnet/${one_epoch}/*settlements.json" "$DIR/tmp/"
+  for I in "$DIR/tmp/"*; do
+    mv "$I" "$DIR/${one_epoch}-$(basename $I)"
   done
-  rm -rf ./tmp
+  rm -rf "$DIR/tmp"
 done
 ```
 
 ### 2) Running the sanity check
 
 ```bash
-pnpm cli:check check -c ./data/${epoch}-bid-distribution-settlements.json \
-  -p ./data/!(${epoch})-bid-distribution-settlements.json \
-  --correlation-threshold 15 --score-threshold 2 --verbose
+pnpm cli:check check -c "$DIR/${epoch}-bid-distribution-settlements.json" \
+  -p "$DIR/!(${epoch})-bid-distribution-settlements.json" \
+  --correlation-threshold 15 --score-threshold 2 --verbose --type bid
+
+pnpm cli:check check -c "$DIR"/857-bid-psr-distribution-settlements.json \
+  -p $(seq -f "$DIR"/%g-bid-psr-distribution-settlements.json 845 856) --type psr
 ```

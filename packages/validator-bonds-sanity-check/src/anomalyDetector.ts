@@ -1,6 +1,11 @@
-import { CONSOLE_LOG, jsonStringify } from '@marinade.finance/ts-common'
+import {
+  CONSOLE_LOG,
+  jsonStringify,
+  logDebug,
+} from '@marinade.finance/ts-common'
 import Decimal from 'decimal.js'
 
+import { ProcessingType } from './commands/check'
 import { calculateStats, detectAnomaly, emptyStats } from './stats'
 
 import type { SettlementsDto } from './dto'
@@ -12,6 +17,7 @@ interface EpochData {
   totalSettlements: bigint
   totalSettlementClaimAmount: bigint
   totalSettlementClaims: bigint
+  avgSettlementClaimAmountPerValidator: Decimal
   // coefficient of variation of claims count across settlements
   // trying to detect ratio of settlements with high or low claims count
   claimsCountCV: Decimal
@@ -36,6 +42,11 @@ function transform(dto: SettlementsDto): EpochData {
     totalSettlementClaims: BigInt(
       dto.settlements.reduce((sum, s) => sum + BigInt(s.claims_count), 0n),
     ),
+    avgSettlementClaimAmountPerValidator: dto.settlements.length
+      ? new Decimal(totalClaims.toString())
+          .div(dto.settlements.length)
+          .toDecimalPlaces(0, Decimal.ROUND_DOWN)
+      : new Decimal(0),
   }
 }
 
@@ -73,6 +84,7 @@ export class EpochAnomalyDetector {
   detectAnomalies(
     currentSettlements: SettlementsDto,
     historicalSettlements: SettlementsDto[],
+    type: ProcessingType,
   ): StatsCalculation[] {
     if (historicalSettlements.length < 3) {
       this.logger.warn(
@@ -89,10 +101,30 @@ export class EpochAnomalyDetector {
       this.detectCurrentDataAnomalies(currentSettlements)
     stats.push(...currentDataAnomalies)
 
+    let processingFields: (keyof EpochData)[] = []
+    switch (type) {
+      case ProcessingType.BID: {
+        processingFields = [
+          'totalSettlements',
+          'totalSettlementClaimAmount',
+          'claimsCountCV',
+        ]
+        break
+      }
+      case ProcessingType.PSR: {
+        processingFields = [
+          'totalSettlements',
+          'avgSettlementClaimAmountPerValidator',
+        ]
+        break
+      }
+    }
+
     // 1. Check individual field anomalies (secondary check)
     const individualAnomalies = this.detectIndividualAnomalies(
       currentData,
       historicalData,
+      processingFields,
     )
     stats.push(...individualAnomalies)
 
@@ -115,18 +147,20 @@ export class EpochAnomalyDetector {
   private detectIndividualAnomalies(
     currentData: EpochData,
     historicalData: EpochData[],
-    fieldsToCheck: (keyof EpochData)[] = [
-      'totalSettlements',
-      'totalSettlementClaimAmount',
-      'claimsCountCV',
-    ],
+    fieldsToCheck: (keyof EpochData)[],
   ): StatsCalculation[] {
     const calculations: StatsCalculation[] = []
+    const logger = this.logger
 
     for (const field of fieldsToCheck) {
       const historicalValues = historicalData.map(d => d[field] as number)
       const currentValue = currentData[field] as number
 
+      logDebug(
+        logger,
+        `Analyzing field: ${field}, current value: ${currentValue}, ` +
+          `historical values: ${jsonStringify(historicalValues)}`,
+      )
       const stats = calculateStats(currentValue, historicalValues)
 
       const detectAnomalies = detectAnomaly({
@@ -151,12 +185,14 @@ export class EpochAnomalyDetector {
 export function detectAnomalies({
   currentSettlements,
   historicalSettlements,
+  type,
   scoreThreshold = 2.0,
   correlationThreshold = 0.15, // 15% deviation from expected ratio
   logger = CONSOLE_LOG,
 }: {
   currentSettlements: SettlementsDto
   historicalSettlements: SettlementsDto[]
+  type: ProcessingType
   scoreThreshold?: number
   correlationThreshold?: number
   logger: LoggerPlaceholder
@@ -171,6 +207,7 @@ export function detectAnomalies({
   const stats = detector.detectAnomalies(
     currentSettlements,
     historicalSettlements,
+    type,
   )
 
   const thresholdInfo = `(correlationThreshold: ${correlationThreshold}, scoreThreshold: ${scoreThreshold})`

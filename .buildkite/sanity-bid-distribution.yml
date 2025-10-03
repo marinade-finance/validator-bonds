@@ -70,7 +70,8 @@ steps:
           --current ./settlements.json \
           --past ./past-epochs/*.json \
           --correlation-threshold 15 \
-          --score-threshold 2
+          --score-threshold 2 \
+          --type bid
     soft_fail:
       - exit_status: "*"
 

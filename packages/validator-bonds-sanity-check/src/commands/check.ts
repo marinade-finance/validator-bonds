@@ -1,11 +1,17 @@
 import { CliCommandError } from '@marinade.finance/cli-common'
 import { loadFileOrDirectory } from '@marinade.finance/ts-common'
+import { Option } from 'commander'
 
 import { detectAnomalies } from '../anomalyDetector'
 import { getCliContext } from '../context'
 import { parseSettlements } from '../dto'
 
 import type { Command } from 'commander'
+
+export enum ProcessingType {
+  PSR = 'psr',
+  BID = 'bid',
+}
 
 export function installCheck(program: Command) {
   program
@@ -29,20 +35,28 @@ export function installCheck(program: Command) {
       parseFloat,
       2.0,
     )
+    .addOption(
+      new Option('-t, --type <type>', 'Type of processing to perform')
+        .choices(Object.values(ProcessingType))
+        .default(ProcessingType.BID),
+    )
     .action(
       async ({
         past,
         correlationThreshold,
         scoreThreshold,
+        type,
       }: {
         past: string[]
         correlationThreshold: number
         scoreThreshold: number
+        type: ProcessingType
       }) => {
         await manageCheck({
           pastPaths: past,
           correlationThreshold,
           scoreThreshold,
+          type,
         })
       },
     )
@@ -52,10 +66,12 @@ async function manageCheck({
   pastPaths,
   correlationThreshold,
   scoreThreshold,
+  type,
 }: {
   pastPaths: string[]
   correlationThreshold: number
   scoreThreshold: number
+  type: ProcessingType
 }) {
   const { logger, currentData, currentPath } = getCliContext()
 
@@ -69,7 +85,8 @@ async function manageCheck({
       `Score threshold (${scoreThreshold}) must be a non-negative number`,
     )
   }
-  const correlationThresholdRatio = correlationThreshold / 100 // convert percentage to a ratio
+  // convert percentage to a ratio
+  const correlationThresholdRatio = correlationThreshold / 100
 
   const pastData = (
     await Promise.all(pastPaths.map(path => loadFileOrDirectory(path)))
@@ -90,6 +107,7 @@ async function manageCheck({
   const { anomalyDetected, report } = detectAnomalies({
     currentSettlements,
     historicalSettlements,
+    type,
     logger,
     correlationThreshold: correlationThresholdRatio,
     scoreThreshold,
