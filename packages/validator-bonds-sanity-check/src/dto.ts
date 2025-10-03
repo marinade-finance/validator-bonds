@@ -5,6 +5,7 @@ import {
   IsBigInt,
   parseAndValidate,
 } from '@marinade.finance/cli-common'
+import { IsPublicKey } from '@marinade.finance/web3js-1x'
 import { PublicKey } from '@solana/web3.js'
 import { Expose, Transform, Type } from 'class-transformer'
 import {
@@ -16,49 +17,9 @@ import {
   IsObject,
   IsOptional,
   IsEnum,
-  registerDecorator,
 } from 'class-validator'
 
 import { getCliContext } from './context'
-
-import type { ValidationOptions, ValidationArguments } from 'class-validator'
-
-export type PublicKeyValidationOptions = ValidationOptions & {
-  allowNull?: boolean
-}
-
-export function IsPublicKey(validationOptions?: PublicKeyValidationOptions) {
-  return function (object: object, propertyName: string) {
-    registerDecorator({
-      name: 'isPublicKey',
-      target: object.constructor,
-      propertyName: propertyName,
-      options: validationOptions,
-      validator: {
-        validate(value: unknown) {
-          return validatePublicKey(value, validationOptions?.allowNull)
-        },
-        defaultMessage(args: ValidationArguments) {
-          return `'${args.property}' must be a valid Solana web3.js 1.x PublicKey${validationOptions?.allowNull ? ' or NULL' : ''}`
-        },
-      },
-    })
-  }
-}
-
-function validatePublicKey(value: unknown, allowNull?: boolean) {
-  return isPublicKey(value) || (!!allowNull && value === null)
-}
-
-export function isPublicKey(value: unknown): value is PublicKey {
-  return (
-    value !== null &&
-    value !== undefined &&
-    typeof value === 'object' &&
-    '_bn' in value &&
-    typeof (value as any).toBase58 === 'function'
-  )
-}
 
 enum FunderType {
   ValidatorBond = 'ValidatorBond',
