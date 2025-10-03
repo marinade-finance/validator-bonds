@@ -23,10 +23,10 @@ steps:
     key: "sanity-check-1"
     commands:
       - buildkite-agent artifact download --include-retried-jobs settlements.json .
-      - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json.
+      - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
       - |
         SETTLEMENTS_COUNT=$$(jq '.settlements | length' ./settlements.json)
-        MERKLE_TREES_COUNT=$$(jq '[.merkle_trees[] | (.max_total_claims | tonumber)] | add' ./settlement-merkle-trees.json)
+        MERKLE_TREES_COUNT=$$(jq '.merkle_trees | length' ./settlement-merkle-trees.json)
         if [[ "$$SETTLEMENTS_COUNT" -ne "$$MERKLE_TREES_COUNT" ]]; then
           echo "Mismatch in number of settlements and merkle tree count: Settlements($$SETTLEMENTS_COUNT) vs Merkle Trees($$MERKLE_TREES_COUNT)"
           exit 10
@@ -46,7 +46,7 @@ steps:
     - epoch=$(buildkite-agent meta-data get epoch)
     - claim_type=$(buildkite-agent meta-data get claim_type)
     - |
-      past_epochs_dir="$${default_dir}/past-epochs"
+      past_epochs_dir="./past-epochs"
       mkdir -p "$$past_epochs_dir"
       for past_epoch in $$(seq $$((epoch - past_epochs_to_check)) $$((epoch - 1))); do
         gcloud storage cp "$gs_bucket_bonds/$${epoch}/$${claim_type}-settlements.json" "$$past_epochs_dir/$${past_epoch}-$${claim_type}-settlements.json"
@@ -73,6 +73,9 @@ steps:
         for file in ./past-epochs/*.json; do
           [[ ! -s "$file" ]] || jq -e '.settlements | length == 0' "$file" >/dev/null 2>&1 && rm -vf "$file"
         done
+      - |
+        pnpm install
+        pnpm -r build
       - |
         pnpm cli:check check \
           --current .settlements.json \

@@ -26,7 +26,6 @@ steps:
       - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
       - |
         SETTLEMENTS_COUNT=$$(jq '.settlements | length' ./settlements.json)
-        # MERKLE_TREES_COUNT=$$(jq '[.merkle_trees[] | (.max_total_claims | tonumber)] | add' ./settlement-merkle-trees.json)
         MERKLE_TREES_COUNT=$$(jq '.merkle_trees | length' ./settlement-merkle-trees.json)
         if [[ "$$SETTLEMENTS_COUNT" -ne "$$MERKLE_TREES_COUNT" ]]; then
           echo "Mismatch in number of settlements and merkle tree count: Settlements($$SETTLEMENTS_COUNT) vs Merkle Trees($$MERKLE_TREES_COUNT)"
