@@ -33,7 +33,7 @@ steps:
         past_epochs_dir="$${default_dir}/past-epochs"
         mkdir -p "$$past_epochs_dir"
         for past_epoch in $$(seq $$((epoch - past_epochs_to_check)) $$((epoch - 1))); do
-          gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" "$$past_epochs_dir/institutional-payouts-$${past_epoch}.json"
+          gcloud storage cp "$gs_bucket_institutional/$$past_epoch/institutional-payouts.json" "$$past_epochs_dir/institutional-payouts-$${past_epoch}.json"
         done
       - git clone git@github.com:marinade-finance/institutional-staking.git --branch $$BUILDKITE_BRANCH --depth 1
       - |

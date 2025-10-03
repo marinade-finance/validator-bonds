@@ -49,7 +49,7 @@ steps:
       past_epochs_dir="./past-epochs"
       mkdir -p "$$past_epochs_dir"
       for past_epoch in $$(seq $$((epoch - past_epochs_to_check)) $$((epoch - 1))); do
-        gcloud storage cp "$gs_bucket_bonds/$${epoch}/$${claim_type}-settlements.json" "$$past_epochs_dir/$${past_epoch}-$${claim_type}-settlements.json"
+        gcloud storage cp "$gs_bucket_bonds/$${past_epoch}/$${claim_type}-settlements.json" "$$past_epochs_dir/$${past_epoch}-$${claim_type}-settlements.json"
       done
     artifact_paths:
       - "./past-epochs/*.json"
@@ -64,7 +64,7 @@ steps:
       - buildkite-agent artifact download --include-retried-jobs past-epochs/*.json .
       - |
         SETTLEMENTS_COUNT=$$(jq '.settlements | length' ./settlements.json)
-        if: [[ "$$SETTLEMENTS_COUNT" -lt 1 ]]; then
+        if [[ "$$SETTLEMENTS_COUNT" -lt 1 ]]; then
           echo "No PSR settlements found in the current settlements.json, nothing to check"
           exit 0
         fi
@@ -78,7 +78,7 @@ steps:
         pnpm -r build
       - |
         pnpm cli:check check \
-          --current .settlements.json \
+          --current ./settlements.json \
           --past ./past-epochs/*.json \
           --correlation-threshold 15 \
           --score-threshold 2

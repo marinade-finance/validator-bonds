@@ -49,7 +49,7 @@ steps:
       past_epochs_dir="./past-epochs"
       mkdir -p "$$past_epochs_dir"
       for past_epoch in $$(seq $$((epoch - past_epochs_to_check)) $$((epoch - 1))); do
-        gcloud storage cp "$gs_bucket_bonds/$${epoch}/$${claim_type}-settlements.json" "$$past_epochs_dir/$${past_epoch}-$${claim_type}-settlements.json"
+        gcloud storage cp "$gs_bucket_bonds/$${past_epoch}/$${claim_type}-settlements.json" "$$past_epochs_dir/$${past_epoch}-$${claim_type}-settlements.json"
       done
     artifact_paths:
       - "./past-epochs/*.json"
