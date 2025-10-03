@@ -218,4 +218,7 @@ pub enum ErrorCode {
 
     #[msg("Settlement has been already claimed")]
     SettlementAlreadyClaimed, // 6070 0x17b6
+
+    #[msg("Stake account is not big process with withdraw or split")]
+    StakeAccountNotBigEnoughToWithdrawOrSplit, // 6071 0x17b7
 }

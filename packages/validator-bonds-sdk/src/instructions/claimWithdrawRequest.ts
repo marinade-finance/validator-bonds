@@ -3,6 +3,8 @@ import { getVoteAccount } from '@marinade.finance/web3js-1x'
 import {
   Keypair,
   PublicKey,
+  STAKE_CONFIG_ID,
+  SYSVAR_RENT_PUBKEY,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   StakeProgram,
 } from '@solana/web3.js'
@@ -148,6 +150,8 @@ export async function claimWithdrawRequestInstruction({
       splitStakeRentPayer,
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
       stakeProgram: StakeProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      stakeConfig: STAKE_CONFIG_ID,
     })
     .instruction()
   return {
