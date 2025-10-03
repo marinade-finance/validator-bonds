@@ -71,12 +71,12 @@ steps:
 
   - wait: ~
 
-  - label: ":hammer_and_wrench: :rust: Build init-settlement"
-    commands:
-    - '. "$HOME/.cargo/env"'
-    - 'cargo build --release --bin init-settlement'
-    artifact_paths:
-      - target/release/init-settlement
+  # - label: ":hammer_and_wrench: :rust: Build init-settlement"
+  #   commands:
+  #   - '. "$HOME/.cargo/env"'
+  #   - 'cargo build --release --bin init-settlement'
+  #   artifact_paths:
+  #     - target/release/init-settlement
 
   - label: ":floppy_disk: :arrow_left: :cloud: Downloading merkle trees"
     commands:
@@ -100,145 +100,152 @@ steps:
 
   - wait: ~
 
-  - block: "Confirm to get processed init settlements"
-    prompt: "Please review the 'Unblock' if ready to proceed."
-    blocked_state: running
+  - label: ":robot_face: Sanity Check Pipeline Uploader"
+    commands:
+      - |
+        claim_type=$(buildkite-agent meta-data get claim_type)
+        echo "Claim Type: '$${claim_type}'"
+      - buildkite-agent pipeline upload .buildkite/sanity-$${claim_type}.yml
 
   - wait: ~
 
-  - label: ":closed_lock_with_key: Concurrency gate lock"
-    command: echo "--> Start of concurrency gate"
-    concurrency_group: 'validator-bonds/init-settlements-${CLAIM_TYPE}'
-    concurrency: 1
+  # - label: ":closed_lock_with_key: Concurrency gate lock"
+  #   command: echo "--> Start of concurrency gate"
+  #   concurrency_group: 'validator-bonds/init-settlements-${CLAIM_TYPE}'
+  #   concurrency: 1
 
-  - wait: ~
+  # - wait: ~
 
-  - label: ":campfire::arrow_right: Create settlements"
-    env:
-      RPC_URL: "$$RPC_URL"
-      RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,init_settlement=debug
-      #  RUST_BACKTRACE: full
+  - label: "Tester"
     commands:
-    - source "$HOME/.cargo/env"
-    - epoch=$(buildkite-agent meta-data get epoch)
-    - prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))
-    - command_name='init-settlement'
-    - buildkite-agent artifact download --include-retried-jobs execution-report.$$command_name.$$prior_build_number . || true
-    - |
-      cp "execution-report.$$command_name.$$prior_build_number" "execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT" || true
-      rm -f "execution-report.$$command_name.$$prior_build_number"
-      echo "#ATTEMPT INIT SETTLEMENTS $$BUILDKITE_RETRY_COUNT" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
-    - buildkite-agent artifact download --include-retried-jobs target/release/init-settlement .
-    - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
-    - buildkite-agent artifact download --include-retried-jobs settlements.json .
-    - chmod +x target/release/init-settlement
-    - source ./scripts/execute-handlers.sh
-    - |
-      handle_command_execution "$$command_name" \
-      ./target/release/init-settlement \
-        --config $(buildkite-agent meta-data get config_pubkey) \
-        --input-merkle-tree-collection "./settlement-merkle-trees.json" \
-        --input-settlement-collection "./settlements.json" \
-        --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
-        --fee-payer "$$PSR_TX_FEE_WALLET" \
-        --rent-payer "$$PSR_RENT_PAYER_WALLET" \
-        --epoch "$$epoch"
-    key: 'init-settlement'
-    artifact_paths:
-    - "./execution-report.*"
-    retry:
-      automatic:
-        - exit_status: 100
-          limit: 5
+      - echo "Tester step"
 
-  - label: ":memo: Notification setup: Init Settlements"
-    commands:
-     - mkdir ./reports
-     - command_name='init-settlement'
-     - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name.*" ./reports/ || echo "No report ERROR" > ./reports/execution-report.$$command_name.error
-     - report_path="./reports/$(ls -v1 reports/ | tail -n 1)"
-     - cp "$$report_path" ./init-report.txt
-     - buildkite-agent meta-data set --redacted-vars='' attempts_count "$(grep -c ATTEMPT ./init-report.txt)"
-    artifact_paths:
-    - "./init-report.txt"
-    key: 'notification-setup-init'
-    depends_on: "init-settlement"
-    allow_dependency_failure: true
+  # - label: ":campfire::arrow_right: Create settlements"
+  #   env:
+  #     RPC_URL: "$$RPC_URL"
+  #     RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,init_settlement=debug
+  #     #  RUST_BACKTRACE: full
+  #   commands:
+  #   - source "$HOME/.cargo/env"
+  #   - epoch=$(buildkite-agent meta-data get epoch)
+  #   - prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))
+  #   - command_name='init-settlement'
+  #   - buildkite-agent artifact download --include-retried-jobs execution-report.$$command_name.$$prior_build_number . || true
+  #   - |
+  #     cp "execution-report.$$command_name.$$prior_build_number" "execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT" || true
+  #     rm -f "execution-report.$$command_name.$$prior_build_number"
+  #     echo "#ATTEMPT INIT SETTLEMENTS $$BUILDKITE_RETRY_COUNT" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
+  #   - buildkite-agent artifact download --include-retried-jobs target/release/init-settlement .
+  #   - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
+  #   - buildkite-agent artifact download --include-retried-jobs settlements.json .
+  #   - chmod +x target/release/init-settlement
+  #   - source ./scripts/execute-handlers.sh
+  #   - |
+  #     handle_command_execution "$$command_name" \
+  #     ./target/release/init-settlement \
+  #       --config $(buildkite-agent meta-data get config_pubkey) \
+  #       --input-merkle-tree-collection "./settlement-merkle-trees.json" \
+  #       --input-settlement-collection "./settlements.json" \
+  #       --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
+  #       --fee-payer "$$PSR_TX_FEE_WALLET" \
+  #       --rent-payer "$$PSR_RENT_PAYER_WALLET" \
+  #       --epoch "$$epoch"
+  #   key: 'init-settlement'
+  #   artifact_paths:
+  #   - "./execution-report.*"
+  #   retry:
+  #     automatic:
+  #       - exit_status: 100
+  #         limit: 5
 
-  - wait: ~
+  # - label: ":memo: Notification setup: Init Settlements"
+  #   commands:
+  #    - mkdir ./reports
+  #    - command_name='init-settlement'
+  #    - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name.*" ./reports/ || echo "No report ERROR" > ./reports/execution-report.$$command_name.error
+  #    - report_path="./reports/$(ls -v1 reports/ | tail -n 1)"
+  #    - cp "$$report_path" ./init-report.txt
+  #    - buildkite-agent meta-data set --redacted-vars='' attempts_count "$(grep -c ATTEMPT ./init-report.txt)"
+  #   artifact_paths:
+  #   - "./init-report.txt"
+  #   key: 'notification-setup-init'
+  #   depends_on: "init-settlement"
+  #   allow_dependency_failure: true
 
-  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Init Settlements"
-    commands:
-    - epoch=$(buildkite-agent meta-data get epoch)
-    - claim_type=$(buildkite-agent meta-data get claim_type)
-    - buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt
-    - gcloud storage cp ./init-report.txt "$gs_bucket/$$epoch/buildkite/$${claim_type}-init-settlement-report.$(date +%s).txt"
-    depends_on: "notification-setup-init"
-    allow_dependency_failure: true
+  # - wait: ~
 
-  - label: ":mega: Notification :fast_forward: Monitoring Initialize Settlements"
-    commands:
-    - buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt
-    - cat ./init-report.txt
-    - echo "--------------------------------------------"
-    - source ./scripts/execute-handlers.sh
-    - check_command_execution_status "init-settlement" || true
-    - epoch=$(buildkite-agent meta-data get epoch)
-    - slack_feed=$(buildkite-agent meta-data get slack_feed)
-    - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
-    - claim_type=$(buildkite-agent meta-data get claim_type)
-    - config_pubkey=$(buildkite-agent meta-data get config_pubkey)
-    - |
-      curl $SLACK_API -X POST -H 'Content-Type: application/json; charset=utf-8' \
-        -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
-        "channel": "'"$$slack_feed"'",
-        "attachments": [
-          {
-            "color": "'"$$notification_color"'",
-            "title": "Init Settlements ('"$$claim_type"'): '"$$notification_result"'",
-            "title_link": "'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'",
-            "text": "Claim type: '"$$claim_type"'/'"$$config_pubkey"', init Settlements ('"$$epoch"') after '"$$attempts_count"' attempts",
-            "footer": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>"
-          }
-        ]
-      }'
-    depends_on: "notification-setup-init"
-    allow_dependency_failure: true
-    if: "build.env('NOTIFY_FEED') == 'true'"
+  # - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Init Settlements"
+  #   commands:
+  #   - epoch=$(buildkite-agent meta-data get epoch)
+  #   - claim_type=$(buildkite-agent meta-data get claim_type)
+  #   - buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt
+  #   - gcloud storage cp ./init-report.txt "$gs_bucket/$$epoch/buildkite/$${claim_type}-init-settlement-report.$(date +%s).txt"
+  #   depends_on: "notification-setup-init"
+  #   allow_dependency_failure: true
 
-  - label: ":mega: Notification :fast_forward: Discord PSR feed"
-    commands:
-    - claim_type=$(buildkite-agent meta-data get claim_type)
-    - epoch=$(buildkite-agent meta-data get epoch)
+  # - label: ":mega: Notification :fast_forward: Monitoring Initialize Settlements"
+  #   commands:
+  #   - buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt
+  #   - cat ./init-report.txt
+  #   - echo "--------------------------------------------"
+  #   - source ./scripts/execute-handlers.sh
+  #   - check_command_execution_status "init-settlement" || true
+  #   - epoch=$(buildkite-agent meta-data get epoch)
+  #   - slack_feed=$(buildkite-agent meta-data get slack_feed)
+  #   - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
+  #   - claim_type=$(buildkite-agent meta-data get claim_type)
+  #   - config_pubkey=$(buildkite-agent meta-data get config_pubkey)
+  #   - |
+  #     curl $SLACK_API -X POST -H 'Content-Type: application/json; charset=utf-8' \
+  #       -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
+  #       "channel": "'"$$slack_feed"'",
+  #       "attachments": [
+  #         {
+  #           "color": "'"$$notification_color"'",
+  #           "title": "Init Settlements ('"$$claim_type"'): '"$$notification_result"'",
+  #           "title_link": "'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'",
+  #           "text": "Claim type: '"$$claim_type"'/'"$$config_pubkey"', init Settlements ('"$$epoch"') after '"$$attempts_count"' attempts",
+  #           "footer": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>"
+  #         }
+  #       ]
+  #     }'
+  #   depends_on: "notification-setup-init"
+  #   allow_dependency_failure: true
+  #   if: "build.env('NOTIFY_FEED') == 'true'"
 
-    - gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-discord-public-report.txt" "./discord-public-report.txt"
-    - |
-      split_command=$(which split >&2 > /dev/null && echo "split" || echo "gsplit")
-      # discord max message length is 2000 characters
-      $$split_command -C 2000 "./discord-public-report.txt" './discord-public-report.txt.chunk-'
-      for report_chunk in './discord-public-report.txt.chunk-'*; do
-        report=$(cat "$$report_chunk")
-        curl "$$DISCORD_WEBHOOK_PSR_FEED" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": null, "attachments": []}')"
-      done
-    depends_on: "notification-setup-init"
-    allow_dependency_failure: true
-    if: "build.env('NOTIFY_DISCORD_FEED') == 'true'"
+  # - label: ":mega: Notification :fast_forward: Discord PSR feed"
+  #   commands:
+  #   - claim_type=$(buildkite-agent meta-data get claim_type)
+  #   - epoch=$(buildkite-agent meta-data get epoch)
 
-  - wait: ~
-    continue_on_failure: true
+  #   - gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-discord-public-report.txt" "./discord-public-report.txt"
+  #   - |
+  #     split_command=$(which split >&2 > /dev/null && echo "split" || echo "gsplit")
+  #     # discord max message length is 2000 characters
+  #     $$split_command -C 2000 "./discord-public-report.txt" './discord-public-report.txt.chunk-'
+  #     for report_chunk in './discord-public-report.txt.chunk-'*; do
+  #       report=$(cat "$$report_chunk")
+  #       curl "$$DISCORD_WEBHOOK_PSR_FEED" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": null, "attachments": []}')"
+  #     done
+  #   depends_on: "notification-setup-init"
+  #   allow_dependency_failure: true
+  #   if: "build.env('NOTIFY_DISCORD_FEED') == 'true'"
 
-  - label: ":gear: Upload and get running fund-settlements pipeline"
-    commands:
-      # NOTE: there is no way easily to define env variable in upload step
-      #       if needed in future, it is needed to generate dynamically new pipeline or use trigger
-      - "echo Claim Type: '${CLAIM_TYPE}'"
-      - buildkite-agent pipeline upload .buildkite/fund-settlements.yml
-    depends_on: "init-settlement"
-    allow_dependency_failure: true
+  # - wait: ~
+  #   continue_on_failure: true
 
-  - wait: ~
+  # - label: ":gear: Upload and get running fund-settlements pipeline"
+  #   commands:
+  #     # NOTE: there is no way easily to define env variable in upload step
+  #     #       if needed in future, it is needed to generate dynamically new pipeline or use trigger
+  #     - "echo Claim Type: '${CLAIM_TYPE}'"
+  #     - buildkite-agent pipeline upload .buildkite/fund-settlements.yml
+  #   depends_on: "init-settlement"
+  #   allow_dependency_failure: true
 
-  - label: ":unlock: Concurrency gate unlock"
-    command: echo "End of concurrency gate <--"
-    concurrency_group: 'validator-bonds/init-settlements-${CLAIM_TYPE}'
-    concurrency: 1
+  # - wait: ~
+
+  # - label: ":unlock: Concurrency gate unlock"
+  #   command: echo "End of concurrency gate <--"
+  #   concurrency_group: 'validator-bonds/init-settlements-${CLAIM_TYPE}'
+  #   concurrency: 1
