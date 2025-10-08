@@ -3722,6 +3722,11 @@ export type ValidatorBonds = {
           "name": "index",
           "type": "u64",
           "index": false
+        },
+        {
+          "name": "settlementEpoch",
+          "type": "u64",
+          "index": false
         }
       ]
     },
@@ -3861,6 +3866,11 @@ export type ValidatorBonds = {
           "name": "currentEpoch",
           "type": "u64",
           "index": false
+        },
+        {
+          "name": "settlementEpoch",
+          "type": "u64",
+          "index": false
         }
       ]
     },
@@ -3935,6 +3945,11 @@ export type ValidatorBonds = {
           "name": "authority",
           "type": "publicKey",
           "index": false
+        },
+        {
+          "name": "settlementEpoch",
+          "type": "u64",
+          "index": false
         }
       ]
     },
@@ -3994,6 +4009,11 @@ export type ValidatorBonds = {
         },
         {
           "name": "splitRentAmount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "settlementEpoch",
           "type": "u64",
           "index": false
         }
@@ -8364,6 +8384,11 @@ export const IDL: ValidatorBonds = {
           "name": "index",
           "type": "u64",
           "index": false
+        },
+        {
+          "name": "settlementEpoch",
+          "type": "u64",
+          "index": false
         }
       ]
     },
@@ -8503,6 +8528,11 @@ export const IDL: ValidatorBonds = {
           "name": "currentEpoch",
           "type": "u64",
           "index": false
+        },
+        {
+          "name": "settlementEpoch",
+          "type": "u64",
+          "index": false
         }
       ]
     },
@@ -8577,6 +8607,11 @@ export const IDL: ValidatorBonds = {
           "name": "authority",
           "type": "publicKey",
           "index": false
+        },
+        {
+          "name": "settlementEpoch",
+          "type": "u64",
+          "index": false
         }
       ]
     },
@@ -8636,6 +8671,11 @@ export const IDL: ValidatorBonds = {
         },
         {
           "name": "splitRentAmount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "settlementEpoch",
           "type": "u64",
           "index": false
         }
