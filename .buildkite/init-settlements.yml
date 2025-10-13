@@ -100,9 +100,12 @@ steps:
 
   - wait: ~
 
-  - block: "Confirm to get processed init settlements"
-    prompt: "Please review the 'Unblock' if ready to proceed."
-    blocked_state: running
+  - label: ":robot_face: Sanity Check Pipeline Uploader"
+    commands:
+      - |
+        claim_type=$(buildkite-agent meta-data get claim_type)
+        echo "Claim Type: '$${claim_type}'"
+      - buildkite-agent pipeline upload .buildkite/sanity-$${claim_type}.yml
 
   - wait: ~
 
