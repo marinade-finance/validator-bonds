@@ -46,7 +46,7 @@ steps:
         pnpm cli:check check \
           --current "$$current_epoch_dir"/*.json \
           --past "$$past_epochs_dir"/*.json \
-          --correlation-threshold 15 \
+          --correlation-threshold 0.15 \
           --score-threshold 2
     soft_fail:
       - exit_status: "*"
