@@ -4,7 +4,6 @@ env:
   gs_bucket_institutional: gs://marinade-institutional-staking-mainnet
   institutional_staking_api: "https://institutional-staking.marinade.finance/v1/validators"
   past_epochs_to_check: 10
-  PIPELINES_AUTO_APPROVAL: "false" # remove when verified to be stable
 
 steps:
   - label: ":black_nib: Env variables setup: Sanity Institutional"
