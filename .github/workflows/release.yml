@@ -1,0 +1,58 @@
+name: Release
+# Creates GitHub Release on tag push (e.g., v1.0.0) or manual trigger (attaches built packages as artifacts)
+# This workflow does not publish to npm. For npm release: run `pnpm publish:all` locally
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version in format 'v1.0.0'"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🏃‍♂️‍➡️ Checkout project
+        uses: actions/checkout@v4
+
+      - name: 👩‍🔧 Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: 👨‍🔧 Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: 🏋️ Install and 🔨 build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          pnpm -r pack
+
+      - name: 🔮 Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🎉 Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: '*.tgz'
+          generateReleaseNotes: true
+          tag: ${{ steps.tag.outputs.tag }}
+          token: ${{ secrets.GITHUB_TOKEN }}
