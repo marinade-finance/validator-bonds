@@ -22,7 +22,7 @@ steps:
 
   - wait: ~
 
-  - label: ":black_nib: Env variables setup: Parse Snapshot"
+  - label: ":black_nib: Env variables setup: Copy Parsed Snapshot"
     commands:
     - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
     - buildkite-agent meta-data set --redacted-vars='' epoch "$$epoch"

@@ -1,0 +1,50 @@
+{
+  "name": "@marinade.finance/validator-bonds-sanity-check",
+  "version": "1.0.0",
+  "description": "CLI for sanity checking validator bonds data",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:marinade-finance/validator-bonds.git"
+  },
+  "bin": {
+    "validator-bonds-sanity-check": "./dist/index.js"
+  },
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "solana",
+    "marinade.finance",
+    "staking",
+    "delegation"
+  ],
+  "files": [
+    "dist/",
+    "!dist/src/__tests__",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "pretest": "node -e \"if (process.versions.node.split('.')[0] < 20) { console.error('Node.js 20 or higher is required for running tests (crypto module is in use)'); process.exit(1); }\"",
+    "cli": "pnpm ts-node ./src/"
+  },
+  "dependencies": {
+    "class-transformer": "0.5.1",
+    "class-validator": "0.14.2",
+    "commander": "14.0.1",
+    "decimal.js": "10.6.0",
+    "@marinade.finance/ts-common": "4.1.2",
+    "@marinade.finance/cli-common": "4.1.2",
+    "@marinade.finance/web3js-1x": "4.1.2",
+    "pino": "9.9.5",
+    "pino-pretty": "13.1.1",
+    "reflect-metadata": "0.2.2",
+    "@solana/web3.js": "1.98.4",
+    "yaml": "2.8.1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

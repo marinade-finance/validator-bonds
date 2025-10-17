@@ -40,7 +40,7 @@ steps:
 
   - wait: ~
 
-  - label: ":black_nib: Env variables setup"
+  - label: ":black_nib: Env variables setup: Prepare Institutional Distribution"
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}

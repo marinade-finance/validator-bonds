@@ -30,7 +30,7 @@ steps:
 
   - wait: ~
 
-  - label: ":black_nib: Env variables setup: Init Settlements"
+  - label: ":black_nib: Env variables setup: Init Settlements ${CLAIM_TYPE}/${EPOCH}"
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
@@ -90,7 +90,7 @@ steps:
       - "./settlement-merkle-trees.json"
       - "./settlements.json"
 
-  - label: ":black_nib: Settlement JSON listing"
+  - label: ":spiral_note_pad: :school_satchel:  Settlement JSON listing"
     commands:
      - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
      - buildkite-agent artifact download --include-retried-jobs settlements.json .

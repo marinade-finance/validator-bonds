@@ -41,7 +41,7 @@ steps:
 
   - wait: ~
 
-  - label: ":black_nib: Env variables setup"
+  - label: ":black_nib: Env variables setup: Prepare Bid Distribution"
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
