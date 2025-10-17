@@ -1,6 +1,11 @@
 import assert from 'assert'
 
-import { ExecutionError, pubkey, signer } from '@marinade.finance/web3js-1x'
+import {
+  ExecutionError,
+  getVoteAccountFromData,
+  pubkey,
+  signer,
+} from '@marinade.finance/web3js-1x'
 import {
   Authorized,
   Keypair,
@@ -200,6 +205,45 @@ export async function createVoteAccount({
     validatorIdentity,
     authorizedVoter,
     authorizedWithdrawer,
+  }
+}
+
+export async function removeVoteAccount({
+  provider,
+  voteAccount,
+  authorizedWithdrawer,
+  toPubkey = authorizedWithdrawer.publicKey,
+}: {
+  provider: ExtendedProvider
+  voteAccount: PublicKey
+  authorizedWithdrawer: Keypair
+  toPubkey?: PublicKey
+}): Promise<{
+  voteAccount: PublicKey
+  authorizedWithdrawer: Keypair
+  toPubkey: PublicKey
+  lamports: number
+}> {
+  const voteAccountInfo = await provider.connection.getAccountInfo(voteAccount)
+  const voteAccountData = getVoteAccountFromData(
+    voteAccount,
+    voteAccountInfo as AccountInfo<Buffer>,
+  )
+  const lamports = voteAccountData.account.lamports
+
+  const ixWithdraw = VoteProgram.withdraw({
+    votePubkey: voteAccount,
+    authorizedWithdrawerPubkey: authorizedWithdrawer.publicKey,
+    toPubkey,
+    lamports,
+  })
+
+  await provider.sendIx([authorizedWithdrawer], ixWithdraw)
+  return {
+    voteAccount: voteAccount,
+    authorizedWithdrawer,
+    toPubkey,
+    lamports,
   }
 }
 
