@@ -32,7 +32,7 @@
     "test": "pnpm test:bankrun && pnpm test:validator"
   },
   "devDependencies": {
-    "@coral-xyz/anchor": "0.29.0",
+    "@coral-xyz/anchor": "0.32.1",
     "@marinade.finance/marinade-ts-sdk": "5.0.15",
     "@marinade.finance/anchor-common": "4.1.2",
     "@marinade.finance/ts-common": "4.1.2",
@@ -45,18 +45,18 @@
     "@solana/web3.js": "1.98.4",
     "crypto-js": "4.2.0",
     "@types/crypto-js": "4.2.1",
-    "anchor-bankrun": "0.2.0",
+    "anchor-bankrun": "0.5.0",
     "bn.js": "5.2.2",
     "borsh": "0.7.0",
     "jsbi": "4.3.2",
-    "solana-bankrun": "0.2.0",
+    "solana-bankrun": "0.4.0",
     "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
     "@metaplex-foundation/mpl-token-metadata": "3.2.0",
     "class-transformer": "0.5.1",
     "reflect-metadata": "0.2.2"
   },
   "peerDependencies": {
-    "@coral-xyz/anchor": "^0.29.0",
+    "@coral-xyz/anchor": "^0.32.1",
     "@solana/web3.js": "^1.98.4",
     "@marinade.finance/ts-common": "^4.1.2",
     "@marinade.finance/web3js-1x": "^4.1.2",

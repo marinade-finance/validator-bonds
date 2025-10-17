@@ -9,7 +9,7 @@ use bid_psr_distribution::settlement_config::stake_authorities_filter;
 use bid_psr_distribution::stake_meta_index::StakeMetaIndex;
 use bid_psr_distribution::utils::{file_error, read_from_json_file, write_to_json_file};
 use env_logger::{Builder, Env};
-use snapshot_parser_types::stake_meta::StakeMetaCollection;
+use snapshot_parser_validator_cli::stake_meta::StakeMetaCollection;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashSet;
 use {clap::Parser, log::info};

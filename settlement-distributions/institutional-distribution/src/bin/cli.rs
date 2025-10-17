@@ -7,7 +7,7 @@ use institutional_distribution::settlement_config::{
     ConfigParams, InstitutionalDistributionConfig,
 };
 use institutional_distribution::settlement_generator::generate_institutional_settlement_collection;
-use snapshot_parser_types::stake_meta::StakeMetaCollection;
+use snapshot_parser_validator_cli::stake_meta::StakeMetaCollection;
 use solana_sdk::pubkey::Pubkey;
 use {clap::Parser, log::info};
 

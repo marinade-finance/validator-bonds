@@ -11,7 +11,7 @@ use bid_psr_distribution::{
     utils::{read_from_json_file, write_to_json_file},
 };
 use env_logger::{Builder, Env};
-use snapshot_parser_types::{
+use snapshot_parser_validator_cli::{
     stake_meta::StakeMetaCollection, validator_meta::ValidatorMetaCollection,
 };
 use solana_sdk::pubkey::Pubkey;

@@ -10,7 +10,7 @@ use {
     log::{debug, info},
     merkle_tree::serde_serialize::pubkey_string_conversion,
     serde::{Deserialize, Serialize},
-    snapshot_parser_types::validator_meta::{ValidatorMeta, ValidatorMetaCollection},
+    snapshot_parser_validator_cli::validator_meta::{ValidatorMeta, ValidatorMetaCollection},
     solana_sdk::pubkey::Pubkey,
     std::collections::HashMap,
 };

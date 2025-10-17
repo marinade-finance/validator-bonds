@@ -179,7 +179,7 @@ mod tests {
     };
     use std::collections::HashSet;
 
-    use snapshot_parser_types::stake_meta::StakeMetaCollection;
+    use snapshot_parser_validator_cli::stake_meta::StakeMetaCollection;
     use solana_sdk::pubkey::Pubkey;
     use std::fs::File;
     use std::io::BufReader;

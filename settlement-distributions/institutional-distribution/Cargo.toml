@@ -16,7 +16,7 @@ log = { workspace = true }
 merkle-tree = { workspace = true }
 rust_decimal = { workspace = true }
 serde = { workspace = true }
-snapshot-parser-types = { workspace = true }
+snapshot-parser-validator-cli = { workspace = true }
 solana-sdk = { workspace = true }
 
 [dev-dependencies]
