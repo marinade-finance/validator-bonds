@@ -24,6 +24,10 @@ done
 
 ### 2) Running the sanity check
 
+Verification of settlement file of the upcoming calculated epoch against
+past epochs settlement files to detect anomalies in number of claims,
+distribution amounts and claimed amounts per validator.
+
 ```bash
 pnpm cli:check check -c "$DIR/${epoch}-bid-distribution-settlements.json" \
   -p "$DIR/!(${epoch})-bid-distribution-settlements.json" \
@@ -34,6 +38,10 @@ pnpm cli:check check -c "$DIR"/857-bid-psr-distribution-settlements.json \
 ```
 
 ### 3) Verification of settlements and merkle tree consistency
+
+Load settlement and merkle tree files for a given epoch and run consistency check
+that involves base verification that number of settlements and claimed amounts
+match those recorded in the merkle tree file.
 
 ```bash
 epoch=857

@@ -98,8 +98,8 @@ importers:
         specifier: npm:@solana/spl-token@^0.3.11
         version: '@solana/spl-token@0.3.11(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'
       yaml:
-        specifier: 2.8.0
-        version: 2.8.0
+        specifier: 2.8.1
+        version: 2.8.1
     devDependencies:
       '@marinade.finance/jest-shell-matcher':
         specifier: 1.1.1
@@ -159,8 +159,8 @@ importers:
         specifier: npm:@solana/spl-token@^0.3.11
         version: '@solana/spl-token@0.3.11(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'
       yaml:
-        specifier: 2.8.0
-        version: 2.8.0
+        specifier: 2.8.1
+        version: 2.8.1
 
   packages/validator-bonds-cli-institutional:
     dependencies:
@@ -213,8 +213,8 @@ importers:
         specifier: npm:@solana/spl-token@^0.3.11
         version: '@solana/spl-token@0.3.11(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'
       yaml:
-        specifier: 2.8.0
-        version: 2.8.0
+        specifier: 2.8.1
+        version: 2.8.1
     devDependencies:
       '@marinade.finance/jest-shell-matcher':
         specifier: 1.1.1
@@ -261,6 +261,9 @@ importers:
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2
+      yaml:
+        specifier: 2.8.1
+        version: 2.8.1
 
   packages/validator-bonds-sdk:
     dependencies:
@@ -383,8 +386,8 @@ importers:
         specifier: npm:@solana/spl-token@^0.3.11
         version: '@solana/spl-token@0.3.11(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'
       yaml:
-        specifier: 2.8.0
-        version: 2.8.0
+        specifier: 2.8.1
+        version: 2.8.1
 
 packages:
 
@@ -3884,11 +3887,6 @@ packages:
 
   yallist@3.1.1:
     resolution: {integrity: sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g==}
-
-  yaml@2.8.0:
-    resolution: {integrity: sha512-4lLa/EcQCB0cJkyts+FpIRx5G/llPxfP6VQU5KByHEhLxY3IJCH0f0Hy1MHI8sClTvsIb8qwRJ6R/ZdlDJ/leQ==}
-    engines: {node: '>= 14.6'}
-    hasBin: true
 
   yaml@2.8.1:
     resolution: {integrity: sha512-lcYcMxX2PO9XMGvAJkJ3OsNMw+/7FKes7/hgerGUYWIoWu5j/+YQqcZr5JnPZWzOsEBgMbSbiSTn/dv/69Mkpw==}
@@ -8336,8 +8334,6 @@ snapshots:
   y18n@5.0.8: {}
 
   yallist@3.1.1: {}
-
-  yaml@2.8.0: {}
 
   yaml@2.8.1: {}
 

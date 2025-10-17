@@ -1,8 +1,7 @@
 import { CliCommandError } from '@marinade.finance/cli-common'
-import { loadFile } from '@marinade.finance/ts-common'
+import { DECIMAL_ZERO, getContext, loadFile } from '@marinade.finance/ts-common'
 import Decimal from 'decimal.js'
 
-import { getCliContext } from '../context'
 import { parseSettlementMerkleTree } from '../dtoMerkleTree'
 import { parseSettlements } from '../dtoSettlements'
 
@@ -19,59 +18,49 @@ export function installCheckSettlement(program: Command) {
       '-m, --merkle-trees <path>',
       'Path to settlement-merkle-trees.json file',
     )
-    .action(
-      async ({
-        settlements,
-        merkleTrees,
-      }: {
-        settlements: string
-        merkleTrees: string
-      }) => {
-        await manageCheckSettlement({
-          settlementsPath: settlements,
-          merkleTreesPath: merkleTrees,
-        })
-      },
-    )
+    .action(manageCheckSettlement)
 }
 
 async function manageCheckSettlement({
-  settlementsPath,
-  merkleTreesPath,
+  settlements,
+  merkleTrees,
 }: {
-  settlementsPath: string
-  merkleTreesPath: string
+  settlements: string
+  merkleTrees: string
 }) {
-  const { logger } = getCliContext()
+  const { logger } = getContext()
   logger.info(
-    `Loading settlement and merkle tree files [${settlementsPath}, ${merkleTreesPath}]`,
+    `Loading settlement and merkle tree files [${settlements}, ${merkleTrees}]`,
   )
 
-  const settlementsData = await loadFile(settlementsPath)
-  const merkleTreesData = await loadFile(merkleTreesPath)
+  const settlementsData = await loadFile(settlements)
+  const merkleTreesData = await loadFile(merkleTrees)
 
-  const settlements = await parseSettlements(settlementsData, settlementsPath)
-  const merkleTrees = await parseSettlementMerkleTree(
+  const settlementsDto = await parseSettlements(
+    settlementsData,
+    settlementsData,
+  )
+  const merkleTreesDto = await parseSettlementMerkleTree(
     merkleTreesData,
-    merkleTreesPath,
+    merkleTreesData,
   )
 
   logger.debug(
-    `Loaded settlements from ${settlementsPath} and merkle trees from ${merkleTreesPath}`,
+    `Loaded settlements from ${settlements} and merkle trees from ${merkleTrees}`,
   )
 
   // Check 0: Epoch comparison
-  if (settlements.epoch !== merkleTrees.epoch) {
+  if (settlementsDto.epoch !== merkleTreesDto.epoch) {
     throw CliCommandError.instance(
-      `Mismatch in epochs: Settlements(${settlements.epoch}) vs Merkle Trees(${merkleTrees.epoch})`,
+      `Mismatch in epochs: Settlements(${settlementsDto.epoch}) vs Merkle Trees(${merkleTreesDto.epoch})`,
     )
   } else {
-    logger.info(`Epochs match: ${settlements.epoch}`)
+    logger.info(`Epochs match: ${settlementsDto.epoch}`)
   }
 
   // Check 1: Count comparison
-  const settlementsCount = settlements.settlements.length
-  const merkleTreesCount = merkleTrees.merkle_trees.length
+  const settlementsCount = settlementsDto.settlements.length
+  const merkleTreesCount = merkleTreesDto.merkle_trees.length
   if (settlementsCount !== merkleTreesCount) {
     throw CliCommandError.instance(
       `Mismatch in number of settlements and merkle tree count: Settlements(${settlementsCount}) vs Merkle Trees(${merkleTreesCount})`,
@@ -80,19 +69,21 @@ async function manageCheckSettlement({
   logger.info(`✓ Count [${settlementsCount}] check passed`)
 
   // Check 2: Sum comparison
-  const settlementsSum = settlements.settlements.reduce((total, settlement) => {
-    const settlementSum = settlement.claims.reduce(
-      (sum, claim) => sum.plus(claim.claim_amount),
-      new Decimal(0),
-    )
-    return total.plus(settlementSum)
-  }, new Decimal(0))
-
-  const merkleTreesSum = merkleTrees.merkle_trees.reduce(
-    (total, tree) => total.plus(new Decimal(tree.max_total_claim_sum)),
-    new Decimal(0),
+  const settlementsSum = settlementsDto.settlements.reduce(
+    (total, settlement) => {
+      const settlementSum = settlement.claims.reduce(
+        (sum, claim) => sum.plus(claim.claim_amount),
+        DECIMAL_ZERO,
+      )
+      return total.plus(settlementSum)
+    },
+    DECIMAL_ZERO,
   )
 
+  const merkleTreesSum = merkleTreesDto.merkle_trees.reduce(
+    (total, tree) => total.plus(new Decimal(tree.max_total_claim_sum)),
+    DECIMAL_ZERO,
+  )
   logger.info(
     `Settlements sum: ${settlementsSum.toString()}, Merkle trees sum: ${merkleTreesSum.toString()}`,
   )

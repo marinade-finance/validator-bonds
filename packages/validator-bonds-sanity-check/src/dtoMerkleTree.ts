@@ -5,12 +5,11 @@ import {
   IsBigInt,
   parseAndValidate,
 } from '@marinade.finance/cli-common'
+import { getContext } from '@marinade.finance/ts-common'
 import { IsPublicKey } from '@marinade.finance/web3js-1x'
 import { PublicKey } from '@solana/web3.js'
 import { Expose, Transform, Type } from 'class-transformer'
 import { ValidateNested, IsPositive, IsNumber } from 'class-validator'
-
-import { getCliContext } from './context'
 
 export class TreeNode {
   @Expose()
@@ -96,7 +95,7 @@ export async function parseSettlementMerkleTree(
   inputJson: string,
   path?: string,
 ): Promise<SettlementMerkleTreesDto> {
-  const { logger } = getCliContext()
+  const { logger } = getContext()
   try {
     const { data: merkleTreeData } =
       await parseAndValidate<SettlementMerkleTreesDto>(

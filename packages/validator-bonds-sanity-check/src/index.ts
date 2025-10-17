@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import { pinoConfiguration } from '@marinade.finance/ts-common'
+import { CLIContext } from '@marinade.finance/cli-common'
+import { pinoConfiguration, setContext } from '@marinade.finance/ts-common'
 import { Command } from 'commander'
 import pino from 'pino'
 import 'reflect-metadata'
 
 import { installCommands } from './commands'
-import { SanityCheckCLIContext as Context } from './context'
 
 export const logger = pino(pinoConfiguration('info'), pino.destination())
 logger.level = 'debug'
@@ -29,10 +29,12 @@ program
       logger.level = 'info' // default level
     }
 
-    Context.define({
-      logger,
-      commandName: action.name(),
-    })
+    setContext(
+      new CLIContext({
+        logger,
+        commandName: action.name(),
+      }),
+    )
   })
 
 installCommands(program)

@@ -1,10 +1,13 @@
 import { CliCommandError } from '@marinade.finance/cli-common'
-import { loadFile, loadFileOrDirectory } from '@marinade.finance/ts-common'
+import {
+  getContext,
+  loadFile,
+  loadFileOrDirectory,
+} from '@marinade.finance/ts-common'
 import { Option } from 'commander'
 import Decimal from 'decimal.js'
 
 import { reportAnomalies } from '../anomalyDetector'
-import { getCliContext } from '../context'
 import { parseSettlements } from '../dtoSettlements'
 
 import type { Command } from 'commander'
@@ -45,45 +48,23 @@ export function installCheck(program: Command) {
         .choices(Object.values(ProcessingType))
         .default(ProcessingType.BID),
     )
-    .action(
-      async ({
-        current,
-        past,
-        correlationThreshold,
-        scoreThreshold,
-        type,
-      }: {
-        current: string
-        past: string[]
-        correlationThreshold: Decimal
-        scoreThreshold: Decimal
-        type: ProcessingType
-      }) => {
-        await manageCheck({
-          currentPath: current,
-          pastPaths: past,
-          correlationThreshold,
-          scoreThreshold,
-          type,
-        })
-      },
-    )
+    .action(manageCheck)
 }
 
 async function manageCheck({
-  currentPath,
-  pastPaths,
+  current,
+  past,
   correlationThreshold,
   scoreThreshold,
   type,
 }: {
-  currentPath: string
-  pastPaths: string[]
+  current: string
+  past: string[]
   correlationThreshold: Decimal
   scoreThreshold: Decimal
   type: ProcessingType
 }) {
-  const { logger } = getCliContext()
+  const { logger } = getContext()
 
   if (correlationThreshold.lt(0) || correlationThreshold.gt(1)) {
     throw CliCommandError.instance(
@@ -96,20 +77,18 @@ async function manageCheck({
     )
   }
 
-  const currentData = await loadFile(currentPath)
+  const currentData = await loadFile(current)
 
   const pastData = (
-    await Promise.all(pastPaths.map(path => loadFileOrDirectory(path)))
+    await Promise.all(past.map(path => loadFileOrDirectory(path)))
   ).flat()
   logger.debug(
-    `Successfully loaded current data (${currentPath}) and past data files (${pastPaths.join(', ')})`,
+    `Successfully loaded current data (${current}) and past data files (${past.join(', ')})`,
   )
 
-  const currentSettlements = await parseSettlements(currentData, currentPath)
+  const currentSettlements = await parseSettlements(currentData, current)
   const historicalSettlements = await Promise.all(
-    pastData.map(async (data, index) =>
-      parseSettlements(data, pastPaths[index]),
-    ),
+    pastData.map(async (data, index) => parseSettlements(data, past[index])),
   )
 
   logger.info('Starting anomaly detection...')

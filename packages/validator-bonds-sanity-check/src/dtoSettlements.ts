@@ -5,6 +5,7 @@ import {
   IsBigInt,
   parseAndValidate,
 } from '@marinade.finance/cli-common'
+import { getContext } from '@marinade.finance/ts-common'
 import { IsPublicKey } from '@marinade.finance/web3js-1x'
 import { PublicKey } from '@solana/web3.js'
 import { Expose, Transform, Type } from 'class-transformer'
@@ -18,8 +19,6 @@ import {
   IsOptional,
   IsEnum,
 } from 'class-validator'
-
-import { getCliContext } from './context'
 
 enum FunderType {
   ValidatorBond = 'ValidatorBond',
@@ -198,7 +197,7 @@ export async function parseSettlements(
   inputJson: string,
   path?: string,
 ): Promise<SettlementsDto> {
-  const { logger } = getCliContext()
+  const { logger } = getContext()
   try {
     const { data: settlements } = await parseAndValidate<SettlementsDto>(
       inputJson,

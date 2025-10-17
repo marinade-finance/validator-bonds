@@ -1,12 +1,14 @@
+import { CliCommandError } from '@marinade.finance/cli-common'
 import {
   CONSOLE_LOG,
+  DECIMAL_ZERO,
   calculateDescriptiveStats,
   detectAnomaly,
   jsonStringify,
   logDebug,
-  logWarn,
 } from '@marinade.finance/ts-common'
 import Decimal from 'decimal.js'
+import YAML from 'yaml'
 
 import { ProcessingType } from './commands/check'
 
@@ -50,7 +52,7 @@ function transform(dto: SettlementsDto): EpochData {
       ? new Decimal(totalClaims.toString())
           .div(dto.settlements.length)
           .toDecimalPlaces(0, Decimal.ROUND_DOWN)
-      : new Decimal(0),
+      : DECIMAL_ZERO,
   }
 }
 
@@ -78,8 +80,7 @@ function detectAnomalies({
   logger?: LoggerPlaceholder
 }): StatsCalculation[] {
   if (historicalSettlements.length < 3) {
-    logWarn(
-      logger,
+    throw CliCommandError.instance(
       'Not enough historical data for reliable anomaly detection, please provide at least 3 epochs.',
     )
   }
@@ -190,8 +191,8 @@ export function reportAnomalies({
   currentSettlements,
   historicalSettlements,
   type,
-  scoreThreshold = new Decimal(2.0), // working with z-score like threshold
-  correlationThreshold = new Decimal(0.15), // working with percentage ratio
+  scoreThreshold = new Decimal('2.0'), // working with z-score like threshold
+  correlationThreshold = new Decimal('0.15'), // working with percentage ratio
   logger = CONSOLE_LOG,
 }: {
   currentSettlements: SettlementsDto
@@ -223,9 +224,10 @@ export function reportAnomalies({
     const anomalyString = stat.isAnomaly ? '⛔' : '✅'
     report += `[${anomalyString}] Field: ${stat.field}\n`
     report += `  Score: ${stat.score.toString()}\n`
-    report += `  Stats: ${jsonStringify(stat.stats)}\n`
+    report += `  ${YAML.stringify({ Stats: stat.stats }, { indent: 4 })}\n`
     if (stat.details) {
-      report += `  Details: ${jsonStringify(stat.details)}\n`
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      report += `  ${YAML.stringify({ Details: stat.details }, { indent: 4 })}\n`
     }
   }
   return { anomalyDetected, stats, report }

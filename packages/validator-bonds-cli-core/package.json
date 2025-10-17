@@ -39,7 +39,7 @@
     "pino": "9.7.0",
     "pino-pretty": "13.0.0",
     "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
-    "yaml": "2.8.0",
+    "yaml": "2.8.1",
     "@marinade.finance/jest-shell-matcher": "1.1.1"
   },
   "peerDependencies": {
@@ -57,7 +57,7 @@
     "jsbi": "^4.3.2",
     "pino": "^9.7.0",
     "pino-pretty": "^13.0.0",
-    "yaml": "^2.8.0"
+    "yaml": "^2.8.1"
   },
   "peerDependenciesMeta": {
     "solana-spl-token-modern": {
