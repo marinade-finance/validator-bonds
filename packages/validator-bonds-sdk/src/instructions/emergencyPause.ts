@@ -26,15 +26,15 @@ export async function emergencyPauseInstruction({
 }): Promise<{
   instruction: TransactionInstruction
 }> {
+  if (configAccount === undefined) {
+    logWarn(
+      logger,
+      'emergencyPause SDK: config is not provided, using default address: ' +
+        MARINADE_CONFIG_ADDRESS.toBase58(),
+    )
+    configAccount = MARINADE_CONFIG_ADDRESS
+  }
   if (pauseAuthority === undefined) {
-    if (configAccount === undefined) {
-      logWarn(
-        logger,
-        'emergencyPause SDK: config is not provided, using default address: ' +
-          MARINADE_CONFIG_ADDRESS.toBase58(),
-      )
-      configAccount = MARINADE_CONFIG_ADDRESS
-    }
     const configData = await getConfig(program, configAccount)
     pauseAuthority = configData.pauseAuthority
   }
@@ -45,7 +45,7 @@ export async function emergencyPauseInstruction({
 
   const instruction = await program.methods
     .emergencyPause()
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       pauseAuthority,
     })

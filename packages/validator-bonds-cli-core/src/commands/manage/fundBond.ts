@@ -18,7 +18,7 @@ import {
   FUND_BOND_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
-import { setProgramIdByOwner } from '../../context'
+import { getCliContext } from '../../context'
 import {
   getBondFromAddress,
   isExpectedAnchorTransactionError,
@@ -85,7 +85,7 @@ export async function manageFundBond({
     confirmationFinality,
     confirmWaitTime,
     skipPreflight,
-  } = await setProgramIdByOwner(config)
+  } = getCliContext()
 
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]

@@ -113,7 +113,7 @@ pub fn check_bond_authority(
     if authority == &bond_account.authority.key() {
         true
     } else {
-        check_vote_account_validator_identity(vote_account, authority).map_or(false, |_| true)
+        check_vote_account_validator_identity(vote_account, authority).is_ok_and(|_| true)
     }
 }
 
@@ -198,7 +198,7 @@ pub fn check_stake_exist_and_activating_or_activated(
             deactivating,
         } = stake
             .delegation
-            .stake_activating_and_deactivating(epoch, Some(stake_history), None);
+            .stake_activating_and_deactivating(epoch, stake_history, None);
         if (effective == 0 && activating == 0) || deactivating > 0 {
             msg!(
                 "Stake account is neither activating nor activated: {:?}",
@@ -754,11 +754,9 @@ mod tests {
                     effective,
                     activating,
                     deactivating,
-                } = stake.delegation.stake_activating_and_deactivating(
-                    epoch,
-                    Some(stake_history),
-                    None,
-                );
+                } = stake
+                    .delegation
+                    .stake_activating_and_deactivating(epoch, stake_history, None);
 
                 println!(
                     "get_delegation_state: [effective:{}/activating:{}/deactivating:{}]",

@@ -1,12 +1,13 @@
 import { logWarn } from '@marinade.finance/ts-common'
 import {
   PublicKey,
+  SYSVAR_CLOCK_PUBKEY,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   StakeProgram,
 } from '@solana/web3.js'
 
 import { getBond } from '../api'
-import { MARINADE_CONFIG_ADDRESS } from '../sdk'
+import { MARINADE_CONFIG_ADDRESS, bondsWithdrawerAuthority } from '../sdk'
 import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
 
 import type { ValidatorBondsProgram } from '../sdk'
@@ -65,13 +66,18 @@ export async function fundBondInstruction({
 
   const instruction = await program.methods
     .fundBond()
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       stakeAuthority: stakeAccountAuthority,
+      bondsWithdrawerAuthority: bondsWithdrawerAuthority(
+        configAccount,
+        program.programId,
+      )[0],
       stakeAccount,
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
       stakeProgram: StakeProgram.programId,
+      clock: SYSVAR_CLOCK_PUBKEY,
     })
     .instruction()
   return {

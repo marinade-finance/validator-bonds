@@ -100,15 +100,9 @@ export function launchCliProgram({
       logger,
     )
 
-    const programId = await command.opts().programId
-    if (!programId) {
-      throw new Error('CLI Program ID parameter is not set')
-    }
-
     setValidatorBondsCliContext({
       cluster: (command.opts().url ?? command.opts().cluster) as string,
       wallet: walletInterface,
-      programId,
       simulate: Boolean(command.opts().simulate),
       printOnly,
       skipPreflight: Boolean(command.opts().skipPreflight),

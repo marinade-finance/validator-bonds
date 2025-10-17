@@ -9,16 +9,12 @@ import {
 import { Connection, Keypair, PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
 
-import * as generated from '../generated/validator_bonds'
+import ValidatorBondsIDL from '../idl/json/validator_bonds.json'
 
-import type {
-  Program as AnchorProgram,
-  IdlAccounts,
-  IdlEvents,
-  Provider,
-  IdlTypes,
-} from '@coral-xyz/anchor'
+import type { ValidatorBonds } from '../idl/types/validator_bonds'
+import type { IdlEvents, IdlTypes, IdlAccounts } from '@coral-xyz/anchor'
 import type { Wallet as AnchorWalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
+import type { Provider } from '@marinade.finance/marinade-ts-sdk'
 import type { ConfirmOptions, EpochInfo } from '@solana/web3.js'
 
 export const MARINADE_CONFIG_ADDRESS = new PublicKey(
@@ -28,14 +24,14 @@ export const MARINADE_INSTITUTIONAL_CONFIG_ADDRESS = new PublicKey(
   'VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE',
 )
 
-export const ValidatorBondsIDL = generated.IDL
-
 export const VALIDATOR_BONDS_PROGRAM_ID = new PublicKey(
-  JSON.parse(generated.IDL.constants.find(x => x.name === 'PROGRAM_ID')!.value),
+  JSON.parse(
+    ValidatorBondsIDL.constants.find(x => x.name === 'PROGRAM_ID')!.value,
+  ),
 )
 
-export type ValidatorBonds = generated.ValidatorBonds
-export type ValidatorBondsProgram = AnchorProgram<ValidatorBonds>
+export { ValidatorBonds }
+export type ValidatorBondsProgram = Program<ValidatorBonds>
 
 // --- ACCOUNTS ---
 export type Config = IdlAccounts<ValidatorBonds>['config']
@@ -45,14 +41,16 @@ export type Settlement = IdlAccounts<ValidatorBonds>['settlement']
 export type WithdrawRequest = IdlAccounts<ValidatorBonds>['withdrawRequest']
 
 // --- TYPES ---
-export type InitConfigArgs = IdlTypes<ValidatorBonds>['InitConfigArgs']
+export type InitConfigArgs = IdlTypes<ValidatorBonds>['initConfigArgs']
 export type ConfigureConfigArgs =
-  IdlTypes<ValidatorBonds>['ConfigureConfigArgs']
-export type InitBondArgs = IdlTypes<ValidatorBonds>['InitBondArgs']
+  IdlTypes<ValidatorBonds>['configureConfigArgs']
+export type InitBondArgs = IdlTypes<ValidatorBonds>['initBondArgs']
 
 // --- CONSTANTS ---
 function fromConstants(constantName: string): string {
-  const constant = generated.IDL.constants.find(x => x.name === constantName)
+  const constant = ValidatorBondsIDL.constants.find(
+    x => x.name === constantName,
+  )
   if (constant === undefined) {
     throw new Error(
       'SDK initialization failure. Validator bonds IDL does not define constant ' +
@@ -81,86 +79,87 @@ export const SETTLEMENT_STAKER_AUTHORITY_SEED = seedFromConstants(
 export const SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE = Number(
   fromConstants('SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE'),
 )
+export const EVENT_AUTHORITY_SEED_STRING = '__event_authority'
 
 // --- EVENTS ---
-export const INIT_CONFIG_EVENT = 'InitConfigEvent'
+export const INIT_CONFIG_EVENT = 'initConfigEvent'
 export type InitConfigEvent =
   IdlEvents<ValidatorBonds>[typeof INIT_CONFIG_EVENT]
 
-export const CONFIGURE_CONFIG_EVENT = 'ConfigureConfigEvent'
+export const CONFIGURE_CONFIG_EVENT = 'configureConfigEvent'
 export type ConfigureConfigEvent =
   IdlEvents<ValidatorBonds>[typeof CONFIGURE_CONFIG_EVENT]
 
-export const INIT_BOND_EVENT = 'InitBondEvent'
+export const INIT_BOND_EVENT = 'initBondEvent'
 export type InitBondEvent = IdlEvents<ValidatorBonds>[typeof INIT_BOND_EVENT]
 
-export const CONFIGURE_BOND_EVENT = 'ConfigureBondEvent'
+export const CONFIGURE_BOND_EVENT = 'configureBondEvent'
 export type ConfigureBondEvent =
   IdlEvents<ValidatorBonds>[typeof CONFIGURE_BOND_EVENT]
 
-export const CONFIGURE_BOND_WITH_MINT_EVENT = 'ConfigureBondWithMintEvent'
+export const CONFIGURE_BOND_WITH_MINT_EVENT = 'configureBondWithMintEvent'
 export type ConfigureBondWithMintEvent =
   IdlEvents<ValidatorBonds>[typeof CONFIGURE_BOND_WITH_MINT_EVENT]
 
-export const MINT_BOND_EVENT = 'MintBondEvent'
+export const MINT_BOND_EVENT = 'mintBondEvent'
 export type MintBondEvent = IdlEvents<ValidatorBonds>[typeof MINT_BOND_EVENT]
 
-export const FUND_BOND_EVENT = 'FundBondEvent'
+export const FUND_BOND_EVENT = 'fundBondEvent'
 export type FundBondEvent = IdlEvents<ValidatorBonds>[typeof FUND_BOND_EVENT]
 
-export const FUND_SETTLEMENT_EVENT = 'FundSettlementEvent'
+export const FUND_SETTLEMENT_EVENT = 'fundSettlementEvent'
 export type FundSettlementEvent =
   IdlEvents<ValidatorBonds>[typeof FUND_SETTLEMENT_EVENT]
 
-export const CLAIM_SETTLEMENT_V2_EVENT = 'ClaimSettlementV2Event'
+export const CLAIM_SETTLEMENT_V2_EVENT = 'claimSettlementV2Event'
 export type ClaimSettlementV2Event =
   IdlEvents<ValidatorBonds>[typeof CLAIM_SETTLEMENT_V2_EVENT]
 
-export const INIT_SETTLEMENT_EVENT = 'InitSettlementEvent'
+export const INIT_SETTLEMENT_EVENT = 'initSettlementEvent'
 export type InitSettlementEvent =
   IdlEvents<ValidatorBonds>[typeof INIT_SETTLEMENT_EVENT]
 
-export const CLOSE_SETTLEMENT_EVENT = 'CloseSettlementEvent'
+export const CLOSE_SETTLEMENT_EVENT = 'closeSettlementEvent'
 export type CloseSettlementEvent =
   IdlEvents<ValidatorBonds>[typeof CLOSE_SETTLEMENT_EVENT]
 
-export const CANCEL_SETTLEMENT_EVENT = 'CancelSettlementEvent'
+export const CANCEL_SETTLEMENT_EVENT = 'cancelSettlementEvent'
 export type CancelSettlementEvent =
   IdlEvents<ValidatorBonds>[typeof CANCEL_SETTLEMENT_EVENT]
 
-export const MERGE_STAKE_EVENT = 'MergeStakeEvent'
+export const MERGE_STAKE_EVENT = 'mergeStakeEvent'
 export type MergeStakeEvent =
   IdlEvents<ValidatorBonds>[typeof MERGE_STAKE_EVENT]
 
-export const RESET_STAKE_EVENT = 'ResetStakeEvent'
+export const RESET_STAKE_EVENT = 'resetStakeEvent'
 export type ResetStakeEvent =
   IdlEvents<ValidatorBonds>[typeof RESET_STAKE_EVENT]
 
-export const WITHDRAW_STAKE_EVENT = 'WithdrawStakeEvent'
+export const WITHDRAW_STAKE_EVENT = 'withdrawStakeEvent'
 export type WithdrawStakeEvent =
   IdlEvents<ValidatorBonds>[typeof WITHDRAW_STAKE_EVENT]
 
-export const INIT_WITHDRAW_REQUEST_EVENT = 'InitWithdrawRequestEvent'
+export const INIT_WITHDRAW_REQUEST_EVENT = 'initWithdrawRequestEvent'
 export type InitWithdrawRequestEvent =
   IdlEvents<ValidatorBonds>[typeof INIT_WITHDRAW_REQUEST_EVENT]
 
-export const CANCEL_WITHDRAW_REQUEST_EVENT = 'CancelWithdrawRequestEvent'
+export const CANCEL_WITHDRAW_REQUEST_EVENT = 'cancelWithdrawRequestEvent'
 export type CancelWithdrawRequestEvent =
   IdlEvents<ValidatorBonds>[typeof CANCEL_WITHDRAW_REQUEST_EVENT]
 
-export const CLAIM_WITHDRAW_REQUEST_EVENT = 'ClaimWithdrawRequestEvent'
+export const CLAIM_WITHDRAW_REQUEST_EVENT = 'claimWithdrawRequestEvent'
 export type ClaimWithdrawRequestEvent =
   IdlEvents<ValidatorBonds>[typeof CLAIM_WITHDRAW_REQUEST_EVENT]
 
-export const EMERGENCY_PAUSE_EVENT = 'EmergencyPauseEvent'
+export const EMERGENCY_PAUSE_EVENT = 'emergencyPauseEvent'
 export type EmergencyPauseEvent =
   IdlEvents<ValidatorBonds>[typeof EMERGENCY_PAUSE_EVENT]
 
-export const EMERGENCY_RESUME_EVENT = 'EmergencyResumeEvent'
+export const EMERGENCY_RESUME_EVENT = 'emergencyResumeEvent'
 export type EmergencyResumeEvent =
   IdlEvents<ValidatorBonds>[typeof EMERGENCY_RESUME_EVENT]
 
-export const Errors = parseIdlErrors(generated.IDL)
+export const Errors = parseIdlErrors(ValidatorBondsIDL as ValidatorBonds)
 
 /**
  * Creating Anchor program instance of the Validator Bonds contract.
@@ -179,12 +178,10 @@ export function getProgram({
   connection,
   wallet,
   opts,
-  programId = VALIDATOR_BONDS_PROGRAM_ID,
 }: {
   connection: Connection | Provider
   wallet?: AnchorWalletInterface | Keypair
   opts?: ConfirmOptions
-  programId?: PublicKey
 }): ValidatorBondsProgram {
   let provider: Provider
   if (connection instanceof Connection) {
@@ -205,7 +202,7 @@ export function getProgram({
   } else {
     provider = connection
   }
-  return new Program<ValidatorBonds>(generated.IDL, programId, provider)
+  return new Program<ValidatorBonds>(ValidatorBondsIDL, provider)
 }
 
 export function bondAddress(
@@ -294,6 +291,15 @@ export function bondMintAddress(
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [BOND_MINT_SEED, bond.toBytes(), validatorIdentity.toBytes()],
+    validatorBondsProgramId,
+  )
+}
+
+export function eventAuthorityAddress(
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID,
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from(EVENT_AUTHORITY_SEED_STRING)],
     validatorBondsProgramId,
   )
 }

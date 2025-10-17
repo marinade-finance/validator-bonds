@@ -3,7 +3,11 @@ import {
   MPL_TOKEN_METADATA_PROGRAM_ID,
   tokenMetadataAddress,
 } from '@marinade.finance/web3js-1x'
-import { PublicKey, SYSVAR_RENT_PUBKEY } from '@solana/web3.js'
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+} from '@solana/spl-token'
+import { PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from '@solana/web3.js'
 import { getAssociatedTokenAddressSync } from 'solana-spl-token-modern'
 
 import { getBond } from '../api'
@@ -52,9 +56,10 @@ export async function mintBondInstruction({
   const renPayerPubkey =
     rentPayer instanceof PublicKey ? rentPayer : rentPayer.publicKey
 
-  if (voteAccount === undefined) {
+  if (voteAccount === undefined || configAccount === undefined) {
     const bondData = await getBond(program, bondAccount)
     voteAccount = bondData.voteAccount
+    configAccount = bondData.config
   }
   // when destination is not defined, the destination is the vote account validator identity
   if (validatorIdentity === undefined) {
@@ -79,7 +84,7 @@ export async function mintBondInstruction({
 
   const instruction = await program.methods
     .mintBond()
-    .accounts({
+    .accountsPartial({
       bond: bondAccount,
       config: configAccount,
       voteAccount,
@@ -90,6 +95,9 @@ export async function mintBondInstruction({
       rentPayer: renPayerPubkey,
       rent: SYSVAR_RENT_PUBKEY,
       metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
     })
     .instruction()
   return {

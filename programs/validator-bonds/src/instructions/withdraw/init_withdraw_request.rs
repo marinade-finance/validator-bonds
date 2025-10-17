@@ -62,7 +62,7 @@ pub struct InitWithdrawRequest<'info> {
     pub system_program: Program<'info, System>,
 }
 
-impl<'info> InitWithdrawRequest<'info> {
+impl InitWithdrawRequest<'_> {
     pub fn process(
         ctx: Context<InitWithdrawRequest>,
         InitWithdrawRequestArgs { amount }: InitWithdrawRequestArgs,

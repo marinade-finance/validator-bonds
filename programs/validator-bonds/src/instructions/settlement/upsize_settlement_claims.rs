@@ -27,7 +27,7 @@ pub struct UpsizeSettlementClaims<'info> {
     pub system_program: Program<'info, System>,
 }
 
-impl<'info> UpsizeSettlementClaims<'info> {
+impl UpsizeSettlementClaims<'_> {
     pub fn process(ctx: Context<UpsizeSettlementClaims>) -> Result<()> {
         // NOTE: intentionally not considering pause state here,
         //       as the account size increase is a benign operation

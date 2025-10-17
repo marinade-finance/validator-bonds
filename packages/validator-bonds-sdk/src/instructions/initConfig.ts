@@ -1,4 +1,4 @@
-import { Keypair, PublicKey } from '@solana/web3.js'
+import { Keypair, PublicKey, SystemProgram } from '@solana/web3.js'
 import BN from 'bn.js'
 
 import { anchorProgramWalletPubkey } from '../utils'
@@ -58,10 +58,11 @@ export async function initConfigInstruction({
         slotsToStartSettlementClaiming.toString(),
       ),
     })
-    .accounts({
+    .accountsPartial({
       config: configAccountPubkey,
       rentPayer:
         rentPayer instanceof PublicKey ? rentPayer : rentPayer.publicKey,
+      systemProgram: SystemProgram.programId,
     })
     .instruction()
   return {

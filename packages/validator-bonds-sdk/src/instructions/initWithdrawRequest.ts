@@ -1,5 +1,5 @@
 import { logWarn } from '@marinade.finance/ts-common'
-import { PublicKey } from '@solana/web3.js'
+import { PublicKey, SystemProgram } from '@solana/web3.js'
 import BN from 'bn.js'
 
 import { getBond } from '../api'
@@ -73,13 +73,14 @@ export async function initWithdrawRequestInstruction({
     .initWithdrawRequest({
       amount: new BN(amount),
     })
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       voteAccount,
       withdrawRequest,
       authority,
       rentPayer,
+      systemProgram: SystemProgram.programId,
     })
     .instruction()
   return {

@@ -115,7 +115,7 @@ export async function getMultipleBonds({
       program,
       accountInfo,
       publicKey,
-      program.account.bond.idlAccount.name,
+      'bond',
     ),
   )
 }
@@ -200,7 +200,7 @@ export async function getMultipleWithdrawRequests({
       program,
       accountInfo,
       publicKey,
-      program.account.withdrawRequest.idlAccount.name,
+      'withdrawRequest',
     ),
   )
 }
@@ -281,7 +281,7 @@ export async function getMultipleSettlements({
       program,
       accountInfo,
       publicKey,
-      program.account.settlement.idlAccount.name,
+      'settlement',
     ),
   )
 }

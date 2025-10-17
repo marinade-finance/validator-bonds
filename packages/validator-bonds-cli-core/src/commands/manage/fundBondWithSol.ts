@@ -24,7 +24,7 @@ import {
   FUND_BOND_WITH_SOL_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
-import { setProgramIdByOwner } from '../../context'
+import { getCliContext } from '../../context'
 import { formatToSol, getBondFromAddress } from '../../utils'
 
 import type {
@@ -87,7 +87,7 @@ export async function manageFundBondWithSol({
     confirmationFinality,
     confirmWaitTime,
     skipPreflight,
-  } = await setProgramIdByOwner(config)
+  } = getCliContext()
 
   const tx = await transaction(provider, wallet)
   const signers: (Signer | Wallet)[] = [wallet]

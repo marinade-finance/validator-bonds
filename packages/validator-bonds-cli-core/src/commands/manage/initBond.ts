@@ -15,7 +15,7 @@ import {
   INIT_BOND_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
-import { setProgramIdByOwner } from '../../context'
+import { getCliContext } from '../../context'
 
 import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
@@ -87,7 +87,7 @@ export async function manageInitBond({
     confirmationFinality,
     confirmWaitTime,
     skipPreflight,
-  } = await setProgramIdByOwner(config)
+  } = getCliContext()
 
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]

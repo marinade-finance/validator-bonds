@@ -10,6 +10,7 @@ import {
   claimWithdrawRequestInstruction,
   bondMintAddress,
 } from '@marinade.finance/validator-bonds-sdk'
+import { retryOnEpochRewardsPeriod } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import {
   createBondsFundedStakeAccount,
@@ -797,7 +798,9 @@ describe('Show command using CLI', () => {
         bondAccount,
         stakeAccount: lastStakeAccount!,
       })
-    await provider.sendIx([bondAuthority, splitStakeAccount], instruction)
+    await retryOnEpochRewardsPeriod(() =>
+      provider.sendIx([bondAuthority, splitStakeAccount], instruction),
+    )
     await expect([
       'pnpm',
       [

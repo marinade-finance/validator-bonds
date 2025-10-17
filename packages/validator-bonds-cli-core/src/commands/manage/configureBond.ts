@@ -16,7 +16,7 @@ import {
   CONFIGURE_BOND_LIMIT_UNITS,
   CONFIGURE_BOND_MINT_LIMIT_UNITS,
 } from '../../computeUnits'
-import { setProgramIdByOwner } from '../../context'
+import { getCliContext } from '../../context'
 import { getBondFromAddress } from '../../utils'
 
 import type {
@@ -96,7 +96,7 @@ export async function manageConfigureBond({
     confirmationFinality,
     confirmWaitTime,
     skipPreflight,
-  } = await setProgramIdByOwner(config)
+  } = getCliContext()
 
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]

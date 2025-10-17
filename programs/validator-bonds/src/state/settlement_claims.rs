@@ -6,7 +6,7 @@ pub use anchor_lang::solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
 use anchor_lang::solana_program::system_instruction::MAX_PERMITTED_DATA_LENGTH;
 use std::fmt::Debug;
 
-/// Account serving to deduplicate claiming, consists of anchor data as metaata header and bitmap in the remaining space.
+/// Account serving to deduplicate claiming, consists of anchor data as metadata header and bitmap in the remaining space.
 // Anchor data part ("header") of SettlementClaims Solana account.
 // Anchor data provides metadata (account type, settlement...) for the bitmap.
 // Bitmap data is stored in the remaining space of the account data after data loaded by Anchor.

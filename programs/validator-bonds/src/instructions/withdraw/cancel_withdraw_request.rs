@@ -53,7 +53,7 @@ pub struct CancelWithdrawRequest<'info> {
     pub rent_collector: UncheckedAccount<'info>,
 }
 
-impl<'info> CancelWithdrawRequest<'info> {
+impl CancelWithdrawRequest<'_> {
     pub fn process(ctx: Context<CancelWithdrawRequest>) -> Result<()> {
         require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 

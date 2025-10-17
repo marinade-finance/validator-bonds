@@ -1,4 +1,3 @@
-use anchor_client::anchor_lang::solana_program::native_token::lamports_to_sol;
 use anchor_client::anchor_lang::solana_program::stake::state::{Authorized, Lockup, StakeStateV2};
 use anchor_client::anchor_lang::solana_program::system_program;
 use anchor_client::{DynSigner, Program};
@@ -26,6 +25,7 @@ use settlement_pipelines::stake_accounts::{
     get_delegated_amount, get_stake_state_type, prepare_merge_instructions, StakeAccountStateType,
     STAKE_ACCOUNT_RENT_EXEMPTION,
 };
+use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::clock::Clock;
 use solana_sdk::pubkey::Pubkey;
@@ -300,7 +300,7 @@ async fn prepare_funding(
                 settlement_record.vote_account_address,
                 settlement_record.epoch,
                 settlement_record.funder,
-                lamports_to_sol(settlement_amount_funded),
+                build_balance_message(settlement_amount_funded, false, false),
             );
             reporting
                 .reportable
@@ -316,13 +316,13 @@ async fn prepare_funding(
                     settlement_record.vote_account_address,
                     settlement_record.bond_address,
                     settlement_record.reason,
-                    lamports_to_sol(settlement_record.max_total_claim_sum),
+                    build_balance_message(settlement_record.max_total_claim_sum, false, false),
                     epoch,
-                    lamports_to_sol(amount_to_fund)
+                    build_balance_message(amount_to_fund, false, false)
                 );
                 info!(
                     "Max total claim: {}, lamports in stake: {:?}",
-                    lamports_to_sol(settlement_record.max_total_claim_sum),
+                    build_balance_message(settlement_record.max_total_claim_sum, false, false),
                     funded_to_settlement_stakes.get(&settlement_record.settlement_address)
                 );
                 settlement_record.funder =
@@ -351,19 +351,19 @@ async fn prepare_funding(
                         settlement_record.vote_account_address,
                         settlement_record.bond_address,
                         settlement_record.reason,
-                        lamports_to_sol(settlement_record.max_total_claim_sum),
+                        build_balance_message(settlement_record.max_total_claim_sum, false, false),
                         epoch,
-                        lamports_to_sol(amount_to_fund),
+                        build_balance_message(amount_to_fund, false, false),
                         funding_stake_accounts.len(),
                     funding_stake_accounts
                         .iter()
                         .map(|s| s.stake_account.to_string())
                         .collect::<Vec<String>>()
                         .join(","),
-                        lamports_to_sol(funding_stake_accounts
+                        build_balance_message(funding_stake_accounts
                         .iter()
                         .map(|s| s.lamports)
-                        .sum::<u64>())
+                        .sum::<u64>(), false, false)
                     );
                 let mut funding_lamports_accumulated: u64 = 0;
                 let mut stake_accounts_to_fund: Vec<FundBondStakeAccount> = vec![];
@@ -402,11 +402,11 @@ async fn prepare_funding(
                         "Settlement: {} will be funded with {} stake accounts with {} SOLs, possibly merged into {}",
                         settlement_record.settlement_address,
                         funding_stake_accounts.len() + 1,
-                        lamports_to_sol(
+                        build_balance_message(
                             destination_lamports + stake_accounts_to_fund
                                 .iter()
                                 .map(|s| s.lamports)
-                                .sum::<u64>()
+                                .sum::<u64>(), false, false
                         ),
                         destination_stake
                     );
@@ -450,10 +450,10 @@ async fn prepare_funding(
                                 settlement_record.vote_account_address,
                                 epoch,
                                 settlement_record.reason,
-                                lamports_to_sol(settlement_record.max_total_claim_sum),
-                                lamports_to_sol(amount_to_fund),
-                                lamports_to_sol(amount_to_fund + minimal_stake_lamports),
-                                lamports_to_sol(funding_lamports_accumulated)
+                                build_balance_message(settlement_record.max_total_claim_sum, false, false),
+                                build_balance_message(amount_to_fund, false, false),
+                                build_balance_message(amount_to_fund + minimal_stake_lamports, false, false),
+                                build_balance_message(funding_lamports_accumulated, false, false)
                             )).with_vote(settlement_record.vote_account_address).add();
                             reporting.reportable.add_funded_settlement(
                                 settlement_record,
@@ -495,7 +495,7 @@ async fn prepare_funding(
                         settlement_record.vote_account_address,
                         epoch,
                         settlement_record.reason,
-                        lamports_to_sol(settlement_record.max_total_claim_sum),
+                        build_balance_message(settlement_record.max_total_claim_sum, false, false),
                     )).with_vote(settlement_record.vote_account_address).add();
                 }
                 // we've got to place in code where we wanted to fund something
@@ -862,12 +862,12 @@ impl FundSettlementsReport {
                 reason,
                 funded.0.settlements_count,
                 json_loaded.settlements_count,
-                lamports_to_sol(funded.1),
-                lamports_to_sol(json_loaded.settlements_max_claim_sum),
+                build_balance_message(funded.1, false, false),
+                build_balance_message(json_loaded.settlements_max_claim_sum, false, false),
                 already_funded.0.settlements_count,
                 json_loaded.settlements_count,
-                lamports_to_sol(already_funded.1),
-                lamports_to_sol(json_loaded.settlements_max_claim_sum),
+                build_balance_message(already_funded.1, false, false),
+                build_balance_message(json_loaded.settlements_max_claim_sum, false, false),
             ));
         }
     }
@@ -899,12 +899,12 @@ impl PrintReportable for FundSettlementsReport {
                     epoch,
                     funded_data.funded_settlements.len(),
                     json_loaded.settlements_count,
-                    lamports_to_sol(funded_data.funded_amount()),
-                    lamports_to_sol(json_loaded.settlements_max_claim_sum),
+                    build_balance_message(funded_data.funded_amount(), false, false),
+                    build_balance_message(json_loaded.settlements_max_claim_sum, false, false),
                     already_funded_count,
                     json_loaded.settlements_count,
-                    lamports_to_sol(funded_data.already_funded_amount()),
-                    lamports_to_sol(json_loaded.settlements_max_claim_sum),
+                    build_balance_message(funded_data.already_funded_amount(), false, false),
+                    build_balance_message(json_loaded.settlements_max_claim_sum, false, false),
                 ));
                 for reason in ReportingReasonSettlement::items() {
                     Self::add_reason_specific_report(&mut report, reason, funded_data);

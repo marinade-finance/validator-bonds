@@ -46,6 +46,7 @@ env_logger = { workspace = true }
 futures = { workspace = true }
 log = { workspace = true }
 merkle-tree = { workspace = true }
+solana-cli-output = { workspace = true }
 solana-transaction-executor = { workspace = true }
 solana-transaction-builder = { workspace = true }
 solana-transaction-builder-executor = { workspace = true }

@@ -18,7 +18,7 @@ import {
   CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
-import { setProgramIdByOwner } from '../../context'
+import { getCliContext } from '../../context'
 import { getWithdrawRequestFromAddress } from '../../utils'
 
 import type {
@@ -114,7 +114,7 @@ export async function manageClaimWithdrawRequest({
     confirmationFinality,
     confirmWaitTime,
     skipPreflight,
-  } = await setProgramIdByOwner(config)
+  } = getCliContext()
 
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]

@@ -28,7 +28,7 @@ impl WithdrawRequest {
         Pubkey::create_program_address(
             &[
                 WITHDRAW_REQUEST_SEED,
-                &self.bond.key().as_ref(),
+                self.bond.key().as_ref(),
                 &[self.bump],
             ],
             &ID,

@@ -11,6 +11,7 @@ import {
   bondAddress,
   settlementStakerAuthority,
   bondsWithdrawerAuthority,
+  settlementClaimsAddress,
 } from '../sdk'
 import { findStakeAccounts } from '../web3.js'
 
@@ -52,13 +53,17 @@ export async function closeSettlementV2Instruction(
 
   const instruction = await params.program.methods
     .closeSettlementV2()
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       settlement: settlementAccount,
       rentCollector,
       splitRentCollector,
       bondsWithdrawerAuthority: bondsAuth,
+      settlementClaims: settlementClaimsAddress(
+        settlementAccount,
+        params.program.programId,
+      )[0],
       splitRentRefundAccount,
       stakeProgram: StakeProgram.programId,
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,

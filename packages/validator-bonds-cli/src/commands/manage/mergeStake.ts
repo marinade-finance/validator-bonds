@@ -1,6 +1,6 @@
 import {
   computeUnitLimitOption,
-  setProgramIdByOwner,
+  getCliContext,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { MERGE_STAKE_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
 import {
@@ -96,7 +96,7 @@ async function manageMerge({
     confirmationFinality,
     confirmWaitTime,
     skipPreflight,
-  } = await setProgramIdByOwner(config)
+  } = getCliContext()
 
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]

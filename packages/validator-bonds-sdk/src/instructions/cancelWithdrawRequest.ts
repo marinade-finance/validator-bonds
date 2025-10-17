@@ -69,11 +69,14 @@ export async function cancelWithdrawRequestInstruction({
   }
   if (
     bondAccount !== undefined &&
-    (voteAccount === undefined || authority === undefined)
+    (voteAccount === undefined ||
+      authority === undefined ||
+      configAccount === undefined)
   ) {
     const bondData = await getBond(program, bondAccount)
     voteAccount = voteAccount ?? bondData.voteAccount
     authority = authority ?? bondData.authority
+    configAccount = configAccount ?? bondData.config
   }
   authority = authority ?? anchorProgramWalletPubkey(program)
   authority = authority instanceof PublicKey ? authority : authority.publicKey
@@ -84,7 +87,7 @@ export async function cancelWithdrawRequestInstruction({
         'withdrawRequestAccount not provided and could not be derived from other parameters',
     )
   }
-  if (!bondAccount && !configAccount) {
+  if (!configAccount) {
     logWarn(
       logger,
       'cancelWithdrawRequest SDK: config is not provided, using default config address: ' +
@@ -101,7 +104,9 @@ export async function cancelWithdrawRequestInstruction({
 
   const instruction = await program.methods
     .cancelWithdrawRequest()
-    .accounts({
+    .accountsPartial({
+      program: program.programId,
+      config: configAccount,
       bond: bondAccount,
       voteAccount,
       authority,

@@ -1,4 +1,4 @@
-import { PublicKey } from '@solana/web3.js'
+import { PublicKey, SystemProgram } from '@solana/web3.js'
 import BN from 'bn.js'
 
 import { getBond, getConfig } from '../api'
@@ -102,13 +102,14 @@ export async function initSettlementInstruction({
       rentCollector,
       epoch: epochAsBn(epoch),
     })
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       settlement: settlementAccount,
       settlementClaims: settlementClaimsAccount,
       operatorAuthority: operatorAuthorityPubkey,
       rentPayer: renPayerPubkey,
+      systemProgram: SystemProgram.programId,
     })
     .instruction()
   return {

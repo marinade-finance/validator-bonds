@@ -21,8 +21,8 @@ use settlement_pipelines::reporting::{
 };
 use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
 use settlement_pipelines::settlement_data::SettlementRecord;
+use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::native_token::lamports_to_sol;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
@@ -219,20 +219,20 @@ async fn init_settlements(
         if record.bond_account.is_none() {
             // the existence of the Bond is required for any init Settlement, when not exists, we skip the init
             reporting.error().with_msg(format!(
-                "Cannot find bond account {} for vote account {}, funder {}, claim amount {} SOLs (settlement to init: {})",
+                "Cannot find bond account {} for vote account {}, funder {}, claim amount {} (settlement to init: {})",
                 record.bond_address,
                 record.vote_account_address,
                 record.funder,
-                lamports_to_sol(record.max_total_claim_sum),
+                build_balance_message(record.max_total_claim_sum, false, true),
                 record.settlement_address,
             )).with_vote(record.vote_account_address).add();
             continue;
         }
         if record.max_total_claim == 0 || record.max_total_claim_sum == 0 {
             reporting.error().with_msg(format!(
-                "Cannot init Settlement with 0 at max_total_claim({}) or max_total_claim_sum({} SOLs), vote account {}, funder {} (settlement to init: {})",
+                "Cannot init Settlement with 0 at max_total_claim({}) or max_total_claim_sum({}), vote account {}, funder {} (settlement to init: {})",
                 record.max_total_claim,
-                lamports_to_sol(record.max_total_claim_sum),
+                build_balance_message(record.max_total_claim_sum, false, true),
                 record.vote_account_address,
                 record.funder,
                 record.settlement_address,
@@ -468,14 +468,14 @@ impl PrintReportable for InitSettlementReport {
             .flat_map(|(reason, (loaded_data, created_data))| {
                 vec![
                     format!(
-                        "    Reason: {}, created settlements {}/{}, merkle nodes {}/{}, created claim amounts: {}/{} SOLs",
+                        "    Reason: {}, created settlements {}/{}, merkle nodes {}/{}, created claim amounts: {}/{}",
                         reason,
                         created_data.settlements_count,
                         loaded_data.settlements_count,
                         created_data.max_merkle_nodes_sum,
                         loaded_data.max_merkle_nodes_sum,
-                        lamports_to_sol(created_data.settlements_max_claim_sum),
-                        lamports_to_sol(loaded_data.settlements_max_claim_sum),
+                        build_balance_message(created_data.settlements_max_claim_sum, false, true),
+                        build_balance_message(loaded_data.settlements_max_claim_sum, false, true),
 
                     )
                 ]
@@ -484,10 +484,10 @@ impl PrintReportable for InitSettlementReport {
         Box::pin(async move {
             let mut result_vec = vec![
                 format!(
-                    "InitSettlement (epoch: {}, sum merkle nodes: {}, sum claim amounts: {} SOLs): created {}/{} settlements, already existing {}",
+                    "InitSettlement (epoch: {}, sum merkle nodes: {}, sum claim amounts: {}): created {}/{} settlements, already existing {}",
                     self.epoch,
                     loaded_max_merkle_nodes_sum,
-                    lamports_to_sol(loaded_settlements_max_claim_sum),
+                    build_balance_message(loaded_settlements_max_claim_sum, false, true),
                     self.created_settlements.len(),
                     loaded_settlements_count,
                     self.existing_settlements.len(),

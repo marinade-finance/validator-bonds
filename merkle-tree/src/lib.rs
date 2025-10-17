@@ -239,7 +239,7 @@ mod tests {
         // changes
         let bytes = hex::decode("b40c847546fdceea166f927fc46c5ca33c3638236a36275c1346d3dffb84e1bc")
             .unwrap();
-        let expected = Hash::new(&bytes);
+        let expected = Hash::new_from_array(<[u8; 32]>::try_from(bytes.as_slice()).unwrap());
         assert_eq!(mt.get_root(), Some(&expected));
     }
 

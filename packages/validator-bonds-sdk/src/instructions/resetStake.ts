@@ -6,10 +6,10 @@ import {
 } from '@solana/web3.js'
 
 import { getBond } from '../api'
+import { bondsWithdrawerAuthority, type ValidatorBondsProgram } from '../sdk'
 import { checkAndGetBondAddress } from '../utils'
 import { getStakeAccount } from '../web3.js'
 
-import type { ValidatorBondsProgram } from '../sdk'
 import type { PublicKey, TransactionInstruction } from '@solana/web3.js'
 
 /**
@@ -57,10 +57,14 @@ export async function resetStakeInstruction({
 
   const instruction = await program.methods
     .resetStake()
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       settlement: settlementAccount,
+      bondsWithdrawerAuthority: bondsWithdrawerAuthority(
+        configAccount,
+        program.programId,
+      )[0],
       stakeAccount,
       voteAccount,
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,

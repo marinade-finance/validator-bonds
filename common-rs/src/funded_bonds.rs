@@ -38,7 +38,7 @@ pub async fn collect_validator_bonds_with_funds(
         get_withdraw_requests(rpc_client.clone())
             .await?
             .into_iter()
-            .filter(|(_, wr)| bonds.get(&wr.bond).is_some())
+            .filter(|(_, wr)| bonds.contains_key(&wr.bond))
             .collect();
 
     log::info!("Found bonds: {}", bonds.len());

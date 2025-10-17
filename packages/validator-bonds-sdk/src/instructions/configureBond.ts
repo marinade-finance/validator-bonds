@@ -40,9 +40,10 @@ export async function configureBondInstruction({
     voteAccount,
     program.programId,
   )
-  if (voteAccount === undefined) {
+  if (voteAccount === undefined || configAccount === undefined) {
     const bondData = await getBond(program, bondAccount)
     voteAccount = bondData.voteAccount
+    configAccount = bondData.config
   }
   authority = authority instanceof PublicKey ? authority : authority.publicKey
 
@@ -53,7 +54,8 @@ export async function configureBondInstruction({
       maxStakeWanted:
         newMaxStakeWanted === undefined ? null : new BN(newMaxStakeWanted),
     })
-    .accounts({
+    .accountsPartial({
+      config: configAccount,
       bond: bondAccount,
       authority,
       voteAccount,
