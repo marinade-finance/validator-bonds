@@ -25,7 +25,7 @@ On how to test the CLI will work properly when released.
 - Checking publish process and CLI installation
   - Check currently configured registry
     ```sh
-    pnpm config get  registry
+    pnpm config get registry
     > https://registry.npmjs.org/
     ```
   - Installing local registry
@@ -36,12 +36,15 @@ On how to test the CLI will work properly when released.
     # Remove all verdaccio data to start clean
     rm -rf ~/.config/verdaccio
     rm -rf ~/.local/share/verdaccio/
-    pnpm cache clean '@marinade.finance'
+    pnpm cache delete '@marinade.finance'
 
+    # Start local registry
     verdaccio
+
     # Configure npm/pnpm to use the local registry
     pnpm config set registry http://localhost:4873/
-    # needed to authenticate (password has to be like Test123!)
+
+    # Required to add a user for the registry and authenticate (required password in form like "Test123!")
     npm adduser --registry http://localhost:4873/
     ```
 
