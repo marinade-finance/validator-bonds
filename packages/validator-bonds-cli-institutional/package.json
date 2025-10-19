@@ -1,6 +1,6 @@
 {
   "name": "@marinade.finance/validator-bonds-cli-institutional",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "CLI of the validator bonds contract streamlined for institutional users",
   "repository": {
     "type": "git",
@@ -19,7 +19,7 @@
   "author": "Marinade.Finance",
   "license": "ISC",
   "bin": {
-    "validator-bonds": "./dist/src/index.js"
+    "validator-bonds-institutional": "./dist/src/index.js"
   },
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -38,10 +38,10 @@
     "@marinade.finance/validator-bonds-sdk": "workspace: *",
     "@marinade.finance/validator-bonds-cli-core": "workspace: *",
     "@coral-xyz/anchor": "0.29.0",
-    "@marinade.finance/anchor-common": "4.0.0",
-    "@marinade.finance/cli-common": "4.0.0",
-    "@marinade.finance/ts-common": "4.0.0",
-    "@marinade.finance/web3js-1x": "4.0.0",
+    "@marinade.finance/anchor-common": "4.1.2",
+    "@marinade.finance/cli-common": "4.1.2",
+    "@marinade.finance/ts-common": "4.1.2",
+    "@marinade.finance/web3js-1x": "4.1.2",
     "@marinade.finance/ledger-utils": "3.1.0",
     "@solana/web3.js": "1.98.4",
     "bn.js": "5.2.2",
@@ -57,6 +57,6 @@
     "@marinade.finance/jest-shell-matcher": "1.1.1"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=20"
   }
 }

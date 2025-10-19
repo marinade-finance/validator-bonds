@@ -1,6 +1,6 @@
 {
   "name": "@marinade.finance/validator-bonds-cli-core",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Common CLI Core of the validator bonds contract",
   "repository": {
     "type": "git",
@@ -26,10 +26,10 @@
   "devDependencies": {
     "@marinade.finance/validator-bonds-sdk": "workspace: *",
     "@coral-xyz/anchor": "0.29.0",
-    "@marinade.finance/anchor-common": "4.0.0",
-    "@marinade.finance/cli-common": "4.0.0",
-    "@marinade.finance/ts-common": "4.0.0",
-    "@marinade.finance/web3js-1x": "4.0.0",
+    "@marinade.finance/anchor-common": "4.1.2",
+    "@marinade.finance/cli-common": "4.1.2",
+    "@marinade.finance/ts-common": "4.1.2",
+    "@marinade.finance/web3js-1x": "4.1.2",
     "@marinade.finance/ledger-utils": "3.1.0",
     "@solana/web3.js": "1.98.4",
     "bn.js": "5.2.2",
@@ -45,11 +45,11 @@
   "peerDependencies": {
     "@marinade.finance/validator-bonds-sdk": "workspace: *",
     "@coral-xyz/anchor": "^0.29.0",
-    "@marinade.finance/anchor-common": "^4.0.0",
-    "@marinade.finance/cli-common": "^4.0.0",
+    "@marinade.finance/anchor-common": "^4.1.2",
+    "@marinade.finance/cli-common": "^4.1.2",
     "@marinade.finance/ledger-utils": "^3.1.0",
-    "@marinade.finance/ts-common": "^4.0.0",
-    "@marinade.finance/web3js-1x": "^4.0.0",
+    "@marinade.finance/ts-common": "^4.1.2",
+    "@marinade.finance/web3js-1x": "^4.1.2",
     "@solana/web3.js": "^1.98.4",
     "bn.js": "^5.2.2",
     "bs58": "^6.0.0",
@@ -65,6 +65,6 @@
     }
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=20"
   }
 }
