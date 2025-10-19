@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "@marinade.finance/validator-bonds-sdk": "workspace: *",
-    "@coral-xyz/anchor": "0.32.1",
+    "@coral-xyz/anchor": "0.31.1",
     "@marinade.finance/anchor-common": "4.1.2",
     "@marinade.finance/cli-common": "4.1.2",
     "@marinade.finance/ts-common": "4.1.2",
@@ -44,7 +44,7 @@
   },
   "peerDependencies": {
     "@marinade.finance/validator-bonds-sdk": "workspace: *",
-    "@coral-xyz/anchor": "^0.32.1",
+    "@coral-xyz/anchor": "^0.31.1",
     "@marinade.finance/anchor-common": "^4.1.2",
     "@marinade.finance/cli-common": "^4.1.2",
     "@marinade.finance/ledger-utils": "^3.1.0",

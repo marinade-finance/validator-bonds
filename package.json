@@ -44,7 +44,7 @@
     "peerDependencyRules": {
       "allowedVersions": {
         "jest": "29",
-        "@coral-xyz/anchor": "0.32"
+        "@coral-xyz/anchor": "0.31"
       }
     },
     "overrides": {

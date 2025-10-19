@@ -198,7 +198,7 @@ pub fn check_stake_exist_and_activating_or_activated(
             deactivating,
         } = stake
             .delegation
-            .stake_activating_and_deactivating(epoch, Some(stake_history), None);
+            .stake_activating_and_deactivating(epoch, &stake_history, None);
         if (effective == 0 && activating == 0) || deactivating > 0 {
             msg!(
                 "Stake account is neither activating nor activated: {:?}",

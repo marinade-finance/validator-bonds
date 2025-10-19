@@ -5,12 +5,10 @@ fn main() {
         let _ = 255_u8 + 1;
     }) {
         Ok(_) => {
-            // `not(cfg(overflow_checks))`
             panic!("overflow checks are required for the program to function correctly");
         }
         Err(_) => {
-            // `cfg(overflow_checks)`
-            println!("cargo:rustc-cfg=overflow_checks");
+            println!("Overflow checks ARE enabled");
         }
     }
 
