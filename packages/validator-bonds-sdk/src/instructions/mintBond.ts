@@ -79,7 +79,7 @@ export async function mintBondInstruction({
 
   const instruction = await program.methods
     .mintBond()
-    .accounts({
+    .accountsPartial({
       bond: bondAccount,
       config: configAccount,
       voteAccount,

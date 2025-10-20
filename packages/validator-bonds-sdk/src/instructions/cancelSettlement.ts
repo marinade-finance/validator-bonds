@@ -1,9 +1,4 @@
-import {
-  PublicKey,
-  StakeProgram,
-  SYSVAR_STAKE_HISTORY_PUBKEY,
-  SYSVAR_CLOCK_PUBKEY,
-} from '@solana/web3.js'
+import { PublicKey } from '@solana/web3.js'
 
 import { anchorProgramWalletPubkey } from '../utils'
 import { getCloseSettlementAccounts } from './closeSettlementV2'
@@ -31,30 +26,16 @@ export async function cancelSettlementInstruction(
       ? params.authority
       : params.authority.publicKey
 
-  const {
-    configAccount,
-    bondAccount,
-    settlementAccount,
-    rentCollector,
-    bondsAuth,
-    splitRentCollector,
-    splitRentRefundAccount,
-  } = await getCloseSettlementAccounts(params)
+  const { splitRentCollector, splitRentRefundAccount } =
+    await getCloseSettlementAccounts(params)
 
   const instruction = await params.program.methods
     .cancelSettlement()
     .accounts({
+      program: params.program.programId,
       authority: authorityPubkey,
-      config: configAccount,
-      bond: bondAccount,
-      settlement: settlementAccount,
-      rentCollector,
       splitRentCollector,
-      bondsWithdrawerAuthority: bondsAuth,
       splitRentRefundAccount,
-      stakeProgram: StakeProgram.programId,
-      stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
-      clock: SYSVAR_CLOCK_PUBKEY,
     })
     .instruction()
   return {

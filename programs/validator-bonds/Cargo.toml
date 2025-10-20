@@ -11,11 +11,18 @@ crate-type = ["cdylib", "lib"]
 name = "validator_bonds"
 
 [features]
+default = []
+cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
-cpi = ["no-entrypoint"]
-default = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
 
 [dev-dependencies]
 bincode = { workspace = true }
@@ -24,6 +31,5 @@ bincode = { workspace = true }
 anchor-lang = { workspace = true, features = ["init-if-needed", "event-cpi"] }
 anchor-spl = { workspace = true, features = ["stake", "mint", "token", "associated_token", "token_2022", "metadata"] }
 solana-security-txt = { workspace = true }
-default-env = { workspace = true }
 merkle-tree = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

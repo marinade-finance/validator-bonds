@@ -102,7 +102,7 @@ export async function initSettlementInstruction({
       rentCollector,
       epoch: epochAsBn(epoch),
     })
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       settlement: settlementAccount,

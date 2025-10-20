@@ -68,7 +68,7 @@ pub struct InitSettlement<'info> {
         ],
         bump,
     )]
-    pub settlement_claims: Account<'info, SettlementClaims>,
+    pub settlement_claims: Box<Account<'info, SettlementClaims>>,
 
     /// operator signer authority that is allowed to create the settlement account
     pub operator_authority: Signer<'info>,

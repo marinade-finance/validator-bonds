@@ -85,7 +85,7 @@ export async function fundSettlementInstruction({
 
   const instruction = await program.methods
     .fundSettlement()
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       settlement: settlementAccount,

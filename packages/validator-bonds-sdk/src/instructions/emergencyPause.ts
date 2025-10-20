@@ -45,7 +45,7 @@ export async function emergencyPauseInstruction({
 
   const instruction = await program.methods
     .emergencyPause()
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       pauseAuthority,
     })

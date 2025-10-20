@@ -101,7 +101,7 @@ export async function cancelWithdrawRequestInstruction({
 
   const instruction = await program.methods
     .cancelWithdrawRequest()
-    .accounts({
+    .accountsPartial({
       bond: bondAccount,
       voteAccount,
       authority,

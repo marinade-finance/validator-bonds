@@ -218,4 +218,7 @@ pub enum ErrorCode {
 
     #[msg("Settlement has been already claimed")]
     SettlementAlreadyClaimed, // 6070 0x17b6
+
+    #[msg("Failed to obtain stake history entry")]
+    InvalidStakeHistoryEntry, // 6071 0x17b7
 }

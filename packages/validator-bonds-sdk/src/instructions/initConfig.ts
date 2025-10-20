@@ -58,7 +58,7 @@ export async function initConfigInstruction({
         slotsToStartSettlementClaiming.toString(),
       ),
     })
-    .accounts({
+    .accountsPartial({
       config: configAccountPubkey,
       rentPayer:
         rentPayer instanceof PublicKey ? rentPayer : rentPayer.publicKey,

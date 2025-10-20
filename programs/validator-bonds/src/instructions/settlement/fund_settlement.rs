@@ -106,7 +106,7 @@ pub struct FundSettlement<'info> {
         space = std::mem::size_of::<StakeStateV2>(),
         owner = stake_program.key(),
     )]
-    pub split_stake_account: Account<'info, StakeAccount>,
+    pub split_stake_account: Box<Account<'info, StakeAccount>>,
 
     /// the rent exempt payer of the split_stake_account creation
     /// if the split_stake_account is not needed (no leftover lamports on funding), then the rent payer is refunded

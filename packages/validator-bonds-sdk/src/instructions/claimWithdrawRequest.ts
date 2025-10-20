@@ -136,7 +136,7 @@ export async function claimWithdrawRequestInstruction({
 
   const instruction = await program.methods
     .claimWithdrawRequest()
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       voteAccount,

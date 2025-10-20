@@ -106,7 +106,7 @@ export async function configureConfigInstruction({
 
   const instruction = await program.methods
     .configureConfig(args)
-    .accounts({
+    .accountsPartial({
       adminAuthority,
       config: configAccount,
     })

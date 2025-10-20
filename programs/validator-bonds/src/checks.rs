@@ -9,7 +9,7 @@ use anchor_lang::require_keys_eq;
 use anchor_lang::solana_program::clock::Epoch;
 use anchor_lang::solana_program::stake::program::ID as stake_program_id;
 use anchor_lang::solana_program::stake::state::{Delegation, Meta, Stake, StakeState};
-use anchor_lang::solana_program::stake_history::StakeHistoryEntry;
+use anchor_lang::solana_program::stake_history::{StakeHistoryEntry};
 use anchor_lang::solana_program::system_program::ID as system_program_id;
 use anchor_lang::solana_program::vote::program::id as vote_program_id;
 use anchor_spl::stake::StakeAccount;
@@ -198,7 +198,7 @@ pub fn check_stake_exist_and_activating_or_activated(
             deactivating,
         } = stake
             .delegation
-            .stake_activating_and_deactivating(epoch, &stake_history, None);
+            .stake_activating_and_deactivating(epoch, stake_history.into(), None);
         if (effective == 0 && activating == 0) || deactivating > 0 {
             msg!(
                 "Stake account is neither activating nor activated: {:?}",
@@ -756,7 +756,7 @@ mod tests {
                     deactivating,
                 } = stake.delegation.stake_activating_and_deactivating(
                     epoch,
-                    Some(stake_history),
+                    stake_history.into(),
                     None,
                 );
 

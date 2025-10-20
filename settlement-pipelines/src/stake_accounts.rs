@@ -88,7 +88,7 @@ pub fn get_stake_state_type(
             effective,
             deactivating,
             activating,
-        } = delegation.stake_activating_and_deactivating(clock.epoch, Some(stake_history), None);
+        } = delegation.stake_activating_and_deactivating(clock.epoch, stake_history.into(), None);
         if effective == 0 && activating == 0 {
             // all available for immediate delegation
             StakeAccountStateType::DelegatedAndDeactivated
@@ -117,7 +117,7 @@ pub fn get_delegated_amount(
             effective,
             deactivating,
             activating,
-        } = delegation.stake_activating_and_deactivating(clock.epoch, Some(stake_history), None);
+        } = delegation.stake_activating_and_deactivating(clock.epoch, stake_history.into(), None);
         effective + deactivating + activating
     } else {
         0

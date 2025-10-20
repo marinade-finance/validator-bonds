@@ -1,4 +1,4 @@
-use anchor_client::{DynSigner, RequestBuilder};
+use anchor_client::{ClientError, DynSigner, RequestBuilder, ThreadSafeSigner};
 use anyhow::anyhow;
 use log::error;
 use solana_transaction_builder::TransactionBuilder;
@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 pub fn add_instruction_to_builder(
     transaction_builder: &mut TransactionBuilder,
-    request_builder: &RequestBuilder<Arc<DynSigner>>,
+    request_builder: &RequestBuilder<Arc<DynSigner>, Arc<dyn ThreadSafeSigner>>,
     description: String,
 ) -> anyhow::Result<()> {
     add_instructions_to_builder_from_anchor_internal(
@@ -18,10 +18,10 @@ pub fn add_instruction_to_builder(
 
 fn add_instructions_to_builder_from_anchor_internal(
     transaction_builder: &mut TransactionBuilder,
-    request_builder: &RequestBuilder<Arc<DynSigner>>,
+    request_builder: &RequestBuilder<Arc<DynSigner>, Arc<dyn ThreadSafeSigner>>,
     descriptions: Option<Vec<String>>,
 ) -> anyhow::Result<()> {
-    let instructions = request_builder.instructions().map_err(|e| {
+    let instructions = request_builder.instructions().map_err(|e: ClientError| {
         error!(
             "add_instructions_from_anchor_builder: error building instructions: {:?}",
             e

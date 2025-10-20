@@ -56,7 +56,7 @@ export async function initBondInstruction({
       cpmpe: new BN(cpmpe),
       maxStakeWanted: new BN(maxStakeWanted),
     })
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       voteAccount,

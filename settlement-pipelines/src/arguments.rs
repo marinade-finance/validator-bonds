@@ -85,7 +85,7 @@ pub fn load_keypair(name: &str, s: &str) -> anyhow::Result<Arc<Keypair>> {
     // loading directly as the json keypair data (format [u8; 64])
     let parsed_json = parse_keypair_as_json_data(s);
     if let Ok(key_bytes) = parsed_json {
-        let k = Keypair::from_bytes(&key_bytes)
+        let k = Keypair::try_from(key_bytes.as_slice())
             .map_err(|e| anyhow!("Could not read keypair from json data: {}", e))?;
         return Ok(Arc::new(k));
     } else {
@@ -111,7 +111,7 @@ pub fn load_keypair(name: &str, s: &str) -> anyhow::Result<Arc<Keypair>> {
 pub fn load_pubkey(s: &str) -> anyhow::Result<Pubkey> {
     let parsed_keypair_data = parse_keypair_as_json_data(s);
     if let Ok(keypair_data) = parsed_keypair_data {
-        if let Ok(keypair) = Keypair::from_bytes(&keypair_data) {
+        if let Ok(keypair) = Keypair::try_from(keypair_data.as_slice()) {
             Ok(keypair.pubkey())
         } else {
             Err(anyhow!(

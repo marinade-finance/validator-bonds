@@ -3,7 +3,7 @@ anchor_version = "0.31.1"
 solana_version = "2.3.1"
 
 [workspace]
-types = "packages/validator-bonds-sdk/generated/"
+types = "packages/validator-bonds-sdk/idl/types/"
 
 [features]
 seeds = true

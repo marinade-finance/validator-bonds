@@ -57,7 +57,7 @@ export async function resetStakeInstruction({
 
   const instruction = await program.methods
     .resetStake()
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       settlement: settlementAccount,

@@ -52,7 +52,7 @@ export async function closeSettlementV2Instruction(
 
   const instruction = await params.program.methods
     .closeSettlementV2()
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       settlement: settlementAccount,

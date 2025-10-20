@@ -51,7 +51,7 @@ export async function upsizeSettlementClaims({
 
   const instruction = await program.methods
     .upsizeSettlementClaims()
-    .accounts({
+    .accountsPartial({
       settlementClaims: settlementClaimsAccount,
       rentPayer: renPayerPubkey,
     })

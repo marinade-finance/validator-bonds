@@ -54,7 +54,7 @@ export async function mergeStakeInstruction({
     .mergeStake({
       settlement: settlementAccount,
     })
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       sourceStake: sourceStakeAccount,
       destinationStake: destinationStakeAccount,

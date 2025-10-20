@@ -65,7 +65,7 @@ export async function fundBondInstruction({
 
   const instruction = await program.methods
     .fundBond()
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       stakeAuthority: stakeAccountAuthority,

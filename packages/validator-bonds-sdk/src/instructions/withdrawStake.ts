@@ -45,7 +45,7 @@ export async function withdrawStakeInstruction({
 
   const instruction = await program.methods
     .withdrawStake()
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       settlement: settlementAccount,
       stakeAccount,

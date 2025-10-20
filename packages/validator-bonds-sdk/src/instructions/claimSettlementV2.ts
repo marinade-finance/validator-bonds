@@ -146,7 +146,7 @@ export async function claimSettlementV2Instruction({
       stakeAccountWithdrawer,
       index: new BN(index),
     })
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       settlement: settlementAccount,

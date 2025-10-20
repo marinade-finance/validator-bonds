@@ -73,7 +73,7 @@ export async function initWithdrawRequestInstruction({
     .initWithdrawRequest({
       amount: new BN(amount),
     })
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       voteAccount,

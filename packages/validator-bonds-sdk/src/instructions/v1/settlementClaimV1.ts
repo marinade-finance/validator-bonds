@@ -5,7 +5,7 @@ import CryptoJS from 'crypto-js'
 import { MerkleTreeNode, pubkeyToWordArray } from '../../merkleTree'
 import { VALIDATOR_BONDS_PROGRAM_ID, seedFromConstants } from '../../sdk'
 
-import type { ValidatorBonds } from '../../../generated/validator_bonds'
+import type { ValidatorBonds } from '../../../idl/types/validator_bonds'
 import type { MerkleTreeNodeEncoded } from '../../merkleTree'
 import type { ValidatorBondsProgram } from '../../sdk'
 import type { IdlAccounts } from '@coral-xyz/anchor'

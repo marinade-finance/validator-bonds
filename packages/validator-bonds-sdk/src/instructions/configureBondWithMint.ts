@@ -80,7 +80,7 @@ export async function configureBondWithMintInstruction({
       maxStakeWanted:
         newMaxStakeWanted === undefined ? null : new BN(newMaxStakeWanted),
     })
-    .accounts({
+    .accountsPartial({
       bond: bondAccount,
       config: configAccount,
       voteAccount,

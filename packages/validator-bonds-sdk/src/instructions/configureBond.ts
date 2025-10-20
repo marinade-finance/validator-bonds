@@ -53,7 +53,7 @@ export async function configureBondInstruction({
       maxStakeWanted:
         newMaxStakeWanted === undefined ? null : new BN(newMaxStakeWanted),
     })
-    .accounts({
+    .accountsPartial({
       bond: bondAccount,
       authority,
       voteAccount,

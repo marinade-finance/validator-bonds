@@ -9,7 +9,8 @@
     "src/**/*.ts",
     "__tests__/**/*.ts",
     "./package.json",
-    "generated/*.ts"
+    "idl/json/validator_bonds.json",
+    "idl/types/validator_bonds.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }
