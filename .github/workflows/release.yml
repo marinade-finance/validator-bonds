@@ -19,7 +19,24 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # from https://github.com/ochaloup/projectserum-build-docker
+    container: docker.io/ochaloup/projectserum-build:v0.29.0_sol1.16.17_avm
+
     steps:
+      - name: ⛺ /root/.cargo to PATH
+        run: |
+          echo '/root/.cargo/bin/' >> $GITHUB_PATH
+          echo '/root/.avm/bin' >> $GITHUB_PATH
+          ln -s /root/.avm $HOME/
+          mkdir -p $HOME/.config
+          ln -s /root/.config/solana $HOME/.config/
+
+      - name: ⚓ Info on AVM
+        run: |
+          avm list
+          avm use 0.29.0
+
       - name: 🏃‍♂️‍➡️ Checkout project
         uses: actions/checkout@v4
 
@@ -33,6 +50,15 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
+
+      - name: 🌄 Set nightly toolchain
+        run: rustup default nightly
+
+      - name: 🎩 List rustup toolchains
+        run: rustup toolchain list
+
+      - name: Check solana config
+        run: solana config get
 
       - name: 🏋️ Install and 🔨 build
         run: |
