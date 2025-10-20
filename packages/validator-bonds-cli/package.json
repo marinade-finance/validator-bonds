@@ -38,10 +38,10 @@
     "@marinade.finance/validator-bonds-sdk": "workspace: *",
     "@marinade.finance/validator-bonds-cli-core": "workspace: *",
     "@coral-xyz/anchor": "0.29.0",
-    "@marinade.finance/anchor-common": "4.0.0",
-    "@marinade.finance/cli-common": "4.0.0",
-    "@marinade.finance/ts-common": "4.0.0",
-    "@marinade.finance/web3js-1x": "4.0.0",
+    "@marinade.finance/anchor-common": "4.1.2",
+    "@marinade.finance/cli-common": "4.1.2",
+    "@marinade.finance/ts-common": "4.1.2",
+    "@marinade.finance/web3js-1x": "4.1.2",
     "@marinade.finance/ledger-utils": "3.1.0",
     "@solana/web3.js": "1.98.4",
     "bn.js": "5.2.2",
@@ -51,7 +51,7 @@
     "pino": "9.7.0",
     "pino-pretty": "13.0.0",
     "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
-    "yaml": "2.8.0"
+    "yaml": "2.8.1"
   },
   "devDependencies": {
     "crypto-js": "4.2.0",
