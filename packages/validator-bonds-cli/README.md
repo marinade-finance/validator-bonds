@@ -16,14 +16,10 @@ execution see section [NPM package installation](#npm-packages-installation-and-
 Successful installation will be shown in similar fashion to this output
 
 ```
-changed 359 packages in 25s
+added 199 packages in 20s
 
-35 packages are looking for funding
+19 packages are looking for funding
   run `npm fund` for details
-
-# to verify installed version
-validator-bonds --version
-2.2.1
 ```
 
 To get info on available commands
@@ -704,7 +700,7 @@ To check where NPM packages are and will be installed:
 # Get npm global installation folder
 npm list -g
 > /usr/lib
-> +-- @marinade.finance/validator-bonds-cli@2.2.1
+> +-- @marinade.finance/validator-bonds-cli@2.2.2
 > ...
 # In this case, the `bin` folder is located at /usr/bin
 ```
@@ -730,7 +726,7 @@ With this configuration, NPM packages will be installed under the `prefix` direc
 npm i -g @marinade.finance/validator-bonds-cli@latest
 npm list -g
 > ~/.local/share/npm/lib
-> `-- @marinade.finance/validator-bonds-cli@2.2.1
+> `-- @marinade.finance/validator-bonds-cli@2.2.2
 ```
 
 To execute the installed packages from any location,
@@ -900,7 +896,7 @@ Commands:
   # Get npm global installation folder
   npm list -g
   > ~/.local/share/npm/lib
-  > `-- @marinade.finance/validator-bonds-cli@2.2.1
+  > `-- @marinade.finance/validator-bonds-cli@2.2.2
   # In this case, the 'bin' folder is located at ~/.local/share/npm/bin
 
   # Get validator-bonds binary folder
