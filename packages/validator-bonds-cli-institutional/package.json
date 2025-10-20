@@ -1,6 +1,6 @@
 {
   "name": "@marinade.finance/validator-bonds-cli-institutional",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "CLI of the validator bonds contract streamlined for institutional users",
   "repository": {
     "type": "git",
@@ -19,7 +19,7 @@
   "author": "Marinade.Finance",
   "license": "ISC",
   "bin": {
-    "validator-bonds": "./dist/src/index.js"
+    "validator-bonds-institutional": "./dist/src/index.js"
   },
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -57,6 +57,6 @@
     "@marinade.finance/jest-shell-matcher": "1.1.1"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=20"
   }
 }
