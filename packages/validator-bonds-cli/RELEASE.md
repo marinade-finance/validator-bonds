@@ -73,7 +73,7 @@ On how to test the CLI will work properly when released.
     validator-bonds-institutional --version
     ```
 
-- Configure the registry back for both npm
+- Configure the registry back to the public npm registry
 
   ```sh
   npm config set registry https://registry.npmjs.org/
