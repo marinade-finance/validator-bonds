@@ -14,9 +14,9 @@ Successful installation will be shown in similar fashion to this output
 (it is recommended to use NodeJS 20+).
 
 ```
-added 165 packages in 35s
+added 199 packages in 17s
 
-17 packages are looking for funding
+19 packages are looking for funding
   run `npm fund` for details
 ```
 
@@ -25,7 +25,7 @@ To get info on available commands
 ```sh
 # to verify installed version
 validator-bonds-institutional --version
-2.2.1
+2.2.2
 
 # get reference of available commands
 validator-bonds-institutional --help

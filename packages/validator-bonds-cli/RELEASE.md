@@ -25,36 +25,58 @@ On how to test the CLI will work properly when released.
 - Checking publish process and CLI installation
   - Check currently configured registry
     ```sh
-    pnpm config get  registry
+    npm config get registry
     > https://registry.npmjs.org/
     ```
   - Installing local registry
 
     ```sh
     # Run local registry
-    pnpm install -g verdaccio
+    npm install -g verdaccio
     # Remove all verdaccio data to start clean
     rm -rf ~/.config/verdaccio
     rm -rf ~/.local/share/verdaccio/
-    pnpm cache clean '@marinade.finance'
+    npm cache clean '@marinade.finance'
 
+    # Start local registry
     verdaccio
-    # Configure npm/pnpm to use the local registry
-    pnpm config set registry http://localhost:4873/
-    # needed to authenticate (password has to be like Test123!)
+
+    # Configure npm and pnpm to use the local registry
+    npm config set registry http://localhost:4873/
+
+    # Required to add a user for the registry and authenticate (required password in form like "Test123!")
     npm adduser --registry http://localhost:4873/
     ```
 
+  - To check where the CLI is installed
+
+    ```sh
+    npm root -g
+    ```
+
   - Publish and check CLI
+
     ```sh
     cd <root>
     pnpm publish:all
-    pnpm install -g @marinade.finance/validator-bonds-cli
-    validator-bonds --version
+
+    # when not working then publish each package separately
     ```
 
-- Configure the registry back
+  - Install the CLI globally and check the version
+
+    ```sh
+    npm install -g @marinade.finance/validator-bonds-cli
+    validator-bonds --version
+
+    npm install -g @marinade.finance/validator-bonds-cli-institutional
+    validator-bonds-institutional --version
+    ```
+
+- Configure the registry back to the public npm registry
+
   ```sh
-  pnpm config set registry https://registry.npmjs.org/
-  pnpm config get registry
+  npm config set registry https://registry.npmjs.org/
+
+  npm config get registry
   ```
