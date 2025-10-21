@@ -1,7 +1,7 @@
 import {
   CLOSE_SETTLEMENT_LIMIT_UNITS,
   computeUnitLimitOption,
-  setProgramIdByOwner,
+  getCliContext,
 } from '@marinade.finance/validator-bonds-cli-core'
 import {
   closeSettlementV2Instruction,
@@ -75,7 +75,7 @@ export async function manageCloseSettlement({
     confirmationFinality,
     confirmWaitTime,
     skipPreflight,
-  } = await setProgramIdByOwner(address)
+  } = getCliContext()
 
   const settlementData = await getSettlement(program, address)
   const bondData = await getBond(program, settlementData.bond)

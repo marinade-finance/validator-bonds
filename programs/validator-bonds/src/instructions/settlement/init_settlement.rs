@@ -83,7 +83,7 @@ pub struct InitSettlement<'info> {
     pub system_program: Program<'info, System>,
 }
 
-impl<'info> InitSettlement<'info> {
+impl InitSettlement<'_> {
     pub fn process(
         ctx: Context<InitSettlement>,
         InitSettlementArgs {

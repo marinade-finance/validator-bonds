@@ -89,7 +89,7 @@ pub struct MintBond<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-impl<'info> MintBond<'info> {
+impl MintBond<'_> {
     pub fn process(ctx: Context<MintBond>) -> Result<()> {
         require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
@@ -104,8 +104,8 @@ impl<'info> MintBond<'info> {
         let bond_pubkey = ctx.accounts.bond.key();
         let mint_signer_seeds = &[
             BOND_MINT_SEED,
-            &bond_pubkey.as_ref(),
-            &validator_identity_vote_account.as_ref(),
+            bond_pubkey.as_ref(),
+            validator_identity_vote_account.as_ref(),
             &[ctx.bumps.mint],
         ];
         let mint_signer = [&mint_signer_seeds[..]];

@@ -74,7 +74,7 @@ pub struct ConfigureBondWithMint<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-impl<'info> ConfigureBondWithMint<'info> {
+impl ConfigureBondWithMint<'_> {
     pub fn process(
         ctx: Context<ConfigureBondWithMint>,
         configure_bond_mint_args: ConfigureBondWithMintArgs,

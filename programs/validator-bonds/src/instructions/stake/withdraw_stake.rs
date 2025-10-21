@@ -58,7 +58,7 @@ pub struct WithdrawStake<'info> {
     pub stake_program: Program<'info, Stake>,
 }
 
-impl<'info> WithdrawStake<'info> {
+impl WithdrawStake<'_> {
     pub fn process(ctx: Context<WithdrawStake>) -> Result<()> {
         require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
@@ -113,7 +113,7 @@ impl<'info> WithdrawStake<'info> {
                 },
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &ctx.accounts.config.key().as_ref(),
+                    ctx.accounts.config.key().as_ref(),
                     &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             ),

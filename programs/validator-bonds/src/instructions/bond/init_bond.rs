@@ -55,7 +55,7 @@ pub struct InitBond<'info> {
     pub system_program: Program<'info, System>,
 }
 
-impl<'info> InitBond<'info> {
+impl InitBond<'_> {
     pub fn process(
         ctx: Context<InitBond>,
         InitBondArgs {

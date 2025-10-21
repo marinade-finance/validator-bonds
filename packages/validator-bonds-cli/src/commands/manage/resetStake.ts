@@ -2,7 +2,7 @@ import { CliCommandError } from '@marinade.finance/cli-common'
 import {
   RESET_STAKE_LIMIT_UNITS,
   computeUnitLimitOption,
-  setProgramIdByOwner,
+  getCliContext,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { resetStakeInstruction } from '@marinade.finance/validator-bonds-sdk'
 import {
@@ -80,7 +80,7 @@ export async function manageResetStake({
     confirmationFinality,
     confirmWaitTime,
     skipPreflight,
-  } = await setProgramIdByOwner(bond)
+  } = getCliContext()
 
   const settlementData = await provider.connection.getAccountInfo(settlement)
   if (settlementData !== null) {

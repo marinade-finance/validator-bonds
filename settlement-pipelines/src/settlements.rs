@@ -181,7 +181,7 @@ pub async fn load_expired_settlements(
 
     let filtered_settlements: (Vec<_>, Vec<_>) = all_settlements.into_iter().zip(bonds_for_settlements.into_iter())
         .filter(|((settlement_address, settlement), (_, bond))| {
-            let is_for_config = bond.as_ref().map_or(false, |b| b.config == *config_address);
+            let is_for_config = bond.as_ref().is_some_and(|b| b.config == *config_address);
             let is_expired = current_epoch > settlement.epoch_created_for + config.epochs_to_claim_settlement;
 
         debug!(

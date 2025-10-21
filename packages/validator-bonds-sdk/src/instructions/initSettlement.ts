@@ -1,4 +1,4 @@
-import { PublicKey } from '@solana/web3.js'
+import { PublicKey, SystemProgram } from '@solana/web3.js'
 import BN from 'bn.js'
 
 import { getBond, getConfig } from '../api'
@@ -109,6 +109,7 @@ export async function initSettlementInstruction({
       settlementClaims: settlementClaimsAccount,
       operatorAuthority: operatorAuthorityPubkey,
       rentPayer: renPayerPubkey,
+      systemProgram: SystemProgram.programId,
     })
     .instruction()
   return {

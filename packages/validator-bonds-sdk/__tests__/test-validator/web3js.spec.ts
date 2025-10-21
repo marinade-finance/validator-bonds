@@ -45,6 +45,7 @@ describe('Find stake account', () => {
       withdrawer: withdrawer2,
       voteAccount,
       lamports: LAMPORTS_PER_SOL * 20,
+      isWaitForNextEpoch: true,
     })
     const delegated2 = await createDelegatedStakeAccount({
       provider,
@@ -52,6 +53,7 @@ describe('Find stake account', () => {
       withdrawer: withdrawer2,
       voteAccount,
       lamports: LAMPORTS_PER_SOL * 19,
+      isWaitForNextEpoch: true,
     })
 
     const stakeAccounts1 = await findStakeAccounts({

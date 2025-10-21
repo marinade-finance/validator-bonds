@@ -1,6 +1,6 @@
 import assert from 'assert'
 
-import { pubkey, signer } from '@marinade.finance/web3js-1x'
+import { pubkey, signer, waitForNextEpoch } from '@marinade.finance/web3js-1x'
 import {
   Authorized,
   Keypair,
@@ -413,12 +413,14 @@ export async function createDelegatedStakeAccount({
   voteAccount,
   withdrawer,
   staker,
+  isWaitForNextEpoch,
 }: {
   provider: ExtendedProvider
   lamports: number | BN
   voteAccount: PublicKey
   withdrawer: PublicKey
   staker: PublicKey
+  isWaitForNextEpoch?: boolean
 }): Promise<PublicKey> {
   const { stakeAccount, withdrawer: initWithdrawer } =
     await delegatedStakeAccount({
@@ -426,6 +428,11 @@ export async function createDelegatedStakeAccount({
       lamports,
       voteAccountToDelegate: voteAccount,
     })
+  if (isWaitForNextEpoch) {
+    // https://github.com/solana-program/stake/blob/a173d0ef0e1d0af08d3ec89444516483df880f37/clients/rust/src/generated/errors/stake.rs#L62
+    // 16 - 0x10 - Stake action is not permitted while the epoch rewards period is active
+    await waitForNextEpoch(provider.connection, 15)
+  }
   await authorizeStakeAccount({
     provider,
     authority: initWithdrawer,

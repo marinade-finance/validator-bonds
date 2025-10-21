@@ -6,8 +6,8 @@ import {
 } from '@solana/web3.js'
 
 import { getConfig } from '../api'
+import { bondsWithdrawerAuthority, type ValidatorBondsProgram } from '../sdk'
 
-import type { ValidatorBondsProgram } from '../sdk'
 import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import type { TransactionInstruction, Keypair, Signer } from '@solana/web3.js'
 
@@ -48,6 +48,10 @@ export async function withdrawStakeInstruction({
     .accountsPartial({
       config: configAccount,
       settlement: settlementAccount,
+      bondsWithdrawerAuthority: bondsWithdrawerAuthority(
+        configAccount,
+        program.programId,
+      )[0],
       stakeAccount,
       operatorAuthority,
       withdrawTo,

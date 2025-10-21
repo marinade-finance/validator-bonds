@@ -96,7 +96,7 @@ pub struct CancelSettlement<'info> {
     pub stake_history: UncheckedAccount<'info>,
 }
 
-impl<'info> CancelSettlement<'info> {
+impl CancelSettlement<'_> {
     pub fn process(ctx: Context<CancelSettlement>) -> Result<()> {
         require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 

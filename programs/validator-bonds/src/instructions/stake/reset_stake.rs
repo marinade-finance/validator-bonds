@@ -72,7 +72,7 @@ pub struct ResetStake<'info> {
     pub stake_program: Program<'info, Stake>,
 }
 
-impl<'info> ResetStake<'info> {
+impl ResetStake<'_> {
     pub fn process(ctx: Context<ResetStake>) -> Result<()> {
         require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
@@ -112,7 +112,7 @@ impl<'info> ResetStake<'info> {
                 },
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &ctx.accounts.config.key().as_ref(),
+                    ctx.accounts.config.key().as_ref(),
                     &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             ),
@@ -139,7 +139,7 @@ impl<'info> ResetStake<'info> {
             ],
             &[&[
                 BONDS_WITHDRAWER_AUTHORITY_SEED,
-                &ctx.accounts.config.key().as_ref(),
+                ctx.accounts.config.key().as_ref(),
                 &[ctx.accounts.config.bonds_withdrawer_authority_bump],
             ]],
         )?;

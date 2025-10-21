@@ -31,7 +31,7 @@ import {
 } from '@marinade.finance/web3js-1x'
 import BN from 'bn.js'
 
-import { getCliContext, setProgramIdByOwner } from '../context'
+import { getCliContext } from '../context'
 import { getBondFromAddress, formatUnit, formatToSolWithAll } from '../utils'
 
 import type { ProgramAccount } from '@coral-xyz/anchor'
@@ -206,7 +206,7 @@ async function showConfig({
   operatorAuthority?: PublicKey
   format: FormatType
 }) {
-  const { program } = await setProgramIdByOwner(address)
+  const { program } = getCliContext()
 
   // CLI provided an address, we will search for that one account
   let data: ShowConfigType | ShowConfigType[]

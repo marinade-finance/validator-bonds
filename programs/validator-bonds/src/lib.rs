@@ -21,7 +21,7 @@ use instructions::*;
 
 /// solana-security-txt for Validator Bonds program by Marinade.Finance
 #[cfg(not(feature = "no-entrypoint"))]
-use {solana_security_txt::security_txt};
+use solana_security_txt::security_txt;
 #[cfg(not(feature = "no-entrypoint"))]
 security_txt! {
     name: "Validator Bonds",

@@ -1,4 +1,4 @@
-import { PublicKey } from '@solana/web3.js'
+import { PublicKey, SystemProgram } from '@solana/web3.js'
 import BN from 'bn.js'
 
 import { bondAddress } from '../sdk'
@@ -62,6 +62,7 @@ export async function initBondInstruction({
       voteAccount,
       validatorIdentity: validatorIdentity ?? null,
       rentPayer: renPayerPubkey,
+      systemProgram: SystemProgram.programId,
     })
     .instruction()
   return {

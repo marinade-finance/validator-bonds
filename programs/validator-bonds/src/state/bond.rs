@@ -44,8 +44,8 @@ impl Bond {
         Pubkey::create_program_address(
             &[
                 BOND_SEED,
-                &self.config.key().as_ref(),
-                &self.vote_account.as_ref(),
+                self.config.key().as_ref(),
+                self.vote_account.as_ref(),
                 &[self.bump],
             ],
             &ID,

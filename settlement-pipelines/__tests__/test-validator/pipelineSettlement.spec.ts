@@ -418,6 +418,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
           voteAccount,
           withdrawer: withdrawerAuthority,
           staker: withdrawerAuthority,
+          isWaitForNextEpoch: true,
         })
         lamportsAtStakeAccounts = lamportsAtStakeAccounts.add(lamportsStep)
         lamportsStep = lamportsStep.add(lamportsStep)

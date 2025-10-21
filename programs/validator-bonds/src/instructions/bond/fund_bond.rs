@@ -57,7 +57,7 @@ pub struct FundBond<'info> {
     pub stake_program: Program<'info, Stake>,
 }
 
-impl<'info> FundBond<'info> {
+impl FundBond<'_> {
     pub fn process(ctx: Context<FundBond>) -> Result<()> {
         require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 

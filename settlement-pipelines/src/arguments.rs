@@ -203,18 +203,17 @@ pub fn init_from_opts(
     let fee_payer_keypair = if let Some(fee_payer) = global_opts.fee_payer.clone() {
         load_keypair("--fee-payer", &fee_payer)?
     } else {
-        default_keypair.clone().map_or(Err(anyhow!("Neither --fee-payer nor --keypair provided, no keypair to pay for transaction fees")), Ok)?
+        default_keypair.clone().ok_or(anyhow!(
+            "Neither --fee-payer nor --keypair provided, no keypair to pay for transaction fees"
+        ))?
     };
     let operator_authority_keypair =
         if let Some(operator_authority) = global_opts.operator_authority.clone() {
             load_keypair("--operator-authority", &operator_authority)?
         } else {
-            default_keypair.map_or(
-                Err(anyhow!(
+            default_keypair.clone().ok_or(anyhow!(
                 "Neither --operator-authority nor --keypair provided, operator keypair required"
-            )),
-                Ok,
-            )?
+            ))?
         };
 
     let priority_fee_policy = to_priority_fee_policy(priority_fee_policy_opts);

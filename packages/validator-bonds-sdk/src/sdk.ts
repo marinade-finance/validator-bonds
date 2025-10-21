@@ -79,6 +79,7 @@ export const SETTLEMENT_STAKER_AUTHORITY_SEED = seedFromConstants(
 export const SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE = Number(
   fromConstants('SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE'),
 )
+export const EVENT_AUTHORITY_SEED_STRING = '__event_authority'
 
 // --- EVENTS ---
 export const INIT_CONFIG_EVENT = 'initConfigEvent'
@@ -177,12 +178,10 @@ export function getProgram({
   connection,
   wallet,
   opts,
-  programId = VALIDATOR_BONDS_PROGRAM_ID,
 }: {
   connection: Connection | Provider
   wallet?: AnchorWalletInterface | Keypair
   opts?: ConfirmOptions
-  programId?: PublicKey
 }): ValidatorBondsProgram {
   let provider: Provider
   if (connection instanceof Connection) {
@@ -300,7 +299,7 @@ export function eventAuthorityAddress(
   validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID,
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from('__event_authority')],
+    [Buffer.from(EVENT_AUTHORITY_SEED_STRING)],
     validatorBondsProgramId,
   )
 }

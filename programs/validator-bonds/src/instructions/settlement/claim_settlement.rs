@@ -112,7 +112,7 @@ pub struct ClaimSettlementV2<'info> {
     pub stake_program: Program<'info, Stake>,
 }
 
-impl<'info> ClaimSettlementV2<'info> {
+impl ClaimSettlementV2<'_> {
     pub fn process(
         ctx: Context<ClaimSettlementV2>,
         ClaimSettlementV2Args {
@@ -258,7 +258,7 @@ impl<'info> ClaimSettlementV2<'info> {
                 },
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &ctx.accounts.config.key().as_ref(),
+                    ctx.accounts.config.key().as_ref(),
                     &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             ),

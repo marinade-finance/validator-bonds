@@ -1,4 +1,4 @@
-import { PublicKey } from '@solana/web3.js'
+import { PublicKey, SystemProgram } from '@solana/web3.js'
 
 import { settlementClaimsAddress } from '../sdk'
 import { anchorProgramWalletPubkey } from '../utils'
@@ -54,6 +54,7 @@ export async function upsizeSettlementClaims({
     .accountsPartial({
       settlementClaims: settlementClaimsAccount,
       rentPayer: renPayerPubkey,
+      systemProgram: SystemProgram.programId,
     })
     .instruction()
   return {

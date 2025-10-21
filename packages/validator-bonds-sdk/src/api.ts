@@ -200,7 +200,7 @@ export async function getMultipleWithdrawRequests({
       program,
       accountInfo,
       publicKey,
-      'withdraw_request',
+      'withdrawRequest',
     ),
   )
 }

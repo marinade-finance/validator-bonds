@@ -21,6 +21,7 @@ use settlement_pipelines::reporting::{
 };
 use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
 use settlement_pipelines::settlement_data::SettlementRecord;
+use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
@@ -33,7 +34,6 @@ use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
-use solana_cli_output::display::build_balance_message;
 use validator_bonds::instructions::InitSettlementArgs;
 use validator_bonds::state::settlement::find_settlement_claims_address;
 use validator_bonds::ID as validator_bonds_id;

@@ -1,9 +1,7 @@
 import {
   computeUnitLimitOption,
-  setProgramIdByOwner,
-} from '@marinade.finance/validator-bonds-cli-core'
-import {
   CONFIGURE_CONFIG_LIMIT_UNITS,
+  getCliContext,
   toBN,
 } from '@marinade.finance/validator-bonds-cli-core'
 import {
@@ -162,7 +160,7 @@ async function manageConfigureConfig({
     confirmationFinality,
     confirmWaitTime,
     skipPreflight,
-  } = await setProgramIdByOwner(address)
+  } = getCliContext()
 
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]

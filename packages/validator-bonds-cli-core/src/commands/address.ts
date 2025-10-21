@@ -5,7 +5,7 @@ import {
 } from '@marinade.finance/validator-bonds-sdk'
 import { parsePubkeyOrPubkeyFromWallet } from '@marinade.finance/web3js-1x'
 
-import { setProgramIdOrDefault } from '../context'
+import { getCliContext } from '../context'
 
 import type { PublicKey } from '@solana/web3.js'
 import type { Command } from 'commander'
@@ -30,7 +30,7 @@ export function showBondAddress({
   address: PublicKey
   config: PublicKey
 }) {
-  const { program, logger } = setProgramIdOrDefault()
+  const { program, logger } = getCliContext()
 
   try {
     const [bondAddr, bondBump] = bondAddress(config, address, program.programId)

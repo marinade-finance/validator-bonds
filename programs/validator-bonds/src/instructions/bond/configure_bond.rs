@@ -48,7 +48,7 @@ pub struct ConfigureBond<'info> {
     pub vote_account: UncheckedAccount<'info>,
 }
 
-impl<'info> ConfigureBond<'info> {
+impl ConfigureBond<'_> {
     pub fn process(
         ctx: Context<ConfigureBond>,
         configure_bond_args: ConfigureBondArgs,

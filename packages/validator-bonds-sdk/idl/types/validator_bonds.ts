@@ -10,183 +10,25 @@ export type ValidatorBonds = {
     name: 'validatorBonds'
     version: '2.1.0'
     spec: '0.1.0'
-    description: 'Marinade validator bonds program protecting validators performance'
   }
   instructions: [
     {
-      name: 'cancelSettlement'
-      discriminator: [33, 241, 96, 62, 228, 178, 1, 120]
+      name: 'initConfig'
+      discriminator: [23, 235, 115, 232, 168, 96, 1, 231]
       accounts: [
         {
           name: 'config'
           writable: true
-          relations: ['bond']
-        },
-        {
-          name: 'bond'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
-              },
-              {
-                kind: 'account'
-                path: 'config'
-              },
-              {
-                kind: 'account'
-                path: 'bond.vote_account'
-                account: 'bond'
-              },
-            ]
-          }
-          relations: ['settlement']
-        },
-        {
-          name: 'settlement'
-          docs: ['settlement to close whenever the operator decides']
-          writable: true
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  115,
-                  101,
-                  116,
-                  116,
-                  108,
-                  101,
-                  109,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  99,
-                  99,
-                  111,
-                  117,
-                  110,
-                  116,
-                ]
-              },
-              {
-                kind: 'account'
-                path: 'bond'
-              },
-              {
-                kind: 'account'
-                path: 'settlement.merkle_root'
-                account: 'settlement'
-              },
-              {
-                kind: 'account'
-                path: 'settlement.epoch_created_for'
-                account: 'settlement'
-              },
-            ]
-          }
-          relations: ['settlementClaims']
-        },
-        {
-          name: 'settlementClaims'
-          writable: true
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  99,
-                  108,
-                  97,
-                  105,
-                  109,
-                  115,
-                  95,
-                  97,
-                  99,
-                  99,
-                  111,
-                  117,
-                  110,
-                  116,
-                ]
-              },
-              {
-                kind: 'account'
-                path: 'settlement'
-              },
-            ]
-          }
-        },
-        {
-          name: 'authority'
-          docs: [
-            'Cancelling is permitted only to emergency or operator authority',
-          ]
           signer: true
         },
         {
-          name: 'bondsWithdrawerAuthority'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  98,
-                  111,
-                  110,
-                  100,
-                  115,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121,
-                ]
-              },
-              {
-                kind: 'account'
-                path: 'config'
-              },
-            ]
-          }
-        },
-        {
-          name: 'rentCollector'
+          name: 'rentPayer'
+          docs: ['rent exempt payer for the config account']
           writable: true
-          relations: ['settlement']
+          signer: true
         },
         {
-          name: 'splitRentCollector'
-          writable: true
-        },
-        {
-          name: 'splitRentRefundAccount'
-          docs: [
-            "The stake account is funded to the settlement and credited to the bond's validator vote account.",
-            'The lamports are utilized to pay back the rent exemption of the split_stake_account',
-          ]
-          writable: true
-        },
-        {
-          name: 'clock'
-          address: 'SysvarC1ock11111111111111111111111111111111'
-        },
-        {
-          name: 'stakeProgram'
-          address: 'Stake11111111111111111111111111111111111111'
-        },
-        {
-          name: 'stakeHistory'
-          address: 'SysvarStakeHistory1111111111111111111111111'
+          name: 'systemProgram'
         },
         {
           name: 'eventAuthority'
@@ -195,6 +37,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   95,
                   95,
                   101,
@@ -212,6 +55,549 @@ export type ValidatorBonds = {
                   105,
                   116,
                   121,
+                  34,
+                ]
+              },
+            ]
+          }
+        },
+        {
+          name: 'program'
+        },
+      ]
+      args: [
+        {
+          name: 'initConfigArgs'
+          type: {
+            defined: {
+              name: 'initConfigArgs'
+            }
+          }
+        },
+      ]
+    },
+    {
+      name: 'configureConfig'
+      discriminator: [198, 98, 161, 165, 137, 200, 230, 203]
+      accounts: [
+        {
+          name: 'config'
+          writable: true
+          relations: ['adminAuthority']
+        },
+        {
+          name: 'adminAuthority'
+          docs: ['only the admin authority can change the config params']
+          signer: true
+        },
+        {
+          name: 'eventAuthority'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  34,
+                ]
+              },
+            ]
+          }
+        },
+        {
+          name: 'program'
+        },
+      ]
+      args: [
+        {
+          name: 'configureConfigArgs'
+          type: {
+            defined: {
+              name: 'configureConfigArgs'
+            }
+          }
+        },
+      ]
+    },
+    {
+      name: 'initBond'
+      discriminator: [95, 93, 93, 181, 221, 36, 126, 64]
+      accounts: [
+        {
+          name: 'config'
+          docs: ['the config account under which the bond is created']
+        },
+        {
+          name: 'voteAccount'
+        },
+        {
+          name: 'validatorIdentity'
+          docs: [
+            'permission-ed: the validator identity signs the instruction, InitBondArgs applied',
+            'permission-less: no signature, default init bond configuration',
+          ]
+          signer: true
+          optional: true
+        },
+        {
+          name: 'bond'
+          writable: true
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'config'
+                account: 'config'
+              },
+              {
+                kind: 'account'
+                path: 'voteAccount'
+              },
+            ]
+          }
+        },
+        {
+          name: 'rentPayer'
+          docs: ['rent exempt payer of validator bond account creation']
+          writable: true
+          signer: true
+        },
+        {
+          name: 'systemProgram'
+        },
+        {
+          name: 'eventAuthority'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  34,
+                ]
+              },
+            ]
+          }
+        },
+        {
+          name: 'program'
+        },
+      ]
+      args: [
+        {
+          name: 'initBondArgs'
+          type: {
+            defined: {
+              name: 'initBondArgs'
+            }
+          }
+        },
+      ]
+    },
+    {
+      name: 'configureBond'
+      discriminator: [228, 108, 79, 242, 82, 54, 105, 65]
+      accounts: [
+        {
+          name: 'config'
+        },
+        {
+          name: 'bond'
+          writable: true
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'config'
+                account: 'config'
+              },
+              {
+                kind: 'account'
+                path: 'voteAccount'
+              },
+            ]
+          }
+          relations: ['voteAccount', 'config']
+        },
+        {
+          name: 'authority'
+          docs: [
+            'validator vote account validator identity or bond authority may change the account',
+          ]
+          signer: true
+        },
+        {
+          name: 'voteAccount'
+        },
+        {
+          name: 'eventAuthority'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  34,
+                ]
+              },
+            ]
+          }
+        },
+        {
+          name: 'program'
+        },
+      ]
+      args: [
+        {
+          name: 'configureBondArgs'
+          type: {
+            defined: {
+              name: 'configureBondArgs'
+            }
+          }
+        },
+      ]
+    },
+    {
+      name: 'configureBondWithMint'
+      discriminator: [48, 189, 230, 39, 112, 33, 227, 8]
+      accounts: [
+        {
+          name: 'config'
+        },
+        {
+          name: 'bond'
+          writable: true
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'config'
+                account: 'config'
+              },
+              {
+                kind: 'account'
+                path: 'voteAccount'
+              },
+            ]
+          }
+          relations: ['config', 'voteAccount']
+        },
+        {
+          name: 'mint'
+          writable: true
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [34, 98, 111, 110, 100, 95, 109, 105, 110, 116, 34]
+              },
+              {
+                kind: 'account'
+                path: 'bond'
+                account: 'bond'
+              },
+              {
+                kind: 'arg'
+                path: 'params.validator_identity'
+              },
+            ]
+          }
+        },
+        {
+          name: 'voteAccount'
+        },
+        {
+          name: 'tokenAccount'
+          docs: ['token account to burn bond mint configuration tokens from']
+          writable: true
+        },
+        {
+          name: 'tokenAuthority'
+          signer: true
+        },
+        {
+          name: 'tokenProgram'
+        },
+        {
+          name: 'eventAuthority'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  34,
+                ]
+              },
+            ]
+          }
+        },
+        {
+          name: 'program'
+        },
+      ]
+      args: [
+        {
+          name: 'args'
+          type: {
+            defined: {
+              name: 'configureBondWithMintArgs'
+            }
+          }
+        },
+      ]
+    },
+    {
+      name: 'mintBond'
+      discriminator: [234, 94, 85, 225, 167, 102, 169, 32]
+      accounts: [
+        {
+          name: 'config'
+        },
+        {
+          name: 'bond'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'config'
+                account: 'config'
+              },
+              {
+                kind: 'account'
+                path: 'voteAccount'
+              },
+            ]
+          }
+          relations: ['config', 'voteAccount']
+        },
+        {
+          name: 'mint'
+          writable: true
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [34, 98, 111, 110, 100, 95, 109, 105, 110, 116, 34]
+              },
+              {
+                kind: 'account'
+                path: 'bond'
+                account: 'bond'
+              },
+              {
+                kind: 'account'
+                path: 'validatorIdentity'
+              },
+            ]
+          }
+        },
+        {
+          name: 'validatorIdentity'
+        },
+        {
+          name: 'validatorIdentityTokenAccount'
+          writable: true
+        },
+        {
+          name: 'voteAccount'
+        },
+        {
+          name: 'metadata'
+          writable: true
+        },
+        {
+          name: 'rentPayer'
+          docs: ['rent exempt payer of account creation']
+          writable: true
+          signer: true
+        },
+        {
+          name: 'systemProgram'
+        },
+        {
+          name: 'tokenProgram'
+        },
+        {
+          name: 'associatedTokenProgram'
+        },
+        {
+          name: 'metadataProgram'
+        },
+        {
+          name: 'rent'
+        },
+        {
+          name: 'eventAuthority'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  34,
                 ]
               },
             ]
@@ -224,12 +610,154 @@ export type ValidatorBonds = {
       args: []
     },
     {
-      name: 'cancelWithdrawRequest'
-      discriminator: [167, 100, 110, 128, 113, 154, 224, 77]
+      name: 'fundBond'
+      discriminator: [58, 44, 212, 175, 30, 17, 68, 62]
       accounts: [
         {
           name: 'config'
-          relations: ['bond']
+        },
+        {
+          name: 'bond'
+          docs: [
+            'bond account to be deposited to with the provided stake account',
+          ]
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'config'
+                account: 'config'
+              },
+              {
+                kind: 'account'
+                path: 'bond.vote_account'
+                account: 'bond'
+              },
+            ]
+          }
+          relations: ['config']
+        },
+        {
+          name: 'bondsWithdrawerAuthority'
+          docs: [
+            "new owner of the stake_account, it's the bonds withdrawer authority",
+          ]
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'config'
+                account: 'config'
+              },
+            ]
+          }
+        },
+        {
+          name: 'stakeAccount'
+          docs: ['stake account to be deposited']
+          writable: true
+        },
+        {
+          name: 'stakeAuthority'
+          docs: [
+            'authority signature permitting to change the stake_account authorities',
+          ]
+          signer: true
+        },
+        {
+          name: 'clock'
+        },
+        {
+          name: 'stakeHistory'
+        },
+        {
+          name: 'stakeProgram'
+        },
+        {
+          name: 'eventAuthority'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  34,
+                ]
+              },
+            ]
+          }
+        },
+        {
+          name: 'program'
+        },
+      ]
+      args: []
+    },
+    {
+      name: 'initWithdrawRequest'
+      discriminator: [142, 31, 222, 215, 83, 79, 34, 49]
+      accounts: [
+        {
+          name: 'config'
+          docs: ['the config account under which the bond was created']
         },
         {
           name: 'bond'
@@ -237,11 +765,27 @@ export type ValidatorBonds = {
             seeds: [
               {
                 kind: 'const'
-                value: [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
               },
               {
                 kind: 'account'
                 path: 'config'
+                account: 'config'
               },
               {
                 kind: 'account'
@@ -249,11 +793,154 @@ export type ValidatorBonds = {
               },
             ]
           }
-          relations: ['withdrawRequest']
+          relations: ['config', 'voteAccount']
         },
         {
           name: 'voteAccount'
-          relations: ['bond']
+        },
+        {
+          name: 'authority'
+          docs: [
+            'validator vote account node identity or bond authority may ask for the withdrawal',
+          ]
+          signer: true
+        },
+        {
+          name: 'withdrawRequest'
+          writable: true
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  119,
+                  105,
+                  116,
+                  104,
+                  100,
+                  114,
+                  97,
+                  119,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'bond'
+                account: 'bond'
+              },
+            ]
+          }
+        },
+        {
+          name: 'rentPayer'
+          docs: ['rent exempt payer of withdraw request account creation']
+          writable: true
+          signer: true
+        },
+        {
+          name: 'systemProgram'
+        },
+        {
+          name: 'eventAuthority'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  34,
+                ]
+              },
+            ]
+          }
+        },
+        {
+          name: 'program'
+        },
+      ]
+      args: [
+        {
+          name: 'createWithdrawRequestArgs'
+          type: {
+            defined: {
+              name: 'initWithdrawRequestArgs'
+            }
+          }
+        },
+      ]
+    },
+    {
+      name: 'cancelWithdrawRequest'
+      discriminator: [167, 100, 110, 128, 113, 154, 224, 77]
+      accounts: [
+        {
+          name: 'config'
+        },
+        {
+          name: 'bond'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'config'
+                account: 'config'
+              },
+              {
+                kind: 'account'
+                path: 'voteAccount'
+              },
+            ]
+          }
+          relations: ['voteAccount', 'config']
+        },
+        {
+          name: 'voteAccount'
         },
         {
           name: 'authority'
@@ -270,6 +957,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   119,
                   105,
                   116,
@@ -286,14 +974,17 @@ export type ValidatorBonds = {
                   117,
                   110,
                   116,
+                  34,
                 ]
               },
               {
                 kind: 'account'
                 path: 'bond'
+                account: 'bond'
               },
             ]
           }
+          relations: ['bond']
         },
         {
           name: 'rentCollector'
@@ -306,6 +997,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   95,
                   95,
                   101,
@@ -323,6 +1015,7 @@ export type ValidatorBonds = {
                   105,
                   116,
                   121,
+                  34,
                 ]
               },
             ]
@@ -335,221 +1028,12 @@ export type ValidatorBonds = {
       args: []
     },
     {
-      name: 'claimSettlementV2'
-      discriminator: [188, 53, 132, 151, 88, 50, 52, 238]
-      accounts: [
-        {
-          name: 'config'
-          docs: ['the config account under which the settlement was created']
-          relations: ['bond']
-        },
-        {
-          name: 'bond'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
-              },
-              {
-                kind: 'account'
-                path: 'config'
-              },
-              {
-                kind: 'account'
-                path: 'bond.vote_account'
-                account: 'bond'
-              },
-            ]
-          }
-          relations: ['settlement']
-        },
-        {
-          name: 'settlement'
-          writable: true
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  115,
-                  101,
-                  116,
-                  116,
-                  108,
-                  101,
-                  109,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  99,
-                  99,
-                  111,
-                  117,
-                  110,
-                  116,
-                ]
-              },
-              {
-                kind: 'account'
-                path: 'bond'
-              },
-              {
-                kind: 'account'
-                path: 'settlement.merkle_root'
-                account: 'settlement'
-              },
-              {
-                kind: 'account'
-                path: 'settlement.epoch_created_for'
-                account: 'settlement'
-              },
-            ]
-          }
-          relations: ['settlementClaims']
-        },
-        {
-          name: 'settlementClaims'
-          docs: ['deduplication, merkle tree record cannot be claimed twice']
-          writable: true
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  99,
-                  108,
-                  97,
-                  105,
-                  109,
-                  115,
-                  95,
-                  97,
-                  99,
-                  99,
-                  111,
-                  117,
-                  110,
-                  116,
-                ]
-              },
-              {
-                kind: 'account'
-                path: 'settlement'
-              },
-            ]
-          }
-        },
-        {
-          name: 'stakeAccountFrom'
-          docs: ['a stake account that will be withdrawn']
-          writable: true
-        },
-        {
-          name: 'stakeAccountTo'
-          docs: ['a stake account that will receive the funds']
-          writable: true
-        },
-        {
-          name: 'bondsWithdrawerAuthority'
-          docs: [
-            'authority that manages (owns == by being withdrawer authority) all stakes account under the bonds program',
-          ]
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  98,
-                  111,
-                  110,
-                  100,
-                  115,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121,
-                ]
-              },
-              {
-                kind: 'account'
-                path: 'config'
-              },
-            ]
-          }
-        },
-        {
-          name: 'stakeHistory'
-          address: 'SysvarStakeHistory1111111111111111111111111'
-        },
-        {
-          name: 'clock'
-          address: 'SysvarC1ock11111111111111111111111111111111'
-        },
-        {
-          name: 'stakeProgram'
-          address: 'Stake11111111111111111111111111111111111111'
-        },
-        {
-          name: 'eventAuthority'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121,
-                ]
-              },
-            ]
-          }
-        },
-        {
-          name: 'program'
-        },
-      ]
-      args: [
-        {
-          name: 'claimSettlementArgs'
-          type: {
-            defined: {
-              name: 'claimSettlementV2Args'
-            }
-          }
-        },
-      ]
-    },
-    {
       name: 'claimWithdrawRequest'
       discriminator: [48, 232, 23, 52, 20, 134, 122, 118]
       accounts: [
         {
           name: 'config'
           docs: ['the config root configuration account']
-          relations: ['bond']
         },
         {
           name: 'bond'
@@ -557,11 +1041,27 @@ export type ValidatorBonds = {
             seeds: [
               {
                 kind: 'const'
-                value: [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
               },
               {
                 kind: 'account'
                 path: 'config'
+                account: 'config'
               },
               {
                 kind: 'account'
@@ -569,11 +1069,10 @@ export type ValidatorBonds = {
               },
             ]
           }
-          relations: ['withdrawRequest']
+          relations: ['config', 'voteAccount']
         },
         {
           name: 'voteAccount'
-          relations: ['bond', 'withdrawRequest']
         },
         {
           name: 'authority'
@@ -590,6 +1089,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   119,
                   105,
                   116,
@@ -606,14 +1106,17 @@ export type ValidatorBonds = {
                   117,
                   110,
                   116,
+                  34,
                 ]
               },
               {
                 kind: 'account'
                 path: 'bond'
+                account: 'bond'
               },
             ]
           }
+          relations: ['voteAccount', 'bond']
         },
         {
           name: 'bondsWithdrawerAuthority'
@@ -622,6 +1125,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   98,
                   111,
                   110,
@@ -637,11 +1141,13 @@ export type ValidatorBonds = {
                   105,
                   116,
                   121,
+                  34,
                 ]
               },
               {
                 kind: 'account'
                 path: 'config'
+                account: 'config'
               },
             ]
           }
@@ -680,19 +1186,15 @@ export type ValidatorBonds = {
         },
         {
           name: 'stakeProgram'
-          address: 'Stake11111111111111111111111111111111111111'
         },
         {
           name: 'systemProgram'
-          address: '11111111111111111111111111111111'
         },
         {
           name: 'stakeHistory'
-          address: 'SysvarStakeHistory1111111111111111111111111'
         },
         {
           name: 'clock'
-          address: 'SysvarC1ock11111111111111111111111111111111'
         },
         {
           name: 'eventAuthority'
@@ -701,6 +1203,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   95,
                   95,
                   101,
@@ -718,6 +1221,7 @@ export type ValidatorBonds = {
                   105,
                   116,
                   121,
+                  34,
                 ]
               },
             ]
@@ -730,12 +1234,12 @@ export type ValidatorBonds = {
       args: []
     },
     {
-      name: 'closeSettlementV2'
-      discriminator: [125, 212, 89, 37, 31, 244, 191, 179]
+      name: 'initSettlement'
+      discriminator: [152, 178, 0, 65, 52, 210, 247, 58]
       accounts: [
         {
           name: 'config'
-          relations: ['bond']
+          relations: ['operatorAuthority']
         },
         {
           name: 'bond'
@@ -743,11 +1247,27 @@ export type ValidatorBonds = {
             seeds: [
               {
                 kind: 'const'
-                value: [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
               },
               {
                 kind: 'account'
                 path: 'config'
+                account: 'config'
               },
               {
                 kind: 'account'
@@ -756,17 +1276,17 @@ export type ValidatorBonds = {
               },
             ]
           }
-          relations: ['settlement']
+          relations: ['config']
         },
         {
           name: 'settlement'
-          docs: ['settlement to close when expired']
           writable: true
           pda: {
             seeds: [
               {
                 kind: 'const'
                 value: [
+                  34,
                   115,
                   101,
                   116,
@@ -785,11 +1305,251 @@ export type ValidatorBonds = {
                   117,
                   110,
                   116,
+                  34,
                 ]
               },
               {
                 kind: 'account'
                 path: 'bond'
+                account: 'bond'
+              },
+              {
+                kind: 'arg'
+                path: 'params.merkle_root'
+              },
+              {
+                kind: 'arg'
+                path: 'params.epoch'
+              },
+            ]
+          }
+        },
+        {
+          name: 'settlementClaims'
+          writable: true
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  99,
+                  108,
+                  97,
+                  105,
+                  109,
+                  115,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'settlement'
+                account: 'settlement'
+              },
+            ]
+          }
+        },
+        {
+          name: 'operatorAuthority'
+          docs: [
+            'operator signer authority that is allowed to create the settlement account',
+          ]
+          signer: true
+        },
+        {
+          name: 'rentPayer'
+          docs: ['rent exempt payer of account creation']
+          writable: true
+          signer: true
+        },
+        {
+          name: 'systemProgram'
+        },
+        {
+          name: 'eventAuthority'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  34,
+                ]
+              },
+            ]
+          }
+        },
+        {
+          name: 'program'
+        },
+      ]
+      args: [
+        {
+          name: 'initSettlementArgs'
+          type: {
+            defined: {
+              name: 'initSettlementArgs'
+            }
+          }
+        },
+      ]
+    },
+    {
+      name: 'upsizeSettlementClaims'
+      discriminator: [207, 46, 34, 88, 141, 36, 63, 132]
+      accounts: [
+        {
+          name: 'settlementClaims'
+          writable: true
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  99,
+                  108,
+                  97,
+                  105,
+                  109,
+                  115,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'settlement_claims.settlement'
+                account: 'settlementClaims'
+              },
+            ]
+          }
+        },
+        {
+          name: 'rentPayer'
+          docs: ['rent exempt payer of account reallocation']
+          writable: true
+          signer: true
+        },
+        {
+          name: 'systemProgram'
+        },
+      ]
+      args: []
+    },
+    {
+      name: 'cancelSettlement'
+      discriminator: [33, 241, 96, 62, 228, 178, 1, 120]
+      accounts: [
+        {
+          name: 'config'
+          writable: true
+        },
+        {
+          name: 'bond'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'config'
+                account: 'config'
+              },
+              {
+                kind: 'account'
+                path: 'bond.vote_account'
+                account: 'bond'
+              },
+            ]
+          }
+          relations: ['config']
+        },
+        {
+          name: 'settlement'
+          docs: ['settlement to close whenever the operator decides']
+          writable: true
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'bond'
+                account: 'bond'
               },
               {
                 kind: 'account'
@@ -803,7 +1563,7 @@ export type ValidatorBonds = {
               },
             ]
           }
-          relations: ['settlementClaims']
+          relations: ['bond', 'rentCollector']
         },
         {
           name: 'settlementClaims'
@@ -813,6 +1573,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   99,
                   108,
                   97,
@@ -827,14 +1588,24 @@ export type ValidatorBonds = {
                   117,
                   110,
                   116,
+                  34,
                 ]
               },
               {
                 kind: 'account'
                 path: 'settlement'
+                account: 'settlement'
               },
             ]
           }
+          relations: ['settlement']
+        },
+        {
+          name: 'authority'
+          docs: [
+            'Cancelling is permitted only to emergency or operator authority',
+          ]
+          signer: true
         },
         {
           name: 'bondsWithdrawerAuthority'
@@ -843,6 +1614,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   98,
                   111,
                   110,
@@ -858,11 +1630,13 @@ export type ValidatorBonds = {
                   105,
                   116,
                   121,
+                  34,
                 ]
               },
               {
                 kind: 'account'
                 path: 'config'
+                account: 'config'
               },
             ]
           }
@@ -870,7 +1644,6 @@ export type ValidatorBonds = {
         {
           name: 'rentCollector'
           writable: true
-          relations: ['settlement']
         },
         {
           name: 'splitRentCollector'
@@ -880,21 +1653,18 @@ export type ValidatorBonds = {
           name: 'splitRentRefundAccount'
           docs: [
             "The stake account is funded to the settlement and credited to the bond's validator vote account.",
-            'The lamports are utilized to pay back the rent exemption of the split_stake_account, which can be created upon funding the settlement.',
+            'The lamports are utilized to pay back the rent exemption of the split_stake_account',
           ]
           writable: true
         },
         {
           name: 'clock'
-          address: 'SysvarC1ock11111111111111111111111111111111'
         },
         {
           name: 'stakeProgram'
-          address: 'Stake11111111111111111111111111111111111111'
         },
         {
           name: 'stakeHistory'
-          address: 'SysvarStakeHistory1111111111111111111111111'
         },
         {
           name: 'eventAuthority'
@@ -903,6 +1673,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   95,
                   95,
                   101,
@@ -920,476 +1691,7 @@ export type ValidatorBonds = {
                   105,
                   116,
                   121,
-                ]
-              },
-            ]
-          }
-        },
-        {
-          name: 'program'
-        },
-      ]
-      args: []
-    },
-    {
-      name: 'configureBond'
-      discriminator: [228, 108, 79, 242, 82, 54, 105, 65]
-      accounts: [
-        {
-          name: 'config'
-          relations: ['bond']
-        },
-        {
-          name: 'bond'
-          writable: true
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
-              },
-              {
-                kind: 'account'
-                path: 'config'
-              },
-              {
-                kind: 'account'
-                path: 'voteAccount'
-              },
-            ]
-          }
-        },
-        {
-          name: 'authority'
-          docs: [
-            'validator vote account validator identity or bond authority may change the account',
-          ]
-          signer: true
-        },
-        {
-          name: 'voteAccount'
-          relations: ['bond']
-        },
-        {
-          name: 'eventAuthority'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121,
-                ]
-              },
-            ]
-          }
-        },
-        {
-          name: 'program'
-        },
-      ]
-      args: [
-        {
-          name: 'configureBondArgs'
-          type: {
-            defined: {
-              name: 'configureBondArgs'
-            }
-          }
-        },
-      ]
-    },
-    {
-      name: 'configureBondWithMint'
-      discriminator: [48, 189, 230, 39, 112, 33, 227, 8]
-      accounts: [
-        {
-          name: 'config'
-          relations: ['bond']
-        },
-        {
-          name: 'bond'
-          writable: true
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
-              },
-              {
-                kind: 'account'
-                path: 'config'
-              },
-              {
-                kind: 'account'
-                path: 'voteAccount'
-              },
-            ]
-          }
-        },
-        {
-          name: 'mint'
-          writable: true
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [98, 111, 110, 100, 95, 109, 105, 110, 116]
-              },
-              {
-                kind: 'account'
-                path: 'bond'
-              },
-              {
-                kind: 'arg'
-                path: 'params.validator_identity'
-              },
-            ]
-          }
-        },
-        {
-          name: 'voteAccount'
-          relations: ['bond']
-        },
-        {
-          name: 'tokenAccount'
-          docs: ['token account to burn bond mint configuration tokens from']
-          writable: true
-        },
-        {
-          name: 'tokenAuthority'
-          signer: true
-        },
-        {
-          name: 'tokenProgram'
-          address: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
-        },
-        {
-          name: 'eventAuthority'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121,
-                ]
-              },
-            ]
-          }
-        },
-        {
-          name: 'program'
-        },
-      ]
-      args: [
-        {
-          name: 'args'
-          type: {
-            defined: {
-              name: 'configureBondWithMintArgs'
-            }
-          }
-        },
-      ]
-    },
-    {
-      name: 'configureConfig'
-      discriminator: [198, 98, 161, 165, 137, 200, 230, 203]
-      accounts: [
-        {
-          name: 'config'
-          writable: true
-        },
-        {
-          name: 'adminAuthority'
-          docs: ['only the admin authority can change the config params']
-          signer: true
-          relations: ['config']
-        },
-        {
-          name: 'eventAuthority'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121,
-                ]
-              },
-            ]
-          }
-        },
-        {
-          name: 'program'
-        },
-      ]
-      args: [
-        {
-          name: 'configureConfigArgs'
-          type: {
-            defined: {
-              name: 'configureConfigArgs'
-            }
-          }
-        },
-      ]
-    },
-    {
-      name: 'emergencyPause'
-      discriminator: [21, 143, 27, 142, 200, 181, 210, 255]
-      accounts: [
-        {
-          name: 'config'
-          writable: true
-        },
-        {
-          name: 'pauseAuthority'
-          signer: true
-          relations: ['config']
-        },
-        {
-          name: 'eventAuthority'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121,
-                ]
-              },
-            ]
-          }
-        },
-        {
-          name: 'program'
-        },
-      ]
-      args: []
-    },
-    {
-      name: 'emergencyResume'
-      discriminator: [0, 243, 48, 185, 6, 73, 190, 83]
-      accounts: [
-        {
-          name: 'config'
-          writable: true
-        },
-        {
-          name: 'pauseAuthority'
-          signer: true
-          relations: ['config']
-        },
-        {
-          name: 'eventAuthority'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121,
-                ]
-              },
-            ]
-          }
-        },
-        {
-          name: 'program'
-        },
-      ]
-      args: []
-    },
-    {
-      name: 'fundBond'
-      discriminator: [58, 44, 212, 175, 30, 17, 68, 62]
-      accounts: [
-        {
-          name: 'config'
-          relations: ['bond']
-        },
-        {
-          name: 'bond'
-          docs: [
-            'bond account to be deposited to with the provided stake account',
-          ]
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
-              },
-              {
-                kind: 'account'
-                path: 'config'
-              },
-              {
-                kind: 'account'
-                path: 'bond.vote_account'
-                account: 'bond'
-              },
-            ]
-          }
-        },
-        {
-          name: 'bondsWithdrawerAuthority'
-          docs: [
-            "new owner of the stake_account, it's the bonds withdrawer authority",
-          ]
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  98,
-                  111,
-                  110,
-                  100,
-                  115,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121,
-                ]
-              },
-              {
-                kind: 'account'
-                path: 'config'
-              },
-            ]
-          }
-        },
-        {
-          name: 'stakeAccount'
-          docs: ['stake account to be deposited']
-          writable: true
-        },
-        {
-          name: 'stakeAuthority'
-          docs: [
-            'authority signature permitting to change the stake_account authorities',
-          ]
-          signer: true
-        },
-        {
-          name: 'clock'
-          address: 'SysvarC1ock11111111111111111111111111111111'
-        },
-        {
-          name: 'stakeHistory'
-          address: 'SysvarStakeHistory1111111111111111111111111'
-        },
-        {
-          name: 'stakeProgram'
-          address: 'Stake11111111111111111111111111111111111111'
-        },
-        {
-          name: 'eventAuthority'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121,
+                  34,
                 ]
               },
             ]
@@ -1407,7 +1709,7 @@ export type ValidatorBonds = {
       accounts: [
         {
           name: 'config'
-          relations: ['bond']
+          relations: ['operatorAuthority']
         },
         {
           name: 'bond'
@@ -1415,11 +1717,27 @@ export type ValidatorBonds = {
             seeds: [
               {
                 kind: 'const'
-                value: [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
               },
               {
                 kind: 'account'
                 path: 'config'
+                account: 'config'
               },
               {
                 kind: 'account'
@@ -1427,11 +1745,10 @@ export type ValidatorBonds = {
               },
             ]
           }
-          relations: ['settlement']
+          relations: ['config', 'voteAccount']
         },
         {
           name: 'voteAccount'
-          relations: ['bond']
         },
         {
           name: 'settlement'
@@ -1441,6 +1758,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   115,
                   101,
                   116,
@@ -1459,11 +1777,13 @@ export type ValidatorBonds = {
                   117,
                   110,
                   116,
+                  34,
                 ]
               },
               {
                 kind: 'account'
                 path: 'bond'
+                account: 'bond'
               },
               {
                 kind: 'account'
@@ -1477,6 +1797,7 @@ export type ValidatorBonds = {
               },
             ]
           }
+          relations: ['bond']
         },
         {
           name: 'operatorAuthority'
@@ -1484,7 +1805,6 @@ export type ValidatorBonds = {
             'operator signer authority is allowed to fund the settlement account',
           ]
           signer: true
-          relations: ['config']
         },
         {
           name: 'stakeAccount'
@@ -1502,6 +1822,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   115,
                   101,
                   116,
@@ -1522,11 +1843,13 @@ export type ValidatorBonds = {
                   105,
                   116,
                   121,
+                  34,
                 ]
               },
               {
                 kind: 'account'
                 path: 'settlement'
+                account: 'settlement'
               },
             ]
           }
@@ -1541,6 +1864,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   98,
                   111,
                   110,
@@ -1556,11 +1880,13 @@ export type ValidatorBonds = {
                   105,
                   116,
                   121,
+                  34,
                 ]
               },
               {
                 kind: 'account'
                 path: 'config'
+                account: 'config'
               },
             ]
           }
@@ -1589,27 +1915,21 @@ export type ValidatorBonds = {
         },
         {
           name: 'systemProgram'
-          address: '11111111111111111111111111111111'
         },
         {
           name: 'stakeHistory'
-          address: 'SysvarStakeHistory1111111111111111111111111'
         },
         {
           name: 'clock'
-          address: 'SysvarC1ock11111111111111111111111111111111'
         },
         {
           name: 'rent'
-          address: 'SysvarRent111111111111111111111111111111111'
         },
         {
           name: 'stakeProgram'
-          address: 'Stake11111111111111111111111111111111111111'
         },
         {
           name: 'stakeConfig'
-          address: 'StakeConfig11111111111111111111111111111111'
         },
         {
           name: 'eventAuthority'
@@ -1618,6 +1938,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   95,
                   95,
                   101,
@@ -1635,6 +1956,7 @@ export type ValidatorBonds = {
                   105,
                   116,
                   121,
+                  34,
                 ]
               },
             ]
@@ -1645,453 +1967,6 @@ export type ValidatorBonds = {
         },
       ]
       args: []
-    },
-    {
-      name: 'initBond'
-      discriminator: [95, 93, 93, 181, 221, 36, 126, 64]
-      accounts: [
-        {
-          name: 'config'
-          docs: ['the config account under which the bond is created']
-        },
-        {
-          name: 'voteAccount'
-        },
-        {
-          name: 'validatorIdentity'
-          docs: [
-            'permission-ed: the validator identity signs the instruction, InitBondArgs applied',
-            'permission-less: no signature, default init bond configuration',
-          ]
-          signer: true
-          optional: true
-        },
-        {
-          name: 'bond'
-          writable: true
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
-              },
-              {
-                kind: 'account'
-                path: 'config'
-              },
-              {
-                kind: 'account'
-                path: 'voteAccount'
-              },
-            ]
-          }
-        },
-        {
-          name: 'rentPayer'
-          docs: ['rent exempt payer of validator bond account creation']
-          writable: true
-          signer: true
-        },
-        {
-          name: 'systemProgram'
-          address: '11111111111111111111111111111111'
-        },
-        {
-          name: 'eventAuthority'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121,
-                ]
-              },
-            ]
-          }
-        },
-        {
-          name: 'program'
-        },
-      ]
-      args: [
-        {
-          name: 'initBondArgs'
-          type: {
-            defined: {
-              name: 'initBondArgs'
-            }
-          }
-        },
-      ]
-    },
-    {
-      name: 'initConfig'
-      discriminator: [23, 235, 115, 232, 168, 96, 1, 231]
-      accounts: [
-        {
-          name: 'config'
-          writable: true
-          signer: true
-        },
-        {
-          name: 'rentPayer'
-          docs: ['rent exempt payer for the config account']
-          writable: true
-          signer: true
-        },
-        {
-          name: 'systemProgram'
-          address: '11111111111111111111111111111111'
-        },
-        {
-          name: 'eventAuthority'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121,
-                ]
-              },
-            ]
-          }
-        },
-        {
-          name: 'program'
-        },
-      ]
-      args: [
-        {
-          name: 'initConfigArgs'
-          type: {
-            defined: {
-              name: 'initConfigArgs'
-            }
-          }
-        },
-      ]
-    },
-    {
-      name: 'initSettlement'
-      discriminator: [152, 178, 0, 65, 52, 210, 247, 58]
-      accounts: [
-        {
-          name: 'config'
-          relations: ['bond']
-        },
-        {
-          name: 'bond'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
-              },
-              {
-                kind: 'account'
-                path: 'config'
-              },
-              {
-                kind: 'account'
-                path: 'bond.vote_account'
-                account: 'bond'
-              },
-            ]
-          }
-        },
-        {
-          name: 'settlement'
-          writable: true
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  115,
-                  101,
-                  116,
-                  116,
-                  108,
-                  101,
-                  109,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  99,
-                  99,
-                  111,
-                  117,
-                  110,
-                  116,
-                ]
-              },
-              {
-                kind: 'account'
-                path: 'bond'
-              },
-              {
-                kind: 'arg'
-                path: 'params.merkle_root'
-              },
-              {
-                kind: 'arg'
-                path: 'params.epoch'
-              },
-            ]
-          }
-        },
-        {
-          name: 'settlementClaims'
-          writable: true
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  99,
-                  108,
-                  97,
-                  105,
-                  109,
-                  115,
-                  95,
-                  97,
-                  99,
-                  99,
-                  111,
-                  117,
-                  110,
-                  116,
-                ]
-              },
-              {
-                kind: 'account'
-                path: 'settlement'
-              },
-            ]
-          }
-        },
-        {
-          name: 'operatorAuthority'
-          docs: [
-            'operator signer authority that is allowed to create the settlement account',
-          ]
-          signer: true
-          relations: ['config']
-        },
-        {
-          name: 'rentPayer'
-          docs: ['rent exempt payer of account creation']
-          writable: true
-          signer: true
-        },
-        {
-          name: 'systemProgram'
-          address: '11111111111111111111111111111111'
-        },
-        {
-          name: 'eventAuthority'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121,
-                ]
-              },
-            ]
-          }
-        },
-        {
-          name: 'program'
-        },
-      ]
-      args: [
-        {
-          name: 'initSettlementArgs'
-          type: {
-            defined: {
-              name: 'initSettlementArgs'
-            }
-          }
-        },
-      ]
-    },
-    {
-      name: 'initWithdrawRequest'
-      discriminator: [142, 31, 222, 215, 83, 79, 34, 49]
-      accounts: [
-        {
-          name: 'config'
-          docs: ['the config account under which the bond was created']
-          relations: ['bond']
-        },
-        {
-          name: 'bond'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
-              },
-              {
-                kind: 'account'
-                path: 'config'
-              },
-              {
-                kind: 'account'
-                path: 'voteAccount'
-              },
-            ]
-          }
-        },
-        {
-          name: 'voteAccount'
-          relations: ['bond']
-        },
-        {
-          name: 'authority'
-          docs: [
-            'validator vote account node identity or bond authority may ask for the withdrawal',
-          ]
-          signer: true
-        },
-        {
-          name: 'withdrawRequest'
-          writable: true
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  119,
-                  105,
-                  116,
-                  104,
-                  100,
-                  114,
-                  97,
-                  119,
-                  95,
-                  97,
-                  99,
-                  99,
-                  111,
-                  117,
-                  110,
-                  116,
-                ]
-              },
-              {
-                kind: 'account'
-                path: 'bond'
-              },
-            ]
-          }
-        },
-        {
-          name: 'rentPayer'
-          docs: ['rent exempt payer of withdraw request account creation']
-          writable: true
-          signer: true
-        },
-        {
-          name: 'systemProgram'
-          address: '11111111111111111111111111111111'
-        },
-        {
-          name: 'eventAuthority'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121,
-                ]
-              },
-            ]
-          }
-        },
-        {
-          name: 'program'
-        },
-      ]
-      args: [
-        {
-          name: 'createWithdrawRequestArgs'
-          type: {
-            defined: {
-              name: 'initWithdrawRequestArgs'
-            }
-          }
-        },
-      ]
     },
     {
       name: 'mergeStake'
@@ -2117,15 +1992,12 @@ export type ValidatorBonds = {
         },
         {
           name: 'stakeHistory'
-          address: 'SysvarStakeHistory1111111111111111111111111'
         },
         {
           name: 'clock'
-          address: 'SysvarC1ock11111111111111111111111111111111'
         },
         {
           name: 'stakeProgram'
-          address: 'Stake11111111111111111111111111111111111111'
         },
         {
           name: 'eventAuthority'
@@ -2134,6 +2006,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   95,
                   95,
                   101,
@@ -2151,6 +2024,7 @@ export type ValidatorBonds = {
                   105,
                   116,
                   121,
+                  34,
                 ]
               },
             ]
@@ -2172,222 +2046,12 @@ export type ValidatorBonds = {
       ]
     },
     {
-      name: 'mintBond'
-      discriminator: [234, 94, 85, 225, 167, 102, 169, 32]
-      accounts: [
-        {
-          name: 'config'
-          relations: ['bond']
-        },
-        {
-          name: 'bond'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
-              },
-              {
-                kind: 'account'
-                path: 'config'
-              },
-              {
-                kind: 'account'
-                path: 'voteAccount'
-              },
-            ]
-          }
-        },
-        {
-          name: 'mint'
-          writable: true
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [98, 111, 110, 100, 95, 109, 105, 110, 116]
-              },
-              {
-                kind: 'account'
-                path: 'bond'
-              },
-              {
-                kind: 'account'
-                path: 'validatorIdentity'
-              },
-            ]
-          }
-        },
-        {
-          name: 'validatorIdentity'
-        },
-        {
-          name: 'validatorIdentityTokenAccount'
-          writable: true
-          pda: {
-            seeds: [
-              {
-                kind: 'account'
-                path: 'validatorIdentity'
-              },
-              {
-                kind: 'const'
-                value: [
-                  6,
-                  221,
-                  246,
-                  225,
-                  215,
-                  101,
-                  161,
-                  147,
-                  217,
-                  203,
-                  225,
-                  70,
-                  206,
-                  235,
-                  121,
-                  172,
-                  28,
-                  180,
-                  133,
-                  237,
-                  95,
-                  91,
-                  55,
-                  145,
-                  58,
-                  140,
-                  245,
-                  133,
-                  126,
-                  255,
-                  0,
-                  169,
-                ]
-              },
-              {
-                kind: 'account'
-                path: 'mint'
-              },
-            ]
-            program: {
-              kind: 'const'
-              value: [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89,
-              ]
-            }
-          }
-        },
-        {
-          name: 'voteAccount'
-          relations: ['bond']
-        },
-        {
-          name: 'metadata'
-          writable: true
-        },
-        {
-          name: 'rentPayer'
-          docs: ['rent exempt payer of account creation']
-          writable: true
-          signer: true
-        },
-        {
-          name: 'systemProgram'
-          address: '11111111111111111111111111111111'
-        },
-        {
-          name: 'tokenProgram'
-          address: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
-        },
-        {
-          name: 'associatedTokenProgram'
-          address: 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'
-        },
-        {
-          name: 'metadataProgram'
-          address: 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'
-        },
-        {
-          name: 'rent'
-          address: 'SysvarRent111111111111111111111111111111111'
-        },
-        {
-          name: 'eventAuthority'
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121,
-                ]
-              },
-            ]
-          }
-        },
-        {
-          name: 'program'
-        },
-      ]
-      args: []
-    },
-    {
       name: 'resetStake'
       discriminator: [183, 37, 69, 159, 163, 139, 212, 235]
       accounts: [
         {
           name: 'config'
           docs: ['the config account under which the bond was created']
-          relations: ['bond']
         },
         {
           name: 'bond'
@@ -2395,11 +2059,27 @@ export type ValidatorBonds = {
             seeds: [
               {
                 kind: 'const'
-                value: [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
               },
               {
                 kind: 'account'
                 path: 'config'
+                account: 'config'
               },
               {
                 kind: 'account'
@@ -2407,6 +2087,7 @@ export type ValidatorBonds = {
               },
             ]
           }
+          relations: ['config', 'voteAccount']
         },
         {
           name: 'settlement'
@@ -2430,6 +2111,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   98,
                   111,
                   110,
@@ -2445,34 +2127,31 @@ export type ValidatorBonds = {
                   105,
                   116,
                   121,
+                  34,
                 ]
               },
               {
                 kind: 'account'
                 path: 'config'
+                account: 'config'
               },
             ]
           }
         },
         {
           name: 'voteAccount'
-          relations: ['bond']
         },
         {
           name: 'stakeHistory'
-          address: 'SysvarStakeHistory1111111111111111111111111'
         },
         {
           name: 'stakeConfig'
-          address: 'StakeConfig11111111111111111111111111111111'
         },
         {
           name: 'clock'
-          address: 'SysvarC1ock11111111111111111111111111111111'
         },
         {
           name: 'stakeProgram'
-          address: 'Stake11111111111111111111111111111111111111'
         },
         {
           name: 'eventAuthority'
@@ -2481,6 +2160,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   95,
                   95,
                   101,
@@ -2498,6 +2178,7 @@ export type ValidatorBonds = {
                   105,
                   116,
                   121,
+                  34,
                 ]
               },
             ]
@@ -2510,61 +2191,13 @@ export type ValidatorBonds = {
       args: []
     },
     {
-      name: 'upsizeSettlementClaims'
-      discriminator: [207, 46, 34, 88, 141, 36, 63, 132]
-      accounts: [
-        {
-          name: 'settlementClaims'
-          writable: true
-          pda: {
-            seeds: [
-              {
-                kind: 'const'
-                value: [
-                  99,
-                  108,
-                  97,
-                  105,
-                  109,
-                  115,
-                  95,
-                  97,
-                  99,
-                  99,
-                  111,
-                  117,
-                  110,
-                  116,
-                ]
-              },
-              {
-                kind: 'account'
-                path: 'settlement_claims.settlement'
-                account: 'settlementClaims'
-              },
-            ]
-          }
-        },
-        {
-          name: 'rentPayer'
-          docs: ['rent exempt payer of account reallocation']
-          writable: true
-          signer: true
-        },
-        {
-          name: 'systemProgram'
-          address: '11111111111111111111111111111111'
-        },
-      ]
-      args: []
-    },
-    {
       name: 'withdrawStake'
       discriminator: [153, 8, 22, 138, 105, 176, 87, 66]
       accounts: [
         {
           name: 'config'
           docs: ['the config account under which the bond was created']
+          relations: ['operatorAuthority']
         },
         {
           name: 'operatorAuthority'
@@ -2572,7 +2205,6 @@ export type ValidatorBonds = {
             'operator authority is allowed to reset the non-delegated stake accounts',
           ]
           signer: true
-          relations: ['config']
         },
         {
           name: 'settlement'
@@ -2593,6 +2225,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   98,
                   111,
                   110,
@@ -2608,11 +2241,13 @@ export type ValidatorBonds = {
                   105,
                   116,
                   121,
+                  34,
                 ]
               },
               {
                 kind: 'account'
                 path: 'config'
+                account: 'config'
               },
             ]
           }
@@ -2623,15 +2258,12 @@ export type ValidatorBonds = {
         },
         {
           name: 'stakeHistory'
-          address: 'SysvarStakeHistory1111111111111111111111111'
         },
         {
           name: 'clock'
-          address: 'SysvarC1ock11111111111111111111111111111111'
         },
         {
           name: 'stakeProgram'
-          address: 'Stake11111111111111111111111111111111111111'
         },
         {
           name: 'eventAuthority'
@@ -2640,6 +2272,7 @@ export type ValidatorBonds = {
               {
                 kind: 'const'
                 value: [
+                  34,
                   95,
                   95,
                   101,
@@ -2657,6 +2290,7 @@ export type ValidatorBonds = {
                   105,
                   116,
                   121,
+                  34,
                 ]
               },
             ]
@@ -2668,8 +2302,569 @@ export type ValidatorBonds = {
       ]
       args: []
     },
+    {
+      name: 'emergencyPause'
+      discriminator: [21, 143, 27, 142, 200, 181, 210, 255]
+      accounts: [
+        {
+          name: 'config'
+          writable: true
+          relations: ['pauseAuthority']
+        },
+        {
+          name: 'pauseAuthority'
+          signer: true
+        },
+        {
+          name: 'eventAuthority'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  34,
+                ]
+              },
+            ]
+          }
+        },
+        {
+          name: 'program'
+        },
+      ]
+      args: []
+    },
+    {
+      name: 'emergencyResume'
+      discriminator: [0, 243, 48, 185, 6, 73, 190, 83]
+      accounts: [
+        {
+          name: 'config'
+          writable: true
+          relations: ['pauseAuthority']
+        },
+        {
+          name: 'pauseAuthority'
+          signer: true
+        },
+        {
+          name: 'eventAuthority'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  34,
+                ]
+              },
+            ]
+          }
+        },
+        {
+          name: 'program'
+        },
+      ]
+      args: []
+    },
+    {
+      name: 'closeSettlementV2'
+      discriminator: [125, 212, 89, 37, 31, 244, 191, 179]
+      accounts: [
+        {
+          name: 'config'
+        },
+        {
+          name: 'bond'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'config'
+                account: 'config'
+              },
+              {
+                kind: 'account'
+                path: 'bond.vote_account'
+                account: 'bond'
+              },
+            ]
+          }
+          relations: ['config']
+        },
+        {
+          name: 'settlement'
+          docs: ['settlement to close when expired']
+          writable: true
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'bond'
+                account: 'bond'
+              },
+              {
+                kind: 'account'
+                path: 'settlement.merkle_root'
+                account: 'settlement'
+              },
+              {
+                kind: 'account'
+                path: 'settlement.epoch_created_for'
+                account: 'settlement'
+              },
+            ]
+          }
+          relations: ['bond', 'rentCollector']
+        },
+        {
+          name: 'settlementClaims'
+          writable: true
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  99,
+                  108,
+                  97,
+                  105,
+                  109,
+                  115,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'settlement'
+                account: 'settlement'
+              },
+            ]
+          }
+          relations: ['settlement']
+        },
+        {
+          name: 'bondsWithdrawerAuthority'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'config'
+                account: 'config'
+              },
+            ]
+          }
+        },
+        {
+          name: 'rentCollector'
+          writable: true
+        },
+        {
+          name: 'splitRentCollector'
+          writable: true
+        },
+        {
+          name: 'splitRentRefundAccount'
+          docs: [
+            "The stake account is funded to the settlement and credited to the bond's validator vote account.",
+            'The lamports are utilized to pay back the rent exemption of the split_stake_account, which can be created upon funding the settlement.',
+          ]
+          writable: true
+        },
+        {
+          name: 'clock'
+        },
+        {
+          name: 'stakeProgram'
+        },
+        {
+          name: 'stakeHistory'
+        },
+        {
+          name: 'eventAuthority'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  34,
+                ]
+              },
+            ]
+          }
+        },
+        {
+          name: 'program'
+        },
+      ]
+      args: []
+    },
+    {
+      name: 'claimSettlementV2'
+      discriminator: [188, 53, 132, 151, 88, 50, 52, 238]
+      accounts: [
+        {
+          name: 'config'
+          docs: ['the config account under which the settlement was created']
+        },
+        {
+          name: 'bond'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'config'
+                account: 'config'
+              },
+              {
+                kind: 'account'
+                path: 'bond.vote_account'
+                account: 'bond'
+              },
+            ]
+          }
+          relations: ['config']
+        },
+        {
+          name: 'settlement'
+          writable: true
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'bond'
+                account: 'bond'
+              },
+              {
+                kind: 'account'
+                path: 'settlement.merkle_root'
+                account: 'settlement'
+              },
+              {
+                kind: 'account'
+                path: 'settlement.epoch_created_for'
+                account: 'settlement'
+              },
+            ]
+          }
+          relations: ['bond']
+        },
+        {
+          name: 'settlementClaims'
+          docs: ['deduplication, merkle tree record cannot be claimed twice']
+          writable: true
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  99,
+                  108,
+                  97,
+                  105,
+                  109,
+                  115,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'settlement'
+                account: 'settlement'
+              },
+            ]
+          }
+          relations: ['settlement']
+        },
+        {
+          name: 'stakeAccountFrom'
+          docs: ['a stake account that will be withdrawn']
+          writable: true
+        },
+        {
+          name: 'stakeAccountTo'
+          docs: ['a stake account that will receive the funds']
+          writable: true
+        },
+        {
+          name: 'bondsWithdrawerAuthority'
+          docs: [
+            'authority that manages (owns == by being withdrawer authority) all stakes account under the bonds program',
+          ]
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  34,
+                ]
+              },
+              {
+                kind: 'account'
+                path: 'config'
+                account: 'config'
+              },
+            ]
+          }
+        },
+        {
+          name: 'stakeHistory'
+        },
+        {
+          name: 'clock'
+        },
+        {
+          name: 'stakeProgram'
+        },
+        {
+          name: 'eventAuthority'
+          pda: {
+            seeds: [
+              {
+                kind: 'const'
+                value: [
+                  34,
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121,
+                  34,
+                ]
+              },
+            ]
+          }
+        },
+        {
+          name: 'program'
+        },
+      ]
+      args: [
+        {
+          name: 'claimSettlementArgs'
+          type: {
+            defined: {
+              name: 'claimSettlementV2Args'
+            }
+          }
+        },
+      ]
+    },
   ]
   accounts: [
+    {
+      name: 'settlementClaim'
+      discriminator: [216, 103, 231, 246, 171, 99, 124, 133]
+    },
     {
       name: 'bond'
       discriminator: [224, 128, 48, 251, 182, 246, 111, 196]
@@ -2679,12 +2874,12 @@ export type ValidatorBonds = {
       discriminator: [155, 12, 170, 224, 30, 250, 204, 130]
     },
     {
-      name: 'settlement'
-      discriminator: [55, 11, 219, 33, 36, 136, 40, 182]
-    },
-    {
       name: 'settlementClaims'
       discriminator: [32, 130, 62, 175, 231, 54, 170, 114]
+    },
+    {
+      name: 'settlement'
+      discriminator: [55, 11, 219, 33, 36, 136, 40, 182]
     },
     {
       name: 'withdrawRequest'
@@ -2693,28 +2888,8 @@ export type ValidatorBonds = {
   ]
   events: [
     {
-      name: 'cancelSettlementEvent'
-      discriminator: [80, 190, 161, 61, 97, 7, 242, 92]
-    },
-    {
-      name: 'cancelWithdrawRequestEvent'
-      discriminator: [221, 97, 104, 35, 19, 137, 248, 246]
-    },
-    {
-      name: 'claimSettlementEvent'
-      discriminator: [135, 253, 145, 233, 227, 29, 188, 141]
-    },
-    {
-      name: 'claimSettlementV2Event'
-      discriminator: [114, 201, 131, 134, 182, 165, 237, 47]
-    },
-    {
-      name: 'claimWithdrawRequestEvent'
-      discriminator: [201, 210, 144, 108, 235, 209, 85, 58]
-    },
-    {
-      name: 'closeSettlementEvent'
-      discriminator: [226, 173, 111, 111, 105, 218, 118, 103]
+      name: 'initBondEvent'
+      discriminator: [56, 106, 209, 158, 171, 85, 159, 200]
     },
     {
       name: 'configureBondEvent'
@@ -2723,6 +2898,18 @@ export type ValidatorBonds = {
     {
       name: 'configureBondWithMintEvent'
       discriminator: [209, 167, 200, 198, 99, 71, 4, 96]
+    },
+    {
+      name: 'fundBondEvent'
+      discriminator: [156, 63, 156, 252, 109, 181, 73, 110]
+    },
+    {
+      name: 'mintBondEvent'
+      discriminator: [82, 190, 245, 33, 35, 128, 142, 197]
+    },
+    {
+      name: 'initConfigEvent'
+      discriminator: [125, 127, 160, 86, 247, 110, 50, 238]
     },
     {
       name: 'configureConfigEvent'
@@ -2737,36 +2924,28 @@ export type ValidatorBonds = {
       discriminator: [19, 211, 43, 129, 45, 168, 226, 200]
     },
     {
-      name: 'fundBondEvent'
-      discriminator: [156, 63, 156, 252, 109, 181, 73, 110]
-    },
-    {
-      name: 'fundSettlementEvent'
-      discriminator: [104, 161, 6, 77, 82, 236, 4, 114]
-    },
-    {
-      name: 'initBondEvent'
-      discriminator: [56, 106, 209, 158, 171, 85, 159, 200]
-    },
-    {
-      name: 'initConfigEvent'
-      discriminator: [125, 127, 160, 86, 247, 110, 50, 238]
+      name: 'claimSettlementV2Event'
+      discriminator: [114, 201, 131, 134, 182, 165, 237, 47]
     },
     {
       name: 'initSettlementEvent'
       discriminator: [187, 195, 46, 129, 116, 83, 231, 241]
     },
     {
-      name: 'initWithdrawRequestEvent'
-      discriminator: [122, 40, 131, 105, 70, 35, 119, 128]
+      name: 'closeSettlementEvent'
+      discriminator: [226, 173, 111, 111, 105, 218, 118, 103]
+    },
+    {
+      name: 'cancelSettlementEvent'
+      discriminator: [80, 190, 161, 61, 97, 7, 242, 92]
+    },
+    {
+      name: 'fundSettlementEvent'
+      discriminator: [104, 161, 6, 77, 82, 236, 4, 114]
     },
     {
       name: 'mergeStakeEvent'
       discriminator: [111, 6, 45, 208, 79, 53, 119, 57]
-    },
-    {
-      name: 'mintBondEvent'
-      discriminator: [82, 190, 245, 33, 35, 128, 142, 197]
     },
     {
       name: 'resetStakeEvent'
@@ -2775,6 +2954,22 @@ export type ValidatorBonds = {
     {
       name: 'withdrawStakeEvent'
       discriminator: [47, 85, 239, 214, 207, 29, 151, 88]
+    },
+    {
+      name: 'initWithdrawRequestEvent'
+      discriminator: [122, 40, 131, 105, 70, 35, 119, 128]
+    },
+    {
+      name: 'cancelWithdrawRequestEvent'
+      discriminator: [221, 97, 104, 35, 19, 137, 248, 246]
+    },
+    {
+      name: 'claimWithdrawRequestEvent'
+      discriminator: [201, 210, 144, 108, 235, 209, 85, 58]
+    },
+    {
+      name: 'claimSettlementEvent'
+      discriminator: [135, 253, 145, 233, 227, 29, 188, 141]
     },
   ]
   errors: [
@@ -3133,13 +3328,464 @@ export type ValidatorBonds = {
       name: 'settlementAlreadyClaimed'
       msg: 'Settlement has been already claimed'
     },
-    {
-      code: 6071
-      name: 'invalidStakeHistoryEntry'
-      msg: 'Failed to obtain stake history entry'
-    },
   ]
   types: [
+    {
+      name: 'pubkeyValueChange'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'old'
+            type: 'pubkey'
+          },
+          {
+            name: 'new'
+            type: 'pubkey'
+          },
+        ]
+      }
+    },
+    {
+      name: 'u64ValueChange'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'old'
+            type: 'u64'
+          },
+          {
+            name: 'new'
+            type: 'u64'
+          },
+        ]
+      }
+    },
+    {
+      name: 'delegationInfo'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'voterPubkey'
+            docs: ['to whom the stake is delegated']
+            type: 'pubkey'
+          },
+          {
+            name: 'stake'
+            docs: ['activated stake amount, set at delegate() time']
+            type: 'u64'
+          },
+          {
+            name: 'activationEpoch'
+            docs: [
+              'epoch at which this stake was activated, std::Epoch::MAX if is a bootstrap stake',
+            ]
+            type: 'u64'
+          },
+          {
+            name: 'deactivationEpoch'
+            docs: [
+              'epoch the stake was deactivated, std::Epoch::MAX if not deactivated',
+            ]
+            type: 'u64'
+          },
+        ]
+      }
+    },
+    {
+      name: 'splitStakeData'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'address'
+            type: 'pubkey'
+          },
+          {
+            name: 'amount'
+            type: 'u64'
+          },
+        ]
+      }
+    },
+    {
+      name: 'configureBondWithMintArgs'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'validatorIdentity'
+            docs: ['Validator identity configured within the vote account.']
+            type: 'pubkey'
+          },
+          {
+            name: 'bondAuthority'
+            docs: ['New bond authority that can manage the bond account.']
+            type: {
+              option: 'pubkey'
+            }
+          },
+          {
+            name: 'cpmpe'
+            docs: [
+              'New `cpmpe` value (cost per mille per epoch).',
+              'It defines the bid for the validator to get delegated up to `max_stake_wanted` lamports.',
+            ]
+            type: {
+              option: 'u64'
+            }
+          },
+          {
+            name: 'maxStakeWanted'
+            docs: [
+              'new max_stake_wanted value that vote account owner declares',
+              'as the maximum delegated stake wanted',
+            ]
+            type: {
+              option: 'u64'
+            }
+          },
+        ]
+      }
+    },
+    {
+      name: 'configureBondArgs'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'bondAuthority'
+            docs: ['New bond authority that can manage the bond account.']
+            type: {
+              option: 'pubkey'
+            }
+          },
+          {
+            name: 'cpmpe'
+            docs: [
+              'New `cpmpe` value (cost per mille per epoch).',
+              'It defines the bid for the validator to get delegated up to `max_stake_wanted` lamports.',
+            ]
+            type: {
+              option: 'u64'
+            }
+          },
+          {
+            name: 'maxStakeWanted'
+            docs: [
+              'New `max_stake_wanted` value that the vote account owner declares',
+              'as the maximum delegated stake desired.',
+            ]
+            type: {
+              option: 'u64'
+            }
+          },
+        ]
+      }
+    },
+    {
+      name: 'initBondArgs'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'bondAuthority'
+            type: 'pubkey'
+          },
+          {
+            name: 'cpmpe'
+            type: 'u64'
+          },
+          {
+            name: 'maxStakeWanted'
+            type: 'u64'
+          },
+        ]
+      }
+    },
+    {
+      name: 'configureConfigArgs'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'admin'
+            type: {
+              option: 'pubkey'
+            }
+          },
+          {
+            name: 'operator'
+            type: {
+              option: 'pubkey'
+            }
+          },
+          {
+            name: 'pauseAuthority'
+            type: {
+              option: 'pubkey'
+            }
+          },
+          {
+            name: 'epochsToClaimSettlement'
+            type: {
+              option: 'u64'
+            }
+          },
+          {
+            name: 'withdrawLockupEpochs'
+            type: {
+              option: 'u64'
+            }
+          },
+          {
+            name: 'minimumStakeLamports'
+            type: {
+              option: 'u64'
+            }
+          },
+          {
+            name: 'slotsToStartSettlementClaiming'
+            type: {
+              option: 'u64'
+            }
+          },
+          {
+            name: 'minBondMaxStakeWanted'
+            type: {
+              option: 'u64'
+            }
+          },
+        ]
+      }
+    },
+    {
+      name: 'initConfigArgs'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'adminAuthority'
+            type: 'pubkey'
+          },
+          {
+            name: 'operatorAuthority'
+            type: 'pubkey'
+          },
+          {
+            name: 'epochsToClaimSettlement'
+            type: 'u64'
+          },
+          {
+            name: 'withdrawLockupEpochs'
+            type: 'u64'
+          },
+          {
+            name: 'slotsToStartSettlementClaiming'
+            type: 'u64'
+          },
+        ]
+      }
+    },
+    {
+      name: 'claimSettlementV2Args'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'proof'
+            docs: ['proof that the claim is appropriate']
+            type: {
+              vec: {
+                array: ['u8', 32]
+              }
+            }
+          },
+          {
+            name: 'treeNodeHash'
+            type: {
+              array: ['u8', 32]
+            }
+          },
+          {
+            name: 'stakeAccountStaker'
+            docs: [
+              'staker authority of the stake_account_to; merkle root verification',
+            ]
+            type: 'pubkey'
+          },
+          {
+            name: 'stakeAccountWithdrawer'
+            docs: [
+              'withdrawer authority of the stake_account_to; merkle root verification',
+            ]
+            type: 'pubkey'
+          },
+          {
+            name: 'claim'
+            docs: ['claim amount; merkle root verification']
+            type: 'u64'
+          },
+          {
+            name: 'index'
+            docs: [
+              'index, ordered claim record in the settlement list; merkle root verification',
+            ]
+            type: 'u64'
+          },
+        ]
+      }
+    },
+    {
+      name: 'initSettlementArgs'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'merkleRoot'
+            docs: [
+              'merkle root for this settlement, multiple settlements can be created with the same merkle root,',
+              'settlements will be distinguished by the vote_account',
+            ]
+            type: {
+              array: ['u8', 32]
+            }
+          },
+          {
+            name: 'maxTotalClaim'
+            docs: [
+              'maximal number of lamports that can be claimed from this settlement',
+            ]
+            type: 'u64'
+          },
+          {
+            name: 'maxMerkleNodes'
+            docs: [
+              'maximal number of merkle tree nodes that can be claimed from this settlement',
+            ]
+            type: 'u64'
+          },
+          {
+            name: 'rentCollector'
+            docs: [
+              'collects the rent exempt from the settlement account when closed',
+            ]
+            type: 'pubkey'
+          },
+          {
+            name: 'epoch'
+            docs: ['epoch that the settlement is created for']
+            type: 'u64'
+          },
+        ]
+      }
+    },
+    {
+      name: 'mergeStakeArgs'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'settlement'
+            type: 'pubkey'
+          },
+        ]
+      }
+    },
+    {
+      name: 'initWithdrawRequestArgs'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'amount'
+            type: 'u64'
+          },
+        ]
+      }
+    },
+    {
+      name: 'bumps'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'pda'
+            type: 'u8'
+          },
+          {
+            name: 'stakerAuthority'
+            type: 'u8'
+          },
+          {
+            name: 'settlementClaims'
+            type: 'u8'
+          },
+        ]
+      }
+    },
+    {
+      name: 'settlementClaim'
+      docs: [
+        'The settlement claim serves for deduplication purposes,',
+        'preventing the same settlement from being claimed multiple times with the same claiming data',
+      ]
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'settlement'
+            docs: ['settlement account this claim belongs under']
+            type: 'pubkey'
+          },
+          {
+            name: 'stakeAccountTo'
+            docs: ['stake account to which the claim has been withdrawn to']
+            type: 'pubkey'
+          },
+          {
+            name: 'stakeAccountStaker'
+            docs: [
+              'staker authority as part of the merkle proof for this claim',
+            ]
+            type: 'pubkey'
+          },
+          {
+            name: 'stakeAccountWithdrawer'
+            docs: [
+              'withdrawer authority as part of the merkle proof for this claim',
+            ]
+            type: 'pubkey'
+          },
+          {
+            name: 'amount'
+            docs: ['claim amount']
+            type: 'u64'
+          },
+          {
+            name: 'bump'
+            docs: ['PDA account bump, one claim per settlement']
+            type: 'u8'
+          },
+          {
+            name: 'rentCollector'
+            docs: [
+              'rent collector account to get the rent back for claim account creation',
+            ]
+            type: 'pubkey'
+          },
+          {
+            name: 'reserved'
+            docs: ['reserve space for future extensions']
+            type: {
+              array: ['u8', 93]
+            }
+          },
+        ]
+      }
+    },
     {
       name: 'bond'
       docs: ['Bond account for a validator vote address']
@@ -3206,373 +3852,6 @@ export type ValidatorBonds = {
             type: {
               array: ['u8', 134]
             }
-          },
-        ]
-      }
-    },
-    {
-      name: 'bumps'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'pda'
-            type: 'u8'
-          },
-          {
-            name: 'stakerAuthority'
-            type: 'u8'
-          },
-          {
-            name: 'settlementClaims'
-            type: 'u8'
-          },
-        ]
-      }
-    },
-    {
-      name: 'cancelSettlementEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'bond'
-            type: 'pubkey'
-          },
-          {
-            name: 'settlement'
-            type: 'pubkey'
-          },
-          {
-            name: 'merkleRoot'
-            type: {
-              array: ['u8', 32]
-            }
-          },
-          {
-            name: 'maxTotalClaim'
-            type: 'u64'
-          },
-          {
-            name: 'maxMerkleNodes'
-            type: 'u64'
-          },
-          {
-            name: 'lamportsFunded'
-            type: 'u64'
-          },
-          {
-            name: 'lamportsClaimed'
-            type: 'u64'
-          },
-          {
-            name: 'merkleNodesClaimed'
-            type: 'u64'
-          },
-          {
-            name: 'splitRentCollector'
-            type: {
-              option: 'pubkey'
-            }
-          },
-          {
-            name: 'splitRentRefund'
-            type: {
-              option: 'pubkey'
-            }
-          },
-          {
-            name: 'rentCollector'
-            type: 'pubkey'
-          },
-          {
-            name: 'authority'
-            type: 'pubkey'
-          },
-        ]
-      }
-    },
-    {
-      name: 'cancelWithdrawRequestEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'withdrawRequest'
-            type: 'pubkey'
-          },
-          {
-            name: 'bond'
-            type: 'pubkey'
-          },
-          {
-            name: 'authority'
-            type: 'pubkey'
-          },
-          {
-            name: 'requestedAmount'
-            type: 'u64'
-          },
-          {
-            name: 'withdrawnAmount'
-            type: 'u64'
-          },
-        ]
-      }
-    },
-    {
-      name: 'claimSettlementEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'settlementClaim'
-            type: 'pubkey'
-          },
-          {
-            name: 'settlement'
-            type: 'pubkey'
-          },
-          {
-            name: 'settlementLamportsClaimed'
-            type: {
-              defined: {
-                name: 'u64ValueChange'
-              }
-            }
-          },
-          {
-            name: 'settlementMerkleNodesClaimed'
-            type: 'u64'
-          },
-          {
-            name: 'stakeAccountTo'
-            type: 'pubkey'
-          },
-          {
-            name: 'stakeAccountWithdrawer'
-            type: 'pubkey'
-          },
-          {
-            name: 'stakeAccountStaker'
-            type: 'pubkey'
-          },
-          {
-            name: 'amount'
-            type: 'u64'
-          },
-          {
-            name: 'rentCollector'
-            type: 'pubkey'
-          },
-        ]
-      }
-    },
-    {
-      name: 'claimSettlementV2Args'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'proof'
-            docs: ['proof that the claim is appropriate']
-            type: {
-              vec: {
-                array: ['u8', 32]
-              }
-            }
-          },
-          {
-            name: 'treeNodeHash'
-            type: {
-              array: ['u8', 32]
-            }
-          },
-          {
-            name: 'stakeAccountStaker'
-            docs: [
-              'staker authority of the stake_account_to; merkle root verification',
-            ]
-            type: 'pubkey'
-          },
-          {
-            name: 'stakeAccountWithdrawer'
-            docs: [
-              'withdrawer authority of the stake_account_to; merkle root verification',
-            ]
-            type: 'pubkey'
-          },
-          {
-            name: 'claim'
-            docs: ['claim amount; merkle root verification']
-            type: 'u64'
-          },
-          {
-            name: 'index'
-            docs: [
-              'index, ordered claim record in the settlement list; merkle root verification',
-            ]
-            type: 'u64'
-          },
-        ]
-      }
-    },
-    {
-      name: 'claimSettlementV2Event'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'settlement'
-            type: 'pubkey'
-          },
-          {
-            name: 'settlementLamportsClaimed'
-            type: {
-              defined: {
-                name: 'u64ValueChange'
-              }
-            }
-          },
-          {
-            name: 'settlementMerkleNodesClaimed'
-            type: 'u64'
-          },
-          {
-            name: 'stakeAccountTo'
-            type: 'pubkey'
-          },
-          {
-            name: 'stakeAccountWithdrawer'
-            type: 'pubkey'
-          },
-          {
-            name: 'stakeAccountStaker'
-            type: 'pubkey'
-          },
-          {
-            name: 'amount'
-            type: 'u64'
-          },
-          {
-            name: 'index'
-            type: 'u64'
-          },
-        ]
-      }
-    },
-    {
-      name: 'claimWithdrawRequestEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'withdrawRequest'
-            type: 'pubkey'
-          },
-          {
-            name: 'bond'
-            type: 'pubkey'
-          },
-          {
-            name: 'voteAccount'
-            type: 'pubkey'
-          },
-          {
-            name: 'stakeAccount'
-            type: 'pubkey'
-          },
-          {
-            name: 'splitStake'
-            type: {
-              option: {
-                defined: {
-                  name: 'splitStakeData'
-                }
-              }
-            }
-          },
-          {
-            name: 'newStakeAccountOwner'
-            type: 'pubkey'
-          },
-          {
-            name: 'withdrawingAmount'
-            type: 'u64'
-          },
-          {
-            name: 'withdrawnAmount'
-            type: {
-              defined: {
-                name: 'u64ValueChange'
-              }
-            }
-          },
-        ]
-      }
-    },
-    {
-      name: 'closeSettlementEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'bond'
-            type: 'pubkey'
-          },
-          {
-            name: 'settlement'
-            type: 'pubkey'
-          },
-          {
-            name: 'merkleRoot'
-            type: {
-              array: ['u8', 32]
-            }
-          },
-          {
-            name: 'maxTotalClaim'
-            type: 'u64'
-          },
-          {
-            name: 'maxMerkleNodes'
-            type: 'u64'
-          },
-          {
-            name: 'lamportsFunded'
-            type: 'u64'
-          },
-          {
-            name: 'lamportsClaimed'
-            type: 'u64'
-          },
-          {
-            name: 'merkleNodesClaimed'
-            type: 'u64'
-          },
-          {
-            name: 'splitRentCollector'
-            type: {
-              option: 'pubkey'
-            }
-          },
-          {
-            name: 'splitRentRefund'
-            type: {
-              option: 'pubkey'
-            }
-          },
-          {
-            name: 'rentCollector'
-            type: 'pubkey'
-          },
-          {
-            name: 'expirationEpoch'
-            type: 'u64'
-          },
-          {
-            name: 'currentEpoch'
-            type: 'u64'
           },
         ]
       }
@@ -3649,752 +3928,10 @@ export type ValidatorBonds = {
       }
     },
     {
-      name: 'configureBondArgs'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'bondAuthority'
-            docs: ['New bond authority that can manage the bond account.']
-            type: {
-              option: 'pubkey'
-            }
-          },
-          {
-            name: 'cpmpe'
-            docs: [
-              'New `cpmpe` value (cost per mille per epoch).',
-              'It defines the bid for the validator to get delegated up to `max_stake_wanted` lamports.',
-            ]
-            type: {
-              option: 'u64'
-            }
-          },
-          {
-            name: 'maxStakeWanted'
-            docs: [
-              'New `max_stake_wanted` value that the vote account owner declares',
-              'as the maximum delegated stake desired.',
-            ]
-            type: {
-              option: 'u64'
-            }
-          },
-        ]
-      }
-    },
-    {
-      name: 'configureBondEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'bondAuthority'
-            type: {
-              option: {
-                defined: {
-                  name: 'pubkeyValueChange'
-                }
-              }
-            }
-          },
-          {
-            name: 'cpmpe'
-            type: {
-              option: {
-                defined: {
-                  name: 'u64ValueChange'
-                }
-              }
-            }
-          },
-          {
-            name: 'maxStakeWanted'
-            type: {
-              option: {
-                defined: {
-                  name: 'u64ValueChange'
-                }
-              }
-            }
-          },
-        ]
-      }
-    },
-    {
-      name: 'configureBondWithMintArgs'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'validatorIdentity'
-            docs: ['Validator identity configured within the vote account.']
-            type: 'pubkey'
-          },
-          {
-            name: 'bondAuthority'
-            docs: ['New bond authority that can manage the bond account.']
-            type: {
-              option: 'pubkey'
-            }
-          },
-          {
-            name: 'cpmpe'
-            docs: [
-              'New `cpmpe` value (cost per mille per epoch).',
-              'It defines the bid for the validator to get delegated up to `max_stake_wanted` lamports.',
-            ]
-            type: {
-              option: 'u64'
-            }
-          },
-          {
-            name: 'maxStakeWanted'
-            docs: [
-              'new max_stake_wanted value that vote account owner declares',
-              'as the maximum delegated stake wanted',
-            ]
-            type: {
-              option: 'u64'
-            }
-          },
-        ]
-      }
-    },
-    {
-      name: 'configureBondWithMintEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'validatorIdentity'
-            type: 'pubkey'
-          },
-          {
-            name: 'bondAuthority'
-            type: {
-              option: {
-                defined: {
-                  name: 'pubkeyValueChange'
-                }
-              }
-            }
-          },
-          {
-            name: 'cpmpe'
-            type: {
-              option: {
-                defined: {
-                  name: 'u64ValueChange'
-                }
-              }
-            }
-          },
-          {
-            name: 'maxStakeWanted'
-            type: {
-              option: {
-                defined: {
-                  name: 'u64ValueChange'
-                }
-              }
-            }
-          },
-        ]
-      }
-    },
-    {
-      name: 'configureConfigArgs'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'admin'
-            type: {
-              option: 'pubkey'
-            }
-          },
-          {
-            name: 'operator'
-            type: {
-              option: 'pubkey'
-            }
-          },
-          {
-            name: 'pauseAuthority'
-            type: {
-              option: 'pubkey'
-            }
-          },
-          {
-            name: 'epochsToClaimSettlement'
-            type: {
-              option: 'u64'
-            }
-          },
-          {
-            name: 'withdrawLockupEpochs'
-            type: {
-              option: 'u64'
-            }
-          },
-          {
-            name: 'minimumStakeLamports'
-            type: {
-              option: 'u64'
-            }
-          },
-          {
-            name: 'slotsToStartSettlementClaiming'
-            type: {
-              option: 'u64'
-            }
-          },
-          {
-            name: 'minBondMaxStakeWanted'
-            type: {
-              option: 'u64'
-            }
-          },
-        ]
-      }
-    },
-    {
-      name: 'configureConfigEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'adminAuthority'
-            type: {
-              option: {
-                defined: {
-                  name: 'pubkeyValueChange'
-                }
-              }
-            }
-          },
-          {
-            name: 'operatorAuthority'
-            type: {
-              option: {
-                defined: {
-                  name: 'pubkeyValueChange'
-                }
-              }
-            }
-          },
-          {
-            name: 'pauseAuthority'
-            type: {
-              option: {
-                defined: {
-                  name: 'pubkeyValueChange'
-                }
-              }
-            }
-          },
-          {
-            name: 'epochsToClaimSettlement'
-            type: {
-              option: {
-                defined: {
-                  name: 'u64ValueChange'
-                }
-              }
-            }
-          },
-          {
-            name: 'minimumStakeLamports'
-            type: {
-              option: {
-                defined: {
-                  name: 'u64ValueChange'
-                }
-              }
-            }
-          },
-          {
-            name: 'withdrawLockupEpochs'
-            type: {
-              option: {
-                defined: {
-                  name: 'u64ValueChange'
-                }
-              }
-            }
-          },
-          {
-            name: 'slotsToStartSettlementClaiming'
-            type: {
-              option: {
-                defined: {
-                  name: 'u64ValueChange'
-                }
-              }
-            }
-          },
-          {
-            name: 'minBondMaxStakeWanted'
-            type: {
-              option: {
-                defined: {
-                  name: 'u64ValueChange'
-                }
-              }
-            }
-          },
-        ]
-      }
-    },
-    {
-      name: 'delegationInfo'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'voterPubkey'
-            docs: ['to whom the stake is delegated']
-            type: 'pubkey'
-          },
-          {
-            name: 'stake'
-            docs: ['activated stake amount, set at delegate() time']
-            type: 'u64'
-          },
-          {
-            name: 'activationEpoch'
-            docs: [
-              'epoch at which this stake was activated, std::Epoch::MAX if is a bootstrap stake',
-            ]
-            type: 'u64'
-          },
-          {
-            name: 'deactivationEpoch'
-            docs: [
-              'epoch the stake was deactivated, std::Epoch::MAX if not deactivated',
-            ]
-            type: 'u64'
-          },
-        ]
-      }
-    },
-    {
-      name: 'emergencyPauseEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'config'
-            type: 'pubkey'
-          },
-          {
-            name: 'adminAuthority'
-            type: 'pubkey'
-          },
-          {
-            name: 'operatorAuthority'
-            type: 'pubkey'
-          },
-          {
-            name: 'epochsToClaimSettlement'
-            type: 'u64'
-          },
-          {
-            name: 'withdrawLockupEpochs'
-            type: 'u64'
-          },
-          {
-            name: 'minimumStakeLamports'
-            type: 'u64'
-          },
-          {
-            name: 'pauseAuthority'
-            type: 'pubkey'
-          },
-        ]
-      }
-    },
-    {
-      name: 'emergencyResumeEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'config'
-            type: 'pubkey'
-          },
-          {
-            name: 'adminAuthority'
-            type: 'pubkey'
-          },
-          {
-            name: 'operatorAuthority'
-            type: 'pubkey'
-          },
-          {
-            name: 'epochsToClaimSettlement'
-            type: 'u64'
-          },
-          {
-            name: 'withdrawLockupEpochs'
-            type: 'u64'
-          },
-          {
-            name: 'minimumStakeLamports'
-            type: 'u64'
-          },
-          {
-            name: 'pauseAuthority'
-            type: 'pubkey'
-          },
-        ]
-      }
-    },
-    {
-      name: 'fundBondEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'bond'
-            type: 'pubkey'
-          },
-          {
-            name: 'voteAccount'
-            type: 'pubkey'
-          },
-          {
-            name: 'stakeAccount'
-            type: 'pubkey'
-          },
-          {
-            name: 'stakeAuthoritySigner'
-            type: 'pubkey'
-          },
-          {
-            name: 'depositedAmount'
-            type: 'u64'
-          },
-        ]
-      }
-    },
-    {
-      name: 'fundSettlementEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'bond'
-            type: 'pubkey'
-          },
-          {
-            name: 'settlement'
-            type: 'pubkey'
-          },
-          {
-            name: 'fundingAmount'
-            type: 'u64'
-          },
-          {
-            name: 'stakeAccount'
-            type: 'pubkey'
-          },
-          {
-            name: 'lamportsFunded'
-            type: 'u64'
-          },
-          {
-            name: 'lamportsClaimed'
-            type: 'u64'
-          },
-          {
-            name: 'merkleNodesClaimed'
-            type: 'u64'
-          },
-          {
-            name: 'splitStakeAccount'
-            type: {
-              option: {
-                defined: {
-                  name: 'splitStakeData'
-                }
-              }
-            }
-          },
-          {
-            name: 'splitRentCollector'
-            type: {
-              option: 'pubkey'
-            }
-          },
-          {
-            name: 'splitRentAmount'
-            type: 'u64'
-          },
-        ]
-      }
-    },
-    {
-      name: 'initBondArgs'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'bondAuthority'
-            type: 'pubkey'
-          },
-          {
-            name: 'cpmpe'
-            type: 'u64'
-          },
-          {
-            name: 'maxStakeWanted'
-            type: 'u64'
-          },
-        ]
-      }
-    },
-    {
-      name: 'initBondEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'bond'
-            type: 'pubkey'
-          },
-          {
-            name: 'config'
-            type: 'pubkey'
-          },
-          {
-            name: 'voteAccount'
-            type: 'pubkey'
-          },
-          {
-            name: 'validatorIdentity'
-            type: 'pubkey'
-          },
-          {
-            name: 'authority'
-            type: 'pubkey'
-          },
-          {
-            name: 'cpmpe'
-            type: 'u64'
-          },
-          {
-            name: 'maxStakeWanted'
-            type: 'u64'
-          },
-        ]
-      }
-    },
-    {
-      name: 'initConfigArgs'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'adminAuthority'
-            type: 'pubkey'
-          },
-          {
-            name: 'operatorAuthority'
-            type: 'pubkey'
-          },
-          {
-            name: 'epochsToClaimSettlement'
-            type: 'u64'
-          },
-          {
-            name: 'withdrawLockupEpochs'
-            type: 'u64'
-          },
-          {
-            name: 'slotsToStartSettlementClaiming'
-            type: 'u64'
-          },
-        ]
-      }
-    },
-    {
-      name: 'initConfigEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'config'
-            type: 'pubkey'
-          },
-          {
-            name: 'adminAuthority'
-            type: 'pubkey'
-          },
-          {
-            name: 'operatorAuthority'
-            type: 'pubkey'
-          },
-          {
-            name: 'withdrawLockupEpochs'
-            type: 'u64'
-          },
-          {
-            name: 'epochsToClaimSettlement'
-            type: 'u64'
-          },
-          {
-            name: 'minimumStakeLamports'
-            type: 'u64'
-          },
-          {
-            name: 'bondsWithdrawerAuthority'
-            type: 'pubkey'
-          },
-          {
-            name: 'slotsToStartSettlementClaiming'
-            type: 'u64'
-          },
-        ]
-      }
-    },
-    {
-      name: 'initSettlementArgs'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'merkleRoot'
-            docs: [
-              'merkle root for this settlement, multiple settlements can be created with the same merkle root,',
-              'settlements will be distinguished by the vote_account',
-            ]
-            type: {
-              array: ['u8', 32]
-            }
-          },
-          {
-            name: 'maxTotalClaim'
-            docs: [
-              'maximal number of lamports that can be claimed from this settlement',
-            ]
-            type: 'u64'
-          },
-          {
-            name: 'maxMerkleNodes'
-            docs: [
-              'maximal number of merkle tree nodes that can be claimed from this settlement',
-            ]
-            type: 'u64'
-          },
-          {
-            name: 'rentCollector'
-            docs: [
-              'collects the rent exempt from the settlement account when closed',
-            ]
-            type: 'pubkey'
-          },
-          {
-            name: 'epoch'
-            docs: ['epoch that the settlement is created for']
-            type: 'u64'
-          },
-        ]
-      }
-    },
-    {
-      name: 'initSettlementEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'bond'
-            type: 'pubkey'
-          },
-          {
-            name: 'settlement'
-            type: 'pubkey'
-          },
-          {
-            name: 'voteAccount'
-            type: 'pubkey'
-          },
-          {
-            name: 'stakerAuthority'
-            type: 'pubkey'
-          },
-          {
-            name: 'merkleRoot'
-            type: {
-              array: ['u8', 32]
-            }
-          },
-          {
-            name: 'maxTotalClaim'
-            type: 'u64'
-          },
-          {
-            name: 'maxMerkleNodes'
-            type: 'u64'
-          },
-          {
-            name: 'epochCreatedFor'
-            type: 'u64'
-          },
-          {
-            name: 'slotCreatedAt'
-            type: 'u64'
-          },
-          {
-            name: 'rentCollector'
-            type: 'pubkey'
-          },
-        ]
-      }
-    },
-    {
-      name: 'initWithdrawRequestArgs'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'amount'
-            type: 'u64'
-          },
-        ]
-      }
-    },
-    {
-      name: 'initWithdrawRequestEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'withdrawRequest'
-            type: 'pubkey'
-          },
-          {
-            name: 'bond'
-            type: 'pubkey'
-          },
-          {
-            name: 'voteAccount'
-            type: 'pubkey'
-          },
-          {
-            name: 'epoch'
-            type: 'u64'
-          },
-          {
-            name: 'requestedAmount'
-            type: 'u64'
-          },
-        ]
-      }
-    },
-    {
-      name: 'mergeStakeArgs'
+      name: 'settlementClaims'
+      docs: [
+        'Account serving to deduplicate claiming, consists of anchor data as metaata header and bitmap in the remaining space.',
+      ]
       type: {
         kind: 'struct'
         fields: [
@@ -4402,121 +3939,13 @@ export type ValidatorBonds = {
             name: 'settlement'
             type: 'pubkey'
           },
-        ]
-      }
-    },
-    {
-      name: 'mergeStakeEvent'
-      type: {
-        kind: 'struct'
-        fields: [
           {
-            name: 'config'
-            type: 'pubkey'
+            name: 'version'
+            type: 'u8'
           },
           {
-            name: 'stakerAuthority'
-            type: 'pubkey'
-          },
-          {
-            name: 'destinationStake'
-            type: 'pubkey'
-          },
-          {
-            name: 'destinationDelegation'
-            type: {
-              option: {
-                defined: {
-                  name: 'delegationInfo'
-                }
-              }
-            }
-          },
-          {
-            name: 'sourceStake'
-            type: 'pubkey'
-          },
-          {
-            name: 'sourceDelegation'
-            type: {
-              option: {
-                defined: {
-                  name: 'delegationInfo'
-                }
-              }
-            }
-          },
-        ]
-      }
-    },
-    {
-      name: 'mintBondEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'bond'
-            type: 'pubkey'
-          },
-          {
-            name: 'validatorIdentity'
-            type: 'pubkey'
-          },
-          {
-            name: 'validatorIdentityTokenAccount'
-            type: 'pubkey'
-          },
-          {
-            name: 'tokenMetadata'
-            type: 'pubkey'
-          },
-        ]
-      }
-    },
-    {
-      name: 'pubkeyValueChange'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'old'
-            type: 'pubkey'
-          },
-          {
-            name: 'new'
-            type: 'pubkey'
-          },
-        ]
-      }
-    },
-    {
-      name: 'resetStakeEvent'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'config'
-            type: 'pubkey'
-          },
-          {
-            name: 'bond'
-            type: 'pubkey'
-          },
-          {
-            name: 'settlement'
-            type: 'pubkey'
-          },
-          {
-            name: 'stakeAccount'
-            type: 'pubkey'
-          },
-          {
-            name: 'voteAccount'
-            type: 'pubkey'
-          },
-          {
-            name: 'settlementStakerAuthority'
-            type: 'pubkey'
+            name: 'maxRecords'
+            type: 'u64'
           },
         ]
       }
@@ -4632,61 +4061,6 @@ export type ValidatorBonds = {
       }
     },
     {
-      name: 'settlementClaims'
-      docs: [
-        'Account serving to deduplicate claiming, consists of anchor data as metaata header and bitmap in the remaining space.',
-      ]
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'settlement'
-            type: 'pubkey'
-          },
-          {
-            name: 'version'
-            type: 'u8'
-          },
-          {
-            name: 'maxRecords'
-            type: 'u64'
-          },
-        ]
-      }
-    },
-    {
-      name: 'splitStakeData'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'address'
-            type: 'pubkey'
-          },
-          {
-            name: 'amount'
-            type: 'u64'
-          },
-        ]
-      }
-    },
-    {
-      name: 'u64ValueChange'
-      type: {
-        kind: 'struct'
-        fields: [
-          {
-            name: 'old'
-            type: 'u64'
-          },
-          {
-            name: 'new'
-            type: 'u64'
-          },
-        ]
-      }
-    },
-    {
       name: 'withdrawRequest'
       docs: ['Request from a validator to withdraw the bond']
       type: {
@@ -4737,6 +4111,728 @@ export type ValidatorBonds = {
       }
     },
     {
+      name: 'initBondEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'bond'
+            type: 'pubkey'
+          },
+          {
+            name: 'config'
+            type: 'pubkey'
+          },
+          {
+            name: 'voteAccount'
+            type: 'pubkey'
+          },
+          {
+            name: 'validatorIdentity'
+            type: 'pubkey'
+          },
+          {
+            name: 'authority'
+            type: 'pubkey'
+          },
+          {
+            name: 'cpmpe'
+            type: 'u64'
+          },
+          {
+            name: 'maxStakeWanted'
+            type: 'u64'
+          },
+        ]
+      }
+    },
+    {
+      name: 'configureBondEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'bondAuthority'
+            type: {
+              option: {
+                defined: {
+                  name: 'pubkeyValueChange'
+                }
+              }
+            }
+          },
+          {
+            name: 'cpmpe'
+            type: {
+              option: {
+                defined: {
+                  name: 'u64ValueChange'
+                }
+              }
+            }
+          },
+          {
+            name: 'maxStakeWanted'
+            type: {
+              option: {
+                defined: {
+                  name: 'u64ValueChange'
+                }
+              }
+            }
+          },
+        ]
+      }
+    },
+    {
+      name: 'configureBondWithMintEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'validatorIdentity'
+            type: 'pubkey'
+          },
+          {
+            name: 'bondAuthority'
+            type: {
+              option: {
+                defined: {
+                  name: 'pubkeyValueChange'
+                }
+              }
+            }
+          },
+          {
+            name: 'cpmpe'
+            type: {
+              option: {
+                defined: {
+                  name: 'u64ValueChange'
+                }
+              }
+            }
+          },
+          {
+            name: 'maxStakeWanted'
+            type: {
+              option: {
+                defined: {
+                  name: 'u64ValueChange'
+                }
+              }
+            }
+          },
+        ]
+      }
+    },
+    {
+      name: 'fundBondEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'bond'
+            type: 'pubkey'
+          },
+          {
+            name: 'voteAccount'
+            type: 'pubkey'
+          },
+          {
+            name: 'stakeAccount'
+            type: 'pubkey'
+          },
+          {
+            name: 'stakeAuthoritySigner'
+            type: 'pubkey'
+          },
+          {
+            name: 'depositedAmount'
+            type: 'u64'
+          },
+        ]
+      }
+    },
+    {
+      name: 'mintBondEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'bond'
+            type: 'pubkey'
+          },
+          {
+            name: 'validatorIdentity'
+            type: 'pubkey'
+          },
+          {
+            name: 'validatorIdentityTokenAccount'
+            type: 'pubkey'
+          },
+          {
+            name: 'tokenMetadata'
+            type: 'pubkey'
+          },
+        ]
+      }
+    },
+    {
+      name: 'initConfigEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'config'
+            type: 'pubkey'
+          },
+          {
+            name: 'adminAuthority'
+            type: 'pubkey'
+          },
+          {
+            name: 'operatorAuthority'
+            type: 'pubkey'
+          },
+          {
+            name: 'withdrawLockupEpochs'
+            type: 'u64'
+          },
+          {
+            name: 'epochsToClaimSettlement'
+            type: 'u64'
+          },
+          {
+            name: 'minimumStakeLamports'
+            type: 'u64'
+          },
+          {
+            name: 'bondsWithdrawerAuthority'
+            type: 'pubkey'
+          },
+          {
+            name: 'slotsToStartSettlementClaiming'
+            type: 'u64'
+          },
+        ]
+      }
+    },
+    {
+      name: 'configureConfigEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'adminAuthority'
+            type: {
+              option: {
+                defined: {
+                  name: 'pubkeyValueChange'
+                }
+              }
+            }
+          },
+          {
+            name: 'operatorAuthority'
+            type: {
+              option: {
+                defined: {
+                  name: 'pubkeyValueChange'
+                }
+              }
+            }
+          },
+          {
+            name: 'pauseAuthority'
+            type: {
+              option: {
+                defined: {
+                  name: 'pubkeyValueChange'
+                }
+              }
+            }
+          },
+          {
+            name: 'epochsToClaimSettlement'
+            type: {
+              option: {
+                defined: {
+                  name: 'u64ValueChange'
+                }
+              }
+            }
+          },
+          {
+            name: 'minimumStakeLamports'
+            type: {
+              option: {
+                defined: {
+                  name: 'u64ValueChange'
+                }
+              }
+            }
+          },
+          {
+            name: 'withdrawLockupEpochs'
+            type: {
+              option: {
+                defined: {
+                  name: 'u64ValueChange'
+                }
+              }
+            }
+          },
+          {
+            name: 'slotsToStartSettlementClaiming'
+            type: {
+              option: {
+                defined: {
+                  name: 'u64ValueChange'
+                }
+              }
+            }
+          },
+          {
+            name: 'minBondMaxStakeWanted'
+            type: {
+              option: {
+                defined: {
+                  name: 'u64ValueChange'
+                }
+              }
+            }
+          },
+        ]
+      }
+    },
+    {
+      name: 'emergencyPauseEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'config'
+            type: 'pubkey'
+          },
+          {
+            name: 'adminAuthority'
+            type: 'pubkey'
+          },
+          {
+            name: 'operatorAuthority'
+            type: 'pubkey'
+          },
+          {
+            name: 'epochsToClaimSettlement'
+            type: 'u64'
+          },
+          {
+            name: 'withdrawLockupEpochs'
+            type: 'u64'
+          },
+          {
+            name: 'minimumStakeLamports'
+            type: 'u64'
+          },
+          {
+            name: 'pauseAuthority'
+            type: 'pubkey'
+          },
+        ]
+      }
+    },
+    {
+      name: 'emergencyResumeEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'config'
+            type: 'pubkey'
+          },
+          {
+            name: 'adminAuthority'
+            type: 'pubkey'
+          },
+          {
+            name: 'operatorAuthority'
+            type: 'pubkey'
+          },
+          {
+            name: 'epochsToClaimSettlement'
+            type: 'u64'
+          },
+          {
+            name: 'withdrawLockupEpochs'
+            type: 'u64'
+          },
+          {
+            name: 'minimumStakeLamports'
+            type: 'u64'
+          },
+          {
+            name: 'pauseAuthority'
+            type: 'pubkey'
+          },
+        ]
+      }
+    },
+    {
+      name: 'claimSettlementV2Event'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'settlement'
+            type: 'pubkey'
+          },
+          {
+            name: 'settlementLamportsClaimed'
+            type: {
+              defined: {
+                name: 'u64ValueChange'
+              }
+            }
+          },
+          {
+            name: 'settlementMerkleNodesClaimed'
+            type: 'u64'
+          },
+          {
+            name: 'stakeAccountTo'
+            type: 'pubkey'
+          },
+          {
+            name: 'stakeAccountWithdrawer'
+            type: 'pubkey'
+          },
+          {
+            name: 'stakeAccountStaker'
+            type: 'pubkey'
+          },
+          {
+            name: 'amount'
+            type: 'u64'
+          },
+          {
+            name: 'index'
+            type: 'u64'
+          },
+        ]
+      }
+    },
+    {
+      name: 'initSettlementEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'bond'
+            type: 'pubkey'
+          },
+          {
+            name: 'settlement'
+            type: 'pubkey'
+          },
+          {
+            name: 'voteAccount'
+            type: 'pubkey'
+          },
+          {
+            name: 'stakerAuthority'
+            type: 'pubkey'
+          },
+          {
+            name: 'merkleRoot'
+            type: {
+              array: ['u8', 32]
+            }
+          },
+          {
+            name: 'maxTotalClaim'
+            type: 'u64'
+          },
+          {
+            name: 'maxMerkleNodes'
+            type: 'u64'
+          },
+          {
+            name: 'epochCreatedFor'
+            type: 'u64'
+          },
+          {
+            name: 'slotCreatedAt'
+            type: 'u64'
+          },
+          {
+            name: 'rentCollector'
+            type: 'pubkey'
+          },
+        ]
+      }
+    },
+    {
+      name: 'closeSettlementEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'bond'
+            type: 'pubkey'
+          },
+          {
+            name: 'settlement'
+            type: 'pubkey'
+          },
+          {
+            name: 'merkleRoot'
+            type: {
+              array: ['u8', 32]
+            }
+          },
+          {
+            name: 'maxTotalClaim'
+            type: 'u64'
+          },
+          {
+            name: 'maxMerkleNodes'
+            type: 'u64'
+          },
+          {
+            name: 'lamportsFunded'
+            type: 'u64'
+          },
+          {
+            name: 'lamportsClaimed'
+            type: 'u64'
+          },
+          {
+            name: 'merkleNodesClaimed'
+            type: 'u64'
+          },
+          {
+            name: 'splitRentCollector'
+            type: {
+              option: 'pubkey'
+            }
+          },
+          {
+            name: 'splitRentRefund'
+            type: {
+              option: 'pubkey'
+            }
+          },
+          {
+            name: 'rentCollector'
+            type: 'pubkey'
+          },
+          {
+            name: 'expirationEpoch'
+            type: 'u64'
+          },
+          {
+            name: 'currentEpoch'
+            type: 'u64'
+          },
+        ]
+      }
+    },
+    {
+      name: 'cancelSettlementEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'bond'
+            type: 'pubkey'
+          },
+          {
+            name: 'settlement'
+            type: 'pubkey'
+          },
+          {
+            name: 'merkleRoot'
+            type: {
+              array: ['u8', 32]
+            }
+          },
+          {
+            name: 'maxTotalClaim'
+            type: 'u64'
+          },
+          {
+            name: 'maxMerkleNodes'
+            type: 'u64'
+          },
+          {
+            name: 'lamportsFunded'
+            type: 'u64'
+          },
+          {
+            name: 'lamportsClaimed'
+            type: 'u64'
+          },
+          {
+            name: 'merkleNodesClaimed'
+            type: 'u64'
+          },
+          {
+            name: 'splitRentCollector'
+            type: {
+              option: 'pubkey'
+            }
+          },
+          {
+            name: 'splitRentRefund'
+            type: {
+              option: 'pubkey'
+            }
+          },
+          {
+            name: 'rentCollector'
+            type: 'pubkey'
+          },
+          {
+            name: 'authority'
+            type: 'pubkey'
+          },
+        ]
+      }
+    },
+    {
+      name: 'fundSettlementEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'bond'
+            type: 'pubkey'
+          },
+          {
+            name: 'settlement'
+            type: 'pubkey'
+          },
+          {
+            name: 'fundingAmount'
+            type: 'u64'
+          },
+          {
+            name: 'stakeAccount'
+            type: 'pubkey'
+          },
+          {
+            name: 'lamportsFunded'
+            type: 'u64'
+          },
+          {
+            name: 'lamportsClaimed'
+            type: 'u64'
+          },
+          {
+            name: 'merkleNodesClaimed'
+            type: 'u64'
+          },
+          {
+            name: 'splitStakeAccount'
+            type: {
+              option: {
+                defined: {
+                  name: 'splitStakeData'
+                }
+              }
+            }
+          },
+          {
+            name: 'splitRentCollector'
+            type: {
+              option: 'pubkey'
+            }
+          },
+          {
+            name: 'splitRentAmount'
+            type: 'u64'
+          },
+        ]
+      }
+    },
+    {
+      name: 'mergeStakeEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'config'
+            type: 'pubkey'
+          },
+          {
+            name: 'stakerAuthority'
+            type: 'pubkey'
+          },
+          {
+            name: 'destinationStake'
+            type: 'pubkey'
+          },
+          {
+            name: 'destinationDelegation'
+            type: {
+              option: {
+                defined: {
+                  name: 'delegationInfo'
+                }
+              }
+            }
+          },
+          {
+            name: 'sourceStake'
+            type: 'pubkey'
+          },
+          {
+            name: 'sourceDelegation'
+            type: {
+              option: {
+                defined: {
+                  name: 'delegationInfo'
+                }
+              }
+            }
+          },
+        ]
+      }
+    },
+    {
+      name: 'resetStakeEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'config'
+            type: 'pubkey'
+          },
+          {
+            name: 'bond'
+            type: 'pubkey'
+          },
+          {
+            name: 'settlement'
+            type: 'pubkey'
+          },
+          {
+            name: 'stakeAccount'
+            type: 'pubkey'
+          },
+          {
+            name: 'voteAccount'
+            type: 'pubkey'
+          },
+          {
+            name: 'settlementStakerAuthority'
+            type: 'pubkey'
+          },
+        ]
+      }
+    },
+    {
       name: 'withdrawStakeEvent'
       type: {
         kind: 'struct'
@@ -4772,17 +4868,166 @@ export type ValidatorBonds = {
         ]
       }
     },
+    {
+      name: 'initWithdrawRequestEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'withdrawRequest'
+            type: 'pubkey'
+          },
+          {
+            name: 'bond'
+            type: 'pubkey'
+          },
+          {
+            name: 'voteAccount'
+            type: 'pubkey'
+          },
+          {
+            name: 'epoch'
+            type: 'u64'
+          },
+          {
+            name: 'requestedAmount'
+            type: 'u64'
+          },
+        ]
+      }
+    },
+    {
+      name: 'cancelWithdrawRequestEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'withdrawRequest'
+            type: 'pubkey'
+          },
+          {
+            name: 'bond'
+            type: 'pubkey'
+          },
+          {
+            name: 'authority'
+            type: 'pubkey'
+          },
+          {
+            name: 'requestedAmount'
+            type: 'u64'
+          },
+          {
+            name: 'withdrawnAmount'
+            type: 'u64'
+          },
+        ]
+      }
+    },
+    {
+      name: 'claimWithdrawRequestEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'withdrawRequest'
+            type: 'pubkey'
+          },
+          {
+            name: 'bond'
+            type: 'pubkey'
+          },
+          {
+            name: 'voteAccount'
+            type: 'pubkey'
+          },
+          {
+            name: 'stakeAccount'
+            type: 'pubkey'
+          },
+          {
+            name: 'splitStake'
+            type: {
+              option: {
+                defined: {
+                  name: 'splitStakeData'
+                }
+              }
+            }
+          },
+          {
+            name: 'newStakeAccountOwner'
+            type: 'pubkey'
+          },
+          {
+            name: 'withdrawingAmount'
+            type: 'u64'
+          },
+          {
+            name: 'withdrawnAmount'
+            type: {
+              defined: {
+                name: 'u64ValueChange'
+              }
+            }
+          },
+        ]
+      }
+    },
+    {
+      name: 'claimSettlementEvent'
+      type: {
+        kind: 'struct'
+        fields: [
+          {
+            name: 'settlementClaim'
+            type: 'pubkey'
+          },
+          {
+            name: 'settlement'
+            type: 'pubkey'
+          },
+          {
+            name: 'settlementLamportsClaimed'
+            type: {
+              defined: {
+                name: 'u64ValueChange'
+              }
+            }
+          },
+          {
+            name: 'settlementMerkleNodesClaimed'
+            type: 'u64'
+          },
+          {
+            name: 'stakeAccountTo'
+            type: 'pubkey'
+          },
+          {
+            name: 'stakeAccountWithdrawer'
+            type: 'pubkey'
+          },
+          {
+            name: 'stakeAccountStaker'
+            type: 'pubkey'
+          },
+          {
+            name: 'amount'
+            type: 'u64'
+          },
+          {
+            name: 'rentCollector'
+            type: 'pubkey'
+          },
+        ]
+      }
+    },
   ]
   constants: [
     {
-      name: 'bondsWithdrawerAuthoritySeed'
-      type: 'bytes'
-      value: '[98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121]'
-    },
-    {
-      name: 'bondMintSeed'
-      type: 'bytes'
-      value: '[98, 111, 110, 100, 95, 109, 105, 110, 116]'
+      name: 'programId'
+      type: 'string'
+      value: '"vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4"'
     },
     {
       name: 'bondSeed'
@@ -4790,24 +5035,9 @@ export type ValidatorBonds = {
       value: '[98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]'
     },
     {
-      name: 'programId'
-      type: 'string'
-      value: '"vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4"'
-    },
-    {
-      name: 'settlementClaimsAnchorHeaderSize'
-      type: 'u8'
-      value: '56'
-    },
-    {
-      name: 'settlementClaimsSeed'
+      name: 'bondMintSeed'
       type: 'bytes'
-      value: '[99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110, 116]'
-    },
-    {
-      name: 'settlementClaimSeed'
-      type: 'bytes'
-      value: '[99, 108, 97, 105, 109, 95, 97, 99, 99, 111, 117, 110, 116]'
+      value: '[98, 111, 110, 100, 95, 109, 105, 110, 116]'
     },
     {
       name: 'settlementSeed'
@@ -4815,14 +5045,34 @@ export type ValidatorBonds = {
       value: '[115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97, 99, 99, 111, 117, 110, 116]'
     },
     {
+      name: 'withdrawRequestSeed'
+      type: 'bytes'
+      value: '[119, 105, 116, 104, 100, 114, 97, 119, 95, 97, 99, 99, 111, 117, 110, 116]'
+    },
+    {
+      name: 'bondsWithdrawerAuthoritySeed'
+      type: 'bytes'
+      value: '[98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121]'
+    },
+    {
       name: 'settlementStakerAuthoritySeed'
       type: 'bytes'
       value: '[115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121]'
     },
     {
-      name: 'withdrawRequestSeed'
+      name: 'settlementClaimsSeed'
       type: 'bytes'
-      value: '[119, 105, 116, 104, 100, 114, 97, 119, 95, 97, 99, 99, 111, 117, 110, 116]'
+      value: '[99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110, 116]'
+    },
+    {
+      name: 'settlementClaimsAnchorHeaderSize'
+      type: 'u8'
+      value: '56'
+    },
+    {
+      name: 'settlementClaimSeed'
+      type: 'bytes'
+      value: '[99, 108, 97, 105, 109, 95, 97, 99, 99, 111, 117, 110, 116]'
     },
   ]
 }

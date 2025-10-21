@@ -1,4 +1,3 @@
-use solana_cli_output::display::build_balance_message;
 use anchor_client::anchor_lang::solana_program::stake::state::{Authorized, Lockup, StakeStateV2};
 use anchor_client::anchor_lang::solana_program::system_program;
 use anchor_client::{DynSigner, Program};
@@ -26,6 +25,7 @@ use settlement_pipelines::stake_accounts::{
     get_delegated_amount, get_stake_state_type, prepare_merge_instructions, StakeAccountStateType,
     STAKE_ACCOUNT_RENT_EXEMPTION,
 };
+use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::clock::Clock;
 use solana_sdk::pubkey::Pubkey;

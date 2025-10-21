@@ -20,6 +20,7 @@ use settlement_pipelines::stake_accounts::{
 };
 use settlement_pipelines::stake_accounts_cache::StakeAccountsCache;
 use settlement_pipelines::FINALIZATION_WAIT_TIMEOUT;
+use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::clock::Clock;
 use solana_sdk::pubkey::Pubkey;
@@ -33,7 +34,6 @@ use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
-use solana_cli_output::display::build_balance_message;
 use tokio::time::sleep;
 use validator_bonds::instructions::ClaimSettlementV2Args;
 use validator_bonds::state::config::find_bonds_withdrawer_authority;
@@ -372,13 +372,10 @@ async fn claim_settlement<'a>(
                 &tree_node.stake_authority,
             )
             .await
-            .map_or_else(
-                |e| {
-                    reporting.error().with_err(e).add();
-                    &empty_stake_accounts
-                },
-                |v| v,
-            );
+            .unwrap_or_else(|e| {
+                reporting.error().with_err(e).add();
+                &empty_stake_accounts
+            });
         let stake_account_to = prioritize_for_claiming(
             stake_accounts_to,
             clock,
@@ -923,8 +920,12 @@ impl PrintReportable for ClaimSettlementsReport {
                     {
                         (
                             after_nodes.saturating_sub(*before_nodes).to_string(),
-                            build_balance_message(after_lamports.saturating_sub(*before_lamports), false, false)
-                                .to_string(),
+                            build_balance_message(
+                                after_lamports.saturating_sub(*before_lamports),
+                                false,
+                                false,
+                            )
+                            .to_string(),
                         )
                     } else {
                         ("UNKNOWN".to_string(), "UNKNOWN".to_string())

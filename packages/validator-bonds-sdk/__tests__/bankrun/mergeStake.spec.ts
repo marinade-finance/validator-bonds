@@ -9,8 +9,10 @@ import { pubkey, signer } from '@marinade.finance/web3js-1x'
 import {
   LAMPORTS_PER_SOL,
   PublicKey,
+  SYSVAR_CLOCK_PUBKEY,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   StakeProgram,
+  Transaction,
 } from '@solana/web3.js'
 
 import { initBankrunTest } from './bankrun'
@@ -78,17 +80,20 @@ describe('Staking merge verification/investigation', () => {
       .mergeStake({
         settlement: PublicKey.default,
       })
-      .accounts({
+      .accountsPartial({
+        program: program.programId,
         config: configAccount,
         sourceStake: nonDelegatedStakeAccount2,
         destinationStake: nonDelegatedStakeAccount,
         stakerAuthority: pubkey(staker),
         stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
+        clock: SYSVAR_CLOCK_PUBKEY,
         stakeProgram: StakeProgram.programId,
       })
       .instruction()
+    const transaction = new Transaction().add(instruction)
     try {
-      await provider.sendIx([], instruction)
+      await provider.sendIx([], transaction)
       throw new Error(
         'failure expected as accounts are not owned by bonds program',
       )

@@ -93,7 +93,7 @@ pub struct CloseSettlementV2<'info> {
     pub stake_history: UncheckedAccount<'info>,
 }
 
-impl<'info> CloseSettlementV2<'info> {
+impl CloseSettlementV2<'_> {
     pub fn process(ctx: Context<CloseSettlementV2>) -> Result<()> {
         require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
@@ -170,7 +170,7 @@ pub fn withdraw_refund_stake_account<'info>(
             },
             &[&[
                 BONDS_WITHDRAWER_AUTHORITY_SEED,
-                &config.key().as_ref(),
+                config.key().as_ref(),
                 &[config.bonds_withdrawer_authority_bump],
             ]],
         ),

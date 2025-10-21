@@ -126,6 +126,7 @@ describe('Validator Bonds claim settlement', () => {
         voteAccount: voteAccount1,
         staker: treeNodeVoteAccount1Withdrawer1.treeNode.stakeAuthority,
         withdrawer: treeNodeVoteAccount1Withdrawer1.treeNode.withdrawAuthority,
+        isWaitForNextEpoch: true,
       })
 
     const tx = await transaction(provider)
@@ -199,6 +200,7 @@ describe('Validator Bonds claim settlement', () => {
       voteAccount: voteAccount1,
       staker: treeNodeWithdrawer2.treeNode.stakeAuthority,
       withdrawer: treeNodeWithdrawer2.treeNode.withdrawAuthority,
+      isWaitForNextEpoch: true,
     })
     const { instruction: ix1 } = await claimSettlementV2Instruction({
       program,
@@ -221,6 +223,7 @@ describe('Validator Bonds claim settlement', () => {
       voteAccount: voteAccount1,
       staker: treeNodeWithdrawer3.treeNode.stakeAuthority,
       withdrawer: treeNodeWithdrawer3.treeNode.withdrawAuthority,
+      isWaitForNextEpoch: true,
     })
     const { instruction: ix2 } = await claimSettlementV2Instruction({
       program,

@@ -25,7 +25,7 @@ import {
 } from '@solana/web3.js'
 import BN from 'bn.js'
 
-import { setProgramIdByOwner } from './context'
+import { getCliContext } from './context'
 
 import type { VoteAccountShow } from './commands'
 import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
@@ -161,7 +161,7 @@ export async function getBondFromAddress({
       )
       config = MARINADE_CONFIG_ADDRESS
     }
-    ;({ program } = await setProgramIdByOwner(config))
+    ;({ program } = getCliContext())
     ;[address] = bondAddress(config, voteAccountAddress, program.programId)
     const bondAccountInfo =
       await program.provider.connection.getAccountInfo(address)
@@ -186,7 +186,7 @@ export async function getBondFromAddress({
   // Decode data from the account info
   try {
     const bondData = program.coder.accounts.decode<Bond>(
-      program.account.bond.idlAccount.name,
+      'bond',
       accountInfo.data,
     )
     return programAccountInfo(address, accountInfo, bondData)
@@ -239,7 +239,7 @@ function decodeWithdrawRequest({
   accountInfo: AccountInfo<Buffer>
 }): WithdrawRequest {
   return program.coder.accounts.decode<WithdrawRequest>(
-    program.account.withdrawRequest.idlAccount.name,
+    'withdrawRequest',
     accountInfo.data,
   )
 }
@@ -321,7 +321,7 @@ export async function getWithdrawRequestFromAddress({
     )
   } else {
     // expecting it's not a vote account but an address belonging to the bond contract
-    ;({ program } = await setProgramIdByOwner(address))
+    ;({ program } = getCliContext())
   }
 
   ;[address] = withdrawRequestAddress(bondAccountAddress, program.programId)
@@ -336,7 +336,7 @@ export async function getWithdrawRequestFromAddress({
   // Decode data from the account info
   try {
     const withdrawRequestData = program.coder.accounts.decode<WithdrawRequest>(
-      program.account.withdrawRequest.idlAccount.name,
+      'withdrawRequest',
       accountInfo.data,
     )
     return programAccountInfo(address, accountInfo, withdrawRequestData)

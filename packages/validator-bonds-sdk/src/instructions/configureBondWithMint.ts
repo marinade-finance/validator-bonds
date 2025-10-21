@@ -1,4 +1,5 @@
 import { getVoteAccount } from '@marinade.finance/web3js-1x'
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
 import { getAssociatedTokenAddressSync } from 'solana-spl-token-modern'
@@ -87,6 +88,7 @@ export async function configureBondWithMintInstruction({
       mint: bondMint,
       tokenAccount,
       tokenAuthority,
+      tokenProgram: TOKEN_PROGRAM_ID,
     })
     .instruction()
   return {

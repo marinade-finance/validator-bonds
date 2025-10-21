@@ -22,7 +22,7 @@ import {
   INIT_WITHDRAW_REQUEST_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
-import { setProgramIdByOwner } from '../../context'
+import { getCliContext } from '../../context'
 import {
   formatToSol,
   formatToSolWithAll,
@@ -108,7 +108,7 @@ export async function manageInitWithdrawRequest({
     confirmationFinality,
     confirmWaitTime,
     skipPreflight,
-  } = await setProgramIdByOwner(config)
+  } = getCliContext()
 
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]
