@@ -4,6 +4,7 @@ env:
   gs_bucket_institutional: gs://marinade-institutional-staking-mainnet
   institutional_staking_api: "https://institutional-staking.marinade.finance/v1/validators"
   past_epochs_to_check: 10
+  PIPELINES_AUTO_APPROVAL: $PIPELINES_AUTO_APPROVAL
 
 steps:
   - label: ":black_nib: Env variables setup: Sanity Institutional"
@@ -137,7 +138,7 @@ steps:
       - "sanity-check-2"
       - "sanity-check-3"
 
-  - block: ":interrobang: Confirm to get processed rewards loading"
+  - block: ":interrobang: Confirm to get processed institutional distribution"
     prompt: "[PIPELINES_AUTO_APPROVAL=${PIPELINES_AUTO_APPROVAL}] Review data + sanity check and 'Unblock' if ready to proceed."
     if: build.env('PIPELINES_AUTO_APPROVAL') != 'true'
     blocked_state: running

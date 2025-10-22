@@ -3,7 +3,7 @@ agents:
 env:
   gs_bucket_bonds: gs://marinade-validator-bonds-mainnet
   past_epochs_to_check: 10
-  PIPELINES_AUTO_APPROVAL: "false" # remove when verified to be stable
+  PIPELINES_AUTO_APPROVAL: "false" # set to $PIPELINES_AUTO_APPROVAL when verified to be stable
 
 steps:
   - label: ":black_nib: Env variables setup: Sanity Bid"
@@ -88,7 +88,7 @@ steps:
       - "sanity-check-1"
       - "sanity-check-2"
 
-  - block: ":interrobang: Confirm to get processed rewards loading"
+  - block: ":interrobang: Confirm to get processed bid distribution"
     prompt: "[PIPELINES_AUTO_APPROVAL=${PIPELINES_AUTO_APPROVAL}] Review data + sanity check and 'Unblock' if ready to proceed."
     if: build.env('PIPELINES_AUTO_APPROVAL') != 'true'
     blocked_state: running
