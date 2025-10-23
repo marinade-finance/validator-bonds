@@ -471,6 +471,8 @@ fn get_expired_stake_accounts(
                  vote_account_address,
                  epoch,
                  merkle_root: _,
+                 claims_count: _,
+                 claims_lamports: _,
              }| {
                 (
                     Some(config_address),

@@ -66,12 +66,21 @@ async fn main() -> anyhow::Result<()> {
                 settlement_address,
                 epoch,
                 merkle_root,
+                claims_count: merkle_tree.max_total_claims as u64,
+                claims_lamports: merkle_tree.max_total_claim_sum,
             }
         })
         .collect();
 
     info!(
-        "Settlements: {:?}",
+        "Settlements [#{}, {} SOLs, {} claims]: {:?}",
+        bond_settlements.len(),
+        bond_settlements
+            .iter()
+            .map(|s| s.claims_lamports)
+            .sum::<u64>()
+            / 1_000_000_000,
+        bond_settlements.iter().map(|s| s.claims_count).sum::<u64>(),
         bond_settlements
             .iter()
             .map(|s| s.settlement_address.to_string())
