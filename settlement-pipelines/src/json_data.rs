@@ -32,6 +32,8 @@ pub struct BondSettlement {
     pub settlement_address: Pubkey,
     pub epoch: u64,
     pub merkle_root: [u8; 32],
+    pub claims_count: u64,
+    pub claims_lamports: u64,
 }
 
 /// For Funding and Claiming settlements

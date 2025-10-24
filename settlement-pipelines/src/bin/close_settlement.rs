@@ -470,7 +470,7 @@ fn get_expired_stake_accounts(
                  settlement_address,
                  vote_account_address,
                  epoch,
-                 merkle_root: _,
+                 ..
              }| {
                 (
                     Some(config_address),
