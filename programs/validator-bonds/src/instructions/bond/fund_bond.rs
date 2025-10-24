@@ -124,6 +124,11 @@ impl<'info> FundBond<'info> {
             None,
         )?;
 
+        msg!(
+            "Funded {} lamports to bond {}",
+            ctx.accounts.stake_account.get_lamports(),
+            ctx.accounts.bond.key()
+        );
         emit_cpi!(FundBondEvent {
             bond: ctx.accounts.bond.key(),
             vote_account: ctx.accounts.bond.vote_account.key(),
