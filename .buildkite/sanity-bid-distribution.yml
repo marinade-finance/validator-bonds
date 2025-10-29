@@ -3,7 +3,7 @@ agents:
 env:
   gs_bucket_bonds: gs://marinade-validator-bonds-mainnet
   past_epochs_to_check: 10
-  PIPELINES_AUTO_APPROVAL: "false" # set to $PIPELINES_AUTO_APPROVAL when verified to be stable
+  PIPELINES_AUTO_APPROVAL: $PIPELINES_AUTO_APPROVAL
 
 steps:
   - label: ":black_nib: Env variables setup: Sanity Bid"
