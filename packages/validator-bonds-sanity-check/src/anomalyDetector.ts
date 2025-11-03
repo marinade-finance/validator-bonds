@@ -27,7 +27,8 @@ interface EpochData {
   avgSettlementClaimAmountPerValidator: Decimal
   // coefficient of variation of claims count across settlements
   // trying to detect ratio of settlements with high or low claims count
-  claimsCountCV: Decimal
+  // grouped by the settlement reason
+  claimsCountCV?: Map<string, Decimal>
 }
 
 function transform(dto: SettlementsDto): EpochData {
@@ -35,16 +36,33 @@ function transform(dto: SettlementsDto): EpochData {
     (sum, s) => sum + s.claims_amount,
     0n,
   )
-  const claimsCountStats = calculateDescriptiveStats(
-    dto.settlements.map(s => s.claims_count),
+  const claimsCountGrouped = dto.settlements
+    // filtering out penalty settlements, those are expected to have different claims count behavior
+    .filter(
+      settlement =>
+        !settlement.reason.simpleReason
+          ?.toLocaleLowerCase()
+          .includes('penalty'),
+    )
+    .reduce((acc, settlement) => {
+      const reason = settlement.reason.simpleReason ?? 'unknown'
+      const counts = acc.get(reason) ?? []
+      counts.push(settlement.claims_count)
+      acc.set(reason, counts)
+      return acc
+    }, new Map<string, number[]>())
+  const claimsCountCVGrouped = new Map(
+    Array.from(claimsCountGrouped, ([reason, counts]) => {
+      const stats = calculateDescriptiveStats(counts)
+      return [reason, stats.stdDev.div(stats.mean)]
+    }),
   )
-  const claimsCountCV = claimsCountStats.stdDev.div(claimsCountStats.mean)
 
   return {
     epoch: Number(dto.epoch),
     totalSettlements: BigInt(dto.settlements.length),
     totalSettlementClaimAmount: totalClaims,
-    claimsCountCV: claimsCountCV,
+    claimsCountCV: claimsCountCVGrouped,
     totalSettlementClaims: BigInt(
       dto.settlements.reduce((sum, s) => sum + BigInt(s.claims_count), 0n),
     ),
@@ -159,32 +177,79 @@ function detectIndividualAnomalies({
   const calculations: StatsCalculation[] = []
 
   for (const field of fieldsToCheck) {
-    const historicalValues = historicalData.map(d => d[field] as number)
-    const currentValue = currentData[field] as number
+    const rawCurrentValue = currentData[field]
+    if (rawCurrentValue instanceof Map) {
+      const mapValue = rawCurrentValue
+      for (const [key, value] of mapValue.entries()) {
+        const currentValue = Number(String(value))
+        const historicalValues = historicalData.map(d => {
+          const map = d[field] as Map<string, Decimal>
+          return Number(String(map.get(key) ?? DECIMAL_ZERO))
+        })
+        const anomaly = detectIndividualAnomaly({
+          currentValue,
+          historicalValues,
+          field: `${field}_${key}:`,
+          correlationThreshold,
+          scoreThreshold,
+          logger,
+        })
+        calculations.push(anomaly)
+      }
+    } else {
+      const currentValue = Number(String(rawCurrentValue))
+      const historicalValues = historicalData.map(d => Number(d[field]))
 
-    logDebug(
-      logger,
-      `Analyzing field: ${field}, current value: ${currentValue}, ` +
-        `historical values: ${jsonStringify(historicalValues)}`,
-    )
-    const stats = calculateDescriptiveStats(historicalValues)
-
-    const detectAnomalies = detectAnomaly({
-      currentValue,
-      historicalValues,
-      field,
-      correlationThreshold,
-      scoreThreshold,
-    })
-
-    calculations.push({
-      ...detectAnomalies,
-      stats,
-      details: undefined,
-    })
+      const anomaly = detectIndividualAnomaly({
+        currentValue,
+        historicalValues,
+        field: `${String(field)}:`,
+        correlationThreshold,
+        scoreThreshold,
+        logger,
+      })
+      calculations.push(anomaly)
+    }
   }
 
   return calculations
+}
+
+function detectIndividualAnomaly({
+  currentValue,
+  historicalValues,
+  field,
+  scoreThreshold,
+  correlationThreshold,
+  logger,
+}: {
+  currentValue: number
+  historicalValues: number[]
+  field: string
+  scoreThreshold: Decimal
+  correlationThreshold: Decimal
+  logger?: LoggerPlaceholder
+}): StatsCalculation {
+  logDebug(
+    logger,
+    `Analyzing field: ${field}, current value: ${currentValue}, ` +
+      `historical values: ${jsonStringify(historicalValues)}`,
+  )
+  const stats = calculateDescriptiveStats(historicalValues)
+
+  const detectAnomalyData = detectAnomaly({
+    currentValue,
+    historicalValues,
+    field,
+    correlationThreshold,
+    scoreThreshold,
+  })
+
+  return {
+    ...detectAnomalyData,
+    stats,
+    details: undefined,
+  }
 }
 
 export function reportAnomalies({
@@ -222,7 +287,7 @@ export function reportAnomalies({
 
   for (const stat of stats) {
     const anomalyString = stat.isAnomaly ? '⛔' : '✅'
-    report += `[${anomalyString}] Field: ${stat.field}\n`
+    report += `[${anomalyString}] Field: ${stat.field}, Value: ${stat.currentValue.toString()}\n`
     report += `  Score: ${stat.score.toString()}\n`
     report += `  ${YAML.stringify({ Stats: stat.stats }, { indent: 4 })}\n`
     if (stat.details) {

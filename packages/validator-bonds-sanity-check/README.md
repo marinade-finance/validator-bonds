@@ -29,9 +29,9 @@ past epochs settlement files to detect anomalies in number of claims,
 distribution amounts and claimed amounts per validator.
 
 ```bash
-pnpm cli:check check -c "$DIR/${epoch}-bid-distribution-settlements.json" \
-  -p "$DIR/!(${epoch})-bid-distribution-settlements.json" \
-  --correlation-threshold 15 --score-threshold 2 --verbose --type bid
+pnpm cli:check check -c "${DIR}/${epoch}-bid-distribution-settlements.json" \
+  -p "${DIR}"/!(${epoch})-bid-distribution-settlements.json \
+  --correlation-threshold 0.15 --score-threshold 2 --verbose --type bid
 
 pnpm cli:check check -c "$DIR"/857-bid-psr-distribution-settlements.json \
   -p $(seq -f "$DIR"/%g-bid-psr-distribution-settlements.json 845 856) --type psr
