@@ -1,3 +1,4 @@
+import { type LoggerWrapper } from '@marinade.finance/ts-common'
 import {
   bondsWithdrawerAuthority,
   fundBondInstruction,
@@ -12,6 +13,7 @@ import {
   transaction,
 } from '@marinade.finance/web3js-1x'
 
+import { printBanner } from '../../banner'
 import {
   FUND_BOND_LIMIT_UNITS,
   computeUnitLimitOption,
@@ -22,7 +24,6 @@ import {
   isExpectedAnchorTransactionError,
 } from '../../utils'
 
-import type { LoggerWrapper } from '@marinade.finance/ts-common'
 import type {
   Wallet as WalletInterface,
   Provider,
@@ -63,12 +64,14 @@ export async function manageFundBond({
   stakeAccount,
   stakeAuthority,
   computeUnitLimit,
+  isPrintBanner,
 }: {
   address: PublicKey
   config?: PublicKey
   stakeAccount: PublicKey
   stakeAuthority?: WalletInterface | PublicKey
   computeUnitLimit: number
+  isPrintBanner?: boolean
 }) {
   const {
     program,
@@ -112,6 +115,10 @@ export async function manageFundBond({
     stakeAccountAuthority: stakeAuthority,
   })
   tx.add(instruction)
+
+  if (isPrintBanner) {
+    printBanner(voteAccount)
+  }
 
   logger.info(`Funding bond account ${bondAccount.toBase58()}`)
   try {

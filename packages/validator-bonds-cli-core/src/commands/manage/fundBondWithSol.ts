@@ -19,6 +19,7 @@ import {
 import BN from 'bn.js'
 
 import { failIfUnexpectedFundingError } from './fundBond'
+import { printBanner } from '../../banner'
 import {
   FUND_BOND_WITH_SOL_LIMIT_UNITS,
   computeUnitLimitOption,
@@ -65,12 +66,14 @@ export async function manageFundBondWithSol({
   amount,
   from,
   computeUnitLimit,
+  isPrintBanner,
 }: {
   address: PublicKey
   config?: PublicKey
   amount: number
   from?: WalletInterface | PublicKey
   computeUnitLimit: number
+  isPrintBanner?: boolean
 }) {
   const {
     program,
@@ -157,6 +160,10 @@ export async function manageFundBondWithSol({
     stakeAccountAuthority: from,
   })
   tx.add(createStakeAccountIx, delegateStakeAccountIx, fundBondIx)
+
+  if (isPrintBanner) {
+    printBanner(voteAccount)
+  }
 
   logger.info(
     `Funding bond account ${bondAccount.toBase58()} of vote account ${voteAccount.toBase58()} ` +

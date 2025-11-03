@@ -63,6 +63,7 @@ export function installConfigureBond(program: Command) {
           cpmpe,
           maxStakeWanted,
           computeUnitLimit,
+          isPrintBanner: true,
         })
       },
     )

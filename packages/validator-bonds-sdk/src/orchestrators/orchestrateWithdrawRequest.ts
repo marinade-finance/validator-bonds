@@ -56,6 +56,7 @@ export async function orchestrateWithdrawDeposit({
   splitStakeAccounts: Keypair[] // required signer
   withdrawStakeAccounts: PublicKey[]
   amountToWithdraw: BN
+  voteAccount: PublicKey
 }> {
   if (
     configAccount !== undefined &&
@@ -105,6 +106,7 @@ export async function orchestrateWithdrawDeposit({
   withdrawRequestData =
     withdrawRequestData ??
     (await getWithdrawRequest(program, withdrawRequestAccount))
+  voteAccount = voteAccount ?? withdrawRequestData.voteAccount
 
   let amountToWithdraw = withdrawRequestData.requestedAmount.sub(
     withdrawRequestData.withdrawnAmount,
@@ -238,6 +240,7 @@ export async function orchestrateWithdrawDeposit({
     splitStakeAccounts, // needed to be signers of whole transaction
     withdrawStakeAccounts,
     amountToWithdraw,
+    voteAccount,
   }
 }
 

@@ -55,6 +55,7 @@ export async function claimWithdrawRequestInstruction({
   instruction: TransactionInstruction
   splitStakeAccount: Keypair
   withdrawRequestAccount: PublicKey
+  voteAccount: PublicKey
 }> {
   if (
     configAccount !== undefined &&
@@ -154,5 +155,6 @@ export async function claimWithdrawRequestInstruction({
     instruction,
     withdrawRequestAccount,
     splitStakeAccount,
+    voteAccount,
   }
 }

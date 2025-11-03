@@ -13,6 +13,7 @@ import {
 } from '@marinade.finance/web3js-1x'
 import { BN } from 'bn.js'
 
+import { printBanner } from '../../banner'
 import {
   CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS,
   computeUnitLimitOption,
@@ -90,6 +91,7 @@ export async function manageClaimWithdrawRequest({
   splitStakeRentPayer,
   stakeAccount,
   computeUnitLimit,
+  isPrintBanner,
 }: {
   address?: PublicKey
   config?: PublicKey
@@ -99,6 +101,7 @@ export async function manageClaimWithdrawRequest({
   splitStakeRentPayer?: WalletInterface | PublicKey
   stakeAccount?: PublicKey
   computeUnitLimit: number
+  isPrintBanner?: boolean
 }) {
   const {
     program,
@@ -147,23 +150,28 @@ export async function manageClaimWithdrawRequest({
   let stakeAccountsToWithdraw: PublicKey[] = []
   if (stakeAccount !== undefined) {
     // forced to use provided stake account
-    const { instruction, withdrawRequestAccount, splitStakeAccount } =
-      await claimWithdrawRequestInstruction({
-        program,
-        withdrawRequestAccount: withdrawRequestAddress,
-        bondAccount,
-        configAccount: config,
-        voteAccount,
-        stakeAccount,
-        authority,
-        splitStakeRentPayer,
-        withdrawer,
-        logger,
-      })
+    const {
+      instruction,
+      withdrawRequestAccount,
+      splitStakeAccount,
+      voteAccount: voteAcc,
+    } = await claimWithdrawRequestInstruction({
+      program,
+      withdrawRequestAccount: withdrawRequestAddress,
+      bondAccount,
+      configAccount: config,
+      voteAccount,
+      stakeAccount,
+      authority,
+      splitStakeRentPayer,
+      withdrawer,
+      logger,
+    })
     signers.push(splitStakeAccount)
     withdrawRequestAddress = withdrawRequestAccount
     instructionsToProcess = [instruction]
     stakeAccountsToWithdraw = [stakeAccount]
+    voteAccount = voteAccount ?? voteAcc
   } else {
     // default behaviour to search stake account from bond account and merge beforehand
     const {
@@ -172,6 +180,7 @@ export async function manageClaimWithdrawRequest({
       splitStakeAccounts,
       withdrawRequestAccount,
       amountToWithdraw,
+      voteAccount: voteAcc,
     } = await orchestrateWithdrawDeposit({
       program,
       withdrawRequestAccount: withdrawRequestAddress,
@@ -187,6 +196,7 @@ export async function manageClaimWithdrawRequest({
     withdrawRequestAddress = withdrawRequestAccount
     instructionsToProcess = instructions
     stakeAccountsToWithdraw = withdrawStakeAccounts
+    voteAccount = voteAccount ?? voteAcc
     if (amountToWithdraw <= new BN(0)) {
       logger.info(
         `Withdraw request ${withdrawRequestAddress?.toBase58()} for bond account ${bondAccount?.toBase58()}` +
@@ -207,6 +217,10 @@ export async function manageClaimWithdrawRequest({
     })
   }
   tx.add(...instructionsToProcess)
+
+  if (isPrintBanner) {
+    printBanner(voteAccount)
+  }
 
   logger.info(
     `Claiming withdraw request ${withdrawRequestAddress?.toBase58()} ` +
