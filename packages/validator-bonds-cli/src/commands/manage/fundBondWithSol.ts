@@ -39,6 +39,7 @@ export function installFundBondWithSol(program: Command) {
           amount,
           from: await from,
           computeUnitLimit,
+          isPrintBanner: true,
         })
       },
     )

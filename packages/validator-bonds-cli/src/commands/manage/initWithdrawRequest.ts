@@ -44,6 +44,7 @@ export function installInitWithdrawRequest(program: Command) {
           amount,
           rentPayer: await rentPayer,
           computeUnitLimit,
+          isPrintBanner: true,
         })
       },
     )

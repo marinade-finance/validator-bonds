@@ -11,6 +11,7 @@ import {
   transaction,
 } from '@marinade.finance/web3js-1x'
 
+import { printBanner } from '../../banner'
 import {
   CONFIGURE_BOND_LIMIT_UNITS,
   CONFIGURE_BOND_MINT_LIMIT_UNITS,
@@ -71,6 +72,7 @@ export async function manageConfigureBond({
   cpmpe,
   maxStakeWanted,
   computeUnitLimit,
+  isPrintBanner,
 }: {
   address: PublicKey
   config: PublicKey
@@ -81,6 +83,7 @@ export async function manageConfigureBond({
   cpmpe?: BN
   maxStakeWanted?: BN
   computeUnitLimit?: number
+  isPrintBanner?: boolean
 }) {
   const {
     program,
@@ -142,6 +145,10 @@ export async function manageConfigureBond({
     }))
   }
   tx.add(instruction)
+
+  if (isPrintBanner) {
+    printBanner(voteAccount)
+  }
 
   logger.info(
     `Configuring bond account ${bondAccount.toBase58()} with authority ${authority.toBase58()} (finalization may take seconds)`,
