@@ -38,4 +38,3 @@ if [ -e "./package.json" ]; then
 fi
 
 echo "Done"
-echo "Consider updating CHANGELOG.md"
