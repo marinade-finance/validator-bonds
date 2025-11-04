@@ -12,7 +12,7 @@ export function printBanner(voteAccount: PublicKey): void {
     title: 'Help us improve Marinade SAM ✓✓✓',
     text:
       '\n\nWe’d love your feedback! Please take a minute to fill out our short survey:\n' +
-      `  https://docs.google.com/forms/d/e/1FAIpQLScnBKcKJsb4-wNSAzgrwrY5boAqG4Y_xsjo4YhND0TfdpUSfw/viewform?usp=pp_url&entry.976219744=${voteAccount.toBase58()}\n\n`,
+      ` https://docs.google.com/forms/d/e/1FAIpQLScnBKcKJsb4-wNSAzgrwrY5boAqG4Y_xsjo4YhND0TfdpUSfw/viewform?usp=pp_url&entry.976219744=${voteAccount.toBase58()} \n\n`,
     width: 80,
     centerText: true,
     linesAround: 1,
@@ -46,6 +46,56 @@ export function getBanner({
   )
   maxLength = width ? Math.max(maxLength, width) : maxLength
 
+  const terminalWidth = process.stdout.columns || 80
+  const requiredWidth = maxLength + 4 // +4 for borders and spaces
+  const useSimpleMode = terminalWidth < requiredWidth
+
+  const bannerLines = useSimpleMode
+    ? buildSimpleBanner(lines, title, maxLength, textColor, titleColor)
+    : buildBoxBanner(lines, title, maxLength, centerText, textColor, titleColor)
+  let banner = bannerLines.join('\n')
+
+  if (linesAround && linesAround > 0) {
+    const surroundingLines = '\n'.repeat(linesAround)
+    banner = `${surroundingLines}${banner}${surroundingLines}`
+  }
+  return banner
+}
+
+function buildSimpleBanner(
+  lines: string[],
+  title: string | undefined,
+  maxLength: number,
+  textColor: Color | undefined,
+  titleColor: Color | undefined,
+): string[] {
+  const terminalWidth = process.stdout.columns || 80
+  const lineLength = Math.min(maxLength, terminalWidth - 2)
+  const bannerLines: string[] = []
+
+  if (title) {
+    bannerLines.push(coloredText(title, titleColor))
+    bannerLines.push(HORIZONTAL_LINE.repeat(Math.min(title.length, lineLength)))
+  } else {
+    bannerLines.push(HORIZONTAL_LINE.repeat(lineLength))
+  }
+
+  lines.forEach(line => {
+    bannerLines.push(coloredText(line, textColor))
+  })
+
+  bannerLines.push(HORIZONTAL_LINE.repeat(lineLength))
+  return bannerLines
+}
+
+function buildBoxBanner(
+  lines: string[],
+  title: string | undefined,
+  maxLength: number,
+  centerText: boolean | undefined,
+  textColor: Color | undefined,
+  titleColor: Color | undefined,
+): string[] {
   const bannerLines: string[] = []
 
   // Top border with optional title
@@ -86,14 +136,7 @@ export function getBanner({
     `${BOTTOM_LEFT_CORNER}${HORIZONTAL_LINE.repeat(maxLength + 2)}${BOTTOM_RIGHT_CORNER}`,
   )
 
-  let banner = bannerLines.join('\n')
-
-  if (linesAround && linesAround > 0) {
-    const surroundingLines = '\n'.repeat(linesAround)
-    banner = `${surroundingLines}${banner}${surroundingLines}`
-  }
-
-  return banner
+  return bannerLines
 }
 
 const RESET = '\x1b[0m'
