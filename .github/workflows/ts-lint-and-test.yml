@@ -34,7 +34,7 @@ jobs:
       - name: ⚙️ Install rust compilation dependencies
         run: |
           sudo apt-get update
-          sudo apt-get -y install libudev-dev
+          sudo apt-get -y install libudev-dev libclang-dev llvm-dev
 
       - name: 👨‍🔧 Install Node.js
         uses: actions/setup-node@v3
