@@ -446,7 +446,6 @@ export function isErrorEpochRewardsPeriod(e: unknown): boolean {
   if (e instanceof ExecutionError) {
     errMsg = e.messageWithCause()
   }
-  console.error('message', errMsg)
   // 16 - Stake action is not permitted while the epoch rewards period is active
   // https://github.com/solana-program/stake/blob/a173d0ef0e1d0af08d3ec89444516483df880f37/clients/rust/src/generated/errors/stake.rs#L64
   if (
@@ -470,7 +469,6 @@ export async function retryOnEpochRewardsPeriod<T>(
       }
       throw e
     }
-    break
   }
 }
 

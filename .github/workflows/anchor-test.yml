@@ -6,8 +6,7 @@ jobs:
   anchor-test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # from https://github.com/ochaloup/projectserum-build-docker
-    container: docker.io/ochaloup/projectserum-build:v0.29.0_sol1.16.17_avm
+    container: tchambard/solana-test-validator:solana_2.3.7-anchor_0.31.1-light_0.27.0
     steps:
       - name: ⛺ /root/.cargo to PATH
         run: |
@@ -20,7 +19,7 @@ jobs:
       - name: ⚓ Info on AVM
         run: |
           avm list
-          avm use 0.29.0
+          avm use 0.31.1
 
       - name: 🏃‍♂️‍➡️ Checkout project
         uses: actions/checkout@v4
@@ -45,7 +44,7 @@ jobs:
       - name: 👓 Check solana config
         run: solana config get
 
-      - name: Running tests for project
+      - name: 🧨 Running tests for project
         run: |
           pnpm install
           pnpm test

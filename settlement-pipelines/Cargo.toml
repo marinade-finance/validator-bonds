@@ -50,6 +50,7 @@ solana-cli-output = { workspace = true }
 solana-transaction-executor = { workspace = true }
 solana-transaction-builder = { workspace = true }
 solana-transaction-builder-executor = { workspace = true }
+solana-sdk-ids = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }

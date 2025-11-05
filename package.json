@@ -50,8 +50,7 @@
     ],
     "*.rs": [
       "cargo fmt --"
-    ],
-    "Cargo.toml": "cargo fmt --"
+    ]
   },
   "pnpm": {
     "peerDependencyRules": {

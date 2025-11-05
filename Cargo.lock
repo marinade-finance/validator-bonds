@@ -5538,6 +5538,7 @@ dependencies = [
  "solana-cli-output",
  "solana-client",
  "solana-sdk",
+ "solana-sdk-ids",
  "solana-transaction-builder",
  "solana-transaction-builder-executor",
  "solana-transaction-executor",

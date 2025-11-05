@@ -1,5 +1,4 @@
 use anchor_client::anchor_lang::solana_program::stake::state::{Authorized, Lockup, StakeStateV2};
-use anchor_client::anchor_lang::solana_program::system_program;
 use anchor_client::{DynSigner, Program};
 use clap::Parser;
 use log::{debug, error, info};
@@ -37,6 +36,7 @@ use solana_sdk::sysvar::{
     clock::ID as clock_sysvar_id, rent::ID as rent_sysvar_id,
     stake_history::ID as stake_history_sysvar_id,
 };
+use solana_sdk_ids::system_program;
 use solana_transaction_builder::TransactionBuilder;
 use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
 use std::cmp::Ordering;

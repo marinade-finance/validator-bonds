@@ -57,6 +57,7 @@ solana-instructions-sysvar = "2.2.2"
 solana-program = "2.3.0"
 solana-pubkey = "2.3.0"
 solana-sdk = "2.3.1"
+solana-sdk-ids = "2.2.1"
 solana-security-txt = "1.1.1"
 solana-transaction-executor = { git = "https://github.com/marinade-finance/solana-transaction-executor", tag = "solana-2.3.x" }
 solana-transaction-builder = { git = "https://github.com/marinade-finance/solana-transaction-builder", tag = "solana-2.3.x" }

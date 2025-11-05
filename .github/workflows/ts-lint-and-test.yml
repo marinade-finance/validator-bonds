@@ -47,7 +47,7 @@ jobs:
           version: 10
 
       - name: 🦿 Install Rust tookchain
-        uses: dtolnay/rust-toolchain@1.73.0
+        uses: dtolnay/rust-toolchain@1.85.0
         with:
           components: rustfmt, clippy
 
