@@ -11,4 +11,5 @@ pub struct ClaimSettlementV2Event {
     pub stake_account_staker: Pubkey,
     pub amount: u64,
     pub index: u64,
+    pub settlement_epoch: u64,
 }

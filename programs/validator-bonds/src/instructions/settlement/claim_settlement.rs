@@ -271,6 +271,7 @@ impl<'info> ClaimSettlementV2<'info> {
 
         emit_cpi!(ClaimSettlementV2Event {
             settlement: ctx.accounts.settlement.key(),
+            settlement_epoch: ctx.accounts.settlement.epoch_created_for,
             stake_account_to: ctx.accounts.stake_account_to.key(),
             settlement_lamports_claimed: U64ValueChange {
                 old: ctx.accounts.settlement.lamports_claimed - claim,
