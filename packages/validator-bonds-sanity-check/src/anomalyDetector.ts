@@ -178,32 +178,28 @@ function detectIndividualAnomalies({
 
   for (const field of fieldsToCheck) {
     const rawCurrentValue = currentData[field]
-    if (rawCurrentValue instanceof Map) {
-      const mapValue = rawCurrentValue
-      for (const [key, value] of mapValue.entries()) {
-        const currentValue = Number(String(value))
-        const historicalValues = historicalData.map(d => {
-          const map = d[field] as Map<string, Decimal>
-          return Number(String(map.get(key) ?? DECIMAL_ZERO))
-        })
-        const anomaly = detectIndividualAnomaly({
-          currentValue,
-          historicalValues,
-          field: `${field}_${key}:`,
-          correlationThreshold,
-          scoreThreshold,
-          logger,
-        })
-        calculations.push(anomaly)
-      }
-    } else {
-      const currentValue = Number(String(rawCurrentValue))
-      const historicalValues = historicalData.map(d => Number(d[field]))
+
+    const mapValue =
+      rawCurrentValue instanceof Map
+        ? rawCurrentValue
+        : new Map([[String(field), rawCurrentValue]])
+
+    for (const [key, value] of mapValue.entries()) {
+      const currentValue = Number(String(value))
+      const historicalValues = historicalData.map(d => {
+        const fieldValue = d[field]
+        const map =
+          fieldValue instanceof Map
+            ? fieldValue
+            : new Map([[String(field), fieldValue]])
+        return Number(String(map.get(key) ?? DECIMAL_ZERO))
+      })
 
       const anomaly = detectIndividualAnomaly({
         currentValue,
         historicalValues,
-        field: `${String(field)}:`,
+        field:
+          rawCurrentValue instanceof Map ? `${field}_${key}:` : `${field}:`,
         correlationThreshold,
         scoreThreshold,
         logger,
