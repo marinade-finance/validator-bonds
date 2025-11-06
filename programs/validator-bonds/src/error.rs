@@ -218,4 +218,22 @@ pub enum ErrorCode {
 
     #[msg("Settlement has been already claimed")]
     SettlementAlreadyClaimed, // 6070 0x17b6
+
+    #[msg("Failed to obtain stake history entry")]
+    InvalidStakeHistoryEntry, // 6071 0x17b7
+
+    #[msg("Invalid Bond Product type")]
+    InvalidProductType, // 6072 0x17b8
+
+    #[msg("Invalid data for Bond Product")]
+    InvalidBondProductData, // 6073 0x17b9
+
+    #[msg("Failed to serialize Bond Product")]
+    BondProductSerializationError, // 6074 0x17ba
+
+    #[msg("Failed to serialize Bond Product")]
+    BondProductTypeMismatch, // 6075 0x17bb
+
+    #[msg("Wrong authority for changing the validator bond product account")]
+    BondProductChangeNotPermitted, // 6076 0x17bc
 }

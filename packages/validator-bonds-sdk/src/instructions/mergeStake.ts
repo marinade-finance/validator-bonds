@@ -1,5 +1,6 @@
 import {
   PublicKey,
+  SYSVAR_CLOCK_PUBKEY,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   StakeProgram,
 } from '@solana/web3.js'
@@ -54,13 +55,14 @@ export async function mergeStakeInstruction({
     .mergeStake({
       settlement: settlementAccount,
     })
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       sourceStake: sourceStakeAccount,
       destinationStake: destinationStakeAccount,
       stakerAuthority,
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
       stakeProgram: StakeProgram.programId,
+      clock: SYSVAR_CLOCK_PUBKEY,
     })
     .instruction()
 

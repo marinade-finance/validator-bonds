@@ -25,10 +25,7 @@ import type { ValidatorBondsProgram } from '../../src'
 import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { Keypair, PublicKey } from '@solana/web3.js'
 
-export async function initBankrunTest(
-  programId?: PublicKey,
-  additionalAccounts?: string[],
-): Promise<{
+export async function initBankrunTest(additionalAccounts?: string[]): Promise<{
   program: ValidatorBondsProgram
   provider: BankrunExtendedProvider
 }> {
@@ -38,7 +35,7 @@ export async function initBankrunTest(
     : baseAccountDir
   const provider = await testInit({ accountDirs })
   return {
-    program: getProgram({ connection: provider, programId }),
+    program: getProgram({ connection: provider }),
     provider,
   }
 }

@@ -6,10 +6,15 @@ import {
   Keypair,
   SYSVAR_RENT_PUBKEY,
   STAKE_CONFIG_ID,
+  SystemProgram,
 } from '@solana/web3.js'
 
 import { getBond, getConfig, getSettlement } from '../api'
-import { bondAddress } from '../sdk'
+import {
+  bondAddress,
+  bondsWithdrawerAuthority,
+  settlementStakerAuthority,
+} from '../sdk'
 import { anchorProgramWalletPubkey } from '../utils'
 
 import type { ValidatorBondsProgram } from '../sdk'
@@ -85,13 +90,21 @@ export async function fundSettlementInstruction({
 
   const instruction = await program.methods
     .fundSettlement()
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       settlement: settlementAccount,
       operatorAuthority: operatorAuthorityPubkey,
       voteAccount: voteAccount,
       stakeAccount,
+      bondsWithdrawerAuthority: bondsWithdrawerAuthority(
+        configAccount,
+        program.programId,
+      )[0],
+      settlementStakerAuthority: settlementStakerAuthority(
+        settlementAccount,
+        program.programId,
+      )[0],
       splitStakeAccount: splitStakeAccountPubkey,
       splitStakeRentPayer: splitStakeRentPayerPubkey,
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
@@ -99,6 +112,7 @@ export async function fundSettlementInstruction({
       clock: SYSVAR_CLOCK_PUBKEY,
       stakeProgram: StakeProgram.programId,
       stakeConfig: STAKE_CONFIG_ID,
+      systemProgram: SystemProgram.programId,
     })
     .instruction()
   return {

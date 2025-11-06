@@ -93,7 +93,7 @@ impl BitmapProjection {
     fn set_inner(&mut self, index: u64, bitmap_data: &mut [u8]) -> Result<()> {
         let (byte_index, bit_index) = Self::bitmap_byte_index_and_bit_index(index);
         let old_byte = self.bitmap_byte_mut(byte_index, bitmap_data);
-        let new_byte = *old_byte | 1_u8 << (BITS_PER_BYTE - 1 - bit_index);
+        let new_byte = *old_byte | (1_u8 << (BITS_PER_BYTE - 1 - bit_index));
         *old_byte = new_byte;
         Ok(())
     }

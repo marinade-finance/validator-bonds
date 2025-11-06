@@ -29,7 +29,7 @@ pub struct ConfigureConfig<'info> {
     pub admin_authority: Signer<'info>,
 }
 
-impl<'info> ConfigureConfig<'info> {
+impl ConfigureConfig<'_> {
     pub fn process(
         ctx: Context<ConfigureConfig>,
         ConfigureConfigArgs {

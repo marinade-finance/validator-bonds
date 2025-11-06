@@ -20,9 +20,9 @@ use settlement_pipelines::stake_accounts::{
 };
 use settlement_pipelines::stake_accounts_cache::StakeAccountsCache;
 use settlement_pipelines::FINALIZATION_WAIT_TIMEOUT;
+use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::clock::Clock;
-use solana_sdk::native_token::lamports_to_sol;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::stake::program::ID as stake_program_id;
 use solana_sdk::stake_history::StakeHistory;
@@ -167,7 +167,7 @@ async fn real_main(reporting: &mut ReportHandler<ClaimSettlementsReport>) -> any
             "Claiming settlement {}, vote account {}, claim amount {}, for epoch {}, number of FROM stake accounts {}, already claimed merkle tree nodes {}",
             claimable_settlement.settlement_address,
             json_matching_settlement.vote_account_address,
-            lamports_to_sol(json_matching_settlement.max_total_claim_sum),
+            build_balance_message(json_matching_settlement.max_total_claim_sum, false, false),
             claimable_settlement.settlement.epoch_created_for,
             claimable_settlement.stake_accounts.len(),
             claimable_settlement.settlement_claims.number_of_set_bits(),
@@ -297,7 +297,7 @@ async fn claim_settlement<'a>(
         {
             debug!("Settlement claim {} already exists for tree node stake:{}/withdrawer:{}/claim:{}/index:{}, settlement {}",
                     claimable_settlement.settlement_address, tree_node.stake_authority, tree_node.withdraw_authority,
-                    lamports_to_sol(tree_node.claim),
+                    build_balance_message(tree_node.claim, false, false),
                     tree_node.index,
                     settlement_json_data.settlement_address);
             continue;
@@ -309,7 +309,7 @@ async fn claim_settlement<'a>(
                 "No proof found for tree node stake:{}/withdrawer:{}/claim:{}/index:{}, settlement {}",
                 tree_node.stake_authority,
                 tree_node.withdraw_authority,
-                lamports_to_sol(tree_node.claim),
+                build_balance_message(tree_node.claim, false, false),
                 tree_node.index,
                 settlement_json_data.settlement_address,
             )).add();
@@ -320,7 +320,7 @@ async fn claim_settlement<'a>(
                 "Tree node claim is zero for stake:{}/withdrawer:{}/claim:{}/index:{}, settlement {}",
                 tree_node.stake_authority,
                 tree_node.withdraw_authority,
-                lamports_to_sol(tree_node.claim),
+                build_balance_message(tree_node.claim, false, false),
                 tree_node.index,
                 settlement_json_data.settlement_address,
             )).add();
@@ -353,7 +353,7 @@ async fn claim_settlement<'a>(
             } else {
                 reporting.warning().with_msg(format!(
                     "No stake account found with enough SOLs to claim {} from, settlement {}, index: {}, epoch {}",
-                    lamports_to_sol(tree_node.claim),
+                    build_balance_message(tree_node.claim, false, false),
                     settlement_json_data.settlement_address,
                     tree_node.index,
                     claimable_settlement.settlement.epoch_created_for
@@ -372,13 +372,10 @@ async fn claim_settlement<'a>(
                 &tree_node.stake_authority,
             )
             .await
-            .map_or_else(
-                |e| {
-                    reporting.error().with_err(e).add();
-                    &empty_stake_accounts
-                },
-                |v| v,
-            );
+            .unwrap_or_else(|e| {
+                reporting.error().with_err(e).add();
+                &empty_stake_accounts
+            });
         let stake_account_to = prioritize_for_claiming(
             stake_accounts_to,
             clock,
@@ -837,17 +834,17 @@ impl PrintReportable for ClaimSettlementsReport {
                     after_settlements_count,
                     now_claimed_nodes,
                     total_claim_nodes,
-                    lamports_to_sol(now_claimed_lamports),
-                    lamports_to_sol(total_claim_amount),
-                    lamports_to_sol(no_account_to),
-                    lamports_to_sol(no_account_from),
+                    build_balance_message(now_claimed_lamports, false, false),
+                    build_balance_message(total_claim_amount, false, false),
+                    build_balance_message(no_account_to, false, false),
+                    build_balance_message(no_account_from, false, false),
                     ));
                 report.push(format!(
                     "  - before this already claimed {}/{} merkle nodes with {}/{} SOLs",
                     already_claimed_nodes,
                     total_claim_nodes,
-                    lamports_to_sol(already_claimed_lamports),
-                    lamports_to_sol(total_claim_amount),
+                    build_balance_message(already_claimed_lamports, false, false),
+                    build_balance_message(total_claim_amount, false, false),
                 ));
 
                 let already_by_reason = settlements_report.sum_by_reason(
@@ -879,12 +876,12 @@ impl PrintReportable for ClaimSettlementsReport {
                             after_reason_settlements,
                             after_reason_nodes.saturating_sub(already_reason_nodes),
                             total_reason_nodes,
-                            lamports_to_sol(after_reason_lamports.saturating_sub(already_reason_lamports)),
-                            lamports_to_sol(total_reason_lamports),
+                            build_balance_message(after_reason_lamports.saturating_sub(already_reason_lamports), false, false),
+                            build_balance_message(total_reason_lamports, false, false),
                             already_reason_nodes,
                             total_reason_nodes,
-                            lamports_to_sol(already_reason_lamports),
-                            lamports_to_sol(total_reason_lamports),
+                            build_balance_message(already_reason_lamports, false, false),
+                            build_balance_message(total_reason_lamports, false, false),
                         ));
                     } else {
                         report.push(format!(
@@ -923,8 +920,12 @@ impl PrintReportable for ClaimSettlementsReport {
                     {
                         (
                             after_nodes.saturating_sub(*before_nodes).to_string(),
-                            lamports_to_sol(after_lamports.saturating_sub(*before_lamports))
-                                .to_string(),
+                            build_balance_message(
+                                after_lamports.saturating_sub(*before_lamports),
+                                false,
+                                false,
+                            )
+                            .to_string(),
                         )
                     } else {
                         ("UNKNOWN".to_string(), "UNKNOWN".to_string())
@@ -936,16 +937,16 @@ impl PrintReportable for ClaimSettlementsReport {
                         now_nodes,
                         total_nodes,
                         now_lamports,
-                        lamports_to_sol(*total_lamports),
-                        lamports_to_sol(*settlements_report.settlements_claimable_no_account_to.get(settlement_pubkey).unwrap_or(&0)),
-                        lamports_to_sol(*settlements_report.settlements_claimable_no_account_from.get(settlement_pubkey).unwrap_or(&0)),
+                        build_balance_message(*total_lamports, false, false),
+                        build_balance_message(*settlements_report.settlements_claimable_no_account_to.get(settlement_pubkey).unwrap_or(&0), false, false),
+                        build_balance_message(*settlements_report.settlements_claimable_no_account_from.get(settlement_pubkey).unwrap_or(&0), false, false),
                     );
                     debug!(
                         "  before this already claimed {}/{} settlements with {}/{} SOLs",
                         before_nodes,
                         total_nodes,
-                        lamports_to_sol(*before_lamports),
-                        lamports_to_sol(*total_lamports),
+                        build_balance_message(*before_lamports, false, false),
+                        build_balance_message(*total_lamports, false, false),
                     );
                 }
             }

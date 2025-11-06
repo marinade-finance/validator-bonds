@@ -34,7 +34,7 @@ jobs:
       - name: ⚙️ Install rust compilation dependencies
         run: |
           sudo apt-get update
-          sudo apt-get -y install libudev-dev
+          sudo apt-get -y install libudev-dev libclang-dev llvm-dev
 
       - name: 👨‍🔧 Install Node.js
         uses: actions/setup-node@v3
@@ -47,7 +47,7 @@ jobs:
           version: 10
 
       - name: 🦿 Install Rust tookchain
-        uses: dtolnay/rust-toolchain@1.73.0
+        uses: dtolnay/rust-toolchain@1.85.0
         with:
           components: rustfmt, clippy
 

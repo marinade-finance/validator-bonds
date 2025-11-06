@@ -1,0 +1,4204 @@
+{
+  "address": "vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4",
+  "metadata": {
+    "name": "validator_bonds",
+    "version": "2.1.0",
+    "spec": "0.1.0"
+  },
+  "instructions": [
+    {
+      "name": "init_config",
+      "discriminator": [23, 235, 115, 232, 168, 96, 1, 231],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "rent_payer",
+          "docs": ["rent exempt payer for the config account"],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "init_config_args",
+          "type": {
+            "defined": {
+              "name": "InitConfigArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "configure_config",
+      "discriminator": [198, 98, 161, 165, 137, 200, 230, 203],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "relations": ["admin_authority"]
+        },
+        {
+          "name": "admin_authority",
+          "docs": ["only the admin authority can change the config params"],
+          "signer": true
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "configure_config_args",
+          "type": {
+            "defined": {
+              "name": "ConfigureConfigArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "init_bond",
+      "discriminator": [95, 93, 93, 181, 221, 36, 126, 64],
+      "accounts": [
+        {
+          "name": "config",
+          "docs": ["the config account under which the bond is created"]
+        },
+        {
+          "name": "vote_account"
+        },
+        {
+          "name": "validator_identity",
+          "docs": [
+            "permission-ed: the validator identity signs the instruction, InitBondArgs applied",
+            "permission-less: no signature, default init bond configuration"
+          ],
+          "signer": true,
+          "optional": true
+        },
+        {
+          "name": "bond",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              },
+              {
+                "kind": "account",
+                "path": "vote_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "rent_payer",
+          "docs": ["rent exempt payer of validator bond account creation"],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "init_bond_args",
+          "type": {
+            "defined": {
+              "name": "InitBondArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "configure_bond",
+      "discriminator": [228, 108, 79, 242, 82, 54, 105, 65],
+      "accounts": [
+        {
+          "name": "config"
+        },
+        {
+          "name": "bond",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              },
+              {
+                "kind": "account",
+                "path": "vote_account"
+              }
+            ]
+          },
+          "relations": ["vote_account", "config"]
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "validator vote account validator identity or bond authority may change the account"
+          ],
+          "signer": true
+        },
+        {
+          "name": "vote_account"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "configure_bond_args",
+          "type": {
+            "defined": {
+              "name": "ConfigureBondArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "configure_bond_with_mint",
+      "discriminator": [48, 189, 230, 39, 112, 33, 227, 8],
+      "accounts": [
+        {
+          "name": "config"
+        },
+        {
+          "name": "bond",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              },
+              {
+                "kind": "account",
+                "path": "vote_account"
+              }
+            ]
+          },
+          "relations": ["config", "vote_account"]
+        },
+        {
+          "name": "mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [34, 98, 111, 110, 100, 95, 109, 105, 110, 116, 34]
+              },
+              {
+                "kind": "account",
+                "path": "bond",
+                "account": "Bond"
+              },
+              {
+                "kind": "arg",
+                "path": "params.validator_identity"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vote_account"
+        },
+        {
+          "name": "token_account",
+          "docs": ["token account to burn bond mint configuration tokens from"],
+          "writable": true
+        },
+        {
+          "name": "token_authority",
+          "signer": true
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "ConfigureBondWithMintArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "mint_bond",
+      "discriminator": [234, 94, 85, 225, 167, 102, 169, 32],
+      "accounts": [
+        {
+          "name": "config"
+        },
+        {
+          "name": "bond",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              },
+              {
+                "kind": "account",
+                "path": "vote_account"
+              }
+            ]
+          },
+          "relations": ["config", "vote_account"]
+        },
+        {
+          "name": "mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [34, 98, 111, 110, 100, 95, 109, 105, 110, 116, 34]
+              },
+              {
+                "kind": "account",
+                "path": "bond",
+                "account": "Bond"
+              },
+              {
+                "kind": "account",
+                "path": "validator_identity"
+              }
+            ]
+          }
+        },
+        {
+          "name": "validator_identity"
+        },
+        {
+          "name": "validator_identity_token_account",
+          "writable": true
+        },
+        {
+          "name": "vote_account"
+        },
+        {
+          "name": "metadata",
+          "writable": true
+        },
+        {
+          "name": "rent_payer",
+          "docs": ["rent exempt payer of account creation"],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "associated_token_program"
+        },
+        {
+          "name": "metadata_program"
+        },
+        {
+          "name": "rent"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "fund_bond",
+      "discriminator": [58, 44, 212, 175, 30, 17, 68, 62],
+      "accounts": [
+        {
+          "name": "config"
+        },
+        {
+          "name": "bond",
+          "docs": [
+            "bond account to be deposited to with the provided stake account"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              },
+              {
+                "kind": "account",
+                "path": "bond.vote_account",
+                "account": "Bond"
+              }
+            ]
+          },
+          "relations": ["config"]
+        },
+        {
+          "name": "bonds_withdrawer_authority",
+          "docs": [
+            "new owner of the stake_account, it's the bonds withdrawer authority"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114,
+                  105, 116, 121, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stake_account",
+          "docs": ["stake account to be deposited"],
+          "writable": true
+        },
+        {
+          "name": "stake_authority",
+          "docs": [
+            "authority signature permitting to change the stake_account authorities"
+          ],
+          "signer": true
+        },
+        {
+          "name": "clock"
+        },
+        {
+          "name": "stake_history"
+        },
+        {
+          "name": "stake_program"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "init_withdraw_request",
+      "discriminator": [142, 31, 222, 215, 83, 79, 34, 49],
+      "accounts": [
+        {
+          "name": "config",
+          "docs": ["the config account under which the bond was created"]
+        },
+        {
+          "name": "bond",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              },
+              {
+                "kind": "account",
+                "path": "vote_account"
+              }
+            ]
+          },
+          "relations": ["config", "vote_account"]
+        },
+        {
+          "name": "vote_account"
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "validator vote account node identity or bond authority may ask for the withdrawal"
+          ],
+          "signer": true
+        },
+        {
+          "name": "withdraw_request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 119, 105, 116, 104, 100, 114, 97, 119, 95, 97, 99, 99,
+                  111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond",
+                "account": "Bond"
+              }
+            ]
+          }
+        },
+        {
+          "name": "rent_payer",
+          "docs": ["rent exempt payer of withdraw request account creation"],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "create_withdraw_request_args",
+          "type": {
+            "defined": {
+              "name": "InitWithdrawRequestArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancel_withdraw_request",
+      "discriminator": [167, 100, 110, 128, 113, 154, 224, 77],
+      "accounts": [
+        {
+          "name": "config"
+        },
+        {
+          "name": "bond",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              },
+              {
+                "kind": "account",
+                "path": "vote_account"
+              }
+            ]
+          },
+          "relations": ["vote_account", "config"]
+        },
+        {
+          "name": "vote_account"
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "validator vote account validator identity or bond authority may ask for cancelling"
+          ],
+          "signer": true
+        },
+        {
+          "name": "withdraw_request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 119, 105, 116, 104, 100, 114, 97, 119, 95, 97, 99, 99,
+                  111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond",
+                "account": "Bond"
+              }
+            ]
+          },
+          "relations": ["bond"]
+        },
+        {
+          "name": "rent_collector",
+          "writable": true
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claim_withdraw_request",
+      "discriminator": [48, 232, 23, 52, 20, 134, 122, 118],
+      "accounts": [
+        {
+          "name": "config",
+          "docs": ["the config root configuration account"]
+        },
+        {
+          "name": "bond",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              },
+              {
+                "kind": "account",
+                "path": "vote_account"
+              }
+            ]
+          },
+          "relations": ["config", "vote_account"]
+        },
+        {
+          "name": "vote_account"
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "validator vote account node identity or bond authority may claim"
+          ],
+          "signer": true
+        },
+        {
+          "name": "withdraw_request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 119, 105, 116, 104, 100, 114, 97, 119, 95, 97, 99, 99,
+                  111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond",
+                "account": "Bond"
+              }
+            ]
+          },
+          "relations": ["vote_account", "bond"]
+        },
+        {
+          "name": "bonds_withdrawer_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114,
+                  105, 116, 121, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stake_account",
+          "docs": [
+            "stake account to be used to withdraw the funds",
+            "this stake account has to be delegated to the validator vote account associated to the bond"
+          ],
+          "writable": true
+        },
+        {
+          "name": "withdrawer",
+          "docs": [
+            "New owner of the stake account, it will be accounted to the withdrawer authority"
+          ]
+        },
+        {
+          "name": "split_stake_account",
+          "docs": [
+            "this is a whatever address that does not exist",
+            "when withdrawing needs to split the provided account this will be used as a new stake account"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "split_stake_rent_payer",
+          "docs": [
+            "when the split_stake_account is created the rent for creation is taken from here",
+            "when the split_stake_account is not created then no rent is paid"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "stake_program"
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "stake_history"
+        },
+        {
+          "name": "clock"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "init_settlement",
+      "discriminator": [152, 178, 0, 65, 52, 210, 247, 58],
+      "accounts": [
+        {
+          "name": "config",
+          "relations": ["operator_authority"]
+        },
+        {
+          "name": "bond",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              },
+              {
+                "kind": "account",
+                "path": "bond.vote_account",
+                "account": "Bond"
+              }
+            ]
+          },
+          "relations": ["config"]
+        },
+        {
+          "name": "settlement",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97,
+                  99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond",
+                "account": "Bond"
+              },
+              {
+                "kind": "arg",
+                "path": "params.merkle_root"
+              },
+              {
+                "kind": "arg",
+                "path": "params.epoch"
+              }
+            ]
+          }
+        },
+        {
+          "name": "settlement_claims",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110,
+                  116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "settlement",
+                "account": "Settlement"
+              }
+            ]
+          }
+        },
+        {
+          "name": "operator_authority",
+          "docs": [
+            "operator signer authority that is allowed to create the settlement account"
+          ],
+          "signer": true
+        },
+        {
+          "name": "rent_payer",
+          "docs": ["rent exempt payer of account creation"],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "init_settlement_args",
+          "type": {
+            "defined": {
+              "name": "InitSettlementArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "upsize_settlement_claims",
+      "discriminator": [207, 46, 34, 88, 141, 36, 63, 132],
+      "accounts": [
+        {
+          "name": "settlement_claims",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110,
+                  116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "settlement_claims.settlement",
+                "account": "SettlementClaims"
+              }
+            ]
+          }
+        },
+        {
+          "name": "rent_payer",
+          "docs": ["rent exempt payer of account reallocation"],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "cancel_settlement",
+      "discriminator": [33, 241, 96, 62, 228, 178, 1, 120],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true
+        },
+        {
+          "name": "bond",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              },
+              {
+                "kind": "account",
+                "path": "bond.vote_account",
+                "account": "Bond"
+              }
+            ]
+          },
+          "relations": ["config"]
+        },
+        {
+          "name": "settlement",
+          "docs": ["settlement to close whenever the operator decides"],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97,
+                  99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond",
+                "account": "Bond"
+              },
+              {
+                "kind": "account",
+                "path": "settlement.merkle_root",
+                "account": "Settlement"
+              },
+              {
+                "kind": "account",
+                "path": "settlement.epoch_created_for",
+                "account": "Settlement"
+              }
+            ]
+          },
+          "relations": ["bond", "rent_collector"]
+        },
+        {
+          "name": "settlement_claims",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110,
+                  116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "settlement",
+                "account": "Settlement"
+              }
+            ]
+          },
+          "relations": ["settlement"]
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "Cancelling is permitted only to emergency or operator authority"
+          ],
+          "signer": true
+        },
+        {
+          "name": "bonds_withdrawer_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114,
+                  105, 116, 121, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "rent_collector",
+          "writable": true
+        },
+        {
+          "name": "split_rent_collector",
+          "writable": true
+        },
+        {
+          "name": "split_rent_refund_account",
+          "docs": [
+            "The stake account is funded to the settlement and credited to the bond's validator vote account.",
+            "The lamports are utilized to pay back the rent exemption of the split_stake_account"
+          ],
+          "writable": true
+        },
+        {
+          "name": "clock"
+        },
+        {
+          "name": "stake_program"
+        },
+        {
+          "name": "stake_history"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "fund_settlement",
+      "discriminator": [179, 146, 113, 34, 30, 92, 26, 19],
+      "accounts": [
+        {
+          "name": "config",
+          "relations": ["operator_authority"]
+        },
+        {
+          "name": "bond",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              },
+              {
+                "kind": "account",
+                "path": "vote_account"
+              }
+            ]
+          },
+          "relations": ["config", "vote_account"]
+        },
+        {
+          "name": "vote_account"
+        },
+        {
+          "name": "settlement",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97,
+                  99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond",
+                "account": "Bond"
+              },
+              {
+                "kind": "account",
+                "path": "settlement.merkle_root",
+                "account": "Settlement"
+              },
+              {
+                "kind": "account",
+                "path": "settlement.epoch_created_for",
+                "account": "Settlement"
+              }
+            ]
+          },
+          "relations": ["bond"]
+        },
+        {
+          "name": "operator_authority",
+          "docs": [
+            "operator signer authority is allowed to fund the settlement account"
+          ],
+          "signer": true
+        },
+        {
+          "name": "stake_account",
+          "docs": ["stake account to be funded into the settlement"],
+          "writable": true
+        },
+        {
+          "name": "settlement_staker_authority",
+          "docs": [
+            "the settlement stake authority differentiates between deposited and funded stake accounts",
+            "deposited accounts have the bonds_withdrawer_authority, while funded accounts have the settlement_staker_authority"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97,
+                  117, 116, 104, 111, 114, 105, 116, 121, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "settlement",
+                "account": "Settlement"
+              }
+            ]
+          }
+        },
+        {
+          "name": "bonds_withdrawer_authority",
+          "docs": [
+            "authority that manages (owns) all stakes account under the bonds program"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114,
+                  105, 116, 121, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "split_stake_account",
+          "docs": [
+            "if an account that does not exist is provided, it will be initialized as a stake account (with the necessary signature)",
+            "the split_stake_account is required when the provided stake_account contains more lamports than necessary to fund the settlement",
+            "in this case, the excess lamports from the stake account are split into the new split_stake_account,",
+            "if the split_stake_account is not needed, the rent payer is refunded back within tx"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "split_stake_rent_payer",
+          "docs": [
+            "the rent exempt payer of the split_stake_account creation",
+            "if the split_stake_account is not needed (no leftover lamports on funding), then the rent payer is refunded",
+            "if the split_stake_account is needed to spill out over funding of the settlement,",
+            "then the rent payer is refunded when the settlement is closed"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "stake_history"
+        },
+        {
+          "name": "clock"
+        },
+        {
+          "name": "rent"
+        },
+        {
+          "name": "stake_program"
+        },
+        {
+          "name": "stake_config"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "merge_stake",
+      "discriminator": [14, 3, 146, 23, 163, 105, 246, 99],
+      "accounts": [
+        {
+          "name": "config",
+          "docs": ["the config account under which the bond was created"]
+        },
+        {
+          "name": "source_stake",
+          "writable": true
+        },
+        {
+          "name": "destination_stake",
+          "writable": true
+        },
+        {
+          "name": "staker_authority",
+          "docs": [
+            "bonds program authority PDA address: settlement staker or bonds withdrawer"
+          ]
+        },
+        {
+          "name": "stake_history"
+        },
+        {
+          "name": "clock"
+        },
+        {
+          "name": "stake_program"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "merge_args",
+          "type": {
+            "defined": {
+              "name": "MergeStakeArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "reset_stake",
+      "discriminator": [183, 37, 69, 159, 163, 139, 212, 235],
+      "accounts": [
+        {
+          "name": "config",
+          "docs": ["the config account under which the bond was created"]
+        },
+        {
+          "name": "bond",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              },
+              {
+                "kind": "account",
+                "path": "vote_account"
+              }
+            ]
+          },
+          "relations": ["config", "vote_account"]
+        },
+        {
+          "name": "settlement",
+          "docs": ["cannot exist; used to derive settlement authority"]
+        },
+        {
+          "name": "stake_account",
+          "docs": [
+            "stake account belonging under the settlement by staker authority"
+          ],
+          "writable": true
+        },
+        {
+          "name": "bonds_withdrawer_authority",
+          "docs": [
+            "bonds withdrawer authority",
+            "to cancel settlement funding of the stake account changing staker authority to address"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114,
+                  105, 116, 121, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vote_account"
+        },
+        {
+          "name": "stake_history"
+        },
+        {
+          "name": "stake_config"
+        },
+        {
+          "name": "clock"
+        },
+        {
+          "name": "stake_program"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "withdraw_stake",
+      "discriminator": [153, 8, 22, 138, 105, 176, 87, 66],
+      "accounts": [
+        {
+          "name": "config",
+          "docs": ["the config account under which the bond was created"],
+          "relations": ["operator_authority"]
+        },
+        {
+          "name": "operator_authority",
+          "docs": [
+            "operator authority is allowed to reset the non-delegated stake accounts"
+          ],
+          "signer": true
+        },
+        {
+          "name": "settlement",
+          "docs": ["cannot exist; used to derive settlement authority"]
+        },
+        {
+          "name": "stake_account",
+          "docs": [
+            "stake account where staker authority is derived from settlement"
+          ],
+          "writable": true
+        },
+        {
+          "name": "bonds_withdrawer_authority",
+          "docs": ["bonds authority to withdraw the stake account"],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114,
+                  105, 116, 121, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "withdraw_to",
+          "writable": true
+        },
+        {
+          "name": "stake_history"
+        },
+        {
+          "name": "clock"
+        },
+        {
+          "name": "stake_program"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "emergency_pause",
+      "discriminator": [21, 143, 27, 142, 200, 181, 210, 255],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "relations": ["pause_authority"]
+        },
+        {
+          "name": "pause_authority",
+          "signer": true
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "emergency_resume",
+      "discriminator": [0, 243, 48, 185, 6, 73, 190, 83],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "relations": ["pause_authority"]
+        },
+        {
+          "name": "pause_authority",
+          "signer": true
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "close_settlement_v2",
+      "discriminator": [125, 212, 89, 37, 31, 244, 191, 179],
+      "accounts": [
+        {
+          "name": "config"
+        },
+        {
+          "name": "bond",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              },
+              {
+                "kind": "account",
+                "path": "bond.vote_account",
+                "account": "Bond"
+              }
+            ]
+          },
+          "relations": ["config"]
+        },
+        {
+          "name": "settlement",
+          "docs": ["settlement to close when expired"],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97,
+                  99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond",
+                "account": "Bond"
+              },
+              {
+                "kind": "account",
+                "path": "settlement.merkle_root",
+                "account": "Settlement"
+              },
+              {
+                "kind": "account",
+                "path": "settlement.epoch_created_for",
+                "account": "Settlement"
+              }
+            ]
+          },
+          "relations": ["bond", "rent_collector"]
+        },
+        {
+          "name": "settlement_claims",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110,
+                  116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "settlement",
+                "account": "Settlement"
+              }
+            ]
+          },
+          "relations": ["settlement"]
+        },
+        {
+          "name": "bonds_withdrawer_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114,
+                  105, 116, 121, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "rent_collector",
+          "writable": true
+        },
+        {
+          "name": "split_rent_collector",
+          "writable": true
+        },
+        {
+          "name": "split_rent_refund_account",
+          "docs": [
+            "The stake account is funded to the settlement and credited to the bond's validator vote account.",
+            "The lamports are utilized to pay back the rent exemption of the split_stake_account, which can be created upon funding the settlement."
+          ],
+          "writable": true
+        },
+        {
+          "name": "clock"
+        },
+        {
+          "name": "stake_program"
+        },
+        {
+          "name": "stake_history"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claim_settlement_v2",
+      "discriminator": [188, 53, 132, 151, 88, 50, 52, 238],
+      "accounts": [
+        {
+          "name": "config",
+          "docs": ["the config account under which the settlement was created"]
+        },
+        {
+          "name": "bond",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              },
+              {
+                "kind": "account",
+                "path": "bond.vote_account",
+                "account": "Bond"
+              }
+            ]
+          },
+          "relations": ["config"]
+        },
+        {
+          "name": "settlement",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97,
+                  99, 99, 111, 117, 110, 116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond",
+                "account": "Bond"
+              },
+              {
+                "kind": "account",
+                "path": "settlement.merkle_root",
+                "account": "Settlement"
+              },
+              {
+                "kind": "account",
+                "path": "settlement.epoch_created_for",
+                "account": "Settlement"
+              }
+            ]
+          },
+          "relations": ["bond"]
+        },
+        {
+          "name": "settlement_claims",
+          "docs": ["deduplication, merkle tree record cannot be claimed twice"],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110,
+                  116, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "settlement",
+                "account": "Settlement"
+              }
+            ]
+          },
+          "relations": ["settlement"]
+        },
+        {
+          "name": "stake_account_from",
+          "docs": ["a stake account that will be withdrawn"],
+          "writable": true
+        },
+        {
+          "name": "stake_account_to",
+          "docs": ["a stake account that will receive the funds"],
+          "writable": true
+        },
+        {
+          "name": "bonds_withdrawer_authority",
+          "docs": [
+            "authority that manages (owns == by being withdrawer authority) all stakes account under the bonds program"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114,
+                  105, 116, 121, 34
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config",
+                "account": "Config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stake_history"
+        },
+        {
+          "name": "clock"
+        },
+        {
+          "name": "stake_program"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  34, 95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104,
+                  111, 114, 105, 116, 121, 34
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "claim_settlement_args",
+          "type": {
+            "defined": {
+              "name": "ClaimSettlementV2Args"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "SettlementClaim",
+      "discriminator": [216, 103, 231, 246, 171, 99, 124, 133]
+    },
+    {
+      "name": "Bond",
+      "discriminator": [224, 128, 48, 251, 182, 246, 111, 196]
+    },
+    {
+      "name": "Config",
+      "discriminator": [155, 12, 170, 224, 30, 250, 204, 130]
+    },
+    {
+      "name": "SettlementClaims",
+      "discriminator": [32, 130, 62, 175, 231, 54, 170, 114]
+    },
+    {
+      "name": "Settlement",
+      "discriminator": [55, 11, 219, 33, 36, 136, 40, 182]
+    },
+    {
+      "name": "WithdrawRequest",
+      "discriminator": [186, 239, 174, 191, 189, 13, 47, 196]
+    }
+  ],
+  "events": [
+    {
+      "name": "InitBondEvent",
+      "discriminator": [56, 106, 209, 158, 171, 85, 159, 200]
+    },
+    {
+      "name": "ConfigureBondEvent",
+      "discriminator": [183, 119, 162, 244, 82, 182, 114, 228]
+    },
+    {
+      "name": "ConfigureBondWithMintEvent",
+      "discriminator": [209, 167, 200, 198, 99, 71, 4, 96]
+    },
+    {
+      "name": "FundBondEvent",
+      "discriminator": [156, 63, 156, 252, 109, 181, 73, 110]
+    },
+    {
+      "name": "MintBondEvent",
+      "discriminator": [82, 190, 245, 33, 35, 128, 142, 197]
+    },
+    {
+      "name": "InitConfigEvent",
+      "discriminator": [125, 127, 160, 86, 247, 110, 50, 238]
+    },
+    {
+      "name": "ConfigureConfigEvent",
+      "discriminator": [121, 240, 38, 122, 0, 102, 203, 122]
+    },
+    {
+      "name": "EmergencyPauseEvent",
+      "discriminator": [159, 241, 192, 232, 29, 208, 51, 21]
+    },
+    {
+      "name": "EmergencyResumeEvent",
+      "discriminator": [19, 211, 43, 129, 45, 168, 226, 200]
+    },
+    {
+      "name": "ClaimSettlementV2Event",
+      "discriminator": [114, 201, 131, 134, 182, 165, 237, 47]
+    },
+    {
+      "name": "InitSettlementEvent",
+      "discriminator": [187, 195, 46, 129, 116, 83, 231, 241]
+    },
+    {
+      "name": "CloseSettlementEvent",
+      "discriminator": [226, 173, 111, 111, 105, 218, 118, 103]
+    },
+    {
+      "name": "CancelSettlementEvent",
+      "discriminator": [80, 190, 161, 61, 97, 7, 242, 92]
+    },
+    {
+      "name": "FundSettlementEvent",
+      "discriminator": [104, 161, 6, 77, 82, 236, 4, 114]
+    },
+    {
+      "name": "MergeStakeEvent",
+      "discriminator": [111, 6, 45, 208, 79, 53, 119, 57]
+    },
+    {
+      "name": "ResetStakeEvent",
+      "discriminator": [255, 49, 219, 199, 119, 10, 195, 177]
+    },
+    {
+      "name": "WithdrawStakeEvent",
+      "discriminator": [47, 85, 239, 214, 207, 29, 151, 88]
+    },
+    {
+      "name": "InitWithdrawRequestEvent",
+      "discriminator": [122, 40, 131, 105, 70, 35, 119, 128]
+    },
+    {
+      "name": "CancelWithdrawRequestEvent",
+      "discriminator": [221, 97, 104, 35, 19, 137, 248, 246]
+    },
+    {
+      "name": "ClaimWithdrawRequestEvent",
+      "discriminator": [201, 210, 144, 108, 235, 209, 85, 58]
+    },
+    {
+      "name": "ClaimSettlementEvent",
+      "discriminator": [135, 253, 145, 233, 227, 29, 188, 141]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidProgramId",
+      "msg": "Program id in context does not match with the validator bonds id"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidAdminAuthority",
+      "msg": "Operation requires admin authority signature"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidWithdrawRequestAuthority",
+      "msg": "Invalid authority to operate with the withdraw request of validator bond account"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidOperatorAuthority",
+      "msg": "Operation requires operator authority signature"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidVoteAccountProgramId",
+      "msg": "Provided vote account is not owned by the validator vote program"
+    },
+    {
+      "code": 6005,
+      "name": "InvalidStakeAccountState",
+      "msg": "Fail to deserialize the stake account"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidStakeAccountProgramId",
+      "msg": "Provided stake account is not owned by the stake account program"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidSettlementAddress",
+      "msg": "Fail to create account address for Settlement"
+    },
+    {
+      "code": 6008,
+      "name": "InvalidSettlementAuthorityAddress",
+      "msg": "Fail to create PDA address for Settlement Authority"
+    },
+    {
+      "code": 6009,
+      "name": "InvalidBondsWithdrawerAuthorityAddress",
+      "msg": "Fail to create PDA address for Bonds Withdrawer Authority"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidSettlementClaimAddress",
+      "msg": "Fail to create program address for SettlementClaim"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidBondAddress",
+      "msg": "Fail to create program address for Bond"
+    },
+    {
+      "code": 6012,
+      "name": "WrongStakeAccountWithdrawer",
+      "msg": "Wrong withdrawer authority of the stake account"
+    },
+    {
+      "code": 6013,
+      "name": "InvalidWithdrawRequestAddress",
+      "msg": "Fail to create program address for WithdrawRequest"
+    },
+    {
+      "code": 6014,
+      "name": "HundredthBasisPointsOverflow",
+      "msg": "Value of hundredth basis points is too big"
+    },
+    {
+      "code": 6015,
+      "name": "HundredthBasisPointsCalculation",
+      "msg": "Hundredth basis points calculation failure"
+    },
+    {
+      "code": 6016,
+      "name": "HundredthBasisPointsParse",
+      "msg": "Hundredth basis points failure to parse the value"
+    },
+    {
+      "code": 6017,
+      "name": "FailedToDeserializeVoteAccount",
+      "msg": "Cannot deserialize validator vote account data"
+    },
+    {
+      "code": 6018,
+      "name": "BondChangeNotPermitted",
+      "msg": "Wrong authority for changing the validator bond account"
+    },
+    {
+      "code": 6019,
+      "name": "StakeNotDelegated",
+      "msg": "Provided stake cannot be used for bonds, it's not delegated"
+    },
+    {
+      "code": 6020,
+      "name": "BondStakeWrongDelegation",
+      "msg": "Provided stake is delegated to a wrong validator vote account"
+    },
+    {
+      "code": 6021,
+      "name": "WithdrawRequestNotReady",
+      "msg": "Withdraw request has not elapsed the epoch lockup period yet"
+    },
+    {
+      "code": 6022,
+      "name": "SettlementNotExpired",
+      "msg": "Settlement has not expired yet"
+    },
+    {
+      "code": 6023,
+      "name": "SettlementExpired",
+      "msg": "Settlement has already expired"
+    },
+    {
+      "code": 6024,
+      "name": "UninitializedStake",
+      "msg": "Stake is not initialized"
+    },
+    {
+      "code": 6025,
+      "name": "NoStakeOrNotFullyActivated",
+      "msg": "Stake account is not fully activated"
+    },
+    {
+      "code": 6026,
+      "name": "UnexpectedRemainingAccounts",
+      "msg": "Instruction context was provided with unexpected set of remaining accounts"
+    },
+    {
+      "code": 6027,
+      "name": "SettlementNotClosed",
+      "msg": "Settlement has to be closed"
+    },
+    {
+      "code": 6028,
+      "name": "StakeAccountIsFundedToSettlement",
+      "msg": "Provided stake account has been already funded to a settlement"
+    },
+    {
+      "code": 6029,
+      "name": "ClaimSettlementProofFailed",
+      "msg": "Settlement claim proof failed"
+    },
+    {
+      "code": 6030,
+      "name": "StakeLockedUp",
+      "msg": "Provided stake account is locked-up"
+    },
+    {
+      "code": 6031,
+      "name": "StakeAccountNotBigEnoughToSplit",
+      "msg": "Stake account is not big enough to be split"
+    },
+    {
+      "code": 6032,
+      "name": "ClaimAmountExceedsMaxTotalClaim",
+      "msg": "Claiming bigger amount than the max total claim"
+    },
+    {
+      "code": 6033,
+      "name": "ClaimCountExceedsMaxMerkleNodes",
+      "msg": "Claim exceeded number of claimable nodes in the merkle tree"
+    },
+    {
+      "code": 6034,
+      "name": "EmptySettlementMerkleTree",
+      "msg": "Empty merkle tree, nothing to be claimed"
+    },
+    {
+      "code": 6035,
+      "name": "ClaimingStakeAccountLamportsInsufficient",
+      "msg": "Provided stake account has not enough lamports to cover the claim"
+    },
+    {
+      "code": 6036,
+      "name": "StakeAccountNotFundedToSettlement",
+      "msg": "Provided stake account is not funded under the settlement"
+    },
+    {
+      "code": 6037,
+      "name": "VoteAccountValidatorIdentityMismatch",
+      "msg": "Validator vote account does not match to provided validator identity signature"
+    },
+    {
+      "code": 6038,
+      "name": "VoteAccountMismatch",
+      "msg": "Bond vote account address does not match with the provided validator vote account"
+    },
+    {
+      "code": 6039,
+      "name": "ConfigAccountMismatch",
+      "msg": "Bond config address does not match with the provided config account"
+    },
+    {
+      "code": 6040,
+      "name": "WithdrawRequestVoteAccountMismatch",
+      "msg": "Withdraw request vote account address does not match with the provided validator vote account"
+    },
+    {
+      "code": 6041,
+      "name": "BondAccountMismatch",
+      "msg": "Bond account address does not match with the stored one"
+    },
+    {
+      "code": 6042,
+      "name": "SettlementAccountMismatch",
+      "msg": "Settlement account address does not match with the stored one"
+    },
+    {
+      "code": 6043,
+      "name": "RentCollectorMismatch",
+      "msg": "Rent collector address does not match permitted rent collector"
+    },
+    {
+      "code": 6044,
+      "name": "StakerAuthorityMismatch",
+      "msg": "Stake account's staker does not match with the provided authority"
+    },
+    {
+      "code": 6045,
+      "name": "NonBondStakeAuthorities",
+      "msg": "One or both stake authorities does not belong to bonds program"
+    },
+    {
+      "code": 6046,
+      "name": "SettlementAuthorityMismatch",
+      "msg": "Stake account staker authority mismatches with the settlement authority"
+    },
+    {
+      "code": 6047,
+      "name": "StakeDelegationMismatch",
+      "msg": "Delegation of provided stake account mismatches"
+    },
+    {
+      "code": 6048,
+      "name": "WithdrawRequestAmountTooSmall",
+      "msg": "Too small non-withdrawn withdraw request amount, cancel and init new one"
+    },
+    {
+      "code": 6049,
+      "name": "WithdrawRequestAlreadyFulfilled",
+      "msg": "Withdraw request has been already fulfilled"
+    },
+    {
+      "code": 6050,
+      "name": "ClaimSettlementMerkleTreeNodeMismatch",
+      "msg": "Claim settlement merkle tree node mismatch"
+    },
+    {
+      "code": 6051,
+      "name": "WrongStakeAccountStaker",
+      "msg": "Wrong staker authority of the stake account"
+    },
+    {
+      "code": 6052,
+      "name": "AlreadyPaused",
+      "msg": "Requested pause and already Paused"
+    },
+    {
+      "code": 6053,
+      "name": "NotPaused",
+      "msg": "Requested resume, but not Paused"
+    },
+    {
+      "code": 6054,
+      "name": "ProgramIsPaused",
+      "msg": "Emergency Pause is Active"
+    },
+    {
+      "code": 6055,
+      "name": "InvalidPauseAuthority",
+      "msg": "Invalid pause authority"
+    },
+    {
+      "code": 6056,
+      "name": "MergeMismatchSameSourceDestination",
+      "msg": "Source and destination cannot be the same for merge operation"
+    },
+    {
+      "code": 6057,
+      "name": "WrongStakeAccountState",
+      "msg": "Wrong state of the stake account"
+    },
+    {
+      "code": 6058,
+      "name": "ValidatorIdentityBondMintMismatch",
+      "msg": "Validator identity mismatch for bond mint"
+    },
+    {
+      "code": 6059,
+      "name": "InvalidBondMintSupply",
+      "msg": "Bond mint permits only a single token to exist"
+    },
+    {
+      "code": 6060,
+      "name": "OperatorAndPauseAuthorityMismatch",
+      "msg": "Operation permitted only to operator or pause authority"
+    },
+    {
+      "code": 6061,
+      "name": "SettlementNotReadyForClaiming",
+      "msg": "Settlement slots to start claiming not expired yet"
+    },
+    {
+      "code": 6062,
+      "name": "InvalidVoteAccountType",
+      "msg": "Unsupported vote account type to deserialize"
+    },
+    {
+      "code": 6063,
+      "name": "MaxStakeWantedTooLow",
+      "msg": "Max stake wanted value is lower to minimum configured value"
+    },
+    {
+      "code": 6064,
+      "name": "NoStakeOrNotActivatingOrActivated",
+      "msg": "Stake account is not activating or activated"
+    },
+    {
+      "code": 6065,
+      "name": "BitmapSizeMismatch",
+      "msg": "Data size mismatch for the bitmap"
+    },
+    {
+      "code": 6066,
+      "name": "BitmapIndexOutOfBonds",
+      "msg": "Bitmap index out of bounds"
+    },
+    {
+      "code": 6067,
+      "name": "SettlementClaimsNotInitialized",
+      "msg": "SettlementClaims account not fully initialized, missing data size"
+    },
+    {
+      "code": 6068,
+      "name": "SettlementClaimsTooManyRecords",
+      "msg": "SettlementClaims records exceed maximum to fit Solana account size"
+    },
+    {
+      "code": 6069,
+      "name": "SettlementClaimsAlreadyInitialized",
+      "msg": "SettlementClaims already initialized, no need to increase account size"
+    },
+    {
+      "code": 6070,
+      "name": "SettlementAlreadyClaimed",
+      "msg": "Settlement has been already claimed"
+    }
+  ],
+  "types": [
+    {
+      "name": "PubkeyValueChange",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "old",
+            "type": "pubkey"
+          },
+          {
+            "name": "new",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "U64ValueChange",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "old",
+            "type": "u64"
+          },
+          {
+            "name": "new",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DelegationInfo",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "voter_pubkey",
+            "docs": ["to whom the stake is delegated"],
+            "type": "pubkey"
+          },
+          {
+            "name": "stake",
+            "docs": ["activated stake amount, set at delegate() time"],
+            "type": "u64"
+          },
+          {
+            "name": "activation_epoch",
+            "docs": [
+              "epoch at which this stake was activated, std::Epoch::MAX if is a bootstrap stake"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "deactivation_epoch",
+            "docs": [
+              "epoch the stake was deactivated, std::Epoch::MAX if not deactivated"
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SplitStakeData",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "address",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigureBondWithMintArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "validator_identity",
+            "docs": ["Validator identity configured within the vote account."],
+            "type": "pubkey"
+          },
+          {
+            "name": "bond_authority",
+            "docs": ["New bond authority that can manage the bond account."],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "cpmpe",
+            "docs": [
+              "New `cpmpe` value (cost per mille per epoch).",
+              "It defines the bid for the validator to get delegated up to `max_stake_wanted` lamports."
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "max_stake_wanted",
+            "docs": [
+              "new max_stake_wanted value that vote account owner declares",
+              "as the maximum delegated stake wanted"
+            ],
+            "type": {
+              "option": "u64"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigureBondArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bond_authority",
+            "docs": ["New bond authority that can manage the bond account."],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "cpmpe",
+            "docs": [
+              "New `cpmpe` value (cost per mille per epoch).",
+              "It defines the bid for the validator to get delegated up to `max_stake_wanted` lamports."
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "max_stake_wanted",
+            "docs": [
+              "New `max_stake_wanted` value that the vote account owner declares",
+              "as the maximum delegated stake desired."
+            ],
+            "type": {
+              "option": "u64"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitBondArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bond_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "cpmpe",
+            "type": "u64"
+          },
+          {
+            "name": "max_stake_wanted",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigureConfigArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "operator",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "pause_authority",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "epochs_to_claim_settlement",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "withdraw_lockup_epochs",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "minimum_stake_lamports",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "slots_to_start_settlement_claiming",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "min_bond_max_stake_wanted",
+            "type": {
+              "option": "u64"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitConfigArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "operator_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "epochs_to_claim_settlement",
+            "type": "u64"
+          },
+          {
+            "name": "withdraw_lockup_epochs",
+            "type": "u64"
+          },
+          {
+            "name": "slots_to_start_settlement_claiming",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClaimSettlementV2Args",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "proof",
+            "docs": ["proof that the claim is appropriate"],
+            "type": {
+              "vec": {
+                "array": ["u8", 32]
+              }
+            }
+          },
+          {
+            "name": "tree_node_hash",
+            "type": {
+              "array": ["u8", 32]
+            }
+          },
+          {
+            "name": "stake_account_staker",
+            "docs": [
+              "staker authority of the stake_account_to; merkle root verification"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_account_withdrawer",
+            "docs": [
+              "withdrawer authority of the stake_account_to; merkle root verification"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "claim",
+            "docs": ["claim amount; merkle root verification"],
+            "type": "u64"
+          },
+          {
+            "name": "index",
+            "docs": [
+              "index, ordered claim record in the settlement list; merkle root verification"
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitSettlementArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "merkle_root",
+            "docs": [
+              "merkle root for this settlement, multiple settlements can be created with the same merkle root,",
+              "settlements will be distinguished by the vote_account"
+            ],
+            "type": {
+              "array": ["u8", 32]
+            }
+          },
+          {
+            "name": "max_total_claim",
+            "docs": [
+              "maximal number of lamports that can be claimed from this settlement"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "max_merkle_nodes",
+            "docs": [
+              "maximal number of merkle tree nodes that can be claimed from this settlement"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "rent_collector",
+            "docs": [
+              "collects the rent exempt from the settlement account when closed"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch",
+            "docs": ["epoch that the settlement is created for"],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MergeStakeArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "settlement",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitWithdrawRequestArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Bumps",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pda",
+            "type": "u8"
+          },
+          {
+            "name": "staker_authority",
+            "type": "u8"
+          },
+          {
+            "name": "settlement_claims",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SettlementClaim",
+      "docs": [
+        "The settlement claim serves for deduplication purposes,",
+        "preventing the same settlement from being claimed multiple times with the same claiming data"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "settlement",
+            "docs": ["settlement account this claim belongs under"],
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_account_to",
+            "docs": ["stake account to which the claim has been withdrawn to"],
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_account_staker",
+            "docs": [
+              "staker authority as part of the merkle proof for this claim"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_account_withdrawer",
+            "docs": [
+              "withdrawer authority as part of the merkle proof for this claim"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "docs": ["claim amount"],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "docs": ["PDA account bump, one claim per settlement"],
+            "type": "u8"
+          },
+          {
+            "name": "rent_collector",
+            "docs": [
+              "rent collector account to get the rent back for claim account creation"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "reserved",
+            "docs": ["reserve space for future extensions"],
+            "type": {
+              "array": ["u8", 93]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Bond",
+      "docs": ["Bond account for a validator vote address"],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "docs": [
+              "Program root config address. Validator bond is created for this config as PDA"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "vote_account",
+            "docs": [
+              "Validator vote address that this bond account is crated for",
+              "INVARIANTS:",
+              "- one bond account per validator vote address",
+              "- this program does NOT change stake account delegation voter_pubkey to any other validator vote account"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "authority",
+            "docs": [
+              "Authority that may close the bond or withdraw stake accounts associated with the bond",
+              "The same powers has got the owner of the validator vote account"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "cpmpe",
+            "docs": [
+              "Cost per mille per epoch.",
+              "This field represents the bid the bond (vote) account owner is willing to pay",
+              "for up to the `max_stake_wanted` being delegated.",
+              "The bid is in cost per mille per epoch similar to Google ads cpm system.",
+              "---",
+              "The actual amount of lamports deducted from the bond account for the processed bid",
+              "is based on the actual delegated lamports during the epoch."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "docs": ["PDA Bond address bump seed"],
+            "type": "u8"
+          },
+          {
+            "name": "max_stake_wanted",
+            "docs": [
+              "Maximum stake (in lamports) that the bond (vote) account owner requests.",
+              "This is the maximum stake that will be distributed to the vote account",
+              "when all other constraints are fulfilled (managed off-chain).",
+              "The vote account owner then goes to auction to obtain up to that maximum.",
+              "Use the `cpmpe` field to define the bid for this purpose."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "reserved",
+            "docs": ["reserve space for future extensions"],
+            "type": {
+              "array": ["u8", 134]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Config",
+      "docs": ["Root account that configures the validator bonds program"],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin_authority",
+            "docs": ["Admin authority that can update the config"],
+            "type": "pubkey"
+          },
+          {
+            "name": "operator_authority",
+            "docs": ["Operator authority (bot hot wallet)"],
+            "type": "pubkey"
+          },
+          {
+            "name": "epochs_to_claim_settlement",
+            "docs": ["How many epochs permitting to claim the settlement"],
+            "type": "u64"
+          },
+          {
+            "name": "withdraw_lockup_epochs",
+            "docs": ["How many epochs before withdraw is allowed"],
+            "type": "u64"
+          },
+          {
+            "name": "minimum_stake_lamports",
+            "docs": [
+              "Minimum amount of lamports to be considered for a stake account operations (e.g., split)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bonds_withdrawer_authority_bump",
+            "docs": ["PDA bonds stake accounts authority bump seed"],
+            "type": "u8"
+          },
+          {
+            "name": "pause_authority",
+            "docs": [
+              "Authority that can pause the program in case of emergency"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "slots_to_start_settlement_claiming",
+            "docs": [
+              "How many slots to wait before settlement is permitted to be claimed"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "min_bond_max_stake_wanted",
+            "docs": [
+              "Minimum value of max_stake_wanted to be configured by vote account owners at bond."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "reserved",
+            "docs": ["reserved space for future changes"],
+            "type": {
+              "array": ["u8", 463]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SettlementClaims",
+      "docs": [
+        "Account serving to deduplicate claiming, consists of anchor data as metaata header and bitmap in the remaining space."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "settlement",
+            "type": "pubkey"
+          },
+          {
+            "name": "version",
+            "type": "u8"
+          },
+          {
+            "name": "max_records",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Settlement",
+      "docs": [
+        "Settlement account for a particular config and merkle root",
+        "Settlement defines that a protected event happened and it will be settled"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bond",
+            "docs": [
+              "the settlement belongs under this bond, i.e., under a particular validator vote account"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "staker_authority",
+            "docs": [
+              "settlement authority used as the 'staker' stake account authority",
+              "of stake accounts funded to this settlement"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "merkle_root",
+            "docs": ["256-bit merkle root to check the claims against"],
+            "type": {
+              "array": ["u8", 32]
+            }
+          },
+          {
+            "name": "max_total_claim",
+            "docs": ["maximum number of funds that can ever be claimed"],
+            "type": "u64"
+          },
+          {
+            "name": "max_merkle_nodes",
+            "docs": [
+              "maximum number of merkle tree nodes that can ever be claimed"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "lamports_funded",
+            "docs": ["total lamports funded"],
+            "type": "u64"
+          },
+          {
+            "name": "lamports_claimed",
+            "docs": ["total lamports that have been claimed"],
+            "type": "u64"
+          },
+          {
+            "name": "merkle_nodes_claimed",
+            "docs": ["number of nodes that have been claimed"],
+            "type": "u64"
+          },
+          {
+            "name": "epoch_created_for",
+            "docs": ["what epoch the Settlement has been created for"],
+            "type": "u64"
+          },
+          {
+            "name": "slot_created_at",
+            "docs": ["when the Settlement was created"],
+            "type": "u64"
+          },
+          {
+            "name": "rent_collector",
+            "docs": [
+              "address that collects the rent exempt from the Settlement account when closed"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "split_rent_collector",
+            "docs": [
+              "address that collects rent exempt for \"split stake account\" possibly created on funding settlement"
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "split_rent_amount",
+            "docs": [
+              "amount of lamports that are collected for rent exempt for \"split stake account\""
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bumps",
+            "docs": ["PDA bumps"],
+            "type": {
+              "defined": {
+                "name": "Bumps"
+              }
+            }
+          },
+          {
+            "name": "reserved",
+            "docs": ["reserve space for future extensions"],
+            "type": {
+              "array": ["u8", 90]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "WithdrawRequest",
+      "docs": ["Request from a validator to withdraw the bond"],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vote_account",
+            "docs": ["Validator vote account that requested the withdrawal"],
+            "type": "pubkey"
+          },
+          {
+            "name": "bond",
+            "docs": [
+              "Bond account that the withdraw request is for (has to match with vote_account)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch",
+            "docs": [
+              "Epoch when the withdrawal was requested, i.e., when this \"ticket\" is created"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "requested_amount",
+            "docs": ["Amount of lamports to withdraw"],
+            "type": "u64"
+          },
+          {
+            "name": "withdrawn_amount",
+            "docs": ["Amount of lamports withdrawn so far"],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "docs": ["PDA account bump"],
+            "type": "u8"
+          },
+          {
+            "name": "reserved",
+            "docs": ["reserve space for future extensions"],
+            "type": {
+              "array": ["u8", 93]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitBondEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "vote_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "validator_identity",
+            "type": "pubkey"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "cpmpe",
+            "type": "u64"
+          },
+          {
+            "name": "max_stake_wanted",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigureBondEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bond_authority",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "PubkeyValueChange"
+                }
+              }
+            }
+          },
+          {
+            "name": "cpmpe",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "U64ValueChange"
+                }
+              }
+            }
+          },
+          {
+            "name": "max_stake_wanted",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "U64ValueChange"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigureBondWithMintEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "validator_identity",
+            "type": "pubkey"
+          },
+          {
+            "name": "bond_authority",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "PubkeyValueChange"
+                }
+              }
+            }
+          },
+          {
+            "name": "cpmpe",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "U64ValueChange"
+                }
+              }
+            }
+          },
+          {
+            "name": "max_stake_wanted",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "U64ValueChange"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "FundBondEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "vote_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_authority_signer",
+            "type": "pubkey"
+          },
+          {
+            "name": "deposited_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MintBondEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "validator_identity",
+            "type": "pubkey"
+          },
+          {
+            "name": "validator_identity_token_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "token_metadata",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitConfigEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "admin_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "operator_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "withdraw_lockup_epochs",
+            "type": "u64"
+          },
+          {
+            "name": "epochs_to_claim_settlement",
+            "type": "u64"
+          },
+          {
+            "name": "minimum_stake_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "bonds_withdrawer_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "slots_to_start_settlement_claiming",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigureConfigEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin_authority",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "PubkeyValueChange"
+                }
+              }
+            }
+          },
+          {
+            "name": "operator_authority",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "PubkeyValueChange"
+                }
+              }
+            }
+          },
+          {
+            "name": "pause_authority",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "PubkeyValueChange"
+                }
+              }
+            }
+          },
+          {
+            "name": "epochs_to_claim_settlement",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "U64ValueChange"
+                }
+              }
+            }
+          },
+          {
+            "name": "minimum_stake_lamports",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "U64ValueChange"
+                }
+              }
+            }
+          },
+          {
+            "name": "withdraw_lockup_epochs",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "U64ValueChange"
+                }
+              }
+            }
+          },
+          {
+            "name": "slots_to_start_settlement_claiming",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "U64ValueChange"
+                }
+              }
+            }
+          },
+          {
+            "name": "min_bond_max_stake_wanted",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "U64ValueChange"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "EmergencyPauseEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "admin_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "operator_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "epochs_to_claim_settlement",
+            "type": "u64"
+          },
+          {
+            "name": "withdraw_lockup_epochs",
+            "type": "u64"
+          },
+          {
+            "name": "minimum_stake_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "pause_authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EmergencyResumeEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "admin_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "operator_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "epochs_to_claim_settlement",
+            "type": "u64"
+          },
+          {
+            "name": "withdraw_lockup_epochs",
+            "type": "u64"
+          },
+          {
+            "name": "minimum_stake_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "pause_authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClaimSettlementV2Event",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "settlement",
+            "type": "pubkey"
+          },
+          {
+            "name": "settlement_lamports_claimed",
+            "type": {
+              "defined": {
+                "name": "U64ValueChange"
+              }
+            }
+          },
+          {
+            "name": "settlement_merkle_nodes_claimed",
+            "type": "u64"
+          },
+          {
+            "name": "stake_account_to",
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_account_withdrawer",
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_account_staker",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "index",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitSettlementEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "settlement",
+            "type": "pubkey"
+          },
+          {
+            "name": "vote_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "staker_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "merkle_root",
+            "type": {
+              "array": ["u8", 32]
+            }
+          },
+          {
+            "name": "max_total_claim",
+            "type": "u64"
+          },
+          {
+            "name": "max_merkle_nodes",
+            "type": "u64"
+          },
+          {
+            "name": "epoch_created_for",
+            "type": "u64"
+          },
+          {
+            "name": "slot_created_at",
+            "type": "u64"
+          },
+          {
+            "name": "rent_collector",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CloseSettlementEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "settlement",
+            "type": "pubkey"
+          },
+          {
+            "name": "merkle_root",
+            "type": {
+              "array": ["u8", 32]
+            }
+          },
+          {
+            "name": "max_total_claim",
+            "type": "u64"
+          },
+          {
+            "name": "max_merkle_nodes",
+            "type": "u64"
+          },
+          {
+            "name": "lamports_funded",
+            "type": "u64"
+          },
+          {
+            "name": "lamports_claimed",
+            "type": "u64"
+          },
+          {
+            "name": "merkle_nodes_claimed",
+            "type": "u64"
+          },
+          {
+            "name": "split_rent_collector",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "split_rent_refund",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "rent_collector",
+            "type": "pubkey"
+          },
+          {
+            "name": "expiration_epoch",
+            "type": "u64"
+          },
+          {
+            "name": "current_epoch",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CancelSettlementEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "settlement",
+            "type": "pubkey"
+          },
+          {
+            "name": "merkle_root",
+            "type": {
+              "array": ["u8", 32]
+            }
+          },
+          {
+            "name": "max_total_claim",
+            "type": "u64"
+          },
+          {
+            "name": "max_merkle_nodes",
+            "type": "u64"
+          },
+          {
+            "name": "lamports_funded",
+            "type": "u64"
+          },
+          {
+            "name": "lamports_claimed",
+            "type": "u64"
+          },
+          {
+            "name": "merkle_nodes_claimed",
+            "type": "u64"
+          },
+          {
+            "name": "split_rent_collector",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "split_rent_refund",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "rent_collector",
+            "type": "pubkey"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FundSettlementEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "settlement",
+            "type": "pubkey"
+          },
+          {
+            "name": "funding_amount",
+            "type": "u64"
+          },
+          {
+            "name": "stake_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "lamports_funded",
+            "type": "u64"
+          },
+          {
+            "name": "lamports_claimed",
+            "type": "u64"
+          },
+          {
+            "name": "merkle_nodes_claimed",
+            "type": "u64"
+          },
+          {
+            "name": "split_stake_account",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "SplitStakeData"
+                }
+              }
+            }
+          },
+          {
+            "name": "split_rent_collector",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "split_rent_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MergeStakeEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "staker_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "destination_stake",
+            "type": "pubkey"
+          },
+          {
+            "name": "destination_delegation",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "DelegationInfo"
+                }
+              }
+            }
+          },
+          {
+            "name": "source_stake",
+            "type": "pubkey"
+          },
+          {
+            "name": "source_delegation",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "DelegationInfo"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ResetStakeEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "settlement",
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "vote_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "settlement_staker_authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WithdrawStakeEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "operator_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "settlement",
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "withdraw_to",
+            "type": "pubkey"
+          },
+          {
+            "name": "settlement_staker_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "withdrawn_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitWithdrawRequestEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "withdraw_request",
+            "type": "pubkey"
+          },
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "vote_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch",
+            "type": "u64"
+          },
+          {
+            "name": "requested_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CancelWithdrawRequestEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "withdraw_request",
+            "type": "pubkey"
+          },
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "requested_amount",
+            "type": "u64"
+          },
+          {
+            "name": "withdrawn_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClaimWithdrawRequestEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "withdraw_request",
+            "type": "pubkey"
+          },
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "vote_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "split_stake",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "SplitStakeData"
+                }
+              }
+            }
+          },
+          {
+            "name": "new_stake_account_owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "withdrawing_amount",
+            "type": "u64"
+          },
+          {
+            "name": "withdrawn_amount",
+            "type": {
+              "defined": {
+                "name": "U64ValueChange"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClaimSettlementEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "settlement_claim",
+            "type": "pubkey"
+          },
+          {
+            "name": "settlement",
+            "type": "pubkey"
+          },
+          {
+            "name": "settlement_lamports_claimed",
+            "type": {
+              "defined": {
+                "name": "U64ValueChange"
+              }
+            }
+          },
+          {
+            "name": "settlement_merkle_nodes_claimed",
+            "type": "u64"
+          },
+          {
+            "name": "stake_account_to",
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_account_withdrawer",
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_account_staker",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "rent_collector",
+            "type": "pubkey"
+          }
+        ]
+      }
+    }
+  ],
+  "constants": [
+    {
+      "name": "PROGRAM_ID",
+      "type": "string",
+      "value": "\"vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4\""
+    },
+    {
+      "name": "BOND_SEED",
+      "type": "bytes",
+      "value": "[98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]"
+    },
+    {
+      "name": "BOND_MINT_SEED",
+      "type": "bytes",
+      "value": "[98, 111, 110, 100, 95, 109, 105, 110, 116]"
+    },
+    {
+      "name": "SETTLEMENT_SEED",
+      "type": "bytes",
+      "value": "[115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97, 99, 99, 111, 117, 110, 116]"
+    },
+    {
+      "name": "WITHDRAW_REQUEST_SEED",
+      "type": "bytes",
+      "value": "[119, 105, 116, 104, 100, 114, 97, 119, 95, 97, 99, 99, 111, 117, 110, 116]"
+    },
+    {
+      "name": "BONDS_WITHDRAWER_AUTHORITY_SEED",
+      "type": "bytes",
+      "value": "[98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121]"
+    },
+    {
+      "name": "SETTLEMENT_STAKER_AUTHORITY_SEED",
+      "type": "bytes",
+      "value": "[115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121]"
+    },
+    {
+      "name": "SETTLEMENT_CLAIMS_SEED",
+      "type": "bytes",
+      "value": "[99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110, 116]"
+    },
+    {
+      "name": "SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE",
+      "type": "u8",
+      "value": "56"
+    },
+    {
+      "name": "SETTLEMENT_CLAIM_SEED",
+      "type": "bytes",
+      "value": "[99, 108, 97, 105, 109, 95, 97, 99, 99, 111, 117, 110, 116]"
+    }
+  ]
+}

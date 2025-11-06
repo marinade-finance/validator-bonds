@@ -11,7 +11,7 @@ import {
   MINT_BOND_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
-import { setProgramIdByOwner } from '../../context'
+import { getCliContext } from '../../context'
 import { getBondFromAddress } from '../../utils'
 
 import type {
@@ -68,7 +68,7 @@ export async function manageMintBond({
     confirmationFinality,
     confirmWaitTime,
     skipPreflight,
-  } = await setProgramIdByOwner(config)
+  } = getCliContext()
 
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]

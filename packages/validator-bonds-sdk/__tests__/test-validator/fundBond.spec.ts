@@ -12,7 +12,11 @@ import {
   parseCpiEvents,
   assertEvent,
 } from '../../src'
-import { createVoteAccount, delegatedStakeAccount } from '../utils/staking'
+import {
+  createVoteAccount,
+  delegatedStakeAccount,
+  retryOnEpochRewardsPeriod,
+} from '../utils/staking'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
@@ -76,10 +80,9 @@ describe('Validator Bonds fund bond', () => {
       stakeAccountAuthority: withdrawer,
     })
     tx.add(instruction)
-    const executionReturn = await executeTxSimple(provider.connection, tx, [
-      provider.wallet,
-      withdrawer,
-    ])
+    const executionReturn = await retryOnEpochRewardsPeriod(() =>
+      executeTxSimple(provider.connection, tx, [provider.wallet, withdrawer]),
+    )
 
     const stakeAccountData = await getStakeAccount(provider, stakeAccount)
     const [bondWithdrawer] = bondsWithdrawerAuthority(

@@ -1,4 +1,3 @@
-use anchor_client::anchor_lang::solana_program::native_token::lamports_to_sol;
 use anchor_client::anchor_lang::solana_program::stake::state::StakeStateV2;
 use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
@@ -22,6 +21,7 @@ use settlement_pipelines::stake_accounts::{
     filter_settlement_funded, IGNORE_DANGLING_NOT_CLOSABLE_STAKE_ACCOUNTS_LIST,
     STAKE_ACCOUNT_RENT_EXEMPTION,
 };
+use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
@@ -301,10 +301,7 @@ async fn reset_stake_accounts(
         } else {
             // if the stake account does not belong to a non-existent (but known from JSON) settlement then it has to belongs
             // to an existing settlement, if not than we have dangling stake account that should be reported
-            if staker_authority_to_existing_settlements
-                .get(&staker_authority)
-                .is_none()
-            {
+            if !staker_authority_to_existing_settlements.contains_key(&staker_authority) {
                 // -> not existing settlement for this stake account, and we know nothing is about (maybe for some reason the stake account was not reset in the past)
                 if IGNORE_DANGLING_NOT_CLOSABLE_STAKE_ACCOUNTS_LIST
                     .contains(&stake_pubkey.to_string().as_ref())
@@ -538,21 +535,21 @@ impl PrintReportable for CloseSettlementReport {
                 format!(
                     "Number of reset stake accounts (returned to validators): {}, sum of reset SOL: {} (with rent: {})",
                     reset_stake_number,
-                    lamports_to_sol(
+                    build_balance_message(
                         reset_stake_lamports -
-                            (reset_stake_number * minimal_stake_account_lamports)
+                            (reset_stake_number * minimal_stake_account_lamports), false, false
                     ),
-                    lamports_to_sol(reset_stake_lamports),
+                    build_balance_message(reset_stake_lamports, false, false),
                 ),
                 format!(
                     "Number of withdraw stake accounts (returned to Marinade DAO {}): {}, sum of withdrawn SOL: {} (with rent: {})",
                     self.withdraw_wallet,
                     withdrawn_stake_number,
-                    lamports_to_sol(
+                    build_balance_message(
                         withdrawn_stake_lamports -
-                            (withdrawn_stake_number * minimal_stake_account_lamports)
+                            (withdrawn_stake_number * minimal_stake_account_lamports), false, false
                     ),
-                    lamports_to_sol(withdrawn_stake_lamports),
+                    build_balance_message(withdrawn_stake_lamports, false, false),
                 ),
             ];
             let settlement_grouped_by_epoch = self
@@ -592,9 +589,9 @@ impl PrintReportable for CloseSettlementReport {
                     epoch,
                     settlements,
                     reset_per_epoch.0,
-                    lamports_to_sol(reset_per_epoch.1),
+                    build_balance_message(reset_per_epoch.1, false, false),
                     withdrawn_per_epoch.0,
-                    lamports_to_sol(withdrawn_per_epoch.1)
+                    build_balance_message(withdrawn_per_epoch.1, false, false)
                 );
                 report.push(report_string);
                 for (settlement, vote_account, num, lamports) in Self::flat_settlement_map(&reset) {
@@ -603,7 +600,7 @@ impl PrintReportable for CloseSettlementReport {
                         settlement,
                         vote_account,
                         num,
-                        lamports_to_sol(lamports)
+                        build_balance_message(lamports, false, false)
                     ));
                 }
                 for (settlement, wallet, num, lamports) in Self::flat_settlement_map(&withdrawn) {
@@ -612,7 +609,7 @@ impl PrintReportable for CloseSettlementReport {
                         settlement,
                         wallet,
                         num,
-                        lamports_to_sol(lamports)
+                        build_balance_message(lamports, false, false)
                     ));
                 }
             }

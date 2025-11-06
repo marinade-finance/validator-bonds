@@ -33,7 +33,6 @@ pub async fn get_clock(rpc_client: Arc<RpcClient>) -> anyhow::Result<Clock> {
 }
 
 /// stake account pubkey, lamports in account, stake state
-
 pub type CollectedStakeAccount = (Pubkey, u64, StakeStateV2);
 pub type CollectedStakeAccounts = Vec<CollectedStakeAccount>;
 
@@ -146,7 +145,7 @@ pub async fn obtain_claimable_stake_accounts_for_settlement(
                 // stake has got delegation but is fully deactivated
                 // https://github.com/marinade-finance/native-staking/blob/master/bot/src/utils/stakes.rs#L64C1-L64C113
                 delegation
-                    .stake_activating_and_deactivating(clock.epoch, Some(&stake_history), None)
+                    .stake_activating_and_deactivating(clock.epoch, &stake_history, None)
                     .effective
                     == 0
             } else {
@@ -185,11 +184,7 @@ pub async fn obtain_funded_stake_accounts_for_settlement(
                     effective,
                     deactivating,
                     activating: _,
-                } = delegation.stake_activating_and_deactivating(
-                    clock.epoch,
-                    Some(stake_history),
-                    None,
-                );
+                } = delegation.stake_activating_and_deactivating(clock.epoch, stake_history, None);
                 effective == 0 || deactivating > 0
             } else {
                 // non-locked, non-delegated, maybe initialized (more filtering under map_stake_accounts_to_settlement)
@@ -276,6 +271,7 @@ pub async fn get_stake_account_slices(
                         min_context_slot: None,
                     },
                     with_context: None,
+                    sort_results: None,
                 },
             )
             .await;

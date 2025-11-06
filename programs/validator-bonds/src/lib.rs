@@ -1,3 +1,11 @@
+// Stops Rust Analyzer complaining about missing configs
+// See https://solana.stackexchange.com/questions/17777
+#![allow(unexpected_cfgs)]
+// Fix warning: use of deprecated method `anchor_lang::prelude::AccountInfo::<'a>::realloc`: Use AccountInfo::resize() instead
+// See https://solana.stackexchange.com/questions/22979
+#![allow(deprecated)]
+use anchor_lang::prelude::*;
+
 pub mod checks;
 pub mod constants;
 pub mod error;
@@ -8,13 +16,12 @@ pub mod instructions;
 pub mod state;
 
 use crate::error::ErrorCode;
-use anchor_lang::prelude::*;
 use anchor_lang::Bumps;
 use instructions::*;
 
 /// solana-security-txt for Validator Bonds program by Marinade.Finance
 #[cfg(not(feature = "no-entrypoint"))]
-use {default_env::default_env, solana_security_txt::security_txt};
+use solana_security_txt::security_txt;
 #[cfg(not(feature = "no-entrypoint"))]
 security_txt! {
     name: "Validator Bonds",
@@ -24,8 +31,8 @@ security_txt! {
     preferred_languages: "en",
     source_code: "https://github.com/marinade-finance/validator-bonds",
     auditors: "Neodyme",
-    source_revision: default_env!("GIT_REV", "GIT_REV_MISSING"),
-    source_release: default_env!("GIT_REV_NAME", "GIT_REV_NAME_MISSING")
+    source_revision: env!("GIT_REV"),
+    source_release: env!("GIT_REV_NAME")
 }
 
 declare_id!("vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4");

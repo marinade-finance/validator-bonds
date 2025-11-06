@@ -16,7 +16,7 @@ pub struct EmergencyPauseResume<'info> {
     pub pause_authority: Signer<'info>,
 }
 
-impl<'info> EmergencyPauseResume<'info> {
+impl EmergencyPauseResume<'_> {
     pub fn pause(ctx: Context<EmergencyPauseResume>) -> Result<()> {
         require!(!ctx.accounts.config.paused, ErrorCode::AlreadyPaused);
         ctx.accounts.config.paused = true;

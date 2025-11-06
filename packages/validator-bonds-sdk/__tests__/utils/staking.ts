@@ -1,6 +1,6 @@
 import assert from 'assert'
 
-import { pubkey, signer } from '@marinade.finance/web3js-1x'
+import { ExecutionError, pubkey, signer } from '@marinade.finance/web3js-1x'
 import {
   Authorized,
   Keypair,
@@ -27,13 +27,8 @@ import type { Provider } from '@coral-xyz/anchor'
 import type { StakeState } from '@marinade.finance/marinade-ts-sdk/dist/src/marinade-state/borsh/stake-state'
 import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 import type { ExtendedProvider } from '@marinade.finance/web3js-1x'
-import type {
-  AccountInfo,
-  Lockup,
-  PublicKey,
-  Transaction,
-  Signer,
-} from '@solana/web3.js'
+import type { PublicKey } from '@solana/web3.js'
+import type { AccountInfo, Lockup, Transaction, Signer } from '@solana/web3.js'
 
 /**
  * SetLockup stake instruction params
@@ -251,7 +246,7 @@ export async function authorizeStakeAccount({
   await provider.sendIx(signers, ...ixes)
 }
 
-type DelegatedStakeAccount = {
+export type DelegatedStakeAccount = {
   stakeAccount: PublicKey
   voteAccount: PublicKey
   validatorIdentity: Keypair | undefined
@@ -301,16 +296,13 @@ export async function delegatedStakeAccount({
     authorizedPubkey: staker.publicKey,
     votePubkey: voteAccountToDelegate,
   })
-  try {
-    await provider.sendIx(
+  await retryOnEpochRewardsPeriod(() =>
+    provider.sendIx(
       [stakeAccount, staker],
       createStakeAccountIx,
       delegateStakeAccountIx,
-    )
-  } catch (e) {
-    console.error(e)
-    throw new Error('Failed to delegate stake account')
-  }
+    ),
+  )
 
   return {
     stakeAccount: stakeAccount.publicKey,
@@ -426,14 +418,58 @@ export async function createDelegatedStakeAccount({
       lamports,
       voteAccountToDelegate: voteAccount,
     })
-  await authorizeStakeAccount({
-    provider,
-    authority: initWithdrawer,
-    stakeAccount: stakeAccount,
-    withdrawer,
-    staker,
-  })
+  while (true) {
+    try {
+      await authorizeStakeAccount({
+        provider,
+        authority: initWithdrawer,
+        stakeAccount: stakeAccount,
+        withdrawer,
+        staker,
+      })
+    } catch (e) {
+      console.error(
+        `Failed to authorize stake account ${stakeAccount.toBase58()}`,
+        e,
+      )
+      if (isErrorEpochRewardsPeriod(e)) {
+        continue
+      }
+    }
+    break
+  }
   return stakeAccount
+}
+
+export function isErrorEpochRewardsPeriod(e: unknown): boolean {
+  let errMsg = (e as Error).message
+  if (e instanceof ExecutionError) {
+    errMsg = e.messageWithCause()
+  }
+  // 16 - Stake action is not permitted while the epoch rewards period is active
+  // https://github.com/solana-program/stake/blob/a173d0ef0e1d0af08d3ec89444516483df880f37/clients/rust/src/generated/errors/stake.rs#L64
+  if (
+    errMsg.includes('custom program error: 0x10') ||
+    errMsg.includes('"Custom":16')
+  ) {
+    return true
+  }
+  return false
+}
+
+export async function retryOnEpochRewardsPeriod<T>(
+  fn: () => Promise<T>,
+): Promise<T> {
+  while (true) {
+    try {
+      return await fn()
+    } catch (e) {
+      if (isErrorEpochRewardsPeriod(e)) {
+        continue
+      }
+      throw e
+    }
+  }
 }
 
 export async function nonInitializedStakeAccount(
@@ -481,7 +517,7 @@ export async function createInitializedStakeAccount({
     lamports: rentExempt,
     lockup,
   })
-  await provider.sendIx([stakeAccount], ix)
+  await retryOnEpochRewardsPeriod(() => provider.sendIx([stakeAccount], ix))
   console.log(`Stake ${stakeAccount.publicKey.toBase58()} account created`)
   return {
     stakeAccount: stakeAccount.publicKey,

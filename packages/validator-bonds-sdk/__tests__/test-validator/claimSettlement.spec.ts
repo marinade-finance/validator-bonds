@@ -35,6 +35,7 @@ import {
   createBondsFundedStakeAccount,
   createDelegatedStakeAccount,
   createVoteAccount,
+  isErrorEpochRewardsPeriod,
 } from '../utils/staking'
 import {
   executeInitBondInstruction,
@@ -103,10 +104,20 @@ describe('Validator Bonds claim settlement', () => {
         settlementAccount,
         stakeAccount,
       })
-    await provider.sendIx(
-      [signer(splitStakeAccount), operatorAuthority],
-      fundIx,
-    )
+    while (true) {
+      try {
+        await provider.sendIx(
+          [signer(splitStakeAccount), operatorAuthority],
+          fundIx,
+        )
+      } catch (e) {
+        if (isErrorEpochRewardsPeriod(e)) {
+          continue
+        }
+        throw e
+      }
+      break
+    }
   })
 
   it('claim settlement', async () => {

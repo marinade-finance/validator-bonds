@@ -3,8 +3,10 @@ import { getVoteAccount } from '@marinade.finance/web3js-1x'
 import {
   Keypair,
   PublicKey,
+  SYSVAR_CLOCK_PUBKEY,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   StakeProgram,
+  SystemProgram,
 } from '@solana/web3.js'
 
 import { getBond, getWithdrawRequest } from '../api'
@@ -12,6 +14,7 @@ import {
   bondAddress,
   withdrawRequestAddress,
   MARINADE_CONFIG_ADDRESS,
+  bondsWithdrawerAuthority,
 } from '../sdk'
 import { anchorProgramWalletPubkey, checkAndGetBondAddress } from '../utils'
 
@@ -102,7 +105,7 @@ export async function claimWithdrawRequestInstruction({
         'withdrawRequestAccount not provided and could not be derived from other parameters',
     )
   }
-  if (!bondAccount && !configAccount) {
+  if (!configAccount) {
     logWarn(
       logger,
       'claimWithdrawRequest SDK: config is not provided, using default config address: ' +
@@ -137,11 +140,15 @@ export async function claimWithdrawRequestInstruction({
 
   const instruction = await program.methods
     .claimWithdrawRequest()
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       voteAccount,
       withdrawRequest: withdrawRequestAccount,
+      bondsWithdrawerAuthority: bondsWithdrawerAuthority(
+        configAccount,
+        program.programId,
+      )[0],
       stakeAccount,
       withdrawer,
       splitStakeAccount: splitStakeAccount.publicKey,
@@ -149,6 +156,8 @@ export async function claimWithdrawRequestInstruction({
       splitStakeRentPayer,
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
       stakeProgram: StakeProgram.programId,
+      systemProgram: SystemProgram.programId,
+      clock: SYSVAR_CLOCK_PUBKEY,
     })
     .instruction()
   return {

@@ -1,5 +1,4 @@
 pub mod claim_settlement_v1;
-pub mod settlement_claim_v1;
 pub mod tree_node_v1;
 
 /*

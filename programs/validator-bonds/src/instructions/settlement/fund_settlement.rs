@@ -106,7 +106,7 @@ pub struct FundSettlement<'info> {
         space = std::mem::size_of::<StakeStateV2>(),
         owner = stake_program.key(),
     )]
-    pub split_stake_account: Account<'info, StakeAccount>,
+    pub split_stake_account: Box<Account<'info, StakeAccount>>,
 
     /// the rent exempt payer of the split_stake_account creation
     /// if the split_stake_account is not needed (no leftover lamports on funding), then the rent payer is refunded
@@ -135,7 +135,7 @@ pub struct FundSettlement<'info> {
     pub stake_config: UncheckedAccount<'info>,
 }
 
-impl<'info> FundSettlement<'info> {
+impl FundSettlement<'_> {
     pub fn process(ctx: Context<FundSettlement>) -> Result<()> {
         require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
@@ -258,7 +258,7 @@ impl<'info> FundSettlement<'info> {
                             },
                             &[&[
                                 BONDS_WITHDRAWER_AUTHORITY_SEED,
-                                &ctx.accounts.config.key().as_ref(),
+                                ctx.accounts.config.key().as_ref(),
                                 &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                             ]],
                         ),
@@ -293,7 +293,7 @@ impl<'info> FundSettlement<'info> {
                         ],
                         &[&[
                             BONDS_WITHDRAWER_AUTHORITY_SEED,
-                            &ctx.accounts.config.key().as_ref(),
+                            ctx.accounts.config.key().as_ref(),
                             &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                         ]],
                     )?;
@@ -340,7 +340,7 @@ impl<'info> FundSettlement<'info> {
                         ],
                         &[&[
                             BONDS_WITHDRAWER_AUTHORITY_SEED,
-                            &ctx.accounts.config.key().as_ref(),
+                            ctx.accounts.config.key().as_ref(),
                             &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                         ]],
                     )?;
@@ -366,7 +366,7 @@ impl<'info> FundSettlement<'info> {
                 },
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &ctx.accounts.config.key().as_ref(),
+                    ctx.accounts.config.key().as_ref(),
                     &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             ))?;
@@ -388,7 +388,7 @@ impl<'info> FundSettlement<'info> {
                 },
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &ctx.accounts.config.key().as_ref(),
+                    ctx.accounts.config.key().as_ref(),
                     &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             ),

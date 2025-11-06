@@ -105,7 +105,7 @@ pub struct ClaimWithdrawRequest<'info> {
     pub clock: Sysvar<'info, Clock>,
 }
 
-impl<'info> ClaimWithdrawRequest<'info> {
+impl ClaimWithdrawRequest<'_> {
     pub fn process(ctx: Context<ClaimWithdrawRequest>) -> Result<()> {
         require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
@@ -204,7 +204,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
                 ],
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &ctx.accounts.config.key().as_ref(),
+                    ctx.accounts.config.key().as_ref(),
                     &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             )?;
@@ -241,7 +241,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
                 },
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &ctx.accounts.config.key().as_ref(),
+                    ctx.accounts.config.key().as_ref(),
                     &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             ),
@@ -260,7 +260,7 @@ impl<'info> ClaimWithdrawRequest<'info> {
                 },
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &ctx.accounts.config.key().as_ref(),
+                    ctx.accounts.config.key().as_ref(),
                     &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             ),

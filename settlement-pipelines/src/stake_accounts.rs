@@ -51,7 +51,7 @@ pub fn prioritize_for_claiming(
     non_locked_stake_accounts.sort_by_cached_key(|(_, lamports, stake_account)| {
         get_claiming_priority_key(stake_account, *lamports, clock, stake_history)
     });
-    return if let Some((pubkey, _, _)) = non_locked_stake_accounts.first() {
+    if let Some((pubkey, _, _)) = non_locked_stake_accounts.first() {
         Ok(*pubkey)
     } else if !stake_accounts.is_empty() {
         // NO non-locked stake accounts but(!) some exists, i.e., all available locked
@@ -61,7 +61,7 @@ pub fn prioritize_for_claiming(
         ))
     } else {
         Err(anyhow!("No stake accounts for claiming"))
-    };
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -88,7 +88,7 @@ pub fn get_stake_state_type(
             effective,
             deactivating,
             activating,
-        } = delegation.stake_activating_and_deactivating(clock.epoch, Some(stake_history), None);
+        } = delegation.stake_activating_and_deactivating(clock.epoch, stake_history, None);
         if effective == 0 && activating == 0 {
             // all available for immediate delegation
             StakeAccountStateType::DelegatedAndDeactivated
@@ -117,7 +117,7 @@ pub fn get_delegated_amount(
             effective,
             deactivating,
             activating,
-        } = delegation.stake_activating_and_deactivating(clock.epoch, Some(stake_history), None);
+        } = delegation.stake_activating_and_deactivating(clock.epoch, stake_history, None);
         effective + deactivating + activating
     } else {
         0

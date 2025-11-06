@@ -7,7 +7,12 @@ import BN from 'bn.js'
 
 import { getBond, getSettlement } from '../api'
 import { MerkleTreeNode } from '../merkleTree'
-import { bondAddress, settlementAddress, settlementClaimsAddress } from '../sdk'
+import {
+  bondAddress,
+  bondsWithdrawerAuthority,
+  settlementAddress,
+  settlementClaimsAddress,
+} from '../sdk'
 import { getStakeAccount } from '../web3.js'
 
 import type { Settlement, ValidatorBondsProgram } from '../sdk'
@@ -146,11 +151,15 @@ export async function claimSettlementV2Instruction({
       stakeAccountWithdrawer,
       index: new BN(index),
     })
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       settlement: settlementAccount,
       settlementClaims: settlementClaimsAccount,
+      bondsWithdrawerAuthority: bondsWithdrawerAuthority(
+        configAccount,
+        program.programId,
+      )[0],
       stakeAccountFrom,
       stakeAccountTo,
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,

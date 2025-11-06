@@ -7,6 +7,7 @@ import {
 
 import { anchorProgramWalletPubkey } from '../utils'
 import { getCloseSettlementAccounts } from './closeSettlementV2'
+import { settlementClaimsAddress } from '../sdk'
 
 import type { CloseSettlementParams } from './closeSettlementV2'
 import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
@@ -43,11 +44,15 @@ export async function cancelSettlementInstruction(
 
   const instruction = await params.program.methods
     .cancelSettlement()
-    .accounts({
+    .accountsPartial({
       authority: authorityPubkey,
       config: configAccount,
       bond: bondAccount,
       settlement: settlementAccount,
+      settlementClaims: settlementClaimsAddress(
+        settlementAccount,
+        params.program.programId,
+      )[0],
       rentCollector,
       splitRentCollector,
       bondsWithdrawerAuthority: bondsAuth,

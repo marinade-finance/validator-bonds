@@ -33,7 +33,7 @@ pub struct InitConfig<'info> {
     pub system_program: Program<'info, System>,
 }
 
-impl<'info> InitConfig<'info> {
+impl InitConfig<'_> {
     pub fn process(
         ctx: Context<InitConfig>,
         InitConfigArgs {

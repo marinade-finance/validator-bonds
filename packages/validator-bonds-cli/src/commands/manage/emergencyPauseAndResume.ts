@@ -1,6 +1,6 @@
 import {
   computeUnitLimitOption,
-  setProgramIdByOwner,
+  getCliContext,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { EMERGENCY_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
 import {
@@ -119,7 +119,7 @@ async function manageEmergencyPauseAndResume({
     confirmationFinality,
     confirmWaitTime,
     skipPreflight,
-  } = await setProgramIdByOwner(address)
+  } = getCliContext()
 
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]

@@ -44,7 +44,7 @@ pub struct MergeStake<'info> {
     pub stake_program: Program<'info, Stake>,
 }
 
-impl<'info> MergeStake<'info> {
+impl MergeStake<'_> {
     pub fn process(
         ctx: Context<MergeStake>,
         MergeStakeArgs { settlement }: MergeStakeArgs,
@@ -128,7 +128,7 @@ impl<'info> MergeStake<'info> {
                 merge_account_infos,
                 &[&[
                     BONDS_WITHDRAWER_AUTHORITY_SEED,
-                    &ctx.accounts.config.key().as_ref(),
+                    ctx.accounts.config.key().as_ref(),
                     &[ctx.accounts.config.bonds_withdrawer_authority_bump],
                 ]],
             )?
@@ -138,7 +138,7 @@ impl<'info> MergeStake<'info> {
                 merge_account_infos,
                 &[&[
                     SETTLEMENT_STAKER_AUTHORITY_SEED,
-                    &settlement.as_ref(),
+                    settlement.as_ref(),
                     &[settlement_bump],
                 ]],
             )?

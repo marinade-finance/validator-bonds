@@ -1,4 +1,4 @@
-import { PublicKey } from '@solana/web3.js'
+import { PublicKey, SystemProgram } from '@solana/web3.js'
 import BN from 'bn.js'
 
 import { bondAddress } from '../sdk'
@@ -56,12 +56,13 @@ export async function initBondInstruction({
       cpmpe: new BN(cpmpe),
       maxStakeWanted: new BN(maxStakeWanted),
     })
-    .accounts({
+    .accountsPartial({
       config: configAccount,
       bond: bondAccount,
       voteAccount,
       validatorIdentity: validatorIdentity ?? null,
       rentPayer: renPayerPubkey,
+      systemProgram: SystemProgram.programId,
     })
     .instruction()
   return {

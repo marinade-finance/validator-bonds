@@ -30,7 +30,7 @@ pub struct CancelSettlement<'info> {
         ],
         bump = bond.bump,
     )]
-    pub bond: Account<'info, Bond>,
+    pub bond: Box<Account<'info, Bond>>,
 
     /// settlement to close whenever the operator decides
     #[account(
@@ -46,7 +46,7 @@ pub struct CancelSettlement<'info> {
         ],
         bump = settlement.bumps.pda,
     )]
-    pub settlement: Account<'info, Settlement>,
+    pub settlement: Box<Account<'info, Settlement>>,
 
     #[account(
         mut,
@@ -58,7 +58,7 @@ pub struct CancelSettlement<'info> {
         ],
         bump = settlement.bumps.settlement_claims,
     )]
-    pub settlement_claims: Account<'info, SettlementClaims>,
+    pub settlement_claims: Box<Account<'info, SettlementClaims>>,
 
     /// Cancelling is permitted only to emergency or operator authority
     pub authority: Signer<'info>,
@@ -96,7 +96,7 @@ pub struct CancelSettlement<'info> {
     pub stake_history: UncheckedAccount<'info>,
 }
 
-impl<'info> CancelSettlement<'info> {
+impl CancelSettlement<'_> {
     pub fn process(ctx: Context<CancelSettlement>) -> Result<()> {
         require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 

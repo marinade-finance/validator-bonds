@@ -54,7 +54,7 @@ impl Settlement {
         Pubkey::create_program_address(
             &[
                 SETTLEMENT_SEED,
-                &self.bond.key().as_ref(),
+                self.bond.key().as_ref(),
                 &self.merkle_root,
                 &self.epoch_created_for.to_le_bytes(),
                 &[self.bumps.pda],
@@ -77,7 +77,7 @@ impl Settlement {
     }
 
     pub fn settlement_claims_address(settlement_address: &Pubkey) -> Result<Pubkey> {
-        Pubkey::create_program_address(&[SETTLEMENT_CLAIMS_SEED, &settlement_address.as_ref()], &ID)
+        Pubkey::create_program_address(&[SETTLEMENT_CLAIMS_SEED, settlement_address.as_ref()], &ID)
             .map_err(|_| ErrorCode::InvalidSettlementClaimAddress.into())
     }
 }
@@ -98,12 +98,12 @@ pub fn find_settlement_staker_authority(settlement_address: &Pubkey) -> (Pubkey,
     Pubkey::find_program_address(
         &[
             SETTLEMENT_STAKER_AUTHORITY_SEED,
-            &settlement_address.as_ref(),
+            settlement_address.as_ref(),
         ],
         &ID,
     )
 }
 
 pub fn find_settlement_claims_address(settlement_address: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[SETTLEMENT_CLAIMS_SEED, &settlement_address.as_ref()], &ID)
+    Pubkey::find_program_address(&[SETTLEMENT_CLAIMS_SEED, settlement_address.as_ref()], &ID)
 }
