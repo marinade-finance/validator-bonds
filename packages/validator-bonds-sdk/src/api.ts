@@ -15,6 +15,10 @@ import {
   uintToBuffer,
   bondsWithdrawerAuthority,
   settlementClaimsAddress,
+  BOND_ACCOUNT_DISCRIMINATOR,
+  WITHDRAW_REQUEST_ACCOUNT_DISCRIMINATOR,
+  SETTLEMENT_ACCOUNT_DISCRIMINATOR,
+  SETTLEMENT_CLAIMS_ACCOUNT_DISCRIMINATOR,
 } from './sdk'
 import { decodeSettlementClaimsData } from './settlementClaims'
 import { findStakeAccounts } from './web3.js'
@@ -41,21 +45,8 @@ import type {
   GetProgramAccountsFilter,
 } from '@solana/web3.js'
 
-// const CONFIG_ACCOUNT_DISCRIMINATOR = bs58.encode([155, 12, 170, 224, 30, 250, 204, 130])
-const BOND_ACCOUNT_DISCRIMINATOR = bs58.encode([
-  224, 128, 48, 251, 182, 246, 111, 196,
-])
-const WITHDRAW_REQUEST_ACCOUNT_DISCRIMINATOR = bs58.encode([
-  186, 239, 174, 191, 189, 13, 47, 196,
-])
-const SETTLEMENT_ACCOUNT_DISCRIMINATOR = bs58.encode([
-  55, 11, 219, 33, 36, 136, 40, 182,
-])
-const SETTLEMENT_CLAIMS_ACCOUNT_DISCRIMINATOR = bs58.encode([
-  32, 130, 62, 175, 231, 54, 170, 114,
-])
-
-const ZERO_BN = new BN(0)
+export const MAX_BPS = new BN(10_000)
+export const ZERO_BN = new BN(0)
 
 export async function getConfig(
   program: ValidatorBondsProgram,

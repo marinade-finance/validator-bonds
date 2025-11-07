@@ -121,11 +121,6 @@ export async function manageInitWithdrawRequest({
     signers.push(rentPayer)
     rentPayer = rentPayer.publicKey
   }
-  authority = authority ?? wallet.publicKey
-  if (instanceOfWallet(authority)) {
-    signers.push(authority)
-    authority = authority.publicKey
-  }
 
   let bondAccountAddress = address
   if (address !== undefined) {
@@ -138,6 +133,13 @@ export async function manageInitWithdrawRequest({
     bondAccountAddress = bondAccountData.publicKey
     config = bondAccountData.account.data.config
     voteAccount = bondAccountData.account.data.voteAccount
+    authority = authority ?? bondAccountData.account.data.authority
+  }
+
+  authority = authority ?? wallet.publicKey
+  if (instanceOfWallet(authority)) {
+    signers.push(authority)
+    authority = authority.publicKey
   }
 
   // config account is required
@@ -195,10 +197,8 @@ export async function manageInitWithdrawRequest({
   }
 
   logger.info(
-    `Initializing withdraw request account ${withdrawRequestAccount.toBase58()} (amount: ` +
-      `${formatToSolWithAll(
-        amountBN,
-      )}) for bond account ${bondAccount.toBase58()}`,
+    `Initializing withdraw request account ${withdrawRequestAccount.toBase58()}, bond: ${bondAccount.toBase58()}, ` +
+      `amount: ${formatToSolWithAll(amountBN)}, authority: ${authority.toBase58()}`,
   )
   try {
     await executeTx({

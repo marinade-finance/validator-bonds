@@ -101,12 +101,6 @@ export async function manageConfigureBond({
   const tx = await transaction(provider)
   const signers: (Signer | Wallet)[] = [wallet]
 
-  authority = authority ?? wallet.publicKey
-  if (instanceOfWallet(authority)) {
-    signers.push(authority)
-    authority = authority.publicKey
-  }
-
   const bondAccountData = await getBondFromAddress({
     program,
     address,
@@ -120,6 +114,7 @@ export async function manageConfigureBond({
   let bondAccount: PublicKey
   let instruction: TransactionInstruction
   if (withToken) {
+    authority = authority ?? wallet.publicKey
     computeUnitLimit = computeUnitLimit ?? CONFIGURE_BOND_MINT_LIMIT_UNITS
     ;({ instruction, bondAccount } = await configureBondWithMintInstruction({
       program,
@@ -132,6 +127,7 @@ export async function manageConfigureBond({
       newMaxStakeWanted: maxStakeWanted,
     }))
   } else {
+    authority = authority ?? bondAccountData.account.data.authority
     computeUnitLimit = computeUnitLimit ?? CONFIGURE_BOND_LIMIT_UNITS
     ;({ instruction, bondAccount } = await configureBondInstruction({
       program,
@@ -144,6 +140,12 @@ export async function manageConfigureBond({
       newMaxStakeWanted: maxStakeWanted,
     }))
   }
+
+  if (instanceOfWallet(authority)) {
+    signers.push(authority)
+    authority = authority.publicKey
+  }
+
   tx.add(instruction)
 
   if (isPrintBanner) {

@@ -1,6 +1,6 @@
 [package]
 name = "validator-bonds"
-version = "2.1.0"
+version = "2.2.0"
 description = "Marinade validator bonds program protecting validators performance"
 edition = "2021"
 license = "Apache-2.0"
