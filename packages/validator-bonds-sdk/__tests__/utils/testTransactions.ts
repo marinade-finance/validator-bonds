@@ -10,7 +10,11 @@ import {
 import BN from 'bn.js'
 
 import { getRandomByte, getSecureRandomInt } from './helpers'
-import { createVoteAccount, createVoteAccountWithIdentity } from './staking'
+import {
+  createVoteAccount,
+  createVoteAccountWithIdentity,
+  retryOnEpochRewardsPeriod,
+} from './staking'
 import {
   cancelWithdrawRequestInstruction,
   fundBondInstruction,
@@ -315,7 +319,9 @@ export async function executeFundBondInstruction({
     stakeAccountAuthority,
   })
   try {
-    await provider.sendIx([stakeAccountAuthority], instruction)
+    await retryOnEpochRewardsPeriod(() =>
+      provider.sendIx([stakeAccountAuthority], instruction),
+    )
   } catch (e) {
     console.error(
       `executeFundBondInstruction: bond account ${pubkey(

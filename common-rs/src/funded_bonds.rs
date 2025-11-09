@@ -1,3 +1,4 @@
+use crate::bond_products::{find_bond_products, FindBondProductsArgs};
 use crate::{
     bonds::get_bonds_for_config,
     settlements::get_settlements_for_config,
@@ -7,6 +8,9 @@ use crate::{
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use std::{collections::HashMap, sync::Arc};
+use validator_bonds::state::bond_product::{
+    BondProduct, CommissionProductConfig, ProductType, ProductTypeConfig,
+};
 use validator_bonds::state::withdraw_request::WithdrawRequest;
 use validator_bonds::state::{bond::Bond, config::find_bonds_withdrawer_authority};
 
@@ -21,7 +25,7 @@ pub struct Funds {
 pub async fn collect_validator_bonds_with_funds(
     rpc_client: Arc<RpcClient>,
     config_address: Pubkey,
-) -> anyhow::Result<Vec<(Pubkey, Bond, Funds)>> {
+) -> anyhow::Result<Vec<(Pubkey, Bond, Funds, CommissionProductConfig)>> {
     let (withdraw_authority, _) = find_bonds_withdrawer_authority(&config_address);
     log::info!("Config withdraw authority: {withdraw_authority:?}");
 
@@ -40,11 +44,39 @@ pub async fn collect_validator_bonds_with_funds(
             .into_iter()
             .filter(|(_, wr)| bonds.contains_key(&wr.bond))
             .collect();
+    let bond_products: HashMap<Pubkey, (Pubkey, BondProduct)> = find_bond_products(
+        rpc_client.clone(),
+        FindBondProductsArgs {
+            config: Some(&config_address),
+            product_type: Some(&ProductType::Commission),
+            ..Default::default()
+        },
+    )
+    .await?
+    .into_iter()
+    .map(|(pubkey, pb)| (pb.bond, (pubkey, pb)))
+    .try_fold(
+        HashMap::new(),
+        |mut acc, (bond, (product_pubkey, product))| {
+            if let Some((existing_pubkey, _)) = acc.get(&bond) {
+                // only one commission PDA for a bond may exist, otherwise it is an on-chain contract issue
+                anyhow::bail!(
+                    "Multiple BondProducts ({},{}) found for bond: {}",
+                    existing_pubkey,
+                    product_pubkey,
+                    bond
+                );
+            }
+            acc.insert(bond, (product_pubkey, product));
+            Ok::<_, anyhow::Error>(acc)
+        },
+    )?;
 
     log::info!("Found bonds: {}", bonds.len());
     log::info!("Found stake accounts: {}", stake_accounts.len());
     log::info!("Found withdraw requests: {}", withdraw_requests.len());
     log::info!("Found settlements: {}", settlements.len());
+    log::info!("Found bond commission products: {}", bond_products.len());
 
     let clock = get_clock(rpc_client.clone()).await?;
     for (pubkey, lamports_available, stake_account) in stake_accounts {
@@ -99,7 +131,14 @@ pub async fn collect_validator_bonds_with_funds(
                 .get(&bond.vote_account)
                 .cloned()
                 .unwrap_or_default();
-            (pubkey, bond, funds)
+            let commission_config = bond_products
+                .get(&pubkey)
+                .and_then(|(_, bp)| match &bp.config_data {
+                    ProductTypeConfig::Commission(data) => Some(data.clone()),
+                    _ => None,
+                })
+                .unwrap_or_default();
+            (pubkey, bond, funds, commission_config)
         })
         .collect())
 }

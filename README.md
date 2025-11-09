@@ -76,6 +76,8 @@ cargo build --release
   store-bonds --postgres-url "$POSTGRES_URL" --input-file bonds.yaml
 ```
 
+See [bonds-collector README](./bonds-collector/README.md) for development details.
+
 ### Validator Bonds API
 
 ```sh
@@ -86,6 +88,8 @@ cargo build --release
   --postgres-url "$POSTGRES_URL" \
   --postgres-ssl-root-cert "$POSTGRES_SSL_ROOT_CERT"
 ```
+
+See [API README](./api/README.md) for development details.
 
 ### On-Chain related parts
 
