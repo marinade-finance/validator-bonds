@@ -69,4 +69,7 @@ pub struct ValidatorBondRecord {
     pub remainining_settlement_claim_amount: Decimal,
     pub updated_at: DateTime<Utc>,
     pub bond_type: BondType,
+    pub inflation_commission_bps: Option<i64>,
+    pub mev_commission_bps: Option<i64>,
+    pub block_commission_bps: Option<i64>,
 }

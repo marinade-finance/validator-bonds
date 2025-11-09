@@ -24,20 +24,16 @@ async fn get_bonds_query(
     bond_type: Option<SqlSerializableBondType>,
 ) -> anyhow::Result<Vec<ValidatorBondRecord>> {
     let base_query = "
-        WITH filtered_bonds AS (
-            SELECT * FROM bonds
+        SELECT *
+        FROM bonds
+        WHERE epoch = (
+            SELECT MAX(epoch)
+            FROM bonds
             WHERE 1=1
             {bond_type_filter}
-        ),
-        cluster AS (
-            SELECT MAX(epoch) as last_epoch FROM filtered_bonds
         )
-        SELECT
-            pubkey, vote_account, authority, cpmpe, max_stake_wanted,
-            updated_at, epoch, funded_amount, effective_amount,
-            remaining_witdraw_request_amount, remainining_settlement_claim_amount, bond_type
-        FROM filtered_bonds, cluster
-        WHERE epoch = cluster.last_epoch";
+        {bond_type_filter}
+    ";
 
     let (query_string, params): (String, Vec<&(dyn ToSql + Sync)>) = match bond_type {
         Some(ref bt) => {
@@ -70,6 +66,9 @@ async fn get_bonds_query(
             remainining_settlement_claim_amount: row
                 .get::<_, Decimal>("remainining_settlement_claim_amount"),
             bond_type: bond_type.into(),
+            inflation_commission_bps: row.get("inflation_commission_bps"),
+            mev_commission_bps: row.get("mev_commission_bps"),
+            block_commission_bps: row.get("block_commission_bps"),
         })
     }
 
@@ -78,7 +77,7 @@ async fn get_bonds_query(
 
 pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
     const CHUNK_SIZE: usize = 512;
-    const PARAMS_PER_INSERT: usize = 12;
+    const PARAMS_PER_INSERT: usize = 15;
 
     let mut builder = SslConnector::builder(SslMethod::tls())?;
     builder.set_ca_file(&options.postgres_ssl_root_cert)?;
@@ -133,13 +132,16 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
             params.push(Box::<SqlSerializableBondType>::new(
                 bond.bond_type.clone().into(),
             ));
+            params.push(Box::new(bond.inflation_commission_bps));
+            params.push(Box::new(bond.mev_commission_bps));
+            params.push(Box::new(bond.block_commission_bps));
         }
 
         insert_values.pop();
 
         let query = format!(
             "
-            INSERT INTO bonds (pubkey, vote_account, authority, epoch, updated_at, cpmpe, max_stake_wanted, funded_amount, effective_amount, remaining_witdraw_request_amount, remainining_settlement_claim_amount, bond_type)
+            INSERT INTO bonds (pubkey, vote_account, authority, epoch, updated_at, cpmpe, max_stake_wanted, funded_amount, effective_amount, remaining_witdraw_request_amount, remainining_settlement_claim_amount, bond_type, inflation_commission_bps, mev_commission_bps, block_commission_bps)
             VALUES {}
             ON CONFLICT (pubkey, epoch) DO UPDATE
             SET vote_account = EXCLUDED.vote_account,
@@ -151,7 +153,10 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
                 effective_amount = EXCLUDED.effective_amount,
                 remaining_witdraw_request_amount = EXCLUDED.remaining_witdraw_request_amount,
                 remainining_settlement_claim_amount = EXCLUDED.remainining_settlement_claim_amount,
-                bond_type = EXCLUDED.bond_type
+                bond_type = EXCLUDED.bond_type,
+                inflation_commission_bps = EXCLUDED.inflation_commission_bps,
+                mev_commission_bps = EXCLUDED.mev_commission_bps,
+                block_commission_bps = EXCLUDED.block_commission_bps
             ",
             insert_values
         );

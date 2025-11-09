@@ -28,7 +28,7 @@ pub async fn collect_bonds(options: CommonCollectOptions) -> anyhow::Result<()> 
 
     let mut bonds: Vec<ValidatorBondRecord> = vec![];
 
-    for (pubkey, bond, funds) in funded_bonds {
+    for (pubkey, bond, funds, commissions) in funded_bonds {
         bonds.push(ValidatorBondRecord {
             pubkey: pubkey.to_string(),
             vote_account: bond.vote_account.to_string(),
@@ -42,6 +42,9 @@ pub async fn collect_bonds(options: CommonCollectOptions) -> anyhow::Result<()> 
             remaining_witdraw_request_amount: funds.remaining_witdraw_request_amount.into(),
             remainining_settlement_claim_amount: funds.remainining_settlement_claim_amount.into(),
             bond_type: options.bond_type.clone(),
+            block_commission_bps: commissions.block_bps,
+            inflation_commission_bps: commissions.inflation_bps,
+            mev_commission_bps: commissions.mev_bps,
         })
     }
 

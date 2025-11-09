@@ -3,6 +3,7 @@ use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::signature::Keypair;
 use std::{str::FromStr, sync::Arc};
 
+pub mod bond_products;
 pub mod bonds;
 pub mod config;
 pub mod constants;
@@ -14,6 +15,9 @@ pub mod stake_accounts;
 pub mod utils;
 pub mod utils_rpc_retry;
 pub mod withdraw_requests;
+
+// Re-export commonly used types for convenience
+pub use validator_bonds::state::bond_product::ProductType;
 
 pub fn get_validator_bonds_program(
     rpc_client: Arc<RpcClient>,

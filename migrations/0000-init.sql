@@ -7,6 +7,6 @@ CREATE TABLE bonds (
   epoch INTEGER NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
   PRIMARY KEY(id)
-)
+);
 
 ALTER TABLE bonds ADD CONSTRAINT pubkey_epoch_unique UNIQUE (pubkey, epoch);
