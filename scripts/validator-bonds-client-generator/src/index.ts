@@ -1,5 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, n/no-process-exit */
-import path from 'path'
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, n/no-process-exit, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
+import { readFileSync } from 'fs'
+import path, { join } from 'path'
 
 import { rootNodeFromAnchor } from '@codama/nodes-from-anchor'
 import { renderVisitor as renderJavaScriptVisitor } from '@codama/renderers-js'
@@ -10,7 +11,8 @@ import { version } from '../package.json'
 
 import type { AnchorIdl } from '@codama/nodes-from-anchor'
 
-import anchorIdl from '/home/chalda/marinade/validator-bonds/resources/idl/validator_bonds.json'
+const idlPath = join(__dirname, '../../../resources/idl/validator_bonds.json')
+const anchorIdl = JSON.parse(readFileSync(idlPath, 'utf-8'))
 
 const program = new Command()
 
@@ -37,7 +39,15 @@ program
   .action((options: { output: string }) => {
     const codama = createFromRoot(rootNodeFromAnchor(anchorIdl as AnchorIdl))
     const outputDir = path.join(options.output)
-    codama.accept(renderJavaScriptVisitor(outputDir))
+    codama
+      .accept(renderJavaScriptVisitor(outputDir))
+      .then(() => {
+        console.log('Client generated successfully')
+      })
+      .catch(err => {
+        console.error('Generation Error', err)
+        process.exit(1)
+      })
   })
 
 try {
