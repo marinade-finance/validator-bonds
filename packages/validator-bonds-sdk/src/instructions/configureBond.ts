@@ -34,12 +34,12 @@ export async function configureBondInstruction({
   bondAccount: PublicKey
   instruction: TransactionInstruction
 }> {
-  bondAccount = checkAndGetBondAddress(
-    bondAccount,
-    configAccount,
+  bondAccount = checkAndGetBondAddress({
+    bond: bondAccount,
+    config: configAccount,
     voteAccount,
-    program.programId,
-  )
+    programId: program.programId,
+  })
   if (voteAccount === undefined || configAccount === undefined) {
     const bondData = await getBond(program, bondAccount)
     voteAccount = bondData.voteAccount

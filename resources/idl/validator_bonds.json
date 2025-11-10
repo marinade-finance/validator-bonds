@@ -1213,6 +1213,151 @@
       ]
     },
     {
+      "name": "configure_bond_product",
+      "discriminator": [
+        167,
+        119,
+        141,
+        123,
+        76,
+        109,
+        241,
+        133
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "relations": [
+            "bond"
+          ]
+        },
+        {
+          "name": "bond",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "path": "vote_account"
+              }
+            ]
+          },
+          "relations": [
+            "bond_product"
+          ]
+        },
+        {
+          "name": "vote_account",
+          "relations": [
+            "bond"
+          ]
+        },
+        {
+          "name": "bond_product",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  112,
+                  114,
+                  111,
+                  100,
+                  117,
+                  99,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond"
+              },
+              {
+                "kind": "account",
+                "path": "bond_product.product_type",
+                "account": "BondProduct"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "validator vote account validator identity or bond authority may change the account"
+          ],
+          "signer": true
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "configure_bond_product_args",
+          "type": {
+            "defined": {
+              "name": "ConfigureBondProductArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "configure_bond_with_mint",
       "discriminator": [
         48,
@@ -2096,6 +2241,168 @@
       ]
     },
     {
+      "name": "init_bond_product",
+      "discriminator": [
+        228,
+        35,
+        205,
+        119,
+        63,
+        209,
+        72,
+        56
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "docs": [
+            "The config account that the bond belongs to"
+          ],
+          "relations": [
+            "bond"
+          ]
+        },
+        {
+          "name": "bond",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "path": "vote_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vote_account",
+          "relations": [
+            "bond"
+          ]
+        },
+        {
+          "name": "bond_product",
+          "docs": [
+            "The bond product account being created"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  112,
+                  114,
+                  111,
+                  100,
+                  117,
+                  99,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond"
+              },
+              {
+                "kind": "arg",
+                "path": "args.product_type"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "permission-ed: the validator identity or bond authority signs the instruction, InitBondProductArgs applied",
+            "permission-less: no signature, default configuration for the bond product"
+          ],
+          "signer": true,
+          "optional": true
+        },
+        {
+          "name": "rent_payer",
+          "docs": [
+            "Rent payer for the bond product account creation"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "init_bond_product_args",
+          "type": {
+            "defined": {
+              "name": "InitBondProductArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "init_config",
       "discriminator": [
         23,
@@ -2957,6 +3264,9 @@
         },
         {
           "name": "vote_account",
+          "docs": [
+            "It may be an orphaned system account if the original vote account was removed from the chain."
+          ],
           "relations": [
             "bond"
           ]
@@ -3215,6 +3525,19 @@
       ]
     },
     {
+      "name": "BondProduct",
+      "discriminator": [
+        135,
+        68,
+        116,
+        146,
+        5,
+        75,
+        127,
+        143
+      ]
+    },
+    {
       "name": "Config",
       "discriminator": [
         155,
@@ -3373,6 +3696,19 @@
       ]
     },
     {
+      "name": "ConfigureBondProductEvent",
+      "discriminator": [
+        15,
+        80,
+        219,
+        241,
+        47,
+        206,
+        5,
+        179
+      ]
+    },
+    {
       "name": "ConfigureBondWithMintEvent",
       "discriminator": [
         209,
@@ -3461,6 +3797,19 @@
         85,
         159,
         200
+      ]
+    },
+    {
+      "name": "InitBondProductEvent",
+      "discriminator": [
+        159,
+        222,
+        72,
+        56,
+        134,
+        104,
+        96,
+        161
       ]
     },
     {
@@ -3938,8 +4287,18 @@
     },
     {
       "code": 6076,
-      "name": "BondProductChangeNotPermitted",
-      "msg": "Wrong authority for changing the validator bond product account"
+      "name": "BondProductSetupNotPermitted",
+      "msg": "Wrong authority to setup the validator bond product account"
+    },
+    {
+      "code": 6077,
+      "name": "InvalidBondProductAddress",
+      "msg": "Fail to create program address for Bond Product"
+    },
+    {
+      "code": 6078,
+      "name": "ProductTypeConfigValidationFailure",
+      "msg": "Fail to validate ProductConfig value"
     }
   ],
   "types": [
@@ -4018,6 +4377,68 @@
                 134
               ]
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "BondProduct",
+      "docs": [
+        "Bond products configuration.",
+        "Validator configures different products on a bond to offer various staking services."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "docs": [
+              "The bond config account"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "bond",
+            "docs": [
+              "The bond this product belongs to"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "vote_account",
+            "docs": [
+              "Validator vote account this product is associated with"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "product_type",
+            "docs": [
+              "Product type discriminator"
+            ],
+            "type": {
+              "defined": {
+                "name": "ProductType"
+              }
+            }
+          },
+          {
+            "name": "config_data",
+            "docs": [
+              "Type-specific configuration data"
+            ],
+            "type": {
+              "defined": {
+                "name": "ProductTypeConfig"
+              }
+            }
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "Bump seed"
+            ],
+            "type": "u8"
           }
         ]
       }
@@ -4406,6 +4827,35 @@
       }
     },
     {
+      "name": "CommissionProductConfig",
+      "docs": [
+        "Configuration of commissions. The commission is permitted to be negative to allow for subsidies."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "inflation_bps",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "mev_bps",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "block_bps",
+            "type": {
+              "option": "i64"
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "Config",
       "docs": [
         "Root account that configures the validator bonds program"
@@ -4564,6 +5014,70 @@
                 "defined": {
                   "name": "U64ValueChange"
                 }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigureBondProductArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config_data",
+            "type": {
+              "defined": {
+                "name": "ProductTypeConfig"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigureBondProductEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "bond_product",
+            "type": "pubkey"
+          },
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "vote_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "product_type",
+            "type": {
+              "defined": {
+                "name": "ProductType"
+              }
+            }
+          },
+          {
+            "name": "old_config_data",
+            "type": {
+              "defined": {
+                "name": "ProductTypeConfig"
+              }
+            }
+          },
+          {
+            "name": "new_config_data",
+            "type": {
+              "defined": {
+                "name": "ProductTypeConfig"
               }
             }
           }
@@ -5049,6 +5563,68 @@
       }
     },
     {
+      "name": "InitBondProductArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "product_type",
+            "type": {
+              "defined": {
+                "name": "ProductType"
+              }
+            }
+          },
+          {
+            "name": "config_data",
+            "type": {
+              "defined": {
+                "name": "ProductTypeConfig"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitBondProductEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bond_product",
+            "type": "pubkey"
+          },
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "vote_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "product_type",
+            "type": {
+              "defined": {
+                "name": "ProductType"
+              }
+            }
+          },
+          {
+            "name": "authority",
+            "type": {
+              "option": "pubkey"
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "InitConfigArgs",
       "type": {
         "kind": "struct",
@@ -5334,6 +5910,53 @@
           {
             "name": "token_metadata",
             "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProductType",
+      "docs": [
+        "Product type discriminator"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Commission"
+          },
+          {
+            "name": "Custom",
+            "fields": [
+              "string"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProductTypeConfig",
+      "docs": [
+        "Discriminated union for different product configurations"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Commission",
+            "fields": [
+              {
+                "defined": {
+                  "name": "CommissionProductConfig"
+                }
+              }
+            ]
+          },
+          {
+            "name": "Custom",
+            "fields": [
+              "bytes"
+            ]
           }
         ]
       }
@@ -5760,6 +6383,11 @@
       "name": "BOND_MINT_SEED",
       "type": "bytes",
       "value": "[98, 111, 110, 100, 95, 109, 105, 110, 116]"
+    },
+    {
+      "name": "BOND_PRODUCT_SEED",
+      "type": "bytes",
+      "value": "[98, 111, 110, 100, 95, 112, 114, 111, 100, 117, 99, 116]"
     },
     {
       "name": "BOND_SEED",

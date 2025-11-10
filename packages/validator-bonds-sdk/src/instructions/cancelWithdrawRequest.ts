@@ -95,12 +95,12 @@ export async function cancelWithdrawRequestInstruction({
     )
     configAccount = MARINADE_CONFIG_ADDRESS
   }
-  bondAccount = checkAndGetBondAddress(
-    bondAccount,
-    configAccount,
+  bondAccount = checkAndGetBondAddress({
+    bond: bondAccount,
+    config: configAccount,
     voteAccount,
-    program.programId,
-  )
+    programId: program.programId,
+  })
 
   const instruction = await program.methods
     .cancelWithdrawRequest()

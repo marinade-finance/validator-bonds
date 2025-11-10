@@ -10,6 +10,7 @@ import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import { Connection, Keypair, PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
 
+import { getProductTypeNameSeed } from './productBond'
 import ValidatorBondsIDL from '../idl/json/validator_bonds.json'
 
 import type { ValidatorBonds } from '../idl/types/validator_bonds'
@@ -31,21 +32,32 @@ export const VALIDATOR_BONDS_PROGRAM_ID = new PublicKey(
   ),
 )
 
+export { ValidatorBondsIDL }
 export { ValidatorBonds }
 export type ValidatorBondsProgram = Program<ValidatorBonds>
 
 // --- ACCOUNTS ---
 export type Config = IdlAccounts<ValidatorBonds>['config']
 export type Bond = IdlAccounts<ValidatorBonds>['bond']
+export type BondProduct = IdlAccounts<ValidatorBonds>['bondProduct']
 export type SettlementClaims = IdlAccounts<ValidatorBonds>['settlementClaims']
 export type Settlement = IdlAccounts<ValidatorBonds>['settlement']
 export type WithdrawRequest = IdlAccounts<ValidatorBonds>['withdrawRequest']
 
 // --- TYPES ---
+export type InitBondArgs = IdlTypes<ValidatorBonds>['initBondArgs']
+export type InitBondProductArgs =
+  IdlTypes<ValidatorBonds>['initBondProductArgs']
 export type InitConfigArgs = IdlTypes<ValidatorBonds>['initConfigArgs']
 export type ConfigureConfigArgs =
   IdlTypes<ValidatorBonds>['configureConfigArgs']
-export type InitBondArgs = IdlTypes<ValidatorBonds>['initBondArgs']
+export type ConfigureBondArgs = IdlTypes<ValidatorBonds>['configureBondArgs']
+export type ConfigureBondProductArgs =
+  IdlTypes<ValidatorBonds>['configureBondProductArgs']
+export type ProductType = IdlTypes<ValidatorBonds>['productType']
+export type ProductTypeConfig = IdlTypes<ValidatorBonds>['productTypeConfig']
+export type CommissionProductConfig =
+  IdlTypes<ValidatorBonds>['commissionProductConfig']
 
 // --- DISCRIMINATORS ---
 function fromDiscriminators(accountName: string): number[] {
@@ -65,6 +77,7 @@ function discriminator(accountName: string): string {
 }
 export const CONFIG_ACCOUNT_DISCRIMINATOR = discriminator('Config')
 export const BOND_ACCOUNT_DISCRIMINATOR = discriminator('Bond')
+export const BOND_PRODUCT_ACCOUNT_DISCRIMINATOR = discriminator('BondProduct')
 export const SETTLEMENT_CLAIMS_ACCOUNT_DISCRIMINATOR =
   discriminator('SettlementClaims')
 export const SETTLEMENT_ACCOUNT_DISCRIMINATOR = discriminator('Settlement')
@@ -78,8 +91,8 @@ function fromConstants(constantName: string): string {
   )
   if (constant === undefined) {
     throw new Error(
-      'SDK initialization failure. Validator bonds IDL does not define constant ' +
-        constant,
+      'SDK initialization failure. Validator bonds IDL does not define constant value for name ' +
+        constantName,
     )
   }
   return constant.value
@@ -89,6 +102,7 @@ export function seedFromConstants(seedName: string): Uint8Array {
   return new Uint8Array(JSON.parse(constantValue))
 }
 export const BOND_SEED = seedFromConstants('BOND_SEED')
+export const BOND_PRODUCT_SEED = seedFromConstants('BOND_PRODUCT_SEED')
 export const BOND_MINT_SEED = seedFromConstants('BOND_MINT_SEED')
 export const SETTLEMENT_SEED = seedFromConstants('SETTLEMENT_SEED')
 export const WITHDRAW_REQUEST_SEED = seedFromConstants('WITHDRAW_REQUEST_SEED')
@@ -125,6 +139,14 @@ export type ConfigureBondEvent =
 export const CONFIGURE_BOND_WITH_MINT_EVENT = 'configureBondWithMintEvent'
 export type ConfigureBondWithMintEvent =
   IdlEvents<ValidatorBonds>[typeof CONFIGURE_BOND_WITH_MINT_EVENT]
+
+export const INIT_BOND_PRODUCT_EVENT = 'initBondProductEvent'
+export type InitBondProductEvent =
+  IdlEvents<ValidatorBonds>[typeof INIT_BOND_PRODUCT_EVENT]
+
+export const CONFIGURE_BOND_PRODUCT_EVENT = 'configureBondProductEvent'
+export type ConfigureBondProductEvent =
+  IdlEvents<ValidatorBonds>[typeof CONFIGURE_BOND_PRODUCT_EVENT]
 
 export const MINT_BOND_EVENT = 'mintBondEvent'
 export type MintBondEvent = IdlEvents<ValidatorBonds>[typeof MINT_BOND_EVENT]
@@ -237,6 +259,17 @@ export function bondAddress(
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [BOND_SEED, config.toBytes(), voteAccount.toBytes()],
+    validatorBondsProgramId,
+  )
+}
+
+export function bondProductAddress(
+  bond: PublicKey,
+  productType: ProductType,
+  validatorBondsProgramId: PublicKey = VALIDATOR_BONDS_PROGRAM_ID,
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [BOND_PRODUCT_SEED, bond.toBytes(), getProductTypeNameSeed(productType)],
     validatorBondsProgramId,
   )
 }

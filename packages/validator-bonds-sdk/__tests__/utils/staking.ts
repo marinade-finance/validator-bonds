@@ -501,6 +501,7 @@ export function isErrorEpochRewardsPeriod(e: unknown): boolean {
   return false
 }
 
+// Retry execution when epoch rewards period is active (error 0x10, Custom: 16)
 export async function retryOnEpochRewardsPeriod<T>(
   fn: () => Promise<T>,
 ): Promise<T> {
