@@ -1,0 +1,30 @@
+{
+  "name": "@marinade.finance/bond-product-data-generator",
+  "version": "1.0.0",
+  "description": "CLI tool to generate BondProduct account data for Solana Anchor",
+  "main": "dist/index.js",
+  "bin": {
+    "bond-product-data-generator": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "generate": "ts-node src/index.ts",
+    "cli": "pnpm generate"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.1",
+    "@marinade.finance/validator-bonds-sdk": "file:../../packages/validator-bonds-sdk",
+    "@solana/web3.js": "^1.95.8",
+    "bn.js": "^5.2.2",
+    "borsh": "~0.7.0",
+    "bs58": "^6.0.0",
+    "commander": "^14.0.0"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.1.6",
+    "@types/node": "^22.13.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
+  }
+}
