@@ -234,6 +234,12 @@ pub enum ErrorCode {
     #[msg("Failed to serialize Bond Product")]
     BondProductTypeMismatch, // 6075 0x17bb
 
-    #[msg("Wrong authority for changing the validator bond product account")]
-    BondProductChangeNotPermitted, // 6076 0x17bc
+    #[msg("Wrong authority to setup the validator bond product account")]
+    BondProductSetupNotPermitted, // 6076 0x17bc
+
+    #[msg("Fail to create program address for Bond Product")]
+    InvalidBondProductAddress, // 6077 0x17bd
+
+    #[msg("Fail to validate ProductConfig value")]
+    ProductTypeConfigValidationFailure, // 6078 0x17be
 }

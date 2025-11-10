@@ -86,6 +86,22 @@ pub mod validator_bonds {
         ConfigureBondWithMint::process(ctx, args)
     }
 
+    pub fn init_bond_product(
+        ctx: Context<InitBondProduct>,
+        init_bond_product_args: InitBondProductArgs,
+    ) -> Result<()> {
+        check_context(&ctx)?;
+        InitBondProduct::process(ctx, init_bond_product_args)
+    }
+
+    pub fn configure_bond_product(
+        ctx: Context<ConfigureBondProduct>,
+        configure_bond_product_args: ConfigureBondProductArgs,
+    ) -> Result<()> {
+        check_context(&ctx)?;
+        ConfigureBondProduct::process(ctx, configure_bond_product_args)
+    }
+
     pub fn mint_bond(ctx: Context<MintBond>) -> Result<()> {
         check_context(&ctx)?;
         MintBond::process(ctx)
