@@ -11,8 +11,13 @@ pub const BOND_SEED: &[u8] = b"bond_account";
 
 #[constant]
 pub const BOND_MINT_SEED: &[u8] = b"bond_mint";
+
+#[constant]
+pub const BOND_PRODUCT_SEED: &[u8] = b"bond_product";
+
 #[constant]
 pub const SETTLEMENT_SEED: &[u8] = b"settlement_account";
+
 #[constant]
 pub const WITHDRAW_REQUEST_SEED: &[u8] = b"withdraw_account";
 

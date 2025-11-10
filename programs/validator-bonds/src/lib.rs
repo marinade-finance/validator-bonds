@@ -86,6 +86,22 @@ pub mod validator_bonds {
         ConfigureBondWithMint::process(ctx, args)
     }
 
+    pub fn init_bond_product(
+        ctx: Context<InitBondProduct>,
+        init_bond_product_args: InitBondProductArgs,
+    ) -> Result<()> {
+        check_context(&ctx)?;
+        InitBondProduct::process(ctx, init_bond_product_args)
+    }
+
+    pub fn configure_bond_product(
+        ctx: Context<ConfigureBondProduct>,
+        configure_bond_product_args: ConfigureBondProductArgs,
+    ) -> Result<()> {
+        check_context(&ctx)?;
+        ConfigureBondProduct::process(ctx, configure_bond_product_args)
+    }
+
     pub fn mint_bond(ctx: Context<MintBond>) -> Result<()> {
         check_context(&ctx)?;
         MintBond::process(ctx)
@@ -175,12 +191,12 @@ pub mod validator_bonds {
         ClaimSettlementV2::process(ctx, claim_settlement_args)
     }
 
-    // Enable to force IDL to include ClaimSettlementV1
-    // Per Anchor changes (0.31.0) the account is included in the IDL only if used in the program code
-    pub fn claim_settlement_v1(ctx: Context<ClaimSettlementV1>) -> Result<()> {
-        check_context(&ctx)?;
-        Ok(())
-    }
+    // // Enable to force IDL to include ClaimSettlementV1
+    // // Per Anchor changes (0.31.0) the account is included in the IDL only if used in the program code
+    // pub fn claim_settlement_v1(ctx: Context<ClaimSettlementV1>) -> Result<()> {
+    //     check_context(&ctx)?;
+    //     Ok(())
+    // }
 }
 
 #[cfg(test)]
