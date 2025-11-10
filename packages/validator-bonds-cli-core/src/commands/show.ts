@@ -20,6 +20,8 @@ import {
   withdrawRequestAddress,
   settlementClaimsAddress,
   bondMintAddress,
+  findBondProducts,
+  ProductTypes,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
   getMultipleAccounts,
@@ -41,6 +43,7 @@ import type {
   Config,
   BondDataWithFunding,
   ValidatorBondsProgram,
+  BondProduct,
 } from '@marinade.finance/validator-bonds-sdk'
 import type {
   ProgramAccountInfoNullable,
@@ -264,7 +267,10 @@ async function showConfig({
 export type VoteAccountShow = Partial<
   Omit<VoteAccount, 'lastTimestamp' | 'epochCredits' | 'priorVoters' | 'votes'>
 >
+export type BondProductShow = Pick<BondProduct, 'productType' | 'configData'> &
+  Partial<Omit<ProgramAccount<BondProduct>, 'account'>>
 export type BondShow<T> = ProgramAccountWithProgramId<T> & {
+  configs?: BondProductShow[]
   voteAccount?: VoteAccountShow
   bondMint?: PublicKey
 } & Partial<Omit<BondDataWithFunding, 'voteAccount' | 'bondAccount'>>
@@ -318,10 +324,17 @@ export async function showBond({
       }
     }
 
+    const commissionProducts = await findBondProducts({
+      program,
+      bond: address,
+      productType: ProductTypes.commission,
+      logger,
+    })
     data = {
       programId: program.programId,
       publicKey: address,
       account: bondData.account.data,
+      configs: bondProductShowData(commissionProducts),
       voteAccount,
     }
 
@@ -388,6 +401,23 @@ export async function showBond({
         account: bondData.account,
       }))
 
+      const bondProducts = await findBondProducts({
+        program,
+        configAccount: config,
+        voteAccount,
+      })
+      data = bondDataArray.map(bondData => {
+        const matchingProducts = bondProducts.filter(product =>
+          product.account.bond.equals(bondData.publicKey),
+        )
+        return {
+          programId: program.programId,
+          publicKey: bondData.publicKey,
+          account: bondData.account,
+          configs: bondProductShowData(matchingProducts),
+        }
+      })
+
       if (withFunding && bondDataArray.length > 0) {
         assert(bondDataArray[0] !== undefined)
         const configAccount = config ?? bondDataArray[0].account.config
@@ -450,6 +480,25 @@ function constructBondMintAddress(
     )[0]
   }
   return undefined
+}
+
+function bondProductShowData(
+  bondProducts: ProgramAccount<BondProduct>[],
+): BondProductShow[] | undefined {
+  const { verbose: cliVerbose } = getCliContext()
+  return bondProducts
+    ? bondProducts
+        .map(p => ({
+          publicKey: cliVerbose ? p.publicKey : undefined,
+          productType: p.account.productType,
+          configData: p.account.configData,
+        }))
+        .sort((a, b) => {
+          if (a.productType.commission && b.productType.custom) return 1
+          if (a.productType.custom && b.productType.commission) return -1
+          return 0
+        })
+    : undefined
 }
 
 export async function showSettlement({
@@ -637,6 +686,26 @@ export function reformatBond(key: string, value: any): ReformatAction {
       records: [{ key, value: '<NOT EXISTING>' }],
     }
   }
+  if (key.toLowerCase() === 'producttype' && typeof value === 'object') {
+    return {
+      type: 'UseExclusively',
+      records: [
+        {
+          key,
+          // { commission: {} } vs. { custom: {"0": "label"} } - either 'commission' or 'custom' formatted
+          value: hasEmptyNestedObject(value)
+            ? Object.keys(value)[0]
+            : reformat(value, reformatBond),
+        },
+      ],
+    }
+  }
+  if (typeof key === 'string' && key === 'custom') {
+    return { type: 'UseReplace', value: reformat(value, reformatBond) }
+  }
+  if (typeof key === 'string' && key === '0') {
+    return { type: 'UseReplace', value: reformat(value) }
+  }
   if (key.toLowerCase().includes('bump')) {
     return { type: 'Remove' }
   }
@@ -656,6 +725,16 @@ function formatSolExclusive(key: string, value: BN): ReformatAction {
       },
     ],
   }
+}
+
+function hasEmptyNestedObject(obj: object): boolean {
+  return Object.values(obj).some(
+    value =>
+      typeof value === 'object' &&
+      value !== null &&
+      !Array.isArray(value) &&
+      Object.keys(value).length === 0,
+  )
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

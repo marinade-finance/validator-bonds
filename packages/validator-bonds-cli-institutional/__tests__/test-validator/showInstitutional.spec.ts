@@ -61,6 +61,7 @@ describe('Show command using CLI (institutional)', () => {
     }
     const expectedDataFundingSingleItem = {
       ...expectedDataNoFunding,
+      configs: [],
       voteAccount: voteAccountShow,
       amountOwned: '0 SOL',
       amountActive: '0 SOL',

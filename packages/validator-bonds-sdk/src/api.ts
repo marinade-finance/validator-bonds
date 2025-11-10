@@ -467,12 +467,14 @@ export async function findBondProducts({
   voteAccount,
   configAccount,
   productType,
+  logger,
 }: {
   program: ValidatorBondsProgram
   bond?: PublicKey
   voteAccount?: PublicKey
   configAccount?: PublicKey
   productType?: ProductType
+  logger?: LoggerPlaceholder
 }): Promise<ProgramAccount<BondProduct>[]> {
   if (voteAccount && configAccount) {
     const [bondCalculated] = bondAddress(
@@ -482,7 +484,8 @@ export async function findBondProducts({
     )
     if (bond && !bond.equals(bondCalculated)) {
       throw new Error(
-        `Bond address calculated (from config: ${configAccount.toBase58()} and vote: ${voteAccount.toBase58()}) (${bondCalculated.toBase58()}) does not match provided bond address (${bond.toBase58()})`,
+        `Bond address calculated (from config: ${configAccount.toBase58()} and vote: ${voteAccount.toBase58()}) ` +
+          `(${bondCalculated.toBase58()}) does not match provided bond address (${bond.toBase58()})`,
       )
     }
     if (!bond) {
@@ -490,10 +493,15 @@ export async function findBondProducts({
     }
   }
   if (bond && productType) {
-    const [bondProductAccount] = bondProductAddress(
+    const [bondProductAccount, bump] = bondProductAddress(
       bond,
       productType,
       program.programId,
+    )
+    logDebug(
+      logger,
+      `findBondProducts: derived bond product account ${bondProductAccount.toBase58()}[${bump}] ` +
+        `from bond ${bond.toBase58()} and product type ${jsonStringify(productType)}`,
     )
     const bondProductData =
       await program.account.bondProduct.fetchNullable(bondProductAccount)
