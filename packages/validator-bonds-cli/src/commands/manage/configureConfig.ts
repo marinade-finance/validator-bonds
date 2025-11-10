@@ -36,7 +36,7 @@ export function installConfigureConfig(program: Command) {
     )
     .option(
       '--admin-authority <keypair_or_ledger_or_pubkey>',
-      'Admin authority that is permitted to do the configuration change (default: wallet)',
+      'Admin authority that is permitted to do the configuration change',
       parseWalletOrPubkeyOption,
     )
     .option(

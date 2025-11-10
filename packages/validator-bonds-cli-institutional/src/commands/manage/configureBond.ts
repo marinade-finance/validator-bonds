@@ -14,7 +14,6 @@ export function installConfigureBond(program: Command) {
     async (
       address: Promise<PublicKey>,
       {
-        voteAccount,
         authority,
         withToken,
         bondAuthority,
@@ -34,7 +33,6 @@ export function installConfigureBond(program: Command) {
       await manageConfigureBond({
         address: await address,
         config: MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
-        voteAccount: await voteAccount,
         authority: await authority,
         withToken,
         newBondAuthority: await bondAuthority,

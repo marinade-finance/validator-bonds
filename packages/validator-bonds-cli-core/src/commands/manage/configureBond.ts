@@ -1,6 +1,11 @@
+import { CliCommandError } from '@marinade.finance/cli-common'
 import {
+  ProductTypes,
   configureBondInstruction,
   configureBondWithMintInstruction,
+  configureCommissionProductInstruction,
+  findBondProducts,
+  initCommissionProductInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
   executeTx,
@@ -8,17 +13,25 @@ import {
   parsePubkey,
   parsePubkeyOrPubkeyFromWallet,
   parseWalletOrPubkeyOption,
+  pubkey,
   transaction,
 } from '@marinade.finance/web3js-1x'
 
 import { printBanner } from '../../banner'
 import {
+  CONFIGURE_BOND_CONFIG_COMMISSION_LIMIT_UNITS,
   CONFIGURE_BOND_LIMIT_UNITS,
   CONFIGURE_BOND_MINT_LIMIT_UNITS,
+  INIT_BOND_CONFIG_COMMISSION_LIMIT_UNITS,
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
 import { getBondFromAddress } from '../../utils'
 
+import type { LoggerWrapper } from '@marinade.finance/ts-common'
+import type {
+  BondProduct,
+  ValidatorBondsProgram,
+} from '@marinade.finance/validator-bonds-sdk'
 import type {
   Wallet as WalletInterface,
   Wallet,
@@ -65,23 +78,31 @@ export function configureConfigureBond(program: Command): Command {
 export async function manageConfigureBond({
   address,
   config,
-  voteAccount,
   authority,
   withToken,
   newBondAuthority,
   cpmpe,
   maxStakeWanted,
+  mevBps,
+  blockBps,
+  inflationBps,
+  uniformBps,
+  rentPayer,
   computeUnitLimit,
   isPrintBanner,
 }: {
   address: PublicKey
   config: PublicKey
-  voteAccount?: PublicKey
   authority?: WalletInterface | PublicKey
   withToken: boolean
   newBondAuthority?: PublicKey
   cpmpe?: BN
   maxStakeWanted?: BN
+  mevBps?: BN | null
+  blockBps?: BN | null
+  inflationBps?: BN | null
+  uniformBps?: BN | null
+  rentPayer?: WalletInterface | PublicKey
   computeUnitLimit?: number
   isPrintBanner?: boolean
 }) {
@@ -109,7 +130,7 @@ export async function manageConfigureBond({
   })
   const bondAccountAddress = bondAccountData.publicKey
   config = bondAccountData.account.data.config
-  voteAccount = bondAccountData.account.data.voteAccount
+  const voteAccount = bondAccountData.account.data.voteAccount
 
   let bondAccount: PublicKey
   let instruction: TransactionInstruction
@@ -148,6 +169,82 @@ export async function manageConfigureBond({
 
   tx.add(instruction)
 
+  rentPayer = rentPayer ?? authority
+
+  if (
+    mevBps !== undefined ||
+    blockBps !== undefined ||
+    inflationBps !== undefined ||
+    uniformBps !== undefined
+  ) {
+    if (withToken) {
+      throw CliCommandError.instance(
+        'Configuring bond commission parameters is not supported when using bond token authorization. ' +
+          'Please use authority authorization (without --with-token option) to configure bond commission parameters.',
+      )
+    }
+    const bondProduct = await verifyCommissionBondProductExistence(
+      program,
+      bondAccount,
+      logger,
+    )
+    if (!bondProduct) {
+      const { instruction: commissionInitInstruction, bondProduct } =
+        await initCommissionProductInstruction({
+          program,
+          bondAccount,
+          configAccount: config,
+          voteAccount: voteAccount ?? bondAccountData.account.data.voteAccount,
+          authority,
+          blockBps: blockBps ?? null,
+          inflationBps: inflationBps ?? null,
+          mevBps: mevBps ?? null,
+          uniformBps,
+          rentPayer,
+        })
+      logger.info(
+        'To configure commission parameters, a commission bond configuration account will be initialized. ' +
+          `To pay rent to create the commission bond configuration account the rent payer ${pubkey(rentPayer).toBase58()} is used.`,
+      )
+      logger.debug(
+        `Initializing commission bond product: ${bondProduct.toBase58()}`,
+      )
+      tx.add(commissionInitInstruction)
+      computeUnitLimit += INIT_BOND_CONFIG_COMMISSION_LIMIT_UNITS
+      if (instanceOfWallet(rentPayer)) {
+        signers.push(rentPayer)
+        rentPayer = rentPayer.publicKey
+      }
+    } else {
+      const { instruction: commissionConfigureInstruction, bondProduct } =
+        await configureCommissionProductInstruction({
+          program,
+          bondAccount,
+          configAccount: config,
+          voteAccount: voteAccount ?? bondAccountData.account.data.voteAccount,
+          authority,
+          blockBps,
+          inflationBps,
+          mevBps,
+          uniformBps,
+        })
+      logger.info(
+        'To configure commission parameters, a commission bond configuration account will be initialized. ' +
+          `To pay rent to create the commission bond configuration account the rent payer ${pubkey(rentPayer).toBase58()} is used.`,
+      )
+      logger.debug(
+        `Initializing commission bond product: ${bondProduct.toBase58()}`,
+      )
+      tx.add(commissionConfigureInstruction)
+      computeUnitLimit += CONFIGURE_BOND_CONFIG_COMMISSION_LIMIT_UNITS
+    }
+  }
+
+  if (instanceOfWallet(authority)) {
+    signers.push(authority)
+    authority = authority.publicKey
+  }
+
   if (isPrintBanner) {
     printBanner(voteAccount)
   }
@@ -170,4 +267,24 @@ export async function manageConfigureBond({
     sendOpts: { skipPreflight },
   })
   logger.info(`Bond account ${bondAccount.toBase58()} successfully configured`)
+}
+
+async function verifyCommissionBondProductExistence(
+  program: ValidatorBondsProgram,
+  bondAccount: PublicKey,
+  logger: LoggerWrapper,
+): Promise<BondProduct | undefined> {
+  const product = await findBondProducts({
+    program,
+    bond: bondAccount,
+    productType: ProductTypes.commission,
+    logger,
+  })
+  if (product.length > 1) {
+    throw CliCommandError.instance(
+      `Multiple commission bond products (${product.map(p => p.publicKey.toBase58()).join(', ')}) found ` +
+        `for bond account ${bondAccount.toBase58()}. This is unexpected as only one commission product should exist per bond account.`,
+    )
+  }
+  return product[0]?.account
 }

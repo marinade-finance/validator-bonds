@@ -183,15 +183,27 @@ describe('Validator Bonds init bond product', () => {
     })
 
     // Find all bond products for this bond
-    let bondProducts = await findBondProducts({ program, bond: bondAccount })
+    let bondProducts = await findBondProducts({
+      program,
+      bond: bondAccount,
+      logger: NULL_LOG,
+    })
     expect(bondProducts.length).toEqual(4) // 1 commission + 3 custom
 
     // Find by config account
-    bondProducts = await findBondProducts({ program, configAccount })
+    bondProducts = await findBondProducts({
+      program,
+      configAccount,
+      logger: NULL_LOG,
+    })
     expect(bondProducts.length).toEqual(4)
 
     // Find by vote account
-    bondProducts = await findBondProducts({ program, voteAccount })
+    bondProducts = await findBondProducts({
+      program,
+      voteAccount,
+      logger: NULL_LOG,
+    })
     expect(bondProducts.length).toEqual(4)
 
     // Find commission product specifically
@@ -199,6 +211,7 @@ describe('Validator Bonds init bond product', () => {
       program,
       bond: bondAccount,
       productType: ProductTypes.commission,
+      logger: NULL_LOG,
     })
     // some other tests may have created commission products too
     expect(bondProducts.length).toBeGreaterThanOrEqual(1)
@@ -211,6 +224,7 @@ describe('Validator Bonds init bond product', () => {
       program,
       bond: bondAccount,
       productType: ProductTypes.custom('product-2'),
+      logger: NULL_LOG,
     })
     expect(bondProducts.length).toEqual(1)
     expect(bondProducts[0]?.account.productType.custom).toBeDefined()
