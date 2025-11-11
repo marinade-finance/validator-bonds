@@ -1,0 +1,207 @@
+
+action "validator_bonds_cancel_settlement_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "CancelSettlementEvent"
+    }
+}
+
+action "validator_bonds_cancel_withdraw_request_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "CancelWithdrawRequestEvent"
+    }
+}
+
+action "validator_bonds_claim_settlement_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "ClaimSettlementEvent"
+    }
+}
+
+action "validator_bonds_claim_settlement_v_2_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "ClaimSettlementV2Event"
+    }
+}
+
+action "validator_bonds_claim_withdraw_request_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "ClaimWithdrawRequestEvent"
+    }
+}
+
+action "validator_bonds_close_settlement_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "CloseSettlementEvent"
+    }
+}
+
+action "validator_bonds_configure_bond_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "ConfigureBondEvent"
+    }
+}
+
+action "validator_bonds_configure_bond_product_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "ConfigureBondProductEvent"
+    }
+}
+
+action "validator_bonds_configure_bond_with_mint_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "ConfigureBondWithMintEvent"
+    }
+}
+
+action "validator_bonds_configure_config_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "ConfigureConfigEvent"
+    }
+}
+
+action "validator_bonds_emergency_pause_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "EmergencyPauseEvent"
+    }
+}
+
+action "validator_bonds_emergency_resume_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "EmergencyResumeEvent"
+    }
+}
+
+action "validator_bonds_fund_bond_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "FundBondEvent"
+    }
+}
+
+action "validator_bonds_fund_settlement_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "FundSettlementEvent"
+    }
+}
+
+action "validator_bonds_init_bond_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "InitBondEvent"
+    }
+}
+
+action "validator_bonds_init_bond_product_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "InitBondProductEvent"
+    }
+}
+
+action "validator_bonds_init_config_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "InitConfigEvent"
+    }
+}
+
+action "validator_bonds_init_settlement_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "InitSettlementEvent"
+    }
+}
+
+action "validator_bonds_init_withdraw_request_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "InitWithdrawRequestEvent"
+    }
+}
+
+action "validator_bonds_merge_stake_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "MergeStakeEvent"
+    }
+}
+
+action "validator_bonds_mint_bond_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "MintBondEvent"
+    }
+}
+
+action "validator_bonds_reset_stake_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "ResetStakeEvent"
+    }
+}
+
+action "validator_bonds_withdraw_stake_event" "svm::deploy_subgraph" {
+    program_id = action.deploy_validator_bonds.program_id
+    program_idl = action.deploy_validator_bonds.program_idl
+    block_height = 0 // action.deploy_validator_bonds.block_height
+    event {
+        name = "WithdrawStakeEvent"
+    }
+}
