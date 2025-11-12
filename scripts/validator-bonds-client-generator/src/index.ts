@@ -12,7 +12,8 @@ import { version } from '../package.json'
 import type { AnchorIdl } from '@codama/nodes-from-anchor'
 
 const idlPath = join(__dirname, '../../../resources/idl/validator_bonds.json')
-const anchorIdl = JSON.parse(readFileSync(idlPath, 'utf-8'))
+const idlContent: string = readFileSync(idlPath, 'utf-8')
+const anchorIdl: AnchorIdl = JSON.parse(idlContent)
 
 const program = new Command()
 
@@ -37,7 +38,7 @@ program
     ),
   )
   .action((options: { output: string }) => {
-    const codama = createFromRoot(rootNodeFromAnchor(anchorIdl as AnchorIdl))
+    const codama = createFromRoot(rootNodeFromAnchor(anchorIdl))
     const outputDir = path.join(options.output)
     codama
       .accept(renderJavaScriptVisitor(outputDir))
