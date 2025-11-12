@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, n/no-process-exit, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, n/no-process-exit */
 import { readFileSync } from 'fs'
 import path, { join } from 'path'
 
@@ -44,7 +44,7 @@ program
       .then(() => {
         console.log('Client generated successfully')
       })
-      .catch(err => {
+      .catch((err: unknown) => {
         console.error('Generation Error', err)
         process.exit(1)
       })
@@ -52,7 +52,7 @@ program
 
 try {
   program.parse(process.argv)
-} catch (err) {
+} catch (err: unknown) {
   console.error('Generator Error', err)
   process.exit(1)
 }
