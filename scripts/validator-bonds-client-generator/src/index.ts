@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, n/no-process-exit */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, n/no-process-exit, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 import { readFileSync } from 'fs'
 import path, { join } from 'path'
 
