@@ -143,12 +143,12 @@ export async function manageInitWithdrawRequest({
   }
 
   // config account is required
-  bondAccountAddress = checkAndGetBondAddress(
-    bondAccountAddress,
+  bondAccountAddress = checkAndGetBondAddress({
+    bond: bondAccountAddress,
     config,
     voteAccount,
-    program.programId,
-  )
+    programId: program.programId,
+  })
   if (voteAccount === undefined || config === undefined) {
     const bondData = await getBond(program, bondAccountAddress)
     voteAccount = voteAccount ?? bondData.voteAccount

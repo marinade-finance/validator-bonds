@@ -14,7 +14,11 @@ import {
   assertEvent,
   getRentExemptStake,
 } from '../../src'
-import { authorizeStakeAccount, delegatedStakeAccount } from '../utils/staking'
+import {
+  authorizeStakeAccount,
+  delegatedStakeAccount,
+  retryOnEpochRewardsPeriod,
+} from '../utils/staking'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
@@ -102,12 +106,14 @@ describe('Validator Bonds fund settlement', () => {
     })
     tx.add(instruction)
 
-    const executionReturn = await executeTxSimple(provider.connection, tx, [
-      provider.wallet,
-      operatorAuthority,
-      signer(splitStakeAccount),
-      signer(splitRentPayer),
-    ])
+    const executionReturn = await retryOnEpochRewardsPeriod(() =>
+      executeTxSimple(provider.connection, tx, [
+        provider.wallet,
+        operatorAuthority,
+        signer(splitStakeAccount),
+        signer(splitRentPayer),
+      ]),
+    )
 
     const rentExemptStake = await getRentExemptStake(provider)
     const minimalStakeAccountSize =

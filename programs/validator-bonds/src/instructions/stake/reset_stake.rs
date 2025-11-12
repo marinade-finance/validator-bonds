@@ -12,6 +12,7 @@ use anchor_lang::solana_program::program::invoke_signed;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 use anchor_lang::solana_program::{stake, stake::state::StakeAuthorize, sysvar::stake_history};
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
+use solana_sdk_ids::system_program::ID as system_program_id;
 
 /// Resetting the stake authority of a funded stake account belonging to a removed settlement.
 /// I.e., for the provided stake account, it changes the stake authority from the settlement stake authority to the bonds withdrawer authority.
@@ -53,9 +54,11 @@ pub struct ResetStake<'info> {
     )]
     pub bonds_withdrawer_authority: UncheckedAccount<'info>,
 
-    /// CHECK: the validator vote account to which the stake account is delegated, check in code
+    /// CHECK: Validator vote account for stake delegation.
+    /// It may be an orphaned system account if the original vote account was removed from the chain.
     #[account(
-        owner = vote_program_id @ ErrorCode::InvalidVoteAccountProgramId,
+        constraint = vote_account.owner == &vote_program_id || vote_account.owner == &system_program_id
+            @ ErrorCode::InvalidVoteAccountProgramId,
     )]
     pub vote_account: UncheckedAccount<'info>,
 
@@ -120,29 +123,36 @@ impl ResetStake<'_> {
             None,
         )?;
 
-        // activate the stake, i.e., resetting delegation to the validator again
-        let delegate_instruction = &stake::instruction::delegate_stake(
-            &ctx.accounts.stake_account.key(),
-            &ctx.accounts.bonds_withdrawer_authority.key(),
-            &ctx.accounts.bond.vote_account,
-        );
-        invoke_signed(
-            delegate_instruction,
-            &[
-                ctx.accounts.stake_program.to_account_info(),
-                ctx.accounts.stake_account.to_account_info(),
-                ctx.accounts.bonds_withdrawer_authority.to_account_info(),
-                ctx.accounts.vote_account.to_account_info(),
-                ctx.accounts.clock.to_account_info(),
-                ctx.accounts.stake_history.to_account_info(),
-                ctx.accounts.stake_config.to_account_info(),
-            ],
-            &[&[
-                BONDS_WITHDRAWER_AUTHORITY_SEED,
-                ctx.accounts.config.key().as_ref(),
-                &[ctx.accounts.config.bonds_withdrawer_authority_bump],
-            ]],
-        )?;
+        if ctx.accounts.vote_account.owner == &vote_program_id {
+            // activate the stake, i.e., resetting delegation to the validator again
+            let delegate_instruction = &stake::instruction::delegate_stake(
+                &ctx.accounts.stake_account.key(),
+                &ctx.accounts.bonds_withdrawer_authority.key(),
+                &ctx.accounts.bond.vote_account,
+            );
+            invoke_signed(
+                delegate_instruction,
+                &[
+                    ctx.accounts.stake_program.to_account_info(),
+                    ctx.accounts.stake_account.to_account_info(),
+                    ctx.accounts.bonds_withdrawer_authority.to_account_info(),
+                    ctx.accounts.vote_account.to_account_info(),
+                    ctx.accounts.clock.to_account_info(),
+                    ctx.accounts.stake_history.to_account_info(),
+                    ctx.accounts.stake_config.to_account_info(),
+                ],
+                &[&[
+                    BONDS_WITHDRAWER_AUTHORITY_SEED,
+                    ctx.accounts.config.key().as_ref(),
+                    &[ctx.accounts.config.bonds_withdrawer_authority_bump],
+                ]],
+            )?;
+        } else {
+            msg!(
+                "Vote account {} is not owned by vote program",
+                ctx.accounts.vote_account.key()
+            );
+        }
 
         emit_cpi!(ResetStakeEvent {
             config: ctx.accounts.config.key(),

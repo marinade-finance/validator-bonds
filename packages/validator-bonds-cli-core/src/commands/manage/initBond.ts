@@ -1,5 +1,8 @@
 import { logInfo } from '@marinade.finance/ts-common'
-import { initBondInstruction } from '@marinade.finance/validator-bonds-sdk'
+import {
+  initBondInstruction,
+  initCommissionProductInstruction,
+} from '@marinade.finance/validator-bonds-sdk'
 import {
   ExecutionError,
   executeTx,
@@ -12,6 +15,7 @@ import {
 } from '@marinade.finance/web3js-1x'
 
 import {
+  INIT_BOND_CONFIG_COMMISSION_LIMIT_UNITS,
   INIT_BOND_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
@@ -54,7 +58,11 @@ export function configureInitBond(program: Command): Command {
       'Rent payer for the account creation (default: wallet keypair)',
       parseWalletOrPubkeyOption,
     )
-    .addOption(computeUnitLimitOption(INIT_BOND_LIMIT_UNITS))
+    .addOption(
+      computeUnitLimitOption(
+        INIT_BOND_LIMIT_UNITS + INIT_BOND_CONFIG_COMMISSION_LIMIT_UNITS,
+      ),
+    )
 }
 
 export async function manageInitBond({
@@ -65,6 +73,10 @@ export async function manageInitBond({
   rentPayer,
   cpmpe,
   maxStakeWanted,
+  mevBps,
+  blockBps,
+  inflationBps,
+  uniformBps,
   computeUnitLimit,
 }: {
   config: PublicKey
@@ -74,6 +86,10 @@ export async function manageInitBond({
   rentPayer?: WalletInterface | PublicKey
   cpmpe: BN
   maxStakeWanted: BN
+  mevBps?: BN | null
+  blockBps?: BN | null
+  inflationBps?: BN | null
+  uniformBps?: BN | null
   computeUnitLimit: number
 }) {
   const {
@@ -120,9 +136,25 @@ export async function manageInitBond({
   })
   tx.add(instruction)
 
+  const { instruction: commissionInstruction, bondProduct } =
+    await initCommissionProductInstruction({
+      program,
+      configAccount: config,
+      bondAccount,
+      voteAccount,
+      authority: validatorIdentity,
+      blockBps: blockBps ?? null,
+      inflationBps: inflationBps ?? null,
+      mevBps: mevBps ?? null,
+      uniformBps,
+      rentPayer,
+    })
+  tx.add(commissionInstruction)
+
   logger.info(
     `Initializing bond account ${bondAccount.toBase58()} (finalization may take seconds)`,
   )
+  logger.debug(`Commission bond account: ${bondProduct.toBase58()}`)
 
   try {
     await executeTx({

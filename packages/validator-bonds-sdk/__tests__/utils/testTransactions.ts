@@ -21,9 +21,17 @@ import {
   initWithdrawRequestInstruction,
   bondsWithdrawerAuthority,
   configureConfigInstruction,
+  initCommissionProductInstruction,
+  initCustomProductInstruction,
+  configureCommissionProductInstruction,
+  configureCustomProductInstruction,
 } from '../../src'
 
-import type { ValidatorBondsProgram } from '../../src'
+import type {
+  ProductType,
+  ProductTypeConfig,
+  ValidatorBondsProgram,
+} from '../../src'
 import type { ExtendedProvider } from '@marinade.finance/web3js-1x'
 import type { PublicKey } from '@solana/web3.js'
 
@@ -547,6 +555,267 @@ export async function executeInitSettlement({
     merkleRoot,
     maxMerkleNodes: new BN(maxMerkleNodes),
     maxTotalClaim: new BN(maxTotalClaim),
+  }
+}
+
+export async function executeInitCommissionProductInstruction({
+  program,
+  provider,
+  bondAccount,
+  configAccount,
+  voteAccount,
+  authority,
+  rentPayer,
+  inflationBps,
+  mevBps,
+  blockBps,
+  uniformBps,
+}: {
+  program: ValidatorBondsProgram
+  provider: ExtendedProvider
+  bondAccount?: PublicKey
+  configAccount?: PublicKey
+  voteAccount?: PublicKey
+  authority?: Keypair
+  rentPayer?: Keypair
+  inflationBps?: BN | number | null
+  mevBps?: BN | number | null
+  blockBps?: BN | number | null
+  uniformBps?: BN | number | null
+}): Promise<{
+  bondProduct: PublicKey
+  bondAccount: PublicKey
+  productType: ProductType
+  configData: ProductTypeConfig
+}> {
+  let bondAccountResolved = bondAccount
+  if (!bondAccountResolved) {
+    const result = await executeInitBondInstruction({
+      program,
+      provider,
+      configAccount: configAccount!,
+    })
+    bondAccountResolved = result.bondAccount
+  }
+
+  const { instruction, bondProduct, configData, productType } =
+    await initCommissionProductInstruction({
+      program,
+      bondAccount: bondAccountResolved,
+      configAccount,
+      voteAccount,
+      authority: authority?.publicKey,
+      rentPayer: rentPayer?.publicKey,
+      inflationBps,
+      mevBps,
+      blockBps,
+      uniformBps,
+    })
+
+  try {
+    const signers = []
+    if (authority) signers.push(authority)
+    if (rentPayer) signers.push(rentPayer)
+    await provider.sendIx(signers, instruction)
+    expect(await provider.connection.getAccountInfo(bondProduct)).not.toBeNull()
+  } catch (e) {
+    console.error(
+      `executeInitCommissionProductInstruction: bond product ${bondProduct.toBase58()}, ` +
+        `bond: ${bondAccountResolved.toBase58()}`,
+      e,
+    )
+    throw e
+  }
+
+  return {
+    bondProduct,
+    bondAccount: bondAccountResolved,
+    productType,
+    configData,
+  }
+}
+
+export async function executeInitCustomProductInstruction({
+  program,
+  provider,
+  bondAccount,
+  configAccount,
+  voteAccount,
+  authority,
+  rentPayer,
+  customName,
+  customProductData,
+}: {
+  program: ValidatorBondsProgram
+  provider: ExtendedProvider
+  bondAccount?: PublicKey
+  configAccount?: PublicKey
+  voteAccount?: PublicKey
+  authority?: Keypair
+  rentPayer?: Keypair
+  customName: string
+  customProductData: Buffer | Uint8Array | number[]
+}): Promise<{
+  bondProduct: PublicKey
+  bondAccount: PublicKey
+  productType: ProductType
+  configData: ProductTypeConfig
+}> {
+  let bondAccountResolved = bondAccount
+  if (!bondAccountResolved) {
+    const result = await executeInitBondInstruction({
+      program,
+      provider,
+      configAccount: configAccount!,
+    })
+    bondAccountResolved = result.bondAccount
+  }
+
+  const { instruction, bondProduct, configData, productType } =
+    await initCustomProductInstruction({
+      program,
+      bondAccount: bondAccountResolved,
+      configAccount,
+      voteAccount,
+      authority: authority?.publicKey,
+      rentPayer: rentPayer?.publicKey,
+      customName,
+      customProductData,
+    })
+
+  try {
+    const signers = []
+    if (authority) signers.push(authority)
+    if (rentPayer) signers.push(rentPayer)
+    await provider.sendIx(signers, instruction)
+    expect(await provider.connection.getAccountInfo(bondProduct)).not.toBeNull()
+  } catch (e) {
+    console.error(
+      `executeInitCustomProductInstruction: bond product ${bondProduct.toBase58()}, ` +
+        `bond: ${bondAccountResolved.toBase58()}`,
+      e,
+    )
+    throw e
+  }
+
+  return {
+    bondProduct,
+    bondAccount: bondAccountResolved,
+    productType,
+    configData,
+  }
+}
+
+export async function executeConfigureCommissionProductInstruction({
+  program,
+  provider,
+  bondProductAccount,
+  bondAccount,
+  configAccount,
+  voteAccount,
+  authority,
+  inflationBps,
+  mevBps,
+  blockBps,
+  uniformBps, // when setting 'null' it removes uniformBps
+}: {
+  program: ValidatorBondsProgram
+  provider: ExtendedProvider
+  bondProductAccount?: PublicKey
+  bondAccount?: PublicKey
+  configAccount?: PublicKey
+  voteAccount?: PublicKey
+  authority?: Keypair
+  inflationBps?: BN | number | null
+  mevBps?: BN | number | null
+  blockBps?: BN | number | null
+  uniformBps?: BN | number | null
+}): Promise<{
+  bondProduct: PublicKey
+  productType: ProductType
+  configData: ProductTypeConfig
+}> {
+  const { instruction, bondProduct, configData, productType } =
+    await configureCommissionProductInstruction({
+      program,
+      bondProductAccount,
+      bondAccount,
+      configAccount,
+      voteAccount,
+      authority: authority?.publicKey,
+      inflationBps,
+      mevBps,
+      blockBps,
+      uniformBps,
+    })
+
+  try {
+    const signers = authority ? [authority] : []
+    await provider.sendIx(signers, instruction)
+  } catch (e) {
+    console.error(
+      `executeConfigureCommissionProductInstruction: bond product ${bondProduct.toBase58()}`,
+      e,
+    )
+    throw e
+  }
+
+  return {
+    bondProduct,
+    productType,
+    configData,
+  }
+}
+
+export async function executeConfigureCustomProductInstruction({
+  program,
+  provider,
+  bondProductAccount,
+  bondAccount,
+  configAccount,
+  voteAccount,
+  authority,
+  customProductData,
+}: {
+  program: ValidatorBondsProgram
+  provider: ExtendedProvider
+  bondProductAccount?: PublicKey
+  bondAccount?: PublicKey
+  configAccount?: PublicKey
+  voteAccount?: PublicKey
+  authority?: Keypair
+  customProductData: Buffer | Uint8Array | number[]
+}): Promise<{
+  bondProduct: PublicKey
+  productType: ProductType
+  configData: ProductTypeConfig
+}> {
+  const { instruction, bondProduct, configData, productType } =
+    await configureCustomProductInstruction({
+      program,
+      bondProductAccount,
+      bondAccount,
+      configAccount,
+      voteAccount,
+      authority: authority?.publicKey,
+      customProductData,
+    })
+
+  try {
+    const signers = authority ? [authority] : []
+    await provider.sendIx(signers, instruction)
+  } catch (e) {
+    console.error(
+      `executeConfigureCustomProductInstruction: bond product ${bondProduct.toBase58()}`,
+      e,
+    )
+    throw e
+  }
+
+  return {
+    bondProduct,
+    productType,
+    configData,
   }
 }
 

@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::stake::state::Delegation;
 
 pub mod bond;
+pub mod bond_product;
 pub mod config;
 pub mod settlement;
 pub mod settlement_claim;

@@ -12,10 +12,10 @@
     "generate": "ts-node src/index.ts"
   },
   "dependencies": {
-    "@codama/nodes-from-anchor": "1.1.11",
-    "@codama/renderers-js": "1.2.10",
-    "@solana/kit": "2.1.0",
-    "codama": "1.2.11",
+    "@codama/nodes-from-anchor": "1.2.9",
+    "@codama/renderers-js": "1.4.3",
+    "@solana/kit": "5.0.0",
+    "codama": "1.3.7",
     "commander": "14.0.0"
   },
   "devDependencies": {

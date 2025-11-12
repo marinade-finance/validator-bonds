@@ -28,6 +28,7 @@ export class ValidatorBondsCliContext extends CLIContext {
   readonly printOnly: boolean
   readonly computeUnitPrice: number
   readonly confirmationFinality: Finality
+  readonly verbose: boolean
 
   constructor({
     provider,
@@ -39,6 +40,7 @@ export class ValidatorBondsCliContext extends CLIContext {
     confirmationFinality,
     computeUnitPrice,
     confirmWaitTime,
+    verbose,
     commandName,
   }: {
     provider: Provider
@@ -50,6 +52,7 @@ export class ValidatorBondsCliContext extends CLIContext {
     confirmationFinality: Finality
     computeUnitPrice: number
     confirmWaitTime: number
+    verbose: boolean
     commandName: string
   }) {
     super({
@@ -65,6 +68,7 @@ export class ValidatorBondsCliContext extends CLIContext {
     this.skipPreflight = skipPreflight
     this.confirmationFinality = confirmationFinality
     this.computeUnitPrice = computeUnitPrice
+    this.verbose = verbose
   }
 
   get program(): ValidatorBondsProgram {
@@ -84,6 +88,7 @@ export function setValidatorBondsCliContext({
   confirmationFinality,
   computeUnitPrice,
   logger,
+  verbose,
   command,
 }: {
   cluster: string
@@ -95,6 +100,7 @@ export function setValidatorBondsCliContext({
   confirmationFinality: string
   computeUnitPrice: number
   logger: Logger
+  verbose: boolean
   command: string
 }) {
   try {
@@ -118,6 +124,7 @@ export function setValidatorBondsCliContext({
         confirmationFinality: parseConfirmationFinality(confirmationFinality),
         confirmWaitTime,
         computeUnitPrice,
+        verbose,
         commandName: command,
       }),
     )

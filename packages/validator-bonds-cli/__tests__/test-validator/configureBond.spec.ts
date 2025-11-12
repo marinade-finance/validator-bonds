@@ -6,12 +6,16 @@ import {
   bondAddress,
   getBond,
   bondMintAddress,
+  bondProductAddress,
+  ProductTypes,
+  getBondProduct,
 } from '@marinade.finance/validator-bonds-sdk'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
+  executeInitCommissionProductInstruction,
 } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import {
   createTempFileKeypair,
@@ -25,6 +29,8 @@ import {
   getAccount as getTokenAccount,
   getAssociatedTokenAddressSync,
 } from 'solana-spl-token-modern'
+
+import { airdrop } from './utils'
 
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
@@ -46,6 +52,9 @@ describe('Configure bond account using CLI', () => {
   let voteAccount: PublicKey
   let validatorIdentity: Keypair
   let validatorIdentityPath: string
+  let rentPayerPath: string
+  let rentPayerKeypair: Keypair
+  let rentPayerCleanup: () => Promise<void>
 
   beforeAll(() => {
     extendJestWithShellMatchers()
@@ -62,6 +71,11 @@ describe('Configure bond account using CLI', () => {
       path: userPath,
       keypair: userKeypair,
       cleanup: userCleanup,
+    } = await createTempFileKeypair())
+    ;({
+      path: rentPayerPath,
+      keypair: rentPayerKeypair,
+      cleanup: rentPayerCleanup,
     } = await createTempFileKeypair())
     ;({ configAccount } = await executeInitConfigInstruction({
       program,
@@ -91,6 +105,7 @@ describe('Configure bond account using CLI', () => {
   afterEach(async () => {
     await bondAuthorityCleanup()
     await userCleanup()
+    await rentPayerCleanup()
   })
 
   it('configure bond account', async () => {
@@ -124,6 +139,21 @@ describe('Configure bond account using CLI', () => {
     expect(bondsData1.maxStakeWanted).toEqual(55)
     expect(bondsData1.bump).toEqual(bump)
 
+    const [bondProduct] = bondProductAddress(
+      bondAccount,
+      ProductTypes.commission,
+      program.programId,
+    )
+    // we did not define intention to set commissions, so commission product shall not exist
+    await expect(getBondProduct(program, bondProduct)).rejects.toThrow(
+      /does not exist/,
+    )
+
+    const airdropFunds = 2 * LAMPORTS_PER_SOL
+    await airdrop(provider.connection, rentPayerKeypair.publicKey, airdropFunds)
+    await expect(
+      provider.connection.getBalance(rentPayerKeypair.publicKey),
+    ).resolves.toBe(airdropFunds)
     const newBondAuthority = PublicKey.unique()
     await expect([
       'pnpm',
@@ -145,6 +175,12 @@ describe('Configure bond account using CLI', () => {
         32,
         '--max-stake-wanted',
         1000_000_000_000,
+        '--mev-commission',
+        110,
+        '--inflation-commission',
+        120,
+        '--rent-payer',
+        rentPayerPath,
         '--confirmation-finality',
         'confirmed',
       ],
@@ -158,6 +194,73 @@ describe('Configure bond account using CLI', () => {
     expect(bondsData2.authority).toEqual(newBondAuthority)
     expect(bondsData2.cpmpe).toEqual(32)
     expect(bondsData2.maxStakeWanted).toEqual(1000 * LAMPORTS_PER_SOL)
+
+    const commissionProduct2 = await getBondProduct(program, bondProduct)
+    expect(commissionProduct2.configData.commission).toBeDefined()
+    const commissionData2 = commissionProduct2.configData.commission![0]
+    expect(commissionData2.mevBps).toEqual(110)
+    expect(commissionData2.inflationBps).toEqual(120)
+    expect(commissionData2.blockBps).toBeNull()
+
+    expect(
+      await provider.connection.getBalance(rentPayerKeypair.publicKey),
+    ).toBeLessThan(airdropFunds)
+  })
+
+  it('configure commission when existing product', async () => {
+    await executeInitCommissionProductInstruction({
+      program,
+      provider,
+      configAccount,
+      bondAccount,
+      voteAccount,
+      authority: bondAuthorityKeypair,
+      mevBps: 50,
+      inflationBps: 60,
+    })
+
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'configure-bond',
+        voteAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--authority',
+        validatorIdentityPath,
+        '--cpmpe',
+        34,
+        '--uniform-commission',
+        1111,
+        '--confirmation-finality',
+        'confirmed',
+      ],
+    ]).toHaveMatchingSpawnOutput({
+      code: 0,
+      // stderr: '',
+      stdout: /Bond account.*successfully configured/,
+    })
+
+    const bondsData = await getBond(program, bondAccount)
+    expect(bondsData.cpmpe).toEqual(34)
+    expect(bondsData.maxStakeWanted).toEqual(55) // unchanged
+
+    const [bondProduct] = bondProductAddress(
+      bondAccount,
+      ProductTypes.commission,
+      program.programId,
+    )
+    const commissionProduct = await getBondProduct(program, bondProduct)
+    expect(commissionProduct.configData.commission).toBeDefined()
+    const commissionData = commissionProduct.configData.commission![0]
+    expect(commissionData.mevBps).toEqual(1111)
+    expect(commissionData.inflationBps).toEqual(1111)
+    expect(commissionData.blockBps).toEqual(1111)
   })
 
   it('configure bond account with mint', async () => {
@@ -282,6 +385,14 @@ describe('Configure bond account using CLI', () => {
 
     expect((await getBond(program, bondAccount)).authority).toEqual(
       bondAuthorityKeypair.publicKey,
+    )
+    const [bondProduct] = bondProductAddress(
+      bondAccount,
+      ProductTypes.commission,
+      program.programId,
+    )
+    await expect(getBondProduct(program, bondProduct)).rejects.toThrow(
+      /does not exist/,
     )
   })
 })

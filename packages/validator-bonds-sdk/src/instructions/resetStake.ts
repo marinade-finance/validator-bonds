@@ -44,12 +44,12 @@ export async function resetStakeInstruction({
     }
     voteAccount = stakeAccountData.voter
   }
-  bondAccount = checkAndGetBondAddress(
-    bondAccount,
-    configAccount,
+  bondAccount = checkAndGetBondAddress({
+    bond: bondAccount,
+    config: configAccount,
     voteAccount,
-    program.programId,
-  )
+    programId: program.programId,
+  })
   if (configAccount === undefined) {
     const bondData = await getBond(program, bondAccount)
     configAccount = bondData.config

@@ -10,6 +10,7 @@ test-ledger/
 fixtures/
 data/
 generated/
+idl/
 validator-bonds-codama/
 resources/idl/
 .buildkite/

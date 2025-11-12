@@ -576,8 +576,6 @@ Validators can verify charged amounts and funded SOLs on-chain.
   - Auction data: [Auction scores API](https://scoring.marinade.finance/api/v1/scores/sam?epoch=X).
   - Settlement data: [Google Cloud storage](https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet).
 
-For advanced on-chain queries, refer to the [on-chain analysis documentation](../../programs/validator-bonds/ON_CHAIN_ANALYSIS.md).
-
 ## Searching Bonds funded stake accounts
 
 Bond program assigns the funded stake accounts with `withdrawal` authority of address

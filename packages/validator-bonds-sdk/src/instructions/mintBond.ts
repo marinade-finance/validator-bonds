@@ -12,7 +12,7 @@ import { getAssociatedTokenAddressSync } from 'solana-spl-token-modern'
 
 import { getBond } from '../api'
 import { bondMintAddress } from '../sdk'
-import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
+import { anchorProgramWalletPubkey, checkAndGetBondAddress } from '../utils'
 
 import type { ValidatorBondsProgram } from '../sdk'
 import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
@@ -46,12 +46,12 @@ export async function mintBondInstruction({
   tokenMetadataAccount: PublicKey
   instruction: TransactionInstruction
 }> {
-  bondAccount = checkAndGetBondAddress(
-    bondAccount,
-    configAccount,
+  bondAccount = checkAndGetBondAddress({
+    bond: bondAccount,
+    config: configAccount,
     voteAccount,
-    program.programId,
-  )
+    programId: program.programId,
+  })
 
   const renPayerPubkey =
     rentPayer instanceof PublicKey ? rentPayer : rentPayer.publicKey

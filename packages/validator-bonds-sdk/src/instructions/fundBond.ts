@@ -8,7 +8,7 @@ import {
 
 import { getBond } from '../api'
 import { MARINADE_CONFIG_ADDRESS, bondsWithdrawerAuthority } from '../sdk'
-import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
+import { anchorProgramWalletPubkey, checkAndGetBondAddress } from '../utils'
 
 import type { ValidatorBondsProgram } from '../sdk'
 import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
@@ -49,12 +49,12 @@ export async function fundBondInstruction({
     )
     configAccount = MARINADE_CONFIG_ADDRESS
   }
-  bondAccount = checkAndGetBondAddress(
-    bondAccount,
-    configAccount,
+  bondAccount = checkAndGetBondAddress({
+    bond: bondAccount,
+    config: configAccount,
     voteAccount,
-    program.programId,
-  )
+    programId: program.programId,
+  })
   if (configAccount === undefined) {
     const bondData = await getBond(program, bondAccount)
     configAccount = bondData.config
