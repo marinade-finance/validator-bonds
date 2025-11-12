@@ -6,6 +6,7 @@ import {
   parseIdlErrors,
   Wallet,
 } from '@coral-xyz/anchor'
+import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import { Connection, Keypair, PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
 
@@ -45,6 +46,30 @@ export type InitConfigArgs = IdlTypes<ValidatorBonds>['initConfigArgs']
 export type ConfigureConfigArgs =
   IdlTypes<ValidatorBonds>['configureConfigArgs']
 export type InitBondArgs = IdlTypes<ValidatorBonds>['initBondArgs']
+
+// --- DISCRIMINATORS ---
+function fromDiscriminators(accountName: string): number[] {
+  const accountData = ValidatorBondsIDL.accounts.find(
+    x => x.name.toLowerCase() === accountName.toLowerCase(),
+  )
+  if (accountData === undefined) {
+    throw new Error(
+      'SDK initialization failure. Validator bonds IDL does not define discriminator for account ' +
+        accountName,
+    )
+  }
+  return accountData.discriminator
+}
+function discriminator(accountName: string): string {
+  return bs58.encode(fromDiscriminators(accountName))
+}
+export const CONFIG_ACCOUNT_DISCRIMINATOR = discriminator('Config')
+export const BOND_ACCOUNT_DISCRIMINATOR = discriminator('Bond')
+export const SETTLEMENT_CLAIMS_ACCOUNT_DISCRIMINATOR =
+  discriminator('SettlementClaims')
+export const SETTLEMENT_ACCOUNT_DISCRIMINATOR = discriminator('Settlement')
+export const WITHDRAW_REQUEST_ACCOUNT_DISCRIMINATOR =
+  discriminator('WithdrawRequest')
 
 // --- CONSTANTS ---
 function fromConstants(constantName: string): string {

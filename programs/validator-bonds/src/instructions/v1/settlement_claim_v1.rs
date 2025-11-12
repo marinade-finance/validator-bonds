@@ -37,7 +37,7 @@ impl SettlementClaim {
         Pubkey::create_program_address(
             &[
                 SETTLEMENT_CLAIM_SEED,
-                &self.settlement.key().as_ref(),
+                self.settlement.key().as_ref(),
                 TreeNodeV1 {
                     stake_authority: self.stake_account_staker,
                     withdraw_authority: self.stake_account_withdrawer,

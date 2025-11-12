@@ -14,6 +14,7 @@
     "cli": "pnpm ts-node ./packages/validator-bonds-cli/src/",
     "cli:institutional": "pnpm ts-node ./packages/validator-bonds-cli-institutional/src/",
     "cli:check": "pnpm ts-node ./packages/validator-bonds-sanity-check/src/",
+    "copy:idl": "cp ./target/types/validator_bonds.ts ./packages/validator-bonds-sdk/idl/types/ && cp ./target/idl/validator_bonds.json ./packages/validator-bonds-sdk/idl/json/ && cp ./target/idl/validator_bonds.json ./resources/idl/",
     "lint:cargo": "cargo fmt -- --check && cargo clippy --release",
     "lint:cargo-fix": "cargo fmt --all && cargo clippy --fix --allow-staged --allow-dirty",
     "lint:ts": "eslint . && prettier --check .",

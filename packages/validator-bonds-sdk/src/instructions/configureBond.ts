@@ -2,7 +2,7 @@ import { PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
 
 import { getBond } from '../api'
-import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
+import { anchorProgramWalletPubkey, checkAndGetBondAddress } from '../utils'
 
 import type { ValidatorBondsProgram } from '../sdk'
 import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'

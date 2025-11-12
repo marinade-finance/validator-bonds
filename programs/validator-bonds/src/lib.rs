@@ -174,6 +174,13 @@ pub mod validator_bonds {
         check_context(&ctx)?;
         ClaimSettlementV2::process(ctx, claim_settlement_args)
     }
+
+    // Enable to force IDL to include ClaimSettlementV1
+    // Per Anchor changes (0.31.0) the account is included in the IDL only if used in the program code
+    pub fn claim_settlement_v1(ctx: Context<ClaimSettlementV1>) -> Result<()> {
+        check_context(&ctx)?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

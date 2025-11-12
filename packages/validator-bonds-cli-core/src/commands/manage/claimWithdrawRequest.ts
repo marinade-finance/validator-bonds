@@ -19,7 +19,7 @@ import {
   computeUnitLimitOption,
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
-import { getWithdrawRequestFromAddress } from '../../utils'
+import { getBondFromAddress, getWithdrawRequestFromAddress } from '../../utils'
 
 import type {
   Wallet as WalletInterface,
@@ -124,11 +124,6 @@ export async function manageClaimWithdrawRequest({
     signers.push(splitStakeRentPayer)
     splitStakeRentPayer = splitStakeRentPayer.publicKey
   }
-  authority = authority ?? wallet.publicKey
-  if (instanceOfWallet(authority)) {
-    signers.push(authority)
-    authority = authority.publicKey
-  }
 
   withdrawer = withdrawer ?? wallet.publicKey
 
@@ -144,6 +139,24 @@ export async function manageClaimWithdrawRequest({
     withdrawRequestAddress = withdrawRequestAccountData.publicKey
     voteAccount = withdrawRequestAccountData.account.data.voteAccount
     bondAccount = withdrawRequestAccountData.account.data.bond
+  }
+
+  if (!authority && (bondAccount !== undefined || voteAccount !== undefined)) {
+    const bondAccountData = await getBondFromAddress({
+      program,
+      address: (bondAccount !== undefined
+        ? bondAccount
+        : voteAccount) as PublicKey,
+      config,
+      logger,
+    })
+    authority = bondAccountData.account.data.authority
+  } else {
+    authority = authority ?? wallet.publicKey
+  }
+  if (instanceOfWallet(authority)) {
+    signers.push(authority)
+    authority = authority.publicKey
   }
 
   let instructionsToProcess: TransactionInstruction[] = []

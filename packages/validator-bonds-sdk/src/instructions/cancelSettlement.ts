@@ -5,9 +5,9 @@ import {
   SYSVAR_CLOCK_PUBKEY,
 } from '@solana/web3.js'
 
-import { anchorProgramWalletPubkey } from '../utils'
 import { getCloseSettlementAccounts } from './closeSettlementV2'
 import { settlementClaimsAddress } from '../sdk'
+import { anchorProgramWalletPubkey } from '../utils'
 
 import type { CloseSettlementParams } from './closeSettlementV2'
 import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Updating TypeScript package.json files and READMEs version
+# When NEW_VERSION is not provided, it bumps the patch version in all packages
+
 SCRIPT_PATH=`readlink -f "$0"`
 SCRIPT_DIR=`dirname "$SCRIPT_PATH"`
 
@@ -14,21 +17,23 @@ SDK_PACKAGE_JSON="$SCRIPT_DIR/../packages/validator-bonds-sdk/package.json"
 PREVIOUS_VERSION=`cat $SDK_PACKAGE_JSON | grep version | cut -d '"' -f 4`
 PREVIOUS_ESCAPED_VERSION=$(echo $PREVIOUS_VERSION | sed 's/\./\\./g')
 
+UPDATE_NEW_VERSION=${NEW_VERSION:-`cat $SDK_PACKAGE_JSON | grep version | cut -d '"' -f 4`}
+
 # update package.json minor version
 for I in "$SCRIPT_DIR/../packages/"*sdk* "$SCRIPT_DIR/../packages/"*cli*; do
   echo "Package: $I"
   cd "$I"
-  pnpm version patch
+  pnpm version $UPDATE_NEW_VERSION --no-git-tag-version
   cd -
 done
 
-NEW_VERSION=`cat $SDK_PACKAGE_JSON | grep version | cut -d '"' -f 4`
 
-echo "$PREVIOUS_VERSION -> $NEW_VERSION"
+
+echo "$PREVIOUS_VERSION -> $UPDATE_NEW_VERSION"
 for I in "$CLI_INDEX" "$CLI_INSTITUTIONAL_INDEX" "$README" "$README_CLI" "$README_INSTITUTIONAL_CLI"; do
     UPDATE_FILE=`readlink -f "$I"`
     echo "Updating ${UPDATE_FILE}"
-    sed -i "s/$PREVIOUS_ESCAPED_VERSION/$NEW_VERSION/" "$UPDATE_FILE"
+    sed -i "s/$PREVIOUS_ESCAPED_VERSION/$UPDATE_NEW_VERSION/" "$UPDATE_FILE"
 done
 
 if [ -e "./package.json" ]; then
