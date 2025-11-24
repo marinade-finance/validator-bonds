@@ -3,6 +3,7 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
+  gs_bucket_etl: gs://marinade-stakes-etl-mainnet
   MARINADE_SCORING_API_URL: https://scoring.marinade.finance/api/v1
   SLACK_API: https://slack.com/api/chat.postMessage
   SLACK_FEED: "feed-pipeline-sam-psr"
@@ -64,6 +65,20 @@ steps:
     artifact_paths:
       - "./*.json"
 
+  - label: ':man-surfing: Loading JSON ETL data'
+    commands:
+      - epoch=$(buildkite-agent meta-data get epoch)
+      - mkdir -p ./rewards
+      - |
+        gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_mev.json" ./rewards/mev.json
+        gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_validators_mev.json" ./rewards/validators_mev.json
+        gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_inflation.json" ./rewards/inflation.json
+        gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_validators_inflation.json" ./rewards/validators_inflation.json
+        gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_validators_blocks.json" ./rewards/validators_blocks.json
+        gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_priority_fee.json" ./rewards/jito_priority_fee.json
+    artifact_paths:
+      - './rewards/*.json'
+
   - wait: ~
 
   - label: ":scales: Evaluate Marinade Bids"
@@ -73,11 +88,18 @@ steps:
     - 'buildkite-agent artifact download --include-retried-jobs sam-scores.json .'
     - 'buildkite-agent artifact download --include-retried-jobs stakes.json .'
     - 'buildkite-agent artifact download --include-retried-jobs target/release/bid-distribution-cli .'
+    - 'buildkite-agent artifact download --include-retried-jobs rewards/mev.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs rewards/validators_mev.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs rewards/inflation.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs rewards/validators_inflation.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs rewards/validators_blocks.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs rewards/jito_priority_fee.json .'
     - 'chmod +x target/release/bid-distribution-cli'
     - |
       ./target/release/bid-distribution-cli \
         --sam-meta-collection ./sam-scores.json \
         --stake-meta-collection ./stakes.json \
+        --rewards-dir ./rewards \
         --marinade-fee-bps ${MARINADE_FEE_BPS} \
         --marinade-fee-stake-authority ${MARINADE_FEE_STAKE_AUTHORITY} \
         --marinade-fee-withdraw-authority ${MARINADE_FEE_WITHDRAW_AUTHORITY} \
@@ -88,30 +110,6 @@ steps:
         --output-merkle-tree-collection "./${CLAIM_TYPE}-settlement-merkle-trees.json"
     artifact_paths:
     - "./${CLAIM_TYPE}*.json"
-
-  # Evaluation of dynamic fees for bidding
-  - label: ":scales: Evaluate Marinade Bids - Marinade Fee 0"
-    env:
-      WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
-    commands:
-    - buildkite-agent artifact download --include-retried-jobs sam-scores.json .
-    - buildkite-agent artifact download --include-retried-jobs stakes.json .
-    - buildkite-agent artifact download --include-retried-jobs target/release/bid-distribution-cli .
-    - chmod +x target/release/bid-distribution-cli
-    - |
-      ./target/release/bid-distribution-cli \
-        --sam-meta-collection ./sam-scores.json \
-        --stake-meta-collection ./stakes.json \
-        --marinade-fee-bps 0 \
-        --marinade-fee-stake-authority ${MARINADE_FEE_STAKE_AUTHORITY} \
-        --marinade-fee-withdraw-authority ${MARINADE_FEE_WITHDRAW_AUTHORITY} \
-        --dao-fee-split-share-bps 0 \
-        --dao-fee-stake-authority ${DAO_FEE_STAKE_AUTHORITY} \
-        --dao-fee-withdraw-authority ${DAO_FEE_WITHDRAW_AUTHORITY} \
-        --output-settlement-collection "./${CLAIM_TYPE}-settlements.json" \
-        --output-merkle-tree-collection "./${CLAIM_TYPE}-settlement-merkle-trees.json"
-    - claim_amount=$(jq '[.settlements[].claims_amount] | add' "./${CLAIM_TYPE}-settlements.json")
-    - 'echo "Total claims with Marinade fee 0 bps: $$claim_amount"'
 
   - wait: ~
 
