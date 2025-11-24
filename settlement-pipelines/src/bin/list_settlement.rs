@@ -5,6 +5,7 @@ use log::{debug, error, info, warn};
 use settlement_pipelines::arguments::GlobalOpts;
 use settlement_pipelines::init::init_log;
 use settlement_pipelines::json_data::BondSettlement;
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use std::path::PathBuf;
 use validator_bonds::state::bond::find_bond_address;
 use validator_bonds::state::settlement::find_settlement_address;
@@ -79,7 +80,7 @@ async fn main() -> anyhow::Result<()> {
             .iter()
             .map(|s| s.claims_lamports)
             .sum::<u64>()
-            / 1_000_000_000,
+            / LAMPORTS_PER_SOL,
         bond_settlements.iter().map(|s| s.claims_count).sum::<u64>(),
         bond_settlements
             .iter()

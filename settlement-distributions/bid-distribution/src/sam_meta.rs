@@ -6,19 +6,19 @@ use {
     std::fmt::Debug,
 };
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Tvl {
-    marinade_mnde_tvl_sol: Decimal,
-    marinade_sam_tvl_sol: Decimal,
+    pub(crate) marinade_mnde_tvl_sol: Decimal,
+    pub(crate) marinade_sam_tvl_sol: Decimal,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SamMetadata {
-    scoring_id: String,
-    tvl: Tvl,
-    delegation_strategy_mnde_votes: Decimal,
+    pub(crate) scoring_id: String,
+    pub(crate) tvl: Tvl,
+    pub(crate) delegation_strategy_mnde_votes: Decimal,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -32,21 +32,62 @@ pub struct ValidatorSamMeta {
     pub stake_priority: u32,
     pub unstake_priority: u32,
     pub max_stake_wanted: Decimal,
+    // ds-scoring passes revShare.auctionEffectiveBid here as effective_bid
     pub effective_bid: Decimal,
     pub constraints: String,
     pub metadata: SamMetadata,
     pub scoring_run_id: u32,
     pub epoch: u32,
+    pub auction_validator_values: Option<AuctionValidatorValues>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RevShare {
     pub total_pmpe: Decimal,
-    inflation_pmpe: Decimal,
-    mev_pmpe: Decimal,
-    bid_pmpe: Decimal,
-    auction_effective_bid_pmpe: Decimal,
+    pub inflation_pmpe: Decimal,
+    pub mev_pmpe: Decimal,
+    pub bid_pmpe: Decimal,
+    pub auction_effective_bid_pmpe: Decimal,
     pub bid_too_low_penalty_pmpe: Decimal,
     pub blacklist_penalty_pmpe: Decimal,
+    pub eff_participating_bid_pmpe: Decimal,
+    pub expected_max_eff_bid_pmpe: Decimal,
+
+    pub block_pmpe: Option<Decimal>,
+    pub onchain_distributed_pmpe: Option<Decimal>,
+    pub bond_obligation_pmpe: Option<Decimal>,
+    pub auction_effective_static_bid_pmpe: Option<Decimal>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AuctionValidatorValues {
+    pub bond_balance_sol: Option<Decimal>,
+    pub marinade_activated_stake_sol: Decimal,
+    pub spend_robust_reputation: Decimal,
+    pub adj_max_spend_robust_delegation: Decimal,
+    pub adj_spend_robust_reputation: Decimal,
+    pub marinade_activated_stake_sol_undelegation: Decimal,
+    pub adj_spend_robust_reputation_inflation_factor: Decimal,
+    pub bond_risk_fee_sol: Decimal,
+    pub paid_undelegation_sol: Decimal,
+    pub sam_blacklisted: bool,
+    pub commissions: Option<CommissionDetails>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommissionDetails {
+    pub inflation_commission_dec: Decimal,
+    pub mev_commission_dec: Decimal,
+    pub block_rewards_commission_dec: Decimal,
+    pub inflation_commission_onchain_dec: Decimal,
+    pub inflation_commission_in_bonds_dec: Option<Decimal>,
+    pub inflation_commission_override_dec: Option<Decimal>,
+    pub mev_commission_onchain_dec: Option<Decimal>,
+    pub mev_commission_in_bonds_dec: Option<Decimal>,
+    pub mev_commission_override_dec: Option<Decimal>,
+    pub block_rewards_commission_in_bonds_dec: Option<Decimal>,
+    pub block_rewards_commission_override_dec: Option<Decimal>,
 }
