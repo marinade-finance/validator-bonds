@@ -46,7 +46,7 @@ program
 
 try {
   program.parse(process.argv)
-} catch (err) {
+} catch (err: unknown) {
   console.error('Generator Error', err)
   process.exit(1)
 }
