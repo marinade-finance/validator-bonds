@@ -108,13 +108,12 @@ fn main() -> anyhow::Result<()> {
     info!("Verification of input data epoch consistency...");
     let rewards_epoch = rewards_collection.epoch;
     let stake_meta_epoch = stake_meta_collection.epoch;
-    if rewards_epoch != stake_meta_epoch {
-        anyhow::bail!(
-            "Epoch mismatch between rewards collection ({}), and stake meta collection ({})",
-            rewards_epoch,
-            stake_meta_epoch,
-        );
-    }
+    anyhow::ensure!(
+        rewards_epoch == stake_meta_epoch,
+        "Epoch mismatch between rewards collection ({}), and stake meta collection ({})",
+        rewards_epoch,
+        stake_meta_epoch,
+    );
     let metas_epochs: HashSet<u64> = validator_sam_metas
         .iter()
         .map(|meta| meta.epoch as u64)

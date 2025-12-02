@@ -12,6 +12,10 @@ import type { AnchorIdl } from '@codama/nodes-from-anchor'
 
 import anchorIdl from '/home/chalda/marinade/validator-bonds/resources/idl/validator_bonds.json'
 
+interface ProgramOptions {
+  output: string
+}
+
 const program = new Command()
 
 program
@@ -34,7 +38,7 @@ program
       'src',
     ),
   )
-  .action((options: { output: string }) => {
+  .action((options: ProgramOptions) => {
     const codama = createFromRoot(rootNodeFromAnchor(anchorIdl as AnchorIdl))
     const outputDir = path.join(options.output)
     codama.accept(renderJavaScriptVisitor(outputDir))
