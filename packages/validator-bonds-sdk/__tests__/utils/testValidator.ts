@@ -1,5 +1,3 @@
-/* eslint-disable import/no-extraneous-dependencies */
-
 import * as anchor from '@coral-xyz/anchor'
 import { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import { Connection } from '@solana/web3.js'

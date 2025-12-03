@@ -1,4 +1,3 @@
 packages:
   - 'packages/*'
   - 'settlement-pipelines/'
-  - 'scripts/validator-bonds-client-generator'
