@@ -121,24 +121,14 @@ fn verify_epoch_consistency<T>(
     get_epoch: impl Fn(&T) -> u64,
     file_name: &str,
 ) -> anyhow::Result<Option<u64>> {
-    if entries.is_empty() {
-        return Ok(None);
-    }
+    let mut epochs: Vec<_> = entries.iter().map(get_epoch).collect();
+    epochs.dedup();
 
-    let first_epoch = get_epoch(&entries[0]);
-    for entry in entries.iter().skip(1) {
-        let epoch = get_epoch(entry);
-        if epoch != first_epoch {
-            return Err(anyhow::anyhow!(
-                "Epoch mismatch in {}: found epochs {} and {}",
-                file_name,
-                first_epoch,
-                epoch
-            ));
-        }
+    match epochs.as_slice() {
+        [] => Ok(None),
+        [epoch] => Ok(Some(*epoch)),
+        _ => Err(anyhow::anyhow!("Epoch mismatch in {}", file_name)),
     }
-
-    Ok(Some(first_epoch))
 }
 
 /// Verify that all files contain data for the same epoch

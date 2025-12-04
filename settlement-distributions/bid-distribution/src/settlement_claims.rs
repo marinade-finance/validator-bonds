@@ -9,6 +9,7 @@ use bid_psr_distribution::utils::sort_claims_deterministically;
 use log::{debug, info, warn};
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 use std::fmt;
@@ -50,7 +51,7 @@ pub fn generate_settlements_collection(
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct ResultSettlementClaims {
     inflation_commission_claim: Decimal,
     mev_commission_claim: Decimal,
@@ -58,27 +59,16 @@ struct ResultSettlementClaims {
     static_bid_claim: Decimal,
 }
 
-impl Default for ResultSettlementClaims {
-    fn default() -> Self {
-        ResultSettlementClaims {
-            inflation_commission_claim: Decimal::ZERO,
-            mev_commission_claim: Decimal::ZERO,
-            block_commission_claim: Decimal::ZERO,
-            static_bid_claim: Decimal::ZERO,
-        }
-    }
-}
-
 impl ResultSettlementClaims {
-    pub fn total(&self) -> Decimal {
+    pub fn sum(&self) -> Decimal {
         self.inflation_commission_claim
             .saturating_add(self.mev_commission_claim)
             .saturating_add(self.block_commission_claim)
             .saturating_add(self.static_bid_claim)
     }
 
-    pub fn total_u64(&self) -> u64 {
-        self.total()
+    pub fn sum_u64(&self) -> u64 {
+        self.sum()
             .to_u64()
             .expect("Failed to_u64 for total settlement claims")
     }
@@ -93,7 +83,7 @@ impl fmt::Display for ResultSettlementClaims {
             self.inflation_commission_claim,
             self.mev_commission_claim,
             self.block_commission_claim,
-            self.total()
+            self.sum()
         )
     }
 }
@@ -185,14 +175,14 @@ pub fn generate_bid_settlements(
                 let inflation_commission_in_bonds_dec = commissions
                     .inflation_commission_in_bonds_dec
                     .unwrap_or(Decimal::ONE);
+                let inflation_commission_onchain_dec = commissions.inflation_commission_onchain_dec;
                 assert!(
-                    commissions.inflation_commission_onchain_dec <= Decimal::ONE,
+                    inflation_commission_onchain_dec <= Decimal::ONE,
                     "Inflation commission validator onchain decimal cannot be greater than 1",
                 );
-                if commissions.inflation_commission_onchain_dec > inflation_commission_in_bonds_dec
-                {
-                    let inflation_commission_diff = commissions.inflation_commission_onchain_dec
-                        - inflation_commission_in_bonds_dec;
+                if inflation_commission_onchain_dec > inflation_commission_in_bonds_dec {
+                    let inflation_commission_diff =
+                        inflation_commission_onchain_dec - inflation_commission_in_bonds_dec;
                     assert!(
                         inflation_commission_diff >= Decimal::ZERO,
                         "Inflation commission diff cannot be negative"
@@ -288,13 +278,13 @@ pub fn generate_bid_settlements(
             // TODO: copying the original logic, but needs a review
             //       https://github.com/marinade-finance/validator-bonds/blob/b7916fd06d86bf8d3b27bff7956524e5516e3dd9/settlement-distributions/bid-distribution/src/settlement_claims.rs#L90
             let distributor_fee_claim = minimum_distributor_fee_claim
-                .min(settlement_claim.total())
+                .min(settlement_claim.sum())
                 .to_u64()
                 .expect("Failed to_u64 for distributor_fee_claim");
 
             // minimum is 0 when distributor fee is of amount of total (stakers get nothing)
             let stakers_total_claim = settlement_claim
-                .total_u64()
+                .sum_u64()
                 .saturating_sub(distributor_fee_claim);
             let dao_fee_claim = (Decimal::from(distributor_fee_claim)
                 * fee_percentages.dao_fee_share)
@@ -302,7 +292,7 @@ pub fn generate_bid_settlements(
                 .expect("Failed to_u64 for dao_fee_claim");
             let marinade_fee_claim = distributor_fee_claim - dao_fee_claim;
             assert_eq!(
-                settlement_claim.total_u64(),
+                settlement_claim.sum_u64(),
                 stakers_total_claim + marinade_fee_claim + dao_fee_claim,
             );
 
@@ -354,9 +344,9 @@ pub fn generate_bid_settlements(
                 claims_amount += marinade_fee_claim;
 
                 assert!(
-                        claims_amount
-                            <= settlement_claim.total_u64(),
-                        "The sum of total claims exceeds the total claim amount after adding the Marinade fee"
+                    claims_amount
+                            <= settlement_claim.sum_u64(),
+                    "The sum of total claims exceeds the total claim amount after adding the Marinade fee"
                     );
             }
             if dao_fee_claim > 0 {
@@ -370,9 +360,9 @@ pub fn generate_bid_settlements(
                 claims_amount += dao_fee_claim;
 
                 assert!(
-                        claims_amount
-                            <= settlement_claim.total_u64(),
-                        "The sum of total claims exceeds the total claim amount after adding the DAO fee"
+                    claims_amount
+                            <= settlement_claim.sum_u64(),
+                    "The sum of total claims exceeds the total claim amount after adding the DAO fee"
                     );
             }
 
@@ -573,10 +563,8 @@ pub fn generate_penalty_settlements(
 /// Calculates what is the total active SAM (Marinade controlled) stake to be used
 /// in claim calculations. Some part is managed by MNDE holders and this excludes it.
 fn calculate_effective_sam_stake(total_active_stake: u64, validator: &ValidatorSamMeta) -> u64 {
-    let sam_target_stake = validator.marinade_sam_target_sol
-        * Decimal::from_f64(1e9).expect("Failed from_f64 for 1e9");
-    let mnde_target_stake = validator.marinade_mnde_target_sol
-        * Decimal::from_f64(1e9).expect("Failed from_f64 for 1e9");
+    let sam_target_stake = validator.marinade_sam_target_sol * Decimal::from(LAMPORTS_PER_SOL);
+    let mnde_target_stake = validator.marinade_mnde_target_sol * Decimal::from(LAMPORTS_PER_SOL);
 
     let stake_sam_percentage = if mnde_target_stake == Decimal::ZERO {
         Decimal::ONE
