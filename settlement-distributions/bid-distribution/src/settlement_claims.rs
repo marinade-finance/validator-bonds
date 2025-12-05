@@ -172,17 +172,17 @@ pub fn generate_bid_settlements(
                 ..
             }) = &validator.auction_validator_values
             {
-                let inflation_commission_in_bonds_dec = commissions
-                    .inflation_commission_in_bonds_dec
+                let inflation_commission_in_bond_dec = commissions
+                    .inflation_commission_in_bond_dec
                     .unwrap_or(Decimal::ONE);
                 let inflation_commission_onchain_dec = commissions.inflation_commission_onchain_dec;
                 assert!(
                     inflation_commission_onchain_dec <= Decimal::ONE,
                     "Inflation commission validator onchain decimal cannot be greater than 1",
                 );
-                if inflation_commission_onchain_dec > inflation_commission_in_bonds_dec {
+                if inflation_commission_onchain_dec > inflation_commission_in_bond_dec {
                     let inflation_commission_diff =
-                        inflation_commission_onchain_dec - inflation_commission_in_bonds_dec;
+                        inflation_commission_onchain_dec - inflation_commission_in_bond_dec;
                     assert!(
                         inflation_commission_diff >= Decimal::ZERO,
                         "Inflation commission diff cannot be negative"
@@ -190,13 +190,13 @@ pub fn generate_bid_settlements(
                     settlement_claim.inflation_commission_claim =
                         marinade_inflation_rewards.mul(inflation_commission_diff);
                 }
-                if let Some(mev_commission_in_bonds_dec) = commissions.mev_commission_in_bonds_dec {
+                if let Some(mev_commission_in_bond_dec) = commissions.mev_commission_in_bond_dec {
                     let mev_commission_onchain_dec = commissions
                         .mev_commission_onchain_dec
                         .unwrap_or(Decimal::ONE);
-                    if mev_commission_onchain_dec > mev_commission_in_bonds_dec {
+                    if mev_commission_onchain_dec > mev_commission_in_bond_dec {
                         let mev_commission_diff =
-                            mev_commission_onchain_dec - mev_commission_in_bonds_dec;
+                            mev_commission_onchain_dec - mev_commission_in_bond_dec;
                         assert!(
                             mev_commission_diff >= Decimal::ZERO,
                             "MEV commission diff cannot be negative"
@@ -205,8 +205,8 @@ pub fn generate_bid_settlements(
                             marinade_mev_rewards.mul(mev_commission_diff);
                     }
                 }
-                if let Some(block_rewards_commission_in_bonds_dec) =
-                    commissions.block_rewards_commission_in_bonds_dec
+                if let Some(block_rewards_commission_in_bond_dec) =
+                    commissions.block_rewards_commission_in_bond_dec
                 {
                     if rewards.block_rewards > 0 {
                         let block_rewards_jito_commission_onchain_dec =
@@ -214,11 +214,11 @@ pub fn generate_bid_settlements(
                                 rewards.block_rewards - rewards.jito_priority_fee_rewards,
                             ) / Decimal::from(rewards.block_rewards);
                         if block_rewards_jito_commission_onchain_dec
-                            > block_rewards_commission_in_bonds_dec
+                            > block_rewards_commission_in_bond_dec
                         {
                             let block_rewards_commission_diff =
                                 block_rewards_jito_commission_onchain_dec
-                                    - block_rewards_commission_in_bonds_dec;
+                                    - block_rewards_commission_in_bond_dec;
                             assert!(
                                 block_rewards_commission_diff >= Decimal::ZERO,
                                 "Block rewards commission diff cannot be negative"

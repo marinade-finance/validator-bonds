@@ -669,27 +669,27 @@ mod tests {
     struct CommissionParams {
         inflation_final: Decimal,
         inflation_onchain: Decimal,
-        inflation_in_bonds: Option<Decimal>,
+        inflation_in_bond: Option<Decimal>,
         mev_final: Decimal,
         mev_onchain: Option<Decimal>,
-        mev_in_bonds: Option<Decimal>,
+        mev_in_bond: Option<Decimal>,
         block_rewards_final: Decimal,
-        block_rewards_in_bonds: Option<Decimal>,
+        block_rewards_in_bond: Option<Decimal>,
     }
 
     impl CommissionParams {
-        fn new(onchain: f64, in_bonds: f64) -> Self {
+        fn new(onchain: f64, in_bond: f64) -> Self {
             let onchain_dec = Decimal::try_from(onchain).unwrap();
-            let bonds_dec = Decimal::try_from(in_bonds).unwrap();
+            let bonds_dec = Decimal::try_from(in_bond).unwrap();
             Self {
                 inflation_final: onchain_dec,
                 inflation_onchain: onchain_dec,
-                inflation_in_bonds: Some(bonds_dec),
+                inflation_in_bond: Some(bonds_dec),
                 mev_final: onchain_dec,
                 mev_onchain: Some(onchain_dec),
-                mev_in_bonds: Some(bonds_dec),
+                mev_in_bond: Some(bonds_dec),
                 block_rewards_final: onchain_dec,
-                block_rewards_in_bonds: Some(bonds_dec),
+                block_rewards_in_bond: Some(bonds_dec),
             }
         }
 
@@ -699,12 +699,12 @@ mod tests {
                 mev_commission_dec: self.mev_final,
                 block_rewards_commission_dec: self.block_rewards_final,
                 inflation_commission_onchain_dec: self.inflation_onchain,
-                inflation_commission_in_bonds_dec: self.inflation_in_bonds,
+                inflation_commission_in_bond_dec: self.inflation_in_bond,
                 inflation_commission_override_dec: None,
                 mev_commission_onchain_dec: self.mev_onchain,
-                mev_commission_in_bonds_dec: self.mev_in_bonds,
+                mev_commission_in_bond_dec: self.mev_in_bond,
                 mev_commission_override_dec: None,
-                block_rewards_commission_in_bonds_dec: self.block_rewards_in_bonds,
+                block_rewards_commission_in_bond_dec: self.block_rewards_in_bond,
                 block_rewards_commission_override_dec: None,
             }
         }
