@@ -7,7 +7,7 @@ pub struct UpsizeSettlementClaims<'info> {
     #[account(
         mut,
         realloc = account_increase_size(&settlement_claims)?,
-        realloc::zero = false,
+        realloc::zero = true,
         realloc::payer=rent_payer,
         seeds = [
             b"claims_account",
