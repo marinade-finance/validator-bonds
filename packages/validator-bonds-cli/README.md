@@ -416,6 +416,8 @@ The token is burned during configuration, proving ownership without requiring th
 
 ---
 
+<a id='funding-bond-account'></a>
+
 ### Funding a Bond
 
 Bonds are funded with stake accounts, not direct SOL transfers. The funded amount serves as collateral for auction bids and settlement obligations.
@@ -500,6 +502,8 @@ and [protected staking events](https://marinade.finance/blog/introducing-protect
 
 1. **Initialize withdrawal request** (~3 epochs lockup period begins)
 2. **Claim withdrawal request** (after lockup expires, stake accounts transferred to you)
+
+<a id='withdraw-all'></a>
 
 > **⚠️ IMPORTANT NOTES:**
 >
