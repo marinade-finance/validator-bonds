@@ -1,6 +1,7 @@
 use crate::bond_products::{find_bond_products, FindBondProductsArgs};
 use crate::{
     bonds::get_bonds_for_config,
+    get_validator_bonds_program,
     settlements::get_settlements_for_config,
     stake_accounts::{collect_stake_accounts, get_clock},
     withdraw_requests::get_withdraw_requests,
@@ -44,7 +45,35 @@ pub async fn collect_validator_bonds_with_funds(
             .into_iter()
             .filter(|(_, wr)| bonds.contains_key(&wr.bond))
             .collect();
-    let bond_products: HashMap<Pubkey, (Pubkey, BondProduct)> = find_bond_products(
+    // let bond_products: HashMap<Pubkey, (Pubkey, BondProduct)> = find_bond_products(
+    //     rpc_client.clone(),
+    //     FindBondProductsArgs {
+    //         config: Some(&config_address),
+    //         product_type: Some(&ProductType::Commission),
+    //         ..Default::default()
+    //     },
+    // )
+    // .await?
+    // .into_iter()
+    // .map(|(pubkey, pb)| (pb.bond, (pubkey, pb)))
+    // .try_fold(
+    //     HashMap::new(),
+    //     |mut acc, (bond, (product_pubkey, product))| {
+    //         if let Some((existing_pubkey, _)) = acc.get(&bond) {
+    //             // only one commission PDA for a bond may exist, otherwise it is an on-chain contract issue
+    //             anyhow::bail!(
+    //                 "Multiple BondProducts ({},{}) found for bond: {}",
+    //                 existing_pubkey,
+    //                 product_pubkey,
+    //                 bond
+    //             );
+    //         }
+    //         acc.insert(bond, (product_pubkey, product));
+    //         Ok::<_, anyhow::Error>(acc)
+    //     },
+    // )?;
+    let mut bond_products = HashMap::new();
+    for (pubkey, pb) in find_bond_products(
         rpc_client.clone(),
         FindBondProductsArgs {
             config: Some(&config_address),
@@ -53,24 +82,15 @@ pub async fn collect_validator_bonds_with_funds(
         },
     )
     .await?
-    .into_iter()
-    .map(|(pubkey, pb)| (pb.bond, (pubkey, pb)))
-    .try_fold(
-        HashMap::new(),
-        |mut acc, (bond, (product_pubkey, product))| {
-            if let Some((existing_pubkey, _)) = acc.get(&bond) {
-                // only one commission PDA for a bond may exist, otherwise it is an on-chain contract issue
-                anyhow::bail!(
-                    "Multiple BondProducts ({},{}) found for bond: {}",
-                    existing_pubkey,
-                    product_pubkey,
-                    bond
-                );
-            }
-            acc.insert(bond, (product_pubkey, product));
-            Ok::<_, anyhow::Error>(acc)
-        },
-    )?;
+    {
+        if let Some((existing_pubkey, _)) = bond_products.insert(pb.bond, (pubkey, pb)) {
+            anyhow::bail!(
+                "Multiple BondProducts ({},{}) found for one bond",
+                existing_pubkey,
+                pubkey,
+            );
+        }
+    }
 
     log::info!("Found bonds: {}", bonds.len());
     log::info!("Found stake accounts: {}", stake_accounts.len());
