@@ -10,6 +10,26 @@ All notable changes to this project will be documented in this file. See [standa
 
 ---
 
+## contract release v2.2.0 (2025-12-09)
+
+- address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
+- tag: [`contract-v2.2.0`](https://github.com/marinade-finance/validator-bonds/releases/tag/contract-v2.1.0), commit: [`TODO`](https://github.com/marinade-finance/validator-bonds/commit/TODO),
+- tx: [`TODO`](https://explorer.solana.com/tx/TODO)
+- anchor verify command:
+  ```
+  git checkout TODO &&\
+  anchor verify  --provider.cluster mainnet -p validator_bonds \
+    --env "GIT_REV=`git rev-parse --short HEAD`" --env 'GIT_REV_NAME=v2.2.0' vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
+  ```
+
+### Changes
+
+- Anchor update to 0.31.1 ([PR#295](https://github.com/marinade-finance/validator-bonds/pull/295))
+- Removal of zero lamports check on reset of unclaimed stake accounts: ([PR#303](https://github.com/marinade-finance/validator-bonds/pull/303))
+- Realloc to zero new data: ([PR#298](https://github.com/marinade-finance/validator-bonds/pull/298))
+- Stake can be reset for non-existing vote account ([PR#297](https://github.com/marinade-finance/validator-bonds/pull/297))
+- Adding configuration PDA config accounts to be able to manage multiple configurations: ([PR#297](https://github.com/marinade-finance/validator-bonds/pull/297))
+
 ## TS CLI&SDK [2.2.0](https://github.com/marinade-finance/validator-bonds/compare/v2.1.10...v2.2.0) (2025-09-24)
 
 ### Updates

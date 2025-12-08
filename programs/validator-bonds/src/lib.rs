@@ -26,7 +26,7 @@ use solana_security_txt::security_txt;
 security_txt! {
     name: "Validator Bonds",
     project_url: "https://marinade.finance",
-    contacts: "link:https://docs.marinade.finance/marinade-dao,link:https://discord.com/invite/6EtUf4Euu6",
+    contacts: "link:https://docs.marinade.finance",
     policy: "https://docs.marinade.finance/marinade-protocol/security",
     preferred_languages: "en",
     source_code: "https://github.com/marinade-finance/validator-bonds",

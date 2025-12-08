@@ -9,7 +9,6 @@ import {
   bondProductAddress,
   findBondProducts,
   getBond,
-  getBondProduct,
 } from '@marinade.finance/validator-bonds-sdk'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
@@ -214,55 +213,6 @@ describe('Init bond account using CLI', () => {
     expect(commissionData.inflationBps).toBeNull()
     expect(commissionData.mevBps).toBeNull()
     expect(commissionData.blockBps).toBeNull()
-  })
-
-  it('init bond account permission-ed with uniform commission', async () => {
-    const unifiedCommissionBps = 142
-    await expect([
-      'pnpm',
-      [
-        'cli',
-        '-u',
-        provider.connection.rpcEndpoint,
-        '--program-id',
-        program.programId.toBase58(),
-        'init-bond',
-        '--config',
-        configAccount.toBase58(),
-        '--vote-account',
-        voteAccount.toBase58(),
-        '--validator-identity',
-        validatorIdentityPath,
-        '--rent-payer',
-        rentPayerPath,
-        '--uniform-commission',
-        unifiedCommissionBps,
-        '--confirmation-finality',
-        'confirmed',
-      ],
-    ]).toHaveMatchingSpawnOutput({
-      code: 0,
-      // stderr: '',
-      stdout: /Bond account .* successfully created/,
-    })
-
-    const [bondAccount] = bondAddress(
-      configAccount,
-      voteAccount,
-      program.programId,
-    )
-    await expect(getBond(program, bondAccount)).resolves.toBeDefined()
-
-    const [bondProduct] = bondProductAddress(
-      bondAccount,
-      ProductTypes.commission,
-      program.programId,
-    )
-    const commissionData = (await getBondProduct(program, bondProduct))
-      .configData.commission![0]
-    expect(commissionData.inflationBps).toEqual(unifiedCommissionBps)
-    expect(commissionData.mevBps).toEqual(unifiedCommissionBps)
-    expect(commissionData.blockBps).toEqual(unifiedCommissionBps)
   })
 
   it('init bond account permission-less', async () => {

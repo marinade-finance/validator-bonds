@@ -65,9 +65,18 @@ solana delegate-stake <stake-account-pubkey> <vote-account-address>
 validator-bonds fund-bond <vote-account-address> --stake-account <stake-account-pubkey>
 
 # STEP 3: PARTICIPATE IN AUCTION
-# validator needs to participate in bidding to get the stake
-# --cpmpe defines how many lamports the validator is willing to pay for every 1000 SOLs delegated
-validator-bonds configure-bond <vote-account-address> --authority ./validator-identity.json --cpmpe <lamports>
+# The auction position depends on how much of rewards is shared with stakers.
+# Rewards can be shared in two (combinable) ways:
+# a) Static bid (--cpmpe)
+#    A fixed amount (in lamports) the validator is willing to pay for every 1000 SOL delegated.
+# b) Dynamic bid (commission-based)
+#    A bid derived from the all validators’ average rewards over past epochs.
+#    The effective commission is the lower of the on-chain and bond-configured values.
+#    If the bond-configured commission is lower than the on-chain value, the difference is charged from the bond claim.
+#    See --inflation-commission, --mev-commission, --block-commission (all in basis points).
+# More at https://docs.marinade.finance/marinade-protocol/protocol-overview/stake-auction-market
+validator-bonds configure-bond <vote-account-address> --authority ./validator-identity.json \
+  --cpmpe <lamports> --block-commission 500
 > Bond account BondAddress9iRYo3ZEK6dpmm9jYWX3Kb63Ed7RAFfUc successfully configured
 
 # VERIFICATION
@@ -131,14 +140,21 @@ The parameters and their meanings are explained in detail below:
   The bond's security is established by providing a stake account. The lamports in the stake account then corresponds to the SOL amount added to the security of the bond account.
   There is no direct payment of SOLs to the bond; it is accomplished solely by allocating stake accounts.
 - `--cpmpe`: Cost per mille per epoch, in lamports. How many lamports the validator is willing to pay for every 1000 SOLs delegated.
-  The property configures the bid the `Bond` owner wishes to pay for receiving delegated stake. The maximum delegated stake is defined as a percent of full Marinade TVL.
-  The percentage is configured within project [ds-sam-pipeline](https://github.com/marinade-finance/ds-sam-pipeline/)
-  in [the config as `maxMarinadeTvlSharePerValidatorDec`](https://github.com/marinade-finance/ds-sam-pipeline/blob/main/auction-config.json).
-  The actual amount of delegated stake is defined by the [delegation strategy](https://docs.marinade.finance/marinade-protocol/validators).
-  The `cpmpe` value goes into the auction where compared with other bids the delegation strategy determines
-  the actual amount of stake delegated to the vote account linked to the `Bond` account.
-- The funded bond is charged only for the amount of stake that was actually delegated
-  (if nothing is delegated, nothing is charged).
+  The property configures the bid the `Bond` owner wishes to pay for receiving delegated stake.
+  The actual amount of delegated stake is calculated by the [SAM delegation strategy](https://docs.marinade.finance/marinade-protocol/protocol-overview/stake-auction-market).
+  The maximum delegated stake per validator is configured by Marinade SAM configuration as a percent of full Marinade TVL
+  (configured at [ds-sam-pipeline](https://github.com/marinade-finance/ds-sam-pipeline/)
+  in [the config as `maxMarinadeTvlSharePerValidatorDec`](https://github.com/marinade-finance/ds-sam-pipeline/blob/main/auction-config.json)).
+  The `cpmpe` value evaluated in the SAM auction where compared with other bids to determine the stake for the validator
+  that has to have an existing and funded `Bond`.
+  - The funded bond is charged only for the amount of stake that was actually delegated calculated from the end of the epoch
+    (if nothing is delegated, nothing is charged).
+- `--inflation-commission`, `--mev-commission`, `--block-commission`: Commission in basis points, specifying the portion
+  of each respective reward type that the validator keeps.
+  This re-declares the on-chain commission value (if lower than the on-chain setting).
+  The portion shared with stakers influences how the validator is treated in the SAM auction.
+  The value can be negative (meaning the validator keeps no rewards and may even share an additional portion).
+- `--max-stake-wanted`: The maximum stake amount (in lamports) that the validator wants to be delegated to them.
 
 ### Show the bond account
 
@@ -166,22 +182,36 @@ Expected output on created bond is like
     "config": "vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU",
     "voteAccount": "...",
     "authority": "...",
-    "costPerMillePerEpoch": "1000 lamports"
+    "costPerMillePerEpoch": "1000 lamports",
+    "maxStakeWanted": "100000 SOLs"
   },
+  "configs": [
+    {
+      "publicKey": "...",
+      "productType": "commission",
+      "configData": {
+        "commission": {
+          "inflationBps": 500,
+          "mevBps": 1000,
+          "blockBps": 200
+        }
+      }
+    }
+  ],
   "voteAccount": {
     "nodePubkey": "...",
     "authorizedWithdrawer": "...",
-    "commission": 0
+    "commission": 100
   },
-  "amountOwned": "10.407 SOLs",
-  "amountActive": "10.407 SOLs",
-  "numberActiveStakeAccounts": 0,
+  "amountOwned": "42.407 SOLs",
+  "amountActive": "42.407 SOLs",
+  "numberActiveStakeAccounts": 5,
   "amountAtSettlements": "0 SOL",
   "numberSettlementStakeAccounts": 0,
   "amountToWithdraw": "0 SOL",
   "withdrawRequest": "<NOT EXISTING>",
   "bondMint": "...",
-  "bondFundedStakeAccounts": [],
+  "bondFundedStakeAccounts": [ ... ],
   "settlementFundedStakeAccounts": []
 }
 ```
@@ -204,6 +234,12 @@ amountActive = amountOwned - amountAtSettlements - amountToWithdraw
 - **`amountToWithdraw`**: The amount the user has requested to withdraw, which is no longer considered
   active for bond bidding. However, the funds may still be used for settlement funding
   until they are fully withdrawn from the Bonds program.
+- **`numberActiveStakeAccounts`**: The number of stake accounts in which the active part of the bond is held.
+  These accounts collectively represent the `amountActive`.
+- **`numberSettlementStakeAccounts`**: Number of stake accounts currently held in Settlements that
+  together represent the `amountAtSettlements`.
+- **`withdrawRequest`**: Indicates whether a withdrawal request exists for the Bond account.
+  If present, it shows the request’s public key and the `amountToWithdraw` it corresponds to.
 
 When a user decides to [withdraw from their Bond account](#withdrawing-bond-account), a special on-chain withdrawal request
 is created. This request acts as a ticket authorizing withdrawal after a delay (~4 epochs).
@@ -239,6 +275,12 @@ The `Bond` owner may configure following properties of the account:
 - `--cpmpe`: Cost per mille per epoch (in lamports). It's a bid used in the delegation strategy
   auction. The Bond owner agrees to pay this amount in lamports to get stake delegated to the vote
   account for one epoch.
+- `--inflation-commission`: Inflation commission in basis points (may be negative, , max 10,000 bps), specifying the portion of
+  inflation rewards the validator keeps. This re-declares the on-chain inflation value for use in the Marinade SAM auction.
+- `--mev-commission`: MEV commission in basis points (may be negative, max 10,000 bps), specifying the portion of MEV rewards
+  the validator keeps. This re-declares the on-chain MEV value for use in the Marinade SAM auction.
+- `--block-commission`: Block rewards commission in basis points (may be negative, max 10,000 bps), specifying the portion
+  of block rewards the validator keeps. The remainder is shared with stakers through bond claims.
 - `--max-stake-wanted`: The maximum stake amount (in lamports) that the validator wants to be delegated to them.
 
 #### Permission-ed Configure workflow
@@ -489,7 +531,7 @@ and create [a new withdrawal request](#withdrawing-bond-account) if needed.
 > The existence of a withdrawal request can be verified using
 > the `show-bond` command.
 
-### Show Validator Bonds Program Configuration
+### Show the Program Configuration
 
 The global configuration for the Validator Bonds Program is stored on-chain in
 [a config account](https://github.com/marinade-finance/validator-bonds/blob/main/programs/validator-bonds/src/state/config.rs),
@@ -767,30 +809,25 @@ Usage: validator-bonds [options] [command]
 
 Options:
   -V, --version                                   output the version number
-  -u, --url <rpc-url>                             solana RPC URL or a moniker (m/mainnet/mainnet-beta, d/devnet, t/testnet, l/localhost), see https://solana.com/rpc (default: "mainnet")
+  -u, --url <rpc-url>                             solana RPC URL or a moniker (m/mainnet/mainnet-beta, d/devnet, t/testnet, l/localhost), see https://solana.com/rpc (default: "mainnet", env: RPC_URL)
   -c, --cluster <cluster>                         alias for "-u, --url"
-  -k, --keypair <keypair-or-ledger>               Wallet keypair (path or ledger url in format usb://ledger/[<pubkey>][?key=<derivedPath>]). Wallet keypair is used to pay for the transaction fees
-                                                  and as default value for signers. (default: loaded from solana config file or ~/.config/solana/id.json)
-  --program-id <pubkey>                           Program id of validator bonds contract (default: vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
+  -k, --keypair <keypair-or-ledger>               Wallet keypair (path or ledger url in format usb://ledger/[<pubkey>][?key=<derivedPath>]). Wallet keypair is used to pay for the transaction fees and as default value for signers. (default: loaded from solana config file or ~/.config/solana/id.json)
   -s, --simulate                                  Simulate (default: false)
-  -p, --print-only                                Print only mode, no execution, instructions are printed in base64 to output. This can be used for placing the admin commands to SPL Governance UI
-                                                  by hand. (default: false)
-  --skip-preflight                                Transaction execution flag "skip-preflight", see https://solanacookbook.com/guides/retrying-transactions.html#the-cost-of-skipping-preflight
-                                                  (default: false)
+  -p, --print-only                                Print only mode, no execution, instructions are printed in base64 to output. This can be used for placing the admin commands to SPL Governance UI by hand. (default: false)
+  --skip-preflight                                Transaction execution flag "skip-preflight", see https://solanacookbook.com/guides/retrying-transactions.html#the-cost-of-skipping-preflight (default: false)
   --commitment <commitment>                       Commitment (default: "confirmed")
-  --confirmation-finality <confirmed|finalized>   Confirmation finality of sent transaction. Default is "confirmed" that means for majority of nodes confirms in cluster. "finalized" stands for
-                                                  full cluster finality that takes ~8 seconds. (default: "confirmed")
+  --confirmation-finality <confirmed|finalized>   Confirmation finality of sent transaction. Default is "confirmed" that means for majority of nodes confirms in cluster. "finalized" stands for full cluster finality that takes ~8 seconds. (default: "confirmed")
   --with-compute-unit-price <compute-unit-price>  Set compute unit price for transaction, in increments of 0.000001 lamports per compute unit. (default: 10)
   -d, --debug                                     Printing more detailed information of the CLI execution (default: false)
   -v, --verbose                                   alias for --debug (default: false)
+  --program-id <pubkey>                           Program id of validator bonds contract (default: vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4) (default: {})
   -h, --help                                      display help for command
 
 Commands:
   init-config [options]                           Create a new config account.
   configure-config [options] [address]            Configure existing config account.
-  mint-bond [options] <address>                   Mint a Validator Bond token, providing a means to configure the bond account without requiring a direct signature for the on-chain transaction.
-                                                  The workflow is as follows: first, use this "mint-bond" to mint a bond token to the validator identity public key. Next, transfer the token to any
-                                                  account desired. Finally, utilize the command "configure-bond --with-token" to configure the bond account.
+  mint-bond [options] <address>                   Mint a Validator Bond token, providing a means to configure the bond account without requiring a direct signature for the on-chain transaction. The workflow is as follows: first, use this "mint-bond" to mint a bond token to the validator identity public
+                                                  key. Next, transfer the token to any account desired. Finally, utilize the command "configure-bond --with-token" to configure the bond account.
   init-bond [options]                             Create a new bond account.
   configure-bond [options] <address>              Configure existing bond account.
   merge-stake [options]                           Merging stake accounts belonging to validator bonds program.
@@ -798,11 +835,12 @@ Commands:
   fund-bond-sol [options] <address>               Funding a bond account with amount of SOL. The command creates a stake account, transfers SOLs to it and delegates it to bond.
   init-withdraw-request [options] [address]       Initializing withdrawal by creating a request ticket. The withdrawal request ticket is used to indicate a desire to withdraw the specified amount of lamports after the lockup period expires.
   cancel-withdraw-request [options] [address]     Cancelling the withdraw request account, which is the withdrawal request ticket, by removing the account from the chain.
-  claim-withdraw-request [options] [address]      Claiming an existing withdrawal request for an existing on-chain account, where the lockup period has expired. Withdrawing funds involves
-                                                  transferring ownership of a funded stake account to the specified "--withdrawer" public key. To withdraw, the authority signature of the bond
-                                                  account is required, specified by the "--authority" parameter (default wallet).
+  claim-withdraw-request [options] [address]      Claiming an existing withdrawal request for an existing on-chain account, where the lockup period has expired. Withdrawing funds involves transferring ownership of a funded stake account to the specified "--withdrawer" public key. To withdraw, the
+                                                  authority signature of the bond account is required, specified by the "--authority" parameter (default wallet).
   pause [options] [address]                       Pausing Validator Bond contract for config account
   resume [options] [address]                      Resuming Validator Bond contract for config account
+  close-settlement [options] <address>            Closing Settlement. It is a permission-less action permitted when the Settlement expires. To finalize closing the dangling stake accounts need to be reset.
+  reset-stake [options] <address>                 Resetting stake that is not associated to a closed Settlement. The stake account is to be returned to Bond then used for funding another settlement.
   show-config [options] [address]                 Showing data of config account(s)
   show-event [options] <event-data>               Showing data of anchor event
   show-bond [options] [address]                   Showing data of bond account(s)

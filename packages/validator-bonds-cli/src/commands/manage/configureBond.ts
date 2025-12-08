@@ -8,10 +8,16 @@ import {
   parsePubkey,
   parseWalletOrPubkeyOption,
 } from '@marinade.finance/web3js-1x'
-import BN from 'bn.js'
+
+import {
+  blockCommissionOption,
+  inflationCommissionOption,
+  mevCommissionOption,
+} from './initBond'
 
 import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 import type { PublicKey } from '@solana/web3.js'
+import type BN from 'bn.js'
 import type { Command } from 'commander'
 
 export function installConfigureBond(program: Command) {
@@ -30,40 +36,18 @@ export function installConfigureBond(program: Command) {
       parseWalletOrPubkeyOption,
     )
     .option(
-      '--cpmpe <number>',
+      '--cpmpe <number lamports>',
       'Cost per mille per epoch, in lamports. The maximum amount of lamports the validator desires to pay for each 1000 delegated SOLs per epoch.',
       value => toBN(value),
     )
     .option(
-      '--max-stake-wanted <number>',
+      '--max-stake-wanted <number lamports>',
       'The maximum stake amount, in lamports, that the validator wants to be delegated to them.',
       value => toBN(value),
     )
-    .option(
-      '--inflation-commission <number>',
-      'Inflation commission (voting commission) (bps). The validator re-declares the on-chain Inflation commission used by Marinade SAM/Bidding ' +
-        'to calculate delegated SOL and bond claims. (default: not-set)',
-      value => new BN(value),
-    )
-    .option(
-      '--mev-commission <number>',
-      'MEV commission (bps). The validator re-declares the on-chain MEV commission used by Marinade SAM/Bidding ' +
-        'to calculate delegated SOL and bond claims. (default: not-set)',
-      value => new BN(value),
-    )
-    .option(
-      '--block-commission <number>',
-      'Block rewards commission (bps). The validator may set-up on top of MEV and inflation commissions the commission for block rewards in bps. ' +
-        "This way part of block rewards is shared with stakers through Bonds' claims. The more is shared the more is taken into account to calculate " +
-        'delegated SOL and bond claims. (default: not-set)',
-      value => new BN(value),
-    )
-    .option(
-      '--uniform-commission <number>',
-      'Uniform commission (bps). The validator may define unified commission that is used by Marinade SAM/Bidding ' +
-        'calculations instead of setting individual commissions. (default: not-set)',
-      value => new BN(value),
-    )
+    .addOption(inflationCommissionOption())
+    .addOption(mevCommissionOption())
+    .addOption(blockCommissionOption())
     .action(
       async (
         address: Promise<PublicKey>,
@@ -77,7 +61,6 @@ export function installConfigureBond(program: Command) {
           inflationCommission,
           mevCommission,
           blockCommission,
-          uniformCommission,
           computeUnitLimit,
           rentPayer,
         }: {
@@ -90,7 +73,6 @@ export function installConfigureBond(program: Command) {
           inflationCommission?: BN | null
           mevCommission?: BN | null
           blockCommission?: BN | null
-          uniformCommission?: BN | null
           computeUnitLimit?: number
           rentPayer?: Promise<WalletInterface | PublicKey>
         },
@@ -106,7 +88,7 @@ export function installConfigureBond(program: Command) {
           inflationBps: inflationCommission,
           mevBps: mevCommission,
           blockBps: blockCommission,
-          uniformBps: uniformCommission,
+          uniformBps: undefined,
           computeUnitLimit,
           rentPayer: await rentPayer,
           isPrintBanner: true,
