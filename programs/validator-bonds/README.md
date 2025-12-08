@@ -36,7 +36,8 @@
       - ([The requested amount](./programs/validator-bonds/src/state/withdraw_request.rs#L17)) is no longer considered as funded.
    2. When the timeout of withdraw lockup epochs elapses, the validator may execute
       [`claim withdraw request operation`](./programs/validator-bonds/src/instructions/withdraw/claim_withdraw_request.rs)
-      that brings withdrawer and staker authority back to the validator.
+      that sets the stake account's withdrawer and staker authorities to the withdrawer account
+      provided in the instruction (typically a validator-controlled address).
    - The `WithdrawRequest` can be [cancelled](./programs/validator-bonds/src/instructions/withdraw/cancel_withdraw_request.rs) (account deleted) at any time.
 
 5. Operator authority creates a `Settlement` (represented by an on-chain account) when a protected event happens.
