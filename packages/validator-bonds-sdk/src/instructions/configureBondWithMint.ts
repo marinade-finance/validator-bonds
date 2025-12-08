@@ -6,7 +6,7 @@ import { getAssociatedTokenAddressSync } from 'solana-spl-token-modern'
 
 import { getBond } from '../api'
 import { bondMintAddress } from '../sdk'
-import { checkAndGetBondAddress, anchorProgramWalletPubkey } from '../utils'
+import { anchorProgramWalletPubkey, checkAndGetBondAddress } from '../utils'
 
 import type { ValidatorBondsProgram } from '../sdk'
 import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
@@ -43,12 +43,12 @@ export async function configureBondWithMintInstruction({
   instruction: TransactionInstruction
   bondAccount: PublicKey
 }> {
-  bondAccount = checkAndGetBondAddress(
-    bondAccount,
-    configAccount,
+  bondAccount = checkAndGetBondAddress({
+    bond: bondAccount,
+    config: configAccount,
     voteAccount,
-    program.programId,
-  )
+    programId: program.programId,
+  })
   if (configAccount === undefined || voteAccount === undefined) {
     const bondData = await getBond(program, bondAccount)
     configAccount = configAccount ?? bondData.config

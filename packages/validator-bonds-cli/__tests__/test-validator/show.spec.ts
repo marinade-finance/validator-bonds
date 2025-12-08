@@ -1,6 +1,7 @@
 import assert from 'assert'
 
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
+import { jsonStringify } from '@marinade.finance/ts-common'
 import { loadTestingVoteAccount } from '@marinade.finance/validator-bonds-cli-core'
 import {
   initConfigInstruction,
@@ -11,6 +12,10 @@ import {
   bondMintAddress,
 } from '@marinade.finance/validator-bonds-sdk'
 import { retryOnEpochRewardsPeriod } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/staking'
+import {
+  executeInitCommissionProductInstruction,
+  executeInitCustomProductInstruction,
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testTransactions'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import {
   createBondsFundedStakeAccount,
@@ -35,7 +40,11 @@ import BN from 'bn.js'
 import YAML from 'yaml'
 
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
-import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
+import type {
+  ProductType,
+  ProductTypeConfig,
+  ValidatorBondsProgram,
+} from '@marinade.finance/validator-bonds-sdk'
 
 beforeAll(() => {
   extendJestWithShellMatchers()
@@ -87,7 +96,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
+      stderr: '',
       stdout: YAML.stringify({
         programId: program.programId,
         publicKey: configPubkey.toBase58(),
@@ -131,7 +140,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
+      stderr: '',
       stdout: YAML.stringify([
         {
           programId: program.programId,
@@ -174,7 +183,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
+      stderr: '',
       // nothing to be found, not-defined admin taken
       stdout: YAML.stringify([]),
     })
@@ -197,7 +206,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
+      stderr: '',
       stdout: YAML.stringify([
         {
           programId: program.programId,
@@ -253,6 +262,27 @@ describe('Show command using CLI', () => {
       cpmpe: 222,
       maxStakeWanted: 2000 * LAMPORTS_PER_SOL,
     })
+    const {
+      productType: productTypeCommission,
+      configData: configDataCommission,
+    } = await executeInitCommissionProductInstruction({
+      program,
+      provider,
+      bondAccount,
+      authority: bondAuthority,
+      blockBps: 10,
+      inflationBps: 20,
+      mevBps: null,
+    })
+    const { productType: productTypeCustom, configData: configDataCustom } =
+      await executeInitCustomProductInstruction({
+        program,
+        provider,
+        bondAccount,
+        authority: bondAuthority,
+        customName: 'gg',
+        customProductData: Buffer.from([42]),
+      })
 
     const voteAccountShow = await loadTestingVoteAccount(
       provider.connection,
@@ -274,8 +304,17 @@ describe('Show command using CLI', () => {
         maxStakeWanted: '2000 SOLs',
       },
     }
+    const configsMulti = formatProductType([
+      [productTypeCustom, configDataCustom],
+      [productTypeCommission, configDataCommission],
+    ])
+    const expectedDataNoFundingMultiple = {
+      ...expectedDataNoFunding,
+      configs: configsMulti,
+    }
     const expectedDataFundingSingleItem = {
       ...expectedDataNoFunding,
+      configs: formatProductType([productTypeCommission, configDataCommission]),
       voteAccount: voteAccountShow,
       amountOwned: '0 SOL',
       amountActive: '0 SOL',
@@ -288,6 +327,7 @@ describe('Show command using CLI', () => {
     }
     const expectedDataFundingMultipleItems = {
       ...expectedDataNoFunding,
+      configs: configsMulti,
       amountOwned: '0 SOL',
       amountActive: '0 SOL',
       numberActiveStakeAccounts: 0,
@@ -315,7 +355,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
+      stderr: '',
       stdout: YAML.stringify(expectedDataFundingSingleItem),
     })
     await expect([
@@ -338,7 +378,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
+      stderr: '',
       stdout: YAML.stringify(expectedDataFundingSingleItem),
     })
     const identityRegex = new RegExp(
@@ -365,7 +405,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
+      stderr: '',
       stdout: identityRegex,
     })
 
@@ -387,8 +427,8 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
-      stdout: YAML.stringify([expectedDataNoFunding]),
+      stderr: '',
+      stdout: YAML.stringify([expectedDataNoFundingMultiple]),
     })
 
     await expect([
@@ -410,7 +450,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
+      stderr: '',
       stdout: YAML.stringify([expectedDataFundingMultipleItems]),
     })
 
@@ -432,8 +472,8 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
-      stdout: YAML.stringify([expectedDataNoFunding]),
+      stderr: '',
+      stdout: YAML.stringify([expectedDataNoFundingMultiple]),
     })
 
     await expect([
@@ -457,7 +497,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
+      stderr: '',
       stdout: YAML.stringify([expectedDataFundingMultipleItems]),
     })
 
@@ -478,7 +518,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 200,
       signal: '',
-      // stderr: '',
+      stderr: '',
       stdout:
         /Provided address is neither a bond, vote account, withdraw request, stake account nor validator identity/,
     })
@@ -536,6 +576,7 @@ describe('Show command using CLI', () => {
         costPerMillePerEpoch: '1 lamport',
         maxStakeWanted: '0 SOL',
       },
+      configs: [],
     }
     const voteAccountShow = await loadTestingVoteAccount(
       provider.connection,
@@ -574,7 +615,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
+      stderr: '',
       stdout: YAML.stringify({
         ...expectedData,
         amountOwned: `${sumLamports / LAMPORTS_PER_SOL} SOLs`,
@@ -643,7 +684,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
+      stderr: '',
       stdout: YAML.stringify({
         ...expectedDataWithdrawRequestBefore,
         ...expectedDataWithdrawRequestAfter,
@@ -671,7 +712,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
+      stderr: '',
       stdout: YAML.stringify({
         ...expectedDataWithdrawRequestBefore,
         ...expectedDataWithdrawRequestAfter,
@@ -696,7 +737,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
+      stderr: '',
       stdout: YAML.stringify({
         ...expectedDataWithdrawRequestBefore,
         ...expectedDataWithdrawRequestAfter,
@@ -723,7 +764,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
+      stderr: '',
       stdout: new RegExp(
         `${lastStakeAccount!.toBase58()} is a STAKE ACCOUNT.*vote account ${voteAccount.toBase58()}`,
       ),
@@ -755,7 +796,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
+      stderr: '',
       stdout: YAML.stringify({
         ...expectedData,
         amountOwned: `${sumLamports / LAMPORTS_PER_SOL} SOLs`,
@@ -819,7 +860,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // stderr: '',
+      stderr: '',
       stdout: YAML.stringify({
         ...expectedData,
         amountOwned: `${leftStakeAccountAmount} SOLs`,
@@ -843,3 +884,43 @@ describe('Show command using CLI', () => {
     })
   })
 })
+
+type FormatProduct = [ProductType, ProductTypeConfig]
+
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return */
+function formatProductType(input: FormatProduct | FormatProduct[]): object {
+  const result: any[] = []
+
+  const items: FormatProduct[] = Array.isArray(input[0])
+    ? (input as FormatProduct[])
+    : [input as FormatProduct]
+
+  for (const [productType, configData] of items) {
+    if (configData.commission) {
+      const commission = configData.commission[0]
+      result.push({
+        productType: 'commission',
+        configData: {
+          commission: {
+            inflationBps: commission.inflationBps?.toNumber() ?? null,
+            mevBps: commission.mevBps?.toNumber() ?? null,
+            blockBps: commission.blockBps?.toNumber() ?? null,
+          },
+        },
+      })
+    } else if (configData.custom) {
+      const customBuffer = Buffer.from(configData.custom[0])
+      result.push({
+        productType: productType.custom?.[0],
+        configData: [...customBuffer.values()],
+      })
+    } else {
+      throw new Error(
+        `formatProductType: Unknown config data format: ${jsonStringify(
+          configData,
+        )}`,
+      )
+    }
+  }
+  return result
+}

@@ -26,6 +26,8 @@ export const MERGE_STAKE_LIMIT_UNITS = 100_000
 export const MINT_BOND_LIMIT_UNITS = 200_000
 export const CLOSE_SETTLEMENT_LIMIT_UNITS = 50_000
 export const RESET_STAKE_LIMIT_UNITS = 50_000
+export const INIT_BOND_CONFIG_COMMISSION_LIMIT_UNITS = 50_000
+export const CONFIGURE_BOND_CONFIG_COMMISSION_LIMIT_UNITS = 24_000
 
 export function computeUnitLimitOption(defaultValue: number): Option {
   return createOption(

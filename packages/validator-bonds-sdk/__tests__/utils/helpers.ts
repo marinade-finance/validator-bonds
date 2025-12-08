@@ -80,3 +80,7 @@ export function getRandomByte() {
   assert(wordArray.words[0] !== undefined)
   return wordArray.words[0] & 0xff
 }
+
+export function customTestResult(name: string) {
+  return { custom: { '0': name } }
+}

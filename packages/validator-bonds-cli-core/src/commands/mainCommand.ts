@@ -86,7 +86,8 @@ export function launchCliProgram({
   installAdditionalOptions(program)
 
   program.hook('preAction', async (command: Command, action: Command) => {
-    if (command.opts().debug || command.opts().verbose) {
+    const verbose = command.opts().debug || command.opts().verbose
+    if (verbose) {
       logger.level = 'debug'
     } else {
       logger.level = 'info' // Default level
@@ -110,6 +111,7 @@ export function launchCliProgram({
       confirmationFinality: command.opts().confirmationFinality,
       computeUnitPrice: command.opts().withComputeUnitPrice,
       logger,
+      verbose,
       command: action.name(),
     })
   })

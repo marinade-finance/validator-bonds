@@ -86,12 +86,12 @@ export async function delegateAndFund({
     voteAccountToDelegate: voteAccount,
   })
   if (bondAccount && configAccount) {
-    const bondToCheck = checkAndGetBondAddress(
-      undefined,
-      configAccount,
-      voteAccountDelegated,
-      program.programId,
-    )
+    const bondToCheck = checkAndGetBondAddress({
+      bond: bondAccount,
+      config: configAccount,
+      voteAccount: voteAccountDelegated,
+      programId: program.programId,
+    })
     expect(bondAccount).toEqual(bondToCheck)
   }
   if (

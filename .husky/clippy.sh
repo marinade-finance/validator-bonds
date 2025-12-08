@@ -24,13 +24,13 @@ cargo metadata --no-deps --format-version 1 | \
       # Root package - any changed Rust file affects it
       if [ -n "$CHANGED_RS_FILES" ]; then
         echo "Running clippy on: $name"
-        cargo clippy -p "$name"
+        cargo clippy
       fi
     else
       # Check if any changed file starts with this package's directory
       if echo "$CHANGED_RS_FILES" | grep -q "^$pkg_rel_dir/"; then
         echo "Running clippy on: $name"
-        cargo clippy -p "$name"
+        cargo clippy
       fi
     fi
   done
