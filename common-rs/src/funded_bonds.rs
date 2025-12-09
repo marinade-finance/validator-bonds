@@ -45,33 +45,6 @@ pub async fn collect_validator_bonds_with_funds(
             .into_iter()
             .filter(|(_, wr)| bonds.contains_key(&wr.bond))
             .collect();
-    // let bond_products: HashMap<Pubkey, (Pubkey, BondProduct)> = find_bond_products(
-    //     rpc_client.clone(),
-    //     FindBondProductsArgs {
-    //         config: Some(&config_address),
-    //         product_type: Some(&ProductType::Commission),
-    //         ..Default::default()
-    //     },
-    // )
-    // .await?
-    // .into_iter()
-    // .map(|(pubkey, pb)| (pb.bond, (pubkey, pb)))
-    // .try_fold(
-    //     HashMap::new(),
-    //     |mut acc, (bond, (product_pubkey, product))| {
-    //         if let Some((existing_pubkey, _)) = acc.get(&bond) {
-    //             // only one commission PDA for a bond may exist, otherwise it is an on-chain contract issue
-    //             anyhow::bail!(
-    //                 "Multiple BondProducts ({},{}) found for bond: {}",
-    //                 existing_pubkey,
-    //                 product_pubkey,
-    //                 bond
-    //             );
-    //         }
-    //         acc.insert(bond, (product_pubkey, product));
-    //         Ok::<_, anyhow::Error>(acc)
-    //     },
-    // )?;
     let mut bond_products = HashMap::new();
     for (pubkey, pb) in find_bond_products(
         rpc_client.clone(),
