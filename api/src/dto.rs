@@ -107,4 +107,7 @@ pub struct ValidatorBondRecordSchema {
     #[schema(format = "datetime")]
     updated_at: DateTime<Utc>,
     bond_type: String, // Using String to represent BondType
+    inflation_commission_bps: Option<i64>,
+    mev_commission_bps: Option<i64>,
+    block_commission_bps: Option<i64>,
 }

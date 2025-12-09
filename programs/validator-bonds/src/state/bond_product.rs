@@ -51,11 +51,9 @@ impl ValidateProductTypeConfig for ProductTypeConfig {
 impl ProductTypeConfig {
     pub fn default_by_type(product_type: &ProductType) -> Result<Self> {
         match product_type {
-            ProductType::Commission => Ok(ProductTypeConfig::Commission(CommissionProductConfig {
-                inflation_bps: None,
-                mev_bps: None,
-                block_bps: None,
-            })),
+            ProductType::Commission => Ok(ProductTypeConfig::Commission(
+                CommissionProductConfig::default(),
+            )),
             ProductType::Custom(_) => Err(error!(ErrorCode::ProductTypeConfigValidationFailure)
                 .with_values(("reason", "No default for custom product type"))),
         }
@@ -63,7 +61,7 @@ impl ProductTypeConfig {
 }
 
 /// Configuration of commissions. The commission is permitted to be negative to allow for subsidies.
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, Default)]
 pub struct CommissionProductConfig {
     pub inflation_bps: Option<i64>,
     pub mev_bps: Option<i64>,
