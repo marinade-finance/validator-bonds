@@ -1,0 +1,21 @@
+################################################################
+# Manage validator-bonds deployment through Crypto Infrastructure as Code
+################################################################
+
+addon "svm" {
+    rpc_api_url = input.rpc_api_url
+    network_id = input.network_id
+}
+
+action "deploy_validator_bonds" "svm::deploy_program" {
+    description = "Deploy validator_bonds program"
+    program = svm::get_program_from_anchor_project("validator_bonds") 
+    authority = signer.authority
+    payer = signer.payer
+    // idl = "./target/idl/validator_bonds.json"
+    // binary = "./target/deploy/validator_bonds.so"
+    // Optional: if you want to deploy the program via a cheatcode when targeting a Surfnet, set `instant_surfnet_deployment = true`
+    // Deploying via a cheatcode will write the program data directly to the program account, rather than sending transactions.
+    // This will make deployments instantaneous, but is deviating from how the deployments will take place on devnet/mainnet.
+    instant_surfnet_deployment = true
+}

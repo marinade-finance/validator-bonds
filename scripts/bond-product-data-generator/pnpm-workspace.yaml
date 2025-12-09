@@ -1,0 +1,8 @@
+packages:
+  - .
+
+onlyBuiltDependencies:
+  - bigint-buffer
+  - bufferutil
+  - node-hid
+  - utf-8-validate
