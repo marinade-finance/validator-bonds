@@ -433,9 +433,10 @@ fn aggregate_rewards(
         .map(|r| r.validators_total_amount)
         .sum::<u64>()
         .div(LAMPORTS_PER_SOL);
-    assert_eq!(
-        total_rewards,
-        total_stakers_rewards + total_validators_rewards
+    assert!(
+        // 1 lamport tolerance for rounding errors
+        total_rewards.abs_diff(total_stakers_rewards + total_validators_rewards) <= 1,
+        "Mismatch in total rewards calculation vs. stakers + validators"
     );
     info!(
         "Aggregated rewards (total: {} SOL, stakers: {} SOL, validators: {} SOL) for {} vote accounts",

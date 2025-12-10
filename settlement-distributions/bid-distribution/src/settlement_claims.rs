@@ -1,6 +1,6 @@
 use crate::sam_meta::{AuctionValidatorValues, ValidatorSamMeta};
 use crate::settlement_config::SettlementConfig;
-use bid_psr_distribution::rewards::RewardsCollection;
+use bid_psr_distribution::rewards::{RewardsCollection, VoteAccountRewards};
 use bid_psr_distribution::settlement_collection::{
     Settlement, SettlementClaim, SettlementCollection, SettlementMeta, SettlementReason,
 };
@@ -9,6 +9,7 @@ use bid_psr_distribution::utils::sort_claims_deterministically;
 use log::{debug, info, warn};
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
+use serde::Serialize;
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
@@ -44,14 +45,17 @@ pub fn generate_settlements_collection(
         settlement_config,
     );
 
+    let mut settlements = [bid_settlements, penalty_settlements].concat();
+    settlements.sort_by_key(|s| (s.reason.to_string(),));
+
     SettlementCollection {
         slot: stake_meta_index.stake_meta_collection.slot,
         epoch: stake_meta_index.stake_meta_collection.epoch,
-        settlements: [bid_settlements, penalty_settlements].concat(),
+        settlements,
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Serialize, Debug, Default)]
 struct ResultSettlementClaims {
     inflation_commission_claim: Decimal,
     mev_commission_claim: Decimal,
@@ -88,6 +92,48 @@ impl fmt::Display for ResultSettlementClaims {
     }
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct BidSettlementDetails {
+    pub total_active_stake: u64,
+    pub total_marinade_active_stake: u64,
+    pub auction_effective_static_bid: String,
+    pub effective_sam_marinade_active_stake: u64,
+    pub marinade_stake_share: String,
+    pub marinade_inflation_rewards: String,
+    pub marinade_mev_rewards: String,
+    pub marinade_block_rewards: String,
+    pub staker_inflation_rewards: Option<String>,
+    pub staker_mev_rewards: Option<String>,
+    pub staker_block_rewards: Option<String>,
+    pub staker_bid_rewards: Option<String>,
+    pub total_marinade_stakers_rewards: String,
+    pub settlement_claims: serde_json::Value,
+    pub stakers_total_claim: u64,
+    pub marinade_fee_claim: u64,
+    pub dao_fee_claim: u64,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct BidTooLowPenaltyDetails {
+    pub total_marinade_active_stake: u64,
+    pub effective_sam_marinade_active_stake: u64,
+    pub bid_too_low_penalty_pmpe: String,
+    pub bid_too_low_penalty_total_claim: String,
+    pub distributor_bid_too_low_penalty_claim: u64,
+    pub stakers_bid_too_low_penalty_claim: u64,
+    pub dao_bid_too_low_penalty_claim: u64,
+    pub marinade_bid_too_low_penalty_claim: u64,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct BlacklistPenaltyDetails {
+    pub total_marinade_active_stake: u64,
+    pub effective_sam_marinade_active_stake: u64,
+    pub blacklist_penalty_pmpe: String,
+    pub blacklist_penalty_total_claim: String,
+    pub stakers_blacklist_penalty_claim: u64,
+}
+
 pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &Vec<ValidatorSamMeta>,
@@ -95,7 +141,8 @@ pub fn generate_bid_settlements(
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     settlement_config: &SettlementConfig,
 ) -> Vec<Settlement> {
-    info!("Generating bid settlements...");
+    let epoch = stake_meta_index.stake_meta_collection.epoch;
+    info!("Generating bid settlements in epoch {epoch}...");
 
     let fee_percentages = settlement_config.fee_percentages();
     let settlement_meta_funder = settlement_config.meta().clone();
@@ -145,10 +192,19 @@ pub fn generate_bid_settlements(
                 continue;
             }
 
-            let rewards = rewards_collection
-                .get(&validator.vote_account)
-                .unwrap_or_else(|| panic!("No rewards record found for validator {}. This is unexpected since there is active stake.",
-                         validator.vote_account));
+            let rewards = if let Some(rewards) = rewards_collection.get(&validator.vote_account) {
+                rewards
+            } else {
+                // This may happen correctly if the validator had no rewards in the epoch with 0 credits
+                warn!(
+                    "No rewards found for validator {} in epoch {}, setting nothing.",
+                    validator.vote_account, epoch
+                );
+                &VoteAccountRewards {
+                    vote_account: validator.vote_account,
+                    ..VoteAccountRewards::default()
+                }
+            };
 
             let marinade_stake_share = Decimal::from(effective_sam_marinade_active_stake)
                 / Decimal::from(total_active_stake);
@@ -232,11 +288,18 @@ pub fn generate_bid_settlements(
 
             // The Marinade minimum fee must be at least the percentage derived from the rewards portion promised to stakers (what totalPmpe represents).
             // Based on the promised commission, we recalculate the stakers total share from the rewards earned in the previous epoch.
-            let total_marinade_stakers_rewards = if let Some(AuctionValidatorValues {
+            let (
+                total_marinade_stakers_rewards,
+                staker_inflation_rewards_opt,
+                staker_mev_rewards_opt,
+                staker_block_rewards_opt,
+                staker_bid_rewards_opt,
+            ) = if let Some(AuctionValidatorValues {
                 commissions: Some(commissions),
                 ..
             }) = &validator.auction_validator_values
             {
+                // total_pmpe =
                 let staker_inflation_rewards = marinade_inflation_rewards
                     * (Decimal::ONE - commissions.inflation_commission_dec);
                 let staker_mev_rewards =
@@ -245,18 +308,22 @@ pub fn generate_bid_settlements(
                     * (Decimal::ONE - commissions.block_rewards_commission_dec);
                 let staker_bid_rewards = validator.rev_share.bid_pmpe / Decimal::ONE_THOUSAND
                     * Decimal::from(effective_sam_marinade_active_stake);
-                staker_inflation_rewards
+                let total = staker_inflation_rewards
                     + staker_mev_rewards
                     + staker_block_rewards
-                    + staker_bid_rewards
+                    + staker_bid_rewards;
+                (
+                    total,
+                    Some(staker_inflation_rewards),
+                    Some(staker_mev_rewards),
+                    Some(staker_block_rewards),
+                    Some(staker_bid_rewards),
+                )
             } else {
                 let total_rev_share = validator.rev_share.total_pmpe / Decimal::ONE_THOUSAND;
-                Decimal::from(effective_sam_marinade_active_stake) * total_rev_share
+                let total = Decimal::from(effective_sam_marinade_active_stake) * total_rev_share;
+                (total, None, None, None, None)
             };
-            info!(
-                "Validator {} total marinade stakers rewards: {}",
-                validator.vote_account, total_marinade_stakers_rewards
-            );
 
             let auction_effective_static_bid = validator
                 .rev_share
@@ -266,17 +333,14 @@ pub fn generate_bid_settlements(
             let effective_static_bid = auction_effective_static_bid / Decimal::ONE_THOUSAND;
             settlement_claim.static_bid_claim =
                 Decimal::from(effective_sam_marinade_active_stake) * effective_static_bid;
-            info!("Settlement result claims: {settlement_claim}");
-            debug!(
-                "Validator {} commission claims: {:?}",
-                validator.vote_account, settlement_claim
+            info!(
+                "{} total stakers rewards: {}, claims: {}",
+                validator.vote_account, total_marinade_stakers_rewards, settlement_claim
             );
 
             // Marinade should get at least the percentage amount of total rewards as per the distributor fee percentage
             let minimum_distributor_fee_claim =
                 total_marinade_stakers_rewards * fee_percentages.marinade_distributor_fee;
-            // TODO: copying the original logic, but needs a review
-            //       https://github.com/marinade-finance/validator-bonds/blob/b7916fd06d86bf8d3b27bff7956524e5516e3dd9/settlement-distributions/bid-distribution/src/settlement_claims.rs#L90
             let distributor_fee_claim = minimum_distributor_fee_claim
                 .min(settlement_claim.sum())
                 .to_u64()
@@ -355,7 +419,7 @@ pub fn generate_bid_settlements(
                     stake_authority: *settlement_config.dao_stake_authority(),
                     stake_accounts: dao_fee_deposit_stake_accounts.clone(),
                     claim_amount: dao_fee_claim,
-                    active_stake: total_active_stake,
+                    active_stake: total_marinade_active_stake,
                 });
                 claims_amount += dao_fee_claim;
 
@@ -366,6 +430,29 @@ pub fn generate_bid_settlements(
                     );
             }
 
+            let settlement_details = BidSettlementDetails {
+                total_active_stake,
+                total_marinade_active_stake,
+                effective_sam_marinade_active_stake,
+                auction_effective_static_bid: auction_effective_static_bid.to_string(),
+                marinade_stake_share: marinade_stake_share.to_string(),
+                marinade_inflation_rewards: marinade_inflation_rewards.to_string(),
+                marinade_mev_rewards: marinade_mev_rewards.to_string(),
+                marinade_block_rewards: marinade_block_rewards.to_string(),
+                staker_inflation_rewards: staker_inflation_rewards_opt.map(|d| d.to_string()),
+                staker_mev_rewards: staker_mev_rewards_opt.map(|d| d.to_string()),
+                staker_block_rewards: staker_block_rewards_opt.map(|d| d.to_string()),
+                staker_bid_rewards: staker_bid_rewards_opt.map(|d| d.to_string()),
+                total_marinade_stakers_rewards: total_marinade_stakers_rewards.to_string(),
+                settlement_claims: serde_json::to_value(settlement_claim)
+                    .expect("claims are not valid json"),
+                stakers_total_claim,
+                marinade_fee_claim,
+                dao_fee_claim,
+            };
+            let details_json = serde_json::to_value(&settlement_details)
+                .expect("Failed to serialize BidSettlementDetails");
+
             add_to_settlement_collection(
                 &mut settlement_claim_collections,
                 claims,
@@ -373,6 +460,7 @@ pub fn generate_bid_settlements(
                 SettlementReason::Bidding,
                 validator.vote_account,
                 &settlement_meta_funder,
+                Some(details_json),
             );
         }
     }
@@ -538,23 +626,54 @@ pub fn generate_penalty_settlements(
                 }
             }
 
-            add_to_settlement_collection(
-                &mut penalty_settlement_collection,
-                bid_too_low_penalty_claims,
-                claimed_bid_too_low_penalty_amount,
-                SettlementReason::BidTooLowPenalty,
-                validator.vote_account,
-                &settlement_meta_funder,
-            );
+            // Build settlement details for bid_too_low_penalty
+            if !bid_too_low_penalty_claims.is_empty() {
+                let bid_penalty_details = BidTooLowPenaltyDetails {
+                    total_marinade_active_stake,
+                    effective_sam_marinade_active_stake,
+                    bid_too_low_penalty_pmpe: bid_too_low_penalty.to_string(),
+                    bid_too_low_penalty_total_claim: bid_too_low_penalty_total_claim.to_string(),
+                    distributor_bid_too_low_penalty_claim,
+                    stakers_bid_too_low_penalty_claim,
+                    dao_bid_too_low_penalty_claim,
+                    marinade_bid_too_low_penalty_claim,
+                };
+                let details_json = serde_json::to_value(&bid_penalty_details)
+                    .expect("Failed to serialize BidTooLowPenaltyDetails");
 
-            add_to_settlement_collection(
-                &mut penalty_settlement_collection,
-                blacklist_penalty_claims,
-                claimed_blacklist_penalty_amount,
-                SettlementReason::BlacklistPenalty,
-                validator.vote_account,
-                &settlement_meta_funder,
-            );
+                add_to_settlement_collection(
+                    &mut penalty_settlement_collection,
+                    bid_too_low_penalty_claims,
+                    claimed_bid_too_low_penalty_amount,
+                    SettlementReason::BidTooLowPenalty,
+                    validator.vote_account,
+                    &settlement_meta_funder,
+                    Some(details_json),
+                );
+            }
+
+            // Build settlement details for blacklist_penalty
+            if !blacklist_penalty_claims.is_empty() {
+                let blacklist_penalty_details = BlacklistPenaltyDetails {
+                    total_marinade_active_stake,
+                    effective_sam_marinade_active_stake,
+                    blacklist_penalty_pmpe: blacklist_penalty.to_string(),
+                    blacklist_penalty_total_claim: blacklist_penalty_total_claim.to_string(),
+                    stakers_blacklist_penalty_claim,
+                };
+                let details_json = serde_json::to_value(&blacklist_penalty_details)
+                    .expect("Failed to serialize BlacklistPenaltyDetails");
+
+                add_to_settlement_collection(
+                    &mut penalty_settlement_collection,
+                    blacklist_penalty_claims,
+                    claimed_blacklist_penalty_amount,
+                    SettlementReason::BlacklistPenalty,
+                    validator.vote_account,
+                    &settlement_meta_funder,
+                    Some(details_json),
+                );
+            }
         }
     }
     penalty_settlement_collection
@@ -623,6 +742,7 @@ fn add_to_settlement_collection(
     reason: SettlementReason,
     vote_account: Pubkey,
     settlement_meta: &SettlementMeta,
+    details: Option<serde_json::Value>,
 ) {
     if !claims.is_empty() {
         sort_claims_deterministically(&mut claims);
@@ -633,6 +753,7 @@ fn add_to_settlement_collection(
             claims_count: claims.len(),
             claims_amount,
             claims,
+            details,
         });
     }
 }

@@ -65,6 +65,8 @@ pub struct Settlement {
     pub claims_count: usize,
     pub claims_amount: u64,
     pub claims: Vec<SettlementClaim>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
