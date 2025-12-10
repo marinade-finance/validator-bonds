@@ -26,7 +26,7 @@ use solana_security_txt::security_txt;
 security_txt! {
     name: "Validator Bonds",
     project_url: "https://marinade.finance",
-    contacts: "link:https://docs.marinade.finance/marinade-dao,link:https://discord.com/invite/6EtUf4Euu6",
+    contacts: "link:https://docs.marinade.finance",
     policy: "https://docs.marinade.finance/marinade-protocol/security",
     preferred_languages: "en",
     source_code: "https://github.com/marinade-finance/validator-bonds",
@@ -84,6 +84,22 @@ pub mod validator_bonds {
     ) -> Result<()> {
         check_context(&ctx)?;
         ConfigureBondWithMint::process(ctx, args)
+    }
+
+    pub fn init_bond_product(
+        ctx: Context<InitBondProduct>,
+        init_bond_product_args: InitBondProductArgs,
+    ) -> Result<()> {
+        check_context(&ctx)?;
+        InitBondProduct::process(ctx, init_bond_product_args)
+    }
+
+    pub fn configure_bond_product(
+        ctx: Context<ConfigureBondProduct>,
+        configure_bond_product_args: ConfigureBondProductArgs,
+    ) -> Result<()> {
+        check_context(&ctx)?;
+        ConfigureBondProduct::process(ctx, configure_bond_product_args)
     }
 
     pub fn mint_bond(ctx: Context<MintBond>) -> Result<()> {
@@ -175,12 +191,12 @@ pub mod validator_bonds {
         ClaimSettlementV2::process(ctx, claim_settlement_args)
     }
 
-    // Enable to force IDL to include ClaimSettlementV1
-    // Per Anchor changes (0.31.0) the account is included in the IDL only if used in the program code
-    pub fn claim_settlement_v1(ctx: Context<ClaimSettlementV1>) -> Result<()> {
-        check_context(&ctx)?;
-        Ok(())
-    }
+    // // Enable to force IDL to include ClaimSettlementV1
+    // // Per Anchor changes (0.31.0) the account is included in the IDL only if used in the program code
+    // pub fn claim_settlement_v1(ctx: Context<ClaimSettlementV1>) -> Result<()> {
+    //     check_context(&ctx)?;
+    //     Ok(())
+    // }
 }
 
 #[cfg(test)]

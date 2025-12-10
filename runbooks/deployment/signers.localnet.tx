@@ -1,0 +1,24 @@
+
+signer "payer" "svm::secret_key" {
+    description = "Pays fees for program deployments and operations"
+    keypair_json = "~/.config/solana/id.json"
+    // See documentation for other options (mnemonic, etc): https://docs.surfpool.run/iac/svm/signers
+}
+    
+signer "authority" "svm::secret_key" {
+    description = "Can upgrade programs and manage critical ops"
+    keypair_json = "~/.config/solana/id.json"
+}
+
+variable "program" {
+    description = "Validator bonds."
+    value = svm::get_program_from_anchor_project("validator_bonds")
+}
+
+    
+action "setup" "svm::setup_surfnet" {
+    set_program_authority {
+        program_id = variable.program.program_id
+        authority = signer.authority.public_key
+    }
+}

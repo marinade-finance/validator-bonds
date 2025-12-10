@@ -2,12 +2,18 @@ import assert from 'assert'
 
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import {
+  jsonStringify,
+  logDebug,
+  type LoggerPlaceholder,
+} from '@marinade.finance/ts-common'
+import {
   getAccountInfoAddresses,
   getMultipleAccounts,
 } from '@marinade.finance/web3js-1x'
 import { PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
 
+import { ProductTypes } from './productBond'
 import {
   bondAddress,
   withdrawRequestAddress,
@@ -15,10 +21,12 @@ import {
   uintToBuffer,
   bondsWithdrawerAuthority,
   settlementClaimsAddress,
+  bondProductAddress,
   BOND_ACCOUNT_DISCRIMINATOR,
-  WITHDRAW_REQUEST_ACCOUNT_DISCRIMINATOR,
   SETTLEMENT_ACCOUNT_DISCRIMINATOR,
+  BOND_PRODUCT_ACCOUNT_DISCRIMINATOR,
   SETTLEMENT_CLAIMS_ACCOUNT_DISCRIMINATOR,
+  WITHDRAW_REQUEST_ACCOUNT_DISCRIMINATOR,
 } from './sdk'
 import { decodeSettlementClaimsData } from './settlementClaims'
 import { findStakeAccounts } from './web3.js'
@@ -29,6 +37,8 @@ import type {
   Bond,
   WithdrawRequest,
   Settlement,
+  BondProduct,
+  ProductType,
 } from './sdk'
 import type { SettlementClaimsBitmap } from './settlementClaims'
 import type { StakeAccountParsed } from './web3.js'
@@ -424,6 +434,126 @@ function parseNotLocked(
   return stakeAccounts.filter(
     stakeAccount => !stakeAccount.account.data.isLockedUp,
   )
+}
+
+export async function getBondProduct(
+  program: ValidatorBondsProgram,
+  address: PublicKey,
+): Promise<BondProduct> {
+  return program.account.bondProduct.fetch(address)
+}
+
+export async function getMultipleBondProducts({
+  program,
+  addresses,
+}: {
+  program: ValidatorBondsProgram
+  addresses: PublicKey[]
+}): Promise<ProgramAccountWithInfoNullable<BondProduct>[]> {
+  const accounts = await getMultiAccounts({ program, addresses })
+  return accounts.map(({ publicKey, account: accountInfo }) =>
+    mapAccountInfoToProgramAccount<BondProduct>(
+      program,
+      accountInfo,
+      publicKey,
+      'bondProduct',
+    ),
+  )
+}
+
+export async function findBondProducts({
+  program,
+  bond,
+  voteAccount,
+  configAccount,
+  productType,
+  logger,
+}: {
+  program: ValidatorBondsProgram
+  bond?: PublicKey
+  voteAccount?: PublicKey
+  configAccount?: PublicKey
+  productType?: ProductType
+  logger?: LoggerPlaceholder
+}): Promise<ProgramAccount<BondProduct>[]> {
+  if (voteAccount && configAccount) {
+    const [bondCalculated] = bondAddress(
+      configAccount,
+      voteAccount,
+      program.programId,
+    )
+    if (bond && !bond.equals(bondCalculated)) {
+      throw new Error(
+        `Bond address calculated (from config: ${configAccount.toBase58()} and vote: ${voteAccount.toBase58()}) ` +
+          `(${bondCalculated.toBase58()}) does not match provided bond address (${bond.toBase58()})`,
+      )
+    }
+    if (!bond) {
+      bond = bondCalculated
+    }
+  }
+  if (bond && productType) {
+    const [bondProductAccount, bump] = bondProductAddress(
+      bond,
+      productType,
+      program.programId,
+    )
+    logDebug(
+      logger,
+      `findBondProducts: derived bond product account ${bondProductAccount.toBase58()}[${bump}] ` +
+        `from bond ${bond.toBase58()} and product type ${jsonStringify(productType)}`,
+    )
+    const bondProductData =
+      await program.account.bondProduct.fetchNullable(bondProductAccount)
+    return bondProductData
+      ? [{ publicKey: bondProductAccount, account: bondProductData }]
+      : []
+  }
+  const filters = []
+  if (configAccount) {
+    filters.push({
+      memcmp: {
+        bytes: configAccount.toBase58(),
+        offset: 8, // 8 anchor offset
+      },
+    })
+  }
+  if (bond) {
+    filters.push({
+      memcmp: {
+        bytes: bond.toBase58(),
+        offset: 40,
+      },
+    })
+  }
+  if (voteAccount) {
+    filters.push({
+      memcmp: {
+        bytes: voteAccount.toBase58(),
+        offset: 72,
+      },
+    })
+  }
+  if (productType) {
+    filters.push({
+      memcmp: {
+        bytes: bs58.encode(ProductTypes.discriminant(productType)),
+        // 8 anchor offset + 3 * 32B pubkeys
+        offset: 104,
+      },
+    })
+  }
+  filters.push({
+    memcmp: { bytes: BOND_PRODUCT_ACCOUNT_DISCRIMINATOR, offset: 0 },
+  })
+  const addresses = await getAccountInfoAddresses({
+    connection: program.provider.connection,
+    programId: program.programId,
+    filters,
+  })
+  return (await getMultipleBondProducts({ program, addresses }))
+    .filter(d => d.account !== null)
+    .map(d => d as ProgramAccount<BondProduct>)
 }
 
 export type RpcConfigApiCalls = { waitApiCallMs: number }

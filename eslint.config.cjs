@@ -7,8 +7,8 @@ module.exports = [
   {
     ignores: [
       'packages/validator-bonds-codama/**',
-      'packages/validator-bonds-sdk/generated/*',
       'scripts/validator-bonds-client-generator/**',
+      'packages/validator-bonds-sdk/idl/**',
     ],
   },
   {

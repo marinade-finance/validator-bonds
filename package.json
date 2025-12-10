@@ -11,6 +11,7 @@
     "test:download-institutional": "T=`mktemp -d` && git clone --depth=1 --single-branch git@github.com:marinade-finance/institutional-staking.git \"$T\" && TARGET='settlement-distributions/institutional-distribution/tests/fixtures' && rm -f \"$TARGET\"/*payouts.json && cp \"$T/fixtures/\"*payouts.json \"$TARGET/\"; rm -rf \"$T\"",
     "test:cargo": "cargo test --features no-entrypoint -- --nocapture",
     "test": "pnpm test:cargo && pnpm test:bankrun && pnpm test:validator",
+    "copy:idl": "cp ./target/types/validator_bonds.ts ./packages/validator-bonds-sdk/idl/types/ && cp ./target/idl/validator_bonds.json ./packages/validator-bonds-sdk/idl/json/ && cp ./target/idl/validator_bonds.json ./resources/idl/",
     "cli": "pnpm ts-node ./packages/validator-bonds-cli/src/",
     "cli:institutional": "pnpm ts-node ./packages/validator-bonds-cli-institutional/src/",
     "cli:check": "pnpm ts-node ./packages/validator-bonds-sanity-check/src/",

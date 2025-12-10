@@ -27,7 +27,7 @@ export async function initBondInstruction({
   program: ValidatorBondsProgram
   configAccount: PublicKey
   voteAccount: PublicKey
-  validatorIdentity?: PublicKey | Keypair | Signer | WalletInterface // Option<signer>
+  validatorIdentity?: null | PublicKey | Keypair | Signer | WalletInterface // Option<signer>
   bondAuthority?: PublicKey
   cpmpe?: BN | number
   maxStakeWanted?: BN | number
@@ -36,7 +36,7 @@ export async function initBondInstruction({
   instruction: TransactionInstruction
   bondAccount: PublicKey
 }> {
-  if (validatorIdentity !== undefined) {
+  if (validatorIdentity !== undefined && validatorIdentity !== null) {
     validatorIdentity =
       validatorIdentity instanceof PublicKey
         ? validatorIdentity

@@ -234,8 +234,11 @@ pub fn deserialize_stake_account(account: &UncheckedAccount) -> Result<StakeAcco
     StakeAccount::try_deserialize(&mut stake_state.as_ref())
 }
 
+// Verification that the account is closed (owned by system program)
+// An attacker can dust the address with 1 lamport, making the check fail
+// and causing reset_stake and withdraw_stake to revert, blocking the stake recovery.
 pub fn is_closed(account: &UncheckedAccount) -> bool {
-    account.try_lamports().unwrap_or(0) == 0 && account.owner == &system_program_id
+    account.owner == &system_program_id
 }
 
 #[cfg(test)]

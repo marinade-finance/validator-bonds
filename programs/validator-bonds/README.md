@@ -20,19 +20,27 @@
      - To fund a [`StakeAccount`](https://github.com/solana-labs/solana/blob/v1.18.2/runtime/src/stake_account.rs#L19), it must be delegated (field [`node_pubkey`](https://github.com/solana-labs/solana/blob/v1.18.2/sdk/program/src/vote/state/mod.rs#L287)) to the same [`VoteAccount`](https://github.com/solana-labs/solana/blob/367f489f632d6be0fd93e95cc2c5b7202515fe6e/vote/src/vote_account.rs#L32) as the `Bond` was created with.
      - Upon funding the `StakeAccount`, withdrawer and staker authorities are [assigned under the program's PDA address](#stake-account-authorities-transitions).
      - The `Bond` is linked to one `VoteAccount`. The `StakeAccount` is delegated to a `VoteAccount`. The Validator Bond program never changes the delegation of the funded `StakeAccount`. The linking of the `StakeAccount` to `Bond` is done using the delegated `VoteAccount` pubkey from the `StakeAccount`.
-     - The number of lamports credited to the `StakeAccount` is considered the funded amount for the `Bond`. The funded amount will likely increase over time (when no protected events occur) as the `StakeAccount` is delegated and earns Solana inflation rewards.
+     - The number of lamports credited to the `StakeAccount` is considered the funded
+       amount for the `Bond`. The funded amount will likely increase over time
+       (when no protected events occur) as the `StakeAccount` is delegated
+       and earns Solana inflation rewards.
 
-3. Withdrawing funded `Bond` is permitted to the validator, the owner of the `bond authority`.
+3. The `ProductBond` accounts are PDAs linked to the Bond account. They define configuration options that
+   can be flexibly added, removed, or modified by adjusting separate PDA accounts.
+
+4. Withdrawing funded `Bond` is permitted to the validator,
+   the owner of the `bond authority`.
    The withdrawal is delayed by a factor configured in `Config` as [`withdraw_lockup_epochs`](./programs/validator-bonds/src/state/config.rs#L17). The withdrawal process comes as a two-step process.
    1. Validator [initiates](./programs/validator-bonds/src/instructions/withdraw/init_withdraw_request.rs) a [`WithdrawRequest`](./programs/validator-bonds/src/state/withdraw_request.rs).
       - The withdraw request is created with the number of lamports that the validator plans to withdraw from the `Bond`.
       - ([The requested amount](./programs/validator-bonds/src/state/withdraw_request.rs#L17)) is no longer considered as funded.
    2. When the timeout of withdraw lockup epochs elapses, the validator may execute
       [`claim withdraw request operation`](./programs/validator-bonds/src/instructions/withdraw/claim_withdraw_request.rs)
-      that brings withdrawer and staker authority back to the validator.
+      that sets the stake account's withdrawer and staker authorities to the withdrawer account
+      provided in the instruction (typically a validator-controlled address).
    - The `WithdrawRequest` can be [cancelled](./programs/validator-bonds/src/instructions/withdraw/cancel_withdraw_request.rs) (account deleted) at any time.
 
-4. Operator authority creates a `Settlement` (represented by an on-chain account) when a protected event happens.
+5. Operator authority creates a `Settlement` (represented by an on-chain account) when a protected event happens.
    The protected event is established for under-performing validators, usually once per epoch when network inflation rewards are distributed.
    The operator calculates losses against standard validator performance in the epoch; these losses are recorded in the form of a merkle tree
    per `VoteAccount`, and a `Settlement` with a merkle root is created on-chain. The merkle tree contains the list of creditors and their entitlements to the protected event.
@@ -57,7 +65,7 @@
      `StakeAccount` which is determined by merkle tree creditor record.
      Intentionally the claim instruction does not check what [state](https://github.com/solana-labs/solana/blob/v1.18.2/sdk/program/src/stake/state.rs#L138) is the `StakeAccount` in.
 
-5. There are few operations dedicated to `StakeAccount` management.
+6. There are few operations dedicated to `StakeAccount` management.
    - After closing the `Settlement` the un-claimed `StakeAccounts` may be
      - reset (in case of delegated ones); permission-less operation
      - withdrawn (in case of non-delegated in `Initialized` state ones); permissioned by operator authority

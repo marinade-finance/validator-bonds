@@ -18,7 +18,8 @@ use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 
 /// Withdrawing funds from a bond account requires creating a withdrawal request first.
 /// The withdrawal process involves taking a StakeAccount associated with the bonds program
-/// and changing its owner (withdrawer and staker authorities) back to the validator vote withdrawer.
+/// and changing its owner (withdrawer and staker authorities) to the withdrawer account provided in this instruction
+/// (no check is performed against the vote account's authorized withdrawer).
 #[event_cpi]
 #[derive(Accounts)]
 pub struct ClaimWithdrawRequest<'info> {

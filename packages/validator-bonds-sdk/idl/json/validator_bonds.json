@@ -9,12 +9,23 @@
   "instructions": [
     {
       "name": "cancel_settlement",
-      "discriminator": [33, 241, 96, 62, 228, 178, 1, 120],
+      "discriminator": [
+        33,
+        241,
+        96,
+        62,
+        228,
+        178,
+        1,
+        120
+      ],
       "accounts": [
         {
           "name": "config",
           "writable": true,
-          "relations": ["bond"]
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "bond",
@@ -22,7 +33,20 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
               },
               {
                 "kind": "account",
@@ -35,19 +59,39 @@
               }
             ]
           },
-          "relations": ["settlement"]
+          "relations": [
+            "settlement"
+          ]
         },
         {
           "name": "settlement",
-          "docs": ["settlement to close whenever the operator decides"],
+          "docs": [
+            "settlement to close whenever the operator decides"
+          ],
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97, 99,
-                  99, 111, 117, 110, 116
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
                 ]
               },
               {
@@ -66,7 +110,9 @@
               }
             ]
           },
-          "relations": ["settlement_claims"]
+          "relations": [
+            "settlement_claims"
+          ]
         },
         {
           "name": "settlement_claims",
@@ -76,7 +122,20 @@
               {
                 "kind": "const",
                 "value": [
-                  99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110, 116
+                  99,
+                  108,
+                  97,
+                  105,
+                  109,
+                  115,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
                 ]
               },
               {
@@ -100,8 +159,21 @@
               {
                 "kind": "const",
                 "value": [
-                  98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105,
-                  116, 121
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               },
               {
@@ -114,7 +186,9 @@
         {
           "name": "rent_collector",
           "writable": true,
-          "relations": ["settlement"]
+          "relations": [
+            "settlement"
+          ]
         },
         {
           "name": "split_rent_collector",
@@ -147,8 +221,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -162,11 +251,22 @@
     },
     {
       "name": "cancel_withdraw_request",
-      "discriminator": [167, 100, 110, 128, 113, 154, 224, 77],
+      "discriminator": [
+        167,
+        100,
+        110,
+        128,
+        113,
+        154,
+        224,
+        77
+      ],
       "accounts": [
         {
           "name": "config",
-          "relations": ["bond"]
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "bond",
@@ -174,7 +274,20 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
               },
               {
                 "kind": "account",
@@ -186,11 +299,15 @@
               }
             ]
           },
-          "relations": ["withdraw_request"]
+          "relations": [
+            "withdraw_request"
+          ]
         },
         {
           "name": "vote_account",
-          "relations": ["bond"]
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "authority",
@@ -207,8 +324,22 @@
               {
                 "kind": "const",
                 "value": [
-                  119, 105, 116, 104, 100, 114, 97, 119, 95, 97, 99, 99, 111,
-                  117, 110, 116
+                  119,
+                  105,
+                  116,
+                  104,
+                  100,
+                  114,
+                  97,
+                  119,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
                 ]
               },
               {
@@ -229,8 +360,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -244,7 +390,16 @@
     },
     {
       "name": "claim_settlement_v1",
-      "discriminator": [0, 13, 213, 236, 10, 199, 94, 48],
+      "discriminator": [
+        0,
+        13,
+        213,
+        236,
+        10,
+        199,
+        94,
+        48
+      ],
       "accounts": [
         {
           "name": "settlement_claim_v1"
@@ -254,12 +409,25 @@
     },
     {
       "name": "claim_settlement_v2",
-      "discriminator": [188, 53, 132, 151, 88, 50, 52, 238],
+      "discriminator": [
+        188,
+        53,
+        132,
+        151,
+        88,
+        50,
+        52,
+        238
+      ],
       "accounts": [
         {
           "name": "config",
-          "docs": ["the config account under which the settlement was created"],
-          "relations": ["bond"]
+          "docs": [
+            "the config account under which the settlement was created"
+          ],
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "bond",
@@ -267,7 +435,20 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
               },
               {
                 "kind": "account",
@@ -280,7 +461,9 @@
               }
             ]
           },
-          "relations": ["settlement"]
+          "relations": [
+            "settlement"
+          ]
         },
         {
           "name": "settlement",
@@ -290,8 +473,24 @@
               {
                 "kind": "const",
                 "value": [
-                  115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97, 99,
-                  99, 111, 117, 110, 116
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
                 ]
               },
               {
@@ -310,18 +509,35 @@
               }
             ]
           },
-          "relations": ["settlement_claims"]
+          "relations": [
+            "settlement_claims"
+          ]
         },
         {
           "name": "settlement_claims",
-          "docs": ["deduplication, merkle tree record cannot be claimed twice"],
+          "docs": [
+            "deduplication, merkle tree record cannot be claimed twice"
+          ],
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110, 116
+                  99,
+                  108,
+                  97,
+                  105,
+                  109,
+                  115,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
                 ]
               },
               {
@@ -333,12 +549,16 @@
         },
         {
           "name": "stake_account_from",
-          "docs": ["a stake account that will be withdrawn"],
+          "docs": [
+            "a stake account that will be withdrawn"
+          ],
           "writable": true
         },
         {
           "name": "stake_account_to",
-          "docs": ["a stake account that will receive the funds"],
+          "docs": [
+            "a stake account that will receive the funds"
+          ],
           "writable": true
         },
         {
@@ -351,8 +571,21 @@
               {
                 "kind": "const",
                 "value": [
-                  98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105,
-                  116, 121
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               },
               {
@@ -381,8 +614,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -405,12 +653,25 @@
     },
     {
       "name": "claim_withdraw_request",
-      "discriminator": [48, 232, 23, 52, 20, 134, 122, 118],
+      "discriminator": [
+        48,
+        232,
+        23,
+        52,
+        20,
+        134,
+        122,
+        118
+      ],
       "accounts": [
         {
           "name": "config",
-          "docs": ["the config root configuration account"],
-          "relations": ["bond"]
+          "docs": [
+            "the config root configuration account"
+          ],
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "bond",
@@ -418,7 +679,20 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
               },
               {
                 "kind": "account",
@@ -430,11 +704,16 @@
               }
             ]
           },
-          "relations": ["withdraw_request"]
+          "relations": [
+            "withdraw_request"
+          ]
         },
         {
           "name": "vote_account",
-          "relations": ["bond", "withdraw_request"]
+          "relations": [
+            "bond",
+            "withdraw_request"
+          ]
         },
         {
           "name": "authority",
@@ -451,8 +730,22 @@
               {
                 "kind": "const",
                 "value": [
-                  119, 105, 116, 104, 100, 114, 97, 119, 95, 97, 99, 99, 111,
-                  117, 110, 116
+                  119,
+                  105,
+                  116,
+                  104,
+                  100,
+                  114,
+                  97,
+                  119,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
                 ]
               },
               {
@@ -469,8 +762,21 @@
               {
                 "kind": "const",
                 "value": [
-                  98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105,
-                  116, 121
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               },
               {
@@ -535,8 +841,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -550,11 +871,22 @@
     },
     {
       "name": "close_settlement_v2",
-      "discriminator": [125, 212, 89, 37, 31, 244, 191, 179],
+      "discriminator": [
+        125,
+        212,
+        89,
+        37,
+        31,
+        244,
+        191,
+        179
+      ],
       "accounts": [
         {
           "name": "config",
-          "relations": ["bond"]
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "bond",
@@ -562,7 +894,20 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
               },
               {
                 "kind": "account",
@@ -575,19 +920,39 @@
               }
             ]
           },
-          "relations": ["settlement"]
+          "relations": [
+            "settlement"
+          ]
         },
         {
           "name": "settlement",
-          "docs": ["settlement to close when expired"],
+          "docs": [
+            "settlement to close when expired"
+          ],
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97, 99,
-                  99, 111, 117, 110, 116
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
                 ]
               },
               {
@@ -606,7 +971,9 @@
               }
             ]
           },
-          "relations": ["settlement_claims"]
+          "relations": [
+            "settlement_claims"
+          ]
         },
         {
           "name": "settlement_claims",
@@ -616,7 +983,20 @@
               {
                 "kind": "const",
                 "value": [
-                  99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110, 116
+                  99,
+                  108,
+                  97,
+                  105,
+                  109,
+                  115,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
                 ]
               },
               {
@@ -633,8 +1013,21 @@
               {
                 "kind": "const",
                 "value": [
-                  98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105,
-                  116, 121
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               },
               {
@@ -647,7 +1040,9 @@
         {
           "name": "rent_collector",
           "writable": true,
-          "relations": ["settlement"]
+          "relations": [
+            "settlement"
+          ]
         },
         {
           "name": "split_rent_collector",
@@ -680,8 +1075,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -695,11 +1105,22 @@
     },
     {
       "name": "configure_bond",
-      "discriminator": [228, 108, 79, 242, 82, 54, 105, 65],
+      "discriminator": [
+        228,
+        108,
+        79,
+        242,
+        82,
+        54,
+        105,
+        65
+      ],
       "accounts": [
         {
           "name": "config",
-          "relations": ["bond"]
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "bond",
@@ -708,7 +1129,20 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
               },
               {
                 "kind": "account",
@@ -730,7 +1164,9 @@
         },
         {
           "name": "vote_account",
-          "relations": ["bond"]
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "event_authority",
@@ -739,8 +1175,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -762,12 +1213,168 @@
       ]
     },
     {
-      "name": "configure_bond_with_mint",
-      "discriminator": [48, 189, 230, 39, 112, 33, 227, 8],
+      "name": "configure_bond_product",
+      "discriminator": [
+        167,
+        119,
+        141,
+        123,
+        76,
+        109,
+        241,
+        133
+      ],
       "accounts": [
         {
           "name": "config",
-          "relations": ["bond"]
+          "relations": [
+            "bond"
+          ]
+        },
+        {
+          "name": "bond",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "path": "vote_account"
+              }
+            ]
+          },
+          "relations": [
+            "bond_product"
+          ]
+        },
+        {
+          "name": "vote_account",
+          "relations": [
+            "bond"
+          ]
+        },
+        {
+          "name": "bond_product",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  112,
+                  114,
+                  111,
+                  100,
+                  117,
+                  99,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond"
+              },
+              {
+                "kind": "account",
+                "path": "bond_product.product_type",
+                "account": "BondProduct"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "validator vote account validator identity or bond authority may change the account"
+          ],
+          "signer": true
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "configure_bond_product_args",
+          "type": {
+            "defined": {
+              "name": "ConfigureBondProductArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "configure_bond_with_mint",
+      "discriminator": [
+        48,
+        189,
+        230,
+        39,
+        112,
+        33,
+        227,
+        8
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "bond",
@@ -776,7 +1383,20 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
               },
               {
                 "kind": "account",
@@ -796,7 +1416,17 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 111, 110, 100, 95, 109, 105, 110, 116]
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
               },
               {
                 "kind": "account",
@@ -811,11 +1441,15 @@
         },
         {
           "name": "vote_account",
-          "relations": ["bond"]
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "token_account",
-          "docs": ["token account to burn bond mint configuration tokens from"],
+          "docs": [
+            "token account to burn bond mint configuration tokens from"
+          ],
           "writable": true
         },
         {
@@ -833,8 +1467,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -857,7 +1506,16 @@
     },
     {
       "name": "configure_config",
-      "discriminator": [198, 98, 161, 165, 137, 200, 230, 203],
+      "discriminator": [
+        198,
+        98,
+        161,
+        165,
+        137,
+        200,
+        230,
+        203
+      ],
       "accounts": [
         {
           "name": "config",
@@ -865,9 +1523,13 @@
         },
         {
           "name": "admin_authority",
-          "docs": ["only the admin authority can change the config params"],
+          "docs": [
+            "only the admin authority can change the config params"
+          ],
           "signer": true,
-          "relations": ["config"]
+          "relations": [
+            "config"
+          ]
         },
         {
           "name": "event_authority",
@@ -876,8 +1538,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -900,7 +1577,16 @@
     },
     {
       "name": "emergency_pause",
-      "discriminator": [21, 143, 27, 142, 200, 181, 210, 255],
+      "discriminator": [
+        21,
+        143,
+        27,
+        142,
+        200,
+        181,
+        210,
+        255
+      ],
       "accounts": [
         {
           "name": "config",
@@ -909,7 +1595,9 @@
         {
           "name": "pause_authority",
           "signer": true,
-          "relations": ["config"]
+          "relations": [
+            "config"
+          ]
         },
         {
           "name": "event_authority",
@@ -918,8 +1606,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -933,7 +1636,16 @@
     },
     {
       "name": "emergency_resume",
-      "discriminator": [0, 243, 48, 185, 6, 73, 190, 83],
+      "discriminator": [
+        0,
+        243,
+        48,
+        185,
+        6,
+        73,
+        190,
+        83
+      ],
       "accounts": [
         {
           "name": "config",
@@ -942,7 +1654,9 @@
         {
           "name": "pause_authority",
           "signer": true,
-          "relations": ["config"]
+          "relations": [
+            "config"
+          ]
         },
         {
           "name": "event_authority",
@@ -951,8 +1665,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -966,11 +1695,22 @@
     },
     {
       "name": "fund_bond",
-      "discriminator": [58, 44, 212, 175, 30, 17, 68, 62],
+      "discriminator": [
+        58,
+        44,
+        212,
+        175,
+        30,
+        17,
+        68,
+        62
+      ],
       "accounts": [
         {
           "name": "config",
-          "relations": ["bond"]
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "bond",
@@ -981,7 +1721,20 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
               },
               {
                 "kind": "account",
@@ -1005,8 +1758,21 @@
               {
                 "kind": "const",
                 "value": [
-                  98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105,
-                  116, 121
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               },
               {
@@ -1018,7 +1784,9 @@
         },
         {
           "name": "stake_account",
-          "docs": ["stake account to be deposited"],
+          "docs": [
+            "stake account to be deposited"
+          ],
           "writable": true
         },
         {
@@ -1047,8 +1815,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -1062,11 +1845,22 @@
     },
     {
       "name": "fund_settlement",
-      "discriminator": [179, 146, 113, 34, 30, 92, 26, 19],
+      "discriminator": [
+        179,
+        146,
+        113,
+        34,
+        30,
+        92,
+        26,
+        19
+      ],
       "accounts": [
         {
           "name": "config",
-          "relations": ["bond"]
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "bond",
@@ -1074,7 +1868,20 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
               },
               {
                 "kind": "account",
@@ -1086,11 +1893,15 @@
               }
             ]
           },
-          "relations": ["settlement"]
+          "relations": [
+            "settlement"
+          ]
         },
         {
           "name": "vote_account",
-          "relations": ["bond"]
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "settlement",
@@ -1100,8 +1911,24 @@
               {
                 "kind": "const",
                 "value": [
-                  115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97, 99,
-                  99, 111, 117, 110, 116
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
                 ]
               },
               {
@@ -1127,11 +1954,15 @@
             "operator signer authority is allowed to fund the settlement account"
           ],
           "signer": true,
-          "relations": ["config"]
+          "relations": [
+            "config"
+          ]
         },
         {
           "name": "stake_account",
-          "docs": ["stake account to be funded into the settlement"],
+          "docs": [
+            "stake account to be funded into the settlement"
+          ],
           "writable": true
         },
         {
@@ -1145,8 +1976,26 @@
               {
                 "kind": "const",
                 "value": [
-                  115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97, 117,
-                  116, 104, 111, 114, 105, 116, 121
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               },
               {
@@ -1166,8 +2015,21 @@
               {
                 "kind": "const",
                 "value": [
-                  98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105,
-                  116, 121
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               },
               {
@@ -1230,8 +2092,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -1245,11 +2122,22 @@
     },
     {
       "name": "init_bond",
-      "discriminator": [95, 93, 93, 181, 221, 36, 126, 64],
+      "discriminator": [
+        95,
+        93,
+        93,
+        181,
+        221,
+        36,
+        126,
+        64
+      ],
       "accounts": [
         {
           "name": "config",
-          "docs": ["the config account under which the bond is created"]
+          "docs": [
+            "the config account under which the bond is created"
+          ]
         },
         {
           "name": "vote_account"
@@ -1270,7 +2158,20 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
               },
               {
                 "kind": "account",
@@ -1285,7 +2186,9 @@
         },
         {
           "name": "rent_payer",
-          "docs": ["rent exempt payer of validator bond account creation"],
+          "docs": [
+            "rent exempt payer of validator bond account creation"
+          ],
           "writable": true,
           "signer": true
         },
@@ -1300,8 +2203,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -1323,17 +2241,116 @@
       ]
     },
     {
-      "name": "init_config",
-      "discriminator": [23, 235, 115, 232, 168, 96, 1, 231],
+      "name": "init_bond_product",
+      "discriminator": [
+        228,
+        35,
+        205,
+        119,
+        63,
+        209,
+        72,
+        56
+      ],
       "accounts": [
         {
           "name": "config",
+          "docs": [
+            "The config account that the bond belongs to"
+          ],
+          "relations": [
+            "bond"
+          ]
+        },
+        {
+          "name": "bond",
           "writable": true,
-          "signer": true
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "path": "vote_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vote_account",
+          "relations": [
+            "bond"
+          ]
+        },
+        {
+          "name": "bond_product",
+          "docs": [
+            "The bond product account being created"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  112,
+                  114,
+                  111,
+                  100,
+                  117,
+                  99,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond"
+              },
+              {
+                "kind": "arg",
+                "path": "args.product_type"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "permission-ed: the validator identity or bond authority signs the instruction, InitBondProductArgs applied",
+            "permission-less: no signature, default configuration for the bond product"
+          ],
+          "signer": true,
+          "optional": true
         },
         {
           "name": "rent_payer",
-          "docs": ["rent exempt payer for the config account"],
+          "docs": [
+            "Rent payer for the bond product account creation"
+          ],
           "writable": true,
           "signer": true
         },
@@ -1348,8 +2365,97 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "init_bond_product_args",
+          "type": {
+            "defined": {
+              "name": "InitBondProductArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "init_config",
+      "discriminator": [
+        23,
+        235,
+        115,
+        232,
+        168,
+        96,
+        1,
+        231
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "rent_payer",
+          "docs": [
+            "rent exempt payer for the config account"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -1372,11 +2478,22 @@
     },
     {
       "name": "init_settlement",
-      "discriminator": [152, 178, 0, 65, 52, 210, 247, 58],
+      "discriminator": [
+        152,
+        178,
+        0,
+        65,
+        52,
+        210,
+        247,
+        58
+      ],
       "accounts": [
         {
           "name": "config",
-          "relations": ["bond"]
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "bond",
@@ -1384,7 +2501,20 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
               },
               {
                 "kind": "account",
@@ -1406,8 +2536,24 @@
               {
                 "kind": "const",
                 "value": [
-                  115, 101, 116, 116, 108, 101, 109, 101, 110, 116, 95, 97, 99,
-                  99, 111, 117, 110, 116
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
                 ]
               },
               {
@@ -1433,7 +2579,20 @@
               {
                 "kind": "const",
                 "value": [
-                  99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110, 116
+                  99,
+                  108,
+                  97,
+                  105,
+                  109,
+                  115,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
                 ]
               },
               {
@@ -1449,11 +2608,15 @@
             "operator signer authority that is allowed to create the settlement account"
           ],
           "signer": true,
-          "relations": ["config"]
+          "relations": [
+            "config"
+          ]
         },
         {
           "name": "rent_payer",
-          "docs": ["rent exempt payer of account creation"],
+          "docs": [
+            "rent exempt payer of account creation"
+          ],
           "writable": true,
           "signer": true
         },
@@ -1468,8 +2631,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -1492,12 +2670,25 @@
     },
     {
       "name": "init_withdraw_request",
-      "discriminator": [142, 31, 222, 215, 83, 79, 34, 49],
+      "discriminator": [
+        142,
+        31,
+        222,
+        215,
+        83,
+        79,
+        34,
+        49
+      ],
       "accounts": [
         {
           "name": "config",
-          "docs": ["the config account under which the bond was created"],
-          "relations": ["bond"]
+          "docs": [
+            "the config account under which the bond was created"
+          ],
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "bond",
@@ -1505,7 +2696,20 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
               },
               {
                 "kind": "account",
@@ -1520,7 +2724,9 @@
         },
         {
           "name": "vote_account",
-          "relations": ["bond"]
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "authority",
@@ -1537,8 +2743,22 @@
               {
                 "kind": "const",
                 "value": [
-                  119, 105, 116, 104, 100, 114, 97, 119, 95, 97, 99, 99, 111,
-                  117, 110, 116
+                  119,
+                  105,
+                  116,
+                  104,
+                  100,
+                  114,
+                  97,
+                  119,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
                 ]
               },
               {
@@ -1550,7 +2770,9 @@
         },
         {
           "name": "rent_payer",
-          "docs": ["rent exempt payer of withdraw request account creation"],
+          "docs": [
+            "rent exempt payer of withdraw request account creation"
+          ],
           "writable": true,
           "signer": true
         },
@@ -1565,8 +2787,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -1589,11 +2826,22 @@
     },
     {
       "name": "merge_stake",
-      "discriminator": [14, 3, 146, 23, 163, 105, 246, 99],
+      "discriminator": [
+        14,
+        3,
+        146,
+        23,
+        163,
+        105,
+        246,
+        99
+      ],
       "accounts": [
         {
           "name": "config",
-          "docs": ["the config account under which the bond was created"]
+          "docs": [
+            "the config account under which the bond was created"
+          ]
         },
         {
           "name": "source_stake",
@@ -1628,8 +2876,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -1652,11 +2915,22 @@
     },
     {
       "name": "mint_bond",
-      "discriminator": [234, 94, 85, 225, 167, 102, 169, 32],
+      "discriminator": [
+        234,
+        94,
+        85,
+        225,
+        167,
+        102,
+        169,
+        32
+      ],
       "accounts": [
         {
           "name": "config",
-          "relations": ["bond"]
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "bond",
@@ -1664,7 +2938,20 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
               },
               {
                 "kind": "account",
@@ -1684,7 +2971,17 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 111, 110, 100, 95, 109, 105, 110, 116]
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
               },
               {
                 "kind": "account",
@@ -1712,9 +3009,38 @@
               {
                 "kind": "const",
                 "value": [
-                  6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206,
-                  235, 121, 172, 28, 180, 133, 237, 95, 91, 55, 145, 58, 140,
-                  245, 133, 126, 255, 0, 169
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
                 ]
               },
               {
@@ -1725,16 +3051,47 @@
             "program": {
               "kind": "const",
               "value": [
-                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142,
-                13, 131, 11, 90, 19, 153, 218, 255, 16, 132, 4, 142, 123, 216,
-                219, 233, 248, 89
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
               ]
             }
           }
         },
         {
           "name": "vote_account",
-          "relations": ["bond"]
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "metadata",
@@ -1742,7 +3099,9 @@
         },
         {
           "name": "rent_payer",
-          "docs": ["rent exempt payer of account creation"],
+          "docs": [
+            "rent exempt payer of account creation"
+          ],
           "writable": true,
           "signer": true
         },
@@ -1773,8 +3132,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -1788,12 +3162,25 @@
     },
     {
       "name": "reset_stake",
-      "discriminator": [183, 37, 69, 159, 163, 139, 212, 235],
+      "discriminator": [
+        183,
+        37,
+        69,
+        159,
+        163,
+        139,
+        212,
+        235
+      ],
       "accounts": [
         {
           "name": "config",
-          "docs": ["the config account under which the bond was created"],
-          "relations": ["bond"]
+          "docs": [
+            "the config account under which the bond was created"
+          ],
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "bond",
@@ -1801,7 +3188,20 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
               },
               {
                 "kind": "account",
@@ -1816,7 +3216,9 @@
         },
         {
           "name": "settlement",
-          "docs": ["cannot exist; used to derive settlement authority"]
+          "docs": [
+            "cannot exist; used to derive settlement authority"
+          ]
         },
         {
           "name": "stake_account",
@@ -1836,8 +3238,21 @@
               {
                 "kind": "const",
                 "value": [
-                  98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105,
-                  116, 121
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               },
               {
@@ -1849,7 +3264,12 @@
         },
         {
           "name": "vote_account",
-          "relations": ["bond"]
+          "docs": [
+            "It may be an orphaned system account if the original vote account was removed from the chain."
+          ],
+          "relations": [
+            "bond"
+          ]
         },
         {
           "name": "stake_history",
@@ -1874,8 +3294,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -1889,7 +3324,16 @@
     },
     {
       "name": "upsize_settlement_claims",
-      "discriminator": [207, 46, 34, 88, 141, 36, 63, 132],
+      "discriminator": [
+        207,
+        46,
+        34,
+        88,
+        141,
+        36,
+        63,
+        132
+      ],
       "accounts": [
         {
           "name": "settlement_claims",
@@ -1899,7 +3343,20 @@
               {
                 "kind": "const",
                 "value": [
-                  99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110, 116
+                  99,
+                  108,
+                  97,
+                  105,
+                  109,
+                  115,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
                 ]
               },
               {
@@ -1912,7 +3369,9 @@
         },
         {
           "name": "rent_payer",
-          "docs": ["rent exempt payer of account reallocation"],
+          "docs": [
+            "rent exempt payer of account reallocation"
+          ],
           "writable": true,
           "signer": true
         },
@@ -1925,11 +3384,22 @@
     },
     {
       "name": "withdraw_stake",
-      "discriminator": [153, 8, 22, 138, 105, 176, 87, 66],
+      "discriminator": [
+        153,
+        8,
+        22,
+        138,
+        105,
+        176,
+        87,
+        66
+      ],
       "accounts": [
         {
           "name": "config",
-          "docs": ["the config account under which the bond was created"]
+          "docs": [
+            "the config account under which the bond was created"
+          ]
         },
         {
           "name": "operator_authority",
@@ -1937,11 +3407,15 @@
             "operator authority is allowed to reset the non-delegated stake accounts"
           ],
           "signer": true,
-          "relations": ["config"]
+          "relations": [
+            "config"
+          ]
         },
         {
           "name": "settlement",
-          "docs": ["cannot exist; used to derive settlement authority"]
+          "docs": [
+            "cannot exist; used to derive settlement authority"
+          ]
         },
         {
           "name": "stake_account",
@@ -1952,14 +3426,29 @@
         },
         {
           "name": "bonds_withdrawer_authority",
-          "docs": ["bonds authority to withdraw the stake account"],
+          "docs": [
+            "bonds authority to withdraw the stake account"
+          ],
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105,
-                  116, 121
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               },
               {
@@ -1992,8 +3481,23 @@
               {
                 "kind": "const",
                 "value": [
-                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
-                  114, 105, 116, 121
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
                 ]
               }
             ]
@@ -2009,113 +3513,395 @@
   "accounts": [
     {
       "name": "Bond",
-      "discriminator": [224, 128, 48, 251, 182, 246, 111, 196]
+      "discriminator": [
+        224,
+        128,
+        48,
+        251,
+        182,
+        246,
+        111,
+        196
+      ]
+    },
+    {
+      "name": "BondProduct",
+      "discriminator": [
+        135,
+        68,
+        116,
+        146,
+        5,
+        75,
+        127,
+        143
+      ]
     },
     {
       "name": "Config",
-      "discriminator": [155, 12, 170, 224, 30, 250, 204, 130]
+      "discriminator": [
+        155,
+        12,
+        170,
+        224,
+        30,
+        250,
+        204,
+        130
+      ]
     },
     {
       "name": "Settlement",
-      "discriminator": [55, 11, 219, 33, 36, 136, 40, 182]
+      "discriminator": [
+        55,
+        11,
+        219,
+        33,
+        36,
+        136,
+        40,
+        182
+      ]
     },
     {
       "name": "SettlementClaim",
-      "discriminator": [216, 103, 231, 246, 171, 99, 124, 133]
+      "discriminator": [
+        216,
+        103,
+        231,
+        246,
+        171,
+        99,
+        124,
+        133
+      ]
     },
     {
       "name": "SettlementClaims",
-      "discriminator": [32, 130, 62, 175, 231, 54, 170, 114]
+      "discriminator": [
+        32,
+        130,
+        62,
+        175,
+        231,
+        54,
+        170,
+        114
+      ]
     },
     {
       "name": "WithdrawRequest",
-      "discriminator": [186, 239, 174, 191, 189, 13, 47, 196]
+      "discriminator": [
+        186,
+        239,
+        174,
+        191,
+        189,
+        13,
+        47,
+        196
+      ]
     }
   ],
   "events": [
     {
       "name": "CancelSettlementEvent",
-      "discriminator": [80, 190, 161, 61, 97, 7, 242, 92]
+      "discriminator": [
+        80,
+        190,
+        161,
+        61,
+        97,
+        7,
+        242,
+        92
+      ]
     },
     {
       "name": "CancelWithdrawRequestEvent",
-      "discriminator": [221, 97, 104, 35, 19, 137, 248, 246]
+      "discriminator": [
+        221,
+        97,
+        104,
+        35,
+        19,
+        137,
+        248,
+        246
+      ]
     },
     {
       "name": "ClaimSettlementEvent",
-      "discriminator": [135, 253, 145, 233, 227, 29, 188, 141]
+      "discriminator": [
+        135,
+        253,
+        145,
+        233,
+        227,
+        29,
+        188,
+        141
+      ]
     },
     {
       "name": "ClaimSettlementV2Event",
-      "discriminator": [114, 201, 131, 134, 182, 165, 237, 47]
+      "discriminator": [
+        114,
+        201,
+        131,
+        134,
+        182,
+        165,
+        237,
+        47
+      ]
     },
     {
       "name": "ClaimWithdrawRequestEvent",
-      "discriminator": [201, 210, 144, 108, 235, 209, 85, 58]
+      "discriminator": [
+        201,
+        210,
+        144,
+        108,
+        235,
+        209,
+        85,
+        58
+      ]
     },
     {
       "name": "CloseSettlementEvent",
-      "discriminator": [226, 173, 111, 111, 105, 218, 118, 103]
+      "discriminator": [
+        226,
+        173,
+        111,
+        111,
+        105,
+        218,
+        118,
+        103
+      ]
     },
     {
       "name": "ConfigureBondEvent",
-      "discriminator": [183, 119, 162, 244, 82, 182, 114, 228]
+      "discriminator": [
+        183,
+        119,
+        162,
+        244,
+        82,
+        182,
+        114,
+        228
+      ]
+    },
+    {
+      "name": "ConfigureBondProductEvent",
+      "discriminator": [
+        15,
+        80,
+        219,
+        241,
+        47,
+        206,
+        5,
+        179
+      ]
     },
     {
       "name": "ConfigureBondWithMintEvent",
-      "discriminator": [209, 167, 200, 198, 99, 71, 4, 96]
+      "discriminator": [
+        209,
+        167,
+        200,
+        198,
+        99,
+        71,
+        4,
+        96
+      ]
     },
     {
       "name": "ConfigureConfigEvent",
-      "discriminator": [121, 240, 38, 122, 0, 102, 203, 122]
+      "discriminator": [
+        121,
+        240,
+        38,
+        122,
+        0,
+        102,
+        203,
+        122
+      ]
     },
     {
       "name": "EmergencyPauseEvent",
-      "discriminator": [159, 241, 192, 232, 29, 208, 51, 21]
+      "discriminator": [
+        159,
+        241,
+        192,
+        232,
+        29,
+        208,
+        51,
+        21
+      ]
     },
     {
       "name": "EmergencyResumeEvent",
-      "discriminator": [19, 211, 43, 129, 45, 168, 226, 200]
+      "discriminator": [
+        19,
+        211,
+        43,
+        129,
+        45,
+        168,
+        226,
+        200
+      ]
     },
     {
       "name": "FundBondEvent",
-      "discriminator": [156, 63, 156, 252, 109, 181, 73, 110]
+      "discriminator": [
+        156,
+        63,
+        156,
+        252,
+        109,
+        181,
+        73,
+        110
+      ]
     },
     {
       "name": "FundSettlementEvent",
-      "discriminator": [104, 161, 6, 77, 82, 236, 4, 114]
+      "discriminator": [
+        104,
+        161,
+        6,
+        77,
+        82,
+        236,
+        4,
+        114
+      ]
     },
     {
       "name": "InitBondEvent",
-      "discriminator": [56, 106, 209, 158, 171, 85, 159, 200]
+      "discriminator": [
+        56,
+        106,
+        209,
+        158,
+        171,
+        85,
+        159,
+        200
+      ]
+    },
+    {
+      "name": "InitBondProductEvent",
+      "discriminator": [
+        159,
+        222,
+        72,
+        56,
+        134,
+        104,
+        96,
+        161
+      ]
     },
     {
       "name": "InitConfigEvent",
-      "discriminator": [125, 127, 160, 86, 247, 110, 50, 238]
+      "discriminator": [
+        125,
+        127,
+        160,
+        86,
+        247,
+        110,
+        50,
+        238
+      ]
     },
     {
       "name": "InitSettlementEvent",
-      "discriminator": [187, 195, 46, 129, 116, 83, 231, 241]
+      "discriminator": [
+        187,
+        195,
+        46,
+        129,
+        116,
+        83,
+        231,
+        241
+      ]
     },
     {
       "name": "InitWithdrawRequestEvent",
-      "discriminator": [122, 40, 131, 105, 70, 35, 119, 128]
+      "discriminator": [
+        122,
+        40,
+        131,
+        105,
+        70,
+        35,
+        119,
+        128
+      ]
     },
     {
       "name": "MergeStakeEvent",
-      "discriminator": [111, 6, 45, 208, 79, 53, 119, 57]
+      "discriminator": [
+        111,
+        6,
+        45,
+        208,
+        79,
+        53,
+        119,
+        57
+      ]
     },
     {
       "name": "MintBondEvent",
-      "discriminator": [82, 190, 245, 33, 35, 128, 142, 197]
+      "discriminator": [
+        82,
+        190,
+        245,
+        33,
+        35,
+        128,
+        142,
+        197
+      ]
     },
     {
       "name": "ResetStakeEvent",
-      "discriminator": [255, 49, 219, 199, 119, 10, 195, 177]
+      "discriminator": [
+        255,
+        49,
+        219,
+        199,
+        119,
+        10,
+        195,
+        177
+      ]
     },
     {
       "name": "WithdrawStakeEvent",
-      "discriminator": [47, 85, 239, 214, 207, 29, 151, 88]
+      "discriminator": [
+        47,
+        85,
+        239,
+        214,
+        207,
+        29,
+        151,
+        88
+      ]
     }
   ],
   "errors": [
@@ -2501,14 +4287,26 @@
     },
     {
       "code": 6076,
-      "name": "BondProductChangeNotPermitted",
-      "msg": "Wrong authority for changing the validator bond product account"
+      "name": "BondProductSetupNotPermitted",
+      "msg": "Wrong authority to setup the validator bond product account"
+    },
+    {
+      "code": 6077,
+      "name": "InvalidBondProductAddress",
+      "msg": "Fail to create program address for Bond Product"
+    },
+    {
+      "code": 6078,
+      "name": "ProductTypeConfigValidationFailure",
+      "msg": "Fail to validate ProductConfig value"
     }
   ],
   "types": [
     {
       "name": "Bond",
-      "docs": ["Bond account for a validator vote address"],
+      "docs": [
+        "Bond account for a validator vote address"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -2552,7 +4350,9 @@
           },
           {
             "name": "bump",
-            "docs": ["PDA Bond address bump seed"],
+            "docs": [
+              "PDA Bond address bump seed"
+            ],
             "type": "u8"
           },
           {
@@ -2568,10 +4368,77 @@
           },
           {
             "name": "reserved",
-            "docs": ["reserve space for future extensions"],
+            "docs": [
+              "reserve space for future extensions"
+            ],
             "type": {
-              "array": ["u8", 134]
+              "array": [
+                "u8",
+                134
+              ]
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "BondProduct",
+      "docs": [
+        "Bond products configuration.",
+        "Validator configures different products on a bond to offer various staking services."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "docs": [
+              "The bond config account"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "bond",
+            "docs": [
+              "The bond this product belongs to"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "vote_account",
+            "docs": [
+              "Validator vote account this product is associated with"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "product_type",
+            "docs": [
+              "Product type discriminator"
+            ],
+            "type": {
+              "defined": {
+                "name": "ProductType"
+              }
+            }
+          },
+          {
+            "name": "config_data",
+            "docs": [
+              "Type-specific configuration data"
+            ],
+            "type": {
+              "defined": {
+                "name": "ProductTypeConfig"
+              }
+            }
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "Bump seed"
+            ],
+            "type": "u8"
           }
         ]
       }
@@ -2612,7 +4479,10 @@
           {
             "name": "merkle_root",
             "type": {
-              "array": ["u8", 32]
+              "array": [
+                "u8",
+                32
+              ]
             }
           },
           {
@@ -2741,17 +4611,25 @@
         "fields": [
           {
             "name": "proof",
-            "docs": ["proof that the claim is appropriate"],
+            "docs": [
+              "proof that the claim is appropriate"
+            ],
             "type": {
               "vec": {
-                "array": ["u8", 32]
+                "array": [
+                  "u8",
+                  32
+                ]
               }
             }
           },
           {
             "name": "tree_node_hash",
             "type": {
-              "array": ["u8", 32]
+              "array": [
+                "u8",
+                32
+              ]
             }
           },
           {
@@ -2770,7 +4648,9 @@
           },
           {
             "name": "claim",
-            "docs": ["claim amount; merkle root verification"],
+            "docs": [
+              "claim amount; merkle root verification"
+            ],
             "type": "u64"
           },
           {
@@ -2893,7 +4773,10 @@
           {
             "name": "merkle_root",
             "type": {
-              "array": ["u8", 32]
+              "array": [
+                "u8",
+                32
+              ]
             }
           },
           {
@@ -2944,29 +4827,68 @@
       }
     },
     {
+      "name": "CommissionProductConfig",
+      "docs": [
+        "Configuration of commissions. The commission is permitted to be negative to allow for subsidies."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "inflation_bps",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "mev_bps",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "block_bps",
+            "type": {
+              "option": "i64"
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "Config",
-      "docs": ["Root account that configures the validator bonds program"],
+      "docs": [
+        "Root account that configures the validator bonds program"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "admin_authority",
-            "docs": ["Admin authority that can update the config"],
+            "docs": [
+              "Admin authority that can update the config"
+            ],
             "type": "pubkey"
           },
           {
             "name": "operator_authority",
-            "docs": ["Operator authority (bot hot wallet)"],
+            "docs": [
+              "Operator authority (bot hot wallet)"
+            ],
             "type": "pubkey"
           },
           {
             "name": "epochs_to_claim_settlement",
-            "docs": ["How many epochs permitting to claim the settlement"],
+            "docs": [
+              "How many epochs permitting to claim the settlement"
+            ],
             "type": "u64"
           },
           {
             "name": "withdraw_lockup_epochs",
-            "docs": ["How many epochs before withdraw is allowed"],
+            "docs": [
+              "How many epochs before withdraw is allowed"
+            ],
             "type": "u64"
           },
           {
@@ -2978,7 +4900,9 @@
           },
           {
             "name": "bonds_withdrawer_authority_bump",
-            "docs": ["PDA bonds stake accounts authority bump seed"],
+            "docs": [
+              "PDA bonds stake accounts authority bump seed"
+            ],
             "type": "u8"
           },
           {
@@ -3008,9 +4932,14 @@
           },
           {
             "name": "reserved",
-            "docs": ["reserved space for future changes"],
+            "docs": [
+              "reserved space for future changes"
+            ],
             "type": {
-              "array": ["u8", 463]
+              "array": [
+                "u8",
+                463
+              ]
             }
           }
         ]
@@ -3023,7 +4952,9 @@
         "fields": [
           {
             "name": "bond_authority",
-            "docs": ["New bond authority that can manage the bond account."],
+            "docs": [
+              "New bond authority that can manage the bond account."
+            ],
             "type": {
               "option": "pubkey"
             }
@@ -3090,18 +5021,86 @@
       }
     },
     {
+      "name": "ConfigureBondProductArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config_data",
+            "type": {
+              "defined": {
+                "name": "ProductTypeConfig"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigureBondProductEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "bond_product",
+            "type": "pubkey"
+          },
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "vote_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "product_type",
+            "type": {
+              "defined": {
+                "name": "ProductType"
+              }
+            }
+          },
+          {
+            "name": "old_config_data",
+            "type": {
+              "defined": {
+                "name": "ProductTypeConfig"
+              }
+            }
+          },
+          {
+            "name": "new_config_data",
+            "type": {
+              "defined": {
+                "name": "ProductTypeConfig"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "ConfigureBondWithMintArgs",
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "validator_identity",
-            "docs": ["Validator identity configured within the vote account."],
+            "docs": [
+              "Validator identity configured within the vote account."
+            ],
             "type": "pubkey"
           },
           {
             "name": "bond_authority",
-            "docs": ["New bond authority that can manage the bond account."],
+            "docs": [
+              "New bond authority that can manage the bond account."
+            ],
             "type": {
               "option": "pubkey"
             }
@@ -3322,12 +5321,16 @@
         "fields": [
           {
             "name": "voter_pubkey",
-            "docs": ["to whom the stake is delegated"],
+            "docs": [
+              "to whom the stake is delegated"
+            ],
             "type": "pubkey"
           },
           {
             "name": "stake",
-            "docs": ["activated stake amount, set at delegate() time"],
+            "docs": [
+              "activated stake amount, set at delegate() time"
+            ],
             "type": "u64"
           },
           {
@@ -3560,6 +5563,68 @@
       }
     },
     {
+      "name": "InitBondProductArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "product_type",
+            "type": {
+              "defined": {
+                "name": "ProductType"
+              }
+            }
+          },
+          {
+            "name": "config_data",
+            "type": {
+              "defined": {
+                "name": "ProductTypeConfig"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitBondProductEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bond_product",
+            "type": "pubkey"
+          },
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "vote_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "product_type",
+            "type": {
+              "defined": {
+                "name": "ProductType"
+              }
+            }
+          },
+          {
+            "name": "authority",
+            "type": {
+              "option": "pubkey"
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "InitConfigArgs",
       "type": {
         "kind": "struct",
@@ -3639,7 +5704,10 @@
               "settlements will be distinguished by the vote_account"
             ],
             "type": {
-              "array": ["u8", 32]
+              "array": [
+                "u8",
+                32
+              ]
             }
           },
           {
@@ -3665,7 +5733,9 @@
           },
           {
             "name": "epoch",
-            "docs": ["epoch that the settlement is created for"],
+            "docs": [
+              "epoch that the settlement is created for"
+            ],
             "type": "u64"
           }
         ]
@@ -3695,7 +5765,10 @@
           {
             "name": "merkle_root",
             "type": {
-              "array": ["u8", 32]
+              "array": [
+                "u8",
+                32
+              ]
             }
           },
           {
@@ -3842,6 +5915,53 @@
       }
     },
     {
+      "name": "ProductType",
+      "docs": [
+        "Product type discriminator"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Commission"
+          },
+          {
+            "name": "Custom",
+            "fields": [
+              "string"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProductTypeConfig",
+      "docs": [
+        "Discriminated union for different product configurations"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Commission",
+            "fields": [
+              {
+                "defined": {
+                  "name": "CommissionProductConfig"
+                }
+              }
+            ]
+          },
+          {
+            "name": "Custom",
+            "fields": [
+              "bytes"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "name": "PubkeyValueChange",
       "type": {
         "kind": "struct",
@@ -3915,14 +6035,21 @@
           },
           {
             "name": "merkle_root",
-            "docs": ["256-bit merkle root to check the claims against"],
+            "docs": [
+              "256-bit merkle root to check the claims against"
+            ],
             "type": {
-              "array": ["u8", 32]
+              "array": [
+                "u8",
+                32
+              ]
             }
           },
           {
             "name": "max_total_claim",
-            "docs": ["maximum number of funds that can ever be claimed"],
+            "docs": [
+              "maximum number of funds that can ever be claimed"
+            ],
             "type": "u64"
           },
           {
@@ -3934,27 +6061,37 @@
           },
           {
             "name": "lamports_funded",
-            "docs": ["total lamports funded"],
+            "docs": [
+              "total lamports funded"
+            ],
             "type": "u64"
           },
           {
             "name": "lamports_claimed",
-            "docs": ["total lamports that have been claimed"],
+            "docs": [
+              "total lamports that have been claimed"
+            ],
             "type": "u64"
           },
           {
             "name": "merkle_nodes_claimed",
-            "docs": ["number of nodes that have been claimed"],
+            "docs": [
+              "number of nodes that have been claimed"
+            ],
             "type": "u64"
           },
           {
             "name": "epoch_created_for",
-            "docs": ["what epoch the Settlement has been created for"],
+            "docs": [
+              "what epoch the Settlement has been created for"
+            ],
             "type": "u64"
           },
           {
             "name": "slot_created_at",
-            "docs": ["when the Settlement was created"],
+            "docs": [
+              "when the Settlement was created"
+            ],
             "type": "u64"
           },
           {
@@ -3982,7 +6119,9 @@
           },
           {
             "name": "bumps",
-            "docs": ["PDA bumps"],
+            "docs": [
+              "PDA bumps"
+            ],
             "type": {
               "defined": {
                 "name": "Bumps"
@@ -3991,9 +6130,14 @@
           },
           {
             "name": "reserved",
-            "docs": ["reserve space for future extensions"],
+            "docs": [
+              "reserve space for future extensions"
+            ],
             "type": {
-              "array": ["u8", 90]
+              "array": [
+                "u8",
+                90
+              ]
             }
           }
         ]
@@ -4010,12 +6154,16 @@
         "fields": [
           {
             "name": "settlement",
-            "docs": ["settlement account this claim belongs under"],
+            "docs": [
+              "settlement account this claim belongs under"
+            ],
             "type": "pubkey"
           },
           {
             "name": "stake_account_to",
-            "docs": ["stake account to which the claim has been withdrawn to"],
+            "docs": [
+              "stake account to which the claim has been withdrawn to"
+            ],
             "type": "pubkey"
           },
           {
@@ -4034,12 +6182,16 @@
           },
           {
             "name": "amount",
-            "docs": ["claim amount"],
+            "docs": [
+              "claim amount"
+            ],
             "type": "u64"
           },
           {
             "name": "bump",
-            "docs": ["PDA account bump, one claim per settlement"],
+            "docs": [
+              "PDA account bump, one claim per settlement"
+            ],
             "type": "u8"
           },
           {
@@ -4051,9 +6203,14 @@
           },
           {
             "name": "reserved",
-            "docs": ["reserve space for future extensions"],
+            "docs": [
+              "reserve space for future extensions"
+            ],
             "type": {
-              "array": ["u8", 93]
+              "array": [
+                "u8",
+                93
+              ]
             }
           }
         ]
@@ -4116,13 +6273,17 @@
     },
     {
       "name": "WithdrawRequest",
-      "docs": ["Request from a validator to withdraw the bond"],
+      "docs": [
+        "Request from a validator to withdraw the bond"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "vote_account",
-            "docs": ["Validator vote account that requested the withdrawal"],
+            "docs": [
+              "Validator vote account that requested the withdrawal"
+            ],
             "type": "pubkey"
           },
           {
@@ -4141,24 +6302,35 @@
           },
           {
             "name": "requested_amount",
-            "docs": ["Amount of lamports to withdraw"],
+            "docs": [
+              "Amount of lamports to withdraw"
+            ],
             "type": "u64"
           },
           {
             "name": "withdrawn_amount",
-            "docs": ["Amount of lamports withdrawn so far"],
+            "docs": [
+              "Amount of lamports withdrawn so far"
+            ],
             "type": "u64"
           },
           {
             "name": "bump",
-            "docs": ["PDA account bump"],
+            "docs": [
+              "PDA account bump"
+            ],
             "type": "u8"
           },
           {
             "name": "reserved",
-            "docs": ["reserve space for future extensions"],
+            "docs": [
+              "reserve space for future extensions"
+            ],
             "type": {
-              "array": ["u8", 93]
+              "array": [
+                "u8",
+                93
+              ]
             }
           }
         ]
@@ -4211,6 +6383,11 @@
       "name": "BOND_MINT_SEED",
       "type": "bytes",
       "value": "[98, 111, 110, 100, 95, 109, 105, 110, 116]"
+    },
+    {
+      "name": "BOND_PRODUCT_SEED",
+      "type": "bytes",
+      "value": "[98, 111, 110, 100, 95, 112, 114, 111, 100, 117, 99, 116]"
     },
     {
       "name": "BOND_SEED",

@@ -306,8 +306,6 @@ Validators can verify the charged amounts and funded SOL directly on-chain.
   - Select calculation data: [as JSON files form Google Cloud storage](https://console.cloud.google.com/storage/browser/marinade-institutional-staking-mainnet)
   - Settlement data: [Google Cloud storage](https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet).
 
-For advanced on-chain queries, refer to the [on-chain analysis documentation](../../programs/validator-bonds/ON_CHAIN_ANALYSIS.md).
-
 ## On-Chain Technical Information
 
 - On-chain Validator Bonds Program address: `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
