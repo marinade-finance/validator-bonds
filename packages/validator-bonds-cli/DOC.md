@@ -1,6 +1,7 @@
 # Stake Auction Market (SAM)
 
---> TODO: what about removing the sentence "On August 14th ...." ?
+> TODO: replacing phrase "On August 14th, 2024, Marinade will transition to the new delegation strategy described below."
+>       with just "Since August 14th 2024" ?
 
 ### Quick Overview
 
@@ -124,9 +125,7 @@ This setting gives validators more control over how much stake they want from Ma
 
 #### **Disabling the Cap**
 
---> TODO: should not we rather say to set the `max_stake_wanted` to `0` to be consistent to the doc above?
-
-To effectively disable the limit and ensure you are not capped as Marinade’s TVL grows, set `max_stake_wanted` to a very high value like **1 billion SOL**, or use a large lamport equivalent such as `1e18` or `18e18`.
+To effectively disable the limit and ensure you are not capped as Marinade’s TVL grows, set `max_stake_wanted` to `0`.
 
 ---
 
@@ -160,71 +159,91 @@ With 10 million SOL in TVL, a validator can receive up to 40,000 SOL in matched 
 
 ### Bid Reduction Penalty
 
-Validators receiving stake should not lower their CPMPE to retain stake for more epochs while not paying the initial bid that allowed them to acquire that stake in the first place. This behaviour creates inefficiencies and forces Marinade to rebalance stake, reducing the stakers' APY. \
-\
-To prevent that behaviour, Marinade installed a Bid-Reduction Penalty. If a validator reduces its bid after receiving stake from the auction using a higher bid, it will pay a penalty from its bond. The penalty is calculated according to the following formula:
+Validators receiving stake should not lower their CPMPE to retain stake for more epochs while not paying the initial bid that allowed them to acquire that stake in the first place. This behaviour creates inefficiencies and forces Marinade to rebalance stake, reducing the stakers' APY.
+
+To prevent that behaviour, Marinade installed a Bid-Reduction Penalty. If a validator reduces its bid performance abruptly after receiving stake from the auction using a higher bid initially, it will pay a penalty from its bond. The penalty is calculated according to the following formula:
 
 ```
 limit = min(effBid, effBid[-1], effBid[-2], effBid[-3])
-penaltyCoef = min(1, sqrt(1.5 * max(0, limit - bidCpmpe) / limit)
+bondObligationPmpe = bidPmpe + blockPmpe + bondsInflationPmpeDiff + bondsMevPmpeDiff
+penaltyCoef = min(1, sqrt(1.5 * max(0, limit - bondObligationPmpe) / limit)
 penaltyPmpe = winningTotalPmpe + effBid
-penalty = penaltyCoef * penaltyPmpe * marinadeActivatedStakeSol / 1000
+penalty = penaltyCoef * penaltyPmpe * marinadeActivatedStakeSol / winningTotalPmpe
 ```
 
 Where:
 
 `effBid[-i]` is the `effBid` of the auction `i` epoch in the past,
 
-`winningTotalPmpe` is the auction winning pmpe for a 0-commission validator, including the bid, inflation and MEV rewards,
+`bondObligationPmpe` is the total pmpe obligation of the validator to be paid from its bond. It comprises: the static bid pmpme (cpmpe), the block rewards pmpe, the inflation/mev commission difference between the on-chain commission and the bond commission (if any),
+
+`winningTotalPmpe` is the auction winning pmpe for a 0-commission validator, including the bid, inflation, MEV and block rewards,
 
 `marinadeActivatedStakeSol` is the active delegated stake on this validator,
 
 `effBid` is the bid derived from the auction-winning APY that this validator would pay if he remains part of the winning set.
 
-If the validator did not lower his bid, no penalty is paid. If the validator lowers his bid, he pays a full penalty according to the formula above.
+If the validator neither lowered his static bid nor increased its commissions, no penalty is paid.
+If the validator lowers his bid or increases its commissions, he pays a full penalty according to the formula above.
 
 {% hint style="warning" %}
 ⚠️ **Important Clarification**: Paying the penalty does **not** entitle the validator to keep the stake.\
-Validators who deliberately lower their bid to reduce payment obligations, even if they pay the associated penalty, **will be unstaked**. These validators should not have retained the stake in the first place under fair auction conditions.
+Validators who deliberately lower their bid performance to reduce payment obligations, even if they pay the associated penalty, **will be unstaked**. These validators should not have retained the stake in the first place under fair auction conditions.
 
 Marinade’s system will actively rebalance such stake allocations to protect the protocol and uphold fairness for both validators and stakers.
 {% endhint %}
 
 #### **Example A - Validator lowers its bid to 0**
 
-- Validator receives 100k SOL from Marinade, with 0% commission on MEV and inflation, and a CPMPE set at 0.15
-- The validator lowers his bid to 0 on Epoch N
+- Validator receives 100k SOL from Marinade, with 0% commission on MEV and inflation, 100% on block rewards and a CPMPE set at 0.15
+- The validator lowers his static bid to 0 on Epoch N, leaving commissions at 0%
 - Effective Bid for the past 3 epochs and current epoch is 0.1 (for a 0-commission validator)
 - WinningTotalPmpe for the current epoch is 0.60 SOL
 
-limit = min(0.1,0.1,0.1,0.1), so limit is 0.1 \
-PenaltyCoef = min( 1, sqrt(1.5 \* max (0, 0.1 - 0) /0.1), so PenaltyCoef is 1\
-PenaltyPmpe = 0.60 + 0.1, so PenaltyPmpe is 0.70\
-Penalty = 1\*0.7\*100000/1000, so the Penalty is 70 SOL.
+limit = min(0.1,0.1,0.1,0.1), so limit is 0.1
+bondObligationPmpe = 0 + 0 + 0 + 0, so bondObligationPmpe is 0
+PenaltyCoef = min( 1, sqrt(1.5 * max (0, 0.1 - 0) / 0.1), so PenaltyCoef is 1\
+PenaltyPmpe = 0.60 + 0.1, so PenaltyPmpe is 0.70
+Penalty = 1 * 0.7 * 100000/1000, so the Penalty is 70 SOL.
 
 #### **Example B - Validator lowers its bid to 0.075**
 
-- Validator receives 100k SOL from Marinade, with 0% commission on MEV and inflation, and a CPMPE set at 0.15
-- The validator lowers his bid to 0.075 on Epoch N
+- Validator receives 100k SOL from Marinade, with 0% commission on MEV and inflation, 100% on block rewards and a CPMPE set at 0.15
+- The validator lowers his bid to 0.075 on Epoch N, leaving commissions at 0%. We can see here that the the bid is lowered from 0.15 to 0.075 while the effective auction bid is set at 0.1 as for last 3 epochs.
 - Effective Bid for the past 3 epochs and current epoch is 0.1 (for a 0-commission validator)
 - WinningTotalPmpe for the current epoch is 0.60 SOL
 
-limit = min(0.1,0.1,0.1,0.1), so limit is 0.1 \
-PenaltyCoef = min( 1, sqrt(1.5 \* max (0, 0.1 -0.075) /0.1), so PenaltyCoef is 0.61237243569\
-PenaltyPmpe = 0.60 + 0.1, so PenaltyPmpe is 0.70\
-Penalty = 0.61237243569\*0.7\*100000/1000, so the Penalty is 42.8660704983 SOL.
+limit = min(0.1,0.1,0.1,0.1), so limit is 0.1
+bondObligationPmpe = 0.075 + 0 + 0 + 0, so bondObligationPmpe is 0.075 based on bid reduction
+PenaltyCoef = min( 1, sqrt(1.5 * max (0, 0.1 - 0.075) / 0.1), so PenaltyCoef is 0.61237243569
+PenaltyPmpe = 0.60 + 0.1, so PenaltyPmpe is 0.70
+Penalty = 0.61237243569 * 0.7 * 100000/1000, so the Penalty is 42.8660704983 SOL.
 
-#### **Example C - Validator does not lower its bid but request a withdraw from their bond**
+#### **Example C - Validator increases its commission**
 
-- Validator receives 100k SOL from Marinade, with 0% commission on MEV and inflation, and a CPMPE set at 0.15
+- The validator receives 100k SOL from Marinade, with 0% commissions and a CPMPE set at 0.025.
+- The validator keeps the same bid from Epoch N-3 to Epoch N, but increases its block commission to 5% in Epoch N. This results in an obligation to pay **0.05 pmpe**, which is lower in total compared to the effective bid of the epoch that remains at 0.1. The 0.05 is calculated from the ratio of block rewards earned from the Marinade stake. The rewards are computed as an average over several past epochs.
+- The Effective Bid for the past 3 epochs and the current epoch is 0.1.
+- The WinningTotalPmpe for the current epoch is 0.60 SOL.
+
+limit = min(0.1, 0.1, 0.1, 0.1), so limit is 0.1
+bondObligationPmpe = 0.025 + 0.05 + 0 + 0, so bondObligationPmpe is 0.075 based on commission increase
+PenaltyCoef = min( 1, sqrt(1.5 * max (0, 0.1 - 0.075) / 0.1), so PenaltyCoef is 0.61237243569
+PenaltyPmpe = 0.60 + 0.1, so PenaltyPmpe is 0.70
+Penalty = 0.61237243569 * 0.7 * 100000/1000, so the Penalty is 42.8660704983 SOL.
+
+#### **Example D - Validator does not lower its bid but request a withdraw from their bond**
+
+- Validator receives 100k SOL from Marinade, with 0% commission on MEV and inflation, 100% on block rewards and a CPMPE set at 0.15
 - The validator conserves his bid from Epoch N-3 to Epoch N where bond is withdrawn
 - Effective Bid for the past 3 epochs and current epoch is 0.1 (for a 0-commission validator)
 - WinningTotalPmpe for the current epoch is 0.60 SOL
 
-limit = min(0.1,0.1,0.1,0.1), so limit is 0.1 \
-PenaltyCoef = min( 1, sqrt(1.5 \* max (0, 0.1 -0.1) /0.1), so PenaltyCoef is 0\
-PenaltyPmpe = 0.60 + 0.1, so PenaltyPmpe is 0.70\
-Penalty = 0\*0.7\*100000/1000, so the Penalty is 0 SOL.
+limit = min(0.1,0.1,0.1,0.1), so limit is 0.1
+bondObligationPmpe = 0.1 + 0 + 0 + 0, so bondObligationPmpe is 0.1 as bid is conserved
+PenaltyCoef = min( 1, sqrt(1.5 * max (0, 0.1 - 0.1) / 0.1), so PenaltyCoef is 0
+PenaltyPmpe = 0.60 + 0.1, so PenaltyPmpe is 0.70
+Penalty = 0*0.7*100000/1000, so the Penalty is 0 SOL.
 
 After a few epochs, the validator can withdraw its bond and exit the auction without paying any penalty.
 

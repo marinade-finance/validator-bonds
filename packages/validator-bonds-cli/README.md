@@ -359,9 +359,9 @@ or SPL token holder must sign the transaction.
   - Caps the amount of stake Marinade can delegate to you
 
 > **NOTE:** Configuration data may be stored in separate PDA accounts linked to the bond.
-> In such cases, a new PDA account may be created when configuring the bond
-> (this occurs only once per configuration type).
-> The `--rent-payer <keypair>` parameter is used to pay the rent for creating the new account.
+> In such cases, **a new PDA account** may be created when configuring the bond
+> (this happens only once per configuration type). Then the `--rent-payer <keypair>` parameter is used
+> to pay the rent for creating the new account.
 
 #### Configure with Authority (permissioned)
 
