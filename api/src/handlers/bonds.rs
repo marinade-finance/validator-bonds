@@ -1,11 +1,9 @@
 use crate::context::WrappedContext;
+use crate::error::CustomError;
 use crate::repositories::bond::get_bonds_by_type;
 use serde::{Deserialize, Serialize};
 use validator_bonds_common::dto::{BondType, ValidatorBondRecord};
-use warp::{
-    reject::Reject,
-    reply::{json, Reply},
-};
+use warp::reply::{json, Reply};
 
 #[derive(Serialize, Debug, utoipa::ToSchema)]
 pub struct BondsResponse {
@@ -15,18 +13,6 @@ pub struct BondsResponse {
 #[derive(Deserialize, Serialize, Debug, utoipa::IntoParams)]
 #[into_params(parameter_in = Query)]
 pub struct QueryParams {}
-
-struct CustomError {
-    message: String,
-}
-
-impl Reject for CustomError {}
-
-impl std::fmt::Debug for CustomError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "CustomError: {}", self.message)
-    }
-}
 
 #[utoipa::path(
     get,

@@ -1,4 +1,6 @@
-import type { PublicKey } from '@solana/web3.js'
+import { getAnnouncements, ANNOUNCEMENTS_TIMEOUT_MS } from './announcements'
+
+import type { Logger } from 'pino'
 
 const LEFT_CORNER = '╔'
 const RIGHT_CORNER = '╗'
@@ -7,18 +9,39 @@ const VERTICAL_LINE = '║'
 const BOTTOM_LEFT_CORNER = '╚'
 const BOTTOM_RIGHT_CORNER = '╝'
 
-export function printBanner(voteAccount: PublicKey): void {
-  const banner = getBanner({
-    title: 'Help us improve Marinade SAM ✓✓✓',
-    text:
-      '\n\nWe’d love your feedback! Please take a minute to fill out our short survey:\n' +
-      ` https://docs.google.com/forms/d/e/1FAIpQLScnBKcKJsb4-wNSAzgrwrY5boAqG4Y_xsjo4YhND0TfdpUSfw/viewform?usp=pp_url&entry.976219744=${voteAccount.toBase58()} \n\n`,
-    width: 80,
-    centerText: true,
-    linesAround: 1,
-    textColor: Color.Bold,
-  })
-  console.log(banner)
+/**
+ * Prints announcements from the API as banners.
+ * Waits up to timeoutMs for the API response.
+ * On error or timeout, nothing is printed (silent failure).
+ */
+export async function printAnnouncementBanners(
+  logger?: Logger,
+  timeoutMs: number = ANNOUNCEMENTS_TIMEOUT_MS,
+): Promise<void> {
+  try {
+    const response = await getAnnouncements(timeoutMs)
+
+    if (!response || response.announcements.length === 0) {
+      logger?.debug('No announcements to display')
+      return
+    }
+
+    for (const announcement of response.announcements) {
+      const banner = getBanner({
+        title: announcement.title ?? undefined,
+        text: announcement.text,
+        width: 80,
+        centerText: false,
+        linesAround: 1,
+        textColor: Color.Bold,
+      })
+      console.log(banner)
+    }
+  } catch (error) {
+    logger?.debug(
+      `Failed to print announcement banners: ${error instanceof Error ? error.message : String(error)}`,
+    )
+  }
 }
 
 export function getBanner({

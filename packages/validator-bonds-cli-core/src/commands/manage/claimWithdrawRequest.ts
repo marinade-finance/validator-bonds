@@ -13,7 +13,6 @@ import {
 } from '@marinade.finance/web3js-1x'
 import { BN } from 'bn.js'
 
-import { printBanner } from '../../banner'
 import {
   CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS,
   computeUnitLimitOption,
@@ -91,7 +90,6 @@ export async function manageClaimWithdrawRequest({
   splitStakeRentPayer,
   stakeAccount,
   computeUnitLimit,
-  isPrintBanner,
 }: {
   address?: PublicKey
   config?: PublicKey
@@ -101,7 +99,6 @@ export async function manageClaimWithdrawRequest({
   splitStakeRentPayer?: WalletInterface | PublicKey
   stakeAccount?: PublicKey
   computeUnitLimit: number
-  isPrintBanner?: boolean
 }) {
   const {
     program,
@@ -230,10 +227,6 @@ export async function manageClaimWithdrawRequest({
     })
   }
   tx.add(...instructionsToProcess)
-
-  if (isPrintBanner) {
-    printBanner(voteAccount)
-  }
 
   logger.info(
     `Claiming withdraw request ${withdrawRequestAddress?.toBase58()} ` +

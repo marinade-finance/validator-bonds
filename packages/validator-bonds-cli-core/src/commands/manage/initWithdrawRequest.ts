@@ -18,7 +18,6 @@ import {
 } from '@marinade.finance/web3js-1x'
 import BN from 'bn.js'
 
-import { printBanner } from '../../banner'
 import {
   INIT_WITHDRAW_REQUEST_LIMIT_UNITS,
   computeUnitLimitOption,
@@ -89,7 +88,6 @@ export async function manageInitWithdrawRequest({
   amount,
   rentPayer,
   computeUnitLimit,
-  isPrintBanner,
 }: {
   address?: PublicKey
   config: PublicKey
@@ -98,7 +96,6 @@ export async function manageInitWithdrawRequest({
   amount: string
   rentPayer?: WalletInterface | PublicKey
   computeUnitLimit: number
-  isPrintBanner?: boolean
 }) {
   const {
     program,
@@ -191,10 +188,6 @@ export async function manageInitWithdrawRequest({
       logger,
     })
   tx.add(instruction)
-
-  if (isPrintBanner) {
-    printBanner(voteAccount)
-  }
 
   logger.info(
     `Initializing withdraw request account ${withdrawRequestAccount.toBase58()}, bond: ${bondAccount.toBase58()}, ` +

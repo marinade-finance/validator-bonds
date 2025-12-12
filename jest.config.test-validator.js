@@ -8,6 +8,7 @@ module.exports = {
   testPathIgnorePatterns: ['.*utils.*'],
   testTimeout: 1200000,
   detectOpenHandles: true,
+  setupFiles: ['reflect-metadata'],
   setupFilesAfterEnv: [
     /// https://github.com/marinade-finance/marinade-ts-cli/blob/main/packages/lib/jest-utils/src/equalityTesters.ts
     '<rootDir>/node_modules/@marinade.finance/web3js-1x-testing/dist/src/equalityTesters',

@@ -154,6 +154,12 @@ importers:
       bs58:
         specifier: 6.0.0
         version: 6.0.0
+      class-transformer:
+        specifier: 0.5.1
+        version: 0.5.1
+      class-validator:
+        specifier: 0.14.2
+        version: 0.14.2
       commander:
         specifier: 14.0.0
         version: 14.0.0
@@ -166,6 +172,9 @@ importers:
       pino-pretty:
         specifier: 13.0.0
         version: 13.0.0
+      reflect-metadata:
+        specifier: 0.2.2
+        version: 0.2.2
       solana-spl-token-modern:
         specifier: npm:@solana/spl-token@^0.3.11
         version: '@solana/spl-token@0.3.11(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(bufferutil@4.0.8)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)(utf-8-validate@5.0.10)'

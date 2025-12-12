@@ -1,6 +1,6 @@
 use api::api_docs::ApiDoc;
 use api::context::{Context, WrappedContext};
-use api::handlers::{bonds, docs, protected_events};
+use api::handlers::{bonds, cli_announcements, docs, protected_events};
 use api::repositories::protected_events::spawn_protected_events_cache;
 use env_logger::Env;
 use log::{error, info};
@@ -118,6 +118,13 @@ async fn main() -> anyhow::Result<()> {
         .and(with_context(context.clone()))
         .and_then(protected_events::handler);
 
+    let route_cli_announcements = warp::path!("v1" / "announcements")
+        .and(warp::path::end())
+        .and(warp::get())
+        .and(warp::query::<cli_announcements::QueryParams>())
+        .and(with_context(context.clone()))
+        .and_then(cli_announcements::handler);
+
     let routes = top_level
         .or(route_api_docs_oas)
         .or(route_api_docs_html)
@@ -125,6 +132,7 @@ async fn main() -> anyhow::Result<()> {
         .or(route_bonds_bidding)
         .or(route_bonds_institutional)
         .or(route_protected_events)
+        .or(route_cli_announcements)
         .with(cors)
         .with(warp::filters::compression::gzip());
 

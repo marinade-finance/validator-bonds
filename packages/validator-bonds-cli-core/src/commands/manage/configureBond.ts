@@ -17,7 +17,6 @@ import {
   transaction,
 } from '@marinade.finance/web3js-1x'
 
-import { printBanner } from '../../banner'
 import {
   CONFIGURE_BOND_CONFIG_COMMISSION_LIMIT_UNITS,
   CONFIGURE_BOND_LIMIT_UNITS,
@@ -89,7 +88,6 @@ export async function manageConfigureBond({
   uniformBps,
   rentPayer,
   computeUnitLimit,
-  isPrintBanner,
 }: {
   address: PublicKey
   config: PublicKey
@@ -104,7 +102,6 @@ export async function manageConfigureBond({
   uniformBps?: BN | null
   rentPayer?: WalletInterface | PublicKey
   computeUnitLimit?: number
-  isPrintBanner?: boolean
 }) {
   const {
     program,
@@ -243,10 +240,6 @@ export async function manageConfigureBond({
   if (instanceOfWallet(authority)) {
     signers.push(authority)
     authority = authority.publicKey
-  }
-
-  if (isPrintBanner) {
-    printBanner(voteAccount)
   }
 
   logger.info(

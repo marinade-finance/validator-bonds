@@ -39,7 +39,6 @@ export function installFundBond(program: Command) {
           stakeAccount: await stakeAccount,
           stakeAuthority: await stakeAuthority,
           computeUnitLimit,
-          isPrintBanner: true,
         })
       },
     )

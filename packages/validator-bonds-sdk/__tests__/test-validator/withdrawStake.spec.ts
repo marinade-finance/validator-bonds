@@ -13,7 +13,10 @@ import {
   parseCpiEvents,
   assertEvent,
 } from '../../src'
-import { createSettlementFundedInitializedStake } from '../utils/staking'
+import {
+  createSettlementFundedInitializedStake,
+  retryOnEpochRewardsPeriod,
+} from '../utils/staking'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
 import { initTest } from '../utils/testValidator'
 
@@ -78,10 +81,12 @@ describe('Validator Bonds withdraw settlement stake account', () => {
       withdrawTo: pubkey(user),
     })
     tx.add(instruction)
-    const executionReturn = await executeTxSimple(provider.connection, tx, [
-      operatorAuthority,
-      provider.wallet,
-    ])
+    const executionReturn = await retryOnEpochRewardsPeriod(() =>
+      executeTxSimple(provider.connection, tx, [
+        operatorAuthority,
+        provider.wallet,
+      ]),
+    )
 
     expect(await provider.connection.getAccountInfo(stakeAccount)).toBeNull()
     expect(
