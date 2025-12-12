@@ -4,6 +4,7 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   gs_bucket_institutional: gs://marinade-institutional-staking-mainnet
+  gs_snapshot_bucket: gs://marinade-solana-snapshot-mainnet
   SLACK_API: https://slack.com/api/chat.postMessage
   SLACK_FEED: "feed-institutional-staking"
   CLAIM_TYPE: "institutional-distribution"
@@ -53,7 +54,7 @@ steps:
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" .
-    - gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
+    - gcloud storage cp "$gs_snapshot_bucket/$$epoch/stakes.json" "."
     key: 'download-json'
     artifact_paths:
       - "./institutional-payouts.json"
