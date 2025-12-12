@@ -16,6 +16,7 @@ env:
   DAO_FEE_SPLIT_SHARE_BPS: 5000
   DAO_FEE_STAKE_AUTHORITY: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
   DAO_FEE_WITHDRAW_AUTHORITY: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
+  WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
 
 steps:
   - label: ":hammer_and_wrench: :rust: Build"
@@ -43,6 +44,7 @@ steps:
   - wait: ~
 
   - label: ":black_nib: Env variables setup: Prepare Bid Distribution"
+    key: setup-env
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
@@ -83,7 +85,7 @@ steps:
 
   - label: ":scales: Evaluate Marinade Bids"
     env:
-      WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
+      RUST_LOG: info,bid_distribution=debug
     commands:
     - 'buildkite-agent artifact download --include-retried-jobs sam-scores.json .'
     - 'buildkite-agent artifact download --include-retried-jobs stakes.json .'
@@ -181,3 +183,32 @@ steps:
     command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/prepare-bid-distribution'
     concurrency: 1
+
+
+  - group: ":memo: Annotations"
+    steps:
+      - label: ":memo: Annotate retry parameters"
+        depends_on: "setup-env"
+        allow_dependency_failure: true
+        commands:
+          - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+          - |
+            cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
+            ### Retry environment variables
+            If you need to retry the build, use the following parameters:
+            
+            \`\`\`
+            EPOCH=$$epoch
+            MARINADE_SCORING_API_URL=$MARINADE_SCORING_API_URL
+            CLAIM_TYPE=$CLAIM_TYPE
+            MARINADE_FEE_BPS=$MARINADE_FEE_BPS
+            MARINADE_FEE_STAKE_AUTHORITY=$MARINADE_FEE_STAKE_AUTHORITY
+            MARINADE_FEE_WITHDRAW_AUTHORITY=$MARINADE_FEE_WITHDRAW_AUTHORITY
+            DAO_FEE_SPLIT_SHARE_BPS=$DAO_FEE_SPLIT_SHARE_BPS
+            DAO_FEE_STAKE_AUTHORITY=$DAO_FEE_STAKE_AUTHORITY
+            DAO_FEE_WITHDRAW_AUTHORITY=$DAO_FEE_WITHDRAW_AUTHORITY
+            WHITELIST_STAKE_AUTHORITY=$WHITELIST_STAKE_AUTHORITY
+            SLACK_FEED=$SLACK_FEED
+            NOTIFY_FEED=$NOTIFY_FEED
+            \`\`\`
+            EOF

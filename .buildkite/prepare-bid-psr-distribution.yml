@@ -6,6 +6,7 @@ env:
   CLAIM_TYPE: "bid-psr-distribution"
   SLACK_API: https://slack.com/api/chat.postMessage
   SLACK_FEED: "feed-pipeline-sam-psr"
+  WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
   ds_sam_auction_github_api_link: "https://api.github.com/repos/marinade-finance/ds-sam-pipeline/contents/auctions/"
   ds_sam_auction_download_link: "https://raw.githubusercontent.com/marinade-finance/ds-sam-pipeline/main/auctions/"
 
@@ -35,6 +36,7 @@ steps:
   - wait: ~
 
   - label: ":black_nib: Env variables setup: Prepare Bid PSR Distribution"
+    key: setup-env
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
@@ -119,7 +121,6 @@ steps:
   - label: ":scales: Evaluate Marinade Bid PSR Distribution"
     env:
       RUST_LOG: info,bid_psr_distribution=debug
-      WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
     commands:
     - buildkite-agent artifact download --include-retried-jobs validators.json .
     - buildkite-agent artifact download --include-retried-jobs stakes.json .
@@ -211,3 +212,25 @@ steps:
     command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/prepare-bid-psr-distribution'
     concurrency: 1
+
+
+  - group: ":memo: Annotations"
+    steps:
+      - label: ":memo: Annotate retry parameters"
+        depends_on: "setup-env"
+        allow_dependency_failure: true
+        commands:
+          - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+          - |
+            cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
+            ### Retry environment variables
+            If you need to retry the build, use the following parameters:
+            
+            \`\`\`
+            EPOCH=$$epoch
+            CLAIM_TYPE=$CLAIM_TYPE
+            WHITELIST_STAKE_AUTHORITY=$WHITELIST_STAKE_AUTHORITY
+            SLACK_FEED=$SLACK_FEED
+            NOTIFY_FEED=$NOTIFY_FEED
+            \`\`\`
+            EOF

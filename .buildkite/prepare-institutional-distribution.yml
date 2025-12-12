@@ -42,6 +42,7 @@ steps:
   - wait: ~
 
   - label: ":black_nib: Env variables setup: Prepare Institutional Distribution"
+    key: setup-env
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
@@ -172,3 +173,30 @@ steps:
     command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/prepare-institutional-distribution'
     concurrency: 1
+
+
+  - group: ":memo: Annotations"
+    steps:
+      - label: ":memo: Annotate retry parameters"
+        depends_on: "setup-env"
+        allow_dependency_failure: true
+        commands:
+          - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+          - |
+            cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
+            ### Retry environment variables
+            If you need to retry the build, use the following parameters:
+            
+            \`\`\`
+            EPOCH=$$epoch
+            CLAIM_TYPE=$CLAIM_TYPE
+            INSTITUTIONAL_URL=$INSTITUTIONAL_URL
+            MARINADE_FEE_STAKE_AUTHORITY=$MARINADE_FEE_STAKE_AUTHORITY
+            MARINADE_FEE_WITHDRAW_AUTHORITY=$MARINADE_FEE_WITHDRAW_AUTHORITY
+            DAO_FEE_SPLIT_SHARE_BPS=$DAO_FEE_SPLIT_SHARE_BPS
+            DAO_FEE_STAKE_AUTHORITY=$DAO_FEE_STAKE_AUTHORITY
+            DAO_FEE_WITHDRAW_AUTHORITY=$DAO_FEE_WITHDRAW_AUTHORITY
+            SLACK_FEED=$SLACK_FEED
+            NOTIFY_FEED=$NOTIFY_FEED
+            \`\`\`
+            EOF
