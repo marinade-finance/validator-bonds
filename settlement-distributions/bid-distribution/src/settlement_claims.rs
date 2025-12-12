@@ -9,7 +9,7 @@ use bid_psr_distribution::utils::sort_claims_deterministically;
 use log::{debug, info, warn};
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
@@ -92,7 +92,7 @@ impl fmt::Display for ResultSettlementClaims {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct BidSettlementDetails {
     pub total_active_stake: u64,
     pub total_marinade_active_stake: u64,
@@ -113,7 +113,7 @@ pub struct BidSettlementDetails {
     pub dao_fee_claim: u64,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BidTooLowPenaltyDetails {
     pub total_marinade_active_stake: u64,
     pub effective_sam_marinade_active_stake: u64,
@@ -125,7 +125,7 @@ pub struct BidTooLowPenaltyDetails {
     pub marinade_bid_too_low_penalty_claim: u64,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlacklistPenaltyDetails {
     pub total_marinade_active_stake: u64,
     pub effective_sam_marinade_active_stake: u64,
