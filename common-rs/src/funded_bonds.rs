@@ -1,7 +1,6 @@
 use crate::bond_products::{find_bond_products, FindBondProductsArgs};
 use crate::{
     bonds::get_bonds_for_config,
-    get_validator_bonds_program,
     settlements::get_settlements_for_config,
     stake_accounts::{collect_stake_accounts, get_clock},
     withdraw_requests::get_withdraw_requests,
@@ -10,7 +9,7 @@ use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use std::{collections::HashMap, sync::Arc};
 use validator_bonds::state::bond_product::{
-    BondProduct, CommissionProductConfig, ProductType, ProductTypeConfig,
+    CommissionProductConfig, ProductType, ProductTypeConfig,
 };
 use validator_bonds::state::withdraw_request::WithdrawRequest;
 use validator_bonds::state::{bond::Bond, config::find_bonds_withdrawer_authority};

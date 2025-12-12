@@ -90,6 +90,7 @@ pub fn generate_settlements(
                     claims_count: claims.len(),
                     claims_amount,
                     claims,
+                    details: None,
                 });
             } else {
                 debug!(

@@ -15,6 +15,10 @@ const idlPath = join(__dirname, '../../../resources/idl/validator_bonds.json')
 const idlContent: string = readFileSync(idlPath, 'utf-8')
 const anchorIdl: AnchorIdl = JSON.parse(idlContent)
 
+interface ProgramOptions {
+  output: string
+}
+
 const program = new Command()
 
 program
@@ -37,8 +41,8 @@ program
       'src',
     ),
   )
-  .action((options: { output: string }) => {
-    const codama = createFromRoot(rootNodeFromAnchor(anchorIdl))
+  .action((options: ProgramOptions) => {
+    const codama = createFromRoot(rootNodeFromAnchor(anchorIdl as AnchorIdl))
     const outputDir = path.join(options.output)
     codama
       .accept(renderJavaScriptVisitor(outputDir))

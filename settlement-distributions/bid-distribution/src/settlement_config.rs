@@ -1,6 +1,16 @@
 use bid_psr_distribution::settlement_collection::SettlementMeta;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
+
+/// Fee percentages calculated from basis points
+#[derive(Debug, Clone, Copy)]
+pub struct FeePercentages {
+    /// Marinade distributor fee as a decimal percentage (e.g., 0.095 for 9.5%)
+    pub marinade_distributor_fee: Decimal,
+    /// DAO fee share as a decimal percentage (e.g., 0.05 for 5%)
+    pub dao_fee_share: Decimal,
+}
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub enum SettlementConfig {
@@ -66,6 +76,15 @@ impl SettlementConfig {
                 dao_fee_split_share_bps,
                 ..
             } => dao_fee_split_share_bps,
+        }
+    }
+
+    /// Converts basis points to decimal percentages for fee calculations
+    pub fn fee_percentages(&self) -> FeePercentages {
+        FeePercentages {
+            marinade_distributor_fee: Decimal::from(*self.marinade_fee_bps())
+                / Decimal::from(10_000),
+            dao_fee_share: Decimal::from(*self.dao_fee_split_share_bps()) / Decimal::from(10_000),
         }
     }
 }
