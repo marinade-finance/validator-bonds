@@ -14,8 +14,8 @@ CREATE TABLE cli_announcements (
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     -- operation_filter: if set, show only for this CLI operation (e.g., 'configure-bond', 'fund-bond')
     operation_filter TEXT,
-    -- vote_account_filter: if set, show only for this specific vote account
-    vote_account_filter TEXT,
+    -- account_filter: if set, show only for this specific account (bond account or vote account)
+    account_filter TEXT,
     -- type_filter: if set, show only for this CLI type ('sam' or 'institutional')
     type_filter cli_type,
     PRIMARY KEY(id)
@@ -27,7 +27,8 @@ COMMENT ON TABLE cli_announcements IS 'Dynamic announcements displayed to CLI us
 CREATE TABLE cli_usage (
     id BIGSERIAL NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    vote_account TEXT,
+    -- account: bond account or vote account address used in the CLI operation
+    account TEXT,
     operation TEXT,
     cli_version TEXT,
     -- cli_type: which CLI type was used ('sam' or 'institutional')
