@@ -10,14 +10,14 @@ All notable changes to this project will be documented in this file. See [standa
 
 ---
 
-## contract release v2.2.0 (2025-12-09)
+## contract release v2.2.0 (2025-12-12)
 
 - address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
-- tag: [`contract-v2.2.0`](https://github.com/marinade-finance/validator-bonds/releases/tag/contract-v2.1.0), commit: [`TODO`](https://github.com/marinade-finance/validator-bonds/commit/TODO),
-- tx: [`TODO`](https://explorer.solana.com/tx/TODO)
+- tag: [`contract-v2.2.0`](https://github.com/marinade-finance/validator-bonds/releases/tag/contract-v2.2.0), commit: [`8254dcca`](https://github.com/marinade-finance/validator-bonds/commit/8254dcca),
+- tx: [`2QGWr...pmvyy`](https://explorer.solana.com/tx/2QGWrEwiXoRXjUGMWE2VcRs31ogj3YGFxEo6MFoYr2PiySQqa8bQfLF1se45cmmuF2ipjhx17QTRVw6ALgzpmvyy)
 - anchor verify command:
   ```
-  git checkout TODO &&\
+  git checkout 8254dcca &&\
   anchor verify  --provider.cluster mainnet -p validator_bonds \
     --env "GIT_REV=`git rev-parse --short HEAD`" --env 'GIT_REV_NAME=v2.2.0' vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
   ```
