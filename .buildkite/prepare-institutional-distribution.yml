@@ -4,6 +4,7 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   gs_bucket_institutional: gs://marinade-institutional-staking-mainnet
+  gs_snapshot_bucket: gs://marinade-solana-snapshot-mainnet
   SLACK_API: https://slack.com/api/chat.postMessage
   SLACK_FEED: "feed-institutional-staking"
   CLAIM_TYPE: "institutional-distribution"
@@ -41,6 +42,7 @@ steps:
   - wait: ~
 
   - label: ":black_nib: Env variables setup: Prepare Institutional Distribution"
+    key: setup-env
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
@@ -53,7 +55,7 @@ steps:
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" .
-    - gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
+    - gcloud storage cp "$gs_snapshot_bucket/$$epoch/stakes.json" "."
     key: 'download-json'
     artifact_paths:
       - "./institutional-payouts.json"
@@ -171,3 +173,30 @@ steps:
     command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/prepare-institutional-distribution'
     concurrency: 1
+
+
+  - group: ":memo: Annotations"
+    steps:
+      - label: ":memo: Annotate retry parameters"
+        depends_on: "setup-env"
+        allow_dependency_failure: true
+        commands:
+          - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+          - |
+            cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
+            ### Retry environment variables
+            If you need to retry the build, use the following parameters:
+            
+            \`\`\`
+            EPOCH=$$epoch
+            CLAIM_TYPE=$CLAIM_TYPE
+            INSTITUTIONAL_URL=$INSTITUTIONAL_URL
+            MARINADE_FEE_STAKE_AUTHORITY=$MARINADE_FEE_STAKE_AUTHORITY
+            MARINADE_FEE_WITHDRAW_AUTHORITY=$MARINADE_FEE_WITHDRAW_AUTHORITY
+            DAO_FEE_SPLIT_SHARE_BPS=$DAO_FEE_SPLIT_SHARE_BPS
+            DAO_FEE_STAKE_AUTHORITY=$DAO_FEE_STAKE_AUTHORITY
+            DAO_FEE_WITHDRAW_AUTHORITY=$DAO_FEE_WITHDRAW_AUTHORITY
+            SLACK_FEED=$SLACK_FEED
+            NOTIFY_FEED=$NOTIFY_FEED
+            \`\`\`
+            EOF

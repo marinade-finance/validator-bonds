@@ -31,7 +31,6 @@ The system works with flow of data.
 The flow is encoded in code within [`buildkite` pipelines](./.buildkite)
 
 - `scheduler`: Checks the epoch and makes processing happens each one
-- `copy-parsed-snapshot`: Gets data from [`gs://marinade-solana-snapshot-mainnet`](./scripts/fetch-parsed-snapshot.bash)
 - `prepare-*`: Creates JSON data that reflects bidding and PSR events, the data is stored at GCloud
   (data is publicly available but google login is required)
   at https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet

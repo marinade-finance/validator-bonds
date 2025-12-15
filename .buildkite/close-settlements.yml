@@ -35,6 +35,7 @@ steps:
       - target/release/close-settlement
 
   - label: ":black_nib: Env variables setup: Close Settlements"
+    key: setup-env
     commands:
     - |
       claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
@@ -206,3 +207,25 @@ steps:
     command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/close-settlements-${CLAIM_TYPE}'
     concurrency: 1
+
+
+  - group: ":memo: Annotations"
+    steps:
+      - label: ":memo: Annotate retry parameters"
+        depends_on: "setup-env"
+        allow_dependency_failure: true
+        commands:
+          - claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
+          - slack_feed=$(buildkite-agent meta-data get slack_feed)
+          - |
+            cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
+            ### Retry environment variables
+            If you need to retry the build, use the following parameters:
+            
+            \`\`\`
+            CLAIM_TYPE=$$claim_type
+            EPOCH=$EPOCH
+            SLACK_FEED=$$slack_feed
+            NOTIFY_FEED=$NOTIFY_FEED
+            \`\`\`
+            EOF

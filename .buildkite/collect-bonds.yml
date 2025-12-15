@@ -32,6 +32,7 @@ steps:
   - wait: ~
 
   - label: ":microscope: Collect Bonds"
+    key: collect-bonds
     env:
       RPC_URL: "$$RPC_URL"
     commands:
@@ -62,3 +63,21 @@ steps:
     command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/collect-bonds-${CLAIM_TYPE}'
     concurrency: 1
+
+
+  - group: ":memo: Annotations"
+    steps:
+      - label: ":memo: Annotate retry parameters"
+        dependent_on: collect-bonds
+        allow_dependency_failure: true
+        commands:
+          - claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
+          - |
+            cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
+            ### Retry environment variables
+            If you need to retry the build, use the following parameters:
+            
+            \`\`\`
+            CLAIM_TYPE=$$claim_type
+            \`\`\`
+            EOF
