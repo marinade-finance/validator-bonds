@@ -125,7 +125,7 @@ async fn main() -> anyhow::Result<()> {
         .and(with_context(context.clone()))
         .and_then(cli_announcements::handler);
 
-    let routes = top_level
+    let base_routes = top_level
         .or(route_api_docs_oas)
         .or(route_api_docs_html)
         .or(route_bonds)
@@ -133,8 +133,23 @@ async fn main() -> anyhow::Result<()> {
         .or(route_bonds_institutional)
         .or(route_protected_events)
         .or(route_cli_announcements)
-        .with(cors)
+        .with(cors);
+
+    // Serve compressed responses only when client requests it via Accept-Encoding: gzip header
+    let accepts_gzip = warp::header::optional::<String>("accept-encoding")
+        .and_then(|encoding: Option<String>| async move {
+            match encoding {
+                Some(enc) if enc.contains("gzip") => Ok(()),
+                _ => Err(warp::reject::not_found()),
+            }
+        })
+        .untuple_one();
+
+    let routes_compressed = accepts_gzip
+        .and(base_routes.clone())
         .with(warp::filters::compression::gzip());
+
+    let routes = routes_compressed.or(base_routes);
 
     warp::serve(routes).run(([0, 0, 0, 0], params.port)).await;
 
