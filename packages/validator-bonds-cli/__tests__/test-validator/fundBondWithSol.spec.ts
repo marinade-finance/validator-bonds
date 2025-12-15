@@ -17,6 +17,7 @@ import {
   createTempFileKeypair,
   createUserAndFund,
   getStakeAccount,
+  waitForNextEpoch,
 } from '@marinade.finance/web3js-1x'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { PublicKey } from '@solana/web3.js'
@@ -131,6 +132,7 @@ describe('Fund bond account with SOL using CLI', () => {
     expect(stakeAccount.activationEpoch).toEqual(
       (await provider.connection.getEpochInfo()).epoch,
     )
+    await waitForNextEpoch(program.provider, 5)
 
     const fundBondSolsSecond = 2.22
     await expect([

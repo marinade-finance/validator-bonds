@@ -91,7 +91,6 @@ export function installConfigureBond(program: Command) {
           uniformBps: undefined,
           computeUnitLimit,
           rentPayer: await rentPayer,
-          isPrintBanner: true,
         })
       },
     )

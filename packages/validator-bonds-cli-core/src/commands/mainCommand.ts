@@ -9,22 +9,28 @@ import {
 import { Command, Option } from 'commander'
 import pino from 'pino'
 
+import { startFetchingAnnouncements } from '../announcements'
+import { printAnnouncementBanners } from '../banner'
 import { setValidatorBondsCliContext } from '../context'
 import {
   compareVersions,
   fetchLatestVersionInNpmRegistry,
 } from '../npmRegistry'
 
+import type { AnnouncementsConfig } from '../announcements'
+
 export function launchCliProgram({
   version,
   installAdditionalOptions,
   installSubcommands,
   npmRegistryUrl,
+  announcementsConfig,
 }: {
   version: string
   installAdditionalOptions: (program: Command) => void
   installSubcommands: (program: Command) => void
   npmRegistryUrl: string
+  announcementsConfig?: AnnouncementsConfig
 }) {
   const logger = pino(pinoConfiguration('info'), pino.destination())
   logger.level = 'debug'
@@ -82,6 +88,12 @@ export function launchCliProgram({
       false,
     )
     .option('-v, --verbose', 'alias for --debug', false)
+    .addOption(
+      new Option(
+        '--announcements-api-url <url>',
+        'Override announcements API URL (for testing)',
+      ).hideHelp(),
+    )
 
   installAdditionalOptions(program)
 
@@ -100,6 +112,21 @@ export function launchCliProgram({
       command.args,
       logger,
     )
+    const commandName = action.name()
+
+    if (announcementsConfig?.enabled) {
+      // fetching announcements early but in non-blocking way
+      startFetchingAnnouncements(
+        {
+          cliType: announcementsConfig.cliType,
+          cliVersion: version,
+          apiUrl: announcementsConfig.apiUrl,
+          operation: commandName,
+          account: action.processedArgs?.[0],
+        },
+        logger,
+      )
+    }
 
     setValidatorBondsCliContext({
       cluster: (command.opts().url ?? command.opts().cluster) as string,
@@ -112,9 +139,15 @@ export function launchCliProgram({
       computeUnitPrice: command.opts().withComputeUnitPrice,
       logger,
       verbose,
-      command: action.name(),
+      command: commandName,
     })
   })
+
+  if (announcementsConfig?.enabled) {
+    program.hook('postAction', async () => {
+      await printAnnouncementBanners(logger)
+    })
+  }
 
   installSubcommands(program)
 
