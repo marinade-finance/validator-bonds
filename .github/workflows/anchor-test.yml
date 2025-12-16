@@ -6,20 +6,18 @@ jobs:
   anchor-test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    container: tchambard/solana-test-validator:solana_2.3.7-anchor_0.31.1-light_0.27.0
-    steps:
-      - name: ⛺ /root/.cargo to PATH
-        run: |
-          echo '/root/.cargo/bin/' >> $GITHUB_PATH
-          echo '/root/.avm/bin' >> $GITHUB_PATH
-          ln -s /root/.avm $HOME/
-          mkdir -p $HOME/.config
-          ln -s /root/.config/solana $HOME/.config/
+    container:
+      image: tchambard/solana-test-validator:solana_2.3.7-anchor_0.31.1-light_0.27.0
+      options: --user root
 
-      - name: ⚓ Info on AVM
+    steps:
+      - name: ⚓ Info + Setup on Anchor
         run: |
-          avm list
-          avm use 0.31.1
+          anchor --version
+          mkdir -p "$HOME/.config/solana/"
+          cp -r /home/ubuntu/.config/solana/install "$HOME/.config/solana/"
+          find "$HOME/.config/"
+          ls -la "$HOME/.config/solana/install"
 
       - name: 🏃‍♂️‍➡️ Checkout project
         uses: actions/checkout@v4
@@ -43,6 +41,19 @@ jobs:
 
       - name: 👓 Check solana config
         run: solana config get
+
+      - name: 🧠 Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: 🧨 Running tests for project
         run: |
