@@ -7,6 +7,19 @@ env:
   SLACK_FEED: "feed-pipeline-sam-psr"
 
 steps:
+  - label: ":memo: Annotate retry parameters"
+    commands:
+      - |
+        cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
+        ### Retry environment variables
+        If you need to retry the build, use the following parameters:
+
+        \`\`\`
+        SLACK_FEED=$SLACK_FEED
+        NOTIFY_FEED=${NOTIFY_FEED:-false}
+        \`\`\`
+        EOF
+
   - label: ":closed_lock_with_key: Concurrency gate lock"
     key: concurrency-lock
     command: echo "--> Start of concurrency gate"
@@ -117,21 +130,3 @@ steps:
     command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/merge-stakes'
     concurrency: 1
-
-
-  - group: ":memo: Annotations"
-    steps:
-      - label: ":memo: Annotate retry parameters"
-        depends_on: "concurrency-lock"
-        allow_dependency_failure: true
-        commands:
-          - |
-            cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
-            ### Retry environment variables
-            If you need to retry the build, use the following parameters:
-            
-            \`\`\`
-            SLACK_FEED=$SLACK_FEED
-            NOTIFY_FEED=$NOTIFY_FEED
-            \`\`\`
-            EOF

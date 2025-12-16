@@ -11,6 +11,7 @@ steps:
       - target/release/validator-bonds-api-cli
 
   - input: "What is the Bonds Config type to collect?"
+    key: collect-bonds-input
     fields:
       - select: "Claim type"
         key: "claim_type"
@@ -21,6 +22,21 @@ steps:
             value: "institutional"
     if: "build.env('CLAIM_TYPE') == null"
     blocked_state: running
+
+  - label: ":memo: Annotate retry parameters"
+    depends_on: collect-bonds-input
+    allow_dependency_failure: true
+    commands:
+      - claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
+      - |
+        cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
+        ### Retry environment variables
+        If you need to retry the build, use the following parameters:
+
+        \`\`\`
+        CLAIM_TYPE=$$claim_type
+        \`\`\`
+        EOF
 
   - wait: ~
 
@@ -63,21 +79,3 @@ steps:
     command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/collect-bonds-${CLAIM_TYPE}'
     concurrency: 1
-
-
-  - group: ":memo: Annotations"
-    steps:
-      - label: ":memo: Annotate retry parameters"
-        dependent_on: collect-bonds
-        allow_dependency_failure: true
-        commands:
-          - claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
-          - |
-            cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
-            ### Retry environment variables
-            If you need to retry the build, use the following parameters:
-            
-            \`\`\`
-            CLAIM_TYPE=$$claim_type
-            \`\`\`
-            EOF

@@ -36,12 +36,31 @@ steps:
   - wait: ~
 
   - label: ":black_nib: Env variables setup: Prepare Bid PSR Distribution"
-    key: setup-env
+    key: setup-env-prepare-psr
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
       buildkite-agent meta-data set --redacted-vars='' epoch "$$epoch"
       echo "Epoch: '$$epoch'"
+
+  - label: ":memo: Annotate retry parameters"
+    depends_on: setup-env-prepare-psr
+    allow_dependency_failure: true
+    commands:
+      - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+      - |
+        cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
+        ### Retry environment variables
+        If you need to retry the build, use the following parameters:
+
+        \`\`\`
+        EPOCH=$$epoch
+        CLAIM_TYPE=$CLAIM_TYPE
+        WHITELIST_STAKE_AUTHORITY=$WHITELIST_STAKE_AUTHORITY
+        SLACK_FEED=$SLACK_FEED
+        NOTIFY_FEED=${NOTIFY_FEED:-false}
+        \`\`\`
+        EOF
 
   - wait: ~
 
@@ -212,25 +231,3 @@ steps:
     command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/prepare-bid-psr-distribution'
     concurrency: 1
-
-
-  - group: ":memo: Annotations"
-    steps:
-      - label: ":memo: Annotate retry parameters"
-        depends_on: "setup-env"
-        allow_dependency_failure: true
-        commands:
-          - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
-          - |
-            cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
-            ### Retry environment variables
-            If you need to retry the build, use the following parameters:
-            
-            \`\`\`
-            EPOCH=$$epoch
-            CLAIM_TYPE=$CLAIM_TYPE
-            WHITELIST_STAKE_AUTHORITY=$WHITELIST_STAKE_AUTHORITY
-            SLACK_FEED=$SLACK_FEED
-            NOTIFY_FEED=$NOTIFY_FEED
-            \`\`\`
-            EOF
