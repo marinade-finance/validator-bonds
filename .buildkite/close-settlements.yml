@@ -35,7 +35,7 @@ steps:
       - target/release/close-settlement
 
   - label: ":black_nib: Env variables setup: Close Settlements"
-    key: setup-env
+    key: setup-env-close
     commands:
     - |
       claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
@@ -47,6 +47,25 @@ steps:
       buildkite-agent meta-data set --redacted-vars='' slack_feed "$$slack_feed"
     - |
       echo "Claim Type: '$$claim_type'/'$$config_pubkey'"
+
+  - label: ":memo: Annotate retry parameters"
+    depends_on: setup-env-close
+    allow_dependency_failure: true
+    commands:
+      - claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
+      - slack_feed=$(buildkite-agent meta-data get slack_feed)
+      - |
+        cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
+        ### Retry environment variables
+        If you need to retry the build, use the following parameters:
+
+        \`\`\`
+        CLAIM_TYPE=$$claim_type
+        EPOCH=$EPOCH
+        SLACK_FEED=$$slack_feed
+        NOTIFY_FEED=${NOTIFY_FEED:-false}
+        \`\`\`
+        EOF
 
   - wait: ~
 
@@ -207,25 +226,3 @@ steps:
     command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/close-settlements-${CLAIM_TYPE}'
     concurrency: 1
-
-
-  - group: ":memo: Annotations"
-    steps:
-      - label: ":memo: Annotate retry parameters"
-        depends_on: "setup-env"
-        allow_dependency_failure: true
-        commands:
-          - claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
-          - slack_feed=$(buildkite-agent meta-data get slack_feed)
-          - |
-            cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
-            ### Retry environment variables
-            If you need to retry the build, use the following parameters:
-            
-            \`\`\`
-            CLAIM_TYPE=$$claim_type
-            EPOCH=$EPOCH
-            SLACK_FEED=$$slack_feed
-            NOTIFY_FEED=$NOTIFY_FEED
-            \`\`\`
-            EOF

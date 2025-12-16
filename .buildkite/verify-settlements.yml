@@ -33,7 +33,6 @@ steps:
     if: "build.env('CLAIM_TYPE') == null"
     blocked_state: running
 
-
   - wait: ~
 
   - label: ":hammer_and_wrench: :rust: Build"
@@ -46,7 +45,7 @@ steps:
       - target/release/list-settlement
 
   - label: ":black_nib: Env variables setup: Verify Settlements"
-    key: setup-env
+    key: setup-env-verify
     commands:
     - |
       claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
@@ -58,6 +57,24 @@ steps:
       buildkite-agent meta-data set --redacted-vars='' slack_feed "$$slack_feed"
     - |
       echo "Claim Type: '$$claim_type'/'$$config_pubkey', Slack Feed: '$$slack_feed'"
+
+  - label: ":memo: Annotate retry parameters"
+    depends_on: setup-env-verify
+    allow_dependency_failure: true
+    commands:
+      - claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
+      - slack_feed=$(buildkite-agent meta-data get slack_feed)
+      - |
+        cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
+        ### Retry environment variables
+        If you need to retry the build, use the following parameters:
+
+        \`\`\`
+        CLAIM_TYPE=$$claim_type
+        SLACK_FEED=$$slack_feed
+        NOTIFY_FEED=${NOTIFY_FEED:-false}
+        \`\`\`
+        EOF
 
   - wait: ~
 
@@ -195,6 +212,7 @@ steps:
       fi
     depends_on: "notification"
     allow_dependency_failure: true
+    if: "build.env('NOTIFY_FEED') == 'true'"
 
   - wait: ~
 
@@ -202,24 +220,3 @@ steps:
     command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/verify-settlements-${CLAIM_TYPE}'
     concurrency: 1
-
-
-  - group: ":memo: Annotations"
-    steps:
-      - label: ":memo: Annotate retry parameters"
-        depends_on: "setup-env"
-        allow_dependency_failure: true
-        commands:
-          - claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
-          - slack_feed=$(buildkite-agent meta-data get slack_feed)
-          - |
-            cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
-            ### Retry environment variables
-            If you need to retry the build, use the following parameters:
-            
-            \`\`\`
-            CLAIM_TYPE=$$claim_type
-            SLACK_FEED=$$slack_feed
-            NOTIFY_FEED=$NOTIFY_FEED
-            \`\`\`
-            EOF
