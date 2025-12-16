@@ -20,21 +20,18 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    container: tchambard/solana-test-validator:solana_2.3.7-anchor_0.31.1-light_0.27.0
+    container:
+      image: tchambard/solana-test-validator:solana_2.3.7-anchor_0.31.1-light_0.27.0
+      options: --user root
 
     steps:
-      - name: ⛺ /root/.cargo to PATH
+      - name: ⚓ Info + Setup on Anchor
         run: |
-          echo '/root/.cargo/bin/' >> $GITHUB_PATH
-          echo '/root/.avm/bin' >> $GITHUB_PATH
-          ln -s /root/.avm $HOME/
-          mkdir -p $HOME/.config
-          ln -s /root/.config/solana $HOME/.config/
-
-      - name: ⚓ Info on AVM
-        run: |
-          avm list
-          avm use 0.31.1
+          anchor --version
+          mkdir -p "$HOME/.config/solana/"
+          cp -r /home/ubuntu/.config/solana/install "$HOME/.config/solana/"
+          find "$HOME/.config/"
+          ls -la "$HOME/.config/solana/install"
 
       - name: 🏃‍♂️‍➡️ Checkout project
         uses: actions/checkout@v4
@@ -68,9 +65,11 @@ jobs:
       - name: 🔮 Determine tag
         id: tag
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Using tag from input: ${{ inputs.version }}"
             echo "tag=${{ inputs.version }}" >> $GITHUB_OUTPUT
           else
+            echo "Using tag from git ref: ${{ github.ref_name }}"
             echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           fi
 
