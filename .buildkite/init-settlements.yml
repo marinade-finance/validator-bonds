@@ -64,8 +64,8 @@ steps:
         EPOCH=$$epoch
         SLACK_FEED=$$slack_feed
         NOTIFY_FEED=${NOTIFY_FEED:-false}
-        NOTIFY_DISCORD_FEED=$NOTIFY_DISCORD_FEED
-        DISCORD_WEBHOOK_PSR_FEED=$$DISCORD_WEBHOOK_PSR_FEED
+        NOTIFY_DISCORD_FEED=${NOTIFY_DISCORD_FEED:-false}
+        # DISCORD_WEBHOOK_PSR_FEED=<secret>
         \`\`\`
         EOF
 
