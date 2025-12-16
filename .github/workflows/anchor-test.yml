@@ -11,6 +11,12 @@ jobs:
       options: --user root
 
     steps:
+      - name: 🛀🏼 Maximize build space
+        run: |
+          cp /opt/.npm-global/bin/* /usr/bin
+          cp /opt/.cargo/bin/* /usr/bin
+          rm -rf /opt
+
       - name: ⚓ Info + Setup on Anchor
         run: |
           anchor --version
