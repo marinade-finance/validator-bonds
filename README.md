@@ -176,6 +176,8 @@ anchor idl --provider.cluster mainnet set-buffer --print-only \
 
 # 3.check verifiable deployment (<BUFFER_PUBKEY> can be verified as well)
 #   a) when the target/verifiable/.so has been built already use switch --skip-build
+VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
+echo "Verification version $VERSION"
 COMMIT_HASH=`git rev-parse --short HEAD`
 anchor --provider.cluster mainnet \
    verify -p validator_bonds \
@@ -183,10 +185,27 @@ anchor --provider.cluster mainnet \
    # --skip-build \
    <PROGRAM_ID_or_BUFFER_ID>
 
-# 3.b upload the verified build to OtterSec API to be considered a Verified Build
-#     see https://github.com/Ellipsis-Labs/solana-verifiable-build
+# 3.b check the verified build with solana-verify
+COMMIT_HASH=`git rev-parse --short HEAD`
 solana-verify -um verify-from-repo https://github.com/marinade-finance/validator-bonds \
   --library-name validator_bonds \
   --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 --commit-hash "${COMMIT_HASH}" \
   -- --config env.GIT_REV=\'${COMMIT_HASH}\' --config env.GIT_REV_NAME=\'${VERSION}\'
+
+
+# 4 upload the  Verified Build via OtterSec API
+# need to upload PDA verified build data account on-chain signed with upgrade authority
+# see https://solana.com/docs/programs/verified-builds#how-to-verify-your-program-when-its-controlled-by-a-multisig-like-squads
+# 4.a generate PDA transaction
+solana-verify -um export-pda-tx https://github.com/marinade-finance/validator-bonds \
+  --library-name validator_bonds --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
+  --commit-hash "${COMMIT_HASH}" --uploader 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm --encoding base64 \
+  -- --config env.GIT_REV=\'${COMMIT_HASH}\' --config env.GIT_REV_NAME=\'${VERSION}\'
+
+# 4.b convert the base64 transaction to SPL Governance compatible format
+#     see https://chalda.cz/solana-tx
+# 4.c submit the transaction via SPL Governance UI
+# 4.d submit remote verification job to OtterSec API
+solana-verify remote submit-job --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
+  --uploader 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm
 ```
