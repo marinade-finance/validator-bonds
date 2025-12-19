@@ -38,7 +38,7 @@ export function configureFundBond(program: Command): Command {
       'Funding a bond account with amount of SOL within a stake account.',
     )
     .argument(
-      '<address>',
+      '<bond-or-vote>',
       'Address of the bond account or vote account.',
       parsePubkey,
     )
@@ -48,7 +48,7 @@ export function configureFundBond(program: Command): Command {
       parsePubkeyOrPubkeyFromWallet,
     )
     .option(
-      '--stake-authority <keypair_or_ledger_or_pubkey>',
+      '--stake-authority <keypair-or-ledger-or-pubkey>',
       'Stake account authority (probably the withdrawer authority) ' +
         'that is permitted to sign stake account authority changes. ' +
         '(default: wallet keypair)',

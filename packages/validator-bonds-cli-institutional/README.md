@@ -338,17 +338,23 @@ Options:
   -h, --help                                      display help for command
 
 Commands:
-  bond-address <address>                          From provided vote account address derives the bond account address
-  show-bond [options] [address]                   Showing data of bond account(s)
-  init-bond [options]                             Create a new bond account.
-  configure-bond [options] <address>              Configure existing bond account.
-  fund-bond [options] <address>                   Funding a bond account with amount of SOL within a stake account.
-  fund-bond-sol [options] <address>               Funding a bond account with amount of SOL. The command creates a stake account, transfers SOLs to it and delegates it to bond.
-  mint-bond [options] <address>                   Mint a Validator Bond token, providing a means to configure the bond account without requiring a direct signature for the on-chain transaction. The workflow is as follows: first, use this "mint-bond" to mint a
-                                                  bond token to the validator identity public key. Next, transfer the token to any account desired. Finally, utilize the command "configure-bond --with-token" to configure the bond account.
-  init-withdraw-request [options] [address]       Initializing withdrawal by creating a request ticket. The withdrawal request ticket is used to indicate a desire to withdraw the specified amount of lamports after the lockup period expires.
-  claim-withdraw-request [options] [address]      Claiming an existing withdrawal request for an existing on-chain account, where the lockup period has expired. Withdrawing funds involves transferring ownership of a funded stake account to the specified
-                                                  "--withdrawer" public key. To withdraw, the authority signature of the bond account is required, specified by the "--authority" parameter (default wallet).
-  cancel-withdraw-request [options] [address]     Cancelling the withdraw request account, which is the withdrawal request ticket, by removing the account from the chain.
-  help [command]                                  display help for command
+  bond-address <vote-account>                                  From provided vote account address derives the bond account address
+  show-bond [options] [bond-or-vote]                           Showing data of bond account(s)
+  init-bond [options]                                          Create a new bond account.
+  configure-bond [options] <bond-or-vote>                      Configure existing bond account.
+  fund-bond [options] <bond-or-vote>                           Funding a bond account with amount of SOL within a stake account.
+  fund-bond-sol [options] <bond-or-vote>                       Funding a bond account with amount of SOL. The command creates a stake account, transfers SOLs to it and
+                                                               delegates it to bond.
+  mint-bond [options] <bond-or-vote>                           Mint a Validator Bond token, providing a means to configure the bond account without requiring a direct
+                                                               signature for the on-chain transaction. The workflow is as follows: first, use this "mint-bond" to mint a bond
+                                                               token to the validator identity public key. Next, transfer the token to any account desired. Finally, utilize
+                                                               the command "configure-bond --with-token" to configure the bond account.
+  init-withdraw-request [options] [bond-or-vote]               Create a withdraw request ticket (first step of bond withdrawal; use claim-withdraw-request after lockup
+                                                               expires). The ticket reserves a specified amount of lamports to be claimed after the lockup period.
+  claim-withdraw-request [options] [request-or-bond-or-vote]   Claim funds from an existing withdraw request (second step of bond withdrawal). Claiming is permitted only
+                                                               after the lockup period has expired. Transfers ownership of a funded stake account to the --withdrawer address.
+                                                               Requires the bond authority signature (--authority, defaults to wallet).
+  cancel-withdraw-request [options] [request-or-bond-or-vote]  Cancelling the withdraw request account, which is the withdrawal request ticket, by removing the account from
+                                                               the chain.
+  help [command]                                               display help for command
 ```
