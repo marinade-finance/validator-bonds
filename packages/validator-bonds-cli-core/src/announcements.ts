@@ -151,9 +151,10 @@ async function fetchAnnouncementsInternal(
     cliType: params.cliType,
     apiUrl: params.apiUrl,
   }
-  const url = buildAnnouncementUrl(resolvedParams)
 
   try {
+    const url = buildAnnouncementUrl(resolvedParams)
+
     const controller = new AbortController()
     const timeoutId = setTimeout(
       () => controller.abort(),
