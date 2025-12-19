@@ -848,7 +848,7 @@ When installed globally
 # Get npm global installation folder
 npm list -g
 > /usr/lib
-> +-- @marinade.finance/validator-bonds-cli@2.3.1
+> +-- @marinade.finance/validator-bonds-cli@2.3.2
 > ...
 # In this case, the `bin` folder is located at /usr/bin
 ```
@@ -868,7 +868,7 @@ npm i -g @marinade.finance/validator-bonds-cli@latest
 # Verify installation
 npm list -g
 # Output: ~/.local/share/npm/lib
-#         └── @marinade.finance/validator-bonds-cli@2.3.1
+#         └── @marinade.finance/validator-bonds-cli@2.3.2
 ```
 
 To execute the installed packages from any location,
@@ -1063,7 +1063,7 @@ Commands:
   # Get npm global installation folder
   npm list -g
   > ~/.local/share/npm/lib
-  > `-- @marinade.finance/validator-bonds-cli@2.3.1
+  > `-- @marinade.finance/validator-bonds-cli@2.3.2
   # In this case, the 'bin' folder is located at ~/.local/share/npm/bin
 
   # Get validator-bonds binary folder
