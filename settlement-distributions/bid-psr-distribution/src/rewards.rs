@@ -389,34 +389,36 @@ fn aggregate_rewards(
         entry.total_amount = entry.total_amount.saturating_add(reward.amount);
     }
 
-    info!(" > Processing Jito priority fee rewards...");
+    info!(" > SKIPPING: Processing Jito priority fee rewards...");
+    // TODO: jito priority rewards seems may be bigger to total priority rewards
+    //       epoch 897, DkZehyHr92C4wHYfoXJU6FpKFVeh64LRgkJmFKYub4UV
     // Note: jito_priority_fee is NOT included in total_amount as they are for re-distributing
     //       validators' block rewards already gained by the validators.
-    for reward in jito_priority_fee_rewards {
-        if let Some(vote_account) = stake_to_vote.get(&reward.stake_account) {
-            let entry = rewards_map
-                .entry(*vote_account)
-                .or_insert_with(|| VoteAccountRewards {
-                    vote_account: *vote_account,
-                    ..Default::default()
-                });
-            entry.stakers_priority_fee_rewards = entry
-                .stakers_priority_fee_rewards
-                .saturating_add(reward.amount);
-            entry.stakers_total_amount = entry.stakers_total_amount.saturating_add(reward.amount);
-            entry.jito_priority_fee_rewards = entry
-                .jito_priority_fee_rewards
-                .saturating_add(reward.amount);
-            // what stakers got from jito was what validators lost
-            entry.validators_total_amount =
-                entry.validators_total_amount.saturating_sub(reward.amount);
-        } else {
-            log::warn!(
-                "No vote account found for stake account {} in Jito priority fee rewards",
-                reward.stake_account
-            );
-        }
-    }
+    // for reward in jito_priority_fee_rewards {
+    //     if let Some(vote_account) = stake_to_vote.get(&reward.stake_account) {
+    //         let entry = rewards_map
+    //             .entry(*vote_account)
+    //             .or_insert_with(|| VoteAccountRewards {
+    //                 vote_account: *vote_account,
+    //                 ..Default::default()
+    //             });
+    //         entry.stakers_priority_fee_rewards = entry
+    //             .stakers_priority_fee_rewards
+    //             .saturating_add(reward.amount);
+    //         entry.stakers_total_amount = entry.stakers_total_amount.saturating_add(reward.amount);
+    //         entry.jito_priority_fee_rewards = entry
+    //             .jito_priority_fee_rewards
+    //             .saturating_add(reward.amount);
+    //         // what stakers got from jito was what validators lost
+    //         entry.validators_total_amount =
+    //             entry.validators_total_amount.saturating_sub(reward.amount);
+    //     } else {
+    //         log::warn!(
+    //             "No vote account found for stake account {} in Jito priority fee rewards",
+    //             reward.stake_account
+    //         );
+    //     }
+    // }
 
     let total_rewards = rewards_map
         .values()
