@@ -17,6 +17,7 @@ mod tests {
     use solana_sdk::native_token::LAMPORTS_PER_SOL;
     use solana_sdk::pubkey::Pubkey;
     use std::collections::{HashMap, HashSet};
+    use std::str::FromStr;
 
     #[test]
     fn test_generate_bid_settlements_basic_single_validator() {
@@ -761,7 +762,7 @@ mod tests {
         auction_effective_static_bid_pmpe: Option<Decimal>,
         bid_too_low_penalty_pmpe: Decimal,
         blacklist_penalty_pmpe: Decimal,
-        auction_validator_values: Option<AuctionValidatorValues>,
+        values: Option<AuctionValidatorValues>,
     }
 
     impl SamMetaParams {
@@ -776,7 +777,7 @@ mod tests {
                 auction_effective_static_bid_pmpe: Some(Decimal::from(50)),
                 bid_too_low_penalty_pmpe: Decimal::ZERO,
                 blacklist_penalty_pmpe: Decimal::ZERO,
-                auction_validator_values: None,
+                values: None,
             }
         }
 
@@ -806,7 +807,7 @@ mod tests {
         }
 
         fn auction_values(mut self, commissions: CommissionDetails) -> Self {
-            self.auction_validator_values = Some(create_auction_validator_values(commissions));
+            self.values = Some(create_auction_validator_values(commissions));
             self
         }
 
@@ -830,7 +831,7 @@ mod tests {
                 constraints: String::new(),
                 metadata: SamMetadata::default(),
                 scoring_run_id: 0,
-                auction_validator_values: self.auction_validator_values,
+                values: self.values,
             }
         }
     }
@@ -945,5 +946,145 @@ mod tests {
             })
             .map(|c| c.claim_amount)
             .sum()
+    }
+
+    #[test]
+    fn test_generate_settlements_from_json_values() {
+        let json_data = r#"
+        [
+          {
+            "voteAccount": "Mar1nade11111111111111111111111111111111111",
+            "marinadeMndeTargetSol": 0,
+            "marinadeSamTargetSol": 100,
+            "revShare": {
+              "totalPmpe": 1.76,
+              "inflationPmpe": 0.33,
+              "mevPmpe": 0.006,
+              "bidPmpe": 1.42,
+              "blockPmpe": 0,
+              "auctionEffectiveStaticBidPmpe": 0.022,
+              "auctionEffectiveBidPmpe": 0.022,
+              "bidTooLowPenaltyPmpe": 0,
+              "effParticipatingBidPmpe": 0.022,
+              "expectedMaxEffBidPmpe": 0.02,
+              "blacklistPenaltyPmpe": 0
+            },
+            "values": {
+              "bondBalanceSol": 100,
+              "marinadeActivatedStakeSol": 1000,
+              "spendRobustReputation": 1.0,
+              "adjSpendRobustReputation": 30.0,
+              "adjMaxSpendRobustDelegation": 17000,
+              "marinadeActivatedStakeSolUndelegation": 0,
+              "adjSpendRobustReputationInflationFactor": 27.5,
+              "paidUndelegationSol": 0,
+              "bondRiskFeeSol": 0,
+              "samBlacklisted": false,
+              "commissions": {
+                "inflationCommissionDec": 0.05,
+                "mevCommissionDec": 0.10,
+                "blockRewardsCommissionDec": 0.15,
+                "inflationCommissionOnchainDec": 0.08,
+                "mevCommissionOnchainDec": 0.12,
+                "inflationCommissionInBondDec": 0.03,
+                "mevCommissionInBondDec": 0.05,
+                "blockRewardsCommissionInBondDec": 0.10
+              }
+            },
+            "stakePriority": 1,
+            "unstakePriority": 18,
+            "maxStakeWanted": 5500,
+            "effectiveBid": 0.022,
+            "constraints": "\"BOND\"",
+            "metadata": {
+              "scoringId": "test",
+              "tvl": {
+                "marinadeMndeTvlSol": 0,
+                "marinadeSamTvlSol": 1000000
+              },
+              "delegationStrategyMndeVotes": 1000000
+            },
+            "scoringRunId": 1,
+            "epoch": 100
+          }
+        ]
+        "#;
+
+        let sam_metas: Vec<ValidatorSamMeta> =
+            serde_json::from_str(json_data).expect("Failed to parse JSON");
+        let sam_meta = &sam_metas[0];
+
+        let epoch = 100;
+        let stake_meta_collection = StakeMetaCollection {
+            epoch,
+            slot: 1000,
+            stake_metas: vec![
+                create_stake_meta(
+                    test_stake_account(1),
+                    sam_meta.vote_account,
+                    test_withdraw_authority(1),
+                    TEST_PUBKEY_MARINADE,
+                    100 * LAMPORTS_PER_SOL,
+                ),
+                create_stake_meta(
+                    test_stake_account(100),
+                    sam_meta.vote_account,
+                    TEST_PUBKEY_MARINADE,
+                    TEST_PUBKEY_MARINADE,
+                    10 * LAMPORTS_PER_SOL,
+                ),
+            ],
+        };
+
+        let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+        let mut rewards_map = HashMap::new();
+        rewards_map.insert(
+            sam_meta.vote_account,
+            RewardsParams::new(sam_meta.vote_account)
+                .inflation(10 * LAMPORTS_PER_SOL)
+                .mev(5 * LAMPORTS_PER_SOL)
+                .block_rewards(3 * LAMPORTS_PER_SOL)
+                .jito(LAMPORTS_PER_SOL)
+                .build(),
+        );
+
+        let rewards_collection = RewardsCollection {
+            epoch,
+            rewards_by_vote_account: rewards_map,
+        };
+
+        let settlement_config = create_test_settlement_config(950, 500);
+
+        // Generate settlements using JSON-loaded sam_meta
+        let settlements = generate_bid_settlements(
+            &stake_meta_index,
+            &sam_metas,
+            &rewards_collection,
+            &|s| s == &TEST_PUBKEY_MARINADE,
+            &settlement_config,
+        );
+
+        assert!(
+            !settlements.is_empty(),
+            "Should generate settlements from JSON data"
+        );
+        let settlement = &settlements[0];
+        assert_eq!(settlement.vote_account, sam_meta.vote_account);
+        assert!(
+            settlement.claims_amount > 0,
+            "Should have positive claims amount"
+        );
+
+        let values = sam_meta.values.as_ref().unwrap();
+        let commissions = values.commissions.as_ref().unwrap();
+        assert_eq!(
+            commissions.inflation_commission_onchain_dec,
+            Decimal::from_str("0.08").unwrap()
+        );
+        assert_eq!(
+            commissions.inflation_commission_in_bond_dec,
+            Some(Decimal::from_str("0.03").unwrap())
+        );
     }
 }
