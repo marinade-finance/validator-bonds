@@ -286,7 +286,7 @@ pub fn load_rewards_from_directory(
 /// Aggregate all reward types by vote account
 fn aggregate_rewards(
     inflation_rewards: Vec<StakeRewardEntry>,
-    jito_priority_fee_rewards: Vec<StakeRewardEntry>,
+    _jito_priority_fee_rewards: Vec<StakeRewardEntry>,
     mev_rewards: Vec<StakeRewardEntry>,
     validators_blocks: Vec<ValidatorBlockRewardEntry>,
     validators_inflation: Vec<VoteRewardEntry>,

@@ -38,7 +38,7 @@ pub struct ValidatorSamMeta {
     pub metadata: SamMetadata,
     pub scoring_run_id: u32,
     pub epoch: u32,
-    pub auction_validator_values: Option<AuctionValidatorValues>,
+    pub values: Option<AuctionValidatorValues>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

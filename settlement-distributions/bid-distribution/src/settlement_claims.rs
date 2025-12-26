@@ -226,7 +226,7 @@ pub fn generate_bid_settlements(
             if let Some(AuctionValidatorValues {
                 commissions: Some(commissions),
                 ..
-            }) = &validator.auction_validator_values
+            }) = &validator.values
             {
                 let inflation_commission_in_bond_dec = commissions
                     .inflation_commission_in_bond_dec
@@ -297,7 +297,7 @@ pub fn generate_bid_settlements(
             ) = if let Some(AuctionValidatorValues {
                 commissions: Some(commissions),
                 ..
-            }) = &validator.auction_validator_values
+            }) = &validator.values
             {
                 // total_pmpe =
                 let staker_inflation_rewards = marinade_inflation_rewards
@@ -334,8 +334,14 @@ pub fn generate_bid_settlements(
             settlement_claim.static_bid_claim =
                 Decimal::from(effective_sam_marinade_active_stake) * effective_static_bid;
             info!(
-                "{} total stakers rewards: {}, claims: {}",
-                validator.vote_account, total_marinade_stakers_rewards, settlement_claim
+                "{} total stakers rewards: {} (inflation: {:?}, mev: {:?}, block: {:?}, bid: {:?}), claims: {}",
+                validator.vote_account,
+                total_marinade_stakers_rewards,
+                marinade_inflation_rewards,
+                marinade_mev_rewards,
+                marinade_block_rewards,
+                staker_bid_rewards_opt,
+                settlement_claim
             );
 
             // Marinade should get at least the percentage amount of total rewards as per the distributor fee percentage
