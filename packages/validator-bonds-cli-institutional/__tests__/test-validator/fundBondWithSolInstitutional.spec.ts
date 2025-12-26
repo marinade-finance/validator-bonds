@@ -15,6 +15,7 @@ import {
   createTempFileKeypair,
   createUserAndFund,
   getStakeAccount,
+  waitForNextEpoch,
 } from '@marinade.finance/web3js-1x'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { PublicKey } from '@solana/web3.js'
@@ -73,6 +74,7 @@ describe('Fund bond account with SOL using CLI (institutional)', () => {
       user: fromKeypair.publicKey,
       lamports: baseLamports,
     })
+    await waitForNextEpoch(program.provider, 15)
     await expect([
       'pnpm',
       [

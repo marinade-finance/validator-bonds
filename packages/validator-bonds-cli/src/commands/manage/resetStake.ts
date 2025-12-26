@@ -23,7 +23,11 @@ export function installResetStake(program: Command) {
       'Resetting stake that is not associated to a closed Settlement. ' +
         'The stake account is to be returned to Bond then used for funding another settlement.',
     )
-    .argument('<address>', 'Stake account account to be reset', parsePubkey)
+    .argument(
+      '<stake-account>',
+      'Stake account account to be reset',
+      parsePubkey,
+    )
     .requiredOption(
       '--settlement <pubkey>',
       'The closed settlement account that the stake account is associated with.',

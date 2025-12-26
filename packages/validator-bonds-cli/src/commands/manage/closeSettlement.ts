@@ -26,7 +26,11 @@ export function installCloseSettlement(program: Command) {
       'Closing Settlement. It is a permission-less action permitted when the Settlement expires. ' +
         'To finalize closing the dangling stake accounts need to be reset.',
     )
-    .argument('<address>', 'Settlement account to be closed.', parsePubkey)
+    .argument(
+      '<settlement-address>',
+      'Settlement account to be closed.',
+      parsePubkey,
+    )
     .option(
       '--refund-stake-account <pubkey>',
       'Refund stake account to be used to take funds from to return rent. ' +

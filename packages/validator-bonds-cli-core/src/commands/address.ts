@@ -17,7 +17,7 @@ export function configureShowBondAddress(program: Command): Command {
       'From provided vote account address derives the bond account address',
     )
     .argument(
-      '<address>',
+      '<vote-account>',
       'Address of the vote account to get derived bond account address',
       parsePubkeyOrPubkeyFromWallet,
     )

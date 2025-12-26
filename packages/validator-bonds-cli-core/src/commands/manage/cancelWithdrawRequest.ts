@@ -30,7 +30,7 @@ export function configureCancelWithdrawRequest(program: Command): Command {
         'by removing the account from the chain.',
     )
     .argument(
-      '[address]',
+      '[request-or-bond-or-vote]',
       'Withdraw request account to be cancelled. Provide: withdraw request, bond or vote account address. ' +
         'When the [address] is not provided, both the --config and --vote-account options are required.',
       parsePubkey,
@@ -43,7 +43,7 @@ export function configureCancelWithdrawRequest(program: Command): Command {
       parsePubkeyOrPubkeyFromWallet,
     )
     .option(
-      '--authority <keypair_or_ledger_or_pubkey>',
+      '--authority <keypair-or-ledger-or-pubkey>',
       'Authority that is permitted to do changes in the bond account. ' +
         'It is either the authority defined in the bond account or ' +
         'vote account validator identity that the bond account is connected to. ' +
