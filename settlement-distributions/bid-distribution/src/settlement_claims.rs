@@ -632,31 +632,32 @@ pub fn generate_penalty_settlements(
                 }
             }
 
+            // SUP-93: disabling bid_too_low_penalty settlements for now
             // Build settlement details for bid_too_low_penalty
-            if !bid_too_low_penalty_claims.is_empty() {
-                let bid_penalty_details = BidTooLowPenaltyDetails {
-                    total_marinade_active_stake,
-                    effective_sam_marinade_active_stake,
-                    bid_too_low_penalty_pmpe: bid_too_low_penalty.to_string(),
-                    bid_too_low_penalty_total_claim: bid_too_low_penalty_total_claim.to_string(),
-                    distributor_bid_too_low_penalty_claim,
-                    stakers_bid_too_low_penalty_claim,
-                    dao_bid_too_low_penalty_claim,
-                    marinade_bid_too_low_penalty_claim,
-                };
-                let details_json = serde_json::to_value(&bid_penalty_details)
-                    .expect("Failed to serialize BidTooLowPenaltyDetails");
-
-                add_to_settlement_collection(
-                    &mut penalty_settlement_collection,
-                    bid_too_low_penalty_claims,
-                    claimed_bid_too_low_penalty_amount,
-                    SettlementReason::BidTooLowPenalty,
-                    validator.vote_account,
-                    &settlement_meta_funder,
-                    Some(details_json),
-                );
-            }
+            // if !bid_too_low_penalty_claims.is_empty() {
+            //     let bid_penalty_details = BidTooLowPenaltyDetails {
+            //         total_marinade_active_stake,
+            //         effective_sam_marinade_active_stake,
+            //         bid_too_low_penalty_pmpe: bid_too_low_penalty.to_string(),
+            //         bid_too_low_penalty_total_claim: bid_too_low_penalty_total_claim.to_string(),
+            //         distributor_bid_too_low_penalty_claim,
+            //         stakers_bid_too_low_penalty_claim,
+            //         dao_bid_too_low_penalty_claim,
+            //         marinade_bid_too_low_penalty_claim,
+            //     };
+            //     let details_json = serde_json::to_value(&bid_penalty_details)
+            //         .expect("Failed to serialize BidTooLowPenaltyDetails");
+            //
+            //     add_to_settlement_collection(
+            //         &mut penalty_settlement_collection,
+            //         bid_too_low_penalty_claims,
+            //         claimed_bid_too_low_penalty_amount,
+            //         SettlementReason::BidTooLowPenalty,
+            //         validator.vote_account,
+            //         &settlement_meta_funder,
+            //         Some(details_json),
+            //     );
+            // }
 
             // Build settlement details for blacklist_penalty
             if !blacklist_penalty_claims.is_empty() {
