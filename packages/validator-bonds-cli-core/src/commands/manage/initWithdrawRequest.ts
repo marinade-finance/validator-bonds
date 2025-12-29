@@ -42,14 +42,13 @@ export function configureInitWithdrawRequest(program: Command): Command {
   return program
     .command('init-withdraw-request')
     .description(
-      'Initializing withdrawal by creating a request ticket. ' +
-        'The withdrawal request ticket is used to indicate a desire to withdraw the specified amount ' +
-        'of lamports after the lockup period expires.',
+      'Create a withdraw request ticket (first step of bond withdrawal; use claim-withdraw-request after lockup expires). ' +
+        'The ticket reserves a specified amount of lamports to be claimed after the lockup period.',
     )
     .argument(
-      '[address]',
-      'Address of the bond account to withdraw funds from. Provide: bond or vote account address. ' +
-        'When the [address] is not provided, both the --config and --vote-account options are required.',
+      '[bond-or-vote]',
+      'Bond to withdraw funds from. Provide: bond or vote account address. ' +
+        'If omitted, both --config and --vote-account are required.',
       parsePubkey,
     )
     .option(
@@ -59,7 +58,7 @@ export function configureInitWithdrawRequest(program: Command): Command {
       parsePubkeyOrPubkeyFromWallet,
     )
     .option(
-      '--authority <keypair_or_ledger_or_pubkey>',
+      '--authority <keypair-or-ledger-or-pubkey>',
       'Authority that is permitted to do changes in the bond account. ' +
         'It is either the authority defined in the bond account or ' +
         'vote account validator identity that the bond account is connected to. ' +
@@ -73,7 +72,7 @@ export function configureInitWithdrawRequest(program: Command): Command {
         'If the bond should be fully withdrawn, use "ALL" instead of the amount.',
     )
     .option(
-      '--rent-payer <keypair_or_ledger_or_pubkey>',
+      '--rent-payer <keypair-or-ledger-or-pubkey>',
       'Rent payer for the account creation (default: wallet keypair)',
       parseWalletOrPubkeyOption,
     )

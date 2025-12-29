@@ -41,7 +41,7 @@ export function configureInitBond(program: Command): Command {
       parsePubkey,
     )
     .option(
-      '--validator-identity <keypair_or_ledger_or_pubkey>',
+      '--validator-identity <keypair-or-ledger-or-pubkey>',
       'Validator identity linked to the vote account. ' +
         'Permission-ed execution requires the validator identity signature, possible possible to configure --bond-authority. ' +
         'Permission-less execution requires no signature, bond account configuration is possible later with validator identity signature (default: NONE)',
@@ -54,7 +54,7 @@ export function configureInitBond(program: Command): Command {
       parsePubkeyOrPubkeyFromWallet,
     )
     .option(
-      '--rent-payer <keypair_or_ledger_or_pubkey>',
+      '--rent-payer <keypair-or-ledger-or-pubkey>',
       'Rent payer for the account creation (default: wallet keypair)',
       parseWalletOrPubkeyOption,
     )

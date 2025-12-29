@@ -30,7 +30,7 @@ export function installConfigureBond(program: Command) {
       parsePubkey,
     )
     .option(
-      '--rent-payer <keypair_or_ledger_or_pubkey>',
+      '--rent-payer <keypair-or-ledger-or-pubkey>',
       'Rent payer for the commission configuration account creation. The commission configuration data is stored in a separate on-chain PDA account. ' +
         'This is optional when commission configuration account has not been created yet. ',
       parseWalletOrPubkeyOption,

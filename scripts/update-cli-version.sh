@@ -17,9 +17,13 @@ SDK_PACKAGE_JSON="$SCRIPT_DIR/../packages/validator-bonds-sdk/package.json"
 PREVIOUS_VERSION=`cat $SDK_PACKAGE_JSON | grep version | cut -d '"' -f 4`
 PREVIOUS_ESCAPED_VERSION=$(echo $PREVIOUS_VERSION | sed 's/\./\\./g')
 
-UPDATE_NEW_VERSION=${NEW_VERSION:-`cat $SDK_PACKAGE_JSON | grep version | cut -d '"' -f 4`}
+UPDATE_NEW_VERSION=${NEW_VERSION:-$(echo $PREVIOUS_VERSION | awk -F. '{print $1"."$2"."$3+1}')}
 
-# update package.json minor version
+if [ "x${UPDATE_NEW_VERSION}" == "x" ]; then
+    echo "Failed to determine new version"
+    exit 5
+fi
+
 for I in "$SCRIPT_DIR/../packages/"*sdk* "$SCRIPT_DIR/../packages/"*cli*; do
   echo "Package: $I"
   cd "$I"
