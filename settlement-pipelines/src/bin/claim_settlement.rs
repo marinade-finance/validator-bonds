@@ -543,11 +543,11 @@ struct ClaimSettlementReport {
 
 impl ClaimSettlementsReport {
     fn report_handler() -> ReportHandler<Self> {
-        let fund_settlement_report = Self {
+        let claim_settlement_report = Self {
             rpc_client: None,
             settlements_per_epoch: HashMap::new(),
         };
-        ReportHandler::new(fund_settlement_report)
+        ReportHandler::new(claim_settlement_report)
     }
 
     fn init(
@@ -557,19 +557,25 @@ impl ClaimSettlementsReport {
         claimable_settlements: &[ClaimableSettlementsReturn],
     ) {
         info!(
-            "Number of claimable settlements: {}",
-            claimable_settlements.len()
+            "Number of claimable settlements: {} [{}]; JSON data: [{}]",
+            claimable_settlements.len(),
+            claimable_settlements
+                .iter()
+                .fold(HashMap::new(), |mut acc, item| {
+                    *acc.entry(item.settlement.epoch_created_for).or_insert(0) += 1;
+                    acc
+                })
+                .iter()
+                .map(|(epoch, count)| format!("{}: {}", epoch, count))
+                .collect::<Vec<_>>()
+                .join(", "),
+            json_loaded_data
+                .iter()
+                .map(|(k, v)| format!("epoch {}: {}", k, v.len()))
+                .collect::<Vec<_>>()
+                .join(", ")
         );
         self.rpc_client = Some(rpc_client);
-        for (epoch, record) in json_loaded_data {
-            self.settlements_per_epoch.insert(
-                *epoch,
-                ClaimSettlementReport {
-                    json_loaded_settlements: record.iter().cloned().collect(),
-                    ..Default::default()
-                },
-            );
-        }
         for claimable_settlement in claimable_settlements {
             let report = self.mut_ref(claimable_settlement.settlement.epoch_created_for);
             // we expect the claimable settlement is not loaded as multiple items from chain
@@ -605,6 +611,12 @@ impl ClaimSettlementsReport {
                     .settlements_claimable_no_account_from
                     .insert(claimable_settlement.settlement_address, 0_u64);
             }
+        }
+        for (epoch, record) in json_loaded_data {
+            let report = self.mut_ref(*epoch);
+            report
+                .json_loaded_settlements
+                .extend(record.iter().cloned());
         }
     }
 
@@ -724,6 +736,18 @@ impl ClaimSettlementReport {
             })
     }
 
+    /// (sum merkle nodes, sum SOLs)
+    fn sum_json_loaded_settlements(&self) -> (u64, u64) {
+        self.json_loaded_settlements
+            .iter()
+            .fold((0_u64, 0_u64), |acc, next| {
+                (
+                    acc.0 + next.max_total_claim,
+                    acc.1 + next.max_total_claim_sum,
+                )
+            })
+    }
+
     fn sum_claimed(values: &HashMap<Pubkey, (u64, u64)>) -> (u64, u64) {
         values.values().fold((0, 0), |acc, (nodes, lamports)| {
             (acc.0 + nodes, acc.1 + lamports)
@@ -797,6 +821,8 @@ impl PrintReportable for ClaimSettlementsReport {
                     max_merkle_nodes: total_claim_nodes,
                     ..
                 } = settlements_report.sum_already_claimed();
+                let (json_loaded_nodes, json_loaded_lamports) =
+                    settlements_report.sum_json_loaded_settlements();
                 let (no_account_to, no_account_from) = settlements_report.sum_update_no_account();
                 let after_amounts = after_settlements
                     .iter()
@@ -829,13 +855,15 @@ impl PrintReportable for ClaimSettlementsReport {
                 );
 
                 report.push(format!(
-                    "Epoch {}, settlements {}, this time claimed {}/{} merkle nodes in amount of {}/{} SOLs  (not claimed reason: no target {}, no source: {})",
+                    "Epoch {}, on-chain claimable settlements {}, this time claimed {}/{} merkle nodes in amount of {}/{} SOLs [loaded JSON {}, {}] (not claimed reason: no target {}, no source: {})",
                     epoch,
                     after_settlements_count,
                     now_claimed_nodes,
                     total_claim_nodes,
                     build_balance_message(now_claimed_lamports, false, false),
                     build_balance_message(total_claim_amount, false, false),
+                    json_loaded_nodes,
+                    build_balance_message(json_loaded_lamports, false, true),
                     build_balance_message(no_account_to, false, false),
                     build_balance_message(no_account_from, false, false),
                     ));
