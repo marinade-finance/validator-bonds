@@ -109,8 +109,8 @@ export function configureShowBond(program: Command): Command {
     .command('show-bond')
     .description('Showing data of bond account(s)')
     .argument(
-      '[bond-or-vote]',
-      'Address of the bond account or vote account or withdraw request. ' +
+      '[bond-or-vote-or-withdraw-request]',
+      'Address of the bond account or vote account or withdraw request account. ' +
         'It will show bond account data (when the argument is provided other filter options are ignored)',
       parsePubkey,
     )
