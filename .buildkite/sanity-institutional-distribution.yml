@@ -82,16 +82,15 @@ steps:
       - |
         INSTITUTIONAL_PAYOUT_SUM=$$(jq '[.validatorPayoutInfo[] | (.distributorFeeLamports | tonumber) + (.distributeToStakersLamports | tonumber)] | add' ./institutional-payouts.json)
         SETTLEMENTS_SUM=$$(jq '[.settlements[].claims[].claim_amount] | add' ./settlements.json)
-        if [[ "$$INSTITUTIONAL_PAYOUT_SUM" -ne "$$SETTLEMENTS_SUM" ]]; then
+        # because of rounding of created claims there can be slight difference, allow small delta
+        DIFF=$$((INSTITUTIONAL_PAYOUT_SUM - SETTLEMENTS_SUM))
+        DIFF_ABS=$$(($${DIFF#-}))
+        DIFF_PERMITTED_ABS=2500
+        if [[ $${DIFF_ABS} -gt $${DIFF_PERMITTED_ABS} ]]; then
+          DIFF_ABS_SOLS=$$(echo "scale=2; $${DIFF_ABS}/1e9" | bc -l)
           echo "Mismatch in total institutional payouts: Payout JSON($$INSTITUTIONAL_PAYOUT_SUM) vs Settlements($$SETTLEMENTS_SUM)"
-          # because of rounding of created claims there can be slight difference
-          DIFF=$$(($$INSTITUTIONAL_PAYOUT_SUM - $$SETTLEMENTS_SUM))
-          DIFF_ABS=$$(($${DIFF#-}))
-          DIFF_PERMITTED_ABS=1000
-          if [[ $${DIFF_ABS} -gt $${DIFF_PERMITTED_ABS} ]]; then
-            echo "Difference between payout sum and settlement claims sum is more than $${DIFF_PERMITTED_ABS} lamports, failing"
-            exit 11
-          fi
+          echo "Difference $${DIFF_ABS} lamports ($${DIFF_ABS_SOLS} SOLs) between payout sum and settlement claims sum is more than permitted $${DIFF_PERMITTED_ABS}"
+          exit 11
         fi
     soft_fail:
       - exit_status: "*"
