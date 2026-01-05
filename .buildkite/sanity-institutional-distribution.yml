@@ -82,7 +82,7 @@ steps:
       - |
         INSTITUTIONAL_PAYOUT_SUM=$$(jq '[.validatorPayoutInfo[] | (.distributorFeeLamports | tonumber) + (.distributeToStakersLamports | tonumber)] | add' ./institutional-payouts.json)
         SETTLEMENTS_SUM=$$(jq '[.settlements[].claims[].claim_amount] | add' ./settlements.json)
-        # because of rounding of created claims there can be slight difference, allow small delta
+        # the difference may come from rounding and from loading stake account data at different times, so we allow a small delta
         DIFF=$$((INSTITUTIONAL_PAYOUT_SUM - SETTLEMENTS_SUM))
         DIFF_ABS=$$(($${DIFF#-}))
         DIFF_PERMITTED_ABS=2500
