@@ -30,13 +30,14 @@ pub fn generate_settlements_collection(
         "SAM Validators Collection epoch must be same as stake meta collection epoch"
     );
 
-    let bid_settlements = generate_bid_settlements(
-        stake_meta_index,
-        sam_validator_metas,
-        rewards_collection,
-        &stake_authority_filter,
-        settlement_config,
-    );
+    let bid_settlements = Vec::default();
+    // let bid_settlements = generate_bid_settlements(
+    //     stake_meta_index,
+    //     sam_validator_metas,
+    //     rewards_collection,
+    //     &stake_authority_filter,
+    //     settlement_config,
+    // );
 
     let penalty_settlements = generate_penalty_settlements(
         stake_meta_index,
@@ -658,28 +659,28 @@ pub fn generate_penalty_settlements(
                 );
             }
 
-            // Build settlement details for blacklist_penalty
-            if !blacklist_penalty_claims.is_empty() {
-                let blacklist_penalty_details = BlacklistPenaltyDetails {
-                    total_marinade_active_stake,
-                    effective_sam_marinade_active_stake,
-                    blacklist_penalty_pmpe: blacklist_penalty.to_string(),
-                    blacklist_penalty_total_claim: blacklist_penalty_total_claim.to_string(),
-                    stakers_blacklist_penalty_claim,
-                };
-                let details_json = serde_json::to_value(&blacklist_penalty_details)
-                    .expect("Failed to serialize BlacklistPenaltyDetails");
-
-                add_to_settlement_collection(
-                    &mut penalty_settlement_collection,
-                    blacklist_penalty_claims,
-                    claimed_blacklist_penalty_amount,
-                    SettlementReason::BlacklistPenalty,
-                    validator.vote_account,
-                    &settlement_meta_funder,
-                    Some(details_json),
-                );
-            }
+            // Disable: Build settlement details for blacklist_penalty
+            // if !blacklist_penalty_claims.is_empty() {
+            //     let blacklist_penalty_details = BlacklistPenaltyDetails {
+            //         total_marinade_active_stake,
+            //         effective_sam_marinade_active_stake,
+            //         blacklist_penalty_pmpe: blacklist_penalty.to_string(),
+            //         blacklist_penalty_total_claim: blacklist_penalty_total_claim.to_string(),
+            //         stakers_blacklist_penalty_claim,
+            //     };
+            //     let details_json = serde_json::to_value(&blacklist_penalty_details)
+            //         .expect("Failed to serialize BlacklistPenaltyDetails");
+            //
+            //     add_to_settlement_collection(
+            //         &mut penalty_settlement_collection,
+            //         blacklist_penalty_claims,
+            //         claimed_blacklist_penalty_amount,
+            //         SettlementReason::BlacklistPenalty,
+            //         validator.vote_account,
+            //         &settlement_meta_funder,
+            //         Some(details_json),
+            //     );
+            // }
         }
     }
     penalty_settlement_collection
