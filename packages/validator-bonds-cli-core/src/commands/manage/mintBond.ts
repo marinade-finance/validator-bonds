@@ -32,12 +32,12 @@ export function configureMintBond(program: Command) {
         'Finally, utilize the command "configure-bond --with-token" to configure the bond account.',
     )
     .argument(
-      '<address>',
+      '<bond-or-vote>',
       'Address of the bond account or vote account.',
       parsePubkey,
     )
     .option(
-      '--rent-payer <keypair_or_ledger_or_pubkey>',
+      '--rent-payer <keypair-or-ledger-or-pubkey>',
       'Rent payer for the mint token account creation (default: wallet keypair)',
       parseWalletOrPubkeyOption,
     )

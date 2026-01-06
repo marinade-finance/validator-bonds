@@ -39,7 +39,7 @@ export function installInitConfig(program: Command) {
       parsePubkeyOrPubkeyFromWallet,
     )
     .option(
-      '--rent-payer <keypair_or_ledger_or_pubkey>',
+      '--rent-payer <keypair-or-ledger-or-pubkey>',
       'Rent payer for the account creation (default: wallet keypair)',
       parseWalletOrPubkeyOption,
     )

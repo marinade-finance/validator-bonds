@@ -41,7 +41,7 @@ export function configureFundBondWithSol(program: Command): Command {
         'The command creates a stake account, transfers SOLs to it and delegates it to bond.',
     )
     .argument(
-      '<address>',
+      '<bond-or-vote>',
       'Address of the bond account or vote account.',
       parsePubkey,
     )
@@ -51,7 +51,7 @@ export function configureFundBondWithSol(program: Command): Command {
       n => parseFloat(n),
     )
     .option(
-      '--from <keypair_or_ledger_or_pubkey>',
+      '--from <keypair-or-ledger-or-pubkey>',
       'A wallet address where the SOL is transferred from. ' +
         '(default: wallet keypair)',
       parseWalletOrPubkeyOption,

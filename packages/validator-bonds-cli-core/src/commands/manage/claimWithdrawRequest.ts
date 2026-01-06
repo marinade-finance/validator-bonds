@@ -31,15 +31,15 @@ export function configureClaimWithdrawRequest(program: Command): Command {
   return program
     .command('claim-withdraw-request')
     .description(
-      'Claiming an existing withdrawal request for an existing on-chain account, ' +
-        'where the lockup period has expired. Withdrawing funds involves transferring ownership ' +
-        'of a funded stake account to the specified "--withdrawer" public key. ' +
-        'To withdraw, the authority signature of the bond account is required, specified by the "--authority" parameter (default wallet).',
+      'Claim funds from an existing withdraw request (second step of bond withdrawal). ' +
+        'Claiming is permitted only after the lockup period has expired. ' +
+        'Transfers ownership of a funded stake account to the --withdrawer address. ' +
+        'Requires the bond authority signature (--authority, defaults to wallet).',
     )
     .argument(
-      '[address]',
-      'Address of the withdrawal request or bond or vote account. ' +
-        'When the [address] is not provided, both the --config and --vote-account options are required.',
+      '[request-or-bond-or-vote]',
+      'Withdraw request to claim. Provide: withdraw request, bond, or vote account address. ' +
+        'If omitted, both --config and --vote-account are required.',
       parsePubkey,
     )
     .option(
@@ -50,7 +50,7 @@ export function configureClaimWithdrawRequest(program: Command): Command {
       parsePubkeyOrPubkeyFromWallet,
     )
     .option(
-      '--authority <keypair_or_ledger_or_pubkey>',
+      '--authority <keypair-or-ledger-or-pubkey>',
       'Authority that is permitted to do changes in the bond account. ' +
         'It is either the authority defined in the bond account or ' +
         'vote account validator identity that the bond account is connected to. ' +
@@ -64,7 +64,7 @@ export function configureClaimWithdrawRequest(program: Command): Command {
       parsePubkey,
     )
     .option(
-      '--split-stake-rent-payer <keypair_or_ledger_or_pubkey>',
+      '--split-stake-rent-payer <keypair-or-ledger-or-pubkey>',
       'Rent payer for the split stake account creation. ' +
         'The split stake account is needed when the amount of lamports in the --stake-account ' +
         'is greater than the amount of lamports defined within the existing withdraw request account, ' +

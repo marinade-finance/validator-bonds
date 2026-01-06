@@ -28,13 +28,13 @@ export function installEmergencyPause(program: Command) {
     .command('pause')
     .description('Pausing Validator Bond contract for config account')
     .argument(
-      '[address]',
+      '[config-address]',
       'Address of the validator bonds config account to be paused ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey,
     )
     .option(
-      '--authority <keypair_or_ledger_or_pubkey>',
+      '--authority <keypair-or-ledger-or-pubkey>',
       'Pause authority with permission to pause the contract (default: wallet)',
       parseWalletOrPubkeyOption,
     )
@@ -71,7 +71,7 @@ export function installEmergencyResume(program: Command) {
       parsePubkey,
     )
     .option(
-      '--authority <keypair_or_ledger_or_pubkey>',
+      '--authority <keypair-or-ledger-or-pubkey>',
       'Pause authority with permission to resume the contract (default: wallet)',
       parseWalletOrPubkeyOption,
     )

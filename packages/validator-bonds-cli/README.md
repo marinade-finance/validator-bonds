@@ -848,7 +848,7 @@ When installed globally
 # Get npm global installation folder
 npm list -g
 > /usr/lib
-> +-- @marinade.finance/validator-bonds-cli@2.3.1
+> +-- @marinade.finance/validator-bonds-cli@2.3.2
 > ...
 # In this case, the `bin` folder is located at /usr/bin
 ```
@@ -868,7 +868,7 @@ npm i -g @marinade.finance/validator-bonds-cli@latest
 # Verify installation
 npm list -g
 # Output: ~/.local/share/npm/lib
-#         └── @marinade.finance/validator-bonds-cli@2.3.1
+#         └── @marinade.finance/validator-bonds-cli@2.3.2
 ```
 
 To execute the installed packages from any location,
@@ -942,32 +942,37 @@ Options:
   -h, --help                                      display help for command
 
 Commands:
-  init-config [options]                           Create a new config account.
-  configure-config [options] [address]            Configure existing config account.
-  mint-bond [options] <address>                   Mint a Validator Bond token, providing a means to configure the bond account without requiring a direct signature for the on-chain transaction. The workflow is as follows: first, use
-                                                  this "mint-bond" to mint a bond token to the validator identity public key. Next, transfer the token to any account desired. Finally, utilize the command "configure-bond --with-token"
-                                                  to configure the bond account.
-  init-bond [options]                             Create a new bond account.
-  configure-bond [options] <address>              Configure existing bond account.
-  merge-stake [options]                           Merging stake accounts belonging to validator bonds program.
-  fund-bond [options] <address>                   Funding a bond account with amount of SOL within a stake account.
-  fund-bond-sol [options] <address>               Funding a bond account with amount of SOL. The command creates a stake account, transfers SOLs to it and delegates it to bond.
-  init-withdraw-request [options] [address]       Initializing withdrawal by creating a request ticket. The withdrawal request ticket is used to indicate a desire to withdraw the specified amount of lamports after the lockup period
-                                                  expires.
-  cancel-withdraw-request [options] [address]     Cancelling the withdraw request account, which is the withdrawal request ticket, by removing the account from the chain.
-  claim-withdraw-request [options] [address]      Claiming an existing withdrawal request for an existing on-chain account, where the lockup period has expired. Withdrawing funds involves transferring ownership of a funded stake
-                                                  account to the specified "--withdrawer" public key. To withdraw, the authority signature of the bond account is required, specified by the "--authority" parameter (default wallet).
-  pause [options] [address]                       Pausing Validator Bond contract for config account
-  resume [options] [address]                      Resuming Validator Bond contract for config account
-  close-settlement [options] <address>            Closing Settlement. It is a permission-less action permitted when the Settlement expires. To finalize closing the dangling stake accounts need to be reset.
-  reset-stake [options] <address>                 Resetting stake that is not associated to a closed Settlement. The stake account is to be returned to Bond then used for funding another settlement.
-  show-config [options] [address]                 Showing data of config account(s)
-  show-event [options] <event-data>               Showing data of anchor event
-  show-bond [options] [address]                   Showing data of bond account(s)
-  show-settlement [options] [address]             Showing data of settlement account(s)
-  bond-address [options] <address>                From provided vote account address derives the bond account address
-  help [command]                                  display help for command
-
+  init-config [options]                                        Create a new config account.
+  configure-config [options] [config-address]                  Configure existing config account.
+  mint-bond [options] <bond-or-vote>                           Mint a Validator Bond token, providing a means to configure the bond account without requiring a direct
+                                                               signature for the on-chain transaction. The workflow is as follows: first, use this "mint-bond" to mint a bond
+                                                               token to the validator identity public key. Next, transfer the token to any account desired. Finally, utilize
+                                                               the command "configure-bond --with-token" to configure the bond account.
+  init-bond [options]                                          Create a new bond account.
+  configure-bond [options] <bond-or-vote>                      Configure existing bond account.
+  merge-stake [options]                                        Merging stake accounts belonging to validator bonds program.
+  fund-bond [options] <bond-or-vote>                           Funding a bond account with amount of SOL within a stake account.
+  fund-bond-sol [options] <bond-or-vote>                       Funding a bond account with amount of SOL. The command creates a stake account, transfers SOLs to it and
+                                                               delegates it to bond.
+  init-withdraw-request [options] [bond-or-vote]               Create a withdraw request ticket (first step of bond withdrawal; use claim-withdraw-request after lockup
+                                                               expires). The ticket reserves a specified amount of lamports to be claimed after the lockup period.
+  cancel-withdraw-request [options] [request-or-bond-or-vote]  Cancelling the withdraw request account, which is the withdrawal request ticket, by removing the account from
+                                                               the chain.
+  claim-withdraw-request [options] [request-or-bond-or-vote]   Claim funds from an existing withdraw request (second step of bond withdrawal). Claiming is permitted only
+                                                               after the lockup period has expired. Transfers ownership of a funded stake account to the --withdrawer address.
+                                                               Requires the bond authority signature (--authority, defaults to wallet).
+  pause [options] [config-address]                             Pausing Validator Bond contract for config account
+  resume [options] [address]                                   Resuming Validator Bond contract for config account
+  close-settlement [options] <settlement-address>              Closing Settlement. It is a permission-less action permitted when the Settlement expires. To finalize closing
+                                                               the dangling stake accounts need to be reset.
+  reset-stake [options] <stake-account>                        Resetting stake that is not associated to a closed Settlement. The stake account is to be returned to Bond then
+                                                               used for funding another settlement.
+  show-config [options] [config-account]                       Showing data of config account(s)
+  show-event [options] <event-data>                            Showing data of anchor event
+  show-bond [options] [bond-or-vote]                           Showing data of bond account(s)
+  show-settlement [options] [settlement]                       Showing data of settlement account(s)
+  bond-address [options] <vote-account>                        From provided vote account address derives the bond account address
+  help [command]                                               display help for command
 ```
 
 ---
@@ -1058,7 +1063,7 @@ Commands:
   # Get npm global installation folder
   npm list -g
   > ~/.local/share/npm/lib
-  > `-- @marinade.finance/validator-bonds-cli@2.3.1
+  > `-- @marinade.finance/validator-bonds-cli@2.3.2
   # In this case, the 'bin' folder is located at ~/.local/share/npm/bin
 
   # Get validator-bonds binary folder

@@ -62,7 +62,7 @@ export function installShowConfig(program: Command) {
     .command('show-config')
     .description('Showing data of config account(s)')
     .argument(
-      '[address]',
+      '[config-account]',
       'Address of the config account to show (when the argument is provided other filter options are ignored)',
       parsePubkey,
     )
@@ -109,8 +109,8 @@ export function configureShowBond(program: Command): Command {
     .command('show-bond')
     .description('Showing data of bond account(s)')
     .argument(
-      '[address]',
-      'Address of the bond account or vote account or withdraw request. ' +
+      '[bond-or-vote-or-withdraw-request]',
+      'Address of the bond account or vote account or withdraw request account. ' +
         'It will show bond account data (when the argument is provided other filter options are ignored)',
       parsePubkey,
     )
@@ -137,9 +137,9 @@ export function installShowSettlement(program: Command) {
   program
     .command('show-settlement')
     .description('Showing data of settlement account(s)')
-    .argument('[address]', 'Address of the settlement account', parsePubkey)
+    .argument('[settlement]', 'Address of the settlement account', parsePubkey)
     .option(
-      '--bond <pubkey>',
+      '--bond <bond-or-vote>',
       'Bond account to filter settlements accounts. Provide bond account or vote account address.',
       parsePubkey,
     )

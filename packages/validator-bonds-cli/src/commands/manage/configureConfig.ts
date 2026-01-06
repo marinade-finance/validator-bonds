@@ -29,13 +29,13 @@ export function installConfigureConfig(program: Command) {
     .command('configure-config')
     .description('Configure existing config account.')
     .argument(
-      '[address]',
+      '[config-address]',
       'Address of the validator bonds config account ' +
         `(default: ${MARINADE_CONFIG_ADDRESS.toBase58()})`,
       parsePubkey,
     )
     .option(
-      '--admin-authority <keypair_or_ledger_or_pubkey>',
+      '--admin-authority <keypair-or-ledger-or-pubkey>',
       'Admin authority that is permitted to do the configuration change',
       parseWalletOrPubkeyOption,
     )

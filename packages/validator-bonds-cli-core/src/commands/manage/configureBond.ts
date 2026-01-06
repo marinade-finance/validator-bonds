@@ -44,12 +44,12 @@ export function configureConfigureBond(program: Command): Command {
     .command('configure-bond')
     .description('Configure existing bond account.')
     .argument(
-      '<address>',
+      '<bond-or-vote>',
       'Address of the bond account or vote account.',
       parsePubkey,
     )
     .option(
-      '--authority <keypair_or_ledger_or_pubkey>',
+      '--authority <keypair-or-ledger-or-pubkey>',
       'Authority that is permitted to do changes in bonds account. ' +
         'It is either the authority defined in bonds account OR ' +
         'vote account validator identity OR owner of bond configuration token (see "mint-bond" command). ' +
