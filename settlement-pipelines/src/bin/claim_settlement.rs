@@ -867,6 +867,12 @@ impl PrintReportable for ClaimSettlementsReport {
                     build_balance_message(no_account_to, false, false),
                     build_balance_message(no_account_from, false, false),
                     ));
+                if total_claim_nodes != json_loaded_nodes {
+                    report.push(format!(
+                        " [WARNING] JSON merkle nodes {} do not match claimable on-chain merkle nodes {}",
+                        json_loaded_nodes, after_claimed_nodes
+                    ));
+                }
                 report.push(format!(
                     "  - before this already claimed {}/{} merkle nodes with {}/{} SOLs",
                     already_claimed_nodes,
