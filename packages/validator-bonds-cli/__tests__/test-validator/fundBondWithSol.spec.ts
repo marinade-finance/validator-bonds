@@ -132,7 +132,7 @@ describe('Fund bond account with SOL using CLI', () => {
     expect(stakeAccount.activationEpoch).toEqual(
       (await provider.connection.getEpochInfo()).epoch,
     )
-    await waitForNextEpoch(program.provider, 5)
+    await waitForNextEpoch(program.provider, 15)
 
     const fundBondSolsSecond = 2.22
     await expect([
