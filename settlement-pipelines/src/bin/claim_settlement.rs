@@ -736,14 +736,14 @@ impl ClaimSettlementReport {
             })
     }
 
-    /// (sum merkle nodes, sum SOLs)
+    /// (sum merkle nodes, sum lamports)
     fn sum_json_loaded_settlements(&self) -> (u64, u64) {
         self.json_loaded_settlements
             .iter()
-            .fold((0_u64, 0_u64), |acc, next| {
+            .fold((0, 0), |(nodes, lamports), next| {
                 (
-                    acc.0 + next.max_total_claim,
-                    acc.1 + next.max_total_claim_sum,
+                    nodes + next.max_total_claim,
+                    lamports + next.max_total_claim_sum,
                 )
             })
     }
@@ -869,8 +869,8 @@ impl PrintReportable for ClaimSettlementsReport {
                     ));
                 if total_claim_nodes != json_loaded_nodes {
                     report.push(format!(
-                        " [WARNING] JSON merkle nodes {} do not match claimable on-chain merkle nodes {}",
-                        json_loaded_nodes, after_claimed_nodes
+                        "  [WARNING] JSON Merkle nodes {} do not match the Merkle nodes available on-chain {}",
+                        json_loaded_nodes, total_claim_nodes
                     ));
                 }
                 report.push(format!(
