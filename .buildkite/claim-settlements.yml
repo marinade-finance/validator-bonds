@@ -6,7 +6,7 @@ env:
   SLACK_API: https://slack.com/api/chat.postMessage
 
 steps:
-  - label: ":closed_lock_with_key: Concurrency gate lock"
+  - label: ":closed_lock_with_key: Concurrency gate claim-settlements lock"
     command: echo "--> Start of concurrency gate"
     concurrency_group: 'validator-bonds/claim-settlements-${CLAIM_TYPE}'
     concurrency: 1
@@ -66,6 +66,12 @@ steps:
         \`\`\`
         EOF
 
+  # fund any possible settlements
+  - label: ":gear: Upload and trigger fund-settlements pipeline"
+    commands:
+      - "echo Claim Type: '${CLAIM_TYPE}'"
+      - buildkite-agent pipeline upload .buildkite/fund-settlements.yml
+
   - wait: ~
 
   - label: ":campfire: List claimable epochs"
@@ -84,13 +90,13 @@ steps:
 
   - label: ":floppy_disk: :arrow_left: :cloud: Downloading all epochs merkle trees"
     env:
-      # epoch when the contract v2 was deployed, using different structure of merkle tree than v1
+      # epoch when the contract v2 was deployed, using a different structure of a merkle tree than v1
       starting_epoch_contract_v2: 640
     commands:
     - |
       claim_type=$(buildkite-agent meta-data get claim_type)
       claim_type_prefix="$${claim_type%%-*}"
-    - mkdir ./merkle-trees/
+    - mkdir ./merkle-trees-claimable/
     - possible_epochs_json=$(buildkite-agent meta-data get possible_epochs_json)
     - possible_epochs_num=$(echo "$$possible_epochs_json" | jq "length")
     - 'echo "Possible claimable epochs [$$possible_epochs_num]: $$possible_epochs_json"'
@@ -107,7 +113,7 @@ steps:
         for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/$${claim_type_prefix}*settlement-merkle-trees.json"); do
           base_name=$(basename "$$merkle_tree_file")
           prefix_name="$${base_name%settlement-merkle-trees.json}"
-          target_dir="./merkle-trees/$${epoch}_$${prefix_name%-*}/"
+          target_dir="./merkle-trees-claimable/$${epoch}_$${prefix_name%-*}/"
           mkdir -p "$$target_dir"
           gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlement-merkle-trees.json" "$$target_dir"
           gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlements.json" "$$target_dir"
@@ -118,18 +124,9 @@ steps:
     - buildkite-agent meta-data set --redacted-vars='' claimable_epochs_num "$$claimable_epochs_num"
     - 'echo "Claimable epochs [$$claimable_epochs_num]: $$claimable_epochs_json"'
     artifact_paths:
-      - "./merkle-trees/**/*"
+      - "./merkle-trees-claimable/**/*"
 
   - wait: ~
-
-  # waiting for the fund-settlements get finished before we proceed next steps
-  - label: ":gear: Upload and trigger fund-settlements pipeline"
-    commands:
-      - "echo Claim Type: '${CLAIM_TYPE}'"
-      - buildkite-agent pipeline upload .buildkite/fund-settlements.yml
-
-  - wait: ~
-    continue_on_failure: true
 
   - label: ":campfire::arrow_right: Claim settlements"
     env:
@@ -154,9 +151,9 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs target/release/claim-settlement .
     - chmod +x target/release/claim-settlement
     - |
-      buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .
+      buildkite-agent artifact download --include-retried-jobs "merkle-trees-claimable/*" .
       files=""
-      for dir in ./merkle-trees/*; do
+      for dir in ./merkle-trees-claimable/*; do
         if [ -d "$$dir" ]; then
           pair_files=""
           for file in "$$dir"/*; do
@@ -242,7 +239,7 @@ steps:
 
   - wait: ~
 
-  - label: ":unlock: Concurrency gate unlock"
+  - label: ":unlock: Concurrency gate claim-settlements unlock"
     command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/claim-settlements-${CLAIM_TYPE}'
     concurrency: 1

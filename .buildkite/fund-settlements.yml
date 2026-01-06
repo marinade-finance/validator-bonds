@@ -6,7 +6,7 @@ env:
   SLACK_API: https://slack.com/api/chat.postMessage
 
 steps:
-  - label: ":closed_lock_with_key: Concurrency gate lock"
+  - label: ":closed_lock_with_key: Concurrency gate fund-settlements lock"
     command: echo "--> Start of concurrency gate"
     concurrency_group: 'validator-bonds/fund-settlements-${CLAIM_TYPE}'
     concurrency: 1
@@ -60,7 +60,7 @@ steps:
   - label: ":surfer: Loading JSON settlements data"
     env:
       past_epochs_to_load: 3
-      # epoch when the contract v2 was deployed, using different structure of merkle tree than v1
+      # epoch when the contract v2 was deployed, using a different structure of a merkle tree than v1
       starting_epoch_contract_v2: 640
     commands:
     - epoch=$(buildkite-agent meta-data get epoch) || true
@@ -205,7 +205,7 @@ steps:
 
   - wait: ~
 
-  - label: ":unlock: Concurrency gate unlock"
+  - label: ":unlock: Concurrency gate fund-settlements unlock"
     command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/fund-settlements-${CLAIM_TYPE}'
     concurrency: 1
