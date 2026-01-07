@@ -120,7 +120,7 @@ export function launchCliProgram({
         {
           cliType: announcementsConfig.cliType,
           cliVersion: version,
-          apiUrl: announcementsConfig.apiUrl,
+          apiUrl: command.opts().announcementsApiUrl,
           operation: commandName,
           account: action.processedArgs?.[0],
         },
