@@ -11,7 +11,7 @@ use settlement_pipelines::json_data::BondSettlement;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::{HashMap, HashSet};
 use std::io;
-use std::ops::RangeInclusive;
+use std::ops::Range;
 use std::path::PathBuf;
 use validator_bonds::state::settlement::Settlement;
 use validator_bonds_common::config::get_config;
@@ -90,7 +90,7 @@ fn verify_unknown_settlements(
 /// Verify settlements for epochs within the claiming range
 /// Returns alerts for non-verified epochs, non-existing settlements, and non-funded settlements
 fn verify_epoch_settlements(
-    claiming_epoch_range: RangeInclusive<u64>,
+    claiming_epoch_range: Range<u64>,
     listed_settlements_per_epoch: &HashMap<u64, Vec<&BondSettlement>>,
     onchain_settlements: &HashMap<Pubkey, Settlement>,
 ) -> (Vec<u64>, Vec<SettlementEpoch>, Vec<SettlementEpoch>) {
@@ -183,7 +183,9 @@ async fn real_main() -> anyhow::Result<()> {
         .epoch;
 
     let claiming_start_epoch = current_epoch.saturating_sub(config_data.epochs_to_claim_settlement);
-    let claiming_epoch_range = claiming_start_epoch..=current_epoch;
+    // expecting we do not have created settlements for the current epoch and maybe not yet created for previous epoch
+    // but for any other past claimable epochs we need settlements to exist
+    let claiming_epoch_range = claiming_start_epoch..(current_epoch - 1);
 
     let onchain_settlements: HashMap<Pubkey, Settlement> =
         get_settlements_for_config(rpc_client.clone(), &config_address)
