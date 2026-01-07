@@ -66,8 +66,9 @@ struct Args {
     #[clap(long)]
     marinade_wallet: String,
 
-    #[clap(long)]
-    past_settlements: PathBuf,
+    /// JSON data obtained from the "list-settlement" command
+    #[clap(long, short = 'p')]
+    listed_settlements: PathBuf,
 }
 
 #[tokio::main]
@@ -107,9 +108,9 @@ async fn real_main(reporting: &mut ReportHandler<CloseSettlementReport>) -> anyh
         .map_err(CliError::retry_able)?;
     reporting.reportable.init(marinade_wallet, &config);
 
-    let past_settlements: Vec<BondSettlement> =
-        read_from_json_file::<PathBuf, Vec<BondSettlement>>(&args.past_settlements)
-            .map_err(|e| anyhow!("Failed to load --past-settlements: {:?}", e))?
+    let listed_settlements: Vec<BondSettlement> =
+        read_from_json_file::<PathBuf, Vec<BondSettlement>>(&args.listed_settlements)
+            .map_err(|e| anyhow!("Failed to load --listed-settlements: {:?}", e))?
             .into_iter()
             .filter(|bs| bs.config_address == config_address)
             .collect();
@@ -153,7 +154,7 @@ async fn real_main(reporting: &mut ReportHandler<CloseSettlementReport>) -> anyh
         transaction_executor.clone(),
         &mapping_settlements_to_staker_authority,
         expired_settlements,
-        &past_settlements,
+        &listed_settlements,
         &config_address,
         &operator_authority_keypair,
         &marinade_wallet,
@@ -249,7 +250,7 @@ async fn reset_stake_accounts(
     transaction_executor: Arc<TransactionExecutor>,
     mapping_settlements_to_staker_authority: &HashMap<Pubkey, Pubkey>,
     expired_settlements: Vec<(Pubkey, Settlement, Option<Bond>)>,
-    past_settlements: &[BondSettlement],
+    listed_settlements: &[BondSettlement],
     config_address: &Pubkey,
     operator_authority_keypair: &Arc<Keypair>,
     marinade_wallet: &Pubkey,
@@ -257,11 +258,11 @@ async fn reset_stake_accounts(
     reporting: &mut ReportHandler<CloseSettlementReport>,
 ) -> anyhow::Result<()> {
     let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
-    // settlements that does not exist on-chain, but they were loaded from JSON files
+    // settlements that do not exist on-chain, but they were loaded from JSON files
     // we calculate mapping the settlement pubkey to the staker authority
     let non_existing_settlement_to_staker_authority = get_expired_stake_accounts(
         mapping_settlements_to_staker_authority,
-        past_settlements,
+        listed_settlements,
         expired_settlements,
     );
     let staker_authority_to_existing_settlements = mapping_settlements_to_staker_authority
@@ -291,16 +292,16 @@ async fn reset_stake_accounts(
             // this should be already filtered out, not correctly funded settlement
             continue;
         };
-        // there is a stake account that belongs to a settlement that does not exist on-chain,
-        //  but we know about it as it was loaded from JSON files, these settlements are most probably
+        // there is a stake account that belongs to a settlement that does not exist on-chain.
+        //  However, we know about it as it was loaded from JSON files, these settlements are most probably
         //  those that were not created as the Bond owner did not fund the Bond account (he exited the bidding program)
         let reset_data = if let Some(reset_data) =
             non_existing_settlement_to_staker_authority.get(&staker_authority)
         {
             reset_data
         } else {
-            // if the stake account does not belong to a non-existent (but known from JSON) settlement then it has to belongs
-            // to an existing settlement, if not than we have dangling stake account that should be reported
+            // if the stake account does not belong to a non-existent (but known from JSON) settlement, then it has to belong to an existing settlement
+            // if not than we have a dangling stake account that should be reported
             if !staker_authority_to_existing_settlements.contains_key(&staker_authority) {
                 // -> not existing settlement for this stake account, and we know nothing is about (maybe for some reason the stake account was not reset in the past)
                 if IGNORE_DANGLING_NOT_CLOSABLE_STAKE_ACCOUNTS_LIST
@@ -439,11 +440,11 @@ async fn get_expired_settlements(
 /// Returns: Map: staker authority -> (settlement address, bond address, bond address)
 fn get_expired_stake_accounts(
     existing_settlements: &HashMap<Pubkey, Pubkey>,
-    past_settlements: &[BondSettlement],
+    listed_settlements: &[BondSettlement],
     expired_settlements: Vec<(Pubkey, Settlement, Option<Bond>)>,
 ) -> HashMap<Pubkey, ResetStakeData> {
     // settlement addresses from argument -> verification what are not existing
-    let not_existing_past_settlements = past_settlements
+    let not_existing_listed_settlements = listed_settlements
         .iter()
         .filter(|data| existing_settlements.get(&data.settlement_address).is_none())
         .collect::<Vec<&BondSettlement>>();
@@ -460,7 +461,7 @@ fn get_expired_stake_accounts(
                 bond_vote_account,
             )
         })
-        .chain(not_existing_past_settlements.into_iter().map(
+        .chain(not_existing_listed_settlements.into_iter().map(
             |&BondSettlement {
                  config_address,
                  bond_address,

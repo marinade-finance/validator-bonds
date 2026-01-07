@@ -80,7 +80,7 @@ steps:
 
   - label: " Loading past settlements json files"
     env:
-      past_epochs_to_load: 7
+      past_epochs_to_load: 6
     commands:
     - |
       current_epoch=$(curl --silent "$$RPC_URL" -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1, "method":"getEpochInfo"}' | jq '.result.epoch')
@@ -115,9 +115,9 @@ steps:
       ./target/release/list-settlement \
         -m ./merkle-trees/* \
         --config $(buildkite-agent meta-data get config_pubkey) \
-        --out ./past-settlements.json
+        --out ./listed-settlements.json
     artifact_paths:
-      - "./past-settlements.json"
+      - "./listed-settlements.json"
 
   - wait: ~
 
@@ -131,14 +131,14 @@ steps:
     - |
       echo "#ATTEMPT VERIFY SETTLEMENTS $((BUILDKITE_RETRY_COUNT+1))" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
     - buildkite-agent artifact download --include-retried-jobs target/release/verify-settlement .
-    - buildkite-agent artifact download --include-retried-jobs past-settlements.json .
+    - buildkite-agent artifact download --include-retried-jobs listed-settlements.json .
     - source ./scripts/execute-handlers.sh
     - chmod +x target/release/verify-settlement
     - |
       handle_command_execution "$$command_name" \
       ./target/release/verify-settlement \
         --config $(buildkite-agent meta-data get config_pubkey) \
-        --past-settlements ./past-settlements.json
+        --listed-settlements ./listed-settlements.json
     key: 'verify-settlement'
     artifact_paths:
       - "./execution-report.*"

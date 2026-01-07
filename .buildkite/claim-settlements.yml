@@ -73,6 +73,7 @@ steps:
       - buildkite-agent pipeline upload .buildkite/fund-settlements.yml
 
   - wait: ~
+    continue_on_failure: true
 
   - label: ":campfire: List claimable epochs"
     env:
