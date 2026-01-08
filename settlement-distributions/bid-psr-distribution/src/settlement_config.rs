@@ -2,7 +2,13 @@ use crate::{protected_events::ProtectedEvent, settlement_collection::SettlementM
 use log::debug;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
-use std::collections::HashSet;
+
+#[derive(Clone, Deserialize, Serialize, Debug)]
+pub struct BidPSRConfig {
+    pub validator_bonds_config: Pubkey,
+    pub whitelist_stake_authorities: Option<Vec<Pubkey>>,
+    pub settlement_configs: Vec<SettlementConfig>,
+}
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub enum SettlementConfig {
@@ -110,12 +116,4 @@ pub fn build_protected_event_matcher(
             _ => false,
         },
     )
-}
-
-pub fn stake_authorities_filter(whitelist: HashSet<Pubkey>) -> Box<dyn Fn(&Pubkey) -> bool> {
-    Box::new(move |pubkey| whitelist.contains(pubkey))
-}
-
-pub fn no_filter() -> Box<dyn Fn(&Pubkey) -> bool> {
-    Box::new(|_| true)
 }

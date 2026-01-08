@@ -5,8 +5,6 @@ use bid_psr_distribution::merkle_tree_collection::generate_merkle_tree_collectio
 use bid_psr_distribution::rewards::load_rewards_from_directory;
 use bid_psr_distribution::settlement_collection::SettlementFunder;
 use bid_psr_distribution::settlement_collection::SettlementMeta;
-use bid_psr_distribution::settlement_config::no_filter;
-use bid_psr_distribution::settlement_config::stake_authorities_filter;
 use bid_psr_distribution::stake_meta_index::StakeMetaIndex;
 use bid_psr_distribution::utils::{file_error, read_from_json_file, write_to_json_file};
 use env_logger::{Builder, Env};
@@ -72,8 +70,8 @@ fn main() -> anyhow::Result<()> {
     let args: Args = Args::parse();
 
     info!(
-        "Marinade fee bps {:?} and DAO fee split share bps {:?} loaded",
-        &args.marinade_fee_bps, &args.dao_fee_split_share_bps
+        "Marinade fee bps {:?}, DAO fee split share bps {:?}, whitelist stake authorities: {:?}",
+        &args.marinade_fee_bps, &args.dao_fee_split_share_bps, &args.whitelist_stake_authority
     );
 
     let settlement_config = SettlementConfig::Bidding {
@@ -87,6 +85,7 @@ fn main() -> anyhow::Result<()> {
         dao_fee_split_share_bps: args.dao_fee_split_share_bps,
         dao_stake_authority: args.dao_fee_stake_authority,
         dao_withdraw_authority: args.dao_fee_withdraw_authority,
+        whitelist_stake_authorities: args.whitelist_stake_authority.clone(),
     };
 
     info!("Loading SAM scoring meta collection...");
@@ -133,28 +132,11 @@ fn main() -> anyhow::Result<()> {
         ),
     );
 
-    if let Some(whitelisted_stake_authorities) = &args.whitelist_stake_authority {
-        info!(
-            "Using whitelist on stake authorities: {:?}",
-            whitelisted_stake_authorities
-        );
-    }
-
-    info!(
-        "Building stake authorities filter: {:?}",
-        args.whitelist_stake_authority
-    );
-    let stake_authority_filter =
-        args.whitelist_stake_authority
-            .map_or(no_filter(), |whitelisted_stake_authorities| {
-                stake_authorities_filter(HashSet::from_iter(whitelisted_stake_authorities))
-            });
     info!("Generating settlement collection...");
     let settlement_collection = generate_settlements_collection(
         &stake_meta_index,
         &sam_validator_metas,
         &rewards_collection,
-        &stake_authority_filter,
         &settlement_config,
     );
     write_to_json_file(&settlement_collection, &args.output_settlement_collection).map_err(

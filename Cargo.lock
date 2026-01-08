@@ -902,6 +902,7 @@ dependencies = [
  "serde_yaml 0.8.26",
  "snapshot-parser-validator-cli",
  "solana-sdk",
+ "validator-bonds",
 ]
 
 [[package]]
@@ -923,6 +924,7 @@ dependencies = [
  "solana-sdk",
  "tokio",
  "utoipa",
+ "validator-bonds",
 ]
 
 [[package]]
@@ -3175,6 +3177,7 @@ dependencies = [
  "serde_json",
  "snapshot-parser-validator-cli",
  "solana-sdk",
+ "validator-bonds",
 ]
 
 [[package]]

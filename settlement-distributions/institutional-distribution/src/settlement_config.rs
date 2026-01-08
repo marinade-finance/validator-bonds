@@ -8,6 +8,7 @@ use solana_sdk::pubkey::Pubkey;
 pub struct InstitutionalDistributionConfig {
     pub settlement_meta: SettlementMeta,
     pub settlement_reason: SettlementReason,
+    pub validator_bonds_config: Pubkey,
     pub marinade_withdraw_authority: Pubkey,
     pub marinade_stake_authority: Pubkey,
     pub dao_fee_split_share_bps: u64,
@@ -33,6 +34,7 @@ impl InstitutionalDistributionConfig {
                 funder: SettlementFunder::ValidatorBond,
             },
             settlement_reason: SettlementReason::InstitutionalPayout,
+            validator_bonds_config: params.validator_bonds_config,
             marinade_withdraw_authority: params.marinade_withdraw_authority,
             marinade_stake_authority: params.marinade_stake_authority,
             dao_fee_split_share_bps: params.dao_fee_split_share_bps,

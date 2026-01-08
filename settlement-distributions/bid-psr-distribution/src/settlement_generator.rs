@@ -2,18 +2,20 @@ use crate::protected_events::ProtectedEventCollection;
 use crate::settlement_collection::{
     Settlement, SettlementClaim, SettlementCollection, SettlementFunder, SettlementReason,
 };
-use crate::settlement_config::{build_protected_event_matcher, SettlementConfig};
+use crate::settlement_config::{build_protected_event_matcher, BidPSRConfig, SettlementConfig};
 use crate::stake_meta_index::StakeMetaIndex;
-use crate::utils::sort_claims_deterministically;
+use crate::utils::{sort_claims_deterministically, stake_authority_filter};
 use log::{debug, info};
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
+use validator_bonds::state::bond::find_bond_address;
 
 pub fn generate_settlements(
     stake_meta_index: &StakeMetaIndex,
     protected_event_collection: &ProtectedEventCollection,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     settlement_config: &SettlementConfig,
+    validator_bonds_config: &Pubkey,
 ) -> Vec<Settlement> {
     assert_eq!(
         stake_meta_index.stake_meta_collection.epoch, protected_event_collection.epoch,
@@ -83,10 +85,13 @@ pub fn generate_settlements(
             }
 
             if claims_amount >= settlement_config.min_settlement_lamports() {
+                let (bond_address, _) =
+                    find_bond_address(validator_bonds_config, protected_event.vote_account());
                 settlement_claim_collections.push(Settlement {
                     reason: SettlementReason::ProtectedEvent(Box::new(protected_event.clone())),
                     meta: settlement_config.meta().clone(),
                     vote_account: *protected_event.vote_account(),
+                    bond_account: Some(bond_address),
                     claims_count: claims.len(),
                     claims_amount,
                     claims,
@@ -108,8 +113,7 @@ pub fn generate_settlements(
 pub fn generate_settlement_collection(
     stake_meta_index: &StakeMetaIndex,
     protected_event_collection: &ProtectedEventCollection,
-    stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
-    settlement_configs: &[SettlementConfig],
+    bid_psr_config: &BidPSRConfig,
 ) -> SettlementCollection {
     assert_eq!(
         stake_meta_index.stake_meta_collection.epoch, protected_event_collection.epoch,
@@ -120,14 +124,18 @@ pub fn generate_settlement_collection(
         protected_event_collection.slot
     );
 
-    let settlements: Vec<_> = settlement_configs
+    let stake_authority_filter =
+        stake_authority_filter(bid_psr_config.whitelist_stake_authorities.clone());
+    let settlements: Vec<_> = bid_psr_config
+        .settlement_configs
         .iter()
         .flat_map(|settlement_config| {
             generate_settlements(
                 stake_meta_index,
                 protected_event_collection,
-                stake_authority_filter,
+                &stake_authority_filter,
                 settlement_config,
+                &bid_psr_config.validator_bonds_config,
             )
         })
         .collect();

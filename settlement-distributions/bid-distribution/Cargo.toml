@@ -21,3 +21,4 @@ serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 snapshot-parser-validator-cli = { workspace = true }
 solana-sdk = { workspace = true }
+validator-bonds = { workspace = true }
