@@ -37,11 +37,17 @@ struct Args {
     #[arg(long, env)]
     dao_fee_withdraw_authority: Pubkey,
 
+    #[arg(long)]
+    validator_bonds_config: Pubkey,
+
     #[arg(long, env)]
     output_settlement_collection: String,
 
     #[arg(long, env)]
     output_merkle_tree_collection: String,
+
+    #[arg(long)]
+    output_config: String,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -73,6 +79,7 @@ fn main() -> anyhow::Result<()> {
     let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
 
     let config = InstitutionalDistributionConfig::new(ConfigParams {
+        validator_bonds_config: args.validator_bonds_config,
         marinade_stake_authority: args.marinade_fee_stake_authority,
         marinade_withdraw_authority: args.marinade_fee_withdraw_authority,
         dao_fee_split_share_bps: args.dao_fee_split_share_bps,
@@ -102,6 +109,10 @@ fn main() -> anyhow::Result<()> {
             &args.output_merkle_tree_collection,
         ),
     )?;
+
+    info!("Writing settlement config to {}", &args.output_config);
+    write_to_json_file(&config, &args.output_config)
+        .map_err(file_error("output-config", &args.output_config))?;
 
     info!("Institutional Payout Settlements calculation: finished.");
     Ok(())

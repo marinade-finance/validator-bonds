@@ -17,6 +17,7 @@ pub struct InstitutionalDistributionConfig {
 }
 
 pub struct ConfigParams {
+    pub validator_bonds_config: Pubkey,
     pub marinade_withdraw_authority: Pubkey,
     pub marinade_stake_authority: Pubkey,
     pub dao_fee_split_share_bps: u64,

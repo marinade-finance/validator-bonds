@@ -51,6 +51,9 @@ struct Args {
     whitelist_stake_authority: Option<Vec<Pubkey>>,
 
     #[arg(long, env)]
+    validator_bonds_config: Pubkey,
+
+    #[arg(long, env)]
     settlement_config: String,
 }
 

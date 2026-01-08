@@ -860,6 +860,7 @@ mod tests {
             dao_fee_split_share_bps,
             dao_stake_authority: TEST_PUBKEY_DAO,
             dao_withdraw_authority: TEST_PUBKEY_DAO,
+            validator_bonds_config: Pubkey::default(),
         }
     }
 

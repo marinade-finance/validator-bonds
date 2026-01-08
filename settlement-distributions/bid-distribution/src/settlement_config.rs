@@ -22,6 +22,7 @@ pub enum SettlementConfig {
         dao_fee_split_share_bps: u64,
         dao_withdraw_authority: Pubkey,
         dao_stake_authority: Pubkey,
+        validator_bonds_config: Pubkey,
     },
 }
 
@@ -85,6 +86,15 @@ impl SettlementConfig {
             marinade_distributor_fee: Decimal::from(*self.marinade_fee_bps())
                 / Decimal::from(10_000),
             dao_fee_share: Decimal::from(*self.dao_fee_split_share_bps()) / Decimal::from(10_000),
+        }
+    }
+
+    pub fn validator_bonds_config(&self) -> &Pubkey {
+        match self {
+            SettlementConfig::Bidding {
+                validator_bonds_config,
+                ..
+            } => validator_bonds_config,
         }
     }
 }

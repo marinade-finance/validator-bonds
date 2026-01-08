@@ -7,6 +7,7 @@ env:
   SLACK_API: https://slack.com/api/chat.postMessage
   SLACK_FEED: "feed-pipeline-sam-psr"
   WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
+  VALIDATOR_BONDS_CONFIG: vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU
   ds_sam_auction_github_api_link: "https://api.github.com/repos/marinade-finance/ds-sam-pipeline/contents/auctions/"
   ds_sam_auction_download_link: "https://raw.githubusercontent.com/marinade-finance/ds-sam-pipeline/main/auctions/"
 
@@ -152,6 +153,7 @@ steps:
         --validator-meta-collection "./validators.json" \
         --stake-meta-collection "./stakes.json" \
         --revenue-expectation-collection "./evaluation.json" \
+        --validator-bonds-config ${VALIDATOR_BONDS_CONFIG} \
         --output-protected-event-collection "./${CLAIM_TYPE}.json" \
         --output-settlement-collection "./${CLAIM_TYPE}-settlements.json" \
         --output-merkle-tree-collection "./${CLAIM_TYPE}-settlement-merkle-trees.json"

@@ -34,6 +34,9 @@ struct Args {
     #[arg(long, env)]
     output_merkle_tree_collection: String,
 
+    #[arg(long)]
+    output_config: String,
+
     // Total Marinade (distributor) fee split between Marinade and DAO
     #[arg(long, env)]
     marinade_fee_bps: u64,
@@ -56,6 +59,9 @@ struct Args {
 
     #[arg(long, env, value_delimiter = ',')]
     whitelist_stake_authority: Option<Vec<Pubkey>>,
+
+    #[arg(long, env)]
+    validator_bonds_config: Pubkey,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -71,6 +77,7 @@ fn main() -> anyhow::Result<()> {
     );
 
     let settlement_config = SettlementConfig::Bidding {
+        validator_bonds_config: args.validator_bonds_config,
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
@@ -83,7 +90,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     info!("Loading SAM scoring meta collection...");
-    let validator_sam_metas: Vec<ValidatorSamMeta> = read_from_json_file(&args.sam_meta_collection)
+    let sam_validator_metas: Vec<ValidatorSamMeta> = read_from_json_file(&args.sam_meta_collection)
         .map_err(file_error("sam-meta-collection", &args.sam_meta_collection))?;
 
     info!("Loading stake meta collection...");
@@ -114,7 +121,7 @@ fn main() -> anyhow::Result<()> {
         rewards_epoch,
         stake_meta_epoch,
     );
-    let metas_epochs: HashSet<u64> = validator_sam_metas
+    let metas_epochs: HashSet<u64> = sam_validator_metas
         .iter()
         .map(|meta| meta.epoch as u64)
         .collect();
@@ -145,7 +152,7 @@ fn main() -> anyhow::Result<()> {
     info!("Generating settlement collection...");
     let settlement_collection = generate_settlements_collection(
         &stake_meta_index,
-        &validator_sam_metas,
+        &sam_validator_metas,
         &rewards_collection,
         &stake_authority_filter,
         &settlement_config,
@@ -165,6 +172,10 @@ fn main() -> anyhow::Result<()> {
             &args.output_merkle_tree_collection,
         ),
     )?;
+
+    info!("Writing settlement config to {}", &args.output_config);
+    write_to_json_file(&settlement_config, &args.output_config)
+        .map_err(file_error("output-config", &args.output_config))?;
 
     info!("Finished.");
     Ok(())

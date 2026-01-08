@@ -135,6 +135,7 @@ fn generate_institutional_settlements(
                 reason: config.settlement_reason.clone(),
                 meta: config.settlement_meta.clone(),
                 vote_account: payout.vote_account,
+                bond_account: payout.
                 claims_count: 0,
                 claims_amount: 0,
                 claims: vec![],
