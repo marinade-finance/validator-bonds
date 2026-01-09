@@ -30,7 +30,11 @@ pub enum SettlementConfig {
         dao_withdraw_authority: Pubkey,
         #[serde(with = "pubkey_string_conversion")]
         dao_stake_authority: Pubkey,
-        #[serde(with = "option_vec_pubkey_string_conversion")]
+        #[serde(
+            default,
+            with = "option_vec_pubkey_string_conversion",
+            skip_serializing_if = "Option::is_none"
+        )]
         whitelist_stake_authorities: Option<Vec<Pubkey>>,
     },
 }

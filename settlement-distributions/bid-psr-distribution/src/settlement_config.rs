@@ -8,7 +8,11 @@ use solana_sdk::pubkey::Pubkey;
 pub struct BidPSRConfig {
     #[serde(with = "pubkey_string_conversion")]
     pub validator_bonds_config: Pubkey,
-    #[serde(with = "option_vec_pubkey_string_conversion")]
+    #[serde(
+        default,
+        with = "option_vec_pubkey_string_conversion",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub whitelist_stake_authorities: Option<Vec<Pubkey>>,
     pub settlement_configs: Vec<SettlementConfig>,
 }

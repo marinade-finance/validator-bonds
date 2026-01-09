@@ -13,8 +13,9 @@ handle_command_execution() {
     local command_name="$1"
     shift
     set -o pipefail
-    echo "#ATTEMPT ${BUILDKITE_RETRY_COUNT}" | tee -a "./execution-report.${command_name}.${BUILDKITE_RETRY_COUNT}"
-    "$@" | tee -a "./execution-report.${command_name}.${BUILDKITE_RETRY_COUNT}"
+    local execution_report_file="./execution-report.${command_name}.${BUILDKITE_RETRY_COUNT}"
+    echo "#ATTEMPT ${BUILDKITE_RETRY_COUNT}" | tee -a "$execution_report_file"
+    "$@" | tee -a "$execution_report_file"
     local exit_code=$?
 
     buildkite-agent meta-data set --redacted-vars="" "${command_name}_status" "$exit_code"

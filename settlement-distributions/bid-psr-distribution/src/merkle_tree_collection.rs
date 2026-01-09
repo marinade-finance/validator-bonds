@@ -21,9 +21,17 @@ pub struct MerkleTreeMeta {
     pub max_total_claims: usize,
     #[serde(with = "pubkey_string_conversion")]
     pub vote_account: Pubkey,
-    #[serde(with = "option_pubkey_string_conversion")]
+    #[serde(
+        default,
+        with = "option_pubkey_string_conversion",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub bond_account: Option<Pubkey>,
-    #[serde(with = "option_pubkey_string_conversion")]
+    #[serde(
+        default,
+        with = "option_pubkey_string_conversion",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub settlement_account: Option<Pubkey>,
     pub tree_nodes: Vec<TreeNode>,
 }

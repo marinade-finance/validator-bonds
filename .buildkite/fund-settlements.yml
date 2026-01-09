@@ -136,10 +136,10 @@ steps:
         --marinade-wallet "$$PSR_MARINADE_DAO_FUNDER_WALLET" \
         --rent-payer "$$PSR_RENT_PAYER_WALLET" \
         $$files
-    - cat "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT" >> "./execution-report.$$command_name"
+    - cat "./execution-report.$${command_name}.$$BUILDKITE_RETRY_COUNT" >> "./execution-report.$${command_name}"
     key: 'fund-settlement'
     artifact_paths:
-      - "./execution-report.*"
+      - "./execution-report*"
     retry:
       automatic:
         - exit_status: 100
@@ -149,7 +149,7 @@ steps:
     commands:
      - buildkite-agent artifact download "execution-report.$$command_name" . || echo "No report ERROR" > ./execution-report.$$command_name
      - cp "./execution-report.$$command_name" "./cummulative-report.txt"
-     - buildkite-agent meta-data set --redacted-vars='' attempts_count "$(grep -c 'ATTEMPT' ./cummulative-report.txt || echo '0')"
+     - buildkite-agent meta-data set --redacted-vars="" attempts_count "$(grep -c 'ATTEMPT' ./cummulative-report.txt || echo '0')"
     artifact_paths:
       - "./cummulative-report.txt"
     key: 'notification-setup-funding'
@@ -168,8 +168,10 @@ steps:
         fi
       - |
         {
+          echo '```'
           tail -50 "./latest-report.txt"
           [ $$(wc -l < "./latest-report.txt") -gt 50 ] && echo "..."
+          echo '```'
         } | buildkite-agent annotate --style info --context "$${command_name}-report"
     artifact_paths:
       - "./latest-report.txt"

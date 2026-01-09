@@ -64,7 +64,11 @@ pub struct Settlement {
     pub meta: SettlementMeta,
     #[serde(with = "pubkey_string_conversion")]
     pub vote_account: Pubkey,
-    #[serde(with = "option_pubkey_string_conversion")]
+    #[serde(
+        default,
+        with = "option_pubkey_string_conversion",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub bond_account: Option<Pubkey>,
     pub claims_count: usize,
     pub claims_amount: u64,
