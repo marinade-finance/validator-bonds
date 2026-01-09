@@ -4,6 +4,7 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   SLACK_API: https://slack.com/api/chat.postMessage
+  command_name: 'fund-settlement'
 
 steps:
   - label: ":closed_lock_with_key: Concurrency gate fund-settlements lock"
@@ -109,13 +110,7 @@ steps:
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,fund_settlement=debug
     commands:
     - . "$HOME/.cargo/env"
-    - prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))
-    - command_name='fund-settlement'
-    - buildkite-agent artifact download --include-retried-jobs execution-report.$$command_name.$$prior_build_number . || true
-    - |
-      cp "execution-report.$$command_name.$$prior_build_number" "execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT" || true
-      rm -f "execution-report.$$command_name.$$prior_build_number"
-      echo "#ATTEMPT FUND SETTLEMENT $$BUILDKITE_RETRY_COUNT" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
+    - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || true
     - |
       buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .
       files=""
@@ -140,6 +135,7 @@ steps:
         --marinade-wallet "$$PSR_MARINADE_DAO_FUNDER_WALLET" \
         --rent-payer "$$PSR_RENT_PAYER_WALLET" \
         $$files
+    - cat "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT" >> "./execution-report.$$command_name"
     key: 'fund-settlement'
     artifact_paths:
       - "./execution-report.*"
@@ -150,15 +146,33 @@ steps:
 
   - label: ":memo: Notification setup: Fund Settlements"
     commands:
-     - mkdir ./reports
-     - command_name='fund-settlement'
-     - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name.*" ./reports/ || echo "No report ERROR" > ./reports/execution-report.$$command_name.error
-     - report_path="./reports/$(ls -v1 reports/ | tail -n 1)"
-     - cp "$$report_path" ./fund-report.txt
-     - buildkite-agent meta-data set --redacted-vars='' attempts_count "$(grep -c ATTEMPT ./fund-report.txt)"
+     - buildkite-agent artifact download "execution-report.$$command_name" . || echo "No report ERROR" > ./execution-report.$$command_name
+     - cp "./execution-report.$$command_name" "./cummulative-report.txt"
+     - buildkite-agent meta-data set --redacted-vars='' attempts_count "$(grep -c 'ATTEMPT' ./cummulative-report.txt || echo '0')"
     artifact_paths:
-    - "./fund-report.txt"
+      - "./cummulative-report.txt"
     key: 'notification-setup-funding'
+    depends_on: "fund-settlement"
+    allow_dependency_failure: true
+
+  - label: ":memo: Annotate Report"
+    commands:
+      - buildkite-agent artifact download "execution-report.$$command_name.*" . || true
+      - latest_report=$$(ls -v execution-report.$$command_name.[0-9]* 2>/dev/null | tail -n 1)
+        if [[ ! -n "$$latest_report" || ! -f "$$latest_report" ]]; then
+          echo 'No attempt report found' > "./latest-report.txt"
+          latest_report="./latest-report.txt"
+        else
+          cp "$$latest_report" "./latest-report.txt"
+        fi
+      - |
+        {
+          tail -50 "./latest-report.txt"
+          [ $$(wc -l < "./latest-report.txt") -gt 50 ] && echo "..."
+        } | buildkite-agent annotate --style info --context "$${command_name}-report"
+    artifact_paths:
+      - "./latest-report.txt"
+    key: 'annotate-report'
     depends_on: "fund-settlement"
     allow_dependency_failure: true
 
@@ -169,21 +183,18 @@ steps:
     - latest_funded_epoch=$(buildkite-agent meta-data get latest_funded_epoch) || true
     - claim_type=$(buildkite-agent meta-data get claim_type) || true
     - claim_type_prefix=$([[ -z "$$claim_type" ]] && echo "" || echo "$${claim_type}-")
-    - buildkite-agent artifact download --include-retried-jobs fund-report.txt . || echo "UNKNOWN ERROR" > fund-report.txt
+    - buildkite-agent artifact download cummulative-report.txt . || echo "UNKNOWN ERROR" > ./cummulative-report.txt
     - |
       if [[ -n "$$latest_funded_epoch" && $(gcloud storage ls "$gs_bucket/$$latest_funded_epoch" 2> /dev/null) ]]; then
-        gcloud storage cp ./fund-report.txt "$gs_bucket/$$latest_funded_epoch/buildkite/$${claim_type_prefix}fund-settlement-report.$(date +%s).txt"
+        gcloud storage cp ./cummulative-report.txt "$gs_bucket/$$latest_funded_epoch/buildkite/$${claim_type_prefix}$${command_name}-report.$(date +%s).txt"
       fi
     depends_on: "notification-setup-funding"
     allow_dependency_failure: true
 
   - label: ":mega: Notification Funding"
     commands:
-    - buildkite-agent artifact download --include-retried-jobs fund-report.txt . || echo 'UNKNOWN ERROR' > './fund-report.txt'
-    - cat ./fund-report.txt
-    - echo "--------------------------------------------"
     - source ./scripts/execute-handlers.sh
-    - check_command_execution_status "fund-settlement" || true
+    - check_command_execution_status "$$command_name" || true
     - claim_type=$(buildkite-agent meta-data get claim_type)
     - config_pubkey=$(buildkite-agent meta-data get config_pubkey)
     - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")

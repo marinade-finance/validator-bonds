@@ -13,6 +13,7 @@ handle_command_execution() {
     local command_name="$1"
     shift
     set -o pipefail
+    echo "#ATTEMPT ${BUILDKITE_RETRY_COUNT}" | tee -a "./execution-report.${command_name}.${BUILDKITE_RETRY_COUNT}"
     "$@" | tee -a "./execution-report.${command_name}.${BUILDKITE_RETRY_COUNT}"
     local exit_code=$?
 
