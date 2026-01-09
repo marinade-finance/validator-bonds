@@ -128,9 +128,9 @@ steps:
       ./target/release/list-settlement \
         -m ./merkle-trees/* \
         --config $(buildkite-agent meta-data get config_pubkey) \
-        --out ./past-settlements.json
+        --out ./listed-settlements.json
     artifact_paths:
-      - "./past-settlements.json"
+      - "./listed-settlements.json"
 
   - wait: ~
 
@@ -149,7 +149,7 @@ steps:
       rm -f "execution-report.$$command_name.$$prior_build_number"
       echo "#ATTEMPT CLOSE SETTLEMENTS $$BUILDKITE_RETRY_COUNT" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
     - buildkite-agent artifact download --include-retried-jobs target/release/close-settlement .
-    - buildkite-agent artifact download --include-retried-jobs past-settlements.json .
+    - buildkite-agent artifact download --include-retried-jobs listed-settlements.json .
     - chmod +x target/release/close-settlement
     - source ./scripts/execute-handlers.sh
     - |
@@ -159,7 +159,7 @@ steps:
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$PSR_TX_FEE_WALLET" \
         --marinade-wallet "$$PSR_MARINADE_DAO_FUNDER_WALLET" \
-        --past-settlements ./past-settlements.json
+        --listed-settlements ./listed-settlements.json
     key: 'close-settlement'
     artifact_paths:
       - "./execution-report.*"

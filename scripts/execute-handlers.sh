@@ -58,8 +58,8 @@ check_command_execution_status() {
     local warning_state
 
     set_notification_details 'UNKNOWN FAIL' "${ERROR_COLOR}"
-    command_status=$(buildkite-agent meta-data get "${command_name}_status" || echo '-1')
-    warning_state=$(buildkite-agent meta-data get "${command_name}_warning" || echo 'false')
+    command_status=$(buildkite-agent meta-data get "${command_name}_status" 2> /dev/null || echo '-1')
+    warning_state=$(buildkite-agent meta-data get "${command_name}_warning" 2> /dev/null || echo 'false')
 
     if [[ $warning_state == "true" ]]; then
         set_notification_details 'finished with WARNINGS' "${WARNING_COLOR}"

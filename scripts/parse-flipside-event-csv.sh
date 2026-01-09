@@ -1,6 +1,35 @@
 #!/bin/bash
 
+# Parsing a Flipside event CSV file and extracting relevant information
+# The Query used to generate the CSV file:
+# SELECT
+#   -- floor(block_id/432000) as epoch,
+#   -- tx_id,
+#   block_timestamp,
+#   block_id,
+#   ixs.value:data
+# FROM solana.core.fact_events fe
+# INNER JOIN
+#   solana.core.fact_transactions ft USING(block_timestamp, tx_id, succeeded),
+#   LATERAL FLATTEN(input => fe.inner_instruction:instructions) ixs
+# WHERE fe.succeeded
+# -- and fe.block_id >= 890*432000
+# and fe.program_id = 'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4'
+# -- Type of INSTRUCTION searching for
+# -- and array_contains('Program log: Instruction: FundBond'::variant, ft.log_messages)
+# and array_contains('Program log: Instruction: FundSettlement'::variant, ft.log_messages)
+# -- and array_contains('Program log: Instruction: ClaimWithdrawRequest'::variant, ft.log_messages)
+# -- filter instructions by Bond pubkey
+# and array_contains('<<Validator Bond Address>>'::variant, fe.instruction:accounts)
+# -- from the list of inner instructions getting only those that contains the CPI event data
+# -- the CPI PDA call address is always the same for bond program
+# and array_contains('j6cZKhHTFuWsiCgPT5wriQpZWqWWUSQqjDJ8S2YDvDL'::variant, ixs.value:accounts)
+# order by block_timestamp ASC;
+
+
 SLOTS_PER_EPOCH=432000
+CURRENT_SCRIPT_PATH=$(realpath "$0")
+CURRENT_SCRIPT_DIR=$(dirname "$CURRENT_SCRIPT_PATH")
 
 solsdecimal() {
   N="$@"
@@ -24,7 +53,7 @@ parse_csv_line() {
     local input_file="$(realpath "$1")"
     
     SUM_LAMPORTS=0
-    cd ~/marinade/validator-bonds/
+    cd "$CURRENT_SCRIPT_DIR/../"
     # set -x
     # expecting a csv file with the following format: timestamp,blockid,data
     while IFS=, read -r timestamp blockid data; do
@@ -33,8 +62,8 @@ parse_csv_line() {
         blockid=$(echo "$blockid" | tr -d '[:space:]')
         data=$(echo "$data" | tr -d '[:space:]')
         
-        EVENT=$(pnpm  run --silent -- cli show-event "$data" -f json)
-        [[ $? -ne 0 ]] && echo "Skipping '$timestamp'" && continue >&2
+        EVENT=$(pnpm  run --silent -- cli show-event "$data" -f json --announcements-api-url 'DISABLED')
+        [[ $? -ne 0 ]] && echo "Skipping event at '$timestamp'" && continue >&2
 
         LAMPORTS=$(echo "$EVENT" | jq '.data.fundingAmount')
         LAMPORTS_FUNDED=$(echo "$EVENT" | jq '.data.lamportsFunded')
@@ -43,6 +72,7 @@ parse_csv_line() {
         fi
         SETTLEMENT=$(echo "$EVENT" | jq '.data.settlement')
         if [ "$LAMPORTS" = "null" ]; then
+          echo "ERROR: No lamports amount found in event at '$timestamp'" >&2
           echo "$EVENT"
           break
         fi

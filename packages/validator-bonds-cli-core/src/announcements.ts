@@ -19,7 +19,6 @@ export const ANNOUNCEMENTS_TIMEOUT_MS = 1500
 export interface AnnouncementsConfig {
   enabled: boolean
   cliType: CliType
-  apiUrl?: string
 }
 
 export enum CliType {

@@ -53,7 +53,7 @@ steps:
       config_pubkey=$(./scripts/bonds-config-pubkey.sh "$$claim_type")
       buildkite-agent meta-data set --redacted-vars='' config_pubkey "$$config_pubkey"
     - |
-      slack_feed=$(./scripts/bonds-slack-feed.sh "$$claim_type")
+      slack_feed=${SLACK_FEED:-$(./scripts/bonds-slack-feed.sh "$$claim_type")}
       buildkite-agent meta-data set --redacted-vars='' slack_feed "$$slack_feed"
     - |
       echo "Claim Type: '$$claim_type'/'$$config_pubkey', Slack Feed: '$$slack_feed'"
@@ -62,7 +62,7 @@ steps:
     depends_on: setup-env-verify
     allow_dependency_failure: true
     commands:
-      - claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
+      - claim_type=$(buildkite-agent meta-data get claim_type)
       - slack_feed=$(buildkite-agent meta-data get slack_feed)
       - |
         cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
@@ -80,7 +80,7 @@ steps:
 
   - label: " Loading past settlements json files"
     env:
-      past_epochs_to_load: 7
+      past_epochs_to_load: 5
     commands:
     - |
       current_epoch=$(curl --silent "$$RPC_URL" -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1, "method":"getEpochInfo"}' | jq '.result.epoch')
@@ -115,9 +115,9 @@ steps:
       ./target/release/list-settlement \
         -m ./merkle-trees/* \
         --config $(buildkite-agent meta-data get config_pubkey) \
-        --out ./past-settlements.json
+        --out ./listed-settlements.json
     artifact_paths:
-      - "./past-settlements.json"
+      - "./listed-settlements.json"
 
   - wait: ~
 
@@ -131,14 +131,14 @@ steps:
     - |
       echo "#ATTEMPT VERIFY SETTLEMENTS $((BUILDKITE_RETRY_COUNT+1))" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
     - buildkite-agent artifact download --include-retried-jobs target/release/verify-settlement .
-    - buildkite-agent artifact download --include-retried-jobs past-settlements.json .
+    - buildkite-agent artifact download --include-retried-jobs listed-settlements.json .
     - source ./scripts/execute-handlers.sh
     - chmod +x target/release/verify-settlement
     - |
       handle_command_execution "$$command_name" \
       ./target/release/verify-settlement \
         --config $(buildkite-agent meta-data get config_pubkey) \
-        --past-settlements ./past-settlements.json
+        --listed-settlements ./listed-settlements.json
     key: 'verify-settlement'
     artifact_paths:
       - "./execution-report.*"
@@ -166,6 +166,8 @@ steps:
   - wait: ~
 
   - label: ":mega: Notification settlements verification"
+    env:
+      NON_FUNDED_THRESHOLD: 7
     commands:
     - buildkite-agent artifact download --include-retried-jobs verify-report.json .
     - source ./scripts/execute-handlers.sh
@@ -173,30 +175,32 @@ steps:
     - cat ./verify-report.json
     - echo "--------------------------------------------"
     - slack_feed=$(buildkite-agent meta-data get slack_feed)
+    - chmod +x ./scripts/parse-verify-alerts.sh
+    - source ./scripts/parse-verify-alerts.sh -f ./verify-report.json -n "$$NON_FUNDED_THRESHOLD" || alert_exit_code=$?
     - |
-      number_unknown_settlements=$(jq '. | length' ./verify-report.json)
-      if [ $$number_unknown_settlements -gt 0 ]; then
-        echo " => $$number_unknown_settlements unknown Settlements found"
-        unknown_settlements=$(jq -rc '. | join(", ")' ./verify-report.json)
-        curl ${SLACK_API} -X POST -H 'Content-type: application/json; charset=utf-8' \
+      if [ "$${alert_exit_code:-0}" -ne 0 ]; then
+        curl $${SLACK_API} -X POST -H 'Content-type: application/json; charset=utf-8' \
             -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
               "channel": "'"$$slack_feed"'",
-              "text": "🚨 Unknown settlements detected",
+              "text": "🚨 Settlement Verification Alerts",
               "blocks": [
                 {
                   "type": "header",
                   "text": {
                     "type": "plain_text",
-                    "text": "🚨❗🚨 Unknown settlements detected ('"$$number_unknown_settlements"')"
+                    "text": "🚨 Settlement Verification Alerts ('"$$total_alerts"' total)"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*Unknown settlements:*\n```'"$$unknown_settlements"'```"
+                    "text": "*Summary:* '"$$unknown_count"' unknown | '"$$non_verified_count"' non-verified epochs | '"$$non_existing_count"' non-existing | '"$$non_funded_count"' non-funded (threshold: '"$$NON_FUNDED_THRESHOLD"')"
                   }
                 },
+                {
+                  "type": "divider"
+                },'"$$alert_sections"',
                 {
                   "type": "context",
                   "elements": [
@@ -208,7 +212,7 @@ steps:
                 }
               ]
           }'
-        exit 2
+        exit 42
       fi
     depends_on: "notification"
     allow_dependency_failure: true

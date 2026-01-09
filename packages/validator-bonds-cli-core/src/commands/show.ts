@@ -602,12 +602,13 @@ function showEvent({
   format: FormatType
 }) {
   const { program } = getCliContext()
+  const cleanedEventData = eventData.trim().replace(/^["'"`]+|["'"`]+$/g, '')
 
   // checking if base data is decodable
   // if not, trying to decode the data without the first 8 bytes as Anchor constant CPI discriminator
-  let decodedData = program.coder.events.decode(eventData)
+  let decodedData = program.coder.events.decode(cleanedEventData)
   if (decodedData === null) {
-    const cpiData = parseAsTransactionCpiData(eventData)
+    const cpiData = parseAsTransactionCpiData(cleanedEventData)
     if (cpiData !== null) {
       decodedData = program.coder.events.decode(cpiData)
     }
