@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Parse settlement verification alerts from JSON report of 'verify-settlements' command
+# Parse settlement verification alerts from JSON report of 'verify-settlement' command
 # Usage: parse-verify-alerts.sh -f <verify-report.json> [-n <non-funded-items-to-report>] [-m <max-display-items>]
 
 

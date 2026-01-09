@@ -301,7 +301,7 @@ async fn reset_stake_accounts(
             reset_data
         } else {
             // if the stake account does not belong to a non-existent (but known from JSON) settlement, then it has to belong to an existing settlement
-            // if not than we have a dangling stake account that should be reported
+            // if not then we have a dangling stake account that should be reported
             if !staker_authority_to_existing_settlements.contains_key(&staker_authority) {
                 // -> not existing settlement for this stake account, and we know nothing is about (maybe for some reason the stake account was not reset in the past)
                 if IGNORE_DANGLING_NOT_CLOSABLE_STAKE_ACCOUNTS_LIST

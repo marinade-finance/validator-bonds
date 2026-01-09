@@ -64,7 +64,7 @@ impl VerifyAlerts {
 }
 
 /// Verify that all on-chain settlements are known in the list
-/// Returns unknown settlements (on-chain but not in listed settlements (in gcloud JSON)
+/// Returns unknown settlements - on-chain but not in listed settlements (in gcloud JSON)
 fn verify_unknown_settlements(
     onchain_settlements: &HashMap<Pubkey, Settlement>,
     listed_settlements: &[BondSettlement],
@@ -195,11 +195,10 @@ async fn real_main() -> anyhow::Result<()> {
             .collect();
 
     info!(
-        "Found {} on-chain settlements for config {} (verifying epochs {} to {})",
+        "Found {} on-chain settlements for config {} (verifying epochs {:?})",
         onchain_settlements.len(),
         config_address,
-        claiming_start_epoch,
-        current_epoch
+        claiming_epoch_range,
     );
 
     let mut alerts = VerifyAlerts::default();

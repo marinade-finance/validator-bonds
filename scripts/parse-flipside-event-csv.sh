@@ -62,7 +62,7 @@ parse_csv_line() {
         blockid=$(echo "$blockid" | tr -d '[:space:]')
         data=$(echo "$data" | tr -d '[:space:]')
         
-        EVENT=$(pnpm  run --silent -- cli show-event "$data" -f json --announcements-api-url 'non-existing')
+        EVENT=$(pnpm  run --silent -- cli show-event "$data" -f json --announcements-api-url 'DISABLED')
         [[ $? -ne 0 ]] && echo "Skipping event at '$timestamp'" && continue >&2
 
         LAMPORTS=$(echo "$EVENT" | jq '.data.fundingAmount')
