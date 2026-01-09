@@ -140,16 +140,33 @@ fn load_json_merkle_tree_settlement(
     loaded_data: &mut MerkleTreeSettlementLoadedData,
 ) -> Result<(), CliError> {
     debug!("Loading data from file: {:?}", path);
-    let json_loading_result = if let Ok(merkle_tree_collection) = read_from_json_file(path) {
-        let result = insert_json_parsed_data(loaded_data, Some(merkle_tree_collection), None);
-        debug!("Loaded merkle tree collection from file: {:?}", path);
-        result
-    } else if let Ok(settlement_collection) = read_from_json_file(path) {
-        let result = insert_json_parsed_data(loaded_data, None, Some(settlement_collection));
-        debug!("Loaded settlement collection from file: {:?}", path);
-        result
-    } else {
-        Err(anyhow!("Cannot load JSON data from file: {:?}", path))
+
+    let json_loading_result = match read_from_json_file(path) {
+        Ok(merkle_tree_collection) => {
+            debug!("Loaded merkle tree collection from file: {:?}", path);
+            insert_json_parsed_data(loaded_data, Some(merkle_tree_collection), None)
+        }
+        Err(merkle_tree_err) => {
+            debug!(
+                "Failed to load as merkle tree collection: {:?}",
+                merkle_tree_err
+            );
+
+            match read_from_json_file(path) {
+                Ok(settlement_collection) => {
+                    debug!("Loaded settlement collection from file: {:?}", path);
+                    insert_json_parsed_data(loaded_data, None, Some(settlement_collection))
+                }
+                Err(settlement_err) => Err(anyhow!(
+                    "Cannot load JSON data from file: {:?}\n  \
+                         Failed as MerkleTreeCollection: {:#}\n  \
+                         Failed as SettlementCollection: {:#}",
+                    path,
+                    merkle_tree_err,
+                    settlement_err
+                )),
+            }
+        }
     };
 
     json_loading_result.map_err(|e| {
