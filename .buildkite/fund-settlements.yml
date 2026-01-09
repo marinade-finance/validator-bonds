@@ -126,6 +126,7 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs target/release/fund-settlement .
     - chmod +x target/release/fund-settlement
     - source ./scripts/execute-handlers.sh
+    - echo $$files
     - |
       handle_command_execution "$$command_name" \
       ./target/release/fund-settlement \
@@ -155,13 +156,13 @@ steps:
     depends_on: "fund-settlement"
     allow_dependency_failure: true
 
-  - label: ":memo: Annotate Report"
+  - label: ":printer: Annotate Report"
     commands:
       - buildkite-agent artifact download "execution-report.$$command_name.*" . || true
       - latest_report=$$(ls -v execution-report.$$command_name.[0-9]* 2>/dev/null | tail -n 1)
+      - |
         if [[ ! -n "$$latest_report" || ! -f "$$latest_report" ]]; then
           echo 'No attempt report found' > "./latest-report.txt"
-          latest_report="./latest-report.txt"
         else
           cp "$$latest_report" "./latest-report.txt"
         fi
