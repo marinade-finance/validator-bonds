@@ -126,7 +126,7 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs target/release/fund-settlement .
     - chmod +x target/release/fund-settlement
     - source ./scripts/execute-handlers.sh
-    - echo $$files
+    - trap 'cat "./execution-report.$${command_name}.$$BUILDKITE_RETRY_COUNT" >> "./execution-report.$${command_name}"' EXIT
     - |
       handle_command_execution "$$command_name" \
       ./target/release/fund-settlement \
@@ -136,9 +136,6 @@ steps:
         --marinade-wallet "$$PSR_MARINADE_DAO_FUNDER_WALLET" \
         --rent-payer "$$PSR_RENT_PAYER_WALLET" \
         $$files
-    - ls -la
-    - cat "./execution-report.$${command_name}.$$BUILDKITE_RETRY_COUNT" >> "./execution-report.$${command_name}"
-    - ls -la
     key: 'fund-settlement'
     artifact_paths:
       - "./execution-report*"
@@ -170,6 +167,7 @@ steps:
         fi
       - |
         {
+          echo "### $$command_name Report (last 50 lines)"
           echo '```'
           tail -50 "./latest-report.txt"
           [ $$(wc -l < "./latest-report.txt") -gt 50 ] && echo "..."

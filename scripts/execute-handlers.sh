@@ -33,7 +33,7 @@ handle_command_execution() {
             exit 0
             ;;
         100)
-            echo "${command_name}: completed with retryable errors"
+            echo "${command_name}: completed with retry-able errors"
             exit 100
             ;;
         *)
