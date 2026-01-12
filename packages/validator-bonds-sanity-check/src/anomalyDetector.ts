@@ -114,11 +114,7 @@ function detectAnomalies({
   let processingFields: (keyof EpochData)[] = []
   switch (type) {
     case ProcessingType.BID: {
-      processingFields = [
-        'totalSettlements',
-        'totalSettlementClaimAmount',
-        'claimsCountCV',
-      ]
+      processingFields = ['totalSettlements', 'totalSettlementClaimAmount']
       break
     }
     case ProcessingType.PSR: {
@@ -283,7 +279,8 @@ export function reportAnomalies({
 
   for (const stat of stats) {
     const anomalyString = stat.isAnomaly ? '⛔' : '✅'
-    report += `[${anomalyString}] Field: ${stat.field}, Value: ${stat.currentValue.toString()}\n`
+    report += `[${anomalyString}] Field: ${stat.field}\n`
+    report += `  Value: ${stat.currentValue.toString()}\n`
     report += `  Score: ${stat.score.toString()}\n`
     report += `  ${YAML.stringify({ Stats: stat.stats }, { indent: 4 })}\n`
     if (stat.details) {
