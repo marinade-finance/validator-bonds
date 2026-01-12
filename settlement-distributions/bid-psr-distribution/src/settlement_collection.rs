@@ -4,7 +4,9 @@ use solana_sdk::pubkey::Pubkey;
 use std::fmt::Display;
 
 use {
-    merkle_tree::serde_serialize::{map_pubkey_string_conversion, pubkey_string_conversion},
+    merkle_tree::serde_serialize::{
+        map_pubkey_string_conversion, option_pubkey_string_conversion, pubkey_string_conversion,
+    },
     serde::{Deserialize, Serialize},
     std::collections::HashMap,
 };
@@ -62,6 +64,12 @@ pub struct Settlement {
     pub meta: SettlementMeta,
     #[serde(with = "pubkey_string_conversion")]
     pub vote_account: Pubkey,
+    #[serde(
+        default,
+        with = "option_pubkey_string_conversion",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub bond_account: Option<Pubkey>,
     pub claims_count: usize,
     pub claims_amount: u64,
     pub claims: Vec<SettlementClaim>,

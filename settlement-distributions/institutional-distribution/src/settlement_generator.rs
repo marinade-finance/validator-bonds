@@ -9,6 +9,7 @@ use bid_psr_distribution::stake_meta_index::StakeMetaIndex;
 use bid_psr_distribution::utils::sort_claims_deterministically;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
+use validator_bonds::state::bond::find_bond_address;
 
 pub fn generate_institutional_settlement_collection(
     config: &InstitutionalDistributionConfig,
@@ -127,14 +128,17 @@ fn generate_institutional_settlements(
     // vote account -> Settlement
     let mut settlements: HashMap<Pubkey, Settlement> = HashMap::new();
 
+    let validator_bonds_config = config.validator_bonds_config;
     let payouts = merge_payouts(config, institutional_payout, stake_meta_index);
     for payout in payouts {
+        let (bond_account, _) = find_bond_address(&validator_bonds_config, &payout.vote_account);
         let settlement = settlements
             .entry(payout.vote_account)
             .or_insert(Settlement {
                 reason: config.settlement_reason.clone(),
                 meta: config.settlement_meta.clone(),
                 vote_account: payout.vote_account,
+                bond_account: Some(bond_account),
                 claims_count: 0,
                 claims_amount: 0,
                 claims: vec![],
@@ -200,6 +204,7 @@ mod tests {
         settlement_meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
+        validator_bonds_config: Pubkey::new_from_array([0; 32]),
         marinade_stake_authority: TEST_PUBKEY_MARINADE,
         marinade_withdraw_authority: TEST_PUBKEY_MARINADE,
         dao_fee_split_share_bps: 2500,

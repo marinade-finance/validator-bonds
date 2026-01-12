@@ -82,14 +82,13 @@ mod tests {
             rewards_by_vote_account: rewards_map,
         };
 
-        let settlement_config = create_test_settlement_config(950, 500);
+        let settlement_config = create_test_settlement_config(950, 500, None);
 
         // -- TEST
         let settlements = generate_bid_settlements(
             &stake_meta_index,
             &vec![sam_meta],
             &rewards_collection,
-            &|_| true,
             &settlement_config,
         );
 
@@ -181,13 +180,12 @@ mod tests {
             rewards_by_vote_account: rewards_map,
         };
 
-        let settlement_config = create_test_settlement_config(950, 500);
+        let settlement_config = create_test_settlement_config(950, 500, None);
 
         let settlements = generate_bid_settlements(
             &stake_meta_index,
             &vec![sam_meta],
             &rewards_collection,
-            &|_| true,
             &settlement_config,
         );
 
@@ -315,14 +313,14 @@ mod tests {
             rewards_by_vote_account: rewards_map,
         };
 
-        let settlement_config = create_test_settlement_config(20, 500);
+        let settlement_config =
+            create_test_settlement_config(20, 500, Some(vec![TEST_PUBKEY_MARINADE]));
 
         // -- TEST
         let settlements = generate_bid_settlements(
             &stake_meta_index,
             &vec![sam_meta, sam_meta_3],
             &rewards_collection,
-            &|s| s == &TEST_PUBKEY_MARINADE,
             &settlement_config,
         );
 
@@ -492,7 +490,7 @@ mod tests {
             rewards_by_vote_account: rewards_map3,
         };
 
-        let settlement_config = create_test_settlement_config(950, 500);
+        let settlement_config = create_test_settlement_config(950, 500, None);
 
         let commissions = CommissionParams::new(0.10, 0.05).as_commission_details();
 
@@ -512,7 +510,6 @@ mod tests {
             &stake_meta_index,
             &vec![sam_meta1],
             &rewards_collection1,
-            &|_| true,
             &settlement_config,
         );
 
@@ -520,7 +517,6 @@ mod tests {
             &stake_meta_index,
             &vec![sam_meta2],
             &rewards_collection2,
-            &|_| true,
             &settlement_config,
         );
 
@@ -528,7 +524,6 @@ mod tests {
             &stake_meta_index,
             &vec![sam_meta3],
             &rewards_collection3,
-            &|_| true,
             &settlement_config,
         );
 
@@ -574,14 +569,10 @@ mod tests {
             .blacklist_penalty(0.15)
             .build();
 
-        let settlement_config = create_test_settlement_config(950, 500);
+        let settlement_config = create_test_settlement_config(950, 500, None);
 
-        let settlements = generate_penalty_settlements(
-            &stake_meta_index,
-            &vec![sam_meta],
-            &|_| true,
-            &settlement_config,
-        );
+        let settlements =
+            generate_penalty_settlements(&stake_meta_index, &vec![sam_meta], &settlement_config);
 
         let has_bid_penalty = settlements
             .iter()
@@ -639,13 +630,12 @@ mod tests {
             rewards_by_vote_account: rewards_map,
         };
 
-        let settlement_config = create_test_settlement_config(950, 500);
+        let settlement_config = create_test_settlement_config(950, 500, None);
 
         let settlements = generate_bid_settlements(
             &stake_meta_index,
             &vec![sam_meta],
             &rewards_collection,
-            &|_| true,
             &settlement_config,
         );
 
@@ -849,17 +839,20 @@ mod tests {
     fn create_test_settlement_config(
         marinade_fee_bps: u64,
         dao_fee_split_share_bps: u64,
+        whitelist_stake_authorities: Option<Vec<Pubkey>>,
     ) -> SettlementConfig {
         SettlementConfig::Bidding {
             meta: SettlementMeta {
                 funder: SettlementFunder::ValidatorBond,
             },
+            validator_bonds_config: Pubkey::default(),
             marinade_fee_bps,
             marinade_stake_authority: TEST_PUBKEY_MARINADE,
             marinade_withdraw_authority: TEST_PUBKEY_MARINADE,
             dao_fee_split_share_bps,
             dao_stake_authority: TEST_PUBKEY_DAO,
             dao_withdraw_authority: TEST_PUBKEY_DAO,
+            whitelist_stake_authorities,
         }
     }
 
@@ -1054,14 +1047,14 @@ mod tests {
             rewards_by_vote_account: rewards_map,
         };
 
-        let settlement_config = create_test_settlement_config(950, 500);
+        let settlement_config =
+            create_test_settlement_config(950, 500, Some(vec![TEST_PUBKEY_MARINADE]));
 
         // Generate settlements using JSON-loaded sam_meta
         let settlements = generate_bid_settlements(
             &stake_meta_index,
             &sam_metas,
             &rewards_collection,
-            &|s| s == &TEST_PUBKEY_MARINADE,
             &settlement_config,
         );
 

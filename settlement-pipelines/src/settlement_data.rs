@@ -122,6 +122,14 @@ pub fn parse_settlements_from_json(
                         &merkle_root.to_bytes(),
                         epoch,
                     );
+                if epoch_override.is_none() {
+                    // verify settlement info created at the preparation step
+                    if let (Some(settlement), Some(bond)) =
+                        (&merkle_tree.settlement_account, &merkle_tree.bond_account) {
+                        assert_eq!(settlement_address, *settlement);
+                        assert_eq!(bond_address, *bond);
+                    }
+                }
                 let settlement_record = SettlementRecord {
                     epoch,
                     vote_account_address,

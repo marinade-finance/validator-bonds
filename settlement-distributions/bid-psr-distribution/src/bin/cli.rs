@@ -1,7 +1,5 @@
 use bid_psr_distribution::revenue_expectation_meta::RevenueExpectationMetaCollection;
-use bid_psr_distribution::settlement_config::{
-    no_filter, stake_authorities_filter, SettlementConfig,
-};
+use bid_psr_distribution::settlement_config::SettlementConfig;
 use bid_psr_distribution::settlement_generator::generate_settlement_collection;
 use bid_psr_distribution::stake_meta_index::StakeMetaIndex;
 use bid_psr_distribution::utils::{file_error, read_from_yaml_file};
@@ -15,7 +13,6 @@ use snapshot_parser_validator_cli::{
     stake_meta::StakeMetaCollection, validator_meta::ValidatorMetaCollection,
 };
 use solana_sdk::pubkey::Pubkey;
-use std::collections::HashSet;
 use {clap::Parser, log::info};
 
 #[derive(Parser, Debug)]
@@ -47,8 +44,14 @@ struct Args {
     #[arg(long, env)]
     output_merkle_tree_collection: String,
 
+    #[arg(long)]
+    output_config: String,
+
     #[arg(long, env, value_delimiter = ',')]
     whitelist_stake_authority: Option<Vec<Pubkey>>,
+
+    #[arg(long, env)]
+    validator_bonds_config: Pubkey,
 
     #[arg(long, env)]
     settlement_config: String,
@@ -62,18 +65,16 @@ fn main() -> anyhow::Result<()> {
     let args: Args = Args::parse();
 
     info!(
-        "Loading settlement configuration: {:?}",
-        args.settlement_config
+        "Loading settlement configuration: {:?}, whitelist stake authorities: {:?}",
+        args.settlement_config, args.whitelist_stake_authority
     );
     let settlement_configs: Vec<SettlementConfig> = read_from_yaml_file(&args.settlement_config)
         .map_err(file_error("settlement-config", &args.settlement_config))?;
-
-    if let Some(whitelisted_stake_authorities) = &args.whitelist_stake_authority {
-        info!(
-            "Using whitelist on stake authorities: {:?}",
-            whitelisted_stake_authorities
-        );
-    }
+    let bid_psr_config = bid_psr_distribution::settlement_config::BidPSRConfig {
+        validator_bonds_config: args.validator_bonds_config,
+        whitelist_stake_authorities: args.whitelist_stake_authority.clone(),
+        settlement_configs: settlement_configs.clone(),
+    };
 
     info!("Loading validator meta collection...");
     let validator_meta_collection: ValidatorMetaCollection =
@@ -82,7 +83,7 @@ fn main() -> anyhow::Result<()> {
             &args.validator_meta_collection,
         ))?;
 
-    info!("Loading revenue expecation meta collection...");
+    info!("Loading revenue expectation meta collection...");
     let revenue_expectation_meta_collection: RevenueExpectationMetaCollection =
         read_from_json_file(&args.revenue_expectation_collection).map_err(file_error(
             "revenue-expectation-collection",
@@ -111,16 +112,6 @@ fn main() -> anyhow::Result<()> {
             &args.stake_meta_collection,
         ))?;
 
-    info!(
-        "Building stake authorities filter: {:?}",
-        args.whitelist_stake_authority
-    );
-    let stake_authority_filter =
-        args.whitelist_stake_authority
-            .map_or(no_filter(), |whitelisted_stake_authorities| {
-                stake_authorities_filter(HashSet::from_iter(whitelisted_stake_authorities))
-            });
-
     info!("Building stake meta collection index...");
     let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
 
@@ -128,8 +119,7 @@ fn main() -> anyhow::Result<()> {
     let settlement_collection = generate_settlement_collection(
         &stake_meta_index,
         &protected_event_collection,
-        &stake_authority_filter,
-        &settlement_configs,
+        &bid_psr_config,
     );
     write_to_json_file(&settlement_collection, &args.output_settlement_collection).map_err(
         file_error(
@@ -146,6 +136,10 @@ fn main() -> anyhow::Result<()> {
             &args.output_merkle_tree_collection,
         ),
     )?;
+
+    info!("Writing settlement config to {}", &args.output_config);
+    write_to_json_file(&bid_psr_config, &args.output_config)
+        .map_err(file_error("output-config", &args.output_config))?;
 
     info!("Finished.");
     Ok(())

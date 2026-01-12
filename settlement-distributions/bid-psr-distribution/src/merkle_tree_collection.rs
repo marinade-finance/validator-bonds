@@ -2,9 +2,14 @@ use crate::settlement_collection::SettlementCollection;
 use log::info;
 use solana_sdk::pubkey::Pubkey;
 
+use validator_bonds::state::settlement::find_settlement_address;
 use {
     crate::settlement_collection::{Settlement, SettlementClaim},
-    merkle_tree::{psr_claim::TreeNode, serde_serialize::pubkey_string_conversion, MerkleTree},
+    merkle_tree::{
+        psr_claim::TreeNode,
+        serde_serialize::{option_pubkey_string_conversion, pubkey_string_conversion},
+        MerkleTree,
+    },
     serde::{Deserialize, Serialize},
     solana_sdk::hash::Hash,
 };
@@ -16,6 +21,18 @@ pub struct MerkleTreeMeta {
     pub max_total_claims: usize,
     #[serde(with = "pubkey_string_conversion")]
     pub vote_account: Pubkey,
+    #[serde(
+        default,
+        with = "option_pubkey_string_conversion",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub bond_account: Option<Pubkey>,
+    #[serde(
+        default,
+        with = "option_pubkey_string_conversion",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub settlement_account: Option<Pubkey>,
     pub tree_nodes: Vec<TreeNode>,
 }
 
@@ -26,7 +43,10 @@ pub struct MerkleTreeCollection {
     pub merkle_trees: Vec<MerkleTreeMeta>,
 }
 
-pub fn generate_merkle_tree_meta(settlement: &Settlement) -> anyhow::Result<MerkleTreeMeta> {
+pub fn generate_merkle_tree_meta(
+    settlement: &Settlement,
+    epoch: u64,
+) -> anyhow::Result<MerkleTreeMeta> {
     let vote_account = settlement.vote_account;
     info!(
         "Generation merkle tree settlement of validator: {vote_account}, funder: {:?}",
@@ -75,12 +95,19 @@ pub fn generate_merkle_tree_meta(settlement: &Settlement) -> anyhow::Result<Merk
         tree_node.proof = Some(get_proof(&merkle_tree, i));
     }
 
+    let merkle_root = merkle_tree.get_root().cloned();
+    let settlement_account = settlement
+        .bond_account
+        .zip(merkle_root)
+        .map(|(bond, root)| find_settlement_address(&bond, &root.to_bytes(), epoch).0);
     Ok(MerkleTreeMeta {
-        merkle_root: merkle_tree.get_root().cloned(),
+        merkle_root,
         max_total_claim_sum,
         max_total_claims,
         tree_nodes,
         vote_account,
+        bond_account: settlement.bond_account,
+        settlement_account,
     })
 }
 
@@ -89,8 +116,9 @@ pub fn generate_merkle_tree_collection(
 ) -> anyhow::Result<MerkleTreeCollection> {
     let mut merkle_trees = vec![];
 
+    let epoch = settlement_collection.epoch;
     for settlement in settlement_collection.settlements.iter() {
-        merkle_trees.push(generate_merkle_tree_meta(settlement)?);
+        merkle_trees.push(generate_merkle_tree_meta(settlement, epoch)?);
     }
     info!(
         "Generated {} merkle trees for epoch {}",
@@ -99,7 +127,7 @@ pub fn generate_merkle_tree_collection(
     );
 
     Ok(MerkleTreeCollection {
-        epoch: settlement_collection.epoch,
+        epoch,
         slot: settlement_collection.slot,
         merkle_trees,
     })
