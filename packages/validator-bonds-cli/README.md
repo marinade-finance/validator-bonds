@@ -231,7 +231,9 @@ validator-bonds -um configure-bond --help
   of MEV rewards the validator keeps. This re-declares the on-chain MEV value for use in the Marinade SAM auction.
 - `--block-commission <bps>`: Block rewards commission (may be negative, max 100%/10,000 bps), specifying
   the portion of block rewards the validator keeps. The remainder is shared with stakers through bond claims.
-- `--max-stake-wanted <lamports>` - Maximum stake amount you want delegated
+- `--max-stake-wanted <lamports>` - Sets the maximum total stake this validator wants to receive through the auction.
+  This parameter only prevents the validator from receiving _additional_ stake beyond the specified limit. It does **not** reduce or remove stake that has already been delegated.
+  **To reduce your current stake**: You must un-fund your bond to exit the auction. After exiting, you can rejoin with a lower `max-stake-wanted` value if desired.
 
 **Auction Bidding Notes:**
 
@@ -356,7 +358,7 @@ or SPL token holder must sign the transaction.
   - Percentage of block rewards you keep
   - Remainder is distributed to stakers through bond settlements
 - `--max-stake-wanted <lamports>` - Maximum stake to accept
-  - Caps the amount of stake Marinade can delegate to you
+  - Caps the total stake Marinade can delegate to you; does not reduce existing stake
 
 > **NOTE:** Configuration data may be stored in separate PDA accounts linked to the bond.
 > In such cases, **a new PDA account** may be created when configuring the bond
