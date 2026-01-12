@@ -1,8 +1,11 @@
 use crate::settlement_collection::SettlementClaim;
+use log::info;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{de::DeserializeOwned, Serialize};
+use solana_sdk::pubkey::Pubkey;
+use std::collections::HashSet;
 use std::path::Path;
 use std::{
     fs::File,
@@ -84,4 +87,23 @@ pub fn sort_claims_deterministically(claims: &mut [SettlementClaim]) {
             claim.claim_amount,
         )
     });
+}
+
+fn stake_authorities_filter(whitelist: HashSet<Pubkey>) -> Box<dyn Fn(&Pubkey) -> bool> {
+    Box::new(move |pubkey| whitelist.contains(pubkey))
+}
+
+fn no_filter() -> Box<dyn Fn(&Pubkey) -> bool> {
+    Box::new(|_| true)
+}
+
+/// Returns a filter function for stake authorities based on an optional whitelist.
+/// For `None` filter allows all stake authorities, if `Some` only those in the whitelist.
+pub fn stake_authority_filter(
+    optional_filter: Option<Vec<Pubkey>>,
+) -> Box<dyn Fn(&Pubkey) -> bool> {
+    info!("Building stake authorities filter: {:?}", optional_filter);
+    optional_filter.map_or(no_filter(), |filter| {
+        stake_authorities_filter(HashSet::from_iter(filter))
+    })
 }

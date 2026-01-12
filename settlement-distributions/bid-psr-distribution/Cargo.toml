@@ -23,3 +23,4 @@ snapshot-parser-validator-cli = { workspace = true }
 solana-sdk = { workspace = true }
 tokio = { workspace = true }
 utoipa = { workspace = true }
+validator-bonds = { workspace = true }

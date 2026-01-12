@@ -14,6 +14,7 @@ env:
   DAO_FEE_SPLIT_SHARE_BPS: 10000
   DAO_FEE_STAKE_AUTHORITY: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
   DAO_FEE_WITHDRAW_AUTHORITY: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
+  VALIDATOR_BONDS_CONFIG: VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE
   INSTITUTIONAL_URL: 'https://institutional-staking.marinade.finance/v1/validators'
 
 steps:
@@ -104,6 +105,7 @@ steps:
         --dao-fee-split-share-bps ${DAO_FEE_SPLIT_SHARE_BPS} \
         --dao-fee-stake-authority ${DAO_FEE_STAKE_AUTHORITY} \
         --dao-fee-withdraw-authority ${DAO_FEE_WITHDRAW_AUTHORITY} \
+        --validator-bonds-config ${VALIDATOR_BONDS_CONFIG} \
         --output-settlement-collection "./${CLAIM_TYPE}-settlements.json" \
         --output-merkle-tree-collection "./${CLAIM_TYPE}-settlement-merkle-trees.json"
     artifact_paths:

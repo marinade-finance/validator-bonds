@@ -15,12 +15,12 @@ use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 use std::fmt;
 use std::ops::Mul;
+use validator_bonds::state::bond::find_bond_address;
 
 pub fn generate_settlements_collection(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &Vec<ValidatorSamMeta>,
     rewards_collection: &RewardsCollection,
-    stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     settlement_config: &SettlementConfig,
 ) -> SettlementCollection {
     assert!(
@@ -34,16 +34,11 @@ pub fn generate_settlements_collection(
         stake_meta_index,
         sam_validator_metas,
         rewards_collection,
-        &stake_authority_filter,
         settlement_config,
     );
 
-    let penalty_settlements = generate_penalty_settlements(
-        stake_meta_index,
-        sam_validator_metas,
-        &stake_authority_filter,
-        settlement_config,
-    );
+    let penalty_settlements =
+        generate_penalty_settlements(stake_meta_index, sam_validator_metas, settlement_config);
 
     let mut settlements = [bid_settlements, penalty_settlements].concat();
     settlements.sort_by_key(|s| (s.reason.to_string(),));
@@ -138,12 +133,12 @@ pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &Vec<ValidatorSamMeta>,
     rewards_collection: &RewardsCollection,
-    stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     settlement_config: &SettlementConfig,
 ) -> Vec<Settlement> {
     let epoch = stake_meta_index.stake_meta_collection.epoch;
     info!("Generating bid settlements in epoch {epoch}...");
 
+    let stake_authority_filter = settlement_config.whitelist_stake_authorities_filter();
     let fee_percentages = settlement_config.fee_percentages();
     let settlement_meta_funder = settlement_config.meta().clone();
     let mut settlement_claim_collections = vec![];
@@ -152,6 +147,10 @@ pub fn generate_bid_settlements(
         if let Some(grouped_stake_metas) =
             stake_meta_index.iter_grouped_stake_metas(&validator.vote_account)
         {
+            let (bond_account, _) = find_bond_address(
+                settlement_config.validator_bonds_config(),
+                &validator.vote_account,
+            );
             let (total_active_stake, total_marinade_active_stake): (u64, u64) = stake_meta_index
                 .iter_grouped_stake_metas(&validator.vote_account)
                 .expect("No items from iter_grouped_stake_metas")
@@ -465,6 +464,7 @@ pub fn generate_bid_settlements(
                 claims_amount,
                 SettlementReason::Bidding,
                 validator.vote_account,
+                bond_account,
                 &settlement_meta_funder,
                 Some(details_json),
             );
@@ -476,11 +476,11 @@ pub fn generate_bid_settlements(
 pub fn generate_penalty_settlements(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &Vec<ValidatorSamMeta>,
-    stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     settlement_config: &SettlementConfig,
 ) -> Vec<Settlement> {
     info!("Generating penalty settlements...");
 
+    let stake_authority_filter = settlement_config.whitelist_stake_authorities_filter();
     let fee_percentages = settlement_config.fee_percentages();
     let settlement_meta_funder = settlement_config.meta().clone();
     let mut penalty_settlement_collection = vec![];
@@ -489,6 +489,11 @@ pub fn generate_penalty_settlements(
         if let Some(grouped_stake_metas) =
             stake_meta_index.iter_grouped_stake_metas(&validator.vote_account)
         {
+            let (bond_account, _) = find_bond_address(
+                settlement_config.validator_bonds_config(),
+                &validator.vote_account,
+            );
+
             let bid_too_low_penalty =
                 validator.rev_share.bid_too_low_penalty_pmpe / Decimal::ONE_THOUSAND;
             let blacklist_penalty =
@@ -653,6 +658,7 @@ pub fn generate_penalty_settlements(
                     claimed_bid_too_low_penalty_amount,
                     SettlementReason::BidTooLowPenalty,
                     validator.vote_account,
+                    bond_account,
                     &settlement_meta_funder,
                     Some(details_json),
                 );
@@ -676,6 +682,7 @@ pub fn generate_penalty_settlements(
                     claimed_blacklist_penalty_amount,
                     SettlementReason::BlacklistPenalty,
                     validator.vote_account,
+                    bond_account,
                     &settlement_meta_funder,
                     Some(details_json),
                 );
@@ -741,12 +748,14 @@ fn get_fee_deposit_stake_accounts(
 }
 
 /// Adds a settlement to the collection if any claims are present, placing it in a deterministic order
+#[allow(clippy::too_many_arguments)]
 fn add_to_settlement_collection(
     settlement_collections: &mut Vec<Settlement>,
     mut claims: Vec<SettlementClaim>,
     claims_amount: u64,
     reason: SettlementReason,
     vote_account: Pubkey,
+    bond_account: Pubkey,
     settlement_meta: &SettlementMeta,
     details: Option<serde_json::Value>,
 ) {
@@ -756,6 +765,7 @@ fn add_to_settlement_collection(
             reason,
             meta: settlement_meta.clone(),
             vote_account,
+            bond_account: Some(bond_account),
             claims_count: claims.len(),
             claims_amount,
             claims,

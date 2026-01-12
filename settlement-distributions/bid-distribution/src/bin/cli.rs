@@ -5,8 +5,6 @@ use bid_psr_distribution::merkle_tree_collection::generate_merkle_tree_collectio
 use bid_psr_distribution::rewards::load_rewards_from_directory;
 use bid_psr_distribution::settlement_collection::SettlementFunder;
 use bid_psr_distribution::settlement_collection::SettlementMeta;
-use bid_psr_distribution::settlement_config::no_filter;
-use bid_psr_distribution::settlement_config::stake_authorities_filter;
 use bid_psr_distribution::stake_meta_index::StakeMetaIndex;
 use bid_psr_distribution::utils::{file_error, read_from_json_file, write_to_json_file};
 use env_logger::{Builder, Env};
@@ -34,6 +32,9 @@ struct Args {
     #[arg(long, env)]
     output_merkle_tree_collection: String,
 
+    #[arg(long)]
+    output_config: String,
+
     // Total Marinade (distributor) fee split between Marinade and DAO
     #[arg(long, env)]
     marinade_fee_bps: u64,
@@ -56,6 +57,9 @@ struct Args {
 
     #[arg(long, env, value_delimiter = ',')]
     whitelist_stake_authority: Option<Vec<Pubkey>>,
+
+    #[arg(long, env)]
+    validator_bonds_config: Pubkey,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -66,11 +70,12 @@ fn main() -> anyhow::Result<()> {
     let args: Args = Args::parse();
 
     info!(
-        "Marinade fee bps {:?} and DAO fee split share bps {:?} loaded",
-        &args.marinade_fee_bps, &args.dao_fee_split_share_bps
+        "Marinade fee bps {:?}, DAO fee split share bps {:?}, whitelist stake authorities: {:?}",
+        &args.marinade_fee_bps, &args.dao_fee_split_share_bps, &args.whitelist_stake_authority
     );
 
     let settlement_config = SettlementConfig::Bidding {
+        validator_bonds_config: args.validator_bonds_config,
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
@@ -80,10 +85,11 @@ fn main() -> anyhow::Result<()> {
         dao_fee_split_share_bps: args.dao_fee_split_share_bps,
         dao_stake_authority: args.dao_fee_stake_authority,
         dao_withdraw_authority: args.dao_fee_withdraw_authority,
+        whitelist_stake_authorities: args.whitelist_stake_authority.clone(),
     };
 
     info!("Loading SAM scoring meta collection...");
-    let validator_sam_metas: Vec<ValidatorSamMeta> = read_from_json_file(&args.sam_meta_collection)
+    let sam_validator_metas: Vec<ValidatorSamMeta> = read_from_json_file(&args.sam_meta_collection)
         .map_err(file_error("sam-meta-collection", &args.sam_meta_collection))?;
 
     info!("Loading stake meta collection...");
@@ -114,7 +120,7 @@ fn main() -> anyhow::Result<()> {
         rewards_epoch,
         stake_meta_epoch,
     );
-    let metas_epochs: HashSet<u64> = validator_sam_metas
+    let metas_epochs: HashSet<u64> = sam_validator_metas
         .iter()
         .map(|meta| meta.epoch as u64)
         .collect();
@@ -126,28 +132,11 @@ fn main() -> anyhow::Result<()> {
         ),
     );
 
-    if let Some(whitelisted_stake_authorities) = &args.whitelist_stake_authority {
-        info!(
-            "Using whitelist on stake authorities: {:?}",
-            whitelisted_stake_authorities
-        );
-    }
-
-    info!(
-        "Building stake authorities filter: {:?}",
-        args.whitelist_stake_authority
-    );
-    let stake_authority_filter =
-        args.whitelist_stake_authority
-            .map_or(no_filter(), |whitelisted_stake_authorities| {
-                stake_authorities_filter(HashSet::from_iter(whitelisted_stake_authorities))
-            });
     info!("Generating settlement collection...");
     let settlement_collection = generate_settlements_collection(
         &stake_meta_index,
-        &validator_sam_metas,
+        &sam_validator_metas,
         &rewards_collection,
-        &stake_authority_filter,
         &settlement_config,
     );
     write_to_json_file(&settlement_collection, &args.output_settlement_collection).map_err(
@@ -165,6 +154,10 @@ fn main() -> anyhow::Result<()> {
             &args.output_merkle_tree_collection,
         ),
     )?;
+
+    info!("Writing settlement config to {}", &args.output_config);
+    write_to_json_file(&settlement_config, &args.output_config)
+        .map_err(file_error("output-config", &args.output_config))?;
 
     info!("Finished.");
     Ok(())

@@ -17,6 +17,7 @@ env:
   DAO_FEE_STAKE_AUTHORITY: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
   DAO_FEE_WITHDRAW_AUTHORITY: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
   WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
+  VALIDATOR_BONDS_CONFIG: vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU
 
 steps:
   - label: ":hammer_and_wrench: :rust: Build"
@@ -134,8 +135,10 @@ steps:
         --dao-fee-split-share-bps ${DAO_FEE_SPLIT_SHARE_BPS} \
         --dao-fee-stake-authority ${DAO_FEE_STAKE_AUTHORITY} \
         --dao-fee-withdraw-authority ${DAO_FEE_WITHDRAW_AUTHORITY} \
+        --validator-bonds-config ${VALIDATOR_BONDS_CONFIG} \
         --output-settlement-collection "./${CLAIM_TYPE}-settlements.json" \
-        --output-merkle-tree-collection "./${CLAIM_TYPE}-settlement-merkle-trees.json"
+        --output-merkle-tree-collection "./${CLAIM_TYPE}-settlement-merkle-trees.json" \
+        --output-config "./${CLAIM_TYPE}-config.json"
     artifact_paths:
     - "./${CLAIM_TYPE}*.json"
 
@@ -156,9 +159,11 @@ steps:
     - epoch=$(buildkite-agent meta-data get epoch)
     - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .
     - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlement-merkle-trees.json .
+    - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-config.json .
     - buildkite-agent artifact download --include-retried-jobs discord-public-report.txt .
     - gcloud storage cp "./${CLAIM_TYPE}-settlements.json" "$gs_bucket/$$epoch/"
     - gcloud storage cp "./${CLAIM_TYPE}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./${CLAIM_TYPE}-config.json" "$gs_bucket/$$epoch/"
     - gcloud storage cp "./discord-public-report.txt" "$gs_bucket/$$epoch/${CLAIM_TYPE}-discord-public-report.txt"
 
   - wait: ~
