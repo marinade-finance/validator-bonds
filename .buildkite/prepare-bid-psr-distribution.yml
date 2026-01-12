@@ -49,7 +49,7 @@ steps:
     commands:
       - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
       - |
-        cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
+        cat <<- EOF | buildkite-agent annotate --priority 6 --style info --context "general-info"
         ### Retry environment variables
         If you need to retry the build, use the following parameters:
 

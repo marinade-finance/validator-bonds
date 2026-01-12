@@ -4,6 +4,7 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   SLACK_API: https://slack.com/api/chat.postMessage
+  command_name: 'init-settlement'
 
 steps:
   - input: "What is the epoch to init settlements for?"
@@ -55,7 +56,7 @@ steps:
       - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
       - slack_feed=$(buildkite-agent meta-data get slack_feed)
       - |
-        cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
+        cat <<- EOF | buildkite-agent annotate --priority 6 --style info --context "general-info"
         ### Retry environment variables
         If you need to retry the build, use the following parameters:
 
@@ -147,18 +148,13 @@ steps:
     commands:
     - source "$HOME/.cargo/env"
     - epoch=$(buildkite-agent meta-data get epoch)
-    - prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))
-    - command_name='init-settlement'
-    - buildkite-agent artifact download --include-retried-jobs execution-report.$$command_name.$$prior_build_number . || true
-    - |
-      cp "execution-report.$$command_name.$$prior_build_number" "execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT" || true
-      rm -f "execution-report.$$command_name.$$prior_build_number"
-      echo "#ATTEMPT INIT SETTLEMENTS $$BUILDKITE_RETRY_COUNT" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
+    - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || true
     - buildkite-agent artifact download --include-retried-jobs target/release/init-settlement .
     - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
     - buildkite-agent artifact download --include-retried-jobs settlements.json .
     - chmod +x target/release/init-settlement
     - source ./scripts/execute-handlers.sh
+    - trap 'cat "./execution-report.$${command_name}.$$BUILDKITE_RETRY_COUNT" >> "./execution-report.$${command_name}"' EXIT
     - |
       handle_command_execution "$$command_name" \
       ./target/release/init-settlement \
@@ -171,7 +167,7 @@ steps:
         --epoch "$$epoch"
     key: 'init-settlement'
     artifact_paths:
-    - "./execution-report.*"
+      - "./execution-report*"
     retry:
       automatic:
         - exit_status: 100
@@ -179,15 +175,22 @@ steps:
 
   - label: ":memo: Notification setup: Init Settlements"
     commands:
-     - mkdir ./reports
-     - command_name='init-settlement'
-     - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name.*" ./reports/ || echo "No report ERROR" > ./reports/execution-report.$$command_name.error
-     - report_path="./reports/$(ls -v1 reports/ | tail -n 1)"
-     - cp "$$report_path" ./init-report.txt
-     - buildkite-agent meta-data set --redacted-vars='' attempts_count "$(grep -c ATTEMPT ./init-report.txt)"
+     - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || echo "No report ERROR" > ./execution-report.$$command_name
+     - cp "./execution-report.$$command_name" "./cumulative-report.txt"
+     - buildkite-agent meta-data set --redacted-vars="" attempts_count "$(grep -c ATTEMPT ./cumulative-report.txt)"
     artifact_paths:
-    - "./init-report.txt"
+      - "./cumulative-report.txt"
     key: 'notification-setup-init'
+    depends_on: "init-settlement"
+    allow_dependency_failure: true
+
+  - label: ":printer: Annotate Report"
+    commands:
+      - source ./scripts/execute-handlers.sh
+      - annotate_execution_report "$$command_name" 20
+    artifact_paths:
+      - "./latest-report.txt"
+    key: 'annotate-report-init'
     depends_on: "init-settlement"
     allow_dependency_failure: true
 
@@ -197,18 +200,15 @@ steps:
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - claim_type=$(buildkite-agent meta-data get claim_type)
-    - buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt
-    - gcloud storage cp ./init-report.txt "$gs_bucket/$$epoch/buildkite/$${claim_type}-init-settlement-report.$(date +%s).txt"
+    - buildkite-agent artifact download cumulative-report.txt . || echo "UNKNOWN ERROR" > ./cumulative-report.txt
+    - gcloud storage cp ./cumulative-report.txt "$gs_bucket/$$epoch/buildkite/$${claim_type}-$${command_name}-report.$(date +%s).txt"
     depends_on: "notification-setup-init"
     allow_dependency_failure: true
 
   - label: ":mega: Notification :fast_forward: Monitoring Initialize Settlements"
     commands:
-    - buildkite-agent artifact download --include-retried-jobs init-report.txt . || echo "UNKNOWN ERROR" > init-report.txt
-    - cat ./init-report.txt
-    - echo "--------------------------------------------"
     - source ./scripts/execute-handlers.sh
-    - check_command_execution_status "init-settlement" || true
+    - check_command_execution_status "$$command_name" || true
     - epoch=$(buildkite-agent meta-data get epoch)
     - slack_feed=$(buildkite-agent meta-data get slack_feed)
     - attempts_count=$(buildkite-agent meta-data get attempts_count || echo "UNKNOWN")
