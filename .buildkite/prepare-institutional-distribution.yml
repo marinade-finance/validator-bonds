@@ -140,63 +140,63 @@ steps:
 
   - wait: ~
 
-  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Prepare Bid Distribution"
-    commands:
-      - epoch=$(buildkite-agent meta-data get epoch)
-      - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .
-      - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlement-merkle-trees.json .
-      - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-config.json .
-      - buildkite-agent artifact download --include-retried-jobs discord-public-report.txt .
-      - gcloud storage cp "./${CLAIM_TYPE}-settlements.json" "$gs_bucket/$$epoch/"
-      - gcloud storage cp "./${CLAIM_TYPE}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
-      - gcloud storage cp "./${CLAIM_TYPE}-config.json" "$gs_bucket/$$epoch/"
-      - gcloud storage cp "./discord-public-report.txt" "$gs_bucket/$$epoch/${CLAIM_TYPE}-discord-public-report.txt"
+  # - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Prepare Bid Distribution"
+  #   commands:
+  #     - epoch=$(buildkite-agent meta-data get epoch)
+  #     - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .
+  #     - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlement-merkle-trees.json .
+  #     - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-config.json .
+  #     - buildkite-agent artifact download --include-retried-jobs discord-public-report.txt .
+  #     - gcloud storage cp "./${CLAIM_TYPE}-settlements.json" "$gs_bucket/$$epoch/"
+  #     - gcloud storage cp "./${CLAIM_TYPE}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
+  #     - gcloud storage cp "./${CLAIM_TYPE}-config.json" "$gs_bucket/$$epoch/"
+  #     - gcloud storage cp "./discord-public-report.txt" "$gs_bucket/$$epoch/${CLAIM_TYPE}-discord-public-report.txt"
 
-  - label: ":mega: Notification"
-    commands:
-    - buildkite-agent artifact download --include-retried-jobs institutional-payouts-summary.txt .
-    - institutional_payouts_summary=$(cat ./institutional-payouts-summary.txt)
-    - |
-      epoch=$(buildkite-agent meta-data get epoch)
-      curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
-        -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
-          "channel": "'"$SLACK_FEED"'",
-          "attachments": [
-            {
-              "color": "#8000ff",
-              "title": "Claims for Validator Bonds ('"${CLAIM_TYPE}"') generated ('"$$epoch"').",
-              "title_link": "'"$$BUILDKITE_BUILD_URL/#$${BUILDKITE_JOB_ID}"'",
-              "text": "'"$$institutional_payouts_summary"'",
-              "footer": "<'"$$BUILDKITE_BUILD_URL/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>"
-            }
-          ]
-      }'
-    if: "build.env('NOTIFY_FEED') == 'true'"
+  # - label: ":mega: Notification"
+  #   commands:
+  #   - buildkite-agent artifact download --include-retried-jobs institutional-payouts-summary.txt .
+  #   - institutional_payouts_summary=$(cat ./institutional-payouts-summary.txt)
+  #   - |
+  #     epoch=$(buildkite-agent meta-data get epoch)
+  #     curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
+  #       -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
+  #         "channel": "'"$SLACK_FEED"'",
+  #         "attachments": [
+  #           {
+  #             "color": "#8000ff",
+  #             "title": "Claims for Validator Bonds ('"${CLAIM_TYPE}"') generated ('"$$epoch"').",
+  #             "title_link": "'"$$BUILDKITE_BUILD_URL/#$${BUILDKITE_JOB_ID}"'",
+  #             "text": "'"$$institutional_payouts_summary"'",
+  #             "footer": "<'"$$BUILDKITE_BUILD_URL/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>"
+  #           }
+  #         ]
+  #     }'
+  #   if: "build.env('NOTIFY_FEED') == 'true'"
 
-  - wait: ~
+  # - wait: ~
 
-  - label: ":gear: Setup init-settlements trigger"
-    commands:
-    - epoch=$(buildkite-agent meta-data get epoch)
-    - |
-      cat <<EOF | buildkite-agent pipeline upload
-      steps:
-        - trigger: "init-settlements"
-          label: ":rocket: Trigger: Init settlements ($$epoch)/($CLAIM_TYPE)"
-          async: true
-          build:
-            branch: $$BUILDKITE_BRANCH
-            env:
-              EPOCH: $$epoch
-              CLAIM_TYPE: $CLAIM_TYPE
-              NOTIFY_FEED: $NOTIFY_FEED
-              SLACK_FEED: $SLACK_FEED
-              NOTIFY_DISCORD_FEED: false
-              INSTITUTIONAL_URL: $INSTITUTIONAL_URL
-              gs_bucket: $gs_bucket
-      EOF
+  # - label: ":gear: Setup init-settlements trigger"
+  #   commands:
+  #   - epoch=$(buildkite-agent meta-data get epoch)
+  #   - |
+  #     cat <<EOF | buildkite-agent pipeline upload
+  #     steps:
+  #       - trigger: "init-settlements"
+  #         label: ":rocket: Trigger: Init settlements ($$epoch)/($CLAIM_TYPE)"
+  #         async: true
+  #         build:
+  #           branch: $$BUILDKITE_BRANCH
+  #           env:
+  #             EPOCH: $$epoch
+  #             CLAIM_TYPE: $CLAIM_TYPE
+  #             NOTIFY_FEED: $NOTIFY_FEED
+  #             SLACK_FEED: $SLACK_FEED
+  #             NOTIFY_DISCORD_FEED: false
+  #             INSTITUTIONAL_URL: $INSTITUTIONAL_URL
+  #             gs_bucket: $gs_bucket
+  #     EOF
 
-  - wait: ~
+  # - wait: ~
 
   - label: ":unlock: Concurrency gate unlock"
     command: echo "End of concurrency gate <--"
