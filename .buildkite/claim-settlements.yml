@@ -67,7 +67,6 @@ steps:
         \`\`\`
         EOF
 
-  # fund any possible settlements
   - label: ":gear: Upload and trigger fund-settlements pipeline"
     commands:
       - "echo Claim Type: '${CLAIM_TYPE}'"

@@ -105,6 +105,7 @@ steps:
 
   - label: ":campfire::arrow_right: Fund settlements"
     env:
+      # NOTE: not using top level 'env:' to avoid overwriting env vars when included by other pipelines
       command_name: 'fund-settlement'
       RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,fund_settlement=debug
