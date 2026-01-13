@@ -4,6 +4,7 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   SLACK_API: https://slack.com/api/chat.postMessage
+  command_name: 'verify-settlement'
 
 # This pipeline is responsible for verifying the settlements of the past epochs
 # It will download the past settlements from gcloud and checks their existence on-chain
@@ -65,7 +66,7 @@ steps:
       - claim_type=$(buildkite-agent meta-data get claim_type)
       - slack_feed=$(buildkite-agent meta-data get slack_feed)
       - |
-        cat <<- EOF | buildkite-agent annotate --style info --context "general-info"
+        cat <<- EOF | buildkite-agent annotate --priority 6 --style info --context "general-info"
         ### Retry environment variables
         If you need to retry the build, use the following parameters:
 
@@ -127,13 +128,12 @@ steps:
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,verify_settlement=debug
     commands:
     - . "$HOME/.cargo/env"
-    - command_name="verify-settlement"
-    - |
-      echo "#ATTEMPT VERIFY SETTLEMENTS $((BUILDKITE_RETRY_COUNT+1))" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
+    - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || true
     - buildkite-agent artifact download --include-retried-jobs target/release/verify-settlement .
     - buildkite-agent artifact download --include-retried-jobs listed-settlements.json .
-    - source ./scripts/execute-handlers.sh
     - chmod +x target/release/verify-settlement
+    - source ./scripts/execute-handlers.sh
+    - trap 'cat "./execution-report.$${command_name}.$$BUILDKITE_RETRY_COUNT" >> "./execution-report.$${command_name}"' EXIT
     - |
       handle_command_execution "$$command_name" \
       ./target/release/verify-settlement \
@@ -141,7 +141,7 @@ steps:
         --listed-settlements ./listed-settlements.json
     key: 'verify-settlement'
     artifact_paths:
-      - "./execution-report.*"
+      - "./execution-report*"
     retry:
       automatic:
         - exit_status: 100
@@ -149,17 +149,26 @@ steps:
 
   - label: ":memo: Notification setup: Verify Settlements"
     commands:
-     - mkdir ./reports
-     - command_name='verify-settlement'
-     - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name.*" ./reports/ || echo "[\"No report ERROR\"]" > ./reports/execution-report.$$command_name.error
-     - report_path="./reports/$(ls -v1 reports/ | tail -n 1)"
+     - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || echo "[\"No report ERROR\"]" > ./execution-report.$$command_name
+     - cp "./execution-report.$$command_name" "./cumulative-report.txt"
      - |
-       ATTEMPT_COUNT=$(grep -c ATTEMPT "$$report_path" | sed 's/.*ATTEMPT //g')
-       buildkite-agent meta-data set --redacted-vars='' attempts_count "$${ATTEMPT_COUNT:-0}"
-     - cat "$$report_path" | grep -v "ATTEMPT" > ./verify-report.json
+       ATTEMPT_COUNT=$(grep -c ATTEMPT "./cumulative-report.txt" | sed 's/.*ATTEMPT //g')
+       buildkite-agent meta-data set --redacted-vars="" attempts_count "$${ATTEMPT_COUNT:-0}"
+     - cat "./cumulative-report.txt" | grep -v "ATTEMPT" > ./verify-report.json
     artifact_paths:
-    - "./verify-report.json"
+      - "./cumulative-report.txt"
+      - "./verify-report.json"
     key: 'notification'
+    depends_on: "verify-settlement"
+    allow_dependency_failure: true
+
+  - label: ":printer: Annotate Report"
+    commands:
+      - source ./scripts/execute-handlers.sh
+      - annotate_execution_report "$$command_name" 20
+    artifact_paths:
+      - "./latest-report.txt"
+    key: 'annotate-report-verify'
     depends_on: "verify-settlement"
     allow_dependency_failure: true
 
@@ -171,9 +180,7 @@ steps:
     commands:
     - buildkite-agent artifact download --include-retried-jobs verify-report.json .
     - source ./scripts/execute-handlers.sh
-    - check_command_execution_status "verify-settlement" || true
-    - cat ./verify-report.json
-    - echo "--------------------------------------------"
+    - check_command_execution_status "$$command_name" || true
     - slack_feed=$(buildkite-agent meta-data get slack_feed)
     - chmod +x ./scripts/parse-verify-alerts.sh
     - source ./scripts/parse-verify-alerts.sh -f ./verify-report.json -n "$$NON_FUNDED_THRESHOLD" || alert_exit_code=$?

@@ -13,7 +13,9 @@ handle_command_execution() {
     local command_name="$1"
     shift
     set -o pipefail
-    "$@" | tee -a "./execution-report.${command_name}.${BUILDKITE_RETRY_COUNT}"
+    local execution_report_file="./execution-report.${command_name}.${BUILDKITE_RETRY_COUNT}"
+    echo "#ATTEMPT ${BUILDKITE_RETRY_COUNT}" | tee -a "$execution_report_file"
+    "$@" | tee -a "$execution_report_file"
     local exit_code=$?
 
     buildkite-agent meta-data set --redacted-vars="" "${command_name}_status" "$exit_code"
@@ -31,7 +33,7 @@ handle_command_execution() {
             exit 0
             ;;
         100)
-            echo "${command_name}: completed with retryable errors"
+            echo "${command_name}: completed with retry-able errors"
             exit 100
             ;;
         *)
@@ -74,4 +76,37 @@ check_command_execution_status() {
         echo "Step ${command_name} failed with an error exit code ${command_status}"
         return 1
     fi
+}
+
+# Annotates a Buildkite build with the latest execution report
+# Usage: annotate_execution_report <command_name> [lines] [style]
+#   command_name: Name of the command (used for artifact naming)
+#   lines: Number of lines to show (default: 50)
+#   style: Buildkite annotation style - info|warning|error|success (default: info)
+annotate_execution_report() {
+  local command_name="${1:?Error: command_name is required}"
+  local lines="${2:-50}"
+  local style="${3:-info}"
+  local latest_report
+
+  # Download artifacts (don't fail if none exist)
+  buildkite-agent artifact download --include-retried-jobs "execution-report.${command_name}.*" . || true
+  # Find the latest numbered report file
+  latest_report=$(ls -v "execution-report.${command_name}."[0-9]* 2>/dev/null | tail -n 1)
+
+  if [[ -z "$latest_report" || ! -f "$latest_report" ]]; then
+    echo 'No attempt report found' > "./latest-report.txt"
+  else
+    cp "$latest_report" "./latest-report.txt"
+  fi
+
+  {
+    echo "### Report ${command_name} (first ${lines} lines)"
+    echo '```'
+    head -n "$lines" "./latest-report.txt"
+    if [[ $(wc -l < "./latest-report.txt") -gt $lines ]]; then
+      echo "..."
+    fi
+    echo '```'
+  } | buildkite-agent annotate --style "$style" --context "${command_name}-report"
 }
