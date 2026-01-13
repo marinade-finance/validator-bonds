@@ -156,7 +156,8 @@ steps:
         --validator-bonds-config ${VALIDATOR_BONDS_CONFIG} \
         --output-protected-event-collection "./${CLAIM_TYPE}.json" \
         --output-settlement-collection "./${CLAIM_TYPE}-settlements.json" \
-        --output-merkle-tree-collection "./${CLAIM_TYPE}-settlement-merkle-trees.json"
+        --output-merkle-tree-collection "./${CLAIM_TYPE}-settlement-merkle-trees.json" \
+        --output-config "./${CLAIM_TYPE}-config.json"
     artifact_paths:
         - "./${CLAIM_TYPE}*.json"
 
@@ -177,11 +178,13 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}.json .
     - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .
     - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlement-merkle-trees.json .
+    - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-config.json .
     - buildkite-agent artifact download --include-retried-jobs discord-public-report.txt .
     - buildkite-agent artifact download --include-retried-jobs evaluation.json .
     - gcloud storage cp "./${CLAIM_TYPE}.json" "$gs_bucket/$$epoch/"
     - gcloud storage cp "./${CLAIM_TYPE}-settlements.json" "$gs_bucket/$$epoch/"
     - gcloud storage cp "./${CLAIM_TYPE}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./${CLAIM_TYPE}-config.json" "$gs_bucket/$$epoch/"
     - gcloud storage cp "./discord-public-report.txt" "$gs_bucket/$$epoch/${CLAIM_TYPE}-discord-public-report.txt"
     - gcloud storage cp "./evaluation.json" "$gs_bucket/$$epoch/${CLAIM_TYPE}-evaluation.json"
 
