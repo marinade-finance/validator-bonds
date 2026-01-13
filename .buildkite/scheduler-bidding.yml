@@ -20,9 +20,9 @@ steps:
   - label: ':shellcheck: Load available epochs'
     commands:
       - |
-        max_processed_epoch_bid=$(gcloud storage ls "${gs_bucket}/**/${CLAIM_TYPE_BID}.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 1)  || exit 1
+        max_processed_epoch_bid=$(gcloud storage ls "${gs_bucket}/**/${CLAIM_TYPE_BID}-settlements.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 1)  || exit 1
         max_processed_epoch_bid="$${max_processed_epoch_bid%%[^0-9]*}"
-        max_processed_epoch_psr=$(gcloud storage ls "${gs_bucket}/**/${CLAIM_TYPE_PSR}.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 1)  || exit 1
+        max_processed_epoch_psr=$(gcloud storage ls "${gs_bucket}/**/${CLAIM_TYPE_PSR}-settlements.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 1)  || exit 1
         max_processed_epoch_psr="$${max_processed_epoch_psr%%[^0-9]*}"
         max_available_epoch=$(gcloud storage ls "${gs_bucket_snapshots}/**/stakes.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 2) || exit 2
         max_available_etl_epoch=$(gcloud storage ls "$gs_bucket_etl" | awk -F / '{print $$4}' | sort -nr | head -n 1) || exit 22
@@ -62,7 +62,7 @@ steps:
                       EPOCH: $$epoch
                       NOTIFY_FEED: $NOTIFY_FEED
                       gs_bucket: $gs_bucket
-            EOF
+        EOF
             echo "Scheduling BID completed for epoch $$epoch"
           fi
 
@@ -78,7 +78,7 @@ steps:
                       EPOCH: $$epoch
                       NOTIFY_FEED: $NOTIFY_FEED
                       gs_bucket: $gs_bucket
-            EOF
+        EOF
             echo "Scheduling PSR completed for epoch $$epoch"
           fi
 
