@@ -817,6 +817,7 @@ impl PrintReportable for ClaimSettlementsReport {
                 let AlreadyClaimed {
                     number_of_set_bits: already_claimed_nodes,
                     lamports_claimed: already_claimed_lamports,
+                    lamports_funded: already_funded_lamports,
                     max_total_claim: total_claim_amount,
                     max_merkle_nodes: total_claim_nodes,
                     ..
@@ -874,11 +875,12 @@ impl PrintReportable for ClaimSettlementsReport {
                     ));
                 }
                 report.push(format!(
-                    "  - before this already claimed {}/{} merkle nodes with {}/{} SOLs",
+                    "  - before this already claimed {}/{} merkle nodes with {}/{} SOLs, funded {}",
                     already_claimed_nodes,
                     total_claim_nodes,
                     build_balance_message(already_claimed_lamports, false, false),
                     build_balance_message(total_claim_amount, false, false),
+                    build_balance_message(already_funded_lamports, false, true),
                 ));
 
                 let already_by_reason = settlements_report.sum_by_reason(
