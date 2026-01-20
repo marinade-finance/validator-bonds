@@ -91,7 +91,7 @@ validator-bonds fund-bond <vote-account-address> --stake-account <stake-account-
 #    Example: --cpmpe 100 means you pay 100 lamports per 1000 SOL per epoch
 ## b) Commission-based bid: Share a percentage of your rewards
 #    Use basis points (1% = 100 bps, 5% = 500 bps)
-#    Example: --block-commission 500 means you share 5% of block rewards
+#    Example: --block-commission 500 means you share 95% of block rewards (5% stays with your validator)
 #    Available: --inflation-commission, --mev-commission, --block-commission
 # Learn more: https://docs.marinade.finance/marinade-protocol/protocol-overview/stake-auction-market
 validator-bonds configure-bond <vote-account-address> --authority ./validator-identity.json \
