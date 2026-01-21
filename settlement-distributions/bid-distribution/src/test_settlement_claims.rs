@@ -746,7 +746,6 @@ mod tests {
         vote_account: Pubkey,
         epoch: u32,
         marinade_sam_target_sol: Decimal,
-        marinade_mnde_target_sol: Decimal,
         effective_bid: Decimal,
         bid_pmpe: Decimal,
         auction_effective_static_bid_pmpe: Option<Decimal>,
@@ -761,7 +760,6 @@ mod tests {
                 vote_account,
                 epoch,
                 marinade_sam_target_sol: Decimal::from(100),
-                marinade_mnde_target_sol: Decimal::ZERO,
                 effective_bid: Decimal::from(50),
                 bid_pmpe: Decimal::from(50),
                 auction_effective_static_bid_pmpe: Some(Decimal::from(50)),
@@ -806,7 +804,6 @@ mod tests {
                 vote_account: self.vote_account,
                 epoch: self.epoch,
                 marinade_sam_target_sol: self.marinade_sam_target_sol,
-                marinade_mnde_target_sol: self.marinade_mnde_target_sol,
                 effective_bid: self.effective_bid,
                 rev_share: RevShare {
                     bid_pmpe: self.bid_pmpe,

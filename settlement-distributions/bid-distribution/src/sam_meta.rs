@@ -9,7 +9,6 @@ use {
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Tvl {
-    pub(crate) marinade_mnde_tvl_sol: Decimal,
     pub(crate) marinade_sam_tvl_sol: Decimal,
 }
 
@@ -18,7 +17,6 @@ pub struct Tvl {
 pub struct SamMetadata {
     pub(crate) scoring_id: String,
     pub(crate) tvl: Tvl,
-    pub(crate) delegation_strategy_mnde_votes: Decimal,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -26,7 +24,6 @@ pub struct SamMetadata {
 pub struct ValidatorSamMeta {
     #[serde(with = "pubkey_string_conversion")]
     pub vote_account: Pubkey,
-    pub marinade_mnde_target_sol: Decimal,
     pub marinade_sam_target_sol: Decimal,
     pub rev_share: RevShare,
     pub stake_priority: u32,

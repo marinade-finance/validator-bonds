@@ -10,7 +10,6 @@ use log::{debug, info, warn};
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 use std::fmt;
@@ -692,18 +691,9 @@ pub fn generate_penalty_settlements(
     penalty_settlement_collection
 }
 
-/// Calculates what is the total active SAM (Marinade controlled) stake to be used
-/// in claim calculations. Some part is managed by MNDE holders and this excludes it.
-fn calculate_effective_sam_stake(total_active_stake: u64, validator: &ValidatorSamMeta) -> u64 {
-    let sam_target_stake = validator.marinade_sam_target_sol * Decimal::from(LAMPORTS_PER_SOL);
-    let mnde_target_stake = validator.marinade_mnde_target_sol * Decimal::from(LAMPORTS_PER_SOL);
-
-    let stake_sam_percentage = if mnde_target_stake == Decimal::ZERO {
-        Decimal::ONE
-    } else {
-        sam_target_stake / (sam_target_stake + mnde_target_stake)
-    };
-
+/// Calculates what is the total active SAM (Marinade controlled) stake to be used in claim calculations.
+fn calculate_effective_sam_stake(total_active_stake: u64, _validator: &ValidatorSamMeta) -> u64 {
+    let stake_sam_percentage = Decimal::ONE;
     (Decimal::from(total_active_stake) * stake_sam_percentage)
         .to_u64()
         .expect("Failed to_u64 for effective_sam_stake")
