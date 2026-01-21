@@ -965,11 +965,6 @@ mod tests {
             "values": {
               "bondBalanceSol": 100,
               "marinadeActivatedStakeSol": 1000,
-              "spendRobustReputation": 1.0,
-              "adjSpendRobustReputation": 30.0,
-              "adjMaxSpendRobustDelegation": 17000,
-              "marinadeActivatedStakeSolUndelegation": 0,
-              "adjSpendRobustReputationInflationFactor": 27.5,
               "paidUndelegationSol": 0,
               "bondRiskFeeSol": 0,
               "samBlacklisted": false,

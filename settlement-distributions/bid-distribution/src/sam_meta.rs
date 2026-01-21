@@ -65,11 +65,6 @@ pub struct RevShare {
 pub struct AuctionValidatorValues {
     pub bond_balance_sol: Option<Decimal>,
     pub marinade_activated_stake_sol: Decimal,
-    pub spend_robust_reputation: Decimal,
-    pub adj_max_spend_robust_delegation: Decimal,
-    pub adj_spend_robust_reputation: Decimal,
-    pub marinade_activated_stake_sol_undelegation: Decimal,
-    pub adj_spend_robust_reputation_inflation_factor: Decimal,
     pub bond_risk_fee_sol: Decimal,
     pub paid_undelegation_sol: Decimal,
     pub sam_blacklisted: bool,
