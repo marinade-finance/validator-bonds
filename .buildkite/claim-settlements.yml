@@ -177,8 +177,8 @@ steps:
   - label: ":memo: Notification setup: Claim Settlements"
     commands:
      - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || echo "No report ERROR" > ./execution-report.$$command_name
-     - cp "./execution-report.$$command_name" "./cumulative-report.$${command_name}"
-     - buildkite-agent meta-data set --redacted-vars="" attempts_count "$(grep -c ATTEMPT ./cumulative-report.$${command_name})"
+     - cp "./execution-report.$$command_name" "./cumulative-report.$${command_name}.txt"
+     - buildkite-agent meta-data set --redacted-vars="" attempts_count "$(grep -c ATTEMPT ./cumulative-report.$${command_name}.txt)"
     artifact_paths:
       - "./cumulative-report.*"
     key: 'notification-setup-claim'
@@ -199,12 +199,12 @@ steps:
 
   - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Claim Settlements"
     commands:
-    - buildkite-agent artifact download cumulative-report.$${command_name} . || echo "UNKNOWN ERROR" > ./cumulative-report.$${command_name}
+    - buildkite-agent artifact download cumulative-report.$${command_name}.txt . || echo "UNKNOWN ERROR" > ./cumulative-report.$${command_name}.txt
     - claimable_epochs_json=$(buildkite-agent meta-data get claimable_epochs_json)
     - first_epoch=$(echo "$$claimable_epochs_json" | jq ".[0]")
     - |
       if [[ -n "$$first_epoch" && "$$first_epoch" != "null" && $(gcloud storage ls "$gs_bucket/$$first_epoch" 2> /dev/null) ]]; then
-        gcloud storage cp ./cumulative-report.$${command_name} "$gs_bucket/$$first_epoch/buildkite/$${command_name}-report.$(date +%s).txt"
+        gcloud storage cp ./cumulative-report.$${command_name}.txt "$gs_bucket/$$first_epoch/buildkite/$${command_name}-report.$(date +%s).txt"
       fi
     depends_on: "notification-setup-claim"
     allow_dependency_failure: true

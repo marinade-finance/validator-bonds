@@ -150,8 +150,8 @@ steps:
       command_name: 'fund-settlement'
     commands:
      - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || echo "No report ERROR" > ./execution-report.$$command_name
-     - cp "./execution-report.$$command_name" "./cumulative-report.$${command_name}"
-     - buildkite-agent meta-data set --redacted-vars="" attempts_count "$(grep -c ATTEMPT ./cumulative-report.$${command_name})"
+     - cp "./execution-report.$$command_name" "./"
+     - buildkite-agent meta-data set --redacted-vars="" attempts_count "$(grep -c ATTEMPT ./cumulative-report.$${command_name}.txt)"
     artifact_paths:
       - "./cumulative-report.*"
     key: 'notification-setup-funding'
@@ -177,10 +177,10 @@ steps:
     - latest_funded_epoch=$(buildkite-agent meta-data get latest_funded_epoch) || true
     - claim_type=$(buildkite-agent meta-data get claim_type) || true
     - claim_type_prefix=$([[ -z "$$claim_type" ]] && echo "" || echo "$${claim_type}-")
-    - buildkite-agent artifact download cumulative-report.$${command_name} . || echo "UNKNOWN ERROR" > ./cumulative-report.$${command_name}
+    - buildkite-agent artifact download cumulative-report.$${command_name}.txt . || echo "UNKNOWN ERROR" > ./cumulative-report.$${command_name}.txt
     - |
       if [[ -n "$$latest_funded_epoch" && $(gcloud storage ls "$gs_bucket/$$latest_funded_epoch" 2> /dev/null) ]]; then
-        gcloud storage cp ./cumulative-report.$${command_name} "$gs_bucket/$$latest_funded_epoch/buildkite/$${claim_type_prefix}$${command_name}-report.$(date +%s).txt"
+        gcloud storage cp ./cumulative-report.$${command_name}.txt "$gs_bucket/$$latest_funded_epoch/buildkite/$${claim_type_prefix}$${command_name}-report.$(date +%s).txt"
       fi
     depends_on: "notification-setup-funding"
     allow_dependency_failure: true
