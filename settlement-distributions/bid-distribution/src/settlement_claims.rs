@@ -180,8 +180,7 @@ pub fn generate_bid_settlements(
                 );
                 continue;
             }
-            let effective_sam_marinade_active_stake =
-                calculate_effective_sam_stake(total_marinade_active_stake, validator);
+            let effective_sam_marinade_active_stake = total_marinade_active_stake;
             if effective_sam_marinade_active_stake == 0 {
                 warn!(
                     "Skipping validator {} with zero effective SAM marinade active stake {}",
@@ -506,8 +505,7 @@ pub fn generate_penalty_settlements(
                 .map(|meta| meta.active_delegation_lamports)
                 .sum();
 
-            let effective_sam_marinade_active_stake =
-                calculate_effective_sam_stake(total_marinade_active_stake, validator);
+            let effective_sam_marinade_active_stake = total_marinade_active_stake;
 
             let bid_too_low_penalty_total_claim =
                 Decimal::from(effective_sam_marinade_active_stake) * bid_too_low_penalty;
@@ -689,14 +687,6 @@ pub fn generate_penalty_settlements(
         }
     }
     penalty_settlement_collection
-}
-
-/// Calculates what is the total active SAM (Marinade controlled) stake to be used in claim calculations.
-fn calculate_effective_sam_stake(total_active_stake: u64, _validator: &ValidatorSamMeta) -> u64 {
-    let stake_sam_percentage = Decimal::ONE;
-    (Decimal::from(total_active_stake) * stake_sam_percentage)
-        .to_u64()
-        .expect("Failed to_u64 for effective_sam_stake")
 }
 
 /// The output Settlements data is updated with stake accounts owned by Marinade and DAO
