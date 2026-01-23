@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Parse settlement verification alerts from JSON report of 'verify-settlement' command
-# Usage: parse-verify-alerts.sh -f <verify-report.json> [-n <non-funded-items-to-report>] [-m <max-display-items>]
+# Usage: parse-verify-alerts.sh -f <verify-report.json> [-n <non-funded-items-to-report>] [-e <non-existing-items-to-report>] [-m <max-display-items>]
 
 
 # Detect if being sourced
@@ -15,10 +15,11 @@ fi
 # Default values
 REPORT_FILE=""
 NON_FUNDED_TO_REPORT=0
+NON_EXISTING_TO_REPORT=0
 MAX_DISPLAY=20
 
 # Parse command-line arguments
-while getopts "f:n:m:h" opt; do
+while getopts "f:n:e:m:h" opt; do
     case $opt in
         f)
             REPORT_FILE="$OPTARG"
@@ -28,19 +29,24 @@ while getopts "f:n:m:h" opt; do
             [[ "$OPTARG" =~ ^[0-9]+$ ]] && [ "$OPTARG" -ge 0 ] || { echo "Error: -n must be a non-negative integer" >&2; $_EXIT_CMD 1; }
             NON_FUNDED_TO_REPORT="$OPTARG"
             ;;
+        e)
+            [[ "$OPTARG" =~ ^[0-9]+$ ]] && [ "$OPTARG" -ge 0 ] || { echo "Error: -e must be a non-negative integer" >&2; $_EXIT_CMD 1; }
+            NON_EXISTING_TO_REPORT="$OPTARG"
+            ;;
         m)
             [[ "$OPTARG" =~ ^[0-9]+$ ]] && [ "$OPTARG" -gt 0 ] || { echo "Error: -m must be a positive integer" >&2; $_EXIT_CMD 1; }
             MAX_DISPLAY="$OPTARG"
             ;;
         h)
             cat >&2 <<EOF
-Usage: $0 -f <report-file> [-n <non-funded-items-to-report>] [-m <max-display-items>]
+Usage: $0 -f <report-file> [-n <non-funded-items-to-report>] [-e <non-existing-items-to-report>] [-m <max-display-items>]
 
 Options:
-  -f <file>              Path to the verify-report.json file (required)
-  -n <non-funded-items>  Minimum non-funded items to trigger alert (default: 0)
-  -m <max-display-items> Maximum items to display per alert section (default: 20)
-  -h                     Show this help message
+  -f <file>                 Path to the verify-report.json file (required)
+  -n <non-funded-items>     Minimum non-funded items to trigger alert (default: 0)
+  -e <non-existing-items>   Minimum non-existing items to trigger alert (default: 0)
+  -m <max-display-items>    Maximum items to display per alert section (default: 20)
+  -h                        Show this help message
 EOF
             $_EXIT_CMD 0
             ;;
@@ -51,7 +57,7 @@ done
 
 [ -n "$REPORT_FILE" ] || { echo "Error: -f <report-file> is required. Use -h for help" >&2; $_EXIT_CMD 1; }
 
-echo "Parsing report: $REPORT_FILE (non-funded threshold: $NON_FUNDED_TO_REPORT, max display: $MAX_DISPLAY)" >&2
+echo "Parsing report: $REPORT_FILE (non-funded threshold: $NON_FUNDED_TO_REPORT, non-existing threshold: $NON_EXISTING_TO_REPORT, max display: $MAX_DISPLAY)" >&2
 
 
 # Count alerts by category
@@ -101,7 +107,7 @@ fi
 
 # Non-existing settlements (in JSON but not on-chain)
 if [ "$non_existing_count" -gt 0 ]; then
-    is_to_alert=true
+    [ "$non_existing_count" -gt "$NON_EXISTING_TO_REPORT" ] && is_to_alert=true
     echo " => $non_existing_count non-existing settlements found" >&2
     non_existing_list=$(jq -r '.non_existing_settlements[] | "Epoch \(.epoch): \(.address)"' "$REPORT_FILE" | head -n "$MAX_DISPLAY")
     if [ "$non_existing_count" -gt "$MAX_DISPLAY" ]; then
