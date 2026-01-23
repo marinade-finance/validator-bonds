@@ -106,6 +106,7 @@ fn verify_epoch_settlements(
     let mut non_funded_settlements = Vec::new();
 
     for epoch_to_verify in claiming_epoch_range {
+        info!("Verifying settlements for epoch {}", epoch_to_verify);
         let epoch_listed_settlements =
             if let Some(settlements) = listed_settlements_per_epoch.get(&epoch_to_verify) {
                 settlements

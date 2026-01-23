@@ -76,6 +76,7 @@ steps:
     continue_on_failure: true
 
   - label: ":campfire: List claimable epochs"
+    key: list-claimable-epochs
     env:
       RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,list_claimable_epoch=debug
@@ -90,6 +91,7 @@ steps:
   - wait: ~
 
   - label: ":floppy_disk: :arrow_left: :cloud: Downloading all epochs merkle trees"
+    key: download-merkle-trees
     env:
       # epoch when the contract v2 was deployed, using a different structure of a merkle tree than v1
       starting_epoch_contract_v2: 640
@@ -124,12 +126,14 @@ steps:
     - buildkite-agent meta-data set --redacted-vars='' claimable_epochs_json "$$claimable_epochs_json"
     - buildkite-agent meta-data set --redacted-vars='' claimable_epochs_num "$$claimable_epochs_num"
     - 'echo "Claimable epochs [$$claimable_epochs_num]: $$claimable_epochs_json"'
+    depends_on: list-claimable-epochs
     artifact_paths:
       - "./merkle-trees-claimable/**/*"
 
   - wait: ~
 
   - label: ":campfire::arrow_right: Claim settlements"
+    key: 'claim-settlement'
     env:
       RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,claim_settlement=debug
@@ -166,7 +170,7 @@ steps:
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$PSR_TX_FEE_WALLET" \
         $$files
-    key: 'claim-settlement'
+    depends_on: download-merkle-trees
     artifact_paths:
       - "./execution-report*"
     retry:
@@ -175,23 +179,23 @@ steps:
           limit: 5
 
   - label: ":memo: Notification setup: Claim Settlements"
+    key: 'notification-setup-claim'
     commands:
      - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || echo "No report ERROR" > ./execution-report.$$command_name
      - cp "./execution-report.$$command_name" "./cumulative-report.$${command_name}.txt"
      - buildkite-agent meta-data set --redacted-vars="" attempts_count "$(grep -c ATTEMPT ./cumulative-report.$${command_name}.txt)"
     artifact_paths:
       - "./cumulative-report.*"
-    key: 'notification-setup-claim'
     depends_on: "claim-settlement"
     allow_dependency_failure: true
 
   - label: ":printer: Annotate Report"
+    key: 'annotate-report-claim'
     commands:
       - source ./scripts/execute-handlers.sh
       - annotate_execution_report "$$command_name" 20
     artifact_paths:
       - "./latest-report.txt"
-    key: 'annotate-report-claim'
     depends_on: "claim-settlement"
     allow_dependency_failure: true
 
