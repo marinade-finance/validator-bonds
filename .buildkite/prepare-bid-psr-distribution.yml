@@ -37,7 +37,7 @@ steps:
   - wait: ~
 
   - label: ":black_nib: Env variables setup: Prepare Bid PSR Distribution"
-    key: setup-env-prepare-psr
+    key: "setup-env-prepare-psr"
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
@@ -45,7 +45,7 @@ steps:
       echo "Epoch: '$$epoch'"
 
   - label: ":memo: Annotate retry parameters"
-    depends_on: setup-env-prepare-psr
+    depends_on: "setup-env-prepare-psr"
     allow_dependency_failure: true
     commands:
       - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}

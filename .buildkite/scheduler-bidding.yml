@@ -17,7 +17,7 @@ steps:
 
   - wait: ~
 
-  - label: ':shellcheck: Load available epochs'
+  - label: ":shellcheck: Load available epochs"
     commands:
       - |
         max_processed_epoch_bid=$(gcloud storage ls "${gs_bucket}/**/${CLAIM_TYPE_BID}-settlements.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 1)  || exit 1

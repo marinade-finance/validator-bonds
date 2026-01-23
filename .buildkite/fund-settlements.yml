@@ -28,7 +28,7 @@ steps:
   - wait: ~
 
   - label: ":black_nib: Env variables setup: Fund Settlements"
-    key: setup-env-fund
+    key: "setup-env-fund"
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch || echo "")}
@@ -137,7 +137,7 @@ steps:
         --marinade-wallet "$$PSR_MARINADE_DAO_FUNDER_WALLET" \
         --rent-payer "$$PSR_RENT_PAYER_WALLET" \
         $$files
-    key: 'fund-settlement'
+    key: "fund-settlement"
     artifact_paths:
       - "./execution-report*"
     retry:
@@ -146,6 +146,7 @@ steps:
           limit: 5
 
   - label: ":memo: Notification setup: Fund Settlements"
+    key: "notification-setup-funding"
     env:
       command_name: 'fund-settlement'
     commands:
@@ -154,11 +155,11 @@ steps:
      - buildkite-agent meta-data set --redacted-vars="" attempts_count "$(grep -c ATTEMPT ./cumulative-report.$${command_name}.txt)"
     artifact_paths:
       - "./cumulative-report.*"
-    key: 'notification-setup-funding'
     depends_on: "fund-settlement"
     allow_dependency_failure: true
 
   - label: ":printer: Annotate Report"
+    key: "annotate-report-fund"
     env:
       command_name: 'fund-settlement'
     commands:
@@ -166,7 +167,6 @@ steps:
       - annotate_execution_report "$$command_name" 20
     artifact_paths:
       - "./latest-report.txt"
-    key: 'annotate-report-fund'
     depends_on: "fund-settlement"
     allow_dependency_failure: true
 
@@ -205,7 +205,7 @@ steps:
           "title": "Fund '"$$claim_type"' Settlements '"$${notification_result}"', '"$$attempts_count"' attempts",
           "title_link": "'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'",
           "text": "Claim type: '"$$claim_type"'/'"$$config_pubkey"'",
-          "footer": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>" 
+          "footer": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>"
         }]
       }'
     depends_on: "notification-setup-funding"

@@ -32,7 +32,7 @@ steps:
   - wait: ~
 
   - label: ":black_nib: Env variables setup: Init Settlements ${CLAIM_TYPE}/${EPOCH}"
-    key: setup-env-init
+    key: "setup-env-init"
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
@@ -49,7 +49,7 @@ steps:
       echo "Epoch: '$$epoch', Claim Type: '$$claim_type'/'$$config_pubkey', Slack Feed: '$$slack_feed'"
 
   - label: ":memo: Annotate retry parameters"
-    depends_on: setup-env-init
+    depends_on: "setup-env-init"
     allow_dependency_failure: true
     commands:
       - claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
@@ -103,13 +103,13 @@ steps:
       - target/release/init-settlement
 
   - label: ":floppy_disk: :arrow_left: :cloud: Downloading merkle trees"
+    key: "download-json"
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - claim_type=$(buildkite-agent meta-data get claim_type)
     - |
       gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlement-merkle-trees.json" "./settlement-merkle-trees.json"
       gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlements.json" "./settlements.json"
-    key: 'download-json'
     artifact_paths:
       - "./settlement-merkle-trees.json"
       - "./settlements.json"
@@ -165,7 +165,7 @@ steps:
         --fee-payer "$$PSR_TX_FEE_WALLET" \
         --rent-payer "$$PSR_RENT_PAYER_WALLET" \
         --epoch "$$epoch"
-    key: 'init-settlement'
+    key: "init-settlement"
     artifact_paths:
       - "./execution-report*"
     retry:
@@ -174,23 +174,23 @@ steps:
           limit: 5
 
   - label: ":memo: Notification setup: Init Settlements"
+    key: "notification-setup-init"
     commands:
      - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || echo "No report ERROR" > ./execution-report.$$command_name
      - cp "./execution-report.$$command_name" "./cumulative-report.txt"
      - buildkite-agent meta-data set --redacted-vars="" attempts_count "$(grep -c ATTEMPT ./cumulative-report.txt)"
     artifact_paths:
       - "./cumulative-report.txt"
-    key: 'notification-setup-init'
     depends_on: "init-settlement"
     allow_dependency_failure: true
 
   - label: ":printer: Annotate Report"
+    key: "annotate-report-init"
     commands:
       - source ./scripts/execute-handlers.sh
       - annotate_execution_report "$$command_name" 20
     artifact_paths:
       - "./latest-report.txt"
-    key: 'annotate-report-init'
     depends_on: "init-settlement"
     allow_dependency_failure: true
 

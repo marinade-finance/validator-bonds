@@ -21,9 +21,9 @@ steps:
   - wait: ~
 
   - label: ":broom: :one: Sanity Check - Institutional Data"
+    key: "sanity-check-1"
     env:
       CLONED_BRANCH: "main"
-    key: "sanity-check-1"
     commands:
       - epoch=$(buildkite-agent meta-data get epoch)
       - default_dir="$$(pwd)"

@@ -5,8 +5,6 @@ env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   SLACK_API: https://slack.com/api/chat.postMessage
   command_name: 'verify-settlement'
-  NON_FUNDED_THRESHOLD: 7
-  NON_EXISTING_TO_REPORT: 0
 
 # This pipeline is responsible for verifying the settlements of the past epochs
 # It will download the past settlements from gcloud and checks their existence on-chain
@@ -60,6 +58,9 @@ steps:
       buildkite-agent meta-data set --redacted-vars='' slack_feed "$$slack_feed"
     - |
       echo "Claim Type: '$$claim_type'/'$$config_pubkey', Slack Feed: '$$slack_feed'"
+    - |
+      buildkite-agent meta-data set --redacted-vars='' non_funded_threshold "${NON_FUNDED_THRESHOLD:-7}"
+      buildkite-agent meta-data set --redacted-vars='' non_existing_to_report "${NON_EXISTING_TO_REPORT:-0}"
 
   - label: ":memo: Annotate retry parameters"
     depends_on: setup-env-verify
@@ -67,6 +68,8 @@ steps:
     commands:
       - claim_type=$(buildkite-agent meta-data get claim_type)
       - slack_feed=$(buildkite-agent meta-data get slack_feed)
+      - non_funded_threshold=$(buildkite-agent meta-data get non_funded_threshold)
+      - non_existing_to_report=$(buildkite-agent meta-data get non_existing_to_report)
       - |
         cat <<- EOF | buildkite-agent annotate --priority 6 --style info --context "general-info"
         ### Retry environment variables
@@ -76,6 +79,8 @@ steps:
         CLAIM_TYPE=$$claim_type
         SLACK_FEED=$$slack_feed
         NOTIFY_FEED=${NOTIFY_FEED:-false}
+        NON_FUNDED_THRESHOLD=$$non_funded_threshold
+        NON_EXISTING_TO_REPORT=$$non_existing_to_report
         \`\`\`
         EOF
 
@@ -125,6 +130,7 @@ steps:
   - wait: ~
 
   - label: ":campfire::arrow_right: Verify settlements"
+    key: "verify-settlement"
     env:
       RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,verify_settlement=debug
@@ -141,7 +147,6 @@ steps:
       ./target/release/verify-settlement \
         --config $(buildkite-agent meta-data get config_pubkey) \
         --listed-settlements ./listed-settlements.json
-    key: 'verify-settlement'
     artifact_paths:
       - "./execution-report*"
     retry:
@@ -183,8 +188,10 @@ steps:
     - check_command_execution_status "$$command_name" || true
     - slack_feed=$(buildkite-agent meta-data get slack_feed)
     - claim_type=$(buildkite-agent meta-data get claim_type)
+    - non_funded_threshold=$(buildkite-agent meta-data get non_funded_threshold)
+    - non_existing_to_report=$(buildkite-agent meta-data get non_existing_to_report)
     - chmod +x ./scripts/parse-verify-alerts.sh
-    - source ./scripts/parse-verify-alerts.sh -f ./verify-report.json -n "$$NON_FUNDED_THRESHOLD" -e "$$NON_EXISTING_TO_REPORT" || alert_exit_code=$?
+    - source ./scripts/parse-verify-alerts.sh -f ./verify-report.json -n "$$non_funded_threshold" -e "$$non_existing_to_report" || alert_exit_code=$?
     - |
       if [ "$${alert_exit_code:-0}" -ne 0 ]; then
         curl $${SLACK_API} -X POST -H 'Content-type: application/json; charset=utf-8' \
@@ -203,7 +210,7 @@ steps:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*Summary:* '"$$unknown_count"' unknown | '"$$non_verified_count"' non-verified epochs | '"$$non_existing_count"' non-existing (threshold: '"$$NON_EXISTING_TO_REPORT"') | '"$$non_funded_count"' non-funded (threshold: '"$$NON_FUNDED_THRESHOLD"')"
+                    "text": "*Summary:* '"$$unknown_count"' unknown | '"$$non_verified_count"' non-verified epochs | '"$$non_existing_count"' non-existing (threshold: '"$$non_existing_to_report"') | '"$$non_funded_count"' non-funded (threshold: '"$$non_funded_threshold"')"
                   }
                 },
                 {

@@ -11,7 +11,7 @@ steps:
       - target/release/validator-bonds-api-cli
 
   - input: "What is the Bonds Config type to collect?"
-    key: collect-bonds-input
+    key: "collect-bonds-input"
     fields:
       - select: "Claim type"
         key: "claim_type"
@@ -24,7 +24,7 @@ steps:
     blocked_state: running
 
   - label: ":memo: Annotate retry parameters"
-    depends_on: collect-bonds-input
+    depends_on: "collect-bonds-input"
     allow_dependency_failure: true
     commands:
       - claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
@@ -48,7 +48,7 @@ steps:
   - wait: ~
 
   - label: ":microscope: Collect Bonds"
-    key: collect-bonds
+    key: "collect-bonds"
     env:
       RPC_URL: "$$RPC_URL"
     commands:

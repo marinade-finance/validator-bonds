@@ -43,7 +43,7 @@ steps:
   - wait: ~
 
   - label: ":black_nib: Env variables setup: Prepare Institutional Distribution"
-    key: setup-env-prepare-institutional
+    key: "setup-env-prepare-institutional"
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
@@ -51,7 +51,7 @@ steps:
       echo "Epoch: '$$epoch'"
 
   - label: ":memo: Annotate retry parameters"
-    depends_on: setup-env-prepare-institutional
+    depends_on: "setup-env-prepare-institutional"
     allow_dependency_failure: true
     commands:
       - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
@@ -77,11 +77,11 @@ steps:
   - wait: ~
 
   - label: ":floppy_disk: :arrow_left: :cloud: Downloading Input JSON data"
+    key: "download-json"
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" .
     - gcloud storage cp "$gs_snapshot_bucket/$$epoch/stakes.json" "."
-    key: 'download-json'
     artifact_paths:
       - "./institutional-payouts.json"
       - "./stakes.json"

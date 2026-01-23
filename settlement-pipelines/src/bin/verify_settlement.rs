@@ -48,6 +48,7 @@ impl SettlementEpoch {
 
 #[derive(Default, Debug, Serialize, Deserialize)]
 struct VerifyAlerts {
+    verified_epochs: Vec<u64>,
     unknown_settlements: Vec<SettlementEpoch>,
     non_verified_epochs: Vec<u64>,
     non_existing_settlements: Vec<SettlementEpoch>,
@@ -55,6 +56,12 @@ struct VerifyAlerts {
 }
 
 impl VerifyAlerts {
+    pub fn new(epochs: &[u64]) -> Self {
+        VerifyAlerts {
+            verified_epochs: epochs.to_owned(),
+            ..Self::default()
+        }
+    }
     pub fn is_no_alerts(&self) -> bool {
         self.unknown_settlements.is_empty()
             && self.non_verified_epochs.is_empty()
@@ -99,6 +106,7 @@ fn verify_epoch_settlements(
     let mut non_funded_settlements = Vec::new();
 
     for epoch_to_verify in claiming_epoch_range {
+        info!("Verifying settlements for epoch {}", epoch_to_verify);
         let epoch_listed_settlements =
             if let Some(settlements) = listed_settlements_per_epoch.get(&epoch_to_verify) {
                 settlements
@@ -194,14 +202,15 @@ async fn real_main() -> anyhow::Result<()> {
             .into_iter()
             .collect();
 
+    let epochs: Vec<_> = claiming_epoch_range.clone().collect();
     info!(
         "Found {} on-chain settlements for config {} (verifying epochs {:?})",
         onchain_settlements.len(),
         config_address,
-        claiming_epoch_range,
+        epochs,
     );
 
-    let mut alerts = VerifyAlerts::default();
+    let mut alerts = VerifyAlerts::new(&epochs);
 
     {
         alerts.unknown_settlements =

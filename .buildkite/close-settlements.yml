@@ -36,7 +36,7 @@ steps:
       - target/release/close-settlement
 
   - label: ":black_nib: Env variables setup: Close Settlements"
-    key: setup-env-close
+    key: "setup-env-close"
     commands:
     - |
       claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
@@ -50,7 +50,7 @@ steps:
       echo "Claim Type: '$$claim_type'/'$$config_pubkey'"
 
   - label: ":memo: Annotate retry parameters"
-    depends_on: setup-env-close
+    depends_on: "setup-env-close"
     allow_dependency_failure: true
     commands:
       - claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
@@ -136,6 +136,7 @@ steps:
   - wait: ~
 
   - label: ":campfire::arrow_right: Close settlements"
+    key: "close-settlement"
     env:
       RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,close_settlement=debug,settlement_pipelines=debug
@@ -156,7 +157,6 @@ steps:
         --fee-payer "$$PSR_TX_FEE_WALLET" \
         --marinade-wallet "$$PSR_MARINADE_DAO_FUNDER_WALLET" \
         --listed-settlements ./listed-settlements.json
-    key: 'close-settlement'
     artifact_paths:
       - "./execution-report*"
     retry:
@@ -165,23 +165,23 @@ steps:
           limit: 5
 
   - label: ":memo: Notification setup: Close Settlements"
+    key: "notification-setup-close"
     commands:
      - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || echo "No report ERROR" > ./execution-report.$$command_name
      - cp "./execution-report.$$command_name" "./cumulative-report.txt"
      - buildkite-agent meta-data set --redacted-vars="" attempts_count "$(grep -c ATTEMPT ./cumulative-report.txt)"
     artifact_paths:
       - "./cumulative-report.txt"
-    key: 'notification-setup-close'
     depends_on: "close-settlement"
     allow_dependency_failure: true
 
   - label: ":printer: Annotate Report"
+    key: "annotate-report-close"
     commands:
       - source ./scripts/execute-handlers.sh
       - annotate_execution_report "$$command_name" 20
     artifact_paths:
       - "./latest-report.txt"
-    key: 'annotate-report-close'
     depends_on: "close-settlement"
     allow_dependency_failure: true
 
