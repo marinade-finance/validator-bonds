@@ -984,7 +984,6 @@ mod tests {
             "metadata": {
               "scoringId": "test",
               "tvl": {
-                "marinadeMndeTvlSol": 0,
                 "marinadeSamTvlSol": 1000000
               },
               "delegationStrategyMndeVotes": 1000000
