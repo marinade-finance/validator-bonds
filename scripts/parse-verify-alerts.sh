@@ -107,7 +107,7 @@ fi
 
 # Non-existing settlements (in JSON but not on-chain)
 if [ "$non_existing_count" -gt 0 ]; then
-    [ "$non_existing_count" -gt "$NON_EXISTING_TO_REPORT" ] && is_to_alert=true
+    [ "$non_existing_count" -ge "$NON_EXISTING_TO_REPORT" ] && is_to_alert=true
     echo " => $non_existing_count non-existing settlements found" >&2
     non_existing_list=$(jq -r '.non_existing_settlements[] | "Epoch \(.epoch): \(.address)"' "$REPORT_FILE" | head -n "$MAX_DISPLAY")
     if [ "$non_existing_count" -gt "$MAX_DISPLAY" ]; then
@@ -125,7 +125,7 @@ fi
 
 # Non-funded settlements (on-chain but not funded)
 if [ "$non_funded_count" -gt 0 ]; then
-    [ "$non_funded_count" -gt "$NON_FUNDED_TO_REPORT" ] && is_to_alert=true
+    [ "$non_funded_count" -ge "$NON_FUNDED_TO_REPORT" ] && is_to_alert=true
     echo " => $non_funded_count non-funded settlements found" >&2
     non_funded_list=$(jq -r '.non_funded_settlements[] | "Epoch \(.epoch): \(.address)"' "$REPORT_FILE" | head -n "$MAX_DISPLAY")
     if [ "$non_funded_count" -gt "$MAX_DISPLAY" ]; then
