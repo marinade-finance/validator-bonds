@@ -7,7 +7,7 @@ env:
 
 steps:
   - label: ":closed_lock_with_key: Concurrency gate lock"
-    key: concurrency-lock
+    key: "concurrency-lock"
     command: echo "--> Start of concurrency gate"
     concurrency_group: 'validator-bonds/scheduler-institutional'
     concurrency: 1

@@ -59,8 +59,8 @@ steps:
     - |
       echo "Claim Type: '$$claim_type'/'$$config_pubkey', Slack Feed: '$$slack_feed'"
     - |
-      buildkite-agent meta-data set non_funded_threshold "${NON_FUNDED_THRESHOLD:-7}"
-      buildkite-agent meta-data set non_existing_to_report "${NON_EXISTING_TO_REPORT:-0}"
+      buildkite-agent meta-data set --redacted-vars='' non_funded_threshold "${NON_FUNDED_THRESHOLD:-7}"
+      buildkite-agent meta-data set --redacted-vars='' non_existing_to_report "${NON_EXISTING_TO_REPORT:-0}"
 
   - label: ":memo: Annotate retry parameters"
     depends_on: setup-env-verify
@@ -130,6 +130,7 @@ steps:
   - wait: ~
 
   - label: ":campfire::arrow_right: Verify settlements"
+    key: "verify-settlement"
     env:
       RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,verify_settlement=debug
@@ -146,7 +147,6 @@ steps:
       ./target/release/verify-settlement \
         --config $(buildkite-agent meta-data get config_pubkey) \
         --listed-settlements ./listed-settlements.json
-    key: 'verify-settlement'
     artifact_paths:
       - "./execution-report*"
     retry:

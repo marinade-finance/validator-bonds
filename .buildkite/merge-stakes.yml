@@ -21,7 +21,7 @@ steps:
         EOF
 
   - label: ":closed_lock_with_key: Concurrency gate lock"
-    key: concurrency-lock
+    key: "concurrency-lock"
     command: echo "--> Start of concurrency gate"
     concurrency_group: "validator-bonds/merge-stakes"
     concurrency: 1
@@ -61,10 +61,10 @@ steps:
           --config $$address \
           --keypair "$$PSR_TX_FEE_WALLET"
       done
+    key: "merge-stakes"
     matrix:
       - "vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU"
       - "VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE"
-    key: 'merge-stakes'
     artifact_paths:
       - "./execution-report.*"
     retry:
@@ -73,6 +73,7 @@ steps:
           limit: 5
 
   - label: ":memo: Notification setup: Merge Stakes"
+    key: "notification-setup-merge-stakes"
     commands:
      - mkdir ./reports
      - command_name='merge-stakes'
@@ -82,7 +83,6 @@ steps:
      - buildkite-agent meta-data set --redacted-vars='' attempts_count "$(grep -c ATTEMPT ./$${command_name}-report.txt)"
     artifact_paths:
     - "./merge-stakes-report.txt"
-    key: 'notification-setup-merge-stakes'
     depends_on: "merge-stakes"
     allow_dependency_failure: true
 
@@ -117,7 +117,7 @@ steps:
           "color": "'"$$notification_color"'",
           "title": "Merge Stakes '"$${notification_result}"', '"$$attempts_count"' attempts",
           "title_link": "'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'",
-          "footer": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>" 
+          "footer": "<'"$${BUILDKITE_BUILD_URL}/#$${BUILDKITE_JOB_ID}"'|View in Buildkite>"
         }]
       }'
     depends_on: "notification-setup-merge-stakes"

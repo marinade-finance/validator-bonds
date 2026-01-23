@@ -45,7 +45,7 @@ steps:
   - wait: ~
 
   - label: ":black_nib: Env variables setup: Prepare Bid Distribution"
-    key: setup-env-prepare-bid
+    key: "setup-env-prepare-bid"
     commands:
     - |
       epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
@@ -53,7 +53,7 @@ steps:
       echo "Epoch: '$$epoch'"
 
   - label: ":memo: Annotate retry parameters"
-    depends_on: setup-env-prepare-bid
+    depends_on: "setup-env-prepare-bid"
     allow_dependency_failure: true
     commands:
       - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
@@ -81,6 +81,7 @@ steps:
   - wait: ~
 
   - label: ":floppy_disk: :arrow_left: :cloud: Downloading Input JSON data"
+    key: "download-json"
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - |
@@ -90,11 +91,10 @@ steps:
         exit 1
       fi
       gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
-    key: 'download-json'
     artifact_paths:
       - "./*.json"
 
-  - label: ':man-surfing: Loading JSON ETL data'
+  - label: ":man-surfing: Loading JSON ETL data"
     commands:
       - epoch=$(buildkite-agent meta-data get epoch)
       - mkdir -p ./rewards

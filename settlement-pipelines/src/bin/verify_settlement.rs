@@ -56,9 +56,9 @@ struct VerifyAlerts {
 }
 
 impl VerifyAlerts {
-    pub fn new(epochs: &Vec<u64>) -> Self {
+    pub fn new(epochs: &[u64]) -> Self {
         VerifyAlerts {
-            verified_epochs: epochs.clone(),
+            verified_epochs: epochs.to_owned(),
             ..Self::default()
         }
     }
@@ -202,7 +202,7 @@ async fn real_main() -> anyhow::Result<()> {
             .into_iter()
             .collect();
 
-    let epochs: Vec<u64> = claiming_epoch_range.clone().map(|e| e).collect();
+    let epochs: Vec<_> = claiming_epoch_range.clone().collect();
     info!(
         "Found {} on-chain settlements for config {} (verifying epochs {:?})",
         onchain_settlements.len(),
