@@ -5,6 +5,8 @@ env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   SLACK_API: https://slack.com/api/chat.postMessage
   command_name: 'verify-settlement'
+  NON_FUNDED_THRESHOLD: 7
+  NON_EXISTING_TO_REPORT: 0
 
 # This pipeline is responsible for verifying the settlements of the past epochs
 # It will download the past settlements from gcloud and checks their existence on-chain
@@ -175,15 +177,14 @@ steps:
   - wait: ~
 
   - label: ":mega: Notification settlements verification"
-    env:
-      NON_FUNDED_THRESHOLD: 7
     commands:
     - buildkite-agent artifact download --include-retried-jobs verify-report.json .
     - source ./scripts/execute-handlers.sh
     - check_command_execution_status "$$command_name" || true
     - slack_feed=$(buildkite-agent meta-data get slack_feed)
+    - claim_type=$(buildkite-agent meta-data get claim_type)
     - chmod +x ./scripts/parse-verify-alerts.sh
-    - source ./scripts/parse-verify-alerts.sh -f ./verify-report.json -n "$$NON_FUNDED_THRESHOLD" || alert_exit_code=$?
+    - source ./scripts/parse-verify-alerts.sh -f ./verify-report.json -n "$$NON_FUNDED_THRESHOLD" -e "$$NON_EXISTING_TO_REPORT" || alert_exit_code=$?
     - |
       if [ "$${alert_exit_code:-0}" -ne 0 ]; then
         curl $${SLACK_API} -X POST -H 'Content-type: application/json; charset=utf-8' \
@@ -195,14 +196,14 @@ steps:
                   "type": "header",
                   "text": {
                     "type": "plain_text",
-                    "text": "🚨 Settlement Verification Alerts ('"$$total_alerts"' total)"
+                    "text": "🚨 '"$${claim_type^^}"' Settlement Verification Alerts ('"$$total_alerts"' total)"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*Summary:* '"$$unknown_count"' unknown | '"$$non_verified_count"' non-verified epochs | '"$$non_existing_count"' non-existing | '"$$non_funded_count"' non-funded (threshold: '"$$NON_FUNDED_THRESHOLD"')"
+                    "text": "*Summary:* '"$$unknown_count"' unknown | '"$$non_verified_count"' non-verified epochs | '"$$non_existing_count"' non-existing (threshold: '"$$NON_EXISTING_TO_REPORT"') | '"$$non_funded_count"' non-funded (threshold: '"$$NON_FUNDED_THRESHOLD"')"
                   }
                 },
                 {

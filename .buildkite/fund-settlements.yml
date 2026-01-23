@@ -150,7 +150,7 @@ steps:
       command_name: 'fund-settlement'
     commands:
      - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || echo "No report ERROR" > ./execution-report.$$command_name
-     - cp "./execution-report.$$command_name" "./"
+     - cp "./execution-report.$$command_name" "./cumulative-report.$${command_name}.txt"
      - buildkite-agent meta-data set --redacted-vars="" attempts_count "$(grep -c ATTEMPT ./cumulative-report.$${command_name}.txt)"
     artifact_paths:
       - "./cumulative-report.*"
@@ -173,6 +173,8 @@ steps:
   - wait: ~
 
   - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Fund Settlements"
+    env:
+      command_name: 'fund-settlement'
     commands:
     - latest_funded_epoch=$(buildkite-agent meta-data get latest_funded_epoch) || true
     - claim_type=$(buildkite-agent meta-data get claim_type) || true
