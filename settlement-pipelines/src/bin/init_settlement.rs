@@ -2,10 +2,11 @@ use anchor_client::{DynSigner, Program};
 use anyhow::{anyhow, Context};
 use clap::Parser;
 use log::{debug, info, warn};
+use serde::Serialize;
 
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
-    init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
+    init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, ReportOpts, TipPolicyOpts,
 };
 use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
 use settlement_pipelines::cli_result::{CliError, CliResult};
@@ -17,7 +18,8 @@ use settlement_pipelines::json_data::{
 };
 use settlement_pipelines::reporting::ErrorEntry::{Generic, VoteAccount};
 use settlement_pipelines::reporting::{
-    with_reporting, ErrorEntry, ErrorSeverity, PrintReportable, ReportHandler,
+    with_reporting_ext, ErrorEntry, ErrorSeverity, PrintReportable, ReportHandler,
+    ReportSerializable,
 };
 use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
 use settlement_pipelines::settlement_data::SettlementRecord;
@@ -69,17 +71,23 @@ struct Args {
     /// keypair payer for rent of accounts, if not provided, fee payer keypair is used
     #[arg(long)]
     rent_payer: Option<String>,
+
+    #[clap(flatten)]
+    report_opts: ReportOpts,
 }
 
 #[tokio::main]
 async fn main() -> CliResult {
+    let args: Args = Args::parse();
     let mut reporting = InitSettlementReport::report_handler();
-    let result = real_main(&mut reporting).await;
-    with_reporting::<InitSettlementReport>(&mut reporting, result).await
+    let result = real_main(&mut reporting, &args).await;
+    with_reporting_ext::<InitSettlementReport>(&mut reporting, result, &args.report_opts).await
 }
 
-async fn real_main(reporting: &mut ReportHandler<InitSettlementReport>) -> anyhow::Result<()> {
-    let args: Args = Args::parse();
+async fn real_main(
+    reporting: &mut ReportHandler<InitSettlementReport>,
+    args: &Args,
+) -> anyhow::Result<()> {
     init_log(&args.global_opts);
 
     let InitializedGlobalOpts {
@@ -619,5 +627,39 @@ impl InitSettlementReport {
             settlements_max_claim_sum,
             max_merkle_nodes_sum,
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct InitSettlementJsonSummary {
+    epoch: u64,
+    created_settlements: u64,
+    existing_settlements: u64,
+    total_merkle_nodes: u64,
+    total_max_claim_lamports: u64,
+    upsized_settlements: u64,
+}
+
+impl ReportSerializable for InitSettlementReport {
+    fn command_name(&self) -> &'static str {
+        "init-settlement"
+    }
+
+    fn get_json_summary(&self) -> Pin<Box<dyn Future<Output = serde_json::Value> + '_>> {
+        Box::pin(async {
+            let loaded_data = self.list_loaded_settlements_data();
+
+            let summary = InitSettlementJsonSummary {
+                epoch: self.epoch,
+                created_settlements: self.created_settlements.len() as u64,
+                existing_settlements: self.existing_settlements.len() as u64,
+                total_merkle_nodes: loaded_data.max_merkle_nodes_sum,
+                total_max_claim_lamports: loaded_data.settlements_max_claim_sum,
+                upsized_settlements: self.upsized_settlements.len() as u64,
+            };
+
+            serde_json::to_value(summary)
+                .unwrap_or_else(|e| serde_json::json!({"error": e.to_string()}))
+        })
     }
 }

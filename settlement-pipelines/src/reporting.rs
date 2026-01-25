@@ -1,10 +1,16 @@
+use crate::arguments::{ReportFormat, ReportOpts};
 use crate::cli_result::{CliError, CliResult};
 use anyhow::format_err;
+use chrono::Utc;
 use log::{error, info};
+use serde::Serialize;
 use solana_sdk::pubkey::Pubkey;
 use solana_transaction_builder_executor::TransactionBuilderExecutionErrors;
 use std::fmt::{self, Display};
+use std::fs::File;
 use std::future::Future;
+use std::io::Write;
+use std::path::PathBuf;
 use std::pin::Pin;
 
 pub trait PrintReportable {
@@ -15,8 +21,75 @@ pub trait PrintReportable {
     }
 }
 
+/// Trait extending PrintReportable to support JSON serialization of reports
+pub trait ReportSerializable: PrintReportable {
+    /// Returns the command name for the report
+    fn command_name(&self) -> &'static str;
+
+    /// Returns the JSON summary specific to this report type
+    fn get_json_summary(&self) -> Pin<Box<dyn Future<Output = serde_json::Value> + '_>>;
+}
+
+/// JSON report structures
+#[derive(Debug, Clone, Serialize)]
+pub struct ReportSummary {
+    pub command: String,
+    pub timestamp: String,
+    pub status: ReportStatus,
+    pub summary: serde_json::Value,
+    pub errors: Vec<ErrorReportEntry>,
+    pub warnings: Vec<ErrorReportEntry>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ReportStatus {
+    pub success: bool,
+    pub error_count: u64,
+    pub warning_count: u64,
+    pub retryable_error_count: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ErrorReportEntry {
+    pub severity: String,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vote_account: Option<String>,
+}
+
+/// Enum representing the output format of a report
+pub enum ReportOutput {
+    Text(Vec<String>),
+    Json(serde_json::Value),
+}
+
+impl ReportOutput {
+    /// Write the report to a file or stdout
+    pub fn write(&self, path: Option<&PathBuf>) -> std::io::Result<()> {
+        let content = match self {
+            ReportOutput::Text(lines) => lines.join("\n"),
+            ReportOutput::Json(value) => serde_json::to_string_pretty(value)
+                .unwrap_or_else(|e| format!("{{\"error\": \"{}\"}}", e)),
+        };
+
+        match path {
+            Some(file_path) => {
+                let mut file = File::create(file_path)?;
+                writeln!(file, "{}", content)?;
+                Ok(())
+            }
+            None => {
+                println!("{}", content);
+                Ok(())
+            }
+        }
+    }
+}
+
 pub struct ReportHandler<T: PrintReportable> {
-    error_handler: ErrorHandler,
+    pub error_handler: ErrorHandler,
     pub reportable: T,
 }
 
@@ -309,7 +382,7 @@ impl<'a> ErrorHandlerBuilder<'a> {
 
 #[derive(Default)]
 pub struct ErrorHandler {
-    entries: Vec<ErrorEntry>,
+    pub entries: Vec<ErrorEntry>,
 }
 
 impl ErrorHandler {
@@ -371,6 +444,38 @@ impl ErrorHandler {
         self.entries.iter().filter(|e| e.is_info()).collect()
     }
 
+    /// Returns the status summary for JSON reporting
+    pub fn get_status(&self) -> ReportStatus {
+        let errors = self.get_errors();
+        let warnings = self.get_warnings();
+        let retryable = self.get_retryable_errors();
+
+        ReportStatus {
+            success: errors.is_empty() && retryable.is_empty(),
+            error_count: errors.len() as u64,
+            warning_count: warnings.len() as u64,
+            retryable_error_count: retryable.len() as u64,
+        }
+    }
+
+    /// Returns errors as JSON-serializable entries
+    pub fn get_errors_as_json(&self) -> Vec<ErrorReportEntry> {
+        self.entries
+            .iter()
+            .filter(|e| e.is_critical() || e.is_retryable())
+            .map(error_entry_to_json)
+            .collect()
+    }
+
+    /// Returns warnings as JSON-serializable entries
+    pub fn get_warnings_as_json(&self) -> Vec<ErrorReportEntry> {
+        self.entries
+            .iter()
+            .filter(|e| e.is_warning())
+            .map(error_entry_to_json)
+            .collect()
+    }
+
     pub fn finalize(&self) -> anyhow::Result<()> {
         let mut result = anyhow::Ok(());
 
@@ -422,6 +527,25 @@ impl ErrorHandler {
     }
 }
 
+/// Helper function to convert ErrorEntry to ErrorReportEntry for JSON serialization
+fn error_entry_to_json(entry: &ErrorEntry) -> ErrorReportEntry {
+    match entry {
+        ErrorEntry::Generic(err) => ErrorReportEntry {
+            severity: err.severity.to_string(),
+            message: err.message.clone(),
+            source: err.source.clone(),
+            vote_account: None,
+        },
+        ErrorEntry::VoteAccount(err) => ErrorReportEntry {
+            severity: err.severity().to_string(),
+            message: err.message().to_string(),
+            source: err.source().map(|s| s.to_string()),
+            vote_account: Some(err.vote_account.to_string()),
+        },
+    }
+}
+
+/// Original with_reporting function for backward compatibility (text output to stdout)
 pub async fn with_reporting<T: PrintReportable>(
     report_handler: &mut ReportHandler<T>,
     main_result: anyhow::Result<()>,
@@ -435,6 +559,96 @@ pub async fn with_reporting<T: PrintReportable>(
         Err(err) => {
             println!("ERROR: {}", err);
             CliResult(Err(err))
+        }
+    }
+}
+
+/// Extended with_reporting function that supports both text and JSON output formats
+pub async fn with_reporting_ext<T: ReportSerializable>(
+    report_handler: &mut ReportHandler<T>,
+    main_result: anyhow::Result<()>,
+    report_opts: &ReportOpts,
+) -> CliResult {
+    match report_opts.report_format {
+        ReportFormat::Text => {
+            // For text format, use the original behavior
+            report_handler.print_report().await;
+            let result = match main_result {
+                Ok(_) => CliResult(report_handler.finalize()),
+                Err(err) => {
+                    println!("ERROR: {}", err);
+                    CliResult(Err(err))
+                }
+            };
+
+            // If report file specified, write text output to file as well
+            if let Some(ref file_path) = report_opts.report_file {
+                let text_report = report_handler.reportable.get_report().await;
+                let output = ReportOutput::Text(text_report);
+                if let Err(e) = output.write(Some(file_path)) {
+                    error!("Failed to write report file: {}", e);
+                }
+            }
+            result
+        }
+        ReportFormat::Json => {
+            // For JSON format, build the full report
+            // First, finalize to transform entries if needed
+            report_handler
+                .reportable
+                .transform_on_finalize(&mut report_handler.error_handler.entries);
+
+            let status = report_handler.error_handler.get_status();
+            let errors = report_handler.error_handler.get_errors_as_json();
+            let warnings = report_handler.error_handler.get_warnings_as_json();
+            let summary = report_handler.reportable.get_json_summary().await;
+
+            let report_summary = ReportSummary {
+                command: report_handler.reportable.command_name().to_string(),
+                timestamp: Utc::now().to_rfc3339(),
+                status: status.clone(),
+                summary,
+                errors,
+                warnings,
+            };
+
+            let json_value = serde_json::to_value(&report_summary)
+                .unwrap_or_else(|e| serde_json::json!({"error": e.to_string()}));
+
+            let output = ReportOutput::Json(json_value);
+            if let Err(e) = output.write(report_opts.report_file.as_ref()) {
+                error!("Failed to write report: {}", e);
+            }
+
+            // Determine the exit result based on main_result and status
+            match main_result {
+                Ok(_) => {
+                    if !status.success {
+                        // There were errors even though main returned Ok
+                        if status.error_count > 0 {
+                            CliResult(Err(CliError::critical(format_err!(
+                                "Errors occurred: {} errors",
+                                status.error_count
+                            ))))
+                        } else if status.retryable_error_count > 0 {
+                            CliResult(Err(CliError::retry_able(format_err!(
+                                "Retryable errors occurred: {} errors",
+                                status.retryable_error_count
+                            ))))
+                        } else if status.warning_count > 0 {
+                            CliResult(Err(CliError::warning(format_err!(
+                                "Warnings occurred: {} warnings",
+                                status.warning_count
+                            ))))
+                        } else {
+                            CliResult(Ok(()))
+                        }
+                    } else {
+                        CliResult(Ok(()))
+                    }
+                }
+                Err(err) => CliResult(Err(err)),
+            }
         }
     }
 }

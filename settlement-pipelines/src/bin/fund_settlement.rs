@@ -2,9 +2,10 @@ use anchor_client::anchor_lang::solana_program::stake::state::{Authorized, Locku
 use anchor_client::{DynSigner, Program};
 use clap::Parser;
 use log::{debug, error, info};
+use serde::Serialize;
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
-    init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
+    init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, ReportOpts, TipPolicyOpts,
 };
 use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
 use settlement_pipelines::cli_result::{CliError, CliResult};
@@ -14,7 +15,8 @@ use settlement_pipelines::institutional_validators::{fetch_validator_data, Valid
 use settlement_pipelines::json_data::{load_json, load_json_with_on_chain};
 use settlement_pipelines::reporting::ErrorEntry::{Generic, VoteAccount};
 use settlement_pipelines::reporting::{
-    with_reporting, ErrorEntry, ErrorSeverity, PrintReportable, ReportHandler,
+    with_reporting_ext, ErrorEntry, ErrorSeverity, PrintReportable, ReportHandler,
+    ReportSerializable,
 };
 use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
 use settlement_pipelines::settlement_data::{
@@ -83,17 +85,23 @@ struct Args {
     /// keypair payer for rent of accounts, if not provided, fee payer keypair is used
     #[arg(long)]
     rent_payer: Option<String>,
+
+    #[clap(flatten)]
+    report_opts: ReportOpts,
 }
 
 #[tokio::main]
 async fn main() -> CliResult {
+    let args: Args = Args::parse();
     let mut reporting = FundSettlementsReport::report_handler();
-    let result = real_main(&mut reporting).await;
-    with_reporting::<FundSettlementsReport>(&mut reporting, result).await
+    let result = real_main(&mut reporting, &args).await;
+    with_reporting_ext::<FundSettlementsReport>(&mut reporting, result, &args.report_opts).await
 }
 
-async fn real_main(reporting: &mut ReportHandler<FundSettlementsReport>) -> anyhow::Result<()> {
-    let args: Args = Args::parse();
+async fn real_main(
+    reporting: &mut ReportHandler<FundSettlementsReport>,
+    args: &Args,
+) -> anyhow::Result<()> {
     init_log(&args.global_opts);
 
     let InitializedGlobalOpts {
@@ -873,6 +881,16 @@ impl FundSettlementsReport {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct FundSettlementJsonSummary {
+    epochs: Vec<u64>,
+    total_funded_settlements: u64,
+    total_funded_amount_lamports: u64,
+    already_funded_settlements: u64,
+    already_funded_amount_lamports: u64,
+    not_funded_by_validator_bond_count: u64,
+}
+
 impl PrintReportable for FundSettlementsReport {
     fn get_report(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + '_>> {
         Box::pin(async {
@@ -941,5 +959,59 @@ impl PrintReportable for FundSettlementsReport {
                 }
             });
         }
+    }
+}
+
+impl ReportSerializable for FundSettlementsReport {
+    fn command_name(&self) -> &'static str {
+        "fund-settlement"
+    }
+
+    fn get_json_summary(&self) -> Pin<Box<dyn Future<Output = serde_json::Value> + '_>> {
+        Box::pin(async {
+            let epochs: Vec<u64> = self.settlements_per_epoch.keys().copied().collect();
+            let total_funded_settlements: u64 = self
+                .settlements_per_epoch
+                .values()
+                .map(|r| r.funded_settlements.len() as u64)
+                .sum();
+            let total_funded_amount_lamports: u64 = self
+                .settlements_per_epoch
+                .values()
+                .map(|r| r.funded_amount())
+                .sum();
+            let already_funded_settlements: u64 = self
+                .settlements_per_epoch
+                .values()
+                .map(|r| {
+                    r.already_funded_settlements
+                        .iter()
+                        .filter(|(_, (_, amount))| *amount > 0)
+                        .count() as u64
+                })
+                .sum();
+            let already_funded_amount_lamports: u64 = self
+                .settlements_per_epoch
+                .values()
+                .map(|r| r.already_funded_amount())
+                .sum();
+            let not_funded_by_validator_bond_count: u64 = self
+                .settlements_per_epoch
+                .values()
+                .map(|r| r.not_funded_by_validator_bond_count)
+                .sum();
+
+            let summary = FundSettlementJsonSummary {
+                epochs,
+                total_funded_settlements,
+                total_funded_amount_lamports,
+                already_funded_settlements,
+                already_funded_amount_lamports,
+                not_funded_by_validator_bond_count,
+            };
+
+            serde_json::to_value(summary)
+                .unwrap_or_else(|e| serde_json::json!({"error": e.to_string()}))
+        })
     }
 }
