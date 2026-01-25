@@ -43,13 +43,7 @@ steps:
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,merge_stakes=debug
     commands:
     - . "$HOME/.cargo/env"
-    - prior_build_number=$(($$BUILDKITE_RETRY_COUNT - 1))
     - command_name='merge-stakes'
-    - buildkite-agent artifact download --include-retried-jobs execution-report.$$command_name.$$prior_build_number . || true
-    - |
-      cp "execution-report.$$command_name.$$prior_build_number" "execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT" || true
-      rm -f "execution-report.$$command_name.$$prior_build_number"
-      echo "#ATTEMPT $$command_name $$BUILDKITE_RETRY_COUNT" | tee -a "./execution-report.$$command_name.$$BUILDKITE_RETRY_COUNT"
     - buildkite-agent artifact download --include-retried-jobs target/release/$${command_name} .
     - chmod +x target/release/$${command_name}
     - source ./scripts/execute-handlers.sh
@@ -66,7 +60,7 @@ steps:
       - "vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU"
       - "VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE"
     artifact_paths:
-      - "./execution-report.*"
+      - "./report.*.json"
     retry:
       automatic:
         - exit_status: 100
@@ -75,14 +69,16 @@ steps:
   - label: ":memo: Notification setup: Merge Stakes"
     key: "notification-setup-merge-stakes"
     commands:
-     - mkdir ./reports
-     - command_name='merge-stakes'
-     - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name.*" ./reports/ || echo "No report ERROR" > ./reports/execution-report.$$command_name.error
-     - report_path="./reports/$(ls -v1 reports/ | tail -n 1)"
-     - cp "$$report_path" ./$${command_name}-report.txt
-     - buildkite-agent meta-data set --redacted-vars='' attempts_count "$(grep -c ATTEMPT ./$${command_name}-report.txt)"
+    - mkdir ./reports
+    - command_name='merge-stakes'
+    - |
+      buildkite-agent artifact download --include-retried-jobs "report.$$command_name.*.json" ./reports/ || echo '{"command":"merge-stakes","status":{"success":false,"error_count":1},"summary":"No report found"}' > "./reports/report.$$command_name.0.json"
+    - report_path="./reports/$(ls -v1 reports/ | tail -n 1)"
+    - cp "$$report_path" ./$${command_name}-report.json
+    - attempts_count=$$(ls -1 ./reports/report.$$command_name.*.json 2>/dev/null | wc -l)
+    - buildkite-agent meta-data set --redacted-vars='' attempts_count "$$attempts_count"
     artifact_paths:
-    - "./merge-stakes-report.txt"
+    - "./merge-stakes-report.json"
     depends_on: "merge-stakes"
     allow_dependency_failure: true
 
@@ -90,16 +86,16 @@ steps:
 
   - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Merge Stakes"
     commands:
-    - report_file='merge-stakes-report.txt'
-    - buildkite-agent artifact download --include-retried-jobs $${report_file} . || echo "UNKNOWN ERROR" > ./$${report_file}
-    - cat ./merge-stakes-report.txt
+    - report_file='merge-stakes-report.json'
+    - buildkite-agent artifact download --include-retried-jobs $${report_file} . || echo '"UNKNOWN ERROR"' > ./$${report_file}
+    - cat ./merge-stakes-report.json
     - |
       current_epoch=$(curl --silent "$$RPC_URL" -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1, "method":"getEpochInfo"}' | jq '.result.epoch')
     - report_epoch=$((current_epoch - 1))
     - |
       echo "Checking existence of path '$gs_bucket/$$report_epoch' to upload the report"
       if [[ -n "$$report_epoch" && $(gcloud storage ls "$gs_bucket/$$report_epoch" 2> /dev/null) ]]; then
-        gcloud storage cp ./$${report_file} "$gs_bucket/$$report_epoch/buildkite/merge-stakes-report.$(date +%s).txt"
+        gcloud storage cp ./$${report_file} "$gs_bucket/$$report_epoch/buildkite/merge-stakes-report.$(date +%s).json"
       fi
     depends_on: "notification-setup-merge-stakes"
     allow_dependency_failure: true

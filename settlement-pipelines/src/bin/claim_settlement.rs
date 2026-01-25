@@ -2,15 +2,19 @@ use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
 use clap::Parser;
 use log::{debug, error, info};
+use serde::Serialize;
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
-    init_from_opts, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
+    init_from_opts, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts, ReportOpts,
+    TipPolicyOpts,
 };
 use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::execute_parallel;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::load_json;
-use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
+use settlement_pipelines::reporting::{
+    with_reporting_ext, PrintReportable, ReportHandler, ReportSerializable,
+};
 use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
 use settlement_pipelines::settlement_data::{parse_settlements_from_json, SettlementRecord};
 use settlement_pipelines::settlements::{list_claimable_settlements, ClaimableSettlementsReturn};
@@ -73,16 +77,23 @@ struct Args {
 
     #[clap(flatten)]
     tip_policy_opts: TipPolicyOpts,
+
+    #[clap(flatten)]
+    report_opts: ReportOpts,
 }
 
 #[tokio::main]
 async fn main() -> CliResult {
-    let mut reporting = ClaimSettlementsReport::report_handler();
-    let result = real_main(&mut reporting).await;
-    with_reporting::<ClaimSettlementsReport>(&mut reporting, result).await
-}
-async fn real_main(reporting: &mut ReportHandler<ClaimSettlementsReport>) -> anyhow::Result<()> {
     let args: Args = Args::parse();
+    let mut reporting = ClaimSettlementsReport::report_handler();
+    let result = real_main(&mut reporting, &args).await;
+    with_reporting_ext::<ClaimSettlementsReport>(&mut reporting, result, &args.report_opts).await
+}
+
+async fn real_main(
+    reporting: &mut ReportHandler<ClaimSettlementsReport>,
+    args: &Args,
+) -> anyhow::Result<()> {
     init_log(&args.global_opts);
 
     let InitializedGlobalOpts {
@@ -988,6 +999,117 @@ impl PrintReportable for ClaimSettlementsReport {
             }
 
             report
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ClaimSettlementJsonSummary {
+    epochs: Vec<EpochClaimSummary>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct EpochClaimSummary {
+    epoch: u64,
+    claimable_settlements: u64,
+    claimed_nodes: u64,
+    total_nodes: u64,
+    claimed_amount_sol: f64,
+    total_amount_sol: f64,
+    reasons: Vec<ReasonClaimSummary>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ReasonClaimSummary {
+    reason: String,
+    settlements: u64,
+    claimed_nodes: u64,
+    total_nodes: u64,
+    claimed_amount_sol: f64,
+    total_amount_sol: f64,
+}
+
+impl ReportSerializable for ClaimSettlementsReport {
+    fn command_name(&self) -> &'static str {
+        "claim-settlement"
+    }
+
+    fn get_json_summary(&self) -> Pin<Box<dyn Future<Output = serde_json::Value> + '_>> {
+        Box::pin(async {
+            let lamports_to_sol = |lamports: u64| -> f64 { lamports as f64 / 1_000_000_000.0 };
+
+            let mut sorted_epochs: Vec<_> = self.settlements_per_epoch.iter().collect();
+            sorted_epochs.sort_by_key(|(epoch, _)| *epoch);
+
+            let epochs: Vec<EpochClaimSummary> = sorted_epochs
+                .iter()
+                .map(|(epoch, settlements_report)| {
+                    let sum_claimed = settlements_report.sum_already_claimed();
+                    let claimable_settlements = settlements_report.already_claimed.len() as u64;
+
+                    // Build amounts map for per-reason breakdown
+                    let amounts: HashMap<Pubkey, (u64, u64)> = settlements_report
+                        .already_claimed
+                        .iter()
+                        .map(|(pubkey, claimed)| {
+                            (
+                                *pubkey,
+                                (claimed.number_of_set_bits, claimed.lamports_claimed),
+                            )
+                        })
+                        .collect();
+
+                    let total_by_reason = settlements_report.sum_by_reason(
+                        &settlements_report
+                            .already_claimed
+                            .iter()
+                            .map(|(pk, c)| (*pk, (c.max_merkle_nodes, c.max_total_claim)))
+                            .collect(),
+                    );
+
+                    let already_by_reason = settlements_report.sum_by_reason(&amounts);
+
+                    // Build per-reason breakdown
+                    let reasons: Vec<ReasonClaimSummary> = ReportingReasonSettlement::items()
+                        .into_iter()
+                        .filter_map(|reason| {
+                            let (settlements, total_nodes, total_lamports) =
+                                total_by_reason.get(&reason).copied().unwrap_or((0, 0, 0));
+                            let (_, claimed_nodes, claimed_lamports) =
+                                already_by_reason.get(&reason).copied().unwrap_or((0, 0, 0));
+
+                            // Skip reasons with no settlements
+                            if settlements == 0 {
+                                return None;
+                            }
+
+                            Some(ReasonClaimSummary {
+                                reason: reason.to_string(),
+                                settlements,
+                                claimed_nodes,
+                                total_nodes,
+                                claimed_amount_sol: lamports_to_sol(claimed_lamports),
+                                total_amount_sol: lamports_to_sol(total_lamports),
+                            })
+                        })
+                        .collect();
+
+                    EpochClaimSummary {
+                        epoch: **epoch,
+                        claimable_settlements,
+                        claimed_nodes: sum_claimed.number_of_set_bits,
+                        total_nodes: sum_claimed.max_merkle_nodes,
+                        claimed_amount_sol: lamports_to_sol(sum_claimed.lamports_claimed),
+                        total_amount_sol: lamports_to_sol(sum_claimed.max_total_claim),
+                        reasons,
+                    }
+                })
+                .collect();
+
+            let summary = ClaimSettlementJsonSummary { epochs };
+
+            serde_json::to_value(summary)
+                .unwrap_or_else(|e| serde_json::json!({"error": e.to_string()}))
         })
     }
 }

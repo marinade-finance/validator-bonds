@@ -5,16 +5,19 @@ use anchor_client::anchor_lang::solana_program::stake::state::StakeStateV2;
 use anchor_client::{DynSigner, Program};
 use clap::Parser;
 use log::{debug, info};
+use serde::Serialize;
 
 use settlement_pipelines::arguments::GlobalOpts;
 use settlement_pipelines::arguments::{
-    init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
+    init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, ReportOpts, TipPolicyOpts,
 };
 use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::execute_parallel_with_rate;
 use settlement_pipelines::init::{get_executor, init_log};
 
-use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
+use settlement_pipelines::reporting::{
+    with_reporting_ext, PrintReportable, ReportHandler, ReportSerializable,
+};
 
 use settlement_pipelines::stake_accounts::{
     get_stake_state_type, prepare_merge_instructions, StakeAccountStateType,
@@ -52,17 +55,23 @@ struct Args {
 
     #[clap(flatten)]
     tip_policy_opts: TipPolicyOpts,
+
+    #[clap(flatten)]
+    report_opts: ReportOpts,
 }
 
 #[tokio::main]
 async fn main() -> CliResult {
+    let args: Args = Args::parse();
     let mut reporting = MergeConfigReport::report_handler();
-    let result = real_main(&mut reporting).await;
-    with_reporting::<MergeConfigReport>(&mut reporting, result).await
+    let result = real_main(&mut reporting, &args).await;
+    with_reporting_ext::<MergeConfigReport>(&mut reporting, result, &args.report_opts).await
 }
 
-async fn real_main(reporting: &mut ReportHandler<MergeConfigReport>) -> anyhow::Result<()> {
-    let args: Args = Args::parse();
+async fn real_main(
+    reporting: &mut ReportHandler<MergeConfigReport>,
+    args: &Args,
+) -> anyhow::Result<()> {
     init_log(&args.global_opts);
 
     let InitializedGlobalOpts {
@@ -322,6 +331,42 @@ impl PrintReportable for MergeConfigReport {
                 ));
             }
             report
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct MergeStakesJsonSummary {
+    config: String,
+    merged_bonds: u64,
+    merged_stake_accounts: u64,
+    non_delegated_stake_accounts: u64,
+    transient_stake_accounts: u64,
+}
+
+impl ReportSerializable for MergeConfigReport {
+    fn command_name(&self) -> &'static str {
+        "merge-stakes"
+    }
+
+    fn get_json_summary(&self) -> Pin<Box<dyn Future<Output = serde_json::Value> + '_>> {
+        Box::pin(async {
+            let merged_stake_accounts: u64 = self
+                .merging_stake_accounts
+                .iter()
+                .map(|(_, sources)| sources.len() as u64)
+                .sum();
+
+            let summary = MergeStakesJsonSummary {
+                config: self.config.to_string(),
+                merged_bonds: self.merging_stake_accounts.len() as u64,
+                merged_stake_accounts,
+                non_delegated_stake_accounts: self.non_delegated_stake_accounts.len() as u64,
+                transient_stake_accounts: self.transient_stake_accounts.len() as u64,
+            };
+
+            serde_json::to_value(summary)
+                .unwrap_or_else(|e| serde_json::json!({"error": e.to_string()}))
         })
     }
 }
