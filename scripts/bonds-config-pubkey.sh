@@ -7,11 +7,11 @@ if [ -z "$claim_type" ]; then
     exit 1
 fi
 
-CONFIG_BIDDING="vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU"
+UNIFIED_BIDDING="vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU"
 CONFIG_INSTITUTIONAL="VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE"
 
-if [[ "$claim_type" == bid* ]]; then
-    echo "$CONFIG_BIDDING"
+if [[ "$claim_type" == bid* ]] || [[ "$claim_type" == unified* ]]; then
+    echo "$UNIFIED_BIDDING"
     exit 0
 elif [[ "$claim_type" == institutional* ]]; then
     echo "$CONFIG_INSTITUTIONAL"

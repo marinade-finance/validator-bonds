@@ -1,6 +1,6 @@
 use crate::settlement_data::SettlementRecord;
-use bid_psr_distribution::settlement_collection::SettlementReason;
 use log::debug;
+use settlement_common::settlement_collection::SettlementReason;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
@@ -19,6 +19,7 @@ pub enum ReportingReasonSettlement {
     BidTooLowPenalty,
     BlacklistPenalty,
     InstitutionalPayout,
+    Unknown,
 }
 
 impl ReportingReasonSettlement {
@@ -29,6 +30,7 @@ impl ReportingReasonSettlement {
             ReportingReasonSettlement::BidTooLowPenalty,
             ReportingReasonSettlement::BlacklistPenalty,
             ReportingReasonSettlement::InstitutionalPayout,
+            ReportingReasonSettlement::Unknown,
         ]
     }
 }
@@ -41,6 +43,7 @@ impl Display for ReportingReasonSettlement {
             ReportingReasonSettlement::BidTooLowPenalty => write!(f, "BidTooLowPenalty"),
             ReportingReasonSettlement::BlacklistPenalty => write!(f, "BlacklistPenalty"),
             ReportingReasonSettlement::InstitutionalPayout => write!(f, "InstitutionalPayout"),
+            ReportingReasonSettlement::Unknown => write!(f, "Unknown"),
         }
     }
 }
@@ -69,27 +72,30 @@ impl SettlementsReportData {
 
     fn matches_reason(
         reporting_reason: &ReportingReasonSettlement,
-        settlement_reason: &SettlementReason,
+        settlement_reason: &Option<SettlementReason>,
     ) -> bool {
-        matches!(
-            (reporting_reason, settlement_reason),
-            (
-                ReportingReasonSettlement::ProtectedEvent,
-                SettlementReason::ProtectedEvent(_)
-            ) | (
-                ReportingReasonSettlement::Bidding,
-                SettlementReason::Bidding
-            ) | (
-                ReportingReasonSettlement::BidTooLowPenalty,
-                SettlementReason::BidTooLowPenalty
-            ) | (
-                ReportingReasonSettlement::BlacklistPenalty,
-                SettlementReason::BlacklistPenalty
-            ) | (
-                ReportingReasonSettlement::InstitutionalPayout,
-                SettlementReason::InstitutionalPayout,
-            )
-        )
+        match settlement_reason {
+            None => matches!(reporting_reason, ReportingReasonSettlement::Unknown),
+            Some(reason) => matches!(
+                (reporting_reason, reason),
+                (
+                    ReportingReasonSettlement::ProtectedEvent,
+                    SettlementReason::ProtectedEvent(_)
+                ) | (
+                    ReportingReasonSettlement::Bidding,
+                    SettlementReason::Bidding
+                ) | (
+                    ReportingReasonSettlement::BidTooLowPenalty,
+                    SettlementReason::BidTooLowPenalty
+                ) | (
+                    ReportingReasonSettlement::BlacklistPenalty,
+                    SettlementReason::BlacklistPenalty
+                ) | (
+                    ReportingReasonSettlement::InstitutionalPayout,
+                    SettlementReason::InstitutionalPayout,
+                )
+            ),
+        }
     }
 
     fn calculate_filter_by_reason(
@@ -145,20 +151,23 @@ impl SettlementsReportData {
                 .iter()
                 .find(|&record| &record.settlement_address == pubkey)
             {
-                let reason_type = match settlement_record.reason {
-                    SettlementReason::ProtectedEvent(_) => {
-                        ReportingReasonSettlement::ProtectedEvent
-                    }
-                    SettlementReason::Bidding => ReportingReasonSettlement::Bidding,
-                    SettlementReason::BidTooLowPenalty => {
-                        ReportingReasonSettlement::BidTooLowPenalty
-                    }
-                    SettlementReason::BlacklistPenalty => {
-                        ReportingReasonSettlement::BlacklistPenalty
-                    }
-                    SettlementReason::InstitutionalPayout => {
-                        ReportingReasonSettlement::InstitutionalPayout
-                    }
+                let reason_type = match &settlement_record.reason {
+                    None => ReportingReasonSettlement::Unknown,
+                    Some(reason) => match reason {
+                        SettlementReason::ProtectedEvent(_) => {
+                            ReportingReasonSettlement::ProtectedEvent
+                        }
+                        SettlementReason::Bidding => ReportingReasonSettlement::Bidding,
+                        SettlementReason::BidTooLowPenalty => {
+                            ReportingReasonSettlement::BidTooLowPenalty
+                        }
+                        SettlementReason::BlacklistPenalty => {
+                            ReportingReasonSettlement::BlacklistPenalty
+                        }
+                        SettlementReason::InstitutionalPayout => {
+                            ReportingReasonSettlement::InstitutionalPayout
+                        }
+                    },
                 };
                 result.get_mut(&reason_type).unwrap().insert(*pubkey);
             } else {

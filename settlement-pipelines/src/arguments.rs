@@ -35,7 +35,7 @@ pub struct GlobalOpts {
     pub fee_payer: Option<String>,
 
     #[arg(long)]
-    pub config: Pubkey,
+    pub config: Option<Pubkey>,
 
     #[arg(short = 'o', long)]
     pub operator_authority: Option<String>,

@@ -109,9 +109,9 @@ steps:
         pnpm install
         pnpm -r build
       - |
-        pnpm cli:check check-settlement \
-          -s ./settlements.json \
-          -m ./settlement-merkle-trees.json
+        pnpm cli:check check-merkle-tree \
+          --merkle-trees ./settlement-merkle-trees.json \
+          --settlement-sources ./settlements.json
     soft_fail:
       - exit_status: "*"
 

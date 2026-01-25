@@ -1,0 +1,143 @@
+agents:
+  queue: "snapshots"
+env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+  past_epochs_to_check: 10
+  PIPELINES_AUTO_APPROVAL: $PIPELINES_AUTO_APPROVAL
+
+steps:
+  - label: ":black_nib: Env variables setup: Sanity Unified"
+    commands:
+    - |
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch || echo "")}
+      if [[ -n "$$epoch" ]]; then
+        buildkite-agent meta-data set --redacted-vars='' epoch "$$epoch"
+      else
+        echo "Epoch is not set, please set EPOCH env variable or define that within the outer pipeline first"
+        exit 1
+      fi
+    - |
+      claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type || echo "")}
+      if [[ -n "$$claim_type" ]]; then
+        buildkite-agent meta-data set --redacted-vars='' claim_type "$$claim_type"
+      else
+        echo "Claim type is not set"
+        exit 1
+      fi
+
+  - wait: ~
+
+  - label: ":floppy_disk: :arrow_left: :cloud: Download merkle trees and settlement sources"
+    key: "download-files"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - claim_type=$(buildkite-agent meta-data get claim_type)
+    - |
+      # Download unified merkle trees
+      gcloud storage cp "$gs_bucket/$$epoch/unified-merkle-trees.json" "./unified-merkle-trees.json"
+    - |
+      # Download settlement source files for cross-validation (optional)
+      # Unified CLI produces single file with all settlements (SAM + PSR)
+      if [[ "$$claim_type" == "bid-distribution" ]]; then
+        gcloud storage cp "$gs_bucket/$$epoch/bid-distribution-settlements.json" "./bid-distribution-settlements.json" || true
+      fi
+      # Future: add institutional settlement sources when available
+    artifact_paths:
+      - "./unified-merkle-trees.json"
+      - "./*-settlements.json"
+
+  - label: ":floppy_disk: :arrow_left: :cloud: Download past unified merkle trees"
+    key: "download-past"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - |
+      past_merkle_trees_dir="./past-merkle-trees"
+      mkdir -p "$$past_merkle_trees_dir"
+      for past_epoch in $$(seq $$((epoch - past_epochs_to_check)) $$((epoch - 1))); do
+        gcloud storage cp "$gs_bucket/$${past_epoch}/unified-merkle-trees.json" \
+          "$$past_merkle_trees_dir/$${past_epoch}-unified-merkle-trees.json" || true
+      done
+    artifact_paths:
+      - "./past-merkle-trees/*.json"
+
+  - wait: ~
+
+  - label: ":broom: :one: Sanity Check - Internal Consistency & Cross-Validation"
+    key: "sanity-check-1"
+    commands:
+      - buildkite-agent artifact download --include-retried-jobs unified-merkle-trees.json .
+      - buildkite-agent artifact download --include-retried-jobs '*-settlements.json' . || true
+      - |
+        pnpm install
+        pnpm -r build
+      - |
+        # Build settlement sources argument if files exist
+        settlement_sources=""
+        for f in ./*-settlements.json; do
+          [[ -f "$$f" ]] && settlement_sources="$$settlement_sources $$f"
+        done
+      - |
+        if [[ -n "$$settlement_sources" ]]; then
+          pnpm cli:check check-merkle-tree \
+            --merkle-trees ./unified-merkle-trees.json \
+            --settlement-sources $$settlement_sources
+        else
+          pnpm cli:check check-merkle-tree \
+            --merkle-trees ./unified-merkle-trees.json
+        fi
+    soft_fail:
+      - exit_status: "*"
+
+  - label: ":broom: :two: Sanity Check - Historical Comparison"
+    key: "sanity-check-2"
+    commands:
+      - buildkite-agent artifact download --include-retried-jobs unified-merkle-trees.json .
+      - buildkite-agent artifact download --include-retried-jobs 'past-merkle-trees/*.json' . || true
+      - |
+        # Check if we have enough past merkle trees
+        PAST_FILES_COUNT=$$(ls ./past-merkle-trees/*.json 2>/dev/null | wc -l || echo "0")
+        if [[ "$$PAST_FILES_COUNT" -lt 3 ]]; then
+          echo "Not enough historical data (found $$PAST_FILES_COUNT, need at least 3 epochs). Skipping historical comparison."
+          exit 0
+        fi
+      - |
+        pnpm install
+        pnpm -r build
+      # Historical anomaly detection
+      # --correlation-threshold: Max deviation ratio for consistency checks (0-1, default 0.15)
+      # --score-threshold: Z-score threshold for anomaly detection (default 2.0)
+      # --min-absolute-deviation: Min absolute deviation from mean to flag anomaly (default 0.05 = 5%)
+      - |
+        pnpm cli:check check-merkle-tree \
+          --merkle-trees ./unified-merkle-trees.json \
+          --past-merkle-trees ./past-merkle-trees/*.json \
+          --correlation-threshold 0.15 \
+          --score-threshold 2.0 \
+          --min-absolute-deviation 0.05
+    soft_fail:
+      - exit_status: "*"
+
+  - wait: ~
+
+  - label: ":printer: Block processing when sanity check fails"
+    command: |
+      outcome1=$$(buildkite-agent step get "outcome" --step "sanity-check-1")
+      outcome2=$$(buildkite-agent step get "outcome" --step "sanity-check-2")
+
+      if [[ "$$outcome1 $$outcome2" =~ soft_failed ]]; then
+         cat <<- YAML | buildkite-agent pipeline upload
+         steps:
+           - block: ":interrobang: Sanity check failed"
+             prompt: "Sanity check(s) failed. Review and select 'Unblock' if ready to proceed."
+             if: build.env('PIPELINES_AUTO_APPROVAL') == 'true'
+             blocked_state: running
+      YAML
+      fi
+    depends_on:
+      - "sanity-check-1"
+      - "sanity-check-2"
+
+  - block: ":interrobang: Confirm to proceed"
+    prompt: "[PIPELINES_AUTO_APPROVAL=${PIPELINES_AUTO_APPROVAL}] Review data + sanity check and 'Unblock' if ready to proceed."
+    if: build.env('PIPELINES_AUTO_APPROVAL') != 'true'
+    blocked_state: running

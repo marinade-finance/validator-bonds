@@ -17,8 +17,8 @@ steps:
       - select: "Claim type"
         key: "claim_type"
         options:
-          - label: "Bidding Settlements"
-            value: "bid"
+          - label: "Unified Settlements"
+            value: "unified"
           - label: "Institutional Settlements"
             value: "institutional"
     if: "build.env('CLAIM_TYPE') == null"
@@ -104,7 +104,7 @@ steps:
           echo "Skipping epoch $$epoch, because it's before the contract v2 deployment epoch $$starting_epoch_contract_v2"
           continue
         fi
-        for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/$${claim_type_prefix}*settlement-merkle-trees.json"); do
+        for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/$${claim_type_prefix}*merkle-trees.json"); do
           base_name=$(basename "$$merkle_tree_file")
           gcloud storage cp "$$merkle_tree_file" "./merkle-trees/$${epoch}_$${base_name}"
         done

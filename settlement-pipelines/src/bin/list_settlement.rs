@@ -1,7 +1,7 @@
-use bid_psr_distribution::merkle_tree_collection::MerkleTreeCollection;
-use bid_psr_distribution::utils::{read_from_json_file, write_to_json_file};
 use clap::Parser;
 use log::{debug, error, info, warn};
+use settlement_common::merkle_tree_collection::MerkleTreeCollection;
+use settlement_common::utils::{read_from_json_file, write_to_json_file};
 use settlement_pipelines::arguments::GlobalOpts;
 use settlement_pipelines::init::init_log;
 use settlement_pipelines::json_data::BondSettlement;
@@ -31,13 +31,17 @@ async fn main() -> anyhow::Result<()> {
     let args: Args = Args::parse();
     init_log(&args.global_opts);
 
-    let config_address = args.global_opts.config;
+    let merkle_tree_collection = load_merkle_tree_files(&args.merkle_tree_files)?;
+
+    let config_address = args.global_opts.config.unwrap_or_else(|| {
+        let config = merkle_tree_collection[0].validator_bonds_config;
+        info!("Using config address from merkle tree: {config}");
+        config
+    });
     info!(
         "Listing settlements from JSON files {:?} for validator-bonds config: {}",
         args.merkle_tree_files, config_address
     );
-
-    let merkle_tree_collection = load_merkle_tree_files(&args.merkle_tree_files)?;
 
     let bond_settlements: Vec<BondSettlement> = merkle_tree_collection
         .iter()

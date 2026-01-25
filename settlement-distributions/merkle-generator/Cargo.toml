@@ -1,0 +1,25 @@
+[package]
+name = "merkle-generator"
+version = "0.1.0"
+edition = "2021"
+description = "CLI tool to generate unified merkle trees from multiple settlement sources"
+
+[dependencies]
+anyhow = { workspace = true }
+settlement-common = { workspace = true }
+clap = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+merkle-tree = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+solana-sdk = { workspace = true }
+validator-bonds = { workspace = true }
+
+[[bin]]
+name = "merkle-generator-cli"
+path = "src/bin/cli.rs"
+
+[lib]
+name = "merkle_generator"
+path = "src/lib.rs"

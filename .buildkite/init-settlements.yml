@@ -4,6 +4,8 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   SLACK_API: https://slack.com/api/chat.postMessage
+  # Comma-separated "filename:WEBHOOK_ENV_VAR" pairs for Discord reporting
+  DISCORD_REPORTS: "bid-distribution-discord-report.txt:DISCORD_WEBHOOK_PSR_FEED"
   command_name: 'init-settlement'
 
 steps:
@@ -20,10 +22,8 @@ steps:
       - select: "Claim type"
         key: "claim_type"
         options:
-          - label: "Bid PSR Distribution"
-            value: "bid-psr-distribution"
-          - label: "Bid Distribution"
-            value: "bid-distribution"
+          - label: "Unified Distribution"
+            value: "unified"
           - label: "Institutional Distribution"
             value: "institutional-distribution"
     if: "build.env('CLAIM_TYPE') == null"
@@ -66,7 +66,7 @@ steps:
         SLACK_FEED=$$slack_feed
         NOTIFY_FEED=${NOTIFY_FEED:-false}
         NOTIFY_DISCORD_FEED=${NOTIFY_DISCORD_FEED:-false}
-        # DISCORD_WEBHOOK_PSR_FEED=<secret>
+        # DISCORD_REPORTS: "filename:WEBHOOK_ENV_VAR,..." (webhook env vars must be set as secrets)
         \`\`\`
         EOF
 
@@ -108,18 +108,19 @@ steps:
     - epoch=$(buildkite-agent meta-data get epoch)
     - claim_type=$(buildkite-agent meta-data get claim_type)
     - |
-      gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlement-merkle-trees.json" "./settlement-merkle-trees.json"
-      gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlements.json" "./settlements.json"
+      if [[ "$$claim_type" == "unified" ]]; then
+        gcloud storage cp "$gs_bucket/$$epoch/unified-merkle-trees.json" "./settlement-merkle-trees.json"
+      else
+        gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlement-merkle-trees.json" "./settlement-merkle-trees.json"
+      fi
     artifact_paths:
       - "./settlement-merkle-trees.json"
-      - "./settlements.json"
 
   - label: ":spiral_note_pad: :school_satchel:  Settlement JSON listing"
     commands:
      - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
-     - buildkite-agent artifact download --include-retried-jobs settlements.json .
      - claim_type=$(buildkite-agent meta-data get claim_type)
-     - bash ./scripts/settlement-json-listing.sh --settlements settlements.json --merkle-trees settlement-merkle-trees.json --claim-type $$claim_type
+     - bash ./scripts/settlement-json-listing.sh --merkle-trees settlement-merkle-trees.json --claim-type $$claim_type
     depends_on: "download-json"
 
   - wait: ~
@@ -129,7 +130,12 @@ steps:
       - |
         claim_type=$(buildkite-agent meta-data get claim_type)
         echo "Claim Type: '$${claim_type}'"
-      - buildkite-agent pipeline upload .buildkite/sanity-$${claim_type}.yml
+      - |
+        if [[ "$$claim_type" == "unified" ]]; then
+          buildkite-agent pipeline upload .buildkite/sanity-unified.yml
+        else
+          buildkite-agent pipeline upload .buildkite/sanity-$${claim_type}.yml
+        fi
 
   - wait: ~
 
@@ -150,15 +156,12 @@ steps:
     - epoch=$(buildkite-agent meta-data get epoch)
     - buildkite-agent artifact download --include-retried-jobs target/release/init-settlement .
     - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
-    - buildkite-agent artifact download --include-retried-jobs settlements.json .
     - chmod +x target/release/init-settlement
     - source ./scripts/execute-handlers.sh
     - |
       handle_command_execution "$$command_name" \
       ./target/release/init-settlement \
-        --config $(buildkite-agent meta-data get config_pubkey) \
         --input-merkle-tree-collection "./settlement-merkle-trees.json" \
-        --input-settlement-collection "./settlements.json" \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$PSR_TX_FEE_WALLET" \
         --rent-payer "$$PSR_RENT_PAYER_WALLET" \
@@ -232,19 +235,36 @@ steps:
     allow_dependency_failure: true
     if: "build.env('NOTIFY_FEED') == 'true'"
 
-  - label: ":mega: Notification :fast_forward: Discord PSR feed"
+  - label: ":mega: Notification :fast_forward: Discord feed"
     commands:
     - claim_type=$(buildkite-agent meta-data get claim_type)
     - epoch=$(buildkite-agent meta-data get epoch)
-
-    - gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-discord-public-report.txt" "./discord-public-report.txt"
     - |
-      split_command=$(which split >&2 > /dev/null && echo "split" || echo "gsplit")
-      # discord max message length is 2000 characters
-      $$split_command -C 2000 "./discord-public-report.txt" './discord-public-report.txt.chunk-'
-      for report_chunk in './discord-public-report.txt.chunk-'*; do
-        report=$(cat "$$report_chunk")
-        curl "$$DISCORD_WEBHOOK_PSR_FEED" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": null, "attachments": []}')"
+      if [[ "$$claim_type" != "unified" ]]; then
+        echo "Discord reporting is only enabled for unified, skipping for '$$claim_type'"
+        exit 0
+      fi
+    - |
+      split_command=$(which split > /dev/null 2>&1 && echo "split" || echo "gsplit")
+      IFS=',' read -ra report_entries <<< "$$DISCORD_REPORTS"
+      for entry in "$${report_entries[@]}"; do
+        IFS=':' read -r report_file webhook_var <<< "$$entry"
+        report_file=$(echo "$$report_file" | xargs)
+        webhook_var=$(echo "$$webhook_var" | xargs)
+        echo "--- Processing discord report '$$report_file' -> webhook '$$webhook_var'"
+        webhook_url="$${!webhook_var}"
+        if [[ -z "$$webhook_url" ]]; then
+          echo "WARNING: Webhook env var '$$webhook_var' is not set, skipping"
+          continue
+        fi
+        gcloud storage cp "$gs_bucket/$$epoch/$$report_file" "./discord-report.txt"
+        # discord max message length is 2000 characters
+        $$split_command -C 2000 "./discord-report.txt" './discord-report.txt.chunk-'
+        for report_chunk in './discord-report.txt.chunk-'*; do
+          report=$(cat "$$report_chunk")
+          curl "$$webhook_url" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": null, "attachments": []}')"
+        done
+        rm -f ./discord-report.txt ./discord-report.txt.chunk-*
       done
     depends_on: "notification-setup-init"
     allow_dependency_failure: true

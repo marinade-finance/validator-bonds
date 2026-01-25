@@ -122,7 +122,7 @@ export const staker3Keypair = Keypair.fromSecretKey(
 )
 
 // To get GENERATED new values for the following constants,
-// see merkle_tree_collection.rs, `cargo test --package bid-psr-distribution -- --show-output --nocapture`
+// see merkle_tree_collection.rs, `cargo test --package settlement-common -- --show-output --nocapture`
 
 export type MerkleTreeNodeWithProof = {
   treeNode: MerkleTreeNode

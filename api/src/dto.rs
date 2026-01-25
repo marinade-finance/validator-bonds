@@ -1,8 +1,8 @@
-use bid_psr_distribution::settlement_collection::{SettlementMeta, SettlementReason};
 use chrono::{DateTime, Utc};
 use merkle_tree::serde_serialize::pubkey_string_conversion;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use settlement_common::settlement_collection::{SettlementMeta, SettlementReason};
 use solana_sdk::pubkey::Pubkey;
 use std::error::Error;
 use tokio_postgres::types::{FromSql, IsNull, ToSql, Type};

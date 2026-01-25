@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ### ---- Call with json file arguments
-# settlement-json-listing.sh --settlements 1_settlements.json --merkle-trees 1_settlement-merkle-trees.json --claim-type <bid|institutional>
+# settlement-json-listing.sh --merkle-trees 1_settlement-merkle-trees.json --claim-type <unified|institutional>
 ### ----
 
 solsdecimal() {
@@ -48,7 +48,6 @@ config_min_stake() {
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        --settlements) SETTLEMENTS_JSON_FILE="$2"; shift ;;
         --merkle-trees) MERKLE_TREES_JSON_FILE="$2"; shift ;;
         --claim-type) CLAIM_TYPE="$2"; shift ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
@@ -56,8 +55,8 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-if [ -z "$SETTLEMENTS_JSON_FILE" ] || [ -z "$MERKLE_TREES_JSON_FILE" ] || [ -z "$CLAIM_TYPE" ]; then
-    echo "Parameters --settlements <path> and --merkle-trees <path> and --claim-type <bid*|institutional*> are required"
+if [ -z "$MERKLE_TREES_JSON_FILE" ] || [ -z "$CLAIM_TYPE" ]; then
+    echo "Parameters --merkle-trees <path> and --claim-type <unified*|institutional*> are required"
     exit 1
 fi
 
@@ -65,13 +64,8 @@ SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
 CONFIG_PUBKEY=$("$SCRIPT_DIR"/bonds-config-pubkey.sh "$CLAIM_TYPE")
 [[ -z "$CONFIG_PUBKEY" ]] && echo "Error: Bond config pubkey was not defined" && exit 2
 
-SETTLEMENTS_EPOCH=$(jq '.epoch' "$SETTLEMENTS_JSON_FILE")
 MERKLE_TREES_EPOCH=$(jq '.epoch' "$MERKLE_TREES_JSON_FILE")
-if [ "$SETTLEMENTS_EPOCH" != "$MERKLE_TREES_EPOCH" ]; then
-    echo "Epochs of files '$SETTLEMENTS_JSON_FILE' and '$MERKLE_TREES_JSON_FILE' are not matching: Settlements epoch: $SETTLEMENTS_EPOCH, Merkle trees epoch: $MERKLE_TREES_EPOCH"
-    exit 1
-fi
-echo "EPOCH: $SETTLEMENTS_EPOCH"
+echo "EPOCH: $MERKLE_TREES_EPOCH"
 
 # stake account minimal size
 CONFIG_MIN_STAKE=$(config_min_stake "$CONFIG_PUBKEY")
@@ -96,66 +90,12 @@ LAMPORTS=$(echo "$merkle_trees" | jq -r '.max_total_claim_sum' | paste -s -d+ | 
 solsdecimal $LAMPORTS
 echo '----------------'
 
-# listing data of claims
-# echo 'Data of vote account and max total sum claim:'
-# grep "$MERKLE_TREES_JSON_FILE" -e 'vote_account' -e 'max_total_claim_sum'
-# jq '.merkle_trees[] | {sum: .max_total_claim_sum, vote_account: .vote_account, claims: [.tree_nodes[].claim]}' "$MERKLE_TREES_JSON_FILE"
-
-settlements=$(jq -c '.settlements[]' "$SETTLEMENTS_JSON_FILE")
-
-declare -A claims_amounts
-declare -A claims_number
-declare -A unique_funders
-
-declare -A funder_map
-SELECTED_FUNDER=""
-get_next_funder() {
-    SELECTED_FUNDER="<UNKNOWN>"
-    local vote_account="$1"
-    local amount="$2"
-    local funder_data="$3"
-
-    local preset_key="${vote_account}_${amount}"
-
-    # Check if funder_data contains multiple funders (separated by newlines)
-    if [[ -n "$funder_data" ]]; then
-        # Convert funder_data to array, splitting by newlines
-        local funder_array
-        readarray -t funder_array <<< "$funder_data"
-
-        local cleaned_funders=()
-        local funder
-        for funder in "${funder_array[@]}"; do
-            local clean_funder # Remove quotes and trim whitespace
-            clean_funder=$(echo "$funder" | sed 's/^"//; s/"$//' | xargs)
-            if [[ -n "$clean_funder" ]]; then
-                cleaned_funders+=("$clean_funder")
-            fi
-        done
-        if [[ ${#cleaned_funders[@]} -gt 0 ]]; then
-            local count=0
-            local map_key
-            for map_key in "${!funder_map[@]}"; do
-                if [[ "$map_key" == "${preset_key}_"* ]]; then
-                    count=$((count + 1))
-                fi
-            done
-            # Calculate index based on count (cycling through available funders)
-            local current_index=$((count % ${#cleaned_funders[@]}))
-            # Get the funder at current index
-            local selected_funder="${cleaned_funders[$current_index]}"
-            # Store in map with unique suffix to track multiple entries
-            funder_map["${preset_key}_${count}"]="$selected_funder"
-
-            SELECTED_FUNDER="$selected_funder"
-        fi
-    fi
-}
-
-echo "Num.  | Vote Account                                 | Max Claim Sum | Claims Sum    | Claims | Active Stake      | Reason                     | Funder      "
-echo "------+----------------------------------------------+---------------+---------------+--------+-------------------+----------------------------+-------------"
+echo "Num.  | Vote Account                                 | Max Claim Sum | Claims Sum    | Claims"
+echo "------+----------------------------------------------+---------------+---------------+-------"
 
 counter=1
+total_claims_amount=0
+total_claims_count=0
 while IFS= read -r tree; do
   VOTE_ACCOUNT=$(echo "$tree" | jq -r '.vote_account')
   LAMPORTS_MAX=$(echo "$tree" | jq -r '.max_total_claim_sum')
@@ -168,49 +108,25 @@ while IFS= read -r tree; do
     echo "Data inconsistency: $VOTE_ACCOUNT mismatch number of merkle trees $CLAIMS_COUNT and defined number of claims $TOTAL_CLAIMS"
   fi
 
-  SETTLEMENT_DATA=$(echo "$settlements" | jq -c 'select((.vote_account == "'$VOTE_ACCOUNT'") and (.claims_amount == '$LAMPORTS_MAX') and (.claims_count == '$TOTAL_CLAIMS'))')
-  FUNDER_PARSED=$(echo "$SETTLEMENT_DATA" | jq -r '.meta.funder')
-
-  get_next_funder "$VOTE_ACCOUNT" "$LAMPORTS_MAX" "$FUNDER_PARSED"
-  FUNDER="$SELECTED_FUNDER"
-
-  SETTLEMENT_DATA_FUNDER_FILTERED=$(echo "$settlements" | jq -c 'select((.meta.funder == "'$FUNDER'") and (.vote_account == "'$VOTE_ACCOUNT'") and (.claims_amount == '$LAMPORTS_MAX') and (.claims_count == '$TOTAL_CLAIMS'))')
-
-  ACTIVE_STAKE_SUM=$(echo "$SETTLEMENT_DATA_FUNDER_FILTERED" | jq '[.claims[].active_stake] | add // 0')
-  ACTIVE_STAKE_SUM_FORMATTED=$(solsdecimal "$ACTIVE_STAKE_SUM")
-  REASON=$(echo "$SETTLEMENT_DATA_FUNDER_FILTERED" | jq -r '
-  if (.reason | type) == "string" then
-      .reason
-  else
-      .reason | to_entries[0] | .key + "/" + (.value | keys[0])
-  end')
-
-  printf "%5d | %-44s | %13s | %13s | %6s | %17s | %-26s | %s\n" \
+  printf "%5d | %-44s | %13s | %13s | %6s\n" \
     "$counter" \
     "$VOTE_ACCOUNT" \
     "$MAX_CLAIM_SUM" \
     "$CLAIMS_SUM" \
-    "$CLAIMS_COUNT" \
-    "$ACTIVE_STAKE_SUM_FORMATTED" \
-    "$REASON" \
-    "$FUNDER"
+    "$CLAIMS_COUNT"
 
-  current_sum=${claims_amounts[$FUNDER]}
-  claims_amounts[$FUNDER]=$(($current_sum+$LAMPORTS_MAX))
-  current_number=${claims_number[$FUNDER]}
-  claims_number[$FUNDER]=$((current_number+1))
+  total_claims_amount=$(($total_claims_amount + $LAMPORTS_MAX))
+  total_claims_count=$(($total_claims_count + 1))
 
   counter=$((counter + 1))
 done <<< "$merkle_trees"
 
 echo '========================='
 echo 'Summary of claims:'
-for FUNDER in "${!claims_amounts[@]}"; do
-  STAKE_ACCOUNT_RENT=$(echo "scale=4; ${claims_number[$FUNDER]} * $STAKE_ACCOUNT_MINIMAL_SIZE" | bc)
-  STAKE_ACCOUNT_RENT=$(solsdecimal $STAKE_ACCOUNT_RENT)
-  echo -n "Funder $FUNDER, sum of ${claims_number[$FUNDER]} claims (+/- stake account 'rent': ${STAKE_ACCOUNT_RENT}): "
-  solsdecimal ${claims_amounts[$FUNDER]}
-done
+STAKE_ACCOUNT_RENT=$(echo "scale=4; ${total_claims_count} * $STAKE_ACCOUNT_MINIMAL_SIZE" | bc)
+STAKE_ACCOUNT_RENT=$(solsdecimal $STAKE_ACCOUNT_RENT)
+echo -n "Total ${total_claims_count} claims (+/- stake account 'rent': ${STAKE_ACCOUNT_RENT}): "
+solsdecimal ${total_claims_amount}
 echo '========================='
 
 

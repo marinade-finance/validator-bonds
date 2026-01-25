@@ -17,8 +17,8 @@ steps:
       - select: "Claim type"
         key: "claim_type"
         options:
-          - label: "Bidding Settlements"
-            value: "bid"
+          - label: "Unified Settlements"
+            value: "unified"
           - label: "Institutional Settlements"
             value: "institutional"
     if: "build.env('CLAIM_TYPE') == null"
@@ -112,14 +112,10 @@ steps:
           continue
         fi
         claimable_epochs_num=$(($$claimable_epochs_num + 1))
-        claimable_epochs_array+=("$${epoch}")    
-        for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/$${claim_type_prefix}*settlement-merkle-trees.json"); do
+        claimable_epochs_array+=("$${epoch}")
+        for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/$${claim_type_prefix}*merkle-trees.json"); do
           base_name=$(basename "$$merkle_tree_file")
-          prefix_name="$${base_name%settlement-merkle-trees.json}"
-          target_dir="./merkle-trees-claimable/$${epoch}_$${prefix_name%-*}/"
-          mkdir -p "$$target_dir"
-          gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlement-merkle-trees.json" "$$target_dir"
-          gcloud storage cp "$gs_bucket/$$epoch/$${prefix_name}settlements.json" "$$target_dir"
+          gcloud storage cp "$$merkle_tree_file" "./merkle-trees-claimable/$${epoch}_$${base_name}"
         done
       done
       claimable_epochs_json=$(jq --compact-output --null-input '$$ARGS.positional' --args -- "$${claimable_epochs_array[@]}")
@@ -128,7 +124,7 @@ steps:
     - 'echo "Claimable epochs [$$claimable_epochs_num]: $$claimable_epochs_json"'
     depends_on: list-claimable-epochs
     artifact_paths:
-      - "./merkle-trees-claimable/**/*"
+      - "./merkle-trees-claimable/*"
 
   - wait: ~
 
@@ -151,22 +147,19 @@ steps:
     - |
       buildkite-agent artifact download --include-retried-jobs "merkle-trees-claimable/*" .
       files=""
-      for dir in ./merkle-trees-claimable/*; do
-        if [ -d "$$dir" ]; then
-          pair_files=""
-          for file in "$$dir"/*; do
-            pair_files="$$pair_files $$file"
-          done
-          files="$$files -f $$pair_files"
+      for file in ./merkle-trees-claimable/*; do
+        if [ -f "$$file" ]; then
+          files="$$files -f $$file"
         fi
       done
+    - config_pubkey=$(buildkite-agent meta-data get config_pubkey)
     - source ./scripts/execute-handlers.sh
     - |
       handle_command_execution "$$command_name" \
       ./target/release/claim-settlement \
-        --config $(buildkite-agent meta-data get config_pubkey) \
         --operator-authority "$$VALIDATOR_BONDS_OPERATOR_AUTHORITY" \
         --fee-payer "$$PSR_TX_FEE_WALLET" \
+        --config "$$config_pubkey" \
         $$files
     depends_on: "download-merkle-trees"
     artifact_paths:
