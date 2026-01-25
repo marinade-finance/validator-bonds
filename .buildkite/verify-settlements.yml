@@ -136,19 +136,17 @@ steps:
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,verify_settlement=debug
     commands:
     - . "$HOME/.cargo/env"
-    - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || true
     - buildkite-agent artifact download --include-retried-jobs target/release/verify-settlement .
     - buildkite-agent artifact download --include-retried-jobs listed-settlements.json .
     - chmod +x target/release/verify-settlement
     - source ./scripts/execute-handlers.sh
-    - trap 'cat "./execution-report.$${command_name}.$$BUILDKITE_RETRY_COUNT" >> "./execution-report.$${command_name}"' EXIT
     - |
       handle_command_execution "$$command_name" \
       ./target/release/verify-settlement \
         --config $(buildkite-agent meta-data get config_pubkey) \
         --listed-settlements ./listed-settlements.json
     artifact_paths:
-      - "./execution-report*"
+      - "./report.*.json"
     retry:
       automatic:
         - exit_status: 100
@@ -156,14 +154,16 @@ steps:
 
   - label: ":memo: Notification setup: Verify Settlements"
     commands:
-     - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || echo "[\"No report ERROR\"]" > ./execution-report.$$command_name
-     - cp "./execution-report.$$command_name" "./cumulative-report.txt"
      - |
-       ATTEMPT_COUNT=$(grep -c ATTEMPT "./cumulative-report.txt" | sed 's/.*ATTEMPT //g')
-       buildkite-agent meta-data set --redacted-vars="" attempts_count "$${ATTEMPT_COUNT:-0}"
-     - cat "./cumulative-report.txt" | grep -v "ATTEMPT" > ./verify-report.json
+       buildkite-agent artifact download --include-retried-jobs "report.$$command_name.*.json" . || \
+         echo '{"command":"'$$command_name'","status":{"success":false,"error_count":1},"summary":"No report found"}' > "./report.$$command_name.0.json"
+     - latest_report=$$(ls -v "report.$$command_name."[0-9]*.json 2>/dev/null | tail -n 1)
+     - cp "$$latest_report" "./cumulative-report.json"
+     - cp "$$latest_report" "./verify-report.json"
+     - attempts_count=$$(ls -1 "report.$$command_name."[0-9]*.json 2>/dev/null | wc -l)
+     - buildkite-agent meta-data set --redacted-vars="" attempts_count "$$attempts_count"
     artifact_paths:
-      - "./cumulative-report.txt"
+      - "./cumulative-report.json"
       - "./verify-report.json"
     key: 'notification'
     depends_on: "verify-settlement"
@@ -172,9 +172,7 @@ steps:
   - label: ":printer: Annotate Report"
     commands:
       - source ./scripts/execute-handlers.sh
-      - annotate_execution_report "$$command_name" 20
-    artifact_paths:
-      - "./latest-report.txt"
+      - annotate_execution_report "$$command_name"
     key: 'annotate-report-verify'
     depends_on: "verify-settlement"
     allow_dependency_failure: true

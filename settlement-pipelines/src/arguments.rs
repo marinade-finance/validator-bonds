@@ -1,13 +1,14 @@
 use anchor_client::anchor_lang::prelude::Pubkey;
 use anchor_client::{Cluster, DynSigner, Program};
 use anyhow::anyhow;
-use clap::Args;
+use clap::{Args, ValueEnum};
 use log::debug;
+use serde::Serialize;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::signature::{read_keypair_file, Keypair, Signer};
 use solana_transaction_executor::{PriorityFeePolicy, TipPolicy};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 use validator_bonds_common::get_validator_bonds_program;
@@ -70,6 +71,27 @@ pub struct TipPolicyOpts {
     tip_max: Option<u64>,
     #[arg(long)]
     tip_multiplier: Option<u64>,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct ReportOpts {
+    /// Path to save the report file. For 'both' format, .txt and .json extensions are auto-added.
+    #[arg(long = "report-file")]
+    pub report_file: Option<PathBuf>,
+
+    /// Output format for the report file: 'text' (default), 'json', or 'both'.
+    /// Text report is always printed to stdout for logging.
+    #[arg(long = "report-format", value_enum, default_value = "text")]
+    pub report_format: ReportFormat,
+}
+
+#[derive(Debug, Clone, Copy, Default, ValueEnum, Serialize, PartialEq, Eq)]
+pub enum ReportFormat {
+    #[default]
+    Text,
+    Json,
+    /// Output both text and JSON formats (text to stdout, both to files if --report-file specified)
+    Both,
 }
 
 pub fn load_default_keypair(name: &str, s: Option<&str>) -> anyhow::Result<Option<Arc<Keypair>>> {

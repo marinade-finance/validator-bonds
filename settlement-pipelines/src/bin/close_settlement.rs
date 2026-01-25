@@ -4,16 +4,19 @@ use anyhow::anyhow;
 use bid_psr_distribution::utils::read_from_json_file;
 use clap::Parser;
 use log::{debug, info};
+use serde::Serialize;
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
     init_from_opts, load_pubkey, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts,
-    TipPolicyOpts,
+    ReportOpts, TipPolicyOpts,
 };
 use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::execute_parallel;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::BondSettlement;
-use settlement_pipelines::reporting::{with_reporting, PrintReportable, ReportHandler};
+use settlement_pipelines::reporting::{
+    with_reporting_ext, PrintReportable, ReportHandler, ReportSerializable,
+};
 use settlement_pipelines::settlements::{
     load_expired_settlements, obtain_settlement_closing_refunds, SettlementRefundPubkeys,
 };
@@ -69,17 +72,23 @@ struct Args {
     /// JSON data obtained from the "list-settlement" command
     #[clap(long, short = 'p')]
     listed_settlements: PathBuf,
+
+    #[clap(flatten)]
+    report_opts: ReportOpts,
 }
 
 #[tokio::main]
 async fn main() -> CliResult {
+    let args: Args = Args::parse();
     let mut reporting = CloseSettlementReport::report_handler();
-    let result = real_main(&mut reporting).await;
-    with_reporting::<CloseSettlementReport>(&mut reporting, result).await
+    let result = real_main(&mut reporting, &args).await;
+    with_reporting_ext::<CloseSettlementReport>(&mut reporting, result, &args.report_opts).await
 }
 
-async fn real_main(reporting: &mut ReportHandler<CloseSettlementReport>) -> anyhow::Result<()> {
-    let args: Args = Args::parse();
+async fn real_main(
+    reporting: &mut ReportHandler<CloseSettlementReport>,
+    args: &Args,
+) -> anyhow::Result<()> {
     init_log(&args.global_opts);
 
     let InitializedGlobalOpts {
@@ -706,5 +715,39 @@ impl CloseSettlementReport {
         map.iter()
             .map(|(settlement, (wallet, num, lamports))| (*settlement, *wallet, *num, *lamports))
             .collect::<Vec<(Pubkey, Pubkey, u64, u64)>>()
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct CloseSettlementJsonSummary {
+    closed_settlements: u64,
+    reset_stake_accounts: u64,
+    reset_stake_sol: f64,
+    withdrawn_stake_accounts: u64,
+    withdrawn_stake_sol: f64,
+}
+
+impl ReportSerializable for CloseSettlementReport {
+    fn command_name(&self) -> &'static str {
+        "close-settlement"
+    }
+
+    fn get_json_summary(&self) -> Pin<Box<dyn Future<Output = serde_json::Value> + '_>> {
+        Box::pin(async {
+            let lamports_to_sol = |lamports: u64| -> f64 { lamports as f64 / 1_000_000_000.0 };
+            let (reset_stake_accounts, reset_stake_lamports) = self.reset_stake_total();
+            let (withdrawn_stake_accounts, withdrawn_stake_lamports) = self.withdrawn_stake_total();
+
+            let summary = CloseSettlementJsonSummary {
+                closed_settlements: self.closed_settlements.len() as u64,
+                reset_stake_accounts,
+                reset_stake_sol: lamports_to_sol(reset_stake_lamports),
+                withdrawn_stake_accounts,
+                withdrawn_stake_sol: lamports_to_sol(withdrawn_stake_lamports),
+            };
+
+            serde_json::to_value(summary)
+                .unwrap_or_else(|e| serde_json::json!({"error": e.to_string()}))
+        })
     }
 }

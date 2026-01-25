@@ -148,13 +148,11 @@ steps:
     commands:
     - source "$HOME/.cargo/env"
     - epoch=$(buildkite-agent meta-data get epoch)
-    - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || true
     - buildkite-agent artifact download --include-retried-jobs target/release/init-settlement .
     - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
     - buildkite-agent artifact download --include-retried-jobs settlements.json .
     - chmod +x target/release/init-settlement
     - source ./scripts/execute-handlers.sh
-    - trap 'cat "./execution-report.$${command_name}.$$BUILDKITE_RETRY_COUNT" >> "./execution-report.$${command_name}"' EXIT
     - |
       handle_command_execution "$$command_name" \
       ./target/release/init-settlement \
@@ -167,7 +165,7 @@ steps:
         --epoch "$$epoch"
     key: "init-settlement"
     artifact_paths:
-      - "./execution-report*"
+      - "./report.*.json"
     retry:
       automatic:
         - exit_status: 100
@@ -176,11 +174,15 @@ steps:
   - label: ":memo: Notification setup: Init Settlements"
     key: "notification-setup-init"
     commands:
-     - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || echo "No report ERROR" > ./execution-report.$$command_name
-     - cp "./execution-report.$$command_name" "./cumulative-report.txt"
-     - buildkite-agent meta-data set --redacted-vars="" attempts_count "$(grep -c ATTEMPT ./cumulative-report.txt)"
+    - |
+      buildkite-agent artifact download --include-retried-jobs "report.$$command_name.*.json" . || \
+        echo '{"command":"init-settlement","status":{"success":false,"error_count":1},"summary":"No report found"}' > "./report.$$command_name.0.json"
+    - latest_report=$$(ls -v "report.$$command_name."[0-9]*.json 2>/dev/null | tail -n 1)
+    - cp "$$latest_report" "./cumulative-report.json"
+    - attempts_count=$$(ls -1 "report.$$command_name."[0-9]*.json 2>/dev/null | wc -l)
+    - buildkite-agent meta-data set --redacted-vars="" attempts_count "$$attempts_count"
     artifact_paths:
-      - "./cumulative-report.txt"
+      - "./cumulative-report.json"
     depends_on: "init-settlement"
     allow_dependency_failure: true
 
@@ -188,9 +190,7 @@ steps:
     key: "annotate-report-init"
     commands:
       - source ./scripts/execute-handlers.sh
-      - annotate_execution_report "$$command_name" 20
-    artifact_paths:
-      - "./latest-report.txt"
+      - annotate_execution_report "$$command_name"
     depends_on: "init-settlement"
     allow_dependency_failure: true
 
@@ -200,8 +200,8 @@ steps:
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - claim_type=$(buildkite-agent meta-data get claim_type)
-    - buildkite-agent artifact download cumulative-report.txt . || echo "UNKNOWN ERROR" > ./cumulative-report.txt
-    - gcloud storage cp ./cumulative-report.txt "$gs_bucket/$$epoch/buildkite/$${claim_type}-$${command_name}-report.$(date +%s).txt"
+    - buildkite-agent artifact download cumulative-report.json . || echo '"UNKNOWN ERROR"' > ./cumulative-report.json
+    - gcloud storage cp ./cumulative-report.json "$gs_bucket/$$epoch/buildkite/$${claim_type}-$${command_name}-report.$(date +%s).json"
     depends_on: "notification-setup-init"
     allow_dependency_failure: true
 
