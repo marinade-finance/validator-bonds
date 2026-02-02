@@ -38,3 +38,6 @@ fuzz/
 hfuzz*
 fuzzing/
 
+
+# Local
+*.local.json
