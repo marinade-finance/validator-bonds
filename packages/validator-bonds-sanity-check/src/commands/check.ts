@@ -43,6 +43,14 @@ export function installCheck(program: Command) {
       d => new Decimal(d),
       Decimal(2.0),
     )
+    .option(
+      '--min-absolute-deviation <ratio>',
+      'Minimum absolute deviation from mean (as ratio) required to flag anomaly. ' +
+        'E.g., 0.05 means current value must differ by at least 5% from historical mean. ' +
+        'This prevents flagging tiny changes that only appear significant due to low variance in stable data.',
+      d => new Decimal(d),
+      Decimal(0.05),
+    )
     .addOption(
       new Option('-t, --type <type>', 'Type of processing to perform')
         .choices(Object.values(ProcessingType))
@@ -56,12 +64,14 @@ async function manageCheck({
   past,
   correlationThreshold,
   scoreThreshold,
+  minAbsoluteDeviation,
   type,
 }: {
   current: string
   past: string[]
   correlationThreshold: Decimal
   scoreThreshold: Decimal
+  minAbsoluteDeviation: Decimal
   type: ProcessingType
 }) {
   const { logger } = getContext()
@@ -74,6 +84,11 @@ async function manageCheck({
   if (scoreThreshold.lt(0)) {
     throw CliCommandError.instance(
       `Score threshold (${scoreThreshold.toString()}) must be a non-negative number`,
+    )
+  }
+  if (minAbsoluteDeviation.lt(0) || minAbsoluteDeviation.gt(1)) {
+    throw CliCommandError.instance(
+      `Minimum absolute deviation ratio (${minAbsoluteDeviation.toString()}) must be between 0 and 1`,
     )
   }
 
@@ -100,6 +115,7 @@ async function manageCheck({
     logger,
     correlationThreshold: new Decimal(correlationThreshold),
     scoreThreshold: new Decimal(scoreThreshold),
+    minAbsoluteDeviationRatio: new Decimal(minAbsoluteDeviation),
   })
 
   if (anomalyDetected) {
