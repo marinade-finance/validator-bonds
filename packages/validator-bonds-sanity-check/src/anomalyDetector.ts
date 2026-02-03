@@ -270,7 +270,7 @@ function detectIndividualAnomaly({
   })
 
   // Calculate absolute deviation ratio from historical mean
-  const absoluteDeviationRatio = stats.mean.isZero()
+  const absoluteDeviationRatio = stats.mean.abs().isZero()
     ? DECIMAL_ZERO
     : currentValueDecimal.sub(stats.mean).abs().div(stats.mean.abs())
 
@@ -286,7 +286,7 @@ function detectIndividualAnomaly({
     const deviation = currentValueDecimal
       .sub(valueDecimal)
       .abs()
-      .div(valueDecimal)
+      .div(valueDecimal.abs())
     return deviation.lte(correlationThreshold)
   }
 
