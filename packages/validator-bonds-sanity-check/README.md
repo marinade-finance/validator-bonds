@@ -37,6 +37,9 @@ pnpm cli:check check -c "${DIR}/${epoch}-bid-distribution-settlements.json" \
 pnpm cli:check check -c "$DIR"/857-bid-psr-distribution-settlements.json \
   -p $(seq -f "$DIR"/%g-bid-psr-distribution-settlements.json 845 856) \
   --min-absolute-deviation 0.05 --type psr
+
+# See all CLI options
+pnpm cli:check check --help
 ```
 
 ### 3) Verification of settlements and merkle tree consistency
@@ -55,28 +58,7 @@ pnpm cli:check check-settlement -s "${DIR}/bid-distribution-settlements.json" \
   -m "${DIR}/bid-distribution-settlement-merkle-trees.json"
 ```
 
-## CLI Options
-
-- `--correlation-threshold <ratio>` (default: 0.15)
-  - Maximum allowed deviation ratio for consistency checks, expressed as a value between 0 and 1.
-  - Used to determine if current value is "close enough" to recent history
-  - Lower values (e.g., 0.10): More sensitive, more human interventions required
-
-* `--score-threshold <threshold>` (default: 2.0)
-  - Z-score threshold for individual field anomaly detection. Determines how many standard deviations from the historical mean triggers an anomaly.
-  - Calculates z-score: `(current - mean) / stdDev`
-  - Lower values (e.g., 1.5): More sensitive, catches ~87% of normal data
-
-* `--min-absolute-deviation <ratio>` (default: 0.05)
-  - Minimum absolute deviation from historical mean (as ratio) required to flag anomalies.
-  - Even if z-score exceeds threshold, anomaly is only flagged if the absolute deviation also exceeds this minimum
-  - Higher than institutional (1%) because settlement data is more volatile
-  - Lower values (e.g., 0.01): More sensitive to small changes
-
-* `--type <type>` (default: bid)
-  - Type of processing: `bid` or `psr`
-
-## How Anomaly Detection Works
+## How sanity check works
 
 ### 0) Current Data Validation
 
@@ -99,7 +81,7 @@ Each check requires ALL of the following to flag an anomaly:
 
 To avoid cascading failures after legitimate regime changes, values are checked against recent history:
 
-- Current value must be similar (within `correlation-threshold`) to BOTH of the 2 most recent epochs
+- Current value must be similar (within `correlation-threshold`) to the 2 most recent epochs
 
 Then the value is considered consistent with recent history and NOT flagged, even if it deviates from the historical mean.
 

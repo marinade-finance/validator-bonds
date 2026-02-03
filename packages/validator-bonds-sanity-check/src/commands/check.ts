@@ -31,28 +31,37 @@ export function installCheck(program: Command) {
     )
     .option(
       '--correlation-threshold <threshold_ratio>',
-      'Maximum correlation deviation threshold, expressed as a percentage ratio (0–1), used to define when an anomaly is detected.',
+      'Maximum allowed deviation ratio (0-1) for consistency checks with recent history. ' +
+        'Used to determine if current value is "close enough" to the 2 most recent epochs. ' +
+        'Lower values (e.g., 0.10): more sensitive, more human interventions required. ' +
+        'Higher values (e.g., 0.20): more tolerant, fewer interventions.',
       d => new Decimal(d),
       Decimal(0.15),
     )
     .option(
       '--score-threshold <threshold>',
-      'Maximum acceptable z-score for individual field anomaly detection. ' +
-        'Z-score threshold for flagging anomalies (how many standard deviations from mean). ' +
-        'Typical range: 1.5 (sensitive) to 3.0 (strict). Default 2.0 catches ~5% as anomalies.',
+      'Z-score threshold for flagging anomalies (how many standard deviations from mean). ' +
+        'Calculates z-score: (current - mean) / stdDev. ' +
+        'Lower values (e.g., 1.5): more sensitive, catches ~87% of normal data. ' +
+        'Higher values (e.g., 3.0): stricter, only flags ~0.3% as anomalies.',
       d => new Decimal(d),
       Decimal(2.0),
     )
     .option(
       '--min-absolute-deviation <ratio>',
-      'Minimum absolute deviation from mean (as ratio) required to flag anomaly. ' +
-        'E.g., 0.05 means current value must differ by at least 5% from historical mean. ' +
-        'This prevents flagging tiny changes that only appear significant due to low variance in stable data.',
+      'Minimum absolute deviation from historical mean (as ratio 0-1) required to flag anomaly. ' +
+        'E.g., 0.05 means current value must differ by at least 5% from mean. ' +
+        'Even if z-score exceeds threshold, anomaly is only flagged if absolute deviation also exceeds this. ' +
+        'Prevents flagging tiny changes that only appear significant due to low variance.',
       d => new Decimal(d),
       Decimal(0.05),
     )
     .addOption(
-      new Option('-t, --type <type>', 'Type of processing to perform')
+      new Option(
+        '-t, --type <type>',
+        'Type of processing: "bid" checks totalSettlements and totalSettlementClaimAmount; ' +
+          '"psr" checks only avgSettlementClaimAmountPerValidator (settlement counts too volatile).',
+      )
         .choices(Object.values(ProcessingType))
         .default(ProcessingType.BID),
     )
