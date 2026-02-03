@@ -75,10 +75,28 @@ function transform(dto: SettlementsDto): EpochData {
 }
 
 export type StatsCalculation = AnomalyDetectionResult & {
+  description?: string
   stats?: DescriptiveStats
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details: any
 }
+
+// Field descriptions for report output
+const FIELD_DESCRIPTIONS: Record<string, string> = {
+  settlementsCount:
+    'Number of settlements in current epoch data (basic validation check)',
+  totalSettlements:
+    'Number of settlements (one per validator with claims). Reflects how many validators are receiving distribution rewards.',
+  totalSettlementClaimAmount:
+    'Sum of all claim amounts across all settlements (in lamports). Represents the total SOL being distributed to validators.',
+  avgSettlementClaimAmountPerValidator:
+    'Average claim amount per validator (total claims / number of settlements). PSR compensates validators for missed rewards due to stake account issues.',
+}
+
+// Default minimum absolute deviation ratio (5%) - requires both statistical
+// significance (z-score) AND practical significance (absolute change) to flag anomaly.
+// Higher than institutional (1%) because settlement counts are more volatile.
+const DEFAULT_MIN_ABSOLUTE_DEVIATION_RATIO = new Decimal(0.05)
 
 function detectAnomalies({
   currentSettlements,
@@ -86,6 +104,7 @@ function detectAnomalies({
   type,
   scoreThreshold,
   correlationThreshold,
+  minAbsoluteDeviationRatio = DEFAULT_MIN_ABSOLUTE_DEVIATION_RATIO,
   logger,
 }: {
   currentSettlements: SettlementsDto
@@ -95,6 +114,8 @@ function detectAnomalies({
   scoreThreshold: Decimal
   // talking in percent ratio, e.g. 0.15 = 15%
   correlationThreshold: Decimal
+  // minimum absolute deviation from mean (as ratio) required to flag anomaly
+  minAbsoluteDeviationRatio?: Decimal
   logger?: LoggerPlaceholder
 }): StatsCalculation[] {
   if (historicalSettlements.length < 3) {
@@ -118,10 +139,9 @@ function detectAnomalies({
       break
     }
     case ProcessingType.PSR: {
-      processingFields = [
-        'totalSettlements',
-        'avgSettlementClaimAmountPerValidator',
-      ]
+      // PSR data is inherently sparse and volatile (often 1-2 settlements per epoch).
+      // Only check avgSettlementClaimAmountPerValidator, not totalSettlements count.
+      processingFields = ['avgSettlementClaimAmountPerValidator']
       break
     }
   }
@@ -133,6 +153,7 @@ function detectAnomalies({
     fieldsToCheck: processingFields,
     scoreThreshold,
     correlationThreshold,
+    minAbsoluteDeviationRatio,
     logger,
   })
   stats.push(...individualAnomalies)
@@ -146,6 +167,7 @@ function detectCurrentDataAnomalies(currentSettlements: SettlementsDto) {
   stats.push({
     isAnomaly: institutionalCount.eq(0),
     field: 'settlementsCount',
+    description: FIELD_DESCRIPTIONS['settlementsCount'],
     currentValue: institutionalCount,
     score: Decimal(100),
     details:
@@ -161,6 +183,7 @@ function detectIndividualAnomalies({
   fieldsToCheck,
   scoreThreshold,
   correlationThreshold,
+  minAbsoluteDeviationRatio,
   logger,
 }: {
   currentData: EpochData
@@ -168,6 +191,7 @@ function detectIndividualAnomalies({
   fieldsToCheck: (keyof EpochData)[]
   scoreThreshold: Decimal
   correlationThreshold: Decimal
+  minAbsoluteDeviationRatio: Decimal
   logger?: LoggerPlaceholder
 }): StatsCalculation[] {
   const calculations: StatsCalculation[] = []
@@ -191,13 +215,16 @@ function detectIndividualAnomalies({
         return Number(String(map.get(key) ?? DECIMAL_ZERO))
       })
 
+      const fieldName =
+        rawCurrentValue instanceof Map ? `${field}_${key}:` : `${field}:`
       const anomaly = detectIndividualAnomaly({
         currentValue,
         historicalValues,
-        field:
-          rawCurrentValue instanceof Map ? `${field}_${key}:` : `${field}:`,
+        field: fieldName,
+        description: FIELD_DESCRIPTIONS[field],
         correlationThreshold,
         scoreThreshold,
+        minAbsoluteDeviationRatio,
         logger,
       })
       calculations.push(anomaly)
@@ -211,15 +238,19 @@ function detectIndividualAnomaly({
   currentValue,
   historicalValues,
   field,
+  description,
   scoreThreshold,
   correlationThreshold,
+  minAbsoluteDeviationRatio,
   logger,
 }: {
   currentValue: number
   historicalValues: number[]
   field: string
+  description?: string
   scoreThreshold: Decimal
   correlationThreshold: Decimal
+  minAbsoluteDeviationRatio: Decimal
   logger?: LoggerPlaceholder
 }): StatsCalculation {
   logDebug(
@@ -228,8 +259,9 @@ function detectIndividualAnomaly({
       `historical values: ${jsonStringify(historicalValues)}`,
   )
   const stats = calculateDescriptiveStats(historicalValues)
+  const currentValueDecimal = new Decimal(currentValue)
 
-  const detectAnomalyData = detectAnomaly({
+  const anomalyResult = detectAnomaly({
     currentValue,
     historicalValues,
     field,
@@ -237,10 +269,64 @@ function detectIndividualAnomaly({
     scoreThreshold,
   })
 
+  // Calculate absolute deviation ratio from historical mean
+  const absoluteDeviationRatio = stats.mean.abs().isZero()
+    ? DECIMAL_ZERO
+    : currentValueDecimal.sub(stats.mean).abs().div(stats.mean.abs())
+
+  // Check similarity to the N most recent epochs (more defensive than single epoch).
+  // Requires current value to be similar to ALL of the N most recent epochs to auto-pass.
+  // This prevents a single outlier from immediately approving subsequent similar values.
+  const recentEpochsToCheck = 2
+  const recentValues = historicalValues.slice(-recentEpochsToCheck)
+
+  const isSimilarToRecent = (value: number): boolean => {
+    const valueDecimal = new Decimal(value.toString())
+    if (valueDecimal.isZero()) return false
+    const deviation = currentValueDecimal
+      .sub(valueDecimal)
+      .abs()
+      .div(valueDecimal.abs())
+    return deviation.lte(correlationThreshold)
+  }
+
+  // Must be similar to ALL of the recent epochs (not just one)
+  const similarToAllRecent =
+    recentValues.length >= recentEpochsToCheck &&
+    recentValues.every(v => isSimilarToRecent(v))
+
+  // Also check min-max range for reporting
+  const tolerance = correlationThreshold.mul(stats.max)
+  const isWithinHistoricalRange =
+    currentValueDecimal.gte(stats.min.sub(tolerance)) &&
+    currentValueDecimal.lte(stats.max.add(tolerance))
+
+  // Require BOTH statistical significance (z-score) AND practical significance (absolute deviation)
+  // Also skip if similar to all recent epochs (already approved similar values)
+  const meetsAbsoluteThreshold = absoluteDeviationRatio.gte(
+    minAbsoluteDeviationRatio,
+  )
+  const isAnomaly =
+    anomalyResult.isAnomaly && meetsAbsoluteThreshold && !similarToAllRecent
+
   return {
-    ...detectAnomalyData,
+    ...anomalyResult,
+    isAnomaly,
+    description,
     stats,
-    details: undefined,
+    details: {
+      absoluteDeviationRatio: absoluteDeviationRatio.mul(100).toFixed(2) + '%',
+      minAbsoluteDeviationRequired:
+        minAbsoluteDeviationRatio.mul(100).toFixed(2) + '%',
+      meetsAbsoluteThreshold,
+      recentEpochsToCheck,
+      recentValues: recentValues.map(v => v.toString()),
+      similarToAllRecent,
+      historicalMin: stats.min.toString(),
+      historicalMax: stats.max.toString(),
+      toleranceApplied: tolerance.toString(),
+      isWithinHistoricalRange,
+    },
   }
 }
 
@@ -250,6 +336,7 @@ export function reportAnomalies({
   type,
   scoreThreshold = new Decimal('2.0'), // working with z-score like threshold
   correlationThreshold = new Decimal('0.15'), // working with percentage ratio
+  minAbsoluteDeviationRatio = DEFAULT_MIN_ABSOLUTE_DEVIATION_RATIO,
   logger = CONSOLE_LOG,
 }: {
   currentSettlements: SettlementsDto
@@ -257,6 +344,7 @@ export function reportAnomalies({
   type: ProcessingType
   scoreThreshold?: Decimal
   correlationThreshold?: Decimal
+  minAbsoluteDeviationRatio?: Decimal
   logger: LoggerPlaceholder
 }): { anomalyDetected: boolean; stats: StatsCalculation[]; report: string } {
   const stats = detectAnomalies({
@@ -265,10 +353,14 @@ export function reportAnomalies({
     type,
     scoreThreshold,
     correlationThreshold,
+    minAbsoluteDeviationRatio,
     logger,
   })
 
-  const thresholdInfo = `(correlationThreshold: ${correlationThreshold.toString()}, scoreThreshold: ${scoreThreshold.toString()})`
+  const thresholdInfo =
+    `(correlationThreshold: ${correlationThreshold.toString()}, ` +
+    `scoreThreshold: ${scoreThreshold.toString()}, ` +
+    `minAbsoluteDeviation: ${minAbsoluteDeviationRatio.mul(100).toString()}%)`
   const anomalyDetected = stats.some(r => r.isAnomaly)
 
   let report = `\n=== Epoch ${currentSettlements.epoch} Anomaly Report (historical records: ${historicalSettlements.length}) ===\n`
@@ -280,6 +372,9 @@ export function reportAnomalies({
   for (const stat of stats) {
     const anomalyString = stat.isAnomaly ? '⛔' : '✅'
     report += `[${anomalyString}] Field: ${stat.field}\n`
+    if (stat.description) {
+      report += `  Description: ${stat.description}\n`
+    }
     report += `  Value: ${stat.currentValue.toString()}\n`
     report += `  Score: ${stat.score.toString()}\n`
     report += `  ${YAML.stringify({ Stats: stat.stats }, { indent: 4 })}\n`
