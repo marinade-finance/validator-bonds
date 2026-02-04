@@ -58,12 +58,18 @@ steps:
       - |
         pnpm install
         pnpm -r build
+      # Anomaly detection options:
+      # --correlation-threshold: Max deviation ratio for consistency checks (0-1, default 0.15)
+      # --score-threshold: Z-score threshold for anomaly detection (default 2.0)
+      # --min-absolute-deviation: Min absolute deviation from mean to flag anomaly (default 0.05 = 5%)
+      #   Higher than institutional (1%) because settlement data is more volatile
       - |
         pnpm cli:check check \
           --current ./settlements.json \
           --past ./past-epochs/*.json \
           --correlation-threshold 0.15 \
           --score-threshold 2.0 \
+          --min-absolute-deviation 0.05 \
           --type bid
     soft_fail:
       - exit_status: "*"

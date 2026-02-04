@@ -44,12 +44,17 @@ steps:
         pnpm install
         pnpm build
       - pnpm cli:check print --current "$$current_epoch_dir"/*.json > "$${default_dir}/summary.txt"
+      # Sanity check options (see institutional-staking-sanity-check README.md for details):
+      # --correlation-threshold: Max deviation ratio for relationship checks (default: 0.15 = 15%)
+      # --score-threshold: Z-score threshold for individual field anomalies (default: 2.0)
+      # --min-absolute-deviation: Min absolute change required to flag anomaly (default: 0.01 = 1%)
       - |
         pnpm cli:check check \
           --current "$$current_epoch_dir"/*.json \
           --past "$$past_epochs_dir"/*.json \
           --correlation-threshold 0.15 \
-          --score-threshold 2.0
+          --score-threshold 2.0 \
+          --min-absolute-deviation 0.01
     soft_fail:
       - exit_status: "*"
     artifact_paths:
