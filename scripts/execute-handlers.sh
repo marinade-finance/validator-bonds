@@ -139,9 +139,16 @@ annotate_from_json() {
         ;;
       claim-settlement)
         if jq -e '.summary.epochs | type == "array"' "$json_file" > /dev/null 2>&1; then
-          echo "| **Epoch** | **Type** | **Nodes Claimed/Total** | **SOL Claimed/Total** |"
-          echo "|-----------|----------|-------------------------|------------------------|"
-          jq -r '.summary.epochs[] | "| **\(.epoch)** | _Total_ | \(.claimed_nodes) / \(.total_nodes) | \(.claimed_amount_sol | tostring | .[0:10]? // .) / \(.total_amount_sol | tostring | .[0:10]? // .) |", (.reasons[] | "| | \(.reason) | \(.claimed_nodes) / \(.total_nodes) | \(.claimed_amount_sol | tostring | .[0:10]? // .) / \(.total_amount_sol | tostring | .[0:10]? // .) |")' "$json_file" 2>/dev/null
+          # Check if JSON data is available (any epoch has json_nodes)
+          if jq -e '.summary.epochs[] | select(.json_nodes != null)' "$json_file" > /dev/null 2>&1; then
+            echo "| **Epoch** | **Type** | **Nodes Claimed/Total** | **SOL Claimed/Total** | **JSON Nodes/SOL** |"
+            echo "|-----------|----------|-------------------------|------------------------|--------------------|"
+            jq -r '.summary.epochs[] | "| **\(.epoch)** | _Total_ | \(.claimed_nodes) / \(.total_nodes) | \(.claimed_amount_sol | tostring | .[0:10]? // .) / \(.total_amount_sol | tostring | .[0:10]? // .) | \(.json_nodes // "-") / \(.json_amount_sol | if . then tostring | .[0:10]? // . else "-" end) |", (.reasons[] | "| | \(.reason) | \(.claimed_nodes) / \(.total_nodes) | \(.claimed_amount_sol | tostring | .[0:10]? // .) / \(.total_amount_sol | tostring | .[0:10]? // .) | |")' "$json_file" 2>/dev/null
+          else
+            echo "| **Epoch** | **Type** | **Nodes Claimed/Total** | **SOL Claimed/Total** |"
+            echo "|-----------|----------|-------------------------|------------------------|"
+            jq -r '.summary.epochs[] | "| **\(.epoch)** | _Total_ | \(.claimed_nodes) / \(.total_nodes) | \(.claimed_amount_sol | tostring | .[0:10]? // .) / \(.total_amount_sol | tostring | .[0:10]? // .) |", (.reasons[] | "| | \(.reason) | \(.claimed_nodes) / \(.total_nodes) | \(.claimed_amount_sol | tostring | .[0:10]? // .) / \(.total_amount_sol | tostring | .[0:10]? // .) |")' "$json_file" 2>/dev/null
+          fi
         else
           echo '```json'
           jq '.summary' "$json_file"
