@@ -1016,6 +1016,10 @@ struct EpochClaimSummary {
     total_nodes: u64,
     claimed_amount_sol: f64,
     total_amount_sol: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    json_nodes: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    json_amount_sol: Option<f64>,
     reasons: Vec<ReasonClaimSummary>,
 }
 
@@ -1027,6 +1031,10 @@ struct ReasonClaimSummary {
     total_nodes: u64,
     claimed_amount_sol: f64,
     total_amount_sol: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    json_nodes: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    json_amount_sol: Option<f64>,
 }
 
 impl ReportSerializable for ClaimSettlementsReport {
@@ -1038,26 +1046,55 @@ impl ReportSerializable for ClaimSettlementsReport {
         Box::pin(async {
             let lamports_to_sol = |lamports: u64| -> f64 { lamports as f64 / 1_000_000_000.0 };
 
+            // Wait for finalization and load current state from chain (same as get_report)
+            sleep(FINALIZATION_WAIT_TIMEOUT).await;
+            let after_settlements = match self.load_settlements_from_chain().await {
+                Ok(value) => value,
+                Err(e) => {
+                    return serde_json::json!({"error": format!("Failed to load settlements: {}", e)})
+                }
+            };
+
             let mut sorted_epochs: Vec<_> = self.settlements_per_epoch.iter().collect();
             sorted_epochs.sort_by_key(|(epoch, _)| *epoch);
 
             let epochs: Vec<EpochClaimSummary> = sorted_epochs
                 .iter()
                 .map(|(epoch, settlements_report)| {
-                    let sum_claimed = settlements_report.sum_already_claimed();
-                    let claimable_settlements = settlements_report.already_claimed.len() as u64;
+                    let sum_initial = settlements_report.sum_already_claimed();
+                    let (json_loaded_nodes, json_loaded_lamports) =
+                        settlements_report.sum_json_loaded_settlements();
 
-                    // Build amounts map for per-reason breakdown
-                    let amounts: HashMap<Pubkey, (u64, u64)> = settlements_report
-                        .already_claimed
+                    // Build after amounts from chain data (current state after claiming)
+                    let after_amounts: HashMap<Pubkey, (u64, u64)> = after_settlements
                         .iter()
-                        .map(|(pubkey, claimed)| {
-                            (
-                                *pubkey,
-                                (claimed.number_of_set_bits, claimed.lamports_claimed),
-                            )
+                        .filter_map(|(settlement_pubkey, settlement)| {
+                            settlement.as_ref().and_then(|(s, c)| {
+                                if s.epoch_created_for == **epoch {
+                                    Some((
+                                        *settlement_pubkey,
+                                        (c.number_of_set_bits(), s.lamports_claimed),
+                                    ))
+                                } else {
+                                    None
+                                }
+                            })
                         })
                         .collect();
+
+                    let claimable_settlements = after_amounts
+                        .iter()
+                        .filter(|(_, v)| v.0 > 0 || v.1 > 0)
+                        .count() as u64;
+                    let claimable_settlements = if claimable_settlements > 0 {
+                        claimable_settlements
+                    } else {
+                        settlements_report.already_claimed.len() as u64
+                    };
+
+                    // Sum the current claimed state from chain
+                    let (after_claimed_nodes, after_claimed_lamports) =
+                        ClaimSettlementReport::sum_claimed(&after_amounts);
 
                     let total_by_reason = settlements_report.sum_by_reason(
                         &settlements_report
@@ -1067,16 +1104,16 @@ impl ReportSerializable for ClaimSettlementsReport {
                             .collect(),
                     );
 
-                    let already_by_reason = settlements_report.sum_by_reason(&amounts);
+                    let after_by_reason = settlements_report.sum_by_reason(&after_amounts);
 
-                    // Build per-reason breakdown
+                    // Build per-reason breakdown with current chain state
                     let reasons: Vec<ReasonClaimSummary> = ReportingReasonSettlement::items()
                         .into_iter()
                         .filter_map(|reason| {
                             let (settlements, total_nodes, total_lamports) =
                                 total_by_reason.get(&reason).copied().unwrap_or((0, 0, 0));
                             let (_, claimed_nodes, claimed_lamports) =
-                                already_by_reason.get(&reason).copied().unwrap_or((0, 0, 0));
+                                after_by_reason.get(&reason).copied().unwrap_or((0, 0, 0));
 
                             // Skip reasons with no settlements
                             if settlements == 0 {
@@ -1090,6 +1127,8 @@ impl ReportSerializable for ClaimSettlementsReport {
                                 total_nodes,
                                 claimed_amount_sol: lamports_to_sol(claimed_lamports),
                                 total_amount_sol: lamports_to_sol(total_lamports),
+                                json_nodes: None,
+                                json_amount_sol: None,
                             })
                         })
                         .collect();
@@ -1097,10 +1136,20 @@ impl ReportSerializable for ClaimSettlementsReport {
                     EpochClaimSummary {
                         epoch: **epoch,
                         claimable_settlements,
-                        claimed_nodes: sum_claimed.number_of_set_bits,
-                        total_nodes: sum_claimed.max_merkle_nodes,
-                        claimed_amount_sol: lamports_to_sol(sum_claimed.lamports_claimed),
-                        total_amount_sol: lamports_to_sol(sum_claimed.max_total_claim),
+                        claimed_nodes: after_claimed_nodes,
+                        total_nodes: sum_initial.max_merkle_nodes,
+                        claimed_amount_sol: lamports_to_sol(after_claimed_lamports),
+                        total_amount_sol: lamports_to_sol(sum_initial.max_total_claim),
+                        json_nodes: if json_loaded_nodes > 0 {
+                            Some(json_loaded_nodes)
+                        } else {
+                            None
+                        },
+                        json_amount_sol: if json_loaded_lamports > 0 {
+                            Some(lamports_to_sol(json_loaded_lamports))
+                        } else {
+                            None
+                        },
                         reasons,
                     }
                 })
