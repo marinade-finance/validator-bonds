@@ -682,25 +682,16 @@ pub async fn with_reporting_ext<T: ReportSerializable>(
     }
 
     // Determine exit result based on error handler status
-    if !status.success {
-        if status.error_count > 0 {
-            CliResult(Err(CliError::critical(format_err!(
-                "Errors occurred: {} errors",
-                status.error_count
-            ))))
-        } else if status.retryable_error_count > 0 {
-            CliResult(Err(CliError::retry_able(format_err!(
-                "Retryable errors occurred: {} errors",
-                status.retryable_error_count
-            ))))
-        } else if status.warning_count > 0 {
-            CliResult(Err(CliError::warning(format_err!(
-                "Warnings occurred: {} warnings",
-                status.warning_count
-            ))))
-        } else {
-            CliResult(Ok(()))
-        }
+    if status.error_count > 0 {
+        CliResult(Err(CliError::critical(format_err!(
+            "Errors occurred: {} errors",
+            status.error_count
+        ))))
+    } else if status.retryable_error_count > 0 {
+        CliResult(Err(CliError::retry_able(format_err!(
+            "Retryable errors occurred: {} errors",
+            status.retryable_error_count
+        ))))
     } else {
         CliResult(Ok(()))
     }
