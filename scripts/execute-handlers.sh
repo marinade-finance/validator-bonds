@@ -139,16 +139,23 @@ annotate_from_json() {
         ;;
       claim-settlement)
         if jq -e '.summary.epochs | type == "array"' "$json_file" > /dev/null 2>&1; then
-          # Check if JSON data is available (any epoch has json_nodes)
-          if jq -e '.summary.epochs[] | select(.json_nodes != null)' "$json_file" > /dev/null 2>&1; then
+          local has_json_data
+          has_json_data=$(jq -r 'if (.summary.epochs[] | select(.json_nodes != null)) then "true" else "false" end' "$json_file" 2>/dev/null | head -1)
+          if [[ "$has_json_data" == "true" ]]; then
             echo "| **Epoch** | **Type** | **Nodes Claimed/Total** | **SOL Claimed/Total** | **JSON Nodes/SOL** |"
             echo "|-----------|----------|-------------------------|------------------------|--------------------|"
-            jq -r '.summary.epochs[] | "| **\(.epoch)** | _Total_ | \(.claimed_nodes) / \(.total_nodes) | \(.claimed_amount_sol | tostring | .[0:10]? // .) / \(.total_amount_sol | tostring | .[0:10]? // .) | \(.json_nodes // "-") / \(.json_amount_sol | if . then tostring | .[0:10]? // . else "-" end) |", (.reasons[] | "| | \(.reason) | \(.claimed_nodes) / \(.total_nodes) | \(.claimed_amount_sol | tostring | .[0:10]? // .) / \(.total_amount_sol | tostring | .[0:10]? // .) | |")' "$json_file" 2>/dev/null
           else
             echo "| **Epoch** | **Type** | **Nodes Claimed/Total** | **SOL Claimed/Total** |"
             echo "|-----------|----------|-------------------------|------------------------|"
-            jq -r '.summary.epochs[] | "| **\(.epoch)** | _Total_ | \(.claimed_nodes) / \(.total_nodes) | \(.claimed_amount_sol | tostring | .[0:10]? // .) / \(.total_amount_sol | tostring | .[0:10]? // .) |", (.reasons[] | "| | \(.reason) | \(.claimed_nodes) / \(.total_nodes) | \(.claimed_amount_sol | tostring | .[0:10]? // .) / \(.total_amount_sol | tostring | .[0:10]? // .) |")' "$json_file" 2>/dev/null
           fi
+          jq -r --arg has_json "$has_json_data" '
+            def truncate_sol: tostring | .[0:10]? // .;
+            def json_col: if $has_json == "true" then " \(.json_nodes // "-") / \(.json_amount_sol | if . then truncate_sol else "-" end) |" else "" end;
+            def reason_json_col: if $has_json == "true" then " |" else "" end;
+            .summary.epochs[] |
+              "| **\(.epoch)** | _Total_ | \(.claimed_nodes) / \(.total_nodes) | \(.claimed_amount_sol | truncate_sol) / \(.total_amount_sol | truncate_sol) |\(json_col)",
+              (.reasons[] | "| | \(.reason) | \(.claimed_nodes) / \(.total_nodes) | \(.claimed_amount_sol | truncate_sol) / \(.total_amount_sol | truncate_sol) |\(reason_json_col)")
+          ' "$json_file" 2>/dev/null
         else
           echo '```json'
           jq '.summary' "$json_file"
