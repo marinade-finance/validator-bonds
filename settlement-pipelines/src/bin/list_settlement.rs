@@ -1,7 +1,7 @@
-use bid_psr_distribution::merkle_tree_collection::MerkleTreeCollection;
-use bid_psr_distribution::utils::{read_from_json_file, write_to_json_file};
 use clap::Parser;
 use log::{debug, error, info, warn};
+use settlement_common::merkle_tree_collection::MerkleTreeCollection;
+use settlement_common::utils::{read_from_json_file, write_to_json_file};
 use settlement_pipelines::arguments::GlobalOpts;
 use settlement_pipelines::init::init_log;
 use settlement_pipelines::json_data::BondSettlement;
@@ -98,20 +98,15 @@ fn load_merkle_tree_files(
     let mut merkle_trees: Vec<MerkleTreeCollection> = vec![];
     for path in merkle_tree_files.iter().filter(|path| {
         if path.is_file() {
-            debug!("Processing file: {:?}", path);
+            debug!("Processing file: {path:?}");
             true
         } else {
-            debug!("Skipping path: {:?} as not a file", path);
+            debug!("Skipping path: {path:?} as not a file");
             false
         }
     }) {
         read_from_json_file(path).map_or_else(
-            |e| {
-                warn!(
-                    "Cannot load file '{:?}' as MerkleTreeCollection: {:?}",
-                    path, e
-                )
-            },
+            |e| warn!("Cannot load file '{path:?}' as MerkleTreeCollection: {e:?}"),
             |s| merkle_trees.push(s),
         );
     }

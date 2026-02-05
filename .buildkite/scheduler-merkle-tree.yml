@@ -1,0 +1,79 @@
+agents:
+  queue: "snapshots"
+
+env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+  CLAIM_TYPE: "bid-distribution"
+  # Settlement files to check for (unified CLI produces single file with all settlements)
+  SETTLEMENT_FILES: "bid-distribution-settlements.json"
+  VALIDATOR_BONDS_CONFIG: vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU
+
+steps:
+  - label: ":closed_lock_with_key: Concurrency gate lock"
+    key: concurrency-lock
+    command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/scheduler-merkle-tree'
+    concurrency: 1
+
+  - wait: ~
+
+  - label: ":shellcheck: Load available epochs"
+    commands:
+      - |
+        # Find the latest epoch with unified merkle trees
+        max_processed_epoch=$(gcloud storage ls "${gs_bucket}/**/unified-merkle-trees.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || echo "0")
+        max_processed_epoch="$${max_processed_epoch%%[^0-9]*}"
+        max_processed_epoch=$${max_processed_epoch:-0}
+
+        # Find epochs with settlement files (unified CLI produces single file with all settlements)
+        # Check for bid-distribution-settlements.json
+        epochs_with_settlements=$(gcloud storage ls "${gs_bucket}/**/bid-distribution-settlements.json" | awk -F / '{print $$4}' | sort -nr)
+
+        # Find the latest epoch with settlement file
+        max_available_epoch=0
+        for epoch in $$epochs_with_settlements; do
+          epoch="$${epoch%%[^0-9]*}"
+          if [[ -n "$$epoch" ]] && [[ "$$epoch" =~ ^[0-9]+$$ ]]; then
+            max_available_epoch=$$epoch
+            break
+          fi
+        done
+
+        echo "Merkle Tree Scheduler:: > max_processed_epoch: $$max_processed_epoch, max_available_epoch: $$max_available_epoch"
+      - |
+        buildkite-agent meta-data set max_processed_epoch "$$max_processed_epoch"
+        buildkite-agent meta-data set max_available_epoch "$$max_available_epoch"
+
+  - wait: ~
+
+  - label: ":calendar: Schedule Merkle Tree Generation"
+    commands:
+      - max_processed_epoch=$(buildkite-agent meta-data get max_processed_epoch)
+      - max_available_epoch=$(buildkite-agent meta-data get max_available_epoch)
+      - |
+        if (( $$max_available_epoch > 0 )) && (( $$max_processed_epoch < $$max_available_epoch )); then
+          epoch=$${max_available_epoch}
+          cat <<EOF | buildkite-agent pipeline upload
+            steps:
+              - trigger: "generate-merkle-trees"
+                label: ":rocket: Trigger: Generate Merkle Trees ($$epoch)"
+                async: false
+                build:
+                  branch: $$BUILDKITE_BRANCH
+                  env:
+                    EPOCH: $$epoch
+                    NOTIFY_FEED: $NOTIFY_FEED
+                    gs_bucket: $gs_bucket
+                    VALIDATOR_BONDS_CONFIG: $VALIDATOR_BONDS_CONFIG
+        EOF
+          echo "Scheduled merkle tree generation for epoch $$epoch"
+        else
+          echo "No new epochs to process (max_processed: $$max_processed_epoch, max_available: $$max_available_epoch)"
+        fi
+
+  - wait: ~
+
+  - label: ":unlock: Concurrency gate unlock"
+    command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/scheduler-merkle-tree'
+    concurrency: 1

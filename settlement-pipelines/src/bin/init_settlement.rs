@@ -344,8 +344,7 @@ async fn upsize_settlements(
         .filter(|(settlement_address, settlement_data)| {
             if settlement_data.is_none() {
                 let mut builder = reporting.error().with_msg(format!(
-                    "[UpsizeElements] Settlement account {} does not exist on-chain",
-                    settlement_address
+                    "[UpsizeElements] Settlement account {settlement_address} does not exist on-chain"
                 ));
                 if let Some(vote_account) = settlement_records
                     .iter()
@@ -381,8 +380,7 @@ async fn upsize_settlements(
             settlement_claims
         } else {
             reporting.error().with_msg(format!(
-                "CRITICAL [upsize_settlements]: No SettlementClaims account {} for an existing Settlement {}",
-                settlement_claims_address, settlement_address
+                "CRITICAL [upsize_settlements]: No SettlementClaims account {settlement_claims_address} for an existing Settlement {settlement_address}"
             )).add();
             continue;
         };
@@ -410,8 +408,7 @@ async fn upsize_settlements(
             reporting
                 .error()
                 .with_msg(format!(
-                    "CRITICAL [upsize_settlements]: No vote account found for Settlement {}",
-                    settlement_address
+                    "CRITICAL [upsize_settlements]: No vote account found for Settlement {settlement_address}"
                 ))
                 .add();
             continue;
@@ -429,8 +426,7 @@ async fn upsize_settlements(
                 &mut transaction_builder,
                 &req,
                 format!(
-                    "UpsizeSettlementClaims: {} (settlement: {}, vote account {})",
-                    settlement_claims_address, settlement_address, vote_account,
+                    "UpsizeSettlementClaims: {settlement_claims_address} (settlement: {settlement_address}, vote account {vote_account})",
                 ),
             )?;
             reporting
@@ -578,7 +574,7 @@ impl InitSettlementReport {
                      settlement_address,
                      vote_account_address,
                      ..
-                 }| format!("{}/{}", settlement_address, vote_account_address),
+                 }| format!("{settlement_address}/{vote_account_address}"),
             )
             .collect::<Vec<String>>()
             .join(", ")

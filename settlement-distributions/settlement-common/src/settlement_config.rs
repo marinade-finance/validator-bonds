@@ -1,13 +1,11 @@
 use crate::{protected_events::ProtectedEvent, settlement_collection::SettlementMeta};
 use log::debug;
-use merkle_tree::serde_serialize::{option_vec_pubkey_string_conversion, pubkey_string_conversion};
+use merkle_tree::serde_serialize::option_vec_pubkey_string_conversion;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct BidPSRConfig {
-    #[serde(with = "pubkey_string_conversion")]
-    pub validator_bonds_config: Pubkey,
     #[serde(
         default,
         with = "option_vec_pubkey_string_conversion",

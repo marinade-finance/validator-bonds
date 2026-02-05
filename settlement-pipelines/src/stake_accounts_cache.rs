@@ -48,12 +48,9 @@ impl<'a> StakeAccountsCache<'a> {
                 Some(stake_authority),
             ).await.map_or_else(|e| {
                 let err_msg = format!(
-                    "Failed to fetch and deserialize stake accounts for claiming of staker/withdraw authorities {}/{}: {:?}",
-                    stake_authority,
-                    withdraw_authority,
-                    e
+                    "Failed to fetch and deserialize stake accounts for claiming of staker/withdraw authorities {stake_authority}/{withdraw_authority}: {e:?}"
                 );
-                Err(anyhow!("{}", err_msg))
+                Err(anyhow!("{err_msg}"))
             }, Ok)?;
 
             self.cache

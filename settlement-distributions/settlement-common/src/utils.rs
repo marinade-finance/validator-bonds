@@ -74,7 +74,7 @@ pub fn file_error<'a>(
     param_name: &'a str,
     file_path: &'a str,
 ) -> impl Fn(anyhow::Error) -> anyhow::Error + 'a {
-    move |e| anyhow::anyhow!("Failure at '--{param_name} {file_path}': {:?}", e)
+    move |e| anyhow::anyhow!("Failure at '--{param_name} {file_path}': {e:?}")
 }
 
 /// Sort claims to ensure a deterministic order for identical input data
@@ -102,7 +102,7 @@ fn no_filter() -> Box<dyn Fn(&Pubkey) -> bool> {
 pub fn stake_authority_filter(
     optional_filter: Option<Vec<Pubkey>>,
 ) -> Box<dyn Fn(&Pubkey) -> bool> {
-    info!("Building stake authorities filter: {:?}", optional_filter);
+    info!("Building stake authorities filter: {optional_filter:?}");
     optional_filter.map_or(no_filter(), |filter| {
         stake_authorities_filter(HashSet::from_iter(filter))
     })

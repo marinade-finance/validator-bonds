@@ -4,7 +4,7 @@ use crate::{
     dto::ProtectedEventRecord,
     handlers::{bonds, cli_announcements, docs, protected_events},
 };
-use bid_psr_distribution::{
+use settlement_common::{
     protected_events::ProtectedEvent,
     settlement_collection::{SettlementFunder, SettlementMeta, SettlementReason},
 };

@@ -22,7 +22,7 @@ pub async fn get_account_infos_for_pubkeys(
         let accounts = rpc_client
             .get_multiple_accounts_with_config(address_chunk, RpcAccountInfoConfig::default())
             .await
-            .map_err(|e| anyhow!("Error fetching settlement accounts: {:?}", e))?;
+            .map_err(|e| anyhow!("Error fetching settlement accounts: {e:?}"))?;
         accounts
             .value
             .into_iter()
@@ -46,10 +46,7 @@ pub async fn get_accounts_for_pubkeys<T: AccountDeserialize>(
                 let mut data: &[u8] = &account.data;
                 T::try_deserialize(&mut data).map_or_else(
                     |e| {
-                        error!(
-                            "Cannot deserialize account data for account {}: {}",
-                            pubkey, e
-                        );
+                        error!("Cannot deserialize account data for account {pubkey}: {e}");
                         None
                     },
                     Some,

@@ -180,7 +180,7 @@ impl ClaimWithdrawRequest<'_> {
                     .with_account_name("stake_account")
                     .with_values((
                         "amount_to_fulfill_withdraw < minimal_stake_size",
-                        format!("{} < {}", amount_to_fulfill_withdraw, minimal_stake_size,),
+                        format!("{amount_to_fulfill_withdraw} < {minimal_stake_size}",),
                     )));
             }
 

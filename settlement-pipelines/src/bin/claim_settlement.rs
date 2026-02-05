@@ -110,10 +110,7 @@ async fn real_main(
     )?;
 
     let config_address = args.global_opts.config;
-    info!(
-        "Claiming settlements for validator-bonds config: {}",
-        config_address
-    );
+    info!("Claiming settlements for validator-bonds config: {config_address}");
     let config = get_config(rpc_client.clone(), config_address)
         .await
         .map_err(CliError::retry_able)?;
@@ -577,7 +574,7 @@ impl ClaimSettlementsReport {
                     acc
                 })
                 .iter()
-                .map(|(epoch, count)| format!("{}: {}", epoch, count))
+                .map(|(epoch, count)| format!("{epoch}: {count}"))
                 .collect::<Vec<_>>()
                 .join(", "),
             json_loaded_data
@@ -712,8 +709,7 @@ impl ClaimSettlementsReport {
                     } else {
                         let settlement_claims_pubkey = find_settlement_claims_address(&pubkey).0;
                         debug!(
-                            "[Reporting] Data for Settlement accounts {}/{} not found on-chain",
-                            pubkey, settlement_claims_pubkey
+                            "[Reporting] Data for Settlement accounts {pubkey}/{settlement_claims_pubkey} not found on-chain"
                         );
                         None
                     };
@@ -722,9 +718,7 @@ impl ClaimSettlementsReport {
             }
             (e1, e2) => {
                 return Err(anyhow!(
-                    "Error load settlement claiming: settlements: {:?}, claims: {:?}",
-                    e1,
-                    e2
+                    "Error load settlement claiming: settlements: {e1:?}, claims: {e2:?}"
                 ));
             }
         };
@@ -881,8 +875,7 @@ impl PrintReportable for ClaimSettlementsReport {
                     ));
                 if total_claim_nodes != json_loaded_nodes {
                     report.push(format!(
-                        "  [WARNING] JSON Merkle nodes {} do not match the Merkle nodes available on-chain {}",
-                        json_loaded_nodes, total_claim_nodes
+                        "  [WARNING] JSON Merkle nodes {json_loaded_nodes} do not match the Merkle nodes available on-chain {total_claim_nodes}"
                     ));
                 }
                 report.push(format!(
@@ -932,8 +925,7 @@ impl PrintReportable for ClaimSettlementsReport {
                         ));
                     } else {
                         report.push(format!(
-                            "  Reason {}, UNKNOWN state (JSON data not provided)",
-                            reason
+                            "  Reason {reason}, UNKNOWN state (JSON data not provided)"
                         ));
                     }
                 }
@@ -948,8 +940,7 @@ impl PrintReportable for ClaimSettlementsReport {
                     .collect::<Vec<_>>();
                 if !settlements_not_found_for_epoch.is_empty() {
                     debug!(
-                        "  Epoch {}, settlements loaded at start from JSON/on-chain but not found during reporting: {:?}",
-                        epoch, settlements_not_found_for_epoch
+                        "  Epoch {epoch}, settlements loaded at start from JSON/on-chain but not found during reporting: {settlements_not_found_for_epoch:?}"
                     );
                 }
 

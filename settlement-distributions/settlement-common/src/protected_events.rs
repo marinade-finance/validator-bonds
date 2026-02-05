@@ -123,10 +123,9 @@ impl ProtectedEvent {
                 actual_epr,
                 ..
             } => expected_epr - actual_epr,
-            non_implemented => panic!(
-                "Claim per stake is not implemented for event {:?}",
-                non_implemented
-            ),
+            non_implemented => {
+                panic!("Claim per stake is not implemented for event {non_implemented:?}")
+            }
         }
     }
 

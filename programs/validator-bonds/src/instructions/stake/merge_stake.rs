@@ -102,7 +102,7 @@ impl MergeStake<'_> {
         {
             return Err(error!(ErrorCode::StakeDelegationMismatch).with_values((
                 "source_stake/destination_stake",
-                format!("{:?}/{:?}", source_delegation, destination_delegation),
+                format!("{source_delegation:?}/{destination_delegation:?}"),
             )));
         }
 

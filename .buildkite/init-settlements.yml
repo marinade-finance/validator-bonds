@@ -20,8 +20,6 @@ steps:
       - select: "Claim type"
         key: "claim_type"
         options:
-          - label: "Bid PSR Distribution"
-            value: "bid-psr-distribution"
           - label: "Bid Distribution"
             value: "bid-distribution"
           - label: "Institutional Distribution"
@@ -108,8 +106,17 @@ steps:
     - epoch=$(buildkite-agent meta-data get epoch)
     - claim_type=$(buildkite-agent meta-data get claim_type)
     - |
-      gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlement-merkle-trees.json" "./settlement-merkle-trees.json"
-      gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlements.json" "./settlements.json"
+      # For bid-distribution, use unified merkle trees
+      if [[ "$$claim_type" == "bid-distribution" ]]; then
+        gcloud storage cp "$gs_bucket/$$epoch/unified-merkle-trees.json" "./settlement-merkle-trees.json"
+        # Download settlement files for listing/reporting (not needed for init-settlement itself)
+        gcloud storage cp "$gs_bucket/$$epoch/bid-distribution-settlements.json" "./settlements.json" || \
+          echo '{"settlements":[]}' > "./settlements.json"
+      else
+        # For other claim types (institutional), use their specific merkle trees
+        gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlement-merkle-trees.json" "./settlement-merkle-trees.json"
+        gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlements.json" "./settlements.json"
+      fi
     artifact_paths:
       - "./settlement-merkle-trees.json"
       - "./settlements.json"
@@ -129,7 +136,14 @@ steps:
       - |
         claim_type=$(buildkite-agent meta-data get claim_type)
         echo "Claim Type: '$${claim_type}'"
-      - buildkite-agent pipeline upload .buildkite/sanity-$${claim_type}.yml
+      - |
+        # For bid-distribution, use unified sanity check (works with merkle trees)
+        # For other claim types (e.g., institutional-distribution), use their specific sanity check
+        if [[ "$$claim_type" == "bid-distribution" ]]; then
+          buildkite-agent pipeline upload .buildkite/sanity-unified.yml
+        else
+          buildkite-agent pipeline upload .buildkite/sanity-$${claim_type}.yml
+        fi
 
   - wait: ~
 
@@ -236,8 +250,13 @@ steps:
     commands:
     - claim_type=$(buildkite-agent meta-data get claim_type)
     - epoch=$(buildkite-agent meta-data get epoch)
-
-    - gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-discord-public-report.txt" "./discord-public-report.txt"
+    - |
+      # For bid-distribution, use bid-distribution-discord-report.txt
+      if [[ "$$claim_type" == "bid-distribution" ]]; then
+        gcloud storage cp "$gs_bucket/$$epoch/bid-distribution-discord-report.txt" "./discord-public-report.txt" || echo "No report found" > "./discord-public-report.txt"
+      else
+        gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-discord-public-report.txt" "./discord-public-report.txt" || echo "No report found" > "./discord-public-report.txt"
+      fi
     - |
       split_command=$(which split >&2 > /dev/null && echo "split" || echo "gsplit")
       # discord max message length is 2000 characters

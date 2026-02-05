@@ -78,7 +78,7 @@ pub async fn collect_stake_accounts(
                 pubkey,
                 account.lamports,
                 bincode::deserialize(&account.data).unwrap_or_else(|_| {
-                    panic!("Failed to deserialize stake account data for {}", pubkey)
+                    panic!("Failed to deserialize stake account data for {pubkey}")
                 }),
             )
         })
@@ -238,10 +238,7 @@ pub async fn get_stake_account_slices(
     slice: Option<(usize, usize)>,
     fetch_pause_millis: Option<u64>,
 ) -> (Vec<(Pubkey, StakeStateV2)>, Option<anyhow::Error>) {
-    info!(
-        "Fetching stake account slices {:?} with stake authority: {:?}",
-        slice, stake_authority
-    );
+    info!("Fetching stake account slices {slice:?} with stake authority: {stake_authority:?}");
     let mut stake_accounts_count = 0;
     let data_slice = slice.map(|(offset, length)| UiDataSliceConfig { offset, length });
     let mut stake_accounts: Vec<(Pubkey, StakeStateV2)> = vec![];
@@ -280,13 +277,13 @@ pub async fn get_stake_account_slices(
                 stake_accounts_count += accounts.len();
                 for (pubkey, account) in accounts {
                     let stake_state = bincode::deserialize(&account.data).unwrap_or_else(|_| {
-                        panic!("Failed to deserialize stake account data for {}", pubkey)
+                        panic!("Failed to deserialize stake account data for {pubkey}")
                     });
                     stake_accounts.push((pubkey, stake_state));
                 }
             }
             Err(err) => {
-                errors.push(format!("Failed to fetch stake accounts slice: {:?}", err));
+                errors.push(format!("Failed to fetch stake accounts slice: {err:?}"));
             }
         };
 
@@ -305,8 +302,7 @@ pub async fn get_stake_account_slices(
         None
     } else {
         Some(anyhow::anyhow!(
-            "Failed to fetch stake accounts: {:?}",
-            errors
+            "Failed to fetch stake accounts: {errors:?}"
         ))
     };
 

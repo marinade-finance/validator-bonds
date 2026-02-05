@@ -71,17 +71,17 @@ impl ReportOutput {
         let content = match self {
             ReportOutput::Text(lines) => lines.join("\n"),
             ReportOutput::Json(value) => serde_json::to_string_pretty(value)
-                .unwrap_or_else(|e| format!("{{\"error\": \"{}\"}}", e)),
+                .unwrap_or_else(|e| format!("{{\"error\": \"{e}\"}}")),
         };
 
         match path {
             Some(file_path) => {
                 let mut file = File::create(file_path)?;
-                writeln!(file, "{}", content)?;
+                writeln!(file, "{content}")?;
                 Ok(())
             }
             None => {
-                println!("{}", content);
+                println!("{content}");
                 Ok(())
             }
         }
@@ -103,7 +103,7 @@ impl<T: PrintReportable> ReportHandler<T> {
 
     pub async fn print_report(&self) {
         for report in self.reportable.get_report().await {
-            println!("{}", report);
+            println!("{report}");
         }
     }
 
@@ -310,8 +310,8 @@ impl ErrorEntry {
 impl Display for ErrorEntry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ErrorEntry::Generic(err) => write!(f, "{}", err),
-            ErrorEntry::VoteAccount(err) => write!(f, "{}", err),
+            ErrorEntry::Generic(err) => write!(f, "{err}"),
+            ErrorEntry::VoteAccount(err) => write!(f, "{err}"),
         }
     }
 }
@@ -342,7 +342,7 @@ impl<'a> ErrorHandlerBuilder<'a> {
     }
 
     pub fn with_err(mut self, err: anyhow::Error) -> Self {
-        self.message = Some(format!("{}", err));
+        self.message = Some(format!("{err}"));
         self
     }
 
@@ -375,7 +375,7 @@ impl<'a> ErrorHandlerBuilder<'a> {
             ErrorEntry::Generic(generic_error)
         };
 
-        error!("{}", entry);
+        error!("{entry}");
         self.handler.entries.push(entry);
     }
 }
@@ -400,11 +400,11 @@ impl ErrorHandler {
     }
 
     pub fn add_cli_error(&mut self, error: CliError) {
-        error!("{:?}", error);
+        error!("{error:?}");
         match error {
-            CliError::Critical(err) => self.error().with_msg(format!("{}", err)).add(),
-            CliError::RetryAble(r_err) => self.retryable().with_msg(format!("{}", r_err)).add(),
-            CliError::Warning(warn) => self.warning().with_msg(format!("{}", warn)).add(),
+            CliError::Critical(err) => self.error().with_msg(format!("{err}")).add(),
+            CliError::RetryAble(r_err) => self.retryable().with_msg(format!("{r_err}")).add(),
+            CliError::Warning(warn) => self.warning().with_msg(format!("{warn}")).add(),
         }
     }
 
@@ -420,7 +420,7 @@ impl ErrorHandler {
             Err(err) => {
                 for single_error in err.into_iter() {
                     self.retryable()
-                        .with_msg(format!("{}", single_error))
+                        .with_msg(format!("{single_error}"))
                         .with_source("transaction_execution")
                         .add();
                 }
@@ -482,7 +482,7 @@ impl ErrorHandler {
         if !infos.is_empty() {
             info!("INFOS ({}):", infos.len());
             for info_entry in infos.iter() {
-                info!("  {}", info_entry);
+                info!("  {info_entry}");
             }
         }
 
@@ -490,7 +490,7 @@ impl ErrorHandler {
         if !warnings.is_empty() {
             info!("WARNINGS ({}):", warnings.len());
             for warning in warnings.iter() {
-                info!("  {}", warning);
+                info!("  {warning}");
             }
         }
 
@@ -498,7 +498,7 @@ impl ErrorHandler {
         if !retryable_errors.is_empty() {
             info!("TRANSACTION ERRORS ({}):", retryable_errors.len());
             for err in retryable_errors.iter() {
-                info!("  {}", err);
+                info!("  {err}");
             }
         }
 
@@ -506,7 +506,7 @@ impl ErrorHandler {
         if !errors.is_empty() {
             info!("ERRORS ({}):", errors.len());
             for err in errors.iter() {
-                info!("  {}", err);
+                info!("  {err}");
             }
         }
     }
@@ -518,7 +518,7 @@ impl ErrorHandler {
         if !infos.is_empty() {
             println!("INFOS ({}):", infos.len());
             for info_entry in infos.iter() {
-                println!("{}", info_entry);
+                println!("{info_entry}");
             }
         }
 
@@ -526,7 +526,7 @@ impl ErrorHandler {
         if !warnings.is_empty() {
             println!("WARNINGS ({}):", warnings.len());
             for warning in warnings.iter() {
-                println!("{}", warning);
+                println!("{warning}");
             }
             result = Err(CliError::warning(format_err!(
                 "Some warnings occurred during processing: {} warnings",
@@ -538,7 +538,7 @@ impl ErrorHandler {
         if !retryable_errors.is_empty() {
             println!("TRANSACTION ERRORS ({}):", retryable_errors.len());
             for err in retryable_errors.iter() {
-                println!("{}", err);
+                println!("{err}");
             }
             result = Err(CliError::retry_able(format_err!(
                 "Some retry-able errors occurred: {} errors",
@@ -550,7 +550,7 @@ impl ErrorHandler {
         if !errors.is_empty() {
             println!("ERRORS ({}):", errors.len());
             for err in errors.iter() {
-                println!("{}", err);
+                println!("{err}");
             }
             result = Err(CliError::critical(format_err!(
                 "Some errors occurred during processing: {} errors",
@@ -592,7 +592,7 @@ pub async fn with_reporting<T: PrintReportable>(
         Ok(_) => CliResult(report_handler.finalize()),
         // when main returned some error we pass it to terminate with it
         Err(err) => {
-            println!("ERROR: {}", err);
+            println!("ERROR: {err}");
             CliResult(Err(err))
         }
     }
@@ -630,7 +630,7 @@ pub async fn with_reporting_ext<T: ReportSerializable>(
 
     // Always print text to stdout for logging
     for line in &text_report {
-        info!("{}", line);
+        info!("{line}");
     }
 
     // Print error summary to stdout
@@ -642,7 +642,7 @@ pub async fn with_reporting_ext<T: ReportSerializable>(
             if let Some(ref file_path) = report_opts.report_file {
                 let output = ReportOutput::Text(text_report);
                 if let Err(e) = output.write(Some(file_path)) {
-                    error!("Failed to write text report file: {}", e);
+                    error!("Failed to write text report file: {e}");
                 }
             }
         }
@@ -651,7 +651,7 @@ pub async fn with_reporting_ext<T: ReportSerializable>(
                 .unwrap_or_else(|e| serde_json::json!({"error": e.to_string()}));
             let output = ReportOutput::Json(json_value);
             if let Err(e) = output.write(report_opts.report_file.as_ref()) {
-                error!("Failed to write JSON report: {}", e);
+                error!("Failed to write JSON report: {e}");
             }
         }
         ReportFormat::Both => {
@@ -660,7 +660,7 @@ pub async fn with_reporting_ext<T: ReportSerializable>(
                 let txt_path = file_path.with_extension("txt");
                 let text_output = ReportOutput::Text(text_report);
                 if let Err(e) = text_output.write(Some(&txt_path)) {
-                    error!("Failed to write text report file: {}", e);
+                    error!("Failed to write text report file: {e}");
                 }
 
                 // Write JSON file with .json extension
@@ -669,7 +669,7 @@ pub async fn with_reporting_ext<T: ReportSerializable>(
                     .unwrap_or_else(|e| serde_json::json!({"error": e.to_string()}));
                 let json_output = ReportOutput::Json(json_value);
                 if let Err(e) = json_output.write(Some(&json_path)) {
-                    error!("Failed to write JSON report file: {}", e);
+                    error!("Failed to write JSON report file: {e}");
                 }
             }
         }
@@ -677,7 +677,7 @@ pub async fn with_reporting_ext<T: ReportSerializable>(
 
     // Handle main error if present
     if let Err(err) = main_result {
-        error!("ERROR: {}", err);
+        error!("ERROR: {err}");
         return CliResult(Err(err));
     }
 

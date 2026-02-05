@@ -145,7 +145,7 @@ impl ClaimSettlementV2<'_> {
             return Err(
                 error!(ErrorCode::ClaimSettlementMerkleTreeNodeMismatch).with_values((
                     "tree_node_bytes vs. tree_node_hash_args",
-                    format!("'{:?}' vs. '{:?}'", tree_node_bytes, tree_node_hash_args),
+                    format!("'{tree_node_bytes:?}' vs. '{tree_node_hash_args:?}'"),
                 )),
             );
         }
