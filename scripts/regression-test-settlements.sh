@@ -372,15 +372,17 @@ process_epoch() {
         # The new unified merkle generator merges claims for the same
         # vote_account across settlement types into one tree.  So only
         # vote_accounts with ONLY SAM settlements can be compared directly.
+        # PSR-overlapping vote accounts will have different roots because
+        # their trees now include PSR claims — this is expected.
         local psr_vote_accounts
         psr_vote_accounts=$(jq -r '.settlements[].vote_account' \
           "$expected_dir/bid-psr-distribution-settlements.json" | sort -u)
 
-        # Extract per-vote-account roots from old SAM trees
+        # Use @json for consistent array formatting (tostring is unreliable)
         local exp_sam_roots act_roots
-        exp_sam_roots=$(jq -r '.merkle_trees[] | "\(.vote_account) \(.merkle_root | tostring)"' \
+        exp_sam_roots=$(jq -r '.merkle_trees[] | "\(.vote_account) \(.merkle_root | @json)"' \
           "$expected_dir/bid-distribution-settlement-merkle-trees.json" | sort)
-        act_roots=$(jq -r '.merkle_trees[] | "\(.vote_account) \(.merkle_root | tostring)"' \
+        act_roots=$(jq -r '.merkle_trees[] | "\(.vote_account) \(.merkle_root | @json)"' \
           "$actual_dir/bid-merkle-trees.json" | sort)
 
         # Filter out PSR-overlapping vote accounts for root comparison
@@ -395,14 +397,16 @@ process_epoch() {
           sam_only_act="$act_roots"
         fi
 
-        local sam_only_total sam_only_match
+        local sam_only_total sam_only_diff
         sam_only_total=$(echo "$sam_only_exp" | wc -l)
-        sam_only_match=$(comm -12 <(echo "$sam_only_exp") <(echo "$sam_only_act") | wc -l)
+        sam_only_diff=$(diff <(echo "$sam_only_exp") <(echo "$sam_only_act") | grep -c '^[<>]' || true)
+        # Each differing line produces a '<' and a '>' line
+        sam_only_diff=$(( sam_only_diff / 2 ))
 
-        if [[ "$sam_only_match" -eq "$sam_only_total" ]]; then
-          echo "  OK SAM-only merkle roots: $sam_only_match/$sam_only_total match"
+        if [[ "$sam_only_diff" -eq 0 ]]; then
+          echo "  OK SAM-only merkle roots: all $sam_only_total match"
         else
-          echo "  FAIL SAM-only merkle roots: $sam_only_match/$sam_only_total match"
+          echo "  FAIL SAM-only merkle roots: $sam_only_diff/$sam_only_total differ"
           bid_merkle_status="DIFFER"
         fi
 
