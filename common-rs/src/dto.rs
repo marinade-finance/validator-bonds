@@ -27,16 +27,16 @@ impl BondType {
         match s.to_lowercase().as_str() {
             "bidding" => Ok(BondType::Bidding),
             "institutional" => Ok(BondType::Institutional),
-            _ => bail!("Unknown bond type: {}", s),
+            _ => bail!("Unknown bond type: {s}"),
         }
     }
 
     pub fn config_address(&self) -> Pubkey {
         match self {
             BondType::Bidding => Pubkey::from_str(MARINADE_CONFIG_ADDRESS)
-                .unwrap_or_else(|_| panic!("not expected: failed to convert marinade config address to pubkey: {}", MARINADE_CONFIG_ADDRESS)),
+                .unwrap_or_else(|_| panic!("not expected: failed to convert marinade config address to pubkey: {MARINADE_CONFIG_ADDRESS}")),
             BondType::Institutional => Pubkey::from_str(MARINADE_INSTITUTIONAL_CONFIG_ADDRESS)
-                .unwrap_or_else(|_| panic!("not expected: failed to convert marinade institutional config address to pubkey: {}", MARINADE_INSTITUTIONAL_CONFIG_ADDRESS)),
+                .unwrap_or_else(|_| panic!("not expected: failed to convert marinade institutional config address to pubkey: {MARINADE_INSTITUTIONAL_CONFIG_ADDRESS}")),
         }
     }
 }

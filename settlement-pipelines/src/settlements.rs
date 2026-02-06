@@ -98,10 +98,10 @@ pub async fn list_claimable_settlements(
                                         settlement.epoch_created_for
                 );
                 if settlement.epoch_created_for < CONTRACT_V2_DEPLOYMENT_EPOCH {
-                    info!("{}", error_msg);
+                    info!("{error_msg}");
                     None
                 } else {
-                    Some(Err(CliError::Critical(anyhow!("CRITICAL {}", error_msg))))
+                    Some(Err(CliError::Critical(anyhow!("CRITICAL {error_msg}"))))
                 }
             }
         })
@@ -225,8 +225,7 @@ pub async fn obtain_settlement_closing_refunds(
             .await;
             let split_rent_refund_accounts = if let Err(e) = split_rent_refund_accounts {
                 return Err(anyhow!(
-                    "For closing settlement {} is required return rent (collector field: {}), cannot find stake account to use to return rent to: {:?}",
-                    settlement_address, split_rent_collector, e
+                    "For closing settlement {settlement_address} is required return rent (collector field: {split_rent_collector}), cannot find stake account to use to return rent to: {e:?}"
                 ));
             } else {
                 split_rent_refund_accounts?
@@ -252,8 +251,7 @@ pub async fn obtain_settlement_closing_refunds(
                 ));
             };
             debug!(
-                "For settlement {} found split rent collector: {}, split rent refund account: {} from stake accounts: {}",
-                settlement_address, split_rent_collector, split_rent_refund_account, split_rent_accounts_msg
+                "For settlement {settlement_address} found split rent collector: {split_rent_collector}, split rent refund account: {split_rent_refund_account} from stake accounts: {split_rent_accounts_msg}"
             );
             (split_rent_collector, split_rent_refund_account)
         } else {

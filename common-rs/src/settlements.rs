@@ -39,7 +39,7 @@ pub async fn get_settlements_for_config(
             if let Some(bond) = bond {
                 Ok((pubkey, bond))
             } else {
-                Err(anyhow!("Bond not found for Settlement: {}. The Bond account existence for a Settlement is the program invariant", pubkey))
+                Err(anyhow!("Bond not found for Settlement: {pubkey}. The Bond account existence for a Settlement is the program invariant"))
             }
         })
         .collect::<anyhow::Result<HashMap<_, _>>>()?;

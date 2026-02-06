@@ -1,9 +1,9 @@
 use anyhow::anyhow;
-use bid_psr_distribution::utils::read_from_json_file;
 use clap::Parser;
 use log::{error, info};
 use merkle_tree::serde_serialize::pubkey_string_conversion;
 use serde::{Deserialize, Serialize};
+use settlement_common::utils::read_from_json_file;
 use settlement_pipelines::arguments::{get_rpc_client, GlobalOpts};
 use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::init::init_log;
@@ -106,12 +106,12 @@ fn verify_epoch_settlements(
     let mut non_funded_settlements = Vec::new();
 
     for epoch_to_verify in claiming_epoch_range {
-        info!("Verifying settlements for epoch {}", epoch_to_verify);
+        info!("Verifying settlements for epoch {epoch_to_verify}");
         let epoch_listed_settlements =
             if let Some(settlements) = listed_settlements_per_epoch.get(&epoch_to_verify) {
                 settlements
             } else {
-                error!("No settlement found for claiming epoch {}", epoch_to_verify);
+                error!("No settlement found for claiming epoch {epoch_to_verify}");
                 non_verified_epochs.push(epoch_to_verify);
                 continue;
             };
@@ -163,7 +163,7 @@ async fn real_main() -> anyhow::Result<()> {
 
     // Load JSON settlements
     let listed_settlements: Vec<BondSettlement> = read_from_json_file(&args.listed_settlements)
-        .map_err(|e| anyhow!("Failed to load --listed-settlements: {:?}", e))
+        .map_err(|e| anyhow!("Failed to load --listed-settlements: {e:?}"))
         .map_err(CliError::Critical)?;
 
     info!(
@@ -234,7 +234,7 @@ async fn real_main() -> anyhow::Result<()> {
         info!("[OK] All settlements verified");
     } else {
         error!("[ERROR] Settlements verification failed.");
-        error!("Alerts:\n {:?}", alerts);
+        error!("Alerts:\n {alerts:?}");
         error!(
             "JSON known settlements:\n {:?}",
             listed_settlements
@@ -245,7 +245,7 @@ async fn real_main() -> anyhow::Result<()> {
     }
 
     serde_json::to_writer(io::stdout(), &alerts)
-        .map_err(|e| anyhow!("Failed to write alerts as JSON: {:?}", e))
+        .map_err(|e| anyhow!("Failed to write alerts as JSON: {e:?}"))
         .map_err(CliError::Critical)?;
 
     Ok(())

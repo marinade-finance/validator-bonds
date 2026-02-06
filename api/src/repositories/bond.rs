@@ -88,7 +88,7 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
 
     tokio::spawn(async move {
         if let Err(err) = psql_conn.await {
-            log::error!("Connection error: {}", err);
+            log::error!("Connection error: {err}");
             std::process::exit(1);
         }
     });
@@ -112,10 +112,10 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
 
         for (pubkey, bond) in chunk {
             let placeholders = (param_index..param_index + PARAMS_PER_INSERT)
-                .map(|index| format!("${}", index))
+                .map(|index| format!("${index}"))
                 .collect::<Vec<_>>()
                 .join(", ");
-            insert_values.push_str(&format!("({}),", placeholders));
+            insert_values.push_str(&format!("({placeholders}),"));
             param_index += PARAMS_PER_INSERT;
 
             params.push(Box::new(pubkey));
@@ -142,7 +142,7 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
         let query = format!(
             "
             INSERT INTO bonds (pubkey, vote_account, authority, epoch, updated_at, cpmpe, max_stake_wanted, funded_amount, effective_amount, remaining_witdraw_request_amount, remainining_settlement_claim_amount, bond_type, inflation_commission_bps, mev_commission_bps, block_commission_bps)
-            VALUES {}
+            VALUES {insert_values}
             ON CONFLICT (pubkey, epoch) DO UPDATE
             SET vote_account = EXCLUDED.vote_account,
                 authority = EXCLUDED.authority,
@@ -157,8 +157,7 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
                 inflation_commission_bps = EXCLUDED.inflation_commission_bps,
                 mev_commission_bps = EXCLUDED.mev_commission_bps,
                 block_commission_bps = EXCLUDED.block_commission_bps
-            ",
-            insert_values
+            "
         );
 
         let params = params

@@ -17,9 +17,9 @@ pub enum RetryError {
 impl std::fmt::Display for RetryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RetryError::Timeout(duration) => write!(f, "Operation timed out after {:?}", duration),
+            RetryError::Timeout(duration) => write!(f, "Operation timed out after {duration:?}"),
             RetryError::MaxRetriesExceeded { retries, error } => {
-                write!(f, "Operation failed after {} retries: {}", retries, error)
+                write!(f, "Operation failed after {retries} retries: {error}")
             }
             RetryError::InvalidConfig => write!(
                 f,
@@ -59,14 +59,13 @@ impl Default for RetryConfig {
 /// Performs a retry-able operation to fetch data for multiple public keys from an RPC client.
 /// # Arguments
 ///
-/// * `rpc_client` - An thread-safe reference to the RPC client used for making requests
+/// * `rpc_client` - A thread-safe reference to the RPC client used for making requests
 /// * `pubkeys` - A slice of `Pubkey`s to fetch data for
 /// * `operation` - A closure that defines the fetch operation to perform for the `pubkeys`
 /// * `config` - Optional retry configuration parameters. If None, default retry settings will be used
 /// * `require_all` - If true, the function will be retrying until data returned from `operation`
-///                   consists number of records equal to all the input keys.
-///                  If false, it does not consider number of returned values,
-///                   and it may return partial results.
+///   consists number of records equal to all the input keys.
+///   If false, it does not consider the number of returned values, and it may return partial results.
 pub async fn retry_get_pubkeys_operation<'a, T, F, Fut>(
     rpc_client: Arc<RpcClient>,
     pubkeys: &'a [Pubkey],
@@ -103,7 +102,7 @@ where
             }
         }
 
-        // Calculate remaining timeout for this iteration
+        // Calculate the remaining timeout for this iteration
         let remaining_timeout = config
             .timeout_duration
             .map(|d| d.saturating_sub(start_time.elapsed()))

@@ -39,7 +39,7 @@ where
     // For normal values, regular parsing
     Decimal::from_str(value.as_str())
         .or_else(|_| Decimal::from_scientific(value.as_str()))
-        .map_err(|_| de::Error::custom(format!("Failed to parse as Decimal: {}", value)))
+        .map_err(|_| de::Error::custom(format!("Failed to parse as Decimal: {value}")))
 }
 
 // test deserialize_large_decimal

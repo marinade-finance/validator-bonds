@@ -48,7 +48,7 @@ pub async fn handler_institutional(
     match get_bonds_by_type(&context.read().await.psql_client, BondType::Institutional).await {
         Ok(bonds) => Ok(json(&BondsResponse { bonds })),
         Err(error) => Err(warp::reject::custom(CustomError {
-            message: format!("Failed to fetch bonds. Error: {:?}", error),
+            message: format!("Failed to fetch bonds. Error: {error:?}"),
         })),
     }
 }
@@ -69,7 +69,7 @@ pub async fn handler_bidding(
     match get_bonds_by_type(&context.read().await.psql_client, BondType::Bidding).await {
         Ok(bonds) => Ok(json(&BondsResponse { bonds })),
         Err(error) => Err(warp::reject::custom(CustomError {
-            message: format!("Failed to fetch bonds. Error: {:?}", error),
+            message: format!("Failed to fetch bonds. Error: {error:?}"),
         })),
     }
 }

@@ -1,14 +1,9 @@
-use crate::settlement_collection::SettlementCollection;
-use log::info;
 use solana_sdk::pubkey::Pubkey;
 
-use validator_bonds::state::settlement::find_settlement_address;
 use {
-    crate::settlement_collection::{Settlement, SettlementClaim},
     merkle_tree::{
         psr_claim::TreeNode,
         serde_serialize::{option_pubkey_string_conversion, pubkey_string_conversion},
-        MerkleTree,
     },
     serde::{Deserialize, Serialize},
     solana_sdk::hash::Hash,
@@ -43,119 +38,30 @@ pub struct MerkleTreeCollection {
     pub merkle_trees: Vec<MerkleTreeMeta>,
 }
 
-pub fn generate_merkle_tree_meta(
-    settlement: &Settlement,
-    epoch: u64,
-) -> anyhow::Result<MerkleTreeMeta> {
-    let vote_account = settlement.vote_account;
-    info!(
-        "Generation merkle tree settlement of validator: {vote_account}, funder: {:?}",
-        settlement.meta.funder
-    );
-    let mut tree_nodes: Vec<_> = settlement
-        .claims
-        .iter()
-        .cloned()
-        .enumerate()
-        .map(
-            |(
-                index,
-                SettlementClaim {
-                    withdraw_authority,
-                    stake_authority,
-                    claim_amount,
-                    ..
-                },
-            )| TreeNode {
-                stake_authority,
-                withdraw_authority,
-                claim: claim_amount,
-                index: index as u64,
-                proof: None,
-            },
-        )
-        .collect();
-
-    let max_total_claim_sum: u64 = tree_nodes.iter().map(|node| node.claim).sum();
-    let max_total_claims = tree_nodes.len();
-
-    assert_eq!(
-        max_total_claim_sum, settlement.claims_amount,
-        "claims_amount does not match"
-    );
-    assert_eq!(
-        max_total_claims, settlement.claims_count,
-        "claim_count does not match"
-    );
-
-    let hashed_nodes: Vec<[u8; 32]> = tree_nodes.iter().map(|n| n.hash().to_bytes()).collect();
-    let merkle_tree = MerkleTree::new(&hashed_nodes[..], true);
-
-    for (i, tree_node) in tree_nodes.iter_mut().enumerate() {
-        tree_node.proof = Some(get_proof(&merkle_tree, i));
-    }
-
-    let merkle_root = merkle_tree.get_root().cloned();
-    let settlement_account = settlement
-        .bond_account
-        .zip(merkle_root)
-        .map(|(bond, root)| find_settlement_address(&bond, &root.to_bytes(), epoch).0);
-    Ok(MerkleTreeMeta {
-        merkle_root,
-        max_total_claim_sum,
-        max_total_claims,
-        tree_nodes,
-        vote_account,
-        bond_account: settlement.bond_account,
-        settlement_account,
-    })
-}
-
-pub fn generate_merkle_tree_collection(
-    settlement_collection: SettlementCollection,
-) -> anyhow::Result<MerkleTreeCollection> {
-    let mut merkle_trees = vec![];
-
-    let epoch = settlement_collection.epoch;
-    for settlement in settlement_collection.settlements.iter() {
-        merkle_trees.push(generate_merkle_tree_meta(settlement, epoch)?);
-    }
-    info!(
-        "Generated {} merkle trees for epoch {}",
-        merkle_trees.len(),
-        settlement_collection.epoch
-    );
-
-    Ok(MerkleTreeCollection {
-        epoch,
-        slot: settlement_collection.slot,
-        merkle_trees,
-    })
-}
-
-fn get_proof(merkle_tree: &MerkleTree, i: usize) -> Vec<[u8; 32]> {
-    let mut proof = Vec::new();
-    let path = merkle_tree.find_path(i).expect("path to index");
-    for branch in path.get_proof_entries() {
-        if let Some(hash) = branch.get_left_sibling() {
-            proof.push(hash.to_bytes());
-        } else if let Some(hash) = branch.get_right_sibling() {
-            proof.push(hash.to_bytes());
-        } else {
-            panic!("expected some hash at each level of the tree");
-        }
-    }
-    proof
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use merkle_tree::MerkleTree;
     use solana_sdk::bs58;
     use solana_sdk::hash::hashv;
     use solana_sdk::native_token::LAMPORTS_PER_SOL;
     use solana_sdk::pubkey::Pubkey;
     use std::str::FromStr;
+
+    fn get_proof(merkle_tree: &MerkleTree, i: usize) -> Vec<[u8; 32]> {
+        let mut proof = Vec::new();
+        let path = merkle_tree.find_path(i).expect("path to index");
+        for branch in path.get_proof_entries() {
+            if let Some(hash) = branch.get_left_sibling() {
+                proof.push(hash.to_bytes());
+            } else if let Some(hash) = branch.get_right_sibling() {
+                proof.push(hash.to_bytes());
+            } else {
+                panic!("expected some hash at each level of the tree");
+            }
+        }
+        proof
+    }
 
     /// This is a constant pubkey test to verify against the TS tree node implementation
     /// the TS implementation uses the same static pubkeys and the tests should pass here and there
@@ -269,10 +175,7 @@ mod tests {
             .collect::<Vec<_>>();
         let merkle_tree_vote_account1 = MerkleTree::new(&item_vote_account1_hashes[..], true);
         let merkle_tree_vote_account1_root = merkle_tree_vote_account1.get_root().unwrap();
-        println!(
-            "merkle tree root vote account 1: {}",
-            merkle_tree_vote_account1_root
-        );
+        println!("merkle tree root vote account 1: {merkle_tree_vote_account1_root}");
         assert_eq!(
             merkle_tree_vote_account1_root.to_string(),
             "HKerG5LfsZVyV8o5pJCQa9UGcBwoNdpprgNEhF6Jqkkn"
@@ -299,10 +202,7 @@ mod tests {
             .collect::<Vec<_>>();
         let merkle_tree_vote_account2 = MerkleTree::new(&item_vote_account2_hashes[..], true);
         let merkle_tree_vote_account2_root = merkle_tree_vote_account2.get_root().unwrap();
-        println!(
-            "merkle tree root vote account 2: {}",
-            merkle_tree_vote_account2_root
-        );
+        println!("merkle tree root vote account 2: {merkle_tree_vote_account2_root}");
         assert_eq!(
             merkle_tree_vote_account2_root.to_string(),
             "SA4YRkCch9fKu2RKEJ37LXzZY7DEYJiMNEgy6EKxo6C"
@@ -329,7 +229,7 @@ mod tests {
             .collect::<Vec<_>>();
         let merkle_tree_operator = MerkleTree::new(&item_operator_hashes[..], true);
         let merkle_tree_operator_root = merkle_tree_operator.get_root().unwrap();
-        println!("merkle tree root operator: {}", merkle_tree_operator_root);
+        println!("merkle tree root operator: {merkle_tree_operator_root}");
         assert_eq!(
             merkle_tree_operator_root.to_string(),
             "2aKJRJBGzx19JdM1MHWrL2QwNduYobiHmsoVxKX3BRfu"

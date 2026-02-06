@@ -1,13 +1,14 @@
 use anchor_client::anchor_lang::prelude::Pubkey;
 use anchor_client::{Cluster, DynSigner, Program};
 use anyhow::anyhow;
-use clap::Args;
+use clap::{Args, ValueEnum};
 use log::debug;
+use serde::Serialize;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::signature::{read_keypair_file, Keypair, Signer};
 use solana_transaction_executor::{PriorityFeePolicy, TipPolicy};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 use validator_bonds_common::get_validator_bonds_program;
@@ -72,6 +73,27 @@ pub struct TipPolicyOpts {
     tip_multiplier: Option<u64>,
 }
 
+#[derive(Debug, Clone, Args)]
+pub struct ReportOpts {
+    /// Path to save the report file. For 'both' format, .txt and .json extensions are auto-added.
+    #[arg(long = "report-file")]
+    pub report_file: Option<PathBuf>,
+
+    /// Output format for the report file: 'text' (default), 'json', or 'both'.
+    /// Text report is always printed to stdout for logging.
+    #[arg(long = "report-format", value_enum, default_value = "text")]
+    pub report_format: ReportFormat,
+}
+
+#[derive(Debug, Clone, Copy, Default, ValueEnum, Serialize, PartialEq, Eq)]
+pub enum ReportFormat {
+    #[default]
+    Text,
+    Json,
+    /// Output both text and JSON formats (text to stdout, both to files if --report-file specified)
+    Both,
+}
+
 pub fn load_default_keypair(name: &str, s: Option<&str>) -> anyhow::Result<Option<Arc<Keypair>>> {
     if s.is_none() || s.unwrap().is_empty() {
         load_keypair("<default Solana keypair>", DEFAULT_KEYPAIR_PATH)
@@ -86,7 +108,7 @@ pub fn load_keypair(name: &str, s: &str) -> anyhow::Result<Arc<Keypair>> {
     let parsed_json = parse_keypair_as_json_data(s);
     if let Ok(key_bytes) = parsed_json {
         let k = Keypair::try_from(key_bytes.as_slice())
-            .map_err(|e| anyhow!("Could not read keypair from json data: {}", e))?;
+            .map_err(|e| anyhow!("Could not read keypair from json data: {e}"))?;
         return Ok(Arc::new(k));
     } else {
         debug!(
@@ -97,14 +119,8 @@ pub fn load_keypair(name: &str, s: &str) -> anyhow::Result<Arc<Keypair>> {
     }
     // loading as a file path to keypair
     let path = shellexpand::tilde(s);
-    let k = read_keypair_file(Path::new(&path.to_string())).map_err(|e| {
-        anyhow!(
-            "Could not read keypair named '{}' file from '{}': {}",
-            name,
-            s,
-            e
-        )
-    })?;
+    let k = read_keypair_file(Path::new(&path.to_string()))
+        .map_err(|e| anyhow!("Could not read keypair named '{name}' file from '{s}': {e}"))?;
     Ok(Arc::new(k))
 }
 
@@ -119,7 +135,7 @@ pub fn load_pubkey(s: &str) -> anyhow::Result<Pubkey> {
             ))
         }
     } else {
-        Pubkey::from_str(s).map_err(|e| anyhow!("Could not parse pubkey from '{}': {}", s, e))
+        Pubkey::from_str(s).map_err(|e| anyhow!("Could not parse pubkey from '{s}': {e}"))
     }
 }
 
@@ -134,12 +150,9 @@ fn create_clap_error(message: &str, context_value: &str) -> clap::Error {
 
 fn parse_keypair_as_json_data(s: &str) -> Result<Vec<u8>, clap::Error> {
     let data: serde_json::Value = serde_json::from_str(s)
-        .map_err(|err| create_clap_error(&format!("Failed to parse JSON data: {}", err), s))?;
+        .map_err(|err| create_clap_error(&format!("Failed to parse JSON data: {err}"), s))?;
     serde_json::from_value(data).map_err(|err| {
-        create_clap_error(
-            &format!("Failed to convert JSON data to Vec<u8>: {}", err),
-            s,
-        )
+        create_clap_error(&format!("Failed to convert JSON data to Vec<u8>: {err}"), s)
     })
 }
 
@@ -182,7 +195,7 @@ pub struct InitializedGlobalOpts {
 pub fn get_rpc_client(global_opts: &GlobalOpts) -> anyhow::Result<(Arc<RpcClient>, String)> {
     let rpc_url = global_opts.rpc_url.clone();
     let anchor_cluster = Cluster::from_str(&rpc_url)
-        .map_err(|e| anyhow!("Could not parse JSON RPC url `{:?}`: {}", rpc_url, e))?;
+        .map_err(|e| anyhow!("Could not parse JSON RPC url `{rpc_url:?}`: {e}"))?;
     let rpc_client = Arc::new(RpcClient::new_with_commitment(
         anchor_cluster.to_string(),
         CommitmentConfig {

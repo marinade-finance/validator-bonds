@@ -10,7 +10,7 @@ fi
 CONFIG_BIDDING="vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU"
 CONFIG_INSTITUTIONAL="VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE"
 
-if [[ "$claim_type" == bid* ]]; then
+if [[ "$claim_type" == bid* ]] || [[ "$claim_type" == unified-bid* ]]; then
     echo "$CONFIG_BIDDING"
     exit 0
 elif [[ "$claim_type" == institutional* ]]; then

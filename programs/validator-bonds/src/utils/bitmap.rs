@@ -68,7 +68,7 @@ impl BitmapProjection {
                 // stripping last byte only to include the bitmap data limited by max_records
                 bitmap_data[..last_byte_index + if last_bit_index == 0 { 0 } else { 1 }]
                 .iter()
-                .map(|b| format!("{:08b}", b))
+                .map(|b| format!("{b:08b}"))
                 .collect::<Vec<String>>();
         if last_bit_index != 0 {
             formatted_data[last_byte_index] =

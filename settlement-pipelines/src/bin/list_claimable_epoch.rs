@@ -22,10 +22,7 @@ async fn main() -> anyhow::Result<()> {
     init_log(&args.global_opts);
 
     let config_address = args.global_opts.config;
-    info!(
-        "Listing claimable epochs for validator-bonds config: {}",
-        config_address
-    );
+    info!("Listing claimable epochs for validator-bonds config: {config_address}");
 
     let (rpc_client, _) = get_rpc_client(&args.global_opts)?;
     let config = get_config(rpc_client.clone(), config_address).await?;
@@ -48,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
         .into_iter()
         .collect::<Vec<u64>>();
 
-    info!("Claimable epochs: {:?}", claimable_epochs);
+    info!("Claimable epochs: {claimable_epochs:?}");
     serde_json::to_writer(io::stdout(), &claimable_epochs)?;
     Ok(())
 }

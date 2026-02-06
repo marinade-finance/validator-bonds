@@ -13,11 +13,7 @@ pub async fn get_config(
 ) -> anyhow::Result<Config> {
     let program = get_validator_bonds_program(rpc_client, None)?;
     let config = program.account(config_address).await.map_err(|e| {
-        anyhow!(
-            "Cannot load validator-bonds config account {}: {:?}",
-            config_address,
-            e
-        )
+        anyhow!("Cannot load validator-bonds config account {config_address}: {e:?}")
     })?;
     Ok(config)
 }

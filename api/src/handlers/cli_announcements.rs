@@ -58,13 +58,13 @@ pub async fn handler(
         cli_type: query_params.cli_type,
     };
     if let Err(e) = record_cli_usage(&ctx.psql_client, usage_params).await {
-        warn!("Failed to record CLI usage: {:?}", e);
+        warn!("Failed to record CLI usage: {e:?}");
     }
 
     match get_active_announcements(&ctx.psql_client, announcement_params).await {
         Ok(announcements) => Ok(json(&CliAnnouncementsResponse { announcements })),
         Err(error) => Err(warp::reject::custom(CustomError {
-            message: format!("Failed to fetch announcements. Error: {:?}", error),
+            message: format!("Failed to fetch announcements. Error: {error:?}"),
         })),
     }
 }

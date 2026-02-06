@@ -38,6 +38,9 @@ fuzz/
 hfuzz*
 fuzzing/
 
-
 # Local
 *.local.json
+
+# Testing
+regression-data/
+

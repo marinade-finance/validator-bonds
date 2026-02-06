@@ -1,6 +1,6 @@
 use crate::settlement_data::SettlementRecord;
-use bid_psr_distribution::settlement_collection::SettlementReason;
 use log::debug;
+use settlement_common::settlement_collection::SettlementReason;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
@@ -162,10 +162,7 @@ impl SettlementsReportData {
                 };
                 result.get_mut(&reason_type).unwrap().insert(*pubkey);
             } else {
-                debug!(
-                    "group by reason: unknown settlement record for pubkey: {}",
-                    pubkey
-                );
+                debug!("group by reason: unknown settlement record for pubkey: {pubkey}");
             };
         }
         result

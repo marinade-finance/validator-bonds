@@ -22,10 +22,7 @@ fn add_instructions_to_builder_from_anchor_internal(
     descriptions: Option<Vec<String>>,
 ) -> anyhow::Result<()> {
     let instructions = request_builder.instructions().map_err(|e: ClientError| {
-        error!(
-            "add_instructions_from_anchor_builder: error building instructions: {:?}",
-            e
-        );
+        error!("add_instructions_from_anchor_builder: error building instructions: {e:?}");
         anyhow!(e)
     })?;
     if let Some(descriptions) = descriptions {
