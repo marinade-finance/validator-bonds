@@ -111,7 +111,6 @@ steps:
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,solana_transaction_executor=debug,fund_settlement=debug
     commands:
     - . "$HOME/.cargo/env"
-    - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || true
     - |
       buildkite-agent artifact download --include-retried-jobs "merkle-trees/*" .
       files=""
@@ -127,7 +126,6 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs target/release/fund-settlement .
     - chmod +x target/release/fund-settlement
     - source ./scripts/execute-handlers.sh
-    - trap 'cat "./execution-report.$${command_name}.$$BUILDKITE_RETRY_COUNT" >> "./execution-report.$${command_name}"' EXIT
     - |
       handle_command_execution "$$command_name" \
       ./target/release/fund-settlement \
@@ -139,7 +137,7 @@ steps:
         $$files
     key: "fund-settlement"
     artifact_paths:
-      - "./execution-report*"
+      - "./report.*.json"
     retry:
       automatic:
         - exit_status: 100
@@ -150,11 +148,15 @@ steps:
     env:
       command_name: 'fund-settlement'
     commands:
-     - buildkite-agent artifact download --include-retried-jobs "execution-report.$$command_name" . || echo "No report ERROR" > ./execution-report.$$command_name
-     - cp "./execution-report.$$command_name" "./cumulative-report.$${command_name}.txt"
-     - buildkite-agent meta-data set --redacted-vars="" attempts_count "$(grep -c ATTEMPT ./cumulative-report.$${command_name}.txt)"
+    - |
+      buildkite-agent artifact download --include-retried-jobs "report.$$command_name.*.json" . || \
+        echo '{"command":"'$$command_name'","status":{"success":false,"error_count":1},"summary":"No report found"}' > "./report.$$command_name.0.json"
+    - latest_report=$$(ls -v "report.$$command_name."[0-9]*.json 2>/dev/null | tail -n 1)
+    - cp "$$latest_report" "./cumulative-report.$${command_name}.json"
+    - attempts_count=$$(ls -1 "report.$$command_name."[0-9]*.json 2>/dev/null | wc -l)
+    - buildkite-agent meta-data set --redacted-vars="" attempts_count "$$attempts_count"
     artifact_paths:
-      - "./cumulative-report.*"
+      - "./cumulative-report.*.json"
     depends_on: "fund-settlement"
     allow_dependency_failure: true
 
@@ -164,9 +166,7 @@ steps:
       command_name: 'fund-settlement'
     commands:
       - source ./scripts/execute-handlers.sh
-      - annotate_execution_report "$$command_name" 20
-    artifact_paths:
-      - "./latest-report.txt"
+      - annotate_execution_report "$$command_name"
     depends_on: "fund-settlement"
     allow_dependency_failure: true
 
@@ -179,10 +179,10 @@ steps:
     - latest_funded_epoch=$(buildkite-agent meta-data get latest_funded_epoch) || true
     - claim_type=$(buildkite-agent meta-data get claim_type) || true
     - claim_type_prefix=$([[ -z "$$claim_type" ]] && echo "" || echo "$${claim_type}-")
-    - buildkite-agent artifact download cumulative-report.$${command_name}.txt . || echo "UNKNOWN ERROR" > ./cumulative-report.$${command_name}.txt
+    - buildkite-agent artifact download cumulative-report.$${command_name}.json . || echo '"UNKNOWN ERROR"' > ./cumulative-report.$${command_name}.json
     - |
       if [[ -n "$$latest_funded_epoch" && $(gcloud storage ls "$gs_bucket/$$latest_funded_epoch" 2> /dev/null) ]]; then
-        gcloud storage cp ./cumulative-report.$${command_name}.txt "$gs_bucket/$$latest_funded_epoch/buildkite/$${claim_type_prefix}$${command_name}-report.$(date +%s).txt"
+        gcloud storage cp ./cumulative-report.$${command_name}.json "$gs_bucket/$$latest_funded_epoch/buildkite/$${claim_type_prefix}$${command_name}-report.$(date +%s).json"
       fi
     depends_on: "notification-setup-funding"
     allow_dependency_failure: true
