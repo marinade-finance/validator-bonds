@@ -2,9 +2,10 @@ use anchor_client::anchor_lang::solana_program::stake::state::{Authorized, Locku
 use anchor_client::{DynSigner, Program};
 use clap::Parser;
 use log::{debug, error, info};
+use serde::Serialize;
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
-    init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, TipPolicyOpts,
+    init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, ReportOpts, TipPolicyOpts,
 };
 use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
 use settlement_pipelines::cli_result::{CliError, CliResult};
@@ -14,7 +15,8 @@ use settlement_pipelines::institutional_validators::{fetch_validator_data, Valid
 use settlement_pipelines::json_data::{load_json, load_json_with_on_chain};
 use settlement_pipelines::reporting::ErrorEntry::{Generic, VoteAccount};
 use settlement_pipelines::reporting::{
-    with_reporting, ErrorEntry, ErrorSeverity, PrintReportable, ReportHandler,
+    with_reporting_ext, ErrorEntry, ErrorSeverity, PrintReportable, ReportHandler,
+    ReportSerializable,
 };
 use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
 use settlement_pipelines::settlement_data::{
@@ -83,17 +85,23 @@ struct Args {
     /// keypair payer for rent of accounts, if not provided, fee payer keypair is used
     #[arg(long)]
     rent_payer: Option<String>,
+
+    #[clap(flatten)]
+    report_opts: ReportOpts,
 }
 
 #[tokio::main]
 async fn main() -> CliResult {
+    let args: Args = Args::parse();
     let mut reporting = FundSettlementsReport::report_handler();
-    let result = real_main(&mut reporting).await;
-    with_reporting::<FundSettlementsReport>(&mut reporting, result).await
+    let result = real_main(&mut reporting, &args).await;
+    with_reporting_ext::<FundSettlementsReport>(&mut reporting, result, &args.report_opts).await
 }
 
-async fn real_main(reporting: &mut ReportHandler<FundSettlementsReport>) -> anyhow::Result<()> {
-    let args: Args = Args::parse();
+async fn real_main(
+    reporting: &mut ReportHandler<FundSettlementsReport>,
+    args: &Args,
+) -> anyhow::Result<()> {
     init_log(&args.global_opts);
 
     let InitializedGlobalOpts {
@@ -145,7 +153,7 @@ async fn real_main(reporting: &mut ReportHandler<FundSettlementsReport>) -> anyh
         .reportable
         .init(
             &settlement_records_per_epoch,
-            args.global_opts.institutional_url,
+            args.global_opts.institutional_url.clone(),
         )
         .await;
 
@@ -873,6 +881,30 @@ impl FundSettlementsReport {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct FundSettlementJsonSummary {
+    epochs: Vec<EpochFundingSummary>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct EpochFundingSummary {
+    epoch: u64,
+    funded_settlements: u64,
+    total_settlements: u64,
+    funded_amount_sol: f64,
+    total_amount_sol: f64,
+    reasons: Vec<ReasonFundingSummary>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ReasonFundingSummary {
+    reason: String,
+    funded_settlements: u64,
+    total_settlements: u64,
+    funded_amount_sol: f64,
+    total_amount_sol: f64,
+}
+
 impl PrintReportable for FundSettlementsReport {
     fn get_report(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + '_>> {
         Box::pin(async {
@@ -941,5 +973,100 @@ impl PrintReportable for FundSettlementsReport {
                 }
             });
         }
+    }
+}
+
+impl ReportSerializable for FundSettlementsReport {
+    fn command_name(&self) -> &'static str {
+        "fund-settlement"
+    }
+
+    fn get_json_summary(&self) -> Pin<Box<dyn Future<Output = serde_json::Value> + '_>> {
+        Box::pin(async {
+            let lamports_to_sol = |lamports: u64| -> f64 { lamports as f64 / 1_000_000_000.0 };
+
+            let mut sorted_by_epoch = self
+                .settlements_per_epoch
+                .iter()
+                .collect::<Vec<(&u64, &FundSettlementReport)>>();
+            sorted_by_epoch.sort_by_key(|(a, _)| *a);
+
+            let epochs: Vec<EpochFundingSummary> = sorted_by_epoch
+                .iter()
+                .map(|(epoch, funded_data)| {
+                    let json_loaded = SettlementsReportData::calculate(
+                        &funded_data
+                            .json_loaded_settlements
+                            .iter()
+                            .collect::<Vec<&SettlementRecord>>(),
+                    );
+
+                    // Calculate totals including already funded
+                    let funded_count = funded_data.funded_settlements.len() as u64
+                        + funded_data
+                            .already_funded_settlements
+                            .iter()
+                            .filter(|(_, (_, amount))| *amount > 0)
+                            .count() as u64;
+                    let funded_amount =
+                        funded_data.funded_amount() + funded_data.already_funded_amount();
+
+                    // Build per-reason breakdown
+                    let reasons: Vec<ReasonFundingSummary> = ReportingReasonSettlement::items()
+                        .into_iter()
+                        .filter_map(|reason| {
+                            let json_loaded_for_reason =
+                                SettlementsReportData::calculate_for_reason(
+                                    &reason,
+                                    &funded_data.json_loaded_settlements,
+                                );
+
+                            // Skip reasons with no settlements
+                            if json_loaded_for_reason.settlements_count == 0 {
+                                return None;
+                            }
+
+                            let funded = SettlementsReportData::calculate_sum_amount_for_reason(
+                                &reason,
+                                &funded_data.funded_settlements,
+                            );
+                            let already_funded =
+                                SettlementsReportData::calculate_sum_amount_for_reason(
+                                    &reason,
+                                    &funded_data.already_funded_settlements,
+                                );
+
+                            let total_funded =
+                                funded.0.settlements_count + already_funded.0.settlements_count;
+                            let total_funded_amount = funded.1 + already_funded.1;
+
+                            Some(ReasonFundingSummary {
+                                reason: reason.to_string(),
+                                funded_settlements: total_funded,
+                                total_settlements: json_loaded_for_reason.settlements_count,
+                                funded_amount_sol: lamports_to_sol(total_funded_amount),
+                                total_amount_sol: lamports_to_sol(
+                                    json_loaded_for_reason.settlements_max_claim_sum,
+                                ),
+                            })
+                        })
+                        .collect();
+
+                    EpochFundingSummary {
+                        epoch: **epoch,
+                        funded_settlements: funded_count,
+                        total_settlements: json_loaded.settlements_count,
+                        funded_amount_sol: lamports_to_sol(funded_amount),
+                        total_amount_sol: lamports_to_sol(json_loaded.settlements_max_claim_sum),
+                        reasons,
+                    }
+                })
+                .collect();
+
+            let summary = FundSettlementJsonSummary { epochs };
+
+            serde_json::to_value(summary)
+                .unwrap_or_else(|e| serde_json::json!({"error": e.to_string()}))
+        })
     }
 }
