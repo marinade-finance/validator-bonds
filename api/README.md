@@ -99,5 +99,5 @@ To check what is shown in the CLI, run:
 NOTE: For CLI installation, [see the doc](../packages/validator-bonds-cli/README.md#npm-installation-details).
 
 ```sh
-validator-bonds -u$RPC_URL show-bond
+validator-bonds -u "$RPC_URL" show-bond
 ```
