@@ -94,7 +94,7 @@ WHERE id = 5;
 
 There is also a possibility to add multiple announcements and filter them by operation type. See the available DB columns in [cli announcements sql](../migrations/0005-add-cli-announcements.sql).
 
-To check what is shown in the CLI, one can see it with.
+To check what is shown in the CLI, run:
 
 NOTE: For CLI installation, [see the doc](../packages/validator-bonds-cli/README.md#npm-installation-details).
 
