@@ -89,7 +89,7 @@ UPDATE cli_announcements
 SET title = '✓✓✓ Your Title Here ✓✓✓',
     text = E'Your announcement text here.\nSecond line if needed.\n\nAnd more info here.',
     updated_at = NOW()
-WHERE id = 5;
+WHERE id = <<loaded_id>>;
 ```
 
 There is also a possibility to add multiple announcements and filter them by operation type. See the available DB columns in [cli announcements sql](../migrations/0005-add-cli-announcements.sql).
