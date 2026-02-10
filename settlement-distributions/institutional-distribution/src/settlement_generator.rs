@@ -289,7 +289,7 @@ mod tests {
         let file_path = Path::new(manifest_dir)
             .join("tests")
             .join("fixtures")
-            .join(format!("output-{}-payouts.json", payout_type));
+            .join(format!("output-{payout_type}-payouts.json"));
         let file = File::open(file_path).unwrap();
         let reader = BufReader::new(file);
         serde_json::from_reader(reader).unwrap()

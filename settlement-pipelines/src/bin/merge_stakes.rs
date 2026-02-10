@@ -88,10 +88,7 @@ async fn real_main(
     )?;
 
     let config_address = args.global_opts.config;
-    info!(
-        "Merging stake accounts of validator-bonds config: {}",
-        config_address
-    );
+    info!("Merging stake accounts of validator-bonds config: {config_address}");
 
     let _config = get_config(rpc_client.clone(), config_address)
         .await
@@ -210,10 +207,7 @@ async fn merge_stake(
 
     for ((vote_account, _), merge_stake_accounts) in stake_account_records.iter() {
         if merge_stake_accounts.len() < 2 {
-            debug!(
-                "Only single stake account found for {:?}, skipping",
-                merge_stake_accounts
-            );
+            debug!("Only single stake account found for {merge_stake_accounts:?}, skipping");
             continue;
         }
         let destination_stake = &merge_stake_accounts[0].0;

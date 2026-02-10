@@ -116,12 +116,12 @@ fn verify_epoch_settlements(
     let mut non_funded_settlements = Vec::new();
 
     for epoch_to_verify in claiming_epoch_range {
-        info!("Verifying settlements for epoch {}", epoch_to_verify);
+        info!("Verifying settlements for epoch {epoch_to_verify}");
         let epoch_listed_settlements =
             if let Some(settlements) = listed_settlements_per_epoch.get(&epoch_to_verify) {
                 settlements
             } else {
-                error!("No settlement found for claiming epoch {}", epoch_to_verify);
+                error!("No settlement found for claiming epoch {epoch_to_verify}");
                 non_verified_epochs.push(epoch_to_verify);
                 continue;
             };
@@ -175,7 +175,7 @@ async fn real_main(
 
     // Load JSON settlements
     let listed_settlements: Vec<BondSettlement> = read_from_json_file(&args.listed_settlements)
-        .map_err(|e| anyhow!("Failed to load --listed-settlements: {:?}", e))
+        .map_err(|e| anyhow!("Failed to load --listed-settlements: {e:?}"))
         .map_err(CliError::Critical)?;
 
     info!(
@@ -246,7 +246,7 @@ async fn real_main(
         info!("[OK] All settlements verified");
     } else {
         error!("[ERROR] Settlements verification failed.");
-        error!("Alerts:\n {:?}", alerts);
+        error!("Alerts:\n {alerts:?}");
         error!(
             "JSON known settlements:\n {:?}",
             listed_settlements

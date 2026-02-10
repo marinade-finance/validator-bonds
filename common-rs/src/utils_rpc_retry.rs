@@ -17,9 +17,9 @@ pub enum RetryError {
 impl std::fmt::Display for RetryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RetryError::Timeout(duration) => write!(f, "Operation timed out after {:?}", duration),
+            RetryError::Timeout(duration) => write!(f, "Operation timed out after {duration:?}"),
             RetryError::MaxRetriesExceeded { retries, error } => {
-                write!(f, "Operation failed after {} retries: {}", retries, error)
+                write!(f, "Operation failed after {retries} retries: {error}")
             }
             RetryError::InvalidConfig => write!(
                 f,
@@ -64,9 +64,8 @@ impl Default for RetryConfig {
 /// * `operation` - A closure that defines the fetch operation to perform for the `pubkeys`
 /// * `config` - Optional retry configuration parameters. If None, default retry settings will be used
 /// * `require_all` - If true, the function will be retrying until data returned from `operation`
-///                   consists number of records equal to all the input keys.
-///                  If false, it does not consider number of returned values,
-///                   and it may return partial results.
+///   consists number of records equal to all the input keys.
+///   If false, it does not consider number of returned values, and it may return partial results.
 pub async fn retry_get_pubkeys_operation<'a, T, F, Fut>(
     rpc_client: Arc<RpcClient>,
     pubkeys: &'a [Pubkey],

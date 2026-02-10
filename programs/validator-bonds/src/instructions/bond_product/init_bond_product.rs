@@ -123,10 +123,7 @@ fn calculate_space(product_type: &ProductType, config_data: &ProductTypeConfig) 
     );
 
     if !valid {
-        panic!(
-            "Product type {:?} and config data {:?} mismatch",
-            product_type, config_data
-        );
+        panic!("Product type {product_type:?} and config data {config_data:?} mismatch");
     }
 
     BondProduct::calculate_space(product_type, config_data)

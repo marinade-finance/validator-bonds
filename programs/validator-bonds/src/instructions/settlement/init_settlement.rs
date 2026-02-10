@@ -99,7 +99,7 @@ impl InitSettlement<'_> {
         if max_total_claim == 0 || max_merkle_nodes == 0 {
             return Err(error!(ErrorCode::EmptySettlementMerkleTree).with_values((
                 "max_total_claim, max_merkle_nodes",
-                format!("{}, {}", max_total_claim, max_merkle_nodes),
+                format!("{max_total_claim}, {max_merkle_nodes}"),
             )));
         }
 

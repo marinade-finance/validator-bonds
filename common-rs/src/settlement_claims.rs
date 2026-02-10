@@ -19,7 +19,7 @@ impl SettlementClaimsBitmap {
         let mut data = account.data.to_vec();
         let settlement_claims = SettlementClaims::try_deserialize(&mut data.as_slice())
             .map_or_else(
-                |e| Err(anyhow!("Cannot deserialize SettlementClaims data: {}", e)),
+                |e| Err(anyhow!("Cannot deserialize SettlementClaims data: {e}")),
                 Ok,
             )?;
         data.drain(0..SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE as usize);

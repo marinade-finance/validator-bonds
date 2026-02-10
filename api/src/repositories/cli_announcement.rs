@@ -48,7 +48,7 @@ impl<'a> FromSql<'a> for CliType {
         match s {
             "sam" => Ok(CliType::Sam),
             "institutional" => Ok(CliType::Institutional),
-            _ => Err(format!("Unknown CLI type: {}", s).into()),
+            _ => Err(format!("Unknown CLI type: {s}").into()),
         }
     }
 

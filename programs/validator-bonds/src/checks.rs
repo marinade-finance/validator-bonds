@@ -146,7 +146,7 @@ pub fn get_delegation(stake_account: &StakeAccount) -> Result<Option<Delegation>
         StakeState::Initialized(_meta) => Ok(None),
         StakeState::Stake(_, stake) => Ok(Some(stake.delegation)),
         _ => Err(error!(ErrorCode::WrongStakeAccountState)
-            .with_values(("stake_account", format!("{:?}", stake_state)))),
+            .with_values(("stake_account", format!("{stake_state:?}")))),
     }
 }
 
@@ -207,7 +207,7 @@ pub fn check_stake_exist_and_activating_or_activated(
             return Err(
                 error!(ErrorCode::NoStakeOrNotActivatingOrActivated).with_values((
                     "effective/activating/deactivating",
-                    format!("{}/{}/{}", effective, activating, deactivating),
+                    format!("{effective}/{activating}/{deactivating}"),
                 )),
             );
         }
@@ -762,8 +762,7 @@ mod tests {
                     .stake_activating_and_deactivating(epoch, stake_history, None);
 
                 println!(
-                    "get_delegation_state: [effective:{}/activating:{}/deactivating:{}]",
-                    effective, activating, deactivating
+                    "get_delegation_state: [effective:{effective}/activating:{activating}/deactivating:{deactivating}]"
                 );
                 if activating > 0 {
                     DelegationState::Activating

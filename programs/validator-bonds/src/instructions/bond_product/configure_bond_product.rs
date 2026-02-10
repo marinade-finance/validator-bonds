@@ -100,7 +100,7 @@ fn validate_product_config_match(
         (ProductType::Commission, ProductTypeConfig::Commission(_)) => Ok(()),
         (ProductType::Custom(_), ProductTypeConfig::Custom(_)) => Ok(()),
         _ => Err(error!(ErrorCode::BondProductTypeMismatch)
-            .with_values(("product_type", format!("{:?}", product_type)))
-            .with_values(("config_data", format!("{:?}", config_data)))),
+            .with_values(("product_type", format!("{product_type:?}")))
+            .with_values(("config_data", format!("{config_data:?}")))),
     }
 }

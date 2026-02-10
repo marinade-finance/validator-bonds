@@ -98,20 +98,15 @@ fn load_merkle_tree_files(
     let mut merkle_trees: Vec<MerkleTreeCollection> = vec![];
     for path in merkle_tree_files.iter().filter(|path| {
         if path.is_file() {
-            debug!("Processing file: {:?}", path);
+            debug!("Processing file: {path:?}");
             true
         } else {
-            debug!("Skipping path: {:?} as not a file", path);
+            debug!("Skipping path: {path:?} as not a file");
             false
         }
     }) {
         read_from_json_file(path).map_or_else(
-            |e| {
-                warn!(
-                    "Cannot load file '{:?}' as MerkleTreeCollection: {:?}",
-                    path, e
-                )
-            },
+            |e| warn!("Cannot load file '{path:?}' as MerkleTreeCollection: {e:?}"),
             |s| merkle_trees.push(s),
         );
     }

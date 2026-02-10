@@ -17,12 +17,9 @@ pub struct ValidatorsData {
 }
 
 pub async fn fetch_validator_data(url: &str) -> ValidatorsData {
-    warn!(
-        "Institutional URL {} defined - reporting will be adjusted. Fetching data.",
-        url
-    );
+    warn!("Institutional URL {url} defined - reporting will be adjusted. Fetching data.");
     try_fetch_validator_data(url).await.unwrap_or_else(|e| {
-        error!("Error fetching '{}' validator data: {}", url, e);
+        error!("Error fetching '{url}' validator data: {e}");
         ValidatorsData {
             validators: Vec::new(),
         }
