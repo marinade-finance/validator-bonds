@@ -4,15 +4,19 @@ use clap::Parser;
 use log::{error, info};
 use merkle_tree::serde_serialize::pubkey_string_conversion;
 use serde::{Deserialize, Serialize};
-use settlement_pipelines::arguments::{get_rpc_client, GlobalOpts};
+use settlement_pipelines::arguments::{get_rpc_client, GlobalOpts, ReportOpts};
 use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::init::init_log;
 use settlement_pipelines::json_data::BondSettlement;
+use settlement_pipelines::reporting::{
+    with_reporting_ext, PrintReportable, ReportHandler, ReportSerializable,
+};
 use solana_sdk::pubkey::Pubkey;
 use std::collections::{HashMap, HashSet};
-use std::io;
+use std::future::Future;
 use std::ops::Range;
 use std::path::PathBuf;
+use std::pin::Pin;
 use validator_bonds::state::settlement::Settlement;
 use validator_bonds_common::config::get_config;
 use validator_bonds_common::settlements::get_settlements_for_config;
@@ -26,11 +30,17 @@ struct Args {
     /// JSON data obtained from the "list-settlement" command
     #[clap(long, short = 'p')]
     listed_settlements: PathBuf,
+
+    #[clap(flatten)]
+    report_opts: ReportOpts,
 }
 
 #[tokio::main]
 async fn main() -> CliResult {
-    CliResult(real_main().await)
+    let args: Args = Args::parse();
+    let mut reporting = VerifySettlementReport::report_handler();
+    let result = real_main(&mut reporting, &args).await;
+    with_reporting_ext::<VerifySettlementReport>(&mut reporting, result, &args.report_opts).await
 }
 
 #[derive(Default, Debug, Serialize, Deserialize)]
@@ -151,8 +161,10 @@ fn verify_epoch_settlements(
     )
 }
 
-async fn real_main() -> anyhow::Result<()> {
-    let args: Args = Args::parse();
+async fn real_main(
+    reporting: &mut ReportHandler<VerifySettlementReport>,
+    args: &Args,
+) -> anyhow::Result<()> {
     init_log(&args.global_opts);
 
     let config_address = args.global_opts.config;
@@ -244,9 +256,56 @@ async fn real_main() -> anyhow::Result<()> {
         );
     }
 
-    serde_json::to_writer(io::stdout(), &alerts)
-        .map_err(|e| anyhow!("Failed to write alerts as JSON: {:?}", e))
-        .map_err(CliError::Critical)?;
+    reporting.reportable.alerts = Some(alerts);
 
     Ok(())
+}
+
+struct VerifySettlementReport {
+    alerts: Option<VerifyAlerts>,
+}
+
+impl VerifySettlementReport {
+    fn report_handler() -> ReportHandler<Self> {
+        ReportHandler::new(Self { alerts: None })
+    }
+}
+
+impl PrintReportable for VerifySettlementReport {
+    fn get_report(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + '_>> {
+        Box::pin(async {
+            let Some(alerts) = &self.alerts else {
+                return vec!["No report available, not initialized yet.".to_string()];
+            };
+            vec![
+                format!("Verified epochs: {:?}", alerts.verified_epochs),
+                format!("Unknown settlements: {}", alerts.unknown_settlements.len()),
+                format!("Non-verified epochs: {:?}", alerts.non_verified_epochs),
+                format!(
+                    "Non-existing settlements: {}",
+                    alerts.non_existing_settlements.len()
+                ),
+                format!(
+                    "Non-funded settlements: {}",
+                    alerts.non_funded_settlements.len()
+                ),
+            ]
+        })
+    }
+}
+
+impl ReportSerializable for VerifySettlementReport {
+    fn command_name(&self) -> &'static str {
+        "verify-settlement"
+    }
+
+    fn get_json_summary(&self) -> Pin<Box<dyn Future<Output = serde_json::Value> + '_>> {
+        Box::pin(async {
+            match &self.alerts {
+                Some(alerts) => serde_json::to_value(alerts)
+                    .unwrap_or_else(|e| serde_json::json!({"error": e.to_string()})),
+                None => serde_json::json!({"error": "not initialized"}),
+            }
+        })
+    }
 }
