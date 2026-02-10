@@ -58,7 +58,7 @@ cargo run --bin api -- --postgres-url "$POSTGRES_URL" \
 curl -X GET --compressed "http://localhost:8000/bonds/bidding"
 ```
 
-### Adding CLI announcement
+### Adding CLI announcements
 
 The [validator bonds CLI](../packages/validator-bonds-cli-core/) announces information from the API.
 The announcements are loaded from the DB table `cli_announcements`.
