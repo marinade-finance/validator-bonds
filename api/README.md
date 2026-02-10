@@ -57,3 +57,47 @@ cargo run --bin api -- --postgres-url "$POSTGRES_URL" \
 # data is gzipped so we use curl --compressed
 curl -X GET --compressed "http://localhost:8000/bonds/bidding"
 ```
+
+### Adding CLI announcements
+
+The [validator bonds CLI](../packages/validator-bonds-cli-core/) announces information from the API.
+The announcements are loaded from the DB table `cli_announcements`.
+
+To add a new announcement that replaces the previously announced information,
+do the SQL INSERT in the following way:
+
+```sql
+INSERT INTO cli_announcements (group_id, group_order, title, text, enabled, type_filter)
+VALUES (
+    (SELECT COALESCE(MAX(group_id), 0) + 1 FROM cli_announcements),
+    0,
+    'Your Title Here ✓✓✓',
+    E'Your announcement text here.\nSecond line if needed.',
+    TRUE,
+    'sam'
+);
+```
+
+To check the latest group (possibly shown when type and operation filters are not considered)
+and an update that can be used:
+
+```sql
+SELECT * FROM cli_announcements
+WHERE group_id = (SELECT COALESCE(MAX(group_id), 0) FROM cli_announcements);
+
+UPDATE cli_announcements
+SET title = '✓✓✓ Your Title Here ✓✓✓',
+    text = E'Your announcement text here.\nSecond line if needed.\n\nAnd more info here.',
+    updated_at = NOW()
+WHERE id = <<loaded_id>>;
+```
+
+There is also a possibility to add multiple announcements and filter them by operation type. See the available DB columns in [cli announcements sql](../migrations/0005-add-cli-announcements.sql).
+
+To check what is shown in the CLI, run:
+
+NOTE: For CLI installation, [see the doc](../packages/validator-bonds-cli/README.md#npm-installation-details).
+
+```sh
+validator-bonds -u "$RPC_URL" show-bond
+```
