@@ -129,10 +129,7 @@ async fn real_main(
     };
 
     let config_address = args.global_opts.config;
-    info!(
-        "Funding settlements of validator-bonds config: {}",
-        config_address
-    );
+    info!("Funding settlements of validator-bonds config: {config_address}");
 
     let config = get_config(rpc_client.clone(), config_address)
         .await

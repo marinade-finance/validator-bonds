@@ -287,10 +287,7 @@ pub async fn prepare_merge_instructions(
             add_instruction_to_builder(
                 transaction_builder,
                 &req,
-                format!(
-                    "MergeStake: {} -> {}",
-                    stake_account_address, destination_stake
-                ),
+                format!("MergeStake: {stake_account_address} -> {destination_stake}"),
             )?;
         }
     }

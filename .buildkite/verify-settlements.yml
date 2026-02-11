@@ -225,6 +225,8 @@ steps:
                 }
               ]
           }'
+        echo
+        echo "Alerts successfully posted to Slack: $$slack_feed. Marking the build as failed as a result of alerts."
         exit 42
       fi
     depends_on: "notification"

@@ -108,7 +108,7 @@ pub fn load_keypair(name: &str, s: &str) -> anyhow::Result<Arc<Keypair>> {
     let parsed_json = parse_keypair_as_json_data(s);
     if let Ok(key_bytes) = parsed_json {
         let k = Keypair::try_from(key_bytes.as_slice())
-            .map_err(|e| anyhow!("Could not read keypair from json data: {}", e))?;
+            .map_err(|e| anyhow!("Could not read keypair from json data: {e}"))?;
         return Ok(Arc::new(k));
     } else {
         debug!(
@@ -119,14 +119,8 @@ pub fn load_keypair(name: &str, s: &str) -> anyhow::Result<Arc<Keypair>> {
     }
     // loading as a file path to keypair
     let path = shellexpand::tilde(s);
-    let k = read_keypair_file(Path::new(&path.to_string())).map_err(|e| {
-        anyhow!(
-            "Could not read keypair named '{}' file from '{}': {}",
-            name,
-            s,
-            e
-        )
-    })?;
+    let k = read_keypair_file(Path::new(&path.to_string()))
+        .map_err(|e| anyhow!("Could not read keypair named '{name}' file from '{s}': {e}"))?;
     Ok(Arc::new(k))
 }
 
@@ -141,7 +135,7 @@ pub fn load_pubkey(s: &str) -> anyhow::Result<Pubkey> {
             ))
         }
     } else {
-        Pubkey::from_str(s).map_err(|e| anyhow!("Could not parse pubkey from '{}': {}", s, e))
+        Pubkey::from_str(s).map_err(|e| anyhow!("Could not parse pubkey from '{s}': {e}"))
     }
 }
 
@@ -156,12 +150,9 @@ fn create_clap_error(message: &str, context_value: &str) -> clap::Error {
 
 fn parse_keypair_as_json_data(s: &str) -> Result<Vec<u8>, clap::Error> {
     let data: serde_json::Value = serde_json::from_str(s)
-        .map_err(|err| create_clap_error(&format!("Failed to parse JSON data: {}", err), s))?;
+        .map_err(|err| create_clap_error(&format!("Failed to parse JSON data: {err}"), s))?;
     serde_json::from_value(data).map_err(|err| {
-        create_clap_error(
-            &format!("Failed to convert JSON data to Vec<u8>: {}", err),
-            s,
-        )
+        create_clap_error(&format!("Failed to convert JSON data to Vec<u8>: {err}"), s)
     })
 }
 
@@ -204,7 +195,7 @@ pub struct InitializedGlobalOpts {
 pub fn get_rpc_client(global_opts: &GlobalOpts) -> anyhow::Result<(Arc<RpcClient>, String)> {
     let rpc_url = global_opts.rpc_url.clone();
     let anchor_cluster = Cluster::from_str(&rpc_url)
-        .map_err(|e| anyhow!("Could not parse JSON RPC url `{:?}`: {}", rpc_url, e))?;
+        .map_err(|e| anyhow!("Could not parse JSON RPC url `{rpc_url:?}`: {e}"))?;
     let rpc_client = Arc::new(RpcClient::new_with_commitment(
         anchor_cluster.to_string(),
         CommitmentConfig {

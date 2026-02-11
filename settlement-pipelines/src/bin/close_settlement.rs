@@ -105,12 +105,11 @@ async fn real_main(
     )?;
 
     let marinade_wallet = load_pubkey(&args.marinade_wallet)
-        .map_err(|e| anyhow!("Failed to load --marinade-wallet: {:?}", e))?;
+        .map_err(|e| anyhow!("Failed to load --marinade-wallet: {e:?}"))?;
 
     let config_address = args.global_opts.config;
     info!(
-        "Closing Settlements and Settlement Claims and Resetting Stake Accounts for validator-bonds config: {}",
-        config_address
+        "Closing Settlements and Settlement Claims and Resetting Stake Accounts for validator-bonds config: {config_address}"
     );
     let config = get_config(rpc_client.clone(), config_address)
         .await
@@ -119,7 +118,7 @@ async fn real_main(
 
     let listed_settlements: Vec<BondSettlement> =
         read_from_json_file::<PathBuf, Vec<BondSettlement>>(&args.listed_settlements)
-            .map_err(|e| anyhow!("Failed to load --listed-settlements: {:?}", e))?
+            .map_err(|e| anyhow!("Failed to load --listed-settlements: {e:?}"))?
             .into_iter()
             .filter(|bs| bs.config_address == config_address)
             .collect();
@@ -229,8 +228,7 @@ async fn close_settlements(
             transaction_builder,
             &req,
             format!(
-                "Close Settlement {settlement_address}, refunding split rent from stake account {}",
-                split_rent_refund_account
+                "Close Settlement {settlement_address}, refunding split rent from stake account {split_rent_refund_account}"
             ),
         )?;
     }
@@ -317,13 +315,11 @@ async fn reset_stake_accounts(
                     .contains(&stake_pubkey.to_string().as_ref())
                 {
                     debug!(
-                        "Stake account {} is dangling but it is in the list of known problematic stake accounts, skipping it.",
-                        stake_pubkey
+                        "Stake account {stake_pubkey} is dangling but it is in the list of known problematic stake accounts, skipping it."
                     );
                 } else {
                     reporting.error().with_msg(format!(
-                        "Stake account {} is dangling, not belonging to any Settlement. Manual intervention needed.",
-                        stake_pubkey
+                        "Stake account {stake_pubkey} is dangling, not belonging to any Settlement. Manual intervention needed."
                     )).add();
                 }
             }

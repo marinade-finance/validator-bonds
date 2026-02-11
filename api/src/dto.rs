@@ -71,7 +71,7 @@ impl<'a> FromSql<'a> for SqlSerializableBondType {
         match s {
             "bidding" => Ok(SqlSerializableBondType::Bidding),
             "institutional" => Ok(SqlSerializableBondType::Institutional),
-            _ => Err(format!("Unknown bond type: {}", s).into()),
+            _ => Err(format!("Unknown bond type: {s}").into()),
         }
     }
 

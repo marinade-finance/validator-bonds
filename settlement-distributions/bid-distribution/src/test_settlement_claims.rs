@@ -121,8 +121,7 @@ mod tests {
         let dao_ratio = dao_claim as f64 / total_distributor_fee as f64;
         assert!(
             dao_ratio > 0.0,
-            "DAO ratio should be positive, got {}",
-            dao_ratio
+            "DAO ratio should be positive, got {dao_ratio}"
         );
     }
 
@@ -364,13 +363,7 @@ mod tests {
             + static_bid_to_get.to_u64().unwrap();
         println!("Settlements: {}", json!(settlements));
         println!(
-            "Delegation share: {}, sum to get: inflation {}, mev {}, block_rewards {}, static_bid {}, sum: {}",
-            marinade_delegation_share,
-            inflation_to_get,
-            mev_to_get,
-            block_rewards_to_get,
-            static_bid_to_get,
-            sum_to_get
+            "Delegation share: {marinade_delegation_share}, sum to get: inflation {inflation_to_get}, mev {mev_to_get}, block_rewards {block_rewards_to_get}, static_bid {static_bid_to_get}, sum: {sum_to_get}"
         );
 
         assert!(!settlements.is_empty());

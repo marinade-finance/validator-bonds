@@ -116,9 +116,7 @@ fn main() -> anyhow::Result<()> {
     let stake_meta_epoch = stake_meta_collection.epoch;
     anyhow::ensure!(
         rewards_epoch == stake_meta_epoch,
-        "Epoch mismatch between rewards collection ({}), and stake meta collection ({})",
-        rewards_epoch,
-        stake_meta_epoch,
+        "Epoch mismatch between rewards collection ({rewards_epoch}), and stake meta collection ({stake_meta_epoch})",
     );
     let metas_epochs: HashSet<u64> = sam_validator_metas
         .iter()
@@ -127,8 +125,7 @@ fn main() -> anyhow::Result<()> {
     anyhow::ensure!(
         metas_epochs.iter().all(|v| *v == stake_meta_epoch),
         format!(
-            "Epoch mismatch between SAM metas ({:?}) and stake meta collection ({})",
-            metas_epochs, stake_meta_epoch,
+            "Epoch mismatch between SAM metas ({metas_epochs:?}) and stake meta collection ({stake_meta_epoch})",
         ),
     );
 

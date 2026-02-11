@@ -21,8 +21,7 @@ async fn get_protected_events(
         .query(
             project_id,
             QueryRequest::new(format!(
-                "select epoch, vote_account, sum(amount) amount, meta, reason from `mainnet_beta_stakes.psr_settlements` where epoch >= {} group by epoch, vote_account, meta, reason order by epoch desc;",
-                from_epoch
+                "select epoch, vote_account, sum(amount) amount, meta, reason from `mainnet_beta_stakes.psr_settlements` where epoch >= {from_epoch} group by epoch, vote_account, meta, reason order by epoch desc;"
             )),
         )
         .await?;

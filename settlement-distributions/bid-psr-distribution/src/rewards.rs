@@ -127,7 +127,7 @@ fn verify_epoch_consistency<T>(
     match epochs.as_slice() {
         [] => Ok(None),
         [epoch] => Ok(Some(*epoch)),
-        _ => Err(anyhow::anyhow!("Epoch mismatch in {}", file_name)),
+        _ => Err(anyhow::anyhow!("Epoch mismatch in {file_name}")),
     }
 }
 
@@ -160,10 +160,7 @@ fn verify_all_epochs_match(
         if let Some(epoch) = epoch {
             if *epoch != expected_epoch {
                 return Err(anyhow::anyhow!(
-                    "Epoch mismatch: {} has epoch {}, but expected epoch {}",
-                    file_name,
-                    epoch,
-                    expected_epoch
+                    "Epoch mismatch: {file_name} has epoch {epoch}, but expected epoch {expected_epoch}"
                 ));
             }
         }
@@ -264,7 +261,7 @@ pub fn load_rewards_from_directory(
         validators_inflation_epoch,
         validators_mev_epoch,
     )?;
-    info!("All reward files match epoch {}", epoch);
+    info!("All reward files match epoch {epoch}");
 
     info!("Aggregating rewards by vote account...");
     let rewards_by_vote_account = aggregate_rewards(

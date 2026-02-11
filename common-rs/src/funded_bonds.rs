@@ -56,11 +56,7 @@ pub async fn collect_validator_bonds_with_funds(
     .await?
     {
         if let Some((existing_pubkey, _)) = bond_products.insert(pb.bond, (pubkey, pb)) {
-            anyhow::bail!(
-                "Multiple BondProducts ({},{}) found for one bond",
-                existing_pubkey,
-                pubkey,
-            );
+            anyhow::bail!("Multiple BondProducts ({existing_pubkey},{pubkey}) found for one bond",);
         }
     }
 

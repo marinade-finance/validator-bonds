@@ -269,10 +269,7 @@ mod tests {
             .collect::<Vec<_>>();
         let merkle_tree_vote_account1 = MerkleTree::new(&item_vote_account1_hashes[..], true);
         let merkle_tree_vote_account1_root = merkle_tree_vote_account1.get_root().unwrap();
-        println!(
-            "merkle tree root vote account 1: {}",
-            merkle_tree_vote_account1_root
-        );
+        println!("merkle tree root vote account 1: {merkle_tree_vote_account1_root}");
         assert_eq!(
             merkle_tree_vote_account1_root.to_string(),
             "HKerG5LfsZVyV8o5pJCQa9UGcBwoNdpprgNEhF6Jqkkn"
@@ -299,10 +296,7 @@ mod tests {
             .collect::<Vec<_>>();
         let merkle_tree_vote_account2 = MerkleTree::new(&item_vote_account2_hashes[..], true);
         let merkle_tree_vote_account2_root = merkle_tree_vote_account2.get_root().unwrap();
-        println!(
-            "merkle tree root vote account 2: {}",
-            merkle_tree_vote_account2_root
-        );
+        println!("merkle tree root vote account 2: {merkle_tree_vote_account2_root}");
         assert_eq!(
             merkle_tree_vote_account2_root.to_string(),
             "SA4YRkCch9fKu2RKEJ37LXzZY7DEYJiMNEgy6EKxo6C"
@@ -329,7 +323,7 @@ mod tests {
             .collect::<Vec<_>>();
         let merkle_tree_operator = MerkleTree::new(&item_operator_hashes[..], true);
         let merkle_tree_operator_root = merkle_tree_operator.get_root().unwrap();
-        println!("merkle tree root operator: {}", merkle_tree_operator_root);
+        println!("merkle tree root operator: {merkle_tree_operator_root}");
         assert_eq!(
             merkle_tree_operator_root.to_string(),
             "2aKJRJBGzx19JdM1MHWrL2QwNduYobiHmsoVxKX3BRfu"

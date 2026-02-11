@@ -61,10 +61,10 @@ echo "Parsing report: $REPORT_FILE (non-funded threshold: $NON_FUNDED_TO_REPORT,
 
 
 # Count alerts by category
-unknown_count=$(jq '.unknown_settlements | length' "$REPORT_FILE")
-non_verified_count=$(jq '.non_verified_epochs | length' "$REPORT_FILE")
-non_existing_count=$(jq '.non_existing_settlements | length' "$REPORT_FILE")
-non_funded_count=$(jq '.non_funded_settlements | length' "$REPORT_FILE")
+unknown_count=$(jq '.summary.unknown_settlements | length' "$REPORT_FILE")
+non_verified_count=$(jq '.summary.non_verified_epochs | length' "$REPORT_FILE")
+non_existing_count=$(jq '.summary.non_existing_settlements | length' "$REPORT_FILE")
+non_funded_count=$(jq '.summary.non_funded_settlements | length' "$REPORT_FILE")
 
 # Determine if any alerts to report
 is_to_alert=false
@@ -76,7 +76,7 @@ alert_sections=""
 if [ "$unknown_count" -gt 0 ]; then
     is_to_alert=true
     echo " => $unknown_count unknown settlements found (CRITICAL)" >&2
-    unknown_list=$(jq -r '.unknown_settlements[] | "Epoch \(.epoch): \(.address)"' "$REPORT_FILE" | head -n "$MAX_DISPLAY")
+    unknown_list=$(jq -r '.summary.unknown_settlements[] | "Epoch \(.epoch): \(.address)"' "$REPORT_FILE" | head -n "$MAX_DISPLAY")
     if [ "$unknown_count" -gt "$MAX_DISPLAY" ]; then
         unknown_list="$unknown_list"$'\n'"... and $((unknown_count - MAX_DISPLAY)) more"
     fi
@@ -94,7 +94,7 @@ fi
 if [ "$non_verified_count" -gt 0 ]; then
     is_to_alert=true
     echo " => $non_verified_count non-verified epochs found" >&2
-    non_verified_list=$(jq -r '.non_verified_epochs | join(", ")' "$REPORT_FILE")
+    non_verified_list=$(jq -r '.summary.non_verified_epochs | join(", ")' "$REPORT_FILE")
     alert_sections="$alert_sections"'
                 {
                   "type": "section",
@@ -109,7 +109,7 @@ fi
 if [ "$non_existing_count" -gt 0 ]; then
     [ "$non_existing_count" -ge "$NON_EXISTING_TO_REPORT" ] && is_to_alert=true
     echo " => $non_existing_count non-existing settlements found" >&2
-    non_existing_list=$(jq -r '.non_existing_settlements[] | "Epoch \(.epoch): \(.address)"' "$REPORT_FILE" | head -n "$MAX_DISPLAY")
+    non_existing_list=$(jq -r '.summary.non_existing_settlements[] | "Epoch \(.epoch): \(.address)"' "$REPORT_FILE" | head -n "$MAX_DISPLAY")
     if [ "$non_existing_count" -gt "$MAX_DISPLAY" ]; then
         non_existing_list="$non_existing_list"$'\n'"... and $((non_existing_count - MAX_DISPLAY)) more"
     fi
@@ -127,7 +127,7 @@ fi
 if [ "$non_funded_count" -gt 0 ]; then
     [ "$non_funded_count" -ge "$NON_FUNDED_TO_REPORT" ] && is_to_alert=true
     echo " => $non_funded_count non-funded settlements found" >&2
-    non_funded_list=$(jq -r '.non_funded_settlements[] | "Epoch \(.epoch): \(.address)"' "$REPORT_FILE" | head -n "$MAX_DISPLAY")
+    non_funded_list=$(jq -r '.summary.non_funded_settlements[] | "Epoch \(.epoch): \(.address)"' "$REPORT_FILE" | head -n "$MAX_DISPLAY")
     if [ "$non_funded_count" -gt "$MAX_DISPLAY" ]; then
         non_funded_list="$non_funded_list"$'\n'"... and $((non_funded_count - MAX_DISPLAY)) more"
     fi
