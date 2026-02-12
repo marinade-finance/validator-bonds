@@ -628,9 +628,9 @@ pub async fn with_reporting_ext<T: ReportSerializable>(
         warnings,
     };
 
-    // Always print text report to stdout
+    // Always print text report
     for line in &text_report {
-        println!("{line}");
+        info!("{line}");
     }
 
     // Print error summary to stdout
