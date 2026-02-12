@@ -461,7 +461,7 @@ process_epoch() {
           diff \
             <(echo "$exp_funder" | jq -r '.[] | "\(.vote_account) \(.funder) \(.total)"') \
             <(echo "$act_funder" | jq -r '.[] | "\(.vote_account) \(.funder) \(.total)"') \
-            | head -10
+            | head -10 || true
           [[ "$bid_claims_status" == "MATCH" ]] && bid_claims_status="DIFFER"
         else
           local funder_entries
