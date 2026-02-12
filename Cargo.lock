@@ -478,7 +478,6 @@ name = "api"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "bid-psr-distribution",
  "chrono",
  "env_logger 0.10.2",
  "gcp-bigquery-client",
@@ -490,6 +489,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml 0.8.26",
+ "settlement-common",
  "solana-sdk",
  "structopt",
  "tokio",
@@ -890,7 +890,6 @@ name = "bid-distribution"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "bid-psr-distribution",
  "bincode",
  "clap 4.5.50",
  "env_logger 0.10.2",
@@ -900,30 +899,9 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml 0.8.26",
+ "settlement-common",
  "snapshot-parser-validator-cli",
  "solana-sdk",
- "validator-bonds",
-]
-
-[[package]]
-name = "bid-psr-distribution"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "bincode",
- "clap 4.5.50",
- "env_logger 0.10.2",
- "log",
- "merkle-tree",
- "rust_decimal",
- "rust_decimal_macros",
- "serde",
- "serde_json",
- "serde_yaml 0.8.26",
- "snapshot-parser-validator-cli",
- "solana-sdk",
- "tokio",
- "utoipa",
  "validator-bonds",
 ]
 
@@ -3166,7 +3144,6 @@ name = "institutional-distribution"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "bid-psr-distribution",
  "clap 4.5.50",
  "env_logger 0.10.2",
  "log",
@@ -3175,9 +3152,9 @@ dependencies = [
  "rust_decimal",
  "serde",
  "serde_json",
+ "settlement-common",
  "snapshot-parser-validator-cli",
  "solana-sdk",
- "validator-bonds",
 ]
 
 [[package]]
@@ -3600,6 +3577,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "merkle-generator"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 4.5.50",
+ "env_logger 0.10.2",
+ "log",
+ "merkle-tree",
+ "serde",
+ "serde_json",
+ "settlement-common",
+ "solana-sdk",
+ "validator-bonds",
 ]
 
 [[package]]
@@ -5520,12 +5513,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "settlement-common"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "log",
+ "merkle-tree",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+ "serde_json",
+ "serde_yaml 0.8.26",
+ "snapshot-parser-validator-cli",
+ "solana-sdk",
+ "utoipa",
+]
+
+[[package]]
 name = "settlement-pipelines"
 version = "0.0.1"
 dependencies = [
  "anchor-client",
  "anyhow",
- "bid-psr-distribution",
  "bincode",
  "chrono",
  "clap 4.5.50",
@@ -5538,6 +5547,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml 0.8.26",
+ "settlement-common",
  "shellexpand",
  "solana-cli-output",
  "solana-client",

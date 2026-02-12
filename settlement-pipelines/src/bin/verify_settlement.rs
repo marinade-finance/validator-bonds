@@ -1,9 +1,9 @@
 use anyhow::anyhow;
-use bid_psr_distribution::utils::read_from_json_file;
 use clap::Parser;
 use log::{error, info};
 use merkle_tree::serde_serialize::pubkey_string_conversion;
 use serde::{Deserialize, Serialize};
+use settlement_common::utils::read_from_json_file;
 use settlement_pipelines::arguments::{get_rpc_client, GlobalOpts, ReportOpts};
 use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::init::init_log;
@@ -167,7 +167,7 @@ async fn real_main(
 ) -> anyhow::Result<()> {
     init_log(&args.global_opts);
 
-    let config_address = args.global_opts.config;
+    let config_address = args.global_opts.config.expect("--config is required");
     info!(
         "Verify existing settlements from list of settlements JSON file {:?} for validator-bonds config: {}",
         args.listed_settlements, config_address

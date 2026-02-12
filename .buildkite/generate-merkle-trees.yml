@@ -1,0 +1,175 @@
+agents:
+  queue: "snapshots"
+
+env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+  SLACK_API: https://slack.com/api/chat.postMessage
+  SLACK_FEED_DEFAULT: "feed-pipeline-sam-psr"
+  VALIDATOR_BONDS_CONFIG_DEFAULT: vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU
+  SETTLEMENTS_FILES_DEFAULT: "bid-distribution-settlements.json" # comma separated
+
+steps:
+  - label: ":hammer_and_wrench: :rust: Build Merkle Generator"
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'cargo build --release --bin merkle-generator-cli'
+    artifact_paths:
+      - target/release/merkle-generator-cli
+
+  - input: "What is the epoch to generate merkle trees for?"
+    fields:
+      - text: "Epoch"
+        key: "epoch"
+        format: "[0-9]+"
+    if: "build.env('EPOCH') == null"
+    blocked_state: running
+
+  - wait: ~
+
+  - label: ":closed_lock_with_key: Concurrency gate lock"
+    command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/generate-merkle-trees'
+    concurrency: 1
+
+  - wait: ~
+
+  - label: ":black_nib: Env variables setup"
+    key: "setup-env"
+    commands:
+    - |
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+      buildkite-agent meta-data set --redacted-vars='' epoch "$$epoch"
+      echo "Epoch: '$$epoch'"
+    - |
+      validator_bonds_config=${VALIDATOR_BONDS_CONFIG:-$VALIDATOR_BONDS_CONFIG_DEFAULT}
+      buildkite-agent meta-data set --redacted-vars='' validator_bonds_config "$$validator_bonds_config"
+      echo "Validator Bonds Config: '$$validator_bonds_config'"
+    - |
+      slack_feed=${SLACK_FEED:-$SLACK_FEED_DEFAULT}
+      buildkite-agent meta-data set --redacted-vars='' slack_feed "$$slack_feed"
+      echo "Slack Feed: '$$slack_feed'"
+    - |
+      settlements_files=${SETTLEMENTS_FILES:-$SETTLEMENTS_FILES_DEFAULT}
+      buildkite-agent meta-data set --redacted-vars='' settlements_files "$$settlements_files"
+      echo "Settlements files: '$$settlements_files'"
+
+  - label: ":memo: Annotate retry parameters"
+    depends_on: "setup-env"
+    allow_dependency_failure: true
+    commands:
+      - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+      - validator_bonds_config=${VALIDATOR_BONDS_CONFIG:-$(buildkite-agent meta-data get validator_bonds_config)}
+      - slack_feed=${SLACK_FEED:-$(buildkite-agent meta-data get slack_feed)}
+      - settlements_files=${SETTLEMENTS_FILES:-$(buildkite-agent meta-data get settlements_files)}
+      - |
+        cat <<- EOF | buildkite-agent annotate --priority 6 --style info --context "general-info"
+        ### Retry environment variables
+        If you need to retry the build, use the following parameters:
+
+        \`\`\`
+        EPOCH=$$epoch
+        VALIDATOR_BONDS_CONFIG=$$validator_bonds_config
+        SLACK_FEED=$$slack_feed
+        SETTLEMENTS_FILES=$$settlements_files
+        NOTIFY_FEED=${NOTIFY_FEED:-false}
+        \`\`\`
+        EOF
+
+  - wait: ~
+
+  - label: ":floppy_disk: :arrow_left: :cloud: Download settlement files"
+    key: "download-settlements"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - settlements_files=$(buildkite-agent meta-data get settlements_files)
+    - |
+      IFS=',' read -ra settlement_files_entries <<< "$$settlements_files"
+      mkdir -p "./settlement-files/"
+      for entry in "$${settlement_files_entries[@]}"; do
+        gcloud storage cp "$gs_bucket/$$epoch/$$entry" "./settlement-files/$$entry"
+      done
+      echo "Found '$$settlements_files' settlement file(s)"
+    artifact_paths:
+      - "./settlement-files/*"
+
+  - wait: ~
+
+  - label: ":twisted_rightwards_arrows: Generate Unified Merkle Trees"
+    key: "generate-merkle-trees"
+    env:
+      RUST_LOG: info,merkle_generator=debug
+    commands:
+    - buildkite-agent artifact download --include-retried-jobs target/release/merkle-generator-cli .
+    - buildkite-agent artifact download --include-retried-jobs 'settlement-files/*' .
+    - chmod +x target/release/merkle-generator-cli
+    - |
+      # Build comma-separated list of settlement files
+      settlement_files=$(ls -1 ./settlement-files/* 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+      echo "Processing settlement files: $$settlement_files"
+    - |
+      validator_bonds_config=$(buildkite-agent meta-data get validator_bonds_config)
+      ./target/release/merkle-generator-cli \
+        --input-settlement-files "$$settlement_files" \
+        --output-merkle-trees "./unified-merkle-trees.json" \
+        --validator-bonds-config "$$validator_bonds_config"
+    artifact_paths:
+    - "./unified-merkle-trees.json"
+
+  - wait: ~
+
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload unified merkle trees"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - buildkite-agent artifact download --include-retried-jobs unified-merkle-trees.json .
+    - gcloud storage cp "./unified-merkle-trees.json" "$gs_bucket/$$epoch/"
+
+  - wait: ~
+
+  - label: ":mega: Notification"
+    commands:
+      - |
+        slack_feed=$(buildkite-agent meta-data get slack_feed)
+        epoch=$(buildkite-agent meta-data get epoch)
+        curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
+          -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
+            "channel": "'"$$slack_feed"'",
+            "attachments": [
+              {
+                "color": "#8000ff",
+                "title": "Unified merkle trees generated ('"$$epoch"').",
+                "title_link": "'"$$BUILDKITE_BUILD_URL"'",
+                "footer": "<'"$$BUILDKITE_BUILD_URL"'|View in Buildkite>"
+              }
+            ]
+        }'
+    if: "build.env('NOTIFY_FEED') == 'true'"
+
+  - wait: ~
+
+  - label: ":gear: Setup init-settlements trigger"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - slack_feed=$(buildkite-agent meta-data get slack_feed)
+    - |
+      cat <<EOF | buildkite-agent pipeline upload
+      steps:
+        - trigger: "init-settlements"
+          label: ":rocket: Trigger: Init Unified Distribution Settlements ($$epoch)"
+          async: true
+          build:
+            branch: $$BUILDKITE_BRANCH
+            env:
+              EPOCH: $$epoch
+              CLAIM_TYPE: unified
+              NOTIFY_DISCORD_FEED: true
+              NOTIFY_FEED: $NOTIFY_FEED
+              SLACK_FEED: $$slack_feed
+              gs_bucket: $gs_bucket
+      EOF
+
+  - wait: ~
+
+  - label: ":unlock: Concurrency gate unlock"
+    command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/generate-merkle-trees'
+    concurrency: 1

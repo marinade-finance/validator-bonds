@@ -12,7 +12,9 @@ use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::execute_in_sequence;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::institutional_validators::{fetch_validator_data, ValidatorsData};
-use settlement_pipelines::json_data::{load_json, load_json_with_on_chain};
+use settlement_pipelines::json_data::{
+    load_merkle_tree_collections, load_merkle_tree_with_on_chain,
+};
 use settlement_pipelines::reporting::ErrorEntry::{Generic, VoteAccount};
 use settlement_pipelines::reporting::{
     with_reporting_ext, ErrorEntry, ErrorSeverity, PrintReportable, ReportHandler,
@@ -20,7 +22,8 @@ use settlement_pipelines::reporting::{
 };
 use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
 use settlement_pipelines::settlement_data::{
-    SettlementFunderMarinade, SettlementFunderType, SettlementFunderValidatorBond, SettlementRecord,
+    reason_display, SettlementFunderMarinade, SettlementFunderType, SettlementFunderValidatorBond,
+    SettlementRecord,
 };
 use settlement_pipelines::stake_accounts::{
     get_delegated_amount, get_stake_state_type, prepare_merge_instructions, StakeAccountStateType,
@@ -62,10 +65,9 @@ struct Args {
     #[clap(flatten)]
     global_opts: GlobalOpts,
 
-    /// Pairs of JSON files: 'settlement.json' and 'merkle_tree.json'
-    /// There could be provided multiple pairs of JSON files (argument '-f' can be provided multiple times),
-    /// while the program expects that one pair contains settlement and merkle tree data of the same event.
-    #[arg(required = true, short = 'f', long, value_delimiter = ' ', num_args(2))]
+    /// Merkle tree collection JSON files.
+    /// Each file contains a self-contained MerkleTreeCollection with all necessary data.
+    #[arg(required = true, short = 'f', long, value_delimiter = ' ', num_args(1..))]
     json_files: Vec<PathBuf>,
 
     /// forcing epoch, overriding from the settlement collection
@@ -128,21 +130,25 @@ async fn real_main(
         fee_payer.clone()
     };
 
-    let config_address = args.global_opts.config;
+    let collections = load_merkle_tree_collections(&args.json_files)?;
+    if collections.is_empty() {
+        anyhow::bail!("No merkle tree collections loaded from provided files");
+    }
+
+    // Resolve config address: from CLI or from merkle tree
+    let config_address = args.global_opts.config.unwrap_or_else(|| {
+        let config = collections[0].validator_bonds_config;
+        info!("Using config address from merkle tree: {config}");
+        config
+    });
     info!("Funding settlements of validator-bonds config: {config_address}");
 
     let config = get_config(rpc_client.clone(), config_address)
         .await
         .map_err(CliError::retry_able)?;
 
-    let mut json_data = load_json(&args.json_files)?;
-    let mut settlement_records_per_epoch = load_json_with_on_chain(
-        rpc_client.clone(),
-        &mut json_data,
-        &config_address,
-        args.epoch,
-    )
-    .await?;
+    let mut settlement_records_per_epoch =
+        load_merkle_tree_with_on_chain(rpc_client.clone(), &collections, args.epoch).await?;
 
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
 
@@ -248,7 +254,7 @@ async fn prepare_funding(
                 settlement_record.vote_account_address,
                 settlement_record.bond_address,
                 epoch,
-                settlement_record.reason,
+                reason_display(&settlement_record.reason),
             )).with_vote(settlement_record.vote_account_address).add();
             continue;
         }
@@ -259,7 +265,7 @@ async fn prepare_funding(
                 settlement_record.vote_account_address,
                 settlement_record.bond_address,
                 epoch,
-                settlement_record.reason,
+                reason_display(&settlement_record.reason),
             )).with_vote(settlement_record.vote_account_address).add();
             continue;
         }
@@ -270,7 +276,7 @@ async fn prepare_funding(
                 settlement_record.vote_account_address,
                 settlement_record.bond_address,
                 epoch,
-                settlement_record.reason,
+                reason_display(&settlement_record.reason),
             )).with_vote(settlement_record.vote_account_address).add();
             reporting
                 .reportable
@@ -320,7 +326,7 @@ async fn prepare_funding(
                     settlement_record.settlement_address,
                     settlement_record.vote_account_address,
                     settlement_record.bond_address,
-                    settlement_record.reason,
+                    reason_display(&settlement_record.reason),
                     build_balance_message(settlement_record.max_total_claim_sum, false, false),
                     epoch,
                     build_balance_message(amount_to_fund, false, false)
@@ -355,7 +361,7 @@ async fn prepare_funding(
                         settlement_record.settlement_address,
                         settlement_record.vote_account_address,
                         settlement_record.bond_address,
-                        settlement_record.reason,
+                        reason_display(&settlement_record.reason),
                         build_balance_message(settlement_record.max_total_claim_sum, false, false),
                         epoch,
                         build_balance_message(amount_to_fund, false, false),
@@ -376,9 +382,9 @@ async fn prepare_funding(
                     if funding_lamports_accumulated < amount_to_fund + minimal_stake_lamports {
                         funding_lamports_accumulated += stake_account.lamports;
                         stake_accounts_to_fund.push(stake_account.clone());
-                        true // delete from the list, no available anymore, it will be funded
+                        false // remove from pool, it will be used for funding
                     } else {
-                        false // do not delete, it can be used for other settlement
+                        true // keep in pool, available for other settlements
                     }
                 });
 
@@ -406,7 +412,7 @@ async fn prepare_funding(
                     info!(
                         "Settlement: {} will be funded with {} stake accounts with {} SOLs, possibly merged into {}",
                         settlement_record.settlement_address,
-                        funding_stake_accounts.len() + 1,
+                        stake_accounts_to_fund.len() + 1,
                         build_balance_message(
                             destination_lamports + stake_accounts_to_fund
                                 .iter()
@@ -454,7 +460,7 @@ async fn prepare_funding(
                                 settlement_record.settlement_address,
                                 settlement_record.vote_account_address,
                                 epoch,
-                                settlement_record.reason,
+                                reason_display(&settlement_record.reason),
                                 build_balance_message(settlement_record.max_total_claim_sum, false, false),
                                 build_balance_message(amount_to_fund, false, false),
                                 build_balance_message(amount_to_fund + minimal_stake_lamports, false, false),
@@ -479,15 +485,16 @@ async fn prepare_funding(
                             let lamports_available_after_split = funding_lamports_accumulated
                                 .saturating_sub(amount_to_fund)
                                 .saturating_sub(minimal_stake_lamports);
-                            // we are adding the stake account into next round of funding for next settlement
-                            // after merging the stake account when the settlement is funded by real an on-chain tx (see fund_settlements)
-                            // some funding will be left after fund+split within stake account, we can re-use the same account for a next settlement
-                            funding_stake_accounts.push(FundBondStakeAccount {
-                                lamports: lamports_available_after_split,
-                                stake_account: destination_split_stake.pubkey(),
-                                split_stake_account: Arc::new(Keypair::new()),
-                                state: destination_stake_state,
-                            });
+                            // only re-use the split account for next settlement if it has enough lamports
+                            // to hold a valid stake account; otherwise the on-chain split would fail
+                            if lamports_available_after_split >= minimal_stake_lamports {
+                                funding_stake_accounts.push(FundBondStakeAccount {
+                                    lamports: lamports_available_after_split,
+                                    stake_account: destination_split_stake.pubkey(),
+                                    split_stake_account: Arc::new(Keypair::new()),
+                                    state: destination_stake_state,
+                                });
+                            }
                             reporting
                                 .reportable
                                 .add_funded_settlement(settlement_record, amount_to_fund);
@@ -499,7 +506,7 @@ async fn prepare_funding(
                         settlement_record.settlement_address,
                         settlement_record.vote_account_address,
                         epoch,
-                        settlement_record.reason,
+                        reason_display(&settlement_record.reason),
                         build_balance_message(settlement_record.max_total_claim_sum, false, false),
                     )).with_vote(settlement_record.vote_account_address).add();
                 }
@@ -585,7 +592,7 @@ async fn fund_settlements(
                 settlement_record.vote_account_address,
                 settlement_record.bond_address,
                 settlement_record.epoch,
-                settlement_record.reason,
+                reason_display(&settlement_record.reason),
                 settlement_record.funder
             );
             continue;
@@ -600,7 +607,7 @@ async fn fund_settlements(
                     settlement_record.vote_account_address,
                     settlement_record.bond_address,
                     settlement_record.epoch,
-                    settlement_record.reason,
+                    reason_display(&settlement_record.reason),
                     settlement_record.funder,
                     new_stake_account_keypair.pubkey()
                 );
@@ -663,7 +670,7 @@ async fn fund_settlements(
                             settlement_record.settlement_address,
                             settlement_record.bond_address,
                             settlement_record.vote_account_address,
-                            settlement_record.reason,
+                            reason_display(&settlement_record.reason),
                             stake_account_to_fund,
                         ),
                     )?;
@@ -677,7 +684,7 @@ async fn fund_settlements(
                     settlement_record.vote_account_address,
                     settlement_record.bond_address,
                     settlement_record.epoch,
-                    settlement_record.reason,
+                    reason_display(&settlement_record.reason),
                     settlement_record.funder
                 );
             }

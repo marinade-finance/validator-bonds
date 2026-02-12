@@ -14,6 +14,7 @@ past_epochs_to_check=10
 for one_epoch in $(seq $((epoch - past_epochs_to_check)) $epoch); do
   echo $one_epoch
   mkdir "$DIR/tmp"
+  gcloud storage cp  "gs://marinade-validator-bonds-mainnet/${one_epoch}/*merkle-trees.json" "$DIR/tmp/"
   gcloud storage cp  "gs://marinade-validator-bonds-mainnet/${one_epoch}/*settlements.json" "$DIR/tmp/"
   for I in "$DIR/tmp/"*; do
     mv "$I" "$DIR/${one_epoch}-$(basename $I)"
@@ -22,40 +23,20 @@ for one_epoch in $(seq $((epoch - past_epochs_to_check)) $epoch); do
 done
 ```
 
-### 2) Running the sanity check
+### 2) Running the merkle tree check
 
-Verification of settlement file of the upcoming calculated epoch against
-past epochs settlement files to detect anomalies in number of claims,
-distribution amounts and claimed amounts per validator.
+Verification of merkle tree file: internal consistency, cross-validation
+against settlement sources, and anomaly detection against past epochs.
 
 ```bash
-pnpm cli:check check -c "${DIR}/${epoch}-bid-distribution-settlements.json" \
-  -p "${DIR}"/!(${epoch})-bid-distribution-settlements.json \
-  --correlation-threshold 0.15 --score-threshold 2.0 --min-absolute-deviation 0.05 \
-  --verbose --type bid
-
-pnpm cli:check check -c "$DIR"/857-bid-psr-distribution-settlements.json \
-  -p $(seq -f "$DIR"/%g-bid-psr-distribution-settlements.json 845 856) \
-  --min-absolute-deviation 0.05 --type psr
+pnpm cli check-merkle-tree \
+  -m "${DIR}/${epoch}-unified-merkle-trees.json" \
+  -s "${DIR}/${epoch}-bid-distribution-settlements.json" \
+  -p "${DIR}"/!(${epoch})-*-merkle-trees.json \
+  --correlation-threshold 0.15 --score-threshold 2.0 --min-absolute-deviation 0.05
 
 # See all CLI options
-pnpm cli:check check --help
-```
-
-### 3) Verification of settlements and merkle tree consistency
-
-Load settlement and merkle tree files for a given epoch and run consistency check
-that involves base verification that number of settlements and claimed amounts
-match those recorded in the merkle tree file.
-
-```bash
-epoch=857
-DIR="${PWD}/data-${epoch}"
-mkdir -p "$DIR"
-gcloud storage cp  "gs://marinade-validator-bonds-mainnet/${epoch}/*settlement*.json" "$DIR"
-
-pnpm cli:check check-settlement -s "${DIR}/bid-distribution-settlements.json" \
-  -m "${DIR}/bid-distribution-settlement-merkle-trees.json"
+pnpm cli check-merkle-tree --help
 ```
 
 ## How sanity check works
@@ -66,10 +47,8 @@ Ensures at least one settlement exists in the current epoch data.
 
 ### 1) Individual Field Anomalies
 
-Checks specific metrics using z-score analysis. The fields checked depend on `--type`:
-
-- **BID**: `totalSettlements`, `totalSettlementClaimAmount`
-- **PSR**: `avgSettlementClaimAmountPerValidator` only (settlement counts are too volatile)
+Checks specific metrics using z-score analysis. The fields checked are:
+`totalValidators`, `totalClaims`, `totalClaimAmount`, `avgClaimAmountPerValidator`, `avgClaimsPerValidator`.
 
 Each check requires ALL of the following to flag an anomaly:
 
@@ -97,17 +76,17 @@ Then the value is considered consistent with recent history and NOT flagged, eve
 #### Scenario: Regime Change (Subsequent Epochs)
 
 ```
-Epoch 910: totalSettlementClaimAmount = 180B (regime change from ~168B)
+Epoch 910: totalClaimAmount = 180B (regime change from ~168B)
 - Z-score: 2.5 > 2.0 threshold
 - Recent epochs 908, 909 have values ~168B (not similar)
 Result: FAIL - requires manual approval (1st checkpoint)
 
-Epoch 911: totalSettlementClaimAmount = 181B
+Epoch 911: totalClaimAmount = 181B
 - Z-score: 2.3 > 2.0 threshold
 - Recent epoch 910 is similar, but 909 (~168B) is not
 Result: FAIL - requires manual approval (2nd checkpoint)
 
-Epoch 912: totalSettlementClaimAmount = 182B
+Epoch 912: totalClaimAmount = 182B
 - Z-score: 2.1 > 2.0 threshold
 - BUT: similar to BOTH recent epochs 910 and 911
 Result: PASS - consistent with 2 consecutive approved epochs
@@ -116,7 +95,7 @@ Result: PASS - consistent with 2 consecutive approved epochs
 #### Scenario: Claim Amount Spike
 
 ```
-Epoch 912: avgSettlementClaimAmountPerValidator = 255657016
+Epoch 912: avgClaimAmountPerValidator = 255657016
 - Historical mean: 47184021
 - Z-score: 8.6 > 2.0 threshold
 - Absolute deviation: 442% > 5% minimum
