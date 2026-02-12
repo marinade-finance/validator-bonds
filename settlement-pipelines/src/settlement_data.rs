@@ -261,12 +261,12 @@ pub fn parse_settlements_from_json(
                     ensure!(
                         settlement_address == merkle_tree.settlement_account,
                         "Pre-computed settlement account {} does not match derived settlement account {} for vote account {:?} and epoch {}.",
-                        settlement_address, merkle_tree.settlement_account, vote_account_address, epoch
+                        merkle_tree.settlement_account, settlement_address, vote_account_address, epoch
                     );
                     ensure!(
                         bond_address == merkle_tree.bond_account,
                         "Pre-computed bond account {} does not match derived bond account {} for vote account {:?} and epoch {}.",
-                        bond_address, merkle_tree.bond_account, vote_account_address, epoch
+                        merkle_tree.bond_account, bond_address, vote_account_address, epoch
                     );
                 }
                 let settlement_record = SettlementRecord {
