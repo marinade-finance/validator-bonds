@@ -35,7 +35,7 @@ pub struct SettlementRecord {
     pub max_total_claim_sum: u64,
     // The maximum total claims (number of merkle nodes) that can be claimed from the settlement
     pub max_total_claim: u64,
-    // The funder of the settlement, from the JSON file (None when loaded from merkle-tree-only)
+    // The funder of the settlement, from the JSON file (or derived/defaulted when loaded from merkle-tree-only)
     pub funder: SettlementFunderType,
     // The reason for the settlement (protected event, bidding...), from the JSON file (None when loaded from merkle-tree-only)
     pub reason: Option<SettlementReason>,
