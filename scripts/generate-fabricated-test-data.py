@@ -2,27 +2,33 @@
 """
 Generate fabricated but valid test input data for the settlement distribution pipeline.
 
-This creates internally consistent data for epoch 99999 with several validators
-exercising different settlement types:
-  - Validator A: SAM bidder only (no PSR events) -> Bidding settlement
-  - Validator B: SAM bidder + downtime -> Bidding + DowntimeRevenueImpact settlements
-  - Validator C: SAM bidder + commission increase -> Bidding + CommissionSamIncrease settlements
-  - Validator D: No SAM bid, healthy -> No settlements
-  - Validator E: Institutional validator -> InstitutionalPayout settlement
+Generates internally consistent data for one or more epochs with varying validator
+counts, stake amounts, bid rates, downtime severity, and commission changes.
+Each epoch uses deterministic randomness (seeded by epoch number) so results are
+reproducible.
 
 Usage:
-  python3 scripts/generate-fabricated-test-data.py --output-dir ./regression-data/99999/inputs
+  # Single epoch (original behavior):
+  python3 scripts/generate-fabricated-test-data.py --epoch 99999
+
+  # Range of 50 epochs:
+  python3 scripts/generate-fabricated-test-data.py --start-epoch 99900 --end-epoch 99950
+
+  # Custom output root:
+  python3 scripts/generate-fabricated-test-data.py --start-epoch 99900 --end-epoch 99950 \\
+      --output-root ./regression-data-fabricated
 """
 import argparse
+import hashlib
 import json
 import os
+import random as _random_module
 import sys
 
 # ============================================================================
-# Constants
+# Constants (same across all epochs)
 # ============================================================================
-EPOCH = 99999
-SLOT = 432000000
+SOL = 1_000_000_000  # lamports per SOL
 
 # Whitelisted stake authorities (from settlement-config.yaml)
 WHITELIST_STAKE_AUTHORITIES = [
@@ -37,230 +43,223 @@ MARINADE_FEE_WITHDRAW_AUTH = "BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x"
 DAO_FEE_STAKE_AUTH = "mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz"
 DAO_FEE_WITHDRAW_AUTH = "mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz"
 
-# Bonds config addresses
 BID_BONDS_CONFIG = "vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU"
 INST_BONDS_CONFIG = "VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE"
 
-# --- Fabricated Pubkeys (deterministic SHA-256 hashes, valid 32-byte base58) ---
-# Vote accounts
-VOTE_A = "BYzAP4H8Q58hRmmD7ACiB4H6za5DA9n9UU81AfqxYP8J"
-VOTE_B = "4co4bhV9ymiGyjYdG9mGchWwNTctWDUbPtRDGCNenWaR"
-VOTE_C = "B1x5iZjuqzVXJRff4Qy7oJDzVoSRs4VwJbPfXJnRAUkZ"
-VOTE_D = "CpoLiMNF9eAWfrhiAfbNm9stM1H2X2nW6uETF9QMCMA"
-VOTE_E = "EErHYU5dbb1Ac67BQfvgCi8Dwx6vhDAQbmonf4JdPytj"
-
-# Identity/node pubkeys (for validators_blocks)
-IDENTITY_A = "8KpUxwq2HvTLzwhyCdHBRN3FKnDYmtmWxeAp9y6e4EQD"
-IDENTITY_B = "APrcDPaRTKpJnENgeXd7n2VM62bveT8ij9kPsK8j7DyP"
-IDENTITY_C = "Z9G7kfWQvnWBZvLbfLjqtR886H2WRyhPDNJ7xMuoNfE"
-IDENTITY_D = "DmwBdGE5zjZQpEkoFEEFcEXwRrS8M4tejCqVRcQfGhB5"
-IDENTITY_E = "77f9Bfn69eoaThPsZXjMWBcWhVkb8tXPKqpb47ZbTLZR"
-
-# Stake accounts
-STAKE_A1 = "29QLayKS7wGvstJQCkN7FBjt547LDfMk8Pf3mEjC9iMk"
-STAKE_A2 = "CksA4kJhdXnmGxrDp3LXdMd5M1Zvh5bRrmURJdTDN21M"
-STAKE_B1 = "31SDX6NCjj9FbCxLDDHV455QXfw2QG9YZmr9CzPtGFf4"
-STAKE_B2 = "9JpBzCjW2b62yNsudH3kr3a6aKYaK2KxwZaaotttGjEV"
-STAKE_C1 = "GnRaENDBX4v5REa5xZjEw1hniAAFrNYCYjxY8Xp3hziK"
-STAKE_D1 = "BTchMX19vZJFhQ8Wga5EYwzqZCqUyqg2tgb3TYXDwQ7X"
-STAKE_E1 = "9hw64jykT4ZvxCzmryU6K8XUwFj1ra3iLAqD32EJ1xB1"
-STAKE_E2 = "DLeGZgDVWJULWdDcRiaYQ52AcBL3GZio86TRGTgG5Qjb"
-
-# Institutional staker authorities (use known valid keys from existing test fixtures)
+# Known valid authorities reused across epochs
 INST_STAKER_AUTH = "STNi1NHDUi6Hvibvonawgze8fM83PFLeJhuGMEXyGps"
-INST_WITHDRAWER = "2tdyKn8fzKADQCdPbdoqmRw3t7gpJnuDZUEGBTuHLBpU"
 
-# Withdraw authority for marinade stakers
-MARINADE_WITHDRAW = "8KgMejEmFWsFq4sEUDcw4njrYYxfUMBntdPA9WPRpyAr"
-
-# Non-whitelisted authority
-NON_WL_AUTH = "3WCgSBRsWnpitayjCWne9DEBEcVHBeXXPdCr7ah5uVD4"
-
-# --- Stake amounts ---
-# 1000 SOL = 1_000_000_000_000 lamports
-SOL = 1_000_000_000
-
-STAKE_A1_AMOUNT = 50_000 * SOL  # 50k SOL
-STAKE_A2_AMOUNT = 30_000 * SOL  # 30k SOL
-STAKE_B1_AMOUNT = 40_000 * SOL  # 40k SOL
-STAKE_B2_AMOUNT = 20_000 * SOL  # 20k SOL
-STAKE_C1_AMOUNT = 60_000 * SOL  # 60k SOL
-STAKE_D1_AMOUNT = 25_000 * SOL  # 25k SOL (non-whitelisted, won't get SAM settlements)
-STAKE_E1_AMOUNT = 100_000 * SOL  # 100k SOL (institutional)
-STAKE_E2_AMOUNT = 50_000 * SOL  # 50k SOL (institutional)
-
-# Total stakes per validator (for validator_metas)
-TOTAL_STAKE_A = STAKE_A1_AMOUNT + STAKE_A2_AMOUNT  # 80k SOL
-TOTAL_STAKE_B = STAKE_B1_AMOUNT + STAKE_B2_AMOUNT  # 60k SOL
-TOTAL_STAKE_C = STAKE_C1_AMOUNT  # 60k SOL
-TOTAL_STAKE_D = STAKE_D1_AMOUNT  # 25k SOL
-TOTAL_STAKE_E = STAKE_E1_AMOUNT + STAKE_E2_AMOUNT  # 150k SOL
-
-# Credits
 EXPECTED_CREDITS = 6_800_000  # Normal expected credits for an epoch
-CREDITS_A = 6_800_000  # Normal
-CREDITS_B = 5_000_000  # ~26% downtime (triggers DowntimeRevenueImpact > 1% grace)
-CREDITS_C = 6_800_000  # Normal credits (commission increase triggers CommissionSamIncrease)
-CREDITS_D = 6_800_000  # Normal
-CREDITS_E = 6_800_000  # Normal
-
-# Commissions (0 = no commission)
-COMMISSION_A = 0
-COMMISSION_B = 0
-COMMISSION_C = 5  # 5% commission (increased from expected 0%)
-COMMISSION_D = 0
-COMMISSION_E = 0
-
-# MEV commissions (None or a value)
-MEV_COMMISSION_A = 0
-MEV_COMMISSION_B = 0
-MEV_COMMISSION_C = 800  # 8% MEV commission in bps (increased from expected 0%)
-MEV_COMMISSION_D = 0
-MEV_COMMISSION_E = 0
-
-# --- Reward amounts ---
-# Approximate rewards per validator for one epoch
-INFLATION_REWARD_PER_SOL = 100  # ~100 lamports per SOL per epoch (simplified)
-MEV_REWARD_PER_SOL = 50
 
 
 # ============================================================================
-# Data generation functions
+# Pubkey generation (deterministic, valid 32-byte base58)
 # ============================================================================
 
-def generate_stakes_json():
-    """Generate StakeMetaCollection (stakes.json)"""
-    stake_metas = [
-        # Validator A - two stake accounts with whitelisted authority
-        {
-            "pubkey": STAKE_A1,
-            "balance_lamports": STAKE_A1_AMOUNT + 2 * SOL,
-            "active_delegation_lamports": STAKE_A1_AMOUNT,
-            "activating_delegation_lamports": 0,
-            "deactivating_delegation_lamports": 0,
-            "validator": VOTE_A,
-            "stake_authority": WHITELIST_STAKE_AUTHORITIES[0],
-            "withdraw_authority": MARINADE_WITHDRAW,
-        },
-        {
-            "pubkey": STAKE_A2,
-            "balance_lamports": STAKE_A2_AMOUNT + SOL,
-            "active_delegation_lamports": STAKE_A2_AMOUNT,
-            "activating_delegation_lamports": 0,
-            "deactivating_delegation_lamports": 0,
-            "validator": VOTE_A,
-            "stake_authority": WHITELIST_STAKE_AUTHORITIES[0],
-            "withdraw_authority": MARINADE_WITHDRAW,
-        },
-        # Validator B - two stake accounts with whitelisted authority
-        {
-            "pubkey": STAKE_B1,
-            "balance_lamports": STAKE_B1_AMOUNT + 2 * SOL,
-            "active_delegation_lamports": STAKE_B1_AMOUNT,
-            "activating_delegation_lamports": 0,
-            "deactivating_delegation_lamports": 0,
-            "validator": VOTE_B,
-            "stake_authority": WHITELIST_STAKE_AUTHORITIES[1],
-            "withdraw_authority": MARINADE_WITHDRAW,
-        },
-        {
-            "pubkey": STAKE_B2,
-            "balance_lamports": STAKE_B2_AMOUNT + SOL,
-            "active_delegation_lamports": STAKE_B2_AMOUNT,
-            "activating_delegation_lamports": 0,
-            "deactivating_delegation_lamports": 0,
-            "validator": VOTE_B,
-            "stake_authority": WHITELIST_STAKE_AUTHORITIES[1],
-            "withdraw_authority": MARINADE_WITHDRAW,
-        },
-        # Validator C - one stake account with whitelisted authority
-        {
-            "pubkey": STAKE_C1,
-            "balance_lamports": STAKE_C1_AMOUNT + 2 * SOL,
-            "active_delegation_lamports": STAKE_C1_AMOUNT,
-            "activating_delegation_lamports": 0,
-            "deactivating_delegation_lamports": 0,
-            "validator": VOTE_C,
-            "stake_authority": WHITELIST_STAKE_AUTHORITIES[2],
-            "withdraw_authority": MARINADE_WITHDRAW,
-        },
-        # Validator D - non-whitelisted authority (won't get SAM settlements)
-        {
-            "pubkey": STAKE_D1,
-            "balance_lamports": STAKE_D1_AMOUNT + SOL,
-            "active_delegation_lamports": STAKE_D1_AMOUNT,
-            "activating_delegation_lamports": 0,
-            "deactivating_delegation_lamports": 0,
-            "validator": VOTE_D,
-            "stake_authority": NON_WL_AUTH,
-            "withdraw_authority": NON_WL_AUTH,
-        },
-        # Validator E - institutional staker authority
-        {
-            "pubkey": STAKE_E1,
-            "balance_lamports": STAKE_E1_AMOUNT + 3 * SOL,
-            "active_delegation_lamports": STAKE_E1_AMOUNT,
-            "activating_delegation_lamports": 0,
-            "deactivating_delegation_lamports": 0,
-            "validator": VOTE_E,
-            "stake_authority": INST_STAKER_AUTH,
-            "withdraw_authority": INST_WITHDRAWER,
-        },
-        {
-            "pubkey": STAKE_E2,
-            "balance_lamports": STAKE_E2_AMOUNT + SOL,
-            "active_delegation_lamports": STAKE_E2_AMOUNT,
-            "activating_delegation_lamports": 0,
-            "deactivating_delegation_lamports": 0,
-            "validator": VOTE_E,
-            "stake_authority": INST_STAKER_AUTH,
-            "withdraw_authority": INST_WITHDRAWER,
-        },
-    ]
-    return {
-        "epoch": EPOCH,
-        "slot": SLOT,
-        "stake_metas": stake_metas,
-    }
+try:
+    import base58 as _base58
+    def _make_pubkey(seed: str) -> str:
+        return _base58.b58encode(hashlib.sha256(seed.encode()).digest()).decode()
+except ImportError:
+    # Fallback: inline minimal base58 encoder (no external dependency)
+    _B58_ALPHABET = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+    def _make_pubkey(seed: str) -> str:
+        data = hashlib.sha256(seed.encode()).digest()
+        # Convert bytes to integer
+        n = int.from_bytes(data, "big")
+        result = bytearray()
+        while n > 0:
+            n, r = divmod(n, 58)
+            result.append(_B58_ALPHABET[r])
+        # Preserve leading zero bytes
+        for b in data:
+            if b == 0:
+                result.append(_B58_ALPHABET[0])
+            else:
+                break
+        return bytes(reversed(result)).decode()
 
 
-def generate_sam_scores_json():
-    """Generate SAM scores (sam-scores.json) - Vec<ValidatorSamMeta> in camelCase"""
-    scores = [
-        # Validator A: Normal bidder
-        {
-            "voteAccount": VOTE_A,
-            "marinadeSamTargetSol": 80000,
+def make_pubkey(role: str, epoch: int, index: int = 0) -> str:
+    """Generate a deterministic valid Solana pubkey from role/epoch/index."""
+    return _make_pubkey(f"{role}-{epoch}-{index}")
+
+
+# ============================================================================
+# Per-epoch validator scenario definition
+# ============================================================================
+
+class ValidatorScenario:
+    """Describes one fabricated validator for a given epoch."""
+
+    def __init__(self, epoch, rng, index, role):
+        self.epoch = epoch
+        self.index = index
+        self.role = role  # "sam", "sam_downtime", "sam_commission", "passive", "institutional"
+
+        # Generate unique pubkeys
+        self.vote_account = make_pubkey("vote", epoch, index)
+        self.identity = make_pubkey("identity", epoch, index)
+
+        # Stake accounts: 1-3 per validator
+        num_stakes = rng.randint(1, 3)
+        self.stake_accounts = []
+        for si in range(num_stakes):
+            amount = rng.randint(10_000, 120_000) * SOL
+            self.stake_accounts.append({
+                "pubkey": make_pubkey("stake", epoch, index * 10 + si),
+                "amount": amount,
+            })
+
+        self.total_stake = sum(s["amount"] for s in self.stake_accounts)
+
+        # Assign whitelisted authority (rotate through the list)
+        if role == "passive":
+            self.stake_authority = make_pubkey("nonwl-auth", epoch, index)
+            self.withdraw_authority = self.stake_authority
+        elif role == "institutional":
+            self.stake_authority = INST_STAKER_AUTH
+            self.withdraw_authority = make_pubkey("inst-withdraw", epoch, index)
+        else:
+            self.stake_authority = WHITELIST_STAKE_AUTHORITIES[index % len(WHITELIST_STAKE_AUTHORITIES)]
+            self.withdraw_authority = make_pubkey("marinade-withdraw", epoch, index)
+
+        # SAM parameters (only for sam* roles)
+        self.has_sam = role.startswith("sam")
+        if self.has_sam:
+            self.bid_pmpe = round(rng.uniform(0.2, 0.9), 4)
+            self.static_bid_pmpe = round(self.bid_pmpe * rng.uniform(0.3, 0.6), 4)
+            self.effective_bid = round(self.bid_pmpe * rng.uniform(0.4, 0.7), 4)
+            self.total_pmpe = round(0.3 + self.bid_pmpe, 4)
+        else:
+            self.bid_pmpe = 0
+            self.static_bid_pmpe = 0
+            self.effective_bid = 0
+            self.total_pmpe = 0
+
+        # Credits (downtime scenario gets reduced credits)
+        if role == "sam_downtime":
+            # 5%-40% downtime (must be > 1% grace to trigger)
+            downtime_fraction = rng.uniform(0.05, 0.40)
+            self.credits = int(EXPECTED_CREDITS * (1.0 - downtime_fraction))
+        else:
+            self.credits = EXPECTED_CREDITS
+
+        # Commissions
+        if role == "sam_commission":
+            self.inflation_commission = rng.choice([3, 5, 7, 10])  # percent
+            self.mev_commission_bps = rng.choice([500, 800, 1000, 1500])
+            self.inflation_commission_onchain = self.inflation_commission / 100.0
+            self.mev_commission_onchain = self.mev_commission_bps / 10000.0
+            self.before_sam_increase_pmpe = round(rng.uniform(0.02, 0.08), 4)
+        else:
+            self.inflation_commission = 0
+            self.mev_commission_bps = 0
+            self.inflation_commission_onchain = 0.0
+            self.mev_commission_onchain = 0.0
+            self.before_sam_increase_pmpe = 0.0
+
+        # Institutional payout (only for institutional role)
+        if role == "institutional":
+            self.inst_payout_stakers = rng.randint(5_000_000, 50_000_000)
+            self.inst_payout_distributor = rng.randint(200_000, 2_000_000)
+        else:
+            self.inst_payout_stakers = 0
+            self.inst_payout_distributor = 0
+
+
+def generate_epoch_scenarios(epoch, rng):
+    """Generate a varied set of validator scenarios for one epoch."""
+    # Decide how many of each type
+    num_sam_only = rng.randint(1, 4)
+    num_sam_downtime = rng.randint(0, 3)
+    num_sam_commission = rng.randint(0, 2)
+    num_passive = rng.randint(0, 2)
+    num_institutional = rng.randint(0, 2)
+
+    # Ensure at least one SAM bidder
+    if num_sam_only + num_sam_downtime + num_sam_commission == 0:
+        num_sam_only = 1
+
+    scenarios = []
+    idx = 0
+    for _ in range(num_sam_only):
+        scenarios.append(ValidatorScenario(epoch, rng, idx, "sam"))
+        idx += 1
+    for _ in range(num_sam_downtime):
+        scenarios.append(ValidatorScenario(epoch, rng, idx, "sam_downtime"))
+        idx += 1
+    for _ in range(num_sam_commission):
+        scenarios.append(ValidatorScenario(epoch, rng, idx, "sam_commission"))
+        idx += 1
+    for _ in range(num_passive):
+        scenarios.append(ValidatorScenario(epoch, rng, idx, "passive"))
+        idx += 1
+    for _ in range(num_institutional):
+        scenarios.append(ValidatorScenario(epoch, rng, idx, "institutional"))
+        idx += 1
+
+    return scenarios
+
+
+# ============================================================================
+# JSON generation from scenarios
+# ============================================================================
+
+def build_stakes_json(epoch, slot, scenarios):
+    stake_metas = []
+    for v in scenarios:
+        for s in v.stake_accounts:
+            stake_metas.append({
+                "pubkey": s["pubkey"],
+                "balance_lamports": s["amount"] + 2 * SOL,
+                "active_delegation_lamports": s["amount"],
+                "activating_delegation_lamports": 0,
+                "deactivating_delegation_lamports": 0,
+                "validator": v.vote_account,
+                "stake_authority": v.stake_authority,
+                "withdraw_authority": v.withdraw_authority,
+            })
+    return {"epoch": epoch, "slot": slot, "stake_metas": stake_metas}
+
+
+def build_sam_scores_json(epoch, scenarios):
+    scores = []
+    for v in scenarios:
+        if not v.has_sam:
+            continue
+        scores.append({
+            "voteAccount": v.vote_account,
+            "marinadeSamTargetSol": v.total_stake // SOL,
             "revShare": {
-                "totalPmpe": 1.0,
+                "totalPmpe": v.total_pmpe,
                 "inflationPmpe": 0.3,
                 "mevPmpe": 0.0,
-                "bidPmpe": 0.7,
-                "auctionEffectiveBidPmpe": 0.035,
+                "bidPmpe": v.bid_pmpe,
+                "auctionEffectiveBidPmpe": v.effective_bid,
                 "bidTooLowPenaltyPmpe": 0,
                 "blacklistPenaltyPmpe": 0,
-                "effParticipatingBidPmpe": 0.035,
-                "expectedMaxEffBidPmpe": 0.04,
+                "effParticipatingBidPmpe": v.effective_bid,
+                "expectedMaxEffBidPmpe": round(v.effective_bid * 1.2, 4),
                 "blockPmpe": 0.0,
                 "onchainDistributedPmpe": 0.0,
                 "bondObligationPmpe": 0.0,
-                "auctionEffectiveStaticBidPmpe": 0.03,
+                "auctionEffectiveStaticBidPmpe": v.static_bid_pmpe,
             },
-            "stakePriority": 5,
-            "unstakePriority": 95,
+            "stakePriority": v.index + 1,
+            "unstakePriority": 100 - v.index,
             "maxStakeWanted": 400000,
-            "effectiveBid": 0.035,
+            "effectiveBid": v.effective_bid,
             "constraints": "",
             "metadata": {
-                "scoringId": "test-scoring-1",
-                "tvl": {"marinadeSamTvlSol": 80000},
+                "scoringId": f"test-scoring-{epoch}-{v.index}",
+                "tvl": {"marinadeSamTvlSol": v.total_stake // SOL},
             },
             "scoringRunId": 1,
-            "epoch": EPOCH,
+            "epoch": epoch,
             "values": {
                 "bondBalanceSol": 100,
-                "marinade_activated_stake_sol": 80000,
-                "marinadeActivatedStakeSol": 80000,
+                "marinadeActivatedStakeSol": v.total_stake // SOL,
                 "bondRiskFeeSol": 0.5,
                 "paidUndelegationSol": 0,
                 "samBlacklisted": False,
@@ -268,426 +267,280 @@ def generate_sam_scores_json():
                     "inflationCommissionDec": 0.0,
                     "mevCommissionDec": 0.0,
                     "blockRewardsCommissionDec": 0.0,
-                    "inflationCommissionOnchainDec": 0.0,
+                    "inflationCommissionOnchainDec": v.inflation_commission_onchain,
                     "inflationCommissionInBondDec": 0.0,
                     "inflationCommissionOverrideDec": None,
-                    "mevCommissionOnchainDec": 0.0,
+                    "mevCommissionOnchainDec": v.mev_commission_onchain,
                     "mevCommissionInBondDec": 0.0,
                     "mevCommissionOverrideDec": None,
                     "blockRewardsCommissionInBondDec": 0.0,
                     "blockRewardsCommissionOverrideDec": None,
                 },
             },
-        },
-        # Validator B: Bidder with downtime
-        {
-            "voteAccount": VOTE_B,
-            "marinadeSamTargetSol": 60000,
-            "revShare": {
-                "totalPmpe": 0.8,
-                "inflationPmpe": 0.3,
-                "mevPmpe": 0.0,
-                "bidPmpe": 0.5,
-                "auctionEffectiveBidPmpe": 0.025,
-                "bidTooLowPenaltyPmpe": 0,
-                "blacklistPenaltyPmpe": 0,
-                "effParticipatingBidPmpe": 0.025,
-                "expectedMaxEffBidPmpe": 0.035,
-                "blockPmpe": 0.0,
-                "onchainDistributedPmpe": 0.0,
-                "bondObligationPmpe": 0.0,
-                "auctionEffectiveStaticBidPmpe": 0.02,
-            },
-            "stakePriority": 8,
-            "unstakePriority": 92,
-            "maxStakeWanted": 300000,
-            "effectiveBid": 0.025,
-            "constraints": "",
-            "metadata": {
-                "scoringId": "test-scoring-2",
-                "tvl": {"marinadeSamTvlSol": 60000},
-            },
-            "scoringRunId": 1,
-            "epoch": EPOCH,
-            "values": {
-                "bondBalanceSol": 80,
-                "marinade_activated_stake_sol": 60000,
-                "marinadeActivatedStakeSol": 60000,
-                "bondRiskFeeSol": 0.3,
-                "paidUndelegationSol": 0,
-                "samBlacklisted": False,
-                "commissions": {
-                    "inflationCommissionDec": 0.0,
-                    "mevCommissionDec": 0.0,
-                    "blockRewardsCommissionDec": 0.0,
-                    "inflationCommissionOnchainDec": 0.0,
-                    "inflationCommissionInBondDec": 0.0,
-                    "inflationCommissionOverrideDec": None,
-                    "mevCommissionOnchainDec": 0.0,
-                    "mevCommissionInBondDec": 0.0,
-                    "mevCommissionOverrideDec": None,
-                    "blockRewardsCommissionInBondDec": 0.0,
-                    "blockRewardsCommissionOverrideDec": None,
-                },
-            },
-        },
-        # Validator C: Commission increase
-        {
-            "voteAccount": VOTE_C,
-            "marinadeSamTargetSol": 60000,
-            "revShare": {
-                "totalPmpe": 0.6,
-                "inflationPmpe": 0.3,
-                "mevPmpe": 0.0,
-                "bidPmpe": 0.3,
-                "auctionEffectiveBidPmpe": 0.015,
-                "bidTooLowPenaltyPmpe": 0,
-                "blacklistPenaltyPmpe": 0,
-                "effParticipatingBidPmpe": 0.015,
-                "expectedMaxEffBidPmpe": 0.02,
-                "blockPmpe": 0.0,
-                "onchainDistributedPmpe": 0.0,
-                "bondObligationPmpe": 0.0,
-                "auctionEffectiveStaticBidPmpe": 0.012,
-            },
-            "stakePriority": 12,
-            "unstakePriority": 88,
-            "maxStakeWanted": 200000,
-            "effectiveBid": 0.015,
-            "constraints": "",
-            "metadata": {
-                "scoringId": "test-scoring-3",
-                "tvl": {"marinadeSamTvlSol": 60000},
-            },
-            "scoringRunId": 1,
-            "epoch": EPOCH,
-            "values": {
-                "bondBalanceSol": 50,
-                "marinade_activated_stake_sol": 60000,
-                "marinadeActivatedStakeSol": 60000,
-                "bondRiskFeeSol": 0.2,
-                "paidUndelegationSol": 0,
-                "samBlacklisted": False,
-                "commissions": {
-                    "inflationCommissionDec": 0.0,
-                    "mevCommissionDec": 0.0,
-                    "blockRewardsCommissionDec": 0.0,
-                    "inflationCommissionOnchainDec": 0.05,  # Increased to 5% on-chain
-                    "inflationCommissionInBondDec": 0.0,
-                    "inflationCommissionOverrideDec": None,
-                    "mevCommissionOnchainDec": 0.08,  # Increased to 8% on-chain
-                    "mevCommissionInBondDec": 0.0,
-                    "mevCommissionOverrideDec": None,
-                    "blockRewardsCommissionInBondDec": 0.0,
-                    "blockRewardsCommissionOverrideDec": None,
-                },
-            },
-        },
-    ]
+        })
     return scores
 
 
-def generate_validators_json():
-    """Generate ValidatorMetaCollection (validators.json)"""
-    # total stake across all validators (for computing expected credits)
-    total_capitalization = 600_000_000 * SOL  # 600M SOL approx
-    total_validator_rewards = 137_000_000 * SOL  # simplified
-    epoch_duration_years = 0.005476  # ~2 days
-
-    validator_metas = [
-        {
-            "vote_account": VOTE_A,
-            "commission": COMMISSION_A,
-            "mev_commission": MEV_COMMISSION_A,
+def build_validators_json(epoch, slot, scenarios):
+    validator_metas = []
+    for v in scenarios:
+        validator_metas.append({
+            "vote_account": v.vote_account,
+            "commission": v.inflation_commission,
+            "mev_commission": v.mev_commission_bps,
             "jito_priority_fee_commission": None,
             "jito_priority_fee_lamports": 0,
-            "stake": TOTAL_STAKE_A,
-            "credits": CREDITS_A,
-        },
-        {
-            "vote_account": VOTE_B,
-            "commission": COMMISSION_B,
-            "mev_commission": MEV_COMMISSION_B,
-            "jito_priority_fee_commission": None,
-            "jito_priority_fee_lamports": 0,
-            "stake": TOTAL_STAKE_B,
-            "credits": CREDITS_B,  # Reduced! Triggers DowntimeRevenueImpact
-        },
-        {
-            "vote_account": VOTE_C,
-            "commission": COMMISSION_C,
-            "mev_commission": MEV_COMMISSION_C,
-            "jito_priority_fee_commission": None,
-            "jito_priority_fee_lamports": 0,
-            "stake": TOTAL_STAKE_C,
-            "credits": CREDITS_C,
-        },
-        {
-            "vote_account": VOTE_D,
-            "commission": COMMISSION_D,
-            "mev_commission": MEV_COMMISSION_D,
-            "jito_priority_fee_commission": None,
-            "jito_priority_fee_lamports": 0,
-            "stake": TOTAL_STAKE_D,
-            "credits": CREDITS_D,
-        },
-        {
-            "vote_account": VOTE_E,
-            "commission": COMMISSION_E,
-            "mev_commission": MEV_COMMISSION_E,
-            "jito_priority_fee_commission": None,
-            "jito_priority_fee_lamports": 0,
-            "stake": TOTAL_STAKE_E,
-            "credits": CREDITS_E,
-        },
-    ]
+            "stake": v.total_stake,
+            "credits": v.credits,
+        })
     return {
-        "epoch": EPOCH,
-        "slot": SLOT,
-        "capitalization": total_capitalization,
-        "epoch_duration_in_years": epoch_duration_years,
+        "epoch": epoch,
+        "slot": slot,
+        "capitalization": 600_000_000 * SOL,
+        "epoch_duration_in_years": 0.005476,
         "validator_rate": 0.04039,
-        "validator_rewards": total_validator_rewards,
+        "validator_rewards": 137_000_000 * SOL,
         "validator_metas": validator_metas,
     }
 
 
-def generate_evaluation_json():
-    """Generate RevenueExpectationMetaCollection (evaluation.json) in camelCase"""
-    # Expected EPR ~0.3234 per 1000 SOL per epoch (typical non-bid revenue)
+def build_evaluation_json(epoch, slot, scenarios):
     expected_non_bid_pmpe = 0.3234
-    # For validator B: actual is lower due to downtime
-    # uptime_B = 5000000/6800000 = ~0.7353
-    # actual_non_bid_pmpe_B = expected * uptime = 0.3234 * 0.7353 = ~0.2378
-    actual_non_bid_pmpe_B = expected_non_bid_pmpe * (CREDITS_B / EXPECTED_CREDITS)
+    expectations = []
+    for v in scenarios:
+        if v.role == "sam_downtime":
+            actual_pmpe = round(expected_non_bid_pmpe * (v.credits / EXPECTED_CREDITS), 16)
+        elif v.role == "sam_commission":
+            actual_pmpe = round(expected_non_bid_pmpe * (1.0 - v.inflation_commission_onchain), 10)
+        else:
+            actual_pmpe = expected_non_bid_pmpe
 
-    # For validator C: commission increase causes loss
-    # Commission goes from 0% to 5% inflation, 0% to 8% MEV
-    # before_sam_commission_increase_pmpe represents the extra revenue expected
-    # that was lost due to commission increase
-    before_sam_commission_increase_pmpe_C = 0.05  # Extra expected revenue before increase
+        expectations.append({
+            "voteAccount": v.vote_account,
+            "expectedInflationCommission": 0.0,
+            "actualInflationCommission": v.inflation_commission_onchain,
+            "pastInflationCommission": 0.0,
+            "expectedMevCommission": 0.0,
+            "actualMevCommission": v.mev_commission_onchain if v.mev_commission_onchain else 0.0,
+            "pastMevCommission": None,
+            "expectedNonBidPmpe": expected_non_bid_pmpe,
+            "actualNonBidPmpe": actual_pmpe,
+            "expectedSamPmpe": expected_non_bid_pmpe + v.effective_bid if v.has_sam else expected_non_bid_pmpe,
+            "beforeSamCommissionIncreasePmpe": v.before_sam_increase_pmpe,
+            "maxSamStake": v.total_stake // SOL if v.has_sam else None,
+            "samStakeShare": 1.0 if v.has_sam else 0.0,
+            "lossPerStake": 0.0,
+        })
+    return {"epoch": epoch, "slot": slot, "revenueExpectations": expectations}
 
-    revenue_expectations = [
-        {
-            "voteAccount": VOTE_A,
-            "expectedInflationCommission": 0.0,
-            "actualInflationCommission": 0.0,
-            "pastInflationCommission": 0.0,
-            "expectedMevCommission": 0.0,
-            "actualMevCommission": 0.0,
-            "pastMevCommission": None,
-            "expectedNonBidPmpe": expected_non_bid_pmpe,
-            "actualNonBidPmpe": expected_non_bid_pmpe,  # No loss
-            "expectedSamPmpe": expected_non_bid_pmpe + 0.035,
-            "beforeSamCommissionIncreasePmpe": 0.0,
-            "maxSamStake": 80000,
-            "samStakeShare": 1.0,
-            "lossPerStake": 0.0,
-        },
-        {
-            "voteAccount": VOTE_B,
-            "expectedInflationCommission": 0.0,
-            "actualInflationCommission": 0.0,
-            "pastInflationCommission": 0.0,
-            "expectedMevCommission": 0.0,
-            "actualMevCommission": 0.0,
-            "pastMevCommission": None,
-            "expectedNonBidPmpe": expected_non_bid_pmpe,
-            "actualNonBidPmpe": round(actual_non_bid_pmpe_B, 16),  # Reduced due to downtime
-            "expectedSamPmpe": expected_non_bid_pmpe + 0.025,
-            "beforeSamCommissionIncreasePmpe": 0.0,
-            "maxSamStake": 60000,
-            "samStakeShare": 1.0,
-            "lossPerStake": 0.0,
-        },
-        {
-            "voteAccount": VOTE_C,
-            "expectedInflationCommission": 0.0,
-            "actualInflationCommission": 0.05,  # Increased to 5%
-            "pastInflationCommission": 0.0,
-            "expectedMevCommission": 0.0,
-            "actualMevCommission": 0.08,  # Increased to 8%
-            "pastMevCommission": None,
-            "expectedNonBidPmpe": expected_non_bid_pmpe,
-            # Actual is reduced due to commission increase
-            "actualNonBidPmpe": expected_non_bid_pmpe * 0.92,  # ~8% loss from commission
-            "expectedSamPmpe": expected_non_bid_pmpe + 0.015,
-            "beforeSamCommissionIncreasePmpe": before_sam_commission_increase_pmpe_C,
-            "maxSamStake": 60000,
-            "samStakeShare": 1.0,
-            "lossPerStake": 0.0,
-        },
-        {
-            "voteAccount": VOTE_D,
-            "expectedInflationCommission": 0.0,
-            "actualInflationCommission": 0.0,
-            "pastInflationCommission": 0.0,
-            "expectedMevCommission": 0.0,
-            "actualMevCommission": 0.0,
-            "pastMevCommission": None,
-            "expectedNonBidPmpe": expected_non_bid_pmpe,
-            "actualNonBidPmpe": expected_non_bid_pmpe,
-            "expectedSamPmpe": expected_non_bid_pmpe,
-            "beforeSamCommissionIncreasePmpe": 0.0,
-            "maxSamStake": None,
-            "samStakeShare": 0.0,
-            "lossPerStake": 0.0,
-        },
-        {
-            "voteAccount": VOTE_E,
-            "expectedInflationCommission": 0.0,
-            "actualInflationCommission": 0.0,
-            "pastInflationCommission": 0.0,
-            "expectedMevCommission": 0.0,
-            "actualMevCommission": 0.0,
-            "pastMevCommission": None,
-            "expectedNonBidPmpe": expected_non_bid_pmpe,
-            "actualNonBidPmpe": expected_non_bid_pmpe,
-            "expectedSamPmpe": expected_non_bid_pmpe,
-            "beforeSamCommissionIncreasePmpe": 0.0,
-            "maxSamStake": None,
-            "samStakeShare": 0.0,
-            "lossPerStake": 0.0,
-        },
-    ]
+
+def build_rewards(epoch, scenarios, rng):
+    """Build all 6 reward files. Returns dict of filename -> data.
+
+    IMPORTANT: The old bid-distribution-cli on main does
+    ``block_rewards - jito_priority_fee_rewards`` as u64. To avoid underflow
+    the total Jito priority fees per validator MUST be less than its block
+    rewards.
+    """
+    inflation_rate = rng.randint(80, 120)  # lamports per SOL
+    mev_rate = rng.randint(30, 70)
+    block_rate = rng.randint(20, 40)  # lamports per SOL for block rewards
+
+    inflation = []
+    mev = []
+    jito = []
+
+    # First pass: compute block rewards per validator so we can cap Jito fees
+    validator_block_rewards = {}
+    for v in scenarios:
+        sol = v.total_stake // SOL
+        validator_block_rewards[v.vote_account] = int(sol * block_rate)
+
+    for v in scenarios:
+        block_budget = validator_block_rewards[v.vote_account]
+        num_stakes = len(v.stake_accounts)
+        # Each stake's Jito fee must be small enough that the sum < block_rewards.
+        # Cap per-stake Jito fee at 70% of (block_rewards / num_stakes).
+        max_jito_per_stake = max(1, int(block_budget * 0.7 / max(num_stakes, 1)))
+
+        for s in v.stake_accounts:
+            sol = s["amount"] // SOL
+            inflation.append({"epoch": epoch, "stake_account": s["pubkey"], "amount": str(sol * inflation_rate)})
+            mev.append({"epoch": epoch, "stake_account": s["pubkey"], "amount": str(sol * mev_rate)})
+            jito_amount = rng.randint(1, max(1, max_jito_per_stake))
+            jito.append({"epoch": epoch, "stake_account": s["pubkey"], "amount": str(jito_amount)})
+
+    val_inflation = []
+    val_mev = []
+    val_blocks = []
+    for v in scenarios:
+        sol = v.total_stake // SOL
+        val_inflation.append({"epoch": epoch, "vote_account": v.vote_account, "amount": str(int(sol * inflation_rate * 0.05))})
+        val_mev.append({"epoch": epoch, "vote_account": v.vote_account, "amount": str(int(sol * mev_rate * 0.05))})
+        val_blocks.append({
+            "epoch": epoch,
+            "identity_account": v.identity,
+            "node_pubkey": v.identity,
+            "authorized_voter": v.identity,
+            "vote_account": v.vote_account,
+            "amount": str(validator_block_rewards[v.vote_account]),
+        })
+
     return {
-        "epoch": EPOCH,
-        "slot": SLOT,
-        "revenueExpectations": revenue_expectations,
+        "inflation.json": inflation,
+        "mev.json": mev,
+        "jito_priority_fee.json": jito,
+        "validators_inflation.json": val_inflation,
+        "validators_mev.json": val_mev,
+        "validators_blocks.json": val_blocks,
     }
 
 
-def generate_rewards_inflation():
-    """Generate inflation rewards per stake account (rewards/inflation.json)"""
-    rewards = []
-    # Simplified: reward proportional to stake
-    for stake_pubkey, amount, vote in [
-        (STAKE_A1, int(STAKE_A1_AMOUNT * INFLATION_REWARD_PER_SOL / SOL), VOTE_A),
-        (STAKE_A2, int(STAKE_A2_AMOUNT * INFLATION_REWARD_PER_SOL / SOL), VOTE_A),
-        (STAKE_B1, int(STAKE_B1_AMOUNT * INFLATION_REWARD_PER_SOL / SOL), VOTE_B),
-        (STAKE_B2, int(STAKE_B2_AMOUNT * INFLATION_REWARD_PER_SOL / SOL), VOTE_B),
-        (STAKE_C1, int(STAKE_C1_AMOUNT * INFLATION_REWARD_PER_SOL / SOL), VOTE_C),
-        (STAKE_D1, int(STAKE_D1_AMOUNT * INFLATION_REWARD_PER_SOL / SOL), VOTE_D),
-        (STAKE_E1, int(STAKE_E1_AMOUNT * INFLATION_REWARD_PER_SOL / SOL), VOTE_E),
-        (STAKE_E2, int(STAKE_E2_AMOUNT * INFLATION_REWARD_PER_SOL / SOL), VOTE_E),
-    ]:
-        rewards.append({
-            "epoch": EPOCH,
-            "stake_account": stake_pubkey,
-            "amount": str(amount),
+def build_institutional_payouts(epoch, slot, scenarios, rng):
+    """Build institutional-payouts.json and institutional stakes.json."""
+    inst_validators = [v for v in scenarios if v.role == "institutional"]
+    if not inst_validators:
+        return None, None
+
+    payout_stakers = []
+    payout_distributors = []
+    validators_section = []
+    validator_payout_info = []
+    inst_stake_metas = []
+
+    for v in inst_validators:
+        stake_accounts_json = [
+            {"address": s["pubkey"], "effectiveStake": str(s["amount"])}
+            for s in v.stake_accounts
+        ]
+
+        payout_stakers.append({
+            "voteAccount": v.vote_account,
+            "stakeAccounts": stake_accounts_json,
+            "staker": INST_STAKER_AUTH,
+            "withdrawer": v.withdraw_authority,
+            "activeStake": str(v.total_stake),
+            "activatingStake": "0",
+            "deactivatingStake": "0",
+            "effectiveStake": str(v.total_stake),
+            "balanceLamports": str(v.total_stake + 4 * SOL),
+            "shareInstitutional": 1,
+            "shareDeactivation": 0,
+            "effectivePayoutLamports": str(v.inst_payout_stakers),
+            "deactivatingPayoutLamports": "0",
+            "payoutLamports": str(v.inst_payout_stakers),
         })
-    return rewards
 
-
-def generate_rewards_mev():
-    """Generate MEV rewards per stake account (rewards/mev.json)"""
-    rewards = []
-    for stake_pubkey, amount in [
-        (STAKE_A1, int(STAKE_A1_AMOUNT * MEV_REWARD_PER_SOL / SOL)),
-        (STAKE_A2, int(STAKE_A2_AMOUNT * MEV_REWARD_PER_SOL / SOL)),
-        (STAKE_B1, int(STAKE_B1_AMOUNT * MEV_REWARD_PER_SOL / SOL)),
-        (STAKE_B2, int(STAKE_B2_AMOUNT * MEV_REWARD_PER_SOL / SOL)),
-        (STAKE_C1, int(STAKE_C1_AMOUNT * MEV_REWARD_PER_SOL / SOL)),
-        (STAKE_D1, int(STAKE_D1_AMOUNT * MEV_REWARD_PER_SOL / SOL)),
-        (STAKE_E1, int(STAKE_E1_AMOUNT * MEV_REWARD_PER_SOL / SOL)),
-        (STAKE_E2, int(STAKE_E2_AMOUNT * MEV_REWARD_PER_SOL / SOL)),
-    ]:
-        rewards.append({
-            "epoch": EPOCH,
-            "stake_account": stake_pubkey,
-            "amount": str(amount),
+        payout_distributors.append({
+            "voteAccount": v.vote_account,
+            "stakeAccounts": stake_accounts_json,
+            "payoutLamports": str(v.inst_payout_distributor),
         })
-    return rewards
 
-
-def generate_rewards_jito_priority_fee():
-    """Generate Jito priority fee rewards (rewards/jito_priority_fee.json)"""
-    # Simplified: small amounts
-    rewards = []
-    for stake_pubkey, amount in [
-        (STAKE_A1, 500000),
-        (STAKE_A2, 300000),
-        (STAKE_B1, 400000),
-        (STAKE_B2, 200000),
-        (STAKE_C1, 600000),
-        (STAKE_D1, 250000),
-        (STAKE_E1, 1000000),
-        (STAKE_E2, 500000),
-    ]:
-        rewards.append({
-            "epoch": EPOCH,
-            "stake_account": stake_pubkey,
-            "amount": str(amount),
+        validators_section.append({
+            "voteAccount": v.vote_account,
+            "stakedAmounts": {
+                "voteAccount": v.vote_account,
+                "stakeAccounts": stake_accounts_json,
+                "totalActive": str(v.total_stake),
+                "totalActivating": "0",
+                "totalDeactivating": "0",
+                "totalEffective": str(v.total_stake),
+                "institutionalActive": str(v.total_stake),
+                "institutionalActivating": "0",
+                "institutionalDeactivating": "0",
+                "institutionalEffective": str(v.total_stake),
+            },
+            "validatorRewards": str(rng.randint(100_000, 1_000_000)),
+            "stakersInflationRewards": str(rng.randint(1_000_000, 10_000_000)),
+            "stakersMevRewards": str(rng.randint(500_000, 5_000_000)),
+            "stakersRewards": str(rng.randint(2_000_000, 15_000_000)),
+            "totalRewards": str(rng.randint(3_000_000, 16_000_000)),
+            "isInstitutional": True,
+            "name": f"Test Institutional {v.index}",
+            "apy": "0.3351098545862417967",
+            "institutionalStakedRatio": "1",
+            "apyPercentileDiff": "0.00320321072484937439",
+            "commission": 0,
+            "mevCommission": None,
+            "credits": str(EXPECTED_CREDITS),
+            "uptime": "1.3987038626875478458",
+            "uptimeDeviationBps": "-3987.0386268754784581",
         })
-    return rewards
 
-
-def generate_validators_inflation():
-    """Generate validator inflation rewards (rewards/validators_inflation.json)"""
-    rewards = []
-    for vote, total_stake in [
-        (VOTE_A, TOTAL_STAKE_A),
-        (VOTE_B, TOTAL_STAKE_B),
-        (VOTE_C, TOTAL_STAKE_C),
-        (VOTE_D, TOTAL_STAKE_D),
-        (VOTE_E, TOTAL_STAKE_E),
-    ]:
-        # Validator commission share of inflation rewards
-        amount = int(total_stake * INFLATION_REWARD_PER_SOL / SOL * 0.05)  # ~5% of total
-        rewards.append({
-            "epoch": EPOCH,
-            "vote_account": vote,
-            "amount": str(amount),
+        validator_payout_info.append({
+            "voteAccount": v.vote_account,
+            "isInstitutional": True,
+            "stakeAccounts": stake_accounts_json,
+            "payoutType": "institutional",
+            "distributorFeeLamports": str(v.inst_payout_distributor),
+            "validatorFeeLamports": str(v.inst_payout_distributor),
+            "distributeToStakersLamports": str(v.inst_payout_stakers),
+            "psrFeeLamports": "0",
         })
-    return rewards
 
+        for s in v.stake_accounts:
+            inst_stake_metas.append({
+                "pubkey": s["pubkey"],
+                "balance_lamports": s["amount"] + 2 * SOL,
+                "active_delegation_lamports": s["amount"],
+                "activating_delegation_lamports": 0,
+                "deactivating_delegation_lamports": 0,
+                "validator": v.vote_account,
+                "stake_authority": INST_STAKER_AUTH,
+                "withdraw_authority": v.withdraw_authority,
+            })
 
-def generate_validators_mev():
-    """Generate validator MEV rewards (rewards/validators_mev.json)"""
-    rewards = []
-    for vote, total_stake in [
-        (VOTE_A, TOTAL_STAKE_A),
-        (VOTE_B, TOTAL_STAKE_B),
-        (VOTE_C, TOTAL_STAKE_C),
-        (VOTE_D, TOTAL_STAKE_D),
-        (VOTE_E, TOTAL_STAKE_E),
-    ]:
-        amount = int(total_stake * MEV_REWARD_PER_SOL / SOL * 0.05)
-        rewards.append({
-            "epoch": EPOCH,
-            "vote_account": vote,
-            "amount": str(amount),
+    # Add a non-institutional validator for coverage (use first SAM validator if exists)
+    sam_validators = [v for v in scenarios if v.has_sam]
+    if sam_validators:
+        sv = sam_validators[0]
+        validators_section.append({
+            "voteAccount": sv.vote_account,
+            "stakedAmounts": {
+                "voteAccount": sv.vote_account,
+                "stakeAccounts": [],
+                "totalActive": str(sv.total_stake),
+                "totalActivating": "0",
+                "totalDeactivating": "0",
+                "totalEffective": str(sv.total_stake),
+                "institutionalActive": "0",
+                "institutionalActivating": "0",
+                "institutionalDeactivating": "0",
+                "institutionalEffective": "0",
+            },
+            "validatorRewards": "22",
+            "stakersInflationRewards": "936000",
+            "stakersMevRewards": "424000",
+            "stakersRewards": "1360000",
+            "totalRewards": "1360022",
+            "isInstitutional": False,
+            "name": None,
+            "apy": "0.2817230091720860017",
+            "institutionalStakedRatio": "0",
+            "apyPercentileDiff": "-0.05018363468930642061",
+            "commission": 0,
+            "mevCommission": None,
+            "credits": str(EXPECTED_CREDITS),
+            "uptime": "1.3987038626875478458",
+            "uptimeDeviationBps": "-3987.0386268754784581",
         })
-    return rewards
+        # Add a stake account for snapshot coverage
+        if sv.stake_accounts:
+            inst_stake_metas.append({
+                "pubkey": sv.stake_accounts[0]["pubkey"],
+                "balance_lamports": sv.stake_accounts[0]["amount"] + 2 * SOL,
+                "active_delegation_lamports": sv.stake_accounts[0]["amount"],
+                "activating_delegation_lamports": 0,
+                "deactivating_delegation_lamports": 0,
+                "validator": sv.vote_account,
+                "stake_authority": WHITELIST_STAKE_AUTHORITIES[0],
+                "withdraw_authority": make_pubkey("marinade-withdraw", epoch, sv.index),
+            })
 
-
-def generate_validators_blocks():
-    """Generate validator block rewards (rewards/validators_blocks.json)"""
-    rewards = []
-    for vote, identity, total_stake in [
-        (VOTE_A, IDENTITY_A, TOTAL_STAKE_A),
-        (VOTE_B, IDENTITY_B, TOTAL_STAKE_B),
-        (VOTE_C, IDENTITY_C, TOTAL_STAKE_C),
-        (VOTE_D, IDENTITY_D, TOTAL_STAKE_D),
-        (VOTE_E, IDENTITY_E, TOTAL_STAKE_E),
-    ]:
-        amount = int(total_stake * 30 / SOL)  # Block rewards ~30 lamports/SOL
-        rewards.append({
-            "epoch": EPOCH,
-            "identity_account": identity,
-            "node_pubkey": identity,
-            "authorized_voter": identity,
-            "vote_account": vote,
-            "amount": str(amount),
-        })
-    return rewards
-
-
-def generate_institutional_payouts():
-    """Generate InstitutionalPayout (institutional/institutional-payouts.json)"""
-    return {
-        "epoch": EPOCH,
-        "slot": str(SLOT),
+    payouts = {
+        "epoch": epoch,
+        "slot": str(slot),
         "config": {
             "stakerAuthorityFilter": [
                 "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
@@ -701,10 +554,8 @@ def generate_institutional_payouts():
         },
         "institutionalValidators": {
             "validators": [
-                {
-                    "name": "Test Institutional 1",
-                    "vote_pubkey": VOTE_E,
-                },
+                {"name": f"Test Institutional {v.index}", "vote_pubkey": v.vote_account}
+                for v in inst_validators
             ],
         },
         "distributorFeeBps": 50,
@@ -720,231 +571,138 @@ def generate_institutional_payouts():
             "psrPercentileEffectiveStake": str(481_330 * SOL),
             "psrGraceDowntimeBps": 10,
         },
-        "payoutStakers": [
-            {
-                "voteAccount": VOTE_E,
-                "stakeAccounts": [
-                    {"address": STAKE_E1, "effectiveStake": str(STAKE_E1_AMOUNT)},
-                    {"address": STAKE_E2, "effectiveStake": str(STAKE_E2_AMOUNT)},
-                ],
-                "staker": INST_STAKER_AUTH,
-                "withdrawer": INST_WITHDRAWER,
-                "activeStake": str(STAKE_E1_AMOUNT + STAKE_E2_AMOUNT),
-                "activatingStake": "0",
-                "deactivatingStake": "0",
-                "effectiveStake": str(STAKE_E1_AMOUNT + STAKE_E2_AMOUNT),
-                "balanceLamports": str(STAKE_E1_AMOUNT + STAKE_E2_AMOUNT + 4 * SOL),
-                "shareInstitutional": 1,
-                "shareDeactivation": 0,
-                "effectivePayoutLamports": str(15_000_000),  # 0.015 SOL payout to staker
-                "deactivatingPayoutLamports": "0",
-                "payoutLamports": str(15_000_000),
-            },
-        ],
-        "payoutDistributors": [
-            {
-                "voteAccount": VOTE_E,
-                "stakeAccounts": [
-                    {"address": STAKE_E1, "effectiveStake": str(STAKE_E1_AMOUNT)},
-                    {"address": STAKE_E2, "effectiveStake": str(STAKE_E2_AMOUNT)},
-                ],
-                "payoutLamports": str(750_000),  # Distributor fee
-            },
-        ],
-        "validators": [
-            {
-                "voteAccount": VOTE_E,
-                "stakedAmounts": {
-                    "voteAccount": VOTE_E,
-                    "stakeAccounts": [
-                        {"address": STAKE_E1, "effectiveStake": str(STAKE_E1_AMOUNT)},
-                        {"address": STAKE_E2, "effectiveStake": str(STAKE_E2_AMOUNT)},
-                    ],
-                    "totalActive": str(TOTAL_STAKE_E),
-                    "totalActivating": "0",
-                    "totalDeactivating": "0",
-                    "totalEffective": str(TOTAL_STAKE_E),
-                    "institutionalActive": str(TOTAL_STAKE_E),
-                    "institutionalActivating": "0",
-                    "institutionalDeactivating": "0",
-                    "institutionalEffective": str(TOTAL_STAKE_E),
-                },
-                "validatorRewards": "510000",
-                "stakersInflationRewards": "8500000",
-                "stakersMevRewards": "4200000",
-                "stakersRewards": "12700000",
-                "totalRewards": "13210000",
-                "isInstitutional": True,
-                "name": "Test Institutional 1",
-                "apy": "0.3351098545862417967",
-                "institutionalStakedRatio": "1",
-                "apyPercentileDiff": "0.00320321072484937439",
-                "commission": COMMISSION_E,
-                "mevCommission": None,
-                "credits": str(CREDITS_E),
-                "uptime": "1.3987038626875478458",
-                "uptimeDeviationBps": "-3987.0386268754784581",
-            },
-            # Include a non-institutional validator for coverage
-            {
-                "voteAccount": VOTE_A,
-                "stakedAmounts": {
-                    "voteAccount": VOTE_A,
-                    "stakeAccounts": [],
-                    "totalActive": str(TOTAL_STAKE_A),
-                    "totalActivating": "0",
-                    "totalDeactivating": "0",
-                    "totalEffective": str(TOTAL_STAKE_A),
-                    "institutionalActive": "0",
-                    "institutionalActivating": "0",
-                    "institutionalDeactivating": "0",
-                    "institutionalEffective": "0",
-                },
-                "validatorRewards": "22",
-                "stakersInflationRewards": "936000",
-                "stakersMevRewards": "424000",
-                "stakersRewards": "1360000",
-                "totalRewards": "1360022",
-                "isInstitutional": False,
-                "name": None,
-                "apy": "0.2817230091720860017",
-                "institutionalStakedRatio": "0",
-                "apyPercentileDiff": "-0.05018363468930642061",
-                "commission": COMMISSION_A,
-                "mevCommission": None,
-                "credits": str(CREDITS_A),
-                "uptime": "1.3987038626875478458",
-                "uptimeDeviationBps": "-3987.0386268754784581",
-            },
-        ],
-        "validatorPayoutInfo": [
-            {
-                "voteAccount": VOTE_E,
-                "isInstitutional": True,
-                "stakeAccounts": [
-                    {"address": STAKE_E1, "effectiveStake": str(STAKE_E1_AMOUNT)},
-                    {"address": STAKE_E2, "effectiveStake": str(STAKE_E2_AMOUNT)},
-                ],
-                "payoutType": "institutional",
-                "distributorFeeLamports": str(750_000),
-                "validatorFeeLamports": str(750_000),
-                "distributeToStakersLamports": str(15_000_000),
-                "psrFeeLamports": "0",
-            },
-        ],
+        "payoutStakers": payout_stakers,
+        "payoutDistributors": payout_distributors,
+        "validators": validators_section,
+        "validatorPayoutInfo": validator_payout_info,
     }
 
-
-def generate_institutional_stakes():
-    """Generate StakeMetaCollection for institutional (institutional/stakes.json)
-    This is a snapshot-based stakes file, same format as the bid-distribution one.
-    """
-    # For institutional, we need stake accounts that match the institutional payouts
-    stake_metas = [
-        {
-            "pubkey": STAKE_E1,
-            "balance_lamports": STAKE_E1_AMOUNT + 3 * SOL,
-            "active_delegation_lamports": STAKE_E1_AMOUNT,
-            "activating_delegation_lamports": 0,
-            "deactivating_delegation_lamports": 0,
-            "validator": VOTE_E,
-            "stake_authority": INST_STAKER_AUTH,
-            "withdraw_authority": INST_WITHDRAWER,
-        },
-        {
-            "pubkey": STAKE_E2,
-            "balance_lamports": STAKE_E2_AMOUNT + SOL,
-            "active_delegation_lamports": STAKE_E2_AMOUNT,
-            "activating_delegation_lamports": 0,
-            "deactivating_delegation_lamports": 0,
-            "validator": VOTE_E,
-            "stake_authority": INST_STAKER_AUTH,
-            "withdraw_authority": INST_WITHDRAWER,
-        },
-        # Include some other stake accounts for other validators
-        {
-            "pubkey": STAKE_A1,
-            "balance_lamports": STAKE_A1_AMOUNT + 2 * SOL,
-            "active_delegation_lamports": STAKE_A1_AMOUNT,
-            "activating_delegation_lamports": 0,
-            "deactivating_delegation_lamports": 0,
-            "validator": VOTE_A,
-            "stake_authority": WHITELIST_STAKE_AUTHORITIES[0],
-            "withdraw_authority": MARINADE_WITHDRAW,
-        },
-    ]
-    return {
-        "epoch": EPOCH,
-        "slot": SLOT,
-        "stake_metas": stake_metas,
-    }
+    inst_stakes = {"epoch": epoch, "slot": slot, "stake_metas": inst_stake_metas}
+    return payouts, inst_stakes
 
 
 # ============================================================================
-# Main
+# Write one epoch
 # ============================================================================
 
 def write_json(data, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
-    print(f"  Written: {path}")
 
+
+def generate_epoch(epoch, output_root, quiet=False):
+    """Generate all input files for one epoch. Returns a scenario summary string."""
+    rng = _random_module.Random(epoch)
+    slot = 400_000_000 + epoch * 432_000  # deterministic slot
+
+    scenarios = generate_epoch_scenarios(epoch, rng)
+    out = os.path.join(output_root, str(epoch), "inputs")
+
+    # Bid-distribution inputs
+    write_json(build_stakes_json(epoch, slot, scenarios), os.path.join(out, "stakes.json"))
+    write_json(build_sam_scores_json(epoch, scenarios), os.path.join(out, "sam-scores.json"))
+    write_json(build_validators_json(epoch, slot, scenarios), os.path.join(out, "validators.json"))
+    write_json(build_evaluation_json(epoch, slot, scenarios), os.path.join(out, "evaluation.json"))
+
+    # Rewards
+    rewards = build_rewards(epoch, scenarios, rng)
+    rewards_dir = os.path.join(out, "rewards")
+    for filename, data in rewards.items():
+        write_json(data, os.path.join(rewards_dir, filename))
+
+    # Institutional
+    payouts, inst_stakes = build_institutional_payouts(epoch, slot, scenarios, rng)
+    inst_dir = os.path.join(out, "institutional")
+    if payouts is not None:
+        write_json(payouts, os.path.join(inst_dir, "institutional-payouts.json"))
+        write_json(inst_stakes, os.path.join(inst_dir, "stakes.json"))
+
+    # Build summary
+    role_counts = {}
+    for v in scenarios:
+        role_counts[v.role] = role_counts.get(v.role, 0) + 1
+    parts = []
+    role_labels = {
+        "sam": "SAM-only",
+        "sam_downtime": "SAM+downtime",
+        "sam_commission": "SAM+commission",
+        "passive": "passive",
+        "institutional": "institutional",
+    }
+    for role, label in role_labels.items():
+        if role in role_counts:
+            parts.append(f"{role_counts[role]} {label}")
+
+    summary = f"epoch {epoch}: {len(scenarios)} validators ({', '.join(parts)})"
+    if not quiet:
+        print(f"  {summary}")
+    return summary
+
+
+# ============================================================================
+# Main
+# ============================================================================
 
 def main():
     parser = argparse.ArgumentParser(
         description="Generate fabricated test input data for settlement regression testing"
     )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--epoch", type=int, help="Generate data for a single epoch")
+    group.add_argument("--start-epoch", type=int, help="First epoch in range")
+    parser.add_argument("--end-epoch", type=int, help="Last epoch in range (inclusive)")
     parser.add_argument(
-        "--output-dir",
-        default="./regression-data/99999/inputs",
-        help="Output directory for the generated data (default: ./regression-data/99999/inputs)",
+        "--output-root",
+        default="./regression-data-fabricated",
+        help="Root output directory (default: ./regression-data-fabricated)",
     )
+    # Legacy compatibility
+    parser.add_argument("--output-dir", help=argparse.SUPPRESS)
     args = parser.parse_args()
-    out = args.output_dir
 
-    print(f"Generating fabricated test data for epoch {EPOCH}...")
-    print(f"Output directory: {out}")
+    # Handle legacy --output-dir mode
+    if args.output_dir:
+        # Old mode: --output-dir points directly to inputs dir
+        epoch = args.epoch or 99999
+        out = args.output_dir
+        # Derive output_root from output_dir (strip /<epoch>/inputs)
+        args.output_root = os.path.dirname(os.path.dirname(out))
+        args.epoch = epoch
+        args.start_epoch = None
+
+    # Determine epoch range
+    if args.epoch is not None:
+        start = args.epoch
+        end = args.epoch
+    elif args.start_epoch is not None:
+        start = args.start_epoch
+        end = args.end_epoch if args.end_epoch is not None else start
+    else:
+        # Default: single epoch 99999
+        start = 99999
+        end = 99999
+
+    total = end - start + 1
+    print(f"Generating fabricated test data for {total} epoch(s): {start}..{end}")
+    print(f"Output root: {args.output_root}")
     print()
 
-    # Bid distribution inputs
-    print("Bid distribution inputs:")
-    write_json(generate_stakes_json(), os.path.join(out, "stakes.json"))
-    write_json(generate_sam_scores_json(), os.path.join(out, "sam-scores.json"))
-    write_json(generate_validators_json(), os.path.join(out, "validators.json"))
-    write_json(generate_evaluation_json(), os.path.join(out, "evaluation.json"))
-
-    # Rewards
-    print("\nRewards:")
-    rewards_dir = os.path.join(out, "rewards")
-    write_json(generate_rewards_inflation(), os.path.join(rewards_dir, "inflation.json"))
-    write_json(generate_rewards_mev(), os.path.join(rewards_dir, "mev.json"))
-    write_json(generate_rewards_jito_priority_fee(), os.path.join(rewards_dir, "jito_priority_fee.json"))
-    write_json(generate_validators_inflation(), os.path.join(rewards_dir, "validators_inflation.json"))
-    write_json(generate_validators_mev(), os.path.join(rewards_dir, "validators_mev.json"))
-    write_json(generate_validators_blocks(), os.path.join(rewards_dir, "validators_blocks.json"))
-
-    # Institutional inputs
-    print("\nInstitutional inputs:")
-    inst_dir = os.path.join(out, "institutional")
-    write_json(generate_institutional_payouts(), os.path.join(inst_dir, "institutional-payouts.json"))
-    write_json(generate_institutional_stakes(), os.path.join(inst_dir, "stakes.json"))
+    summaries = []
+    for epoch in range(start, end + 1):
+        summary = generate_epoch(epoch, args.output_root)
+        summaries.append(summary)
 
     print()
-    print("=" * 60)
-    print("Data generation complete!")
-    print()
-    print("Test scenario summary:")
-    print(f"  Epoch: {EPOCH}")
-    print(f"  Validator A ({VOTE_A[:20]}...): SAM bidder only -> Bidding settlement")
-    print(f"  Validator B ({VOTE_B[:20]}...): SAM + downtime -> Bidding + DowntimeRevenueImpact")
-    print(f"  Validator C ({VOTE_C[:20]}...): SAM + commission increase -> Bidding + CommissionSamIncrease")
-    print(f"  Validator D ({VOTE_D[:20]}...): No SAM bid -> No settlements")
-    print(f"  Validator E ({VOTE_E[:20]}...): Institutional -> InstitutionalPayout settlement")
-    print()
-    print("Next steps:")
-    print("  1. Run generate-expected-outputs.sh to produce expected/ from main branch")
-    print("  2. Run regression-test-settlements.sh on current branch to produce actual/ and compare")
+    print(f"Generated {total} epoch(s) of fabricated input data.")
+    if total > 1:
+        # Show distribution stats
+        total_validators = 0
+        for epoch in range(start, end + 1):
+            rng = _random_module.Random(epoch)
+            scenarios = generate_epoch_scenarios(epoch, rng)
+            total_validators += len(scenarios)
+        print(f"Total validators across all epochs: {total_validators} (avg {total_validators/total:.1f}/epoch)")
 
 
 if __name__ == "__main__":

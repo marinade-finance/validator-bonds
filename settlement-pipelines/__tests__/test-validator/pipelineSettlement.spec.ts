@@ -693,12 +693,22 @@ async function chunkedCreateInitializedStakeAccounts({
       ixes = []
       signers = []
     }
-    if (counter % 500 === 0) {
+    if (futures.length >= 50) {
       const results = await Promise.allSettled(futures)
       const failures = results.filter(r => r.status === 'rejected')
+      const successes = results.filter(r => r.status === 'fulfilled')
       if (failures.length > 0) {
+        failures.forEach((f, i) => {
+          if (f.status === 'rejected') {
+            console.error(`  tx failure #${i}:`, f.reason?.message ?? f.reason)
+          }
+        })
         console.log(
           `Stake accounts batch: ${failures.length}/${results.length} transactions failed`,
+        )
+      } else {
+        console.log(
+          `Stake accounts batch: ${successes.length}/${results.length} transactions succeeded`,
         )
       }
       futures = []
@@ -714,6 +724,11 @@ async function chunkedCreateInitializedStakeAccounts({
     const results = await Promise.allSettled(futures)
     const failures = results.filter(r => r.status === 'rejected')
     if (failures.length > 0) {
+      failures.forEach((f, i) => {
+        if (f.status === 'rejected') {
+          console.error(`  tx failure #${i}:`, f.reason?.message ?? f.reason)
+        }
+      })
       console.log(
         `Stake accounts final batch: ${failures.length}/${results.length} transactions failed`,
       )
