@@ -355,12 +355,14 @@ pub async fn load_merkle_tree_with_on_chain(
 
             // sanity check
             if let Some(settlement_account) = &record.settlement_account {
-                return Err(CliError::Critical(anyhow!(
-                    "Mismatched bond address for settlement account {}: expected {}, got {}",
-                    record.settlement_address,
-                    settlement_account.bond,
-                    record.bond_address,
-                )));
+                if settlement_account.bond != record.bond_address {
+                    return Err(CliError::Critical(anyhow!(
+                        "Mismatched bond address for settlement account {}: expected {}, got {}",
+                        record.settlement_address,
+                        settlement_account.bond,
+                        record.bond_address,
+                    )));
+                }
             }
         }
     }
