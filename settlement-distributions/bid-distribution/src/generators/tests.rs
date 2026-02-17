@@ -595,12 +595,18 @@ fn test_generate_penalty_settlements() {
             funder: SettlementFunder::ValidatorBond,
         },
     };
+    let bond_risk_fee_config = SettlementConfig::BondRiskFee {
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+    };
 
     let settlements = generate_penalty_settlements(
         &stake_meta_index,
         &vec![sam_meta],
         &bid_too_low_config,
         &blacklist_config,
+        &bond_risk_fee_config,
         &fee_config,
         &accept_all,
     );

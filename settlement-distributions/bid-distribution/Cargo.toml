@@ -16,6 +16,7 @@ log = { workspace = true }
 merkle-tree = { workspace = true }
 settlement-common = {workspace = true }
 rust_decimal = { workspace = true, features = ["serde-float"] }
+rust_decimal_macros = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }

@@ -18,6 +18,7 @@ pub enum ReportingReasonSettlement {
     Bidding,
     BidTooLowPenalty,
     BlacklistPenalty,
+    BondRiskFee,
     InstitutionalPayout,
     Unknown,
 }
@@ -29,6 +30,7 @@ impl ReportingReasonSettlement {
             ReportingReasonSettlement::Bidding,
             ReportingReasonSettlement::BidTooLowPenalty,
             ReportingReasonSettlement::BlacklistPenalty,
+            ReportingReasonSettlement::BondRiskFee,
             ReportingReasonSettlement::InstitutionalPayout,
             ReportingReasonSettlement::Unknown,
         ]
@@ -42,6 +44,7 @@ impl Display for ReportingReasonSettlement {
             ReportingReasonSettlement::Bidding => write!(f, "Bidding"),
             ReportingReasonSettlement::BidTooLowPenalty => write!(f, "BidTooLowPenalty"),
             ReportingReasonSettlement::BlacklistPenalty => write!(f, "BlacklistPenalty"),
+            ReportingReasonSettlement::BondRiskFee => write!(f, "BondRiskFee"),
             ReportingReasonSettlement::InstitutionalPayout => write!(f, "InstitutionalPayout"),
             ReportingReasonSettlement::Unknown => write!(f, "Unknown"),
         }
@@ -90,6 +93,9 @@ impl SettlementsReportData {
                 ) | (
                     ReportingReasonSettlement::BlacklistPenalty,
                     SettlementReason::BlacklistPenalty
+                ) | (
+                    ReportingReasonSettlement::BondRiskFee,
+                    SettlementReason::BondRiskFee
                 ) | (
                     ReportingReasonSettlement::InstitutionalPayout,
                     SettlementReason::InstitutionalPayout,
@@ -163,6 +169,9 @@ impl SettlementsReportData {
                         }
                         SettlementReason::BlacklistPenalty => {
                             ReportingReasonSettlement::BlacklistPenalty
+                        }
+                        SettlementReason::BondRiskFee => {
+                            ReportingReasonSettlement::BondRiskFee
                         }
                         SettlementReason::InstitutionalPayout => {
                             ReportingReasonSettlement::InstitutionalPayout
