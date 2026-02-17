@@ -626,6 +626,116 @@ fn test_generate_penalty_settlements() {
 }
 
 #[test]
+fn test_generate_bond_risk_fee_settlements() {
+    let epoch = 100;
+    let vote_account = test_vote_account(1);
+    let bond_risk_fee_sol = Decimal::from(5);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                test_withdraw_authority(1),
+                test_stake_authority(1),
+                80 * LAMPORTS_PER_SOL,
+            ),
+            create_stake_meta(
+                test_stake_account(2),
+                vote_account,
+                test_withdraw_authority(2),
+                test_stake_authority(1),
+                20 * LAMPORTS_PER_SOL,
+            ),
+        ],
+    };
+
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .with_values(AuctionValidatorValues {
+            bond_risk_fee_sol,
+            ..AuctionValidatorValues::default()
+        })
+        .build();
+
+    let fee_config = create_test_fee_config(950, 500);
+    let bid_too_low_config = SettlementConfig::BidTooLowPenalty {
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+    };
+    let blacklist_config = SettlementConfig::BlacklistPenalty {
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+    };
+    let bond_risk_fee_config = SettlementConfig::BondRiskFee {
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+    };
+
+    let settlements = generate_penalty_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &bid_too_low_config,
+        &blacklist_config,
+        &bond_risk_fee_config,
+        &fee_config,
+        &accept_all,
+    );
+
+    let bond_risk_fee_settlements: Vec<_> = settlements
+        .iter()
+        .filter(|s| matches!(s.reason, SettlementReason::BondRiskFee))
+        .collect();
+    assert_eq!(
+        bond_risk_fee_settlements.len(),
+        1,
+        "Should have exactly one BondRiskFee settlement"
+    );
+
+    let settlement = &bond_risk_fee_settlements[0];
+    let expected_lamports = 5 * LAMPORTS_PER_SOL;
+    assert_eq!(settlement.claims.len(), 2, "Should have 2 staker claims");
+    assert!(
+        settlement.claims_amount <= expected_lamports,
+        "Total claims {} should not exceed {} lamports",
+        settlement.claims_amount,
+        expected_lamports
+    );
+    assert!(
+        settlement.claims_amount > 0,
+        "Should have non-zero claims amount"
+    );
+
+    // 80/20 split: first staker gets ~80%, second ~20%
+    let claim1 = settlement
+        .claims
+        .iter()
+        .find(|c| c.withdraw_authority == test_withdraw_authority(1))
+        .expect("Should have claim for staker 1");
+    let claim2 = settlement
+        .claims
+        .iter()
+        .find(|c| c.withdraw_authority == test_withdraw_authority(2))
+        .expect("Should have claim for staker 2");
+    assert!(
+        claim1.claim_amount > claim2.claim_amount,
+        "Staker 1 (80 SOL) should get more than staker 2 (20 SOL)"
+    );
+
+    // No bid_too_low or blacklist since penalties are 0
+    let has_other = settlements
+        .iter()
+        .any(|s| !matches!(s.reason, SettlementReason::BondRiskFee));
+    assert!(!has_other, "Should only have BondRiskFee settlements");
+}
+
+#[test]
 fn test_zero_rewards() {
     let epoch = 100;
     let vote_account = test_vote_account(1);
@@ -836,6 +946,11 @@ impl SamMetaParams {
 
     fn auction_values(mut self, commissions: CommissionDetails) -> Self {
         self.values = Some(create_auction_validator_values(commissions));
+        self
+    }
+
+    fn with_values(mut self, values: AuctionValidatorValues) -> Self {
+        self.values = Some(values);
         self
     }
 
