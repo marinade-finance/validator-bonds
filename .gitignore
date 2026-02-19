@@ -42,5 +42,5 @@ fuzzing/
 *.local.json
 
 # Testing
-regression-data/
+regression-data*
 

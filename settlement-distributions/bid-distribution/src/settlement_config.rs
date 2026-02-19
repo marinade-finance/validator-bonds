@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use merkle_tree::serde_serialize::{option_vec_pubkey_string_conversion, pubkey_string_conversion};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -52,6 +53,21 @@ pub struct FeeConfig {
 }
 
 impl FeeConfig {
+    /// Validates that fee basis points are within valid range (0..=10000)
+    pub fn validate(&self) -> anyhow::Result<()> {
+        ensure!(
+            self.marinade_fee_bps <= 10_000,
+            "marinade_fee_bps {} exceeds maximum 10000 (100%)",
+            self.marinade_fee_bps
+        );
+        ensure!(
+            self.dao.fee_split_share_bps <= 10_000,
+            "dao.fee_split_share_bps {} exceeds maximum 10000 (100%)",
+            self.dao.fee_split_share_bps
+        );
+        Ok(())
+    }
+
     /// Returns fee authorities as (marinade_withdraw, marinade_stake, dao_withdraw, dao_stake)
     pub fn fee_authorities(&self) -> (&Pubkey, &Pubkey, &Pubkey, &Pubkey) {
         (
@@ -71,10 +87,9 @@ impl FeeConfig {
     }
 }
 
-/// Unified settlement configuration for all settlement types.
-/// Each variant represents a different type of settlement that can be generated.
+/// SAM-specific settlement configurations
 #[derive(Clone, Deserialize, Serialize, Debug)]
-pub enum SettlementConfig {
+pub enum SamSettlementConfig {
     /// SAM Bidding - rewards from auction participation
     Bidding { meta: SettlementMeta },
 
@@ -83,89 +98,50 @@ pub enum SettlementConfig {
 
     /// SAM BlacklistPenalty - penalty for blacklisted validators
     BlacklistPenalty { meta: SettlementMeta },
+}
 
-    /// PSR DowntimeRevenueImpact - compensation for downtime
-    DowntimeRevenueImpactSettlement {
-        meta: SettlementMeta,
-        min_settlement_lamports: u64,
-        grace_downtime_bps: Option<u64>,
-        covered_range_bps: [u64; 2],
-    },
+impl SamSettlementConfig {
+    pub fn meta(&self) -> &SettlementMeta {
+        match self {
+            SamSettlementConfig::Bidding { meta } => meta,
+            SamSettlementConfig::BidTooLowPenalty { meta } => meta,
+            SamSettlementConfig::BlacklistPenalty { meta } => meta,
+        }
+    }
+}
 
-    /// PSR CommissionSamIncrease - compensation for commission increase
-    CommissionSamIncreaseSettlement {
-        meta: SettlementMeta,
-        min_settlement_lamports: u64,
-        grace_increase_bps: Option<u64>,
-        covered_range_bps: [u64; 2],
-        extra_penalty_threshold_bps: u64,
-        base_markup_bps: u64,
-        penalty_markup_bps: u64,
-    },
+/// Unified settlement configuration for all settlement types.
+/// SAM variants are defined here; PSR variants are reused from settlement-common
+/// to avoid field duplication and silent drift.
+#[derive(Clone, Deserialize, Serialize, Debug)]
+#[serde(untagged)]
+pub enum SettlementConfig {
+    Sam(SamSettlementConfig),
+    Psr(PsrSettlementConfig),
 }
 
 impl SettlementConfig {
     pub fn meta(&self) -> &SettlementMeta {
         match self {
-            SettlementConfig::Bidding { meta } => meta,
-            SettlementConfig::BidTooLowPenalty { meta } => meta,
-            SettlementConfig::BlacklistPenalty { meta } => meta,
-            SettlementConfig::DowntimeRevenueImpactSettlement { meta, .. } => meta,
-            SettlementConfig::CommissionSamIncreaseSettlement { meta, .. } => meta,
+            SettlementConfig::Sam(sam) => sam.meta(),
+            SettlementConfig::Psr(psr) => psr.meta(),
         }
     }
 
     /// Checks if this is a SAM settlement type (Bidding, BidTooLowPenalty, BlacklistPenalty)
     pub fn is_sam_settlement(&self) -> bool {
-        matches!(
-            self,
-            SettlementConfig::Bidding { .. }
-                | SettlementConfig::BidTooLowPenalty { .. }
-                | SettlementConfig::BlacklistPenalty { .. }
-        )
+        matches!(self, SettlementConfig::Sam(_))
     }
 
     /// Checks if this is a PSR settlement type (DowntimeRevenueImpact, CommissionSamIncrease)
     pub fn is_psr_settlement(&self) -> bool {
-        matches!(
-            self,
-            SettlementConfig::DowntimeRevenueImpactSettlement { .. }
-                | SettlementConfig::CommissionSamIncreaseSettlement { .. }
-        )
+        matches!(self, SettlementConfig::Psr(_))
     }
 
-    /// Converts to PSR settlement config for use with PSR settlement generator.
-    /// Only valid for PSR settlement types.
-    pub fn to_psr_config(&self) -> Option<PsrSettlementConfig> {
+    /// Returns the PSR config reference if this is a PSR settlement type.
+    pub fn to_psr_config(&self) -> Option<&PsrSettlementConfig> {
         match self {
-            SettlementConfig::DowntimeRevenueImpactSettlement {
-                meta,
-                min_settlement_lamports,
-                grace_downtime_bps,
-                covered_range_bps,
-            } => Some(PsrSettlementConfig::DowntimeRevenueImpactSettlement {
-                meta: meta.clone(),
-                min_settlement_lamports: *min_settlement_lamports,
-                grace_downtime_bps: *grace_downtime_bps,
-                covered_range_bps: *covered_range_bps,
-            }),
-            SettlementConfig::CommissionSamIncreaseSettlement {
-                meta,
-                min_settlement_lamports,
-                grace_increase_bps,
-                covered_range_bps,
-                extra_penalty_threshold_bps,
-                base_markup_bps,
-                penalty_markup_bps,
-            } => Some(PsrSettlementConfig::CommissionSamIncreaseSettlement {
-                meta: meta.clone(),
-                min_settlement_lamports: *min_settlement_lamports,
-                grace_increase_bps: *grace_increase_bps,
-                covered_range_bps: *covered_range_bps,
-                extra_penalty_threshold_bps: *extra_penalty_threshold_bps,
-                base_markup_bps: *base_markup_bps,
-                penalty_markup_bps: *penalty_markup_bps,
-            }),
+            SettlementConfig::Psr(config) => Some(config),
             _ => None,
         }
     }
@@ -198,32 +174,41 @@ impl BidDistributionConfig {
             .collect()
     }
 
-    /// Returns PSR settlement configs converted to PsrSettlementConfig
+    /// Returns PSR settlement configs (references to settlement-common types)
     pub fn psr_settlements(&self) -> Vec<PsrSettlementConfig> {
         self.settlements
             .iter()
-            .filter_map(|c| c.to_psr_config())
+            .filter_map(|c| c.to_psr_config().cloned())
             .collect()
     }
 
     /// Find the Bidding config (for SAM bid settlements)
     pub fn bidding_config(&self) -> Option<&SettlementConfig> {
-        self.settlements
-            .iter()
-            .find(|c| matches!(c, SettlementConfig::Bidding { .. }))
+        self.settlements.iter().find(|c| {
+            matches!(
+                c,
+                SettlementConfig::Sam(SamSettlementConfig::Bidding { .. })
+            )
+        })
     }
 
     /// Find the BidTooLowPenalty config (for SAM penalty settlements)
     pub fn bid_too_low_penalty_config(&self) -> Option<&SettlementConfig> {
-        self.settlements
-            .iter()
-            .find(|c| matches!(c, SettlementConfig::BidTooLowPenalty { .. }))
+        self.settlements.iter().find(|c| {
+            matches!(
+                c,
+                SettlementConfig::Sam(SamSettlementConfig::BidTooLowPenalty { .. })
+            )
+        })
     }
 
     /// Find the BlacklistPenalty config (for SAM penalty settlements)
     pub fn blacklist_penalty_config(&self) -> Option<&SettlementConfig> {
-        self.settlements
-            .iter()
-            .find(|c| matches!(c, SettlementConfig::BlacklistPenalty { .. }))
+        self.settlements.iter().find(|c| {
+            matches!(
+                c,
+                SettlementConfig::Sam(SamSettlementConfig::BlacklistPenalty { .. })
+            )
+        })
     }
 }

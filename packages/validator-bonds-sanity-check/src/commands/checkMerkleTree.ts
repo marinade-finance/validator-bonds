@@ -62,7 +62,7 @@ export function installCheckMerkleTree(program: Command) {
     .action(manageCheckMerkleTree)
 }
 
-interface MerkleTreeMetrics {
+export interface MerkleTreeMetrics {
   epoch: number
   totalValidators: number
   totalClaims: number
@@ -71,7 +71,7 @@ interface MerkleTreeMetrics {
   avgClaimsPerValidator: Decimal
 }
 
-type StatsCalculation = AnomalyDetectionResult & {
+export type StatsCalculation = AnomalyDetectionResult & {
   description?: string
   stats?: DescriptiveStats
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -89,7 +89,7 @@ const FIELD_DESCRIPTIONS: Record<string, string> = {
   avgClaimsPerValidator: 'Average number of claims per validator.',
 }
 
-function extractMetrics(dto: UnifiedMerkleTreesDto): MerkleTreeMetrics {
+export function extractMetrics(dto: UnifiedMerkleTreesDto): MerkleTreeMetrics {
   const totalValidators = dto.merkle_trees.length
   const totalClaims = dto.merkle_trees.reduce(
     (sum, tree) => sum + tree.tree_nodes.length,
@@ -356,7 +356,7 @@ async function manageCheckMerkleTree({
   logger.info('✓ All checks passed')
 }
 
-function reportMerkleTreeAnomalies({
+export function reportMerkleTreeAnomalies({
   currentMetrics,
   historicalMetrics,
   logger = CONSOLE_LOG,
@@ -435,7 +435,7 @@ function reportMerkleTreeAnomalies({
   return { anomalyDetected, stats, report }
 }
 
-function detectIndividualAnomaly({
+export function detectIndividualAnomaly({
   currentValue,
   historicalValues,
   field,

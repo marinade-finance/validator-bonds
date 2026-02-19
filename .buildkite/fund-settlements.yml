@@ -89,6 +89,7 @@ steps:
           echo "Skipping epoch $$epoch, because it's before the contract v2 deployment epoch $$starting_epoch_contract_v2"
           continue
         fi
+        # Glob matches both unified-merkle-trees.json and *-settlement-merkle-trees.json (institutional)
         for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/$${claim_type}*merkle-trees.json"); do
           base_name=$(basename "$$merkle_tree_file")
           gcloud storage cp "$$merkle_tree_file" "./merkle-trees/$${epoch}_$${base_name}"
