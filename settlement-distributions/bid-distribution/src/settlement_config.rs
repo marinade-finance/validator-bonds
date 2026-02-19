@@ -84,6 +84,9 @@ pub enum SettlementConfig {
     /// SAM BlacklistPenalty - penalty for blacklisted validators
     BlacklistPenalty { meta: SettlementMeta },
 
+    /// SAM BondRiskFee - bond risk fee charged to validators
+    BondRiskFee { meta: SettlementMeta },
+
     /// PSR DowntimeRevenueImpact - compensation for downtime
     DowntimeRevenueImpactSettlement {
         meta: SettlementMeta,
@@ -110,6 +113,7 @@ impl SettlementConfig {
             SettlementConfig::Bidding { meta } => meta,
             SettlementConfig::BidTooLowPenalty { meta } => meta,
             SettlementConfig::BlacklistPenalty { meta } => meta,
+            SettlementConfig::BondRiskFee { meta } => meta,
             SettlementConfig::DowntimeRevenueImpactSettlement { meta, .. } => meta,
             SettlementConfig::CommissionSamIncreaseSettlement { meta, .. } => meta,
         }
@@ -122,6 +126,7 @@ impl SettlementConfig {
             SettlementConfig::Bidding { .. }
                 | SettlementConfig::BidTooLowPenalty { .. }
                 | SettlementConfig::BlacklistPenalty { .. }
+                | SettlementConfig::BondRiskFee { .. }
         )
     }
 
@@ -225,5 +230,12 @@ impl BidDistributionConfig {
         self.settlements
             .iter()
             .find(|c| matches!(c, SettlementConfig::BlacklistPenalty { .. }))
+    }
+
+    /// Find the BondRiskFee config (for SAM bond risk fee settlements)
+    pub fn bond_risk_fee_config(&self) -> Option<&SettlementConfig> {
+        self.settlements
+            .iter()
+            .find(|c| matches!(c, SettlementConfig::BondRiskFee { .. }))
     }
 }
