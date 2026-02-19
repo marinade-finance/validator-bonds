@@ -85,27 +85,24 @@ impl FeeConfig {
     }
 }
 
-/// SAM-specific settlement configurations
+/// SAM-specific settlement configuration
 #[derive(Clone, Deserialize, Serialize, Debug)]
-pub enum SamSettlementConfig {
-    /// SAM Bidding - rewards from auction participation
-    Bidding { meta: SettlementMeta },
-
-    /// SAM BidTooLowPenalty - penalty for bidding too low
-    BidTooLowPenalty { meta: SettlementMeta },
-
-    /// SAM BlacklistPenalty - penalty for blacklisted validators
-    BlacklistPenalty { meta: SettlementMeta },
+pub struct SamSettlementConfig {
+    pub meta: SettlementMeta,
+    #[serde(flatten)]
+    pub kind: SamSettlementKind,
 }
 
-impl SamSettlementConfig {
-    pub fn meta(&self) -> &SettlementMeta {
-        match self {
-            SamSettlementConfig::Bidding { meta } => meta,
-            SamSettlementConfig::BidTooLowPenalty { meta } => meta,
-            SamSettlementConfig::BlacklistPenalty { meta } => meta,
-        }
-    }
+/// SAM settlement type variants
+#[derive(Clone, Deserialize, Serialize, Debug)]
+#[serde(tag = "type")]
+pub enum SamSettlementKind {
+    /// SAM Bidding - rewards from auction participation
+    Bidding,
+    /// SAM BidTooLowPenalty - penalty for bidding too low
+    BidTooLowPenalty,
+    /// SAM BlacklistPenalty - penalty for blacklisted validators
+    BlacklistPenalty,
 }
 
 /// Unified settlement configuration for all settlement types.
@@ -121,8 +118,8 @@ pub enum SettlementConfig {
 impl SettlementConfig {
     pub fn meta(&self) -> &SettlementMeta {
         match self {
-            SettlementConfig::Sam(sam) => sam.meta(),
-            SettlementConfig::Psr(psr) => psr.meta(),
+            SettlementConfig::Sam(sam) => &sam.meta,
+            SettlementConfig::Psr(psr) => &psr.meta,
         }
     }
 
@@ -185,7 +182,10 @@ impl BidDistributionConfig {
         self.settlements.iter().find(|c| {
             matches!(
                 c,
-                SettlementConfig::Sam(SamSettlementConfig::Bidding { .. })
+                SettlementConfig::Sam(SamSettlementConfig {
+                    kind: SamSettlementKind::Bidding,
+                    ..
+                })
             )
         })
     }
@@ -195,7 +195,10 @@ impl BidDistributionConfig {
         self.settlements.iter().find(|c| {
             matches!(
                 c,
-                SettlementConfig::Sam(SamSettlementConfig::BidTooLowPenalty { .. })
+                SettlementConfig::Sam(SamSettlementConfig {
+                    kind: SamSettlementKind::BidTooLowPenalty,
+                    ..
+                })
             )
         })
     }
@@ -205,7 +208,10 @@ impl BidDistributionConfig {
         self.settlements.iter().find(|c| {
             matches!(
                 c,
-                SettlementConfig::Sam(SamSettlementConfig::BlacklistPenalty { .. })
+                SettlementConfig::Sam(SamSettlementConfig {
+                    kind: SamSettlementKind::BlacklistPenalty,
+                    ..
+                })
             )
         })
     }

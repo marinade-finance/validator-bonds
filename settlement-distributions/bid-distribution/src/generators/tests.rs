@@ -6,7 +6,7 @@ use crate::sam_meta::{
     AuctionValidatorValues, CommissionDetails, RevShare, SamMetadata, ValidatorSamMeta,
 };
 use crate::settlement_config::{
-    AuthorityConfig, DaoConfig, FeeConfig, SamSettlementConfig, SettlementConfig,
+    AuthorityConfig, DaoConfig, FeeConfig, SamSettlementConfig, SamSettlementKind, SettlementConfig,
 };
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
@@ -15,7 +15,9 @@ use settlement_common::protected_events::{ProtectedEvent, ProtectedEventCollecti
 use settlement_common::settlement_collection::{
     Settlement, SettlementFunder, SettlementMeta, SettlementReason,
 };
-use settlement_common::settlement_config::SettlementConfig as PsrSettlementConfig;
+use settlement_common::settlement_config::{
+    SettlementConfig as PsrSettlementConfig, SettlementConfigKind as PsrSettlementConfigKind,
+};
 use settlement_common::stake_meta_index::StakeMetaIndex;
 use snapshot_parser_validator_cli::stake_meta::{StakeMeta, StakeMetaCollection};
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
@@ -593,15 +595,17 @@ fn test_generate_penalty_settlements() {
         .build();
 
     let fee_config = create_test_fee_config(950, 500);
-    let bid_too_low_config = SettlementConfig::Sam(SamSettlementConfig::BidTooLowPenalty {
+    let bid_too_low_config = SettlementConfig::Sam(SamSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
+        kind: SamSettlementKind::BidTooLowPenalty,
     });
-    let blacklist_config = SettlementConfig::Sam(SamSettlementConfig::BlacklistPenalty {
+    let blacklist_config = SettlementConfig::Sam(SamSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
+        kind: SamSettlementKind::BlacklistPenalty,
     });
 
     let settlements = generate_penalty_settlements(
@@ -893,10 +897,11 @@ fn create_test_fee_config(marinade_fee_bps: u64, dao_fee_split_share_bps: u64) -
 }
 
 fn create_test_settlement_config() -> SettlementConfig {
-    SettlementConfig::Sam(SamSettlementConfig::Bidding {
+    SettlementConfig::Sam(SamSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
+        kind: SamSettlementKind::Bidding,
     })
 }
 
@@ -1160,13 +1165,15 @@ fn test_generate_psr_downtime_basic() {
         }],
     };
 
-    let settlement_config = PsrSettlementConfig::DowntimeRevenueImpactSettlement {
+    let settlement_config = PsrSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
-        min_settlement_lamports: 0,
-        grace_downtime_bps: None,
-        covered_range_bps: [0, 5000],
+        kind: PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            min_settlement_lamports: 0,
+            grace_downtime_bps: None,
+            covered_range_bps: [0, 5000],
+        },
     };
 
     let settlements = generate_psr_settlements(
@@ -1241,13 +1248,15 @@ fn test_generate_psr_downtime_marinade_funder_adds_null_claim() {
         }],
     };
 
-    let settlement_config = PsrSettlementConfig::DowntimeRevenueImpactSettlement {
+    let settlement_config = PsrSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::Marinade,
         },
-        min_settlement_lamports: 0,
-        grace_downtime_bps: None,
-        covered_range_bps: [5000, 10000],
+        kind: PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            min_settlement_lamports: 0,
+            grace_downtime_bps: None,
+            covered_range_bps: [5000, 10000],
+        },
     };
 
     let settlements = generate_psr_settlements(
@@ -1311,13 +1320,15 @@ fn test_generate_psr_downtime_below_grace_period() {
         }],
     };
 
-    let settlement_config = PsrSettlementConfig::DowntimeRevenueImpactSettlement {
+    let settlement_config = PsrSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
-        min_settlement_lamports: 0,
-        grace_downtime_bps: Some(100),
-        covered_range_bps: [0, 5000],
+        kind: PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            min_settlement_lamports: 0,
+            grace_downtime_bps: Some(100),
+            covered_range_bps: [0, 5000],
+        },
     };
 
     let settlements = generate_psr_settlements(
@@ -1370,13 +1381,15 @@ fn test_generate_psr_downtime_below_min_settlement() {
     };
 
     // claim = 100_000_000 * 0.0005 = 50_000 (below min_settlement_lamports of 100_000)
-    let settlement_config = PsrSettlementConfig::DowntimeRevenueImpactSettlement {
+    let settlement_config = PsrSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
-        min_settlement_lamports: 100_000,
-        grace_downtime_bps: None,
-        covered_range_bps: [0, 5000],
+        kind: PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            min_settlement_lamports: 100_000,
+            grace_downtime_bps: None,
+            covered_range_bps: [0, 5000],
+        },
     };
 
     let settlements = generate_psr_settlements(
@@ -1433,16 +1446,18 @@ fn test_generate_psr_commission_increase_basic() {
         }],
     };
 
-    let settlement_config = PsrSettlementConfig::CommissionSamIncreaseSettlement {
+    let settlement_config = PsrSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
-        min_settlement_lamports: 0,
-        grace_increase_bps: None,
-        covered_range_bps: [0, 10000],
-        extra_penalty_threshold_bps: 5000,
-        base_markup_bps: 1000,
-        penalty_markup_bps: 2000,
+        kind: PsrSettlementConfigKind::CommissionSamIncreaseSettlement {
+            min_settlement_lamports: 0,
+            grace_increase_bps: None,
+            covered_range_bps: [0, 10000],
+            extra_penalty_threshold_bps: 5000,
+            base_markup_bps: 1000,
+            penalty_markup_bps: 2000,
+        },
     };
 
     let settlements = generate_psr_settlements(
@@ -1511,13 +1526,15 @@ fn test_generate_psr_stake_authority_filter() {
         }],
     };
 
-    let settlement_config = PsrSettlementConfig::DowntimeRevenueImpactSettlement {
+    let settlement_config = PsrSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
-        min_settlement_lamports: 0,
-        grace_downtime_bps: None,
-        covered_range_bps: [0, 5000],
+        kind: PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            min_settlement_lamports: 0,
+            grace_downtime_bps: None,
+            covered_range_bps: [0, 5000],
+        },
     };
 
     let filter = |pubkey: &Pubkey| *pubkey == allowed_authority;
@@ -1588,13 +1605,15 @@ fn test_generate_psr_null_claim_deterministic_sorting() {
         }],
     };
 
-    let settlement_config = PsrSettlementConfig::DowntimeRevenueImpactSettlement {
+    let settlement_config = PsrSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::Marinade,
         },
-        min_settlement_lamports: 0,
-        grace_downtime_bps: None,
-        covered_range_bps: [5000, 10000],
+        kind: PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            min_settlement_lamports: 0,
+            grace_downtime_bps: None,
+            covered_range_bps: [5000, 10000],
+        },
     };
 
     let settlements = generate_psr_settlements(
