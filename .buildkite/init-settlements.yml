@@ -107,12 +107,7 @@ steps:
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - claim_type=$(buildkite-agent meta-data get claim_type)
-    - |
-      if [[ "$$claim_type" == "unified" ]]; then
-        gcloud storage cp "$gs_bucket/$$epoch/unified-merkle-trees.json" "./settlement-merkle-trees.json"
-      else
-        gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlement-merkle-trees.json" "./settlement-merkle-trees.json"
-      fi
+    - gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-merkle-trees.json" "./settlement-merkle-trees.json"
     artifact_paths:
       - "./settlement-merkle-trees.json"
 
@@ -130,12 +125,7 @@ steps:
       - |
         claim_type=$(buildkite-agent meta-data get claim_type)
         echo "Claim Type: '$${claim_type}'"
-      - |
-        if [[ "$$claim_type" == "unified" ]]; then
-          buildkite-agent pipeline upload .buildkite/sanity-unified.yml
-        else
-          buildkite-agent pipeline upload .buildkite/sanity-$${claim_type}.yml
-        fi
+      - buildkite-agent pipeline upload .buildkite/sanity-$${claim_type}.yml
 
   - wait: ~
 
