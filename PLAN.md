@@ -1,7 +1,7 @@
 # Bond Risk Notification System — Full Context & Plan
 
 > **Purpose of this file:** Load this into a new session to restore full project context.
-> Last updated: 2026-02-13.
+> Last updated: 2026-02-19.
 > Detailed design analysis also at: `/home/chalda/marinade/claude-summary/2026-02-13_bond-risk-notification-system-design.md`
 
 ---
@@ -11,12 +11,13 @@
 1. [Problem Statement](#1-problem-statement)
 2. [How SAM Auction & Bonds Work](#2-how-sam-auction--bonds-work)
 3. [This Repository (validator-bonds)](#3-this-repository-validator-bonds)
-4. [marinade-notifications Service](#4-marinade-notifications-service)
+4. [marinade-notifications Service (Reference)](#4-marinade-notifications-service-reference)
 5. [PSR Dashboard](#5-psr-dashboard)
 6. [Institutional Staking Checker (Reference)](#6-institutional-staking-checker-reference)
 7. [Team Discussion Summary](#7-team-discussion-summary)
-8. [Proposed Architecture — 3 Components](#8-proposed-architecture--3-components)
-9. [Open Questions](#9-open-questions)
+8. [Agreed Architecture](#8-agreed-architecture)
+9. [Work Items](#9-work-items)
+10. [Open Design Questions](#10-open-design-questions)
 
 ---
 
@@ -76,7 +77,7 @@ Source: https://marinade.finance/blog/more-control-better-yields-introducing-dyn
 
 ## 3. This Repository (validator-bonds)
 
-Path: `/home/chalda/tmp/validator-bonds`
+Path: `/home/chalda/marinade/validator-bonds`
 
 ### Repository Structure
 
@@ -85,6 +86,8 @@ programs/validator-bonds/    — Anchor on-chain contract (Rust)
 packages/
   validator-bonds-sdk/       — TypeScript SDK
   validator-bonds-cli/       — TypeScript CLI (npm: @marinade.finance/validator-bonds-cli)
+  validator-bonds-cli-core/  — Shared CLI core (announcements, banners, commands)
+  validator-bonds-cli-institutional/ — Institutional CLI variant
 api/                         — Rust OpenAPI service (https://validator-bonds-api.marinade.finance/docs)
 bonds-collector/             — Rust CLI: loads on-chain bond data → YAML → PostgreSQL
 settlement-distributions/    — CLIs for generating Settlement + Merkle Tree JSON data
@@ -107,8 +110,42 @@ scripts/                     — Pipeline and integration scripts
 
 - Location: `api/`
 - REST at `https://validator-bonds-api.marinade.finance`
-- Endpoints: `/bonds`, `/protected-events`, `/docs`
+- Endpoints: `/v1/bonds`, `/v1/protected-events`, `/v1/announcements`, `/docs`
 - Backed by PostgreSQL, populated by bonds-collector
+- DB connection: `--postgres-url` CLI arg (from `POSTGRES_URL` Buildkite secret env var) + `--postgres-ssl-root-cert` (public AWS RDS cert `https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem`)
+- Uses `tokio-postgres` with OpenSSL TLS, no AWS Param Store / Secrets Manager
+
+### Existing CLI Announcements System
+
+The CLI already has a production-grade announcement system. This is important context for the notification design.
+
+**DB schema** (`migrations/0005-add-cli-announcements.sql`):
+
+- `cli_announcements` table: `group_id` (latest group wins via `MAX(group_id)`), `group_order`, `title`, `text`, `enabled`, filtering by `operation_filter` (prefix match), `account_filter`, `type_filter` (sam/institutional)
+- `cli_usage` table: fire-and-forget analytics recording account, operation, cli_version, cli_type
+
+**API endpoint** (`api/src/handlers/cli_announcements.rs`):
+
+- `GET /v1/announcements?account=&operation=&cli_version=&type=`
+- Returns filtered announcements from latest group, records CLI usage (non-blocking)
+
+**CLI integration** (`packages/validator-bonds-cli-core/src/`):
+
+- `announcements.ts` — non-blocking background fetch in `preAction` hook (module-level promise caching)
+- `banner.ts` — Unicode box rendering with ANSI color support, terminal-width responsive
+- `commands/mainCommand.ts` — `preAction` starts fetch, `postAction` renders banners
+- 1.5s timeout, silent failures, debug logs only
+- Both SAM and Institutional CLI variants have announcements enabled
+- API URL overridable via `ANNOUNCEMENTS_API_URL` env var or `--announcements-api-url` CLI flag
+
+**Key design decisions in existing system:**
+
+- Latest `group_id` only — roll out new announcements without cluttering old
+- Prefix filtering — "configure" matches "configure-bond", "configure-config"
+- Non-blocking — never delays CLI command execution
+- Graceful degradation — CLI works fine if API unreachable
+
+**Currently managed via direct SQL** — no admin UI exists.
 
 ### Settlement Pipeline Stages (buildkite)
 
@@ -156,7 +193,9 @@ Utility: show-event
 
 ---
 
-## 4. marinade-notifications Service
+## 4. marinade-notifications Service (Reference)
+
+> **Note:** This service will NOT be extended for bond notifications. Documented here as reference for the push channel design (email, Telegram) which will be built later.
 
 Path: `/home/chalda/marinade/marinade-notifications`
 
@@ -164,8 +203,8 @@ Path: `/home/chalda/marinade/marinade-notifications`
 
 ```
 Producer → message-client → REST API → PostgreSQL Queue → Consumer → Delivery Channels
-                                                                ↓
-                                                         Intercom + Partner Email (SMTP)
+                                                               ↓
+                                                        Intercom + Partner Email (SMTP)
 ```
 
 ### What It Does Now
@@ -180,68 +219,6 @@ Producer → message-client → REST API → PostgreSQL Queue → Consumer → D
 
 1. **Intercom** — searches users by wallet prefix (`custom_attributes.walletID`), sends data events with idempotency
 2. **Partner Email** — BigQuery-backed whitelist → SMTP (Mailgun, port 587) with Mustache templates and CSV attachments
-
-### REST API
-
-- `POST /staking-rewards-report-status-v1` — submit notification (JWT auth)
-- `GET /health` — health check
-- `GET /metrics` — Prometheus metrics
-- `GET /docs` — Swagger (dev only)
-
-### Message Envelope
-
-```typescript
-interface Message<T> {
-  header: {
-    producer_id: string
-    message_id: string
-    created_at: number
-    received_at?: number
-    topic?: string
-  }
-  payload: T
-}
-```
-
-### Current Payload (staking-rewards-report-status-v1)
-
-```typescript
-{ withdraw: string, mtime: number, status: ReportStatusV1, error: string, to_slot: number, to_block_time: number }
-```
-
-Status enum: Missing | Requested | Processing | Ready | VerificationSkipped | Verifying | Verified | Error | VerificationFailed
-
-### 3rd Party Integrations
-
-- **Intercom API** — user lookup + event tracking (Bearer token)
-- **BigQuery** — partner whitelist + email templates (Google Cloud SDK)
-- **Staking Rewards API** — CSV report data
-- **SMTP (Mailgun)** — email delivery (nodemailer, TLS/STARTTLS)
-- **PostgreSQL** — message queue (Slonik)
-- **Elastic APM** — distributed tracing (prod)
-- **Prometheus** — metrics (prom-client)
-
-### Key Configuration (env vars)
-
-```
-POSTGRES_URL, INTERCOM_API_TOKEN, API_SECRET, ALLOWED_USERS
-SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
-EMAIL_FROM=Marinade Finance <reports@marinade.finance>
-BIGQUERY_PROJECT_ID=data-store-406413
-CONSUMER_POLL_INTERVAL_MS=1000, CONSUMER_RETRY_MINUTES=1, CONSUMER_MAX_RETRIES=6
-```
-
-### Queue Tables (per topic)
-
-- `{topic}_inbox` — unprocessed messages
-- `{topic}_archive` — successfully delivered (with trace metadata)
-- `{topic}_dlq` — failed after max retries
-
-### Schema System
-
-- JSON Schema Draft 2020-12 per topic version
-- Generates TypeScript + Rust code (committed to git)
-- Client-side + gateway-side validation (Ajv for TS, jsonschema for Rust)
 
 ### What It LACKS for Bond Notifications
 
@@ -273,6 +250,16 @@ Path: `/home/chalda/marinade/psr-dashboard`
 - **Validator Bonds (/bonds)** — all bonds with effective amounts, protected stake calculations
 - **Protected Events (/protected-events)** — historical settlements/bond draws, event reasons (commission increase, low uptime, downtime), EPR loss, event status (DRYRUN/ESTIMATE/FACT)
 
+### Current Announcement System (hardcoded)
+
+The dashboard has a **hardcoded banner** system that needs to be refactored:
+
+- **Data source:** `getBannerData()` function in `src/services/banner.tsx` — returns a static announcement object
+- **Component:** `<Banner>` component in `src/components/banner/banner.tsx`
+- **Current announcement:** "Validator Stake Cap Increasing — Step 1 Live at Epoch 924" (MIP-19 related)
+- **Usage:** All three pages (sam.tsx, validator-bonds.tsx, protected-events.tsx) render `<Banner {...getBannerData()} />`
+- **No API calls, no database** — purely hardcoded, requires code deploy to change
+
 ### APIs Consumed
 
 - `https://validators-api.marinade.finance/validators` — validator data with epoch stats
@@ -285,15 +272,22 @@ Path: `/home/chalda/marinade/psr-dashboard`
 ### Bond Health Calculation
 
 - Uses `bondBalanceRequiredForXEpochs()` from ds-sam-sdk
-- Green/yellow/red status based on effective_amount vs required amount
-- Bond effective_amount = funded_amount - cumulative_payouts
+- Green: bond balance > 2 epochs of bidding costs
+- Yellow: bond balance > 1 epoch but <= 2 epochs
+- Red: bond balance <= 1 epoch
+- Implemented in `bondColorState()` function in `src/services/sam.ts` (lines 342-373)
+- Only displayed on the SAM page, not on the validator bonds page
 
 ### Key Files
 
 ```
 src/pages/sam.tsx — SAM dashboard page
 src/pages/validator-bonds.tsx — Bonds page
-src/services/sam.ts — Auction logic and constraint formatting
+src/pages/protected-events.tsx — Protected events page
+src/services/sam.ts — Auction logic, bond health colors
+src/services/banner.tsx — Hardcoded banner data (TO BE REFACTORED)
+src/components/banner/banner.tsx — Banner component
+src/components/banner/banner.module.css — Banner styling (dark theme)
 src/services/validator-with-bond.ts — Bond/validator data merging
 src/services/protected-events.ts — Events parsing
 ```
@@ -334,186 +328,361 @@ Source: Slack conversation between two developers (originally in Czech, summariz
 - For CLI: show notifications on any bond command mentioning a vote account; no login tracking; time-based cutoff for old messages
 - ds-sam is public, so notification logic could potentially live there for community contributions
 
-### Unresolved from Discussion
-
-- Whether to extend marinade-notifications or build new
-- Exact Telegram bot setup (`@sam_mnde_bot` mentioned but unclear if created)
-- How to handle ds-sam library version updates across multiple consumers
-
 ---
 
-## 8. Proposed Architecture — 3 Components
+## 8. Agreed Architecture
 
-### Component A: Bond Risk Monitor (Detection)
+### Core Principle: Announcements vs Notifications
 
-**Standalone checker service** that runs periodically (hourly, after bonds-collector):
+Two **separate concepts**, same database, same API:
+
+| Concept           | Source                        | Nature                           | Storage                        | Endpoint                           |
+| ----------------- | ----------------------------- | -------------------------------- | ------------------------------ | ---------------------------------- |
+| **Announcements** | Manual (admin app)            | General, global info             | `cli_announcements` (existing) | `GET /v1/announcements` (existing) |
+| **Notifications** | Automated (Bond Risk Monitor) | Per-validator, chain-data-driven | `notifications` (new table)    | `GET /v1/notifications` (new)      |
+
+### System Overview
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                    Validator Bonds PostgreSQL                          │
+│                                                                        │
+│  cli_announcements (existing)         notifications (new)              │
+│  ├─ manual, via admin app             ├─ automated, via monitor        │
+│  ├─ group_id, filters                 ├─ lifecycle (transient/stateful)│
+│  └─ served by GET /v1/announcements   └─ served by GET /v1/notific... │
+└───────────┬────────────────────────────────────────┬───────────────────┘
+            │                                        │
+   writes ↑ │ reads ↓                       writes ↑ │ reads ↓
+            │                                        │
+┌───────────┴───┐  ┌────────────────────┐  ┌─────────┴──────────┐
+│  Admin App    │  │ Validator Bonds API│  │ Bond Risk Monitor  │
+│  (React, VPN) │  │ (Rust, existing)   │  │ (TS, Buildkite)    │
+│  CRUD via API │  │ serves both        │  │ step after bonds-  │
+└───────────────┘  │ endpoints          │  │ collector, writes  │
+                   └──────┬─────────────┘  │ to DB directly     │
+                          │                └────────────────────┘
+              ┌───────────┴───────────┐
+              │                       │
+     ┌────────┴────────┐    ┌────────┴────────┐
+     │ CLI             │    │ PSR Dashboard   │
+     │ GET /announce.. │    │ GET /announce.. │
+     │ GET /notific..  │    │ GET /notific..  │
+     │ (parallel)      │    │ (replaces       │
+     └─────────────────┘    │  hardcoded)     │
+                            └─────────────────┘
+```
+
+### Consumer Flow
+
+Both CLI and PSR dashboard call **two separate endpoints** in parallel:
+
+```
+CLI (preAction/postAction hooks):
+  1. GET /v1/announcements?type=sam&operation=X&account=Y  (existing, unchanged)
+  2. GET /v1/notifications?vote_account=Y                   (new, parallel)
+  → Render: announcements first, then notifications
+
+PSR Dashboard (on page load):
+  1. GET /v1/announcements?type=sam                         (replaces hardcoded getBannerData())
+  2. GET /v1/notifications?vote_account=Y                   (when user views a validator)
+  → Render: banner from announcements, then notification alerts per validator
+```
+
+### Component A: Bond Risk Monitor (Detection + Writing)
+
+**TypeScript module** in this repo (leaning TS to reuse ds-sam-sdk for threshold calculations).
+
+**Runs as:** Buildkite step after bonds-collector in `collect-bonds.yml`.
+
+**What it does on each run:**
 
 1. Queries Validator Bonds API for current bond states
-2. Compares with previous state (stored in DB)
-3. Detects threshold crossings and state changes
-4. Emits notification messages to the notification service
+2. Compares with previous notification state in `notifications` table
+3. **Creates** new notifications when conditions are detected (INSERT with lifecycle/expiry based on event type config)
+4. **Resolves** existing stateful notifications when condition clears (SET `resolved_at = NOW()`)
+5. Dedup: no duplicate active notifications for same vote_account + event_type
+
+**Event type configuration:** Parameterizable on monitor startup (not a DB table). Maps event_type → { lifecycle, default_severity, expires_after_epochs }.
 
 **Events to detect:**
 
-| Event                               | Severity | Trigger                                   |
-| ----------------------------------- | -------- | ----------------------------------------- |
-| Bond health degraded (green→yellow) | Warning  | effective_amount < required_for_12_epochs |
-| Bond health critical (yellow→red)   | Critical | effective_amount < required_for_4_epochs  |
-| Settlement charged                  | Info     | New settlement created against bond       |
-| Large settlement charge             | Warning  | Settlement > X% of bond balance           |
-| Withdrawal request created          | Info     | Someone initiated withdrawal              |
-| Bond nearly depleted                | Critical | effective_amount below minimum threshold  |
-| Auction position lost               | Warning  | SAM target dropped to 0                   |
+| Event                               | Severity | Lifecycle            | Trigger                                  |
+| ----------------------------------- | -------- | -------------------- | ---------------------------------------- |
+| bond_health_degraded (green→yellow) | warning  | stateful             | effective_amount < required_for_2_epochs |
+| bond_health_critical (yellow→red)   | critical | stateful             | effective_amount < required_for_1_epoch  |
+| settlement_charged                  | info     | transient (1 epoch)  | New settlement created against bond      |
+| large_settlement                    | warning  | transient (2 epochs) | Settlement > X% of bond balance          |
+| bond_nearly_depleted                | critical | stateful             | effective_amount below minimum threshold |
+| auction_position_lost               | warning  | stateful             | SAM target dropped to 0                  |
+| withdrawal_created                  | info     | transient (3 epochs) | Someone initiated withdrawal             |
 
-**Why standalone (not embedded in bonds-collector):**
+**Writes directly to PostgreSQL** (same DB as bonds API, same connection pattern: `POSTGRES_URL` env var + RDS SSL cert).
 
-- Single responsibility: bonds-collector collects data, monitor evaluates risk
-- Can be written in TypeScript to reuse ds-sam-sdk for threshold calculations
-- Needs own state tracking DB table regardless
-- Can run as buildkite step after collect-bonds or as independent cron
+### Component B: Notifications Table + API Endpoint
 
-**State tracking options:**
-
-- PostgreSQL table in notification service DB
-- Dedup via message_id = hash(vote_account + epoch + event_type)
-
-### Component B: Notification Delivery
-
-**Hybrid approach:** extend marinade-notifications with new topic + new consumers.
-
-**What to add:**
-
-1. New schema: `bond-risk-notification-v1`
-   ```json
-   {
-     "header": { "producer_id": "bond-risk-monitor", "message_id": "uuid", "created_at": 1234 },
-     "payload": {
-       "vote_account": "...",
-       "bond_pubkey": "...",
-       "event_type": "bond_health_degraded | bond_health_critical | settlement_charged | ...",
-       "severity": "info | warning | critical",
-       "epoch": 123,
-       "details": { ... }
-     }
-   }
-   ```
-2. **Telegram consumer** (new) — Telegram Bot API `sendMessage` to subscribed chat_ids
-3. **Simplified email consumer** (new) — direct SMTP, Mustache templates baked in service, no BigQuery whitelist
-4. **Pull API endpoint** (new) — `GET /bond-notifications?vote_account=X&since=<timestamp>` for PSR dashboard + CLI
-
-**Alternative:** Build a new lightweight notification service if marinade-notifications is in maintenance mode. Core queue logic is ~200 lines of PG queries.
-
-### Component C: Subscription Manager
-
-**CLI-only subscription flow:**
-
-```bash
-validator-bonds-cli subscribe-notifications --vote-account <VA> --channel email --address user@example.com
-validator-bonds-cli subscribe-notifications --vote-account <VA> --channel telegram
-validator-bonds-cli list-subscriptions --vote-account <VA>
-validator-bonds-cli unsubscribe-notifications --vote-account <VA> --channel email --address user@example.com
-```
-
-**Storage:** `subscriptions` table in notification service PostgreSQL:
+**New DB table** (`notifications`):
 
 ```sql
-CREATE TABLE subscriptions (
-  id UUID PRIMARY KEY,
-  vote_account TEXT NOT NULL,
-  channel TEXT NOT NULL,          -- 'email' | 'telegram'
-  address TEXT NOT NULL,          -- email address or telegram chat_id
-  verified BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(vote_account, channel, address)
+CREATE TABLE notifications (
+    id BIGSERIAL PRIMARY KEY,
+    vote_account TEXT NOT NULL,
+    bond_pubkey TEXT,
+    event_type TEXT NOT NULL,          -- 'bond_health_critical', etc.
+    severity TEXT NOT NULL,            -- 'info', 'warning', 'critical'
+    lifecycle TEXT NOT NULL,           -- 'transient' | 'stateful'
+    epoch INTEGER NOT NULL,            -- epoch when created
+    expires_epoch INTEGER,             -- for transient: auto-expire after this epoch
+    resolved_at TIMESTAMPTZ,           -- for stateful: NULL = active, set when resolved
+    details JSONB,                     -- event-specific payload
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
-**Auth:** Email verification (confirmation link/code). Telegram: phone number = natural anti-spam. No private key signing needed.
+**New API endpoint** in Validator Bonds API (Rust):
 
-**REST endpoints on notification service:**
+- `GET /v1/notifications?vote_account=X&since_epoch=N&severity=...`
+- Returns: active stateful notifications (`resolved_at IS NULL`) + non-expired transient (`expires_epoch >= current_epoch`)
+- Optionally includes recently resolved stateful notifications (with `resolved` flag) for "bond health restored" messages
 
-- `POST /subscriptions` — create subscription
-- `DELETE /subscriptions` — remove subscription
-- `POST /subscriptions/verify` — verify email/telegram
+**Notification lifecycle types:**
 
-### Data Flow
+| Lifecycle     | Behavior                                                       | Example                                                                               |
+| ------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **transient** | Auto-expires after `expires_epoch`. Fire-and-forget.           | settlement_charged (1 epoch), withdrawal_created (3 epochs)                           |
+| **stateful**  | Persists until condition resolves. Monitor sets `resolved_at`. | bond_health_critical (until bond topped up), auction_position_lost (until target > 0) |
 
-```
-                                   ┌─────────────────────┐
-                                   │   bonds-collector    │
-                                   │   (hourly cron)      │
-                                   └──────────┬──────────┘
-                                              │ stores data
-                                              ▼
-                                   ┌─────────────────────┐
-                                   │  Validator Bonds API │
-                                   │  (PostgreSQL + REST) │
-                                   └──────────┬──────────┘
-                                              │ queries
-                                              ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                    Bond Risk Monitor (new)                        │
-│  - Queries bonds API hourly                                      │
-│  - Compares with previous state (stored in DB)                   │
-│  - Detects threshold crossings, settlements, etc.                │
-│  - Emits notification messages                                   │
-└──────────────────────┬───────────────────────────────────────────┘
-                       │ POST /bond-risk-notification-v1
-                       ▼
-┌──────────────────────────────────────────────────────────────────┐
-│               Notification Service (extended or new)              │
-│                                                                   │
-│  ┌──────────┐    ┌──────────────┐    ┌───────────────────────┐   │
-│  │ REST API │───▶│  PG Queue    │───▶│ Consumers             │   │
-│  │ (ingest) │    │ (inbox/dlq)  │    │  ├─ Telegram consumer │   │
-│  └──────────┘    └──────────────┘    │  └─ Email consumer    │   │
-│                                      └───────────────────────┘   │
-│  ┌──────────────────────────┐                                     │
-│  │ Pull API (new)           │◀──── PSR Dashboard + CLI            │
-│  │ GET /bond-notifications  │                                     │
-│  └──────────────────────────┘                                     │
-│                                                                   │
-│  ┌──────────────────────────┐                                     │
-│  │ Subscriptions API (new)  │◀──── CLI subscribe/unsubscribe      │
-│  └──────────────────────────┘                                     │
-└──────────────────────────────────────────────────────────────────┘
-```
+### Component C: Announcements Admin CRUD
+
+**New API endpoints** in Validator Bonds API (Rust), protected by API key:
+
+- `POST /v1/announcements` — create announcement
+- `PUT /v1/announcements/:id` — update announcement
+- `DELETE /v1/announcements/:id` — delete announcement
+- `GET /v1/announcements` stays public (CLI/dashboard need unauthenticated access)
+
+**Auth:** Static API key via `ADMIN_API_KEY` env var. Mutation endpoints require `Authorization: Bearer <key>`. Defense in depth: VPN + API key.
+
+### Component D: Admin React App
+
+**Simple React app** for managing announcements (CRUD, enable/disable, view current state).
+
+**Features:**
+
+- Table view of all announcements (grouped by group_id)
+- Enable/disable toggle
+- Create/edit/delete announcements
+- Shows which announcements are currently visible (latest group, enabled)
+
+**Deployment:** Container behind internal ALB, restricted to VPN via security group. GitHub Actions builds and pushes container. DB connection via `POSTGRES_URL` env var (same pattern as API). Consult devops for specific infra (ECS/EKS, ALB, security groups).
+
+### Component E: PSR Dashboard Refactor
+
+Replace hardcoded `getBannerData()` in `src/services/banner.tsx` with:
+
+1. `GET /v1/announcements?type=sam` — dynamic announcements for banner
+2. `GET /v1/notifications?vote_account=X` — per-validator notifications
+
+### Component F: CLI Enhancement
+
+Add parallel fetch of `/v1/notifications` alongside existing `/v1/announcements`:
+
+1. In `preAction` hook: start both fetches in background (same non-blocking pattern)
+2. In `postAction` hook: render announcements (existing), then notifications (new)
+
+### Push Channels (Future — v2)
+
+Email and Telegram delivery are **out of scope for v1 pull channels** but the architecture supports them:
+
+- Subscription management via CLI commands (`subscribe-notifications`, etc.)
+- `subscriptions` table in same PostgreSQL
+- Separate consumer processes that poll `notifications` table and deliver to subscribed channels
+- Could be added to this repo or to a separate service
 
 ---
 
-## 9. Open Questions
+## 9. Work Items
 
-1. **marinade-notifications maintenance status** — extend or build new? The Intercom/BigQuery coupling is heavy. If team won't touch it, new lightweight service is faster.
+| #   | Item                                    | Scope                              | Notes                                                                       |
+| --- | --------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------- |
+| 1   | DB migration: `notifications` table     | validator-bonds repo               | New migration file                                                          |
+| 2   | API: `GET /v1/notifications` endpoint   | api/ (Rust)                        | Query with vote_account, since_epoch, severity filters                      |
+| 3   | API: CRUD endpoints for announcements   | api/ (Rust)                        | POST/PUT/DELETE, API key auth via `ADMIN_API_KEY`                           |
+| 4   | Bond Risk Monitor                       | New TS package in repo             | Runs as Buildkite step after bonds-collector, writes to notifications table |
+| 5   | CLI enhancement: fetch notifications    | packages/validator-bonds-cli-core/ | Parallel fetch + render after announcements                                 |
+| 6   | PSR dashboard: replace hardcoded banner | psr-dashboard repo                 | Call `/v1/announcements` instead of `getBannerData()`                       |
+| 7   | PSR dashboard: show notifications       | psr-dashboard repo                 | Call `/v1/notifications` per validator                                      |
+| 8   | Admin React app                         | New repo or subdirectory           | CRUD UI for announcements, VPN-only deployment                              |
+| 9   | Buildkite pipeline update               | `.buildkite/collect-bonds.yml`     | Add monitor step after bonds-collector                                      |
 
-2. **ds-sam-sdk as library** — can the bond risk monitor import ds-sam-sdk to calculate required bond thresholds? Or use bonds API existing health indicators?
+---
 
-3. **PSR dashboard notification UI** — is there existing notification/announcement component? Or entirely new?
+## 10. Open Design Questions
 
-4. **v1 scope** — all 4 channels at once, or start with checker + Telegram (simplest push) and iterate?
+### Resolved Questions
 
-5. **CLI show-bond integration** — does `show-bond` already surface risk info we can build on?
+These were open in the previous version and are now decided:
 
-6. **Telegram bot `@sam_mnde_bot`** — already created? Who manages the token?
+| Question                                    | Decision                                                                                    |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Extend marinade-notifications or build new? | Neither — notifications live in validator-bonds API (same DB, same service)                 |
+| Where does the checker run?                 | Buildkite step after bonds-collector                                                        |
+| Pull channels — same or different API?      | Same Validator Bonds API, two separate endpoints                                            |
+| Notification lifecycle                      | Per-type config: transient (time-based expiry) or stateful (resolved when condition clears) |
+| Admin auth                                  | Static API key + VPN restriction                                                            |
+| Checker language                            | TypeScript (to reuse ds-sam-sdk), open but leaning TS                                       |
+| Type config storage                         | Parameterizable on monitor startup, not DB table                                            |
 
-7. **Where does the checker run?** — buildkite (like bonds-collector), separate deployment, or within notification service?
+### Open Questions — Design Details
 
-8. **Bond risk thresholds** — what exactly defines green/yellow/red? Need to check ds-sam-sdk's `bondBalanceRequiredForXEpochs()` implementation.
+**Q1: CLI notification rendering — how should notifications look?**
+
+The CLI already renders announcements as Unicode box banners (╔═╗║╚╝) with optional title, ANSI colors. How should notifications look alongside them?
+
+Options:
+
+- a) Same box style as announcements but with severity prefix/color (e.g., red border for critical, yellow for warning)
+- b) Different, more compact format (e.g., `[WARNING] Bond health degraded — effective amount below 2 epochs`) — no box, just colored text lines
+- c) Grouped: one box titled "Notifications" containing all notification lines
+
+Considerations: Announcements are rare (0-1 at a time). Notifications could be multiple per validator. Too many boxes would be noisy.
+
+**Q2: PSR dashboard notification UX — where and how to display?**
+
+Current dashboard has: a banner at the top (announcements) + table rows with color-coded bond health.
+
+Options for notifications:
+
+- a) Announcement banner at top (from API) + inline notification icons/badges per validator row in the SAM table
+- b) Separate notification panel/sidebar that appears when a validator is selected
+- c) Notification banner between the announcement banner and the table (showing count: "3 validators with bond alerts")
+- d) Expand the existing bond health color column with tooltip details from notifications
+
+Considerations: Dashboard currently has no per-validator detail view. Most interaction is scanning the table.
+
+**Q3: Monitor dedup strategy — how to avoid duplicate notifications?**
+
+When the monitor runs hourly and detects "bond_health_critical" for the same validator:
+
+- **Stateful:** Only one active notification per (vote_account, event_type). If one exists with `resolved_at IS NULL`, skip creation. On resolution, set `resolved_at`. → Clean, but what if severity changes within same event type?
+- **Transient:** One per (vote_account, event_type, epoch). Prevents duplicate within same epoch. → Simple for fire-and-forget events.
+
+Edge case: bond goes green→yellow→red across multiple monitor runs. Is that one notification (upgraded) or two separate notifications?
+
+**Q4: Notification details payload — what goes in the JSONB `details` field?**
+
+Each event type needs different context. Need to define the schema per type:
+
+- `bond_health_degraded`: { effective_amount, required_amount, epochs_covered, previous_state }
+- `settlement_charged`: { settlement_pubkey, amount, reason }
+- `auction_position_lost`: { previous_target_stake, current_target_stake }
+- etc.
+
+Should this be strictly typed (validated on insert) or loose JSONB?
+
+**Q5: `GET /v1/notifications` — should it support no vote_account (all validators)?**
+
+PSR dashboard might want to show a summary across all validators ("3 validators have critical bond alerts"). This would require either:
+
+- a) An endpoint that returns all active notifications (potentially large)
+- b) A summary endpoint: `GET /v1/notifications/summary` → `{ critical: 3, warning: 12, info: 5 }`
+- c) Dashboard fetches per-validator as needed (current approach — simpler but more API calls)
+
+**Q6: Resolved notifications — how long to keep and show?**
+
+When a stateful notification is resolved (bond topped up), how long should it appear in the API response?
+
+- a) For N epochs after resolution (e.g., 2 epochs)
+- b) Until the next monitor run marks it as "acknowledged"
+- c) Always available via `&include_resolved=true` but not in default response
+
+**Q7: Admin app deployment specifics — consult devops**
+
+The admin React app needs:
+
+- Container deployment (ECS/EKS?)
+- Internal ALB with VPN-only security group
+- GitHub Actions CI/CD pipeline
+- `POSTGRES_URL` env var injection
+
+Questions for devops:
+
+- What's the standard pattern for internal-only web apps at Marinade?
+- Is there an existing VPN-restricted ALB or ingress to reuse?
+- Preferred container registry (ECR?)
+- How are env vars/secrets injected in the target environment?
+
+**Q8: ds-sam-sdk threshold calculations — exact API surface needed**
+
+The Bond Risk Monitor needs to calculate "is this bond funded for X epochs?" which requires:
+
+- `bondBalanceRequiredForXEpochs()` from ds-sam-sdk
+- This function likely needs auction config (from ds-sam-pipeline) and current epoch data
+
+Questions:
+
+- Can ds-sam-sdk be imported as a library in a standalone TS script?
+- What inputs does `bondBalanceRequiredForXEpochs()` need beyond bond data?
+- Should the monitor call the scoring API instead of computing locally?
+
+**Q9: Telegram bot setup**
+
+- Is `@sam_mnde_bot` already created?
+- Who manages the bot token?
+- This is v2 (push channels) but token creation has lead time.
+
+**Q10: v1 scope — what ships first?**
+
+Suggested phasing:
+
+- **v1a:** Notifications table + API endpoint + Bond Risk Monitor + CLI enhancement (pull channel, core loop)
+- **v1b:** PSR dashboard refactor (announcements from API) + notifications display
+- **v1c:** Admin React app (unblocks non-developer announcement management)
+- **v2:** Push channels (email, Telegram) + subscription management
+
+Is this ordering right, or should admin app come earlier?
 
 ---
 
 ## Related File Paths (for quick reference)
 
-| What                          | Path                                                                                                     |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------- |
-| This repo (validator-bonds)   | `/home/chalda/tmp/validator-bonds`                                                                       |
-| marinade-notifications        | `/home/chalda/marinade/marinade-notifications`                                                           |
-| PSR dashboard                 | `/home/chalda/marinade/psr-dashboard`                                                                    |
-| Design analysis doc           | `/home/chalda/marinade/claude-summary/2026-02-13_bond-risk-notification-system-design.md`                |
-| Institutional staking checker | `https://github.com/marinade-finance/institutional-staking/blob/main/.buildkite/check-bonds.yml`         |
-| ds-sam auction lib            | `https://github.com/marinade-finance/ds-sam`                                                             |
-| ds-sam pipeline + config      | `https://github.com/marinade-finance/ds-sam-pipeline`                                                    |
-| Blog post (SAM auction)       | `https://marinade.finance/blog/more-control-better-yields-introducing-dynamic-commission-for-validators` |
-| Bonds API                     | `https://validator-bonds-api.marinade.finance/docs`                                                      |
-| Validators API                | `https://validators-api.marinade.finance/validators`                                                     |
-| Scoring API                   | `https://scoring.marinade.finance/api/v1/scores/sam`                                                     |
-| GCS settlement data           | `https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet`                      |
+| What                               | Path                                                                                                     |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| This repo (validator-bonds)        | `/home/chalda/marinade/validator-bonds`                                                                  |
+| marinade-notifications (reference) | `/home/chalda/marinade/marinade-notifications`                                                           |
+| PSR dashboard                      | `/home/chalda/marinade/psr-dashboard`                                                                    |
+| Design analysis doc                | `/home/chalda/marinade/claude-summary/2026-02-13_bond-risk-notification-system-design.md`                |
+| Institutional staking checker      | `https://github.com/marinade-finance/institutional-staking/blob/main/.buildkite/check-bonds.yml`         |
+| ds-sam auction lib                 | `https://github.com/marinade-finance/ds-sam`                                                             |
+| ds-sam pipeline + config           | `https://github.com/marinade-finance/ds-sam-pipeline`                                                    |
+| Blog post (SAM auction)            | `https://marinade.finance/blog/more-control-better-yields-introducing-dynamic-commission-for-validators` |
+| Bonds API                          | `https://validator-bonds-api.marinade.finance/docs`                                                      |
+| Validators API                     | `https://validators-api.marinade.finance/validators`                                                     |
+| Scoring API                        | `https://scoring.marinade.finance/api/v1/scores/sam`                                                     |
+| GCS settlement data                | `https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet`                      |
+
+### Key Files — CLI Announcements System
+
+| Component               | Location                                                                      |
+| ----------------------- | ----------------------------------------------------------------------------- |
+| DB Schema               | `migrations/0005-add-cli-announcements.sql`                                   |
+| API Handler             | `api/src/handlers/cli_announcements.rs`                                       |
+| API Repository          | `api/src/repositories/cli_announcement.rs`                                    |
+| API Bootstrap           | `api/src/bin/api.rs`                                                          |
+| CLI Fetch Logic         | `packages/validator-bonds-cli-core/src/announcements.ts`                      |
+| CLI Render Logic        | `packages/validator-bonds-cli-core/src/banner.ts`                             |
+| CLI Integration         | `packages/validator-bonds-cli-core/src/commands/mainCommand.ts`               |
+| SAM CLI Entry           | `packages/validator-bonds-cli/src/index.ts`                                   |
+| Institutional CLI Entry | `packages/validator-bonds-cli-institutional/src/index.ts`                     |
+| Tests                   | `packages/validator-bonds-cli/__tests__/test-validator/announcements.spec.ts` |
+
+### Key Files — PSR Dashboard
+
+| Component               | Location                                            |
+| ----------------------- | --------------------------------------------------- |
+| Hardcoded banner data   | `psr-dashboard/src/services/banner.tsx`             |
+| Banner component        | `psr-dashboard/src/components/banner/banner.tsx`    |
+| Bond health calculation | `psr-dashboard/src/services/sam.ts` (lines 342-373) |
+| SAM page                | `psr-dashboard/src/pages/sam.tsx`                   |
+| Validator bonds page    | `psr-dashboard/src/pages/validator-bonds.tsx`       |
+| Protected events page   | `psr-dashboard/src/pages/protected-events.tsx`      |
