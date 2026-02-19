@@ -35,6 +35,18 @@ impl ReportingReasonSettlement {
     }
 }
 
+impl From<&SettlementReason> for ReportingReasonSettlement {
+    fn from(reason: &SettlementReason) -> Self {
+        match reason {
+            SettlementReason::ProtectedEvent(_) => ReportingReasonSettlement::ProtectedEvent,
+            SettlementReason::Bidding => ReportingReasonSettlement::Bidding,
+            SettlementReason::BidTooLowPenalty => ReportingReasonSettlement::BidTooLowPenalty,
+            SettlementReason::BlacklistPenalty => ReportingReasonSettlement::BlacklistPenalty,
+            SettlementReason::InstitutionalPayout => ReportingReasonSettlement::InstitutionalPayout,
+        }
+    }
+}
+
 impl Display for ReportingReasonSettlement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -75,26 +87,8 @@ impl SettlementsReportData {
         settlement_reason: &Option<SettlementReason>,
     ) -> bool {
         match settlement_reason {
-            None => matches!(reporting_reason, ReportingReasonSettlement::Unknown),
-            Some(reason) => matches!(
-                (reporting_reason, reason),
-                (
-                    ReportingReasonSettlement::ProtectedEvent,
-                    SettlementReason::ProtectedEvent(_)
-                ) | (
-                    ReportingReasonSettlement::Bidding,
-                    SettlementReason::Bidding
-                ) | (
-                    ReportingReasonSettlement::BidTooLowPenalty,
-                    SettlementReason::BidTooLowPenalty
-                ) | (
-                    ReportingReasonSettlement::BlacklistPenalty,
-                    SettlementReason::BlacklistPenalty
-                ) | (
-                    ReportingReasonSettlement::InstitutionalPayout,
-                    SettlementReason::InstitutionalPayout,
-                )
-            ),
+            None => *reporting_reason == ReportingReasonSettlement::Unknown,
+            Some(reason) => *reporting_reason == ReportingReasonSettlement::from(reason),
         }
     }
 
@@ -153,21 +147,7 @@ impl SettlementsReportData {
             {
                 let reason_type = match &settlement_record.reason {
                     None => ReportingReasonSettlement::Unknown,
-                    Some(reason) => match reason {
-                        SettlementReason::ProtectedEvent(_) => {
-                            ReportingReasonSettlement::ProtectedEvent
-                        }
-                        SettlementReason::Bidding => ReportingReasonSettlement::Bidding,
-                        SettlementReason::BidTooLowPenalty => {
-                            ReportingReasonSettlement::BidTooLowPenalty
-                        }
-                        SettlementReason::BlacklistPenalty => {
-                            ReportingReasonSettlement::BlacklistPenalty
-                        }
-                        SettlementReason::InstitutionalPayout => {
-                            ReportingReasonSettlement::InstitutionalPayout
-                        }
-                    },
+                    Some(reason) => ReportingReasonSettlement::from(reason),
                 };
                 result.get_mut(&reason_type).unwrap().insert(*pubkey);
             } else {

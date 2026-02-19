@@ -20,14 +20,15 @@ pub fn get_fee_deposit_stake_accounts(
     stake_meta_index: &StakeMetaIndex,
     fee_config: &FeeConfig,
 ) -> (HashMap<Pubkey, u64>, HashMap<Pubkey, u64>) {
-    let (marinade_withdraw, marinade_stake, dao_withdraw, dao_stake) = fee_config.fee_authorities();
+    let authorities = fee_config.fee_authorities();
 
     let marinade_fee_deposit_stake_accounts: HashMap<_, _> = stake_meta_index
         .stake_meta_collection
         .stake_metas
         .iter()
         .find(|x| {
-            x.withdraw_authority.eq(marinade_withdraw) && x.stake_authority.eq(marinade_stake)
+            x.withdraw_authority.eq(authorities.marinade_withdraw)
+                && x.stake_authority.eq(authorities.marinade_stake)
         })
         .iter()
         .map(|s| (s.pubkey, s.active_delegation_lamports))
@@ -36,7 +37,10 @@ pub fn get_fee_deposit_stake_accounts(
         .stake_meta_collection
         .stake_metas
         .iter()
-        .find(|x| x.withdraw_authority.eq(dao_withdraw) && x.stake_authority.eq(dao_stake))
+        .find(|x| {
+            x.withdraw_authority.eq(authorities.dao_withdraw)
+                && x.stake_authority.eq(authorities.dao_stake)
+        })
         .iter()
         .map(|s| (s.pubkey, s.active_delegation_lamports))
         .collect();

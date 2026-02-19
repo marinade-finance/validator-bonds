@@ -362,10 +362,10 @@ pub fn generate_bid_settlements(
             );
 
             if marinade_fee_claim > 0 {
-                let (marinade_withdraw, marinade_stake, _, _) = fee_config.fee_authorities();
+                let authorities = fee_config.fee_authorities();
                 claims.push(SettlementClaim {
-                    withdraw_authority: *marinade_withdraw,
-                    stake_authority: *marinade_stake,
+                    withdraw_authority: *authorities.marinade_withdraw,
+                    stake_authority: *authorities.marinade_stake,
                     stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
                     claim_amount: marinade_fee_claim,
                     active_stake: marinade_fee_deposit_stake_accounts.values().sum(),
@@ -381,10 +381,10 @@ pub fn generate_bid_settlements(
                 );
             }
             if dao_fee_claim > 0 {
-                let (_, _, dao_withdraw, dao_stake) = fee_config.fee_authorities();
+                let authorities = fee_config.fee_authorities();
                 claims.push(SettlementClaim {
-                    withdraw_authority: *dao_withdraw,
-                    stake_authority: *dao_stake,
+                    withdraw_authority: *authorities.dao_withdraw,
+                    stake_authority: *authorities.dao_stake,
                     stake_accounts: dao_fee_deposit_stake_accounts.clone(),
                     claim_amount: dao_fee_claim,
                     active_stake: total_marinade_active_stake,

@@ -8,7 +8,7 @@ use settlement_common::utils::stake_authority_filter;
 use solana_sdk::pubkey::Pubkey;
 
 /// Fee percentages calculated from basis points
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct FeePercentages {
     /// Marinade distributor fee as a decimal percentage (e.g., 0.095 for 9.5%)
     pub marinade_distributor_fee: Decimal,
@@ -16,13 +16,12 @@ pub struct FeePercentages {
     pub dao_fee_share: Decimal,
 }
 
-impl Default for FeePercentages {
-    fn default() -> Self {
-        Self {
-            marinade_distributor_fee: Decimal::ZERO,
-            dao_fee_share: Decimal::ZERO,
-        }
-    }
+/// Named fee authority references returned by [FeeConfig::fee_authorities]
+pub struct FeeAuthorities<'a> {
+    pub marinade_withdraw: &'a Pubkey,
+    pub marinade_stake: &'a Pubkey,
+    pub dao_withdraw: &'a Pubkey,
+    pub dao_stake: &'a Pubkey,
 }
 
 /// Authority configuration for stake/withdraw authorities
@@ -68,14 +67,13 @@ impl FeeConfig {
         Ok(())
     }
 
-    /// Returns fee authorities as (marinade_withdraw, marinade_stake, dao_withdraw, dao_stake)
-    pub fn fee_authorities(&self) -> (&Pubkey, &Pubkey, &Pubkey, &Pubkey) {
-        (
-            &self.marinade.withdraw_authority,
-            &self.marinade.stake_authority,
-            &self.dao.withdraw_authority,
-            &self.dao.stake_authority,
-        )
+    pub fn fee_authorities(&self) -> FeeAuthorities<'_> {
+        FeeAuthorities {
+            marinade_withdraw: &self.marinade.withdraw_authority,
+            marinade_stake: &self.marinade.stake_authority,
+            dao_withdraw: &self.dao.withdraw_authority,
+            dao_stake: &self.dao.stake_authority,
+        }
     }
 
     /// Converts basis points to decimal percentages for fee calculations
