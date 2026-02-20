@@ -101,7 +101,6 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
       stdout: YAML.stringify({
         programId: program.programId,
         publicKey: configPubkey.toBase58(),
@@ -146,7 +145,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       stdout: YAML.stringify([
         {
           programId: program.programId,
@@ -190,7 +189,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       // nothing to be found, not-defined admin taken
       stdout: YAML.stringify([]),
     })
@@ -214,7 +213,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       stdout: YAML.stringify([
         {
           programId: program.programId,
@@ -364,7 +363,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       stdout: YAML.stringify(expectedDataFundingSingleItem),
     })
     await expect([
@@ -388,7 +387,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       stdout: YAML.stringify(expectedDataFundingSingleItem),
     })
     const identityRegex = new RegExp(
@@ -416,7 +415,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       stdout: identityRegex,
     })
 
@@ -439,7 +438,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       stdout: YAML.stringify([expectedDataNoFundingMultiple]),
     })
 
@@ -463,7 +462,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       stdout: YAML.stringify([expectedDataFundingMultipleItems]),
     })
 
@@ -486,7 +485,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       stdout: YAML.stringify([expectedDataNoFundingMultiple]),
     })
 
@@ -512,7 +511,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       stdout: YAML.stringify([expectedDataFundingMultipleItems]),
     })
 
@@ -534,7 +533,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 200,
       signal: '',
-      stderr: '',
+
       stdout:
         /Provided address is neither a bond, vote account, withdraw request, stake account nor validator identity/,
     })
@@ -632,7 +631,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       stdout: YAML.stringify({
         ...expectedData,
         amountOwned: `${sumLamports / LAMPORTS_PER_SOL} SOLs`,
@@ -702,7 +701,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       stdout: YAML.stringify({
         ...expectedDataWithdrawRequestBefore,
         ...expectedDataWithdrawRequestAfter,
@@ -731,7 +730,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       stdout: YAML.stringify({
         ...expectedDataWithdrawRequestBefore,
         ...expectedDataWithdrawRequestAfter,
@@ -757,7 +756,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       stdout: YAML.stringify({
         ...expectedDataWithdrawRequestBefore,
         ...expectedDataWithdrawRequestAfter,
@@ -785,7 +784,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       stdout: new RegExp(
         `${lastStakeAccount!.toBase58()} is a STAKE ACCOUNT.*vote account ${voteAccount.toBase58()}`,
       ),
@@ -818,7 +817,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       stdout: YAML.stringify({
         ...expectedData,
         amountOwned: `${sumLamports / LAMPORTS_PER_SOL} SOLs`,
@@ -883,7 +882,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stderr: '',
+
       stdout: YAML.stringify({
         ...expectedData,
         amountOwned: `${leftStakeAccountAmount} SOLs`,

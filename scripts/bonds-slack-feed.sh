@@ -16,7 +16,7 @@ fi
 SLACK_FEED_BIDDING="feed-pipeline-sam-psr"
 SLACK_FEED_INSTITUTIONAL="feed-institutional-staking"
 
-if [[ "$claim_type" == bid* ]]; then
+if [[ "$claim_type" == bid* ]] || [[ "$claim_type" == unified* ]]; then
     echo "$SLACK_FEED_BIDDING"
     exit 0
 elif [[ "$claim_type" == institutional* ]]; then

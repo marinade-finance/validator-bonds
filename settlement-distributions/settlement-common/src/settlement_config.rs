@@ -1,27 +1,19 @@
 use crate::{protected_events::ProtectedEvent, settlement_collection::SettlementMeta};
 use log::debug;
-use merkle_tree::serde_serialize::{option_vec_pubkey_string_conversion, pubkey_string_conversion};
 use serde::{Deserialize, Serialize};
-use solana_sdk::pubkey::Pubkey;
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
-pub struct BidPSRConfig {
-    #[serde(with = "pubkey_string_conversion")]
-    pub validator_bonds_config: Pubkey,
-    #[serde(
-        default,
-        with = "option_vec_pubkey_string_conversion",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub whitelist_stake_authorities: Option<Vec<Pubkey>>,
-    pub settlement_configs: Vec<SettlementConfig>,
+pub struct SettlementConfig {
+    pub meta: SettlementMeta,
+    #[serde(flatten)]
+    pub kind: SettlementConfigKind,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
-pub enum SettlementConfig {
+#[serde(tag = "type")]
+pub enum SettlementConfigKind {
     /// configuration for protected event [protected_events::ProtectedEvent::DowntimeRevenueImpact]
     DowntimeRevenueImpactSettlement {
-        meta: SettlementMeta,
         /// when settlement sum of claims is under this value, it is not generated
         min_settlement_lamports: u64,
         /// when downtime of the validator is lower to the grace period the settlement is not generated
@@ -31,7 +23,6 @@ pub enum SettlementConfig {
     },
     /// configuration for protected event [protected_events::ProtectedEvent::CommissionSamIncrease]
     CommissionSamIncreaseSettlement {
-        meta: SettlementMeta,
         /// when settlement sum of claims is under this value, it is not generated
         min_settlement_lamports: u64,
         /// when downtime of the validator is lower to the grace period the settlement is not generated
@@ -48,30 +39,24 @@ pub enum SettlementConfig {
     },
 }
 
-impl SettlementConfig {
-    pub fn meta(&self) -> &SettlementMeta {
-        match self {
-            SettlementConfig::DowntimeRevenueImpactSettlement { meta, .. } => meta,
-            SettlementConfig::CommissionSamIncreaseSettlement { meta, .. } => meta,
-        }
-    }
+impl SettlementConfigKind {
     pub fn covered_range_bps(&self) -> &[u64; 2] {
         match self {
-            SettlementConfig::DowntimeRevenueImpactSettlement {
+            SettlementConfigKind::DowntimeRevenueImpactSettlement {
                 covered_range_bps, ..
             } => covered_range_bps,
-            SettlementConfig::CommissionSamIncreaseSettlement {
+            SettlementConfigKind::CommissionSamIncreaseSettlement {
                 covered_range_bps, ..
             } => covered_range_bps,
         }
     }
     pub fn min_settlement_lamports(&self) -> u64 {
         *match self {
-            SettlementConfig::DowntimeRevenueImpactSettlement {
+            SettlementConfigKind::DowntimeRevenueImpactSettlement {
                 min_settlement_lamports,
                 ..
             } => min_settlement_lamports,
-            SettlementConfig::CommissionSamIncreaseSettlement {
+            SettlementConfigKind::CommissionSamIncreaseSettlement {
                 min_settlement_lamports,
                 ..
             } => min_settlement_lamports,
@@ -82,10 +67,10 @@ impl SettlementConfig {
 pub fn build_protected_event_matcher(
     settlement_config: &SettlementConfig,
 ) -> Box<dyn Fn(&ProtectedEvent) -> bool + '_> {
-    Box::new(
-        move |protected_event: &ProtectedEvent| match (settlement_config, protected_event) {
+    Box::new(move |protected_event: &ProtectedEvent| {
+        match (&settlement_config.kind, protected_event) {
             (
-                SettlementConfig::DowntimeRevenueImpactSettlement {
+                SettlementConfigKind::DowntimeRevenueImpactSettlement {
                     grace_downtime_bps, ..
                 },
                 ProtectedEvent::DowntimeRevenueImpact { epr_loss_bps, .. },
@@ -103,7 +88,7 @@ pub fn build_protected_event_matcher(
                 }
             }
             (
-                SettlementConfig::CommissionSamIncreaseSettlement {
+                SettlementConfigKind::CommissionSamIncreaseSettlement {
                     grace_increase_bps, ..
                 },
                 ProtectedEvent::CommissionSamIncrease { epr_loss_bps, .. },
@@ -121,6 +106,6 @@ pub fn build_protected_event_matcher(
                 }
             }
             _ => false,
-        },
-    )
+        }
+    })
 }

@@ -21,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
     let args: Args = Args::parse();
     init_log(&args.global_opts);
 
-    let config_address = args.global_opts.config;
+    let config_address = args.global_opts.config.expect("--config is required");
     info!("Listing claimable epochs for validator-bonds config: {config_address}");
 
     let (rpc_client, _) = get_rpc_client(&args.global_opts)?;

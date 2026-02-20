@@ -11,7 +11,7 @@ dao_fee_withdraw_authority="${DAO_FEE_WITHDRAW_AUTHORITY:-}"
 
 if [[ -z $settlement_collection_file ]]
 then
-    echo "Usage: $0 <settlement collection file> [settlement type] [ignore marinade fee active stake]" >&2
+    echo "Usage: $0 <settlement collection file> [settlement type label]" >&2
     exit 1
 fi
 
@@ -31,16 +31,40 @@ function fmt_human_number {
 }
 export -f fmt_human_number
 
-if [[ $settlement_type ]]; then
-  settlement_type=" $settlement_type"
+total_amount=$(<"$settlement_collection_file" jq '[.settlements[].claims_amount / 1e9] | add' | xargs printf $decimal_format)
+label=""
+if [[ -n $settlement_type ]]; then
+  label=" $settlement_type"
 fi
+echo "Settlements${label} in epoch $epoch: $settlements_count total, ☉$total_amount"
 
-echo "Total settlements${settlement_type} in epoch $epoch: ☉$(<"$settlement_collection_file" jq '[.settlements[].claims_amount / 1e9] | add' | xargs printf $decimal_format)"
+# Per-reason breakdown: count and total amount
+while IFS=$'\t' read -r reason_key count amount; do
+  echo "  $reason_key: $count settlements, ☉$(LC_NUMERIC=C printf $decimal_format "$amount")"
+done < <(<"$settlement_collection_file" jq -r '
+  [.settlements[] | {
+    reason_key: (
+      if .reason | type == "object" then
+        (.reason | keys[0]) as $k |
+        if $k == "ProtectedEvent" then
+          "ProtectedEvent/" + (.reason.ProtectedEvent | keys[0])
+        else $k end
+      else .reason end
+    ),
+    amount: (.claims_amount / 1e9)
+  }]
+  | group_by(.reason_key)
+  | map({reason_key: .[0].reason_key, count: length, amount: (map(.amount) | add)})
+  | sort_by(.reason_key)
+  | .[]
+  | [.reason_key, (.count | tostring), .amount] | @tsv
+')
 echo
 echo "                                vote account    settlement                        reason   stake     funded by"
 echo "--------------------------------------------+-------------+-----------------------------+-------+-------------"
 while read -r settlement
 do
+    reason=""
     vote_account=$(<<<"$settlement" jq '.vote_account' -r)
     claims_amount=$(<<<"$settlement" jq '.claims_amount / 1e9' -r | xargs printf $decimal_format)
 

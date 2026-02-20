@@ -112,7 +112,7 @@ pnpm build
 # testing the SDK+CLI against the bankrun and local validator
 pnpm test
 # running single cargo test
-cargo test --package bid-psr-distribution ts_cross_check_hash_generate
+cargo test --package settlement-common ts_cross_check_hash_generate
 
 # bankrun part of the tests
 pnpm test:bankrun

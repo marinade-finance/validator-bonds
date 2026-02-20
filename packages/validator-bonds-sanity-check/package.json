@@ -28,6 +28,7 @@
   "scripts": {
     "build": "tsc --build",
     "pretest": "node -e \"if (process.versions.node.split('.')[0] < 20) { console.error('Node.js 20 or higher is required for running tests (crypto module is in use)'); process.exit(1); }\"",
+    "test": "jest --config jest.config.js --verbose",
     "cli": "pnpm ts-node ./src/"
   },
   "dependencies": {

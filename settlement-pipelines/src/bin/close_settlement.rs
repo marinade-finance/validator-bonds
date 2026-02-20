@@ -1,10 +1,10 @@
 use anchor_client::anchor_lang::solana_program::stake::state::StakeStateV2;
 use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
-use bid_psr_distribution::utils::read_from_json_file;
 use clap::Parser;
 use log::{debug, info};
 use serde::Serialize;
+use settlement_common::utils::read_from_json_file;
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
     init_from_opts, load_pubkey, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts,
@@ -107,7 +107,7 @@ async fn real_main(
     let marinade_wallet = load_pubkey(&args.marinade_wallet)
         .map_err(|e| anyhow!("Failed to load --marinade-wallet: {e:?}"))?;
 
-    let config_address = args.global_opts.config;
+    let config_address = args.global_opts.config.expect("--config is required");
     info!(
         "Closing Settlements and Settlement Claims and Resetting Stake Accounts for validator-bonds config: {config_address}"
     );

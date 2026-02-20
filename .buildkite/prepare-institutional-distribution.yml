@@ -21,9 +21,10 @@ steps:
   - label: ":hammer_and_wrench: :rust: Build"
     commands:
     - '. "$HOME/.cargo/env"'
-    - 'cargo build --release --bin institutional-distribution-cli'
+    - 'cargo build --release --bin institutional-distribution-cli --bin merkle-generator-cli'
     artifact_paths:
       - target/release/institutional-distribution-cli
+      - target/release/merkle-generator-cli
 
   - input: "What is the epoch to generate settlements for?"
     fields:
@@ -88,7 +89,8 @@ steps:
 
   - wait: ~
 
-  - label: ":scales: Prepare Validator Bonds Merkle Tree"
+  - label: ":scales: Generate Settlements"
+    key: "generate-settlements"
     env:
       RUST_BACKTRACE: 1
     commands:
@@ -105,12 +107,28 @@ steps:
         --dao-fee-split-share-bps ${DAO_FEE_SPLIT_SHARE_BPS} \
         --dao-fee-stake-authority ${DAO_FEE_STAKE_AUTHORITY} \
         --dao-fee-withdraw-authority ${DAO_FEE_WITHDRAW_AUTHORITY} \
-        --validator-bonds-config ${VALIDATOR_BONDS_CONFIG} \
         --output-settlement-collection "./${CLAIM_TYPE}-settlements.json" \
-        --output-merkle-tree-collection "./${CLAIM_TYPE}-settlement-merkle-trees.json" \
         --output-config "./${CLAIM_TYPE}-config.json"
     artifact_paths:
-    - "./${CLAIM_TYPE}*.json"
+    - "./${CLAIM_TYPE}-settlements.json"
+    - "./${CLAIM_TYPE}-config.json"
+
+  - wait: ~
+
+  - label: ":twisted_rightwards_arrows: Generate Merkle Trees"
+    env:
+      RUST_BACKTRACE: 1
+    commands:
+    - buildkite-agent artifact download --include-retried-jobs target/release/merkle-generator-cli .
+    - chmod +x target/release/merkle-generator-cli
+    - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .
+    - |
+      ./target/release/merkle-generator-cli \
+        --input-settlement-files "./${CLAIM_TYPE}-settlements.json" \
+        --output-merkle-trees "./${CLAIM_TYPE}-merkle-trees.json" \
+        --validator-bonds-config ${VALIDATOR_BONDS_CONFIG}
+    artifact_paths:
+    - "./${CLAIM_TYPE}-merkle-trees.json"
 
   - wait: ~
 
@@ -140,15 +158,15 @@ steps:
 
   - wait: ~
 
-  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Prepare Bid Distribution"
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Prepare Institutional Distribution"
     commands:
       - epoch=$(buildkite-agent meta-data get epoch)
       - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .
-      - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlement-merkle-trees.json .
+      - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-merkle-trees.json .
       - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-config.json .
       - buildkite-agent artifact download --include-retried-jobs discord-public-report.txt .
       - gcloud storage cp "./${CLAIM_TYPE}-settlements.json" "$gs_bucket/$$epoch/"
-      - gcloud storage cp "./${CLAIM_TYPE}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
+      - gcloud storage cp "./${CLAIM_TYPE}-merkle-trees.json" "$gs_bucket/$$epoch/"
       - gcloud storage cp "./${CLAIM_TYPE}-config.json" "$gs_bucket/$$epoch/"
       - gcloud storage cp "./discord-public-report.txt" "$gs_bucket/$$epoch/${CLAIM_TYPE}-discord-public-report.txt"
 

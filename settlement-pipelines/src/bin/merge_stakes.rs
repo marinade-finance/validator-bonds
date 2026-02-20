@@ -87,7 +87,7 @@ async fn real_main(
         &args.tip_policy_opts,
     )?;
 
-    let config_address = args.global_opts.config;
+    let config_address = args.global_opts.config.expect("--config is required");
     info!("Merging stake accounts of validator-bonds config: {config_address}");
 
     let _config = get_config(rpc_client.clone(), config_address)

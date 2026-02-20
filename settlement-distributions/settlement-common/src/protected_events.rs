@@ -87,6 +87,7 @@ impl ProtectedEvent {
     }
 
     fn claim_per_stake(&self, cfg: &SettlementConfig) -> Decimal {
+        use crate::settlement_config::SettlementConfigKind;
         match self {
             ProtectedEvent::CommissionSamIncrease {
                 actual_inflation_commission,
@@ -96,8 +97,8 @@ impl ProtectedEvent {
                 ..
             } => {
                 let base_cps = expected_epr - actual_epr;
-                match cfg {
-                    SettlementConfig::CommissionSamIncreaseSettlement {
+                match &cfg.kind {
+                    SettlementConfigKind::CommissionSamIncreaseSettlement {
                         base_markup_bps,
                         penalty_markup_bps,
                         extra_penalty_threshold_bps,
@@ -130,7 +131,7 @@ impl ProtectedEvent {
     }
 
     pub fn claim_amount_in_loss_range(&self, cfg: &SettlementConfig, stake: u64) -> u64 {
-        let range_bps = cfg.covered_range_bps();
+        let range_bps = cfg.kind.covered_range_bps();
         let lower_bps = range_bps[0];
         let upper_bps = range_bps[1];
 

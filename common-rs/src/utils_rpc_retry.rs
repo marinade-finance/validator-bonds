@@ -59,7 +59,7 @@ impl Default for RetryConfig {
 /// Performs a retry-able operation to fetch data for multiple public keys from an RPC client.
 /// # Arguments
 ///
-/// * `rpc_client` - An thread-safe reference to the RPC client used for making requests
+/// * `rpc_client` - A thread-safe reference to the RPC client used for making requests
 /// * `pubkeys` - A slice of `Pubkey`s to fetch data for
 /// * `operation` - A closure that defines the fetch operation to perform for the `pubkeys`
 /// * `config` - Optional retry configuration parameters. If None, default retry settings will be used
@@ -102,7 +102,7 @@ where
             }
         }
 
-        // Calculate remaining timeout for this iteration
+        // Calculate the remaining timeout for this iteration
         let remaining_timeout = config
             .timeout_duration
             .map(|d| d.saturating_sub(start_time.elapsed()))

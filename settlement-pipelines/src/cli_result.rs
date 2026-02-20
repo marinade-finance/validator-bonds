@@ -70,16 +70,16 @@ impl From<CliError> for ExitCode {
         match err {
             // default exit code for failure is 1
             // we use 2 to show it's an error from our CLI
-            CliError::Critical(e) => {
-                error!("{e:?}");
+            CliError::Critical(err) => {
+                error!("{err:?}");
                 ExitCode::from(2)
             }
-            CliError::Warning(e) => {
-                error!("{e:?}");
+            CliError::Warning(err) => {
+                error!("{err:?}");
                 ExitCode::from(99)
             }
-            CliError::RetryAble(e) => {
-                error!("{e:?}");
+            CliError::RetryAble(err) => {
+                error!("{err:?}");
                 ExitCode::from(100)
             }
         }

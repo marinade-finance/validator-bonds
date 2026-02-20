@@ -1,31 +1,62 @@
-use crate::protected_events::ProtectedEventCollection;
-use crate::settlement_collection::{
-    Settlement, SettlementClaim, SettlementCollection, SettlementFunder, SettlementReason,
-};
-use crate::settlement_config::{build_protected_event_matcher, BidPSRConfig, SettlementConfig};
-use crate::stake_meta_index::StakeMetaIndex;
-use crate::utils::{sort_claims_deterministically, stake_authority_filter};
+use anyhow::ensure;
 use log::{debug, info};
+use settlement_common::protected_events::ProtectedEventCollection;
+use settlement_common::settlement_collection::{
+    Settlement, SettlementClaim, SettlementFunder, SettlementReason,
+};
+use settlement_common::settlement_config::{
+    build_protected_event_matcher, SettlementConfig as PsrSettlementConfig,
+};
+use settlement_common::stake_meta_index::StakeMetaIndex;
+use settlement_common::utils::sort_claims_deterministically;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
-use validator_bonds::state::bond::find_bond_address;
 
-pub fn generate_settlements(
+/// Generates PSR settlements for protected events.
+/// Takes settlement configs that match the ProtectedEvent types (DowntimeRevenueImpact, CommissionSamIncrease).
+pub fn generate_psr_settlements(
     stake_meta_index: &StakeMetaIndex,
     protected_event_collection: &ProtectedEventCollection,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
-    settlement_config: &SettlementConfig,
-    validator_bonds_config: &Pubkey,
-) -> Vec<Settlement> {
-    assert_eq!(
-        stake_meta_index.stake_meta_collection.epoch, protected_event_collection.epoch,
-        "Protected event collection epoch must be same as stake meta collection epoch"
+    settlement_configs: &[PsrSettlementConfig],
+) -> anyhow::Result<Vec<Settlement>> {
+    ensure!(
+        stake_meta_index.stake_meta_collection.epoch == protected_event_collection.epoch,
+        "Protected event collection epoch {} must be same as stake meta collection epoch {}",
+        protected_event_collection.epoch,
+        stake_meta_index.stake_meta_collection.epoch
     );
-    assert_eq!(
-        stake_meta_index.stake_meta_collection.slot,
-        protected_event_collection.slot
+    ensure!(
+        stake_meta_index.stake_meta_collection.slot == protected_event_collection.slot,
+        "Protected event collection slot {} must be same as stake meta collection slot {}",
+        protected_event_collection.slot,
+        stake_meta_index.stake_meta_collection.slot
     );
 
+    let settlements: Vec<_> = settlement_configs
+        .iter()
+        .map(|settlement_config| {
+            generate_psr_settlements_for_config(
+                stake_meta_index,
+                protected_event_collection,
+                stake_authority_filter,
+                settlement_config,
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .flatten()
+        .collect();
+
+    Ok(settlements)
+}
+
+fn generate_psr_settlements_for_config(
+    stake_meta_index: &StakeMetaIndex,
+    protected_event_collection: &ProtectedEventCollection,
+    stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+    settlement_config: &PsrSettlementConfig,
+) -> anyhow::Result<Vec<Settlement>> {
     info!("Generating settlement claim collection type {settlement_config:?}...");
 
     let protected_event_matcher = build_protected_event_matcher(settlement_config);
@@ -68,12 +99,10 @@ pub fn generate_settlements(
                 }
             }
 
-            sort_claims_deterministically(&mut claims);
-
             // Adding a "NULL claim" to the claims vector
             // To distinguish between Validator and Marinade funders in cases where both are funding the same amount
             // (i.e., the Merkle root would be identical), we add a 'null' claim with a zero amount
-            if settlement_config.meta().funder == SettlementFunder::Marinade {
+            if settlement_config.meta.funder == SettlementFunder::Marinade {
                 claims.push(SettlementClaim {
                     withdraw_authority: Pubkey::default(),
                     stake_authority: Pubkey::default(),
@@ -81,17 +110,15 @@ pub fn generate_settlements(
                     active_stake: 0,
                     claim_amount: 0,
                 });
-                claims_amount += 0;
             }
 
-            if claims_amount >= settlement_config.min_settlement_lamports() {
-                let (bond_address, _) =
-                    find_bond_address(validator_bonds_config, protected_event.vote_account());
+            sort_claims_deterministically(&mut claims);
+
+            if claims_amount >= settlement_config.kind.min_settlement_lamports() {
                 settlement_claim_collections.push(Settlement {
                     reason: SettlementReason::ProtectedEvent(Box::new(protected_event.clone())),
-                    meta: settlement_config.meta().clone(),
+                    meta: settlement_config.meta.clone(),
                     vote_account: *protected_event.vote_account(),
-                    bond_account: Some(bond_address),
                     claims_count: claims.len(),
                     claims_amount,
                     claims,
@@ -102,47 +129,10 @@ pub fn generate_settlements(
                     "Skipping protected-event Settlement for vote account {} as claim amount {} is less than min settlement lamports {}",
                     protected_event.vote_account(),
                     claims_amount,
-                    settlement_config.min_settlement_lamports()
+                    settlement_config.kind.min_settlement_lamports()
                 );
             }
         }
     }
-    settlement_claim_collections
-}
-
-pub fn generate_settlement_collection(
-    stake_meta_index: &StakeMetaIndex,
-    protected_event_collection: &ProtectedEventCollection,
-    bid_psr_config: &BidPSRConfig,
-) -> SettlementCollection {
-    assert_eq!(
-        stake_meta_index.stake_meta_collection.epoch, protected_event_collection.epoch,
-        "Protected event collection epoch must be same as stake meta collection epoch"
-    );
-    assert_eq!(
-        stake_meta_index.stake_meta_collection.slot,
-        protected_event_collection.slot
-    );
-
-    let stake_authority_filter =
-        stake_authority_filter(bid_psr_config.whitelist_stake_authorities.clone());
-    let settlements: Vec<_> = bid_psr_config
-        .settlement_configs
-        .iter()
-        .flat_map(|settlement_config| {
-            generate_settlements(
-                stake_meta_index,
-                protected_event_collection,
-                &stake_authority_filter,
-                settlement_config,
-                &bid_psr_config.validator_bonds_config,
-            )
-        })
-        .collect();
-
-    SettlementCollection {
-        slot: stake_meta_index.stake_meta_collection.slot,
-        epoch: stake_meta_index.stake_meta_collection.epoch,
-        settlements,
-    }
+    Ok(settlement_claim_collections)
 }
