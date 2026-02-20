@@ -79,6 +79,7 @@ fn main() -> anyhow::Result<()> {
     let bid_distribution_config: BidDistributionConfig =
         read_from_yaml_file(&args.settlement_config)
             .map_err(file_error("settlement-config", &args.settlement_config))?;
+    bid_distribution_config.fee_config.validate()?;
 
     info!(
         "Whitelist stake authorities: {:?}",
@@ -186,7 +187,7 @@ fn main() -> anyhow::Result<()> {
             bidding_config,
             &bid_distribution_config.fee_config,
             &*stake_authority_filter,
-        );
+        )?;
         info!("Generated {} bid settlements", bid_settlements.len());
         all_settlements.extend(bid_settlements);
 
@@ -200,7 +201,7 @@ fn main() -> anyhow::Result<()> {
             bond_risk_fee_config,
             &bid_distribution_config.fee_config,
             &*stake_authority_filter,
-        );
+        )?;
         info!(
             "Generated {} penalty settlements",
             penalty_settlements.len()
@@ -214,7 +215,7 @@ fn main() -> anyhow::Result<()> {
             &sam_validator_metas,
             bond_risk_fee_config,
             &*stake_authority_filter,
-        );
+        )?;
         info!(
             "Generated {} bond risk fee settlements",
             bond_risk_fee_settlements.len()
@@ -275,7 +276,7 @@ fn main() -> anyhow::Result<()> {
             &protected_event_collection,
             &stake_authority_filter,
             &psr_configs,
-        );
+        )?;
         info!("Generated {} PSR settlements", psr_settlements.len());
         all_settlements.extend(psr_settlements);
     } else {

@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail};
-use log::{debug, info, warn};
+use log::{debug, info};
 use merkle_tree::psr_claim::TreeNode;
 use merkle_tree::MerkleTree;
 use settlement_common::merkle_tree_collection::{get_proof, MerkleTreeCollection, MerkleTreeMeta};
@@ -75,9 +75,9 @@ fn validate_sources(sources: &[SettlementSource]) -> anyhow::Result<(u64, u64)> 
             );
         }
         if source.collection.slot != slot {
-            warn!(
-                "Slot mismatch: {} has slot {}, expected {} (using {})",
-                source.name, source.collection.slot, slot, slot
+            bail!(
+                "Slot mismatch: {} has slot {}, expected {} — different slots mean different stake snapshots",
+                source.name, source.collection.slot, slot
             );
         }
     }

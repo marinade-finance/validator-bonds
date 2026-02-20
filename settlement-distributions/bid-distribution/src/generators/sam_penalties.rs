@@ -1,6 +1,7 @@
 use crate::sam_meta::ValidatorSamMeta;
 use crate::settlement_config::{FeeConfig, SettlementConfig};
-use log::{info, warn};
+use anyhow::{anyhow, ensure};
+use log::info;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
@@ -49,7 +50,7 @@ pub fn generate_penalty_settlements(
     bond_risk_fee_config: &SettlementConfig,
     fee_config: &FeeConfig,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
-) -> Vec<Settlement> {
+) -> anyhow::Result<Vec<Settlement>> {
     info!("Generating penalty settlements...");
 
     let bid_fee_percentages = fee_config.fee_percentages();
@@ -60,14 +61,15 @@ pub fn generate_penalty_settlements(
         if let Some(grouped_stake_metas) =
             stake_meta_index.iter_grouped_stake_metas(&validator.vote_account)
         {
+            let grouped_stake_metas: Vec<_> = grouped_stake_metas.collect();
             let bid_too_low_penalty =
                 validator.rev_share.bid_too_low_penalty_pmpe / Decimal::ONE_THOUSAND;
             let blacklist_penalty =
                 validator.rev_share.blacklist_penalty_pmpe / Decimal::ONE_THOUSAND;
 
-            let total_marinade_active_stake: u64 = stake_meta_index
-                .iter_grouped_stake_metas(&validator.vote_account)
-                .expect("No items from iter_grouped_stake_metas")
+            // Compute total_marinade_active_stake in a single pass (no double iteration)
+            let total_marinade_active_stake: u64 = grouped_stake_metas
+                .iter()
                 .filter(|(&(_, &stake_authority), _)| stake_authority_filter(&stake_authority))
                 .flat_map(|(_, metas)| metas.iter())
                 .map(|meta| meta.active_delegation_lamports)
@@ -80,16 +82,16 @@ pub fn generate_penalty_settlements(
             let distributor_bid_too_low_penalty_claim = (bid_too_low_penalty_total_claim
                 * bid_fee_percentages.marinade_distributor_fee)
                 .to_u64()
-                .expect("Failed to_u64 for distributor_bid_penalty_claim");
+                .ok_or_else(|| anyhow!("Failed to_u64 for distributor_bid_penalty_claim"))?;
             let stakers_bid_too_low_penalty_claim = bid_too_low_penalty_total_claim
                 .to_u64()
-                .expect("Failed to_u64 for stakers_bid_penalty_claim")
+                .ok_or_else(|| anyhow!("Failed to_u64 for stakers_bid_penalty_claim"))?
                 .saturating_sub(distributor_bid_too_low_penalty_claim);
             let dao_bid_too_low_penalty_claim =
                 (Decimal::from(distributor_bid_too_low_penalty_claim)
                     * bid_fee_percentages.dao_fee_share)
                     .to_u64()
-                    .expect("Failed to_u64 for dao_bid_penalty_claim");
+                    .ok_or_else(|| anyhow!("Failed to_u64 for dao_bid_penalty_claim"))?;
             let marinade_bid_too_low_penalty_claim =
                 distributor_bid_too_low_penalty_claim.saturating_sub(dao_bid_too_low_penalty_claim);
 
@@ -97,7 +99,7 @@ pub fn generate_penalty_settlements(
                 Decimal::from(effective_sam_marinade_active_stake) * blacklist_penalty;
             let stakers_blacklist_penalty_claim = blacklist_penalty_total_claim
                 .to_u64()
-                .expect("Failed to_u64 for stakers_blacklist_penalty_claim");
+                .ok_or_else(|| anyhow!("Failed to_u64 for stakers_blacklist_penalty_claim"))?;
 
             let stakers_bond_risk_fee_claim = validator
                 .values
@@ -117,13 +119,13 @@ pub fn generate_penalty_settlements(
             let (marinade_fee_deposit_stake_accounts, dao_fee_deposit_stake_accounts) =
                 get_fee_deposit_stake_accounts(stake_meta_index, fee_config);
 
-            let grouped_marinade_filtered_stake_metas = grouped_stake_metas
-                .into_iter()
-                .filter(|((_, stake_authority), _)| stake_authority_filter(stake_authority))
-                .collect::<Vec<_>>();
+            let grouped_marinade_filtered_stake_metas: Vec<_> = grouped_stake_metas
+                .iter()
+                .filter(|(&(_, &stake_authority), _)| stake_authority_filter(&stake_authority))
+                .collect();
 
-            for ((withdraw_authority, stake_authority), stake_metas) in
-                grouped_marinade_filtered_stake_metas
+            for &(&(withdraw_authority, stake_authority), stake_metas) in
+                &grouped_marinade_filtered_stake_metas
             {
                 let stake_accounts: HashMap<_, _> = stake_metas
                     .iter()
@@ -137,20 +139,26 @@ pub fn generate_penalty_settlements(
                     let bid_penalty_claim_amount = (staker_share
                         * Decimal::from(stakers_bid_too_low_penalty_claim))
                     .to_u64()
-                    .expect("bid_penalty_claim_amount is not integral");
+                    .ok_or_else(|| {
+                        anyhow!("bid_penalty_claim_amount is not representable as u64")
+                    })?;
                     let blacklist_penalty_claim_amount = (staker_share
                         * Decimal::from(stakers_blacklist_penalty_claim))
                     .to_u64()
-                    .expect("blacklist_penalty_claim_amount is not integral");
+                    .ok_or_else(|| {
+                        anyhow!("blacklist_penalty_claim_amount is not representable as u64")
+                    })?;
                     let bond_risk_fee_claim_amount = (staker_share
                         * Decimal::from(stakers_bond_risk_fee_claim))
                     .to_u64()
-                    .expect("bond_risk_fee_claim_amount is not integral");
+                    .ok_or_else(|| {
+                        anyhow!("bond_risk_fee_claim_amount is not representable as u64")
+                    })?;
 
                     if bid_penalty_claim_amount > 0 {
                         bid_too_low_penalty_claims.push(SettlementClaim {
-                            withdraw_authority: **withdraw_authority,
-                            stake_authority: **stake_authority,
+                            withdraw_authority: *withdraw_authority,
+                            stake_authority: *stake_authority,
                             stake_accounts: stake_accounts.clone(),
                             claim_amount: bid_penalty_claim_amount,
                             active_stake,
@@ -159,8 +167,8 @@ pub fn generate_penalty_settlements(
                     }
                     if blacklist_penalty_claim_amount > 0 {
                         blacklist_penalty_claims.push(SettlementClaim {
-                            withdraw_authority: **withdraw_authority,
-                            stake_authority: **stake_authority,
+                            withdraw_authority: *withdraw_authority,
+                            stake_authority: *stake_authority,
                             stake_accounts: stake_accounts.clone(),
                             claim_amount: blacklist_penalty_claim_amount,
                             active_stake,
@@ -169,9 +177,9 @@ pub fn generate_penalty_settlements(
                     }
                     if bond_risk_fee_claim_amount > 0 {
                         bond_risk_fee_claims.push(SettlementClaim {
-                            withdraw_authority: **withdraw_authority,
-                            stake_authority: **stake_authority,
-                            stake_accounts: stake_accounts.clone(),
+                            withdraw_authority: *withdraw_authority,
+                            stake_authority: *stake_authority,
+                            stake_accounts,
                             claim_amount: bond_risk_fee_claim_amount,
                             active_stake,
                         });
@@ -180,51 +188,69 @@ pub fn generate_penalty_settlements(
                 }
             }
 
-            assert!(
+            ensure!(
                 claimed_bid_too_low_penalty_amount <= stakers_bid_too_low_penalty_claim,
-                "Total claimed bid_penalty amount is bigger than stakers bid_penalty claim"
+                "Total claimed bid_penalty amount {} is bigger than stakers bid_penalty claim {} for validator {}",
+                claimed_bid_too_low_penalty_amount,
+                stakers_bid_too_low_penalty_claim,
+                validator.vote_account
             );
-            assert!(
+            ensure!(
                 claimed_blacklist_penalty_amount <= stakers_blacklist_penalty_claim,
-                "Total claimed blacklist_penalty amount is bigger than stakers blacklist_penalty claim"
+                "Total claimed blacklist_penalty amount {} is bigger than stakers blacklist_penalty claim {} for validator {}",
+                claimed_blacklist_penalty_amount,
+                stakers_blacklist_penalty_claim,
+                validator.vote_account
             );
-            assert!(
+            ensure!(
                 claimed_bond_risk_fee_amount <= stakers_bond_risk_fee_claim,
-                "Total claimed bond_risk_fee amount is bigger than stakers bond_risk_fee claim"
+                "Total claimed bond_risk_fee amount {} is bigger than stakers bond_risk_fee claim {} for validator {}",
+                claimed_bond_risk_fee_amount,
+                stakers_bond_risk_fee_claim,
+                validator.vote_account
             );
 
             if effective_sam_marinade_active_stake > 0 {
+                let bid_too_low_penalty_total_claim_u64 = bid_too_low_penalty_total_claim
+                    .to_u64()
+                    .ok_or_else(|| anyhow!("Failed to_u64 for bid_penalty_total_claim"))?;
+
                 if marinade_bid_too_low_penalty_claim > 0 {
-                    let (marinade_withdraw, marinade_stake, _, _) = fee_config.fee_authorities();
+                    let authorities = fee_config.fee_authorities();
                     bid_too_low_penalty_claims.push(SettlementClaim {
-                        withdraw_authority: *marinade_withdraw,
-                        stake_authority: *marinade_stake,
+                        withdraw_authority: *authorities.marinade_withdraw,
+                        stake_authority: *authorities.marinade_stake,
                         stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
                         claim_amount: marinade_bid_too_low_penalty_claim,
                         active_stake: marinade_fee_deposit_stake_accounts.values().sum(),
                     });
                     claimed_bid_too_low_penalty_amount += marinade_bid_too_low_penalty_claim;
 
-                    assert!(
-                        claimed_bid_too_low_penalty_amount <= bid_too_low_penalty_total_claim.to_u64()
-                            .expect("Failed to_u64 for bid_penalty_total_claim"),
-                        "The sum of total claims exceeds the bid penalty amount after adding the Marinade fee"
+                    ensure!(
+                        claimed_bid_too_low_penalty_amount <= bid_too_low_penalty_total_claim_u64,
+                        "The sum of total claims {} exceeds the bid penalty amount {} after adding the Marinade fee for validator {}",
+                        claimed_bid_too_low_penalty_amount,
+                        bid_too_low_penalty_total_claim_u64,
+                        validator.vote_account
                     );
                 }
                 if dao_bid_too_low_penalty_claim > 0 {
-                    let (_, _, dao_withdraw, dao_stake) = fee_config.fee_authorities();
+                    let authorities = fee_config.fee_authorities();
                     bid_too_low_penalty_claims.push(SettlementClaim {
-                        withdraw_authority: *dao_withdraw,
-                        stake_authority: *dao_stake,
+                        withdraw_authority: *authorities.dao_withdraw,
+                        stake_authority: *authorities.dao_stake,
                         stake_accounts: dao_fee_deposit_stake_accounts.clone(),
                         claim_amount: dao_bid_too_low_penalty_claim,
                         active_stake: total_marinade_active_stake,
                     });
                     claimed_bid_too_low_penalty_amount += dao_bid_too_low_penalty_claim;
 
-                    assert!(
-                        claimed_bid_too_low_penalty_amount <= bid_too_low_penalty_total_claim.to_u64().expect("Failed to_u64 for bid_penalty_total_claim"),
-                        "The sum of total claims exceeds the bid penalty amount after adding the DAO fee"
+                    ensure!(
+                        claimed_bid_too_low_penalty_amount <= bid_too_low_penalty_total_claim_u64,
+                        "The sum of total claims {} exceeds the bid penalty amount {} after adding the DAO fee for validator {}",
+                        claimed_bid_too_low_penalty_amount,
+                        bid_too_low_penalty_total_claim_u64,
+                        validator.vote_account
                     );
                 }
             }
@@ -241,8 +267,7 @@ pub fn generate_penalty_settlements(
                     dao_bid_too_low_penalty_claim,
                     marinade_bid_too_low_penalty_claim,
                 };
-                let details_json = serde_json::to_value(&bid_penalty_details)
-                    .expect("Failed to serialize BidTooLowPenaltyDetails");
+                let details_json = serde_json::to_value(&bid_penalty_details)?;
 
                 add_to_settlement_collection(
                     &mut penalty_settlement_collection,
@@ -264,8 +289,7 @@ pub fn generate_penalty_settlements(
                     blacklist_penalty_total_claim: blacklist_penalty_total_claim.to_string(),
                     stakers_blacklist_penalty_claim,
                 };
-                let details_json = serde_json::to_value(&blacklist_penalty_details)
-                    .expect("Failed to serialize BlacklistPenaltyDetails");
+                let details_json = serde_json::to_value(&blacklist_penalty_details)?;
 
                 add_to_settlement_collection(
                     &mut penalty_settlement_collection,
@@ -305,14 +329,7 @@ pub fn generate_penalty_settlements(
             }
         }
     }
-    penalty_settlement_collection
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BondRiskFeeDetails {
-    pub total_marinade_active_stake: u64,
-    pub bond_risk_fee_sol: String,
-    pub stakers_bond_risk_fee_claim: u64,
+    Ok(penalty_settlement_collection)
 }
 
 pub fn generate_bond_risk_fee_settlements(
@@ -320,7 +337,7 @@ pub fn generate_bond_risk_fee_settlements(
     sam_validator_metas: &[ValidatorSamMeta],
     bond_risk_fee_config: &SettlementConfig,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
-) -> Vec<Settlement> {
+) -> anyhow::Result<Vec<Settlement>> {
     info!("Generating bond risk fee settlements...");
 
     let mut settlement_collection = vec![];
@@ -339,7 +356,7 @@ pub fn generate_bond_risk_fee_settlements(
         {
             let stakers_bond_risk_fee_claim = (bond_risk_fee_sol * Decimal::from(LAMPORTS_PER_SOL))
                 .to_u64()
-                .expect("Failed to_u64 for stakers_bond_risk_fee_claim");
+                .ok_or_else(|| anyhow!("Failed to_u64 for stakers_bond_risk_fee_claim"))?;
 
             if stakers_bond_risk_fee_claim == 0 {
                 continue;
@@ -354,7 +371,7 @@ pub fn generate_bond_risk_fee_settlements(
                 .sum();
 
             if total_marinade_active_stake == 0 {
-                warn!(
+                info!(
                     "Skipping bond risk fee for validator {} with zero marinade active stake",
                     validator.vote_account
                 );
@@ -383,7 +400,9 @@ pub fn generate_bond_risk_fee_settlements(
                     let bond_risk_fee_claim_amount = (staker_share
                         * Decimal::from(stakers_bond_risk_fee_claim))
                     .to_u64()
-                    .expect("bond_risk_fee_claim_amount is not integral");
+                    .ok_or_else(|| {
+                        anyhow!("bond_risk_fee_claim_amount is not representable as u64")
+                    })?;
 
                     if bond_risk_fee_claim_amount > 0 {
                         bond_risk_fee_claims.push(SettlementClaim {
@@ -398,7 +417,7 @@ pub fn generate_bond_risk_fee_settlements(
                 }
             }
 
-            assert!(
+            ensure!(
                 claimed_bond_risk_fee_amount <= stakers_bond_risk_fee_claim,
                 "Validator {}: total claimed bond_risk_fee amount {} is bigger than stakers bond_risk_fee claim {}",
                 validator.vote_account,
@@ -409,11 +428,11 @@ pub fn generate_bond_risk_fee_settlements(
             if !bond_risk_fee_claims.is_empty() {
                 let details = BondRiskFeeDetails {
                     total_marinade_active_stake,
+                    effective_sam_marinade_active_stake: total_marinade_active_stake,
                     bond_risk_fee_sol: bond_risk_fee_sol.to_string(),
                     stakers_bond_risk_fee_claim,
                 };
-                let details_json =
-                    serde_json::to_value(&details).expect("Failed to serialize BondRiskFeeDetails");
+                let details_json = serde_json::to_value(&details)?;
 
                 add_to_settlement_collection(
                     &mut settlement_collection,
@@ -427,5 +446,5 @@ pub fn generate_bond_risk_fee_settlements(
             }
         }
     }
-    settlement_collection
+    Ok(settlement_collection)
 }

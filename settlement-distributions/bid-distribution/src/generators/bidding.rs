@@ -1,6 +1,7 @@
 use crate::rewards::{RewardsCollection, VoteAccountRewards};
 use crate::sam_meta::{AuctionValidatorValues, ValidatorSamMeta};
 use crate::settlement_config::{FeeConfig, SettlementConfig};
+use anyhow::{anyhow, ensure};
 use log::{debug, info, warn};
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
@@ -30,10 +31,10 @@ impl ResultSettlementClaims {
             .saturating_add(self.static_bid_claim)
     }
 
-    pub fn sum_u64(&self) -> u64 {
+    pub fn sum_u64(&self) -> anyhow::Result<u64> {
         self.sum()
             .to_u64()
-            .expect("Failed to_u64 for total settlement claims")
+            .ok_or_else(|| anyhow!("Failed to_u64 for total settlement claims: {}", self.sum()))
     }
 }
 
@@ -79,7 +80,7 @@ pub fn generate_bid_settlements(
     settlement_config: &SettlementConfig,
     fee_config: &FeeConfig,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
-) -> Vec<Settlement> {
+) -> anyhow::Result<Vec<Settlement>> {
     let epoch = stake_meta_index.stake_meta_collection.epoch;
     info!("Generating bid settlements in epoch {epoch}...");
     let fee_percentages = fee_config.fee_percentages();
@@ -90,10 +91,11 @@ pub fn generate_bid_settlements(
         if let Some(grouped_stake_metas) =
             stake_meta_index.iter_grouped_stake_metas(&validator.vote_account)
         {
-            let (total_active_stake, total_marinade_active_stake): (u64, u64) = stake_meta_index
-                .iter_grouped_stake_metas(&validator.vote_account)
-                .expect("No items from iter_grouped_stake_metas")
-                .flat_map(|(key, metas)| metas.iter().map(move |meta| (key, meta)))
+            let grouped_stake_metas: Vec<_> = grouped_stake_metas.collect();
+            // Compute totals in a single pass (no double iteration)
+            let (total_active_stake, total_marinade_active_stake): (u64, u64) = grouped_stake_metas
+                .iter()
+                .flat_map(|(key, metas)| metas.iter().map(move |meta| (*key, meta)))
                 .fold(
                     (0, 0),
                     |(total, marinade_total), ((_, stake_authority), meta)| {
@@ -169,16 +171,19 @@ pub fn generate_bid_settlements(
                     .inflation_commission_in_bond_dec
                     .unwrap_or(Decimal::ONE);
                 let inflation_commission_onchain_dec = commissions.inflation_commission_onchain_dec;
-                assert!(
+                ensure!(
                     inflation_commission_onchain_dec <= Decimal::ONE,
-                    "Inflation commission validator onchain decimal cannot be greater than 1",
+                    "Inflation commission validator {} onchain decimal {} cannot be greater than 1",
+                    validator.vote_account,
+                    inflation_commission_onchain_dec
                 );
                 if inflation_commission_onchain_dec > inflation_commission_in_bond_dec {
                     let inflation_commission_diff =
                         inflation_commission_onchain_dec - inflation_commission_in_bond_dec;
-                    assert!(
+                    ensure!(
                         inflation_commission_diff >= Decimal::ZERO,
-                        "Inflation commission diff cannot be negative"
+                        "Inflation commission diff cannot be negative for validator {}",
+                        validator.vote_account
                     );
                     settlement_claim.inflation_commission_claim =
                         marinade_inflation_rewards.mul(inflation_commission_diff);
@@ -190,9 +195,10 @@ pub fn generate_bid_settlements(
                     if mev_commission_onchain_dec > mev_commission_in_bond_dec {
                         let mev_commission_diff =
                             mev_commission_onchain_dec - mev_commission_in_bond_dec;
-                        assert!(
+                        ensure!(
                             mev_commission_diff >= Decimal::ZERO,
-                            "MEV commission diff cannot be negative"
+                            "MEV commission diff cannot be negative for validator {}",
+                            validator.vote_account
                         );
                         settlement_claim.mev_commission_claim =
                             marinade_mev_rewards.mul(mev_commission_diff);
@@ -202,19 +208,21 @@ pub fn generate_bid_settlements(
                     commissions.block_rewards_commission_in_bond_dec
                 {
                     if rewards.block_rewards > 0 {
+                        // Use Decimal to avoid u64 underflow if jito_priority_fee_rewards > block_rewards
                         let block_rewards_jito_commission_onchain_dec =
-                            Decimal::from(
-                                rewards.block_rewards - rewards.jito_priority_fee_rewards,
-                            ) / Decimal::from(rewards.block_rewards);
+                            (Decimal::from(rewards.block_rewards)
+                                - Decimal::from(rewards.jito_priority_fee_rewards))
+                                / Decimal::from(rewards.block_rewards);
                         if block_rewards_jito_commission_onchain_dec
                             > block_rewards_commission_in_bond_dec
                         {
                             let block_rewards_commission_diff =
                                 block_rewards_jito_commission_onchain_dec
                                     - block_rewards_commission_in_bond_dec;
-                            assert!(
+                            ensure!(
                                 block_rewards_commission_diff >= Decimal::ZERO,
-                                "Block rewards commission diff cannot be negative"
+                                "Block rewards commission diff cannot be negative for validator {}",
+                                validator.vote_account
                             );
                             settlement_claim.block_commission_claim =
                                 marinade_block_rewards.mul(block_rewards_commission_diff);
@@ -287,20 +295,24 @@ pub fn generate_bid_settlements(
             let distributor_fee_claim = minimum_distributor_fee_claim
                 .min(settlement_claim.sum())
                 .to_u64()
-                .expect("Failed to_u64 for distributor_fee_claim");
+                .ok_or_else(|| anyhow!("Failed to_u64 for distributor_fee_claim"))?;
 
             // minimum is 0 when distributor fee is of amount of total (stakers get nothing)
-            let stakers_total_claim = settlement_claim
-                .sum_u64()
-                .saturating_sub(distributor_fee_claim);
+            let settlement_claim_sum = settlement_claim.sum_u64()?;
+            let stakers_total_claim = settlement_claim_sum.saturating_sub(distributor_fee_claim);
             let dao_fee_claim = (Decimal::from(distributor_fee_claim)
                 * fee_percentages.dao_fee_share)
                 .to_u64()
-                .expect("Failed to_u64 for dao_fee_claim");
+                .ok_or_else(|| anyhow!("Failed to_u64 for dao_fee_claim"))?;
             let marinade_fee_claim = distributor_fee_claim - dao_fee_claim;
-            assert_eq!(
-                settlement_claim.sum_u64(),
-                stakers_total_claim + marinade_fee_claim + dao_fee_claim,
+            ensure!(
+                settlement_claim_sum == stakers_total_claim + marinade_fee_claim + dao_fee_claim,
+                "Settlement claim sum {} != stakers {} + marinade fee {} + dao fee {} for validator {}",
+                settlement_claim_sum,
+                stakers_total_claim,
+                marinade_fee_claim,
+                dao_fee_claim,
+                validator.vote_account
             );
 
             let (marinade_fee_deposit_stake_accounts, dao_fee_deposit_stake_accounts) =
@@ -309,7 +321,7 @@ pub fn generate_bid_settlements(
             let mut claims = vec![];
             let mut claims_amount = 0;
 
-            for ((withdraw_authority, stake_authority), stake_metas) in grouped_stake_metas {
+            for (&(withdraw_authority, stake_authority), stake_metas) in &grouped_stake_metas {
                 if !stake_authority_filter(stake_authority) {
                     continue;
                 }
@@ -323,11 +335,16 @@ pub fn generate_bid_settlements(
                         / Decimal::from(total_marinade_active_stake);
                     let claim_amount = (staker_share * Decimal::from(stakers_total_claim))
                         .to_u64()
-                        .expect("claim_amount is not integral");
+                        .ok_or_else(|| {
+                            anyhow!(
+                                "claim_amount is not representable as u64 for validator {}",
+                                validator.vote_account
+                            )
+                        })?;
                     if claim_amount > 0 {
                         claims.push(SettlementClaim {
-                            withdraw_authority: **withdraw_authority,
-                            stake_authority: **stake_authority,
+                            withdraw_authority: *withdraw_authority,
+                            stake_authority: *stake_authority,
                             stake_accounts: stake_accounts.clone(),
                             claim_amount,
                             active_stake: stake_accounts_sum,
@@ -336,40 +353,50 @@ pub fn generate_bid_settlements(
                     }
                 }
             }
-            if claims_amount > stakers_total_claim {
-                panic!("Claims amount {claims_amount} exceeded stakers total claim {stakers_total_claim}")
-            }
+            ensure!(
+                claims_amount <= stakers_total_claim,
+                "Claims amount {} exceeded stakers total claim {} for validator {}",
+                claims_amount,
+                stakers_total_claim,
+                validator.vote_account
+            );
 
             if marinade_fee_claim > 0 {
-                let (marinade_withdraw, marinade_stake, _, _) = fee_config.fee_authorities();
+                let authorities = fee_config.fee_authorities();
                 claims.push(SettlementClaim {
-                    withdraw_authority: *marinade_withdraw,
-                    stake_authority: *marinade_stake,
+                    withdraw_authority: *authorities.marinade_withdraw,
+                    stake_authority: *authorities.marinade_stake,
                     stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
                     claim_amount: marinade_fee_claim,
                     active_stake: marinade_fee_deposit_stake_accounts.values().sum(),
                 });
                 claims_amount += marinade_fee_claim;
 
-                assert!(
-                    claims_amount <= settlement_claim.sum_u64(),
-                    "The sum of total claims exceeds the total claim amount after adding the Marinade fee"
+                ensure!(
+                    claims_amount <= settlement_claim_sum,
+                    "The sum of total claims {} exceeds the total claim amount {} after adding the Marinade fee for validator {}",
+                    claims_amount,
+                    settlement_claim_sum,
+                    validator.vote_account
                 );
             }
             if dao_fee_claim > 0 {
-                let (_, _, dao_withdraw, dao_stake) = fee_config.fee_authorities();
+                let authorities = fee_config.fee_authorities();
                 claims.push(SettlementClaim {
-                    withdraw_authority: *dao_withdraw,
-                    stake_authority: *dao_stake,
+                    withdraw_authority: *authorities.dao_withdraw,
+                    stake_authority: *authorities.dao_stake,
                     stake_accounts: dao_fee_deposit_stake_accounts.clone(),
                     claim_amount: dao_fee_claim,
                     active_stake: total_marinade_active_stake,
                 });
                 claims_amount += dao_fee_claim;
 
-                assert!(
-                    claims_amount <= settlement_claim.sum_u64(),
-                    "The sum of total claims exceeds the total claim amount after adding the DAO fee"
+                ensure!(
+                    claims_amount <= settlement_claim_sum,
+                    "The sum of total claims {} exceeds the total claim amount {} after adding the DAO fee for validator {}",
+                    claims_amount,
+                    settlement_claim_sum,
+                    validator.vote_account
                 );
             }
 
@@ -387,14 +414,12 @@ pub fn generate_bid_settlements(
                 staker_block_rewards: staker_block_rewards_opt.map(|d| d.to_string()),
                 staker_bid_rewards: staker_bid_rewards_opt.map(|d| d.to_string()),
                 total_marinade_stakers_rewards: total_marinade_stakers_rewards.to_string(),
-                settlement_claims: serde_json::to_value(settlement_claim)
-                    .expect("claims are not valid json"),
+                settlement_claims: serde_json::to_value(&settlement_claim)?,
                 stakers_total_claim,
                 marinade_fee_claim,
                 dao_fee_claim,
             };
-            let details_json = serde_json::to_value(&settlement_details)
-                .expect("Failed to serialize BidSettlementDetails");
+            let details_json = serde_json::to_value(&settlement_details)?;
 
             add_to_settlement_collection(
                 &mut settlement_claim_collections,
@@ -407,5 +432,5 @@ pub fn generate_bid_settlements(
             );
         }
     }
-    settlement_claim_collections
+    Ok(settlement_claim_collections)
 }

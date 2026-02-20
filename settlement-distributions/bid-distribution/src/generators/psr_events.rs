@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use log::{debug, info};
 use settlement_common::protected_events::ProtectedEventCollection;
 use settlement_common::settlement_collection::{
@@ -18,19 +19,23 @@ pub fn generate_psr_settlements(
     protected_event_collection: &ProtectedEventCollection,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     settlement_configs: &[PsrSettlementConfig],
-) -> Vec<Settlement> {
-    assert_eq!(
-        stake_meta_index.stake_meta_collection.epoch, protected_event_collection.epoch,
-        "Protected event collection epoch must be same as stake meta collection epoch"
+) -> anyhow::Result<Vec<Settlement>> {
+    ensure!(
+        stake_meta_index.stake_meta_collection.epoch == protected_event_collection.epoch,
+        "Protected event collection epoch {} must be same as stake meta collection epoch {}",
+        protected_event_collection.epoch,
+        stake_meta_index.stake_meta_collection.epoch
     );
-    assert_eq!(
-        stake_meta_index.stake_meta_collection.slot,
-        protected_event_collection.slot
+    ensure!(
+        stake_meta_index.stake_meta_collection.slot == protected_event_collection.slot,
+        "Protected event collection slot {} must be same as stake meta collection slot {}",
+        protected_event_collection.slot,
+        stake_meta_index.stake_meta_collection.slot
     );
 
     let settlements: Vec<_> = settlement_configs
         .iter()
-        .flat_map(|settlement_config| {
+        .map(|settlement_config| {
             generate_psr_settlements_for_config(
                 stake_meta_index,
                 protected_event_collection,
@@ -38,9 +43,12 @@ pub fn generate_psr_settlements(
                 settlement_config,
             )
         })
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .flatten()
         .collect();
 
-    settlements
+    Ok(settlements)
 }
 
 fn generate_psr_settlements_for_config(
@@ -48,7 +56,7 @@ fn generate_psr_settlements_for_config(
     protected_event_collection: &ProtectedEventCollection,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     settlement_config: &PsrSettlementConfig,
-) -> Vec<Settlement> {
+) -> anyhow::Result<Vec<Settlement>> {
     info!("Generating settlement claim collection type {settlement_config:?}...");
 
     let protected_event_matcher = build_protected_event_matcher(settlement_config);
@@ -94,7 +102,7 @@ fn generate_psr_settlements_for_config(
             // Adding a "NULL claim" to the claims vector
             // To distinguish between Validator and Marinade funders in cases where both are funding the same amount
             // (i.e., the Merkle root would be identical), we add a 'null' claim with a zero amount
-            if settlement_config.meta().funder == SettlementFunder::Marinade {
+            if settlement_config.meta.funder == SettlementFunder::Marinade {
                 claims.push(SettlementClaim {
                     withdraw_authority: Pubkey::default(),
                     stake_authority: Pubkey::default(),
@@ -106,10 +114,10 @@ fn generate_psr_settlements_for_config(
 
             sort_claims_deterministically(&mut claims);
 
-            if claims_amount >= settlement_config.min_settlement_lamports() {
+            if claims_amount >= settlement_config.kind.min_settlement_lamports() {
                 settlement_claim_collections.push(Settlement {
                     reason: SettlementReason::ProtectedEvent(Box::new(protected_event.clone())),
-                    meta: settlement_config.meta().clone(),
+                    meta: settlement_config.meta.clone(),
                     vote_account: *protected_event.vote_account(),
                     claims_count: claims.len(),
                     claims_amount,
@@ -121,10 +129,10 @@ fn generate_psr_settlements_for_config(
                     "Skipping protected-event Settlement for vote account {} as claim amount {} is less than min settlement lamports {}",
                     protected_event.vote_account(),
                     claims_amount,
-                    settlement_config.min_settlement_lamports()
+                    settlement_config.kind.min_settlement_lamports()
                 );
             }
         }
     }
-    settlement_claim_collections
+    Ok(settlement_claim_collections)
 }

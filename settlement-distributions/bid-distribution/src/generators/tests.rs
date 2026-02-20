@@ -5,7 +5,9 @@ use crate::rewards::{RewardsCollection, VoteAccountRewards};
 use crate::sam_meta::{
     AuctionValidatorValues, CommissionDetails, RevShare, SamMetadata, ValidatorSamMeta,
 };
-use crate::settlement_config::{AuthorityConfig, DaoConfig, FeeConfig, SettlementConfig};
+use crate::settlement_config::{
+    AuthorityConfig, DaoConfig, FeeConfig, SamSettlementConfig, SamSettlementKind, SettlementConfig,
+};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use serde_json::json;
@@ -13,7 +15,9 @@ use settlement_common::protected_events::{ProtectedEvent, ProtectedEventCollecti
 use settlement_common::settlement_collection::{
     Settlement, SettlementFunder, SettlementMeta, SettlementReason,
 };
-use settlement_common::settlement_config::SettlementConfig as PsrSettlementConfig;
+use settlement_common::settlement_config::{
+    SettlementConfig as PsrSettlementConfig, SettlementConfigKind as PsrSettlementConfigKind,
+};
 use settlement_common::stake_meta_index::StakeMetaIndex;
 use snapshot_parser_validator_cli::stake_meta::{StakeMeta, StakeMetaCollection};
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
@@ -99,7 +103,8 @@ fn test_generate_bid_settlements_basic_single_validator() {
         &settlement_config,
         &fee_config,
         &accept_all,
-    );
+    )
+    .unwrap();
 
     // -- VERIFY
     assert!(!settlements.is_empty(), "Should generate settlements");
@@ -198,7 +203,8 @@ fn test_generate_bid_settlements_positive_commission() {
         &settlement_config,
         &fee_config,
         &accept_all,
-    );
+    )
+    .unwrap();
 
     assert!(!settlements.is_empty());
     assert!(
@@ -335,7 +341,8 @@ fn test_generate_bid_settlements_negative_commission() {
         &settlement_config,
         &fee_config,
         &accept_all,
-    );
+    )
+    .unwrap();
 
     // -- VERIFY
     let marinade_inflation_rewards = (Decimal::from(inflation_rewards) * marinade_delegation_share)
@@ -522,7 +529,8 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-    );
+    )
+    .unwrap();
 
     let settlements2 = generate_bid_settlements(
         &stake_meta_index,
@@ -531,7 +539,8 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-    );
+    )
+    .unwrap();
 
     let settlements3 = generate_bid_settlements(
         &stake_meta_index,
@@ -540,7 +549,8 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-    );
+    )
+    .unwrap();
 
     assert!(!settlements1.is_empty());
     assert!(!settlements2.is_empty());
@@ -585,21 +595,27 @@ fn test_generate_penalty_settlements() {
         .build();
 
     let fee_config = create_test_fee_config(950, 500);
-    let bid_too_low_config = SettlementConfig::BidTooLowPenalty {
+    let bid_too_low_config = SettlementConfig::Sam(SamSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
-    };
-    let blacklist_config = SettlementConfig::BlacklistPenalty {
+        kind: SamSettlementKind::BidTooLowPenalty,
+    });
+    let blacklist_config = SettlementConfig::Sam(SamSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
+<<<<<<< HEAD
     };
     let bond_risk_fee_config = SettlementConfig::BondRiskFee {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
     };
+=======
+        kind: SamSettlementKind::BlacklistPenalty,
+    });
+>>>>>>> origin/refactoring-unification
 
     let settlements = generate_penalty_settlements(
         &stake_meta_index,
@@ -609,7 +625,8 @@ fn test_generate_penalty_settlements() {
         &bond_risk_fee_config,
         &fee_config,
         &accept_all,
-    );
+    )
+    .unwrap();
 
     let has_bid_penalty = settlements
         .iter()
@@ -786,7 +803,8 @@ fn test_zero_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-    );
+    )
+    .unwrap();
 
     assert!(!settlements.is_empty());
     assert!(
@@ -1003,11 +1021,12 @@ fn create_test_fee_config(marinade_fee_bps: u64, dao_fee_split_share_bps: u64) -
 }
 
 fn create_test_settlement_config() -> SettlementConfig {
-    SettlementConfig::Bidding {
+    SettlementConfig::Sam(SamSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
-    }
+        kind: SamSettlementKind::Bidding,
+    })
 }
 
 struct RewardsParams {
@@ -1206,7 +1225,8 @@ fn test_generate_settlements_from_json_values() {
         &settlement_config,
         &fee_config,
         &accept_all,
-    );
+    )
+    .unwrap();
 
     assert!(
         !settlements.is_empty(),
@@ -1269,13 +1289,15 @@ fn test_generate_psr_downtime_basic() {
         }],
     };
 
-    let settlement_config = PsrSettlementConfig::DowntimeRevenueImpactSettlement {
+    let settlement_config = PsrSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
-        min_settlement_lamports: 0,
-        grace_downtime_bps: None,
-        covered_range_bps: [0, 5000],
+        kind: PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            min_settlement_lamports: 0,
+            grace_downtime_bps: None,
+            covered_range_bps: [0, 5000],
+        },
     };
 
     let settlements = generate_psr_settlements(
@@ -1283,7 +1305,8 @@ fn test_generate_psr_downtime_basic() {
         &protected_event_collection,
         &accept_all,
         &[settlement_config],
-    );
+    )
+    .unwrap();
 
     assert_eq!(settlements.len(), 1, "Should generate 1 settlement");
     let settlement = &settlements[0];
@@ -1349,13 +1372,15 @@ fn test_generate_psr_downtime_marinade_funder_adds_null_claim() {
         }],
     };
 
-    let settlement_config = PsrSettlementConfig::DowntimeRevenueImpactSettlement {
+    let settlement_config = PsrSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::Marinade,
         },
-        min_settlement_lamports: 0,
-        grace_downtime_bps: None,
-        covered_range_bps: [5000, 10000],
+        kind: PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            min_settlement_lamports: 0,
+            grace_downtime_bps: None,
+            covered_range_bps: [5000, 10000],
+        },
     };
 
     let settlements = generate_psr_settlements(
@@ -1363,7 +1388,8 @@ fn test_generate_psr_downtime_marinade_funder_adds_null_claim() {
         &protected_event_collection,
         &accept_all,
         &[settlement_config],
-    );
+    )
+    .unwrap();
 
     assert_eq!(settlements.len(), 1, "Should generate 1 settlement");
     let settlement = &settlements[0];
@@ -1418,13 +1444,15 @@ fn test_generate_psr_downtime_below_grace_period() {
         }],
     };
 
-    let settlement_config = PsrSettlementConfig::DowntimeRevenueImpactSettlement {
+    let settlement_config = PsrSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
-        min_settlement_lamports: 0,
-        grace_downtime_bps: Some(100),
-        covered_range_bps: [0, 5000],
+        kind: PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            min_settlement_lamports: 0,
+            grace_downtime_bps: Some(100),
+            covered_range_bps: [0, 5000],
+        },
     };
 
     let settlements = generate_psr_settlements(
@@ -1432,7 +1460,8 @@ fn test_generate_psr_downtime_below_grace_period() {
         &protected_event_collection,
         &accept_all,
         &[settlement_config],
-    );
+    )
+    .unwrap();
 
     assert_eq!(
         settlements.len(),
@@ -1476,13 +1505,15 @@ fn test_generate_psr_downtime_below_min_settlement() {
     };
 
     // claim = 100_000_000 * 0.0005 = 50_000 (below min_settlement_lamports of 100_000)
-    let settlement_config = PsrSettlementConfig::DowntimeRevenueImpactSettlement {
+    let settlement_config = PsrSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
-        min_settlement_lamports: 100_000,
-        grace_downtime_bps: None,
-        covered_range_bps: [0, 5000],
+        kind: PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            min_settlement_lamports: 100_000,
+            grace_downtime_bps: None,
+            covered_range_bps: [0, 5000],
+        },
     };
 
     let settlements = generate_psr_settlements(
@@ -1490,7 +1521,8 @@ fn test_generate_psr_downtime_below_min_settlement() {
         &protected_event_collection,
         &accept_all,
         &[settlement_config],
-    );
+    )
+    .unwrap();
 
     assert_eq!(
         settlements.len(),
@@ -1538,16 +1570,18 @@ fn test_generate_psr_commission_increase_basic() {
         }],
     };
 
-    let settlement_config = PsrSettlementConfig::CommissionSamIncreaseSettlement {
+    let settlement_config = PsrSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
-        min_settlement_lamports: 0,
-        grace_increase_bps: None,
-        covered_range_bps: [0, 10000],
-        extra_penalty_threshold_bps: 5000,
-        base_markup_bps: 1000,
-        penalty_markup_bps: 2000,
+        kind: PsrSettlementConfigKind::CommissionSamIncreaseSettlement {
+            min_settlement_lamports: 0,
+            grace_increase_bps: None,
+            covered_range_bps: [0, 10000],
+            extra_penalty_threshold_bps: 5000,
+            base_markup_bps: 1000,
+            penalty_markup_bps: 2000,
+        },
     };
 
     let settlements = generate_psr_settlements(
@@ -1555,7 +1589,8 @@ fn test_generate_psr_commission_increase_basic() {
         &protected_event_collection,
         &accept_all,
         &[settlement_config],
-    );
+    )
+    .unwrap();
 
     assert_eq!(settlements.len(), 1, "Should generate 1 settlement");
     let settlement = &settlements[0];
@@ -1615,13 +1650,15 @@ fn test_generate_psr_stake_authority_filter() {
         }],
     };
 
-    let settlement_config = PsrSettlementConfig::DowntimeRevenueImpactSettlement {
+    let settlement_config = PsrSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
-        min_settlement_lamports: 0,
-        grace_downtime_bps: None,
-        covered_range_bps: [0, 5000],
+        kind: PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            min_settlement_lamports: 0,
+            grace_downtime_bps: None,
+            covered_range_bps: [0, 5000],
+        },
     };
 
     let filter = |pubkey: &Pubkey| *pubkey == allowed_authority;
@@ -1630,7 +1667,8 @@ fn test_generate_psr_stake_authority_filter() {
         &protected_event_collection,
         &filter,
         &[settlement_config],
-    );
+    )
+    .unwrap();
 
     assert_eq!(settlements.len(), 1, "Should generate 1 settlement");
     let settlement = &settlements[0];
@@ -1691,13 +1729,15 @@ fn test_generate_psr_null_claim_deterministic_sorting() {
         }],
     };
 
-    let settlement_config = PsrSettlementConfig::DowntimeRevenueImpactSettlement {
+    let settlement_config = PsrSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::Marinade,
         },
-        min_settlement_lamports: 0,
-        grace_downtime_bps: None,
-        covered_range_bps: [5000, 10000],
+        kind: PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            min_settlement_lamports: 0,
+            grace_downtime_bps: None,
+            covered_range_bps: [5000, 10000],
+        },
     };
 
     let settlements = generate_psr_settlements(
@@ -1705,7 +1745,8 @@ fn test_generate_psr_null_claim_deterministic_sorting() {
         &protected_event_collection,
         &accept_all,
         &[settlement_config],
-    );
+    )
+    .unwrap();
 
     assert_eq!(settlements.len(), 1);
     let claims = &settlements[0].claims;
@@ -1737,4 +1778,38 @@ fn test_generate_psr_null_claim_deterministic_sorting() {
             i + 1
         );
     }
+}
+
+#[test]
+fn test_settlement_config_yaml_deserialization() {
+    use crate::settlement_config::BidDistributionConfig;
+    let yaml_content = std::fs::read_to_string("../../settlement-config.yaml")
+        .expect("settlement-config.yaml should exist at repo root");
+    let config: BidDistributionConfig = serde_yaml::from_str(&yaml_content)
+        .expect("settlement-config.yaml should deserialize to BidDistributionConfig");
+
+    // Validate fee config bounds
+    config
+        .fee_config
+        .validate()
+        .expect("fee config should be valid");
+
+    // Verify expected structure: SAM configs + PSR configs
+    assert!(
+        config.bidding_config().is_some(),
+        "Should have a Bidding config"
+    );
+    assert!(
+        config.bid_too_low_penalty_config().is_some(),
+        "Should have a BidTooLowPenalty config"
+    );
+    assert!(
+        config.blacklist_penalty_config().is_some(),
+        "Should have a BlacklistPenalty config"
+    );
+    let psr_configs = config.psr_settlements();
+    assert!(
+        !psr_configs.is_empty(),
+        "Should have at least one PSR config"
+    );
 }
