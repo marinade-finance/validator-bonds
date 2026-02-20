@@ -27,8 +27,8 @@ pub fn get_fee_deposit_stake_accounts(
         .stake_metas
         .iter()
         .find(|x| {
-            x.withdraw_authority.eq(authorities.marinade_withdraw)
-                && x.stake_authority.eq(authorities.marinade_stake)
+            x.withdraw_authority.eq(&authorities.marinade_withdraw)
+                && x.stake_authority.eq(&authorities.marinade_stake)
         })
         .iter()
         .map(|s| (s.pubkey, s.active_delegation_lamports))
@@ -38,8 +38,8 @@ pub fn get_fee_deposit_stake_accounts(
         .stake_metas
         .iter()
         .find(|x| {
-            x.withdraw_authority.eq(authorities.dao_withdraw)
-                && x.stake_authority.eq(authorities.dao_stake)
+            x.withdraw_authority.eq(&authorities.dao_withdraw)
+                && x.stake_authority.eq(&authorities.dao_stake)
         })
         .iter()
         .map(|s| (s.pubkey, s.active_delegation_lamports))

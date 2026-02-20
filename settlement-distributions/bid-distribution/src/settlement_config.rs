@@ -16,12 +16,12 @@ pub struct FeePercentages {
     pub dao_fee_share: Decimal,
 }
 
-/// Named fee authority references returned by [FeeConfig::fee_authorities]
-pub struct FeeAuthorities<'a> {
-    pub marinade_withdraw: &'a Pubkey,
-    pub marinade_stake: &'a Pubkey,
-    pub dao_withdraw: &'a Pubkey,
-    pub dao_stake: &'a Pubkey,
+/// Named fee authorities returned by [FeeConfig::fee_authorities]
+pub struct FeeAuthorities {
+    pub marinade_withdraw: Pubkey,
+    pub marinade_stake: Pubkey,
+    pub dao_withdraw: Pubkey,
+    pub dao_stake: Pubkey,
 }
 
 /// Authority configuration for stake/withdraw authorities
@@ -67,12 +67,12 @@ impl FeeConfig {
         Ok(())
     }
 
-    pub fn fee_authorities(&self) -> FeeAuthorities<'_> {
+    pub fn fee_authorities(&self) -> FeeAuthorities {
         FeeAuthorities {
-            marinade_withdraw: &self.marinade.withdraw_authority,
-            marinade_stake: &self.marinade.stake_authority,
-            dao_withdraw: &self.dao.withdraw_authority,
-            dao_stake: &self.dao.stake_authority,
+            marinade_withdraw: self.marinade.withdraw_authority,
+            marinade_stake: self.marinade.stake_authority,
+            dao_withdraw: self.dao.withdraw_authority,
+            dao_stake: self.dao.stake_authority,
         }
     }
 

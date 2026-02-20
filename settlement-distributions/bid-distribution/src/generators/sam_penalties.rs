@@ -176,8 +176,8 @@ pub fn generate_penalty_settlements(
                 if marinade_bid_too_low_penalty_claim > 0 {
                     let authorities = fee_config.fee_authorities();
                     bid_too_low_penalty_claims.push(SettlementClaim {
-                        withdraw_authority: *authorities.marinade_withdraw,
-                        stake_authority: *authorities.marinade_stake,
+                        withdraw_authority: authorities.marinade_withdraw,
+                        stake_authority: authorities.marinade_stake,
                         stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
                         claim_amount: marinade_bid_too_low_penalty_claim,
                         active_stake: marinade_fee_deposit_stake_accounts.values().sum(),
@@ -195,8 +195,8 @@ pub fn generate_penalty_settlements(
                 if dao_bid_too_low_penalty_claim > 0 {
                     let authorities = fee_config.fee_authorities();
                     bid_too_low_penalty_claims.push(SettlementClaim {
-                        withdraw_authority: *authorities.dao_withdraw,
-                        stake_authority: *authorities.dao_stake,
+                        withdraw_authority: authorities.dao_withdraw,
+                        stake_authority: authorities.dao_stake,
                         stake_accounts: dao_fee_deposit_stake_accounts.clone(),
                         claim_amount: dao_bid_too_low_penalty_claim,
                         active_stake: total_marinade_active_stake,
