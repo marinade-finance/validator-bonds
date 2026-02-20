@@ -1,5 +1,4 @@
 /* eslint-disable jest/no-disabled-tests */
-
 import assert from 'assert'
 import fs from 'fs'
 import os from 'os'
@@ -46,6 +45,15 @@ import type { TransactionInstruction } from '@solana/web3.js'
 
 const JEST_TIMEOUT_MS = 3000_000
 jest.setTimeout(JEST_TIMEOUT_MS)
+
+let reportFileCounter = 0
+function nextReportFile(dir: string): string {
+  return path.join(dir, `report-${reportFileCounter++}.txt`)
+}
+
+function readReport(filePath: string): string {
+  return fs.readFileSync(filePath, 'utf-8')
+}
 
 // 4Kak81y61aAcSYnGyVZAsA1kzypesF4bV5azqEoGZnsX
 const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
@@ -246,6 +254,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         ' executed successfully(.|\n|\r)*' +
         'Upsize Settlement Claims.*0 executed successfully',
     )
+    const initReportFile1 = nextReportFile(merkleTreesDir)
     await expect([
       'cargo',
       [
@@ -265,13 +274,18 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         currentEpoch.toString(),
         '--fee-payer',
         feePayerBase64,
+        '--report-file',
+        initReportFile1,
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 0,
-      stdout: /sum merkle nodes: 12397(.|\n|\r)*upsized settlements 0/,
       stderr: stdErrExecutionResult,
     })
+    expect(readReport(initReportFile1)).toMatch(
+      /sum merkle nodes: 12397(.|\n|\r)*upsized settlements 0/,
+    )
 
+    const fundReportFile1 = nextReportFile(merkleTreesDir)
     await expect([
       'cargo',
       [
@@ -291,13 +305,16 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         currentEpoch.toString(),
         '--fee-payer',
         feePayerBase64,
+        '--report-file',
+        fundReportFile1,
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 99, // code 99 => Warning, test did not prepare all stake accounts
-      stdout: /funded 0.10 settlements/,
       stderr: /no stake account available/,
     })
+    expect(readReport(fundReportFile1)).toMatch(/funded 0.10 settlements/)
 
+    const initReportFile2 = nextReportFile(merkleTreesDir)
     await expect([
       'cargo',
       [
@@ -317,13 +334,16 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         currentEpoch.toString(),
         '--fee-payer',
         feePayerBase64,
+        '--report-file',
+        initReportFile2,
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 0,
-      stdout: /created 0.10 settlements/,
       stderr: /0 executed successfully/,
     })
+    expect(readReport(initReportFile2)).toMatch(/created 0.10 settlements/)
 
+    const fundReportFile2 = nextReportFile(merkleTreesDir)
     await expect([
       'cargo',
       [
@@ -343,15 +363,18 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         currentEpoch.toString(),
         '--fee-payer',
         feePayerBase64,
+        '--report-file',
+        fundReportFile2,
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 99,
-      stdout: /funded 0.10 settlements/,
       stderr: /no stake account available/,
     })
+    expect(readReport(fundReportFile2)).toMatch(/funded 0.10 settlements/)
 
     await waitForNextEpoch(provider.connection, 15)
 
+    const fundReportFile3 = nextReportFile(merkleTreesDir)
     await expect([
       'cargo',
       [
@@ -371,12 +394,14 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         currentEpoch.toString(),
         '--fee-payer',
         feePayerBase64,
+        '--report-file',
+        fundReportFile3,
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 99,
-      stdout: /funded 0.10 settlements/,
       stderr: /no stake account available/,
     })
+    expect(readReport(fundReportFile3)).toMatch(/funded 0.10 settlements/)
 
     const createdSettlements = await findSettlements({
       program,
@@ -429,6 +454,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     // activating stake accounts
     await waitForNextEpoch(provider.connection, 15)
 
+    const fundReportFile4 = nextReportFile(merkleTreesDir)
     await expect([
       'cargo',
       [
@@ -448,13 +474,15 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         currentEpoch.toString(),
         '--fee-payer',
         feePayerBase64,
+        '--report-file',
+        fundReportFile4,
       ],
     ]).toHaveMatchingSpawnOutput({
-      stdout: /funded 9.10 settlements/,
       stderr:
         // expecting that at least one settlement will be funded with 2 stake accounts
         /will be funded with 2 stake accounts with 2.4 SOLs/,
     })
+    expect(readReport(fundReportFile4)).toMatch(/funded 9.10 settlements/)
     // we expected there is 10 settlements (per logs above)
     expect(settlementAddresses.length).toEqual(10)
 
@@ -468,6 +496,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     // we expect funded 9 of 10; it is not clear if there could be funded all 10
     expect(fundedStakeAccounts.length).toEqual(settlementAddresses.length - 1)
 
+    const fundReportFile5 = nextReportFile(merkleTreesDir)
     await expect([
       'cargo',
       [
@@ -487,13 +516,17 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         currentEpoch.toString(),
         '--fee-payer',
         feePayerBase64,
+        '--report-file',
+        fundReportFile5,
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 99,
-      stdout: /Unknown: funded 0.10 settlements/,
       stderr:
         /already funded.*skipping funding(.|\n|\r)*ixes 0 executed successfully/,
     })
+    expect(readReport(fundReportFile5)).toMatch(
+      /Unknown: funded 0.10 settlements/,
+    )
     previousTest = TestNames.InitSettlement
   })
 
@@ -563,6 +596,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     // expecting retryable errors: settlements are only partially funded
     // (single stake accounts have less than amount_to_fund + minimal_stake),
     // so many claims fail with InsufficientFunds after the funded stake runs out
+    const claimReportFile1 = nextReportFile(merkleTreesDir)
     await expect([
       'cargo',
       [
@@ -580,15 +614,18 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         currentEpoch.toString(),
         '--fee-payer',
         feePayerBase64,
+        '--report-file',
+        claimReportFile1,
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 100,
       stderr: /custom program error/,
-      stdout: /claimed \d+.\d+ merkle nodes/,
     })
+    expect(readReport(claimReportFile1)).toMatch(/claimed \d+.\d+ merkle nodes/)
 
     // fund is now run before claiming normally, simulating this situation here
     console.log('Rerunning when partially funded...')
+    const fundReportFile6 = nextReportFile(merkleTreesDir)
     await expect([
       'cargo',
       [
@@ -608,15 +645,18 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         currentEpoch.toString(),
         '--fee-payer',
         feePayerBase64,
+        '--report-file',
+        fundReportFile6,
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 99,
-      stdout: /funded 0.10 settlements/,
       stderr: /already funded(.|\n|\r)*0 executed successfully/,
     })
+    expect(readReport(fundReportFile6)).toMatch(/funded 0.10 settlements/)
 
     // re-run claiming: previously claimed nodes should be skipped
     console.log('Rerunning when partially claimed...')
+    const claimReportFile2 = nextReportFile(merkleTreesDir)
     await expect([
       'cargo',
       [
@@ -632,12 +672,14 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
         merkleTreeCollectionPath,
         '--epoch',
         currentEpoch.toString(),
+        '--report-file',
+        claimReportFile2,
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 100,
       stderr: /already claimed merkle tree nodes/,
-      stdout: /claimed \d+.\d+ merkle nodes/,
     })
+    expect(readReport(claimReportFile2)).toMatch(/claimed \d+.\d+ merkle nodes/)
     previousTest = TestNames.ClaimSettlement
   })
 })
