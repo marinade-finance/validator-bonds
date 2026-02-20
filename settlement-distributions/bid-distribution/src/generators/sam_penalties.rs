@@ -3,7 +3,7 @@ use crate::settlement_config::{FeeConfig, SettlementConfig};
 use log::{info, warn};
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use serde::{Deserialize, Serialize};
 use settlement_common::settlement_collection::{Settlement, SettlementClaim, SettlementReason};
 use settlement_common::stake_meta_index::StakeMetaIndex;
@@ -11,8 +11,6 @@ use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
 use super::{add_to_settlement_collection, get_fee_deposit_stake_accounts};
-
-const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BidTooLowPenaltyDetails {
@@ -104,7 +102,7 @@ pub fn generate_penalty_settlements(
             let stakers_bond_risk_fee_claim = validator
                 .values
                 .as_ref()
-                .map(|v| (v.bond_risk_fee_sol * dec!(1e9)).to_u64().unwrap_or(0))
+                .map(|v| (v.bond_risk_fee_sol * Decimal::from(LAMPORTS_PER_SOL)).to_u64().unwrap_or(0))
                 .unwrap_or(0);
 
             let mut bid_too_low_penalty_claims = vec![];
