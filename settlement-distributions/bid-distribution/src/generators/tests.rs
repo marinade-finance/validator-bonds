@@ -605,17 +605,14 @@ fn test_generate_penalty_settlements() {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
-<<<<<<< HEAD
-    };
-    let bond_risk_fee_config = SettlementConfig::BondRiskFee {
+        kind: SamSettlementKind::BlacklistPenalty,
+    });
+    let bond_risk_fee_config = SettlementConfig::Sam(SamSettlementConfig {
         meta: SettlementMeta {
             funder: SettlementFunder::ValidatorBond,
         },
-    };
-=======
-        kind: SamSettlementKind::BlacklistPenalty,
+        kind: SamSettlementKind::BondRiskFee,
     });
->>>>>>> origin/refactoring-unification
 
     let settlements = generate_penalty_settlements(
         &stake_meta_index,
@@ -674,9 +671,18 @@ fn test_generate_bond_risk_fee_settlements() {
     let meta = SettlementMeta {
         funder: SettlementFunder::ValidatorBond,
     };
-    let bid_cfg = SettlementConfig::BidTooLowPenalty { meta: meta.clone() };
-    let bl_cfg = SettlementConfig::BlacklistPenalty { meta: meta.clone() };
-    let brf_cfg = SettlementConfig::BondRiskFee { meta: meta.clone() };
+    let bid_cfg = SettlementConfig::Sam(SamSettlementConfig {
+        meta: meta.clone(),
+        kind: SamSettlementKind::BidTooLowPenalty,
+    });
+    let bl_cfg = SettlementConfig::Sam(SamSettlementConfig {
+        meta: meta.clone(),
+        kind: SamSettlementKind::BlacklistPenalty,
+    });
+    let brf_cfg = SettlementConfig::Sam(SamSettlementConfig {
+        meta: meta.clone(),
+        kind: SamSettlementKind::BondRiskFee,
+    });
 
     let run = |bond_risk_fee_sol: Decimal| {
         let sam = SamMetaParams::new(vote_account, epoch as u32)
@@ -697,7 +703,7 @@ fn test_generate_bond_risk_fee_settlements() {
     };
 
     // zero fee -> no settlement
-    let s = run(Decimal::ZERO);
+    let s = run(Decimal::ZERO).unwrap();
     assert!(
         !s.iter()
             .any(|s| matches!(s.reason, SettlementReason::BondRiskFee)),
@@ -705,7 +711,7 @@ fn test_generate_bond_risk_fee_settlements() {
     );
 
     // 10 SOL fee -> proportional 75/25 distribution
-    let s = run(Decimal::from(10));
+    let s = run(Decimal::from(10)).unwrap();
     let brf: Vec<_> = s
         .iter()
         .filter(|s| matches!(s.reason, SettlementReason::BondRiskFee))
@@ -743,7 +749,8 @@ fn test_generate_bond_risk_fee_settlements() {
         &brf_cfg,
         &fee_config,
         &accept_all,
-    );
+    )
+    .unwrap();
     assert!(
         !s.iter()
             .any(|s| matches!(s.reason, SettlementReason::BondRiskFee)),
