@@ -692,6 +692,11 @@ pub async fn with_reporting_ext<T: ReportSerializable>(
             "Retryable errors occurred: {} errors",
             status.retryable_error_count
         ))))
+    } else if status.warning_count > 0 {
+        CliResult(Err(CliError::warning(format_err!(
+            "Warnings occurred: {} warnings",
+            status.warning_count
+        ))))
     } else {
         CliResult(Ok(()))
     }
