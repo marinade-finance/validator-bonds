@@ -1,6 +1,8 @@
 use bid_distribution::generators::bidding::generate_bid_settlements;
 use bid_distribution::generators::psr_events::generate_psr_settlements;
-use bid_distribution::generators::sam_penalties::generate_penalty_settlements;
+use bid_distribution::generators::sam_penalties::{
+    generate_bond_risk_fee_settlements, generate_penalty_settlements,
+};
 use bid_distribution::rewards::load_rewards_from_directory;
 use bid_distribution::sam_meta::ValidatorSamMeta;
 use bid_distribution::settlement_config::BidDistributionConfig;
@@ -204,6 +206,20 @@ fn main() -> anyhow::Result<()> {
             penalty_settlements.len()
         );
         all_settlements.extend(penalty_settlements);
+
+        // Generate bond risk fee settlements
+        info!("Generating bond risk fee settlements...");
+        let bond_risk_fee_settlements = generate_bond_risk_fee_settlements(
+            &stake_meta_index,
+            &sam_validator_metas,
+            bond_risk_fee_config,
+            &*stake_authority_filter,
+        );
+        info!(
+            "Generated {} bond risk fee settlements",
+            bond_risk_fee_settlements.len()
+        );
+        all_settlements.extend(bond_risk_fee_settlements);
     } else {
         // No SAM configs — fail if SAM inputs were partially provided (likely a mistake)
         anyhow::ensure!(

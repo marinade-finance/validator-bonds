@@ -1,6 +1,6 @@
 use crate::sam_meta::ValidatorSamMeta;
 use crate::settlement_config::{FeeConfig, SettlementConfig};
-use log::info;
+use log::{info, warn};
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -11,6 +11,8 @@ use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
 use super::{add_to_settlement_collection, get_fee_deposit_stake_accounts};
+
+const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BidTooLowPenaltyDetails {
@@ -306,4 +308,126 @@ pub fn generate_penalty_settlements(
         }
     }
     penalty_settlement_collection
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BondRiskFeeDetails {
+    pub total_marinade_active_stake: u64,
+    pub bond_risk_fee_sol: String,
+    pub stakers_bond_risk_fee_claim: u64,
+}
+
+pub fn generate_bond_risk_fee_settlements(
+    stake_meta_index: &StakeMetaIndex,
+    sam_validator_metas: &[ValidatorSamMeta],
+    bond_risk_fee_config: &SettlementConfig,
+    stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+) -> Vec<Settlement> {
+    info!("Generating bond risk fee settlements...");
+
+    let mut settlement_collection = vec![];
+
+    for validator in sam_validator_metas {
+        let bond_risk_fee_sol = match &validator.values {
+            Some(values) => values.bond_risk_fee_sol,
+            None => continue,
+        };
+        if bond_risk_fee_sol <= Decimal::ZERO {
+            continue;
+        }
+
+        if let Some(grouped_stake_metas) =
+            stake_meta_index.iter_grouped_stake_metas(&validator.vote_account)
+        {
+            let stakers_bond_risk_fee_claim = (bond_risk_fee_sol * Decimal::from(LAMPORTS_PER_SOL))
+                .to_u64()
+                .expect("Failed to_u64 for stakers_bond_risk_fee_claim");
+
+            if stakers_bond_risk_fee_claim == 0 {
+                continue;
+            }
+
+            let total_marinade_active_stake: u64 = stake_meta_index
+                .iter_grouped_stake_metas(&validator.vote_account)
+                .expect("No items from iter_grouped_stake_metas")
+                .filter(|(&(_, &stake_authority), _)| stake_authority_filter(&stake_authority))
+                .flat_map(|(_, metas)| metas.iter())
+                .map(|meta| meta.active_delegation_lamports)
+                .sum();
+
+            if total_marinade_active_stake == 0 {
+                warn!(
+                    "Skipping bond risk fee for validator {} with zero marinade active stake",
+                    validator.vote_account
+                );
+                continue;
+            }
+
+            let mut bond_risk_fee_claims = vec![];
+            let mut claimed_bond_risk_fee_amount = 0;
+
+            let grouped_marinade_filtered_stake_metas = grouped_stake_metas
+                .into_iter()
+                .filter(|((_, stake_authority), _)| stake_authority_filter(stake_authority))
+                .collect::<Vec<_>>();
+
+            for ((withdraw_authority, stake_authority), stake_metas) in
+                grouped_marinade_filtered_stake_metas
+            {
+                let stake_accounts: HashMap<_, _> = stake_metas
+                    .iter()
+                    .map(|stake| (stake.pubkey, stake.active_delegation_lamports))
+                    .collect();
+                let active_stake: u64 = stake_accounts.values().sum();
+                if active_stake > 0 {
+                    let staker_share =
+                        Decimal::from(active_stake) / Decimal::from(total_marinade_active_stake);
+                    let bond_risk_fee_claim_amount = (staker_share
+                        * Decimal::from(stakers_bond_risk_fee_claim))
+                    .to_u64()
+                    .expect("bond_risk_fee_claim_amount is not integral");
+
+                    if bond_risk_fee_claim_amount > 0 {
+                        bond_risk_fee_claims.push(SettlementClaim {
+                            withdraw_authority: **withdraw_authority,
+                            stake_authority: **stake_authority,
+                            stake_accounts,
+                            claim_amount: bond_risk_fee_claim_amount,
+                            active_stake,
+                        });
+                        claimed_bond_risk_fee_amount += bond_risk_fee_claim_amount;
+                    }
+                }
+            }
+
+            assert!(
+                claimed_bond_risk_fee_amount <= stakers_bond_risk_fee_claim,
+                "Validator {}: total claimed bond_risk_fee amount {} is bigger than stakers bond_risk_fee claim {}",
+                validator.vote_account,
+                claimed_bond_risk_fee_amount,
+                stakers_bond_risk_fee_claim
+            );
+
+            if !bond_risk_fee_claims.is_empty() {
+                let details = BondRiskFeeDetails {
+                    total_marinade_active_stake,
+                    bond_risk_fee_sol: bond_risk_fee_sol.to_string(),
+                    stakers_bond_risk_fee_claim,
+                };
+                let details_json =
+                    serde_json::to_value(&details).expect("Failed to serialize BondRiskFeeDetails");
+
+                add_to_settlement_collection(
+                    &mut settlement_collection,
+                    bond_risk_fee_claims,
+                    claimed_bond_risk_fee_amount,
+                    SettlementReason::BondRiskFee,
+                    validator.vote_account,
+                    bond_risk_fee_config.meta(),
+                    Some(details_json),
+                );
+            }
+        }
+    }
+    settlement_collection
 }
