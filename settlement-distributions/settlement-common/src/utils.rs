@@ -52,14 +52,14 @@ pub fn write_to_yaml_file<T: Serialize, P: AsRef<Path>>(
 }
 
 pub fn bps(value: u64, max: u64) -> u64 {
-    assert!(max > 0, "Cannot calculute bps from values: {value}, {max}");
+    assert!(max > 0, "Cannot calculate bps from values: {value}, {max}");
     10000 * value / max
 }
 
 pub fn bps_decimal(value: Decimal, max: Decimal) -> u64 {
     assert!(
         max > Decimal::ZERO,
-        "Cannot calculute bps from values: {value}, {max}"
+        "Cannot calculate bps from values: {value}, {max}"
     );
     (Decimal::from(10000) * value / max)
         .to_u64()

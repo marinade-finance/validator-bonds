@@ -9,7 +9,14 @@ import { getContext } from '@marinade.finance/ts-common'
 import { IsPublicKey } from '@marinade.finance/web3js-1x'
 import { PublicKey } from '@solana/web3.js'
 import { Expose, Transform, Type } from 'class-transformer'
-import { ValidateNested, IsPositive, IsNumber } from 'class-validator'
+import {
+  ValidateNested,
+  IsPositive,
+  IsNumber,
+  IsArray,
+  IsString,
+  IsOptional,
+} from 'class-validator'
 
 export class TreeNode {
   @Expose()
@@ -70,6 +77,20 @@ export class MerkleTree {
   readonly vote_account!: PublicKey
 
   @Expose()
+  @IsPublicKey({ message: 'Invalid bond account public key' })
+  @Transform(({ value }) => (value ? new PublicKey(value) : value))
+  readonly bond_account!: PublicKey
+
+  @Expose()
+  @IsPublicKey({ message: 'Invalid settlement account public key' })
+  @Transform(({ value }) => (value ? new PublicKey(value) : value))
+  readonly settlement_account!: PublicKey
+
+  @Expose()
+  @IsOptional()
+  readonly funding_sources?: Record<string, number>
+
+  @Expose()
   @ValidateNested({ each: true })
   @Type(() => TreeNode)
   readonly tree_nodes!: TreeNode[]
@@ -86,9 +107,25 @@ export class SettlementMerkleTreesDto {
   readonly slot!: bigint
 
   @Expose()
+  @IsPublicKey({ message: 'Invalid validator bonds config public key' })
+  @Transform(({ value }) => (value ? new PublicKey(value) : value))
+  readonly validator_bonds_config!: PublicKey
+
+  @Expose()
   @ValidateNested({ each: true })
   @Type(() => MerkleTree)
   readonly merkle_trees!: MerkleTree[]
+}
+
+/**
+ * Unified merkle trees format - extends standard format with sources tracking
+ */
+export class UnifiedMerkleTreesDto extends SettlementMerkleTreesDto {
+  @Expose()
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  readonly sources?: string[]
 }
 
 export async function parseSettlementMerkleTree(
@@ -111,6 +148,32 @@ export async function parseSettlementMerkleTree(
   } catch (error) {
     throw CliCommandError.instance(
       `Failed to load and validate settlement merkle tree data from path: '${path}'`,
+      error,
+    )
+  }
+}
+
+export async function parseUnifiedMerkleTree(
+  inputJson: string,
+  path?: string,
+): Promise<UnifiedMerkleTreesDto> {
+  const { logger } = getContext()
+  try {
+    const { data: merkleTreeData } =
+      await parseAndValidate<UnifiedMerkleTreesDto>(
+        inputJson,
+        UnifiedMerkleTreesDto,
+      )
+    logger.debug(
+      'Unified Merkle Trees loaded successfully [epoch: %s, sources: %s, merkle_trees: %s]',
+      merkleTreeData.epoch,
+      merkleTreeData.sources?.join(', ') ?? 'N/A',
+      merkleTreeData.merkle_trees.length,
+    )
+    return merkleTreeData
+  } catch (error) {
+    throw CliCommandError.instance(
+      `Failed to load and validate unified merkle tree data from path: '${path}'`,
       error,
     )
   }

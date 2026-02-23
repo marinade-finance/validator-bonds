@@ -1,12 +1,11 @@
-use bid_psr_distribution::merkle_tree_collection::generate_merkle_tree_collection;
-use bid_psr_distribution::stake_meta_index::StakeMetaIndex;
-use bid_psr_distribution::utils::{file_error, read_from_json_file, write_to_json_file};
 use env_logger::{Builder, Env};
 use institutional_distribution::institutional_payouts::InstitutionalPayout;
 use institutional_distribution::settlement_config::{
     ConfigParams, InstitutionalDistributionConfig,
 };
 use institutional_distribution::settlement_generator::generate_institutional_settlement_collection;
+use settlement_common::stake_meta_index::StakeMetaIndex;
+use settlement_common::utils::{file_error, read_from_json_file, write_to_json_file};
 use snapshot_parser_validator_cli::stake_meta::StakeMetaCollection;
 use solana_sdk::pubkey::Pubkey;
 use {clap::Parser, log::info};
@@ -37,14 +36,8 @@ struct Args {
     #[arg(long, env)]
     dao_fee_withdraw_authority: Pubkey,
 
-    #[arg(long)]
-    validator_bonds_config: Pubkey,
-
     #[arg(long, env)]
     output_settlement_collection: String,
-
-    #[arg(long, env)]
-    output_merkle_tree_collection: String,
 
     #[arg(long)]
     output_config: String,
@@ -79,7 +72,6 @@ fn main() -> anyhow::Result<()> {
     let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
 
     let config = InstitutionalDistributionConfig::new(ConfigParams {
-        validator_bonds_config: args.validator_bonds_config,
         marinade_stake_authority: args.marinade_fee_stake_authority,
         marinade_withdraw_authority: args.marinade_fee_withdraw_authority,
         dao_fee_split_share_bps: args.dao_fee_split_share_bps,
@@ -98,15 +90,6 @@ fn main() -> anyhow::Result<()> {
         file_error(
             "output-settlement-collection",
             &args.output_settlement_collection,
-        ),
-    )?;
-
-    info!("Generating Institutional Payout Merkle tree collection...");
-    let merkle_tree_collection = generate_merkle_tree_collection(settlement_collection)?;
-    write_to_json_file(&merkle_tree_collection, &args.output_merkle_tree_collection).map_err(
-        file_error(
-            "output-merkle-tree-collection",
-            &args.output_merkle_tree_collection,
         ),
     )?;
 

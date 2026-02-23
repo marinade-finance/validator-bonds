@@ -1,7 +1,7 @@
-use crate::utils::{file_error, read_from_json_file};
 use log::info;
 use merkle_tree::serde_serialize::pubkey_string_conversion;
 use serde::{Deserialize, Serialize};
+use settlement_common::utils::{file_error, read_from_json_file};
 use snapshot_parser_validator_cli::stake_meta::StakeMetaCollection;
 use solana_sdk::clock::Epoch;
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
@@ -122,12 +122,13 @@ fn verify_epoch_consistency<T>(
     file_name: &str,
 ) -> anyhow::Result<Option<u64>> {
     let mut epochs: Vec<_> = entries.iter().map(get_epoch).collect();
+    epochs.sort_by(|a, b| b.cmp(a));
     epochs.dedup();
 
     match epochs.as_slice() {
         [] => Ok(None),
         [epoch] => Ok(Some(*epoch)),
-        _ => Err(anyhow::anyhow!("Epoch mismatch in {file_name}")),
+        _ => Err(anyhow::anyhow!("Epoch mismatch {epochs:?} in {file_name}")),
     }
 }
 

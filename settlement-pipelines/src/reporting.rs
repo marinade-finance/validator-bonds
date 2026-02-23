@@ -628,7 +628,7 @@ pub async fn with_reporting_ext<T: ReportSerializable>(
         warnings,
     };
 
-    // Always print text to stdout for logging
+    // Always print text report
     for line in &text_report {
         info!("{line}");
     }
@@ -691,6 +691,11 @@ pub async fn with_reporting_ext<T: ReportSerializable>(
         CliResult(Err(CliError::retry_able(format_err!(
             "Retryable errors occurred: {} errors",
             status.retryable_error_count
+        ))))
+    } else if status.warning_count > 0 {
+        CliResult(Err(CliError::warning(format_err!(
+            "Warnings occurred: {} warnings",
+            status.warning_count
         ))))
     } else {
         CliResult(Ok(()))

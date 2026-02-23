@@ -11,12 +11,12 @@ use settlement_pipelines::arguments::{
 use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::execute_parallel;
 use settlement_pipelines::init::{get_executor, init_log};
-use settlement_pipelines::json_data::load_json;
+use settlement_pipelines::json_data::load_merkle_tree_collections;
 use settlement_pipelines::reporting::{
     with_reporting_ext, PrintReportable, ReportHandler, ReportSerializable,
 };
 use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
-use settlement_pipelines::settlement_data::{parse_settlements_from_json, SettlementRecord};
+use settlement_pipelines::settlement_data::{parse_from_merkle_tree_collections, SettlementRecord};
 use settlement_pipelines::settlements::{list_claimable_settlements, ClaimableSettlementsReturn};
 use settlement_pipelines::stake_accounts::{
     get_stake_state_type, prepare_merge_instructions, prioritize_for_claiming,
@@ -61,10 +61,9 @@ struct Args {
     #[clap(flatten)]
     global_opts: GlobalOpts,
 
-    /// Pairs of JSON files: 'settlement.json' and 'merkle_tree.json'
-    /// There could be provided multiple pairs of JSON files (argument '-f' can be provided multiple times),
-    /// while the program expects that one pair contains settlement and merkle tree data of the same event.
-    #[arg(required = true, short = 'f', long, value_delimiter = ' ', num_args(2))]
+    /// Merkle tree collection JSON files.
+    /// Each file contains a self-contained MerkleTreeCollection with all necessary data.
+    #[arg(required = true, short = 'f', long, value_delimiter = ' ', num_args(1..))]
     json_files: Vec<PathBuf>,
 
     /// forcing epoch, overriding ones loaded from json files of settlement_json_files
@@ -109,7 +108,19 @@ async fn real_main(
         &args.tip_policy_opts,
     )?;
 
-    let config_address = args.global_opts.config;
+    let collections = load_merkle_tree_collections(&args.json_files)?;
+    if collections.is_empty() {
+        return Err(anyhow!(
+            "No merkle tree collections loaded from provided files"
+        ));
+    }
+
+    // Resolve config address: from CLI or from merkle tree
+    let config_address = args.global_opts.config.unwrap_or_else(|| {
+        let config = collections[0].validator_bonds_config;
+        info!("Using config address from merkle tree: {config}");
+        config
+    });
     info!("Claiming settlements for validator-bonds config: {config_address}");
     let config = get_config(rpc_client.clone(), config_address)
         .await
@@ -117,10 +128,8 @@ async fn real_main(
 
     let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
 
-    let mut json_data = load_json(&args.json_files)?;
     let json_loaded_settlements_per_epoch =
-        parse_settlements_from_json(&mut json_data, &config_address, args.epoch)
-            .map_err(CliError::critical)?;
+        parse_from_merkle_tree_collections(&collections, args.epoch).map_err(CliError::critical)?;
 
     // loaded from RPC on-chain data
     let mut claimable_settlements =

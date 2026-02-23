@@ -1,13 +1,15 @@
 use crate::cli_result::CliError;
-use crate::settlement_data::{parse_settlements_from_json, SettlementRecord};
+use crate::settlement_data::{
+    parse_from_merkle_tree_collections, parse_settlements_from_json, SettlementRecord,
+};
 use anchor_client::anchor_lang::prelude::Pubkey;
 use anyhow::{anyhow, format_err};
-use bid_psr_distribution::merkle_tree_collection::{MerkleTreeCollection, MerkleTreeMeta};
-use bid_psr_distribution::settlement_collection::{Settlement, SettlementCollection};
-use bid_psr_distribution::utils::read_from_json_file;
 use log::{debug, error, info};
 use merkle_tree::serde_serialize::pubkey_string_conversion;
 use serde::{Deserialize, Serialize};
+use settlement_common::merkle_tree_collection::{MerkleTreeCollection, MerkleTreeMeta};
+use settlement_common::settlement_collection::{Settlement, SettlementCollection};
+use settlement_common::utils::read_from_json_file;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -272,10 +274,95 @@ pub async fn load_json_with_on_chain(
 
             // sanity check
             if let Some(settlement_account) = &record.settlement_account {
-                assert_eq!(
-                    settlement_account.bond, record.bond_address,
-                    "Mismatched bond address"
-                );
+                if settlement_account.bond != record.bond_address {
+                    return Err(CliError::Critical(anyhow!(
+                        "Mismatched bond address for settlement account {}: expected {}, got {}",
+                        record.settlement_address,
+                        settlement_account.bond,
+                        record.bond_address,
+                    )));
+                }
+            }
+        }
+    }
+
+    Ok(settlement_records_by_epoch)
+}
+
+/// Load merkle tree collection files (no pairing needed).
+/// Each file is a standalone MerkleTreeCollection JSON.
+pub fn load_merkle_tree_collections(
+    files: &[PathBuf],
+) -> anyhow::Result<Vec<MerkleTreeCollection>> {
+    let mut collections = Vec::with_capacity(files.len());
+    for path in files {
+        if !check_is_file(path) {
+            error!("Skipping '{path:?}' as it is not a correct file path");
+            continue;
+        }
+        info!("Loading merkle tree collection from: {path:?}");
+        let collection: MerkleTreeCollection = read_from_json_file(path)
+            .map_err(|e| anyhow!("Failed to load merkle tree collection from {path:?}: {e}"))?;
+        info!(
+            "Loaded merkle tree collection: epoch {}, {} merkle trees, config {}",
+            collection.epoch,
+            collection.merkle_trees.len(),
+            collection.validator_bonds_config,
+        );
+        collections.push(collection);
+    }
+    Ok(collections)
+}
+
+/// Load merkle tree collections and enrich with on-chain data.
+/// Returns settlement records grouped by epoch.
+pub async fn load_merkle_tree_with_on_chain(
+    rpc_client: Arc<RpcClient>,
+    collections: &[MerkleTreeCollection],
+    epoch: Option<u64>,
+) -> Result<HashMap<u64, Vec<SettlementRecord>>, CliError> {
+    let mut settlement_records_by_epoch =
+        parse_from_merkle_tree_collections(collections, epoch).map_err(CliError::Critical)?;
+
+    // Loading accounts from on-chain
+    let (settlement_addresses, bond_addresses) = settlement_records_by_epoch
+        .iter()
+        .flat_map(|(_epoch, collection)| {
+            collection
+                .iter()
+                .map(|record| (record.settlement_address, record.bond_address))
+        })
+        .unzip::<_, _, Vec<_>, Vec<_>>();
+
+    let settlements = get_settlements_for_pubkeys(rpc_client.clone(), &settlement_addresses)
+        .await
+        .map_err(CliError::RetryAble)?
+        .into_iter()
+        .collect::<HashMap<Pubkey, Option<SettlementContract>>>();
+    let bonds = get_bonds_for_pubkeys(rpc_client.clone(), &bond_addresses)
+        .await
+        .map_err(CliError::RetryAble)?
+        .into_iter()
+        .collect::<HashMap<Pubkey, Option<Bond>>>();
+
+    for records in settlement_records_by_epoch.values_mut() {
+        for record in records.iter_mut() {
+            record.settlement_account = settlements
+                .get(&record.settlement_address)
+                .cloned()
+                .flatten();
+            record.bond_account = bonds.get(&record.bond_address).cloned().flatten();
+
+            // sanity check
+            if let Some(settlement_account) = &record.settlement_account {
+                if settlement_account.bond != record.bond_address {
+                    return Err(CliError::Critical(anyhow!(
+                        "Mismatched bond address for settlement account {}: expected {}, got {}",
+                        record.settlement_address,
+                        settlement_account.bond,
+                        record.bond_address,
+                    )));
+                }
             }
         }
     }

@@ -7,20 +7,11 @@ env:
   MARINADE_SCORING_API_URL: https://scoring.marinade.finance/api/v1
   SLACK_API: https://slack.com/api/chat.postMessage
   SLACK_FEED: "feed-pipeline-sam-psr"
-  CLAIM_TYPE: "bid-distribution"
-  # Total Marinade (distributor) fee split between Marinade and DAO
-  MARINADE_FEE_BPS: 950
-  MARINADE_FEE_STAKE_AUTHORITY: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
-  MARINADE_FEE_WITHDRAW_AUTHORITY: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
-  # DAO share of the total Marinade (distributor) fee
-  DAO_FEE_SPLIT_SHARE_BPS: 10000
-  DAO_FEE_STAKE_AUTHORITY: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
-  DAO_FEE_WITHDRAW_AUTHORITY: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
-  WHITELIST_STAKE_AUTHORITY: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq,4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk,ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
-  VALIDATOR_BONDS_CONFIG: vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU
+  ds_sam_auction_github_api_link: "https://api.github.com/repos/marinade-finance/ds-sam-pipeline/contents/auctions/"
+  ds_sam_auction_download_link: "https://raw.githubusercontent.com/marinade-finance/ds-sam-pipeline/main/auctions/"
 
 steps:
-  - label: ":hammer_and_wrench: :rust: Build"
+  - label: ":hammer_and_wrench: :rust: Build CLI"
     commands:
     - '. "$HOME/.cargo/env"'
     - 'cargo build --release --bin bid-distribution-cli'
@@ -65,14 +56,6 @@ steps:
         \`\`\`
         EPOCH=$$epoch
         MARINADE_SCORING_API_URL=$MARINADE_SCORING_API_URL
-        CLAIM_TYPE=$CLAIM_TYPE
-        MARINADE_FEE_BPS=$MARINADE_FEE_BPS
-        MARINADE_FEE_STAKE_AUTHORITY=$MARINADE_FEE_STAKE_AUTHORITY
-        MARINADE_FEE_WITHDRAW_AUTHORITY=$MARINADE_FEE_WITHDRAW_AUTHORITY
-        DAO_FEE_SPLIT_SHARE_BPS=$DAO_FEE_SPLIT_SHARE_BPS
-        DAO_FEE_STAKE_AUTHORITY=$DAO_FEE_STAKE_AUTHORITY
-        DAO_FEE_WITHDRAW_AUTHORITY=$DAO_FEE_WITHDRAW_AUTHORITY
-        WHITELIST_STAKE_AUTHORITY=$WHITELIST_STAKE_AUTHORITY
         SLACK_FEED=$SLACK_FEED
         NOTIFY_FEED=${NOTIFY_FEED:-false}
         \`\`\`
@@ -80,8 +63,9 @@ steps:
 
   - wait: ~
 
-  - label: ":floppy_disk: :arrow_left: :cloud: Downloading Input JSON data"
-    key: "download-json"
+  # Download all required input data in parallel
+  - label: ":floppy_disk: :arrow_left: :cloud: Download SAM scores and stakes"
+    key: "download-sam-stakes"
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - |
@@ -92,9 +76,11 @@ steps:
       fi
       gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
     artifact_paths:
-      - "./*.json"
+      - "./sam-scores.json"
+      - "./stakes.json"
 
-  - label: ":man-surfing: Loading JSON ETL data"
+  - label: ":man-surfing: Download ETL rewards data"
+    key: "download-etl"
     commands:
       - epoch=$(buildkite-agent meta-data get epoch)
       - mkdir -p ./rewards
@@ -108,14 +94,93 @@ steps:
     artifact_paths:
       - './rewards/*.json'
 
+  - label: ":cloud: :arrow_right: :floppy_disk: Download validators and past-validators"
+    key: "download-validators"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - |
+      gcloud storage cp "$gs_bucket/$$epoch/validators.json" "."
+      gcloud storage cp "$gs_bucket/$$epoch/past-validators.json" "." || echo "Previous validator data not available!"
+    artifact_paths:
+      - "./validators.json"
+      - "./past-validators.json"
+
+  - label: ":cloud: :arrow_right: :floppy_disk: Download DS SAM auction data"
+    key: "download-ds-sam"
+    commands:
+      - epoch=$(buildkite-agent meta-data get epoch)
+      # checking auction directory to work with
+      - |
+        epoch_auction_dirs=$(./scripts/gh_curl.bash "$$ds_sam_auction_github_api_link" |\
+          jq -r '.[] | .name' | grep "$${epoch}\.")
+        # epoch_auction_dirs list of dirs in format '<epoch>.<slot>', for example '653.12308'
+        epoch_auction_dir=$(echo "$$epoch_auction_dirs" | sort -t. -k2 -n -r | head -n 1)
+        if [[ -z "$$epoch_auction_dir" ]]; then
+          echo "No auction data found for epoch $$epoch, directory listing: $$epoch_auction_dirs"
+          exit 1
+        fi
+      # listing input and output files
+      - |
+        ds_sam_input_listing_link="$${ds_sam_auction_github_api_link}$${epoch_auction_dir}/inputs/"
+        input_dir_files=$(./scripts/gh_curl.bash "$$ds_sam_input_listing_link" |\
+          jq -r '.[] | .name')
+        ds_sam_output_listing_link="$${ds_sam_auction_github_api_link}$${epoch_auction_dir}/outputs/"
+        output_dir_files=$(./scripts/gh_curl.bash "$$ds_sam_output_listing_link" |\
+          jq -r '.[] | .name' | grep '.json')
+      # downloading files
+      - |
+        mkdir -p ./inputs
+        for file in $$input_dir_files; do
+          curl -O --output-dir './inputs' "$${ds_sam_auction_download_link}$${epoch_auction_dir}/inputs/$${file}"
+        done
+        mkdir -p ./outputs
+        for file in $$output_dir_files; do
+          curl -O --output-dir './outputs' "$${ds_sam_auction_download_link}$${epoch_auction_dir}/outputs/$${file}"
+        done
+    artifact_paths:
+      - "./inputs/*"
+      - "./outputs/*"
+
   - wait: ~
 
-  - label: ":scales: Evaluate Marinade Bids"
+  # Generate PSR evaluation data
+  - label: ":campfire: DS SAM generates PMPE bids data"
+    key: "ds-sam-evaluation"
+    commands:
+      - buildkite-agent artifact download --include-retried-jobs validators.json .
+      - buildkite-agent artifact download --include-retried-jobs past-validators.json . || echo "Previous validator data not available"
+      - buildkite-agent artifact download --include-retried-jobs inputs/* .
+      - buildkite-agent artifact download --include-retried-jobs outputs/* .
+      - '[[ ! -f "./outputs/results.json" ]] && echo "results.json not found" && exit 2'
+      - 'past_validators_arg=$( [[ -f ./past-validators.json ]] && echo "--snapshot-past-validators-file-path ../past-validators.json" || echo "" )'
+      - git clone git@github.com:marinade-finance/ds-sam.git --depth 1
+      - |
+        cd ds-sam
+        git status
+        pnpm install
+        pnpm -r build
+      - |
+        pnpm run cli -- analyze-revenues \
+          $$past_validators_arg \
+          --cache-dir-path "../inputs" \
+          --sam-results-fixture-file-path "../outputs/results.json" \
+          --snapshot-validators-file-path "../validators.json" \
+          --results-file-path "../evaluation.json"
+    artifact_paths:
+      - "./evaluation.json"
+
+  - wait: ~
+
+  # Generate all settlements with unified CLI
+  - label: ":scales: Generate All Settlements"
+    key: "generate-settlements"
     env:
       RUST_LOG: info,bid_distribution=debug
     commands:
     - 'buildkite-agent artifact download --include-retried-jobs sam-scores.json .'
     - 'buildkite-agent artifact download --include-retried-jobs stakes.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs validators.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs evaluation.json .'
     - 'buildkite-agent artifact download --include-retried-jobs target/release/bid-distribution-cli .'
     - 'buildkite-agent artifact download --include-retried-jobs rewards/mev.json .'
     - 'buildkite-agent artifact download --include-retried-jobs rewards/validators_mev.json .'
@@ -126,45 +191,46 @@ steps:
     - 'chmod +x target/release/bid-distribution-cli'
     - |
       ./target/release/bid-distribution-cli \
-        --sam-meta-collection ./sam-scores.json \
+        --settlement-config settlement-config.yaml \
         --stake-meta-collection ./stakes.json \
+        --sam-meta-collection ./sam-scores.json \
         --rewards-dir ./rewards \
-        --marinade-fee-bps ${MARINADE_FEE_BPS} \
-        --marinade-fee-stake-authority ${MARINADE_FEE_STAKE_AUTHORITY} \
-        --marinade-fee-withdraw-authority ${MARINADE_FEE_WITHDRAW_AUTHORITY} \
-        --dao-fee-split-share-bps ${DAO_FEE_SPLIT_SHARE_BPS} \
-        --dao-fee-stake-authority ${DAO_FEE_STAKE_AUTHORITY} \
-        --dao-fee-withdraw-authority ${DAO_FEE_WITHDRAW_AUTHORITY} \
-        --validator-bonds-config ${VALIDATOR_BONDS_CONFIG} \
-        --output-settlement-collection "./${CLAIM_TYPE}-settlements.json" \
-        --output-merkle-tree-collection "./${CLAIM_TYPE}-settlement-merkle-trees.json" \
-        --output-config "./${CLAIM_TYPE}-config.json"
+        --validator-meta-collection ./validators.json \
+        --revenue-expectation-collection ./evaluation.json \
+        --output-settlement-collection "./bid-distribution-settlements.json" \
+        --output-protected-event-collection "./protected-events.json"
     artifact_paths:
-    - "./${CLAIM_TYPE}*.json"
+    - "./bid-distribution-settlements.json"
+    - "./protected-events.json"
 
   - wait: ~
 
-  - label: "📓 Generating report"
+  - label: "Generate reports"
     commands:
-    - 'buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .'
+    - buildkite-agent artifact download --include-retried-jobs bid-distribution-settlements.json .
     - |
-      ./scripts/generate-discord-public-report.bash "./${CLAIM_TYPE}-settlements.json" "Bidding" > "./discord-public-report.txt"
+      ./scripts/generate-discord-public-report.bash "./bid-distribution-settlements.json" "Bidding" > "./bid-distribution-discord-report.txt"
     artifact_paths:
-      - "./discord-public-report.txt"
+      - "./bid-distribution-discord-report.txt"
 
   - wait: ~
 
-  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts Prepare Bid Distribution"
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
-    - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .
-    - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlement-merkle-trees.json .
-    - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-config.json .
-    - buildkite-agent artifact download --include-retried-jobs discord-public-report.txt .
-    - gcloud storage cp "./${CLAIM_TYPE}-settlements.json" "$gs_bucket/$$epoch/"
-    - gcloud storage cp "./${CLAIM_TYPE}-settlement-merkle-trees.json" "$gs_bucket/$$epoch/"
-    - gcloud storage cp "./${CLAIM_TYPE}-config.json" "$gs_bucket/$$epoch/"
-    - gcloud storage cp "./discord-public-report.txt" "$gs_bucket/$$epoch/${CLAIM_TYPE}-discord-public-report.txt"
+    # Download outputs
+    - buildkite-agent artifact download --include-retried-jobs bid-distribution-settlements.json .
+    - buildkite-agent artifact download --include-retried-jobs bid-distribution-discord-report.txt .
+    - buildkite-agent artifact download --include-retried-jobs protected-events.json .
+    - buildkite-agent artifact download --include-retried-jobs evaluation.json .
+    # Upload outputs
+    - gcloud storage cp "./bid-distribution-settlements.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "settlement-config.yaml" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./bid-distribution-discord-report.txt" "$gs_bucket/$$epoch/"
+    # evaluation.json is pass-through from ds-sam (unchanged), kept under legacy name for downstream consumers
+    - gcloud storage cp "./evaluation.json" "$gs_bucket/$$epoch/bid-psr-distribution-evaluation.json"
+    # protected-events.json structure is unchanged, kept under legacy name for downstream consumers
+    - gcloud storage cp "./protected-events.json" "$gs_bucket/$$epoch/bid-psr-distribution.json"
 
   - wait: ~
 
@@ -178,7 +244,7 @@ steps:
             "attachments": [
               {
                 "color": "#8000ff",
-                "title": "Claims for Validator Bonds ('"${CLAIM_TYPE}"') generated ('"$$epoch"').",
+                "title": "Settlement files for Validator Bonds (bid + psr) generated ('"$$epoch"').",
                 "title_link": "'"$$BUILDKITE_BUILD_URL"'",
                 "footer": "<'"$$BUILDKITE_BUILD_URL"'|View in Buildkite>"
               }
@@ -188,23 +254,18 @@ steps:
 
   - wait: ~
 
-  - label: ":gear: Setup init-settlements trigger"
+  - label: ":gear: Trigger merkle tree scheduler"
     commands:
-    - epoch=$(buildkite-agent meta-data get epoch)
     - |
       cat <<EOF | buildkite-agent pipeline upload
       steps:
-        - trigger: "init-settlements"
-          label: ":rocket: Trigger: Init settlements ($$epoch)/($CLAIM_TYPE)"
+        - trigger: "scheduler-merkle-tree"
+          label: ":rocket: Trigger: Merkle Tree Scheduler"
           async: true
           build:
             branch: $$BUILDKITE_BRANCH
             env:
-              EPOCH: $$epoch
-              CLAIM_TYPE: $CLAIM_TYPE
-              NOTIFY_FEED: $NOTIFY_FEED
-              NOTIFY_DISCORD_FEED: true
-              SLACK_FEED: $SLACK_FEED
+              NOTIFY_FEED: ${NOTIFY_FEED:-false}
               gs_bucket: $gs_bucket
       EOF
 

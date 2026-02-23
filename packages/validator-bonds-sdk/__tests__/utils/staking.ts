@@ -472,12 +472,13 @@ export async function createDelegatedStakeAccount({
         staker,
       })
     } catch (e) {
-      console.error(
-        `Failed to authorize stake account ${stakeAccount.toBase58()}`,
-        e,
-      )
       if (isErrorEpochRewardsPeriod(e)) {
         continue
+      } else {
+        console.error(
+          `Failed to authorize stake account ${stakeAccount.toBase58()}`,
+          e,
+        )
       }
     }
     break
