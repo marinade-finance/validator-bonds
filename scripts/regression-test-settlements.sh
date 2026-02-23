@@ -226,6 +226,68 @@ merkle_tree_funding_sources() {
   ' "$1" 2>/dev/null || echo "null"
 }
 
+# Verify funding integrity of a merkle tree JSON file.
+# Checks that each tree has exactly one funder and its amount equals max_total_claim_sum.
+# This guarantees init_settlement creates correct PDAs and fund_settlement funds from
+# the right source (bond stake for ValidatorBond, marinade wallet for Marinade).
+# Usage: check_funding_integrity <merkle-tree-file> <label-prefix>
+# Returns 0 on pass, 1 on failure. Prints results to stdout.
+check_funding_integrity() {
+  local merkle_file="$1"
+  local prefix="$2"
+
+  # Find trees with != 1 funding_sources entry (multi-funder or missing)
+  local bad_funder_count
+  bad_funder_count=$(jq '
+    [.merkle_trees[] | select((.funding_sources // {} | length) != 1)]
+    | length
+  ' "$merkle_file" 2>/dev/null || echo "ERROR")
+
+  if [[ "$bad_funder_count" == "ERROR" ]]; then
+    echo "  ${prefix}ERROR: could not check funding integrity"
+    return 1
+  elif [[ "$bad_funder_count" -ne 0 ]]; then
+    echo "  ${prefix}FAIL funding integrity: $bad_funder_count trees have != 1 funder (multi-funder or empty)"
+    jq -r '
+      [.merkle_trees[] | select((.funding_sources // {} | length) != 1)
+       | {vote_account, funding_sources, max_total_claim_sum}]
+      | .[:5][] | "\(.vote_account) sources=\(.funding_sources) claim_sum=\(.max_total_claim_sum)"
+    ' "$merkle_file" 2>/dev/null || true
+    return 1
+  fi
+
+  # Verify each tree's single funder amount == max_total_claim_sum
+  local amount_mismatch
+  amount_mismatch=$(jq '
+    [.merkle_trees[] |
+      (.funding_sources // {} | to_entries | .[0].value) as $funder_amount |
+      select($funder_amount != .max_total_claim_sum)
+    ] | length
+  ' "$merkle_file" 2>/dev/null || echo "ERROR")
+
+  if [[ "$amount_mismatch" == "ERROR" ]]; then
+    echo "  ${prefix}ERROR: could not check funding amounts"
+    return 1
+  elif [[ "$amount_mismatch" -ne 0 ]]; then
+    echo "  ${prefix}FAIL funding integrity: $amount_mismatch trees have funder amount != max_total_claim_sum"
+    jq -r '
+      [.merkle_trees[] |
+        (.funding_sources // {} | to_entries | .[0]) as $fs |
+        select($fs.value != .max_total_claim_sum)
+      | {vote_account, funder: $fs.key, funder_amount: $fs.value, max_total_claim_sum}]
+      | .[:5][] | "\(.vote_account) \(.funder)=\(.funder_amount) claim_sum=\(.max_total_claim_sum)"
+    ' "$merkle_file" 2>/dev/null || true
+    return 1
+  fi
+
+  local tree_count marinade_count bond_count
+  tree_count=$(jq '.merkle_trees | length' "$merkle_file")
+  marinade_count=$(jq '[.merkle_trees[] | select(.funding_sources | has("Marinade"))] | length' "$merkle_file")
+  bond_count=$(jq '[.merkle_trees[] | select(.funding_sources | has("ValidatorBond"))] | length' "$merkle_file")
+  echo "  ${prefix}OK funding integrity: $tree_count trees ($bond_count ValidatorBond, $marinade_count Marinade) — each single-funder, amounts consistent"
+  return 0
+}
+
 # ---------------------------------------------------------------------------
 # Per-epoch processing
 # ---------------------------------------------------------------------------
@@ -468,6 +530,13 @@ process_epoch() {
           funder_entries=$(echo "$act_funder" | jq 'length')
           echo "  OK per-funder amounts: all $funder_entries entries match"
         fi
+
+        # 6) Funding integrity: each tree must have exactly one funder with amount == max_total_claim_sum
+        #    This guarantees from_funding_sources() correctly classifies each settlement and
+        #    fund_settlement funds ValidatorBond trees from bond stake, Marinade trees from Marinade wallet.
+        if ! check_funding_integrity "$actual_dir/unified-merkle-trees.json" ""; then
+          bid_merkle_status="DIFFER"
+        fi
       fi
     fi
   fi
@@ -605,6 +674,11 @@ process_epoch() {
           local inst_funder_entries
           inst_funder_entries=$(echo "$inst_act_funder" | jq 'length')
           echo "  INST OK per-funder amounts: all $inst_funder_entries entries match"
+        fi
+
+        # 5) Funding integrity for institutional
+        if ! check_funding_integrity "$actual_dir/institutional-merkle-trees.json" "INST "; then
+          inst_merkle_status="DIFFER"
         fi
       fi
     fi

@@ -45,7 +45,9 @@ impl Display for SettlementReason {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize, Debug, Eq, PartialEq, Hash, utoipa::ToSchema)]
+#[derive(
+    Clone, Deserialize, Serialize, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, utoipa::ToSchema,
+)]
 pub enum SettlementFunder {
     ValidatorBond,
     Marinade,
