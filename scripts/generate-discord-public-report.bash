@@ -160,4 +160,4 @@ do
     esac
 
     echo -e "$(printf "%44s" "$vote_account") $(printf "%15s" "☉$claims_amount") $(printf "%28s" "$reason") $(printf "%9s" "☉$protected_stake") $(printf "%13s" "$funder_info")"
-done < <(<"$settlement_collection_file" jq '.settlements | sort_by((-.claims_amount)) | .[]' -c)
+done < <(<"$settlement_collection_file" jq '.settlements | sort_by(.vote_account, -.claims_amount) | .[]' -c)
