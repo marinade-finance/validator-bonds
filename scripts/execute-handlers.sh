@@ -193,6 +193,12 @@ annotate_from_json() {
         echo "| Upsized settlements | ${upsized} |"
         echo "| Total merkle nodes | ${nodes} |"
         echo "| Total max claim SOL | ${max_claim_sol} |"
+        if jq -e '.summary.funders | length > 0' "$json_file" > /dev/null 2>&1; then
+          echo ""
+          echo "| **Funder** | **Created / Total** | **Claim SOL Created / Total** |"
+          echo "|------------|---------------------|-------------------------------|"
+          jq -r '.summary.funders[] | "| \(.funder) | \(.created_settlements) / \(.total_settlements) | \(.created_claim_sol | tostring | .[0:10]? // .) / \(.total_claim_sol | tostring | .[0:10]? // .) |"' "$json_file" 2>/dev/null
+        fi
         ;;
       *)
         # Fallback to JSON for unknown commands

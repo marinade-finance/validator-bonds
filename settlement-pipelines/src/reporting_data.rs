@@ -1,4 +1,4 @@
-use crate::settlement_data::SettlementRecord;
+use crate::settlement_data::{SettlementFunderType, SettlementRecord};
 use log::debug;
 use settlement_common::settlement_collection::SettlementReason;
 use solana_sdk::pubkey::Pubkey;
@@ -56,6 +56,30 @@ impl Display for ReportingReasonSettlement {
             ReportingReasonSettlement::BlacklistPenalty => write!(f, "BlacklistPenalty"),
             ReportingReasonSettlement::InstitutionalPayout => write!(f, "InstitutionalPayout"),
             ReportingReasonSettlement::Unknown => write!(f, "Unknown"),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub enum ReportingFunderSettlement {
+    ValidatorBond,
+    Marinade,
+}
+
+impl ReportingFunderSettlement {
+    pub fn items() -> Vec<ReportingFunderSettlement> {
+        vec![
+            ReportingFunderSettlement::ValidatorBond,
+            ReportingFunderSettlement::Marinade,
+        ]
+    }
+}
+
+impl Display for ReportingFunderSettlement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReportingFunderSettlement::ValidatorBond => write!(f, "ValidatorBond"),
+            ReportingFunderSettlement::Marinade => write!(f, "Marinade"),
         }
     }
 }
@@ -125,6 +149,50 @@ impl SettlementsReportData {
             })
             .collect::<Vec<&SettlementRecord>>();
         (Self::calculate(&filtered_settlement_records), sum_amount)
+    }
+
+    pub fn calculate_for_funder(
+        funder: &ReportingFunderSettlement,
+        settlement_records: &HashSet<SettlementRecord>,
+    ) -> SettlementsReportData {
+        let filtered: Vec<&SettlementRecord> = settlement_records
+            .iter()
+            .filter(|s| Self::matches_funder(funder, &s.funder))
+            .collect();
+        Self::calculate(&filtered)
+    }
+
+    pub fn calculate_sum_amount_for_funder(
+        funder: &ReportingFunderSettlement,
+        settlement_records: &HashMap<Pubkey, (SettlementRecord, u64)>,
+    ) -> (SettlementsReportData, u64) {
+        let mut sum_amount: u64 = 0;
+        let filtered: Vec<&SettlementRecord> = settlement_records
+            .iter()
+            .filter(|(_, (_, amount))| *amount > 0)
+            .filter(|(_, (s, _))| Self::matches_funder(funder, &s.funder))
+            .map(|(_, (s, amount))| {
+                sum_amount += amount;
+                s
+            })
+            .collect();
+        (Self::calculate(&filtered), sum_amount)
+    }
+
+    fn matches_funder(
+        funder: &ReportingFunderSettlement,
+        record_funder: &SettlementFunderType,
+    ) -> bool {
+        matches!(
+            (funder, record_funder),
+            (
+                ReportingFunderSettlement::Marinade,
+                SettlementFunderType::Marinade(_)
+            ) | (
+                ReportingFunderSettlement::ValidatorBond,
+                SettlementFunderType::ValidatorBond(_)
+            )
+        )
     }
 
     /// Filter settlement records matching the provided settlement pubkeys
