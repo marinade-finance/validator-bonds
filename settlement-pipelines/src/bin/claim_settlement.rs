@@ -108,7 +108,7 @@ async fn real_main(
         &args.tip_policy_opts,
     )?;
 
-    let collections = load_merkle_tree_collections(&args.json_files)?;
+    let collections = load_merkle_tree_collections(&args.json_files, args.global_opts.config)?;
     if collections.is_empty() {
         return Err(anyhow!(
             "No merkle tree collections loaded from provided files"
