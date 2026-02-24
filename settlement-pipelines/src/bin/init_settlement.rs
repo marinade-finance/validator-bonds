@@ -105,7 +105,10 @@ async fn real_main(
         fee_payer.clone()
     };
 
-    let collections = load_merkle_tree_collections(&[args.input_merkle_tree_collection.clone()])?;
+    let collections = load_merkle_tree_collections(
+        &[args.input_merkle_tree_collection.clone()],
+        args.global_opts.config,
+    )?;
     if collections.is_empty() || collections.iter().all(|c| c.merkle_trees.is_empty()) {
         warn!("No merkle tree settlements");
         return Ok(());
