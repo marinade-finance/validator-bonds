@@ -21,7 +21,9 @@ use settlement_pipelines::reporting::{
     with_reporting_ext, ErrorEntry, ErrorSeverity, PrintReportable, ReportHandler,
     ReportSerializable,
 };
-use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
+use settlement_pipelines::reporting_data::{
+    ReportingFunderSettlement, ReportingReasonSettlement, SettlementsReportData,
+};
 use settlement_pipelines::settlement_data::SettlementRecord;
 use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -472,9 +474,30 @@ impl PrintReportable for InitSettlementReport {
                         loaded_data.max_merkle_nodes_sum,
                         build_balance_message(created_data.settlements_max_claim_sum, false, true),
                         build_balance_message(loaded_data.settlements_max_claim_sum, false, true),
-
                     )
                 ]
+            })
+            .collect();
+        let settlements_info_by_funder: Vec<String> = ReportingFunderSettlement::items()
+            .iter()
+            .filter_map(|funder| {
+                let loaded_data = SettlementsReportData::calculate_for_funder(
+                    funder,
+                    &self.json_loaded_settlements,
+                );
+                if loaded_data.settlements_count == 0 {
+                    return None;
+                }
+                let created_data =
+                    SettlementsReportData::calculate_for_funder(funder, &self.created_settlements);
+                Some(format!(
+                    "    Funder: {}, created settlements {}/{}, claim amounts: {}/{}",
+                    funder,
+                    created_data.settlements_count,
+                    loaded_data.settlements_count,
+                    build_balance_message(created_data.settlements_max_claim_sum, false, true),
+                    build_balance_message(loaded_data.settlements_max_claim_sum, false, true),
+                ))
             })
             .collect();
         Box::pin(async move {
@@ -489,6 +512,7 @@ impl PrintReportable for InitSettlementReport {
                     self.existing_settlements.len(),
                 )];
             result_vec.extend(settlements_info_by_reason);
+            result_vec.extend(settlements_info_by_funder);
             result_vec.push(format!(
                 "UpsizeSettlementClaims: upsized settlements {}/{}",
                 self.upsized_settlements.len(),
@@ -619,6 +643,15 @@ impl InitSettlementReport {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct FunderInitSummary {
+    funder: String,
+    created_settlements: u64,
+    total_settlements: u64,
+    created_claim_sol: f64,
+    total_claim_sol: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct InitSettlementJsonSummary {
     epoch: u64,
     created_settlements: u64,
@@ -626,6 +659,7 @@ struct InitSettlementJsonSummary {
     total_merkle_nodes: u64,
     total_max_claim_sol: f64,
     upsized_settlements: u64,
+    funders: Vec<FunderInitSummary>,
 }
 
 impl ReportSerializable for InitSettlementReport {
@@ -638,6 +672,30 @@ impl ReportSerializable for InitSettlementReport {
             let lamports_to_sol = |lamports: u64| -> f64 { lamports as f64 / 1_000_000_000.0 };
             let loaded_data = self.list_loaded_settlements_data();
 
+            let funders: Vec<FunderInitSummary> = ReportingFunderSettlement::items()
+                .iter()
+                .filter_map(|funder| {
+                    let loaded = SettlementsReportData::calculate_for_funder(
+                        funder,
+                        &self.json_loaded_settlements,
+                    );
+                    if loaded.settlements_count == 0 {
+                        return None;
+                    }
+                    let created = SettlementsReportData::calculate_for_funder(
+                        funder,
+                        &self.created_settlements,
+                    );
+                    Some(FunderInitSummary {
+                        funder: funder.to_string(),
+                        created_settlements: created.settlements_count,
+                        total_settlements: loaded.settlements_count,
+                        created_claim_sol: lamports_to_sol(created.settlements_max_claim_sum),
+                        total_claim_sol: lamports_to_sol(loaded.settlements_max_claim_sum),
+                    })
+                })
+                .collect();
+
             let summary = InitSettlementJsonSummary {
                 epoch: self.epoch,
                 created_settlements: self.created_settlements.len() as u64,
@@ -645,6 +703,7 @@ impl ReportSerializable for InitSettlementReport {
                 total_merkle_nodes: loaded_data.max_merkle_nodes_sum,
                 total_max_claim_sol: lamports_to_sol(loaded_data.settlements_max_claim_sum),
                 upsized_settlements: self.upsized_settlements.len() as u64,
+                funders,
             };
 
             serde_json::to_value(summary)
