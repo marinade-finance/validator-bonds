@@ -379,19 +379,21 @@ Based on KEYPOINTS above — formalized component diagram:
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ validator-bonds repo                                                    │
 │                                                                         │
-│  ┌──────────────┐    ┌──────────────────────┐                          │
-│  │bonds-collector│───>│  eventing module (TS) │                         │
-│  │  (Rust CLI)   │    │  - stateless          │                         │
-│  └──────────────┘    │  - runs after collect  │                         │
-│                       │  - fetches auction data│                         │
-│                       │  - emits raw events    │                         │
-│                       │  - generates notif. ID │                         │
-│                       └─────────┬──────────────┘                        │
+│  ┌──────────────┐    ┌──────────────────────────┐                      │
+│  │bonds-collector│───>│  eventing module (TS)     │                     │
+│  │  (Rust CLI)   │    │  - stateless              │                     │
+│  └──────────────┘    │  - runs after collect      │                     │
+│                       │  - fetches auction data    │                     │
+│                       │  - emits raw events        │                     │
+│                       │  - saves event artifacts   │                     │
+│                       │  - retries POST on failure │                     │
+│                       └─────────┬──────────────────┘                    │
 │                                 │ POST /bonds-event-v1                  │
-│  ┌──────────────────────────┐   │                                       │
-│  │ bonds-notification (lib) │   │  ← also consumed by marinade-notif.  │
-│  │  - YAML threshold config │   │                                       │
-│  │  - priority/relevance    │   │                                       │
+│  ┌──────────────────────────┐   │  (with exp. backoff retry)            │
+│  │ bonds-notification (lib) │   │                                       │
+│  │  - YAML threshold config │   │  ← consumed by marinade-notif.       │
+│  │  - priority/relevance    │   │    consumer (the "brain")             │
+│  │  - notification_id gen   │   │                                       │
 │  │  - business rules        │   │                                       │
 │  │  - published to npm      │   │                                       │
 │  └──────────────────────────┘   │                                       │
@@ -413,12 +415,14 @@ Based on KEYPOINTS above — formalized component diagram:
 │  │ bonds-event consumer                                         │       │
 │  │  1. loads bonds-notification lib (the "brain")               │       │
 │  │  2. evaluates thresholds → skip or proceed                   │       │
-│  │  3. checks dedup table → skip if recently delivered          │       │
-│  │  4. looks up subscriptions table → get channels per user     │       │
-│  │  5. routes to delivery processors:                           │       │
+│  │  3. generates deterministic notification_id (dedup key)      │       │
+│  │  4. checks dedup table → skip if recently delivered          │       │
+│  │  5. loads routing config → determine channels for inner_type │       │
+│  │  6. looks up subscriptions table → get channels per user     │       │
+│  │  7. routes to delivery processors:                           │       │
 │  │     ├─ Telegram (REST API) → sendMessage to chat_id          │       │
 │  │     └─ API (DB save) → insert into notifications_outbox      │       │
-│  │  6. updates dedup table on successful delivery               │       │
+│  │  8. updates dedup table on successful delivery               │       │
 │  └──────────────────────────────────────────────────────────────┘       │
 │                                                                         │
 │  ┌─────────────────────┐   ┌──────────────────────────────────┐        │
@@ -427,6 +431,9 @@ Based on KEYPOINTS above — formalized component diagram:
 │  │  DELETE /subscriptions│  │  - filter: type, user_id,         │        │
 │  │  - Solana sig verify │   │    priority, inner_type, recency  │        │
 │  └─────────────────────┘   └──────────────────────────────────┘        │
+│                                                                         │
+│  notification-routing.yaml  ← defines default channels per             │
+│                                inner_type, admin overrides              │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -440,15 +447,25 @@ Based on KEYPOINTS above — formalized component diagram:
    - Is bond underfunded relative to auction demand? (`bondGoodForNEpochs` < threshold)
    - Is the validator out of the auction? (bid too low vs current clearing price)
    - Is stake capped due to insufficient bond?
-6. For each condition met, emits a raw event with a deterministic `notification_id`
-7. POSTs event to `marinade-notifications /bonds-event-v1` endpoint
-8. Consumer processes: bonds-notification lib evaluates → dedup check → subscription lookup → delivery
+6. For each condition met, emits a raw event with `message_id` (UUID) and `created_at` timestamp — **no deterministic notification_id at this stage**
+7. POSTs each event to `marinade-notifications /bonds-event-v1` endpoint with exponential backoff retry (30s base, up to ~8 min, then discard)
+8. Writes each emitted event to `emitted_bond_events` table in validator-bonds-api PostgreSQL with `status: sent` or `status: failed` (for data review)
+9. Consumer processes:
+   a. bonds-notification lib evaluates thresholds → skip or proceed
+   b. If proceed: generates deterministic `notification_id` (dedup key) based on event data
+   c. Dedup check against `bonds_notification_dedup` table → skip if recently delivered
+   d. Loads routing config → determines which channels apply for this inner_type
+   e. Subscription lookup → get user's subscribed channels
+   f. Routes to delivery processors (Telegram, API outbox)
+   g. Updates dedup table on successful delivery
 
 ### Message Flow — Admin Notifications
 
 1. Admin POSTs to `marinade-notifications /bonds-event-v1` with `inner_type: "announcement"` (or similar)
-2. Consumer processes: bonds-notification lib recognizes admin type → always notify, high priority
-3. Delivers to all subscribers (or filtered by target criteria in payload)
+2. Event payload may include optional `requested_channels` to target specific channels
+3. Consumer processes: bonds-notification lib recognizes admin type → always notify, high priority
+4. Routing config may define `force: true` for announcements → delivers to all subscribers regardless of channel preference
+5. Delivers to all subscribers (or filtered by target criteria in payload)
 
 ---
 
@@ -458,12 +475,12 @@ Based on KEYPOINTS above — formalized component diagram:
 
 **Location:** `packages/bonds-notification/` in validator-bonds repo (published to npm as `@marinade.finance/bonds-notification`)
 
-**Purpose:** Business logic "brain" — decides IF to notify, at what priority, and how often. Consumed by both the eventing module and marinade-notifications consumer.
+**Purpose:** Business logic "brain" — decides IF to notify, at what priority, and how often. Consumed by the marinade-notifications consumer (NOT by the eventing module — the eventing module only emits raw events).
 
 **Contents:**
 
 - `config.yaml` — threshold configuration, packed inside the library
-- `evaluate.ts` — main function: takes raw event + config → returns `{shouldNotify, priority, relevanceDuration, notificationId}` or null
+- `evaluate.ts` — main function: takes raw event + config → returns `{shouldNotify, priority, relevanceDuration, notificationId}` or null. Called by the consumer in marinade-notifications, NOT by the eventing module.
 - `types.ts` — shared TypeScript types for bond events (generated from JSON Schema)
 - `schema/bonds-event-v1.json` — JSON Schema for the event payload (shared with marinade-notifications codegen)
 
@@ -499,7 +516,9 @@ thresholds:
     relevance_hours: 120
 ```
 
-**Notification ID generation** (deterministic, for dedup):
+**Notification ID generation** (deterministic, for dedup — generated by the consumer, NOT at emission time):
+
+The `evaluate()` function generates a deterministic `notification_id` when it decides to notify. This happens in the marinade-notifications consumer, not in the eventing module. At emission time, the eventing module only attaches a `message_id` (UUID for transport dedup) and `created_at` timestamp.
 
 - `bond_underfunded`: `sha256(bond_pubkey + "underfunded" + amount_bucket)` where `amount_bucket = floor(deficit_sol / (deficit_sol * significant_change_pct / 100))`
 - `out_of_auction`: `sha256(bond_pubkey + "out_of_auction" + epoch)`
@@ -509,20 +528,17 @@ The notification_id changes only when the situation changes significantly, ensur
 
 ### 8.2 Event Schema (bonds-event-v1)
 
-**JSON Schema** — used by both marinade-notifications codegen and Rust (via serde):
+**JSON Schema** — placed in `message-types/schemas/bonds-event-v1.json` in marinade-notifications. Run `pnpm generate` to auto-generate both TypeScript types (with AJV validator) and Rust structs (via `cargo typify`).
+
+**Note on field ownership:** The event schema defines what the **emitter** sends. Fields like `notification_id`, `priority`, and `relevance_hours` are NOT part of the emitted event — they are generated by the consumer (via `bonds-notification` lib) after evaluating the event. The emitter sends raw facts; the consumer decides what to do with them.
 
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bonds-event-v1",
+  "title": "BondsEventV1",
   "type": "object",
-  "required": [
-    "type",
-    "inner_type",
-    "vote_account",
-    "notification_id",
-    "data",
-    "created_at"
-  ],
+  "required": ["type", "inner_type", "vote_account", "data", "created_at"],
   "properties": {
     "type": { "const": "bonds" },
     "inner_type": {
@@ -540,32 +556,42 @@ The notification_id changes only when the situation changes significantly, ensur
     },
     "bond_pubkey": { "type": "string", "description": "Bond account pubkey" },
     "epoch": { "type": "integer" },
-    "notification_id": {
-      "type": "string",
-      "description": "Deterministic dedup key"
-    },
-    "priority": { "enum": ["critical", "warning", "info"] },
-    "relevance_hours": {
-      "type": "integer",
-      "description": "How long this notification is relevant"
+    "requested_channels": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional: emitter can suggest specific channels (mainly for admin announcements). Consumer routing config is authoritative."
     },
     "data": {
       "type": "object",
-      "description": "Inner-type-specific payload",
+      "description": "Notification payload with message and details",
+      "required": ["message", "details"],
       "properties": {
-        "bond_balance_sol": { "type": "number" },
-        "required_sol": { "type": "number" },
-        "deficit_sol": { "type": "number" },
-        "bond_good_for_n_epochs": { "type": "number" },
-        "current_stake_sol": { "type": "number" },
-        "capped_stake_sol": { "type": "number" },
-        "message": { "type": "string", "description": "Human-readable summary" }
+        "message": {
+          "type": "string",
+          "description": "Human-readable plain text summary"
+        },
+        "details": {
+          "type": "object",
+          "description": "All raw data points used to construct the message. Enables message reconstruction and programmatic use.",
+          "additionalProperties": true
+        }
       }
     },
     "created_at": { "type": "string", "format": "date-time" }
   }
 }
 ```
+
+**Fields generated by consumer (NOT in event schema, produced by `bonds-notification.evaluate()`):**
+
+- `notification_id` — deterministic dedup key
+- `priority` — `critical` / `warning` / `info`
+- `relevance_hours` — how long the notification stays relevant
+
+**Generated outputs** (by `pnpm generate` in `message-types/`):
+
+- `message-types/typescript/bonds-event-v1/src/index.ts` — TS types + AJV validator
+- `message-types/rust/bonds_event_v1/src/lib.rs` — Rust serde structs
 
 ### 8.3 Eventing Module (validator-bonds)
 
@@ -575,9 +601,10 @@ The notification_id changes only when the situation changes significantly, ensur
 
 **Dependencies:**
 
-- `@marinade.finance/bonds-notification` — for threshold evaluation and notification ID generation
 - `@marinade.finance/ds-sam-sdk` — for auction simulation (same as PSR dashboard)
 - `ts-message-client` from marinade-notifications — for posting to notification service
+
+**Note:** The eventing module does NOT depend on `bonds-notification`. It is a pure emitter of raw events. All business logic evaluation (thresholds, priority, notification_id) happens in the consumer side at marinade-notifications.
 
 **Flow:**
 
@@ -585,10 +612,27 @@ The notification_id changes only when the situation changes significantly, ensur
 2. Fetch validator/auction data (validators-api, scoring API)
 3. Run ds-sam-sdk auction simulation (same approach as PSR dashboard)
 4. For each bonded validator, compute `bondGoodForNEpochs` and auction status
-5. Call `bonds-notification.evaluate(event)` for each condition
-6. If `shouldNotify` is true, POST to marinade-notifications with the event
+5. For each condition met, construct a raw event with `message_id` (UUID), `created_at` (timestamp), `data.message` (human-readable text), and all relevant data points in `data.details`
+6. POST each event to `marinade-notifications /bonds-event-v1` endpoint with retry (see retry config below)
+7. Write each emitted event to `emitted_bond_events` table in validator-bonds-api PostgreSQL with `status: sent` or `status: failed`
 
-**Stateless design:** No database, no memory of previous runs. The bonds-notification library's threshold + notification_id logic ensures appropriate dedup downstream.
+**Stateless design:** No memory of previous runs. The eventing module is a pure emitter — all dedup and notification logic lives in the consumer (via `bonds-notification` lib). The DB writes are append-only event log for data review, not state tracking.
+
+**Event persistence:** All emitted events are written to the `emitted_bond_events` PostgreSQL table (same DB as bonds-collector / validator-bonds-api). Each row records the full event payload and delivery status (`sent` / `failed`). This is for data review only — no API on top of it.
+
+**Retry config for POST to marinade-notifications:**
+
+When the notification service is unavailable, the eventing module retries with exponential backoff:
+
+```yaml
+retry:
+  base_delay_seconds: 30
+  max_retries: 4 # 30s → 60s → 120s → 240s ≈ 7.5 min total
+  backoff_multiplier: 2
+  on_exhaustion: log_warning_and_continue # discard event, don't fail the cron job
+```
+
+This is separate from `ts-message-client`'s internal retry (3 retries, 2s base — too short for service outages). The eventing module wraps the POST call with this longer retry for service-level unavailability. On exhaustion, the event is logged as a warning and discarded — the cron job must finish so the next hourly run can try again.
 
 ### 8.4 New Topic in marinade-notifications (bonds-event-v1)
 
@@ -614,16 +658,19 @@ Following the existing per-topic pattern:
 
 1. Dequeue message from inbox
 2. Validate payload against schema
-3. Load `bonds-notification` library, call `evaluate(payload)` → get threshold decision
+3. Load `bonds-notification` library, call `evaluate(payload)` → returns `{shouldNotify, priority, relevanceDuration, notificationId}` or null
 4. If `shouldNotify` is false → archive (not relevant enough)
-5. Check `bonds_dedup` table: is `notification_id` already delivered within `renotify_interval`?
-6. If deduped → archive (already notified recently)
-7. Query `subscriptions` table for `user_id = vote_account` (or bond authority)
-8. For each subscription channel:
-   - `telegram`: call TelegramService.sendMessage(chatId, formattedMessage)
-   - `api`: insert into `notifications_outbox` table
-9. Update `bonds_dedup` table with delivery timestamp
-10. Archive message
+5. `notification_id` is now available (generated by `evaluate()`, deterministic based on event data)
+6. Check `bonds_dedup` table: is `notification_id` already delivered within `renotify_interval`?
+7. If deduped → archive (already notified recently)
+8. Load routing config (`notification-routing.yaml`) → determine which channels apply for this `inner_type`
+9. Check event's optional `requested_channels` field (for admin announcements that target specific channels)
+10. Query `subscriptions` table for `user_id = vote_account` (or bond authority), filtered by applicable channels
+11. For each subscription channel:
+    - `telegram`: call TelegramService.sendMessage(chatId, formattedMessage)
+    - `api`: insert into `notifications_outbox` table (with `priority`, `relevance_hours`, `notification_id` from evaluate result)
+12. Update `bonds_dedup` table with delivery timestamp
+13. Archive message
 
 ### 8.5 Dedup Mechanism
 
@@ -782,134 +829,258 @@ GET /notifications?user_id={pubkey}&type=bonds&priority=critical&inner_type=bond
 
 **Consumers:** CLI and PSR dashboard poll this endpoint to show notifications.
 
+### 8.9 Notification Routing Configuration (marinade-notifications)
+
+**Location:** `notification-service/config/notification-routing.yaml`
+
+**Purpose:** Defines the default channels to use for each notification type and inner_type. The consumer loads this config to decide which delivery channels apply. This is separate from user subscriptions — routing config says "this inner_type CAN go to telegram and api", subscriptions say "this user WANTS telegram".
+
+**YAML config:**
+
+```yaml
+# notification-routing.yaml
+bonds:
+  default_channels: [api] # always save to outbox for pull API
+  inner_types:
+    bond_underfunded:
+      channels: [telegram, api]
+    out_of_auction:
+      channels: [telegram, api]
+    stake_capped:
+      channels: [telegram, api]
+    announcement:
+      channels: [telegram, api]
+      force: true # send to ALL subscribers regardless of per-channel preference
+    version_bump:
+      channels: [api] # pull-only, no push notification
+```
+
+**How it interacts with the consumer:**
+
+1. Consumer loads routing config for the event's `type` + `inner_type`
+2. Determines allowed channels from config
+3. If event has `requested_channels` (optional field, mainly for admin announcements), intersects with allowed channels
+4. If config has `force: true`, sends to all subscribers on all allowed channels (ignoring per-user channel preferences)
+5. Otherwise, filters by user's subscribed channels
+
+**Why a YAML file and not a database table:** Routing config changes infrequently and should be versioned with code. New channel types or routing rules ship with a new deployment, not as runtime config.
+
 ---
 
 ## 9. Work Items
 
 Ordered by dependency:
 
-1. **bonds-notification library** — types, schema, YAML config, evaluate function
-2. **Event schema** — JSON Schema for bonds-event-v1 (in bonds-notification, copied to marinade-notifications)
+1. **bonds-notification library** — types, schema, YAML config, evaluate function (generates notification_id, priority, relevance at consumer time)
+2. **Event schema** — JSON Schema for bonds-event-v1 (in bonds-notification, copied to marinade-notifications). Note: schema only contains emitter fields, no notification_id/priority/relevance_hours.
 3. **marinade-notifications: new topic** — migration, ingress, consumer skeleton
-4. **marinade-notifications: subscription module** — tables, API, Solana auth guard
-5. **marinade-notifications: Telegram service** — REST-based message sending
-6. **marinade-notifications: notifications outbox + read API** — table, endpoint
-7. **marinade-notifications: dedup table + logic** — in consumer
-8. **marinade-notifications: bonds-event consumer** — full integration (bonds-notification lib + dedup + subscriptions + delivery routing)
-9. **eventing module** — data fetching, ds-sam-sdk simulation, event generation, posting to notification service
-10. **Buildkite pipeline update** — add eventing module step to collect-bonds.yml
-11. **CLI integration** — subscribe/unsubscribe commands, poll notifications endpoint
-12. **PSR dashboard integration** — poll notifications endpoint, replace hardcoded banner
+4. **marinade-notifications: notification routing config** — `notification-routing.yaml` defining default channels per inner_type
+5. **marinade-notifications: subscription module** — tables, API, Solana auth guard
+6. **marinade-notifications: Telegram service** — REST-based message sending
+7. **marinade-notifications: notifications outbox + read API** — table, endpoint
+8. **marinade-notifications: dedup table + logic** — in consumer (notification_id comes from bonds-notification evaluate, not from event payload)
+9. **marinade-notifications: bonds-event consumer** — full integration (bonds-notification lib + dedup + routing config + subscriptions + delivery)
+10. **eventing module** — data fetching, ds-sam-sdk simulation, raw event generation, event artifact persistence, POST with retry to notification service
+11. **Buildkite pipeline update** — add eventing module step to collect-bonds.yml
+12. **CLI integration** — subscribe/unsubscribe commands, poll notifications endpoint
+13. **PSR dashboard integration** — poll notifications endpoint, replace hardcoded banner
 
 ---
 
-## 10. Open Design Questions
+## 10. Resolved Design Decisions
 
-### Q1: Where should the bonds-notification library live?
+### Q1: bonds-notification library location — RESOLVED
 
-**Option A:** `packages/bonds-notification/` in validator-bonds repo → published to npm
+**Decision:** `packages/bonds-notification/` in validator-bonds repo, published to npm as `@marinade.finance/bonds-notification`. Domain knowledge belongs with domain code.
 
-- Pro: Domain knowledge lives with domain code, versioned with bonds changes
-- Con: marinade-notifications depends on a package from another repo
+### Q2: Telegram subscription & chat_id discovery — RESOLVED
 
-**Option B:** Package in marinade-notifications monorepo
+**Discovery:** An existing `telegram-bot` service is already deployed (ArgoCD: `ops-infra/argocd/telegram-bot/`). It has:
 
-- Pro: Co-located with consumer code
-- Con: Business logic for bonds leaks into notification infra repo
+- `TG_BOT_TOKEN` + `TG_WEBHOOK_TOKEN` (webhook-based, not polling)
+- Own PostgreSQL database
+- Node.js service (`node ./api/dist/main.js`), exposed on port 3000
+- Slack integration
 
-**Option C:** Standalone repo
+**Decision — Telegram deep link flow:**
 
-- Pro: Clean separation
-- Con: Overhead of another repo
+1. The existing telegram-bot (or marinade-notifications, TBD which service handles the webhook) receives Telegram updates via webhook
+2. User subscribes via CLI: `validator-bonds-cli subscribe --channel telegram`
+3. CLI calls subscription API with pubkey + Solana signature → API generates a random **linking token** (16 bytes, base64url, 10 min TTL, single-use) and stores it with pubkey + status:pending
+4. Subscription API returns a deep link: `https://t.me/MarinadeBot?start=<linking_token>`
+5. CLI displays the link (and QR code if terminal supports it)
+6. User clicks the link → Telegram opens bot with `/start <linking_token>`
+7. Bot webhook receives the message, verifies the linking token signature, extracts pubkey
+8. Bot saves mapping: `pubkey → chat_id` in subscriptions table (or calls subscription API internally)
+9. Subscription is now active — future notifications use this `chat_id`
 
-**Leaning:** Option A — bonds business logic belongs in the bonds repo.
+**Key detail:** The subscription module should handle the setup end-to-end. When a user asks to subscribe to Telegram, the module orchestrates the linking flow.
 
-### Q2: How does Telegram chat_id discovery work?
+**Open sub-question:** → Moved to RQ1 in Section 11.
 
-Telegram REST API requires `chat_id` to send messages. The user subscribes via CLI with their Solana keypair, but we need to map that to a Telegram chat_id.
+### Q3: user_id and subscription verification — RESOLVED
 
-**Option A:** User starts the Telegram bot → bot saves `chat_id` → user enters their Telegram username in CLI → we look up chat_id by username in our records
+**Decision — Plugin interface for subscription verification:**
 
-- Requires bot webhook/polling to capture `/start` events
+The subscription module is generic. For each `notification_type`, a **verification plugin** interface decides how to validate the subscription:
 
-**Option B:** User starts the bot → bot generates a one-time code → user enters code in CLI → code is verified and linked to pubkey
+```typescript
+interface SubscriptionVerifier {
+  // Given incoming pubkey + additional JSON data, return the pubkey to verify signature against
+  // Returns null if subscription is invalid
+  verifySubscription(
+    incomingPubkey: string,
+    additionalData: Record<string, unknown>,
+  ): Promise<{
+    verifyAgainstPubkey: string // the pubkey the signature must match
+    userId: string // the canonical user_id to store (e.g., vote_account)
+  } | null>
+}
+```
 
-- More secure, no username needed
-- Requires bot webhook/polling for the initial code generation
+**For bonds type** (implemented in `bonds-notification` library):
 
-**Option C:** User interacts with bot → bot asks for their pubkey → bot creates subscription directly (no CLI needed for Telegram)
+1. Caller sends `pubkey` (bond authority) + `additionalData: { config_address: "..." }`
+2. Plugin loads the bond on-chain: derives bond PDA from `(config_address, vote_account)`
+3. Finds the bond where authority matches the incoming pubkey
+4. Returns `{ verifyAgainstPubkey: bond_authority, userId: vote_account }`
+5. Subscription is indexed by `vote_account` (since events are per vote_account)
 
-- Simplest for user, but bot needs to verify pubkey ownership somehow
+**Fallback** (no plugin for that type): Just verify signature against the incoming pubkey, use it as user_id.
 
-**This requires discussion** — all options need some form of bot interaction beyond just REST sendMessage.
+This means:
 
-### Q3: What is the user_id for subscription/notification lookup?
+- Events are indexed by `vote_account` (the natural key)
+- Subscriptions are also indexed by `vote_account`
+- But the signing key is the `bond_authority` (which the validator controls)
+- The plugin bridges the gap
 
-The KEYPOINTS mention pubkey as user_id. But which pubkey?
+### Q4: Auction simulation data — RESOLVED
 
-**Option A:** Vote account address — validators know this, it's public
-**Option B:** Bond authority — the keypair that manages the bond
-**Option C:** Withdraw authority of the bond
+**Decision:** Eventing module replicates PSR dashboard approach — fetches up-to-date data from APIs and runs ds-sam-sdk auction simulation directly.
 
-Vote account is the most natural (it's what PSR dashboard and APIs use), but the subscription signature must come from a keypair the validator controls (likely bond authority or validator identity).
+Data sources:
 
-**Possible approach:** Subscribe with bond_authority signature, but index notifications by vote_account (since events are per vote_account). The subscription links authority → vote_account.
+- `validators-api.marinade.finance/validators` — validator data
+- `scoring.marinade.finance/api/v1/scores/sam` — bid penalties/scores
+- `validator-bonds-api.marinade.finance/bonds` — bond data
+- ds-sam-sdk — auction simulation + `bondGoodForNEpochs` calculation
 
-### Q4: How does the eventing module get auction simulation data?
+PSR dashboard loads this data on every page visit (much more frequent than once/hour), so the APIs can handle the load.
 
-The eventing module needs to replicate what PSR dashboard does:
+### Q5: Admin notification flow — RESOLVED
 
-- Fetch all validators from validators-api
-- Fetch scoring data
-- Run ds-sam-sdk auction simulation
-- Compute bondGoodForNEpochs per validator
+**Decision:** Same `/bonds-event-v1` endpoint with `inner_type: "announcement"`. bonds-notification lib recognizes admin types and always passes through (no threshold evaluation, high priority).
 
-This is non-trivial (PSR dashboard does this client-side with significant code). Options:
+### Q6: Schema codegen — RESOLVED
 
-**Option A:** Eventing module runs ds-sam-sdk directly (duplicates PSR dashboard logic)
-**Option B:** There's an API that already computes auction results (ds-sam-pipeline outputs?)
-**Option C:** bonds-collector is extended to store computed auction results that eventing module reads
+**Discovery:** marinade-notifications already has full codegen tooling:
 
-**This needs clarification** — what's the easiest way to get auction simulation results in the eventing module?
+- `message-types/` directory with `pnpm generate` command
+- **TypeScript**: `json-schema-to-typescript` library → generates types + AJV validator + embedded schema
+- **Rust**: `cargo typify --no-builder` → generates serde structs + schema validation
+- Both generated from the same JSON Schema file in `message-types/schemas/`
+- Existing pattern: add `bonds-event-v1.json` to `schemas/`, run `pnpm generate`, get both TS and Rust types
 
-### Q5: Admin notification flow
+**Decision:** JSON Schema is the source of truth. Use existing `pnpm generate` pipeline. No manual type definitions needed.
 
-The KEYPOINTS describe two use cases: automated events and admin notifications.
+### Q7: Notification data format — RESOLVED
 
-**Option A:** Admin POSTs to the same `/bonds-event-v1` endpoint with `inner_type: "announcement"`
+**Decision:** Simple text data points + `details` section.
 
-- Simple, reuses existing pipeline
-- bonds-notification lib recognizes admin types and always passes through
+The notification `data` field contains:
 
-**Option B:** Separate admin API endpoint that bypasses threshold evaluation
+- `message`: Human-readable plain text summary (simple data points, no complex formatting)
+- `details`: Object with ALL raw data points used to construct the message — enables reconstructing the message if needed, and provides structured data for programmatic use
 
-- Cleaner separation
-- But adds another endpoint to maintain
+```json
+{
+  "data": {
+    "message": "Bond underfunded: 8.5 SOL deficit. Bond covers 0.5 epochs. Top up to stay in auction.",
+    "details": {
+      "bond_balance_sol": 1.5,
+      "required_sol": 10.0,
+      "deficit_sol": 8.5,
+      "bond_good_for_n_epochs": 0.5,
+      "marinade_activated_stake_sol": 50000,
+      "expected_max_eff_bid_pmpe": 3.2,
+      "epoch": 930,
+      "bond_pubkey": "...",
+      "vote_account": "..."
+    }
+  }
+}
+```
 
-**Leaning:** Option A — keep it simple, use `inner_type` to distinguish.
+The bonds-notification library generates the `message` text and populates the `details`. Delivery channels send the `message` as-is. CLI/dashboard can use `details` for richer display.
 
-### Q6: Should the JSON Schema be the source of truth for both TS and Rust types?
+---
 
-The KEYPOINTS mention "json data should be defined as some schema to be possible to be loaded by rust as well."
+## 11. Remaining Open Questions
 
-**Option A:** JSON Schema → codegen for both TypeScript (existing marinade-notifications pattern) and Rust (via `typify` or `schematools`)
-**Option B:** Define types manually in both languages, use JSON Schema only for validation
-**Option C:** Use protobuf as source of truth, generate both TS and Rust
+### RQ1: Telegram bot ownership — OPEN
 
-**Leaning:** Option A — JSON Schema as source of truth matches existing marinade-notifications pattern. Rust types can be manually defined for now (the event payload is simple enough).
+Should the webhook handler for `/start <linking_token>` be added to the **existing telegram-bot** service, or should **marinade-notifications** register its own webhook?
 
-### Q7: Notification message formatting
+- Existing bot already has `TG_BOT_TOKEN`, webhook infrastructure, PostgreSQL
+- Adding to existing bot = less infra, but couples two services
+- marinade-notifications handling it = self-contained, but needs own bot token or shared token
 
-Who formats the human-readable notification text?
+**Recommendation:** Reuse the existing telegram-bot service. Rationale: Telegram allows only one webhook URL per bot token. If marinade-notifications registers its own webhook, it either needs a separate bot (confusing for users — two different bots) or the existing bot's webhook must be removed. Reusing the existing bot and adding a `/start` handler that calls the marinade-notifications subscription API is the path of least resistance. The coupling is minimal — just one HTTP call from the bot to the subscription API.
 
-**Option A:** bonds-notification library generates formatted text (Markdown for Telegram, plain text for API)
+**Blocked on:** RQ4 (need to inspect the telegram-bot service first).
 
-- Pro: Formatting is a business decision, lives with business logic
-- Con: Library needs to know about all delivery channels
+### RQ2: Subscription additional data schema per type — RESOLVED
 
-**Option B:** Consumer formats using templates based on inner_type + channel
+**Decision:** Free-form JSON with per-plugin validation. The subscription API accepts `additionalData: Record<string, unknown>` and passes it to the registered `SubscriptionVerifier` plugin for the given `notification_type`. The plugin is responsible for validating the data it needs (e.g., bonds plugin validates `config_address` is present and valid). No shared schema enforcement at the API level. Simple, v1-appropriate.
 
-- Pro: Channel-specific formatting in channel-specific code
-- Con: Formatting logic split across projects
+### RQ3: Linking token lifetime and security — RESOLVED
 
-**Leaning:** Option A for v1 — the library returns a formatted `message` string, Telegram sends it as-is. Can be refined later.
+**Decisions** (validated against Telegram deep linking docs):
+
+- **Token format:** Opaque random token, 16 bytes, base64url-encoded (= 22 characters, well within Telegram's 64-character `start` parameter limit which only allows `[A-Za-z0-9_-]`). The token is NOT a signed payload — it's a random key stored server-side. This avoids trying to cram `sign(pubkey + timestamp)` into 64 chars.
+- **Lifetime:** 10 minutes. Stored server-side with `created_at`, rejected if expired.
+- **Single-use:** Yes. Deleted (or marked consumed) after successful link. Prevents replay.
+- **Storage:** marinade-notifications `subscriptions` table with `status: pending` and `linking_token` column. On `/start <token>`, the webhook handler looks up the token, verifies it's not expired/consumed, extracts the pubkey, saves the `chat_id`, and marks the subscription as `active`.
+- **Flow:** CLI calls subscription API → API generates random token, stores it with pubkey + status:pending → returns deep link URL `https://t.me/<BotName>?start=<token>` → user clicks → bot receives `/start <token>` → bot calls subscription API to complete linking → subscription becomes active.
+
+### RQ4: Existing telegram-bot service — OPEN
+
+The telegram-bot source is not in `/home/chalda/marinade/`. Need to locate the repo to understand:
+
+- What commands it currently handles
+- Whether adding a `/start` handler is feasible
+- Whether it can call marinade-notifications API
+
+**Note:** This blocks RQ1. Until we inspect the service, the Telegram integration design is provisional.
+
+### RQ5: Who generates `data.message` text? — RESOLVED
+
+**Decision:** The eventing module (emitter) generates `data.message` text and fills `data.details` with raw numbers. The consumer (via bonds-notification lib) uses the message as-is. The emitter knows the context best and the saved event logs are human-readable.
+
+### RQ6: Emitted events persistence — RESOLVED
+
+**Decision:** The eventing module writes every emitted event to the validator-bonds-api PostgreSQL database (the same DB used by bonds-collector and the bonds API). Each row stores the full event payload and a delivery status:
+
+- `status: sent` — event was successfully POSTed to marinade-notifications (HTTP 200)
+- `status: failed` — event could not be delivered after retry exhaustion
+
+This provides a queryable history of all events the eventing module attempted to send. No GCS artifacts or file-based persistence needed.
+
+**Table** (in validator-bonds-api PostgreSQL, new migration):
+
+```sql
+CREATE TABLE emitted_bond_events (
+    id BIGSERIAL PRIMARY KEY,
+    message_id UUID NOT NULL,           -- transport dedup key (sent to marinade-notifications)
+    inner_type TEXT NOT NULL,            -- 'bond_underfunded', 'out_of_auction', etc.
+    vote_account TEXT NOT NULL,
+    payload JSONB NOT NULL,             -- full event data as sent
+    status TEXT NOT NULL,               -- 'sent' or 'failed'
+    error TEXT,                         -- error message if failed
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_emitted_events_vote ON emitted_bond_events(vote_account);
+CREATE INDEX idx_emitted_events_type ON emitted_bond_events(inner_type);
+CREATE INDEX idx_emitted_events_created ON emitted_bond_events(created_at);
+```
