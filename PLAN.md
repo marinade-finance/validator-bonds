@@ -570,18 +570,258 @@ Add parallel fetch of `/v1/notifications` alongside existing `/v1/announcements`
 
 **Backwards compatibility:** The notification fetch MUST follow the same graceful degradation pattern as the existing announcements fetch — silent failure on 404/timeout/network error, debug logs only. This ensures the new CLI works against older API servers that don't have `/v1/notifications` yet (e.g., during rolling deployments).
 
-### Push Channels (Future — v2)
+### Push Channels (v2) — Detailed Design
 
-Email and Telegram delivery are **out of scope for v1 pull channels** but the architecture supports them:
+Email and Telegram push delivery via **marinade-notifications** as the unified delivery service.
 
-- Subscription management via CLI commands (`subscribe-notifications`, etc.)
-- `subscriptions` table in same PostgreSQL
-- Separate consumer processes that poll `notifications` table and deliver to subscribed channels
-- Could be added to this repo or to a separate service
+#### System Overview
+
+```
+Bond Risk Monitor (validator-bonds, Buildkite)
+  → writes to `notifications` table (same as v1)
+
+Push Worker (validator-bonds, Buildkite step after monitor)
+  → reads new notifications + subscriptions from validator-bonds DB
+  → for each (notification, subscription):
+      POST to marinade-notifications /bond-notification-v1
+  → records delivery in `notification_deliveries` table
+
+marinade-notifications (NestJS service)
+  → receives bond-notification-v1 message (JWT auth)
+  → queues to PostgreSQL inbox (existing queue pattern)
+  → consumer routes by `channel` field:
+      email  → SmtpService.send() with Mustache template
+      telegram → TelegramService.sendMessage() via Bot API
+  → on success: archives message
+  → on failure: retries with exponential backoff → DLQ
+```
+
+#### Changes to marinade-notifications
+
+**1. New Telegram channel module** (`notification-service/telegram/`)
+
+`TelegramService`:
+
+- `sendMessage(chatId: string, text: string, parseMode?: 'HTML')` — POST to `https://api.telegram.org/bot<token>/sendMessage`
+- Uses existing `@Retry` decorator (exponential backoff on 429 rate-limit and 5xx)
+- Uses existing `@CaptureSpan` decorator for APM tracing
+- Prometheus metrics: `telegram_api_calls_total`, `telegram_api_duration_seconds`
+- Config env vars: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_MAX_RETRIES` (default 3), `TELEGRAM_RETRY_BASE_DELAY_MS` (default 2000), `TELEGRAM_DRY_RUN` (default false)
+
+Files:
+
+```
+notification-service/telegram/
+  telegram.module.ts     — NestJS module, exports TelegramService
+  telegram.service.ts    — Bot API HTTP client
+```
+
+**2. New topic: `bond-notification-v1`**
+
+Schema (`message-types/schemas/bond-notification-v1.json`):
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bond-notification-v1",
+  "type": "object",
+  "required": [
+    "channel",
+    "address",
+    "vote_account",
+    "event_type",
+    "severity",
+    "message"
+  ],
+  "properties": {
+    "channel": { "enum": ["email", "telegram"] },
+    "address": {
+      "type": "string",
+      "description": "Email address or Telegram chat_id"
+    },
+    "vote_account": { "type": "string" },
+    "bond_pubkey": { "type": "string" },
+    "event_type": { "type": "string" },
+    "severity": { "enum": ["info", "warning", "critical"] },
+    "message": {
+      "type": "string",
+      "description": "Human-readable notification text"
+    },
+    "details": {
+      "type": "object",
+      "description": "Structured payload for rich rendering"
+    }
+  }
+}
+```
+
+Generated outputs (automatic via `pnpm generate`):
+
+- TypeScript: `message-types/typescript/bond-notification-v1/`
+- Rust: `message-types/rust/bond_notification_v1/`
+
+DB migration (`migrations/NN-bond-notification-v1.sql`):
+
+- `bond_notification_v1_inbox` — message queue
+- `bond_notification_v1_archive` — delivered messages with trace
+- `bond_notification_v1_dlq` — failed messages
+
+Ingress controller: `POST /bond-notification-v1` (JWT auth, same pattern as staking-rewards topic)
+
+**3. Consumer for `bond-notification-v1`**
+
+Routes messages based on `channel` field in payload:
+
+```
+channel = "email":
+  → SmtpService.send() directly (no BigQuery whitelist, no CSV attachment)
+  → Mustache template with variables: vote_account, event_type, severity, message, details
+  → Sender: info@marinade.finance (config: BOND_EMAIL_FROM)
+
+channel = "telegram":
+  → TelegramService.sendMessage(payload.address, formattedText, 'HTML')
+  → HTML formatting with severity indicators
+```
+
+Error handling follows existing patterns:
+
+- Validation/4xx → DLQ (non-retryable)
+- 5xx/network → retry with exponential backoff (1min base, 6 retries)
+- Max retries exhausted → DLQ
+
+**4. Telegram bot — minimal `/start` handler**
+
+A lightweight long-polling script in `notification-service/telegram-bot/`:
+
+- Listens for `/start` command
+- Replies: "Your Telegram chat ID is: `123456789`. Use this in the validator-bonds CLI to subscribe."
+- No state, no DB, no webhook — purely informational for v1
+- Can run as a simple process alongside the notification service
+
+**5. Configuration additions** (`config.service.ts`)
+
+```
+TELEGRAM_BOT_TOKEN          — Bot API token (required for Telegram channel)
+TELEGRAM_MAX_RETRIES        — default 3
+TELEGRAM_RETRY_BASE_DELAY_MS — default 2000
+TELEGRAM_DRY_RUN            — default false (skips actual API calls when true)
+BOND_EMAIL_FROM             — default "Marinade Finance <info@marinade.finance>"
+```
+
+**6. App module registration**
+
+```
+imports: [
+  TelegramModule,
+  BondNotificationV1IngressModule,
+  BondNotificationV1ConsumerModule,
+]
+```
+
+#### Changes to validator-bonds
+
+**1. DB migration: `notification_subscriptions` table**
+
+```sql
+CREATE TABLE notification_subscriptions (
+    id BIGSERIAL PRIMARY KEY,
+    vote_account TEXT NOT NULL,
+    channel TEXT NOT NULL,            -- 'email' | 'telegram'
+    address TEXT NOT NULL,            -- email address or telegram chat_id
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX idx_subscriptions_dedup
+    ON notification_subscriptions (vote_account, channel, address);
+CREATE INDEX idx_subscriptions_vote_account
+    ON notification_subscriptions (vote_account);
+```
+
+No verification column — subscription is authenticated by CLI keypair signature (validator proves ownership of vote account).
+
+**2. DB migration: `notification_deliveries` table**
+
+```sql
+CREATE TABLE notification_deliveries (
+    id BIGSERIAL PRIMARY KEY,
+    notification_id BIGINT NOT NULL REFERENCES notifications(id),
+    subscription_id BIGINT NOT NULL REFERENCES notification_subscriptions(id),
+    message_id UUID NOT NULL,         -- marinade-notifications message_id (for tracing)
+    sent_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX idx_deliveries_dedup
+    ON notification_deliveries (notification_id, subscription_id);
+```
+
+**3. Subscription API endpoints** (validator-bonds API, Rust)
+
+- `POST /v1/subscriptions` — add subscription (called by CLI, requires signed transaction proof)
+- `DELETE /v1/subscriptions/:id` — remove subscription
+- `GET /v1/subscriptions?vote_account=X` — list subscriptions for a vote account
+
+**4. CLI commands** (packages/validator-bonds-cli-core/)
+
+```bash
+# Subscribe (signs with vote account keypair to prove ownership)
+validator-bonds subscribe-notifications --vote-account X --email user@example.com
+validator-bonds subscribe-notifications --vote-account X --telegram 123456789
+
+# List subscriptions
+validator-bonds list-subscriptions --vote-account X
+
+# Unsubscribe
+validator-bonds unsubscribe-notifications --vote-account X --channel email --address user@example.com
+```
+
+Telegram chat_id acquisition (v1): validator opens the bot, sends `/start`, bot replies with chat_id, validator uses it in CLI command.
+
+**5. Push notification worker** (new TS package, Buildkite step after Bond Risk Monitor)
+
+Workflow per run:
+
+```
+1. Query undelivered notifications with subscriptions:
+   SELECT n.*, s.channel, s.address, s.id as subscription_id
+   FROM notifications n
+   JOIN notification_subscriptions s ON n.vote_account = s.vote_account
+   LEFT JOIN notification_deliveries d
+     ON d.notification_id = n.id AND d.subscription_id = s.id
+   WHERE d.id IS NULL
+     AND n.resolved_at IS NULL
+     AND (n.expires_epoch IS NULL OR n.expires_epoch >= :current_epoch)
+
+2. For each (notification, subscription) pair:
+   POST to marinade-notifications /bond-notification-v1
+   payload: { channel, address, vote_account, bond_pubkey,
+              event_type, severity, message, details }
+
+3. On 201 response: INSERT into notification_deliveries
+   (notification_id, subscription_id, message_id)
+
+4. On failure: log warning, skip (will retry next hourly run)
+```
+
+Uses `@marinade.finance/ts-message-client` Producer from marinade-notifications for proper message envelope (header with producer_id, message_id UUID v7, created_at) and JWT authentication.
+
+#### v2 Implementation Order
+
+Dependencies flow top-down:
+
+1. **marinade-notifications: Telegram module** — reusable channel, no topic dependency
+2. **marinade-notifications: `bond-notification-v1` topic** — schema + codegen + migration + ingress + consumer
+3. **validator-bonds: `notification_subscriptions` migration** — unblocks CLI + API
+4. **validator-bonds: Subscription API endpoints** — CRUD for subscriptions
+5. **validator-bonds: CLI subscribe/unsubscribe commands** — user-facing subscription management
+6. **validator-bonds: `notification_deliveries` migration** — unblocks push worker
+7. **validator-bonds: Push notification worker** — reads notifications + subscriptions, posts to marinade-notifications
+8. **Buildkite pipeline update** — add push worker step after Bond Risk Monitor
 
 ---
 
 ## 9. Work Items
+
+### v1 (Pull Channels)
 
 | #   | Item                                    | Scope                              | Notes                                                                       |
 | --- | --------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------- |
@@ -594,6 +834,21 @@ Email and Telegram delivery are **out of scope for v1 pull channels** but the ar
 | 7   | PSR dashboard: show notifications       | psr-dashboard repo                 | Call `/v1/notifications` per validator                                      |
 | 8   | Admin React app                         | New repo or subdirectory           | CRUD UI for announcements, VPN-only deployment                              |
 | 9   | Buildkite pipeline update               | `.buildkite/collect-bonds.yml`     | Add monitor step after bonds-collector                                      |
+
+### v2 (Push Channels)
+
+| #   | Item                                       | Scope                              | Notes                                                                                        |
+| --- | ------------------------------------------ | ---------------------------------- | -------------------------------------------------------------------------------------------- |
+| 10  | Telegram channel module                    | marinade-notifications             | `TelegramService` — Bot API HTTP client with retry, APM, metrics                             |
+| 11  | `bond-notification-v1` topic               | marinade-notifications             | Schema + codegen + migration (inbox/archive/DLQ) + ingress + consumer                        |
+| 12  | Bond notification consumer                 | marinade-notifications             | Routes by `channel` field: email → SMTP, telegram → Bot API                                  |
+| 13  | Telegram bot `/start` handler              | marinade-notifications             | Minimal long-polling script, replies with chat_id                                            |
+| 14  | DB migration: `notification_subscriptions` | validator-bonds repo               | vote_account + channel + address, authenticated by CLI keypair                               |
+| 15  | DB migration: `notification_deliveries`    | validator-bonds repo               | Tracks which (notification, subscription) pairs have been sent                               |
+| 16  | Subscription API endpoints                 | api/ (Rust)                        | POST/DELETE/GET `/v1/subscriptions`                                                          |
+| 17  | CLI: subscribe/unsubscribe commands        | packages/validator-bonds-cli-core/ | `subscribe-notifications`, `unsubscribe-notifications`, `list-subscriptions`                 |
+| 18  | Push notification worker                   | New TS package in validator-bonds  | Reads notifications + subscriptions, posts to marinade-notifications via `ts-message-client` |
+| 19  | Buildkite pipeline: push worker step       | `.buildkite/collect-bonds.yml`     | Runs after Bond Risk Monitor                                                                 |
 
 ---
 
@@ -627,6 +882,12 @@ Email and Telegram delivery are **out of scope for v1 pull channels** but the ar
 | `large_settlement` threshold                | Configurable, default 20% of bond balance                                                                                                                                                                                                                                                                                    |
 | Monitor idempotency                         | Each notification create/update/resolve in a DB transaction. Unique dedup index prevents duplicates on re-run. Crash mid-run → unprocessed validators picked up next hourly run                                                                                                                                              |
 | v1 phasing (Q10)                            | v1a: DB + API + Monitor + CLI. v1b: Dashboard. v1c: Admin app. v2: Push channels. Within v1a: migration → API → monitor → CLI → Buildkite                                                                                                                                                                                    |
+| v2 push delivery service                    | Use marinade-notifications as the unified delivery service. Push worker in validator-bonds reads notifications + subscriptions, POSTs to marinade-notifications REST API. marinade-notifications consumer routes to email (SMTP) or Telegram (Bot API) based on `channel` field in message payload                           |
+| v2 subscription authentication              | No email/Telegram verification. CLI keypair signature proves vote account ownership. Subscription address (email or chat_id) is configured directly via CLI command                                                                                                                                                          |
+| v2 Telegram channel                         | New module in marinade-notifications (`TelegramService`). Wraps Telegram Bot API directly (simple HTTP, no SDK). Reusable across any topic. Bot token assumed to exist                                                                                                                                                       |
+| v2 Telegram chat_id acquisition             | v1: minimal bot `/start` handler replies with chat_id. Validator copies it into CLI `subscribe-notifications` command. No webhook callback or deep-link verification needed                                                                                                                                                  |
+| v2 email delivery                           | Direct SMTP via marinade-notifications `SmtpService` (no BigQuery whitelist, no CSV attachment). Mustache template. Sender: `info@marinade.finance`                                                                                                                                                                          |
+| v2 new topic in marinade-notifications      | `bond-notification-v1` — schema with channel/address/vote_account/event_type/severity/message/details. Generates TS + Rust packages. Inbox/archive/DLQ tables                                                                                                                                                                |
 
 ### v1a Implementation Order
 
@@ -656,30 +917,28 @@ Questions for devops:
 - Preferred container registry (ECR?)
 - How are env vars/secrets injected in the target environment?
 
-**Q9: Telegram bot setup (v2)**
+**Q9: Telegram bot setup (v2)** — Resolved
 
-- Is `@sam_mnde_bot` already created?
-- Who manages the bot token?
-- This is v2 (push channels) but token creation has lead time.
+Bot is assumed to exist by implementation time. Token will be configured via `TELEGRAM_BOT_TOKEN` env var in marinade-notifications.
 
 ---
 
 ## Related File Paths (for quick reference)
 
-| What                               | Path                                                                                                     |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| This repo (validator-bonds)        | `/home/chalda/marinade/validator-bonds`                                                                  |
-| marinade-notifications (reference) | `/home/chalda/marinade/marinade-notifications`                                                           |
-| PSR dashboard                      | `/home/chalda/marinade/psr-dashboard`                                                                    |
-| Design analysis doc                | `/home/chalda/marinade/claude-summary/2026-02-13_bond-risk-notification-system-design.md`                |
-| Institutional staking checker      | `https://github.com/marinade-finance/institutional-staking/blob/main/.buildkite/check-bonds.yml`         |
-| ds-sam auction lib                 | `https://github.com/marinade-finance/ds-sam`                                                             |
-| ds-sam pipeline + config           | `https://github.com/marinade-finance/ds-sam-pipeline`                                                    |
-| Blog post (SAM auction)            | `https://marinade.finance/blog/more-control-better-yields-introducing-dynamic-commission-for-validators` |
-| Bonds API                          | `https://validator-bonds-api.marinade.finance/docs`                                                      |
-| Validators API                     | `https://validators-api.marinade.finance/validators`                                                     |
-| Scoring API                        | `https://scoring.marinade.finance/api/v1/scores/sam`                                                     |
-| GCS settlement data                | `https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet`                      |
+| What                             | Path                                                                                                     |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| This repo (validator-bonds)      | `/home/chalda/marinade/validator-bonds`                                                                  |
+| marinade-notifications (v2 push) | `/home/chalda/marinade/marinade-notifications`                                                           |
+| PSR dashboard                    | `/home/chalda/marinade/psr-dashboard`                                                                    |
+| Design analysis doc              | `/home/chalda/marinade/claude-summary/2026-02-13_bond-risk-notification-system-design.md`                |
+| Institutional staking checker    | `https://github.com/marinade-finance/institutional-staking/blob/main/.buildkite/check-bonds.yml`         |
+| ds-sam auction lib               | `https://github.com/marinade-finance/ds-sam`                                                             |
+| ds-sam pipeline + config         | `https://github.com/marinade-finance/ds-sam-pipeline`                                                    |
+| Blog post (SAM auction)          | `https://marinade.finance/blog/more-control-better-yields-introducing-dynamic-commission-for-validators` |
+| Bonds API                        | `https://validator-bonds-api.marinade.finance/docs`                                                      |
+| Validators API                   | `https://validators-api.marinade.finance/validators`                                                     |
+| Scoring API                      | `https://scoring.marinade.finance/api/v1/scores/sam`                                                     |
+| GCS settlement data              | `https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet`                      |
 
 ### Key Files — CLI Announcements System
 
@@ -695,6 +954,24 @@ Questions for devops:
 | SAM CLI Entry           | `packages/validator-bonds-cli/src/index.ts`                                   |
 | Institutional CLI Entry | `packages/validator-bonds-cli-institutional/src/index.ts`                     |
 | Tests                   | `packages/validator-bonds-cli/__tests__/test-validator/announcements.spec.ts` |
+
+### Key Files — marinade-notifications (v2 push delivery)
+
+| Component                     | Location                                                                                             |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------- |
+| App bootstrap                 | `marinade-notifications/notification-service/app.module.ts`                                          |
+| Configuration                 | `marinade-notifications/notification-service/configuration/config.service.ts`                        |
+| Queue abstraction             | `marinade-notifications/notification-service/queues/queues.service.ts`                               |
+| SMTP service                  | `marinade-notifications/notification-service/smtp/smtp.service.ts`                                   |
+| Retry decorator               | `marinade-notifications/notification-service/telemetry/retry.decorator.ts`                           |
+| Existing topic schema         | `marinade-notifications/message-types/schemas/staking-rewards-report-status-v1.json`                 |
+| Existing consumer (reference) | `marinade-notifications/notification-service/consumers/staking-rewards-report-status-v1/consumer.ts` |
+| Existing ingress (reference)  | `marinade-notifications/notification-service/ingress/staking-rewards-report-status-v1/controller.ts` |
+| TS producer client            | `marinade-notifications/ts-message-client/producer.ts`                                               |
+| Auth guard                    | `marinade-notifications/notification-service/auth/auth.guard.ts`                                     |
+| DB migrations                 | `marinade-notifications/notification-service/migrations/`                                            |
+| Telegram module (v2, new)     | `marinade-notifications/notification-service/telegram/` (to be created)                              |
+| Bond topic schema (v2, new)   | `marinade-notifications/message-types/schemas/bond-notification-v1.json` (to be created)             |
 
 ### Key Files — PSR Dashboard
 
