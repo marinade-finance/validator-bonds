@@ -462,7 +462,7 @@ process_epoch() {
                               <(echo "$act_per_vote" | jq -r '.[] | "\(.vote_account) \(.total)"') \
                          || true)
             local diff_count
-            diff_count=$(echo "$diff_votes" | grep -c '^[<>]' || true)
+            diff_count=$(echo "$diff_votes" | awk '/^[<>]/ {print $2}' | sort -u | wc -l || true)
             echo "  FAIL per-vote claims: $diff_count vote accounts differ"
             echo "$diff_votes" | head -10
             [[ "$bid_claims_status" == "MATCH" ]] && bid_claims_status="DIFFER"
@@ -571,7 +571,7 @@ process_epoch() {
                             <(echo "$act_per_vote" | jq -r '.[] | "\(.vote_account) \(.total)"') \
                        || true)
           local diff_count
-          diff_count=$(echo "$diff_votes" | grep -c '^[<>]' || true)
+          diff_count=$(echo "$diff_votes" | awk '/^[<>]/ {print $2}' | sort -u | wc -l || true)
           echo "  FAIL per-vote claims: $diff_count vote accounts differ"
           echo "$diff_votes" | head -10
           [[ "$bid_claims_status" == "MATCH" ]] && bid_claims_status="DIFFER"
