@@ -354,9 +354,8 @@ process_epoch() {
   local missing_bid_expected=false
   local epoch_format
 
-  if [[ -f "$expected_dir/unified-merkle-trees.json" ]] || \
-     gcloud storage cp "$GS_BUCKET/$epoch/unified-merkle-trees.json" \
-       "$expected_dir/unified-merkle-trees.json" 2>/dev/null; then
+  if gcs_cached_download "$GS_BUCKET/$epoch/unified-merkle-trees.json" \
+       "$expected_dir/unified-merkle-trees.json" > /dev/null; then
     epoch_format="new"
     echo "  Detected NEW format (unified) for epoch $epoch"
     gcs_cached_download "$GS_BUCKET/$epoch/bid-distribution-settlements.json" \
@@ -423,10 +422,13 @@ process_epoch() {
 
           # 1) Settlement count
           local exp_count act_count
-          exp_count=$(jq '.settlements | length' "$expected_dir/bid-distribution-settlements.json")
-          act_count=$(jq '.settlements | length' "$actual_dir/bid-distribution-settlements.json")
+          exp_count=$(jq '.settlements | length' "$expected_dir/bid-distribution-settlements.json" 2>/dev/null || echo "ERROR")
+          act_count=$(jq '.settlements | length' "$actual_dir/bid-distribution-settlements.json" 2>/dev/null || echo "ERROR")
 
-          if [[ "$act_count" -ne "$exp_count" ]]; then
+          if [[ "$exp_count" == "ERROR" || "$act_count" == "ERROR" ]]; then
+            echo "  ERROR: could not read settlement counts"
+            bid_claims_status="ERROR"
+          elif [[ "$act_count" -ne "$exp_count" ]]; then
             echo "  FAIL settlement count: expected $exp_count, got $act_count"
             bid_claims_status="DIFFER"
           else
@@ -473,20 +475,25 @@ process_epoch() {
           # 4) Merkle roots (direct comparison)
           local exp_roots act_roots
           exp_roots=$(jq -r '.merkle_trees[] | "\(.vote_account) \(.merkle_root | @json)"' \
-            "$expected_dir/unified-merkle-trees.json" | sort)
+            "$expected_dir/unified-merkle-trees.json" 2>/dev/null | sort || echo "ERROR")
           act_roots=$(jq -r '.merkle_trees[] | "\(.vote_account) \(.merkle_root | @json)"' \
-            "$actual_dir/unified-merkle-trees.json" | sort)
+            "$actual_dir/unified-merkle-trees.json" 2>/dev/null | sort || echo "ERROR")
 
-          local root_total root_diff
-          root_total=$(echo -n "$exp_roots" | grep -c '' || true)
-          root_diff=$(diff <(echo "$exp_roots") <(echo "$act_roots") | grep -c '^[<>]' || true)
-          root_diff=$(( root_diff / 2 ))
-
-          if [[ "$root_diff" -eq 0 ]]; then
-            echo "  OK merkle roots: all $root_total match"
+          if [[ "$exp_roots" == "ERROR" || "$act_roots" == "ERROR" ]]; then
+            echo "  ERROR: could not extract merkle roots"
+            bid_merkle_status="ERROR"
           else
-            echo "  FAIL merkle roots: $root_diff/$root_total differ"
-            bid_merkle_status="DIFFER"
+            local root_total root_diff
+            root_total=$(echo -n "$exp_roots" | grep -c '' || true)
+            root_diff=$(diff <(echo "$exp_roots") <(echo "$act_roots") | grep -c '^[<>]' || true)
+            root_diff=$(( root_diff / 2 ))
+
+            if [[ "$root_diff" -eq 0 ]]; then
+              echo "  OK merkle roots: all $root_total match"
+            else
+              echo "  FAIL merkle roots: $root_diff/$root_total differ"
+              bid_merkle_status="DIFFER"
+            fi
           fi
 
           # 5) Per-funder amounts
