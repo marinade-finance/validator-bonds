@@ -951,6 +951,7 @@ ELSE → deliver, then INSERT into dedup table
 This keeps all notification logic in one place (the brain) and makes the consumer pipeline simple — just an existence check.
 
 **Housekeeping:** Old dedup rows can be pruned periodically (e.g., `DELETE FROM notification_dedup WHERE delivered_at < now() - interval '30 days'`).
+\*\* NOTE: DO NOT implement this until you confirm it is needed.
 
 ### 8.7 Subscription Module (marinade-notifications)
 
