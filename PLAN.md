@@ -447,7 +447,7 @@ Based on KEYPOINTS above — formalized component diagram:
    - Is bond underfunded relative to auction demand? (`bondGoodForNEpochs` < threshold)
    - Is the validator out of the auction? (bid too low vs current clearing price)
    - Is stake capped due to insufficient bond?
-6. For each condition met, emits a raw event with `message_id` (UUID) and `created_at` timestamp — **no deterministic notification_id at this stage**
+6. For each condition met, emits a raw event with `message_id` (UUID) and `created_at` timestamp, no deterministic notification_id at this stage
 7. POSTs each event to `marinade-notifications /bonds-event-v1` endpoint with exponential backoff retry (30s base, up to ~8 min, then discard)
 8. Writes each emitted event to `emitted_bond_events` table in validator-bonds-api PostgreSQL with `status: sent` or `status: failed` (for data review)
 9. Consumer processes:
@@ -520,11 +520,15 @@ thresholds:
 
 The `evaluate()` function generates a deterministic `notification_id` when it decides to notify. This happens in the marinade-notifications consumer, not in the eventing module. At emission time, the eventing module only attaches a `message_id` (UUID for transport dedup) and `created_at` timestamp.
 
-- `bond_underfunded`: `sha256(bond_pubkey + "underfunded" + amount_bucket)` where `amount_bucket = floor(deficit_sol / (deficit_sol * significant_change_pct / 100))`
-- `out_of_auction`: `sha256(bond_pubkey + "out_of_auction" + epoch)`
-- `stake_capped`: `sha256(bond_pubkey + "stake_capped" + cap_bucket)`
+The notification_id encodes **what changed** and **when to re-notify** directly in the hash. The consumer dedup is a simple existence check — all re-notification logic lives here in the brain.
 
-The notification_id changes only when the situation changes significantly, ensuring dedup works correctly.
+- `bond_underfunded`: `sha256(bond_pubkey + "underfunded" + amount_bucket + time_bucket)`
+  - `amount_bucket = floor(deficit_sol / (deficit_sol * significant_change_pct / 100))` — changes when deficit changes significantly
+  - `time_bucket = floor(created_at / renotify_interval_hours)` — changes when re-notify interval elapses
+- `out_of_auction`: `sha256(bond_pubkey + "out_of_auction" + epoch + time_bucket)`
+- `stake_capped`: `sha256(bond_pubkey + "stake_capped" + cap_bucket + time_bucket)`
+
+The notification_id changes when either (a) the situation changes significantly, or (b) the re-notify time window rolls over. Both produce a new id that bypasses dedup.
 
 ### 8.2 Event Schema (bonds-event-v1)
 
@@ -640,79 +644,326 @@ Following the existing per-topic pattern:
 
 **Files to create:**
 
+**Pipeline framework files** (shared, created once):
+
+1. `notification-service/pipeline/notification-plugin.interface.ts` — `NotificationPlugin`, `EvaluationResult` interfaces
+2. `notification-service/pipeline/type-hooks.ts` — `TypeHooks` interface + per-type hook registry
+3. `notification-service/pipeline/plugin-registry.ts` — maps type string → plugin instance
+4. `notification-service/pipeline/notification-pipeline.service.ts` — generic pipeline orchestrator (stages 1-11)
+5. `notification-service/pipeline/pipeline.module.ts` — NestJS module
+6. `notification-service/migrations/03-notification-dedup.sql` — shared dedup table
+
+**Per-topic files** (bonds-event-v1):
+
 1. `message-types/schemas/bonds-event-v1.json` — JSON Schema (from 8.2)
 2. `message-types/typescript/bonds-event-v1/src/index.ts` — generated types + validator
-3. `notification-service/migrations/03-bonds-event-v1.sql` — inbox/archive/DLQ tables
+3. `notification-service/migrations/04-bonds-event-v1.sql` — inbox/archive/DLQ tables
 4. `notification-service/ingress/bonds-event-v1/controller.ts` — POST endpoint
 5. `notification-service/ingress/bonds-event-v1/service.ts` — enqueue logic
 6. `notification-service/ingress/bonds-event-v1/module.ts` — module registration
-7. `notification-service/consumers/bonds-event-v1/consumer.ts` — consumer with bonds-notification integration
+7. `notification-service/consumers/bonds-event-v1/consumer.ts` — thin wrapper: dequeues from bonds inbox, delegates to `NotificationPipeline`
 8. `notification-service/consumers/bonds-event-v1/module.ts` — consumer module
 
 **Register in:**
 
-- `notification-service/app.module.ts` — add ingress + consumer modules
+- `notification-service/app.module.ts` — add pipeline module, ingress + consumer modules
 - `notification-service/queues/queues.service.ts` — add to `TOPIC_TABLE_MAP`
+- `notification-service/pipeline/plugin-registry.ts` — register `BondsNotificationPlugin`
 
-**Consumer logic** (different from staking-rewards consumer):
+**Consumer logic** — uses the generic notification pipeline (see Section 8.5):
 
-1. Dequeue message from inbox
-2. Validate payload against schema
-3. Load `bonds-notification` library, call `evaluate(payload)` → returns `{shouldNotify, priority, relevanceDuration, notificationId}` or null
-4. If `shouldNotify` is false → archive (not relevant enough)
-5. `notification_id` is now available (generated by `evaluate()`, deterministic based on event data)
-6. Check `bonds_dedup` table: is `notification_id` already delivered within `renotify_interval`?
-7. If deduped → archive (already notified recently)
-8. Load routing config (`notification-routing.yaml`) → determine which channels apply for this `inner_type`
-9. Check event's optional `requested_channels` field (for admin announcements that target specific channels)
-10. Query `subscriptions` table for `user_id = vote_account` (or bond authority), filtered by applicable channels
-11. For each subscription channel:
-    - `telegram`: call TelegramService.sendMessage(chatId, formattedMessage)
-    - `api`: insert into `notifications_outbox` table (with `priority`, `relevance_hours`, `notification_id` from evaluate result)
-12. Update `bonds_dedup` table with delivery timestamp
-13. Archive message
+The bonds-event consumer is a thin wrapper. It dequeues from the bonds inbox, then feeds each message into the generic `NotificationPipeline` with the `bonds` plugin registered. All stages below are shared infrastructure — the plugin only provides the type-specific logic.
 
-### 8.5 Dedup Mechanism
+### 8.5 Generic Notification Pipeline (marinade-notifications)
 
-**New table** in marinade-notifications:
+The consumer pipeline is a **pluggable framework** defined in marinade-notifications. Each notification type (bonds, future staking-rewards-v2, etc.) registers a plugin that implements the same interface. The shared infrastructure handles dedup, routing, subscription lookup, and delivery.
+
+**Plugin interface** (defined in marinade-notifications, implemented by external libraries or inline code):
+
+```typescript
+// notification-service/pipeline/notification-plugin.interface.ts
+
+interface EvaluationResult {
+  shouldNotify: boolean
+  priority: 'critical' | 'warning' | 'info'
+  relevanceHours: number
+  notificationId: string | null // deterministic dedup key, null = skip dedup stage
+  // No renotifyIntervalHours — re-notification is encoded in the notificationId itself
+  // (time_bucket in the hash changes when re-notify interval elapses)
+}
+
+interface NotificationPlugin {
+  /** Which notification type this plugin handles */
+  readonly type: string // 'bonds', 'staking-rewards', etc.
+
+  /** Stage 1: Evaluate if event should become a notification.
+   *  Returns null to silently drop, or EvaluationResult.
+   *  For types with no threshold logic, return shouldNotify: true always. */
+  evaluate(event: unknown): EvaluationResult | null
+
+  /** Stage 2: Extract the user identifier from the event.
+   *  e.g., vote_account for bonds, withdraw_authority for staking-rewards. */
+  extractUserId(event: unknown): string
+
+  /** Stage 3 (optional): Resolve delivery targets for the user.
+   *  Default: uses shared subscription table + routing config.
+   *  Override: plugin provides its own target resolution (e.g., Intercom wallet lookup, BigQuery whitelist).
+   *  Return null to fall through to default subscription-based resolution. */
+  resolveDeliveryTargets?(
+    userId: string,
+    event: unknown,
+  ): Promise<DeliveryTarget[] | null>
+
+  /** Stage 4 (optional): Format the notification message for a given channel.
+   *  Default: uses event's data.message or raw payload.
+   *  Override: plugin can customize per channel (e.g., Intercom event name mapping). */
+  formatMessage?(
+    event: unknown,
+    channel: string,
+    evaluation: EvaluationResult,
+  ): string
+}
+
+/** A resolved delivery target — who to send to, via which channel */
+interface DeliveryTarget {
+  channel: string // 'telegram', 'api', 'intercom', 'partner-email', etc.
+  address: string // chat_id, email, intercom_user_id, '' for api outbox
+  metadata?: Record<string, unknown> // channel-specific data (e.g., template name, attachments)
+}
+```
+
+**Plugin registration** (in marinade-notifications code, wiring implementation to interface):
+
+```typescript
+// notification-service/pipeline/plugin-registry.ts
+
+// Each plugin library is imported and registered here.
+// Plugins can be external (npm packages) or inline (code in marinade-notifications).
+const PLUGIN_REGISTRY: Record<string, NotificationPlugin> = {
+  bonds: new BondsNotificationPlugin(), // from @marinade.finance/bonds-notification
+  // 'staking-rewards': new StakingRewardsPlugin(),  // inline in marinade-notifications
+}
+```
+
+**Pipeline stages** (shared infrastructure, all stages optional via plugin return values):
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ Generic Notification Pipeline                                     │
+│                                                                    │
+│  1. Dequeue message from topic inbox                    SHARED     │
+│  2. Validate payload against topic schema               SHARED     │
+│                                                                    │
+│  3. plugin.evaluate(event)                              PLUGIN     │
+│     ├─ beforeEvaluate(event)                            HOOK       │
+│     ├─ plugin.evaluate(event) → EvaluationResult                   │
+│     └─ afterEvaluate(event, result)                     HOOK       │
+│  4. If !shouldNotify → archive                          SHARED     │
+│                                                                    │
+│  5. plugin.extractUserId(event)                         PLUGIN     │
+│                                                                    │
+│  6. Dedup check (if notificationId is not null)         SHARED     │
+│     ├─ beforeDedup(...)                                 HOOK       │
+│     ├─ If notificationId == null → SKIP dedup                      │
+│     └─ EXISTS check in notification_dedup table                    │
+│  7. If already delivered → archive                      SHARED     │
+│                                                                    │
+│  8. Resolve delivery targets:                                      │
+│     ├─ plugin.resolveDeliveryTargets(userId, event)     PLUGIN     │
+│     │   returns targets? → use them directly                       │
+│     ├─ returns null? → fall through to default:                    │
+│     │   ├─ Routing config lookup                        SHARED     │
+│     │   └─ Subscription table lookup                    SHARED     │
+│     └─ afterResolveTargets(targets)                     HOOK       │
+│                                                                    │
+│  9. Delivery (for each target):                         SHARED     │
+│     ├─ plugin.formatMessage(event, channel, eval)       PLUGIN     │
+│     ├─ Dispatch to channel service:                                │
+│     │   ├─ 'telegram' → TelegramService                            │
+│     │   ├─ 'api' → notifications_outbox insert                     │
+│     │   ├─ 'intercom' → IntercomService                            │
+│     │   ├─ 'partner-email' → PartnersService + SmtpService         │
+│     │   └─ (extensible — new channels register here)               │
+│     └─ afterDelivery(event, targets)                    HOOK       │
+│                                                                    │
+│  10. Update dedup table (if notificationId not null)    SHARED     │
+│  11. Archive message                                    SHARED     │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Key design: stages are skippable.** If the plugin returns specific values, stages are bypassed:
+
+- `evaluate()` returns `shouldNotify: true` always → no filtering (staking-rewards behavior)
+- `evaluate()` returns `notificationId: null` → stages 6-7 (dedup) are skipped entirely
+- `resolveDeliveryTargets()` returns targets → stages 8a-8b (routing config + subscription lookup) are skipped
+- `resolveDeliveryTargets()` returns null or is not implemented → falls through to default shared logic
+
+**Type hooks** (escape hatches for per-type tweaks in marinade-notifications):
+
+Each stage has optional `before` / `after` hooks that can be registered per notification type directly in marinade-notifications code. These are NOT in the plugin interface — they live in the service itself, allowing type-specific hacks without modifying the plugin library.
+
+```typescript
+// notification-service/pipeline/type-hooks.ts
+
+interface TypeHooks {
+  beforeEvaluate?(event: unknown): unknown
+  afterEvaluate?(
+    event: unknown,
+    result: EvaluationResult | null,
+  ): EvaluationResult | null
+  beforeDedup?(notificationId: string, userId: string): { skip?: boolean }
+  afterResolveTargets?(targets: DeliveryTarget[]): DeliveryTarget[]
+  afterDelivery?(event: unknown, targets: DeliveryTarget[]): void
+}
+
+const TYPE_HOOKS: Record<string, TypeHooks> = {
+  bonds: {},
+  'staking-rewards': {},
+}
+```
+
+**Delivery channel registry** (shared, all notification types can use any registered channel):
+
+```typescript
+// notification-service/pipeline/channel-registry.ts
+
+interface DeliveryChannel {
+  readonly name: string // 'telegram', 'api', 'intercom', 'partner-email'
+  deliver(
+    target: DeliveryTarget,
+    message: string,
+    event: unknown,
+  ): Promise<void>
+}
+
+// Existing channels (already implemented in marinade-notifications):
+const CHANNEL_REGISTRY: Record<string, DeliveryChannel> = {
+  intercom: intercomChannel, // wraps existing IntercomService
+  'partner-email': partnerEmailChannel, // wraps existing PartnersService + SmtpService
+  // New channels (to be added):
+  telegram: telegramChannel, // wraps new TelegramService
+  api: apiOutboxChannel, // wraps new notifications_outbox insert
+}
+```
+
+**Why this design:**
+
+- **Interface in marinade-notifications** — the contract is owned by the consuming service, not by plugins
+- **Implementation flexible** — plugins can be external npm packages (bonds-notification) or inline code in marinade-notifications (staking-rewards)
+- **Stages are optional** — plugins opt out of stages by returning null/not implementing methods. No forced pipeline for types that don't need it.
+- **Existing channels reusable** — Intercom and Partner Email are registered as delivery channels, available to any notification type
+- **Type hooks** — marinade-notifications can add per-type tweaks without touching the plugin library
+- **Adding a new type** = implement `NotificationPlugin` (inline or external), register in `PLUGIN_REGISTRY`, add ingress + topic tables
+
+### Staking-rewards migration path
+
+The existing staking-rewards consumer is tightly coupled (hardcoded Intercom + Partners decision logic, status-to-event mapping, BigQuery whitelist lookup). It can be migrated to the pluggable pipeline, but this is **not required for v1**.
+
+**How staking-rewards would work as a plugin (future migration):**
+
+```typescript
+// Inline plugin in marinade-notifications (no external library needed)
+class StakingRewardsPlugin implements NotificationPlugin {
+  type = 'staking-rewards'
+
+  evaluate(event) {
+    // Always notify (no threshold). Map status to shouldNotify.
+    const eventName = mapStatusToEvent(event.status)
+    if (!eventName) return null  // unknown status → drop
+    return {
+      shouldNotify: true,
+      priority: 'info',
+      relevanceHours: 0,
+      notificationId: null,       // ← NO DEDUP (skip stages 6-7)
+      renotifyIntervalHours: 0,
+    }
+  }
+
+  extractUserId(event) {
+    return event.withdraw  // wallet address
+  }
+
+  // Override delivery target resolution — use existing Intercom + Partners logic
+  async resolveDeliveryTargets(userId, event) {
+    // 1. Check BigQuery partner whitelist
+    const partner = bigQueryService.getPartner(userId)
+    if (partner) {
+      return [{ channel: 'partner-email', address: partner.notify, metadata: { ... } }]
+    }
+    // 2. Fall back to Intercom
+    const intercomUserId = await intercomService.getUserId(userId)
+    if (intercomUserId) {
+      return [{ channel: 'intercom', address: intercomUserId, metadata: { eventName } }]
+    }
+    return []  // no target found
+  }
+}
+```
+
+**Key observations for migration:**
+
+- `resolveDeliveryTargets()` absorbs the current Partners-vs-Intercom decision logic — it returns specific targets instead of falling through to subscription table
+- Status-to-event mapping moves into the plugin's `evaluate()` or `formatMessage()`
+- BigQuery partner whitelist stays as-is — it's a **managed subscription source**, not self-service. Could optionally be migrated to the subscription table later (with `source: 'managed'` column), but not required
+- The existing consumer can run alongside the new pipeline during transition — no big-bang migration needed
+
+**Impact on subscription table design:**
+
+The subscription table (Section 8.7) should support both self-service and managed subscriptions:
 
 ```sql
-CREATE TABLE bonds_notification_dedup (
-    notification_id TEXT NOT NULL,
-    user_id TEXT NOT NULL,
-    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    last_delivered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    delivery_count INT NOT NULL DEFAULT 1,
-    PRIMARY KEY (notification_id, user_id)
+-- Add source column to distinguish subscription origins
+source TEXT NOT NULL DEFAULT 'self-service',  -- 'self-service' (user subscribed) or 'managed' (admin/BigQuery imported)
+```
+
+This allows the BigQuery partner whitelist to be optionally imported into the subscription table in the future, while self-service subscriptions (bonds validators via CLI) coexist in the same table. The consumer pipeline doesn't care about `source` — it just queries active subscriptions for the user.
+
+**v1 scope:** Staking-rewards consumer stays as-is. The pluggable pipeline is built for bonds. The interfaces are designed so staking-rewards can migrate later without breaking changes.
+
+### 8.6 Dedup Mechanism
+
+**Shared table** in marinade-notifications (used by all notification types, not bonds-specific):
+
+```sql
+CREATE TABLE notification_dedup (
+    notification_id TEXT NOT NULL PRIMARY KEY,
+    notification_type TEXT NOT NULL,     -- 'bonds', future types
+    delivered_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_dedup_user ON bonds_notification_dedup(user_id);
+CREATE INDEX idx_dedup_type ON notification_dedup(notification_type);
 ```
 
-**Logic in consumer:**
+**Logic in pipeline** (stage 6):
 
 ```
-SELECT last_delivered_at FROM bonds_notification_dedup
-WHERE notification_id = $1 AND user_id = $2;
+SELECT 1 FROM notification_dedup WHERE notification_id = $1;
 
-IF found AND (now() - last_delivered_at) < renotify_interval:
-  → skip (already delivered recently)
-ELSE:
-  → deliver, then UPSERT into dedup table
+IF found → skip (already delivered)
+ELSE → deliver, then INSERT into dedup table
 ```
 
-The notification_id changes when the situation changes significantly (e.g., deficit grows by >10%), so a changed notification_id bypasses dedup automatically.
+**Design: notification_id is the sole dedup key.** There is no time-based renotify logic in the consumer. All re-notification decisions are made by the brain (`bonds-notification` lib) via the notification_id itself:
 
-### 8.6 Subscription Module (marinade-notifications)
+- **Situation unchanged** → same `notification_id` → dedup catches it → skip
+- **Situation changed significantly** (e.g., deficit grows by >10%) → brain generates new `notification_id` (different amount_bucket) → dedup passes → delivered
+- **Time to re-notify** (e.g., 24h elapsed, condition persists) → brain embeds a time bucket in the id: `sha256(bond_pubkey + "underfunded" + amount_bucket + time_bucket)` where `time_bucket = floor(created_at / renotify_interval_hours)`. When the interval elapses, time_bucket changes → new `notification_id` → dedup passes → delivered
+
+This keeps all notification logic in one place (the brain) and makes the consumer pipeline simple — just an existence check.
+
+**Housekeeping:** Old dedup rows can be pruned periodically (e.g., `DELETE FROM notification_dedup WHERE delivered_at < now() - interval '30 days'`).
+
+### 8.7 Subscription Module (marinade-notifications)
 
 **New tables:**
 
 ```sql
 CREATE TABLE subscriptions (
     id BIGSERIAL,
-    user_id TEXT NOT NULL,           -- Solana pubkey for bonds
+    user_id TEXT NOT NULL,           -- Solana pubkey for bonds, wallet for staking-rewards
     notification_type TEXT NOT NULL,  -- 'bonds', future: 'staking-rewards'
-    channel TEXT NOT NULL,            -- 'telegram', 'api', future: 'email'
-    channel_address TEXT NOT NULL,    -- chat_id for telegram, '' for api
+    channel TEXT NOT NULL,            -- 'telegram', 'api', 'intercom', 'partner-email', etc.
+    channel_address TEXT NOT NULL,    -- chat_id for telegram, '' for api, email for partner-email
+    source TEXT NOT NULL DEFAULT 'self-service',  -- 'self-service' (user subscribed) or 'managed' (admin/BigQuery imported)
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at TIMESTAMPTZ,          -- soft delete (insert-only, latest row wins)
     PRIMARY KEY (id)
@@ -755,7 +1006,7 @@ DELETE /subscriptions
 4. `notification-service/subscriptions/solana-auth.guard.ts` — Solana signature verification guard
 5. `notification-service/migrations/04-subscriptions.sql`
 
-### 8.7 Telegram Delivery Processor (marinade-notifications)
+### 8.8 Telegram Delivery Processor (marinade-notifications)
 
 **New service:** `notification-service/telegram/telegram.service.ts`
 
@@ -791,7 +1042,7 @@ class TelegramService {
 1. `notification-service/telegram/telegram.service.ts`
 2. `notification-service/telegram/telegram.module.ts`
 
-### 8.8 Notifications Read API (marinade-notifications)
+### 8.9 Notifications Read API (marinade-notifications)
 
 **New table:**
 
@@ -829,7 +1080,7 @@ GET /notifications?user_id={pubkey}&type=bonds&priority=critical&inner_type=bond
 
 **Consumers:** CLI and PSR dashboard poll this endpoint to show notifications.
 
-### 8.9 Notification Routing Configuration (marinade-notifications)
+### 8.10 Notification Routing Configuration (marinade-notifications)
 
 **Location:** `notification-service/config/notification-routing.yaml`
 
@@ -865,25 +1116,196 @@ bonds:
 
 **Why a YAML file and not a database table:** Routing config changes infrequently and should be versioned with code. New channel types or routing rules ship with a new deployment, not as runtime config.
 
+### 8.11 Testing Strategy
+
+Two separate systems (validator-bonds emitter, marinade-notifications consumer) with a shared contract library bridging them.
+
+#### Shared test library: `@marinade.finance/bonds-event-testing`
+
+**Location:** `packages/bonds-event-testing/` in validator-bonds repo (published to npm)
+
+**Purpose:** Schema contract enforcement across repositories. When the schema changes in validator-bonds, the test library is updated and published. marinade-notifications bumps the dependency and runs tests — if they break, the schema change is incompatible.
+
+**Contents:**
+
+- `schema.ts` — embedded JSON Schema for bonds-event-v1 + AJV validator function (`validateBondsEvent(event): { valid: boolean, errors: string[] }`)
+- `fixtures.ts` — factory functions for valid test events per inner_type:
+  ```typescript
+  createBondUnderfundedEvent(overrides?: Partial<BondsEventV1>): BondsEventV1
+  createOutOfAuctionEvent(overrides?: Partial<BondsEventV1>): BondsEventV1
+  createStakeCappedEvent(overrides?: Partial<BondsEventV1>): BondsEventV1
+  createAnnouncementEvent(overrides?: Partial<BondsEventV1>): BondsEventV1
+  ```
+- `invalid-fixtures.ts` — known-invalid events for negative testing (missing required fields, wrong types, bad inner_type values)
+- `assertions.ts` — helper assertions:
+  ```typescript
+  assertValidBondsEvent(event: unknown): void      // throws if invalid
+  assertEventHasRequiredDetails(event: unknown, innerType: string): void
+  ```
+
+**How it's used:**
+
+- **In validator-bonds tests:** imported locally (workspace dependency), verifies emitter output matches schema
+- **In marinade-notifications tests:** imported from npm, used to generate valid/invalid POST payloads for E2E tests
+
+#### Emitter tests (validator-bonds — `packages/bonds-eventing/`)
+
+**Framework:** Jest (same as rest of validator-bonds, Jest 29 + ts-jest)
+
+**Unit tests** (`__tests__/`):
+
+1. **Event generation tests** — mock API responses (validators-api, scoring, bonds-api), run the eventing module, verify:
+   - Correct conditions produce events (bond underfunded → event emitted)
+   - Conditions not met → no event
+   - Each emitted event passes `assertValidBondsEvent()` from test library
+   - `message_id` is UUID format
+   - `created_at` is ISO 8601 datetime
+   - `data.message` is non-empty human-readable text
+   - `data.details` contains expected fields for each inner_type (e.g., `deficit_sol`, `bond_good_for_n_epochs` for underfunded)
+
+2. **Auction simulation tests** — mock API data, verify `bondGoodForNEpochs` calculation matches expected values (same formula as PSR dashboard)
+
+3. **Retry logic tests** — mock HTTP POST to notification service:
+   - Successful POST → event recorded as `sent` in DB
+   - Service down → retries with expected backoff timing
+   - Retry exhaustion → event recorded as `failed` in DB, no crash
+
+4. **DB persistence tests** — verify `emitted_bond_events` rows are written with correct fields and status
+
+**CI:** Add to existing `ts-lint-and-test.yml` workflow (unit tests only, no Solana validator needed)
+
+#### Consumer tests (marinade-notifications)
+
+**Framework:** Jest 30 + @nestjs/testing + TestContainers PostgreSQL + supertest (existing patterns)
+
+**Unit tests** (`notification-service/__tests__/`):
+
+1. **Pipeline stage tests** — test each stage of `NotificationPipelineService` in isolation:
+   - `evaluate()` called with mock plugin → correct shouldNotify/skip
+   - Dedup logic → skip when recently delivered, pass when notificationId changes
+   - Routing config loader → correct channels resolved per inner_type
+   - Subscription lookup → correct targets for user
+   - Delivery dispatch → correct channel service called
+
+2. **bonds-notification plugin tests** — test the plugin imported from `@marinade.finance/bonds-notification`:
+   - Threshold evaluation (deficit below min → skip, above → notify)
+   - Priority assignment (bondGoodForNEpochs < 2 → critical, < 10 → warning)
+   - notification_id determinism (same input → same id, different input → different id)
+   - Significant change detection (deficit changes by >10% → new id)
+
+**E2E tests** (`notification-service/__tests__/`):
+
+Using TestContainers PostgreSQL (existing pattern via `db-utils.ts`):
+
+1. **Ingress acceptance** — import fixtures from `@marinade.finance/bonds-event-testing`:
+   - POST valid events (all inner_types) → 200 OK, message in inbox
+   - POST invalid events (from `invalid-fixtures.ts`) → 400 Bad Request
+   - POST duplicate message_id → 200 OK (idempotent, no duplicate in inbox)
+   - POST without JWT → 401 Unauthorized
+
+2. **Consumer pipeline E2E** — full flow with mocked delivery channels:
+   - Insert event in inbox → consumer picks up → plugin evaluates → delivery target resolved → mock channel called → archived
+   - Below-threshold event → archived without delivery
+   - Dedup: same notification_id within renotify_interval → second event archived without delivery
+   - Dedup: same notification_id after renotify_interval → delivered again
+   - Changed notification_id (significant change) → delivered immediately
+
+3. **Subscription E2E**:
+   - POST subscription with valid Solana signature → subscription created
+   - POST with invalid signature → rejected
+   - DELETE subscription → soft-deleted
+   - Query subscriptions → only active (non-deleted) returned
+
+4. **Notifications read API E2E**:
+   - Insert notifications in outbox → GET returns them filtered by user/type/priority
+   - Expired notifications → not returned
+
+**Schema contract tests** (the bridge):
+
+```typescript
+// Uses fixtures from @marinade.finance/bonds-event-testing
+import {
+  createBondUnderfundedEvent,
+  assertValidBondsEvent,
+} from '@marinade.finance/bonds-event-testing'
+
+describe('schema contract', () => {
+  it('test library fixtures are accepted by ingress', async () => {
+    const event = createBondUnderfundedEvent()
+    assertValidBondsEvent(event) // passes locally
+    const res = await request(app)
+      .post('/bonds-event-v1')
+      .send(wrapInMessage(event))
+    expect(res.status).toBe(200) // accepted by service too
+  })
+
+  it('test library invalid fixtures are rejected by ingress', async () => {
+    for (const invalid of getInvalidFixtures()) {
+      const res = await request(app)
+        .post('/bonds-event-v1')
+        .send(wrapInMessage(invalid))
+      expect(res.status).toBe(400)
+    }
+  })
+})
+```
+
+When schema changes in validator-bonds:
+
+1. Update schema + fixtures in `bonds-event-testing`
+2. Publish new version to npm
+3. Bump dependency in marinade-notifications
+4. Run `pnpm test:e2e` → schema contract tests verify compatibility
+5. If tests break → the change is incompatible, fix before merging
+
+**CI:** Add to existing `lint-and-test.yml` in marinade-notifications (unit + e2e already run there)
+
 ---
 
 ## 9. Work Items
 
 Ordered by dependency:
 
-1. **bonds-notification library** — types, schema, YAML config, evaluate function (generates notification_id, priority, relevance at consumer time)
-2. **Event schema** — JSON Schema for bonds-event-v1 (in bonds-notification, copied to marinade-notifications). Note: schema only contains emitter fields, no notification_id/priority/relevance_hours.
-3. **marinade-notifications: new topic** — migration, ingress, consumer skeleton
-4. **marinade-notifications: notification routing config** — `notification-routing.yaml` defining default channels per inner_type
-5. **marinade-notifications: subscription module** — tables, API, Solana auth guard
-6. **marinade-notifications: Telegram service** — REST-based message sending
-7. **marinade-notifications: notifications outbox + read API** — table, endpoint
-8. **marinade-notifications: dedup table + logic** — in consumer (notification_id comes from bonds-notification evaluate, not from event payload)
-9. **marinade-notifications: bonds-event consumer** — full integration (bonds-notification lib + dedup + routing config + subscriptions + delivery)
-10. **eventing module** — data fetching, ds-sam-sdk simulation, raw event generation, event artifact persistence, POST with retry to notification service
-11. **Buildkite pipeline update** — add eventing module step to collect-bonds.yml
-12. **CLI integration** — subscribe/unsubscribe commands, poll notifications endpoint
-13. **PSR dashboard integration** — poll notifications endpoint, replace hardcoded banner
+**Phase 1: Pipeline framework (marinade-notifications)**
+
+1. **NotificationPlugin interface + DeliveryChannel interface** — define `NotificationPlugin`, `EvaluationResult`, `DeliveryTarget`, `TypeHooks`, `DeliveryChannel` interfaces in marinade-notifications. This is the contract.
+2. **Delivery channel registry** — wrap existing IntercomService and PartnersService+SmtpService as `DeliveryChannel` implementations (`intercom`, `partner-email`). Add new channels: `telegram`, `api` (outbox). Existing services stay as-is internally.
+3. **Generic notification pipeline service** — implement `NotificationPipelineService` with all stages (evaluate → dedup → resolve targets → deliver → archive). Stages skip when plugin returns null for optional methods.
+4. **Shared infrastructure tables** — `notification_dedup` table (shared across types), `subscriptions` table (with `source` column), `notifications_outbox` table
+5. **Notification routing config** — `notification-routing.yaml` loader, defines default channels per type + inner_type
+
+**Phase 2: Bonds notification type**
+
+6. **bonds-notification library** — implement `NotificationPlugin` interface: `evaluate()`, `extractUserId()`, `formatMessage()`. YAML threshold config, notification_id generation. Published to npm.
+7. **Event schema** — JSON Schema for bonds-event-v1 (emitter fields only). Codegen for TS + Rust.
+8. **bonds-event-testing library** — test fixtures, schema validator, assertion helpers. Published to npm. Used by both repos for contract enforcement.
+9. **marinade-notifications: bonds-event-v1 topic** — migration (inbox/archive/DLQ tables), ingress controller, enqueue service, thin consumer wrapper delegating to pipeline. Register bonds plugin in `PLUGIN_REGISTRY`.
+10. **marinade-notifications: subscription module** — API endpoints (POST/DELETE /subscriptions), Solana auth guard, subscription verifier plugin for bonds
+11. **marinade-notifications: Telegram service** — REST-based message sending, registered as `telegram` delivery channel
+12. **marinade-notifications: notifications read API** — GET /notifications endpoint, filters by type/user/priority/recency
+
+**Phase 3: Eventing module (validator-bonds)**
+
+13. **eventing module** — data fetching, ds-sam-sdk simulation, raw event generation, DB persistence (`emitted_bond_events`), POST with retry to notification service
+14. **Eventing module tests** — unit tests with mocked APIs, schema validation via bonds-event-testing, retry logic tests, DB persistence tests
+15. **Buildkite pipeline update** — add eventing module step to collect-bonds.yml
+
+**Phase 4: Consumer tests (marinade-notifications)**
+
+16. **Pipeline unit tests** — test each pipeline stage in isolation (evaluate, dedup, routing, subscription lookup, delivery dispatch)
+17. **E2E tests** — full flow with TestContainers PostgreSQL: ingress acceptance, consumer pipeline, subscription CRUD, notifications read API
+18. **Schema contract tests** — import fixtures from `@marinade.finance/bonds-event-testing`, verify ingress accepts valid and rejects invalid events. This is the cross-repo contract enforcement.
+
+**Phase 5: Client integration**
+
+19. **CLI integration** — subscribe/unsubscribe commands, poll notifications endpoint
+20. **PSR dashboard integration** — poll notifications endpoint, replace hardcoded banner
+
+**Phase 6: Staking-rewards migration (optional, not required for v1)**
+
+21. **Staking-rewards plugin** — inline plugin in marinade-notifications implementing `NotificationPlugin` with `resolveDeliveryTargets()` override (absorbs current Intercom + Partners decision logic). No external library needed.
+22. **Migrate staking-rewards consumer** — replace hardcoded consumer with thin wrapper delegating to pipeline + staking-rewards plugin. Existing delivery services (Intercom, Partners, BigQuery, SMTP) continue to work as delivery channels.
+23. **Optional: BigQuery partner whitelist → subscription table** — import partner data into subscription table with `source: 'managed'`. BigQueryService can then be queried as a sync source rather than runtime lookup.
 
 ---
 
