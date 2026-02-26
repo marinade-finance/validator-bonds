@@ -219,8 +219,11 @@ Producer → message-client → REST API → PostgreSQL Queue → Consumer → D
 - No Telegram integration
 - No direct/simple email (current path goes through BigQuery whitelist)
 - No pull API endpoint (GET outstanding notifications)
-- No subscription management
 - Only 1 topic (staking-rewards), tightly coupled to Intercom user model
+
+### Recently Implemented
+
+- **Subscription management module** (branch `subscription-enpoint`) — REST API for self-service subscriptions with Solana ed25519 signature verification. See Section 8.7 for details.
 
 ### Key Files
 
@@ -429,7 +432,9 @@ Based on KEYPOINTS above — formalized component diagram:
 │  │ subscription API     │   │ notifications read API            │        │
 │  │  POST /subscriptions │   │  GET /notifications               │        │
 │  │  DELETE /subscriptions│  │  - filter: type, user_id,         │        │
-│  │  - Solana sig verify │   │    priority, inner_type, recency  │        │
+│  │  GET /subscriptions  │   │    priority, inner_type, recency  │        │
+│  │  - Solana sig verify │   │                                   │        │
+│  │  ✅ IMPLEMENTED      │   │                                   │        │
 │  └─────────────────────┘   └──────────────────────────────────┘        │
 │                                                                         │
 │  notification-routing.yaml  ← defines default channels per             │
@@ -953,9 +958,13 @@ This keeps all notification logic in one place (the brain) and makes the consume
 **Housekeeping:** Old dedup rows can be pruned periodically (e.g., `DELETE FROM notification_dedup WHERE delivered_at < now() - interval '30 days'`).
 \*\* NOTE: DO NOT implement this until you confirm it is needed.
 
-### 8.7 Subscription Module (marinade-notifications)
+### 8.7 Subscription Module (marinade-notifications) — IMPLEMENTED
 
-**New tables:**
+> **Status: Implemented** on branch `subscription-enpoint` in marinade-notifications repo.
+> 5 commits: dependencies + migration, core types + utilities, service, controller + module + wiring, E2E tests.
+> All 94 existing tests pass. 16 new E2E tests for subscriptions pass.
+
+**Database table** (`notification-service/migrations/03-subscriptions.sql`):
 
 ```sql
 CREATE TABLE subscriptions (
@@ -964,7 +973,7 @@ CREATE TABLE subscriptions (
     notification_type TEXT NOT NULL,  -- 'bonds', future: 'staking-rewards'
     channel TEXT NOT NULL,            -- 'telegram', 'api', 'intercom', 'partner-email', etc.
     channel_address TEXT NOT NULL,    -- chat_id for telegram, '' for api, email for partner-email
-    source TEXT NOT NULL DEFAULT 'self-service',  -- 'self-service' (user subscribed) or 'managed' (admin/BigQuery imported)
+    source TEXT NOT NULL DEFAULT 'self-service',  -- 'self-service' or 'managed'
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at TIMESTAMPTZ,          -- soft delete (insert-only, latest row wins)
     PRIMARY KEY (id)
@@ -974,38 +983,111 @@ CREATE INDEX idx_sub_active ON subscriptions(user_id, notification_type, channel
     WHERE deleted_at IS NULL;
 ```
 
-**Insert-only with latest row semantics** (as requested):
+**Insert-only with latest row semantics** (as planned):
 
 - New subscription = INSERT new row
 - Update subscription = INSERT new row with updated data (old row stays)
 - Delete subscription = INSERT new row with `deleted_at` set
 - Query: `SELECT DISTINCT ON (user_id, notification_type, channel) ... ORDER BY created_at DESC` where `deleted_at IS NULL`
 
-**API endpoints:**
+**API endpoints (implemented):**
 
 ```
 POST /subscriptions
-  Body: { user_id, notification_type, channel, channel_address, signature, message }
-  Auth: Solana signature verification (see below)
+  Body: { pubkey, notification_type, channel, channel_address, additional_data, signature, message }
+  Auth: Solana ed25519 signature verification via SubscriptionVerifier plugin
+  Response: { user_id, notification_type, channel, channel_address, created_at }
 
 DELETE /subscriptions
-  Body: { user_id, notification_type, channel, signature, message }
-  Auth: Solana signature verification
+  Body: { pubkey, notification_type, channel, additional_data, signature, message }
+  Auth: Solana ed25519 signature verification via SubscriptionVerifier plugin
+  Response: { deleted: true } or 404 if no active subscription
+
+GET /subscriptions?pubkey={pubkey}&notification_type={type}
+  Headers: x-solana-signature, x-solana-message
+  Auth: Solana signature verified directly against query pubkey
+  Response: [{ user_id, notification_type, channel, channel_address, created_at }]
 ```
 
-**Solana signature verification:**
+**Solana signature verification** (`solana-auth.ts`):
 
-- Client signs a structured message: `"Subscribe {notification_type} {channel} {timestamp}"`
-- Server verifies using `@solana/web3.js` `nacl.sign.detached.verify(message, signature, publicKey)`
-- Prevents unauthorized subscription management (only the keypair owner can subscribe)
+- Uses `@solana/keys` (`verifySignature`, `signatureBytes`) + `@solana/codecs-strings` (`getBase58Encoder`) + `@solana/addresses` (`isAddress`)
+- Native Web Crypto API (`crypto.subtle.importKey` for Ed25519) — no tweetnacl dependency
+- Message timestamp validation with configurable tolerance (default 5 minutes, env `SUBSCRIPTION_TIMESTAMP_TOLERANCE_MS`)
+- Timestamp extracted from message via `parseTimestampFromMessage()`, freshness checked via `isTimestampFresh()`
 
-**New files:**
+**SubscriptionVerifier plugin interface** (`subscription-verifier.interface.ts`):
 
-1. `notification-service/subscriptions/subscriptions.controller.ts`
-2. `notification-service/subscriptions/subscriptions.service.ts`
-3. `notification-service/subscriptions/subscriptions.module.ts`
-4. `notification-service/subscriptions/solana-auth.guard.ts` — Solana signature verification guard
-5. `notification-service/migrations/04-subscriptions.sql`
+```typescript
+interface VerificationResult {
+  verifyAgainstPubkey: string // pubkey the signature must match
+  userId: string // canonical user_id to store
+}
+
+interface SubscriptionVerifier {
+  verifySubscription(
+    incomingPubkey: string,
+    notificationType: string,
+    additionalData: Record<string, unknown>,
+  ): Promise<VerificationResult | null>
+}
+```
+
+- Per-notification-type verifier registry via NestJS DynamicModule `forRoot(verifiers)` pattern
+- Verifier maps signer pubkey → userId (e.g., bond_authority → vote_account for bonds)
+- Returns null to reject the subscription (403 Forbidden)
+- Currently wired with empty verifier map `SubscriptionsModule.forRoot({})` — bonds verifier to be added when bonds-notification library is implemented
+
+**Implementation details (deviations from original plan):**
+
+- Used `@solana/keys` + `@solana/codecs-strings` + `@solana/addresses` instead of `@solana/web3.js` + nacl (modern Solana SDK with native Web Crypto)
+- Auth is utility functions in `solana-auth.ts`, not a NestJS guard (inline verification in controller methods, matching existing ingress controller patterns)
+- Migration is `03-subscriptions.sql` (not 04, since dedup table doesn't exist yet)
+- GET endpoint added for listing subscriptions (not in original plan)
+- Body uses `pubkey` field (not `user_id`) — the verifier plugin maps pubkey to user_id
+
+**Files created:**
+
+1. `notification-service/subscriptions/subscription-verifier.interface.ts` — plugin interface
+2. `notification-service/subscriptions/solana-auth.ts` — signature verification + timestamp utilities
+3. `notification-service/subscriptions/constants.ts` — `SUBSCRIPTION_VERIFIERS` DI token (extracted to avoid circular dependency)
+4. `notification-service/subscriptions/subscriptions.service.ts` — data access (subscribe, unsubscribe, getActiveSubscriptions, getSubscribedChannels)
+5. `notification-service/subscriptions/subscriptions.controller.ts` — REST controller (POST, DELETE, GET)
+6. `notification-service/subscriptions/subscriptions.module.ts` — NestJS DynamicModule with `forRoot(verifiers)`
+7. `notification-service/migrations/03-subscriptions.sql` — database migration
+8. `notification-service/__tests__/subscriptions.e2e.ts` — 16 E2E tests
+
+**Files modified:**
+
+- `notification-service/configuration/config.service.ts` — added `subscriptionTimestampToleranceMs`
+- `notification-service/telemetry/metrics.config.ts` — added `subscriptions_total` counter
+- `notification-service/app.module.ts` — added `SubscriptionsModule.forRoot({})`
+- `notification-service/__tests__/db-utils.ts` — added `subscriptions` to cleanDatabase()
+- `notification-service/package.json` — added `@solana/addresses`, `@solana/codecs-strings`, `@solana/keys`, `@solana/offchain-messages`
+
+**Security hardening (post-review fixes):**
+
+- **Message prefix validation** — each endpoint validates the signed message starts with the expected operation prefix (`Subscribe `, `Unsubscribe `, `ListSubscriptions `). Prevents cross-operation replay within the timestamp window.
+- **GET routes through verifier** — when `notification_type` is provided and a verifier exists, the GET endpoint resolves `pubkey → userId` via the verifier (same as POST/DELETE). This fixes the bonds use case where bond_authority signs but subscriptions are indexed by vote_account.
+- **Proper Address type** — `address()` from `@solana/addresses` replaces `as never` cast for off-chain message signatories encoding.
+- **Configurable signing domain** — `SubscriptionVerifier.signingDomain` allows per-type Solana off-chain message application domains. See Section 8.10a.
+
+**E2E test coverage** (21 tests):
+
+- Subscribe happy path, invalid signature (401), expired timestamp (400)
+- Duplicate subscriptions (latest row wins), unknown type (422), api channel rejection (400), missing body fields (400)
+- Unsubscribe happy path, no active subscription (404)
+- List subscriptions, filter by type, auth required (401), invalid list signature (401)
+- Verifier userId mapping, verifier rejection (403)
+- Full subscribe-unsubscribe-resubscribe lifecycle
+- **Cross-operation replay rejection** — Subscribe message rejected on DELETE (400), Unsubscribe message rejected on POST (400), Subscribe message rejected on GET (400)
+- **GET through verifier** — mapped userId resolution via verifier, verifier rejection on GET (403)
+
+**What's NOT yet implemented (next steps):**
+
+- No bonds-specific SubscriptionVerifier plugin (needs bonds-notification library — Work Item 6)
+- No Telegram deep link flow (needs Telegram integration — Work Items 11, RQ1, RQ4)
+- No linking token generation for Telegram (future enhancement)
 
 ### 8.8 Telegram Delivery Processor (marinade-notifications)
 
@@ -1117,6 +1199,39 @@ bonds:
 
 **Why a YAML file and not a database table:** Routing config changes infrequently and should be versioned with code. New channel types or routing rules ship with a new deployment, not as runtime config.
 
+### 8.10a Signing Domain Configuration — IMPLEMENTED
+
+> **Status: Implemented** as part of the subscription module fixes on branch `subscription-enpoint`.
+
+**Purpose:** Each notification type uses a Solana off-chain message application domain for signature verification. Both the CLI (signer) and the server (verifier) must agree on the domain. The domain is configured per-type via the `SubscriptionVerifier.signingDomain` property.
+
+**How it works (implemented in `subscription-verifier.interface.ts`):**
+
+```typescript
+export interface SubscriptionVerifier {
+  readonly signingDomain?: string // Solana off-chain message application domain
+  verifySubscription(
+    incomingPubkey: string,
+    notificationType: string,
+    additionalData: Record<string, unknown>,
+  ): Promise<VerificationResult | null>
+}
+```
+
+- Each verifier plugin declares its `signingDomain` (e.g., validator-bonds program ID for bonds)
+- The controller reads `verifier.signingDomain` before calling `verifySolanaSignature()`
+- Default fallback: `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4` (validator-bonds program ID)
+- Both CLI (`@marinade.finance/ledger-utils`) and server (`solana-auth.ts`) use `@solana/offchain-messages` for byte-identical off-chain message formatting
+
+**Per-type domain examples:**
+
+| Notification Type | Signing Domain                                | Rationale                            |
+| ----------------- | --------------------------------------------- | ------------------------------------ |
+| `bonds`           | `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4` | Validator-bonds program ID           |
+| (future types)    | type-specific program ID or custom domain     | Each type scopes its signing context |
+
+**CLI compatibility:** `@marinade.finance/ledger-utils` v3.1.0 `formatOffchainMessage()` and server-side `formatSolanaOffchainMessage()` produce byte-identical output when given the same domain. Cross-verification tests exist in the ledger-utils repo.
+
 ### 8.11 Testing Strategy
 
 Two separate systems (validator-bonds emitter, marinade-notifications consumer) with a shared contract library bridging them.
@@ -1211,11 +1326,18 @@ Using TestContainers PostgreSQL (existing pattern via `db-utils.ts`):
    - Dedup: same notification_id after renotify_interval → delivered again
    - Changed notification_id (significant change) → delivered immediately
 
-3. **Subscription E2E**:
+3. **Subscription E2E** — ✅ **IMPLEMENTED** (16 tests in `subscriptions.e2e.ts`):
    - POST subscription with valid Solana signature → subscription created
-   - POST with invalid signature → rejected
-   - DELETE subscription → soft-deleted
-   - Query subscriptions → only active (non-deleted) returned
+   - POST with invalid signature → 401 rejected
+   - POST with expired timestamp → 400 rejected
+   - Duplicate subscriptions → latest row wins
+   - Unknown notification type → 422
+   - API channel rejection → 400
+   - Missing body fields → 400
+   - DELETE subscription → soft-deleted, 404 if no active sub
+   - GET subscriptions → list with type filter, header-based auth
+   - Verifier userId mapping and rejection (403)
+   - Full subscribe-unsubscribe-resubscribe lifecycle
 
 4. **Notifications read API E2E**:
    - Insert notifications in outbox → GET returns them filtered by user/type/priority
@@ -1272,7 +1394,7 @@ Ordered by dependency:
 1. **NotificationPlugin interface + DeliveryChannel interface** — define `NotificationPlugin`, `EvaluationResult`, `DeliveryTarget`, `TypeHooks`, `DeliveryChannel` interfaces in marinade-notifications. This is the contract.
 2. **Delivery channel registry** — wrap existing IntercomService and PartnersService+SmtpService as `DeliveryChannel` implementations (`intercom`, `partner-email`). Add new channels: `telegram`, `api` (outbox). Existing services stay as-is internally.
 3. **Generic notification pipeline service** — implement `NotificationPipelineService` with all stages (evaluate → dedup → resolve targets → deliver → archive). Stages skip when plugin returns null for optional methods.
-4. **Shared infrastructure tables** — `notification_dedup` table (shared across types), `subscriptions` table (with `source` column), `notifications_outbox` table
+4. **Shared infrastructure tables** — `notification_dedup` table (shared across types), ~~`subscriptions` table~~ (✅ implemented in Work Item 10), `notifications_outbox` table
 5. **Notification routing config** — `notification-routing.yaml` loader, defines default channels per type + inner_type
 
 **Phase 2: Bonds notification type**
@@ -1281,7 +1403,7 @@ Ordered by dependency:
 7. **Event schema** — JSON Schema for bonds-event-v1 (emitter fields only). Codegen for TS + Rust.
 8. **bonds-event-testing library** — test fixtures, schema validator, assertion helpers. Published to npm. Used by both repos for contract enforcement.
 9. **marinade-notifications: bonds-event-v1 topic** — migration (inbox/archive/DLQ tables), ingress controller, enqueue service, thin consumer wrapper delegating to pipeline. Register bonds plugin in `PLUGIN_REGISTRY`.
-10. **marinade-notifications: subscription module** — API endpoints (POST/DELETE /subscriptions), Solana auth guard, subscription verifier plugin for bonds
+10. ~~**marinade-notifications: subscription module**~~ — **IMPLEMENTED** (branch `subscription-enpoint`). REST API (POST/DELETE/GET /subscriptions), Solana ed25519 auth via `@solana/keys` + Web Crypto, pluggable SubscriptionVerifier interface, insert-only append log DB design, 16 E2E tests. See Section 8.7 for full details. **Remaining:** bonds-specific verifier plugin (depends on Work Item 6)
 11. **marinade-notifications: Telegram service** — REST-based message sending, registered as `telegram` delivery channel
 12. **marinade-notifications: notifications read API** — GET /notifications endpoint, filters by type/user/priority/recency
 
@@ -1341,27 +1463,32 @@ Ordered by dependency:
 
 **Open sub-question:** → Moved to RQ1 in Section 11.
 
-### Q3: user_id and subscription verification — RESOLVED
+### Q3: user_id and subscription verification — RESOLVED & IMPLEMENTED
 
 **Decision — Plugin interface for subscription verification:**
 
-The subscription module is generic. For each `notification_type`, a **verification plugin** interface decides how to validate the subscription:
+The subscription module is generic. For each `notification_type`, a **verification plugin** interface decides how to validate the subscription.
+
+**Implemented interface** (in `notification-service/subscriptions/subscription-verifier.interface.ts`):
 
 ```typescript
+interface VerificationResult {
+  verifyAgainstPubkey: string // the pubkey the signature must match
+  userId: string // the canonical user_id to store
+}
+
 interface SubscriptionVerifier {
-  // Given incoming pubkey + additional JSON data, return the pubkey to verify signature against
-  // Returns null if subscription is invalid
   verifySubscription(
     incomingPubkey: string,
+    notificationType: string,
     additionalData: Record<string, unknown>,
-  ): Promise<{
-    verifyAgainstPubkey: string // the pubkey the signature must match
-    userId: string // the canonical user_id to store (e.g., vote_account)
-  } | null>
+  ): Promise<VerificationResult | null>
 }
 ```
 
-**For bonds type** (implemented in `bonds-notification` library):
+**Key implementation detail:** The interface also receives `notificationType` as a parameter (added during implementation for flexibility). Verifiers are registered per notification_type via `SubscriptionsModule.forRoot(verifiers)` where `verifiers` is `Record<string, SubscriptionVerifier>`.
+
+**For bonds type** (to be implemented in `bonds-notification` library — Work Item 6):
 
 1. Caller sends `pubkey` (bond authority) + `additionalData: { config_address: "..." }`
 2. Plugin loads the bond on-chain: derives bond PDA from `(config_address, vote_account)`
@@ -1369,7 +1496,7 @@ interface SubscriptionVerifier {
 4. Returns `{ verifyAgainstPubkey: bond_authority, userId: vote_account }`
 5. Subscription is indexed by `vote_account` (since events are per vote_account)
 
-**Fallback** (no plugin for that type): Just verify signature against the incoming pubkey, use it as user_id.
+**Current state:** No verifier is registered yet (`SubscriptionsModule.forRoot({})`). Subscribing to any notification_type returns 422 "unsupported notification type" until a verifier plugin is registered.
 
 This means:
 
