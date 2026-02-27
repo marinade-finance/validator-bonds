@@ -1,6 +1,6 @@
 {
   "name": "@marinade.finance/validator-bonds-codama",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Validator Bonds client generated with Codama",
   "repository": {
     "type": "git",
