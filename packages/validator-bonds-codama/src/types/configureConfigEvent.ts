@@ -17,7 +17,7 @@ import {
   type Encoder,
   type Option,
   type OptionOrNullable,
-} from '@solana/kit';
+} from '@solana/kit'
 import {
   getPubkeyValueChangeDecoder,
   getPubkeyValueChangeEncoder,
@@ -27,29 +27,29 @@ import {
   type PubkeyValueChangeArgs,
   type U64ValueChange,
   type U64ValueChangeArgs,
-} from '.';
+} from '.'
 
 export type ConfigureConfigEvent = {
-  adminAuthority: Option<PubkeyValueChange>;
-  operatorAuthority: Option<PubkeyValueChange>;
-  pauseAuthority: Option<PubkeyValueChange>;
-  epochsToClaimSettlement: Option<U64ValueChange>;
-  minimumStakeLamports: Option<U64ValueChange>;
-  withdrawLockupEpochs: Option<U64ValueChange>;
-  slotsToStartSettlementClaiming: Option<U64ValueChange>;
-  minBondMaxStakeWanted: Option<U64ValueChange>;
-};
+  adminAuthority: Option<PubkeyValueChange>
+  operatorAuthority: Option<PubkeyValueChange>
+  pauseAuthority: Option<PubkeyValueChange>
+  epochsToClaimSettlement: Option<U64ValueChange>
+  minimumStakeLamports: Option<U64ValueChange>
+  withdrawLockupEpochs: Option<U64ValueChange>
+  slotsToStartSettlementClaiming: Option<U64ValueChange>
+  minBondMaxStakeWanted: Option<U64ValueChange>
+}
 
 export type ConfigureConfigEventArgs = {
-  adminAuthority: OptionOrNullable<PubkeyValueChangeArgs>;
-  operatorAuthority: OptionOrNullable<PubkeyValueChangeArgs>;
-  pauseAuthority: OptionOrNullable<PubkeyValueChangeArgs>;
-  epochsToClaimSettlement: OptionOrNullable<U64ValueChangeArgs>;
-  minimumStakeLamports: OptionOrNullable<U64ValueChangeArgs>;
-  withdrawLockupEpochs: OptionOrNullable<U64ValueChangeArgs>;
-  slotsToStartSettlementClaiming: OptionOrNullable<U64ValueChangeArgs>;
-  minBondMaxStakeWanted: OptionOrNullable<U64ValueChangeArgs>;
-};
+  adminAuthority: OptionOrNullable<PubkeyValueChangeArgs>
+  operatorAuthority: OptionOrNullable<PubkeyValueChangeArgs>
+  pauseAuthority: OptionOrNullable<PubkeyValueChangeArgs>
+  epochsToClaimSettlement: OptionOrNullable<U64ValueChangeArgs>
+  minimumStakeLamports: OptionOrNullable<U64ValueChangeArgs>
+  withdrawLockupEpochs: OptionOrNullable<U64ValueChangeArgs>
+  slotsToStartSettlementClaiming: OptionOrNullable<U64ValueChangeArgs>
+  minBondMaxStakeWanted: OptionOrNullable<U64ValueChangeArgs>
+}
 
 export function getConfigureConfigEventEncoder(): Encoder<ConfigureConfigEventArgs> {
   return getStructEncoder([
@@ -64,7 +64,7 @@ export function getConfigureConfigEventEncoder(): Encoder<ConfigureConfigEventAr
       getOptionEncoder(getU64ValueChangeEncoder()),
     ],
     ['minBondMaxStakeWanted', getOptionEncoder(getU64ValueChangeEncoder())],
-  ]);
+  ])
 }
 
 export function getConfigureConfigEventDecoder(): Decoder<ConfigureConfigEvent> {
@@ -80,7 +80,7 @@ export function getConfigureConfigEventDecoder(): Decoder<ConfigureConfigEvent> 
       getOptionDecoder(getU64ValueChangeDecoder()),
     ],
     ['minBondMaxStakeWanted', getOptionDecoder(getU64ValueChangeDecoder())],
-  ]);
+  ])
 }
 
 export function getConfigureConfigEventCodec(): Codec<
@@ -89,6 +89,6 @@ export function getConfigureConfigEventCodec(): Codec<
 > {
   return combineCodec(
     getConfigureConfigEventEncoder(),
-    getConfigureConfigEventDecoder()
-  );
+    getConfigureConfigEventDecoder(),
+  )
 }

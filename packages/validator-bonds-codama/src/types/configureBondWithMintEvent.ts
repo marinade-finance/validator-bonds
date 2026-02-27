@@ -20,7 +20,7 @@ import {
   type Encoder,
   type Option,
   type OptionOrNullable,
-} from '@solana/kit';
+} from '@solana/kit'
 import {
   getPubkeyValueChangeDecoder,
   getPubkeyValueChangeEncoder,
@@ -30,21 +30,21 @@ import {
   type PubkeyValueChangeArgs,
   type U64ValueChange,
   type U64ValueChangeArgs,
-} from '.';
+} from '.'
 
 export type ConfigureBondWithMintEvent = {
-  validatorIdentity: Address;
-  bondAuthority: Option<PubkeyValueChange>;
-  cpmpe: Option<U64ValueChange>;
-  maxStakeWanted: Option<U64ValueChange>;
-};
+  validatorIdentity: Address
+  bondAuthority: Option<PubkeyValueChange>
+  cpmpe: Option<U64ValueChange>
+  maxStakeWanted: Option<U64ValueChange>
+}
 
 export type ConfigureBondWithMintEventArgs = {
-  validatorIdentity: Address;
-  bondAuthority: OptionOrNullable<PubkeyValueChangeArgs>;
-  cpmpe: OptionOrNullable<U64ValueChangeArgs>;
-  maxStakeWanted: OptionOrNullable<U64ValueChangeArgs>;
-};
+  validatorIdentity: Address
+  bondAuthority: OptionOrNullable<PubkeyValueChangeArgs>
+  cpmpe: OptionOrNullable<U64ValueChangeArgs>
+  maxStakeWanted: OptionOrNullable<U64ValueChangeArgs>
+}
 
 export function getConfigureBondWithMintEventEncoder(): Encoder<ConfigureBondWithMintEventArgs> {
   return getStructEncoder([
@@ -52,7 +52,7 @@ export function getConfigureBondWithMintEventEncoder(): Encoder<ConfigureBondWit
     ['bondAuthority', getOptionEncoder(getPubkeyValueChangeEncoder())],
     ['cpmpe', getOptionEncoder(getU64ValueChangeEncoder())],
     ['maxStakeWanted', getOptionEncoder(getU64ValueChangeEncoder())],
-  ]);
+  ])
 }
 
 export function getConfigureBondWithMintEventDecoder(): Decoder<ConfigureBondWithMintEvent> {
@@ -61,7 +61,7 @@ export function getConfigureBondWithMintEventDecoder(): Decoder<ConfigureBondWit
     ['bondAuthority', getOptionDecoder(getPubkeyValueChangeDecoder())],
     ['cpmpe', getOptionDecoder(getU64ValueChangeDecoder())],
     ['maxStakeWanted', getOptionDecoder(getU64ValueChangeDecoder())],
-  ]);
+  ])
 }
 
 export function getConfigureBondWithMintEventCodec(): Codec<
@@ -70,6 +70,6 @@ export function getConfigureBondWithMintEventCodec(): Codec<
 > {
   return combineCodec(
     getConfigureBondWithMintEventEncoder(),
-    getConfigureBondWithMintEventDecoder()
-  );
+    getConfigureBondWithMintEventDecoder(),
+  )
 }

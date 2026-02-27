@@ -39,95 +39,96 @@ import {
   type Option,
   type OptionOrNullable,
   type ReadonlyUint8Array,
-} from '@solana/kit';
+} from '@solana/kit'
 import {
   getBumpsDecoder,
   getBumpsEncoder,
   type Bumps,
   type BumpsArgs,
-} from '../types';
+} from '../types'
 
 export const SETTLEMENT_DISCRIMINATOR = new Uint8Array([
   55, 11, 219, 33, 36, 136, 40, 182,
-]);
+])
 
 export function getSettlementDiscriminatorBytes() {
-  return fixEncoderSize(getBytesEncoder(), 8).encode(SETTLEMENT_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(SETTLEMENT_DISCRIMINATOR)
 }
 
 export type Settlement = {
-  discriminator: ReadonlyUint8Array;
+  discriminator: ReadonlyUint8Array
   /** the settlement belongs under this bond, i.e., under a particular validator vote account */
-  bond: Address;
+  bond: Address
   /**
    * settlement authority used as the 'staker' stake account authority
    * of stake accounts funded to this settlement
    */
-  stakerAuthority: Address;
+  stakerAuthority: Address
   /** 256-bit merkle root to check the claims against */
-  merkleRoot: ReadonlyUint8Array;
+  merkleRoot: ReadonlyUint8Array
   /** maximum number of funds that can ever be claimed */
-  maxTotalClaim: bigint;
+  maxTotalClaim: bigint
   /** maximum number of merkle tree nodes that can ever be claimed */
-  maxMerkleNodes: bigint;
+  maxMerkleNodes: bigint
   /** total lamports funded */
-  lamportsFunded: bigint;
+  lamportsFunded: bigint
   /** total lamports that have been claimed */
-  lamportsClaimed: bigint;
+  lamportsClaimed: bigint
   /** number of nodes that have been claimed */
-  merkleNodesClaimed: bigint;
+  merkleNodesClaimed: bigint
   /** what epoch the Settlement has been created for */
-  epochCreatedFor: bigint;
+  epochCreatedFor: bigint
   /** when the Settlement was created */
-  slotCreatedAt: bigint;
+  slotCreatedAt: bigint
   /** address that collects the rent exempt from the Settlement account when closed */
-  rentCollector: Address;
+  rentCollector: Address
   /** address that collects rent exempt for "split stake account" possibly created on funding settlement */
-  splitRentCollector: Option<Address>;
+  splitRentCollector: Option<Address>
   /** amount of lamports that are collected for rent exempt for "split stake account" */
-  splitRentAmount: bigint;
+  splitRentAmount: bigint
   /** PDA bumps */
-  bumps: Bumps;
+  bumps: Bumps
   /** reserve space for future extensions */
-  reserved: ReadonlyUint8Array;
-};
+  reserved: ReadonlyUint8Array
+}
 
 export type SettlementArgs = {
   /** the settlement belongs under this bond, i.e., under a particular validator vote account */
-  bond: Address;
+  bond: Address
   /**
    * settlement authority used as the 'staker' stake account authority
    * of stake accounts funded to this settlement
    */
-  stakerAuthority: Address;
+  stakerAuthority: Address
   /** 256-bit merkle root to check the claims against */
-  merkleRoot: ReadonlyUint8Array;
+  merkleRoot: ReadonlyUint8Array
   /** maximum number of funds that can ever be claimed */
-  maxTotalClaim: number | bigint;
+  maxTotalClaim: number | bigint
   /** maximum number of merkle tree nodes that can ever be claimed */
-  maxMerkleNodes: number | bigint;
+  maxMerkleNodes: number | bigint
   /** total lamports funded */
-  lamportsFunded: number | bigint;
+  lamportsFunded: number | bigint
   /** total lamports that have been claimed */
-  lamportsClaimed: number | bigint;
+  lamportsClaimed: number | bigint
   /** number of nodes that have been claimed */
-  merkleNodesClaimed: number | bigint;
+  merkleNodesClaimed: number | bigint
   /** what epoch the Settlement has been created for */
-  epochCreatedFor: number | bigint;
+  epochCreatedFor: number | bigint
   /** when the Settlement was created */
-  slotCreatedAt: number | bigint;
+  slotCreatedAt: number | bigint
   /** address that collects the rent exempt from the Settlement account when closed */
-  rentCollector: Address;
+  rentCollector: Address
   /** address that collects rent exempt for "split stake account" possibly created on funding settlement */
-  splitRentCollector: OptionOrNullable<Address>;
+  splitRentCollector: OptionOrNullable<Address>
   /** amount of lamports that are collected for rent exempt for "split stake account" */
-  splitRentAmount: number | bigint;
+  splitRentAmount: number | bigint
   /** PDA bumps */
-  bumps: BumpsArgs;
+  bumps: BumpsArgs
   /** reserve space for future extensions */
-  reserved: ReadonlyUint8Array;
-};
+  reserved: ReadonlyUint8Array
+}
 
+/** Gets the encoder for {@link SettlementArgs} account data. */
 export function getSettlementEncoder(): Encoder<SettlementArgs> {
   return transformEncoder(
     getStructEncoder([
@@ -148,10 +149,11 @@ export function getSettlementEncoder(): Encoder<SettlementArgs> {
       ['bumps', getBumpsEncoder()],
       ['reserved', fixEncoderSize(getBytesEncoder(), 90)],
     ]),
-    (value) => ({ ...value, discriminator: SETTLEMENT_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: SETTLEMENT_DISCRIMINATOR }),
+  )
 }
 
+/** Gets the decoder for {@link Settlement} account data. */
 export function getSettlementDecoder(): Decoder<Settlement> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
@@ -170,62 +172,63 @@ export function getSettlementDecoder(): Decoder<Settlement> {
     ['splitRentAmount', getU64Decoder()],
     ['bumps', getBumpsDecoder()],
     ['reserved', fixDecoderSize(getBytesDecoder(), 90)],
-  ]);
+  ])
 }
 
+/** Gets the codec for {@link Settlement} account data. */
 export function getSettlementCodec(): Codec<SettlementArgs, Settlement> {
-  return combineCodec(getSettlementEncoder(), getSettlementDecoder());
+  return combineCodec(getSettlementEncoder(), getSettlementDecoder())
 }
 
 export function decodeSettlement<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress>
-): Account<Settlement, TAddress>;
+  encodedAccount: EncodedAccount<TAddress>,
+): Account<Settlement, TAddress>
 export function decodeSettlement<TAddress extends string = string>(
-  encodedAccount: MaybeEncodedAccount<TAddress>
-): MaybeAccount<Settlement, TAddress>;
+  encodedAccount: MaybeEncodedAccount<TAddress>,
+): MaybeAccount<Settlement, TAddress>
 export function decodeSettlement<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>
+  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>,
 ): Account<Settlement, TAddress> | MaybeAccount<Settlement, TAddress> {
   return decodeAccount(
     encodedAccount as MaybeEncodedAccount<TAddress>,
-    getSettlementDecoder()
-  );
+    getSettlementDecoder(),
+  )
 }
 
 export async function fetchSettlement<TAddress extends string = string>(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
-  config?: FetchAccountConfig
+  config?: FetchAccountConfig,
 ): Promise<Account<Settlement, TAddress>> {
-  const maybeAccount = await fetchMaybeSettlement(rpc, address, config);
-  assertAccountExists(maybeAccount);
-  return maybeAccount;
+  const maybeAccount = await fetchMaybeSettlement(rpc, address, config)
+  assertAccountExists(maybeAccount)
+  return maybeAccount
 }
 
 export async function fetchMaybeSettlement<TAddress extends string = string>(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
-  config?: FetchAccountConfig
+  config?: FetchAccountConfig,
 ): Promise<MaybeAccount<Settlement, TAddress>> {
-  const maybeAccount = await fetchEncodedAccount(rpc, address, config);
-  return decodeSettlement(maybeAccount);
+  const maybeAccount = await fetchEncodedAccount(rpc, address, config)
+  return decodeSettlement(maybeAccount)
 }
 
 export async function fetchAllSettlement(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
-  config?: FetchAccountsConfig
+  config?: FetchAccountsConfig,
 ): Promise<Account<Settlement>[]> {
-  const maybeAccounts = await fetchAllMaybeSettlement(rpc, addresses, config);
-  assertAccountsExist(maybeAccounts);
-  return maybeAccounts;
+  const maybeAccounts = await fetchAllMaybeSettlement(rpc, addresses, config)
+  assertAccountsExist(maybeAccounts)
+  return maybeAccounts
 }
 
 export async function fetchAllMaybeSettlement(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
-  config?: FetchAccountsConfig
+  config?: FetchAccountsConfig,
 ): Promise<MaybeAccount<Settlement>[]> {
-  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config);
-  return maybeAccounts.map((maybeAccount) => decodeSettlement(maybeAccount));
+  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config)
+  return maybeAccounts.map(maybeAccount => decodeSettlement(maybeAccount))
 }

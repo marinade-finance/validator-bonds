@@ -18,23 +18,23 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export type CancelWithdrawRequestEvent = {
-  withdrawRequest: Address;
-  bond: Address;
-  authority: Address;
-  requestedAmount: bigint;
-  withdrawnAmount: bigint;
-};
+  withdrawRequest: Address
+  bond: Address
+  authority: Address
+  requestedAmount: bigint
+  withdrawnAmount: bigint
+}
 
 export type CancelWithdrawRequestEventArgs = {
-  withdrawRequest: Address;
-  bond: Address;
-  authority: Address;
-  requestedAmount: number | bigint;
-  withdrawnAmount: number | bigint;
-};
+  withdrawRequest: Address
+  bond: Address
+  authority: Address
+  requestedAmount: number | bigint
+  withdrawnAmount: number | bigint
+}
 
 export function getCancelWithdrawRequestEventEncoder(): FixedSizeEncoder<CancelWithdrawRequestEventArgs> {
   return getStructEncoder([
@@ -43,7 +43,7 @@ export function getCancelWithdrawRequestEventEncoder(): FixedSizeEncoder<CancelW
     ['authority', getAddressEncoder()],
     ['requestedAmount', getU64Encoder()],
     ['withdrawnAmount', getU64Encoder()],
-  ]);
+  ])
 }
 
 export function getCancelWithdrawRequestEventDecoder(): FixedSizeDecoder<CancelWithdrawRequestEvent> {
@@ -53,7 +53,7 @@ export function getCancelWithdrawRequestEventDecoder(): FixedSizeDecoder<CancelW
     ['authority', getAddressDecoder()],
     ['requestedAmount', getU64Decoder()],
     ['withdrawnAmount', getU64Decoder()],
-  ]);
+  ])
 }
 
 export function getCancelWithdrawRequestEventCodec(): FixedSizeCodec<
@@ -62,6 +62,6 @@ export function getCancelWithdrawRequestEventCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getCancelWithdrawRequestEventEncoder(),
-    getCancelWithdrawRequestEventDecoder()
-  );
+    getCancelWithdrawRequestEventDecoder(),
+  )
 }

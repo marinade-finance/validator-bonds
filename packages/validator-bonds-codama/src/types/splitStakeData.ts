@@ -18,29 +18,29 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
-} from '@solana/kit';
+} from '@solana/kit'
 
-export type SplitStakeData = { address: Address; amount: bigint };
+export type SplitStakeData = { address: Address; amount: bigint }
 
-export type SplitStakeDataArgs = { address: Address; amount: number | bigint };
+export type SplitStakeDataArgs = { address: Address; amount: number | bigint }
 
 export function getSplitStakeDataEncoder(): FixedSizeEncoder<SplitStakeDataArgs> {
   return getStructEncoder([
     ['address', getAddressEncoder()],
     ['amount', getU64Encoder()],
-  ]);
+  ])
 }
 
 export function getSplitStakeDataDecoder(): FixedSizeDecoder<SplitStakeData> {
   return getStructDecoder([
     ['address', getAddressDecoder()],
     ['amount', getU64Decoder()],
-  ]);
+  ])
 }
 
 export function getSplitStakeDataCodec(): FixedSizeCodec<
   SplitStakeDataArgs,
   SplitStakeData
 > {
-  return combineCodec(getSplitStakeDataEncoder(), getSplitStakeDataDecoder());
+  return combineCodec(getSplitStakeDataEncoder(), getSplitStakeDataDecoder())
 }

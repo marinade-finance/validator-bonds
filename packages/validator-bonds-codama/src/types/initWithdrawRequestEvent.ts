@@ -18,23 +18,23 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export type InitWithdrawRequestEvent = {
-  withdrawRequest: Address;
-  bond: Address;
-  voteAccount: Address;
-  epoch: bigint;
-  requestedAmount: bigint;
-};
+  withdrawRequest: Address
+  bond: Address
+  voteAccount: Address
+  epoch: bigint
+  requestedAmount: bigint
+}
 
 export type InitWithdrawRequestEventArgs = {
-  withdrawRequest: Address;
-  bond: Address;
-  voteAccount: Address;
-  epoch: number | bigint;
-  requestedAmount: number | bigint;
-};
+  withdrawRequest: Address
+  bond: Address
+  voteAccount: Address
+  epoch: number | bigint
+  requestedAmount: number | bigint
+}
 
 export function getInitWithdrawRequestEventEncoder(): FixedSizeEncoder<InitWithdrawRequestEventArgs> {
   return getStructEncoder([
@@ -43,7 +43,7 @@ export function getInitWithdrawRequestEventEncoder(): FixedSizeEncoder<InitWithd
     ['voteAccount', getAddressEncoder()],
     ['epoch', getU64Encoder()],
     ['requestedAmount', getU64Encoder()],
-  ]);
+  ])
 }
 
 export function getInitWithdrawRequestEventDecoder(): FixedSizeDecoder<InitWithdrawRequestEvent> {
@@ -53,7 +53,7 @@ export function getInitWithdrawRequestEventDecoder(): FixedSizeDecoder<InitWithd
     ['voteAccount', getAddressDecoder()],
     ['epoch', getU64Decoder()],
     ['requestedAmount', getU64Decoder()],
-  ]);
+  ])
 }
 
 export function getInitWithdrawRequestEventCodec(): FixedSizeCodec<
@@ -62,6 +62,6 @@ export function getInitWithdrawRequestEventCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getInitWithdrawRequestEventEncoder(),
-    getInitWithdrawRequestEventDecoder()
-  );
+    getInitWithdrawRequestEventDecoder(),
+  )
 }

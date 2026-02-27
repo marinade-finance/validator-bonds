@@ -21,6 +21,8 @@ import {
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -38,18 +40,21 @@ import {
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
-} from '@solana/kit';
-import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs';
-import { getAccountMetaFactory, type ResolvedAccount } from '../shared';
+} from '@solana/kit'
+import {
+  getAccountMetaFactory,
+  type ResolvedInstructionAccount,
+} from '@solana/program-client-core'
+import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
 export const CONFIGURE_CONFIG_DISCRIMINATOR = new Uint8Array([
   198, 98, 161, 165, 137, 200, 230, 203,
-]);
+])
 
 export function getConfigureConfigDiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    CONFIGURE_CONFIG_DISCRIMINATOR
-  );
+    CONFIGURE_CONFIG_DISCRIMINATOR,
+  )
 }
 
 export type ConfigureConfigInstruction<
@@ -78,30 +83,30 @@ export type ConfigureConfigInstruction<
         : TAccountProgram,
       ...TRemainingAccounts,
     ]
-  >;
+  >
 
 export type ConfigureConfigInstructionData = {
-  discriminator: ReadonlyUint8Array;
-  admin: Option<Address>;
-  operator: Option<Address>;
-  pauseAuthority: Option<Address>;
-  epochsToClaimSettlement: Option<bigint>;
-  withdrawLockupEpochs: Option<bigint>;
-  minimumStakeLamports: Option<bigint>;
-  slotsToStartSettlementClaiming: Option<bigint>;
-  minBondMaxStakeWanted: Option<bigint>;
-};
+  discriminator: ReadonlyUint8Array
+  admin: Option<Address>
+  operator: Option<Address>
+  pauseAuthority: Option<Address>
+  epochsToClaimSettlement: Option<bigint>
+  withdrawLockupEpochs: Option<bigint>
+  minimumStakeLamports: Option<bigint>
+  slotsToStartSettlementClaiming: Option<bigint>
+  minBondMaxStakeWanted: Option<bigint>
+}
 
 export type ConfigureConfigInstructionDataArgs = {
-  admin: OptionOrNullable<Address>;
-  operator: OptionOrNullable<Address>;
-  pauseAuthority: OptionOrNullable<Address>;
-  epochsToClaimSettlement: OptionOrNullable<number | bigint>;
-  withdrawLockupEpochs: OptionOrNullable<number | bigint>;
-  minimumStakeLamports: OptionOrNullable<number | bigint>;
-  slotsToStartSettlementClaiming: OptionOrNullable<number | bigint>;
-  minBondMaxStakeWanted: OptionOrNullable<number | bigint>;
-};
+  admin: OptionOrNullable<Address>
+  operator: OptionOrNullable<Address>
+  pauseAuthority: OptionOrNullable<Address>
+  epochsToClaimSettlement: OptionOrNullable<number | bigint>
+  withdrawLockupEpochs: OptionOrNullable<number | bigint>
+  minimumStakeLamports: OptionOrNullable<number | bigint>
+  slotsToStartSettlementClaiming: OptionOrNullable<number | bigint>
+  minBondMaxStakeWanted: OptionOrNullable<number | bigint>
+}
 
 export function getConfigureConfigInstructionDataEncoder(): Encoder<ConfigureConfigInstructionDataArgs> {
   return transformEncoder(
@@ -116,8 +121,8 @@ export function getConfigureConfigInstructionDataEncoder(): Encoder<ConfigureCon
       ['slotsToStartSettlementClaiming', getOptionEncoder(getU64Encoder())],
       ['minBondMaxStakeWanted', getOptionEncoder(getU64Encoder())],
     ]),
-    (value) => ({ ...value, discriminator: CONFIGURE_CONFIG_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: CONFIGURE_CONFIG_DISCRIMINATOR }),
+  )
 }
 
 export function getConfigureConfigInstructionDataDecoder(): Decoder<ConfigureConfigInstructionData> {
@@ -131,7 +136,7 @@ export function getConfigureConfigInstructionDataDecoder(): Decoder<ConfigureCon
     ['minimumStakeLamports', getOptionDecoder(getU64Decoder())],
     ['slotsToStartSettlementClaiming', getOptionDecoder(getU64Decoder())],
     ['minBondMaxStakeWanted', getOptionDecoder(getU64Decoder())],
-  ]);
+  ])
 }
 
 export function getConfigureConfigInstructionDataCodec(): Codec<
@@ -140,8 +145,8 @@ export function getConfigureConfigInstructionDataCodec(): Codec<
 > {
   return combineCodec(
     getConfigureConfigInstructionDataEncoder(),
-    getConfigureConfigInstructionDataDecoder()
-  );
+    getConfigureConfigInstructionDataDecoder(),
+  )
 }
 
 export type ConfigureConfigAsyncInput<
@@ -150,20 +155,20 @@ export type ConfigureConfigAsyncInput<
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
 > = {
-  config: Address<TAccountConfig>;
+  config: Address<TAccountConfig>
   /** only the admin authority can change the config params */
-  adminAuthority: TransactionSigner<TAccountAdminAuthority>;
-  eventAuthority?: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  admin: ConfigureConfigInstructionDataArgs['admin'];
-  operator: ConfigureConfigInstructionDataArgs['operator'];
-  pauseAuthority: ConfigureConfigInstructionDataArgs['pauseAuthority'];
-  epochsToClaimSettlement: ConfigureConfigInstructionDataArgs['epochsToClaimSettlement'];
-  withdrawLockupEpochs: ConfigureConfigInstructionDataArgs['withdrawLockupEpochs'];
-  minimumStakeLamports: ConfigureConfigInstructionDataArgs['minimumStakeLamports'];
-  slotsToStartSettlementClaiming: ConfigureConfigInstructionDataArgs['slotsToStartSettlementClaiming'];
-  minBondMaxStakeWanted: ConfigureConfigInstructionDataArgs['minBondMaxStakeWanted'];
-};
+  adminAuthority: TransactionSigner<TAccountAdminAuthority>
+  eventAuthority?: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+  admin: ConfigureConfigInstructionDataArgs['admin']
+  operator: ConfigureConfigInstructionDataArgs['operator']
+  pauseAuthority: ConfigureConfigInstructionDataArgs['pauseAuthority']
+  epochsToClaimSettlement: ConfigureConfigInstructionDataArgs['epochsToClaimSettlement']
+  withdrawLockupEpochs: ConfigureConfigInstructionDataArgs['withdrawLockupEpochs']
+  minimumStakeLamports: ConfigureConfigInstructionDataArgs['minimumStakeLamports']
+  slotsToStartSettlementClaiming: ConfigureConfigInstructionDataArgs['slotsToStartSettlementClaiming']
+  minBondMaxStakeWanted: ConfigureConfigInstructionDataArgs['minBondMaxStakeWanted']
+}
 
 export async function getConfigureConfigInstructionAsync<
   TAccountConfig extends string,
@@ -178,7 +183,7 @@ export async function getConfigureConfigInstructionAsync<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): Promise<
   ConfigureConfigInstruction<
     TProgramAddress,
@@ -190,7 +195,7 @@ export async function getConfigureConfigInstructionAsync<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -198,14 +203,14 @@ export async function getConfigureConfigInstructionAsync<
     adminAuthority: { value: input.adminAuthority ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Original args.
-  const args = { ...input };
+  const args = { ...input }
 
   // Resolve default values.
   if (!accounts.eventAuthority.value) {
@@ -216,22 +221,22 @@ export async function getConfigureConfigInstructionAsync<
           new Uint8Array([
             95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
             105, 116, 121,
-          ])
+          ]),
         ),
       ],
-    });
+    })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.adminAuthority),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('adminAuthority', accounts.adminAuthority),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getConfigureConfigInstructionDataEncoder().encode(
-      args as ConfigureConfigInstructionDataArgs
+      args as ConfigureConfigInstructionDataArgs,
     ),
     programAddress,
   } as ConfigureConfigInstruction<
@@ -240,7 +245,7 @@ export async function getConfigureConfigInstructionAsync<
     TAccountAdminAuthority,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ConfigureConfigInput<
@@ -249,20 +254,20 @@ export type ConfigureConfigInput<
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
 > = {
-  config: Address<TAccountConfig>;
+  config: Address<TAccountConfig>
   /** only the admin authority can change the config params */
-  adminAuthority: TransactionSigner<TAccountAdminAuthority>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  admin: ConfigureConfigInstructionDataArgs['admin'];
-  operator: ConfigureConfigInstructionDataArgs['operator'];
-  pauseAuthority: ConfigureConfigInstructionDataArgs['pauseAuthority'];
-  epochsToClaimSettlement: ConfigureConfigInstructionDataArgs['epochsToClaimSettlement'];
-  withdrawLockupEpochs: ConfigureConfigInstructionDataArgs['withdrawLockupEpochs'];
-  minimumStakeLamports: ConfigureConfigInstructionDataArgs['minimumStakeLamports'];
-  slotsToStartSettlementClaiming: ConfigureConfigInstructionDataArgs['slotsToStartSettlementClaiming'];
-  minBondMaxStakeWanted: ConfigureConfigInstructionDataArgs['minBondMaxStakeWanted'];
-};
+  adminAuthority: TransactionSigner<TAccountAdminAuthority>
+  eventAuthority: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+  admin: ConfigureConfigInstructionDataArgs['admin']
+  operator: ConfigureConfigInstructionDataArgs['operator']
+  pauseAuthority: ConfigureConfigInstructionDataArgs['pauseAuthority']
+  epochsToClaimSettlement: ConfigureConfigInstructionDataArgs['epochsToClaimSettlement']
+  withdrawLockupEpochs: ConfigureConfigInstructionDataArgs['withdrawLockupEpochs']
+  minimumStakeLamports: ConfigureConfigInstructionDataArgs['minimumStakeLamports']
+  slotsToStartSettlementClaiming: ConfigureConfigInstructionDataArgs['slotsToStartSettlementClaiming']
+  minBondMaxStakeWanted: ConfigureConfigInstructionDataArgs['minBondMaxStakeWanted']
+}
 
 export function getConfigureConfigInstruction<
   TAccountConfig extends string,
@@ -277,7 +282,7 @@ export function getConfigureConfigInstruction<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): ConfigureConfigInstruction<
   TProgramAddress,
   TAccountConfig,
@@ -287,7 +292,7 @@ export function getConfigureConfigInstruction<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -295,25 +300,25 @@ export function getConfigureConfigInstruction<
     adminAuthority: { value: input.adminAuthority ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Original args.
-  const args = { ...input };
+  const args = { ...input }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.adminAuthority),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('adminAuthority', accounts.adminAuthority),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getConfigureConfigInstructionDataEncoder().encode(
-      args as ConfigureConfigInstructionDataArgs
+      args as ConfigureConfigInstructionDataArgs,
     ),
     programAddress,
   } as ConfigureConfigInstruction<
@@ -322,23 +327,23 @@ export function getConfigureConfigInstruction<
     TAccountAdminAuthority,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ParsedConfigureConfigInstruction<
   TProgram extends string = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
-  programAddress: Address<TProgram>;
+  programAddress: Address<TProgram>
   accounts: {
-    config: TAccountMetas[0];
+    config: TAccountMetas[0]
     /** only the admin authority can change the config params */
-    adminAuthority: TAccountMetas[1];
-    eventAuthority: TAccountMetas[2];
-    program: TAccountMetas[3];
-  };
-  data: ConfigureConfigInstructionData;
-};
+    adminAuthority: TAccountMetas[1]
+    eventAuthority: TAccountMetas[2]
+    program: TAccountMetas[3]
+  }
+  data: ConfigureConfigInstructionData
+}
 
 export function parseConfigureConfigInstruction<
   TProgram extends string,
@@ -346,18 +351,23 @@ export function parseConfigureConfigInstruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>
+    InstructionWithData<ReadonlyUint8Array>,
 ): ParsedConfigureConfigInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 4) {
-    // TODO: Coded error.
-    throw new Error('Not enough accounts');
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 4,
+      },
+    )
   }
-  let accountIndex = 0;
+  let accountIndex = 0
   const getNextAccount = () => {
-    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!;
-    accountIndex += 1;
-    return accountMeta;
-  };
+    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!
+    accountIndex += 1
+    return accountMeta
+  }
   return {
     programAddress: instruction.programAddress,
     accounts: {
@@ -367,5 +377,5 @@ export function parseConfigureConfigInstruction<
       program: getNextAccount(),
     },
     data: getConfigureConfigInstructionDataDecoder().decode(instruction.data),
-  };
+  }
 }

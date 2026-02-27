@@ -37,31 +37,32 @@ import {
   type MaybeAccount,
   type MaybeEncodedAccount,
   type ReadonlyUint8Array,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export const SETTLEMENT_CLAIMS_DISCRIMINATOR = new Uint8Array([
   32, 130, 62, 175, 231, 54, 170, 114,
-]);
+])
 
 export function getSettlementClaimsDiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    SETTLEMENT_CLAIMS_DISCRIMINATOR
-  );
+    SETTLEMENT_CLAIMS_DISCRIMINATOR,
+  )
 }
 
 export type SettlementClaims = {
-  discriminator: ReadonlyUint8Array;
-  settlement: Address;
-  version: number;
-  maxRecords: bigint;
-};
+  discriminator: ReadonlyUint8Array
+  settlement: Address
+  version: number
+  maxRecords: bigint
+}
 
 export type SettlementClaimsArgs = {
-  settlement: Address;
-  version: number;
-  maxRecords: number | bigint;
-};
+  settlement: Address
+  version: number
+  maxRecords: number | bigint
+}
 
+/** Gets the encoder for {@link SettlementClaimsArgs} account data. */
 export function getSettlementClaimsEncoder(): FixedSizeEncoder<SettlementClaimsArgs> {
   return transformEncoder(
     getStructEncoder([
@@ -70,54 +71,56 @@ export function getSettlementClaimsEncoder(): FixedSizeEncoder<SettlementClaimsA
       ['version', getU8Encoder()],
       ['maxRecords', getU64Encoder()],
     ]),
-    (value) => ({ ...value, discriminator: SETTLEMENT_CLAIMS_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: SETTLEMENT_CLAIMS_DISCRIMINATOR }),
+  )
 }
 
+/** Gets the decoder for {@link SettlementClaims} account data. */
 export function getSettlementClaimsDecoder(): FixedSizeDecoder<SettlementClaims> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
     ['settlement', getAddressDecoder()],
     ['version', getU8Decoder()],
     ['maxRecords', getU64Decoder()],
-  ]);
+  ])
 }
 
+/** Gets the codec for {@link SettlementClaims} account data. */
 export function getSettlementClaimsCodec(): FixedSizeCodec<
   SettlementClaimsArgs,
   SettlementClaims
 > {
   return combineCodec(
     getSettlementClaimsEncoder(),
-    getSettlementClaimsDecoder()
-  );
+    getSettlementClaimsDecoder(),
+  )
 }
 
 export function decodeSettlementClaims<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress>
-): Account<SettlementClaims, TAddress>;
+  encodedAccount: EncodedAccount<TAddress>,
+): Account<SettlementClaims, TAddress>
 export function decodeSettlementClaims<TAddress extends string = string>(
-  encodedAccount: MaybeEncodedAccount<TAddress>
-): MaybeAccount<SettlementClaims, TAddress>;
+  encodedAccount: MaybeEncodedAccount<TAddress>,
+): MaybeAccount<SettlementClaims, TAddress>
 export function decodeSettlementClaims<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>
+  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>,
 ):
   | Account<SettlementClaims, TAddress>
   | MaybeAccount<SettlementClaims, TAddress> {
   return decodeAccount(
     encodedAccount as MaybeEncodedAccount<TAddress>,
-    getSettlementClaimsDecoder()
-  );
+    getSettlementClaimsDecoder(),
+  )
 }
 
 export async function fetchSettlementClaims<TAddress extends string = string>(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
-  config?: FetchAccountConfig
+  config?: FetchAccountConfig,
 ): Promise<Account<SettlementClaims, TAddress>> {
-  const maybeAccount = await fetchMaybeSettlementClaims(rpc, address, config);
-  assertAccountExists(maybeAccount);
-  return maybeAccount;
+  const maybeAccount = await fetchMaybeSettlementClaims(rpc, address, config)
+  assertAccountExists(maybeAccount)
+  return maybeAccount
 }
 
 export async function fetchMaybeSettlementClaims<
@@ -125,37 +128,35 @@ export async function fetchMaybeSettlementClaims<
 >(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
-  config?: FetchAccountConfig
+  config?: FetchAccountConfig,
 ): Promise<MaybeAccount<SettlementClaims, TAddress>> {
-  const maybeAccount = await fetchEncodedAccount(rpc, address, config);
-  return decodeSettlementClaims(maybeAccount);
+  const maybeAccount = await fetchEncodedAccount(rpc, address, config)
+  return decodeSettlementClaims(maybeAccount)
 }
 
 export async function fetchAllSettlementClaims(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
-  config?: FetchAccountsConfig
+  config?: FetchAccountsConfig,
 ): Promise<Account<SettlementClaims>[]> {
   const maybeAccounts = await fetchAllMaybeSettlementClaims(
     rpc,
     addresses,
-    config
-  );
-  assertAccountsExist(maybeAccounts);
-  return maybeAccounts;
+    config,
+  )
+  assertAccountsExist(maybeAccounts)
+  return maybeAccounts
 }
 
 export async function fetchAllMaybeSettlementClaims(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
-  config?: FetchAccountsConfig
+  config?: FetchAccountsConfig,
 ): Promise<MaybeAccount<SettlementClaims>[]> {
-  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config);
-  return maybeAccounts.map((maybeAccount) =>
-    decodeSettlementClaims(maybeAccount)
-  );
+  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config)
+  return maybeAccounts.map(maybeAccount => decodeSettlementClaims(maybeAccount))
 }
 
 export function getSettlementClaimsSize(): number {
-  return 49;
+  return 49
 }

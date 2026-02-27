@@ -19,6 +19,8 @@ import {
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -35,22 +37,22 @@ import {
   type TransactionSigner,
   type WritableAccount,
   type WritableSignerAccount,
-} from '@solana/kit';
-import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs';
+} from '@solana/kit'
 import {
-  expectAddress,
   getAccountMetaFactory,
-  type ResolvedAccount,
-} from '../shared';
+  getAddressFromResolvedInstructionAccount,
+  type ResolvedInstructionAccount,
+} from '@solana/program-client-core'
+import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
 export const INIT_SETTLEMENT_DISCRIMINATOR = new Uint8Array([
   152, 178, 0, 65, 52, 210, 247, 58,
-]);
+])
 
 export function getInitSettlementDiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    INIT_SETTLEMENT_DISCRIMINATOR
-  );
+    INIT_SETTLEMENT_DISCRIMINATOR,
+  )
 }
 
 export type InitSettlementInstruction<
@@ -61,9 +63,8 @@ export type InitSettlementInstruction<
   TAccountSettlementClaims extends string | AccountMeta<string> = string,
   TAccountOperatorAuthority extends string | AccountMeta<string> = string,
   TAccountRentPayer extends string | AccountMeta<string> = string,
-  TAccountSystemProgram extends
-    | string
-    | AccountMeta<string> = '11111111111111111111111111111111',
+  TAccountSystemProgram extends string | AccountMeta<string> =
+    '11111111111111111111111111111111',
   TAccountEventAuthority extends string | AccountMeta<string> = string,
   TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -102,40 +103,40 @@ export type InitSettlementInstruction<
         : TAccountProgram,
       ...TRemainingAccounts,
     ]
-  >;
+  >
 
 export type InitSettlementInstructionData = {
-  discriminator: ReadonlyUint8Array;
+  discriminator: ReadonlyUint8Array
   /**
    * merkle root for this settlement, multiple settlements can be created with the same merkle root,
    * settlements will be distinguished by the vote_account
    */
-  merkleRoot: ReadonlyUint8Array;
+  merkleRoot: ReadonlyUint8Array
   /** maximal number of lamports that can be claimed from this settlement */
-  maxTotalClaim: bigint;
+  maxTotalClaim: bigint
   /** maximal number of merkle tree nodes that can be claimed from this settlement */
-  maxMerkleNodes: bigint;
+  maxMerkleNodes: bigint
   /** collects the rent exempt from the settlement account when closed */
-  rentCollector: Address;
+  rentCollector: Address
   /** epoch that the settlement is created for */
-  epoch: bigint;
-};
+  epoch: bigint
+}
 
 export type InitSettlementInstructionDataArgs = {
   /**
    * merkle root for this settlement, multiple settlements can be created with the same merkle root,
    * settlements will be distinguished by the vote_account
    */
-  merkleRoot: ReadonlyUint8Array;
+  merkleRoot: ReadonlyUint8Array
   /** maximal number of lamports that can be claimed from this settlement */
-  maxTotalClaim: number | bigint;
+  maxTotalClaim: number | bigint
   /** maximal number of merkle tree nodes that can be claimed from this settlement */
-  maxMerkleNodes: number | bigint;
+  maxMerkleNodes: number | bigint
   /** collects the rent exempt from the settlement account when closed */
-  rentCollector: Address;
+  rentCollector: Address
   /** epoch that the settlement is created for */
-  epoch: number | bigint;
-};
+  epoch: number | bigint
+}
 
 export function getInitSettlementInstructionDataEncoder(): FixedSizeEncoder<InitSettlementInstructionDataArgs> {
   return transformEncoder(
@@ -147,8 +148,8 @@ export function getInitSettlementInstructionDataEncoder(): FixedSizeEncoder<Init
       ['rentCollector', getAddressEncoder()],
       ['epoch', getU64Encoder()],
     ]),
-    (value) => ({ ...value, discriminator: INIT_SETTLEMENT_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: INIT_SETTLEMENT_DISCRIMINATOR }),
+  )
 }
 
 export function getInitSettlementInstructionDataDecoder(): FixedSizeDecoder<InitSettlementInstructionData> {
@@ -159,7 +160,7 @@ export function getInitSettlementInstructionDataDecoder(): FixedSizeDecoder<Init
     ['maxMerkleNodes', getU64Decoder()],
     ['rentCollector', getAddressDecoder()],
     ['epoch', getU64Decoder()],
-  ]);
+  ])
 }
 
 export function getInitSettlementInstructionDataCodec(): FixedSizeCodec<
@@ -168,8 +169,8 @@ export function getInitSettlementInstructionDataCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getInitSettlementInstructionDataEncoder(),
-    getInitSettlementInstructionDataDecoder()
-  );
+    getInitSettlementInstructionDataDecoder(),
+  )
 }
 
 export type InitSettlementAsyncInput<
@@ -183,23 +184,23 @@ export type InitSettlementAsyncInput<
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
 > = {
-  config: Address<TAccountConfig>;
-  bond: Address<TAccountBond>;
-  settlement: Address<TAccountSettlement>;
-  settlementClaims?: Address<TAccountSettlementClaims>;
+  config: Address<TAccountConfig>
+  bond: Address<TAccountBond>
+  settlement: Address<TAccountSettlement>
+  settlementClaims?: Address<TAccountSettlementClaims>
   /** operator signer authority that is allowed to create the settlement account */
-  operatorAuthority: TransactionSigner<TAccountOperatorAuthority>;
+  operatorAuthority: TransactionSigner<TAccountOperatorAuthority>
   /** rent exempt payer of account creation */
-  rentPayer: TransactionSigner<TAccountRentPayer>;
-  systemProgram?: Address<TAccountSystemProgram>;
-  eventAuthority?: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  merkleRoot: InitSettlementInstructionDataArgs['merkleRoot'];
-  maxTotalClaim: InitSettlementInstructionDataArgs['maxTotalClaim'];
-  maxMerkleNodes: InitSettlementInstructionDataArgs['maxMerkleNodes'];
-  rentCollector: InitSettlementInstructionDataArgs['rentCollector'];
-  epoch: InitSettlementInstructionDataArgs['epoch'];
-};
+  rentPayer: TransactionSigner<TAccountRentPayer>
+  systemProgram?: Address<TAccountSystemProgram>
+  eventAuthority?: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+  merkleRoot: InitSettlementInstructionDataArgs['merkleRoot']
+  maxTotalClaim: InitSettlementInstructionDataArgs['maxTotalClaim']
+  maxMerkleNodes: InitSettlementInstructionDataArgs['maxMerkleNodes']
+  rentCollector: InitSettlementInstructionDataArgs['rentCollector']
+  epoch: InitSettlementInstructionDataArgs['epoch']
+}
 
 export async function getInitSettlementInstructionAsync<
   TAccountConfig extends string,
@@ -224,7 +225,7 @@ export async function getInitSettlementInstructionAsync<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): Promise<
   InitSettlementInstruction<
     TProgramAddress,
@@ -241,7 +242,7 @@ export async function getInitSettlementInstructionAsync<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -260,14 +261,14 @@ export async function getInitSettlementInstructionAsync<
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Original args.
-  const args = { ...input };
+  const args = { ...input }
 
   // Resolve default values.
   if (!accounts.settlementClaims.value) {
@@ -277,15 +278,20 @@ export async function getInitSettlementInstructionAsync<
         getBytesEncoder().encode(
           new Uint8Array([
             99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110, 116,
-          ])
+          ]),
         ),
-        getAddressEncoder().encode(expectAddress(accounts.settlement.value)),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'settlement',
+            accounts.settlement.value,
+          ),
+        ),
       ],
-    });
+    })
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
-      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>;
+      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
   }
   if (!accounts.eventAuthority.value) {
     accounts.eventAuthority.value = await getProgramDerivedAddress({
@@ -295,27 +301,27 @@ export async function getInitSettlementInstructionAsync<
           new Uint8Array([
             95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
             105, 116, 121,
-          ])
+          ]),
         ),
       ],
-    });
+    })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.bond),
-      getAccountMeta(accounts.settlement),
-      getAccountMeta(accounts.settlementClaims),
-      getAccountMeta(accounts.operatorAuthority),
-      getAccountMeta(accounts.rentPayer),
-      getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('bond', accounts.bond),
+      getAccountMeta('settlement', accounts.settlement),
+      getAccountMeta('settlementClaims', accounts.settlementClaims),
+      getAccountMeta('operatorAuthority', accounts.operatorAuthority),
+      getAccountMeta('rentPayer', accounts.rentPayer),
+      getAccountMeta('systemProgram', accounts.systemProgram),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getInitSettlementInstructionDataEncoder().encode(
-      args as InitSettlementInstructionDataArgs
+      args as InitSettlementInstructionDataArgs,
     ),
     programAddress,
   } as InitSettlementInstruction<
@@ -329,7 +335,7 @@ export async function getInitSettlementInstructionAsync<
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type InitSettlementInput<
@@ -343,23 +349,23 @@ export type InitSettlementInput<
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
 > = {
-  config: Address<TAccountConfig>;
-  bond: Address<TAccountBond>;
-  settlement: Address<TAccountSettlement>;
-  settlementClaims: Address<TAccountSettlementClaims>;
+  config: Address<TAccountConfig>
+  bond: Address<TAccountBond>
+  settlement: Address<TAccountSettlement>
+  settlementClaims: Address<TAccountSettlementClaims>
   /** operator signer authority that is allowed to create the settlement account */
-  operatorAuthority: TransactionSigner<TAccountOperatorAuthority>;
+  operatorAuthority: TransactionSigner<TAccountOperatorAuthority>
   /** rent exempt payer of account creation */
-  rentPayer: TransactionSigner<TAccountRentPayer>;
-  systemProgram?: Address<TAccountSystemProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  merkleRoot: InitSettlementInstructionDataArgs['merkleRoot'];
-  maxTotalClaim: InitSettlementInstructionDataArgs['maxTotalClaim'];
-  maxMerkleNodes: InitSettlementInstructionDataArgs['maxMerkleNodes'];
-  rentCollector: InitSettlementInstructionDataArgs['rentCollector'];
-  epoch: InitSettlementInstructionDataArgs['epoch'];
-};
+  rentPayer: TransactionSigner<TAccountRentPayer>
+  systemProgram?: Address<TAccountSystemProgram>
+  eventAuthority: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+  merkleRoot: InitSettlementInstructionDataArgs['merkleRoot']
+  maxTotalClaim: InitSettlementInstructionDataArgs['maxTotalClaim']
+  maxMerkleNodes: InitSettlementInstructionDataArgs['maxMerkleNodes']
+  rentCollector: InitSettlementInstructionDataArgs['rentCollector']
+  epoch: InitSettlementInstructionDataArgs['epoch']
+}
 
 export function getInitSettlementInstruction<
   TAccountConfig extends string,
@@ -384,7 +390,7 @@ export function getInitSettlementInstruction<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): InitSettlementInstruction<
   TProgramAddress,
   TAccountConfig,
@@ -399,7 +405,7 @@ export function getInitSettlementInstruction<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -418,36 +424,36 @@ export function getInitSettlementInstruction<
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Original args.
-  const args = { ...input };
+  const args = { ...input }
 
   // Resolve default values.
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
-      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>;
+      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.bond),
-      getAccountMeta(accounts.settlement),
-      getAccountMeta(accounts.settlementClaims),
-      getAccountMeta(accounts.operatorAuthority),
-      getAccountMeta(accounts.rentPayer),
-      getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('bond', accounts.bond),
+      getAccountMeta('settlement', accounts.settlement),
+      getAccountMeta('settlementClaims', accounts.settlementClaims),
+      getAccountMeta('operatorAuthority', accounts.operatorAuthority),
+      getAccountMeta('rentPayer', accounts.rentPayer),
+      getAccountMeta('systemProgram', accounts.systemProgram),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getInitSettlementInstructionDataEncoder().encode(
-      args as InitSettlementInstructionDataArgs
+      args as InitSettlementInstructionDataArgs,
     ),
     programAddress,
   } as InitSettlementInstruction<
@@ -461,29 +467,29 @@ export function getInitSettlementInstruction<
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ParsedInitSettlementInstruction<
   TProgram extends string = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
-  programAddress: Address<TProgram>;
+  programAddress: Address<TProgram>
   accounts: {
-    config: TAccountMetas[0];
-    bond: TAccountMetas[1];
-    settlement: TAccountMetas[2];
-    settlementClaims: TAccountMetas[3];
+    config: TAccountMetas[0]
+    bond: TAccountMetas[1]
+    settlement: TAccountMetas[2]
+    settlementClaims: TAccountMetas[3]
     /** operator signer authority that is allowed to create the settlement account */
-    operatorAuthority: TAccountMetas[4];
+    operatorAuthority: TAccountMetas[4]
     /** rent exempt payer of account creation */
-    rentPayer: TAccountMetas[5];
-    systemProgram: TAccountMetas[6];
-    eventAuthority: TAccountMetas[7];
-    program: TAccountMetas[8];
-  };
-  data: InitSettlementInstructionData;
-};
+    rentPayer: TAccountMetas[5]
+    systemProgram: TAccountMetas[6]
+    eventAuthority: TAccountMetas[7]
+    program: TAccountMetas[8]
+  }
+  data: InitSettlementInstructionData
+}
 
 export function parseInitSettlementInstruction<
   TProgram extends string,
@@ -491,18 +497,23 @@ export function parseInitSettlementInstruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>
+    InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitSettlementInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 9) {
-    // TODO: Coded error.
-    throw new Error('Not enough accounts');
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 9,
+      },
+    )
   }
-  let accountIndex = 0;
+  let accountIndex = 0
   const getNextAccount = () => {
-    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!;
-    accountIndex += 1;
-    return accountMeta;
-  };
+    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!
+    accountIndex += 1
+    return accountMeta
+  }
   return {
     programAddress: instruction.programAddress,
     accounts: {
@@ -517,5 +528,5 @@ export function parseInitSettlementInstruction<
       program: getNextAccount(),
     },
     data: getInitSettlementInstructionDataDecoder().decode(instruction.data),
-  };
+  }
 }

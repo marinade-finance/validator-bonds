@@ -21,6 +21,8 @@ import {
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type Address,
@@ -33,22 +35,22 @@ import {
   type ReadonlyAccount,
   type ReadonlyUint8Array,
   type WritableAccount,
-} from '@solana/kit';
-import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs';
+} from '@solana/kit'
 import {
-  expectAddress,
   getAccountMetaFactory,
-  type ResolvedAccount,
-} from '../shared';
+  getAddressFromResolvedInstructionAccount,
+  type ResolvedInstructionAccount,
+} from '@solana/program-client-core'
+import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
 export const CLAIM_SETTLEMENT_V2_DISCRIMINATOR = new Uint8Array([
   188, 53, 132, 151, 88, 50, 52, 238,
-]);
+])
 
 export function getClaimSettlementV2DiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    CLAIM_SETTLEMENT_V2_DISCRIMINATOR
-  );
+    CLAIM_SETTLEMENT_V2_DISCRIMINATOR,
+  )
 }
 
 export type ClaimSettlementV2Instruction<
@@ -59,18 +61,14 @@ export type ClaimSettlementV2Instruction<
   TAccountSettlementClaims extends string | AccountMeta<string> = string,
   TAccountStakeAccountFrom extends string | AccountMeta<string> = string,
   TAccountStakeAccountTo extends string | AccountMeta<string> = string,
-  TAccountBondsWithdrawerAuthority extends
-    | string
-    | AccountMeta<string> = string,
-  TAccountStakeHistory extends
-    | string
-    | AccountMeta<string> = 'SysvarStakeHistory1111111111111111111111111',
-  TAccountClock extends
-    | string
-    | AccountMeta<string> = 'SysvarC1ock11111111111111111111111111111111',
-  TAccountStakeProgram extends
-    | string
-    | AccountMeta<string> = 'Stake11111111111111111111111111111111111111',
+  TAccountBondsWithdrawerAuthority extends string | AccountMeta<string> =
+    string,
+  TAccountStakeHistory extends string | AccountMeta<string> =
+    'SysvarStakeHistory1111111111111111111111111',
+  TAccountClock extends string | AccountMeta<string> =
+    'SysvarC1ock11111111111111111111111111111111',
+  TAccountStakeProgram extends string | AccountMeta<string> =
+    'Stake11111111111111111111111111111111111111',
   TAccountEventAuthority extends string | AccountMeta<string> = string,
   TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -116,36 +114,36 @@ export type ClaimSettlementV2Instruction<
         : TAccountProgram,
       ...TRemainingAccounts,
     ]
-  >;
+  >
 
 export type ClaimSettlementV2InstructionData = {
-  discriminator: ReadonlyUint8Array;
+  discriminator: ReadonlyUint8Array
   /** proof that the claim is appropriate */
-  proof: Array<ReadonlyUint8Array>;
-  treeNodeHash: ReadonlyUint8Array;
+  proof: Array<ReadonlyUint8Array>
+  treeNodeHash: ReadonlyUint8Array
   /** staker authority of the stake_account_to; merkle root verification */
-  stakeAccountStaker: Address;
+  stakeAccountStaker: Address
   /** withdrawer authority of the stake_account_to; merkle root verification */
-  stakeAccountWithdrawer: Address;
+  stakeAccountWithdrawer: Address
   /** claim amount; merkle root verification */
-  claim: bigint;
+  claim: bigint
   /** index, ordered claim record in the settlement list; merkle root verification */
-  index: bigint;
-};
+  index: bigint
+}
 
 export type ClaimSettlementV2InstructionDataArgs = {
   /** proof that the claim is appropriate */
-  proof: Array<ReadonlyUint8Array>;
-  treeNodeHash: ReadonlyUint8Array;
+  proof: Array<ReadonlyUint8Array>
+  treeNodeHash: ReadonlyUint8Array
   /** staker authority of the stake_account_to; merkle root verification */
-  stakeAccountStaker: Address;
+  stakeAccountStaker: Address
   /** withdrawer authority of the stake_account_to; merkle root verification */
-  stakeAccountWithdrawer: Address;
+  stakeAccountWithdrawer: Address
   /** claim amount; merkle root verification */
-  claim: number | bigint;
+  claim: number | bigint
   /** index, ordered claim record in the settlement list; merkle root verification */
-  index: number | bigint;
-};
+  index: number | bigint
+}
 
 export function getClaimSettlementV2InstructionDataEncoder(): Encoder<ClaimSettlementV2InstructionDataArgs> {
   return transformEncoder(
@@ -158,8 +156,8 @@ export function getClaimSettlementV2InstructionDataEncoder(): Encoder<ClaimSettl
       ['claim', getU64Encoder()],
       ['index', getU64Encoder()],
     ]),
-    (value) => ({ ...value, discriminator: CLAIM_SETTLEMENT_V2_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: CLAIM_SETTLEMENT_V2_DISCRIMINATOR }),
+  )
 }
 
 export function getClaimSettlementV2InstructionDataDecoder(): Decoder<ClaimSettlementV2InstructionData> {
@@ -171,7 +169,7 @@ export function getClaimSettlementV2InstructionDataDecoder(): Decoder<ClaimSettl
     ['stakeAccountWithdrawer', getAddressDecoder()],
     ['claim', getU64Decoder()],
     ['index', getU64Decoder()],
-  ]);
+  ])
 }
 
 export function getClaimSettlementV2InstructionDataCodec(): Codec<
@@ -180,8 +178,8 @@ export function getClaimSettlementV2InstructionDataCodec(): Codec<
 > {
   return combineCodec(
     getClaimSettlementV2InstructionDataEncoder(),
-    getClaimSettlementV2InstructionDataDecoder()
-  );
+    getClaimSettlementV2InstructionDataDecoder(),
+  )
 }
 
 export type ClaimSettlementV2AsyncInput<
@@ -199,29 +197,29 @@ export type ClaimSettlementV2AsyncInput<
   TAccountProgram extends string = string,
 > = {
   /** the config account under which the settlement was created */
-  config: Address<TAccountConfig>;
-  bond: Address<TAccountBond>;
-  settlement: Address<TAccountSettlement>;
+  config: Address<TAccountConfig>
+  bond: Address<TAccountBond>
+  settlement: Address<TAccountSettlement>
   /** deduplication, merkle tree record cannot be claimed twice */
-  settlementClaims?: Address<TAccountSettlementClaims>;
+  settlementClaims?: Address<TAccountSettlementClaims>
   /** a stake account that will be withdrawn */
-  stakeAccountFrom: Address<TAccountStakeAccountFrom>;
+  stakeAccountFrom: Address<TAccountStakeAccountFrom>
   /** a stake account that will receive the funds */
-  stakeAccountTo: Address<TAccountStakeAccountTo>;
+  stakeAccountTo: Address<TAccountStakeAccountTo>
   /** authority that manages (owns == by being withdrawer authority) all stakes account under the bonds program */
-  bondsWithdrawerAuthority?: Address<TAccountBondsWithdrawerAuthority>;
-  stakeHistory?: Address<TAccountStakeHistory>;
-  clock?: Address<TAccountClock>;
-  stakeProgram?: Address<TAccountStakeProgram>;
-  eventAuthority?: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  proof: ClaimSettlementV2InstructionDataArgs['proof'];
-  treeNodeHash: ClaimSettlementV2InstructionDataArgs['treeNodeHash'];
-  stakeAccountStaker: ClaimSettlementV2InstructionDataArgs['stakeAccountStaker'];
-  stakeAccountWithdrawer: ClaimSettlementV2InstructionDataArgs['stakeAccountWithdrawer'];
-  claim: ClaimSettlementV2InstructionDataArgs['claim'];
-  index: ClaimSettlementV2InstructionDataArgs['index'];
-};
+  bondsWithdrawerAuthority?: Address<TAccountBondsWithdrawerAuthority>
+  stakeHistory?: Address<TAccountStakeHistory>
+  clock?: Address<TAccountClock>
+  stakeProgram?: Address<TAccountStakeProgram>
+  eventAuthority?: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+  proof: ClaimSettlementV2InstructionDataArgs['proof']
+  treeNodeHash: ClaimSettlementV2InstructionDataArgs['treeNodeHash']
+  stakeAccountStaker: ClaimSettlementV2InstructionDataArgs['stakeAccountStaker']
+  stakeAccountWithdrawer: ClaimSettlementV2InstructionDataArgs['stakeAccountWithdrawer']
+  claim: ClaimSettlementV2InstructionDataArgs['claim']
+  index: ClaimSettlementV2InstructionDataArgs['index']
+}
 
 export async function getClaimSettlementV2InstructionAsync<
   TAccountConfig extends string,
@@ -252,7 +250,7 @@ export async function getClaimSettlementV2InstructionAsync<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): Promise<
   ClaimSettlementV2Instruction<
     TProgramAddress,
@@ -272,7 +270,7 @@ export async function getClaimSettlementV2InstructionAsync<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -297,14 +295,14 @@ export async function getClaimSettlementV2InstructionAsync<
     stakeProgram: { value: input.stakeProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Original args.
-  const args = { ...input };
+  const args = { ...input }
 
   // Resolve default values.
   if (!accounts.settlementClaims.value) {
@@ -314,11 +312,16 @@ export async function getClaimSettlementV2InstructionAsync<
         getBytesEncoder().encode(
           new Uint8Array([
             99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110, 116,
-          ])
+          ]),
         ),
-        getAddressEncoder().encode(expectAddress(accounts.settlement.value)),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'settlement',
+            accounts.settlement.value,
+          ),
+        ),
       ],
-    });
+    })
   }
   if (!accounts.bondsWithdrawerAuthority.value) {
     accounts.bondsWithdrawerAuthority.value = await getProgramDerivedAddress({
@@ -328,23 +331,28 @@ export async function getClaimSettlementV2InstructionAsync<
           new Uint8Array([
             98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105, 116,
             121,
-          ])
+          ]),
         ),
-        getAddressEncoder().encode(expectAddress(accounts.config.value)),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'config',
+            accounts.config.value,
+          ),
+        ),
       ],
-    });
+    })
   }
   if (!accounts.stakeHistory.value) {
     accounts.stakeHistory.value =
-      'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>;
+      'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>
   }
   if (!accounts.clock.value) {
     accounts.clock.value =
-      'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>;
+      'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>
   }
   if (!accounts.stakeProgram.value) {
     accounts.stakeProgram.value =
-      'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>;
+      'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>
   }
   if (!accounts.eventAuthority.value) {
     accounts.eventAuthority.value = await getProgramDerivedAddress({
@@ -354,30 +362,33 @@ export async function getClaimSettlementV2InstructionAsync<
           new Uint8Array([
             95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
             105, 116, 121,
-          ])
+          ]),
         ),
       ],
-    });
+    })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.bond),
-      getAccountMeta(accounts.settlement),
-      getAccountMeta(accounts.settlementClaims),
-      getAccountMeta(accounts.stakeAccountFrom),
-      getAccountMeta(accounts.stakeAccountTo),
-      getAccountMeta(accounts.bondsWithdrawerAuthority),
-      getAccountMeta(accounts.stakeHistory),
-      getAccountMeta(accounts.clock),
-      getAccountMeta(accounts.stakeProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('bond', accounts.bond),
+      getAccountMeta('settlement', accounts.settlement),
+      getAccountMeta('settlementClaims', accounts.settlementClaims),
+      getAccountMeta('stakeAccountFrom', accounts.stakeAccountFrom),
+      getAccountMeta('stakeAccountTo', accounts.stakeAccountTo),
+      getAccountMeta(
+        'bondsWithdrawerAuthority',
+        accounts.bondsWithdrawerAuthority,
+      ),
+      getAccountMeta('stakeHistory', accounts.stakeHistory),
+      getAccountMeta('clock', accounts.clock),
+      getAccountMeta('stakeProgram', accounts.stakeProgram),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getClaimSettlementV2InstructionDataEncoder().encode(
-      args as ClaimSettlementV2InstructionDataArgs
+      args as ClaimSettlementV2InstructionDataArgs,
     ),
     programAddress,
   } as ClaimSettlementV2Instruction<
@@ -394,7 +405,7 @@ export async function getClaimSettlementV2InstructionAsync<
     TAccountStakeProgram,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ClaimSettlementV2Input<
@@ -412,29 +423,29 @@ export type ClaimSettlementV2Input<
   TAccountProgram extends string = string,
 > = {
   /** the config account under which the settlement was created */
-  config: Address<TAccountConfig>;
-  bond: Address<TAccountBond>;
-  settlement: Address<TAccountSettlement>;
+  config: Address<TAccountConfig>
+  bond: Address<TAccountBond>
+  settlement: Address<TAccountSettlement>
   /** deduplication, merkle tree record cannot be claimed twice */
-  settlementClaims: Address<TAccountSettlementClaims>;
+  settlementClaims: Address<TAccountSettlementClaims>
   /** a stake account that will be withdrawn */
-  stakeAccountFrom: Address<TAccountStakeAccountFrom>;
+  stakeAccountFrom: Address<TAccountStakeAccountFrom>
   /** a stake account that will receive the funds */
-  stakeAccountTo: Address<TAccountStakeAccountTo>;
+  stakeAccountTo: Address<TAccountStakeAccountTo>
   /** authority that manages (owns == by being withdrawer authority) all stakes account under the bonds program */
-  bondsWithdrawerAuthority: Address<TAccountBondsWithdrawerAuthority>;
-  stakeHistory?: Address<TAccountStakeHistory>;
-  clock?: Address<TAccountClock>;
-  stakeProgram?: Address<TAccountStakeProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  proof: ClaimSettlementV2InstructionDataArgs['proof'];
-  treeNodeHash: ClaimSettlementV2InstructionDataArgs['treeNodeHash'];
-  stakeAccountStaker: ClaimSettlementV2InstructionDataArgs['stakeAccountStaker'];
-  stakeAccountWithdrawer: ClaimSettlementV2InstructionDataArgs['stakeAccountWithdrawer'];
-  claim: ClaimSettlementV2InstructionDataArgs['claim'];
-  index: ClaimSettlementV2InstructionDataArgs['index'];
-};
+  bondsWithdrawerAuthority: Address<TAccountBondsWithdrawerAuthority>
+  stakeHistory?: Address<TAccountStakeHistory>
+  clock?: Address<TAccountClock>
+  stakeProgram?: Address<TAccountStakeProgram>
+  eventAuthority: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+  proof: ClaimSettlementV2InstructionDataArgs['proof']
+  treeNodeHash: ClaimSettlementV2InstructionDataArgs['treeNodeHash']
+  stakeAccountStaker: ClaimSettlementV2InstructionDataArgs['stakeAccountStaker']
+  stakeAccountWithdrawer: ClaimSettlementV2InstructionDataArgs['stakeAccountWithdrawer']
+  claim: ClaimSettlementV2InstructionDataArgs['claim']
+  index: ClaimSettlementV2InstructionDataArgs['index']
+}
 
 export function getClaimSettlementV2Instruction<
   TAccountConfig extends string,
@@ -465,7 +476,7 @@ export function getClaimSettlementV2Instruction<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): ClaimSettlementV2Instruction<
   TProgramAddress,
   TAccountConfig,
@@ -483,7 +494,7 @@ export function getClaimSettlementV2Instruction<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -508,47 +519,50 @@ export function getClaimSettlementV2Instruction<
     stakeProgram: { value: input.stakeProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Original args.
-  const args = { ...input };
+  const args = { ...input }
 
   // Resolve default values.
   if (!accounts.stakeHistory.value) {
     accounts.stakeHistory.value =
-      'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>;
+      'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>
   }
   if (!accounts.clock.value) {
     accounts.clock.value =
-      'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>;
+      'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>
   }
   if (!accounts.stakeProgram.value) {
     accounts.stakeProgram.value =
-      'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>;
+      'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.bond),
-      getAccountMeta(accounts.settlement),
-      getAccountMeta(accounts.settlementClaims),
-      getAccountMeta(accounts.stakeAccountFrom),
-      getAccountMeta(accounts.stakeAccountTo),
-      getAccountMeta(accounts.bondsWithdrawerAuthority),
-      getAccountMeta(accounts.stakeHistory),
-      getAccountMeta(accounts.clock),
-      getAccountMeta(accounts.stakeProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('bond', accounts.bond),
+      getAccountMeta('settlement', accounts.settlement),
+      getAccountMeta('settlementClaims', accounts.settlementClaims),
+      getAccountMeta('stakeAccountFrom', accounts.stakeAccountFrom),
+      getAccountMeta('stakeAccountTo', accounts.stakeAccountTo),
+      getAccountMeta(
+        'bondsWithdrawerAuthority',
+        accounts.bondsWithdrawerAuthority,
+      ),
+      getAccountMeta('stakeHistory', accounts.stakeHistory),
+      getAccountMeta('clock', accounts.clock),
+      getAccountMeta('stakeProgram', accounts.stakeProgram),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getClaimSettlementV2InstructionDataEncoder().encode(
-      args as ClaimSettlementV2InstructionDataArgs
+      args as ClaimSettlementV2InstructionDataArgs,
     ),
     programAddress,
   } as ClaimSettlementV2Instruction<
@@ -565,35 +579,35 @@ export function getClaimSettlementV2Instruction<
     TAccountStakeProgram,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ParsedClaimSettlementV2Instruction<
   TProgram extends string = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
-  programAddress: Address<TProgram>;
+  programAddress: Address<TProgram>
   accounts: {
     /** the config account under which the settlement was created */
-    config: TAccountMetas[0];
-    bond: TAccountMetas[1];
-    settlement: TAccountMetas[2];
+    config: TAccountMetas[0]
+    bond: TAccountMetas[1]
+    settlement: TAccountMetas[2]
     /** deduplication, merkle tree record cannot be claimed twice */
-    settlementClaims: TAccountMetas[3];
+    settlementClaims: TAccountMetas[3]
     /** a stake account that will be withdrawn */
-    stakeAccountFrom: TAccountMetas[4];
+    stakeAccountFrom: TAccountMetas[4]
     /** a stake account that will receive the funds */
-    stakeAccountTo: TAccountMetas[5];
+    stakeAccountTo: TAccountMetas[5]
     /** authority that manages (owns == by being withdrawer authority) all stakes account under the bonds program */
-    bondsWithdrawerAuthority: TAccountMetas[6];
-    stakeHistory: TAccountMetas[7];
-    clock: TAccountMetas[8];
-    stakeProgram: TAccountMetas[9];
-    eventAuthority: TAccountMetas[10];
-    program: TAccountMetas[11];
-  };
-  data: ClaimSettlementV2InstructionData;
-};
+    bondsWithdrawerAuthority: TAccountMetas[6]
+    stakeHistory: TAccountMetas[7]
+    clock: TAccountMetas[8]
+    stakeProgram: TAccountMetas[9]
+    eventAuthority: TAccountMetas[10]
+    program: TAccountMetas[11]
+  }
+  data: ClaimSettlementV2InstructionData
+}
 
 export function parseClaimSettlementV2Instruction<
   TProgram extends string,
@@ -601,18 +615,23 @@ export function parseClaimSettlementV2Instruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>
+    InstructionWithData<ReadonlyUint8Array>,
 ): ParsedClaimSettlementV2Instruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 12) {
-    // TODO: Coded error.
-    throw new Error('Not enough accounts');
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 12,
+      },
+    )
   }
-  let accountIndex = 0;
+  let accountIndex = 0
   const getNextAccount = () => {
-    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!;
-    accountIndex += 1;
-    return accountMeta;
-  };
+    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!
+    accountIndex += 1
+    return accountMeta
+  }
   return {
     programAddress: instruction.programAddress,
     accounts: {
@@ -630,5 +649,5 @@ export function parseClaimSettlementV2Instruction<
       program: getNextAccount(),
     },
     data: getClaimSettlementV2InstructionDataDecoder().decode(instruction.data),
-  };
+  }
 }

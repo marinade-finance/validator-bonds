@@ -15,22 +15,22 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export type Bumps = {
-  pda: number;
-  stakerAuthority: number;
-  settlementClaims: number;
-};
+  pda: number
+  stakerAuthority: number
+  settlementClaims: number
+}
 
-export type BumpsArgs = Bumps;
+export type BumpsArgs = Bumps
 
 export function getBumpsEncoder(): FixedSizeEncoder<BumpsArgs> {
   return getStructEncoder([
     ['pda', getU8Encoder()],
     ['stakerAuthority', getU8Encoder()],
     ['settlementClaims', getU8Encoder()],
-  ]);
+  ])
 }
 
 export function getBumpsDecoder(): FixedSizeDecoder<Bumps> {
@@ -38,9 +38,9 @@ export function getBumpsDecoder(): FixedSizeDecoder<Bumps> {
     ['pda', getU8Decoder()],
     ['stakerAuthority', getU8Decoder()],
     ['settlementClaims', getU8Decoder()],
-  ]);
+  ])
 }
 
 export function getBumpsCodec(): FixedSizeCodec<BumpsArgs, Bumps> {
-  return combineCodec(getBumpsEncoder(), getBumpsDecoder());
+  return combineCodec(getBumpsEncoder(), getBumpsDecoder())
 }

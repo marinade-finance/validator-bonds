@@ -6,10 +6,10 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from './bond';
-export * from './bondProduct';
-export * from './config';
-export * from './settlement';
-export * from './settlementClaim';
-export * from './settlementClaims';
-export * from './withdrawRequest';
+export * from './bond'
+export * from './bondProduct'
+export * from './config'
+export * from './settlement'
+export * from './settlementClaim'
+export * from './settlementClaims'
+export * from './withdrawRequest'

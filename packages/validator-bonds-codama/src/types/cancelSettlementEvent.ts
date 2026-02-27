@@ -27,37 +27,37 @@ import {
   type Option,
   type OptionOrNullable,
   type ReadonlyUint8Array,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export type CancelSettlementEvent = {
-  bond: Address;
-  settlement: Address;
-  merkleRoot: ReadonlyUint8Array;
-  maxTotalClaim: bigint;
-  maxMerkleNodes: bigint;
-  lamportsFunded: bigint;
-  lamportsClaimed: bigint;
-  merkleNodesClaimed: bigint;
-  splitRentCollector: Option<Address>;
-  splitRentRefund: Option<Address>;
-  rentCollector: Address;
-  authority: Address;
-};
+  bond: Address
+  settlement: Address
+  merkleRoot: ReadonlyUint8Array
+  maxTotalClaim: bigint
+  maxMerkleNodes: bigint
+  lamportsFunded: bigint
+  lamportsClaimed: bigint
+  merkleNodesClaimed: bigint
+  splitRentCollector: Option<Address>
+  splitRentRefund: Option<Address>
+  rentCollector: Address
+  authority: Address
+}
 
 export type CancelSettlementEventArgs = {
-  bond: Address;
-  settlement: Address;
-  merkleRoot: ReadonlyUint8Array;
-  maxTotalClaim: number | bigint;
-  maxMerkleNodes: number | bigint;
-  lamportsFunded: number | bigint;
-  lamportsClaimed: number | bigint;
-  merkleNodesClaimed: number | bigint;
-  splitRentCollector: OptionOrNullable<Address>;
-  splitRentRefund: OptionOrNullable<Address>;
-  rentCollector: Address;
-  authority: Address;
-};
+  bond: Address
+  settlement: Address
+  merkleRoot: ReadonlyUint8Array
+  maxTotalClaim: number | bigint
+  maxMerkleNodes: number | bigint
+  lamportsFunded: number | bigint
+  lamportsClaimed: number | bigint
+  merkleNodesClaimed: number | bigint
+  splitRentCollector: OptionOrNullable<Address>
+  splitRentRefund: OptionOrNullable<Address>
+  rentCollector: Address
+  authority: Address
+}
 
 export function getCancelSettlementEventEncoder(): Encoder<CancelSettlementEventArgs> {
   return getStructEncoder([
@@ -73,7 +73,7 @@ export function getCancelSettlementEventEncoder(): Encoder<CancelSettlementEvent
     ['splitRentRefund', getOptionEncoder(getAddressEncoder())],
     ['rentCollector', getAddressEncoder()],
     ['authority', getAddressEncoder()],
-  ]);
+  ])
 }
 
 export function getCancelSettlementEventDecoder(): Decoder<CancelSettlementEvent> {
@@ -90,7 +90,7 @@ export function getCancelSettlementEventDecoder(): Decoder<CancelSettlementEvent
     ['splitRentRefund', getOptionDecoder(getAddressDecoder())],
     ['rentCollector', getAddressDecoder()],
     ['authority', getAddressDecoder()],
-  ]);
+  ])
 }
 
 export function getCancelSettlementEventCodec(): Codec<
@@ -99,6 +99,6 @@ export function getCancelSettlementEventCodec(): Codec<
 > {
   return combineCodec(
     getCancelSettlementEventEncoder(),
-    getCancelSettlementEventDecoder()
-  );
+    getCancelSettlementEventDecoder(),
+  )
 }

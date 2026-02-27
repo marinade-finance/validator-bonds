@@ -18,27 +18,27 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export type WithdrawStakeEvent = {
-  config: Address;
-  operatorAuthority: Address;
-  settlement: Address;
-  stakeAccount: Address;
-  withdrawTo: Address;
-  settlementStakerAuthority: Address;
-  withdrawnAmount: bigint;
-};
+  config: Address
+  operatorAuthority: Address
+  settlement: Address
+  stakeAccount: Address
+  withdrawTo: Address
+  settlementStakerAuthority: Address
+  withdrawnAmount: bigint
+}
 
 export type WithdrawStakeEventArgs = {
-  config: Address;
-  operatorAuthority: Address;
-  settlement: Address;
-  stakeAccount: Address;
-  withdrawTo: Address;
-  settlementStakerAuthority: Address;
-  withdrawnAmount: number | bigint;
-};
+  config: Address
+  operatorAuthority: Address
+  settlement: Address
+  stakeAccount: Address
+  withdrawTo: Address
+  settlementStakerAuthority: Address
+  withdrawnAmount: number | bigint
+}
 
 export function getWithdrawStakeEventEncoder(): FixedSizeEncoder<WithdrawStakeEventArgs> {
   return getStructEncoder([
@@ -49,7 +49,7 @@ export function getWithdrawStakeEventEncoder(): FixedSizeEncoder<WithdrawStakeEv
     ['withdrawTo', getAddressEncoder()],
     ['settlementStakerAuthority', getAddressEncoder()],
     ['withdrawnAmount', getU64Encoder()],
-  ]);
+  ])
 }
 
 export function getWithdrawStakeEventDecoder(): FixedSizeDecoder<WithdrawStakeEvent> {
@@ -61,7 +61,7 @@ export function getWithdrawStakeEventDecoder(): FixedSizeDecoder<WithdrawStakeEv
     ['withdrawTo', getAddressDecoder()],
     ['settlementStakerAuthority', getAddressDecoder()],
     ['withdrawnAmount', getU64Decoder()],
-  ]);
+  ])
 }
 
 export function getWithdrawStakeEventCodec(): FixedSizeCodec<
@@ -70,6 +70,6 @@ export function getWithdrawStakeEventCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getWithdrawStakeEventEncoder(),
-    getWithdrawStakeEventDecoder()
-  );
+    getWithdrawStakeEventDecoder(),
+  )
 }
