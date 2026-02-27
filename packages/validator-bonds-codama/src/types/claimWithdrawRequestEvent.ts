@@ -22,7 +22,7 @@ import {
   type Encoder,
   type Option,
   type OptionOrNullable,
-} from '@solana/kit';
+} from '@solana/kit'
 import {
   getSplitStakeDataDecoder,
   getSplitStakeDataEncoder,
@@ -32,29 +32,29 @@ import {
   type SplitStakeDataArgs,
   type U64ValueChange,
   type U64ValueChangeArgs,
-} from '.';
+} from '.'
 
 export type ClaimWithdrawRequestEvent = {
-  withdrawRequest: Address;
-  bond: Address;
-  voteAccount: Address;
-  stakeAccount: Address;
-  splitStake: Option<SplitStakeData>;
-  newStakeAccountOwner: Address;
-  withdrawingAmount: bigint;
-  withdrawnAmount: U64ValueChange;
-};
+  withdrawRequest: Address
+  bond: Address
+  voteAccount: Address
+  stakeAccount: Address
+  splitStake: Option<SplitStakeData>
+  newStakeAccountOwner: Address
+  withdrawingAmount: bigint
+  withdrawnAmount: U64ValueChange
+}
 
 export type ClaimWithdrawRequestEventArgs = {
-  withdrawRequest: Address;
-  bond: Address;
-  voteAccount: Address;
-  stakeAccount: Address;
-  splitStake: OptionOrNullable<SplitStakeDataArgs>;
-  newStakeAccountOwner: Address;
-  withdrawingAmount: number | bigint;
-  withdrawnAmount: U64ValueChangeArgs;
-};
+  withdrawRequest: Address
+  bond: Address
+  voteAccount: Address
+  stakeAccount: Address
+  splitStake: OptionOrNullable<SplitStakeDataArgs>
+  newStakeAccountOwner: Address
+  withdrawingAmount: number | bigint
+  withdrawnAmount: U64ValueChangeArgs
+}
 
 export function getClaimWithdrawRequestEventEncoder(): Encoder<ClaimWithdrawRequestEventArgs> {
   return getStructEncoder([
@@ -66,7 +66,7 @@ export function getClaimWithdrawRequestEventEncoder(): Encoder<ClaimWithdrawRequ
     ['newStakeAccountOwner', getAddressEncoder()],
     ['withdrawingAmount', getU64Encoder()],
     ['withdrawnAmount', getU64ValueChangeEncoder()],
-  ]);
+  ])
 }
 
 export function getClaimWithdrawRequestEventDecoder(): Decoder<ClaimWithdrawRequestEvent> {
@@ -79,7 +79,7 @@ export function getClaimWithdrawRequestEventDecoder(): Decoder<ClaimWithdrawRequ
     ['newStakeAccountOwner', getAddressDecoder()],
     ['withdrawingAmount', getU64Decoder()],
     ['withdrawnAmount', getU64ValueChangeDecoder()],
-  ]);
+  ])
 }
 
 export function getClaimWithdrawRequestEventCodec(): Codec<
@@ -88,6 +88,6 @@ export function getClaimWithdrawRequestEventCodec(): Codec<
 > {
   return combineCodec(
     getClaimWithdrawRequestEventEncoder(),
-    getClaimWithdrawRequestEventDecoder()
-  );
+    getClaimWithdrawRequestEventDecoder(),
+  )
 }

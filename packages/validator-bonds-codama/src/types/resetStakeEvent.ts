@@ -16,18 +16,18 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export type ResetStakeEvent = {
-  config: Address;
-  bond: Address;
-  settlement: Address;
-  stakeAccount: Address;
-  voteAccount: Address;
-  settlementStakerAuthority: Address;
-};
+  config: Address
+  bond: Address
+  settlement: Address
+  stakeAccount: Address
+  voteAccount: Address
+  settlementStakerAuthority: Address
+}
 
-export type ResetStakeEventArgs = ResetStakeEvent;
+export type ResetStakeEventArgs = ResetStakeEvent
 
 export function getResetStakeEventEncoder(): FixedSizeEncoder<ResetStakeEventArgs> {
   return getStructEncoder([
@@ -37,7 +37,7 @@ export function getResetStakeEventEncoder(): FixedSizeEncoder<ResetStakeEventArg
     ['stakeAccount', getAddressEncoder()],
     ['voteAccount', getAddressEncoder()],
     ['settlementStakerAuthority', getAddressEncoder()],
-  ]);
+  ])
 }
 
 export function getResetStakeEventDecoder(): FixedSizeDecoder<ResetStakeEvent> {
@@ -48,12 +48,12 @@ export function getResetStakeEventDecoder(): FixedSizeDecoder<ResetStakeEvent> {
     ['stakeAccount', getAddressDecoder()],
     ['voteAccount', getAddressDecoder()],
     ['settlementStakerAuthority', getAddressDecoder()],
-  ]);
+  ])
 }
 
 export function getResetStakeEventCodec(): FixedSizeCodec<
   ResetStakeEventArgs,
   ResetStakeEvent
 > {
-  return combineCodec(getResetStakeEventEncoder(), getResetStakeEventDecoder());
+  return combineCodec(getResetStakeEventEncoder(), getResetStakeEventDecoder())
 }

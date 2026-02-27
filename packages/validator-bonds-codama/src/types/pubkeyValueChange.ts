@@ -16,24 +16,24 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
-} from '@solana/kit';
+} from '@solana/kit'
 
-export type PubkeyValueChange = { old: Address; new: Address };
+export type PubkeyValueChange = { old: Address; new: Address }
 
-export type PubkeyValueChangeArgs = PubkeyValueChange;
+export type PubkeyValueChangeArgs = PubkeyValueChange
 
 export function getPubkeyValueChangeEncoder(): FixedSizeEncoder<PubkeyValueChangeArgs> {
   return getStructEncoder([
     ['old', getAddressEncoder()],
     ['new', getAddressEncoder()],
-  ]);
+  ])
 }
 
 export function getPubkeyValueChangeDecoder(): FixedSizeDecoder<PubkeyValueChange> {
   return getStructDecoder([
     ['old', getAddressDecoder()],
     ['new', getAddressDecoder()],
-  ]);
+  ])
 }
 
 export function getPubkeyValueChangeCodec(): FixedSizeCodec<
@@ -42,6 +42,6 @@ export function getPubkeyValueChangeCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getPubkeyValueChangeEncoder(),
-    getPubkeyValueChangeDecoder()
-  );
+    getPubkeyValueChangeDecoder(),
+  )
 }

@@ -7,13 +7,123 @@
  */
 
 import {
+  assertIsInstructionWithAccounts,
   containsBytes,
   fixEncoderSize,
   getBytesEncoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_ACCOUNT,
+  SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_INSTRUCTION,
+  SOLANA_ERROR__PROGRAM_CLIENTS__UNRECOGNIZED_INSTRUCTION_TYPE,
+  SolanaError,
   type Address,
+  type ClientWithRpc,
+  type ClientWithTransactionPlanning,
+  type ClientWithTransactionSending,
+  type GetAccountInfoApi,
+  type GetMultipleAccountsApi,
+  type Instruction,
+  type InstructionWithData,
   type ReadonlyUint8Array,
-} from '@solana/kit';
+} from '@solana/kit'
 import {
+  addSelfFetchFunctions,
+  addSelfPlanAndSendFunctions,
+  type SelfFetchFunctions,
+  type SelfPlanAndSendFunctions,
+} from '@solana/program-client-core'
+import {
+  getBondCodec,
+  getBondProductCodec,
+  getConfigCodec,
+  getSettlementClaimCodec,
+  getSettlementClaimsCodec,
+  getSettlementCodec,
+  getWithdrawRequestCodec,
+  type Bond,
+  type BondArgs,
+  type BondProduct,
+  type BondProductArgs,
+  type Config,
+  type ConfigArgs,
+  type Settlement,
+  type SettlementArgs,
+  type SettlementClaim,
+  type SettlementClaimArgs,
+  type SettlementClaims,
+  type SettlementClaimsArgs,
+  type WithdrawRequest,
+  type WithdrawRequestArgs,
+} from '../accounts'
+import {
+  getCancelSettlementInstructionAsync,
+  getCancelWithdrawRequestInstructionAsync,
+  getClaimSettlementV1Instruction,
+  getClaimSettlementV2InstructionAsync,
+  getClaimWithdrawRequestInstructionAsync,
+  getCloseSettlementV2InstructionAsync,
+  getConfigureBondInstructionAsync,
+  getConfigureBondProductInstructionAsync,
+  getConfigureBondWithMintInstructionAsync,
+  getConfigureConfigInstructionAsync,
+  getEmergencyPauseInstructionAsync,
+  getEmergencyResumeInstructionAsync,
+  getFundBondInstructionAsync,
+  getFundSettlementInstructionAsync,
+  getInitBondInstructionAsync,
+  getInitBondProductInstructionAsync,
+  getInitConfigInstructionAsync,
+  getInitSettlementInstructionAsync,
+  getInitWithdrawRequestInstructionAsync,
+  getMergeStakeInstructionAsync,
+  getMintBondInstructionAsync,
+  getResetStakeInstructionAsync,
+  getUpsizeSettlementClaimsInstruction,
+  getWithdrawStakeInstructionAsync,
+  parseCancelSettlementInstruction,
+  parseCancelWithdrawRequestInstruction,
+  parseClaimSettlementV1Instruction,
+  parseClaimSettlementV2Instruction,
+  parseClaimWithdrawRequestInstruction,
+  parseCloseSettlementV2Instruction,
+  parseConfigureBondInstruction,
+  parseConfigureBondProductInstruction,
+  parseConfigureBondWithMintInstruction,
+  parseConfigureConfigInstruction,
+  parseEmergencyPauseInstruction,
+  parseEmergencyResumeInstruction,
+  parseFundBondInstruction,
+  parseFundSettlementInstruction,
+  parseInitBondInstruction,
+  parseInitBondProductInstruction,
+  parseInitConfigInstruction,
+  parseInitSettlementInstruction,
+  parseInitWithdrawRequestInstruction,
+  parseMergeStakeInstruction,
+  parseMintBondInstruction,
+  parseResetStakeInstruction,
+  parseUpsizeSettlementClaimsInstruction,
+  parseWithdrawStakeInstruction,
+  type CancelSettlementAsyncInput,
+  type CancelWithdrawRequestAsyncInput,
+  type ClaimSettlementV1Input,
+  type ClaimSettlementV2AsyncInput,
+  type ClaimWithdrawRequestAsyncInput,
+  type CloseSettlementV2AsyncInput,
+  type ConfigureBondAsyncInput,
+  type ConfigureBondProductAsyncInput,
+  type ConfigureBondWithMintAsyncInput,
+  type ConfigureConfigAsyncInput,
+  type EmergencyPauseAsyncInput,
+  type EmergencyResumeAsyncInput,
+  type FundBondAsyncInput,
+  type FundSettlementAsyncInput,
+  type InitBondAsyncInput,
+  type InitBondProductAsyncInput,
+  type InitConfigAsyncInput,
+  type InitSettlementAsyncInput,
+  type InitWithdrawRequestAsyncInput,
+  type MergeStakeAsyncInput,
+  type MintBondAsyncInput,
   type ParsedCancelSettlementInstruction,
   type ParsedCancelWithdrawRequestInstruction,
   type ParsedClaimSettlementV1Instruction,
@@ -38,10 +148,13 @@ import {
   type ParsedResetStakeInstruction,
   type ParsedUpsizeSettlementClaimsInstruction,
   type ParsedWithdrawStakeInstruction,
-} from '../instructions';
+  type ResetStakeAsyncInput,
+  type UpsizeSettlementClaimsInput,
+  type WithdrawStakeAsyncInput,
+} from '../instructions'
 
 export const VALIDATOR_BONDS_PROGRAM_ADDRESS =
-  'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4' as Address<'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4'>;
+  'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4' as Address<'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4'>
 
 export enum ValidatorBondsAccount {
   Bond,
@@ -54,89 +167,90 @@ export enum ValidatorBondsAccount {
 }
 
 export function identifyValidatorBondsAccount(
-  account: { data: ReadonlyUint8Array } | ReadonlyUint8Array
+  account: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): ValidatorBondsAccount {
-  const data = 'data' in account ? account.data : account;
+  const data = 'data' in account ? account.data : account
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([224, 128, 48, 251, 182, 246, 111, 196])
+        new Uint8Array([224, 128, 48, 251, 182, 246, 111, 196]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsAccount.Bond;
+    return ValidatorBondsAccount.Bond
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([135, 68, 116, 146, 5, 75, 127, 143])
+        new Uint8Array([135, 68, 116, 146, 5, 75, 127, 143]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsAccount.BondProduct;
+    return ValidatorBondsAccount.BondProduct
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([155, 12, 170, 224, 30, 250, 204, 130])
+        new Uint8Array([155, 12, 170, 224, 30, 250, 204, 130]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsAccount.Config;
+    return ValidatorBondsAccount.Config
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([55, 11, 219, 33, 36, 136, 40, 182])
+        new Uint8Array([55, 11, 219, 33, 36, 136, 40, 182]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsAccount.Settlement;
+    return ValidatorBondsAccount.Settlement
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([216, 103, 231, 246, 171, 99, 124, 133])
+        new Uint8Array([216, 103, 231, 246, 171, 99, 124, 133]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsAccount.SettlementClaim;
+    return ValidatorBondsAccount.SettlementClaim
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([32, 130, 62, 175, 231, 54, 170, 114])
+        new Uint8Array([32, 130, 62, 175, 231, 54, 170, 114]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsAccount.SettlementClaims;
+    return ValidatorBondsAccount.SettlementClaims
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([186, 239, 174, 191, 189, 13, 47, 196])
+        new Uint8Array([186, 239, 174, 191, 189, 13, 47, 196]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsAccount.WithdrawRequest;
+    return ValidatorBondsAccount.WithdrawRequest
   }
-  throw new Error(
-    'The provided account could not be identified as a validatorBonds account.'
-  );
+  throw new SolanaError(
+    SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_ACCOUNT,
+    { accountData: data, programName: 'validatorBonds' },
+  )
 }
 
 export enum ValidatorBondsInstruction {
@@ -167,350 +281,808 @@ export enum ValidatorBondsInstruction {
 }
 
 export function identifyValidatorBondsInstruction(
-  instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array
+  instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): ValidatorBondsInstruction {
-  const data = 'data' in instruction ? instruction.data : instruction;
+  const data = 'data' in instruction ? instruction.data : instruction
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([33, 241, 96, 62, 228, 178, 1, 120])
+        new Uint8Array([33, 241, 96, 62, 228, 178, 1, 120]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.CancelSettlement;
+    return ValidatorBondsInstruction.CancelSettlement
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([167, 100, 110, 128, 113, 154, 224, 77])
+        new Uint8Array([167, 100, 110, 128, 113, 154, 224, 77]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.CancelWithdrawRequest;
+    return ValidatorBondsInstruction.CancelWithdrawRequest
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([0, 13, 213, 236, 10, 199, 94, 48])
+        new Uint8Array([0, 13, 213, 236, 10, 199, 94, 48]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.ClaimSettlementV1;
+    return ValidatorBondsInstruction.ClaimSettlementV1
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([188, 53, 132, 151, 88, 50, 52, 238])
+        new Uint8Array([188, 53, 132, 151, 88, 50, 52, 238]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.ClaimSettlementV2;
+    return ValidatorBondsInstruction.ClaimSettlementV2
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([48, 232, 23, 52, 20, 134, 122, 118])
+        new Uint8Array([48, 232, 23, 52, 20, 134, 122, 118]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.ClaimWithdrawRequest;
+    return ValidatorBondsInstruction.ClaimWithdrawRequest
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([125, 212, 89, 37, 31, 244, 191, 179])
+        new Uint8Array([125, 212, 89, 37, 31, 244, 191, 179]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.CloseSettlementV2;
+    return ValidatorBondsInstruction.CloseSettlementV2
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([228, 108, 79, 242, 82, 54, 105, 65])
+        new Uint8Array([228, 108, 79, 242, 82, 54, 105, 65]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.ConfigureBond;
+    return ValidatorBondsInstruction.ConfigureBond
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([167, 119, 141, 123, 76, 109, 241, 133])
+        new Uint8Array([167, 119, 141, 123, 76, 109, 241, 133]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.ConfigureBondProduct;
+    return ValidatorBondsInstruction.ConfigureBondProduct
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([48, 189, 230, 39, 112, 33, 227, 8])
+        new Uint8Array([48, 189, 230, 39, 112, 33, 227, 8]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.ConfigureBondWithMint;
+    return ValidatorBondsInstruction.ConfigureBondWithMint
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([198, 98, 161, 165, 137, 200, 230, 203])
+        new Uint8Array([198, 98, 161, 165, 137, 200, 230, 203]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.ConfigureConfig;
+    return ValidatorBondsInstruction.ConfigureConfig
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([21, 143, 27, 142, 200, 181, 210, 255])
+        new Uint8Array([21, 143, 27, 142, 200, 181, 210, 255]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.EmergencyPause;
+    return ValidatorBondsInstruction.EmergencyPause
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([0, 243, 48, 185, 6, 73, 190, 83])
+        new Uint8Array([0, 243, 48, 185, 6, 73, 190, 83]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.EmergencyResume;
+    return ValidatorBondsInstruction.EmergencyResume
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([58, 44, 212, 175, 30, 17, 68, 62])
+        new Uint8Array([58, 44, 212, 175, 30, 17, 68, 62]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.FundBond;
+    return ValidatorBondsInstruction.FundBond
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([179, 146, 113, 34, 30, 92, 26, 19])
+        new Uint8Array([179, 146, 113, 34, 30, 92, 26, 19]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.FundSettlement;
+    return ValidatorBondsInstruction.FundSettlement
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([95, 93, 93, 181, 221, 36, 126, 64])
+        new Uint8Array([95, 93, 93, 181, 221, 36, 126, 64]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.InitBond;
+    return ValidatorBondsInstruction.InitBond
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([228, 35, 205, 119, 63, 209, 72, 56])
+        new Uint8Array([228, 35, 205, 119, 63, 209, 72, 56]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.InitBondProduct;
+    return ValidatorBondsInstruction.InitBondProduct
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([23, 235, 115, 232, 168, 96, 1, 231])
+        new Uint8Array([23, 235, 115, 232, 168, 96, 1, 231]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.InitConfig;
+    return ValidatorBondsInstruction.InitConfig
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([152, 178, 0, 65, 52, 210, 247, 58])
+        new Uint8Array([152, 178, 0, 65, 52, 210, 247, 58]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.InitSettlement;
+    return ValidatorBondsInstruction.InitSettlement
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([142, 31, 222, 215, 83, 79, 34, 49])
+        new Uint8Array([142, 31, 222, 215, 83, 79, 34, 49]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.InitWithdrawRequest;
+    return ValidatorBondsInstruction.InitWithdrawRequest
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([14, 3, 146, 23, 163, 105, 246, 99])
+        new Uint8Array([14, 3, 146, 23, 163, 105, 246, 99]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.MergeStake;
+    return ValidatorBondsInstruction.MergeStake
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([234, 94, 85, 225, 167, 102, 169, 32])
+        new Uint8Array([234, 94, 85, 225, 167, 102, 169, 32]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.MintBond;
+    return ValidatorBondsInstruction.MintBond
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([183, 37, 69, 159, 163, 139, 212, 235])
+        new Uint8Array([183, 37, 69, 159, 163, 139, 212, 235]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.ResetStake;
+    return ValidatorBondsInstruction.ResetStake
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([207, 46, 34, 88, 141, 36, 63, 132])
+        new Uint8Array([207, 46, 34, 88, 141, 36, 63, 132]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.UpsizeSettlementClaims;
+    return ValidatorBondsInstruction.UpsizeSettlementClaims
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([153, 8, 22, 138, 105, 176, 87, 66])
+        new Uint8Array([153, 8, 22, 138, 105, 176, 87, 66]),
       ),
-      0
+      0,
     )
   ) {
-    return ValidatorBondsInstruction.WithdrawStake;
+    return ValidatorBondsInstruction.WithdrawStake
   }
-  throw new Error(
-    'The provided instruction could not be identified as a validatorBonds instruction.'
-  );
+  throw new SolanaError(
+    SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_INSTRUCTION,
+    { instructionData: data, programName: 'validatorBonds' },
+  )
 }
 
 export type ParsedValidatorBondsInstruction<
   TProgram extends string = 'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4',
 > =
   | ({
-      instructionType: ValidatorBondsInstruction.CancelSettlement;
+      instructionType: ValidatorBondsInstruction.CancelSettlement
     } & ParsedCancelSettlementInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.CancelWithdrawRequest;
+      instructionType: ValidatorBondsInstruction.CancelWithdrawRequest
     } & ParsedCancelWithdrawRequestInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.ClaimSettlementV1;
+      instructionType: ValidatorBondsInstruction.ClaimSettlementV1
     } & ParsedClaimSettlementV1Instruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.ClaimSettlementV2;
+      instructionType: ValidatorBondsInstruction.ClaimSettlementV2
     } & ParsedClaimSettlementV2Instruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.ClaimWithdrawRequest;
+      instructionType: ValidatorBondsInstruction.ClaimWithdrawRequest
     } & ParsedClaimWithdrawRequestInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.CloseSettlementV2;
+      instructionType: ValidatorBondsInstruction.CloseSettlementV2
     } & ParsedCloseSettlementV2Instruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.ConfigureBond;
+      instructionType: ValidatorBondsInstruction.ConfigureBond
     } & ParsedConfigureBondInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.ConfigureBondProduct;
+      instructionType: ValidatorBondsInstruction.ConfigureBondProduct
     } & ParsedConfigureBondProductInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.ConfigureBondWithMint;
+      instructionType: ValidatorBondsInstruction.ConfigureBondWithMint
     } & ParsedConfigureBondWithMintInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.ConfigureConfig;
+      instructionType: ValidatorBondsInstruction.ConfigureConfig
     } & ParsedConfigureConfigInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.EmergencyPause;
+      instructionType: ValidatorBondsInstruction.EmergencyPause
     } & ParsedEmergencyPauseInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.EmergencyResume;
+      instructionType: ValidatorBondsInstruction.EmergencyResume
     } & ParsedEmergencyResumeInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.FundBond;
+      instructionType: ValidatorBondsInstruction.FundBond
     } & ParsedFundBondInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.FundSettlement;
+      instructionType: ValidatorBondsInstruction.FundSettlement
     } & ParsedFundSettlementInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.InitBond;
+      instructionType: ValidatorBondsInstruction.InitBond
     } & ParsedInitBondInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.InitBondProduct;
+      instructionType: ValidatorBondsInstruction.InitBondProduct
     } & ParsedInitBondProductInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.InitConfig;
+      instructionType: ValidatorBondsInstruction.InitConfig
     } & ParsedInitConfigInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.InitSettlement;
+      instructionType: ValidatorBondsInstruction.InitSettlement
     } & ParsedInitSettlementInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.InitWithdrawRequest;
+      instructionType: ValidatorBondsInstruction.InitWithdrawRequest
     } & ParsedInitWithdrawRequestInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.MergeStake;
+      instructionType: ValidatorBondsInstruction.MergeStake
     } & ParsedMergeStakeInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.MintBond;
+      instructionType: ValidatorBondsInstruction.MintBond
     } & ParsedMintBondInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.ResetStake;
+      instructionType: ValidatorBondsInstruction.ResetStake
     } & ParsedResetStakeInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.UpsizeSettlementClaims;
+      instructionType: ValidatorBondsInstruction.UpsizeSettlementClaims
     } & ParsedUpsizeSettlementClaimsInstruction<TProgram>)
   | ({
-      instructionType: ValidatorBondsInstruction.WithdrawStake;
-    } & ParsedWithdrawStakeInstruction<TProgram>);
+      instructionType: ValidatorBondsInstruction.WithdrawStake
+    } & ParsedWithdrawStakeInstruction<TProgram>)
+
+export function parseValidatorBondsInstruction<TProgram extends string>(
+  instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
+): ParsedValidatorBondsInstruction<TProgram> {
+  const instructionType = identifyValidatorBondsInstruction(instruction)
+  switch (instructionType) {
+    case ValidatorBondsInstruction.CancelSettlement: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.CancelSettlement,
+        ...parseCancelSettlementInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.CancelWithdrawRequest: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.CancelWithdrawRequest,
+        ...parseCancelWithdrawRequestInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.ClaimSettlementV1: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.ClaimSettlementV1,
+        ...parseClaimSettlementV1Instruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.ClaimSettlementV2: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.ClaimSettlementV2,
+        ...parseClaimSettlementV2Instruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.ClaimWithdrawRequest: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.ClaimWithdrawRequest,
+        ...parseClaimWithdrawRequestInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.CloseSettlementV2: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.CloseSettlementV2,
+        ...parseCloseSettlementV2Instruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.ConfigureBond: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.ConfigureBond,
+        ...parseConfigureBondInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.ConfigureBondProduct: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.ConfigureBondProduct,
+        ...parseConfigureBondProductInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.ConfigureBondWithMint: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.ConfigureBondWithMint,
+        ...parseConfigureBondWithMintInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.ConfigureConfig: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.ConfigureConfig,
+        ...parseConfigureConfigInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.EmergencyPause: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.EmergencyPause,
+        ...parseEmergencyPauseInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.EmergencyResume: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.EmergencyResume,
+        ...parseEmergencyResumeInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.FundBond: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.FundBond,
+        ...parseFundBondInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.FundSettlement: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.FundSettlement,
+        ...parseFundSettlementInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.InitBond: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.InitBond,
+        ...parseInitBondInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.InitBondProduct: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.InitBondProduct,
+        ...parseInitBondProductInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.InitConfig: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.InitConfig,
+        ...parseInitConfigInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.InitSettlement: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.InitSettlement,
+        ...parseInitSettlementInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.InitWithdrawRequest: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.InitWithdrawRequest,
+        ...parseInitWithdrawRequestInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.MergeStake: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.MergeStake,
+        ...parseMergeStakeInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.MintBond: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.MintBond,
+        ...parseMintBondInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.ResetStake: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.ResetStake,
+        ...parseResetStakeInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.UpsizeSettlementClaims: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.UpsizeSettlementClaims,
+        ...parseUpsizeSettlementClaimsInstruction(instruction),
+      }
+    }
+    case ValidatorBondsInstruction.WithdrawStake: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.WithdrawStake,
+        ...parseWithdrawStakeInstruction(instruction),
+      }
+    }
+    default:
+      throw new SolanaError(
+        SOLANA_ERROR__PROGRAM_CLIENTS__UNRECOGNIZED_INSTRUCTION_TYPE,
+        {
+          instructionType: instructionType as string,
+          programName: 'validatorBonds',
+        },
+      )
+  }
+}
+
+export type ValidatorBondsPlugin = {
+  accounts: ValidatorBondsPluginAccounts
+  instructions: ValidatorBondsPluginInstructions
+}
+
+export type ValidatorBondsPluginAccounts = {
+  bond: ReturnType<typeof getBondCodec> & SelfFetchFunctions<BondArgs, Bond>
+  bondProduct: ReturnType<typeof getBondProductCodec> &
+    SelfFetchFunctions<BondProductArgs, BondProduct>
+  config: ReturnType<typeof getConfigCodec> &
+    SelfFetchFunctions<ConfigArgs, Config>
+  settlement: ReturnType<typeof getSettlementCodec> &
+    SelfFetchFunctions<SettlementArgs, Settlement>
+  settlementClaim: ReturnType<typeof getSettlementClaimCodec> &
+    SelfFetchFunctions<SettlementClaimArgs, SettlementClaim>
+  settlementClaims: ReturnType<typeof getSettlementClaimsCodec> &
+    SelfFetchFunctions<SettlementClaimsArgs, SettlementClaims>
+  withdrawRequest: ReturnType<typeof getWithdrawRequestCodec> &
+    SelfFetchFunctions<WithdrawRequestArgs, WithdrawRequest>
+}
+
+export type ValidatorBondsPluginInstructions = {
+  cancelSettlement: (
+    input: CancelSettlementAsyncInput,
+  ) => ReturnType<typeof getCancelSettlementInstructionAsync> &
+    SelfPlanAndSendFunctions
+  cancelWithdrawRequest: (
+    input: CancelWithdrawRequestAsyncInput,
+  ) => ReturnType<typeof getCancelWithdrawRequestInstructionAsync> &
+    SelfPlanAndSendFunctions
+  claimSettlementV1: (
+    input: ClaimSettlementV1Input,
+  ) => ReturnType<typeof getClaimSettlementV1Instruction> &
+    SelfPlanAndSendFunctions
+  claimSettlementV2: (
+    input: ClaimSettlementV2AsyncInput,
+  ) => ReturnType<typeof getClaimSettlementV2InstructionAsync> &
+    SelfPlanAndSendFunctions
+  claimWithdrawRequest: (
+    input: ClaimWithdrawRequestAsyncInput,
+  ) => ReturnType<typeof getClaimWithdrawRequestInstructionAsync> &
+    SelfPlanAndSendFunctions
+  closeSettlementV2: (
+    input: CloseSettlementV2AsyncInput,
+  ) => ReturnType<typeof getCloseSettlementV2InstructionAsync> &
+    SelfPlanAndSendFunctions
+  configureBond: (
+    input: ConfigureBondAsyncInput,
+  ) => ReturnType<typeof getConfigureBondInstructionAsync> &
+    SelfPlanAndSendFunctions
+  configureBondProduct: (
+    input: ConfigureBondProductAsyncInput,
+  ) => ReturnType<typeof getConfigureBondProductInstructionAsync> &
+    SelfPlanAndSendFunctions
+  configureBondWithMint: (
+    input: ConfigureBondWithMintAsyncInput,
+  ) => ReturnType<typeof getConfigureBondWithMintInstructionAsync> &
+    SelfPlanAndSendFunctions
+  configureConfig: (
+    input: ConfigureConfigAsyncInput,
+  ) => ReturnType<typeof getConfigureConfigInstructionAsync> &
+    SelfPlanAndSendFunctions
+  emergencyPause: (
+    input: EmergencyPauseAsyncInput,
+  ) => ReturnType<typeof getEmergencyPauseInstructionAsync> &
+    SelfPlanAndSendFunctions
+  emergencyResume: (
+    input: EmergencyResumeAsyncInput,
+  ) => ReturnType<typeof getEmergencyResumeInstructionAsync> &
+    SelfPlanAndSendFunctions
+  fundBond: (
+    input: FundBondAsyncInput,
+  ) => ReturnType<typeof getFundBondInstructionAsync> & SelfPlanAndSendFunctions
+  fundSettlement: (
+    input: FundSettlementAsyncInput,
+  ) => ReturnType<typeof getFundSettlementInstructionAsync> &
+    SelfPlanAndSendFunctions
+  initBond: (
+    input: InitBondAsyncInput,
+  ) => ReturnType<typeof getInitBondInstructionAsync> & SelfPlanAndSendFunctions
+  initBondProduct: (
+    input: InitBondProductAsyncInput,
+  ) => ReturnType<typeof getInitBondProductInstructionAsync> &
+    SelfPlanAndSendFunctions
+  initConfig: (
+    input: InitConfigAsyncInput,
+  ) => ReturnType<typeof getInitConfigInstructionAsync> &
+    SelfPlanAndSendFunctions
+  initSettlement: (
+    input: InitSettlementAsyncInput,
+  ) => ReturnType<typeof getInitSettlementInstructionAsync> &
+    SelfPlanAndSendFunctions
+  initWithdrawRequest: (
+    input: InitWithdrawRequestAsyncInput,
+  ) => ReturnType<typeof getInitWithdrawRequestInstructionAsync> &
+    SelfPlanAndSendFunctions
+  mergeStake: (
+    input: MergeStakeAsyncInput,
+  ) => ReturnType<typeof getMergeStakeInstructionAsync> &
+    SelfPlanAndSendFunctions
+  mintBond: (
+    input: MintBondAsyncInput,
+  ) => ReturnType<typeof getMintBondInstructionAsync> & SelfPlanAndSendFunctions
+  resetStake: (
+    input: ResetStakeAsyncInput,
+  ) => ReturnType<typeof getResetStakeInstructionAsync> &
+    SelfPlanAndSendFunctions
+  upsizeSettlementClaims: (
+    input: UpsizeSettlementClaimsInput,
+  ) => ReturnType<typeof getUpsizeSettlementClaimsInstruction> &
+    SelfPlanAndSendFunctions
+  withdrawStake: (
+    input: WithdrawStakeAsyncInput,
+  ) => ReturnType<typeof getWithdrawStakeInstructionAsync> &
+    SelfPlanAndSendFunctions
+}
+
+export type ValidatorBondsPluginRequirements = ClientWithRpc<
+  GetAccountInfoApi & GetMultipleAccountsApi
+> &
+  ClientWithTransactionPlanning &
+  ClientWithTransactionSending
+
+export function validatorBondsProgram() {
+  return <T extends ValidatorBondsPluginRequirements>(client: T) => {
+    return {
+      ...client,
+      validatorBonds: <ValidatorBondsPlugin>{
+        accounts: {
+          bond: addSelfFetchFunctions(client, getBondCodec()),
+          bondProduct: addSelfFetchFunctions(client, getBondProductCodec()),
+          config: addSelfFetchFunctions(client, getConfigCodec()),
+          settlement: addSelfFetchFunctions(client, getSettlementCodec()),
+          settlementClaim: addSelfFetchFunctions(
+            client,
+            getSettlementClaimCodec(),
+          ),
+          settlementClaims: addSelfFetchFunctions(
+            client,
+            getSettlementClaimsCodec(),
+          ),
+          withdrawRequest: addSelfFetchFunctions(
+            client,
+            getWithdrawRequestCodec(),
+          ),
+        },
+        instructions: {
+          cancelSettlement: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getCancelSettlementInstructionAsync(input),
+            ),
+          cancelWithdrawRequest: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getCancelWithdrawRequestInstructionAsync(input),
+            ),
+          claimSettlementV1: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getClaimSettlementV1Instruction(input),
+            ),
+          claimSettlementV2: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getClaimSettlementV2InstructionAsync(input),
+            ),
+          claimWithdrawRequest: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getClaimWithdrawRequestInstructionAsync(input),
+            ),
+          closeSettlementV2: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getCloseSettlementV2InstructionAsync(input),
+            ),
+          configureBond: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getConfigureBondInstructionAsync(input),
+            ),
+          configureBondProduct: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getConfigureBondProductInstructionAsync(input),
+            ),
+          configureBondWithMint: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getConfigureBondWithMintInstructionAsync(input),
+            ),
+          configureConfig: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getConfigureConfigInstructionAsync(input),
+            ),
+          emergencyPause: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getEmergencyPauseInstructionAsync(input),
+            ),
+          emergencyResume: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getEmergencyResumeInstructionAsync(input),
+            ),
+          fundBond: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getFundBondInstructionAsync(input),
+            ),
+          fundSettlement: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getFundSettlementInstructionAsync(input),
+            ),
+          initBond: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getInitBondInstructionAsync(input),
+            ),
+          initBondProduct: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getInitBondProductInstructionAsync(input),
+            ),
+          initConfig: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getInitConfigInstructionAsync(input),
+            ),
+          initSettlement: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getInitSettlementInstructionAsync(input),
+            ),
+          initWithdrawRequest: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getInitWithdrawRequestInstructionAsync(input),
+            ),
+          mergeStake: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getMergeStakeInstructionAsync(input),
+            ),
+          mintBond: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getMintBondInstructionAsync(input),
+            ),
+          resetStake: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getResetStakeInstructionAsync(input),
+            ),
+          upsizeSettlementClaims: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getUpsizeSettlementClaimsInstruction(input),
+            ),
+          withdrawStake: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getWithdrawStakeInstructionAsync(input),
+            ),
+        },
+      },
+    }
+  }
+}

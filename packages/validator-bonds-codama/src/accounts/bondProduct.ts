@@ -35,7 +35,7 @@ import {
   type MaybeAccount,
   type MaybeEncodedAccount,
   type ReadonlyUint8Array,
-} from '@solana/kit';
+} from '@solana/kit'
 import {
   getProductTypeConfigDecoder,
   getProductTypeConfigEncoder,
@@ -45,49 +45,48 @@ import {
   type ProductTypeArgs,
   type ProductTypeConfig,
   type ProductTypeConfigArgs,
-} from '../types';
+} from '../types'
 
 export const BOND_PRODUCT_DISCRIMINATOR = new Uint8Array([
   135, 68, 116, 146, 5, 75, 127, 143,
-]);
+])
 
 export function getBondProductDiscriminatorBytes() {
-  return fixEncoderSize(getBytesEncoder(), 8).encode(
-    BOND_PRODUCT_DISCRIMINATOR
-  );
+  return fixEncoderSize(getBytesEncoder(), 8).encode(BOND_PRODUCT_DISCRIMINATOR)
 }
 
 export type BondProduct = {
-  discriminator: ReadonlyUint8Array;
+  discriminator: ReadonlyUint8Array
   /** The bond config account */
-  config: Address;
+  config: Address
   /** The bond this product belongs to */
-  bond: Address;
+  bond: Address
   /** Validator vote account this product is associated with */
-  voteAccount: Address;
+  voteAccount: Address
   /** Product type discriminator */
-  productType: ProductType;
+  productType: ProductType
   /** Type-specific configuration data */
-  configData: ProductTypeConfig;
+  configData: ProductTypeConfig
   /** Bump seed */
-  bump: number;
-};
+  bump: number
+}
 
 export type BondProductArgs = {
   /** The bond config account */
-  config: Address;
+  config: Address
   /** The bond this product belongs to */
-  bond: Address;
+  bond: Address
   /** Validator vote account this product is associated with */
-  voteAccount: Address;
+  voteAccount: Address
   /** Product type discriminator */
-  productType: ProductTypeArgs;
+  productType: ProductTypeArgs
   /** Type-specific configuration data */
-  configData: ProductTypeConfigArgs;
+  configData: ProductTypeConfigArgs
   /** Bump seed */
-  bump: number;
-};
+  bump: number
+}
 
+/** Gets the encoder for {@link BondProductArgs} account data. */
 export function getBondProductEncoder(): Encoder<BondProductArgs> {
   return transformEncoder(
     getStructEncoder([
@@ -99,10 +98,11 @@ export function getBondProductEncoder(): Encoder<BondProductArgs> {
       ['configData', getProductTypeConfigEncoder()],
       ['bump', getU8Encoder()],
     ]),
-    (value) => ({ ...value, discriminator: BOND_PRODUCT_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: BOND_PRODUCT_DISCRIMINATOR }),
+  )
 }
 
+/** Gets the decoder for {@link BondProduct} account data. */
 export function getBondProductDecoder(): Decoder<BondProduct> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
@@ -112,62 +112,63 @@ export function getBondProductDecoder(): Decoder<BondProduct> {
     ['productType', getProductTypeDecoder()],
     ['configData', getProductTypeConfigDecoder()],
     ['bump', getU8Decoder()],
-  ]);
+  ])
 }
 
+/** Gets the codec for {@link BondProduct} account data. */
 export function getBondProductCodec(): Codec<BondProductArgs, BondProduct> {
-  return combineCodec(getBondProductEncoder(), getBondProductDecoder());
+  return combineCodec(getBondProductEncoder(), getBondProductDecoder())
 }
 
 export function decodeBondProduct<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress>
-): Account<BondProduct, TAddress>;
+  encodedAccount: EncodedAccount<TAddress>,
+): Account<BondProduct, TAddress>
 export function decodeBondProduct<TAddress extends string = string>(
-  encodedAccount: MaybeEncodedAccount<TAddress>
-): MaybeAccount<BondProduct, TAddress>;
+  encodedAccount: MaybeEncodedAccount<TAddress>,
+): MaybeAccount<BondProduct, TAddress>
 export function decodeBondProduct<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>
+  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>,
 ): Account<BondProduct, TAddress> | MaybeAccount<BondProduct, TAddress> {
   return decodeAccount(
     encodedAccount as MaybeEncodedAccount<TAddress>,
-    getBondProductDecoder()
-  );
+    getBondProductDecoder(),
+  )
 }
 
 export async function fetchBondProduct<TAddress extends string = string>(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
-  config?: FetchAccountConfig
+  config?: FetchAccountConfig,
 ): Promise<Account<BondProduct, TAddress>> {
-  const maybeAccount = await fetchMaybeBondProduct(rpc, address, config);
-  assertAccountExists(maybeAccount);
-  return maybeAccount;
+  const maybeAccount = await fetchMaybeBondProduct(rpc, address, config)
+  assertAccountExists(maybeAccount)
+  return maybeAccount
 }
 
 export async function fetchMaybeBondProduct<TAddress extends string = string>(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
-  config?: FetchAccountConfig
+  config?: FetchAccountConfig,
 ): Promise<MaybeAccount<BondProduct, TAddress>> {
-  const maybeAccount = await fetchEncodedAccount(rpc, address, config);
-  return decodeBondProduct(maybeAccount);
+  const maybeAccount = await fetchEncodedAccount(rpc, address, config)
+  return decodeBondProduct(maybeAccount)
 }
 
 export async function fetchAllBondProduct(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
-  config?: FetchAccountsConfig
+  config?: FetchAccountsConfig,
 ): Promise<Account<BondProduct>[]> {
-  const maybeAccounts = await fetchAllMaybeBondProduct(rpc, addresses, config);
-  assertAccountsExist(maybeAccounts);
-  return maybeAccounts;
+  const maybeAccounts = await fetchAllMaybeBondProduct(rpc, addresses, config)
+  assertAccountsExist(maybeAccounts)
+  return maybeAccounts
 }
 
 export async function fetchAllMaybeBondProduct(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
-  config?: FetchAccountsConfig
+  config?: FetchAccountsConfig,
 ): Promise<MaybeAccount<BondProduct>[]> {
-  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config);
-  return maybeAccounts.map((maybeAccount) => decodeBondProduct(maybeAccount));
+  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config)
+  return maybeAccounts.map(maybeAccount => decodeBondProduct(maybeAccount))
 }

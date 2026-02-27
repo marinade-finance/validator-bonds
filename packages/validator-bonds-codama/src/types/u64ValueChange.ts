@@ -15,29 +15,29 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
-} from '@solana/kit';
+} from '@solana/kit'
 
-export type U64ValueChange = { old: bigint; new: bigint };
+export type U64ValueChange = { old: bigint; new: bigint }
 
-export type U64ValueChangeArgs = { old: number | bigint; new: number | bigint };
+export type U64ValueChangeArgs = { old: number | bigint; new: number | bigint }
 
 export function getU64ValueChangeEncoder(): FixedSizeEncoder<U64ValueChangeArgs> {
   return getStructEncoder([
     ['old', getU64Encoder()],
     ['new', getU64Encoder()],
-  ]);
+  ])
 }
 
 export function getU64ValueChangeDecoder(): FixedSizeDecoder<U64ValueChange> {
   return getStructDecoder([
     ['old', getU64Decoder()],
     ['new', getU64Decoder()],
-  ]);
+  ])
 }
 
 export function getU64ValueChangeCodec(): FixedSizeCodec<
   U64ValueChangeArgs,
   U64ValueChange
 > {
-  return combineCodec(getU64ValueChangeEncoder(), getU64ValueChangeDecoder());
+  return combineCodec(getU64ValueChangeEncoder(), getU64ValueChangeDecoder())
 }

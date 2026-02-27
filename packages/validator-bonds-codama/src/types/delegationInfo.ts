@@ -18,29 +18,29 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export type DelegationInfo = {
   /** to whom the stake is delegated */
-  voterPubkey: Address;
+  voterPubkey: Address
   /** activated stake amount, set at delegate() time */
-  stake: bigint;
+  stake: bigint
   /** epoch at which this stake was activated, std::Epoch::MAX if is a bootstrap stake */
-  activationEpoch: bigint;
+  activationEpoch: bigint
   /** epoch the stake was deactivated, std::Epoch::MAX if not deactivated */
-  deactivationEpoch: bigint;
-};
+  deactivationEpoch: bigint
+}
 
 export type DelegationInfoArgs = {
   /** to whom the stake is delegated */
-  voterPubkey: Address;
+  voterPubkey: Address
   /** activated stake amount, set at delegate() time */
-  stake: number | bigint;
+  stake: number | bigint
   /** epoch at which this stake was activated, std::Epoch::MAX if is a bootstrap stake */
-  activationEpoch: number | bigint;
+  activationEpoch: number | bigint
   /** epoch the stake was deactivated, std::Epoch::MAX if not deactivated */
-  deactivationEpoch: number | bigint;
-};
+  deactivationEpoch: number | bigint
+}
 
 export function getDelegationInfoEncoder(): FixedSizeEncoder<DelegationInfoArgs> {
   return getStructEncoder([
@@ -48,7 +48,7 @@ export function getDelegationInfoEncoder(): FixedSizeEncoder<DelegationInfoArgs>
     ['stake', getU64Encoder()],
     ['activationEpoch', getU64Encoder()],
     ['deactivationEpoch', getU64Encoder()],
-  ]);
+  ])
 }
 
 export function getDelegationInfoDecoder(): FixedSizeDecoder<DelegationInfo> {
@@ -57,12 +57,12 @@ export function getDelegationInfoDecoder(): FixedSizeDecoder<DelegationInfo> {
     ['stake', getU64Decoder()],
     ['activationEpoch', getU64Decoder()],
     ['deactivationEpoch', getU64Decoder()],
-  ]);
+  ])
 }
 
 export function getDelegationInfoCodec(): FixedSizeCodec<
   DelegationInfoArgs,
   DelegationInfo
 > {
-  return combineCodec(getDelegationInfoEncoder(), getDelegationInfoDecoder());
+  return combineCodec(getDelegationInfoEncoder(), getDelegationInfoDecoder())
 }

@@ -37,57 +37,58 @@ import {
   type MaybeAccount,
   type MaybeEncodedAccount,
   type ReadonlyUint8Array,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export const SETTLEMENT_CLAIM_DISCRIMINATOR = new Uint8Array([
   216, 103, 231, 246, 171, 99, 124, 133,
-]);
+])
 
 export function getSettlementClaimDiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    SETTLEMENT_CLAIM_DISCRIMINATOR
-  );
+    SETTLEMENT_CLAIM_DISCRIMINATOR,
+  )
 }
 
 export type SettlementClaim = {
-  discriminator: ReadonlyUint8Array;
+  discriminator: ReadonlyUint8Array
   /** settlement account this claim belongs under */
-  settlement: Address;
+  settlement: Address
   /** stake account to which the claim has been withdrawn to */
-  stakeAccountTo: Address;
+  stakeAccountTo: Address
   /** staker authority as part of the merkle proof for this claim */
-  stakeAccountStaker: Address;
+  stakeAccountStaker: Address
   /** withdrawer authority as part of the merkle proof for this claim */
-  stakeAccountWithdrawer: Address;
+  stakeAccountWithdrawer: Address
   /** claim amount */
-  amount: bigint;
+  amount: bigint
   /** PDA account bump, one claim per settlement */
-  bump: number;
+  bump: number
   /** rent collector account to get the rent back for claim account creation */
-  rentCollector: Address;
+  rentCollector: Address
   /** reserve space for future extensions */
-  reserved: ReadonlyUint8Array;
-};
+  reserved: ReadonlyUint8Array
+}
 
 export type SettlementClaimArgs = {
   /** settlement account this claim belongs under */
-  settlement: Address;
+  settlement: Address
   /** stake account to which the claim has been withdrawn to */
-  stakeAccountTo: Address;
+  stakeAccountTo: Address
   /** staker authority as part of the merkle proof for this claim */
-  stakeAccountStaker: Address;
+  stakeAccountStaker: Address
   /** withdrawer authority as part of the merkle proof for this claim */
-  stakeAccountWithdrawer: Address;
+  stakeAccountWithdrawer: Address
   /** claim amount */
-  amount: number | bigint;
+  amount: number | bigint
   /** PDA account bump, one claim per settlement */
-  bump: number;
+  bump: number
   /** rent collector account to get the rent back for claim account creation */
-  rentCollector: Address;
+  rentCollector: Address
   /** reserve space for future extensions */
-  reserved: ReadonlyUint8Array;
-};
+  reserved: ReadonlyUint8Array
+}
 
+/** Gets the encoder for {@link SettlementClaimArgs} account data. */
 export function getSettlementClaimEncoder(): FixedSizeEncoder<SettlementClaimArgs> {
   return transformEncoder(
     getStructEncoder([
@@ -101,10 +102,11 @@ export function getSettlementClaimEncoder(): FixedSizeEncoder<SettlementClaimArg
       ['rentCollector', getAddressEncoder()],
       ['reserved', fixEncoderSize(getBytesEncoder(), 93)],
     ]),
-    (value) => ({ ...value, discriminator: SETTLEMENT_CLAIM_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: SETTLEMENT_CLAIM_DISCRIMINATOR }),
+  )
 }
 
+/** Gets the decoder for {@link SettlementClaim} account data. */
 export function getSettlementClaimDecoder(): FixedSizeDecoder<SettlementClaim> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
@@ -116,41 +118,42 @@ export function getSettlementClaimDecoder(): FixedSizeDecoder<SettlementClaim> {
     ['bump', getU8Decoder()],
     ['rentCollector', getAddressDecoder()],
     ['reserved', fixDecoderSize(getBytesDecoder(), 93)],
-  ]);
+  ])
 }
 
+/** Gets the codec for {@link SettlementClaim} account data. */
 export function getSettlementClaimCodec(): FixedSizeCodec<
   SettlementClaimArgs,
   SettlementClaim
 > {
-  return combineCodec(getSettlementClaimEncoder(), getSettlementClaimDecoder());
+  return combineCodec(getSettlementClaimEncoder(), getSettlementClaimDecoder())
 }
 
 export function decodeSettlementClaim<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress>
-): Account<SettlementClaim, TAddress>;
+  encodedAccount: EncodedAccount<TAddress>,
+): Account<SettlementClaim, TAddress>
 export function decodeSettlementClaim<TAddress extends string = string>(
-  encodedAccount: MaybeEncodedAccount<TAddress>
-): MaybeAccount<SettlementClaim, TAddress>;
+  encodedAccount: MaybeEncodedAccount<TAddress>,
+): MaybeAccount<SettlementClaim, TAddress>
 export function decodeSettlementClaim<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>
+  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>,
 ):
   | Account<SettlementClaim, TAddress>
   | MaybeAccount<SettlementClaim, TAddress> {
   return decodeAccount(
     encodedAccount as MaybeEncodedAccount<TAddress>,
-    getSettlementClaimDecoder()
-  );
+    getSettlementClaimDecoder(),
+  )
 }
 
 export async function fetchSettlementClaim<TAddress extends string = string>(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
-  config?: FetchAccountConfig
+  config?: FetchAccountConfig,
 ): Promise<Account<SettlementClaim, TAddress>> {
-  const maybeAccount = await fetchMaybeSettlementClaim(rpc, address, config);
-  assertAccountExists(maybeAccount);
-  return maybeAccount;
+  const maybeAccount = await fetchMaybeSettlementClaim(rpc, address, config)
+  assertAccountExists(maybeAccount)
+  return maybeAccount
 }
 
 export async function fetchMaybeSettlementClaim<
@@ -158,37 +161,35 @@ export async function fetchMaybeSettlementClaim<
 >(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
-  config?: FetchAccountConfig
+  config?: FetchAccountConfig,
 ): Promise<MaybeAccount<SettlementClaim, TAddress>> {
-  const maybeAccount = await fetchEncodedAccount(rpc, address, config);
-  return decodeSettlementClaim(maybeAccount);
+  const maybeAccount = await fetchEncodedAccount(rpc, address, config)
+  return decodeSettlementClaim(maybeAccount)
 }
 
 export async function fetchAllSettlementClaim(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
-  config?: FetchAccountsConfig
+  config?: FetchAccountsConfig,
 ): Promise<Account<SettlementClaim>[]> {
   const maybeAccounts = await fetchAllMaybeSettlementClaim(
     rpc,
     addresses,
-    config
-  );
-  assertAccountsExist(maybeAccounts);
-  return maybeAccounts;
+    config,
+  )
+  assertAccountsExist(maybeAccounts)
+  return maybeAccounts
 }
 
 export async function fetchAllMaybeSettlementClaim(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
-  config?: FetchAccountsConfig
+  config?: FetchAccountsConfig,
 ): Promise<MaybeAccount<SettlementClaim>[]> {
-  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config);
-  return maybeAccounts.map((maybeAccount) =>
-    decodeSettlementClaim(maybeAccount)
-  );
+  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config)
+  return maybeAccounts.map(maybeAccount => decodeSettlementClaim(maybeAccount))
 }
 
 export function getSettlementClaimSize(): number {
-  return 270;
+  return 270
 }

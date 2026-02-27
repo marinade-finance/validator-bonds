@@ -19,6 +19,8 @@ import {
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -35,20 +37,20 @@ import {
   type TransactionSigner,
   type WritableAccount,
   type WritableSignerAccount,
-} from '@solana/kit';
-import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs';
+} from '@solana/kit'
 import {
-  expectAddress,
   getAccountMetaFactory,
-  type ResolvedAccount,
-} from '../shared';
+  getAddressFromResolvedInstructionAccount,
+  type ResolvedInstructionAccount,
+} from '@solana/program-client-core'
+import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
 export const INIT_BOND_DISCRIMINATOR = new Uint8Array([
   95, 93, 93, 181, 221, 36, 126, 64,
-]);
+])
 
 export function getInitBondDiscriminatorBytes() {
-  return fixEncoderSize(getBytesEncoder(), 8).encode(INIT_BOND_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(INIT_BOND_DISCRIMINATOR)
 }
 
 export type InitBondInstruction<
@@ -58,9 +60,8 @@ export type InitBondInstruction<
   TAccountValidatorIdentity extends string | AccountMeta<string> = string,
   TAccountBond extends string | AccountMeta<string> = string,
   TAccountRentPayer extends string | AccountMeta<string> = string,
-  TAccountSystemProgram extends
-    | string
-    | AccountMeta<string> = '11111111111111111111111111111111',
+  TAccountSystemProgram extends string | AccountMeta<string> =
+    '11111111111111111111111111111111',
   TAccountEventAuthority extends string | AccountMeta<string> = string,
   TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -96,20 +97,20 @@ export type InitBondInstruction<
         : TAccountProgram,
       ...TRemainingAccounts,
     ]
-  >;
+  >
 
 export type InitBondInstructionData = {
-  discriminator: ReadonlyUint8Array;
-  bondAuthority: Address;
-  cpmpe: bigint;
-  maxStakeWanted: bigint;
-};
+  discriminator: ReadonlyUint8Array
+  bondAuthority: Address
+  cpmpe: bigint
+  maxStakeWanted: bigint
+}
 
 export type InitBondInstructionDataArgs = {
-  bondAuthority: Address;
-  cpmpe: number | bigint;
-  maxStakeWanted: number | bigint;
-};
+  bondAuthority: Address
+  cpmpe: number | bigint
+  maxStakeWanted: number | bigint
+}
 
 export function getInitBondInstructionDataEncoder(): FixedSizeEncoder<InitBondInstructionDataArgs> {
   return transformEncoder(
@@ -119,8 +120,8 @@ export function getInitBondInstructionDataEncoder(): FixedSizeEncoder<InitBondIn
       ['cpmpe', getU64Encoder()],
       ['maxStakeWanted', getU64Encoder()],
     ]),
-    (value) => ({ ...value, discriminator: INIT_BOND_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: INIT_BOND_DISCRIMINATOR }),
+  )
 }
 
 export function getInitBondInstructionDataDecoder(): FixedSizeDecoder<InitBondInstructionData> {
@@ -129,7 +130,7 @@ export function getInitBondInstructionDataDecoder(): FixedSizeDecoder<InitBondIn
     ['bondAuthority', getAddressDecoder()],
     ['cpmpe', getU64Decoder()],
     ['maxStakeWanted', getU64Decoder()],
-  ]);
+  ])
 }
 
 export function getInitBondInstructionDataCodec(): FixedSizeCodec<
@@ -138,8 +139,8 @@ export function getInitBondInstructionDataCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getInitBondInstructionDataEncoder(),
-    getInitBondInstructionDataDecoder()
-  );
+    getInitBondInstructionDataDecoder(),
+  )
 }
 
 export type InitBondAsyncInput<
@@ -153,23 +154,23 @@ export type InitBondAsyncInput<
   TAccountProgram extends string = string,
 > = {
   /** the config account under which the bond is created */
-  config: Address<TAccountConfig>;
-  voteAccount: Address<TAccountVoteAccount>;
+  config: Address<TAccountConfig>
+  voteAccount: Address<TAccountVoteAccount>
   /**
    * permission-ed: the validator identity signs the instruction, InitBondArgs applied
    * permission-less: no signature, default init bond configuration
    */
-  validatorIdentity?: TransactionSigner<TAccountValidatorIdentity>;
-  bond?: Address<TAccountBond>;
+  validatorIdentity?: TransactionSigner<TAccountValidatorIdentity>
+  bond?: Address<TAccountBond>
   /** rent exempt payer of validator bond account creation */
-  rentPayer: TransactionSigner<TAccountRentPayer>;
-  systemProgram?: Address<TAccountSystemProgram>;
-  eventAuthority?: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  bondAuthority: InitBondInstructionDataArgs['bondAuthority'];
-  cpmpe: InitBondInstructionDataArgs['cpmpe'];
-  maxStakeWanted: InitBondInstructionDataArgs['maxStakeWanted'];
-};
+  rentPayer: TransactionSigner<TAccountRentPayer>
+  systemProgram?: Address<TAccountSystemProgram>
+  eventAuthority?: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+  bondAuthority: InitBondInstructionDataArgs['bondAuthority']
+  cpmpe: InitBondInstructionDataArgs['cpmpe']
+  maxStakeWanted: InitBondInstructionDataArgs['maxStakeWanted']
+}
 
 export async function getInitBondInstructionAsync<
   TAccountConfig extends string,
@@ -192,7 +193,7 @@ export async function getInitBondInstructionAsync<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): Promise<
   InitBondInstruction<
     TProgramAddress,
@@ -208,7 +209,7 @@ export async function getInitBondInstructionAsync<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -223,14 +224,14 @@ export async function getInitBondInstructionAsync<
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Original args.
-  const args = { ...input };
+  const args = { ...input }
 
   // Resolve default values.
   if (!accounts.bond.value) {
@@ -240,16 +241,26 @@ export async function getInitBondInstructionAsync<
         getBytesEncoder().encode(
           new Uint8Array([
             98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116,
-          ])
+          ]),
         ),
-        getAddressEncoder().encode(expectAddress(accounts.config.value)),
-        getAddressEncoder().encode(expectAddress(accounts.voteAccount.value)),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'config',
+            accounts.config.value,
+          ),
+        ),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'voteAccount',
+            accounts.voteAccount.value,
+          ),
+        ),
       ],
-    });
+    })
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
-      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>;
+      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
   }
   if (!accounts.eventAuthority.value) {
     accounts.eventAuthority.value = await getProgramDerivedAddress({
@@ -259,26 +270,26 @@ export async function getInitBondInstructionAsync<
           new Uint8Array([
             95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
             105, 116, 121,
-          ])
+          ]),
         ),
       ],
-    });
+    })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.voteAccount),
-      getAccountMeta(accounts.validatorIdentity),
-      getAccountMeta(accounts.bond),
-      getAccountMeta(accounts.rentPayer),
-      getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('voteAccount', accounts.voteAccount),
+      getAccountMeta('validatorIdentity', accounts.validatorIdentity),
+      getAccountMeta('bond', accounts.bond),
+      getAccountMeta('rentPayer', accounts.rentPayer),
+      getAccountMeta('systemProgram', accounts.systemProgram),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getInitBondInstructionDataEncoder().encode(
-      args as InitBondInstructionDataArgs
+      args as InitBondInstructionDataArgs,
     ),
     programAddress,
   } as InitBondInstruction<
@@ -291,7 +302,7 @@ export async function getInitBondInstructionAsync<
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type InitBondInput<
@@ -305,23 +316,23 @@ export type InitBondInput<
   TAccountProgram extends string = string,
 > = {
   /** the config account under which the bond is created */
-  config: Address<TAccountConfig>;
-  voteAccount: Address<TAccountVoteAccount>;
+  config: Address<TAccountConfig>
+  voteAccount: Address<TAccountVoteAccount>
   /**
    * permission-ed: the validator identity signs the instruction, InitBondArgs applied
    * permission-less: no signature, default init bond configuration
    */
-  validatorIdentity?: TransactionSigner<TAccountValidatorIdentity>;
-  bond: Address<TAccountBond>;
+  validatorIdentity?: TransactionSigner<TAccountValidatorIdentity>
+  bond: Address<TAccountBond>
   /** rent exempt payer of validator bond account creation */
-  rentPayer: TransactionSigner<TAccountRentPayer>;
-  systemProgram?: Address<TAccountSystemProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  bondAuthority: InitBondInstructionDataArgs['bondAuthority'];
-  cpmpe: InitBondInstructionDataArgs['cpmpe'];
-  maxStakeWanted: InitBondInstructionDataArgs['maxStakeWanted'];
-};
+  rentPayer: TransactionSigner<TAccountRentPayer>
+  systemProgram?: Address<TAccountSystemProgram>
+  eventAuthority: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+  bondAuthority: InitBondInstructionDataArgs['bondAuthority']
+  cpmpe: InitBondInstructionDataArgs['cpmpe']
+  maxStakeWanted: InitBondInstructionDataArgs['maxStakeWanted']
+}
 
 export function getInitBondInstruction<
   TAccountConfig extends string,
@@ -344,7 +355,7 @@ export function getInitBondInstruction<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): InitBondInstruction<
   TProgramAddress,
   TAccountConfig,
@@ -358,7 +369,7 @@ export function getInitBondInstruction<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -373,35 +384,35 @@ export function getInitBondInstruction<
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Original args.
-  const args = { ...input };
+  const args = { ...input }
 
   // Resolve default values.
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
-      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>;
+      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.voteAccount),
-      getAccountMeta(accounts.validatorIdentity),
-      getAccountMeta(accounts.bond),
-      getAccountMeta(accounts.rentPayer),
-      getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('voteAccount', accounts.voteAccount),
+      getAccountMeta('validatorIdentity', accounts.validatorIdentity),
+      getAccountMeta('bond', accounts.bond),
+      getAccountMeta('rentPayer', accounts.rentPayer),
+      getAccountMeta('systemProgram', accounts.systemProgram),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getInitBondInstructionDataEncoder().encode(
-      args as InitBondInstructionDataArgs
+      args as InitBondInstructionDataArgs,
     ),
     programAddress,
   } as InitBondInstruction<
@@ -414,32 +425,32 @@ export function getInitBondInstruction<
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ParsedInitBondInstruction<
   TProgram extends string = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
-  programAddress: Address<TProgram>;
+  programAddress: Address<TProgram>
   accounts: {
     /** the config account under which the bond is created */
-    config: TAccountMetas[0];
-    voteAccount: TAccountMetas[1];
+    config: TAccountMetas[0]
+    voteAccount: TAccountMetas[1]
     /**
      * permission-ed: the validator identity signs the instruction, InitBondArgs applied
      * permission-less: no signature, default init bond configuration
      */
-    validatorIdentity?: TAccountMetas[2] | undefined;
-    bond: TAccountMetas[3];
+    validatorIdentity?: TAccountMetas[2] | undefined
+    bond: TAccountMetas[3]
     /** rent exempt payer of validator bond account creation */
-    rentPayer: TAccountMetas[4];
-    systemProgram: TAccountMetas[5];
-    eventAuthority: TAccountMetas[6];
-    program: TAccountMetas[7];
-  };
-  data: InitBondInstructionData;
-};
+    rentPayer: TAccountMetas[4]
+    systemProgram: TAccountMetas[5]
+    eventAuthority: TAccountMetas[6]
+    program: TAccountMetas[7]
+  }
+  data: InitBondInstructionData
+}
 
 export function parseInitBondInstruction<
   TProgram extends string,
@@ -447,24 +458,29 @@ export function parseInitBondInstruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>
+    InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitBondInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 8) {
-    // TODO: Coded error.
-    throw new Error('Not enough accounts');
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 8,
+      },
+    )
   }
-  let accountIndex = 0;
+  let accountIndex = 0
   const getNextAccount = () => {
-    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!;
-    accountIndex += 1;
-    return accountMeta;
-  };
+    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!
+    accountIndex += 1
+    return accountMeta
+  }
   const getNextOptionalAccount = () => {
-    const accountMeta = getNextAccount();
+    const accountMeta = getNextAccount()
     return accountMeta.address === VALIDATOR_BONDS_PROGRAM_ADDRESS
       ? undefined
-      : accountMeta;
-  };
+      : accountMeta
+  }
   return {
     programAddress: instruction.programAddress,
     accounts: {
@@ -478,5 +494,5 @@ export function parseInitBondInstruction<
       program: getNextAccount(),
     },
     data: getInitBondInstructionDataDecoder().decode(instruction.data),
-  };
+  }
 }

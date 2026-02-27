@@ -18,27 +18,27 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export type InitBondEvent = {
-  bond: Address;
-  config: Address;
-  voteAccount: Address;
-  validatorIdentity: Address;
-  authority: Address;
-  cpmpe: bigint;
-  maxStakeWanted: bigint;
-};
+  bond: Address
+  config: Address
+  voteAccount: Address
+  validatorIdentity: Address
+  authority: Address
+  cpmpe: bigint
+  maxStakeWanted: bigint
+}
 
 export type InitBondEventArgs = {
-  bond: Address;
-  config: Address;
-  voteAccount: Address;
-  validatorIdentity: Address;
-  authority: Address;
-  cpmpe: number | bigint;
-  maxStakeWanted: number | bigint;
-};
+  bond: Address
+  config: Address
+  voteAccount: Address
+  validatorIdentity: Address
+  authority: Address
+  cpmpe: number | bigint
+  maxStakeWanted: number | bigint
+}
 
 export function getInitBondEventEncoder(): FixedSizeEncoder<InitBondEventArgs> {
   return getStructEncoder([
@@ -49,7 +49,7 @@ export function getInitBondEventEncoder(): FixedSizeEncoder<InitBondEventArgs> {
     ['authority', getAddressEncoder()],
     ['cpmpe', getU64Encoder()],
     ['maxStakeWanted', getU64Encoder()],
-  ]);
+  ])
 }
 
 export function getInitBondEventDecoder(): FixedSizeDecoder<InitBondEvent> {
@@ -61,12 +61,12 @@ export function getInitBondEventDecoder(): FixedSizeDecoder<InitBondEvent> {
     ['authority', getAddressDecoder()],
     ['cpmpe', getU64Decoder()],
     ['maxStakeWanted', getU64Decoder()],
-  ]);
+  ])
 }
 
 export function getInitBondEventCodec(): FixedSizeCodec<
   InitBondEventArgs,
   InitBondEvent
 > {
-  return combineCodec(getInitBondEventEncoder(), getInitBondEventDecoder());
+  return combineCodec(getInitBondEventEncoder(), getInitBondEventDecoder())
 }

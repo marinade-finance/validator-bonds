@@ -15,6 +15,8 @@ import {
   getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -30,18 +32,21 @@ import {
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
-} from '@solana/kit';
-import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs';
-import { getAccountMetaFactory, type ResolvedAccount } from '../shared';
+} from '@solana/kit'
+import {
+  getAccountMetaFactory,
+  type ResolvedInstructionAccount,
+} from '@solana/program-client-core'
+import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
 export const EMERGENCY_PAUSE_DISCRIMINATOR = new Uint8Array([
   21, 143, 27, 142, 200, 181, 210, 255,
-]);
+])
 
 export function getEmergencyPauseDiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    EMERGENCY_PAUSE_DISCRIMINATOR
-  );
+    EMERGENCY_PAUSE_DISCRIMINATOR,
+  )
 }
 
 export type EmergencyPauseInstruction<
@@ -70,25 +75,25 @@ export type EmergencyPauseInstruction<
         : TAccountProgram,
       ...TRemainingAccounts,
     ]
-  >;
+  >
 
 export type EmergencyPauseInstructionData = {
-  discriminator: ReadonlyUint8Array;
-};
+  discriminator: ReadonlyUint8Array
+}
 
-export type EmergencyPauseInstructionDataArgs = {};
+export type EmergencyPauseInstructionDataArgs = {}
 
 export function getEmergencyPauseInstructionDataEncoder(): FixedSizeEncoder<EmergencyPauseInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([['discriminator', fixEncoderSize(getBytesEncoder(), 8)]]),
-    (value) => ({ ...value, discriminator: EMERGENCY_PAUSE_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: EMERGENCY_PAUSE_DISCRIMINATOR }),
+  )
 }
 
 export function getEmergencyPauseInstructionDataDecoder(): FixedSizeDecoder<EmergencyPauseInstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
-  ]);
+  ])
 }
 
 export function getEmergencyPauseInstructionDataCodec(): FixedSizeCodec<
@@ -97,8 +102,8 @@ export function getEmergencyPauseInstructionDataCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getEmergencyPauseInstructionDataEncoder(),
-    getEmergencyPauseInstructionDataDecoder()
-  );
+    getEmergencyPauseInstructionDataDecoder(),
+  )
 }
 
 export type EmergencyPauseAsyncInput<
@@ -107,11 +112,11 @@ export type EmergencyPauseAsyncInput<
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
 > = {
-  config: Address<TAccountConfig>;
-  pauseAuthority: TransactionSigner<TAccountPauseAuthority>;
-  eventAuthority?: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-};
+  config: Address<TAccountConfig>
+  pauseAuthority: TransactionSigner<TAccountPauseAuthority>
+  eventAuthority?: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+}
 
 export async function getEmergencyPauseInstructionAsync<
   TAccountConfig extends string,
@@ -126,7 +131,7 @@ export async function getEmergencyPauseInstructionAsync<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): Promise<
   EmergencyPauseInstruction<
     TProgramAddress,
@@ -138,7 +143,7 @@ export async function getEmergencyPauseInstructionAsync<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -146,11 +151,11 @@ export async function getEmergencyPauseInstructionAsync<
     pauseAuthority: { value: input.pauseAuthority ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Resolve default values.
   if (!accounts.eventAuthority.value) {
@@ -161,19 +166,19 @@ export async function getEmergencyPauseInstructionAsync<
           new Uint8Array([
             95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
             105, 116, 121,
-          ])
+          ]),
         ),
       ],
-    });
+    })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.pauseAuthority),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('pauseAuthority', accounts.pauseAuthority),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getEmergencyPauseInstructionDataEncoder().encode({}),
     programAddress,
@@ -183,7 +188,7 @@ export async function getEmergencyPauseInstructionAsync<
     TAccountPauseAuthority,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type EmergencyPauseInput<
@@ -192,11 +197,11 @@ export type EmergencyPauseInput<
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
 > = {
-  config: Address<TAccountConfig>;
-  pauseAuthority: TransactionSigner<TAccountPauseAuthority>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-};
+  config: Address<TAccountConfig>
+  pauseAuthority: TransactionSigner<TAccountPauseAuthority>
+  eventAuthority: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+}
 
 export function getEmergencyPauseInstruction<
   TAccountConfig extends string,
@@ -211,7 +216,7 @@ export function getEmergencyPauseInstruction<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): EmergencyPauseInstruction<
   TProgramAddress,
   TAccountConfig,
@@ -221,7 +226,7 @@ export function getEmergencyPauseInstruction<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -229,19 +234,19 @@ export function getEmergencyPauseInstruction<
     pauseAuthority: { value: input.pauseAuthority ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.pauseAuthority),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('pauseAuthority', accounts.pauseAuthority),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getEmergencyPauseInstructionDataEncoder().encode({}),
     programAddress,
@@ -251,22 +256,22 @@ export function getEmergencyPauseInstruction<
     TAccountPauseAuthority,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ParsedEmergencyPauseInstruction<
   TProgram extends string = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
-  programAddress: Address<TProgram>;
+  programAddress: Address<TProgram>
   accounts: {
-    config: TAccountMetas[0];
-    pauseAuthority: TAccountMetas[1];
-    eventAuthority: TAccountMetas[2];
-    program: TAccountMetas[3];
-  };
-  data: EmergencyPauseInstructionData;
-};
+    config: TAccountMetas[0]
+    pauseAuthority: TAccountMetas[1]
+    eventAuthority: TAccountMetas[2]
+    program: TAccountMetas[3]
+  }
+  data: EmergencyPauseInstructionData
+}
 
 export function parseEmergencyPauseInstruction<
   TProgram extends string,
@@ -274,18 +279,23 @@ export function parseEmergencyPauseInstruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>
+    InstructionWithData<ReadonlyUint8Array>,
 ): ParsedEmergencyPauseInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 4) {
-    // TODO: Coded error.
-    throw new Error('Not enough accounts');
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 4,
+      },
+    )
   }
-  let accountIndex = 0;
+  let accountIndex = 0
   const getNextAccount = () => {
-    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!;
-    accountIndex += 1;
-    return accountMeta;
-  };
+    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!
+    accountIndex += 1
+    return accountMeta
+  }
   return {
     programAddress: instruction.programAddress,
     accounts: {
@@ -295,5 +305,5 @@ export function parseEmergencyPauseInstruction<
       program: getNextAccount(),
     },
     data: getEmergencyPauseInstructionDataDecoder().decode(instruction.data),
-  };
+  }
 }

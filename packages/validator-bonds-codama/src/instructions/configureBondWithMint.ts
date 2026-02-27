@@ -21,6 +21,8 @@ import {
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -38,22 +40,22 @@ import {
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
-} from '@solana/kit';
-import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs';
+} from '@solana/kit'
 import {
-  expectAddress,
   getAccountMetaFactory,
-  type ResolvedAccount,
-} from '../shared';
+  getAddressFromResolvedInstructionAccount,
+  type ResolvedInstructionAccount,
+} from '@solana/program-client-core'
+import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
 export const CONFIGURE_BOND_WITH_MINT_DISCRIMINATOR = new Uint8Array([
   48, 189, 230, 39, 112, 33, 227, 8,
-]);
+])
 
 export function getConfigureBondWithMintDiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    CONFIGURE_BOND_WITH_MINT_DISCRIMINATOR
-  );
+    CONFIGURE_BOND_WITH_MINT_DISCRIMINATOR,
+  )
 }
 
 export type ConfigureBondWithMintInstruction<
@@ -64,9 +66,8 @@ export type ConfigureBondWithMintInstruction<
   TAccountVoteAccount extends string | AccountMeta<string> = string,
   TAccountTokenAccount extends string | AccountMeta<string> = string,
   TAccountTokenAuthority extends string | AccountMeta<string> = string,
-  TAccountTokenProgram extends
-    | string
-    | AccountMeta<string> = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+  TAccountTokenProgram extends string | AccountMeta<string> =
+    'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
   TAccountEventAuthority extends string | AccountMeta<string> = string,
   TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -104,42 +105,42 @@ export type ConfigureBondWithMintInstruction<
         : TAccountProgram,
       ...TRemainingAccounts,
     ]
-  >;
+  >
 
 export type ConfigureBondWithMintInstructionData = {
-  discriminator: ReadonlyUint8Array;
+  discriminator: ReadonlyUint8Array
   /** Validator identity configured within the vote account. */
-  validatorIdentity: Address;
+  validatorIdentity: Address
   /** New bond authority that can manage the bond account. */
-  bondAuthority: Option<Address>;
+  bondAuthority: Option<Address>
   /**
    * New `cpmpe` value (cost per mille per epoch).
    * It defines the bid for the validator to get delegated up to `max_stake_wanted` lamports.
    */
-  cpmpe: Option<bigint>;
+  cpmpe: Option<bigint>
   /**
    * new max_stake_wanted value that vote account owner declares
    * as the maximum delegated stake wanted
    */
-  maxStakeWanted: Option<bigint>;
-};
+  maxStakeWanted: Option<bigint>
+}
 
 export type ConfigureBondWithMintInstructionDataArgs = {
   /** Validator identity configured within the vote account. */
-  validatorIdentity: Address;
+  validatorIdentity: Address
   /** New bond authority that can manage the bond account. */
-  bondAuthority: OptionOrNullable<Address>;
+  bondAuthority: OptionOrNullable<Address>
   /**
    * New `cpmpe` value (cost per mille per epoch).
    * It defines the bid for the validator to get delegated up to `max_stake_wanted` lamports.
    */
-  cpmpe: OptionOrNullable<number | bigint>;
+  cpmpe: OptionOrNullable<number | bigint>
   /**
    * new max_stake_wanted value that vote account owner declares
    * as the maximum delegated stake wanted
    */
-  maxStakeWanted: OptionOrNullable<number | bigint>;
-};
+  maxStakeWanted: OptionOrNullable<number | bigint>
+}
 
 export function getConfigureBondWithMintInstructionDataEncoder(): Encoder<ConfigureBondWithMintInstructionDataArgs> {
   return transformEncoder(
@@ -150,11 +151,11 @@ export function getConfigureBondWithMintInstructionDataEncoder(): Encoder<Config
       ['cpmpe', getOptionEncoder(getU64Encoder())],
       ['maxStakeWanted', getOptionEncoder(getU64Encoder())],
     ]),
-    (value) => ({
+    value => ({
       ...value,
       discriminator: CONFIGURE_BOND_WITH_MINT_DISCRIMINATOR,
-    })
-  );
+    }),
+  )
 }
 
 export function getConfigureBondWithMintInstructionDataDecoder(): Decoder<ConfigureBondWithMintInstructionData> {
@@ -164,7 +165,7 @@ export function getConfigureBondWithMintInstructionDataDecoder(): Decoder<Config
     ['bondAuthority', getOptionDecoder(getAddressDecoder())],
     ['cpmpe', getOptionDecoder(getU64Decoder())],
     ['maxStakeWanted', getOptionDecoder(getU64Decoder())],
-  ]);
+  ])
 }
 
 export function getConfigureBondWithMintInstructionDataCodec(): Codec<
@@ -173,8 +174,8 @@ export function getConfigureBondWithMintInstructionDataCodec(): Codec<
 > {
   return combineCodec(
     getConfigureBondWithMintInstructionDataEncoder(),
-    getConfigureBondWithMintInstructionDataDecoder()
-  );
+    getConfigureBondWithMintInstructionDataDecoder(),
+  )
 }
 
 export type ConfigureBondWithMintAsyncInput<
@@ -188,21 +189,21 @@ export type ConfigureBondWithMintAsyncInput<
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
 > = {
-  config: Address<TAccountConfig>;
-  bond?: Address<TAccountBond>;
-  mint: Address<TAccountMint>;
-  voteAccount: Address<TAccountVoteAccount>;
+  config: Address<TAccountConfig>
+  bond?: Address<TAccountBond>
+  mint: Address<TAccountMint>
+  voteAccount: Address<TAccountVoteAccount>
   /** token account to burn bond mint configuration tokens from */
-  tokenAccount: Address<TAccountTokenAccount>;
-  tokenAuthority: TransactionSigner<TAccountTokenAuthority>;
-  tokenProgram?: Address<TAccountTokenProgram>;
-  eventAuthority?: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  validatorIdentity: ConfigureBondWithMintInstructionDataArgs['validatorIdentity'];
-  bondAuthority: ConfigureBondWithMintInstructionDataArgs['bondAuthority'];
-  cpmpe: ConfigureBondWithMintInstructionDataArgs['cpmpe'];
-  maxStakeWanted: ConfigureBondWithMintInstructionDataArgs['maxStakeWanted'];
-};
+  tokenAccount: Address<TAccountTokenAccount>
+  tokenAuthority: TransactionSigner<TAccountTokenAuthority>
+  tokenProgram?: Address<TAccountTokenProgram>
+  eventAuthority?: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+  validatorIdentity: ConfigureBondWithMintInstructionDataArgs['validatorIdentity']
+  bondAuthority: ConfigureBondWithMintInstructionDataArgs['bondAuthority']
+  cpmpe: ConfigureBondWithMintInstructionDataArgs['cpmpe']
+  maxStakeWanted: ConfigureBondWithMintInstructionDataArgs['maxStakeWanted']
+}
 
 export async function getConfigureBondWithMintInstructionAsync<
   TAccountConfig extends string,
@@ -227,7 +228,7 @@ export async function getConfigureBondWithMintInstructionAsync<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): Promise<
   ConfigureBondWithMintInstruction<
     TProgramAddress,
@@ -244,7 +245,7 @@ export async function getConfigureBondWithMintInstructionAsync<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -257,14 +258,14 @@ export async function getConfigureBondWithMintInstructionAsync<
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Original args.
-  const args = { ...input };
+  const args = { ...input }
 
   // Resolve default values.
   if (!accounts.bond.value) {
@@ -274,16 +275,26 @@ export async function getConfigureBondWithMintInstructionAsync<
         getBytesEncoder().encode(
           new Uint8Array([
             98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116,
-          ])
+          ]),
         ),
-        getAddressEncoder().encode(expectAddress(accounts.config.value)),
-        getAddressEncoder().encode(expectAddress(accounts.voteAccount.value)),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'config',
+            accounts.config.value,
+          ),
+        ),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'voteAccount',
+            accounts.voteAccount.value,
+          ),
+        ),
       ],
-    });
+    })
   }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
-      'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address<'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'>;
+      'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address<'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'>
   }
   if (!accounts.eventAuthority.value) {
     accounts.eventAuthority.value = await getProgramDerivedAddress({
@@ -293,27 +304,27 @@ export async function getConfigureBondWithMintInstructionAsync<
           new Uint8Array([
             95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
             105, 116, 121,
-          ])
+          ]),
         ),
       ],
-    });
+    })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.bond),
-      getAccountMeta(accounts.mint),
-      getAccountMeta(accounts.voteAccount),
-      getAccountMeta(accounts.tokenAccount),
-      getAccountMeta(accounts.tokenAuthority),
-      getAccountMeta(accounts.tokenProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('bond', accounts.bond),
+      getAccountMeta('mint', accounts.mint),
+      getAccountMeta('voteAccount', accounts.voteAccount),
+      getAccountMeta('tokenAccount', accounts.tokenAccount),
+      getAccountMeta('tokenAuthority', accounts.tokenAuthority),
+      getAccountMeta('tokenProgram', accounts.tokenProgram),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getConfigureBondWithMintInstructionDataEncoder().encode(
-      args as ConfigureBondWithMintInstructionDataArgs
+      args as ConfigureBondWithMintInstructionDataArgs,
     ),
     programAddress,
   } as ConfigureBondWithMintInstruction<
@@ -327,7 +338,7 @@ export async function getConfigureBondWithMintInstructionAsync<
     TAccountTokenProgram,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ConfigureBondWithMintInput<
@@ -341,21 +352,21 @@ export type ConfigureBondWithMintInput<
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
 > = {
-  config: Address<TAccountConfig>;
-  bond: Address<TAccountBond>;
-  mint: Address<TAccountMint>;
-  voteAccount: Address<TAccountVoteAccount>;
+  config: Address<TAccountConfig>
+  bond: Address<TAccountBond>
+  mint: Address<TAccountMint>
+  voteAccount: Address<TAccountVoteAccount>
   /** token account to burn bond mint configuration tokens from */
-  tokenAccount: Address<TAccountTokenAccount>;
-  tokenAuthority: TransactionSigner<TAccountTokenAuthority>;
-  tokenProgram?: Address<TAccountTokenProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  validatorIdentity: ConfigureBondWithMintInstructionDataArgs['validatorIdentity'];
-  bondAuthority: ConfigureBondWithMintInstructionDataArgs['bondAuthority'];
-  cpmpe: ConfigureBondWithMintInstructionDataArgs['cpmpe'];
-  maxStakeWanted: ConfigureBondWithMintInstructionDataArgs['maxStakeWanted'];
-};
+  tokenAccount: Address<TAccountTokenAccount>
+  tokenAuthority: TransactionSigner<TAccountTokenAuthority>
+  tokenProgram?: Address<TAccountTokenProgram>
+  eventAuthority: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+  validatorIdentity: ConfigureBondWithMintInstructionDataArgs['validatorIdentity']
+  bondAuthority: ConfigureBondWithMintInstructionDataArgs['bondAuthority']
+  cpmpe: ConfigureBondWithMintInstructionDataArgs['cpmpe']
+  maxStakeWanted: ConfigureBondWithMintInstructionDataArgs['maxStakeWanted']
+}
 
 export function getConfigureBondWithMintInstruction<
   TAccountConfig extends string,
@@ -380,7 +391,7 @@ export function getConfigureBondWithMintInstruction<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): ConfigureBondWithMintInstruction<
   TProgramAddress,
   TAccountConfig,
@@ -395,7 +406,7 @@ export function getConfigureBondWithMintInstruction<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -408,36 +419,36 @@ export function getConfigureBondWithMintInstruction<
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Original args.
-  const args = { ...input };
+  const args = { ...input }
 
   // Resolve default values.
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
-      'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address<'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'>;
+      'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address<'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.bond),
-      getAccountMeta(accounts.mint),
-      getAccountMeta(accounts.voteAccount),
-      getAccountMeta(accounts.tokenAccount),
-      getAccountMeta(accounts.tokenAuthority),
-      getAccountMeta(accounts.tokenProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('bond', accounts.bond),
+      getAccountMeta('mint', accounts.mint),
+      getAccountMeta('voteAccount', accounts.voteAccount),
+      getAccountMeta('tokenAccount', accounts.tokenAccount),
+      getAccountMeta('tokenAuthority', accounts.tokenAuthority),
+      getAccountMeta('tokenProgram', accounts.tokenProgram),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getConfigureBondWithMintInstructionDataEncoder().encode(
-      args as ConfigureBondWithMintInstructionDataArgs
+      args as ConfigureBondWithMintInstructionDataArgs,
     ),
     programAddress,
   } as ConfigureBondWithMintInstruction<
@@ -451,28 +462,28 @@ export function getConfigureBondWithMintInstruction<
     TAccountTokenProgram,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ParsedConfigureBondWithMintInstruction<
   TProgram extends string = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
-  programAddress: Address<TProgram>;
+  programAddress: Address<TProgram>
   accounts: {
-    config: TAccountMetas[0];
-    bond: TAccountMetas[1];
-    mint: TAccountMetas[2];
-    voteAccount: TAccountMetas[3];
+    config: TAccountMetas[0]
+    bond: TAccountMetas[1]
+    mint: TAccountMetas[2]
+    voteAccount: TAccountMetas[3]
     /** token account to burn bond mint configuration tokens from */
-    tokenAccount: TAccountMetas[4];
-    tokenAuthority: TAccountMetas[5];
-    tokenProgram: TAccountMetas[6];
-    eventAuthority: TAccountMetas[7];
-    program: TAccountMetas[8];
-  };
-  data: ConfigureBondWithMintInstructionData;
-};
+    tokenAccount: TAccountMetas[4]
+    tokenAuthority: TAccountMetas[5]
+    tokenProgram: TAccountMetas[6]
+    eventAuthority: TAccountMetas[7]
+    program: TAccountMetas[8]
+  }
+  data: ConfigureBondWithMintInstructionData
+}
 
 export function parseConfigureBondWithMintInstruction<
   TProgram extends string,
@@ -480,18 +491,23 @@ export function parseConfigureBondWithMintInstruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>
+    InstructionWithData<ReadonlyUint8Array>,
 ): ParsedConfigureBondWithMintInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 9) {
-    // TODO: Coded error.
-    throw new Error('Not enough accounts');
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 9,
+      },
+    )
   }
-  let accountIndex = 0;
+  let accountIndex = 0
   const getNextAccount = () => {
-    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!;
-    accountIndex += 1;
-    return accountMeta;
-  };
+    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!
+    accountIndex += 1
+    return accountMeta
+  }
   return {
     programAddress: instruction.programAddress,
     accounts: {
@@ -506,7 +522,7 @@ export function parseConfigureBondWithMintInstruction<
       program: getNextAccount(),
     },
     data: getConfigureBondWithMintInstructionDataDecoder().decode(
-      instruction.data
+      instruction.data,
     ),
-  };
+  }
 }

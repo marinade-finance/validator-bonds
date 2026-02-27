@@ -20,31 +20,31 @@ import {
   type Encoder,
   type Option,
   type OptionOrNullable,
-} from '@solana/kit';
+} from '@solana/kit'
 import {
   getDelegationInfoDecoder,
   getDelegationInfoEncoder,
   type DelegationInfo,
   type DelegationInfoArgs,
-} from '.';
+} from '.'
 
 export type MergeStakeEvent = {
-  config: Address;
-  stakerAuthority: Address;
-  destinationStake: Address;
-  destinationDelegation: Option<DelegationInfo>;
-  sourceStake: Address;
-  sourceDelegation: Option<DelegationInfo>;
-};
+  config: Address
+  stakerAuthority: Address
+  destinationStake: Address
+  destinationDelegation: Option<DelegationInfo>
+  sourceStake: Address
+  sourceDelegation: Option<DelegationInfo>
+}
 
 export type MergeStakeEventArgs = {
-  config: Address;
-  stakerAuthority: Address;
-  destinationStake: Address;
-  destinationDelegation: OptionOrNullable<DelegationInfoArgs>;
-  sourceStake: Address;
-  sourceDelegation: OptionOrNullable<DelegationInfoArgs>;
-};
+  config: Address
+  stakerAuthority: Address
+  destinationStake: Address
+  destinationDelegation: OptionOrNullable<DelegationInfoArgs>
+  sourceStake: Address
+  sourceDelegation: OptionOrNullable<DelegationInfoArgs>
+}
 
 export function getMergeStakeEventEncoder(): Encoder<MergeStakeEventArgs> {
   return getStructEncoder([
@@ -54,7 +54,7 @@ export function getMergeStakeEventEncoder(): Encoder<MergeStakeEventArgs> {
     ['destinationDelegation', getOptionEncoder(getDelegationInfoEncoder())],
     ['sourceStake', getAddressEncoder()],
     ['sourceDelegation', getOptionEncoder(getDelegationInfoEncoder())],
-  ]);
+  ])
 }
 
 export function getMergeStakeEventDecoder(): Decoder<MergeStakeEvent> {
@@ -65,12 +65,12 @@ export function getMergeStakeEventDecoder(): Decoder<MergeStakeEvent> {
     ['destinationDelegation', getOptionDecoder(getDelegationInfoDecoder())],
     ['sourceStake', getAddressDecoder()],
     ['sourceDelegation', getOptionDecoder(getDelegationInfoDecoder())],
-  ]);
+  ])
 }
 
 export function getMergeStakeEventCodec(): Codec<
   MergeStakeEventArgs,
   MergeStakeEvent
 > {
-  return combineCodec(getMergeStakeEventEncoder(), getMergeStakeEventDecoder());
+  return combineCodec(getMergeStakeEventEncoder(), getMergeStakeEventDecoder())
 }

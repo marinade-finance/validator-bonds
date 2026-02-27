@@ -18,29 +18,29 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export type InitConfigEvent = {
-  config: Address;
-  adminAuthority: Address;
-  operatorAuthority: Address;
-  withdrawLockupEpochs: bigint;
-  epochsToClaimSettlement: bigint;
-  minimumStakeLamports: bigint;
-  bondsWithdrawerAuthority: Address;
-  slotsToStartSettlementClaiming: bigint;
-};
+  config: Address
+  adminAuthority: Address
+  operatorAuthority: Address
+  withdrawLockupEpochs: bigint
+  epochsToClaimSettlement: bigint
+  minimumStakeLamports: bigint
+  bondsWithdrawerAuthority: Address
+  slotsToStartSettlementClaiming: bigint
+}
 
 export type InitConfigEventArgs = {
-  config: Address;
-  adminAuthority: Address;
-  operatorAuthority: Address;
-  withdrawLockupEpochs: number | bigint;
-  epochsToClaimSettlement: number | bigint;
-  minimumStakeLamports: number | bigint;
-  bondsWithdrawerAuthority: Address;
-  slotsToStartSettlementClaiming: number | bigint;
-};
+  config: Address
+  adminAuthority: Address
+  operatorAuthority: Address
+  withdrawLockupEpochs: number | bigint
+  epochsToClaimSettlement: number | bigint
+  minimumStakeLamports: number | bigint
+  bondsWithdrawerAuthority: Address
+  slotsToStartSettlementClaiming: number | bigint
+}
 
 export function getInitConfigEventEncoder(): FixedSizeEncoder<InitConfigEventArgs> {
   return getStructEncoder([
@@ -52,7 +52,7 @@ export function getInitConfigEventEncoder(): FixedSizeEncoder<InitConfigEventArg
     ['minimumStakeLamports', getU64Encoder()],
     ['bondsWithdrawerAuthority', getAddressEncoder()],
     ['slotsToStartSettlementClaiming', getU64Encoder()],
-  ]);
+  ])
 }
 
 export function getInitConfigEventDecoder(): FixedSizeDecoder<InitConfigEvent> {
@@ -65,12 +65,12 @@ export function getInitConfigEventDecoder(): FixedSizeDecoder<InitConfigEvent> {
     ['minimumStakeLamports', getU64Decoder()],
     ['bondsWithdrawerAuthority', getAddressDecoder()],
     ['slotsToStartSettlementClaiming', getU64Decoder()],
-  ]);
+  ])
 }
 
 export function getInitConfigEventCodec(): FixedSizeCodec<
   InitConfigEventArgs,
   InitConfigEvent
 > {
-  return combineCodec(getInitConfigEventEncoder(), getInitConfigEventDecoder());
+  return combineCodec(getInitConfigEventEncoder(), getInitConfigEventDecoder())
 }

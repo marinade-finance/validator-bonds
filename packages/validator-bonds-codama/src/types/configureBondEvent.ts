@@ -17,7 +17,7 @@ import {
   type Encoder,
   type Option,
   type OptionOrNullable,
-} from '@solana/kit';
+} from '@solana/kit'
 import {
   getPubkeyValueChangeDecoder,
   getPubkeyValueChangeEncoder,
@@ -27,26 +27,26 @@ import {
   type PubkeyValueChangeArgs,
   type U64ValueChange,
   type U64ValueChangeArgs,
-} from '.';
+} from '.'
 
 export type ConfigureBondEvent = {
-  bondAuthority: Option<PubkeyValueChange>;
-  cpmpe: Option<U64ValueChange>;
-  maxStakeWanted: Option<U64ValueChange>;
-};
+  bondAuthority: Option<PubkeyValueChange>
+  cpmpe: Option<U64ValueChange>
+  maxStakeWanted: Option<U64ValueChange>
+}
 
 export type ConfigureBondEventArgs = {
-  bondAuthority: OptionOrNullable<PubkeyValueChangeArgs>;
-  cpmpe: OptionOrNullable<U64ValueChangeArgs>;
-  maxStakeWanted: OptionOrNullable<U64ValueChangeArgs>;
-};
+  bondAuthority: OptionOrNullable<PubkeyValueChangeArgs>
+  cpmpe: OptionOrNullable<U64ValueChangeArgs>
+  maxStakeWanted: OptionOrNullable<U64ValueChangeArgs>
+}
 
 export function getConfigureBondEventEncoder(): Encoder<ConfigureBondEventArgs> {
   return getStructEncoder([
     ['bondAuthority', getOptionEncoder(getPubkeyValueChangeEncoder())],
     ['cpmpe', getOptionEncoder(getU64ValueChangeEncoder())],
     ['maxStakeWanted', getOptionEncoder(getU64ValueChangeEncoder())],
-  ]);
+  ])
 }
 
 export function getConfigureBondEventDecoder(): Decoder<ConfigureBondEvent> {
@@ -54,7 +54,7 @@ export function getConfigureBondEventDecoder(): Decoder<ConfigureBondEvent> {
     ['bondAuthority', getOptionDecoder(getPubkeyValueChangeDecoder())],
     ['cpmpe', getOptionDecoder(getU64ValueChangeDecoder())],
     ['maxStakeWanted', getOptionDecoder(getU64ValueChangeDecoder())],
-  ]);
+  ])
 }
 
 export function getConfigureBondEventCodec(): Codec<
@@ -63,6 +63,6 @@ export function getConfigureBondEventCodec(): Codec<
 > {
   return combineCodec(
     getConfigureBondEventEncoder(),
-    getConfigureBondEventDecoder()
-  );
+    getConfigureBondEventDecoder(),
+  )
 }

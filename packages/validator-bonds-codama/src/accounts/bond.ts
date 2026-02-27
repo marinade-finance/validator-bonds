@@ -37,32 +37,32 @@ import {
   type MaybeAccount,
   type MaybeEncodedAccount,
   type ReadonlyUint8Array,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export const BOND_DISCRIMINATOR = new Uint8Array([
   224, 128, 48, 251, 182, 246, 111, 196,
-]);
+])
 
 export function getBondDiscriminatorBytes() {
-  return fixEncoderSize(getBytesEncoder(), 8).encode(BOND_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(BOND_DISCRIMINATOR)
 }
 
 export type Bond = {
-  discriminator: ReadonlyUint8Array;
+  discriminator: ReadonlyUint8Array
   /** Program root config address. Validator bond is created for this config as PDA */
-  config: Address;
+  config: Address
   /**
    * Validator vote address that this bond account is crated for
    * INVARIANTS:
    * - one bond account per validator vote address
    * - this program does NOT change stake account delegation voter_pubkey to any other validator vote account
    */
-  voteAccount: Address;
+  voteAccount: Address
   /**
    * Authority that may close the bond or withdraw stake accounts associated with the bond
    * The same powers has got the owner of the validator vote account
    */
-  authority: Address;
+  authority: Address
   /**
    * Cost per mille per epoch.
    * This field represents the bid the bond (vote) account owner is willing to pay
@@ -72,9 +72,9 @@ export type Bond = {
    * The actual amount of lamports deducted from the bond account for the processed bid
    * is based on the actual delegated lamports during the epoch.
    */
-  cpmpe: bigint;
+  cpmpe: bigint
   /** PDA Bond address bump seed */
-  bump: number;
+  bump: number
   /**
    * Maximum stake (in lamports) that the bond (vote) account owner requests.
    * This is the maximum stake that will be distributed to the vote account
@@ -82,26 +82,26 @@ export type Bond = {
    * The vote account owner then goes to auction to obtain up to that maximum.
    * Use the `cpmpe` field to define the bid for this purpose.
    */
-  maxStakeWanted: bigint;
+  maxStakeWanted: bigint
   /** reserve space for future extensions */
-  reserved: ReadonlyUint8Array;
-};
+  reserved: ReadonlyUint8Array
+}
 
 export type BondArgs = {
   /** Program root config address. Validator bond is created for this config as PDA */
-  config: Address;
+  config: Address
   /**
    * Validator vote address that this bond account is crated for
    * INVARIANTS:
    * - one bond account per validator vote address
    * - this program does NOT change stake account delegation voter_pubkey to any other validator vote account
    */
-  voteAccount: Address;
+  voteAccount: Address
   /**
    * Authority that may close the bond or withdraw stake accounts associated with the bond
    * The same powers has got the owner of the validator vote account
    */
-  authority: Address;
+  authority: Address
   /**
    * Cost per mille per epoch.
    * This field represents the bid the bond (vote) account owner is willing to pay
@@ -111,9 +111,9 @@ export type BondArgs = {
    * The actual amount of lamports deducted from the bond account for the processed bid
    * is based on the actual delegated lamports during the epoch.
    */
-  cpmpe: number | bigint;
+  cpmpe: number | bigint
   /** PDA Bond address bump seed */
-  bump: number;
+  bump: number
   /**
    * Maximum stake (in lamports) that the bond (vote) account owner requests.
    * This is the maximum stake that will be distributed to the vote account
@@ -121,11 +121,12 @@ export type BondArgs = {
    * The vote account owner then goes to auction to obtain up to that maximum.
    * Use the `cpmpe` field to define the bid for this purpose.
    */
-  maxStakeWanted: number | bigint;
+  maxStakeWanted: number | bigint
   /** reserve space for future extensions */
-  reserved: ReadonlyUint8Array;
-};
+  reserved: ReadonlyUint8Array
+}
 
+/** Gets the encoder for {@link BondArgs} account data. */
 export function getBondEncoder(): FixedSizeEncoder<BondArgs> {
   return transformEncoder(
     getStructEncoder([
@@ -138,10 +139,11 @@ export function getBondEncoder(): FixedSizeEncoder<BondArgs> {
       ['maxStakeWanted', getU64Encoder()],
       ['reserved', fixEncoderSize(getBytesEncoder(), 134)],
     ]),
-    (value) => ({ ...value, discriminator: BOND_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: BOND_DISCRIMINATOR }),
+  )
 }
 
+/** Gets the decoder for {@link Bond} account data. */
 export function getBondDecoder(): FixedSizeDecoder<Bond> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
@@ -152,66 +154,67 @@ export function getBondDecoder(): FixedSizeDecoder<Bond> {
     ['bump', getU8Decoder()],
     ['maxStakeWanted', getU64Decoder()],
     ['reserved', fixDecoderSize(getBytesDecoder(), 134)],
-  ]);
+  ])
 }
 
+/** Gets the codec for {@link Bond} account data. */
 export function getBondCodec(): FixedSizeCodec<BondArgs, Bond> {
-  return combineCodec(getBondEncoder(), getBondDecoder());
+  return combineCodec(getBondEncoder(), getBondDecoder())
 }
 
 export function decodeBond<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress>
-): Account<Bond, TAddress>;
+  encodedAccount: EncodedAccount<TAddress>,
+): Account<Bond, TAddress>
 export function decodeBond<TAddress extends string = string>(
-  encodedAccount: MaybeEncodedAccount<TAddress>
-): MaybeAccount<Bond, TAddress>;
+  encodedAccount: MaybeEncodedAccount<TAddress>,
+): MaybeAccount<Bond, TAddress>
 export function decodeBond<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>
+  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>,
 ): Account<Bond, TAddress> | MaybeAccount<Bond, TAddress> {
   return decodeAccount(
     encodedAccount as MaybeEncodedAccount<TAddress>,
-    getBondDecoder()
-  );
+    getBondDecoder(),
+  )
 }
 
 export async function fetchBond<TAddress extends string = string>(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
-  config?: FetchAccountConfig
+  config?: FetchAccountConfig,
 ): Promise<Account<Bond, TAddress>> {
-  const maybeAccount = await fetchMaybeBond(rpc, address, config);
-  assertAccountExists(maybeAccount);
-  return maybeAccount;
+  const maybeAccount = await fetchMaybeBond(rpc, address, config)
+  assertAccountExists(maybeAccount)
+  return maybeAccount
 }
 
 export async function fetchMaybeBond<TAddress extends string = string>(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
-  config?: FetchAccountConfig
+  config?: FetchAccountConfig,
 ): Promise<MaybeAccount<Bond, TAddress>> {
-  const maybeAccount = await fetchEncodedAccount(rpc, address, config);
-  return decodeBond(maybeAccount);
+  const maybeAccount = await fetchEncodedAccount(rpc, address, config)
+  return decodeBond(maybeAccount)
 }
 
 export async function fetchAllBond(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
-  config?: FetchAccountsConfig
+  config?: FetchAccountsConfig,
 ): Promise<Account<Bond>[]> {
-  const maybeAccounts = await fetchAllMaybeBond(rpc, addresses, config);
-  assertAccountsExist(maybeAccounts);
-  return maybeAccounts;
+  const maybeAccounts = await fetchAllMaybeBond(rpc, addresses, config)
+  assertAccountsExist(maybeAccounts)
+  return maybeAccounts
 }
 
 export async function fetchAllMaybeBond(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
-  config?: FetchAccountsConfig
+  config?: FetchAccountsConfig,
 ): Promise<MaybeAccount<Bond>[]> {
-  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config);
-  return maybeAccounts.map((maybeAccount) => decodeBond(maybeAccount));
+  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config)
+  return maybeAccounts.map(maybeAccount => decodeBond(maybeAccount))
 }
 
 export function getBondSize(): number {
-  return 255;
+  return 255
 }

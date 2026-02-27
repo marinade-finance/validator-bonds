@@ -16,6 +16,8 @@ import {
   getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type Address,
@@ -28,22 +30,22 @@ import {
   type ReadonlyAccount,
   type ReadonlyUint8Array,
   type WritableAccount,
-} from '@solana/kit';
-import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs';
+} from '@solana/kit'
 import {
-  expectAddress,
   getAccountMetaFactory,
-  type ResolvedAccount,
-} from '../shared';
+  getAddressFromResolvedInstructionAccount,
+  type ResolvedInstructionAccount,
+} from '@solana/program-client-core'
+import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
 export const CLOSE_SETTLEMENT_V2_DISCRIMINATOR = new Uint8Array([
   125, 212, 89, 37, 31, 244, 191, 179,
-]);
+])
 
 export function getCloseSettlementV2DiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    CLOSE_SETTLEMENT_V2_DISCRIMINATOR
-  );
+    CLOSE_SETTLEMENT_V2_DISCRIMINATOR,
+  )
 }
 
 export type CloseSettlementV2Instruction<
@@ -52,21 +54,17 @@ export type CloseSettlementV2Instruction<
   TAccountBond extends string | AccountMeta<string> = string,
   TAccountSettlement extends string | AccountMeta<string> = string,
   TAccountSettlementClaims extends string | AccountMeta<string> = string,
-  TAccountBondsWithdrawerAuthority extends
-    | string
-    | AccountMeta<string> = string,
+  TAccountBondsWithdrawerAuthority extends string | AccountMeta<string> =
+    string,
   TAccountRentCollector extends string | AccountMeta<string> = string,
   TAccountSplitRentCollector extends string | AccountMeta<string> = string,
   TAccountSplitRentRefundAccount extends string | AccountMeta<string> = string,
-  TAccountClock extends
-    | string
-    | AccountMeta<string> = 'SysvarC1ock11111111111111111111111111111111',
-  TAccountStakeProgram extends
-    | string
-    | AccountMeta<string> = 'Stake11111111111111111111111111111111111111',
-  TAccountStakeHistory extends
-    | string
-    | AccountMeta<string> = 'SysvarStakeHistory1111111111111111111111111',
+  TAccountClock extends string | AccountMeta<string> =
+    'SysvarC1ock11111111111111111111111111111111',
+  TAccountStakeProgram extends string | AccountMeta<string> =
+    'Stake11111111111111111111111111111111111111',
+  TAccountStakeHistory extends string | AccountMeta<string> =
+    'SysvarStakeHistory1111111111111111111111111',
   TAccountEventAuthority extends string | AccountMeta<string> = string,
   TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -115,25 +113,25 @@ export type CloseSettlementV2Instruction<
         : TAccountProgram,
       ...TRemainingAccounts,
     ]
-  >;
+  >
 
 export type CloseSettlementV2InstructionData = {
-  discriminator: ReadonlyUint8Array;
-};
+  discriminator: ReadonlyUint8Array
+}
 
-export type CloseSettlementV2InstructionDataArgs = {};
+export type CloseSettlementV2InstructionDataArgs = {}
 
 export function getCloseSettlementV2InstructionDataEncoder(): FixedSizeEncoder<CloseSettlementV2InstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([['discriminator', fixEncoderSize(getBytesEncoder(), 8)]]),
-    (value) => ({ ...value, discriminator: CLOSE_SETTLEMENT_V2_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: CLOSE_SETTLEMENT_V2_DISCRIMINATOR }),
+  )
 }
 
 export function getCloseSettlementV2InstructionDataDecoder(): FixedSizeDecoder<CloseSettlementV2InstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
-  ]);
+  ])
 }
 
 export function getCloseSettlementV2InstructionDataCodec(): FixedSizeCodec<
@@ -142,8 +140,8 @@ export function getCloseSettlementV2InstructionDataCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getCloseSettlementV2InstructionDataEncoder(),
-    getCloseSettlementV2InstructionDataDecoder()
-  );
+    getCloseSettlementV2InstructionDataDecoder(),
+  )
 }
 
 export type CloseSettlementV2AsyncInput<
@@ -161,25 +159,25 @@ export type CloseSettlementV2AsyncInput<
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
 > = {
-  config: Address<TAccountConfig>;
-  bond: Address<TAccountBond>;
+  config: Address<TAccountConfig>
+  bond: Address<TAccountBond>
   /** settlement to close when expired */
-  settlement: Address<TAccountSettlement>;
-  settlementClaims?: Address<TAccountSettlementClaims>;
-  bondsWithdrawerAuthority?: Address<TAccountBondsWithdrawerAuthority>;
-  rentCollector: Address<TAccountRentCollector>;
-  splitRentCollector: Address<TAccountSplitRentCollector>;
+  settlement: Address<TAccountSettlement>
+  settlementClaims?: Address<TAccountSettlementClaims>
+  bondsWithdrawerAuthority?: Address<TAccountBondsWithdrawerAuthority>
+  rentCollector: Address<TAccountRentCollector>
+  splitRentCollector: Address<TAccountSplitRentCollector>
   /**
    * The stake account is funded to the settlement and credited to the bond's validator vote account.
    * The lamports are utilized to pay back the rent exemption of the split_stake_account, which can be created upon funding the settlement.
    */
-  splitRentRefundAccount: Address<TAccountSplitRentRefundAccount>;
-  clock?: Address<TAccountClock>;
-  stakeProgram?: Address<TAccountStakeProgram>;
-  stakeHistory?: Address<TAccountStakeHistory>;
-  eventAuthority?: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-};
+  splitRentRefundAccount: Address<TAccountSplitRentRefundAccount>
+  clock?: Address<TAccountClock>
+  stakeProgram?: Address<TAccountStakeProgram>
+  stakeHistory?: Address<TAccountStakeHistory>
+  eventAuthority?: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+}
 
 export async function getCloseSettlementV2InstructionAsync<
   TAccountConfig extends string,
@@ -212,7 +210,7 @@ export async function getCloseSettlementV2InstructionAsync<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): Promise<
   CloseSettlementV2Instruction<
     TProgramAddress,
@@ -233,7 +231,7 @@ export async function getCloseSettlementV2InstructionAsync<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -262,11 +260,11 @@ export async function getCloseSettlementV2InstructionAsync<
     stakeHistory: { value: input.stakeHistory ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Resolve default values.
   if (!accounts.settlementClaims.value) {
@@ -276,11 +274,16 @@ export async function getCloseSettlementV2InstructionAsync<
         getBytesEncoder().encode(
           new Uint8Array([
             99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110, 116,
-          ])
+          ]),
         ),
-        getAddressEncoder().encode(expectAddress(accounts.settlement.value)),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'settlement',
+            accounts.settlement.value,
+          ),
+        ),
       ],
-    });
+    })
   }
   if (!accounts.bondsWithdrawerAuthority.value) {
     accounts.bondsWithdrawerAuthority.value = await getProgramDerivedAddress({
@@ -290,23 +293,28 @@ export async function getCloseSettlementV2InstructionAsync<
           new Uint8Array([
             98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105, 116,
             121,
-          ])
+          ]),
         ),
-        getAddressEncoder().encode(expectAddress(accounts.config.value)),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'config',
+            accounts.config.value,
+          ),
+        ),
       ],
-    });
+    })
   }
   if (!accounts.clock.value) {
     accounts.clock.value =
-      'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>;
+      'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>
   }
   if (!accounts.stakeProgram.value) {
     accounts.stakeProgram.value =
-      'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>;
+      'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>
   }
   if (!accounts.stakeHistory.value) {
     accounts.stakeHistory.value =
-      'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>;
+      'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>
   }
   if (!accounts.eventAuthority.value) {
     accounts.eventAuthority.value = await getProgramDerivedAddress({
@@ -316,28 +324,31 @@ export async function getCloseSettlementV2InstructionAsync<
           new Uint8Array([
             95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
             105, 116, 121,
-          ])
+          ]),
         ),
       ],
-    });
+    })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.bond),
-      getAccountMeta(accounts.settlement),
-      getAccountMeta(accounts.settlementClaims),
-      getAccountMeta(accounts.bondsWithdrawerAuthority),
-      getAccountMeta(accounts.rentCollector),
-      getAccountMeta(accounts.splitRentCollector),
-      getAccountMeta(accounts.splitRentRefundAccount),
-      getAccountMeta(accounts.clock),
-      getAccountMeta(accounts.stakeProgram),
-      getAccountMeta(accounts.stakeHistory),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('bond', accounts.bond),
+      getAccountMeta('settlement', accounts.settlement),
+      getAccountMeta('settlementClaims', accounts.settlementClaims),
+      getAccountMeta(
+        'bondsWithdrawerAuthority',
+        accounts.bondsWithdrawerAuthority,
+      ),
+      getAccountMeta('rentCollector', accounts.rentCollector),
+      getAccountMeta('splitRentCollector', accounts.splitRentCollector),
+      getAccountMeta('splitRentRefundAccount', accounts.splitRentRefundAccount),
+      getAccountMeta('clock', accounts.clock),
+      getAccountMeta('stakeProgram', accounts.stakeProgram),
+      getAccountMeta('stakeHistory', accounts.stakeHistory),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getCloseSettlementV2InstructionDataEncoder().encode({}),
     programAddress,
@@ -356,7 +367,7 @@ export async function getCloseSettlementV2InstructionAsync<
     TAccountStakeHistory,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type CloseSettlementV2Input<
@@ -374,25 +385,25 @@ export type CloseSettlementV2Input<
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
 > = {
-  config: Address<TAccountConfig>;
-  bond: Address<TAccountBond>;
+  config: Address<TAccountConfig>
+  bond: Address<TAccountBond>
   /** settlement to close when expired */
-  settlement: Address<TAccountSettlement>;
-  settlementClaims: Address<TAccountSettlementClaims>;
-  bondsWithdrawerAuthority: Address<TAccountBondsWithdrawerAuthority>;
-  rentCollector: Address<TAccountRentCollector>;
-  splitRentCollector: Address<TAccountSplitRentCollector>;
+  settlement: Address<TAccountSettlement>
+  settlementClaims: Address<TAccountSettlementClaims>
+  bondsWithdrawerAuthority: Address<TAccountBondsWithdrawerAuthority>
+  rentCollector: Address<TAccountRentCollector>
+  splitRentCollector: Address<TAccountSplitRentCollector>
   /**
    * The stake account is funded to the settlement and credited to the bond's validator vote account.
    * The lamports are utilized to pay back the rent exemption of the split_stake_account, which can be created upon funding the settlement.
    */
-  splitRentRefundAccount: Address<TAccountSplitRentRefundAccount>;
-  clock?: Address<TAccountClock>;
-  stakeProgram?: Address<TAccountStakeProgram>;
-  stakeHistory?: Address<TAccountStakeHistory>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-};
+  splitRentRefundAccount: Address<TAccountSplitRentRefundAccount>
+  clock?: Address<TAccountClock>
+  stakeProgram?: Address<TAccountStakeProgram>
+  stakeHistory?: Address<TAccountStakeHistory>
+  eventAuthority: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+}
 
 export function getCloseSettlementV2Instruction<
   TAccountConfig extends string,
@@ -425,7 +436,7 @@ export function getCloseSettlementV2Instruction<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): CloseSettlementV2Instruction<
   TProgramAddress,
   TAccountConfig,
@@ -444,7 +455,7 @@ export function getCloseSettlementV2Instruction<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -473,42 +484,45 @@ export function getCloseSettlementV2Instruction<
     stakeHistory: { value: input.stakeHistory ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Resolve default values.
   if (!accounts.clock.value) {
     accounts.clock.value =
-      'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>;
+      'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>
   }
   if (!accounts.stakeProgram.value) {
     accounts.stakeProgram.value =
-      'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>;
+      'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>
   }
   if (!accounts.stakeHistory.value) {
     accounts.stakeHistory.value =
-      'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>;
+      'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.bond),
-      getAccountMeta(accounts.settlement),
-      getAccountMeta(accounts.settlementClaims),
-      getAccountMeta(accounts.bondsWithdrawerAuthority),
-      getAccountMeta(accounts.rentCollector),
-      getAccountMeta(accounts.splitRentCollector),
-      getAccountMeta(accounts.splitRentRefundAccount),
-      getAccountMeta(accounts.clock),
-      getAccountMeta(accounts.stakeProgram),
-      getAccountMeta(accounts.stakeHistory),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('bond', accounts.bond),
+      getAccountMeta('settlement', accounts.settlement),
+      getAccountMeta('settlementClaims', accounts.settlementClaims),
+      getAccountMeta(
+        'bondsWithdrawerAuthority',
+        accounts.bondsWithdrawerAuthority,
+      ),
+      getAccountMeta('rentCollector', accounts.rentCollector),
+      getAccountMeta('splitRentCollector', accounts.splitRentCollector),
+      getAccountMeta('splitRentRefundAccount', accounts.splitRentRefundAccount),
+      getAccountMeta('clock', accounts.clock),
+      getAccountMeta('stakeProgram', accounts.stakeProgram),
+      getAccountMeta('stakeHistory', accounts.stakeHistory),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getCloseSettlementV2InstructionDataEncoder().encode({}),
     programAddress,
@@ -527,36 +541,36 @@ export function getCloseSettlementV2Instruction<
     TAccountStakeHistory,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ParsedCloseSettlementV2Instruction<
   TProgram extends string = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
-  programAddress: Address<TProgram>;
+  programAddress: Address<TProgram>
   accounts: {
-    config: TAccountMetas[0];
-    bond: TAccountMetas[1];
+    config: TAccountMetas[0]
+    bond: TAccountMetas[1]
     /** settlement to close when expired */
-    settlement: TAccountMetas[2];
-    settlementClaims: TAccountMetas[3];
-    bondsWithdrawerAuthority: TAccountMetas[4];
-    rentCollector: TAccountMetas[5];
-    splitRentCollector: TAccountMetas[6];
+    settlement: TAccountMetas[2]
+    settlementClaims: TAccountMetas[3]
+    bondsWithdrawerAuthority: TAccountMetas[4]
+    rentCollector: TAccountMetas[5]
+    splitRentCollector: TAccountMetas[6]
     /**
      * The stake account is funded to the settlement and credited to the bond's validator vote account.
      * The lamports are utilized to pay back the rent exemption of the split_stake_account, which can be created upon funding the settlement.
      */
-    splitRentRefundAccount: TAccountMetas[7];
-    clock: TAccountMetas[8];
-    stakeProgram: TAccountMetas[9];
-    stakeHistory: TAccountMetas[10];
-    eventAuthority: TAccountMetas[11];
-    program: TAccountMetas[12];
-  };
-  data: CloseSettlementV2InstructionData;
-};
+    splitRentRefundAccount: TAccountMetas[7]
+    clock: TAccountMetas[8]
+    stakeProgram: TAccountMetas[9]
+    stakeHistory: TAccountMetas[10]
+    eventAuthority: TAccountMetas[11]
+    program: TAccountMetas[12]
+  }
+  data: CloseSettlementV2InstructionData
+}
 
 export function parseCloseSettlementV2Instruction<
   TProgram extends string,
@@ -564,18 +578,23 @@ export function parseCloseSettlementV2Instruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>
+    InstructionWithData<ReadonlyUint8Array>,
 ): ParsedCloseSettlementV2Instruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 13) {
-    // TODO: Coded error.
-    throw new Error('Not enough accounts');
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 13,
+      },
+    )
   }
-  let accountIndex = 0;
+  let accountIndex = 0
   const getNextAccount = () => {
-    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!;
-    accountIndex += 1;
-    return accountMeta;
-  };
+    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!
+    accountIndex += 1
+    return accountMeta
+  }
   return {
     programAddress: instruction.programAddress,
     accounts: {
@@ -594,5 +613,5 @@ export function parseCloseSettlementV2Instruction<
       program: getNextAccount(),
     },
     data: getCloseSettlementV2InstructionDataDecoder().decode(instruction.data),
-  };
+  }
 }

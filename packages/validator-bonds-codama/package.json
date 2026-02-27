@@ -28,9 +28,12 @@
     "DeFi"
   ],
   "peerDependencies": {
-    "@solana/kit": "5.0.0"
+    "@solana/kit": "^6.1.0"
   },
   "devDependencies": {
-    "@solana/kit": "5.0.0"
+    "@solana/kit": "^6.1.0"
+  },
+  "dependencies": {
+    "@solana/program-client-core": "^6.1.0"
   }
 }

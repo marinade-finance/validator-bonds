@@ -17,6 +17,8 @@ import {
   getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type Address,
@@ -29,16 +31,19 @@ import {
   type ReadonlyAccount,
   type ReadonlyUint8Array,
   type WritableAccount,
-} from '@solana/kit';
-import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs';
-import { getAccountMetaFactory, type ResolvedAccount } from '../shared';
+} from '@solana/kit'
+import {
+  getAccountMetaFactory,
+  type ResolvedInstructionAccount,
+} from '@solana/program-client-core'
+import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
 export const MERGE_STAKE_DISCRIMINATOR = new Uint8Array([
   14, 3, 146, 23, 163, 105, 246, 99,
-]);
+])
 
 export function getMergeStakeDiscriminatorBytes() {
-  return fixEncoderSize(getBytesEncoder(), 8).encode(MERGE_STAKE_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(MERGE_STAKE_DISCRIMINATOR)
 }
 
 export type MergeStakeInstruction<
@@ -47,15 +52,12 @@ export type MergeStakeInstruction<
   TAccountSourceStake extends string | AccountMeta<string> = string,
   TAccountDestinationStake extends string | AccountMeta<string> = string,
   TAccountStakerAuthority extends string | AccountMeta<string> = string,
-  TAccountStakeHistory extends
-    | string
-    | AccountMeta<string> = 'SysvarStakeHistory1111111111111111111111111',
-  TAccountClock extends
-    | string
-    | AccountMeta<string> = 'SysvarC1ock11111111111111111111111111111111',
-  TAccountStakeProgram extends
-    | string
-    | AccountMeta<string> = 'Stake11111111111111111111111111111111111111',
+  TAccountStakeHistory extends string | AccountMeta<string> =
+    'SysvarStakeHistory1111111111111111111111111',
+  TAccountClock extends string | AccountMeta<string> =
+    'SysvarC1ock11111111111111111111111111111111',
+  TAccountStakeProgram extends string | AccountMeta<string> =
+    'Stake11111111111111111111111111111111111111',
   TAccountEventAuthority extends string | AccountMeta<string> = string,
   TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -92,14 +94,14 @@ export type MergeStakeInstruction<
         : TAccountProgram,
       ...TRemainingAccounts,
     ]
-  >;
+  >
 
 export type MergeStakeInstructionData = {
-  discriminator: ReadonlyUint8Array;
-  settlement: Address;
-};
+  discriminator: ReadonlyUint8Array
+  settlement: Address
+}
 
-export type MergeStakeInstructionDataArgs = { settlement: Address };
+export type MergeStakeInstructionDataArgs = { settlement: Address }
 
 export function getMergeStakeInstructionDataEncoder(): FixedSizeEncoder<MergeStakeInstructionDataArgs> {
   return transformEncoder(
@@ -107,15 +109,15 @@ export function getMergeStakeInstructionDataEncoder(): FixedSizeEncoder<MergeSta
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
       ['settlement', getAddressEncoder()],
     ]),
-    (value) => ({ ...value, discriminator: MERGE_STAKE_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: MERGE_STAKE_DISCRIMINATOR }),
+  )
 }
 
 export function getMergeStakeInstructionDataDecoder(): FixedSizeDecoder<MergeStakeInstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
     ['settlement', getAddressDecoder()],
-  ]);
+  ])
 }
 
 export function getMergeStakeInstructionDataCodec(): FixedSizeCodec<
@@ -124,8 +126,8 @@ export function getMergeStakeInstructionDataCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getMergeStakeInstructionDataEncoder(),
-    getMergeStakeInstructionDataDecoder()
-  );
+    getMergeStakeInstructionDataDecoder(),
+  )
 }
 
 export type MergeStakeAsyncInput<
@@ -140,18 +142,18 @@ export type MergeStakeAsyncInput<
   TAccountProgram extends string = string,
 > = {
   /** the config account under which the bond was created */
-  config: Address<TAccountConfig>;
-  sourceStake: Address<TAccountSourceStake>;
-  destinationStake: Address<TAccountDestinationStake>;
+  config: Address<TAccountConfig>
+  sourceStake: Address<TAccountSourceStake>
+  destinationStake: Address<TAccountDestinationStake>
   /** bonds program authority PDA address: settlement staker or bonds withdrawer */
-  stakerAuthority: Address<TAccountStakerAuthority>;
-  stakeHistory?: Address<TAccountStakeHistory>;
-  clock?: Address<TAccountClock>;
-  stakeProgram?: Address<TAccountStakeProgram>;
-  eventAuthority?: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  settlement: MergeStakeInstructionDataArgs['settlement'];
-};
+  stakerAuthority: Address<TAccountStakerAuthority>
+  stakeHistory?: Address<TAccountStakeHistory>
+  clock?: Address<TAccountClock>
+  stakeProgram?: Address<TAccountStakeProgram>
+  eventAuthority?: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+  settlement: MergeStakeInstructionDataArgs['settlement']
+}
 
 export async function getMergeStakeInstructionAsync<
   TAccountConfig extends string,
@@ -176,7 +178,7 @@ export async function getMergeStakeInstructionAsync<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): Promise<
   MergeStakeInstruction<
     TProgramAddress,
@@ -193,7 +195,7 @@ export async function getMergeStakeInstructionAsync<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -212,27 +214,27 @@ export async function getMergeStakeInstructionAsync<
     stakeProgram: { value: input.stakeProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Original args.
-  const args = { ...input };
+  const args = { ...input }
 
   // Resolve default values.
   if (!accounts.stakeHistory.value) {
     accounts.stakeHistory.value =
-      'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>;
+      'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>
   }
   if (!accounts.clock.value) {
     accounts.clock.value =
-      'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>;
+      'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>
   }
   if (!accounts.stakeProgram.value) {
     accounts.stakeProgram.value =
-      'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>;
+      'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>
   }
   if (!accounts.eventAuthority.value) {
     accounts.eventAuthority.value = await getProgramDerivedAddress({
@@ -242,27 +244,27 @@ export async function getMergeStakeInstructionAsync<
           new Uint8Array([
             95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
             105, 116, 121,
-          ])
+          ]),
         ),
       ],
-    });
+    })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.sourceStake),
-      getAccountMeta(accounts.destinationStake),
-      getAccountMeta(accounts.stakerAuthority),
-      getAccountMeta(accounts.stakeHistory),
-      getAccountMeta(accounts.clock),
-      getAccountMeta(accounts.stakeProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('sourceStake', accounts.sourceStake),
+      getAccountMeta('destinationStake', accounts.destinationStake),
+      getAccountMeta('stakerAuthority', accounts.stakerAuthority),
+      getAccountMeta('stakeHistory', accounts.stakeHistory),
+      getAccountMeta('clock', accounts.clock),
+      getAccountMeta('stakeProgram', accounts.stakeProgram),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getMergeStakeInstructionDataEncoder().encode(
-      args as MergeStakeInstructionDataArgs
+      args as MergeStakeInstructionDataArgs,
     ),
     programAddress,
   } as MergeStakeInstruction<
@@ -276,7 +278,7 @@ export async function getMergeStakeInstructionAsync<
     TAccountStakeProgram,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type MergeStakeInput<
@@ -291,18 +293,18 @@ export type MergeStakeInput<
   TAccountProgram extends string = string,
 > = {
   /** the config account under which the bond was created */
-  config: Address<TAccountConfig>;
-  sourceStake: Address<TAccountSourceStake>;
-  destinationStake: Address<TAccountDestinationStake>;
+  config: Address<TAccountConfig>
+  sourceStake: Address<TAccountSourceStake>
+  destinationStake: Address<TAccountDestinationStake>
   /** bonds program authority PDA address: settlement staker or bonds withdrawer */
-  stakerAuthority: Address<TAccountStakerAuthority>;
-  stakeHistory?: Address<TAccountStakeHistory>;
-  clock?: Address<TAccountClock>;
-  stakeProgram?: Address<TAccountStakeProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  settlement: MergeStakeInstructionDataArgs['settlement'];
-};
+  stakerAuthority: Address<TAccountStakerAuthority>
+  stakeHistory?: Address<TAccountStakeHistory>
+  clock?: Address<TAccountClock>
+  stakeProgram?: Address<TAccountStakeProgram>
+  eventAuthority: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+  settlement: MergeStakeInstructionDataArgs['settlement']
+}
 
 export function getMergeStakeInstruction<
   TAccountConfig extends string,
@@ -327,7 +329,7 @@ export function getMergeStakeInstruction<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): MergeStakeInstruction<
   TProgramAddress,
   TAccountConfig,
@@ -342,7 +344,7 @@ export function getMergeStakeInstruction<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -361,44 +363,44 @@ export function getMergeStakeInstruction<
     stakeProgram: { value: input.stakeProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Original args.
-  const args = { ...input };
+  const args = { ...input }
 
   // Resolve default values.
   if (!accounts.stakeHistory.value) {
     accounts.stakeHistory.value =
-      'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>;
+      'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>
   }
   if (!accounts.clock.value) {
     accounts.clock.value =
-      'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>;
+      'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>
   }
   if (!accounts.stakeProgram.value) {
     accounts.stakeProgram.value =
-      'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>;
+      'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.sourceStake),
-      getAccountMeta(accounts.destinationStake),
-      getAccountMeta(accounts.stakerAuthority),
-      getAccountMeta(accounts.stakeHistory),
-      getAccountMeta(accounts.clock),
-      getAccountMeta(accounts.stakeProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('sourceStake', accounts.sourceStake),
+      getAccountMeta('destinationStake', accounts.destinationStake),
+      getAccountMeta('stakerAuthority', accounts.stakerAuthority),
+      getAccountMeta('stakeHistory', accounts.stakeHistory),
+      getAccountMeta('clock', accounts.clock),
+      getAccountMeta('stakeProgram', accounts.stakeProgram),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getMergeStakeInstructionDataEncoder().encode(
-      args as MergeStakeInstructionDataArgs
+      args as MergeStakeInstructionDataArgs,
     ),
     programAddress,
   } as MergeStakeInstruction<
@@ -412,29 +414,29 @@ export function getMergeStakeInstruction<
     TAccountStakeProgram,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ParsedMergeStakeInstruction<
   TProgram extends string = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
-  programAddress: Address<TProgram>;
+  programAddress: Address<TProgram>
   accounts: {
     /** the config account under which the bond was created */
-    config: TAccountMetas[0];
-    sourceStake: TAccountMetas[1];
-    destinationStake: TAccountMetas[2];
+    config: TAccountMetas[0]
+    sourceStake: TAccountMetas[1]
+    destinationStake: TAccountMetas[2]
     /** bonds program authority PDA address: settlement staker or bonds withdrawer */
-    stakerAuthority: TAccountMetas[3];
-    stakeHistory: TAccountMetas[4];
-    clock: TAccountMetas[5];
-    stakeProgram: TAccountMetas[6];
-    eventAuthority: TAccountMetas[7];
-    program: TAccountMetas[8];
-  };
-  data: MergeStakeInstructionData;
-};
+    stakerAuthority: TAccountMetas[3]
+    stakeHistory: TAccountMetas[4]
+    clock: TAccountMetas[5]
+    stakeProgram: TAccountMetas[6]
+    eventAuthority: TAccountMetas[7]
+    program: TAccountMetas[8]
+  }
+  data: MergeStakeInstructionData
+}
 
 export function parseMergeStakeInstruction<
   TProgram extends string,
@@ -442,18 +444,23 @@ export function parseMergeStakeInstruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>
+    InstructionWithData<ReadonlyUint8Array>,
 ): ParsedMergeStakeInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 9) {
-    // TODO: Coded error.
-    throw new Error('Not enough accounts');
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 9,
+      },
+    )
   }
-  let accountIndex = 0;
+  let accountIndex = 0
   const getNextAccount = () => {
-    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!;
-    accountIndex += 1;
-    return accountMeta;
-  };
+    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!
+    accountIndex += 1
+    return accountMeta
+  }
   return {
     programAddress: instruction.programAddress,
     accounts: {
@@ -468,5 +475,5 @@ export function parseMergeStakeInstruction<
       program: getNextAccount(),
     },
     data: getMergeStakeInstructionDataDecoder().decode(instruction.data),
-  };
+  }
 }
