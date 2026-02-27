@@ -6,6 +6,8 @@ import { installFundBondWithSol } from './fundBondWithSol'
 import { installInitBond } from './initBond'
 import { installInitWithdrawRequest } from './initWithdrawRequest'
 import { installMintBond } from './mintBond'
+import { installSubscribe } from './subscribe'
+import { installUnsubscribe } from './unsubscribe'
 
 import type { Command } from 'commander'
 
@@ -18,4 +20,6 @@ export function installManage(program: Command) {
   installInitWithdrawRequest(program)
   installClaimWithdrawRequest(program)
   installCancelWithdrawRequest(program)
+  installSubscribe(program)
+  installUnsubscribe(program)
 }

@@ -7,6 +7,7 @@ import {
 import { installShowBondAddress } from './address'
 import { installManage } from './manage'
 import { installShowBond } from './show'
+import { installShowNotifications } from './showNotifications'
 
 import type { Command } from 'commander'
 
@@ -17,4 +18,5 @@ export function installCommands(program: Command) {
   installShowBond(program)
   installShowSettlement(program)
   installShowBondAddress(program)
+  installShowNotifications(program)
 }
