@@ -1421,7 +1421,7 @@ Ordered by dependency:
 
 **Phase 5: Client integration**
 
-19. **CLI integration** — subscribe/unsubscribe commands, poll notifications endpoint
+19. ~~**CLI integration**~~ — **IMPLEMENTED** (branch `evaluation-of-notification`). `subscribe`, `unsubscribe`, and `show-notifications` commands added to `validator-bonds-cli`, `validator-bonds-cli-institutional`, and `validator-bonds-cli-core`. Subscribe/unsubscribe sign an off-chain Solana message (Ledger + keypair supported) and POST/DELETE to `https://notifications-api.marinade.finance/subscriptions`. `show-notifications` signs a `ListSubscriptions` message and GETs the same endpoint with `x-solana-signature`/`x-solana-message` headers. All three CLI variants share the core implementation in `validator-bonds-cli-core`.
 20. **PSR dashboard integration** — poll notifications endpoint, replace hardcoded banner
 
 **Phase 6: Staking-rewards migration (optional, not required for v1)**
