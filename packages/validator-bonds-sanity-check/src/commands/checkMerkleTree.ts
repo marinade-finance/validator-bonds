@@ -1,20 +1,25 @@
-import { CliCommandError } from '@marinade.finance/cli-common'
+import { createReadStream } from 'fs'
+
+import {
+  CliCommandError,
+  validateAndReturn,
+} from '@marinade.finance/cli-common'
 import {
   CONSOLE_LOG,
   DECIMAL_ZERO,
   calculateDescriptiveStats,
   detectAnomaly,
+  expandTilde,
   getContext,
-  loadFile,
   loadFileOrDirectory,
 } from '@marinade.finance/ts-common'
+import { JSONParser } from '@streamparser/json-node'
 import Decimal from 'decimal.js'
 import YAML from 'yaml'
 
-import { parseUnifiedMerkleTree } from '../dtoMerkleTree'
+import { UnifiedMerkleTreesDto } from '../dtoMerkleTree'
 import { parseSettlements } from '../dtoSettlements'
 
-import type { UnifiedMerkleTreesDto } from '../dtoMerkleTree'
 import type {
   AnomalyDetectionResult,
   DescriptiveStats,
@@ -117,6 +122,41 @@ export function extractMetrics(dto: UnifiedMerkleTreesDto): MerkleTreeMetrics {
   }
 }
 
+/**
+ * Streams a JSON file and assembles it into a JS object without
+ * ever creating a single string for the whole file content.
+ * This bypasses the Node.js ~256 MB string length limit.
+ */
+async function loadLargeJsonFile(filePath: string): Promise<unknown> {
+  const resolvedPath = expandTilde(filePath)
+  return new Promise((resolve, reject) => {
+    let result: unknown
+    const jsonParser = new JSONParser({ paths: ['$'] })
+    jsonParser.on('data', ({ value }) => {
+      result = value
+    })
+    jsonParser.on('end', () => resolve(result))
+    jsonParser.on('error', reject)
+    const readStream = createReadStream(resolvedPath)
+    readStream.on('error', reject)
+    readStream.pipe(jsonParser)
+  })
+}
+
+async function loadAndValidateUnifiedMerkleTree(
+  filePath: string,
+): Promise<UnifiedMerkleTreesDto> {
+  const data = await loadLargeJsonFile(filePath)
+  try {
+    return await validateAndReturn(data, UnifiedMerkleTreesDto)
+  } catch (error) {
+    throw CliCommandError.instance(
+      `Failed to load and validate unified merkle tree data from path: '${filePath}'`,
+      error,
+    )
+  }
+}
+
 async function manageCheckMerkleTree({
   merkleTrees,
   settlementSources,
@@ -153,14 +193,7 @@ async function manageCheckMerkleTree({
 
   logger.info(`Loading merkle tree file: ${merkleTrees}`)
 
-  const merkleTreesData = await loadFile(merkleTrees)
-
-  // UnifiedMerkleTreesDto extends SettlementMerkleTreesDto with an optional
-  // `sources` field, so it accepts both formats without a fallback try/catch.
-  const merkleTreesDto = await parseUnifiedMerkleTree(
-    merkleTreesData,
-    merkleTrees,
-  )
+  const merkleTreesDto = await loadAndValidateUnifiedMerkleTree(merkleTrees)
   const isUnifiedFormat = !!(
     merkleTreesDto.sources && merkleTreesDto.sources.length > 0
   )
@@ -305,19 +338,10 @@ async function manageCheckMerkleTree({
       `Comparing against ${pastMerkleTrees.length} historical merkle tree file(s)...`,
     )
 
-    const pastDataWithPaths = (
-      await Promise.all(
-        pastMerkleTrees.map(async path => {
-          const data = await loadFileOrDirectory(path)
-          return data.map(d => ({ data: d, sourcePath: path }))
-        }),
-      )
-    ).flat()
-
     const historicalDtos: UnifiedMerkleTreesDto[] = []
-    for (const { data, sourcePath: pastPath } of pastDataWithPaths) {
-      if (!data) continue
-      const dto = await parseUnifiedMerkleTree(data, pastPath)
+    for (const pastPath of pastMerkleTrees) {
+      logger.info(`Loading past merkle tree: ${pastPath}`)
+      const dto = await loadAndValidateUnifiedMerkleTree(pastPath)
       historicalDtos.push(dto)
     }
 
