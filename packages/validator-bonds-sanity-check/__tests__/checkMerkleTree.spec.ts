@@ -1,8 +1,13 @@
+import { writeFileSync, mkdtempSync, rmSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
+
 import { NULL_LOG } from '@marinade.finance/ts-common'
 import Decimal from 'decimal.js'
 
 import {
   extractMetrics,
+  loadLargeJsonFile,
   reportMerkleTreeAnomalies,
   detectIndividualAnomaly,
 } from '../src/commands/checkMerkleTree'
@@ -214,5 +219,39 @@ describe('detectIndividualAnomaly', () => {
     })
 
     expect(result.description).toBe('Test field description')
+  })
+})
+
+describe('loadLargeJsonFile', () => {
+  let tmpDir: string
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'sanity-check-'))
+  })
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true })
+  })
+
+  it('parses a JSON file via streaming and returns the object', async () => {
+    const data = { epoch: 100, items: [1, 2, 3], nested: { key: 'value' } }
+    const filePath = join(tmpDir, 'test.json')
+    writeFileSync(filePath, JSON.stringify(data))
+
+    const result = await loadLargeJsonFile(filePath)
+    expect(result).toEqual(data)
+  })
+
+  it('rejects on non-existent file', async () => {
+    await expect(
+      loadLargeJsonFile(join(tmpDir, 'missing.json')),
+    ).rejects.toThrow()
+  })
+
+  it('rejects on invalid JSON', async () => {
+    const filePath = join(tmpDir, 'bad.json')
+    writeFileSync(filePath, '{ invalid json }')
+
+    await expect(loadLargeJsonFile(filePath)).rejects.toThrow()
   })
 })

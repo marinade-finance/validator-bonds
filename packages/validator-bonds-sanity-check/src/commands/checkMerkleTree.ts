@@ -127,18 +127,25 @@ export function extractMetrics(dto: UnifiedMerkleTreesDto): MerkleTreeMetrics {
  * ever creating a single string for the whole file content.
  * This bypasses the Node.js ~256 MB string length limit.
  */
-async function loadLargeJsonFile(filePath: string): Promise<unknown> {
+export async function loadLargeJsonFile(filePath: string): Promise<unknown> {
   const resolvedPath = expandTilde(filePath)
   return new Promise((resolve, reject) => {
     let result: unknown
+    const readStream = createReadStream(resolvedPath)
     const jsonParser = new JSONParser({ paths: ['$'] })
+
+    const onError = (err: Error) => {
+      readStream.destroy()
+      jsonParser.destroy()
+      reject(err)
+    }
+
     jsonParser.on('data', ({ value }) => {
       result = value
     })
     jsonParser.on('end', () => resolve(result))
-    jsonParser.on('error', reject)
-    const readStream = createReadStream(resolvedPath)
-    readStream.on('error', reject)
+    jsonParser.on('error', onError)
+    readStream.on('error', onError)
     readStream.pipe(jsonParser)
   })
 }
