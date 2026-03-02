@@ -1,5 +1,3 @@
-import { createReadStream } from 'fs'
-
 import {
   CliCommandError,
   validateAndReturn,
@@ -9,8 +7,8 @@ import {
   DECIMAL_ZERO,
   calculateDescriptiveStats,
   detectAnomaly,
-  expandTilde,
   getContext,
+  loadContentAsStream,
   loadFileOrDirectory,
 } from '@marinade.finance/ts-common'
 import { JSONParser } from '@streamparser/json-node'
@@ -128,10 +126,9 @@ export function extractMetrics(dto: UnifiedMerkleTreesDto): MerkleTreeMetrics {
  * This bypasses the Node.js ~256 MB string length limit.
  */
 export async function loadLargeJsonFile(filePath: string): Promise<unknown> {
-  const resolvedPath = expandTilde(filePath)
+  const readStream = await loadContentAsStream(filePath)
   return new Promise((resolve, reject) => {
     let result: unknown
-    const readStream = createReadStream(resolvedPath)
     const jsonParser = new JSONParser({ paths: ['$'] })
 
     const onError = (err: Error) => {
