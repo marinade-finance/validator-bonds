@@ -1,3 +1,6 @@
+import { readdir } from 'fs/promises'
+import { join } from 'path'
+
 import {
   CliCommandError,
   validateAndReturn,
@@ -7,7 +10,10 @@ import {
   DECIMAL_ZERO,
   calculateDescriptiveStats,
   detectAnomaly,
+  expandTilde,
   getContext,
+  isDirectory,
+  isFile,
   loadContentAsStream,
   loadFileOrDirectory,
 } from '@marinade.finance/ts-common'
@@ -124,6 +130,9 @@ export function extractMetrics(dto: UnifiedMerkleTreesDto): MerkleTreeMetrics {
  * Streams a JSON file and assembles it into a JS object without
  * ever creating a single string for the whole file content.
  * This bypasses the Node.js ~256 MB string length limit.
+ *
+ * TODO: replace with readLargeJsonFile from @marinade.finance/cli-common
+ * once a version with it is published
  */
 export async function loadLargeJsonFile(filePath: string): Promise<unknown> {
   const readStream = await loadContentAsStream(filePath)
@@ -145,6 +154,28 @@ export async function loadLargeJsonFile(filePath: string): Promise<unknown> {
     readStream.on('error', onError)
     readStream.pipe(jsonParser)
   })
+}
+
+/**
+ * TODO: replace with resolveFilePaths from @marinade.finance/ts-common
+ * once a version with it is published
+ */
+async function resolveFilePaths(path: string): Promise<string[]> {
+  const fullPath = expandTilde(path)
+  if (await isDirectory(fullPath)) {
+    const fileNames = await readdir(fullPath)
+    const fileChecks = await Promise.all(
+      fileNames.map(async file => {
+        const filePath = join(fullPath, file)
+        return { path: filePath, isFile: await isFile(filePath) }
+      }),
+    )
+    return fileChecks.filter(item => item.isFile).map(item => item.path)
+  } else if (await isFile(fullPath)) {
+    return [fullPath]
+  } else {
+    throw new Error(`Path is not a file or directory: ${path}`)
+  }
 }
 
 async function loadAndValidateUnifiedMerkleTree(
@@ -342,8 +373,12 @@ async function manageCheckMerkleTree({
       `Comparing against ${pastMerkleTrees.length} historical merkle tree file(s)...`,
     )
 
+    const resolvedPaths = (
+      await Promise.all(pastMerkleTrees.map(p => resolveFilePaths(p)))
+    ).flat()
+
     const historicalDtos: UnifiedMerkleTreesDto[] = []
-    for (const pastPath of pastMerkleTrees) {
+    for (const pastPath of resolvedPaths) {
       logger.info(`Loading past merkle tree: ${pastPath}`)
       const dto = await loadAndValidateUnifiedMerkleTree(pastPath)
       historicalDtos.push(dto)
