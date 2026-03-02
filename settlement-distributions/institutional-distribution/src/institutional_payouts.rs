@@ -187,7 +187,8 @@ pub struct InstitutionalPayout {
     #[serde(with = "vec_pubkey_string_conversion")]
     pub institutional_staker_authorities: Vec<Pubkey>,
 
-    pub validator_max_fee_bps: u32,
+    #[serde(alias = "validatorMaxFeeBps")]
+    pub validator_fee_bps: u32,
 
     pub distributor_fee_bps: u32,
 
@@ -210,7 +211,8 @@ pub struct ConfigDto {
 
     pub psr_grace_downtime_bps: u32,
 
-    pub validator_max_fee_bps: u32,
+    #[serde(alias = "validatorMaxFeeBps")]
+    pub validator_fee_bps: u32,
 
     pub distributor_fee_bps: u32,
 }
