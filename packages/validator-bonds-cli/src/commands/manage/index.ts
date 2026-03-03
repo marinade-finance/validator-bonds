@@ -15,6 +15,8 @@ import { installInitWithdrawRequest } from './initWithdrawRequest'
 import { installStakeMerge } from './mergeStake'
 import { installMintBond } from './mintBond'
 import { installResetStake } from './resetStake'
+import { installSubscribe } from './subscribe'
+import { installUnsubscribe } from './unsubscribe'
 
 import type { Command } from 'commander'
 
@@ -34,4 +36,6 @@ export function installManage(program: Command) {
   installEmergencyResume(program)
   installCloseSettlement(program)
   installResetStake(program)
+  installSubscribe(program)
+  installUnsubscribe(program)
 }
