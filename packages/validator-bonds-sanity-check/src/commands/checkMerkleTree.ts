@@ -123,8 +123,8 @@ export function extractMetrics(dto: UnifiedMerkleTreesDto): MerkleTreeMetrics {
 async function loadAndValidateUnifiedMerkleTree(
   filePath: string,
 ): Promise<UnifiedMerkleTreesDto> {
-  const data = await readLargeJsonFile(filePath)
   try {
+    const data = await readLargeJsonFile(filePath)
     return await validateAndReturn(data, UnifiedMerkleTreesDto)
   } catch (error) {
     throw CliCommandError.instance(
@@ -311,13 +311,13 @@ async function manageCheckMerkleTree({
 
   // Check 3: Historical comparison with heuristics
   if (pastMerkleTrees && pastMerkleTrees.length > 0) {
-    logger.info(
-      `Comparing against ${pastMerkleTrees.length} historical merkle tree file(s)...`,
-    )
-
     const resolvedPaths = (
       await Promise.all(pastMerkleTrees.map(p => resolveFilePaths(p)))
     ).flat()
+
+    logger.info(
+      `Comparing against ${resolvedPaths.length} historical merkle tree file(s)...`,
+    )
 
     const historicalDtos: UnifiedMerkleTreesDto[] = []
     for (const pastPath of resolvedPaths) {
