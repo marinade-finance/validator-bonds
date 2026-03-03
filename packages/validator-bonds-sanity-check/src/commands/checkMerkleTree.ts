@@ -1,23 +1,17 @@
-import { readdir } from 'fs/promises'
-import { join } from 'path'
-
 import {
   CliCommandError,
   validateAndReturn,
+  readLargeJsonFile,
 } from '@marinade.finance/cli-common'
 import {
   CONSOLE_LOG,
   DECIMAL_ZERO,
   calculateDescriptiveStats,
   detectAnomaly,
-  expandTilde,
   getContext,
-  isDirectory,
-  isFile,
-  loadContentAsStream,
   loadFileOrDirectory,
+  resolveFilePaths,
 } from '@marinade.finance/ts-common'
-import { JSONParser } from '@streamparser/json-node'
 import Decimal from 'decimal.js'
 import YAML from 'yaml'
 
@@ -126,62 +120,10 @@ export function extractMetrics(dto: UnifiedMerkleTreesDto): MerkleTreeMetrics {
   }
 }
 
-/**
- * Streams a JSON file and assembles it into a JS object without
- * ever creating a single string for the whole file content.
- * This bypasses the Node.js ~256 MB string length limit.
- *
- * TODO: replace with readLargeJsonFile from @marinade.finance/cli-common
- * once a version with it is published
- */
-export async function loadLargeJsonFile(filePath: string): Promise<unknown> {
-  const readStream = await loadContentAsStream(filePath)
-  return new Promise((resolve, reject) => {
-    let result: unknown
-    const jsonParser = new JSONParser({ paths: ['$'] })
-
-    const onError = (err: Error) => {
-      readStream.destroy()
-      jsonParser.destroy()
-      reject(err)
-    }
-
-    jsonParser.on('data', ({ value }) => {
-      result = value
-    })
-    jsonParser.on('end', () => resolve(result))
-    jsonParser.on('error', onError)
-    readStream.on('error', onError)
-    readStream.pipe(jsonParser)
-  })
-}
-
-/**
- * TODO: replace with resolveFilePaths from @marinade.finance/ts-common
- * once a version with it is published
- */
-async function resolveFilePaths(path: string): Promise<string[]> {
-  const fullPath = expandTilde(path)
-  if (await isDirectory(fullPath)) {
-    const fileNames = await readdir(fullPath)
-    const fileChecks = await Promise.all(
-      fileNames.map(async file => {
-        const filePath = join(fullPath, file)
-        return { path: filePath, isFile: await isFile(filePath) }
-      }),
-    )
-    return fileChecks.filter(item => item.isFile).map(item => item.path)
-  } else if (await isFile(fullPath)) {
-    return [fullPath]
-  } else {
-    throw new Error(`Path is not a file or directory: ${path}`)
-  }
-}
-
 async function loadAndValidateUnifiedMerkleTree(
   filePath: string,
 ): Promise<UnifiedMerkleTreesDto> {
-  const data = await loadLargeJsonFile(filePath)
+  const data = await readLargeJsonFile(filePath)
   try {
     return await validateAndReturn(data, UnifiedMerkleTreesDto)
   } catch (error) {

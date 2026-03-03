@@ -2,12 +2,12 @@ import { writeFileSync, mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
+import { readLargeJsonFile } from '@marinade.finance/cli-common'
 import { NULL_LOG } from '@marinade.finance/ts-common'
 import Decimal from 'decimal.js'
 
 import {
   extractMetrics,
-  loadLargeJsonFile,
   reportMerkleTreeAnomalies,
   detectIndividualAnomaly,
 } from '../src/commands/checkMerkleTree'
@@ -238,13 +238,13 @@ describe('loadLargeJsonFile', () => {
     const filePath = join(tmpDir, 'test.json')
     writeFileSync(filePath, JSON.stringify(data))
 
-    const result = await loadLargeJsonFile(filePath)
+    const result = await readLargeJsonFile(filePath)
     expect(result).toEqual(data)
   })
 
   it('rejects on non-existent file', async () => {
     await expect(
-      loadLargeJsonFile(join(tmpDir, 'missing.json')),
+      readLargeJsonFile(join(tmpDir, 'missing.json')),
     ).rejects.toThrow()
   })
 
@@ -252,6 +252,6 @@ describe('loadLargeJsonFile', () => {
     const filePath = join(tmpDir, 'bad.json')
     writeFileSync(filePath, '{ invalid json }')
 
-    await expect(loadLargeJsonFile(filePath)).rejects.toThrow()
+    await expect(readLargeJsonFile(filePath)).rejects.toThrow()
   })
 })
