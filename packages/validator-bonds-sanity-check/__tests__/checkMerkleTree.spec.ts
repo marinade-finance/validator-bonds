@@ -222,7 +222,7 @@ describe('detectIndividualAnomaly', () => {
   })
 })
 
-describe('loadLargeJsonFile', () => {
+describe('readLargeJsonFile', () => {
   let tmpDir: string
 
   beforeEach(() => {
