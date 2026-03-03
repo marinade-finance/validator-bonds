@@ -1,3 +1,8 @@
+import { writeFileSync, mkdtempSync, rmSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
+
+import { readLargeJsonFile } from '@marinade.finance/cli-common'
 import { NULL_LOG } from '@marinade.finance/ts-common'
 import Decimal from 'decimal.js'
 
@@ -214,5 +219,39 @@ describe('detectIndividualAnomaly', () => {
     })
 
     expect(result.description).toBe('Test field description')
+  })
+})
+
+describe('readLargeJsonFile', () => {
+  let tmpDir: string
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'sanity-check-'))
+  })
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true })
+  })
+
+  it('parses a JSON file via streaming and returns the object', async () => {
+    const data = { epoch: 100, items: [1, 2, 3], nested: { key: 'value' } }
+    const filePath = join(tmpDir, 'test.json')
+    writeFileSync(filePath, JSON.stringify(data))
+
+    const result = await readLargeJsonFile(filePath)
+    expect(result).toEqual(data)
+  })
+
+  it('rejects on non-existent file', async () => {
+    await expect(
+      readLargeJsonFile(join(tmpDir, 'missing.json')),
+    ).rejects.toThrow()
+  })
+
+  it('rejects on invalid JSON', async () => {
+    const filePath = join(tmpDir, 'bad.json')
+    writeFileSync(filePath, '{ invalid json }')
+
+    await expect(readLargeJsonFile(filePath)).rejects.toThrow()
   })
 })
