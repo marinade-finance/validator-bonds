@@ -4,10 +4,10 @@ use anyhow::{anyhow, ensure};
 use log::info;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
-use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use serde::{Deserialize, Serialize};
 use settlement_common::settlement_collection::{Settlement, SettlementClaim, SettlementReason};
 use settlement_common::stake_meta_index::StakeMetaIndex;
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
@@ -41,7 +41,6 @@ pub struct BondRiskFeeDetails {
     pub bond_risk_fee_sol: String,
     pub stakers_bond_risk_fee_claim: u64,
 }
-
 
 pub fn generate_penalty_settlements(
     stake_meta_index: &StakeMetaIndex,
@@ -105,9 +104,12 @@ pub fn generate_penalty_settlements(
             let stakers_bond_risk_fee_claim = validator
                 .values
                 .as_ref()
-                .map(|v| (v.bond_risk_fee_sol * Decimal::from(LAMPORTS_PER_SOL)).to_u64().unwrap_or(0))
+                .map(|v| {
+                    (v.bond_risk_fee_sol * Decimal::from(LAMPORTS_PER_SOL))
+                        .to_u64()
+                        .unwrap_or(0)
+                })
                 .unwrap_or(0);
-
 
             let mut bid_too_low_penalty_claims = vec![];
             let mut claimed_bid_too_low_penalty_amount = 0;
@@ -117,7 +119,6 @@ pub fn generate_penalty_settlements(
 
             let mut bond_risk_fee_claims = vec![];
             let mut claimed_bond_risk_fee_amount = 0;
-
 
             let (marinade_fee_deposit_stake_accounts, dao_fee_deposit_stake_accounts) =
                 get_fee_deposit_stake_accounts(stake_meta_index, fee_config);
@@ -172,7 +173,7 @@ pub fn generate_penalty_settlements(
                         blacklist_penalty_claims.push(SettlementClaim {
                             withdraw_authority: *withdraw_authority,
                             stake_authority: *stake_authority,
-                            stake_accounts,
+                            stake_accounts: stake_accounts.clone(),
                             claim_amount: blacklist_penalty_claim_amount,
                             active_stake,
                         });

@@ -143,13 +143,14 @@ fn main() -> anyhow::Result<()> {
                     "BlacklistPenalty settlement config is required in bid-distribution-config"
                 )
             })?;
-        let bond_risk_fee_config = bid_distribution_config
-            .bond_risk_fee_config()
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "BondRiskFee settlement config is required in bid-distribution-config"
-                )
-            })?;
+        let bond_risk_fee_config =
+            bid_distribution_config
+                .bond_risk_fee_config()
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "BondRiskFee settlement config is required in bid-distribution-config"
+                    )
+                })?;
 
         info!("Loading SAM scoring meta collection...");
         let sam_validator_metas: Vec<ValidatorSamMeta> = read_from_json_file(sam_meta_path)
