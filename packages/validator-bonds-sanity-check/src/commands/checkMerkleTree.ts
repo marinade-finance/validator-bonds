@@ -9,14 +9,13 @@ import {
   calculateDescriptiveStats,
   detectAnomaly,
   getContext,
-  loadFile,
   loadFileOrDirectory,
   resolveFilePaths,
 } from '@marinade.finance/ts-common'
 import Decimal from 'decimal.js'
 import YAML from 'yaml'
 
-import { parseUnifiedMerkleTree, UnifiedMerkleTreesDto } from '../dtoMerkleTree'
+import { UnifiedMerkleTreesDto } from '../dtoMerkleTree'
 import { parseSettlements } from '../dtoSettlements'
 
 

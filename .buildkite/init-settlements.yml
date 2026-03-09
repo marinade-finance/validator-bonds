@@ -112,6 +112,7 @@ steps:
     - gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlements.json" "./settlements.json" || true
     artifact_paths:
       - "./settlement-merkle-trees.json"
+      - "./settlements.json"
 
   - label: ":spiral_note_pad: :school_satchel:  Settlement JSON listing"
     commands:
