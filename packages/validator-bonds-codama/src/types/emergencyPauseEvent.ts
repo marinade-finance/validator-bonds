@@ -18,27 +18,27 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export type EmergencyPauseEvent = {
-  config: Address;
-  adminAuthority: Address;
-  operatorAuthority: Address;
-  epochsToClaimSettlement: bigint;
-  withdrawLockupEpochs: bigint;
-  minimumStakeLamports: bigint;
-  pauseAuthority: Address;
-};
+  config: Address
+  adminAuthority: Address
+  operatorAuthority: Address
+  epochsToClaimSettlement: bigint
+  withdrawLockupEpochs: bigint
+  minimumStakeLamports: bigint
+  pauseAuthority: Address
+}
 
 export type EmergencyPauseEventArgs = {
-  config: Address;
-  adminAuthority: Address;
-  operatorAuthority: Address;
-  epochsToClaimSettlement: number | bigint;
-  withdrawLockupEpochs: number | bigint;
-  minimumStakeLamports: number | bigint;
-  pauseAuthority: Address;
-};
+  config: Address
+  adminAuthority: Address
+  operatorAuthority: Address
+  epochsToClaimSettlement: number | bigint
+  withdrawLockupEpochs: number | bigint
+  minimumStakeLamports: number | bigint
+  pauseAuthority: Address
+}
 
 export function getEmergencyPauseEventEncoder(): FixedSizeEncoder<EmergencyPauseEventArgs> {
   return getStructEncoder([
@@ -49,7 +49,7 @@ export function getEmergencyPauseEventEncoder(): FixedSizeEncoder<EmergencyPause
     ['withdrawLockupEpochs', getU64Encoder()],
     ['minimumStakeLamports', getU64Encoder()],
     ['pauseAuthority', getAddressEncoder()],
-  ]);
+  ])
 }
 
 export function getEmergencyPauseEventDecoder(): FixedSizeDecoder<EmergencyPauseEvent> {
@@ -61,7 +61,7 @@ export function getEmergencyPauseEventDecoder(): FixedSizeDecoder<EmergencyPause
     ['withdrawLockupEpochs', getU64Decoder()],
     ['minimumStakeLamports', getU64Decoder()],
     ['pauseAuthority', getAddressDecoder()],
-  ]);
+  ])
 }
 
 export function getEmergencyPauseEventCodec(): FixedSizeCodec<
@@ -70,6 +70,6 @@ export function getEmergencyPauseEventCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getEmergencyPauseEventEncoder(),
-    getEmergencyPauseEventDecoder()
-  );
+    getEmergencyPauseEventDecoder(),
+  )
 }

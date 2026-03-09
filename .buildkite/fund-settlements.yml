@@ -81,7 +81,15 @@ steps:
         echo "Merkle trees already downloaded"
         exit 0
       fi
-    - claim_type=$(buildkite-agent meta-data get claim_type)
+    - |
+      claim_type=$(buildkite-agent meta-data get claim_type)
+      # Build list of prefixes to search: current naming + legacy naming
+      # The "unified" claim type replaced old "bid-psr-distribution" (pipeline unification PR #344),
+      # but past epochs in GCS still have files named "bid-psr-distribution-settlement-merkle-trees.json"
+      prefixes="$$claim_type"
+      if [[ "$$claim_type" == unified* ]]; then
+        prefixes="$$prefixes bid"
+      fi
     - mkdir ./merkle-trees/
     - |
       for epoch in $(seq $$epochs_start_index $$current_epoch); do
@@ -89,9 +97,11 @@ steps:
           echo "Skipping epoch $$epoch, because it's before the contract v2 deployment epoch $$starting_epoch_contract_v2"
           continue
         fi
-        for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/$${claim_type}*merkle-trees.json"); do
-          base_name=$(basename "$$merkle_tree_file")
-          gcloud storage cp "$$merkle_tree_file" "./merkle-trees/$${epoch}_$${base_name}"
+        for prefix in $$prefixes; do
+          for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/$${prefix}*merkle-trees.json" 2>/dev/null); do
+            base_name=$(basename "$$merkle_tree_file")
+            gcloud storage cp "$$merkle_tree_file" "./merkle-trees/$${epoch}_$${base_name}"
+          done
         done
       done
     artifact_paths:

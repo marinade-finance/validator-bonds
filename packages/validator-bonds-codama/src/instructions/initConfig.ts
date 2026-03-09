@@ -19,6 +19,8 @@ import {
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -33,25 +35,27 @@ import {
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableSignerAccount,
-} from '@solana/kit';
-import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs';
-import { getAccountMetaFactory, type ResolvedAccount } from '../shared';
+} from '@solana/kit'
+import {
+  getAccountMetaFactory,
+  type ResolvedInstructionAccount,
+} from '@solana/program-client-core'
+import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
 export const INIT_CONFIG_DISCRIMINATOR = new Uint8Array([
   23, 235, 115, 232, 168, 96, 1, 231,
-]);
+])
 
 export function getInitConfigDiscriminatorBytes() {
-  return fixEncoderSize(getBytesEncoder(), 8).encode(INIT_CONFIG_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(INIT_CONFIG_DISCRIMINATOR)
 }
 
 export type InitConfigInstruction<
   TProgram extends string = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
   TAccountConfig extends string | AccountMeta<string> = string,
   TAccountRentPayer extends string | AccountMeta<string> = string,
-  TAccountSystemProgram extends
-    | string
-    | AccountMeta<string> = '11111111111111111111111111111111',
+  TAccountSystemProgram extends string | AccountMeta<string> =
+    '11111111111111111111111111111111',
   TAccountEventAuthority extends string | AccountMeta<string> = string,
   TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -78,24 +82,24 @@ export type InitConfigInstruction<
         : TAccountProgram,
       ...TRemainingAccounts,
     ]
-  >;
+  >
 
 export type InitConfigInstructionData = {
-  discriminator: ReadonlyUint8Array;
-  adminAuthority: Address;
-  operatorAuthority: Address;
-  epochsToClaimSettlement: bigint;
-  withdrawLockupEpochs: bigint;
-  slotsToStartSettlementClaiming: bigint;
-};
+  discriminator: ReadonlyUint8Array
+  adminAuthority: Address
+  operatorAuthority: Address
+  epochsToClaimSettlement: bigint
+  withdrawLockupEpochs: bigint
+  slotsToStartSettlementClaiming: bigint
+}
 
 export type InitConfigInstructionDataArgs = {
-  adminAuthority: Address;
-  operatorAuthority: Address;
-  epochsToClaimSettlement: number | bigint;
-  withdrawLockupEpochs: number | bigint;
-  slotsToStartSettlementClaiming: number | bigint;
-};
+  adminAuthority: Address
+  operatorAuthority: Address
+  epochsToClaimSettlement: number | bigint
+  withdrawLockupEpochs: number | bigint
+  slotsToStartSettlementClaiming: number | bigint
+}
 
 export function getInitConfigInstructionDataEncoder(): FixedSizeEncoder<InitConfigInstructionDataArgs> {
   return transformEncoder(
@@ -107,8 +111,8 @@ export function getInitConfigInstructionDataEncoder(): FixedSizeEncoder<InitConf
       ['withdrawLockupEpochs', getU64Encoder()],
       ['slotsToStartSettlementClaiming', getU64Encoder()],
     ]),
-    (value) => ({ ...value, discriminator: INIT_CONFIG_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: INIT_CONFIG_DISCRIMINATOR }),
+  )
 }
 
 export function getInitConfigInstructionDataDecoder(): FixedSizeDecoder<InitConfigInstructionData> {
@@ -119,7 +123,7 @@ export function getInitConfigInstructionDataDecoder(): FixedSizeDecoder<InitConf
     ['epochsToClaimSettlement', getU64Decoder()],
     ['withdrawLockupEpochs', getU64Decoder()],
     ['slotsToStartSettlementClaiming', getU64Decoder()],
-  ]);
+  ])
 }
 
 export function getInitConfigInstructionDataCodec(): FixedSizeCodec<
@@ -128,8 +132,8 @@ export function getInitConfigInstructionDataCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getInitConfigInstructionDataEncoder(),
-    getInitConfigInstructionDataDecoder()
-  );
+    getInitConfigInstructionDataDecoder(),
+  )
 }
 
 export type InitConfigAsyncInput<
@@ -139,18 +143,18 @@ export type InitConfigAsyncInput<
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
 > = {
-  config: TransactionSigner<TAccountConfig>;
+  config: TransactionSigner<TAccountConfig>
   /** rent exempt payer for the config account */
-  rentPayer: TransactionSigner<TAccountRentPayer>;
-  systemProgram?: Address<TAccountSystemProgram>;
-  eventAuthority?: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  adminAuthority: InitConfigInstructionDataArgs['adminAuthority'];
-  operatorAuthority: InitConfigInstructionDataArgs['operatorAuthority'];
-  epochsToClaimSettlement: InitConfigInstructionDataArgs['epochsToClaimSettlement'];
-  withdrawLockupEpochs: InitConfigInstructionDataArgs['withdrawLockupEpochs'];
-  slotsToStartSettlementClaiming: InitConfigInstructionDataArgs['slotsToStartSettlementClaiming'];
-};
+  rentPayer: TransactionSigner<TAccountRentPayer>
+  systemProgram?: Address<TAccountSystemProgram>
+  eventAuthority?: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+  adminAuthority: InitConfigInstructionDataArgs['adminAuthority']
+  operatorAuthority: InitConfigInstructionDataArgs['operatorAuthority']
+  epochsToClaimSettlement: InitConfigInstructionDataArgs['epochsToClaimSettlement']
+  withdrawLockupEpochs: InitConfigInstructionDataArgs['withdrawLockupEpochs']
+  slotsToStartSettlementClaiming: InitConfigInstructionDataArgs['slotsToStartSettlementClaiming']
+}
 
 export async function getInitConfigInstructionAsync<
   TAccountConfig extends string,
@@ -167,7 +171,7 @@ export async function getInitConfigInstructionAsync<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): Promise<
   InitConfigInstruction<
     TProgramAddress,
@@ -180,7 +184,7 @@ export async function getInitConfigInstructionAsync<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -189,19 +193,19 @@ export async function getInitConfigInstructionAsync<
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Original args.
-  const args = { ...input };
+  const args = { ...input }
 
   // Resolve default values.
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
-      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>;
+      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
   }
   if (!accounts.eventAuthority.value) {
     accounts.eventAuthority.value = await getProgramDerivedAddress({
@@ -211,23 +215,23 @@ export async function getInitConfigInstructionAsync<
           new Uint8Array([
             95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
             105, 116, 121,
-          ])
+          ]),
         ),
       ],
-    });
+    })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.rentPayer),
-      getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('rentPayer', accounts.rentPayer),
+      getAccountMeta('systemProgram', accounts.systemProgram),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getInitConfigInstructionDataEncoder().encode(
-      args as InitConfigInstructionDataArgs
+      args as InitConfigInstructionDataArgs,
     ),
     programAddress,
   } as InitConfigInstruction<
@@ -237,7 +241,7 @@ export async function getInitConfigInstructionAsync<
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type InitConfigInput<
@@ -247,18 +251,18 @@ export type InitConfigInput<
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
 > = {
-  config: TransactionSigner<TAccountConfig>;
+  config: TransactionSigner<TAccountConfig>
   /** rent exempt payer for the config account */
-  rentPayer: TransactionSigner<TAccountRentPayer>;
-  systemProgram?: Address<TAccountSystemProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  adminAuthority: InitConfigInstructionDataArgs['adminAuthority'];
-  operatorAuthority: InitConfigInstructionDataArgs['operatorAuthority'];
-  epochsToClaimSettlement: InitConfigInstructionDataArgs['epochsToClaimSettlement'];
-  withdrawLockupEpochs: InitConfigInstructionDataArgs['withdrawLockupEpochs'];
-  slotsToStartSettlementClaiming: InitConfigInstructionDataArgs['slotsToStartSettlementClaiming'];
-};
+  rentPayer: TransactionSigner<TAccountRentPayer>
+  systemProgram?: Address<TAccountSystemProgram>
+  eventAuthority: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+  adminAuthority: InitConfigInstructionDataArgs['adminAuthority']
+  operatorAuthority: InitConfigInstructionDataArgs['operatorAuthority']
+  epochsToClaimSettlement: InitConfigInstructionDataArgs['epochsToClaimSettlement']
+  withdrawLockupEpochs: InitConfigInstructionDataArgs['withdrawLockupEpochs']
+  slotsToStartSettlementClaiming: InitConfigInstructionDataArgs['slotsToStartSettlementClaiming']
+}
 
 export function getInitConfigInstruction<
   TAccountConfig extends string,
@@ -275,7 +279,7 @@ export function getInitConfigInstruction<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): InitConfigInstruction<
   TProgramAddress,
   TAccountConfig,
@@ -286,7 +290,7 @@ export function getInitConfigInstruction<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -295,32 +299,32 @@ export function getInitConfigInstruction<
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Original args.
-  const args = { ...input };
+  const args = { ...input }
 
   // Resolve default values.
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
-      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>;
+      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.rentPayer),
-      getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('rentPayer', accounts.rentPayer),
+      getAccountMeta('systemProgram', accounts.systemProgram),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getInitConfigInstructionDataEncoder().encode(
-      args as InitConfigInstructionDataArgs
+      args as InitConfigInstructionDataArgs,
     ),
     programAddress,
   } as InitConfigInstruction<
@@ -330,24 +334,24 @@ export function getInitConfigInstruction<
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ParsedInitConfigInstruction<
   TProgram extends string = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
-  programAddress: Address<TProgram>;
+  programAddress: Address<TProgram>
   accounts: {
-    config: TAccountMetas[0];
+    config: TAccountMetas[0]
     /** rent exempt payer for the config account */
-    rentPayer: TAccountMetas[1];
-    systemProgram: TAccountMetas[2];
-    eventAuthority: TAccountMetas[3];
-    program: TAccountMetas[4];
-  };
-  data: InitConfigInstructionData;
-};
+    rentPayer: TAccountMetas[1]
+    systemProgram: TAccountMetas[2]
+    eventAuthority: TAccountMetas[3]
+    program: TAccountMetas[4]
+  }
+  data: InitConfigInstructionData
+}
 
 export function parseInitConfigInstruction<
   TProgram extends string,
@@ -355,18 +359,23 @@ export function parseInitConfigInstruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>
+    InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitConfigInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 5) {
-    // TODO: Coded error.
-    throw new Error('Not enough accounts');
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 5,
+      },
+    )
   }
-  let accountIndex = 0;
+  let accountIndex = 0
   const getNextAccount = () => {
-    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!;
-    accountIndex += 1;
-    return accountMeta;
-  };
+    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!
+    accountIndex += 1
+    return accountMeta
+  }
   return {
     programAddress: instruction.programAddress,
     accounts: {
@@ -377,5 +386,5 @@ export function parseInitConfigInstruction<
       program: getNextAccount(),
     },
     data: getInitConfigInstructionDataDecoder().decode(instruction.data),
-  };
+  }
 }

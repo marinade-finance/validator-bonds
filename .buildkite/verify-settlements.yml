@@ -96,13 +96,22 @@ steps:
     - |
       claim_type=$(buildkite-agent meta-data get claim_type)
       claim_type_prefix="$${claim_type%%-*}"
+      # Build list of prefixes to search: current naming + legacy naming
+      # The "unified" claim type replaced old "bid-psr-distribution" (pipeline unification PR #344),
+      # but past epochs in GCS still have files named "bid-psr-distribution-settlement-merkle-trees.json"
+      prefixes="$$claim_type_prefix"
+      if [[ "$$claim_type_prefix" == "unified" ]]; then
+        prefixes="$$prefixes bid"
+      fi
     - 'mkdir ./merkle-trees/'
     - |
       echo "Sequence printing: $(seq $$start_epoch $$current_epoch)"
       for epoch in $(seq $$start_epoch $$current_epoch); do
-        for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/$${claim_type_prefix}*merkle-trees.json"); do
-          base_name=$(basename "$$merkle_tree_file")
-          gcloud storage cp "$$merkle_tree_file" "./merkle-trees/$${epoch}_$${base_name}"
+        for prefix in $$prefixes; do
+          for merkle_tree_file in $(gcloud storage ls "$gs_bucket/$$epoch/$${prefix}*merkle-trees.json" 2>/dev/null); do
+            base_name=$(basename "$$merkle_tree_file")
+            gcloud storage cp "$$merkle_tree_file" "./merkle-trees/$${epoch}_$${base_name}"
+          done
         done
       done
     artifact_paths:

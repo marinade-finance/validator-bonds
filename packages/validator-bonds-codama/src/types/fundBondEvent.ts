@@ -18,23 +18,23 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export type FundBondEvent = {
-  bond: Address;
-  voteAccount: Address;
-  stakeAccount: Address;
-  stakeAuthoritySigner: Address;
-  depositedAmount: bigint;
-};
+  bond: Address
+  voteAccount: Address
+  stakeAccount: Address
+  stakeAuthoritySigner: Address
+  depositedAmount: bigint
+}
 
 export type FundBondEventArgs = {
-  bond: Address;
-  voteAccount: Address;
-  stakeAccount: Address;
-  stakeAuthoritySigner: Address;
-  depositedAmount: number | bigint;
-};
+  bond: Address
+  voteAccount: Address
+  stakeAccount: Address
+  stakeAuthoritySigner: Address
+  depositedAmount: number | bigint
+}
 
 export function getFundBondEventEncoder(): FixedSizeEncoder<FundBondEventArgs> {
   return getStructEncoder([
@@ -43,7 +43,7 @@ export function getFundBondEventEncoder(): FixedSizeEncoder<FundBondEventArgs> {
     ['stakeAccount', getAddressEncoder()],
     ['stakeAuthoritySigner', getAddressEncoder()],
     ['depositedAmount', getU64Encoder()],
-  ]);
+  ])
 }
 
 export function getFundBondEventDecoder(): FixedSizeDecoder<FundBondEvent> {
@@ -53,12 +53,12 @@ export function getFundBondEventDecoder(): FixedSizeDecoder<FundBondEvent> {
     ['stakeAccount', getAddressDecoder()],
     ['stakeAuthoritySigner', getAddressDecoder()],
     ['depositedAmount', getU64Decoder()],
-  ]);
+  ])
 }
 
 export function getFundBondEventCodec(): FixedSizeCodec<
   FundBondEventArgs,
   FundBondEvent
 > {
-  return combineCodec(getFundBondEventEncoder(), getFundBondEventDecoder());
+  return combineCodec(getFundBondEventEncoder(), getFundBondEventDecoder())
 }

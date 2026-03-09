@@ -66,6 +66,7 @@ steps:
         SLACK_FEED=$$slack_feed
         NOTIFY_FEED=${NOTIFY_FEED:-false}
         NOTIFY_DISCORD_FEED=${NOTIFY_DISCORD_FEED:-false}
+        PIPELINES_AUTO_APPROVAL=${PIPELINES_AUTO_APPROVAL}
         # DISCORD_REPORTS: "filename:WEBHOOK_ENV_VAR,..." (webhook env vars must be set as secrets)
         \`\`\`
         EOF
@@ -102,12 +103,13 @@ steps:
     artifact_paths:
       - target/release/init-settlement
 
-  - label: ":floppy_disk: :arrow_left: :cloud: Downloading merkle trees"
+  - label: ":floppy_disk: :arrow_left: :cloud: Downloading merkle trees and settlements"
     key: "download-json"
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - claim_type=$(buildkite-agent meta-data get claim_type)
     - gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-merkle-trees.json" "./settlement-merkle-trees.json"
+    - gcloud storage cp "$gs_bucket/$$epoch/$${claim_type}-settlements.json" "./settlements.json" || true
     artifact_paths:
       - "./settlement-merkle-trees.json"
 

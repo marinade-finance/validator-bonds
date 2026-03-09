@@ -22,39 +22,39 @@ import {
   type Encoder,
   type Option,
   type OptionOrNullable,
-} from '@solana/kit';
+} from '@solana/kit'
 import {
   getSplitStakeDataDecoder,
   getSplitStakeDataEncoder,
   type SplitStakeData,
   type SplitStakeDataArgs,
-} from '.';
+} from '.'
 
 export type FundSettlementEvent = {
-  bond: Address;
-  settlement: Address;
-  fundingAmount: bigint;
-  stakeAccount: Address;
-  lamportsFunded: bigint;
-  lamportsClaimed: bigint;
-  merkleNodesClaimed: bigint;
-  splitStakeAccount: Option<SplitStakeData>;
-  splitRentCollector: Option<Address>;
-  splitRentAmount: bigint;
-};
+  bond: Address
+  settlement: Address
+  fundingAmount: bigint
+  stakeAccount: Address
+  lamportsFunded: bigint
+  lamportsClaimed: bigint
+  merkleNodesClaimed: bigint
+  splitStakeAccount: Option<SplitStakeData>
+  splitRentCollector: Option<Address>
+  splitRentAmount: bigint
+}
 
 export type FundSettlementEventArgs = {
-  bond: Address;
-  settlement: Address;
-  fundingAmount: number | bigint;
-  stakeAccount: Address;
-  lamportsFunded: number | bigint;
-  lamportsClaimed: number | bigint;
-  merkleNodesClaimed: number | bigint;
-  splitStakeAccount: OptionOrNullable<SplitStakeDataArgs>;
-  splitRentCollector: OptionOrNullable<Address>;
-  splitRentAmount: number | bigint;
-};
+  bond: Address
+  settlement: Address
+  fundingAmount: number | bigint
+  stakeAccount: Address
+  lamportsFunded: number | bigint
+  lamportsClaimed: number | bigint
+  merkleNodesClaimed: number | bigint
+  splitStakeAccount: OptionOrNullable<SplitStakeDataArgs>
+  splitRentCollector: OptionOrNullable<Address>
+  splitRentAmount: number | bigint
+}
 
 export function getFundSettlementEventEncoder(): Encoder<FundSettlementEventArgs> {
   return getStructEncoder([
@@ -68,7 +68,7 @@ export function getFundSettlementEventEncoder(): Encoder<FundSettlementEventArgs
     ['splitStakeAccount', getOptionEncoder(getSplitStakeDataEncoder())],
     ['splitRentCollector', getOptionEncoder(getAddressEncoder())],
     ['splitRentAmount', getU64Encoder()],
-  ]);
+  ])
 }
 
 export function getFundSettlementEventDecoder(): Decoder<FundSettlementEvent> {
@@ -83,7 +83,7 @@ export function getFundSettlementEventDecoder(): Decoder<FundSettlementEvent> {
     ['splitStakeAccount', getOptionDecoder(getSplitStakeDataDecoder())],
     ['splitRentCollector', getOptionDecoder(getAddressDecoder())],
     ['splitRentAmount', getU64Decoder()],
-  ]);
+  ])
 }
 
 export function getFundSettlementEventCodec(): Codec<
@@ -92,6 +92,6 @@ export function getFundSettlementEventCodec(): Codec<
 > {
   return combineCodec(
     getFundSettlementEventEncoder(),
-    getFundSettlementEventDecoder()
-  );
+    getFundSettlementEventDecoder(),
+  )
 }

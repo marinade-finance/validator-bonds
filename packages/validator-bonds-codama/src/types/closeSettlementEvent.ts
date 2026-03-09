@@ -27,39 +27,39 @@ import {
   type Option,
   type OptionOrNullable,
   type ReadonlyUint8Array,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export type CloseSettlementEvent = {
-  bond: Address;
-  settlement: Address;
-  merkleRoot: ReadonlyUint8Array;
-  maxTotalClaim: bigint;
-  maxMerkleNodes: bigint;
-  lamportsFunded: bigint;
-  lamportsClaimed: bigint;
-  merkleNodesClaimed: bigint;
-  splitRentCollector: Option<Address>;
-  splitRentRefund: Option<Address>;
-  rentCollector: Address;
-  expirationEpoch: bigint;
-  currentEpoch: bigint;
-};
+  bond: Address
+  settlement: Address
+  merkleRoot: ReadonlyUint8Array
+  maxTotalClaim: bigint
+  maxMerkleNodes: bigint
+  lamportsFunded: bigint
+  lamportsClaimed: bigint
+  merkleNodesClaimed: bigint
+  splitRentCollector: Option<Address>
+  splitRentRefund: Option<Address>
+  rentCollector: Address
+  expirationEpoch: bigint
+  currentEpoch: bigint
+}
 
 export type CloseSettlementEventArgs = {
-  bond: Address;
-  settlement: Address;
-  merkleRoot: ReadonlyUint8Array;
-  maxTotalClaim: number | bigint;
-  maxMerkleNodes: number | bigint;
-  lamportsFunded: number | bigint;
-  lamportsClaimed: number | bigint;
-  merkleNodesClaimed: number | bigint;
-  splitRentCollector: OptionOrNullable<Address>;
-  splitRentRefund: OptionOrNullable<Address>;
-  rentCollector: Address;
-  expirationEpoch: number | bigint;
-  currentEpoch: number | bigint;
-};
+  bond: Address
+  settlement: Address
+  merkleRoot: ReadonlyUint8Array
+  maxTotalClaim: number | bigint
+  maxMerkleNodes: number | bigint
+  lamportsFunded: number | bigint
+  lamportsClaimed: number | bigint
+  merkleNodesClaimed: number | bigint
+  splitRentCollector: OptionOrNullable<Address>
+  splitRentRefund: OptionOrNullable<Address>
+  rentCollector: Address
+  expirationEpoch: number | bigint
+  currentEpoch: number | bigint
+}
 
 export function getCloseSettlementEventEncoder(): Encoder<CloseSettlementEventArgs> {
   return getStructEncoder([
@@ -76,7 +76,7 @@ export function getCloseSettlementEventEncoder(): Encoder<CloseSettlementEventAr
     ['rentCollector', getAddressEncoder()],
     ['expirationEpoch', getU64Encoder()],
     ['currentEpoch', getU64Encoder()],
-  ]);
+  ])
 }
 
 export function getCloseSettlementEventDecoder(): Decoder<CloseSettlementEvent> {
@@ -94,7 +94,7 @@ export function getCloseSettlementEventDecoder(): Decoder<CloseSettlementEvent> 
     ['rentCollector', getAddressDecoder()],
     ['expirationEpoch', getU64Decoder()],
     ['currentEpoch', getU64Decoder()],
-  ]);
+  ])
 }
 
 export function getCloseSettlementEventCodec(): Codec<
@@ -103,6 +103,6 @@ export function getCloseSettlementEventCodec(): Codec<
 > {
   return combineCodec(
     getCloseSettlementEventEncoder(),
-    getCloseSettlementEventDecoder()
-  );
+    getCloseSettlementEventDecoder(),
+  )
 }

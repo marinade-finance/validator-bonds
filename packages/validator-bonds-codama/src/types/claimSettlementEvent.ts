@@ -18,37 +18,37 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
-} from '@solana/kit';
+} from '@solana/kit'
 import {
   getU64ValueChangeDecoder,
   getU64ValueChangeEncoder,
   type U64ValueChange,
   type U64ValueChangeArgs,
-} from '.';
+} from '.'
 
 export type ClaimSettlementEvent = {
-  settlementClaim: Address;
-  settlement: Address;
-  settlementLamportsClaimed: U64ValueChange;
-  settlementMerkleNodesClaimed: bigint;
-  stakeAccountTo: Address;
-  stakeAccountWithdrawer: Address;
-  stakeAccountStaker: Address;
-  amount: bigint;
-  rentCollector: Address;
-};
+  settlementClaim: Address
+  settlement: Address
+  settlementLamportsClaimed: U64ValueChange
+  settlementMerkleNodesClaimed: bigint
+  stakeAccountTo: Address
+  stakeAccountWithdrawer: Address
+  stakeAccountStaker: Address
+  amount: bigint
+  rentCollector: Address
+}
 
 export type ClaimSettlementEventArgs = {
-  settlementClaim: Address;
-  settlement: Address;
-  settlementLamportsClaimed: U64ValueChangeArgs;
-  settlementMerkleNodesClaimed: number | bigint;
-  stakeAccountTo: Address;
-  stakeAccountWithdrawer: Address;
-  stakeAccountStaker: Address;
-  amount: number | bigint;
-  rentCollector: Address;
-};
+  settlementClaim: Address
+  settlement: Address
+  settlementLamportsClaimed: U64ValueChangeArgs
+  settlementMerkleNodesClaimed: number | bigint
+  stakeAccountTo: Address
+  stakeAccountWithdrawer: Address
+  stakeAccountStaker: Address
+  amount: number | bigint
+  rentCollector: Address
+}
 
 export function getClaimSettlementEventEncoder(): FixedSizeEncoder<ClaimSettlementEventArgs> {
   return getStructEncoder([
@@ -61,7 +61,7 @@ export function getClaimSettlementEventEncoder(): FixedSizeEncoder<ClaimSettleme
     ['stakeAccountStaker', getAddressEncoder()],
     ['amount', getU64Encoder()],
     ['rentCollector', getAddressEncoder()],
-  ]);
+  ])
 }
 
 export function getClaimSettlementEventDecoder(): FixedSizeDecoder<ClaimSettlementEvent> {
@@ -75,7 +75,7 @@ export function getClaimSettlementEventDecoder(): FixedSizeDecoder<ClaimSettleme
     ['stakeAccountStaker', getAddressDecoder()],
     ['amount', getU64Decoder()],
     ['rentCollector', getAddressDecoder()],
-  ]);
+  ])
 }
 
 export function getClaimSettlementEventCodec(): FixedSizeCodec<
@@ -84,6 +84,6 @@ export function getClaimSettlementEventCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getClaimSettlementEventEncoder(),
-    getClaimSettlementEventDecoder()
-  );
+    getClaimSettlementEventDecoder(),
+  )
 }

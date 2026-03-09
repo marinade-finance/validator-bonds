@@ -37,53 +37,54 @@ import {
   type MaybeAccount,
   type MaybeEncodedAccount,
   type ReadonlyUint8Array,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export const WITHDRAW_REQUEST_DISCRIMINATOR = new Uint8Array([
   186, 239, 174, 191, 189, 13, 47, 196,
-]);
+])
 
 export function getWithdrawRequestDiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    WITHDRAW_REQUEST_DISCRIMINATOR
-  );
+    WITHDRAW_REQUEST_DISCRIMINATOR,
+  )
 }
 
 export type WithdrawRequest = {
-  discriminator: ReadonlyUint8Array;
+  discriminator: ReadonlyUint8Array
   /** Validator vote account that requested the withdrawal */
-  voteAccount: Address;
+  voteAccount: Address
   /** Bond account that the withdraw request is for (has to match with vote_account) */
-  bond: Address;
+  bond: Address
   /** Epoch when the withdrawal was requested, i.e., when this "ticket" is created */
-  epoch: bigint;
+  epoch: bigint
   /** Amount of lamports to withdraw */
-  requestedAmount: bigint;
+  requestedAmount: bigint
   /** Amount of lamports withdrawn so far */
-  withdrawnAmount: bigint;
+  withdrawnAmount: bigint
   /** PDA account bump */
-  bump: number;
+  bump: number
   /** reserve space for future extensions */
-  reserved: ReadonlyUint8Array;
-};
+  reserved: ReadonlyUint8Array
+}
 
 export type WithdrawRequestArgs = {
   /** Validator vote account that requested the withdrawal */
-  voteAccount: Address;
+  voteAccount: Address
   /** Bond account that the withdraw request is for (has to match with vote_account) */
-  bond: Address;
+  bond: Address
   /** Epoch when the withdrawal was requested, i.e., when this "ticket" is created */
-  epoch: number | bigint;
+  epoch: number | bigint
   /** Amount of lamports to withdraw */
-  requestedAmount: number | bigint;
+  requestedAmount: number | bigint
   /** Amount of lamports withdrawn so far */
-  withdrawnAmount: number | bigint;
+  withdrawnAmount: number | bigint
   /** PDA account bump */
-  bump: number;
+  bump: number
   /** reserve space for future extensions */
-  reserved: ReadonlyUint8Array;
-};
+  reserved: ReadonlyUint8Array
+}
 
+/** Gets the encoder for {@link WithdrawRequestArgs} account data. */
 export function getWithdrawRequestEncoder(): FixedSizeEncoder<WithdrawRequestArgs> {
   return transformEncoder(
     getStructEncoder([
@@ -96,10 +97,11 @@ export function getWithdrawRequestEncoder(): FixedSizeEncoder<WithdrawRequestArg
       ['bump', getU8Encoder()],
       ['reserved', fixEncoderSize(getBytesEncoder(), 93)],
     ]),
-    (value) => ({ ...value, discriminator: WITHDRAW_REQUEST_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: WITHDRAW_REQUEST_DISCRIMINATOR }),
+  )
 }
 
+/** Gets the decoder for {@link WithdrawRequest} account data. */
 export function getWithdrawRequestDecoder(): FixedSizeDecoder<WithdrawRequest> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
@@ -110,41 +112,42 @@ export function getWithdrawRequestDecoder(): FixedSizeDecoder<WithdrawRequest> {
     ['withdrawnAmount', getU64Decoder()],
     ['bump', getU8Decoder()],
     ['reserved', fixDecoderSize(getBytesDecoder(), 93)],
-  ]);
+  ])
 }
 
+/** Gets the codec for {@link WithdrawRequest} account data. */
 export function getWithdrawRequestCodec(): FixedSizeCodec<
   WithdrawRequestArgs,
   WithdrawRequest
 > {
-  return combineCodec(getWithdrawRequestEncoder(), getWithdrawRequestDecoder());
+  return combineCodec(getWithdrawRequestEncoder(), getWithdrawRequestDecoder())
 }
 
 export function decodeWithdrawRequest<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress>
-): Account<WithdrawRequest, TAddress>;
+  encodedAccount: EncodedAccount<TAddress>,
+): Account<WithdrawRequest, TAddress>
 export function decodeWithdrawRequest<TAddress extends string = string>(
-  encodedAccount: MaybeEncodedAccount<TAddress>
-): MaybeAccount<WithdrawRequest, TAddress>;
+  encodedAccount: MaybeEncodedAccount<TAddress>,
+): MaybeAccount<WithdrawRequest, TAddress>
 export function decodeWithdrawRequest<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>
+  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>,
 ):
   | Account<WithdrawRequest, TAddress>
   | MaybeAccount<WithdrawRequest, TAddress> {
   return decodeAccount(
     encodedAccount as MaybeEncodedAccount<TAddress>,
-    getWithdrawRequestDecoder()
-  );
+    getWithdrawRequestDecoder(),
+  )
 }
 
 export async function fetchWithdrawRequest<TAddress extends string = string>(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
-  config?: FetchAccountConfig
+  config?: FetchAccountConfig,
 ): Promise<Account<WithdrawRequest, TAddress>> {
-  const maybeAccount = await fetchMaybeWithdrawRequest(rpc, address, config);
-  assertAccountExists(maybeAccount);
-  return maybeAccount;
+  const maybeAccount = await fetchMaybeWithdrawRequest(rpc, address, config)
+  assertAccountExists(maybeAccount)
+  return maybeAccount
 }
 
 export async function fetchMaybeWithdrawRequest<
@@ -152,37 +155,35 @@ export async function fetchMaybeWithdrawRequest<
 >(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
-  config?: FetchAccountConfig
+  config?: FetchAccountConfig,
 ): Promise<MaybeAccount<WithdrawRequest, TAddress>> {
-  const maybeAccount = await fetchEncodedAccount(rpc, address, config);
-  return decodeWithdrawRequest(maybeAccount);
+  const maybeAccount = await fetchEncodedAccount(rpc, address, config)
+  return decodeWithdrawRequest(maybeAccount)
 }
 
 export async function fetchAllWithdrawRequest(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
-  config?: FetchAccountsConfig
+  config?: FetchAccountsConfig,
 ): Promise<Account<WithdrawRequest>[]> {
   const maybeAccounts = await fetchAllMaybeWithdrawRequest(
     rpc,
     addresses,
-    config
-  );
-  assertAccountsExist(maybeAccounts);
-  return maybeAccounts;
+    config,
+  )
+  assertAccountsExist(maybeAccounts)
+  return maybeAccounts
 }
 
 export async function fetchAllMaybeWithdrawRequest(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
-  config?: FetchAccountsConfig
+  config?: FetchAccountsConfig,
 ): Promise<MaybeAccount<WithdrawRequest>[]> {
-  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config);
-  return maybeAccounts.map((maybeAccount) =>
-    decodeWithdrawRequest(maybeAccount)
-  );
+  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config)
+  return maybeAccounts.map(maybeAccount => decodeWithdrawRequest(maybeAccount))
 }
 
 export function getWithdrawRequestSize(): number {
-  return 190;
+  return 190
 }

@@ -1,4 +1,8 @@
-import { CliCommandError } from '@marinade.finance/cli-common'
+import {
+  CliCommandError,
+  validateAndReturn,
+  readLargeJsonFile,
+} from '@marinade.finance/cli-common'
 import {
   CONSOLE_LOG,
   DECIMAL_ZERO,
@@ -7,14 +11,15 @@ import {
   getContext,
   loadFile,
   loadFileOrDirectory,
+  resolveFilePaths,
 } from '@marinade.finance/ts-common'
 import Decimal from 'decimal.js'
 import YAML from 'yaml'
 
-import { parseUnifiedMerkleTree } from '../dtoMerkleTree'
+import { parseUnifiedMerkleTree, UnifiedMerkleTreesDto } from '../dtoMerkleTree'
 import { parseSettlements } from '../dtoSettlements'
 
-import type { UnifiedMerkleTreesDto } from '../dtoMerkleTree'
+
 import type {
   AnomalyDetectionResult,
   DescriptiveStats,
@@ -117,6 +122,21 @@ export function extractMetrics(dto: UnifiedMerkleTreesDto): MerkleTreeMetrics {
   }
 }
 
+async function loadAndValidateUnifiedMerkleTree(
+  filePath: string,
+): Promise<UnifiedMerkleTreesDto> {
+  try {
+    const data = await readLargeJsonFile(filePath)
+    return await validateAndReturn(data, UnifiedMerkleTreesDto)
+  } catch (error) {
+    throw CliCommandError.instance(
+      `Failed to load and validate unified merkle tree data from path: '${filePath}'`,
+      error,
+    )
+  }
+}
+
+
 async function manageCheckMerkleTree({
   merkleTrees,
   settlementSources,
@@ -153,14 +173,7 @@ async function manageCheckMerkleTree({
 
   logger.info(`Loading merkle tree file: ${merkleTrees}`)
 
-  const merkleTreesData = await loadFile(merkleTrees)
-
-  // UnifiedMerkleTreesDto extends SettlementMerkleTreesDto with an optional
-  // `sources` field, so it accepts both formats without a fallback try/catch.
-  const merkleTreesDto = await parseUnifiedMerkleTree(
-    merkleTreesData,
-    merkleTrees,
-  )
+  const merkleTreesDto = await loadAndValidateUnifiedMerkleTree(merkleTrees)
   const isUnifiedFormat = !!(
     merkleTreesDto.sources && merkleTreesDto.sources.length > 0
   )
@@ -301,23 +314,18 @@ async function manageCheckMerkleTree({
 
   // Check 3: Historical comparison with heuristics
   if (pastMerkleTrees && pastMerkleTrees.length > 0) {
-    logger.info(
-      `Comparing against ${pastMerkleTrees.length} historical merkle tree file(s)...`,
-    )
-
-    const pastDataWithPaths = (
-      await Promise.all(
-        pastMerkleTrees.map(async path => {
-          const data = await loadFileOrDirectory(path)
-          return data.map(d => ({ data: d, sourcePath: path }))
-        }),
-      )
+    const resolvedPaths = (
+      await Promise.all(pastMerkleTrees.map(p => resolveFilePaths(p)))
     ).flat()
 
+    logger.info(
+      `Comparing against ${resolvedPaths.length} historical merkle tree file(s)...`,
+    )
+
     const historicalDtos: UnifiedMerkleTreesDto[] = []
-    for (const { data, sourcePath: pastPath } of pastDataWithPaths) {
-      if (!data) continue
-      const dto = await parseUnifiedMerkleTree(data, pastPath)
+    for (const pastPath of resolvedPaths) {
+      logger.info(`Loading past merkle tree: ${pastPath}`)
+      const dto = await loadAndValidateUnifiedMerkleTree(pastPath)
       historicalDtos.push(dto)
     }
 

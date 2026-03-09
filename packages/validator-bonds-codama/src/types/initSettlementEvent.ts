@@ -23,33 +23,33 @@ import {
   type FixedSizeDecoder,
   type FixedSizeEncoder,
   type ReadonlyUint8Array,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export type InitSettlementEvent = {
-  bond: Address;
-  settlement: Address;
-  voteAccount: Address;
-  stakerAuthority: Address;
-  merkleRoot: ReadonlyUint8Array;
-  maxTotalClaim: bigint;
-  maxMerkleNodes: bigint;
-  epochCreatedFor: bigint;
-  slotCreatedAt: bigint;
-  rentCollector: Address;
-};
+  bond: Address
+  settlement: Address
+  voteAccount: Address
+  stakerAuthority: Address
+  merkleRoot: ReadonlyUint8Array
+  maxTotalClaim: bigint
+  maxMerkleNodes: bigint
+  epochCreatedFor: bigint
+  slotCreatedAt: bigint
+  rentCollector: Address
+}
 
 export type InitSettlementEventArgs = {
-  bond: Address;
-  settlement: Address;
-  voteAccount: Address;
-  stakerAuthority: Address;
-  merkleRoot: ReadonlyUint8Array;
-  maxTotalClaim: number | bigint;
-  maxMerkleNodes: number | bigint;
-  epochCreatedFor: number | bigint;
-  slotCreatedAt: number | bigint;
-  rentCollector: Address;
-};
+  bond: Address
+  settlement: Address
+  voteAccount: Address
+  stakerAuthority: Address
+  merkleRoot: ReadonlyUint8Array
+  maxTotalClaim: number | bigint
+  maxMerkleNodes: number | bigint
+  epochCreatedFor: number | bigint
+  slotCreatedAt: number | bigint
+  rentCollector: Address
+}
 
 export function getInitSettlementEventEncoder(): FixedSizeEncoder<InitSettlementEventArgs> {
   return getStructEncoder([
@@ -63,7 +63,7 @@ export function getInitSettlementEventEncoder(): FixedSizeEncoder<InitSettlement
     ['epochCreatedFor', getU64Encoder()],
     ['slotCreatedAt', getU64Encoder()],
     ['rentCollector', getAddressEncoder()],
-  ]);
+  ])
 }
 
 export function getInitSettlementEventDecoder(): FixedSizeDecoder<InitSettlementEvent> {
@@ -78,7 +78,7 @@ export function getInitSettlementEventDecoder(): FixedSizeDecoder<InitSettlement
     ['epochCreatedFor', getU64Decoder()],
     ['slotCreatedAt', getU64Decoder()],
     ['rentCollector', getAddressDecoder()],
-  ]);
+  ])
 }
 
 export function getInitSettlementEventCodec(): FixedSizeCodec<
@@ -87,6 +87,6 @@ export function getInitSettlementEventCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getInitSettlementEventEncoder(),
-    getInitSettlementEventDecoder()
-  );
+    getInitSettlementEventDecoder(),
+  )
 }

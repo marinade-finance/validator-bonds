@@ -16,16 +16,16 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export type MintBondEvent = {
-  bond: Address;
-  validatorIdentity: Address;
-  validatorIdentityTokenAccount: Address;
-  tokenMetadata: Address;
-};
+  bond: Address
+  validatorIdentity: Address
+  validatorIdentityTokenAccount: Address
+  tokenMetadata: Address
+}
 
-export type MintBondEventArgs = MintBondEvent;
+export type MintBondEventArgs = MintBondEvent
 
 export function getMintBondEventEncoder(): FixedSizeEncoder<MintBondEventArgs> {
   return getStructEncoder([
@@ -33,7 +33,7 @@ export function getMintBondEventEncoder(): FixedSizeEncoder<MintBondEventArgs> {
     ['validatorIdentity', getAddressEncoder()],
     ['validatorIdentityTokenAccount', getAddressEncoder()],
     ['tokenMetadata', getAddressEncoder()],
-  ]);
+  ])
 }
 
 export function getMintBondEventDecoder(): FixedSizeDecoder<MintBondEvent> {
@@ -42,12 +42,12 @@ export function getMintBondEventDecoder(): FixedSizeDecoder<MintBondEvent> {
     ['validatorIdentity', getAddressDecoder()],
     ['validatorIdentityTokenAccount', getAddressDecoder()],
     ['tokenMetadata', getAddressDecoder()],
-  ]);
+  ])
 }
 
 export function getMintBondEventCodec(): FixedSizeCodec<
   MintBondEventArgs,
   MintBondEvent
 > {
-  return combineCodec(getMintBondEventEncoder(), getMintBondEventDecoder());
+  return combineCodec(getMintBondEventEncoder(), getMintBondEventDecoder())
 }

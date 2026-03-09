@@ -18,27 +18,27 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export type EmergencyResumeEvent = {
-  config: Address;
-  adminAuthority: Address;
-  operatorAuthority: Address;
-  epochsToClaimSettlement: bigint;
-  withdrawLockupEpochs: bigint;
-  minimumStakeLamports: bigint;
-  pauseAuthority: Address;
-};
+  config: Address
+  adminAuthority: Address
+  operatorAuthority: Address
+  epochsToClaimSettlement: bigint
+  withdrawLockupEpochs: bigint
+  minimumStakeLamports: bigint
+  pauseAuthority: Address
+}
 
 export type EmergencyResumeEventArgs = {
-  config: Address;
-  adminAuthority: Address;
-  operatorAuthority: Address;
-  epochsToClaimSettlement: number | bigint;
-  withdrawLockupEpochs: number | bigint;
-  minimumStakeLamports: number | bigint;
-  pauseAuthority: Address;
-};
+  config: Address
+  adminAuthority: Address
+  operatorAuthority: Address
+  epochsToClaimSettlement: number | bigint
+  withdrawLockupEpochs: number | bigint
+  minimumStakeLamports: number | bigint
+  pauseAuthority: Address
+}
 
 export function getEmergencyResumeEventEncoder(): FixedSizeEncoder<EmergencyResumeEventArgs> {
   return getStructEncoder([
@@ -49,7 +49,7 @@ export function getEmergencyResumeEventEncoder(): FixedSizeEncoder<EmergencyResu
     ['withdrawLockupEpochs', getU64Encoder()],
     ['minimumStakeLamports', getU64Encoder()],
     ['pauseAuthority', getAddressEncoder()],
-  ]);
+  ])
 }
 
 export function getEmergencyResumeEventDecoder(): FixedSizeDecoder<EmergencyResumeEvent> {
@@ -61,7 +61,7 @@ export function getEmergencyResumeEventDecoder(): FixedSizeDecoder<EmergencyResu
     ['withdrawLockupEpochs', getU64Decoder()],
     ['minimumStakeLamports', getU64Decoder()],
     ['pauseAuthority', getAddressDecoder()],
-  ]);
+  ])
 }
 
 export function getEmergencyResumeEventCodec(): FixedSizeCodec<
@@ -70,6 +70,6 @@ export function getEmergencyResumeEventCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getEmergencyResumeEventEncoder(),
-    getEmergencyResumeEventDecoder()
-  );
+    getEmergencyResumeEventDecoder(),
+  )
 }

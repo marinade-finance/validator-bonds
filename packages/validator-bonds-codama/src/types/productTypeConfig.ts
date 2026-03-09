@@ -26,22 +26,22 @@ import {
   type GetDiscriminatedUnionVariant,
   type GetDiscriminatedUnionVariantContent,
   type ReadonlyUint8Array,
-} from '@solana/kit';
+} from '@solana/kit'
 import {
   getCommissionProductConfigDecoder,
   getCommissionProductConfigEncoder,
   type CommissionProductConfig,
   type CommissionProductConfigArgs,
-} from '.';
+} from '.'
 
 /** Discriminated union for different product configurations */
 export type ProductTypeConfig =
   | { __kind: 'Commission'; fields: readonly [CommissionProductConfig] }
-  | { __kind: 'Custom'; fields: readonly [ReadonlyUint8Array] };
+  | { __kind: 'Custom'; fields: readonly [ReadonlyUint8Array] }
 
 export type ProductTypeConfigArgs =
   | { __kind: 'Commission'; fields: readonly [CommissionProductConfigArgs] }
-  | { __kind: 'Custom'; fields: readonly [ReadonlyUint8Array] };
+  | { __kind: 'Custom'; fields: readonly [ReadonlyUint8Array] }
 
 export function getProductTypeConfigEncoder(): Encoder<ProductTypeConfigArgs> {
   return getDiscriminatedUnionEncoder([
@@ -62,7 +62,7 @@ export function getProductTypeConfigEncoder(): Encoder<ProductTypeConfigArgs> {
         ],
       ]),
     ],
-  ]);
+  ])
 }
 
 export function getProductTypeConfigDecoder(): Decoder<ProductTypeConfig> {
@@ -84,7 +84,7 @@ export function getProductTypeConfigDecoder(): Decoder<ProductTypeConfig> {
         ],
       ]),
     ],
-  ]);
+  ])
 }
 
 export function getProductTypeConfigCodec(): Codec<
@@ -93,8 +93,8 @@ export function getProductTypeConfigCodec(): Codec<
 > {
   return combineCodec(
     getProductTypeConfigEncoder(),
-    getProductTypeConfigDecoder()
-  );
+    getProductTypeConfigDecoder(),
+  )
 }
 
 // Data Enum Helpers.
@@ -104,28 +104,28 @@ export function productTypeConfig(
     ProductTypeConfigArgs,
     '__kind',
     'Commission'
-  >['fields']
-): GetDiscriminatedUnionVariant<ProductTypeConfigArgs, '__kind', 'Commission'>;
+  >['fields'],
+): GetDiscriminatedUnionVariant<ProductTypeConfigArgs, '__kind', 'Commission'>
 export function productTypeConfig(
   kind: 'Custom',
   data: GetDiscriminatedUnionVariantContent<
     ProductTypeConfigArgs,
     '__kind',
     'Custom'
-  >['fields']
-): GetDiscriminatedUnionVariant<ProductTypeConfigArgs, '__kind', 'Custom'>;
+  >['fields'],
+): GetDiscriminatedUnionVariant<ProductTypeConfigArgs, '__kind', 'Custom'>
 export function productTypeConfig<
   K extends ProductTypeConfigArgs['__kind'],
   Data,
 >(kind: K, data?: Data) {
   return Array.isArray(data)
     ? { __kind: kind, fields: data }
-    : { __kind: kind, ...(data ?? {}) };
+    : { __kind: kind, ...(data ?? {}) }
 }
 
 export function isProductTypeConfig<K extends ProductTypeConfig['__kind']>(
   kind: K,
-  value: ProductTypeConfig
+  value: ProductTypeConfig,
 ): value is ProductTypeConfig & { __kind: K } {
-  return value.__kind === kind;
+  return value.__kind === kind
 }

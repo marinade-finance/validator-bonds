@@ -16,6 +16,8 @@ import {
   getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -31,20 +33,20 @@ import {
   type TransactionSigner,
   type WritableAccount,
   type WritableSignerAccount,
-} from '@solana/kit';
-import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs';
+} from '@solana/kit'
 import {
-  expectAddress,
   getAccountMetaFactory,
-  type ResolvedAccount,
-} from '../shared';
+  getAddressFromResolvedInstructionAccount,
+  type ResolvedInstructionAccount,
+} from '@solana/program-client-core'
+import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
 export const MINT_BOND_DISCRIMINATOR = new Uint8Array([
   234, 94, 85, 225, 167, 102, 169, 32,
-]);
+])
 
 export function getMintBondDiscriminatorBytes() {
-  return fixEncoderSize(getBytesEncoder(), 8).encode(MINT_BOND_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(MINT_BOND_DISCRIMINATOR)
 }
 
 export type MintBondInstruction<
@@ -53,27 +55,21 @@ export type MintBondInstruction<
   TAccountBond extends string | AccountMeta<string> = string,
   TAccountMint extends string | AccountMeta<string> = string,
   TAccountValidatorIdentity extends string | AccountMeta<string> = string,
-  TAccountValidatorIdentityTokenAccount extends
-    | string
-    | AccountMeta<string> = string,
+  TAccountValidatorIdentityTokenAccount extends string | AccountMeta<string> =
+    string,
   TAccountVoteAccount extends string | AccountMeta<string> = string,
   TAccountMetadata extends string | AccountMeta<string> = string,
   TAccountRentPayer extends string | AccountMeta<string> = string,
-  TAccountSystemProgram extends
-    | string
-    | AccountMeta<string> = '11111111111111111111111111111111',
-  TAccountTokenProgram extends
-    | string
-    | AccountMeta<string> = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-  TAccountAssociatedTokenProgram extends
-    | string
-    | AccountMeta<string> = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
-  TAccountMetadataProgram extends
-    | string
-    | AccountMeta<string> = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s',
-  TAccountRent extends
-    | string
-    | AccountMeta<string> = 'SysvarRent111111111111111111111111111111111',
+  TAccountSystemProgram extends string | AccountMeta<string> =
+    '11111111111111111111111111111111',
+  TAccountTokenProgram extends string | AccountMeta<string> =
+    'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+  TAccountAssociatedTokenProgram extends string | AccountMeta<string> =
+    'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
+  TAccountMetadataProgram extends string | AccountMeta<string> =
+    'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s',
+  TAccountRent extends string | AccountMeta<string> =
+    'SysvarRent111111111111111111111111111111111',
   TAccountEventAuthority extends string | AccountMeta<string> = string,
   TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -129,23 +125,23 @@ export type MintBondInstruction<
         : TAccountProgram,
       ...TRemainingAccounts,
     ]
-  >;
+  >
 
-export type MintBondInstructionData = { discriminator: ReadonlyUint8Array };
+export type MintBondInstructionData = { discriminator: ReadonlyUint8Array }
 
-export type MintBondInstructionDataArgs = {};
+export type MintBondInstructionDataArgs = {}
 
 export function getMintBondInstructionDataEncoder(): FixedSizeEncoder<MintBondInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([['discriminator', fixEncoderSize(getBytesEncoder(), 8)]]),
-    (value) => ({ ...value, discriminator: MINT_BOND_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: MINT_BOND_DISCRIMINATOR }),
+  )
 }
 
 export function getMintBondInstructionDataDecoder(): FixedSizeDecoder<MintBondInstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
-  ]);
+  ])
 }
 
 export function getMintBondInstructionDataCodec(): FixedSizeCodec<
@@ -154,8 +150,8 @@ export function getMintBondInstructionDataCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getMintBondInstructionDataEncoder(),
-    getMintBondInstructionDataDecoder()
-  );
+    getMintBondInstructionDataDecoder(),
+  )
 }
 
 export type MintBondAsyncInput<
@@ -175,23 +171,23 @@ export type MintBondAsyncInput<
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
 > = {
-  config: Address<TAccountConfig>;
-  bond?: Address<TAccountBond>;
-  mint?: Address<TAccountMint>;
-  validatorIdentity: Address<TAccountValidatorIdentity>;
-  validatorIdentityTokenAccount?: Address<TAccountValidatorIdentityTokenAccount>;
-  voteAccount: Address<TAccountVoteAccount>;
-  metadata: Address<TAccountMetadata>;
+  config: Address<TAccountConfig>
+  bond?: Address<TAccountBond>
+  mint?: Address<TAccountMint>
+  validatorIdentity: Address<TAccountValidatorIdentity>
+  validatorIdentityTokenAccount?: Address<TAccountValidatorIdentityTokenAccount>
+  voteAccount: Address<TAccountVoteAccount>
+  metadata: Address<TAccountMetadata>
   /** rent exempt payer of account creation */
-  rentPayer: TransactionSigner<TAccountRentPayer>;
-  systemProgram?: Address<TAccountSystemProgram>;
-  tokenProgram?: Address<TAccountTokenProgram>;
-  associatedTokenProgram?: Address<TAccountAssociatedTokenProgram>;
-  metadataProgram?: Address<TAccountMetadataProgram>;
-  rent?: Address<TAccountRent>;
-  eventAuthority?: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-};
+  rentPayer: TransactionSigner<TAccountRentPayer>
+  systemProgram?: Address<TAccountSystemProgram>
+  tokenProgram?: Address<TAccountTokenProgram>
+  associatedTokenProgram?: Address<TAccountAssociatedTokenProgram>
+  metadataProgram?: Address<TAccountMetadataProgram>
+  rent?: Address<TAccountRent>
+  eventAuthority?: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+}
 
 export async function getMintBondInstructionAsync<
   TAccountConfig extends string,
@@ -228,7 +224,7 @@ export async function getMintBondInstructionAsync<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): Promise<
   MintBondInstruction<
     TProgramAddress,
@@ -251,7 +247,7 @@ export async function getMintBondInstructionAsync<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -282,11 +278,11 @@ export async function getMintBondInstructionAsync<
     rent: { value: input.rent ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Resolve default values.
   if (!accounts.bond.value) {
@@ -296,26 +292,41 @@ export async function getMintBondInstructionAsync<
         getBytesEncoder().encode(
           new Uint8Array([
             98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116,
-          ])
+          ]),
         ),
-        getAddressEncoder().encode(expectAddress(accounts.config.value)),
-        getAddressEncoder().encode(expectAddress(accounts.voteAccount.value)),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'config',
+            accounts.config.value,
+          ),
+        ),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'voteAccount',
+            accounts.voteAccount.value,
+          ),
+        ),
       ],
-    });
+    })
   }
   if (!accounts.mint.value) {
     accounts.mint.value = await getProgramDerivedAddress({
       programAddress,
       seeds: [
         getBytesEncoder().encode(
-          new Uint8Array([98, 111, 110, 100, 95, 109, 105, 110, 116])
+          new Uint8Array([98, 111, 110, 100, 95, 109, 105, 110, 116]),
         ),
-        getAddressEncoder().encode(expectAddress(accounts.bond.value)),
         getAddressEncoder().encode(
-          expectAddress(accounts.validatorIdentity.value)
+          getAddressFromResolvedInstructionAccount('bond', accounts.bond.value),
+        ),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'validatorIdentity',
+            accounts.validatorIdentity.value,
+          ),
         ),
       ],
-    });
+    })
   }
   if (!accounts.validatorIdentityTokenAccount.value) {
     accounts.validatorIdentityTokenAccount.value =
@@ -324,38 +335,46 @@ export async function getMintBondInstructionAsync<
           'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>,
         seeds: [
           getAddressEncoder().encode(
-            expectAddress(accounts.validatorIdentity.value)
+            getAddressFromResolvedInstructionAccount(
+              'validatorIdentity',
+              accounts.validatorIdentity.value,
+            ),
           ),
           getBytesEncoder().encode(
             new Uint8Array([
               6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235,
               121, 172, 28, 180, 133, 237, 95, 91, 55, 145, 58, 140, 245, 133,
               126, 255, 0, 169,
-            ])
+            ]),
           ),
-          getAddressEncoder().encode(expectAddress(accounts.mint.value)),
+          getAddressEncoder().encode(
+            getAddressFromResolvedInstructionAccount(
+              'mint',
+              accounts.mint.value,
+            ),
+          ),
         ],
-      });
+      })
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
-      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>;
+      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
   }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
-      'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address<'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'>;
+      'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address<'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'>
   }
   if (!accounts.associatedTokenProgram.value) {
     accounts.associatedTokenProgram.value =
-      'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>;
+      'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>
   }
   if (!accounts.metadataProgram.value) {
     accounts.metadataProgram.value =
-      'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s' as Address<'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'>;
+      'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s' as Address<'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'>
   }
   if (!accounts.rent.value) {
     accounts.rent.value =
-      'SysvarRent111111111111111111111111111111111' as Address<'SysvarRent111111111111111111111111111111111'>;
+      'SysvarRent111111111111111111111111111111111' as Address<'SysvarRent111111111111111111111111111111111'>
   }
   if (!accounts.eventAuthority.value) {
     accounts.eventAuthority.value = await getProgramDerivedAddress({
@@ -365,30 +384,33 @@ export async function getMintBondInstructionAsync<
           new Uint8Array([
             95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
             105, 116, 121,
-          ])
+          ]),
         ),
       ],
-    });
+    })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.bond),
-      getAccountMeta(accounts.mint),
-      getAccountMeta(accounts.validatorIdentity),
-      getAccountMeta(accounts.validatorIdentityTokenAccount),
-      getAccountMeta(accounts.voteAccount),
-      getAccountMeta(accounts.metadata),
-      getAccountMeta(accounts.rentPayer),
-      getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.tokenProgram),
-      getAccountMeta(accounts.associatedTokenProgram),
-      getAccountMeta(accounts.metadataProgram),
-      getAccountMeta(accounts.rent),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('bond', accounts.bond),
+      getAccountMeta('mint', accounts.mint),
+      getAccountMeta('validatorIdentity', accounts.validatorIdentity),
+      getAccountMeta(
+        'validatorIdentityTokenAccount',
+        accounts.validatorIdentityTokenAccount,
+      ),
+      getAccountMeta('voteAccount', accounts.voteAccount),
+      getAccountMeta('metadata', accounts.metadata),
+      getAccountMeta('rentPayer', accounts.rentPayer),
+      getAccountMeta('systemProgram', accounts.systemProgram),
+      getAccountMeta('tokenProgram', accounts.tokenProgram),
+      getAccountMeta('associatedTokenProgram', accounts.associatedTokenProgram),
+      getAccountMeta('metadataProgram', accounts.metadataProgram),
+      getAccountMeta('rent', accounts.rent),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getMintBondInstructionDataEncoder().encode({}),
     programAddress,
@@ -409,7 +431,7 @@ export async function getMintBondInstructionAsync<
     TAccountRent,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type MintBondInput<
@@ -429,23 +451,23 @@ export type MintBondInput<
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
 > = {
-  config: Address<TAccountConfig>;
-  bond: Address<TAccountBond>;
-  mint: Address<TAccountMint>;
-  validatorIdentity: Address<TAccountValidatorIdentity>;
-  validatorIdentityTokenAccount: Address<TAccountValidatorIdentityTokenAccount>;
-  voteAccount: Address<TAccountVoteAccount>;
-  metadata: Address<TAccountMetadata>;
+  config: Address<TAccountConfig>
+  bond: Address<TAccountBond>
+  mint: Address<TAccountMint>
+  validatorIdentity: Address<TAccountValidatorIdentity>
+  validatorIdentityTokenAccount: Address<TAccountValidatorIdentityTokenAccount>
+  voteAccount: Address<TAccountVoteAccount>
+  metadata: Address<TAccountMetadata>
   /** rent exempt payer of account creation */
-  rentPayer: TransactionSigner<TAccountRentPayer>;
-  systemProgram?: Address<TAccountSystemProgram>;
-  tokenProgram?: Address<TAccountTokenProgram>;
-  associatedTokenProgram?: Address<TAccountAssociatedTokenProgram>;
-  metadataProgram?: Address<TAccountMetadataProgram>;
-  rent?: Address<TAccountRent>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-};
+  rentPayer: TransactionSigner<TAccountRentPayer>
+  systemProgram?: Address<TAccountSystemProgram>
+  tokenProgram?: Address<TAccountTokenProgram>
+  associatedTokenProgram?: Address<TAccountAssociatedTokenProgram>
+  metadataProgram?: Address<TAccountMetadataProgram>
+  rent?: Address<TAccountRent>
+  eventAuthority: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+}
 
 export function getMintBondInstruction<
   TAccountConfig extends string,
@@ -482,7 +504,7 @@ export function getMintBondInstruction<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): MintBondInstruction<
   TProgramAddress,
   TAccountConfig,
@@ -503,7 +525,7 @@ export function getMintBondInstruction<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -534,52 +556,55 @@ export function getMintBondInstruction<
     rent: { value: input.rent ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Resolve default values.
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
-      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>;
+      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
   }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
-      'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address<'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'>;
+      'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address<'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'>
   }
   if (!accounts.associatedTokenProgram.value) {
     accounts.associatedTokenProgram.value =
-      'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>;
+      'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>
   }
   if (!accounts.metadataProgram.value) {
     accounts.metadataProgram.value =
-      'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s' as Address<'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'>;
+      'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s' as Address<'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'>
   }
   if (!accounts.rent.value) {
     accounts.rent.value =
-      'SysvarRent111111111111111111111111111111111' as Address<'SysvarRent111111111111111111111111111111111'>;
+      'SysvarRent111111111111111111111111111111111' as Address<'SysvarRent111111111111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.bond),
-      getAccountMeta(accounts.mint),
-      getAccountMeta(accounts.validatorIdentity),
-      getAccountMeta(accounts.validatorIdentityTokenAccount),
-      getAccountMeta(accounts.voteAccount),
-      getAccountMeta(accounts.metadata),
-      getAccountMeta(accounts.rentPayer),
-      getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.tokenProgram),
-      getAccountMeta(accounts.associatedTokenProgram),
-      getAccountMeta(accounts.metadataProgram),
-      getAccountMeta(accounts.rent),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('bond', accounts.bond),
+      getAccountMeta('mint', accounts.mint),
+      getAccountMeta('validatorIdentity', accounts.validatorIdentity),
+      getAccountMeta(
+        'validatorIdentityTokenAccount',
+        accounts.validatorIdentityTokenAccount,
+      ),
+      getAccountMeta('voteAccount', accounts.voteAccount),
+      getAccountMeta('metadata', accounts.metadata),
+      getAccountMeta('rentPayer', accounts.rentPayer),
+      getAccountMeta('systemProgram', accounts.systemProgram),
+      getAccountMeta('tokenProgram', accounts.tokenProgram),
+      getAccountMeta('associatedTokenProgram', accounts.associatedTokenProgram),
+      getAccountMeta('metadataProgram', accounts.metadataProgram),
+      getAccountMeta('rent', accounts.rent),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getMintBondInstructionDataEncoder().encode({}),
     programAddress,
@@ -600,34 +625,34 @@ export function getMintBondInstruction<
     TAccountRent,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ParsedMintBondInstruction<
   TProgram extends string = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
-  programAddress: Address<TProgram>;
+  programAddress: Address<TProgram>
   accounts: {
-    config: TAccountMetas[0];
-    bond: TAccountMetas[1];
-    mint: TAccountMetas[2];
-    validatorIdentity: TAccountMetas[3];
-    validatorIdentityTokenAccount: TAccountMetas[4];
-    voteAccount: TAccountMetas[5];
-    metadata: TAccountMetas[6];
+    config: TAccountMetas[0]
+    bond: TAccountMetas[1]
+    mint: TAccountMetas[2]
+    validatorIdentity: TAccountMetas[3]
+    validatorIdentityTokenAccount: TAccountMetas[4]
+    voteAccount: TAccountMetas[5]
+    metadata: TAccountMetas[6]
     /** rent exempt payer of account creation */
-    rentPayer: TAccountMetas[7];
-    systemProgram: TAccountMetas[8];
-    tokenProgram: TAccountMetas[9];
-    associatedTokenProgram: TAccountMetas[10];
-    metadataProgram: TAccountMetas[11];
-    rent: TAccountMetas[12];
-    eventAuthority: TAccountMetas[13];
-    program: TAccountMetas[14];
-  };
-  data: MintBondInstructionData;
-};
+    rentPayer: TAccountMetas[7]
+    systemProgram: TAccountMetas[8]
+    tokenProgram: TAccountMetas[9]
+    associatedTokenProgram: TAccountMetas[10]
+    metadataProgram: TAccountMetas[11]
+    rent: TAccountMetas[12]
+    eventAuthority: TAccountMetas[13]
+    program: TAccountMetas[14]
+  }
+  data: MintBondInstructionData
+}
 
 export function parseMintBondInstruction<
   TProgram extends string,
@@ -635,18 +660,23 @@ export function parseMintBondInstruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>
+    InstructionWithData<ReadonlyUint8Array>,
 ): ParsedMintBondInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 15) {
-    // TODO: Coded error.
-    throw new Error('Not enough accounts');
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 15,
+      },
+    )
   }
-  let accountIndex = 0;
+  let accountIndex = 0
   const getNextAccount = () => {
-    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!;
-    accountIndex += 1;
-    return accountMeta;
-  };
+    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!
+    accountIndex += 1
+    return accountMeta
+  }
   return {
     programAddress: instruction.programAddress,
     accounts: {
@@ -667,5 +697,5 @@ export function parseMintBondInstruction<
       program: getNextAccount(),
     },
     data: getMintBondInstructionDataDecoder().decode(instruction.data),
-  };
+  }
 }

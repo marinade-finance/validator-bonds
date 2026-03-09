@@ -122,7 +122,7 @@ fn merge_claims(claims: Vec<SettlementClaim>) -> Vec<SettlementClaim> {
 }
 
 /// Generates merkle trees from multiple settlement sources.
-/// Each validator gets a single merkle tree with merged claims from all sources.
+/// Each (validator, funder) pair gets a separate merkle tree with merged claims from all sources.
 pub fn generate_merkle_tree_collection(
     sources: Vec<SettlementSource>,
     config: &GeneratorConfig,
@@ -137,35 +137,28 @@ pub fn generate_merkle_tree_collection(
         source_names
     );
 
-    // Group all settlements by vote_account (validator)
-    let mut validator_settlements: HashMap<Pubkey, Vec<&Settlement>> = HashMap::new();
-    // Track per-funder amounts per validator
-    let mut validator_funding: HashMap<Pubkey, HashMap<SettlementFunder, u64>> = HashMap::new();
+    // Group all settlements by (vote_account, funder)
+    let mut grouped_settlements: HashMap<(Pubkey, SettlementFunder), Vec<&Settlement>> =
+        HashMap::new();
 
     for source in &sources {
         for settlement in &source.collection.settlements {
-            validator_settlements
-                .entry(settlement.vote_account)
+            grouped_settlements
+                .entry((settlement.vote_account, settlement.meta.funder.clone()))
                 .or_default()
                 .push(settlement);
-            // Accumulate funding amounts per funder per validator
-            *validator_funding
-                .entry(settlement.vote_account)
-                .or_default()
-                .entry(settlement.meta.funder.clone())
-                .or_insert(0) += settlement.claims_amount;
         }
     }
 
     info!(
-        "Found {} unique validators across all sources",
-        validator_settlements.len()
+        "Found {} unique (validator, funder) groups across all sources",
+        grouped_settlements.len()
     );
 
     // Generate merkle trees for each validator
     let mut merkle_trees: Vec<MerkleTreeMeta> = Vec::new();
 
-    for (vote_account, settlements) in validator_settlements {
+    for ((vote_account, funder), settlements) in grouped_settlements {
         debug!(
             "Processing {} settlements for vote_account {}",
             settlements.len(),
@@ -223,7 +216,7 @@ pub fn generate_merkle_tree_collection(
         })?;
         let settlement_account = find_settlement_address(&bond_account, &root.to_bytes(), epoch).0;
 
-        let funding_sources = validator_funding.remove(&vote_account).unwrap_or_default();
+        let funding_sources = HashMap::from([(funder, max_total_claim_sum)]);
 
         debug!(
             "Generated merkle tree for {vote_account}: {max_total_claims} claims, {max_total_claim_sum} lamports, root: {merkle_root:?}"
@@ -241,8 +234,15 @@ pub fn generate_merkle_tree_collection(
         });
     }
 
-    // Sort merkle trees by vote_account for deterministic output
-    merkle_trees.sort_by_key(|t| t.vote_account);
+    // Sort merkle trees by (vote_account, funder) for deterministic output
+    merkle_trees.sort_by(|a, b| {
+        a.vote_account.cmp(&b.vote_account).then_with(|| {
+            // Each tree has exactly one funder entry after grouping by funder
+            let funder_a = a.funding_sources.keys().next();
+            let funder_b = b.funding_sources.keys().next();
+            funder_a.cmp(&funder_b)
+        })
+    });
 
     info!(
         "Generated {} unified merkle trees with total {} claims",
@@ -291,15 +291,14 @@ mod tests {
     fn create_test_settlement(
         vote_account: Pubkey,
         reason: SettlementReason,
+        funder: SettlementFunder,
         claims: Vec<SettlementClaim>,
     ) -> Settlement {
         let claims_amount = claims.iter().map(|c| c.claim_amount).sum();
         let claims_count = claims.len();
         Settlement {
             reason,
-            meta: SettlementMeta {
-                funder: SettlementFunder::ValidatorBond,
-            },
+            meta: SettlementMeta { funder },
             vote_account,
             claims_count,
             claims_amount,
@@ -384,12 +383,14 @@ mod tests {
         let settlement1 = create_test_settlement(
             vote_account,
             SettlementReason::Bidding,
+            SettlementFunder::ValidatorBond,
             vec![create_test_claim(withdraw, stake, 100, 1000)],
         );
 
         let settlement2 = create_test_settlement(
             vote_account,
             SettlementReason::BidTooLowPenalty,
+            SettlementFunder::ValidatorBond,
             vec![create_test_claim(withdraw, stake, 50, 500)],
         );
 
@@ -423,5 +424,70 @@ mod tests {
         assert_eq!(result.merkle_trees[0].max_total_claims, 1); // Claims merged
         assert_eq!(result.merkle_trees[0].max_total_claim_sum, 150); // 100 + 50
         assert_eq!(result.sources.len(), 2);
+    }
+
+    #[test]
+    fn test_separate_trees_for_different_funders() {
+        let vote_account = Pubkey::new_unique();
+        let withdraw = Pubkey::new_unique();
+        let stake = Pubkey::new_unique();
+
+        // Same vote_account but different funders → should produce 2 separate trees
+        let settlement_bond = create_test_settlement(
+            vote_account,
+            SettlementReason::Bidding,
+            SettlementFunder::ValidatorBond,
+            vec![create_test_claim(withdraw, stake, 100, 1000)],
+        );
+
+        let settlement_marinade = create_test_settlement(
+            vote_account,
+            SettlementReason::Bidding,
+            SettlementFunder::Marinade,
+            vec![create_test_claim(withdraw, stake, 200, 2000)],
+        );
+
+        let source = SettlementSource {
+            name: "mixed-settlements.json".to_string(),
+            collection: SettlementCollection {
+                slot: 12345,
+                epoch: 100,
+                settlements: vec![settlement_bond, settlement_marinade],
+            },
+        };
+
+        let config = GeneratorConfig {
+            validator_bonds_config: Pubkey::new_unique(),
+        };
+
+        let result = generate_merkle_tree_collection(vec![source], &config).unwrap();
+
+        assert_eq!(result.merkle_trees.len(), 2);
+
+        // Both trees are for the same vote_account
+        assert_eq!(result.merkle_trees[0].vote_account, vote_account);
+        assert_eq!(result.merkle_trees[1].vote_account, vote_account);
+
+        // Each tree has exactly one funder entry
+        assert_eq!(result.merkle_trees[0].funding_sources.len(), 1);
+        assert_eq!(result.merkle_trees[1].funding_sources.len(), 1);
+
+        // Sorted by funder: ValidatorBond (variant 0) < Marinade (variant 1)
+        assert!(result.merkle_trees[0]
+            .funding_sources
+            .contains_key(&SettlementFunder::ValidatorBond));
+        assert!(result.merkle_trees[1]
+            .funding_sources
+            .contains_key(&SettlementFunder::Marinade));
+
+        // Verify amounts per tree
+        assert_eq!(result.merkle_trees[0].max_total_claim_sum, 100); // ValidatorBond
+        assert_eq!(result.merkle_trees[1].max_total_claim_sum, 200); // Marinade
+
+        // Different merkle roots (different claim amounts → different trees)
+        assert_ne!(
+            result.merkle_trees[0].merkle_root,
+            result.merkle_trees[1].merkle_root
+        );
     }
 }

@@ -4,7 +4,7 @@ use crate::settlement_data::{
 };
 use anchor_client::anchor_lang::prelude::Pubkey;
 use anyhow::{anyhow, format_err};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use merkle_tree::serde_serialize::pubkey_string_conversion;
 use serde::{Deserialize, Serialize};
 use settlement_common::merkle_tree_collection::{MerkleTreeCollection, MerkleTreeMeta};
@@ -291,8 +291,11 @@ pub async fn load_json_with_on_chain(
 
 /// Load merkle tree collection files (no pairing needed).
 /// Each file is a standalone MerkleTreeCollection JSON.
+/// When `config_override` is provided it is always used as the collection's config.
+/// A warning is printed if the file contained a different non-default config.
 pub fn load_merkle_tree_collections(
     files: &[PathBuf],
+    config_override: Option<Pubkey>,
 ) -> anyhow::Result<Vec<MerkleTreeCollection>> {
     let mut collections = Vec::with_capacity(files.len());
     for path in files {
@@ -301,8 +304,20 @@ pub fn load_merkle_tree_collections(
             continue;
         }
         info!("Loading merkle tree collection from: {path:?}");
-        let collection: MerkleTreeCollection = read_from_json_file(path)
+        let mut collection: MerkleTreeCollection = read_from_json_file(path)
             .map_err(|e| anyhow!("Failed to load merkle tree collection from {path:?}: {e}"))?;
+        if let Some(config) = config_override {
+            if collection.validator_bonds_config != Pubkey::default()
+                && collection.validator_bonds_config != config
+            {
+                warn!(
+                    "Merkle tree collection epoch {} has config {} that differs from CLI override {config}, using override",
+                    collection.epoch,
+                    collection.validator_bonds_config,
+                );
+            }
+            collection.validator_bonds_config = config;
+        }
         info!(
             "Loaded merkle tree collection: epoch {}, {} merkle trees, config {}",
             collection.epoch,

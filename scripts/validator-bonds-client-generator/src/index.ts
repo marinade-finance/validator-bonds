@@ -38,14 +38,13 @@ program
       '..',
       'packages',
       'validator-bonds-codama',
-      'src',
     ),
   )
   .action((options: ProgramOptions) => {
     const codama = createFromRoot(rootNodeFromAnchor(anchorIdl as AnchorIdl))
     const outputDir = path.join(options.output)
     codama
-      .accept(renderJavaScriptVisitor(outputDir))
+      .accept(renderJavaScriptVisitor(outputDir, { generatedFolder: './src' }))
       .then(() => {
         console.log('Client generated successfully')
       })

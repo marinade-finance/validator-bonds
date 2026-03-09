@@ -14,6 +14,8 @@ import {
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type Address,
@@ -25,18 +27,21 @@ import {
   type InstructionWithData,
   type ReadonlyAccount,
   type ReadonlyUint8Array,
-} from '@solana/kit';
-import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs';
-import { getAccountMetaFactory, type ResolvedAccount } from '../shared';
+} from '@solana/kit'
+import {
+  getAccountMetaFactory,
+  type ResolvedInstructionAccount,
+} from '@solana/program-client-core'
+import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
 export const CLAIM_SETTLEMENT_V1_DISCRIMINATOR = new Uint8Array([
   0, 13, 213, 236, 10, 199, 94, 48,
-]);
+])
 
 export function getClaimSettlementV1DiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    CLAIM_SETTLEMENT_V1_DISCRIMINATOR
-  );
+    CLAIM_SETTLEMENT_V1_DISCRIMINATOR,
+  )
 }
 
 export type ClaimSettlementV1Instruction<
@@ -52,25 +57,25 @@ export type ClaimSettlementV1Instruction<
         : TAccountSettlementClaimV1,
       ...TRemainingAccounts,
     ]
-  >;
+  >
 
 export type ClaimSettlementV1InstructionData = {
-  discriminator: ReadonlyUint8Array;
-};
+  discriminator: ReadonlyUint8Array
+}
 
-export type ClaimSettlementV1InstructionDataArgs = {};
+export type ClaimSettlementV1InstructionDataArgs = {}
 
 export function getClaimSettlementV1InstructionDataEncoder(): FixedSizeEncoder<ClaimSettlementV1InstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([['discriminator', fixEncoderSize(getBytesEncoder(), 8)]]),
-    (value) => ({ ...value, discriminator: CLAIM_SETTLEMENT_V1_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: CLAIM_SETTLEMENT_V1_DISCRIMINATOR }),
+  )
 }
 
 export function getClaimSettlementV1InstructionDataDecoder(): FixedSizeDecoder<ClaimSettlementV1InstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
-  ]);
+  ])
 }
 
 export function getClaimSettlementV1InstructionDataCodec(): FixedSizeCodec<
@@ -79,26 +84,26 @@ export function getClaimSettlementV1InstructionDataCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getClaimSettlementV1InstructionDataEncoder(),
-    getClaimSettlementV1InstructionDataDecoder()
-  );
+    getClaimSettlementV1InstructionDataDecoder(),
+  )
 }
 
 export type ClaimSettlementV1Input<
   TAccountSettlementClaimV1 extends string = string,
 > = {
-  settlementClaimV1: Address<TAccountSettlementClaimV1>;
-};
+  settlementClaimV1: Address<TAccountSettlementClaimV1>
+}
 
 export function getClaimSettlementV1Instruction<
   TAccountSettlementClaimV1 extends string,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: ClaimSettlementV1Input<TAccountSettlementClaimV1>,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): ClaimSettlementV1Instruction<TProgramAddress, TAccountSettlementClaimV1> {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -106,33 +111,30 @@ export function getClaimSettlementV1Instruction<
       value: input.settlementClaimV1 ?? null,
       isWritable: false,
     },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
-    accounts: [getAccountMeta(accounts.settlementClaimV1)],
+    accounts: [getAccountMeta('settlementClaimV1', accounts.settlementClaimV1)],
     data: getClaimSettlementV1InstructionDataEncoder().encode({}),
     programAddress,
-  } as ClaimSettlementV1Instruction<
-    TProgramAddress,
-    TAccountSettlementClaimV1
-  >);
+  } as ClaimSettlementV1Instruction<TProgramAddress, TAccountSettlementClaimV1>)
 }
 
 export type ParsedClaimSettlementV1Instruction<
   TProgram extends string = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
-  programAddress: Address<TProgram>;
+  programAddress: Address<TProgram>
   accounts: {
-    settlementClaimV1: TAccountMetas[0];
-  };
-  data: ClaimSettlementV1InstructionData;
-};
+    settlementClaimV1: TAccountMetas[0]
+  }
+  data: ClaimSettlementV1InstructionData
+}
 
 export function parseClaimSettlementV1Instruction<
   TProgram extends string,
@@ -140,21 +142,26 @@ export function parseClaimSettlementV1Instruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>
+    InstructionWithData<ReadonlyUint8Array>,
 ): ParsedClaimSettlementV1Instruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 1) {
-    // TODO: Coded error.
-    throw new Error('Not enough accounts');
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 1,
+      },
+    )
   }
-  let accountIndex = 0;
+  let accountIndex = 0
   const getNextAccount = () => {
-    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!;
-    accountIndex += 1;
-    return accountMeta;
-  };
+    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!
+    accountIndex += 1
+    return accountMeta
+  }
   return {
     programAddress: instruction.programAddress,
     accounts: { settlementClaimV1: getNextAccount() },
     data: getClaimSettlementV1InstructionDataDecoder().decode(instruction.data),
-  };
+  }
 }

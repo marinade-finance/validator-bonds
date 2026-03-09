@@ -27,14 +27,14 @@ import {
   type Encoder,
   type GetDiscriminatedUnionVariant,
   type GetDiscriminatedUnionVariantContent,
-} from '@solana/kit';
+} from '@solana/kit'
 
 /** Product type discriminator */
 export type ProductType =
   | { __kind: 'Commission' }
-  | { __kind: 'Custom'; fields: readonly [string] };
+  | { __kind: 'Custom'; fields: readonly [string] }
 
-export type ProductTypeArgs = ProductType;
+export type ProductTypeArgs = ProductType
 
 export function getProductTypeEncoder(): Encoder<ProductTypeArgs> {
   return getDiscriminatedUnionEncoder([
@@ -50,7 +50,7 @@ export function getProductTypeEncoder(): Encoder<ProductTypeArgs> {
         ],
       ]),
     ],
-  ]);
+  ])
 }
 
 export function getProductTypeDecoder(): Decoder<ProductType> {
@@ -67,37 +67,37 @@ export function getProductTypeDecoder(): Decoder<ProductType> {
         ],
       ]),
     ],
-  ]);
+  ])
 }
 
 export function getProductTypeCodec(): Codec<ProductTypeArgs, ProductType> {
-  return combineCodec(getProductTypeEncoder(), getProductTypeDecoder());
+  return combineCodec(getProductTypeEncoder(), getProductTypeDecoder())
 }
 
 // Data Enum Helpers.
 export function productType(
-  kind: 'Commission'
-): GetDiscriminatedUnionVariant<ProductTypeArgs, '__kind', 'Commission'>;
+  kind: 'Commission',
+): GetDiscriminatedUnionVariant<ProductTypeArgs, '__kind', 'Commission'>
 export function productType(
   kind: 'Custom',
   data: GetDiscriminatedUnionVariantContent<
     ProductTypeArgs,
     '__kind',
     'Custom'
-  >['fields']
-): GetDiscriminatedUnionVariant<ProductTypeArgs, '__kind', 'Custom'>;
+  >['fields'],
+): GetDiscriminatedUnionVariant<ProductTypeArgs, '__kind', 'Custom'>
 export function productType<K extends ProductTypeArgs['__kind'], Data>(
   kind: K,
-  data?: Data
+  data?: Data,
 ) {
   return Array.isArray(data)
     ? { __kind: kind, fields: data }
-    : { __kind: kind, ...(data ?? {}) };
+    : { __kind: kind, ...(data ?? {}) }
 }
 
 export function isProductType<K extends ProductType['__kind']>(
   kind: K,
-  value: ProductType
+  value: ProductType,
 ): value is ProductType & { __kind: K } {
-  return value.__kind === kind;
+  return value.__kind === kind
 }

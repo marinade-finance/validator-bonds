@@ -16,6 +16,8 @@ import {
   getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -31,28 +33,28 @@ import {
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
-} from '@solana/kit';
-import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs';
+} from '@solana/kit'
 import {
-  expectAddress,
   getAccountMetaFactory,
-  type ResolvedAccount,
-} from '../shared';
+  getAddressFromResolvedInstructionAccount,
+  type ResolvedInstructionAccount,
+} from '@solana/program-client-core'
+import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 import {
   getProductTypeConfigDecoder,
   getProductTypeConfigEncoder,
   type ProductTypeConfig,
   type ProductTypeConfigArgs,
-} from '../types';
+} from '../types'
 
 export const CONFIGURE_BOND_PRODUCT_DISCRIMINATOR = new Uint8Array([
   167, 119, 141, 123, 76, 109, 241, 133,
-]);
+])
 
 export function getConfigureBondProductDiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    CONFIGURE_BOND_PRODUCT_DISCRIMINATOR
-  );
+    CONFIGURE_BOND_PRODUCT_DISCRIMINATOR,
+  )
 }
 
 export type ConfigureBondProductInstruction<
@@ -93,16 +95,16 @@ export type ConfigureBondProductInstruction<
         : TAccountProgram,
       ...TRemainingAccounts,
     ]
-  >;
+  >
 
 export type ConfigureBondProductInstructionData = {
-  discriminator: ReadonlyUint8Array;
-  configData: ProductTypeConfig;
-};
+  discriminator: ReadonlyUint8Array
+  configData: ProductTypeConfig
+}
 
 export type ConfigureBondProductInstructionDataArgs = {
-  configData: ProductTypeConfigArgs;
-};
+  configData: ProductTypeConfigArgs
+}
 
 export function getConfigureBondProductInstructionDataEncoder(): Encoder<ConfigureBondProductInstructionDataArgs> {
   return transformEncoder(
@@ -110,18 +112,18 @@ export function getConfigureBondProductInstructionDataEncoder(): Encoder<Configu
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
       ['configData', getProductTypeConfigEncoder()],
     ]),
-    (value) => ({
+    value => ({
       ...value,
       discriminator: CONFIGURE_BOND_PRODUCT_DISCRIMINATOR,
-    })
-  );
+    }),
+  )
 }
 
 export function getConfigureBondProductInstructionDataDecoder(): Decoder<ConfigureBondProductInstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
     ['configData', getProductTypeConfigDecoder()],
-  ]);
+  ])
 }
 
 export function getConfigureBondProductInstructionDataCodec(): Codec<
@@ -130,8 +132,8 @@ export function getConfigureBondProductInstructionDataCodec(): Codec<
 > {
   return combineCodec(
     getConfigureBondProductInstructionDataEncoder(),
-    getConfigureBondProductInstructionDataDecoder()
-  );
+    getConfigureBondProductInstructionDataDecoder(),
+  )
 }
 
 export type ConfigureBondProductAsyncInput<
@@ -143,16 +145,16 @@ export type ConfigureBondProductAsyncInput<
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
 > = {
-  config: Address<TAccountConfig>;
-  bond?: Address<TAccountBond>;
-  voteAccount: Address<TAccountVoteAccount>;
-  bondProduct: Address<TAccountBondProduct>;
+  config: Address<TAccountConfig>
+  bond?: Address<TAccountBond>
+  voteAccount: Address<TAccountVoteAccount>
+  bondProduct: Address<TAccountBondProduct>
   /** validator vote account validator identity or bond authority may change the account */
-  authority: TransactionSigner<TAccountAuthority>;
-  eventAuthority?: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  configData: ConfigureBondProductInstructionDataArgs['configData'];
-};
+  authority: TransactionSigner<TAccountAuthority>
+  eventAuthority?: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+  configData: ConfigureBondProductInstructionDataArgs['configData']
+}
 
 export async function getConfigureBondProductInstructionAsync<
   TAccountConfig extends string,
@@ -173,7 +175,7 @@ export async function getConfigureBondProductInstructionAsync<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): Promise<
   ConfigureBondProductInstruction<
     TProgramAddress,
@@ -188,7 +190,7 @@ export async function getConfigureBondProductInstructionAsync<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -199,14 +201,14 @@ export async function getConfigureBondProductInstructionAsync<
     authority: { value: input.authority ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Original args.
-  const args = { ...input };
+  const args = { ...input }
 
   // Resolve default values.
   if (!accounts.bond.value) {
@@ -216,12 +218,22 @@ export async function getConfigureBondProductInstructionAsync<
         getBytesEncoder().encode(
           new Uint8Array([
             98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116,
-          ])
+          ]),
         ),
-        getAddressEncoder().encode(expectAddress(accounts.config.value)),
-        getAddressEncoder().encode(expectAddress(accounts.voteAccount.value)),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'config',
+            accounts.config.value,
+          ),
+        ),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'voteAccount',
+            accounts.voteAccount.value,
+          ),
+        ),
       ],
-    });
+    })
   }
   if (!accounts.eventAuthority.value) {
     accounts.eventAuthority.value = await getProgramDerivedAddress({
@@ -231,25 +243,25 @@ export async function getConfigureBondProductInstructionAsync<
           new Uint8Array([
             95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
             105, 116, 121,
-          ])
+          ]),
         ),
       ],
-    });
+    })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.bond),
-      getAccountMeta(accounts.voteAccount),
-      getAccountMeta(accounts.bondProduct),
-      getAccountMeta(accounts.authority),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('bond', accounts.bond),
+      getAccountMeta('voteAccount', accounts.voteAccount),
+      getAccountMeta('bondProduct', accounts.bondProduct),
+      getAccountMeta('authority', accounts.authority),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getConfigureBondProductInstructionDataEncoder().encode(
-      args as ConfigureBondProductInstructionDataArgs
+      args as ConfigureBondProductInstructionDataArgs,
     ),
     programAddress,
   } as ConfigureBondProductInstruction<
@@ -261,7 +273,7 @@ export async function getConfigureBondProductInstructionAsync<
     TAccountAuthority,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ConfigureBondProductInput<
@@ -273,16 +285,16 @@ export type ConfigureBondProductInput<
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
 > = {
-  config: Address<TAccountConfig>;
-  bond: Address<TAccountBond>;
-  voteAccount: Address<TAccountVoteAccount>;
-  bondProduct: Address<TAccountBondProduct>;
+  config: Address<TAccountConfig>
+  bond: Address<TAccountBond>
+  voteAccount: Address<TAccountVoteAccount>
+  bondProduct: Address<TAccountBondProduct>
   /** validator vote account validator identity or bond authority may change the account */
-  authority: TransactionSigner<TAccountAuthority>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  configData: ConfigureBondProductInstructionDataArgs['configData'];
-};
+  authority: TransactionSigner<TAccountAuthority>
+  eventAuthority: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+  configData: ConfigureBondProductInstructionDataArgs['configData']
+}
 
 export function getConfigureBondProductInstruction<
   TAccountConfig extends string,
@@ -303,7 +315,7 @@ export function getConfigureBondProductInstruction<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): ConfigureBondProductInstruction<
   TProgramAddress,
   TAccountConfig,
@@ -316,7 +328,7 @@ export function getConfigureBondProductInstruction<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -327,28 +339,28 @@ export function getConfigureBondProductInstruction<
     authority: { value: input.authority ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Original args.
-  const args = { ...input };
+  const args = { ...input }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.bond),
-      getAccountMeta(accounts.voteAccount),
-      getAccountMeta(accounts.bondProduct),
-      getAccountMeta(accounts.authority),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('bond', accounts.bond),
+      getAccountMeta('voteAccount', accounts.voteAccount),
+      getAccountMeta('bondProduct', accounts.bondProduct),
+      getAccountMeta('authority', accounts.authority),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getConfigureBondProductInstructionDataEncoder().encode(
-      args as ConfigureBondProductInstructionDataArgs
+      args as ConfigureBondProductInstructionDataArgs,
     ),
     programAddress,
   } as ConfigureBondProductInstruction<
@@ -360,26 +372,26 @@ export function getConfigureBondProductInstruction<
     TAccountAuthority,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ParsedConfigureBondProductInstruction<
   TProgram extends string = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
-  programAddress: Address<TProgram>;
+  programAddress: Address<TProgram>
   accounts: {
-    config: TAccountMetas[0];
-    bond: TAccountMetas[1];
-    voteAccount: TAccountMetas[2];
-    bondProduct: TAccountMetas[3];
+    config: TAccountMetas[0]
+    bond: TAccountMetas[1]
+    voteAccount: TAccountMetas[2]
+    bondProduct: TAccountMetas[3]
     /** validator vote account validator identity or bond authority may change the account */
-    authority: TAccountMetas[4];
-    eventAuthority: TAccountMetas[5];
-    program: TAccountMetas[6];
-  };
-  data: ConfigureBondProductInstructionData;
-};
+    authority: TAccountMetas[4]
+    eventAuthority: TAccountMetas[5]
+    program: TAccountMetas[6]
+  }
+  data: ConfigureBondProductInstructionData
+}
 
 export function parseConfigureBondProductInstruction<
   TProgram extends string,
@@ -387,18 +399,23 @@ export function parseConfigureBondProductInstruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>
+    InstructionWithData<ReadonlyUint8Array>,
 ): ParsedConfigureBondProductInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 7) {
-    // TODO: Coded error.
-    throw new Error('Not enough accounts');
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 7,
+      },
+    )
   }
-  let accountIndex = 0;
+  let accountIndex = 0
   const getNextAccount = () => {
-    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!;
-    accountIndex += 1;
-    return accountMeta;
-  };
+    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!
+    accountIndex += 1
+    return accountMeta
+  }
   return {
     programAddress: instruction.programAddress,
     accounts: {
@@ -411,7 +428,7 @@ export function parseConfigureBondProductInstruction<
       program: getNextAccount(),
     },
     data: getConfigureBondProductInstructionDataDecoder().decode(
-      instruction.data
+      instruction.data,
     ),
-  };
+  }
 }

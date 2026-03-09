@@ -19,27 +19,27 @@ import {
   type Encoder,
   type Option,
   type OptionOrNullable,
-} from '@solana/kit';
+} from '@solana/kit'
 
 /** Configuration of commissions. The commission is permitted to be negative to allow for subsidies. */
 export type CommissionProductConfig = {
-  inflationBps: Option<bigint>;
-  mevBps: Option<bigint>;
-  blockBps: Option<bigint>;
-};
+  inflationBps: Option<bigint>
+  mevBps: Option<bigint>
+  blockBps: Option<bigint>
+}
 
 export type CommissionProductConfigArgs = {
-  inflationBps: OptionOrNullable<number | bigint>;
-  mevBps: OptionOrNullable<number | bigint>;
-  blockBps: OptionOrNullable<number | bigint>;
-};
+  inflationBps: OptionOrNullable<number | bigint>
+  mevBps: OptionOrNullable<number | bigint>
+  blockBps: OptionOrNullable<number | bigint>
+}
 
 export function getCommissionProductConfigEncoder(): Encoder<CommissionProductConfigArgs> {
   return getStructEncoder([
     ['inflationBps', getOptionEncoder(getI64Encoder())],
     ['mevBps', getOptionEncoder(getI64Encoder())],
     ['blockBps', getOptionEncoder(getI64Encoder())],
-  ]);
+  ])
 }
 
 export function getCommissionProductConfigDecoder(): Decoder<CommissionProductConfig> {
@@ -47,7 +47,7 @@ export function getCommissionProductConfigDecoder(): Decoder<CommissionProductCo
     ['inflationBps', getOptionDecoder(getI64Decoder())],
     ['mevBps', getOptionDecoder(getI64Decoder())],
     ['blockBps', getOptionDecoder(getI64Decoder())],
-  ]);
+  ])
 }
 
 export function getCommissionProductConfigCodec(): Codec<
@@ -56,6 +56,6 @@ export function getCommissionProductConfigCodec(): Codec<
 > {
   return combineCodec(
     getCommissionProductConfigEncoder(),
-    getCommissionProductConfigDecoder()
-  );
+    getCommissionProductConfigDecoder(),
+  )
 }

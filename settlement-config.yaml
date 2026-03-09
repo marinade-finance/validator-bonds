@@ -31,6 +31,7 @@ settlements:
     meta:
       funder: ValidatorBond
 
+
   # PSR - Validator funded (0-50% loss)
   - type: DowntimeRevenueImpactSettlement
     meta:

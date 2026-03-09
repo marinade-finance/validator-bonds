@@ -14,6 +14,8 @@ import {
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -29,27 +31,29 @@ import {
   type TransactionSigner,
   type WritableAccount,
   type WritableSignerAccount,
-} from '@solana/kit';
-import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs';
-import { getAccountMetaFactory, type ResolvedAccount } from '../shared';
+} from '@solana/kit'
+import {
+  getAccountMetaFactory,
+  type ResolvedInstructionAccount,
+} from '@solana/program-client-core'
+import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
 export const UPSIZE_SETTLEMENT_CLAIMS_DISCRIMINATOR = new Uint8Array([
   207, 46, 34, 88, 141, 36, 63, 132,
-]);
+])
 
 export function getUpsizeSettlementClaimsDiscriminatorBytes() {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    UPSIZE_SETTLEMENT_CLAIMS_DISCRIMINATOR
-  );
+    UPSIZE_SETTLEMENT_CLAIMS_DISCRIMINATOR,
+  )
 }
 
 export type UpsizeSettlementClaimsInstruction<
   TProgram extends string = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
   TAccountSettlementClaims extends string | AccountMeta<string> = string,
   TAccountRentPayer extends string | AccountMeta<string> = string,
-  TAccountSystemProgram extends
-    | string
-    | AccountMeta<string> = '11111111111111111111111111111111',
+  TAccountSystemProgram extends string | AccountMeta<string> =
+    '11111111111111111111111111111111',
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -67,28 +71,28 @@ export type UpsizeSettlementClaimsInstruction<
         : TAccountSystemProgram,
       ...TRemainingAccounts,
     ]
-  >;
+  >
 
 export type UpsizeSettlementClaimsInstructionData = {
-  discriminator: ReadonlyUint8Array;
-};
+  discriminator: ReadonlyUint8Array
+}
 
-export type UpsizeSettlementClaimsInstructionDataArgs = {};
+export type UpsizeSettlementClaimsInstructionDataArgs = {}
 
 export function getUpsizeSettlementClaimsInstructionDataEncoder(): FixedSizeEncoder<UpsizeSettlementClaimsInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([['discriminator', fixEncoderSize(getBytesEncoder(), 8)]]),
-    (value) => ({
+    value => ({
       ...value,
       discriminator: UPSIZE_SETTLEMENT_CLAIMS_DISCRIMINATOR,
-    })
-  );
+    }),
+  )
 }
 
 export function getUpsizeSettlementClaimsInstructionDataDecoder(): FixedSizeDecoder<UpsizeSettlementClaimsInstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
-  ]);
+  ])
 }
 
 export function getUpsizeSettlementClaimsInstructionDataCodec(): FixedSizeCodec<
@@ -97,8 +101,8 @@ export function getUpsizeSettlementClaimsInstructionDataCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getUpsizeSettlementClaimsInstructionDataEncoder(),
-    getUpsizeSettlementClaimsInstructionDataDecoder()
-  );
+    getUpsizeSettlementClaimsInstructionDataDecoder(),
+  )
 }
 
 export type UpsizeSettlementClaimsInput<
@@ -106,11 +110,11 @@ export type UpsizeSettlementClaimsInput<
   TAccountRentPayer extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
-  settlementClaims: Address<TAccountSettlementClaims>;
+  settlementClaims: Address<TAccountSettlementClaims>
   /** rent exempt payer of account reallocation */
-  rentPayer: TransactionSigner<TAccountRentPayer>;
-  systemProgram?: Address<TAccountSystemProgram>;
-};
+  rentPayer: TransactionSigner<TAccountRentPayer>
+  systemProgram?: Address<TAccountSystemProgram>
+}
 
 export function getUpsizeSettlementClaimsInstruction<
   TAccountSettlementClaims extends string,
@@ -123,7 +127,7 @@ export function getUpsizeSettlementClaimsInstruction<
     TAccountRentPayer,
     TAccountSystemProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): UpsizeSettlementClaimsInstruction<
   TProgramAddress,
   TAccountSettlementClaims,
@@ -132,7 +136,7 @@ export function getUpsizeSettlementClaimsInstruction<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -142,24 +146,24 @@ export function getUpsizeSettlementClaimsInstruction<
     },
     rentPayer: { value: input.rentPayer ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Resolve default values.
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
-      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>;
+      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.settlementClaims),
-      getAccountMeta(accounts.rentPayer),
-      getAccountMeta(accounts.systemProgram),
+      getAccountMeta('settlementClaims', accounts.settlementClaims),
+      getAccountMeta('rentPayer', accounts.rentPayer),
+      getAccountMeta('systemProgram', accounts.systemProgram),
     ],
     data: getUpsizeSettlementClaimsInstructionDataEncoder().encode({}),
     programAddress,
@@ -168,22 +172,22 @@ export function getUpsizeSettlementClaimsInstruction<
     TAccountSettlementClaims,
     TAccountRentPayer,
     TAccountSystemProgram
-  >);
+  >)
 }
 
 export type ParsedUpsizeSettlementClaimsInstruction<
   TProgram extends string = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
-  programAddress: Address<TProgram>;
+  programAddress: Address<TProgram>
   accounts: {
-    settlementClaims: TAccountMetas[0];
+    settlementClaims: TAccountMetas[0]
     /** rent exempt payer of account reallocation */
-    rentPayer: TAccountMetas[1];
-    systemProgram: TAccountMetas[2];
-  };
-  data: UpsizeSettlementClaimsInstructionData;
-};
+    rentPayer: TAccountMetas[1]
+    systemProgram: TAccountMetas[2]
+  }
+  data: UpsizeSettlementClaimsInstructionData
+}
 
 export function parseUpsizeSettlementClaimsInstruction<
   TProgram extends string,
@@ -191,18 +195,23 @@ export function parseUpsizeSettlementClaimsInstruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>
+    InstructionWithData<ReadonlyUint8Array>,
 ): ParsedUpsizeSettlementClaimsInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 3) {
-    // TODO: Coded error.
-    throw new Error('Not enough accounts');
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 3,
+      },
+    )
   }
-  let accountIndex = 0;
+  let accountIndex = 0
   const getNextAccount = () => {
-    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!;
-    accountIndex += 1;
-    return accountMeta;
-  };
+    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!
+    accountIndex += 1
+    return accountMeta
+  }
   return {
     programAddress: instruction.programAddress,
     accounts: {
@@ -211,7 +220,7 @@ export function parseUpsizeSettlementClaimsInstruction<
       systemProgram: getNextAccount(),
     },
     data: getUpsizeSettlementClaimsInstructionDataDecoder().decode(
-      instruction.data
+      instruction.data,
     ),
-  };
+  }
 }

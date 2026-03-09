@@ -16,7 +16,7 @@ import {
   type Codec,
   type Decoder,
   type Encoder,
-} from '@solana/kit';
+} from '@solana/kit'
 import {
   getProductTypeConfigDecoder,
   getProductTypeConfigEncoder,
@@ -26,27 +26,27 @@ import {
   type ProductTypeArgs,
   type ProductTypeConfig,
   type ProductTypeConfigArgs,
-} from '.';
+} from '.'
 
 export type ConfigureBondProductEvent = {
-  config: Address;
-  bondProduct: Address;
-  bond: Address;
-  voteAccount: Address;
-  productType: ProductType;
-  oldConfigData: ProductTypeConfig;
-  newConfigData: ProductTypeConfig;
-};
+  config: Address
+  bondProduct: Address
+  bond: Address
+  voteAccount: Address
+  productType: ProductType
+  oldConfigData: ProductTypeConfig
+  newConfigData: ProductTypeConfig
+}
 
 export type ConfigureBondProductEventArgs = {
-  config: Address;
-  bondProduct: Address;
-  bond: Address;
-  voteAccount: Address;
-  productType: ProductTypeArgs;
-  oldConfigData: ProductTypeConfigArgs;
-  newConfigData: ProductTypeConfigArgs;
-};
+  config: Address
+  bondProduct: Address
+  bond: Address
+  voteAccount: Address
+  productType: ProductTypeArgs
+  oldConfigData: ProductTypeConfigArgs
+  newConfigData: ProductTypeConfigArgs
+}
 
 export function getConfigureBondProductEventEncoder(): Encoder<ConfigureBondProductEventArgs> {
   return getStructEncoder([
@@ -57,7 +57,7 @@ export function getConfigureBondProductEventEncoder(): Encoder<ConfigureBondProd
     ['productType', getProductTypeEncoder()],
     ['oldConfigData', getProductTypeConfigEncoder()],
     ['newConfigData', getProductTypeConfigEncoder()],
-  ]);
+  ])
 }
 
 export function getConfigureBondProductEventDecoder(): Decoder<ConfigureBondProductEvent> {
@@ -69,7 +69,7 @@ export function getConfigureBondProductEventDecoder(): Decoder<ConfigureBondProd
     ['productType', getProductTypeDecoder()],
     ['oldConfigData', getProductTypeConfigDecoder()],
     ['newConfigData', getProductTypeConfigDecoder()],
-  ]);
+  ])
 }
 
 export function getConfigureBondProductEventCodec(): Codec<
@@ -78,6 +78,6 @@ export function getConfigureBondProductEventCodec(): Codec<
 > {
   return combineCodec(
     getConfigureBondProductEventEncoder(),
-    getConfigureBondProductEventDecoder()
-  );
+    getConfigureBondProductEventDecoder(),
+  )
 }

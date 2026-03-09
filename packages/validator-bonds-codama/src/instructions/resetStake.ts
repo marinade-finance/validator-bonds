@@ -16,6 +16,8 @@ import {
   getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type Address,
@@ -28,20 +30,20 @@ import {
   type ReadonlyAccount,
   type ReadonlyUint8Array,
   type WritableAccount,
-} from '@solana/kit';
-import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs';
+} from '@solana/kit'
 import {
-  expectAddress,
   getAccountMetaFactory,
-  type ResolvedAccount,
-} from '../shared';
+  getAddressFromResolvedInstructionAccount,
+  type ResolvedInstructionAccount,
+} from '@solana/program-client-core'
+import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
 export const RESET_STAKE_DISCRIMINATOR = new Uint8Array([
   183, 37, 69, 159, 163, 139, 212, 235,
-]);
+])
 
 export function getResetStakeDiscriminatorBytes() {
-  return fixEncoderSize(getBytesEncoder(), 8).encode(RESET_STAKE_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(RESET_STAKE_DISCRIMINATOR)
 }
 
 export type ResetStakeInstruction<
@@ -50,22 +52,17 @@ export type ResetStakeInstruction<
   TAccountBond extends string | AccountMeta<string> = string,
   TAccountSettlement extends string | AccountMeta<string> = string,
   TAccountStakeAccount extends string | AccountMeta<string> = string,
-  TAccountBondsWithdrawerAuthority extends
-    | string
-    | AccountMeta<string> = string,
+  TAccountBondsWithdrawerAuthority extends string | AccountMeta<string> =
+    string,
   TAccountVoteAccount extends string | AccountMeta<string> = string,
-  TAccountStakeHistory extends
-    | string
-    | AccountMeta<string> = 'SysvarStakeHistory1111111111111111111111111',
-  TAccountStakeConfig extends
-    | string
-    | AccountMeta<string> = 'StakeConfig11111111111111111111111111111111',
-  TAccountClock extends
-    | string
-    | AccountMeta<string> = 'SysvarC1ock11111111111111111111111111111111',
-  TAccountStakeProgram extends
-    | string
-    | AccountMeta<string> = 'Stake11111111111111111111111111111111111111',
+  TAccountStakeHistory extends string | AccountMeta<string> =
+    'SysvarStakeHistory1111111111111111111111111',
+  TAccountStakeConfig extends string | AccountMeta<string> =
+    'StakeConfig11111111111111111111111111111111',
+  TAccountClock extends string | AccountMeta<string> =
+    'SysvarC1ock11111111111111111111111111111111',
+  TAccountStakeProgram extends string | AccountMeta<string> =
+    'Stake11111111111111111111111111111111111111',
   TAccountEventAuthority extends string | AccountMeta<string> = string,
   TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -111,23 +108,23 @@ export type ResetStakeInstruction<
         : TAccountProgram,
       ...TRemainingAccounts,
     ]
-  >;
+  >
 
-export type ResetStakeInstructionData = { discriminator: ReadonlyUint8Array };
+export type ResetStakeInstructionData = { discriminator: ReadonlyUint8Array }
 
-export type ResetStakeInstructionDataArgs = {};
+export type ResetStakeInstructionDataArgs = {}
 
 export function getResetStakeInstructionDataEncoder(): FixedSizeEncoder<ResetStakeInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([['discriminator', fixEncoderSize(getBytesEncoder(), 8)]]),
-    (value) => ({ ...value, discriminator: RESET_STAKE_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: RESET_STAKE_DISCRIMINATOR }),
+  )
 }
 
 export function getResetStakeInstructionDataDecoder(): FixedSizeDecoder<ResetStakeInstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
-  ]);
+  ])
 }
 
 export function getResetStakeInstructionDataCodec(): FixedSizeCodec<
@@ -136,8 +133,8 @@ export function getResetStakeInstructionDataCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getResetStakeInstructionDataEncoder(),
-    getResetStakeInstructionDataDecoder()
-  );
+    getResetStakeInstructionDataDecoder(),
+  )
 }
 
 export type ResetStakeAsyncInput<
@@ -155,26 +152,26 @@ export type ResetStakeAsyncInput<
   TAccountProgram extends string = string,
 > = {
   /** the config account under which the bond was created */
-  config: Address<TAccountConfig>;
-  bond?: Address<TAccountBond>;
+  config: Address<TAccountConfig>
+  bond?: Address<TAccountBond>
   /** cannot exist; used to derive settlement authority */
-  settlement: Address<TAccountSettlement>;
+  settlement: Address<TAccountSettlement>
   /** stake account belonging under the settlement by staker authority */
-  stakeAccount: Address<TAccountStakeAccount>;
+  stakeAccount: Address<TAccountStakeAccount>
   /**
    * bonds withdrawer authority
    * to cancel settlement funding of the stake account changing staker authority to address
    */
-  bondsWithdrawerAuthority?: Address<TAccountBondsWithdrawerAuthority>;
+  bondsWithdrawerAuthority?: Address<TAccountBondsWithdrawerAuthority>
   /** It may be an orphaned system account if the original vote account was removed from the chain. */
-  voteAccount: Address<TAccountVoteAccount>;
-  stakeHistory?: Address<TAccountStakeHistory>;
-  stakeConfig?: Address<TAccountStakeConfig>;
-  clock?: Address<TAccountClock>;
-  stakeProgram?: Address<TAccountStakeProgram>;
-  eventAuthority?: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-};
+  voteAccount: Address<TAccountVoteAccount>
+  stakeHistory?: Address<TAccountStakeHistory>
+  stakeConfig?: Address<TAccountStakeConfig>
+  clock?: Address<TAccountClock>
+  stakeProgram?: Address<TAccountStakeProgram>
+  eventAuthority?: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+}
 
 export async function getResetStakeInstructionAsync<
   TAccountConfig extends string,
@@ -205,7 +202,7 @@ export async function getResetStakeInstructionAsync<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): Promise<
   ResetStakeInstruction<
     TProgramAddress,
@@ -225,7 +222,7 @@ export async function getResetStakeInstructionAsync<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -244,11 +241,11 @@ export async function getResetStakeInstructionAsync<
     stakeProgram: { value: input.stakeProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Resolve default values.
   if (!accounts.bond.value) {
@@ -258,12 +255,22 @@ export async function getResetStakeInstructionAsync<
         getBytesEncoder().encode(
           new Uint8Array([
             98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116,
-          ])
+          ]),
         ),
-        getAddressEncoder().encode(expectAddress(accounts.config.value)),
-        getAddressEncoder().encode(expectAddress(accounts.voteAccount.value)),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'config',
+            accounts.config.value,
+          ),
+        ),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'voteAccount',
+            accounts.voteAccount.value,
+          ),
+        ),
       ],
-    });
+    })
   }
   if (!accounts.bondsWithdrawerAuthority.value) {
     accounts.bondsWithdrawerAuthority.value = await getProgramDerivedAddress({
@@ -273,27 +280,32 @@ export async function getResetStakeInstructionAsync<
           new Uint8Array([
             98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105, 116,
             121,
-          ])
+          ]),
         ),
-        getAddressEncoder().encode(expectAddress(accounts.config.value)),
+        getAddressEncoder().encode(
+          getAddressFromResolvedInstructionAccount(
+            'config',
+            accounts.config.value,
+          ),
+        ),
       ],
-    });
+    })
   }
   if (!accounts.stakeHistory.value) {
     accounts.stakeHistory.value =
-      'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>;
+      'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>
   }
   if (!accounts.stakeConfig.value) {
     accounts.stakeConfig.value =
-      'StakeConfig11111111111111111111111111111111' as Address<'StakeConfig11111111111111111111111111111111'>;
+      'StakeConfig11111111111111111111111111111111' as Address<'StakeConfig11111111111111111111111111111111'>
   }
   if (!accounts.clock.value) {
     accounts.clock.value =
-      'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>;
+      'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>
   }
   if (!accounts.stakeProgram.value) {
     accounts.stakeProgram.value =
-      'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>;
+      'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>
   }
   if (!accounts.eventAuthority.value) {
     accounts.eventAuthority.value = await getProgramDerivedAddress({
@@ -303,27 +315,30 @@ export async function getResetStakeInstructionAsync<
           new Uint8Array([
             95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
             105, 116, 121,
-          ])
+          ]),
         ),
       ],
-    });
+    })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.bond),
-      getAccountMeta(accounts.settlement),
-      getAccountMeta(accounts.stakeAccount),
-      getAccountMeta(accounts.bondsWithdrawerAuthority),
-      getAccountMeta(accounts.voteAccount),
-      getAccountMeta(accounts.stakeHistory),
-      getAccountMeta(accounts.stakeConfig),
-      getAccountMeta(accounts.clock),
-      getAccountMeta(accounts.stakeProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('bond', accounts.bond),
+      getAccountMeta('settlement', accounts.settlement),
+      getAccountMeta('stakeAccount', accounts.stakeAccount),
+      getAccountMeta(
+        'bondsWithdrawerAuthority',
+        accounts.bondsWithdrawerAuthority,
+      ),
+      getAccountMeta('voteAccount', accounts.voteAccount),
+      getAccountMeta('stakeHistory', accounts.stakeHistory),
+      getAccountMeta('stakeConfig', accounts.stakeConfig),
+      getAccountMeta('clock', accounts.clock),
+      getAccountMeta('stakeProgram', accounts.stakeProgram),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getResetStakeInstructionDataEncoder().encode({}),
     programAddress,
@@ -341,7 +356,7 @@ export async function getResetStakeInstructionAsync<
     TAccountStakeProgram,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ResetStakeInput<
@@ -359,26 +374,26 @@ export type ResetStakeInput<
   TAccountProgram extends string = string,
 > = {
   /** the config account under which the bond was created */
-  config: Address<TAccountConfig>;
-  bond: Address<TAccountBond>;
+  config: Address<TAccountConfig>
+  bond: Address<TAccountBond>
   /** cannot exist; used to derive settlement authority */
-  settlement: Address<TAccountSettlement>;
+  settlement: Address<TAccountSettlement>
   /** stake account belonging under the settlement by staker authority */
-  stakeAccount: Address<TAccountStakeAccount>;
+  stakeAccount: Address<TAccountStakeAccount>
   /**
    * bonds withdrawer authority
    * to cancel settlement funding of the stake account changing staker authority to address
    */
-  bondsWithdrawerAuthority: Address<TAccountBondsWithdrawerAuthority>;
+  bondsWithdrawerAuthority: Address<TAccountBondsWithdrawerAuthority>
   /** It may be an orphaned system account if the original vote account was removed from the chain. */
-  voteAccount: Address<TAccountVoteAccount>;
-  stakeHistory?: Address<TAccountStakeHistory>;
-  stakeConfig?: Address<TAccountStakeConfig>;
-  clock?: Address<TAccountClock>;
-  stakeProgram?: Address<TAccountStakeProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-};
+  voteAccount: Address<TAccountVoteAccount>
+  stakeHistory?: Address<TAccountStakeHistory>
+  stakeConfig?: Address<TAccountStakeConfig>
+  clock?: Address<TAccountClock>
+  stakeProgram?: Address<TAccountStakeProgram>
+  eventAuthority: Address<TAccountEventAuthority>
+  program: Address<TAccountProgram>
+}
 
 export function getResetStakeInstruction<
   TAccountConfig extends string,
@@ -409,7 +424,7 @@ export function getResetStakeInstruction<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress }
+  config?: { programAddress?: TProgramAddress },
 ): ResetStakeInstruction<
   TProgramAddress,
   TAccountConfig,
@@ -427,7 +442,7 @@ export function getResetStakeInstruction<
 > {
   // Program address.
   const programAddress =
-    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS;
+    config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
   // Original accounts.
   const originalAccounts = {
@@ -446,45 +461,48 @@ export function getResetStakeInstruction<
     stakeProgram: { value: input.stakeProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
-  };
+  }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
+    ResolvedInstructionAccount
+  >
 
   // Resolve default values.
   if (!accounts.stakeHistory.value) {
     accounts.stakeHistory.value =
-      'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>;
+      'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>
   }
   if (!accounts.stakeConfig.value) {
     accounts.stakeConfig.value =
-      'StakeConfig11111111111111111111111111111111' as Address<'StakeConfig11111111111111111111111111111111'>;
+      'StakeConfig11111111111111111111111111111111' as Address<'StakeConfig11111111111111111111111111111111'>
   }
   if (!accounts.clock.value) {
     accounts.clock.value =
-      'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>;
+      'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>
   }
   if (!accounts.stakeProgram.value) {
     accounts.stakeProgram.value =
-      'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>;
+      'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.bond),
-      getAccountMeta(accounts.settlement),
-      getAccountMeta(accounts.stakeAccount),
-      getAccountMeta(accounts.bondsWithdrawerAuthority),
-      getAccountMeta(accounts.voteAccount),
-      getAccountMeta(accounts.stakeHistory),
-      getAccountMeta(accounts.stakeConfig),
-      getAccountMeta(accounts.clock),
-      getAccountMeta(accounts.stakeProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta('config', accounts.config),
+      getAccountMeta('bond', accounts.bond),
+      getAccountMeta('settlement', accounts.settlement),
+      getAccountMeta('stakeAccount', accounts.stakeAccount),
+      getAccountMeta(
+        'bondsWithdrawerAuthority',
+        accounts.bondsWithdrawerAuthority,
+      ),
+      getAccountMeta('voteAccount', accounts.voteAccount),
+      getAccountMeta('stakeHistory', accounts.stakeHistory),
+      getAccountMeta('stakeConfig', accounts.stakeConfig),
+      getAccountMeta('clock', accounts.clock),
+      getAccountMeta('stakeProgram', accounts.stakeProgram),
+      getAccountMeta('eventAuthority', accounts.eventAuthority),
+      getAccountMeta('program', accounts.program),
     ],
     data: getResetStakeInstructionDataEncoder().encode({}),
     programAddress,
@@ -502,38 +520,38 @@ export function getResetStakeInstruction<
     TAccountStakeProgram,
     TAccountEventAuthority,
     TAccountProgram
-  >);
+  >)
 }
 
 export type ParsedResetStakeInstruction<
   TProgram extends string = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
-  programAddress: Address<TProgram>;
+  programAddress: Address<TProgram>
   accounts: {
     /** the config account under which the bond was created */
-    config: TAccountMetas[0];
-    bond: TAccountMetas[1];
+    config: TAccountMetas[0]
+    bond: TAccountMetas[1]
     /** cannot exist; used to derive settlement authority */
-    settlement: TAccountMetas[2];
+    settlement: TAccountMetas[2]
     /** stake account belonging under the settlement by staker authority */
-    stakeAccount: TAccountMetas[3];
+    stakeAccount: TAccountMetas[3]
     /**
      * bonds withdrawer authority
      * to cancel settlement funding of the stake account changing staker authority to address
      */
-    bondsWithdrawerAuthority: TAccountMetas[4];
+    bondsWithdrawerAuthority: TAccountMetas[4]
     /** It may be an orphaned system account if the original vote account was removed from the chain. */
-    voteAccount: TAccountMetas[5];
-    stakeHistory: TAccountMetas[6];
-    stakeConfig: TAccountMetas[7];
-    clock: TAccountMetas[8];
-    stakeProgram: TAccountMetas[9];
-    eventAuthority: TAccountMetas[10];
-    program: TAccountMetas[11];
-  };
-  data: ResetStakeInstructionData;
-};
+    voteAccount: TAccountMetas[5]
+    stakeHistory: TAccountMetas[6]
+    stakeConfig: TAccountMetas[7]
+    clock: TAccountMetas[8]
+    stakeProgram: TAccountMetas[9]
+    eventAuthority: TAccountMetas[10]
+    program: TAccountMetas[11]
+  }
+  data: ResetStakeInstructionData
+}
 
 export function parseResetStakeInstruction<
   TProgram extends string,
@@ -541,18 +559,23 @@ export function parseResetStakeInstruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>
+    InstructionWithData<ReadonlyUint8Array>,
 ): ParsedResetStakeInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 12) {
-    // TODO: Coded error.
-    throw new Error('Not enough accounts');
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 12,
+      },
+    )
   }
-  let accountIndex = 0;
+  let accountIndex = 0
   const getNextAccount = () => {
-    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!;
-    accountIndex += 1;
-    return accountMeta;
-  };
+    const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!
+    accountIndex += 1
+    return accountMeta
+  }
   return {
     programAddress: instruction.programAddress,
     accounts: {
@@ -570,5 +593,5 @@ export function parseResetStakeInstruction<
       program: getNextAccount(),
     },
     data: getResetStakeInstructionDataDecoder().decode(instruction.data),
-  };
+  }
 }

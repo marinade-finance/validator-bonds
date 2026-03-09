@@ -39,65 +39,66 @@ import {
   type MaybeAccount,
   type MaybeEncodedAccount,
   type ReadonlyUint8Array,
-} from '@solana/kit';
+} from '@solana/kit'
 
 export const CONFIG_DISCRIMINATOR = new Uint8Array([
   155, 12, 170, 224, 30, 250, 204, 130,
-]);
+])
 
 export function getConfigDiscriminatorBytes() {
-  return fixEncoderSize(getBytesEncoder(), 8).encode(CONFIG_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(CONFIG_DISCRIMINATOR)
 }
 
 export type Config = {
-  discriminator: ReadonlyUint8Array;
+  discriminator: ReadonlyUint8Array
   /** Admin authority that can update the config */
-  adminAuthority: Address;
+  adminAuthority: Address
   /** Operator authority (bot hot wallet) */
-  operatorAuthority: Address;
+  operatorAuthority: Address
   /** How many epochs permitting to claim the settlement */
-  epochsToClaimSettlement: bigint;
+  epochsToClaimSettlement: bigint
   /** How many epochs before withdraw is allowed */
-  withdrawLockupEpochs: bigint;
+  withdrawLockupEpochs: bigint
   /** Minimum amount of lamports to be considered for a stake account operations (e.g., split) */
-  minimumStakeLamports: bigint;
+  minimumStakeLamports: bigint
   /** PDA bonds stake accounts authority bump seed */
-  bondsWithdrawerAuthorityBump: number;
+  bondsWithdrawerAuthorityBump: number
   /** Authority that can pause the program in case of emergency */
-  pauseAuthority: Address;
-  paused: boolean;
+  pauseAuthority: Address
+  paused: boolean
   /** How many slots to wait before settlement is permitted to be claimed */
-  slotsToStartSettlementClaiming: bigint;
+  slotsToStartSettlementClaiming: bigint
   /** Minimum value of max_stake_wanted to be configured by vote account owners at bond. */
-  minBondMaxStakeWanted: bigint;
+  minBondMaxStakeWanted: bigint
   /** reserved space for future changes */
-  reserved: ReadonlyUint8Array;
-};
+  reserved: ReadonlyUint8Array
+}
 
 export type ConfigArgs = {
   /** Admin authority that can update the config */
-  adminAuthority: Address;
+  adminAuthority: Address
   /** Operator authority (bot hot wallet) */
-  operatorAuthority: Address;
+  operatorAuthority: Address
   /** How many epochs permitting to claim the settlement */
-  epochsToClaimSettlement: number | bigint;
+  epochsToClaimSettlement: number | bigint
   /** How many epochs before withdraw is allowed */
-  withdrawLockupEpochs: number | bigint;
+  withdrawLockupEpochs: number | bigint
   /** Minimum amount of lamports to be considered for a stake account operations (e.g., split) */
-  minimumStakeLamports: number | bigint;
+  minimumStakeLamports: number | bigint
   /** PDA bonds stake accounts authority bump seed */
-  bondsWithdrawerAuthorityBump: number;
+  bondsWithdrawerAuthorityBump: number
   /** Authority that can pause the program in case of emergency */
-  pauseAuthority: Address;
-  paused: boolean;
+  pauseAuthority: Address
+  paused: boolean
   /** How many slots to wait before settlement is permitted to be claimed */
-  slotsToStartSettlementClaiming: number | bigint;
+  slotsToStartSettlementClaiming: number | bigint
   /** Minimum value of max_stake_wanted to be configured by vote account owners at bond. */
-  minBondMaxStakeWanted: number | bigint;
+  minBondMaxStakeWanted: number | bigint
   /** reserved space for future changes */
-  reserved: ReadonlyUint8Array;
-};
+  reserved: ReadonlyUint8Array
+}
 
+/** Gets the encoder for {@link ConfigArgs} account data. */
 export function getConfigEncoder(): FixedSizeEncoder<ConfigArgs> {
   return transformEncoder(
     getStructEncoder([
@@ -114,10 +115,11 @@ export function getConfigEncoder(): FixedSizeEncoder<ConfigArgs> {
       ['minBondMaxStakeWanted', getU64Encoder()],
       ['reserved', fixEncoderSize(getBytesEncoder(), 463)],
     ]),
-    (value) => ({ ...value, discriminator: CONFIG_DISCRIMINATOR })
-  );
+    value => ({ ...value, discriminator: CONFIG_DISCRIMINATOR }),
+  )
 }
 
+/** Gets the decoder for {@link Config} account data. */
 export function getConfigDecoder(): FixedSizeDecoder<Config> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
@@ -132,66 +134,67 @@ export function getConfigDecoder(): FixedSizeDecoder<Config> {
     ['slotsToStartSettlementClaiming', getU64Decoder()],
     ['minBondMaxStakeWanted', getU64Decoder()],
     ['reserved', fixDecoderSize(getBytesDecoder(), 463)],
-  ]);
+  ])
 }
 
+/** Gets the codec for {@link Config} account data. */
 export function getConfigCodec(): FixedSizeCodec<ConfigArgs, Config> {
-  return combineCodec(getConfigEncoder(), getConfigDecoder());
+  return combineCodec(getConfigEncoder(), getConfigDecoder())
 }
 
 export function decodeConfig<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress>
-): Account<Config, TAddress>;
+  encodedAccount: EncodedAccount<TAddress>,
+): Account<Config, TAddress>
 export function decodeConfig<TAddress extends string = string>(
-  encodedAccount: MaybeEncodedAccount<TAddress>
-): MaybeAccount<Config, TAddress>;
+  encodedAccount: MaybeEncodedAccount<TAddress>,
+): MaybeAccount<Config, TAddress>
 export function decodeConfig<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>
+  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>,
 ): Account<Config, TAddress> | MaybeAccount<Config, TAddress> {
   return decodeAccount(
     encodedAccount as MaybeEncodedAccount<TAddress>,
-    getConfigDecoder()
-  );
+    getConfigDecoder(),
+  )
 }
 
 export async function fetchConfig<TAddress extends string = string>(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
-  config?: FetchAccountConfig
+  config?: FetchAccountConfig,
 ): Promise<Account<Config, TAddress>> {
-  const maybeAccount = await fetchMaybeConfig(rpc, address, config);
-  assertAccountExists(maybeAccount);
-  return maybeAccount;
+  const maybeAccount = await fetchMaybeConfig(rpc, address, config)
+  assertAccountExists(maybeAccount)
+  return maybeAccount
 }
 
 export async function fetchMaybeConfig<TAddress extends string = string>(
   rpc: Parameters<typeof fetchEncodedAccount>[0],
   address: Address<TAddress>,
-  config?: FetchAccountConfig
+  config?: FetchAccountConfig,
 ): Promise<MaybeAccount<Config, TAddress>> {
-  const maybeAccount = await fetchEncodedAccount(rpc, address, config);
-  return decodeConfig(maybeAccount);
+  const maybeAccount = await fetchEncodedAccount(rpc, address, config)
+  return decodeConfig(maybeAccount)
 }
 
 export async function fetchAllConfig(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
-  config?: FetchAccountsConfig
+  config?: FetchAccountsConfig,
 ): Promise<Account<Config>[]> {
-  const maybeAccounts = await fetchAllMaybeConfig(rpc, addresses, config);
-  assertAccountsExist(maybeAccounts);
-  return maybeAccounts;
+  const maybeAccounts = await fetchAllMaybeConfig(rpc, addresses, config)
+  assertAccountsExist(maybeAccounts)
+  return maybeAccounts
 }
 
 export async function fetchAllMaybeConfig(
   rpc: Parameters<typeof fetchEncodedAccounts>[0],
   addresses: Array<Address>,
-  config?: FetchAccountsConfig
+  config?: FetchAccountsConfig,
 ): Promise<MaybeAccount<Config>[]> {
-  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config);
-  return maybeAccounts.map((maybeAccount) => decodeConfig(maybeAccount));
+  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config)
+  return maybeAccounts.map(maybeAccount => decodeConfig(maybeAccount))
 }
 
 export function getConfigSize(): number {
-  return 609;
+  return 609
 }

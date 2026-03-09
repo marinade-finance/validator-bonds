@@ -20,31 +20,31 @@ import {
   type Encoder,
   type Option,
   type OptionOrNullable,
-} from '@solana/kit';
+} from '@solana/kit'
 import {
   getProductTypeDecoder,
   getProductTypeEncoder,
   type ProductType,
   type ProductTypeArgs,
-} from '.';
+} from '.'
 
 export type InitBondProductEvent = {
-  bondProduct: Address;
-  config: Address;
-  bond: Address;
-  voteAccount: Address;
-  productType: ProductType;
-  authority: Option<Address>;
-};
+  bondProduct: Address
+  config: Address
+  bond: Address
+  voteAccount: Address
+  productType: ProductType
+  authority: Option<Address>
+}
 
 export type InitBondProductEventArgs = {
-  bondProduct: Address;
-  config: Address;
-  bond: Address;
-  voteAccount: Address;
-  productType: ProductTypeArgs;
-  authority: OptionOrNullable<Address>;
-};
+  bondProduct: Address
+  config: Address
+  bond: Address
+  voteAccount: Address
+  productType: ProductTypeArgs
+  authority: OptionOrNullable<Address>
+}
 
 export function getInitBondProductEventEncoder(): Encoder<InitBondProductEventArgs> {
   return getStructEncoder([
@@ -54,7 +54,7 @@ export function getInitBondProductEventEncoder(): Encoder<InitBondProductEventAr
     ['voteAccount', getAddressEncoder()],
     ['productType', getProductTypeEncoder()],
     ['authority', getOptionEncoder(getAddressEncoder())],
-  ]);
+  ])
 }
 
 export function getInitBondProductEventDecoder(): Decoder<InitBondProductEvent> {
@@ -65,7 +65,7 @@ export function getInitBondProductEventDecoder(): Decoder<InitBondProductEvent> 
     ['voteAccount', getAddressDecoder()],
     ['productType', getProductTypeDecoder()],
     ['authority', getOptionDecoder(getAddressDecoder())],
-  ]);
+  ])
 }
 
 export function getInitBondProductEventCodec(): Codec<
@@ -74,6 +74,6 @@ export function getInitBondProductEventCodec(): Codec<
 > {
   return combineCodec(
     getInitBondProductEventEncoder(),
-    getInitBondProductEventDecoder()
-  );
+    getInitBondProductEventDecoder(),
+  )
 }
