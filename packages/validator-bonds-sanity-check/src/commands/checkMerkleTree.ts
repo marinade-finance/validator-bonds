@@ -18,7 +18,6 @@ import YAML from 'yaml'
 import { UnifiedMerkleTreesDto } from '../dtoMerkleTree'
 import { parseSettlements } from '../dtoSettlements'
 
-
 import type {
   AnomalyDetectionResult,
   DescriptiveStats,
@@ -134,7 +133,6 @@ async function loadAndValidateUnifiedMerkleTree(
     )
   }
 }
-
 
 async function manageCheckMerkleTree({
   merkleTrees,
