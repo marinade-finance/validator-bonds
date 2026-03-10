@@ -1,4 +1,8 @@
-import { CliCommandError, printData } from '@marinade.finance/cli-common'
+import {
+  CliCommandError,
+  FORMAT_TYPE_DEF,
+  printData,
+} from '@marinade.finance/cli-common'
 import {
   instanceOfWallet,
   parsePubkey,
@@ -39,7 +43,11 @@ export function configureSubscriptions(program: Command): Command {
         '(default: wallet keypair)',
       parseWalletOrPubkeyOption,
     )
-    .option('-f, --format <format>', 'Output format: text, yaml, json', 'text')
+    .option(
+      `-f, --format <${FORMAT_TYPE_DEF.join('|')}>`,
+      'Format of output',
+      'text',
+    )
     .addOption(
       new Option(
         '--notifications-api-url <url>',
