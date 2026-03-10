@@ -103,6 +103,8 @@ pub enum SamSettlementKind {
     BidTooLowPenalty,
     /// SAM BlacklistPenalty - penalty for blacklisted validators
     BlacklistPenalty,
+    /// SAM BondRiskFee - fee for bond risk
+    BondRiskFee,
 }
 
 /// Unified settlement configuration for all settlement types.
@@ -210,6 +212,19 @@ impl BidDistributionConfig {
                 c,
                 SettlementConfig::Sam(SamSettlementConfig {
                     kind: SamSettlementKind::BlacklistPenalty,
+                    ..
+                })
+            )
+        })
+    }
+
+    /// Find the BondRiskFee config (for SAM bond risk fee settlements)
+    pub fn bond_risk_fee_config(&self) -> Option<&SettlementConfig> {
+        self.settlements.iter().find(|c| {
+            matches!(
+                c,
+                SettlementConfig::Sam(SamSettlementConfig {
+                    kind: SamSettlementKind::BondRiskFee,
                     ..
                 })
             )

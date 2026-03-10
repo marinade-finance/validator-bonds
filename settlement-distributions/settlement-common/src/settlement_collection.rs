@@ -28,6 +28,7 @@ pub enum SettlementReason {
     Bidding,
     BidTooLowPenalty,
     BlacklistPenalty,
+    BondRiskFee,
     InstitutionalPayout,
 }
 
@@ -38,6 +39,7 @@ impl Display for SettlementReason {
             SettlementReason::Bidding => write!(f, "Bidding"),
             SettlementReason::BidTooLowPenalty => write!(f, "BidTooLowPenalty"),
             SettlementReason::BlacklistPenalty => write!(f, "BlacklistPenalty"),
+            SettlementReason::BondRiskFee => write!(f, "BondRiskFee"),
             SettlementReason::InstitutionalPayout => {
                 write!(f, "InstitutionalPayout")
             }

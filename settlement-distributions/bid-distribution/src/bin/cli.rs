@@ -105,7 +105,8 @@ fn main() -> anyhow::Result<()> {
         || bid_distribution_config
             .bid_too_low_penalty_config()
             .is_some()
-        || bid_distribution_config.blacklist_penalty_config().is_some();
+        || bid_distribution_config.blacklist_penalty_config().is_some()
+        || bid_distribution_config.bond_risk_fee_config().is_some();
 
     if has_sam_configs {
         info!("Generating SAM settlements...");
@@ -140,6 +141,14 @@ fn main() -> anyhow::Result<()> {
                     "BlacklistPenalty settlement config is required in bid-distribution-config"
                 )
             })?;
+        let bond_risk_fee_config =
+            bid_distribution_config
+                .bond_risk_fee_config()
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "BondRiskFee settlement config is required in bid-distribution-config"
+                    )
+                })?;
 
         info!("Loading SAM scoring meta collection...");
         let sam_validator_metas: Vec<ValidatorSamMeta> = read_from_json_file(sam_meta_path)
@@ -188,6 +197,7 @@ fn main() -> anyhow::Result<()> {
             &sam_validator_metas,
             bid_too_low_penalty_config,
             blacklist_penalty_config,
+            bond_risk_fee_config,
             &bid_distribution_config.fee_config,
             &*stake_authority_filter,
         )?;

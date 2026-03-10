@@ -607,12 +607,19 @@ fn test_generate_penalty_settlements() {
         },
         kind: SamSettlementKind::BlacklistPenalty,
     });
+    let bond_risk_fee_config = SettlementConfig::Sam(SamSettlementConfig {
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+        kind: SamSettlementKind::BondRiskFee,
+    });
 
     let settlements = generate_penalty_settlements(
         &stake_meta_index,
         &vec![sam_meta],
         &bid_too_low_config,
         &blacklist_config,
+        &bond_risk_fee_config,
         &fee_config,
         &accept_all,
     )
@@ -630,6 +637,125 @@ fn test_generate_penalty_settlements() {
 
     let total_penalties: u64 = settlements.iter().map(|s| s.claims_amount).sum();
     assert!(total_penalties > 0, "Should have total penalty amount");
+}
+
+#[test]
+fn test_generate_bond_risk_fee_settlements() {
+    let epoch = 100;
+    let vote_account = test_vote_account(1);
+
+    let stake_metas = vec![
+        create_stake_meta(
+            test_stake_account(1),
+            vote_account,
+            test_withdraw_authority(1),
+            test_stake_authority(1),
+            75 * LAMPORTS_PER_SOL,
+        ),
+        create_stake_meta(
+            test_stake_account(2),
+            vote_account,
+            test_withdraw_authority(2),
+            test_stake_authority(1),
+            25 * LAMPORTS_PER_SOL,
+        ),
+    ];
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: stake_metas.clone(),
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let fee_config = create_test_fee_config(950, 500);
+    let meta = SettlementMeta {
+        funder: SettlementFunder::ValidatorBond,
+    };
+    let bid_cfg = SettlementConfig::Sam(SamSettlementConfig {
+        meta: meta.clone(),
+        kind: SamSettlementKind::BidTooLowPenalty,
+    });
+    let bl_cfg = SettlementConfig::Sam(SamSettlementConfig {
+        meta: meta.clone(),
+        kind: SamSettlementKind::BlacklistPenalty,
+    });
+    let brf_cfg = SettlementConfig::Sam(SamSettlementConfig {
+        meta: meta.clone(),
+        kind: SamSettlementKind::BondRiskFee,
+    });
+
+    let run = |bond_risk_fee_sol: Decimal| {
+        let sam = SamMetaParams::new(vote_account, epoch as u32)
+            .with_values(AuctionValidatorValues {
+                bond_risk_fee_sol,
+                ..AuctionValidatorValues::default()
+            })
+            .build();
+        generate_penalty_settlements(
+            &stake_meta_index,
+            &vec![sam],
+            &bid_cfg,
+            &bl_cfg,
+            &brf_cfg,
+            &fee_config,
+            &accept_all,
+        )
+    };
+
+    // zero fee -> no settlement
+    let s = run(Decimal::ZERO).unwrap();
+    assert!(
+        !s.iter()
+            .any(|s| matches!(s.reason, SettlementReason::BondRiskFee)),
+        "zero bond_risk_fee_sol should produce no BondRiskFee settlement"
+    );
+
+    // 10 SOL fee -> proportional 75/25 distribution
+    let s = run(Decimal::from(10)).unwrap();
+    let brf: Vec<_> = s
+        .iter()
+        .filter(|s| matches!(s.reason, SettlementReason::BondRiskFee))
+        .collect();
+    assert_eq!(brf.len(), 1);
+    let settlement = brf[0];
+    assert_eq!(settlement.claims.len(), 2);
+    assert!(settlement.claims_amount <= 10 * LAMPORTS_PER_SOL);
+    assert!(settlement.claims_amount > 0);
+
+    let c1 = settlement
+        .claims
+        .iter()
+        .find(|c| c.withdraw_authority == test_withdraw_authority(1))
+        .unwrap();
+    let c2 = settlement
+        .claims
+        .iter()
+        .find(|c| c.withdraw_authority == test_withdraw_authority(2))
+        .unwrap();
+    // 75% vs 25% stake -> ~3:1 ratio
+    assert!(c1.claim_amount > c2.claim_amount * 2);
+    assert_eq!(c1.claim_amount + c2.claim_amount, settlement.claims_amount);
+
+    // no other settlement types (penalties are 0)
+    assert_eq!(s.len(), 1);
+
+    // values: None -> no settlement
+    let sam_no_values = SamMetaParams::new(vote_account, epoch as u32).build();
+    let s = generate_penalty_settlements(
+        &stake_meta_index,
+        &vec![sam_no_values],
+        &bid_cfg,
+        &bl_cfg,
+        &brf_cfg,
+        &fee_config,
+        &accept_all,
+    )
+    .unwrap();
+    assert!(
+        !s.iter()
+            .any(|s| matches!(s.reason, SettlementReason::BondRiskFee)),
+        "None values should produce no BondRiskFee settlement"
+    );
 }
 
 #[test]
@@ -844,6 +970,11 @@ impl SamMetaParams {
 
     fn auction_values(mut self, commissions: CommissionDetails) -> Self {
         self.values = Some(create_auction_validator_values(commissions));
+        self
+    }
+
+    fn with_values(mut self, values: AuctionValidatorValues) -> Self {
+        self.values = Some(values);
         self
     }
 
