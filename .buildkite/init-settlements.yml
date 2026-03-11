@@ -119,6 +119,9 @@ steps:
      - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
      - claim_type=$(buildkite-agent meta-data get claim_type)
      - bash ./scripts/settlement-json-listing.sh --merkle-trees settlement-merkle-trees.json --claim-type $$claim_type
+     - epoch=$(buildkite-agent meta-data get epoch)
+     - echo "========================================================"
+     - gcloud storage cp "$gs_bucket/$$epoch/bid-distribution-discord-report.txt" - 2>/dev/null || echo "(discord report not available)"
     depends_on: "download-json"
 
   - wait: ~
