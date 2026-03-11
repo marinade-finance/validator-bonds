@@ -4,8 +4,8 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   SLACK_API: https://slack.com/api/chat.postMessage
-  # Comma-separated "filename:WEBHOOK_ENV_VAR" pairs for Discord reporting
-  DISCORD_REPORTS: "bid-distribution-discord-report.txt:DISCORD_WEBHOOK_PSR_FEED"
+  DISCORD_REPORT_FILE: "bid-distribution-discord-report.txt"
+  DISCORD_WEBHOOK_VAR: "DISCORD_WEBHOOK_PSR_FEED"
   command_name: 'init-settlement'
 
 steps:
@@ -67,7 +67,7 @@ steps:
         NOTIFY_FEED=${NOTIFY_FEED:-false}
         NOTIFY_DISCORD_FEED=${NOTIFY_DISCORD_FEED:-false}
         PIPELINES_AUTO_APPROVAL=${PIPELINES_AUTO_APPROVAL}
-        # DISCORD_REPORTS: "filename:WEBHOOK_ENV_VAR,..." (webhook env vars must be set as secrets)
+        # DISCORD_WEBHOOK_VAR: webhook env var name (must be set as a secret)
         \`\`\`
         EOF
 
@@ -121,7 +121,7 @@ steps:
      - bash ./scripts/settlement-json-listing.sh --merkle-trees settlement-merkle-trees.json --claim-type $$claim_type
      - epoch=$(buildkite-agent meta-data get epoch)
      - echo "========================================================"
-     - gcloud storage cp "$gs_bucket/$$epoch/bid-distribution-discord-report.txt" - 2>/dev/null || echo "(discord report not available)"
+     - gcloud storage cp "$gs_bucket/$$epoch/$DISCORD_REPORT_FILE" - 2>/dev/null || echo "(discord report not available)"
     depends_on: "download-json"
 
   - wait: ~
@@ -242,26 +242,20 @@ steps:
       fi
     - |
       split_command=$(which split > /dev/null 2>&1 && echo "split" || echo "gsplit")
-      IFS=',' read -ra report_entries <<< "$$DISCORD_REPORTS"
-      for entry in "$${report_entries[@]}"; do
-        IFS=':' read -r report_file webhook_var <<< "$$entry"
-        report_file=$(echo "$$report_file" | xargs)
-        webhook_var=$(echo "$$webhook_var" | xargs)
-        echo "--- Processing discord report '$$report_file' -> webhook '$$webhook_var'"
-        webhook_url="$${!webhook_var}"
-        if [[ -z "$$webhook_url" ]]; then
-          echo "WARNING: Webhook env var '$$webhook_var' is not set, skipping"
-          continue
-        fi
-        gcloud storage cp "$gs_bucket/$$epoch/$$report_file" "./discord-report.txt"
-        # discord max message length is 2000 characters
-        $$split_command -C 2000 "./discord-report.txt" './discord-report.txt.chunk-'
-        for report_chunk in './discord-report.txt.chunk-'*; do
-          report=$(cat "$$report_chunk")
-          curl "$$webhook_url" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": null, "attachments": []}')"
-        done
-        rm -f ./discord-report.txt ./discord-report.txt.chunk-*
+      webhook_url="$${!DISCORD_WEBHOOK_VAR}"
+      if [[ -z "$$webhook_url" ]]; then
+        echo "WARNING: Webhook env var '$$DISCORD_WEBHOOK_VAR' is not set, skipping"
+        exit 0
+      fi
+      echo "--- Processing discord report '$$DISCORD_REPORT_FILE' -> webhook '$$DISCORD_WEBHOOK_VAR'"
+      gcloud storage cp "$gs_bucket/$$epoch/$$DISCORD_REPORT_FILE" "./discord-report.txt"
+      # discord max message length is 2000 characters
+      $$split_command -C 2000 "./discord-report.txt" './discord-report.txt.chunk-'
+      for report_chunk in './discord-report.txt.chunk-'*; do
+        report=$(cat "$$report_chunk")
+        curl "$$webhook_url" -H "Content-Type: application/json" -d "$(jq -n --arg report "$$report" '{"content": ("```\n"+$$report+"```"), "embeds": null, "attachments": []}')"
       done
+      rm -f ./discord-report.txt ./discord-report.txt.chunk-*
     depends_on: "notification-setup-init"
     allow_dependency_failure: true
     if: "build.env('NOTIFY_DISCORD_FEED') == 'true'"
