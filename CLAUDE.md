@@ -25,17 +25,18 @@ cargo test --package settlement-common ts_cross_check_hash_generate  # single te
 
 ### Local Testing (bid-distribution-cli)
 
-Download epoch data from GCS (`gs://marinade-validator-bonds-mainnet/{epoch}/`) into `./tmp/epoch-data/`, then:
+Download epoch data from GCS (`gs://marinade-validator-bonds-mainnet/{epoch}/`) into `./tmp/`, then:
 
 ```bash
 cargo run --release --bin bid-distribution-cli -- \
   --settlement-config settlement-config.yaml \
-  --stakes-json ./tmp/epoch-data/stakes.json \
-  --sam-scores-json ./tmp/epoch-data/sam-scores.json \
-  --rewards-dir ./tmp/epoch-data/rewards \
-  --validators-json ./tmp/epoch-data/validators.json \
-  --evaluation-json ./tmp/epoch-data/evaluation.json \
-  --output-dir ./tmp/output
+  --stake-meta-collection ./tmp/stakes.json \
+  --sam-meta-collection ./tmp/sam-scores.json \
+  --rewards-dir ./tmp/rewards \
+  --validator-meta-collection ./tmp/validators.json \
+  --revenue-expectation-collection ./tmp/evaluation.json \
+  --output-settlement-collection ./tmp/settlements.json \
+  --output-protected-event-collection ./tmp/protected-events.json
 ```
 
 ## Architecture
