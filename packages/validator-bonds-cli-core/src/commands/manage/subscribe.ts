@@ -1,3 +1,4 @@
+import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import { CliCommandError } from '@marinade.finance/cli-common'
 import {
   LedgerWallet,
@@ -8,7 +9,6 @@ import {
   parsePubkey,
   parseWalletOrPubkeyOption,
 } from '@marinade.finance/web3js-1x'
-import bs58 from 'bs58'
 import { Option } from 'commander'
 
 import { getCliContext } from '../../context'
