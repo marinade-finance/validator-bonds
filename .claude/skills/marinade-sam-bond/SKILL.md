@@ -65,5 +65,4 @@ All at `https://github.com/marinade-finance/`. Clone under `./refs/` when deeper
 **Downstream consumers:**
 
 - **psr-dashboard** -- PSR validator bond dashboard (reads bonds API)
-- **marinade-sam-bot** -- optimal SAM bid calculator
 - **delegation-strategy-2** -- validator scoring API, stake allocation
