@@ -85,8 +85,14 @@ export async function manageUnsubscribe({
   const voteAccount = bondAccountData.account.data.voteAccount
   const configAddress = bondAccountData.account.data.config
 
-  const signingWallet =
-    authority && instanceOfWallet(authority) ? authority : wallet
+  if (authority && !instanceOfWallet(authority)) {
+    throw new CliCommandError({
+      valueName: 'authority',
+      value: authority.toBase58(),
+      msg: 'Cannot sign unsubscribe message: provide a keypair file or Ledger wallet as --authority, not a public key',
+    })
+  }
+  const signingWallet = authority ?? wallet
   if (!instanceOfWallet(signingWallet)) {
     throw new CliCommandError({
       valueName: 'authority',
