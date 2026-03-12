@@ -74,8 +74,14 @@ export async function showSubscriptions({
   })
   const voteAccount = bondAccountData.account.data.voteAccount
 
-  const signingWallet =
-    authority && instanceOfWallet(authority) ? authority : wallet
+  if (authority && !instanceOfWallet(authority)) {
+    throw new CliCommandError({
+      valueName: 'authority',
+      value: authority.toBase58(),
+      msg: 'Cannot sign list request: provide a keypair file or Ledger wallet as --authority, not a public key',
+    })
+  }
+  const signingWallet = authority ?? wallet
   if (!instanceOfWallet(signingWallet)) {
     throw new CliCommandError({
       valueName: 'authority',
@@ -109,7 +115,7 @@ export async function showSubscriptions({
   if (!response.ok) {
     const errorText = await response.text()
     throw new CliCommandError({
-      valueName: 'show-notifications',
+      valueName: 'subscriptions',
       value: `HTTP ${response.status}`,
       msg: `Failed to fetch subscriptions: ${errorText}`,
     })
