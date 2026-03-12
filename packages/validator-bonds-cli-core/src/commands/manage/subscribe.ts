@@ -156,7 +156,11 @@ export async function manageSubscribe({
   }
 
   const url = `${notificationsApiUrl}/subscriptions`
-  logger.debug(`POST ${url} with body: ${JSON.stringify(body)}`)
+  const logBody = {
+    ...body,
+    signature: '<redacted>',
+  }
+  logger.debug(`POST ${url} with body: ${JSON.stringify(logBody)}`)
 
   const response = await fetchNotificationsApi(url, {
     method: 'POST',
