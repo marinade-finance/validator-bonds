@@ -5,6 +5,11 @@ import {
   signOffchainMessage,
 } from '@marinade.finance/ledger-utils'
 import {
+  createSubscriptionClient,
+  NetworkError,
+  subscribeMessage,
+} from '@marinade.finance/ts-subscription-client'
+import {
   instanceOfWallet,
   parsePubkey,
   parseWalletOrPubkeyOption,
@@ -131,7 +136,7 @@ export async function manageSubscribe({
   }
 
   const timestamp = Math.floor(Date.now() / 1000)
-  const messageText = `Subscribe bonds ${type} ${timestamp}`
+  const messageText = subscribeMessage('bonds', type, timestamp)
 
   logger.info(
     `Signing subscription message for bond ${bondPubkey.toBase58()} ` +
@@ -141,7 +146,7 @@ export async function manageSubscribe({
   const signature = await signForSubscription(signingWallet, messageText)
   const signatureBase58 = bs58.encode(signature)
 
-  const body = {
+  const request = {
     pubkey: signingWallet.publicKey.toBase58(),
     notification_type: 'bonds',
     channel: type,
@@ -155,65 +160,36 @@ export async function manageSubscribe({
     },
   }
 
-  const url = `${notificationsApiUrl}/subscriptions`
-  const logBody = {
-    ...body,
-    signature: '<redacted>',
-  }
-  logger.debug(`POST ${url} with body: ${JSON.stringify(logBody)}`)
-
-  const response = await fetchNotificationsApi(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+  const client = createSubscriptionClient({
+    base_url: notificationsApiUrl,
+    logger,
   })
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new CliCommandError({
-      valueName: 'subscribe',
-      value: `HTTP ${response.status}`,
-      msg: `Subscription failed: ${errorText}`,
-    })
-  }
-
-  const result: Record<string, unknown> = (await response.json()) as Record<
-    string,
-    unknown
-  >
-
-  // For telegram, the API may return a deep link URL
-  if (type === 'telegram' && typeof result.deep_link === 'string') {
-    logger.info(
-      `Subscription created for bond ${bondPubkey.toBase58()} (vote account: ${voteAccount.toBase58()})`,
-    )
-    logger.warn(
-      `\n>>> ACTION REQUIRED: Open this link in your browser to activate Telegram notifications <<<\n\n    ${result.deep_link}\n`,
-    )
-  } else {
-    logger.info(
-      `Successfully subscribed to ${type} notifications with ${channelAddress} for bond ${bondPubkey.toBase58()} ` +
-        `(vote account: ${voteAccount.toBase58()})`,
-    )
-  }
-}
-
-/**
- * Wrapper around fetch that converts connection errors into descriptive CLI errors.
- */
-export async function fetchNotificationsApi(
-  url: string,
-  init: RequestInit,
-): Promise<Response> {
   try {
-    return await fetch(url, init)
+    const result = await client.subscribe(request)
+
+    // For telegram, the API may return a deep link URL
+    if (type === 'telegram' && typeof result.deep_link === 'string') {
+      logger.info(
+        `Subscription created for bond ${bondPubkey.toBase58()} (vote account: ${voteAccount.toBase58()})`,
+      )
+      logger.warn(
+        `\n>>> ACTION REQUIRED: Open this link in your browser to activate Telegram notifications <<<\n\n    ${result.deep_link}\n`,
+      )
+    } else {
+      logger.info(
+        `Successfully subscribed to ${type} notifications with ${channelAddress} for bond ${bondPubkey.toBase58()} ` +
+          `(vote account: ${voteAccount.toBase58()})`,
+      )
+    }
   } catch (e) {
-    throw new CliCommandError({
-      valueName: 'notifications-api-url',
-      value: url,
-      msg:
-        `Cannot connect to notification service at ${url}. ` +
-        `Is the service running? (${e instanceof Error ? e.message : String(e)})`,
-    })
+    if (e instanceof NetworkError) {
+      throw new CliCommandError({
+        valueName: 'subscribe',
+        value: e.status ? `HTTP ${e.status}` : 'connection error',
+        msg: `Subscription failed: ${e.message}`,
+      })
+    }
+    throw e
   }
 }
