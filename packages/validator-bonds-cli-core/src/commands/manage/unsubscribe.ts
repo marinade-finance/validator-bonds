@@ -129,7 +129,11 @@ export async function manageUnsubscribe({
   }
 
   const url = `${notificationsApiUrl}/subscriptions`
-  logger.debug(`DELETE ${url} with body: ${JSON.stringify(body)}`)
+  const redactedBody = {
+    ...body,
+    signature: '[redacted]',
+  }
+  logger.debug(`DELETE ${url} with body: ${JSON.stringify(redactedBody)}`)
 
   const response = await fetchNotificationsApi(url, {
     method: 'DELETE',

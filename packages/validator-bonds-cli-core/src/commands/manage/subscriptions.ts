@@ -25,7 +25,7 @@ export function configureSubscriptions(program: Command): Command {
   return program
     .command('subscriptions')
     .description(
-      'Show subscriptions for a bond notifications. ' +
+      'Show subscriptions for bond notifications. ' +
         'Requires signing with bond authority or validator identity keypair.',
     )
     .argument(
@@ -99,13 +99,18 @@ export async function showSubscriptions({
   const params = new URLSearchParams({
     pubkey,
     notification_type: 'bonds',
+    vote_account: voteAccount.toBase58(),
   })
   const url = `${notificationsApiUrl}/subscriptions?${params.toString()}`
   const headers = {
     'x-solana-signature': signatureBase58,
     'x-solana-message': messageText,
   }
-  logger.debug(`GET ${url} with headers: ${JSON.stringify(headers)}`)
+  const safeHeadersForLog = {
+    ...headers,
+    'x-solana-message': '[redacted]',
+  }
+  logger.debug(`GET ${url} with headers: ${JSON.stringify(safeHeadersForLog)}`)
 
   const response = await fetchNotificationsApi(url, {
     method: 'GET',
