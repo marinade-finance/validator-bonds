@@ -25,7 +25,7 @@ export function configureSubscriptions(program: Command): Command {
   return program
     .command('subscriptions')
     .description(
-      'Show subscriptions for bond notifications. ' +
+      'Show subscriptions to bond notifications. ' +
         'Requires signing with bond authority or validator identity keypair.',
     )
     .argument(
