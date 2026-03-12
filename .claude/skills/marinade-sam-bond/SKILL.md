@@ -50,7 +50,6 @@ All at `https://github.com/marinade-finance/`. Clone under `./refs/` when deeper
 - **institutional-staking** -- institutional staking calc + API, produces payout data
 - **stakes-etl** -- ETL pipelines producing reward files in GCS
 - **solana-snapshot-parser** -- produces stakes.json / validators.json snapshots
-- **sam-blacklist** -- blacklist data (sandwich + slow slot detection)
 
 **On-chain programs sharing state:**
 
