@@ -1,6 +1,11 @@
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import { CliCommandError } from '@marinade.finance/cli-common'
 import {
+  createSubscriptionClient,
+  NetworkError,
+  unsubscribeMessage,
+} from '@marinade.finance/ts-subscription-client'
+import {
   instanceOfWallet,
   parsePubkey,
   parseWalletOrPubkeyOption,
@@ -10,7 +15,6 @@ import { Option } from 'commander'
 import {
   NOTIFICATIONS_API_URL_DEFAULT,
   NOTIFICATIONS_API_URL_ENV,
-  fetchNotificationsApi,
   signForSubscription,
 } from './subscribe'
 import { getCliContext } from '../../context'
@@ -102,7 +106,7 @@ export async function manageUnsubscribe({
   }
 
   const timestamp = Math.floor(Date.now() / 1000)
-  const messageText = `Unsubscribe bonds ${type} ${timestamp}`
+  const messageText = unsubscribeMessage('bonds', type, timestamp)
 
   logger.info(
     `Signing unsubscribe message for bond ${bondPubkey.toBase58()} ` +
@@ -112,7 +116,15 @@ export async function manageUnsubscribe({
   const signature = await signForSubscription(signingWallet, messageText)
   const signatureBase58 = bs58.encode(signature)
 
-  const body: Record<string, unknown> = {
+  const request: {
+    pubkey: string
+    notification_type: string
+    channel: string
+    channel_address?: string
+    signature: string
+    message: string
+    additional_data: Record<string, unknown>
+  } = {
     pubkey: signingWallet.publicKey.toBase58(),
     notification_type: 'bonds',
     channel: type,
@@ -125,29 +137,25 @@ export async function manageUnsubscribe({
     },
   }
   if (channelAddress) {
-    body.channel_address = channelAddress
+    request.channel_address = channelAddress
   }
 
-  const url = `${notificationsApiUrl}/subscriptions`
-  const redactedBody = {
-    ...body,
-    signature: '[redacted]',
-  }
-  logger.debug(`DELETE ${url} with body: ${JSON.stringify(redactedBody)}`)
-
-  const response = await fetchNotificationsApi(url, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+  const client = createSubscriptionClient({
+    base_url: notificationsApiUrl,
+    logger,
   })
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new CliCommandError({
-      valueName: 'unsubscribe',
-      value: `HTTP ${response.status}`,
-      msg: `Unsubscribe failed: ${errorText}`,
-    })
+  try {
+    await client.unsubscribe(request)
+  } catch (e) {
+    if (e instanceof NetworkError) {
+      throw new CliCommandError({
+        valueName: 'unsubscribe',
+        value: e.status ? `HTTP ${e.status}` : 'connection error',
+        msg: `Unsubscribe failed: ${e.message}`,
+      })
+    }
+    throw e
   }
 
   const target = channelAddress ? `${type}:${channelAddress}` : `all ${type}`
