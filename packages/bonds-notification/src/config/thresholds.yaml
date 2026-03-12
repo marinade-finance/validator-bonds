@@ -1,0 +1,63 @@
+# Events the brain actively evaluates (with threshold logic)
+evaluated_events:
+  bond_underfunded_change:
+    # Only notify if the underfunding is materially significant
+    min_deficit_sol: 0.5
+    priority_rules:
+      - condition: 'currentEpochs < 2'
+        priority: critical
+      - condition: 'currentEpochs < 10'
+        priority: warning
+      - condition: 'currentEpochs >= 10'
+        priority: info
+        shouldNotify: false # well-funded bonds don't need notification
+    significant_change_pct: 20 # amount bucket granularity for dedup (20% to avoid oscillation noise)
+    renotify_interval_hours: 24
+    relevance_hours: 120
+
+  auction_exited:
+    priority: critical
+    renotify_interval_hours: 24
+    relevance_hours: 48
+
+  cap_changed:
+    # Only notify when cap is BOND (validator can act on this)
+    # Other caps (COUNTRY, ASO, VALIDATOR, WANT, RISK) are informational
+    notify_cap_types: ['BOND']
+    notify_cap_types_priority: warning
+    other_caps_priority: info
+    other_caps_shouldNotify: false
+    renotify_interval_hours: 24
+    relevance_hours: 120
+
+  bond_removed:
+    priority: critical
+    renotify_interval_hours: 24
+    relevance_hours: 48
+
+  announcement:
+    priority: critical
+    # No dedup — every announcement goes through
+    skip_dedup: true
+    relevance_hours: 48
+
+# Events that are passthrough (always notify at info, no threshold logic)
+passthrough_events:
+  first_seen:
+    priority: info
+    relevance_hours: 24
+    # No renotify — one-time event (dedup by epoch)
+
+  auction_entered:
+    priority: info
+    relevance_hours: 24
+
+  bond_balance_change:
+    priority: info
+    relevance_hours: 24
+    # Only goes to API channel (per routing config), not telegram
+
+  version_bump:
+    priority: info
+    relevance_hours: 24
+    skip_dedup: true

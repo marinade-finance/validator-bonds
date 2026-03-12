@@ -1,0 +1,33 @@
+{
+  "name": "@marinade.finance/bonds-notification",
+  "version": "0.0.1",
+  "description": "Bond notification brain — business logic for evaluating bond events and generating notifications",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:marinade-finance/validator-bonds.git"
+  },
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist/",
+    "!dist/__tests__"
+  ],
+  "scripts": {
+    "build": "tsc --build && cp -r src/config dist/src/",
+    "test": "jest --config jest.config.js --verbose"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.0",
+    "@types/node": "22.10.7"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
