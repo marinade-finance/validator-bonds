@@ -1,5 +1,7 @@
 # Events the brain actively evaluates (with threshold logic)
 evaluated_events:
+  # Fires when bond deficit changes. Alerts validator to top up bond before losing Marinade stake.
+  # Priority depends on how many epochs the bond can still cover — fewer epochs = more urgent.
   bond_underfunded_change:
     # Only notify if the underfunding is materially significant
     min_deficit_sol: 0.5
@@ -15,14 +17,16 @@ evaluated_events:
     renotify_interval_hours: 24
     relevance_hours: 120
 
+  # Fires when a validator drops out of the SAM auction (was winning, now not).
+  # Set relevance_hours short — validator should act within a few days or the info is stale.
   auction_exited:
     priority: critical
     renotify_interval_hours: 24
     relevance_hours: 48
 
+  # Fires when the binding constraint (cap) limiting delegated stake changes.
+  # Only BOND cap is actionable by the validator (top up bond). Other caps are system-managed.
   cap_changed:
-    # Only notify when cap is BOND (validator can act on this)
-    # Other caps (COUNTRY, ASO, VALIDATOR, WANT, RISK) are informational
     notify_cap_types: ['BOND']
     notify_cap_types_priority: warning
     other_caps_priority: info
@@ -30,33 +34,43 @@ evaluated_events:
     renotify_interval_hours: 24
     relevance_hours: 120
 
+  # Fires when a bond is no longer detected on-chain (closed or config changed).
+  # Critical — validator may have accidentally closed bond and will lose all delegated stake.
   bond_removed:
     priority: critical
     renotify_interval_hours: 24
     relevance_hours: 48
 
+  # Admin-sent broadcast messages to all bond subscribers (maintenance, policy changes, etc.).
+  # Every announcement bypasses dedup — each one is delivered exactly once to all subscribers.
   announcement:
     priority: critical
-    # No dedup — every announcement goes through
     skip_dedup: true
     relevance_hours: 48
 
 # Events that are passthrough (always notify at info, no threshold logic)
 passthrough_events:
+  # Fires when a new validator/bond is detected for the first time.
+  # Informational only — confirms the bond was picked up by the monitoring system.
   first_seen:
     priority: info
     relevance_hours: 24
     # No renotify — one-time event (dedup by epoch)
 
+  # Fires when a validator starts winning in the SAM auction (was not winning, now is).
+  # Positive signal — no action needed, just confirmation that bid is competitive.
   auction_entered:
     priority: info
     relevance_hours: 24
 
+  # Fires on any lamport-level balance change in the bond account.
+  # High-frequency, API-only (not telegram). Useful for dashboard tracking, not direct alerts.
   bond_balance_change:
     priority: info
     relevance_hours: 24
-    # Only goes to API channel (per routing config), not telegram
 
+  # Fires when the eventing module version changes (new deployment).
+  # Useful for debugging — correlate behavior changes with deployments.
   version_bump:
     priority: info
     relevance_hours: 24

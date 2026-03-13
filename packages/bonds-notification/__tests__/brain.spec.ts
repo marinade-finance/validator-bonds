@@ -1,6 +1,7 @@
 import { createBondsNotificationBrain } from '../src/brain'
+import { resetThresholdConfigCache } from '../src/threshold-config'
 
-import type { BondsEventV1 } from '../src/types'
+import type { BondsEventV1, BondsNotificationBrain } from '../src/types'
 
 function makeEvent(overrides: Partial<BondsEventV1> = {}): BondsEventV1 {
   return {
@@ -20,7 +21,12 @@ function makeEvent(overrides: Partial<BondsEventV1> = {}): BondsEventV1 {
 }
 
 describe('BondsNotificationBrain', () => {
-  const brain = createBondsNotificationBrain()
+  let brain: BondsNotificationBrain
+
+  beforeAll(async () => {
+    resetThresholdConfigCache()
+    brain = await createBondsNotificationBrain()
+  })
 
   it('full flow: underfunded event -> evaluate -> buildContent -> verify all fields', () => {
     const event = makeEvent({

@@ -40,16 +40,24 @@ export interface BondsEventV1 {
   created_at: string
 }
 
-export type BondsEventInnerType =
-  | 'first_seen'
-  | 'bond_removed'
-  | 'auction_entered'
-  | 'auction_exited'
-  | 'cap_changed'
-  | 'bond_underfunded_change'
-  | 'bond_balance_change'
-  | 'announcement'
-  | 'version_bump'
+/**
+ * Canonical list of all bond event inner types.
+ * This const array is the single source of truth — the union type is derived from it.
+ * Use this for runtime checks (e.g., validating routing config completeness).
+ */
+export const BONDS_EVENT_INNER_TYPES = [
+  'first_seen',
+  'bond_removed',
+  'auction_entered',
+  'auction_exited',
+  'cap_changed',
+  'bond_underfunded_change',
+  'bond_balance_change',
+  'announcement',
+  'version_bump',
+] as const
+
+export type BondsEventInnerType = (typeof BONDS_EVENT_INNER_TYPES)[number]
 
 export interface PriorityRule {
   condition: string

@@ -7,12 +7,14 @@ import type {
   BondsNotificationBrain,
   EvaluationResult,
   NotificationContent,
+  ThresholdConfig,
 } from './types'
 
 class BondsNotificationBrainImpl implements BondsNotificationBrain {
+  constructor(private readonly config: ThresholdConfig) {}
+
   evaluate(event: BondsEventV1): EvaluationResult | null {
-    const config = loadThresholdConfig()
-    return evaluate(event, config)
+    return evaluate(event, this.config)
   }
 
   extractUserId(event: BondsEventV1): string {
@@ -27,6 +29,7 @@ class BondsNotificationBrainImpl implements BondsNotificationBrain {
   }
 }
 
-export function createBondsNotificationBrain(): BondsNotificationBrain {
-  return new BondsNotificationBrainImpl()
+export async function createBondsNotificationBrain(): Promise<BondsNotificationBrain> {
+  const config = await loadThresholdConfig()
+  return new BondsNotificationBrainImpl(config)
 }

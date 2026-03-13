@@ -10,6 +10,8 @@ export {
   loadThresholdConfig,
   resetThresholdConfigCache,
 } from './threshold-config'
+export * from './threshold-config-dto'
+export { BONDS_EVENT_INNER_TYPES } from './types'
 export type {
   BondsNotificationBrain,
   BondsEventV1,

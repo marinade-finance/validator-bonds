@@ -1,5 +1,8 @@
 import { evaluate, matchesCondition } from '../src/evaluate'
-import { loadThresholdConfig } from '../src/threshold-config'
+import {
+  loadThresholdConfig,
+  resetThresholdConfigCache,
+} from '../src/threshold-config'
 
 import type { BondsEventV1, ThresholdConfig } from '../src/types'
 
@@ -23,8 +26,9 @@ function makeEvent(overrides: Partial<BondsEventV1> = {}): BondsEventV1 {
 describe('evaluate', () => {
   let config: ThresholdConfig
 
-  beforeAll(() => {
-    config = loadThresholdConfig()
+  beforeAll(async () => {
+    resetThresholdConfigCache()
+    config = await loadThresholdConfig()
   })
 
   describe('bond_underfunded_change', () => {
