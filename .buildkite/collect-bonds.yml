@@ -120,6 +120,7 @@ steps:
     - retry_max_attempts=$(buildkite-agent meta-data get retry_max_attempts)
     - retry_base_delay_ms=$(buildkite-agent meta-data get retry_base_delay_ms)
     - emit_concurrency=$(buildkite-agent meta-data get emit_concurrency)
+    - echo "--- Note: bond eventing is intentionally implemented only for bidding bonds"
     - echo "--- Emitting bond events for $$bond_type"
     - curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem
     - pnpm install
