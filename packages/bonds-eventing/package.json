@@ -32,6 +32,7 @@
     "cli": "pnpm ts-node ./src/"
   },
   "dependencies": {
+    "bonds-event-v1": "link:../../../marinade-notifications/message-types/typescript/bonds-event-v1",
     "@marinade.finance/cli-common": "4.2.2",
     "@marinade.finance/ds-sam-sdk": "0.0.44",
     "@marinade.finance/ts-common": "4.2.2",

@@ -21,6 +21,7 @@
     "test": "jest --config jest.config.js --verbose"
   },
   "dependencies": {
+    "bonds-event-v1": "link:../../../marinade-notifications/message-types/typescript/bonds-event-v1",
     "@marinade.finance/cli-common": "4.2.2",
     "@marinade.finance/ts-common": "4.2.2",
     "class-transformer": "0.5.1"

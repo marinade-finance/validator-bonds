@@ -88,6 +88,9 @@ importers:
       '@solana/web3.js':
         specifier: 1.98.4
         version: 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      bonds-event-v1:
+        specifier: link:../../../marinade-notifications/message-types/typescript/bonds-event-v1
+        version: link:../../../marinade-notifications/message-types/typescript/bonds-event-v1
       commander:
         specifier: 14.0.1
         version: 14.0.1
@@ -119,6 +122,9 @@ importers:
       '@marinade.finance/ts-common':
         specifier: 4.2.2
         version: 4.2.2
+      bonds-event-v1:
+        specifier: link:../../../marinade-notifications/message-types/typescript/bonds-event-v1
+        version: link:../../../marinade-notifications/message-types/typescript/bonds-event-v1
       class-transformer:
         specifier: 0.5.1
         version: 0.5.1

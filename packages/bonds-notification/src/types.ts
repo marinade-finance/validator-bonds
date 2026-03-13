@@ -1,3 +1,8 @@
+export type { BondsEventV1, BondsEventInnerType } from 'bonds-event-v1'
+import { SCHEMA } from 'bonds-event-v1'
+
+import type { BondsEventV1 } from 'bonds-event-v1'
+
 export type NotificationPriority = 'critical' | 'warning' | 'info'
 
 export interface EvaluationResult {
@@ -26,38 +31,12 @@ export interface BondsNotificationBrain {
   ): NotificationContent
 }
 
-export interface BondsEventV1 {
-  type: 'bonds'
-  inner_type: BondsEventInnerType
-  vote_account: string
-  bond_pubkey: string | null
-  bond_type: string
-  epoch: number
-  data: {
-    message: string
-    details: Record<string, unknown>
-  }
-  created_at: string
-}
-
 /**
- * Canonical list of all bond event inner types.
- * This const array is the single source of truth — the union type is derived from it.
+ * Canonical list of all bond event inner types — derived from the JSON Schema
+ * so there is a single source of truth (the schema definition).
  * Use this for runtime checks (e.g., validating routing config completeness).
  */
-export const BONDS_EVENT_INNER_TYPES = [
-  'first_seen',
-  'bond_removed',
-  'auction_entered',
-  'auction_exited',
-  'cap_changed',
-  'bond_underfunded_change',
-  'bond_balance_change',
-  'announcement',
-  'version_bump',
-] as const
-
-export type BondsEventInnerType = (typeof BONDS_EVENT_INNER_TYPES)[number]
+export const BONDS_EVENT_INNER_TYPES = SCHEMA.$defs.BondsEventInnerType.enum
 
 export interface PriorityRule {
   condition: string
