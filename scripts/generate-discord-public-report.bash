@@ -25,6 +25,15 @@ marinade_fee_withdraw_authority="${MARINADE_FEE_WITHDRAW_AUTHORITY:-}"
 dao_fee_stake_authority="${DAO_FEE_STAKE_AUTHORITY:-}"
 dao_fee_withdraw_authority="${DAO_FEE_WITHDRAW_AUTHORITY:-}"
 
+# Fail fast if no fee authority addresses could be resolved from env or config
+if [[ -z "$marinade_fee_stake_authority" ]] \
+   && [[ -z "$marinade_fee_withdraw_authority" ]] \
+   && [[ -z "$dao_fee_stake_authority" ]] \
+   && [[ -z "$dao_fee_withdraw_authority" ]]; then
+  echo "Error: fee authority addresses are not configured. Set MARINADE_FEE_STAKE_AUTHORITY, MARINADE_FEE_WITHDRAW_AUTHORITY, DAO_FEE_STAKE_AUTHORITY and/or DAO_FEE_WITHDRAW_AUTHORITY, or provide settlement-config.yaml with fee_config.marinade/dao authorities." >&2
+  exit 1
+fi
+
 epoch="$(<"$settlement_collection_file" jq '.epoch' -r)"
 settlements_count=$(<"$settlement_collection_file" jq '.settlements | length' -r)
 if (( settlements_count == 0 ))
