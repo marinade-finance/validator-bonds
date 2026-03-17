@@ -4,7 +4,6 @@ import {
   fundBondInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
-  executeTx,
   getStakeAccount,
   instanceOfWallet,
   parsePubkey,
@@ -19,6 +18,7 @@ import {
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
 import {
+  executeTxHandleErrors,
   getBondFromAddress,
   isExpectedAnchorTransactionError,
 } from '../../utils'
@@ -115,7 +115,7 @@ export async function manageFundBond({
 
   logger.info(`Funding bond account ${bondAccount.toBase58()}`)
   try {
-    await executeTx({
+    await executeTxHandleErrors({
       connection: provider.connection,
       transaction: tx,
       errMessage: `'Failed to fund bond account ${bondAccount.toBase58()}`,

@@ -183,6 +183,7 @@ describe('Configure bond account using CLI', () => {
         rentPayerPath,
         '--confirmation-finality',
         'confirmed',
+        '--force',
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 0,
@@ -205,6 +206,34 @@ describe('Configure bond account using CLI', () => {
     expect(
       await provider.connection.getBalance(rentPayerKeypair.publicKey),
     ).toBeLessThan(airdropFunds)
+  })
+
+  it('rejects cpmpe decrease without --force', async () => {
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'configure-bond',
+        bondAccount.toBase58(),
+        '--authority',
+        bondAuthorityPath,
+        '--cpmpe',
+        1,
+        '--confirmation-finality',
+        'confirmed',
+      ],
+    ]).toHaveMatchingSpawnOutput({
+      code: 200,
+      stdout: /BidTooLow/,
+    })
+
+    // verify bond was NOT changed
+    const bondsData = await getBond(program, bondAccount)
+    expect(bondsData.cpmpe).toEqual(33)
   })
 
   it('configure commission when existing product', async () => {
@@ -351,6 +380,7 @@ describe('Configure bond account using CLI', () => {
         '--with-token',
         '--confirmation-finality',
         'confirmed',
+        '--force',
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 0,

@@ -6,7 +6,6 @@ import {
 import {
   instanceOfWallet,
   transaction,
-  splitAndExecuteTx,
   parsePubkeyOrPubkeyFromWallet,
   parseWalletOrPubkeyOption,
   parsePubkey,
@@ -18,7 +17,11 @@ import {
   computeUnitLimitOption,
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
-import { getBondFromAddress, getWithdrawRequestFromAddress } from '../../utils'
+import {
+  getBondFromAddress,
+  getWithdrawRequestFromAddress,
+  splitAndExecuteTxHandleErrors,
+} from '../../utils'
 
 import type {
   Wallet as WalletInterface,
@@ -233,7 +236,7 @@ export async function manageClaimWithdrawRequest({
       `for bond account ${bondAccount?.toBase58()} with stake accounts: [` +
       `${stakeAccountsToWithdraw.map(s => s.toBase58()).join(',')}]`,
   )
-  await splitAndExecuteTx({
+  await splitAndExecuteTxHandleErrors({
     connection: provider.connection,
     transaction: tx,
     errMessage: `Failed to claim withdraw requests ${withdrawRequestAddress?.toBase58()}`,
