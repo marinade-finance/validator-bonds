@@ -4,16 +4,26 @@ set -e
 
 settlement_collection_file="$1"
 settlement_type="$2"
-marinade_fee_stake_authority="${MARINADE_FEE_STAKE_AUTHORITY:-}"
-marinade_fee_withdraw_authority="${MARINADE_FEE_WITHDRAW_AUTHORITY:-}"
-dao_fee_stake_authority="${DAO_FEE_STAKE_AUTHORITY:-}"
-dao_fee_withdraw_authority="${DAO_FEE_WITHDRAW_AUTHORITY:-}"
-
 if [[ -z $settlement_collection_file ]]
 then
     echo "Usage: $0 <settlement collection file> [settlement type label]" >&2
     exit 1
 fi
+
+# Fee authority addresses: env vars override, otherwise read from settlement-config.yaml
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SETTLEMENT_CONFIG="${SCRIPT_DIR}/../settlement-config.yaml"
+if [[ -z "${MARINADE_FEE_STAKE_AUTHORITY:-}${MARINADE_FEE_WITHDRAW_AUTHORITY:-}${DAO_FEE_STAKE_AUTHORITY:-}${DAO_FEE_WITHDRAW_AUTHORITY:-}" ]] \
+   && [[ -f "$SETTLEMENT_CONFIG" ]]; then
+  MARINADE_FEE_STAKE_AUTHORITY=$(yq -r '.fee_config.marinade.stake_authority' "$SETTLEMENT_CONFIG")
+  MARINADE_FEE_WITHDRAW_AUTHORITY=$(yq -r '.fee_config.marinade.withdraw_authority' "$SETTLEMENT_CONFIG")
+  DAO_FEE_STAKE_AUTHORITY=$(yq -r '.fee_config.dao.stake_authority' "$SETTLEMENT_CONFIG")
+  DAO_FEE_WITHDRAW_AUTHORITY=$(yq -r '.fee_config.dao.withdraw_authority' "$SETTLEMENT_CONFIG")
+fi
+marinade_fee_stake_authority="${MARINADE_FEE_STAKE_AUTHORITY:-}"
+marinade_fee_withdraw_authority="${MARINADE_FEE_WITHDRAW_AUTHORITY:-}"
+dao_fee_stake_authority="${DAO_FEE_STAKE_AUTHORITY:-}"
+dao_fee_withdraw_authority="${DAO_FEE_WITHDRAW_AUTHORITY:-}"
 
 epoch="$(<"$settlement_collection_file" jq '.epoch' -r)"
 settlements_count=$(<"$settlement_collection_file" jq '.settlements | length' -r)
