@@ -181,7 +181,7 @@ export async function manageConfigureBond({
 
   tx.add(instruction)
 
-  rentPayer = rentPayer ?? authority
+  rentPayer = rentPayer ?? wallet
 
   if (
     mevBps !== undefined ||

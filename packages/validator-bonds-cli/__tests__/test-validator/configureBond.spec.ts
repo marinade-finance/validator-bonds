@@ -394,6 +394,60 @@ describe('Configure bond account using CLI', () => {
     expect(bondsData.maxStakeWanted).toEqual(999 * LAMPORTS_PER_SOL)
   })
 
+  it('wallet as rent payer when no --rent-payer provided', async () => {
+    // wallet (-k) is different from authority; wallet should pay rent
+    const walletFunds = 5 * LAMPORTS_PER_SOL
+    await airdrop(provider.connection, rentPayerKeypair.publicKey, walletFunds)
+    const walletBalanceBefore = await provider.connection.getBalance(
+      rentPayerKeypair.publicKey,
+    )
+    expect(walletBalanceBefore).toBeGreaterThanOrEqual(walletFunds)
+
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '-k',
+        rentPayerPath,
+        '--program-id',
+        program.programId.toBase58(),
+        'configure-bond',
+        voteAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--authority',
+        bondAuthorityPath,
+        '--cpmpe',
+        34,
+        '--mev-commission',
+        200,
+        '--confirmation-finality',
+        'confirmed',
+      ],
+    ]).toHaveMatchingSpawnOutput({
+      code: 0,
+      stdout: /Bond account.*successfully configured/,
+    })
+
+    const [bondProduct] = bondProductAddress(
+      bondAccount,
+      ProductTypes.commission,
+      program.programId,
+    )
+    const commissionProduct = await getBondProduct(program, bondProduct)
+    expect(commissionProduct.configData.commission).toBeDefined()
+    const commissionData = commissionProduct.configData.commission![0]
+    expect(commissionData.mevBps).toEqual(200)
+
+    // wallet (-k) paid the rent for the commission product account
+    const walletBalanceAfter = await provider.connection.getBalance(
+      rentPayerKeypair.publicKey,
+    )
+    expect(walletBalanceAfter).toBeLessThan(walletBalanceBefore)
+  })
+
   it('configure bond in print-only mode', async () => {
     await expect([
       'pnpm',
