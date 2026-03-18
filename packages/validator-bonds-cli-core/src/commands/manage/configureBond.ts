@@ -263,7 +263,7 @@ export async function manageConfigureBond({
   await executeTxHandleErrors({
     connection: provider.connection,
     transaction: tx,
-    errMessage: `'Failed to configure bond account ${bondAccount.toBase58()}`,
+    errMessage: `Failed to configure bond account ${bondAccount.toBase58()}`,
     signers,
     logger,
     computeUnitLimit,

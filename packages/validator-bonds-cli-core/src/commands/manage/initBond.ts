@@ -161,7 +161,7 @@ export async function manageInitBond({
       connection: provider.connection,
       transaction: tx,
       errMessage:
-        `'Failed to init bond account ${bondAccount.toBase58()}` +
+        `Failed to init bond account ${bondAccount.toBase58()}` +
         ` of config ${config.toBase58()}`,
       signers,
       logger,

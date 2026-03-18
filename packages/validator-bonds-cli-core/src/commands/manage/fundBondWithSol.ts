@@ -169,7 +169,7 @@ export async function manageFundBondWithSol({
     await executeTxHandleErrors({
       connection: provider.connection,
       transaction: tx,
-      errMessage: `'Failed to fund bond account ${bondAccount.toBase58()} with ${amount} from ${from.toBase58()}`,
+      errMessage: `Failed to fund bond account ${bondAccount.toBase58()} with ${amount} from ${from.toBase58()}`,
       signers,
       logger,
       computeUnitLimit,

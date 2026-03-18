@@ -118,7 +118,7 @@ export async function manageFundBond({
     await executeTxHandleErrors({
       connection: provider.connection,
       transaction: tx,
-      errMessage: `'Failed to fund bond account ${bondAccount.toBase58()}`,
+      errMessage: `Failed to fund bond account ${bondAccount.toBase58()}`,
       signers,
       logger,
       computeUnitLimit,

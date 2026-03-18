@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
-import { waitFor } from '@marinade.finance/ts-common'
-
 import type { Logger } from 'pino'
 
 export type NpmPackageData = {
@@ -9,25 +7,25 @@ export type NpmPackageData = {
 }
 
 const NPM_REGISTRY_FETCH_TIMEOUT_MS = 1000
+const FALLBACK_PACKAGE: NpmPackageData = {
+  name: '@marinade.finance/validator-bonds-cli',
+  version: '0.0.0',
+}
 
 export async function fetchLatestVersionInNpmRegistry(
   logger: Logger,
   npmRegistryUrl: string,
 ): Promise<NpmPackageData> {
+  const controller = new AbortController()
+  const timeout = setTimeout(
+    () => controller.abort(),
+    NPM_REGISTRY_FETCH_TIMEOUT_MS,
+  )
   try {
-    const fetchPromise = fetch(npmRegistryUrl, {
+    const fetched = await fetch(npmRegistryUrl, {
       method: 'GET',
+      signal: controller.signal,
     })
-    const timeoutPromise = waitFor(NPM_REGISTRY_FETCH_TIMEOUT_MS).then(
-      () => null,
-    )
-    const fetched = await Promise.race([fetchPromise, timeoutPromise])
-    if (fetched === null) {
-      logger.debug(
-        `NPM registry fetch timed out after ${NPM_REGISTRY_FETCH_TIMEOUT_MS}ms`,
-      )
-      return { name: '@marinade.finance/validator-bonds-...', version: '0.0.0' }
-    }
     const fetchedJson = await fetched.json()
     const name: string = fetchedJson.name
     const versionsData: any[] = fetchedJson.versions
@@ -36,10 +34,18 @@ export async function fetchLatestVersionInNpmRegistry(
     const latestVersion = sortedVersions[sortedVersions.length - 1] || '0.0.0'
     return { name, version: latestVersion }
   } catch (err) {
-    logger.debug(
-      `Failed to fetch latest version from NPM registry ${npmRegistryUrl}: ${String(err)}`,
-    )
-    return { name: '@marinade.finance/validator-bonds-...', version: '0.0.0' }
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      logger.debug(
+        `NPM registry fetch timed out after ${NPM_REGISTRY_FETCH_TIMEOUT_MS}ms`,
+      )
+    } else {
+      logger.debug(
+        `Failed to fetch latest version from NPM registry ${npmRegistryUrl}: ${String(err)}`,
+      )
+    }
+    return FALLBACK_PACKAGE
+  } finally {
+    clearTimeout(timeout)
   }
 }
 

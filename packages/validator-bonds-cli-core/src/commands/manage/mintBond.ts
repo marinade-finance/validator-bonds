@@ -105,7 +105,7 @@ export async function manageMintBond({
   await executeTxHandleErrors({
     connection: provider.connection,
     transaction: tx,
-    errMessage: `'Failed to mint token for bond ${bondAccount.toBase58()}`,
+    errMessage: `Failed to mint token for bond ${bondAccount.toBase58()}`,
     signers,
     logger,
     computeUnitLimit,
