@@ -48,6 +48,12 @@ export function installConfigureBond(program: Command) {
     .addOption(inflationCommissionOption())
     .addOption(mevCommissionOption())
     .addOption(blockCommissionOption())
+    .option(
+      '--force',
+      'Force the configuration change even when decreasing the bid (cpmpe). ' +
+        'Without this flag, decreasing cpmpe is not permitted.',
+      false,
+    )
     .action(
       async (
         address: Promise<PublicKey>,
@@ -63,6 +69,7 @@ export function installConfigureBond(program: Command) {
           blockCommission,
           computeUnitLimit,
           rentPayer,
+          force,
         }: {
           config?: Promise<PublicKey>
           authority?: Promise<WalletInterface | PublicKey>
@@ -75,6 +82,7 @@ export function installConfigureBond(program: Command) {
           blockCommission?: BN | null
           computeUnitLimit?: number
           rentPayer?: Promise<WalletInterface | PublicKey>
+          force: boolean
         },
       ) => {
         await manageConfigureBond({
@@ -91,6 +99,7 @@ export function installConfigureBond(program: Command) {
           uniformBps: undefined,
           computeUnitLimit,
           rentPayer: await rentPayer,
+          force,
         })
       },
     )

@@ -4,7 +4,6 @@ import {
   getRentExemptStake,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
-  executeTx,
   instanceOfWallet,
   parsePubkey,
   parseWalletOrPubkeyOption,
@@ -24,7 +23,11 @@ import {
   computeUnitLimitOption,
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
-import { formatToSol, getBondFromAddress } from '../../utils'
+import {
+  executeTxHandleErrors,
+  formatToSol,
+  getBondFromAddress,
+} from '../../utils'
 
 import type {
   Wallet,
@@ -163,10 +166,10 @@ export async function manageFundBondWithSol({
       `with ${amount} SOL from wallet ${from.toBase58()}`,
   )
   try {
-    await executeTx({
+    await executeTxHandleErrors({
       connection: provider.connection,
       transaction: tx,
-      errMessage: `'Failed to fund bond account ${bondAccount.toBase58()} with ${amount} from ${from.toBase58()}`,
+      errMessage: `Failed to fund bond account ${bondAccount.toBase58()} with ${amount} from ${from.toBase58()}`,
       signers,
       logger,
       computeUnitLimit,

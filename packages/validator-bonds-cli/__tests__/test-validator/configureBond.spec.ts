@@ -183,6 +183,7 @@ describe('Configure bond account using CLI', () => {
         rentPayerPath,
         '--confirmation-finality',
         'confirmed',
+        '--force',
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 0,
@@ -205,6 +206,34 @@ describe('Configure bond account using CLI', () => {
     expect(
       await provider.connection.getBalance(rentPayerKeypair.publicKey),
     ).toBeLessThan(airdropFunds)
+  })
+
+  it('rejects cpmpe decrease without --force', async () => {
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'configure-bond',
+        bondAccount.toBase58(),
+        '--authority',
+        bondAuthorityPath,
+        '--cpmpe',
+        1,
+        '--confirmation-finality',
+        'confirmed',
+      ],
+    ]).toHaveMatchingSpawnOutput({
+      code: 200,
+      stdout: /BidTooLow/,
+    })
+
+    // verify bond was NOT changed
+    const bondsData = await getBond(program, bondAccount)
+    expect(bondsData.cpmpe).toEqual(33)
   })
 
   it('configure commission when existing product', async () => {
@@ -351,6 +380,7 @@ describe('Configure bond account using CLI', () => {
         '--with-token',
         '--confirmation-finality',
         'confirmed',
+        '--force',
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 0,
@@ -362,6 +392,69 @@ describe('Configure bond account using CLI', () => {
     expect(bondsData.authority).toEqual(newBondAuthority)
     expect(bondsData.cpmpe).toEqual(2)
     expect(bondsData.maxStakeWanted).toEqual(999 * LAMPORTS_PER_SOL)
+  })
+
+  it('wallet as rent payer when no --rent-payer provided', async () => {
+    // wallet (-k) is different from authority; wallet should pay rent
+    const walletFunds = 5 * LAMPORTS_PER_SOL
+    await airdrop(provider.connection, rentPayerKeypair.publicKey, walletFunds)
+    const walletBalanceBefore = await provider.connection.getBalance(
+      rentPayerKeypair.publicKey,
+    )
+    expect(walletBalanceBefore).toBeGreaterThanOrEqual(walletFunds)
+
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '-k',
+        rentPayerPath,
+        '--program-id',
+        program.programId.toBase58(),
+        'configure-bond',
+        voteAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--authority',
+        bondAuthorityPath,
+        '--cpmpe',
+        34,
+        '--mev-commission',
+        200,
+        '--confirmation-finality',
+        'confirmed',
+      ],
+    ]).toHaveMatchingSpawnOutput({
+      code: 0,
+      stdout: /Bond account.*successfully configured/,
+    })
+
+    const [bondProduct] = bondProductAddress(
+      bondAccount,
+      ProductTypes.commission,
+      program.programId,
+    )
+    const commissionProduct = await getBondProduct(program, bondProduct)
+    expect(commissionProduct.configData.commission).toBeDefined()
+    const commissionData = commissionProduct.configData.commission![0]
+    expect(commissionData.mevBps).toEqual(200)
+
+    // wallet (-k) paid the rent for the commission product account
+    const walletBalanceAfter = await provider.connection.getBalance(
+      rentPayerKeypair.publicKey,
+    )
+    const bondProductAccountInfo =
+      await provider.connection.getAccountInfo(bondProduct)
+    assert(bondProductAccountInfo !== null)
+    const rentExempt =
+      await provider.connection.getMinimumBalanceForRentExemption(
+        bondProductAccountInfo.data.length,
+      )
+    expect(walletBalanceBefore - walletBalanceAfter).toBeGreaterThanOrEqual(
+      rentExempt,
+    )
   })
 
   it('configure bond in print-only mode', async () => {

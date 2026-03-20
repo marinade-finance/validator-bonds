@@ -6,13 +6,25 @@ export type NpmPackageData = {
   version: string
 }
 
+const NPM_REGISTRY_FETCH_TIMEOUT_MS = 1000
+const FALLBACK_PACKAGE: NpmPackageData = {
+  name: '@marinade.finance/validator-bonds-cli',
+  version: '0.0.0',
+}
+
 export async function fetchLatestVersionInNpmRegistry(
   logger: Logger,
   npmRegistryUrl: string,
 ): Promise<NpmPackageData> {
+  const controller = new AbortController()
+  const timeout = setTimeout(
+    () => controller.abort(),
+    NPM_REGISTRY_FETCH_TIMEOUT_MS,
+  )
   try {
     const fetched = await fetch(npmRegistryUrl, {
       method: 'GET',
+      signal: controller.signal,
     })
     const fetchedJson = await fetched.json()
     const name: string = fetchedJson.name
@@ -22,10 +34,38 @@ export async function fetchLatestVersionInNpmRegistry(
     const latestVersion = sortedVersions[sortedVersions.length - 1] || '0.0.0'
     return { name, version: latestVersion }
   } catch (err) {
-    logger.debug(
-      `Failed to fetch latest version from NPM registry ${npmRegistryUrl}: ${String(err)}`,
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      logger.debug(
+        `NPM registry fetch timed out after ${NPM_REGISTRY_FETCH_TIMEOUT_MS}ms`,
+      )
+    } else {
+      logger.debug(
+        `Failed to fetch latest version from NPM registry ${npmRegistryUrl}: ${String(err)}`,
+      )
+    }
+    return FALLBACK_PACKAGE
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+/**
+ * Checks that the CLI is up to date before executing the command.
+ * If the registry is unreachable or times out, the CLI is allowed to proceed.
+ * If the CLI version is outdated, throws an error to block execution.
+ */
+export async function requireLatestCliVersion(
+  logger: Logger,
+  npmRegistryUrl: string,
+  currentVersion: string,
+): Promise<void> {
+  const npmData = await fetchLatestVersionInNpmRegistry(logger, npmRegistryUrl)
+  if (compareVersions(currentVersion, npmData.version) < 0) {
+    throw new Error(
+      `CLI version ${currentVersion} is outdated. The latest available version is ${npmData.version}.\n` +
+        '  Please update before proceeding:\n' +
+        `  npm install -g ${npmData.name}@latest`,
     )
-    return { name: '@marinade.finance/validator-bonds-...', version: '0.0.0' }
   }
 }
 
