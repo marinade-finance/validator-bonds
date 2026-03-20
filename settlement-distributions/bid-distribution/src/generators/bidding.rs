@@ -310,7 +310,8 @@ pub fn generate_bid_settlements(
                 anyhow!("Failed to_u64 for capped settlement_claim_sum: {claim_sum_capped}",)
             })?;
 
-            // Marinade should get at least the percentage number of total rewards as per the distributor fee percentage
+            // Nominally, Marinade's distributor fee is a percentage of total rewards, but the actual
+            // distributor_fee_claim is also subject to the effective-bid cap via claim_sum_capped.
             let minimum_distributor_fee_claim =
                 total_marinade_stakers_rewards * fee_percentages.marinade_distributor_fee;
             let distributor_fee_claim = minimum_distributor_fee_claim
@@ -318,7 +319,7 @@ pub fn generate_bid_settlements(
                 .to_u64()
                 .ok_or_else(|| anyhow!("Failed to_u64 for distributor_fee_claim"))?;
 
-            // minimum is 0 when distributor fee is of amount of total (stakers get nothing)
+            // minimum is 0 when distributor fee is of amount of total (stakers get nothing), still subject to the cap
             let stakers_total_claim = claim_sum_capped_u64.saturating_sub(distributor_fee_claim);
             let dao_fee_claim = (Decimal::from(distributor_fee_claim)
                 * fee_percentages.dao_fee_share)
