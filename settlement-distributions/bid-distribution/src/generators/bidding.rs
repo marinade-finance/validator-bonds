@@ -68,6 +68,8 @@ pub struct BidSettlementDetails {
     pub staker_bid_rewards: Option<String>,
     pub total_marinade_stakers_rewards: String,
     pub settlement_claims: serde_json::Value,
+    pub settlement_claims_sum_uncapped: String,
+    pub effective_bid_cap: String,
     pub stakers_total_claim: u64,
     pub marinade_fee_claim: u64,
     pub dao_fee_claim: u64,
@@ -289,26 +291,45 @@ pub fn generate_bid_settlements(
                 settlement_claim
             );
 
-            // Marinade should get at least the percentage amount of total rewards as per the distributor fee percentage
+            // Cap total claims to prevent overpaying beyond what is charged as the maximum by the effective bid
+            let settlement_claim_sum_uncapped = settlement_claim.sum();
+            let effective_bid_cap = Decimal::from(effective_sam_marinade_active_stake)
+                * validator.rev_share.auction_effective_bid_pmpe
+                / Decimal::ONE_THOUSAND;
+            let claim_sum_capped = settlement_claim_sum_uncapped.min(effective_bid_cap);
+            if claim_sum_capped < settlement_claim_sum_uncapped {
+                warn!(
+                    "Validator {} claims capped by effective bid: uncapped={}, cap={}, effective_bid_pmpe={}",
+                    validator.vote_account,
+                    settlement_claim_sum_uncapped,
+                    claim_sum_capped,
+                    validator.rev_share.auction_effective_bid_pmpe
+                );
+            }
+            let claim_sum_capped_u64 = claim_sum_capped.to_u64().ok_or_else(|| {
+                anyhow!("Failed to_u64 for capped settlement_claim_sum: {claim_sum_capped}",)
+            })?;
+
+            // Nominally, Marinade's distributor fee is a percentage of total rewards, but the actual
+            // distributor_fee_claim is also subject to the effective-bid cap via claim_sum_capped.
             let minimum_distributor_fee_claim =
                 total_marinade_stakers_rewards * fee_percentages.marinade_distributor_fee;
             let distributor_fee_claim = minimum_distributor_fee_claim
-                .min(settlement_claim.sum())
+                .min(claim_sum_capped)
                 .to_u64()
                 .ok_or_else(|| anyhow!("Failed to_u64 for distributor_fee_claim"))?;
 
-            // minimum is 0 when distributor fee is of amount of total (stakers get nothing)
-            let settlement_claim_sum = settlement_claim.sum_u64()?;
-            let stakers_total_claim = settlement_claim_sum.saturating_sub(distributor_fee_claim);
+            // minimum is 0 when distributor fee is of amount of total (stakers get nothing), still subject to the cap
+            let stakers_total_claim = claim_sum_capped_u64.saturating_sub(distributor_fee_claim);
             let dao_fee_claim = (Decimal::from(distributor_fee_claim)
                 * fee_percentages.dao_fee_share)
                 .to_u64()
                 .ok_or_else(|| anyhow!("Failed to_u64 for dao_fee_claim"))?;
             let marinade_fee_claim = distributor_fee_claim - dao_fee_claim;
             ensure!(
-                settlement_claim_sum == stakers_total_claim + marinade_fee_claim + dao_fee_claim,
+                claim_sum_capped_u64 == stakers_total_claim + marinade_fee_claim + dao_fee_claim,
                 "Settlement claim sum {} != stakers {} + marinade fee {} + dao fee {} for validator {}",
-                settlement_claim_sum,
+                claim_sum_capped_u64,
                 stakers_total_claim,
                 marinade_fee_claim,
                 dao_fee_claim,
@@ -373,10 +394,10 @@ pub fn generate_bid_settlements(
                 claims_amount += marinade_fee_claim;
 
                 ensure!(
-                    claims_amount <= settlement_claim_sum,
+                    claims_amount <= claim_sum_capped_u64,
                     "The sum of total claims {} exceeds the total claim amount {} after adding the Marinade fee for validator {}",
                     claims_amount,
-                    settlement_claim_sum,
+                    claim_sum_capped_u64,
                     validator.vote_account
                 );
             }
@@ -392,10 +413,10 @@ pub fn generate_bid_settlements(
                 claims_amount += dao_fee_claim;
 
                 ensure!(
-                    claims_amount <= settlement_claim_sum,
+                    claims_amount <= claim_sum_capped_u64,
                     "The sum of total claims {} exceeds the total claim amount {} after adding the DAO fee for validator {}",
                     claims_amount,
-                    settlement_claim_sum,
+                    claim_sum_capped_u64,
                     validator.vote_account
                 );
             }
@@ -415,6 +436,8 @@ pub fn generate_bid_settlements(
                 staker_bid_rewards: staker_bid_rewards_opt.map(|d| d.to_string()),
                 total_marinade_stakers_rewards: total_marinade_stakers_rewards.to_string(),
                 settlement_claims: serde_json::to_value(&settlement_claim)?,
+                settlement_claims_sum_uncapped: settlement_claim_sum_uncapped.to_string(),
+                effective_bid_cap: effective_bid_cap.to_string(),
                 stakers_total_claim,
                 marinade_fee_claim,
                 dao_fee_claim,
