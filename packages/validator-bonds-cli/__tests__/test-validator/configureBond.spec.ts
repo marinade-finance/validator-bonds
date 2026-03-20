@@ -445,7 +445,16 @@ describe('Configure bond account using CLI', () => {
     const walletBalanceAfter = await provider.connection.getBalance(
       rentPayerKeypair.publicKey,
     )
-    expect(walletBalanceAfter).toBeLessThan(walletBalanceBefore)
+    const bondProductAccountInfo =
+      await provider.connection.getAccountInfo(bondProduct)
+    assert(bondProductAccountInfo !== null)
+    const rentExempt =
+      await provider.connection.getMinimumBalanceForRentExemption(
+        bondProductAccountInfo.data.length,
+      )
+    expect(walletBalanceBefore - walletBalanceAfter).toBeGreaterThanOrEqual(
+      rentExempt,
+    )
   })
 
   it('configure bond in print-only mode', async () => {
