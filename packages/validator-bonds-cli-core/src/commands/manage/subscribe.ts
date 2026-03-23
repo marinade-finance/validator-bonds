@@ -107,6 +107,12 @@ export function configureSubscribe(program: Command): Command {
         .default(NOTIFICATIONS_API_URL_DEFAULT)
         .hideHelp(),
     )
+    .addOption(
+      new Option(
+        '--no-browser',
+        'Do not open browser for Telegram deep link',
+      ).hideHelp(),
+    )
 }
 
 export async function manageSubscribe({
@@ -116,6 +122,7 @@ export async function manageSubscribe({
   type,
   channelAddress,
   notificationsApiUrl,
+  browser = true,
 }: {
   address: PublicKey
   config: PublicKey
@@ -123,6 +130,7 @@ export async function manageSubscribe({
   type: string
   channelAddress: string
   notificationsApiUrl: string
+  browser?: boolean
 }) {
   const { program, logger, wallet } = getCliContext()
 
@@ -190,7 +198,7 @@ export async function manageSubscribe({
       `(vote account: ${voteAccount.toBase58()})`
 
     if (type === 'telegram') {
-      logTelegramResult(result, bondLabel, logger)
+      logTelegramResult(result, bondLabel, logger, browser)
     } else {
       logger.info(
         `Successfully subscribed to ${type} notifications ` +
@@ -213,6 +221,7 @@ function logTelegramResult(
   result: SubscribeResponse,
   bondLabel: string,
   logger: LoggerWrapper,
+  browser: boolean,
 ): void {
   if (result.telegram_status === 'already_activated') {
     logger.info(
@@ -237,11 +246,13 @@ function logTelegramResult(
       `Subscription created for ${bondLabel},` +
         ` confirming at ${result.deep_link}`,
     )
-    openUrl(result.deep_link, logger)
-    logger.info(
-      'Opening Telegram in your browser to complete activation.' +
-        ' Press Start in the bot to confirm.',
-    )
+    if (browser) {
+      openUrl(result.deep_link, logger)
+      logger.info(
+        'Opening Telegram in your browser to complete activation.' +
+          ' Press Start in the bot to confirm.',
+      )
+    }
     return
   }
 

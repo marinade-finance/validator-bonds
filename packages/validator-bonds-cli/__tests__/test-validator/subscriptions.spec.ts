@@ -125,6 +125,7 @@ describe('CLI subscription commands', () => {
         '@testuser',
         '--authority',
         validatorIdentityPath,
+        '--no-browser',
       ],
       {
         env: {

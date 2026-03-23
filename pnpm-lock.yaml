@@ -14,10 +14,6 @@ overrides:
 importers:
 
   .:
-    dependencies:
-      '@marinade.finance/ts-subscription-client':
-        specifier: link:../marinade-notifications/ts-subscription-client
-        version: link:../marinade-notifications/ts-subscription-client
     devDependencies:
       '@jest/globals':
         specifier: 29.7.0

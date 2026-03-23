@@ -20,28 +20,31 @@ export function installSubscribe(program: Command) {
     )
     .action(
       async (
-        address: Promise<PublicKey>,
+        bondOrVoteAddress: Promise<PublicKey>,
         {
           config,
           authority,
           type,
           address: channelAddress,
           notificationsApiUrl,
+          browser,
         }: {
           config?: Promise<PublicKey>
           authority?: Promise<WalletInterface | PublicKey>
           type: string
           address: string
           notificationsApiUrl: string
+          browser: boolean
         },
       ) => {
         await manageSubscribe({
-          address: await address,
+          address: await bondOrVoteAddress,
           config: (await config) ?? MARINADE_CONFIG_ADDRESS,
           authority: await authority,
           type,
           channelAddress,
           notificationsApiUrl,
+          browser,
         })
       },
     )

@@ -78,8 +78,5 @@
   },
   "engines": {
     "node": ">=20"
-  },
-  "dependencies": {
-    "@marinade.finance/ts-subscription-client": "^1.0.0"
   }
 }
