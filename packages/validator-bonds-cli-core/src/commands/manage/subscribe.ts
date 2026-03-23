@@ -37,7 +37,7 @@ function openUrl(url: string, logger: LoggerWrapper): void {
     process.platform === 'darwin'
       ? 'open'
       : process.platform === 'win32'
-        ? 'start'
+        ? 'start ""'
         : 'xdg-open'
   exec(`${cmd} ${JSON.stringify(url)}`, error => {
     if (error) {
