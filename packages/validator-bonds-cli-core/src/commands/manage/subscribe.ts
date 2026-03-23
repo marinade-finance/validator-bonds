@@ -168,14 +168,31 @@ export async function manageSubscribe({
   try {
     const result = await client.subscribe(request)
 
-    // For telegram, the API may return a deep link URL
-    if (type === 'telegram' && typeof result.deep_link === 'string') {
-      logger.info(
-        `Subscription created for bond ${bondPubkey.toBase58()} (vote account: ${voteAccount.toBase58()})`,
-      )
-      logger.warn(
-        `\n>>> ACTION REQUIRED: Open this link in your browser to activate Telegram notifications <<<\n\n    ${result.deep_link}\n`,
-      )
+    if (type === 'telegram') {
+      if (typeof result.deep_link === 'string') {
+        logger.info(
+          `Subscription created for bond ${bondPubkey.toBase58()} (vote account: ${voteAccount.toBase58()})`,
+        )
+        logger.warn(
+          `\n>>> ACTION REQUIRED: Open this link in your browser to activate Telegram notifications <<<\n\n    ${result.deep_link}\n`,
+        )
+      } else if (result.telegram_status === 'already_activated') {
+        logger.info(
+          `Telegram notifications are already active for bond ${bondPubkey.toBase58()} ` +
+            `(vote account: ${voteAccount.toBase58()}) — no action needed.`,
+        )
+      } else if (result.telegram_status === 'bot_not_configured') {
+        logger.warn(
+          `Subscription was created for bond ${bondPubkey.toBase58()} ` +
+            `(vote account: ${voteAccount.toBase58()}) but Telegram bot is not configured on the server. ` +
+            'Notifications will not be delivered until the bot is set up. Please contact support.',
+        )
+      } else {
+        logger.info(
+          `Successfully subscribed to telegram notifications with ${channelAddress} for bond ${bondPubkey.toBase58()} ` +
+            `(vote account: ${voteAccount.toBase58()})`,
+        )
+      }
     } else {
       logger.info(
         `Successfully subscribed to ${type} notifications with ${channelAddress} for bond ${bondPubkey.toBase58()} ` +
