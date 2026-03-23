@@ -1,3 +1,5 @@
+import { exec } from 'child_process'
+
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import { CliCommandError } from '@marinade.finance/cli-common'
 import {
@@ -19,6 +21,8 @@ import { Option } from 'commander'
 import { getCliContext } from '../../context'
 import { getBondFromAddress } from '../../utils'
 
+import type { LoggerWrapper } from '@marinade.finance/ts-common'
+import type { SubscribeResponse } from '@marinade.finance/ts-subscription-client'
 import type { KeypairWallet } from '@marinade.finance/web3js-1x'
 import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 import type { PublicKey } from '@solana/web3.js'
@@ -27,6 +31,20 @@ import type { Command } from 'commander'
 export const NOTIFICATIONS_API_URL_ENV = 'NOTIFICATIONS_API_URL'
 export const NOTIFICATIONS_API_URL_DEFAULT =
   'https://notifications-api.marinade.finance'
+
+function openUrl(url: string, logger: LoggerWrapper): void {
+  const cmd =
+    process.platform === 'darwin'
+      ? 'open'
+      : process.platform === 'win32'
+        ? 'start'
+        : 'xdg-open'
+  exec(`${cmd} ${JSON.stringify(url)}`, error => {
+    if (error) {
+      logger.debug({ msg: 'Failed to open browser', error: error.message })
+    }
+  })
+}
 
 /**
  * Signs a text message using the Solana off-chain message standard.
@@ -167,36 +185,16 @@ export async function manageSubscribe({
 
   try {
     const result = await client.subscribe(request)
+    const bondLabel =
+      `bond ${bondPubkey.toBase58()} ` +
+      `(vote account: ${voteAccount.toBase58()})`
 
     if (type === 'telegram') {
-      if (typeof result.deep_link === 'string') {
-        logger.info(
-          `Subscription created for bond ${bondPubkey.toBase58()} (vote account: ${voteAccount.toBase58()})`,
-        )
-        logger.warn(
-          `\n>>> ACTION REQUIRED: Open this link in your browser to activate Telegram notifications <<<\n\n    ${result.deep_link}\n`,
-        )
-      } else if (result.telegram_status === 'already_activated') {
-        logger.info(
-          `Telegram notifications are already active for bond ${bondPubkey.toBase58()} ` +
-            `(vote account: ${voteAccount.toBase58()}) — no action needed.`,
-        )
-      } else if (result.telegram_status === 'bot_not_configured') {
-        logger.warn(
-          `Subscription was created for bond ${bondPubkey.toBase58()} ` +
-            `(vote account: ${voteAccount.toBase58()}) but Telegram bot is not configured on the server. ` +
-            'Notifications will not be delivered until the bot is set up. Please contact support.',
-        )
-      } else {
-        logger.info(
-          `Successfully subscribed to telegram notifications with ${channelAddress} for bond ${bondPubkey.toBase58()} ` +
-            `(vote account: ${voteAccount.toBase58()})`,
-        )
-      }
+      logTelegramResult(result, bondLabel, logger)
     } else {
       logger.info(
-        `Successfully subscribed to ${type} notifications with ${channelAddress} for bond ${bondPubkey.toBase58()} ` +
-          `(vote account: ${voteAccount.toBase58()})`,
+        `Successfully subscribed to ${type} notifications ` +
+          `with ${channelAddress} for ${bondLabel}`,
       )
     }
   } catch (e) {
@@ -209,4 +207,45 @@ export async function manageSubscribe({
     }
     throw e
   }
+}
+
+function logTelegramResult(
+  result: SubscribeResponse,
+  bondLabel: string,
+  logger: LoggerWrapper,
+): void {
+  if (result.telegram_status === 'already_activated') {
+    logger.info(
+      `Telegram notifications are already active for ${bondLabel}` +
+        ' — no action needed.',
+    )
+    return
+  }
+
+  if (result.telegram_status === 'bot_not_configured') {
+    logger.warn(
+      `Subscription created for ${bondLabel} but Telegram bot` +
+        ' is not configured on the server.' +
+        ' Notifications will not be delivered until the bot' +
+        ' is set up. Please contact support.',
+    )
+    return
+  }
+
+  if (typeof result.deep_link === 'string') {
+    logger.info(
+      `Subscription created for ${bondLabel},` +
+        ` confirming at ${result.deep_link}`,
+    )
+    openUrl(result.deep_link, logger)
+    logger.info(
+      'Opening Telegram in your browser to complete activation.' +
+        ' Press Start in the bot to confirm.',
+    )
+    return
+  }
+
+  logger.info(
+    `Successfully subscribed to telegram notifications for ${bondLabel}`,
+  )
 }
