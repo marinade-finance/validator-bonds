@@ -80,6 +80,6 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@marinade.finance/ts-subscription-client": "link:../marinade-notifications/ts-subscription-client"
+    "@marinade.finance/ts-subscription-client": "^1.0.0"
   }
 }
