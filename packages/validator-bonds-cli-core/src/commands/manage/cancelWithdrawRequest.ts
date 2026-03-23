@@ -1,6 +1,5 @@
 import { cancelWithdrawRequestInstruction } from '@marinade.finance/validator-bonds-sdk'
 import {
-  executeTx,
   instanceOfWallet,
   parsePubkey,
   parsePubkeyOrPubkeyFromWallet,
@@ -13,7 +12,11 @@ import {
   computeUnitLimitOption,
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
-import { getBondFromAddress, getWithdrawRequestFromAddress } from '../../utils'
+import {
+  executeTxHandleErrors,
+  getBondFromAddress,
+  getWithdrawRequestFromAddress,
+} from '../../utils'
 
 import type {
   Wallet,
@@ -138,7 +141,7 @@ export async function manageCancelWithdrawRequest({
     `Cancelling withdraw request account ${withdrawRequestAccount.toBase58()} ` +
       `for bond account ${bondAccount?.toBase58()}`,
   )
-  await executeTx({
+  await executeTxHandleErrors({
     connection: provider.connection,
     transaction: tx,
     errMessage: `Failed to cancel withdraw request ${withdrawRequestAccount.toBase58()}`,

@@ -9,7 +9,6 @@ import {
 import {
   ExecutionError,
   U64_MAX,
-  executeTx,
   instanceOfWallet,
   parsePubkey,
   parsePubkeyOrPubkeyFromWallet,
@@ -24,6 +23,7 @@ import {
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
 import {
+  executeTxHandleErrors,
   formatToSol,
   formatToSolWithAll,
   getBondFromAddress,
@@ -193,7 +193,7 @@ export async function manageInitWithdrawRequest({
       `amount: ${formatToSolWithAll(amountBN)}, authority: ${authority.toBase58()}`,
   )
   try {
-    await executeTx({
+    await executeTxHandleErrors({
       connection: provider.connection,
       transaction: tx,
       errMessage: `Failed to initialize withdraw request ${withdrawRequestAccount.toBase58()}`,

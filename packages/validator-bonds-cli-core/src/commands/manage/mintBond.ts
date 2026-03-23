@@ -1,6 +1,5 @@
 import { mintBondInstruction } from '@marinade.finance/validator-bonds-sdk'
 import {
-  executeTx,
   instanceOfWallet,
   parsePubkey,
   parseWalletOrPubkeyOption,
@@ -12,7 +11,7 @@ import {
   computeUnitLimitOption,
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
-import { getBondFromAddress } from '../../utils'
+import { executeTxHandleErrors, getBondFromAddress } from '../../utils'
 
 import type {
   Wallet as WalletInterface,
@@ -103,10 +102,10 @@ export async function manageMintBond({
     `Minting bond ${bondAccount.toBase58()} token ${bondMint.toBase58()} ` +
       `for validator identity ${validatorIdentity.toBase58()}`,
   )
-  await executeTx({
+  await executeTxHandleErrors({
     connection: provider.connection,
     transaction: tx,
-    errMessage: `'Failed to mint token for bond ${bondAccount.toBase58()}`,
+    errMessage: `Failed to mint token for bond ${bondAccount.toBase58()}`,
     signers,
     logger,
     computeUnitLimit,

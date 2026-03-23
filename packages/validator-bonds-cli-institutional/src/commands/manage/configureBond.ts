@@ -39,6 +39,7 @@ export function installConfigureBond(program: Command) {
         cpmpe,
         maxStakeWanted,
         computeUnitLimit,
+        force: true,
       })
     },
   )
