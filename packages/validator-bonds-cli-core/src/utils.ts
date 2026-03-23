@@ -41,6 +41,8 @@ import type {
   ProgramAccountInfo,
   ExecuteTxParams,
   ExecuteTxReturn,
+  ExecuteTxReturnExecuted,
+  SplitAndExecuteTxData,
 } from '@marinade.finance/web3js-1x'
 import type { AccountInfo, Connection } from '@solana/web3.js'
 
@@ -535,7 +537,7 @@ export async function executeTxHandleErrors(
 
 export async function splitAndExecuteTxHandleErrors(
   args: ExecuteTxParams,
-): Promise<unknown> {
+): Promise<(ExecuteTxReturnExecuted & SplitAndExecuteTxData)[]> {
   try {
     return await splitAndExecuteTx(args)
   } catch (err) {
