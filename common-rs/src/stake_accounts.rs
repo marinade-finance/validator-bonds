@@ -58,6 +58,14 @@ pub async fn collect_stake_accounts(
         )))
     }
 
+    // DEBUG: watched stake account for investigation
+    const DEBUG_WATCHED_STAKE: &str = "6jTqfJVzdu2EL1KSC7ybEzEoKzCajeHEVfh3QApYNHjg";
+
+    info!(
+        "collect_stake_accounts: querying Stake program, withdraw_authority={:?}, stake_authority={:?}, dataSize=200",
+        withdraw_authority, stake_authority
+    );
+
     let accounts = rpc_client
         .get_program_accounts_with_config(
             &stake::program::ID,
@@ -71,16 +79,36 @@ pub async fn collect_stake_accounts(
             },
         )
         .await?;
+
+    info!(
+        "collect_stake_accounts: got {} results for withdraw_authority={:?}, stake_authority={:?}",
+        accounts.len(),
+        withdraw_authority,
+        stake_authority
+    );
+
     Ok(accounts
         .into_iter()
         .map(|(pubkey, account)| {
-            (
-                pubkey,
-                account.lamports,
+            let stake_state: StakeStateV2 =
                 bincode::deserialize(&account.data).unwrap_or_else(|_| {
                     panic!("Failed to deserialize stake account data for {pubkey}")
-                }),
-            )
+                });
+            if pubkey.to_string() == DEBUG_WATCHED_STAKE {
+                warn!(
+                    "DEBUG WATCHED STAKE ACCOUNT {} found in RPC results! \
+                     query: withdraw_authority={:?}, stake_authority={:?}, \
+                     lamports={}, authorized={:?}, delegation={:?}, lockup={:?}",
+                    pubkey,
+                    withdraw_authority,
+                    stake_authority,
+                    account.lamports,
+                    stake_state.authorized(),
+                    stake_state.delegation(),
+                    stake_state.lockup(),
+                );
+            }
+            (pubkey, account.lamports, stake_state)
         })
         .collect())
 }

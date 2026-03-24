@@ -1,7 +1,7 @@
 use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
 use clap::Parser;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use serde::Serialize;
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
@@ -443,6 +443,40 @@ async fn claim_settlement<'a>(
                 .update_no_account_to(settlement_json_data, tree_node.claim);
             continue;
         };
+
+        // DEBUG: watched stake account for investigation
+        const DEBUG_WATCHED_STAKE: &str = "6jTqfJVzdu2EL1KSC7ybEzEoKzCajeHEVfh3QApYNHjg";
+        if stake_account_to.to_string() == DEBUG_WATCHED_STAKE
+            || stake_account_from.to_string() == DEBUG_WATCHED_STAKE
+        {
+            warn!(
+                "DEBUG WATCHED STAKE in claim tx: \
+                 stake_account_to={}, stake_account_from={}, \
+                 tree_node.withdraw_authority={}, tree_node.stake_authority={}, \
+                 tree_node.claim={}, tree_node.index={}, \
+                 settlement={}, bond={}, epoch={}, \
+                 all_to_candidates={:?}",
+                stake_account_to,
+                stake_account_from,
+                tree_node.withdraw_authority,
+                tree_node.stake_authority,
+                tree_node.claim,
+                tree_node.index,
+                settlement_json_data.settlement_address,
+                settlement_json_data.bond_address,
+                settlement_json_data.epoch,
+                stake_accounts_to
+                    .iter()
+                    .map(|(pk, lam, state)| format!(
+                        "{}(lamports={}, authorized={:?}, delegation={:?})",
+                        pk,
+                        lam,
+                        state.authorized(),
+                        state.delegation()
+                    ))
+                    .collect::<Vec<_>>(),
+            );
+        }
 
         let req = program
             .request()
