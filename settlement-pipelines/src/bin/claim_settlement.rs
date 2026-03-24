@@ -135,6 +135,31 @@ async fn real_main(
     let mut claimable_settlements =
         list_claimable_settlements(rpc_client.clone(), &config_address, &config).await?;
 
+    // Filter claimable settlements to only epochs with provided JSON merkle tree data.
+    // Settlements for epochs without JSON data cannot be claimed (merkle tree nodes are required),
+    // and processing them would waste merge transactions and produce spurious errors.
+    let json_epochs: HashSet<u64> = json_loaded_settlements_per_epoch.keys().copied().collect();
+    let before_filter_count = claimable_settlements.len();
+    claimable_settlements.retain(|s| {
+        let dominated_epoch = s.settlement.epoch_created_for;
+        let has_json = json_epochs.contains(&dominated_epoch);
+        if !has_json {
+            info!(
+                "Filtering out claimable settlement {} for epoch {} (no JSON merkle tree data provided for this epoch)",
+                s.settlement_address, dominated_epoch
+            );
+        }
+        has_json
+    });
+    if claimable_settlements.len() < before_filter_count {
+        info!(
+            "Filtered claimable settlements from {} to {} (limited to epochs with JSON data: {:?})",
+            before_filter_count,
+            claimable_settlements.len(),
+            json_epochs
+        );
+    }
+
     reporting.reportable.init(
         rpc_client.clone(),
         &json_loaded_settlements_per_epoch,
