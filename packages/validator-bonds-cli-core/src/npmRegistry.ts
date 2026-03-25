@@ -30,7 +30,10 @@ export async function fetchLatestVersionInNpmRegistry(
     const name: string = fetchedJson.name
     const versionsData: any[] = fetchedJson.versions
     const versions = Object.keys(versionsData) // ['1.0.0', 1.0.1', '1.0.2']
-    const sortedVersions = versions.sort(compareVersions)
+    const stableVersions = versions.filter(v => !v.includes('-'))
+    const sortedVersions = (
+      stableVersions.length > 0 ? stableVersions : versions
+    ).sort(compareVersions)
     const latestVersion = sortedVersions[sortedVersions.length - 1] || '0.0.0'
     return { name, version: latestVersion }
   } catch (err) {
@@ -70,27 +73,50 @@ export async function requireLatestCliVersion(
 }
 
 export function compareVersions(a: string, b: string): number {
-  const parseVersion = (version: string) =>
-    version
-      .split('.')
-      .map(part => (isNaN(parseInt(part)) ? part : parseInt(part)))
+  // Split version into [major, minor, patch] and optional prerelease tag
+  // e.g., "2.4.1-beta.1" → core [2, 4, 1], prerelease "beta.1"
+  const parse = (version: string) => {
+    const [core = '', ...rest] = version.split('-')
+    const parts = core.split('.').map(p => parseInt(p, 10) || 0)
+    const prerelease = rest.length > 0 ? rest.join('-') : undefined
+    return { parts, prerelease }
+  }
 
-  const aParts = parseVersion(a)
-  const bParts = parseVersion(b)
+  const av = parse(a)
+  const bv = parse(b)
 
-  for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
-    const aPart = aParts[i] ?? 0
-    const bPart = bParts[i] ?? 0
+  for (let i = 0; i < Math.max(av.parts.length, bv.parts.length); i++) {
+    const aPart = av.parts[i] ?? 0
+    const bPart = bv.parts[i] ?? 0
+    if (aPart !== bPart) {
+      return aPart - bPart
+    }
+  }
 
-    if (typeof aPart === 'number' && typeof bPart === 'number') {
-      if (aPart !== bPart) {
-        return aPart - bPart
-      }
-    } else {
-      const aPartString = aPart.toString()
-      const bPartString = bPart.toString()
-      if (aPartString !== bPartString) {
-        return aPartString.localeCompare(bPartString)
+  // Same numeric version: prerelease sorts below release (2.4.1-beta < 2.4.1)
+  if (av.prerelease && !bv.prerelease) return -1
+  if (!av.prerelease && bv.prerelease) return 1
+  if (av.prerelease && bv.prerelease) {
+    const aIds = av.prerelease.split('.')
+    const bIds = bv.prerelease.split('.')
+    for (let i = 0; i < Math.max(aIds.length, bIds.length); i++) {
+      if (i >= aIds.length) return -1
+      if (i >= bIds.length) return 1
+      const aId = aIds[i] as string
+      const bId = bIds[i] as string
+      const aNum = parseInt(aId, 10)
+      const bNum = parseInt(bId, 10)
+      const aIsNum = !isNaN(aNum) && String(aNum) === aId
+      const bIsNum = !isNaN(bNum) && String(bNum) === bId
+      if (aIsNum && bIsNum) {
+        if (aNum !== bNum) return aNum - bNum
+      } else if (aIsNum) {
+        return -1
+      } else if (bIsNum) {
+        return 1
+      } else {
+        const cmp = aId.localeCompare(bId)
+        if (cmp !== 0) return cmp
       }
     }
   }
