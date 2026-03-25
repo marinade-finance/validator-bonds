@@ -1,6 +1,6 @@
 {
   "name": "@marinade.finance/validator-bonds-cli-core",
-  "version": "2.4.0",
+  "version": "2.4.0-beta.1",
   "description": "Common CLI Core of the validator bonds contract",
   "repository": {
     "type": "git",
@@ -47,7 +47,7 @@
     "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
     "yaml": "2.8.1",
     "@marinade.finance/jest-shell-matcher": "1.1.2",
-    "@marinade.finance/ts-subscription-client": "1.0.0"
+    "@marinade.finance/ts-subscription-client": "link:/home/chalda/marinade/marinade-notifications/ts-subscription-client"
   },
   "peerDependencies": {
     "@marinade.finance/validator-bonds-sdk": "workspace: *",

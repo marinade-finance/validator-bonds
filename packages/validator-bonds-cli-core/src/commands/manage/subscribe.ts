@@ -10,6 +10,7 @@ import {
   createSubscriptionClient,
   NetworkError,
   subscribeMessage,
+  NOTIFICATION_TYPE_SAM_AUCTION,
 } from '@marinade.finance/ts-subscription-client'
 import {
   instanceOfWallet,
@@ -162,7 +163,11 @@ export async function manageSubscribe({
   }
 
   const timestamp = Math.floor(Date.now() / 1000)
-  const messageText = subscribeMessage('bonds', type, timestamp)
+  const messageText = subscribeMessage(
+    NOTIFICATION_TYPE_SAM_AUCTION,
+    type,
+    timestamp,
+  )
 
   logger.info(
     `Signing subscription message for bond ${bondPubkey.toBase58()} ` +
@@ -174,7 +179,7 @@ export async function manageSubscribe({
 
   const request = {
     pubkey: signingWallet.publicKey.toBase58(),
-    notification_type: 'bonds',
+    notification_type: NOTIFICATION_TYPE_SAM_AUCTION,
     channel: type,
     channel_address: channelAddress,
     signature: signatureBase58,
@@ -223,7 +228,8 @@ function logTelegramResult(
   logger: LoggerWrapper,
   browser: boolean,
 ): void {
-  if (result.telegram_status === 'already_activated') {
+  const tgStatus = result.telegram_status as string | undefined
+  if (tgStatus === 'already_activated') {
     logger.info(
       `Telegram notifications are already active for ${bondLabel}` +
         ' — no action needed.',
@@ -231,7 +237,7 @@ function logTelegramResult(
     return
   }
 
-  if (result.telegram_status === 'bot_not_configured') {
+  if (tgStatus === 'bot_not_configured') {
     logger.warn(
       `Subscription created for ${bondLabel} but Telegram bot` +
         ' is not configured on the server.' +

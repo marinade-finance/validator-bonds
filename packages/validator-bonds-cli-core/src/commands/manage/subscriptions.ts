@@ -8,6 +8,7 @@ import {
   createSubscriptionClient,
   listSubscriptionsMessage,
   NetworkError,
+  NOTIFICATION_TYPE_SAM_AUCTION,
 } from '@marinade.finance/ts-subscription-client'
 import {
   instanceOfWallet,
@@ -85,6 +86,8 @@ export async function showSubscriptions({
     logger,
   })
   const voteAccount = bondAccountData.account.data.voteAccount
+  const configAddress = bondAccountData.account.data.config
+  const bondPubkey = bondAccountData.publicKey
 
   if (authority && !instanceOfWallet(authority)) {
     throw new CliCommandError({
@@ -118,7 +121,12 @@ export async function showSubscriptions({
     const data = await client.listSubscriptions(
       {
         pubkey,
-        notification_type: 'bonds',
+        notification_type: NOTIFICATION_TYPE_SAM_AUCTION,
+        additional_data: {
+          config_address: configAddress.toBase58(),
+          vote_account: voteAccount.toBase58(),
+          bond_pubkey: bondPubkey.toBase58(),
+        },
       },
       {
         signature: signatureBase58,

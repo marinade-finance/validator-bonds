@@ -3,6 +3,7 @@ import { CliCommandError } from '@marinade.finance/cli-common'
 import {
   createSubscriptionClient,
   NetworkError,
+  NOTIFICATION_TYPE_SAM_AUCTION,
   unsubscribeMessage,
 } from '@marinade.finance/ts-subscription-client'
 import {
@@ -106,7 +107,11 @@ export async function manageUnsubscribe({
   }
 
   const timestamp = Math.floor(Date.now() / 1000)
-  const messageText = unsubscribeMessage('bonds', type, timestamp)
+  const messageText = unsubscribeMessage(
+    NOTIFICATION_TYPE_SAM_AUCTION,
+    type,
+    timestamp,
+  )
 
   logger.info(
     `Signing unsubscribe message for bond ${bondPubkey.toBase58()} ` +
@@ -126,7 +131,7 @@ export async function manageUnsubscribe({
     additional_data: Record<string, unknown>
   } = {
     pubkey: signingWallet.publicKey.toBase58(),
-    notification_type: 'bonds',
+    notification_type: NOTIFICATION_TYPE_SAM_AUCTION,
     channel: type,
     signature: signatureBase58,
     message: messageText,
