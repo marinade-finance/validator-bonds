@@ -50,7 +50,6 @@ All at `https://github.com/marinade-finance/`. Clone under `./refs/` when deeper
 - **institutional-staking** -- institutional staking calc + API, produces payout data
 - **stakes-etl** -- ETL pipelines producing reward files in GCS
 - **solana-snapshot-parser** -- produces stakes.json / validators.json snapshots
-- **sam-blacklist** -- blacklist data (sandwich + slow slot detection)
 
 **On-chain programs sharing state:**
 
@@ -66,5 +65,4 @@ All at `https://github.com/marinade-finance/`. Clone under `./refs/` when deeper
 **Downstream consumers:**
 
 - **psr-dashboard** -- PSR validator bond dashboard (reads bonds API)
-- **marinade-sam-bot** -- optimal SAM bid calculator
 - **delegation-strategy-2** -- validator scoring API, stake allocation
