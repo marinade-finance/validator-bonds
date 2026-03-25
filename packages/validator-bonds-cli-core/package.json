@@ -47,7 +47,7 @@
     "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
     "yaml": "2.8.1",
     "@marinade.finance/jest-shell-matcher": "1.1.2",
-    "@marinade.finance/ts-subscription-client": "1.0.0"
+    "@marinade.finance/ts-subscription-client": "link:/home/chalda/tmp/marinade-notifications/ts-subscription-client"
   },
   "peerDependencies": {
     "@marinade.finance/validator-bonds-sdk": "workspace: *",
