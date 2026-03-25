@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 Marinade Validator Bonds -- Solana protocol protecting stakers via bonds posted by validators.
 Monorepo: on-chain Anchor program, TS SDK/CLI, Rust off-chain settlement CLIs, Buildkite pipelines, REST API.
 
