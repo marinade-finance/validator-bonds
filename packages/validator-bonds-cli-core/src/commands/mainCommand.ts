@@ -12,10 +12,7 @@ import pino from 'pino'
 import { startFetchingAnnouncements } from '../announcements'
 import { printAnnouncementBanners } from '../banner'
 import { setValidatorBondsCliContext } from '../context'
-import {
-  compareVersions,
-  fetchLatestVersionInNpmRegistry,
-} from '../npmRegistry'
+import { requireLatestCliVersion } from '../npmRegistry'
 
 import type { AnnouncementsConfig } from '../announcements'
 
@@ -141,6 +138,8 @@ export function launchCliProgram({
       verbose,
       command: commandName,
     })
+
+    await requireLatestCliVersion(logger, npmRegistryUrl, version)
   })
 
   if (announcementsConfig?.enabled) {
@@ -169,22 +168,6 @@ export function launchCliProgram({
           err instanceof Error ? JSON.stringify(err.stack, null, 2) : undefined,
         args: process.argv,
       })
-
-      // Check for the latest version to inform user to update
-      fetchLatestVersionInNpmRegistry(logger, npmRegistryUrl)
-        .then(npmData => {
-          if (
-            compareVersions(program.version() ?? '0.0.0', npmData.version) < 0
-          ) {
-            logger.error(
-              `CLI version ${program.version()} is lower than the latest available version: ${npmData.version}. Please consider updating it:\n` +
-                `  npm install -g ${npmData.name}@latest\n`,
-            )
-          }
-        })
-        .catch(err => {
-          logger.debug(`Failed to check the latest version: ${err}`)
-        })
 
       logger.flush()
       process.exitCode = 200

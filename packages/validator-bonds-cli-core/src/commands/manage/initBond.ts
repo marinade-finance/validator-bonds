@@ -5,7 +5,6 @@ import {
 } from '@marinade.finance/validator-bonds-sdk'
 import {
   ExecutionError,
-  executeTx,
   getVoteAccount,
   instanceOfWallet,
   parsePubkey,
@@ -20,6 +19,7 @@ import {
   computeUnitLimitOption,
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
+import { executeTxHandleErrors } from '../../utils'
 
 import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
@@ -157,11 +157,11 @@ export async function manageInitBond({
   logger.debug(`Commission bond account: ${bondProduct.toBase58()}`)
 
   try {
-    await executeTx({
+    await executeTxHandleErrors({
       connection: provider.connection,
       transaction: tx,
       errMessage:
-        `'Failed to init bond account ${bondAccount.toBase58()}` +
+        `Failed to init bond account ${bondAccount.toBase58()}` +
         ` of config ${config.toBase58()}`,
       signers,
       logger,

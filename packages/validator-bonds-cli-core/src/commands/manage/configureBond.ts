@@ -8,7 +8,6 @@ import {
   initCommissionProductInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
-  executeTx,
   instanceOfWallet,
   parsePubkey,
   parsePubkeyOrPubkeyFromWallet,
@@ -16,6 +15,7 @@ import {
   pubkey,
   transaction,
 } from '@marinade.finance/web3js-1x'
+import BN from 'bn.js'
 
 import {
   CONFIGURE_BOND_CONFIG_COMMISSION_LIMIT_UNITS,
@@ -24,7 +24,7 @@ import {
   INIT_BOND_CONFIG_COMMISSION_LIMIT_UNITS,
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
-import { getBondFromAddress } from '../../utils'
+import { executeTxHandleErrors, getBondFromAddress } from '../../utils'
 
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 import type {
@@ -36,7 +36,6 @@ import type {
   Wallet,
 } from '@marinade.finance/web3js-1x'
 import type { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
-import type BN from 'bn.js'
 import type { Command } from 'commander'
 
 export function configureConfigureBond(program: Command): Command {
@@ -88,6 +87,7 @@ export async function manageConfigureBond({
   uniformBps,
   rentPayer,
   computeUnitLimit,
+  force,
 }: {
   address: PublicKey
   config: PublicKey
@@ -102,6 +102,7 @@ export async function manageConfigureBond({
   uniformBps?: BN | null
   rentPayer?: WalletInterface | PublicKey
   computeUnitLimit?: number
+  force: boolean
 }) {
   const {
     program,
@@ -128,6 +129,20 @@ export async function manageConfigureBond({
   const bondAccountAddress = bondAccountData.publicKey
   config = bondAccountData.account.data.config
   const voteAccount = bondAccountData.account.data.voteAccount
+
+  if (cpmpe !== undefined && !force) {
+    const currentCpmpe = new BN(bondAccountData.account.data.cpmpe.toString())
+    if (cpmpe.lt(currentCpmpe)) {
+      throw new CliCommandError({
+        valueName: '--cpmpe',
+        value: `${cpmpe.toString()} (current: ${currentCpmpe.toString()})`,
+        msg:
+          'Decreasing the bid (cpmpe) may result in a BidTooLow penalty (consult the doc: https://docs.marinade.finance/marinade-protocol/protocol-overview/stake-auction-market#bid-reduction-penalty). ' +
+          'If you intend to exit the auction, create a bond withdrawal request instead, finalize the auction commitment, and withdraw the bond. ' +
+          'If you are sure you want to decrease the bid, use --force to override this check.',
+      })
+    }
+  }
 
   let bondAccount: PublicKey
   let instruction: TransactionInstruction
@@ -166,7 +181,7 @@ export async function manageConfigureBond({
 
   tx.add(instruction)
 
-  rentPayer = rentPayer ?? authority
+  rentPayer = rentPayer ?? wallet
 
   if (
     mevBps !== undefined ||
@@ -245,10 +260,10 @@ export async function manageConfigureBond({
   logger.info(
     `Configuring bond account ${bondAccount.toBase58()} with authority ${authority.toBase58()} (finalization may take seconds)`,
   )
-  await executeTx({
+  await executeTxHandleErrors({
     connection: provider.connection,
     transaction: tx,
-    errMessage: `'Failed to configure bond account ${bondAccount.toBase58()}`,
+    errMessage: `Failed to configure bond account ${bondAccount.toBase58()}`,
     signers,
     logger,
     computeUnitLimit,
