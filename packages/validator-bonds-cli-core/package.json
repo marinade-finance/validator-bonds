@@ -21,7 +21,7 @@
   ],
   "scripts": {
     "build": "tsc --build",
-    "test": "echo \"Error: no tests here\" && exit 1"
+    "test": "jest --config jest.config.js --verbose"
   },
   "devDependencies": {
     "@marinade.finance/validator-bonds-sdk": "workspace: *",
