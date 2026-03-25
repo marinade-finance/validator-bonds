@@ -17,11 +17,11 @@ env:
 
 jobs:
   lint-and-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 50
     steps:
       - name: 🛀🏼 Maximize build space
-        uses: AdityaGarg8/remove-unwanted-software@v5
+        uses: AdityaGarg8/remove-unwanted-software@90e01b21170618765a73370fcc3abbd1684a7793 # v5
         with:
           remove-android: 'true'
           remove-dotnet: 'true'
@@ -29,7 +29,7 @@ jobs:
           remove-codeql: 'true'
 
       - name: Checkout project
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: ⚙️ Install rust compilation dependencies
         run: |
@@ -37,22 +37,22 @@ jobs:
           sudo apt-get -y install libudev-dev libclang-dev llvm-dev
 
       - name: 👨‍🔧 Install Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version: 20
 
       - name: 👩‍🔧 Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
         with:
           version: 10
 
       - name: 🦿 Install Rust tookchain
-        uses: dtolnay/rust-toolchain@1.88.0
+        uses: dtolnay/rust-toolchain@e814c742d4444ce2f3f6abddea7faf00161ed941 # 1.88.0
         with:
           components: rustfmt, clippy
 
       - name: 🧠 Cache Rust dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: |
             ~/.cargo/bin/
