@@ -150,59 +150,67 @@ async function manageBidding(opts: Record<string, unknown>) {
     )
   }
 
-  // 3. Evaluate deltas
-  const events = evaluateDeltas(
-    validators,
-    previousState,
-    epoch,
-    bondType,
-    logger,
-  )
+  try {
+    // 3. Evaluate deltas
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      epoch,
+      bondType,
+      logger,
+    )
 
-  // 4. Emit events to notification service
-  const results = await emitEvents(events, config, logger)
+    // 4. Emit events to notification service
+    const results = await emitEvents(events, config, logger)
 
-  // 5. Persist events to DB
-  if (pool && !config.dryRun) {
-    await persistEvents(pool, results, logger)
+    // 5. Persist events to DB
+    if (pool && !config.dryRun) {
+      await persistEvents(pool, results, logger)
 
-    // 6. Save current state per validator — only for validators whose events all posted successfully
-    const failedVoteAccounts = new Set<string>()
-    for (const [event, result] of results) {
-      if (result.status === 'failed') {
-        failedVoteAccounts.add(event.vote_account)
+      // 6. Save current state per validator — only for validators whose events all posted successfully
+      const failedVoteAccounts = new Set<string>()
+      for (const [event, result] of results) {
+        if (result.status === 'failed') {
+          failedVoteAccounts.add(event.vote_account)
+        }
       }
+
+      if (failedVoteAccounts.size > 0) {
+        logger.warn(
+          `${failedVoteAccounts.size} validator(s) had failed events — their state will not be saved so deltas are retried on next run`,
+        )
+      }
+
+      const succeededStates = validators
+        .filter(v => !failedVoteAccounts.has(v.voteAccount))
+        .map(v => validatorToState(v, epoch, bondType))
+
+      // Delete state only for removed validators whose bond_removed event succeeded.
+      // All validators still in auction must keep their state rows (even if their events failed).
+      const keepVoteAccounts = new Set(validators.map(v => v.voteAccount))
+      for (const va of failedVoteAccounts) {
+        keepVoteAccounts.add(va) // don't delete state for failed removals either
+      }
+
+      // Save state + delete removed in a single transaction for consistency
+      await pool.transaction(async tx => {
+        if (succeededStates.length > 0) {
+          await saveCurrentState(tx, succeededStates, logger)
+        }
+        await deleteRemovedValidators(tx, bondType, keepVoteAccounts, logger)
+      })
     }
 
-    if (failedVoteAccounts.size > 0) {
-      logger.warn(
-        `${failedVoteAccounts.size} validator(s) had failed events — their state will not be saved so deltas are retried on next run`,
-      )
+    const sent = [...results.values()].filter(r => r.status === 'sent').length
+    const failed = [...results.values()].filter(
+      r => r.status === 'failed',
+    ).length
+    logger.info(
+      `Eventing complete: ${events.length} events (${sent} sent, ${failed} failed)`,
+    )
+  } finally {
+    if (pool) {
+      await pool.end()
     }
-
-    const succeededStates = validators
-      .filter(v => !failedVoteAccounts.has(v.voteAccount))
-      .map(v => validatorToState(v, epoch, bondType))
-    if (succeededStates.length > 0) {
-      await saveCurrentState(pool, succeededStates, logger)
-    }
-
-    // Delete state only for removed validators whose bond_removed event succeeded.
-    // All validators still in auction must keep their state rows (even if their events failed).
-    const keepVoteAccounts = new Set(validators.map(v => v.voteAccount))
-    for (const va of failedVoteAccounts) {
-      keepVoteAccounts.add(va) // don't delete state for failed removals either
-    }
-    await deleteRemovedValidators(pool, bondType, keepVoteAccounts, logger)
   }
-
-  if (pool) {
-    await pool.end()
-  }
-
-  const sent = [...results.values()].filter(r => r.status === 'sent').length
-  const failed = [...results.values()].filter(r => r.status === 'failed').length
-  logger.info(
-    `Eventing complete: ${events.length} events (${sent} sent, ${failed} failed)`,
-  )
 }

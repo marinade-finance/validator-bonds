@@ -22,6 +22,7 @@ export type BondsEventInnerType =
   | 'bond_balance_change'
   | 'announcement'
   | 'version_bump'
+  | 'sam_eligible_change'
 
 export interface ValidatorState {
   vote_account: string

@@ -14,6 +14,7 @@ DB table and only emits events when something changes between runs.
 - A single validator can trigger several events simultaneously (e.g., auction_exited + cap_changed + bond_balance_change in one run). They're not mutually exclusive.
 - If a validator has no previous state, only first_seen fires.
 - State is saved per validator. If a validator's event fails to POST, only that validator's state save is skipped (so its delta is retried on next run). Other validators whose events succeeded get their state saved normally.
+- The state snapshot stored per validator is always the same shape (balance, auction status, bondGoodForNEpochs, cap constraint, SAM eligibility) regardless of which event fires. Events are derived from comparing the previous and current snapshots — the event type is orthogonal to the stored state.
 
 ## Event types
 
@@ -23,7 +24,6 @@ DB table and only emits events when something changes between runs.
 
 - When: A validator appears in the current auction data but has NO previous state in the DB
 - Not emitted: On every subsequent run (once state is saved, it becomes a known validator)
-- Details: balance, auction status, bondGoodForNEpochs, cap constraint, SAM eligibility
 
 2. bond_removed — Validator disappeared
 
@@ -63,7 +63,9 @@ DB table and only emits events when something changes between runs.
 
 1. announcement — For admin-posted messages (e.g., "maintenance window tomorrow")
 
-2. version_bump — For schema/system version changes
+This exists in the type enum but is never produced automatically.
+It's meant to be POSTed manually by admins directly to the notifications API.
 
-These exist in the type enum but are never produced.
-They're meant to be POSTed manually by admins directly to the notifications API.
+## MISSING / TODO
+
+- **Outbox cleanup**: The `notifications_outbox` table in `marinade-notifications` accumulates rows unconditionally (even for events with no subscribers). A periodic cleanup job should be implemented to delete expired rows where `relevance_until < now()` or `deactivated_at IS NOT NULL`.

@@ -59,7 +59,7 @@ export function parseConfig(opts: Record<string, unknown>): EventingConfig {
       opts.emitConcurrency,
       20,
     ),
-    dryRun: opts.dryRun as boolean,
+    dryRun: opts.dryRun === true || opts.dryRun === 'true',
     cacheInputs: opts.cacheInputs as string | undefined,
   }
 }

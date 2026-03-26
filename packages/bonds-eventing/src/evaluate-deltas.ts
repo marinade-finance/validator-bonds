@@ -51,16 +51,7 @@ function getCapConstraint(v: AuctionValidator): string | null {
 }
 
 /**
- * Compute bond deficit metrics from auction validator data.
- *
- * Based on the SDK's bondGoodForNEpochs calculation:
- *   protectedStakeSol = max(0, marinadeActivatedStakeSol - unprotectedStakeSol)
- *   onchainCostSol = (onchainDistributedPmpe / 1000) * protectedStakeSol
- *   epochCostSol = (expectedMaxEffBidPmpe / 1000) * marinadeActivatedStakeSol
- *   bondBalanceForBids = max(0, bondBalanceSol - onchainCostSol)
- *   bondGoodForNEpochs = bondBalanceForBids / epochCostSol
- *
- * deficit_sol is how much more SOL is needed for 1 full epoch of bid coverage.
+ * Compute bond deficit metrics: how much more SOL is needed for 1 full epoch of bid coverage.
  */
 function computeDeficitMetrics(v: AuctionValidator): {
   epoch_cost_sol: number | null
@@ -102,6 +93,27 @@ function computeDeficitMetrics(v: AuctionValidator): {
   }
 }
 
+function makeBaseEvent(
+  innerType: BondsEventV1['inner_type'],
+  voteAccount: string,
+  bondPubkey: string,
+  epoch: number,
+  bondType: string,
+  message: string,
+  details: Record<string, unknown>,
+): BondsEventV1 {
+  return {
+    type: 'bonds',
+    inner_type: innerType,
+    vote_account: voteAccount,
+    bond_pubkey: bondPubkey,
+    bond_type: bondType,
+    epoch,
+    data: { message, details },
+    created_at: new Date().toISOString(),
+  }
+}
+
 function makeEvent(
   innerType: BondsEventV1['inner_type'],
   v: AuctionValidator,
@@ -111,19 +123,15 @@ function makeEvent(
   message: string,
   details: Record<string, unknown>,
 ): BondsEventV1 {
-  return {
-    type: 'bonds',
-    inner_type: innerType,
-    vote_account: v.voteAccount,
-    bond_pubkey: bondAddress(
-      configAddress,
-      new PublicKey(v.voteAccount),
-    )[0].toBase58(),
-    bond_type: bondType,
+  return makeBaseEvent(
+    innerType,
+    v.voteAccount,
+    bondAddress(configAddress, new PublicKey(v.voteAccount))[0].toBase58(),
     epoch,
-    data: { message, details },
-    created_at: new Date().toISOString(),
-  }
+    bondType,
+    message,
+    details,
+  )
 }
 
 export function evaluateDeltas(
@@ -234,20 +242,21 @@ export function evaluateDeltas(
     }
 
     // Bond good for N epochs change (rounded to avoid float jitter)
-    // OR deficit changed materially (the brain decides significance via
-    // min_deficit_sol / significant_change_pct, but the eventing layer
-    // must not suppress events the brain needs to see).
+    // OR deficit changed (any lamport-level difference).
     const currentEpochsRounded = roundEpochs(v.bondGoodForNEpochs)
-    const currentDeficitLamports = solToLamports(
-      computeDeficitMetrics(v).deficit_sol,
-    )
+    const currentDeficitSol = computeDeficitMetrics(v).deficit_sol
+    const currentDeficitLamports = solToLamports(currentDeficitSol)
     const epochsChanged =
       prev.bond_good_for_n_epochs !== null &&
       currentEpochsRounded !== null &&
       prev.bond_good_for_n_epochs !== currentEpochsRounded
     const epochsNewlyKnown =
       prev.bond_good_for_n_epochs === null && currentEpochsRounded !== null
-    const deficitChanged = currentDeficitLamports !== prev.deficit_lamports
+    // Skip deficit comparison when current deficit is unknown (null)
+    // to avoid conflating "unknown" with "zero"
+    const deficitChanged =
+      currentDeficitSol !== null &&
+      currentDeficitLamports !== prev.deficit_lamports
 
     if (epochsChanged || epochsNewlyKnown || deficitChanged) {
       const deficitMetrics = computeDeficitMetrics(v)
@@ -301,30 +310,49 @@ export function evaluateDeltas(
         ),
       )
     }
+
+    // SAM eligibility changes
+    if (prev.sam_eligible !== v.samEligible) {
+      events.push(
+        makeEvent(
+          'sam_eligible_change',
+          v,
+          epoch,
+          bondType,
+          configAddress,
+          `Validator ${v.voteAccount} SAM eligibility changed ` +
+            `from ${prev.sam_eligible} to ${v.samEligible}.`,
+          {
+            previous_sam_eligible: prev.sam_eligible,
+            current_sam_eligible: v.samEligible,
+          },
+        ),
+      )
+    }
   }
 
   // Check for removed validators
   for (const [voteAccount, prev] of previousState) {
     if (!seenVoteAccounts.has(voteAccount)) {
-      events.push({
-        type: 'bonds',
-        inner_type: 'bond_removed',
-        vote_account: voteAccount,
-        bond_pubkey:
+      events.push(
+        makeBaseEvent(
+          'bond_removed',
+          voteAccount,
           prev.bond_pubkey ??
-          bondAddress(configAddress, new PublicKey(voteAccount))[0].toBase58(),
-        bond_type: bondType,
-        epoch,
-        data: {
-          message: `Bond removed for validator ${voteAccount}.`,
-          details: {
+            bondAddress(
+              configAddress,
+              new PublicKey(voteAccount),
+            )[0].toBase58(),
+          epoch,
+          bondType,
+          `Bond removed for validator ${voteAccount}.`,
+          {
             last_known_funded_lamports: prev.funded_amount_lamports.toString(),
             last_known_epoch: prev.epoch,
             last_known_in_auction: prev.in_auction,
           },
-        },
-        created_at: new Date().toISOString(),
-      })
+        ),
+      )
     }
   }
 

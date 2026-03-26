@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS bond_event_state (
 -- Append-only log of emitted events
 CREATE TABLE IF NOT EXISTS emitted_bond_events (
     id BIGSERIAL PRIMARY KEY,
-    message_id UUID NOT NULL,
+    message_id UUID NOT NULL UNIQUE,
     inner_type TEXT NOT NULL,
     vote_account TEXT NOT NULL,
     bond_pubkey TEXT,

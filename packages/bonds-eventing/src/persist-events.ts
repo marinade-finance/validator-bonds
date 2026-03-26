@@ -1,8 +1,7 @@
-import { type DatabasePool, sql } from 'slonik'
+import { type DatabasePool, sql, type SerializableValue } from 'slonik'
 
 import type { BondsEventV1, EmitResult } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
-import type { SerializableValue } from 'slonik'
 
 export async function persistEvents(
   pool: DatabasePool,
@@ -35,6 +34,7 @@ export async function persistEvents(
       message_id, inner_type, vote_account, bond_pubkey,
       bond_type, epoch, payload, status, error, created_at
     ) VALUES ${sql.join(valueTuples, sql.fragment`, `)}
+    ON CONFLICT (message_id) DO NOTHING
   `)
 
   logger.info(`Persisted ${results.size} event records`)

@@ -1,9 +1,8 @@
 import crypto from 'crypto'
 
-import { sleep } from '@marinade.finance/ts-common'
+import { sleep, type LoggerWrapper } from '@marinade.finance/ts-common'
 
 import type { BondsEventV1, EmitResult, EventingConfig } from './types'
-import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
 async function postEvent(
   event: BondsEventV1,
@@ -45,6 +44,7 @@ async function postEvent(
         method: 'POST',
         headers,
         body: JSON.stringify(message),
+        signal: AbortSignal.timeout(30_000),
       })
 
       if (response.ok) {

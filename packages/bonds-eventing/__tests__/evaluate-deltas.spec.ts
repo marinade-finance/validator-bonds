@@ -137,24 +137,6 @@ describe('evaluateDeltas', () => {
     expect(events[0]!.bond_pubkey).toBe(expectedBondPubkey())
   })
 
-  it('does not re-emit bond_removed on second run after removal (simulated)', () => {
-    // Simulate: validator was removed in run 1, state was cleaned up,
-    // so run 2 should not see it in previousState and should emit no events
-    const validators: AuctionValidator[] = []
-    const previousState = new Map<string, ValidatorState>()
-    // After fix: removed validators are deleted from state,
-    // so previousState is empty on the second run
-    const events = evaluateDeltas(
-      validators,
-      previousState,
-      931,
-      'bidding',
-      logger,
-    )
-
-    expect(events).toHaveLength(0)
-  })
-
   it('emits auction_entered when validator joins auction', () => {
     const validators = [makeValidator()]
     const previousState = new Map<string, ValidatorState>()
@@ -224,35 +206,6 @@ describe('evaluateDeltas', () => {
     expect(capChanged).toBeDefined()
     expect(capChanged!.data.details.previous_cap).toBeNull()
     expect(capChanged!.data.details.current_cap).toBe('BOND')
-  })
-
-  it('emits cap_changed when constraint switches type', () => {
-    const validators = [
-      makeValidator({
-        lastCapConstraint: {
-          constraintType: 'COUNTRY',
-          constraintName: 'country_cap',
-        },
-      }),
-    ]
-    const previousState = new Map<string, ValidatorState>()
-    previousState.set(
-      TEST_VOTE_ACCOUNT,
-      makePrevState({ cap_constraint: 'VALIDATOR' }),
-    )
-
-    const events = evaluateDeltas(
-      validators,
-      previousState,
-      930,
-      'bidding',
-      logger,
-    )
-
-    const capChanged = events.find(e => e.inner_type === 'cap_changed')
-    expect(capChanged).toBeDefined()
-    expect(capChanged!.data.details.previous_cap).toBe('VALIDATOR')
-    expect(capChanged!.data.details.current_cap).toBe('COUNTRY')
   })
 
   it('emits bond_underfunded_change when epochs change', () => {

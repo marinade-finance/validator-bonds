@@ -1,4 +1,4 @@
-import { type DatabasePool, sql } from 'slonik'
+import { type CommonQueryMethods, type DatabasePool, sql } from 'slonik'
 
 import type { ValidatorState } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
@@ -70,7 +70,7 @@ export async function loadPreviousState(
 }
 
 export async function saveCurrentState(
-  pool: DatabasePool,
+  db: CommonQueryMethods,
   states: ValidatorState[],
   logger: LoggerWrapper,
 ): Promise<void> {
@@ -97,7 +97,7 @@ export async function saveCurrentState(
     )`,
   )
 
-  await pool.query(sql.unsafe`
+  await db.query(sql.unsafe`
     INSERT INTO bond_event_state (
       vote_account, bond_pubkey, bond_type, epoch,
       in_auction, bond_good_for_n_epochs, cap_constraint,
@@ -123,14 +123,14 @@ export async function saveCurrentState(
 }
 
 export async function deleteRemovedValidators(
-  pool: DatabasePool,
+  db: CommonQueryMethods,
   bondType: string,
   currentVoteAccounts: Set<string>,
   logger: LoggerWrapper,
 ): Promise<void> {
   if (currentVoteAccounts.size === 0) {
     // All validators removed - clear all state for this bond type
-    await pool.query(sql.unsafe`
+    await db.query(sql.unsafe`
       DELETE FROM bond_event_state WHERE bond_type = ${bondType}
     `)
     logger.info(`Deleted all state rows for bond_type=${bondType}`)
@@ -139,7 +139,7 @@ export async function deleteRemovedValidators(
 
   const voteAccountList = [...currentVoteAccounts]
   // Delete rows for validators no longer present in the auction result
-  const result = await pool.query(sql.unsafe`
+  const result = await db.query(sql.unsafe`
     DELETE FROM bond_event_state
     WHERE bond_type = ${bondType}
       AND vote_account != ALL(${sql.array(voteAccountList, 'text')})

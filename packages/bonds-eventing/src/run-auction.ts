@@ -4,6 +4,7 @@ import {
   type AuctionResult,
   type AuctionValidator,
   InputsSource,
+  loadSamConfig,
 } from '@marinade.finance/ds-sam-sdk'
 
 import type { EventingConfig } from './types'
@@ -17,7 +18,10 @@ export async function runAuction(
   epoch: number
   winningTotalPmpe: number
 }> {
-  const sdkConfig: Partial<DsSamConfig> = {
+  const productionConfig = await loadSamConfig()
+
+  const sdkConfig: DsSamConfig = {
+    ...productionConfig,
     bondsApiBaseUrl: config.bondsApiUrl,
     validatorsApiBaseUrl: config.validatorsApiUrl,
     scoringApiBaseUrl: config.scoringApiUrl,
