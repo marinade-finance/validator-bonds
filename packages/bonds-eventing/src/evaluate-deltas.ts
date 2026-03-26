@@ -6,7 +6,7 @@ import {
 } from '@marinade.finance/validator-bonds-sdk'
 import { PublicKey } from '@solana/web3.js'
 
-import type { BondsEventV1, ValidatorState } from './types'
+import type { BondType, BondsEventV1, ValidatorState } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
 const LAMPORTS_PER_SOL = 1_000_000_000
@@ -31,14 +31,16 @@ function roundEpochs(value: number | null | undefined): number | null {
   return Math.round(value * 100) / 100
 }
 
-export function configAddressForBondType(bondType: string): PublicKey {
+export function configAddressForBondType(bondType: BondType): PublicKey {
   switch (bondType) {
     case 'bidding':
       return MARINADE_CONFIG_ADDRESS
     case 'institutional':
       return MARINADE_INSTITUTIONAL_CONFIG_ADDRESS
-    default:
-      throw new Error(`Unknown bond type: ${bondType}`)
+    default: {
+      const _exhaustive: never = bondType
+      throw new Error(`Unknown bond type: ${String(_exhaustive)}`)
+    }
   }
 }
 
@@ -98,7 +100,7 @@ function makeBaseEvent(
   voteAccount: string,
   bondPubkey: string,
   epoch: number,
-  bondType: string,
+  bondType: BondType,
   message: string,
   details: Record<string, unknown>,
 ): BondsEventV1 {
@@ -118,7 +120,7 @@ function makeEvent(
   innerType: BondsEventV1['inner_type'],
   v: AuctionValidator,
   epoch: number,
-  bondType: string,
+  bondType: BondType,
   configAddress: PublicKey,
   message: string,
   details: Record<string, unknown>,
@@ -138,7 +140,7 @@ export function evaluateDeltas(
   currentValidators: AuctionValidator[],
   previousState: Map<string, ValidatorState>,
   epoch: number,
-  bondType: string,
+  bondType: BondType,
   logger: LoggerWrapper,
 ): BondsEventV1[] {
   const configAddress = configAddressForBondType(bondType)
@@ -366,7 +368,7 @@ export function evaluateDeltas(
 export function validatorToState(
   v: AuctionValidator,
   epoch: number,
-  bondType: string,
+  bondType: BondType,
 ): ValidatorState {
   const configAddress = configAddressForBondType(bondType)
   return {

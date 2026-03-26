@@ -1,11 +1,11 @@
 import { type CommonQueryMethods, type DatabasePool, sql } from 'slonik'
 
-import type { ValidatorState } from './types'
+import type { BondType, ValidatorState } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
 export async function loadPreviousState(
   pool: DatabasePool,
-  bondType: string,
+  bondType: BondType,
   logger: LoggerWrapper,
 ): Promise<Map<string, ValidatorState>> {
   const result = await pool.query(sql.unsafe`
@@ -48,7 +48,7 @@ export async function loadPreviousState(
     const state: ValidatorState = {
       vote_account: row.vote_account,
       bond_pubkey: row.bond_pubkey,
-      bond_type: row.bond_type,
+      bond_type: row.bond_type as BondType,
       epoch: row.epoch,
       in_auction: row.in_auction,
       bond_good_for_n_epochs: row.bond_good_for_n_epochs,
@@ -124,7 +124,7 @@ export async function saveCurrentState(
 
 export async function deleteRemovedValidators(
   db: CommonQueryMethods,
-  bondType: string,
+  bondType: BondType,
   currentVoteAccounts: Set<string>,
   logger: LoggerWrapper,
 ): Promise<void> {

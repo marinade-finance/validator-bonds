@@ -84,6 +84,9 @@ importers:
       '@solana/web3.js':
         specifier: 1.98.4
         version: 1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)
+      bonds-event-v1:
+        specifier: link:../../../marinade-notifications/message-types/typescript/bonds-event-v1
+        version: link:../../../marinade-notifications/message-types/typescript/bonds-event-v1
       commander:
         specifier: 14.0.1
         version: 14.0.1
@@ -207,8 +210,8 @@ importers:
         specifier: 4.2.4
         version: 4.2.4
       '@marinade.finance/ts-subscription-client':
-        specifier: link:/home/chalda/tmp/marinade-notifications/ts-subscription-client
-        version: link:../../../../../tmp/marinade-notifications/ts-subscription-client
+        specifier: link:/home/chalda/marinade/marinade-notifications/ts-subscription-client
+        version: link:../../../marinade-notifications/ts-subscription-client
       '@marinade.finance/validator-bonds-sdk':
         specifier: 'workspace: *'
         version: link:../validator-bonds-sdk
