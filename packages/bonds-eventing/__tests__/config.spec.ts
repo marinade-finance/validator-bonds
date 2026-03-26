@@ -1,6 +1,6 @@
 import { parseConfig } from '../src/config'
 
-const BASE_OPTS = {
+const BASE_CONFIG = {
   bondsApiUrl: 'https://example.com',
   validatorsApiUrl: 'https://example.com',
   scoringApiUrl: 'https://example.com',
@@ -19,7 +19,7 @@ const BASE_OPTS = {
 describe('parseConfig numeric fields', () => {
   it('parses valid numbers', () => {
     const config = parseConfig({
-      ...BASE_OPTS,
+      ...BASE_CONFIG,
       retryMaxAttempts: 3,
       retryBaseDelayMs: 5000,
       emitConcurrency: 100,
@@ -31,7 +31,7 @@ describe('parseConfig numeric fields', () => {
 
   it('parses string numbers (from env vars)', () => {
     const config = parseConfig({
-      ...BASE_OPTS,
+      ...BASE_CONFIG,
       retryMaxAttempts: '0',
       retryBaseDelayMs: '1000',
       emitConcurrency: '50',
@@ -43,7 +43,7 @@ describe('parseConfig numeric fields', () => {
 
   it('falls back to defaults for undefined values', () => {
     const config = parseConfig({
-      ...BASE_OPTS,
+      ...BASE_CONFIG,
       retryMaxAttempts: undefined,
       retryBaseDelayMs: undefined,
       emitConcurrency: undefined,
@@ -55,7 +55,7 @@ describe('parseConfig numeric fields', () => {
 
   it('falls back to defaults for empty strings (unset env vars)', () => {
     const config = parseConfig({
-      ...BASE_OPTS,
+      ...BASE_CONFIG,
       retryMaxAttempts: '',
       retryBaseDelayMs: '',
       emitConcurrency: '',
@@ -67,46 +67,46 @@ describe('parseConfig numeric fields', () => {
 
   it('throws on NaN-producing values', () => {
     expect(() =>
-      parseConfig({ ...BASE_OPTS, retryMaxAttempts: 'abc' }),
+      parseConfig({ ...BASE_CONFIG, retryMaxAttempts: 'abc' }),
     ).toThrow("Invalid value for --retry-max-attempts: 'abc'")
 
-    expect(() => parseConfig({ ...BASE_OPTS, retryBaseDelayMs: NaN })).toThrow(
-      'Invalid value for --retry-base-delay-ms',
-    )
+    expect(() =>
+      parseConfig({ ...BASE_CONFIG, retryBaseDelayMs: NaN }),
+    ).toThrow('Invalid value for --retry-base-delay-ms')
 
     expect(() =>
-      parseConfig({ ...BASE_OPTS, emitConcurrency: 'not-a-number' }),
+      parseConfig({ ...BASE_CONFIG, emitConcurrency: 'not-a-number' }),
     ).toThrow("Invalid value for --emit-concurrency: 'not-a-number'")
   })
 
   it('throws on negative values', () => {
-    expect(() => parseConfig({ ...BASE_OPTS, retryMaxAttempts: -1 })).toThrow(
+    expect(() => parseConfig({ ...BASE_CONFIG, retryMaxAttempts: -1 })).toThrow(
       "Invalid value for --retry-max-attempts: '-1'",
     )
 
-    expect(() => parseConfig({ ...BASE_OPTS, retryBaseDelayMs: -100 })).toThrow(
-      "Invalid value for --retry-base-delay-ms: '-100'",
-    )
+    expect(() =>
+      parseConfig({ ...BASE_CONFIG, retryBaseDelayMs: -100 }),
+    ).toThrow("Invalid value for --retry-base-delay-ms: '-100'")
 
-    expect(() => parseConfig({ ...BASE_OPTS, emitConcurrency: -5 })).toThrow(
+    expect(() => parseConfig({ ...BASE_CONFIG, emitConcurrency: -5 })).toThrow(
       "Invalid value for --emit-concurrency: '-5'",
     )
   })
 
   it('throws when emitConcurrency is 0', () => {
-    expect(() => parseConfig({ ...BASE_OPTS, emitConcurrency: 0 })).toThrow(
+    expect(() => parseConfig({ ...BASE_CONFIG, emitConcurrency: 0 })).toThrow(
       "Invalid value for --emit-concurrency: '0'",
     )
   })
 
   it('allows retryMaxAttempts 0 (no retries)', () => {
-    const config = parseConfig({ ...BASE_OPTS, retryMaxAttempts: 0 })
+    const config = parseConfig({ ...BASE_CONFIG, retryMaxAttempts: 0 })
     expect(config.retryMaxAttempts).toBe(0)
   })
 
   it('floors fractional values', () => {
     const config = parseConfig({
-      ...BASE_OPTS,
+      ...BASE_CONFIG,
       emitConcurrency: 10.7,
       retryMaxAttempts: 2.9,
     })

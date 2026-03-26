@@ -226,6 +226,35 @@ describe('evaluateDeltas', () => {
     expect(capChanged!.data.details.current_cap).toBe('BOND')
   })
 
+  it('emits cap_changed when constraint switches type', () => {
+    const validators = [
+      makeValidator({
+        lastCapConstraint: {
+          constraintType: 'COUNTRY',
+          constraintName: 'country_cap',
+        },
+      }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(
+      TEST_VOTE_ACCOUNT,
+      makePrevState({ cap_constraint: 'VALIDATOR' }),
+    )
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const capChanged = events.find(e => e.inner_type === 'cap_changed')
+    expect(capChanged).toBeDefined()
+    expect(capChanged!.data.details.previous_cap).toBe('VALIDATOR')
+    expect(capChanged!.data.details.current_cap).toBe('COUNTRY')
+  })
+
   it('emits bond_underfunded_change when epochs change', () => {
     const validators = [makeValidator({ bondGoodForNEpochs: 2 })]
     const previousState = new Map<string, ValidatorState>()
