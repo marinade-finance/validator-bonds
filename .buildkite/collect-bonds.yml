@@ -5,7 +5,7 @@ env:
   EVENTING_RETRY_MAX_ATTEMPTS_DEFAULT: 4
   EVENTING_RETRY_BASE_DELAY_MS_DEFAULT: 30000
   EVENTING_EMIT_CONCURRENCY_DEFAULT: 20
-  NOTIFICATIONS_API_URL: "https://marinade-notifications.marinade.finance"
+  NOTIFICATIONS_API_URL_DEFAULT: "https://marinade-notifications.marinade.finance"
 
 steps:
   - label: ":hammer_and_wrench: :rust: Build"
@@ -57,6 +57,10 @@ steps:
       emit_concurrency=${EVENTING_EMIT_CONCURRENCY:-$EVENTING_EMIT_CONCURRENCY_DEFAULT}
       buildkite-agent meta-data set --redacted-vars='' emit_concurrency "$$emit_concurrency"
       echo "Emit concurrency: '$$emit_concurrency'"
+    - |
+      notifications_api_url=${NOTIFICATIONS_API_URL:-$NOTIFICATIONS_API_URL_DEFAULT}
+      buildkite-agent meta-data set --redacted-vars='' notifications_api_url "$$notifications_api_url"
+      echo "Notifications API URL: '$$notifications_api_url'"
 
   - label: ":memo: Annotate retry parameters"
     depends_on: "setup-env"
@@ -66,6 +70,7 @@ steps:
       - retry_max_attempts=$(buildkite-agent meta-data get retry_max_attempts)
       - retry_base_delay_ms=$(buildkite-agent meta-data get retry_base_delay_ms)
       - emit_concurrency=$(buildkite-agent meta-data get emit_concurrency)
+      - notifications_api_url=$(buildkite-agent meta-data get notifications_api_url)
       - |
         cat <<- EOF | buildkite-agent annotate --priority 6 --style info --context "general-info"
         ### Retry environment variables
@@ -76,6 +81,7 @@ steps:
         EVENTING_RETRY_MAX_ATTEMPTS=$$retry_max_attempts
         EVENTING_RETRY_BASE_DELAY_MS=$$retry_base_delay_ms
         EVENTING_EMIT_CONCURRENCY=$$emit_concurrency
+        NOTIFICATIONS_API_URL=$$notifications_api_url
         \`\`\`
         EOF
 
@@ -126,6 +132,7 @@ steps:
     - retry_max_attempts=$(buildkite-agent meta-data get retry_max_attempts)
     - retry_base_delay_ms=$(buildkite-agent meta-data get retry_base_delay_ms)
     - emit_concurrency=$(buildkite-agent meta-data get emit_concurrency)
+    - notifications_api_url=$(buildkite-agent meta-data get notifications_api_url)
     - echo "--- Emitting bond events for $$bond_type"
     - curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem
     - pnpm install
@@ -136,6 +143,7 @@ steps:
         --retry-max-attempts "$$retry_max_attempts" \
         --retry-base-delay-ms "$$retry_base_delay_ms" \
         --emit-concurrency "$$emit_concurrency" \
+        --notifications-api-url "$$notifications_api_url" \
         --postgres-ssl-root-cert ./eu-west-1-bundle.pem
     soft_fail:
       - exit_status: "*"

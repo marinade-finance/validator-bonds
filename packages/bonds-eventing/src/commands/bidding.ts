@@ -108,6 +108,15 @@ async function manageBidding(opts: Record<string, unknown>) {
   const config = parseConfig(opts)
   const bondType = 'bidding'
 
+  logger.info(
+    {
+      ...config,
+      notificationsJwt: config.notificationsJwt ? '***' : undefined,
+      postgresUrl: config.postgresUrl ? '***' : undefined,
+    },
+    'Resolved configuration',
+  )
+
   // 1. Run auction simulation
   const { validators, epoch } = await runAuction(config, logger)
 
