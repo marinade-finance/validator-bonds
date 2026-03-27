@@ -820,6 +820,119 @@ fn test_zero_rewards() {
     );
 }
 
+#[test]
+fn test_effective_bid_cap_limits_claims() {
+    let epoch = 100;
+    let vote_account = test_vote_account(1);
+    let withdraw_authority = test_withdraw_authority(1);
+    let stake_authority = test_stake_authority(1);
+
+    let stake_lamports = 100 * LAMPORTS_PER_SOL;
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                withdraw_authority,
+                stake_authority,
+                stake_lamports,
+            ),
+            create_stake_meta(
+                test_stake_account(100),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                LAMPORTS_PER_SOL,
+            ),
+            create_stake_meta(
+                test_stake_account(101),
+                vote_account,
+                TEST_PUBKEY_DAO,
+                TEST_PUBKEY_DAO,
+                LAMPORTS_PER_SOL,
+            ),
+        ],
+    };
+
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    // in_bond commission = 0 means validator promised to share all rewards
+    let commissions = CommissionParams::new(0.10, 0.0).as_commission_details();
+
+    // Set a low auction_effective_bid_pmpe (0.001) that will cap the claims
+    // static_bid of 50 PMPE would produce a large claim, but effective bid caps it
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .auction_effective_bid_pmpe(0.001)
+        .auction_values(commissions)
+        .build();
+
+    let mut rewards_map = HashMap::new();
+    rewards_map.insert(
+        vote_account,
+        RewardsParams::new(vote_account)
+            .inflation(LAMPORTS_PER_SOL)
+            .mev(500_000_000)
+            .block_rewards(30 * LAMPORTS_PER_SOL) // very high block rewards
+            .jito(100_000_000)
+            .build(),
+    );
+
+    let rewards_collection = RewardsCollection {
+        epoch,
+        rewards_by_vote_account: rewards_map,
+    };
+
+    let fee_config = create_test_fee_config(950, 500);
+    let settlement_config = create_test_settlement_config();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &rewards_collection,
+        &settlement_config,
+        &fee_config,
+        &accept_all,
+    )
+    .unwrap();
+
+    assert!(!settlements.is_empty(), "Should generate settlements");
+
+    // effective_bid_cap = 102 SOL * 0.001 / 1000 = 0.000102 SOL = 102000 lamports
+    // Without the cap, the claims would be much larger (static_bid of 50 PMPE + block commission)
+    // The cap should limit the total claims_amount
+    let total_marinade_stake = stake_lamports + LAMPORTS_PER_SOL + LAMPORTS_PER_SOL;
+    let expected_cap = (Decimal::from(total_marinade_stake) * Decimal::try_from(0.001).unwrap()
+        / Decimal::ONE_THOUSAND)
+        .to_u64()
+        .unwrap();
+    assert!(
+        settlements[0].claims_amount <= expected_cap,
+        "Claims {} should be capped at effective bid cap {}",
+        settlements[0].claims_amount,
+        expected_cap
+    );
+
+    // Verify the details JSON contains the uncapped value
+    let details = settlements[0].details.as_ref().unwrap();
+    let uncapped = details["settlement_claims_sum_uncapped"]
+        .as_str()
+        .unwrap()
+        .parse::<f64>()
+        .unwrap();
+    let cap = details["effective_bid_cap"]
+        .as_str()
+        .unwrap()
+        .parse::<f64>()
+        .unwrap();
+    assert!(
+        uncapped > cap,
+        "Uncapped value {uncapped} should exceed cap {cap}"
+    );
+}
+
 const TEST_PUBKEY_MARINADE: Pubkey = Pubkey::new_from_array([
     16, 193, 125, 202, 226, 246, 166, 247, 62, 235, 241, 168, 44, 170, 26, 135, 207, 86, 46, 127,
     152, 219, 15, 111, 57, 48, 64, 201, 193, 113, 238, 142,
@@ -922,6 +1035,7 @@ struct SamMetaParams {
     marinade_sam_target_sol: Decimal,
     effective_bid: Decimal,
     bid_pmpe: Decimal,
+    auction_effective_bid_pmpe: Decimal,
     auction_effective_static_bid_pmpe: Option<Decimal>,
     bid_too_low_penalty_pmpe: Decimal,
     blacklist_penalty_pmpe: Decimal,
@@ -936,6 +1050,7 @@ impl SamMetaParams {
             marinade_sam_target_sol: Decimal::from(100),
             effective_bid: Decimal::from(50),
             bid_pmpe: Decimal::from(50),
+            auction_effective_bid_pmpe: Decimal::from(50),
             auction_effective_static_bid_pmpe: Some(Decimal::from(50)),
             bid_too_low_penalty_pmpe: Decimal::ZERO,
             blacklist_penalty_pmpe: Decimal::ZERO,
@@ -945,6 +1060,11 @@ impl SamMetaParams {
 
     fn effective_bid(mut self, value: f64) -> Self {
         self.effective_bid = Decimal::try_from(value).unwrap();
+        self
+    }
+
+    fn auction_effective_bid_pmpe(mut self, value: f64) -> Self {
+        self.auction_effective_bid_pmpe = Decimal::try_from(value).unwrap();
         self
     }
 
@@ -986,6 +1106,7 @@ impl SamMetaParams {
             effective_bid: self.effective_bid,
             rev_share: RevShare {
                 bid_pmpe: self.bid_pmpe,
+                auction_effective_bid_pmpe: self.auction_effective_bid_pmpe,
                 bid_too_low_penalty_pmpe: self.bid_too_low_penalty_pmpe,
                 blacklist_penalty_pmpe: self.blacklist_penalty_pmpe,
                 auction_effective_static_bid_pmpe: self.auction_effective_static_bid_pmpe,
