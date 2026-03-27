@@ -5,6 +5,7 @@ env:
   EVENTING_RETRY_MAX_ATTEMPTS_DEFAULT: 4
   EVENTING_RETRY_BASE_DELAY_MS_DEFAULT: 30000
   EVENTING_EMIT_CONCURRENCY_DEFAULT: 20
+  NOTIFICATIONS_API_URL: "https://marinade-notifications.marinade.finance"
 
 steps:
   - label: ":hammer_and_wrench: :rust: Build"
