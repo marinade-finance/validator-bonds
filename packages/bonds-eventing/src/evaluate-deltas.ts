@@ -6,7 +6,19 @@ import {
 } from '@marinade.finance/validator-bonds-sdk'
 import { PublicKey } from '@solana/web3.js'
 
-import type { BondType, BondsEventV1, ValidatorState } from './types'
+import type {
+  BondType,
+  BondsEventV1,
+  ValidatorState,
+  FirstSeenDetails,
+  BondRemovedDetails,
+  AuctionEnteredDetails,
+  AuctionExitedDetails,
+  CapChangedDetails,
+  BondUnderfundedChangeDetails,
+  BondBalanceChangeDetails,
+  SamEligibleChangeDetails,
+} from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
 const LAMPORTS_PER_SOL = 1_000_000_000
@@ -102,7 +114,7 @@ function makeBaseEvent(
   epoch: number,
   bondType: BondType,
   message: string,
-  details: Record<string, unknown>,
+  details: BondsEventV1['data']['details'],
 ): BondsEventV1 {
   return {
     type: 'bonds',
@@ -123,7 +135,7 @@ function makeEvent(
   bondType: BondType,
   configAddress: PublicKey,
   message: string,
-  details: Record<string, unknown>,
+  details: BondsEventV1['data']['details'],
 ): BondsEventV1 {
   return makeBaseEvent(
     innerType,
@@ -178,7 +190,7 @@ export function evaluateDeltas(
           auction_stake_sol: v.auctionStake?.marinadeSamTargetSol ?? 0,
           marinade_activated_stake_sol: v.marinadeActivatedStakeSol,
           ...deficitMetrics,
-        },
+        } satisfies FirstSeenDetails,
       )
       events.push(event)
       continue
@@ -200,7 +212,7 @@ export function evaluateDeltas(
             current_in_auction: true,
             auction_stake_sol: v.auctionStake?.marinadeSamTargetSol ?? 0,
             bond_good_for_n_epochs: roundEpochs(v.bondGoodForNEpochs),
-          },
+          } satisfies AuctionEnteredDetails,
         ),
       )
     } else if (prev.in_auction && !currentInAuction) {
@@ -218,7 +230,7 @@ export function evaluateDeltas(
             previous_auction_stake_lamports:
               prev.auction_stake_lamports.toString(),
             sam_eligible: v.samEligible,
-          },
+          } satisfies AuctionExitedDetails,
         ),
       )
     }
@@ -238,7 +250,7 @@ export function evaluateDeltas(
             previous_cap: prev.cap_constraint,
             current_cap: currentCap,
             constraint_name: v.lastCapConstraint?.constraintName ?? null,
-          },
+          } satisfies CapChangedDetails,
         ),
       )
     }
@@ -283,7 +295,7 @@ export function evaluateDeltas(
             bond_balance_sol: v.bondBalanceSol,
             marinade_activated_stake_sol: v.marinadeActivatedStakeSol,
             ...deficitMetrics,
-          },
+          } satisfies BondUnderfundedChangeDetails,
         ),
       )
     }
@@ -308,7 +320,7 @@ export function evaluateDeltas(
             previous_effective_lamports:
               prev.effective_amount_lamports.toString(),
             current_effective_lamports: currentEffectiveLamports.toString(),
-          },
+          } satisfies BondBalanceChangeDetails,
         ),
       )
     }
@@ -327,7 +339,7 @@ export function evaluateDeltas(
           {
             previous_sam_eligible: prev.sam_eligible,
             current_sam_eligible: v.samEligible,
-          },
+          } satisfies SamEligibleChangeDetails,
         ),
       )
     }
@@ -352,7 +364,7 @@ export function evaluateDeltas(
             last_known_funded_lamports: prev.funded_amount_lamports.toString(),
             last_known_epoch: prev.epoch,
             last_known_in_auction: prev.in_auction,
-          },
+          } satisfies BondRemovedDetails,
         ),
       )
     }

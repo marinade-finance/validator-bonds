@@ -1,4 +1,17 @@
-export type { BondsEventV1, BondsEventInnerType } from 'bonds-event-v1'
+export type {
+  BondsEventV1,
+  BondsEventInnerType,
+  FirstSeenDetails,
+  BondRemovedDetails,
+  AuctionEnteredDetails,
+  AuctionExitedDetails,
+  CapChangedDetails,
+  BondUnderfundedChangeDetails,
+  BondBalanceChangeDetails,
+  SamEligibleChangeDetails,
+  AnnouncementDetails,
+  VersionBumpDetails,
+} from 'bonds-event-v1'
 import type { BondsEventV1 } from 'bonds-event-v1'
 
 export type BondType = BondsEventV1['bond_type']
