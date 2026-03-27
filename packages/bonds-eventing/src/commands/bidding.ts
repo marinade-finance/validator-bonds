@@ -111,7 +111,11 @@ async function manageBidding(opts: Record<string, unknown>) {
   logger.info(
     {
       ...config,
-      notificationsJwt: config.notificationsJwt ? '***' : undefined,
+      notificationsJwt: config.notificationsJwt
+        ? config.notificationsJwt.substring(0, 10) +
+          '...' +
+          config.notificationsJwt.slice(-10)
+        : undefined,
       postgresUrl: config.postgresUrl ? '***' : undefined,
     },
     'Resolved configuration',
