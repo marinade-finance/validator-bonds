@@ -277,7 +277,7 @@ export function formatNetworkError(
   const serverMessage = parseResponseMessage(e.response)
   return serverMessage
     ? `${serverMessage} (HTTP ${e.status} from ${notificationsApiUrl})`
-    : `HTTP ${e.status}: ${e.message}`
+    : `HTTP ${e.status} from ${notificationsApiUrl}: ${e.message}`
 }
 
 function parseResponseMessage(response: unknown): string | undefined {
