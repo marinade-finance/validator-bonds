@@ -14,6 +14,7 @@ import {
 import { Option } from 'commander'
 
 import {
+  formatNetworkError,
   NOTIFICATIONS_API_URL_DEFAULT,
   NOTIFICATIONS_API_URL_ENV,
   signForSubscription,
@@ -156,8 +157,8 @@ export async function manageUnsubscribe({
     if (e instanceof NetworkError) {
       throw new CliCommandError({
         valueName: 'unsubscribe',
-        value: e.status ? `HTTP ${e.status}` : 'connection error',
-        msg: `Unsubscribe failed: ${e.message}`,
+        value: 'network error',
+        msg: `Unsubscribe failed. ${formatNetworkError(e, notificationsApiUrl)}`,
       })
     }
     throw e

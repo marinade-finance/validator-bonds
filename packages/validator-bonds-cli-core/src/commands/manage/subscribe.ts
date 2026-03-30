@@ -31,7 +31,7 @@ import type { Command } from 'commander'
 
 export const NOTIFICATIONS_API_URL_ENV = 'NOTIFICATIONS_API_URL'
 export const NOTIFICATIONS_API_URL_DEFAULT =
-  'https://notifications-api.marinade.finance'
+  'https://marinade-notifications.marinade.finance'
 
 function openUrl(url: string, logger: LoggerWrapper): void {
   const cmd =
@@ -214,8 +214,8 @@ export async function manageSubscribe({
     if (e instanceof NetworkError) {
       throw new CliCommandError({
         valueName: 'subscribe',
-        value: e.status ? `HTTP ${e.status}` : 'connection error',
-        msg: `Subscription failed: ${e.message}`,
+        value: 'network error',
+        msg: `Subscription failed. ${formatNetworkError(e, notificationsApiUrl)}`,
       })
     }
     throw e
@@ -265,4 +265,32 @@ function logTelegramResult(
   logger.info(
     `Successfully subscribed to telegram notifications for ${bondLabel}`,
   )
+}
+
+export function formatNetworkError(
+  e: NetworkError,
+  notificationsApiUrl: string,
+): string {
+  if (!e.status) {
+    return `Cannot reach notification service at ${notificationsApiUrl}: ${e.message}`
+  }
+  const serverMessage = parseResponseMessage(e.response)
+  return serverMessage
+    ? `${serverMessage} (HTTP ${e.status} from ${notificationsApiUrl})`
+    : `HTTP ${e.status}: ${e.message}`
+}
+
+function parseResponseMessage(response: unknown): string | undefined {
+  if (typeof response !== 'string') return undefined
+  try {
+    const parsed = JSON.parse(response) as Record<string, unknown>
+    const msg = parsed.message
+    if (typeof msg === 'string') return msg
+    if (Array.isArray(msg))
+      return msg.filter((m): m is string => typeof m === 'string').join('; ')
+  } catch {
+    // response is not JSON, return truncated text
+    if (response.length > 0) return response.substring(0, 500)
+  }
+  return undefined
 }

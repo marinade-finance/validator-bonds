@@ -18,6 +18,7 @@ import {
 import { Option } from 'commander'
 
 import {
+  formatNetworkError,
   NOTIFICATIONS_API_URL_DEFAULT,
   NOTIFICATIONS_API_URL_ENV,
   signForSubscription,
@@ -152,8 +153,8 @@ export async function showSubscriptions({
     if (e instanceof NetworkError) {
       throw new CliCommandError({
         valueName: 'subscriptions',
-        value: e.status ? `HTTP ${e.status}` : 'connection error',
-        msg: `Failed to fetch subscriptions: ${e.message}`,
+        value: 'network error',
+        msg: `Failed to fetch subscriptions. ${formatNetworkError(e, notificationsApiUrl)}`,
       })
     }
     throw e
