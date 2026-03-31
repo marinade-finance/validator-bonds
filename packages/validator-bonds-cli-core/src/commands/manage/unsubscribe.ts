@@ -2,7 +2,6 @@ import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import { CliCommandError } from '@marinade.finance/cli-common'
 import {
   createSubscriptionClient,
-  NetworkError,
   NOTIFICATION_TYPE_SAM_AUCTION,
   unsubscribeMessage,
 } from '@marinade.finance/ts-subscription-client'
@@ -19,7 +18,7 @@ import {
   signForSubscription,
 } from './subscribe'
 import { getCliContext } from '../../context'
-import { getBondFromAddress } from '../../utils'
+import { formatHttpError, getBondFromAddress } from '../../utils'
 
 import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 import type { PublicKey } from '@solana/web3.js'
@@ -153,11 +152,12 @@ export async function manageUnsubscribe({
   try {
     await client.unsubscribe(request)
   } catch (e) {
-    if (e instanceof NetworkError) {
+    const httpMsg = formatHttpError(e, notificationsApiUrl)
+    if (httpMsg) {
       throw new CliCommandError({
         valueName: 'unsubscribe',
-        value: e.status ? `HTTP ${e.status}` : 'connection error',
-        msg: `Unsubscribe failed: ${e.message}`,
+        value: 'network error',
+        msg: `Unsubscribe failed. ${httpMsg}`,
       })
     }
     throw e

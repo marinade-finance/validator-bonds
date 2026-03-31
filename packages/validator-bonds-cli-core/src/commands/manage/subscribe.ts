@@ -8,7 +8,6 @@ import {
 } from '@marinade.finance/ledger-utils'
 import {
   createSubscriptionClient,
-  NetworkError,
   subscribeMessage,
   NOTIFICATION_TYPE_SAM_AUCTION,
 } from '@marinade.finance/ts-subscription-client'
@@ -20,7 +19,7 @@ import {
 import { Option } from 'commander'
 
 import { getCliContext } from '../../context'
-import { getBondFromAddress } from '../../utils'
+import { formatHttpError, getBondFromAddress } from '../../utils'
 
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 import type { SubscribeResponse } from '@marinade.finance/ts-subscription-client'
@@ -31,7 +30,7 @@ import type { Command } from 'commander'
 
 export const NOTIFICATIONS_API_URL_ENV = 'NOTIFICATIONS_API_URL'
 export const NOTIFICATIONS_API_URL_DEFAULT =
-  'https://notifications-api.marinade.finance'
+  'https://marinade-notifications.marinade.finance'
 
 function openUrl(url: string, logger: LoggerWrapper): void {
   const cmd =
@@ -211,11 +210,12 @@ export async function manageSubscribe({
       )
     }
   } catch (e) {
-    if (e instanceof NetworkError) {
+    const httpMsg = formatHttpError(e, notificationsApiUrl)
+    if (httpMsg) {
       throw new CliCommandError({
         valueName: 'subscribe',
-        value: e.status ? `HTTP ${e.status}` : 'connection error',
-        msg: `Subscription failed: ${e.message}`,
+        value: 'network error',
+        msg: `Subscription failed. ${httpMsg}`,
       })
     }
     throw e
