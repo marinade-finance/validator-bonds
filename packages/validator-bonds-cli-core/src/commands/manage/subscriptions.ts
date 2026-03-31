@@ -7,7 +7,6 @@ import {
 import {
   createSubscriptionClient,
   listSubscriptionsMessage,
-  NetworkError,
   NOTIFICATION_TYPE_SAM_AUCTION,
 } from '@marinade.finance/ts-subscription-client'
 import {
@@ -18,13 +17,12 @@ import {
 import { Option } from 'commander'
 
 import {
-  formatNetworkError,
   NOTIFICATIONS_API_URL_DEFAULT,
   NOTIFICATIONS_API_URL_ENV,
   signForSubscription,
 } from './subscribe'
 import { getCliContext } from '../../context'
-import { getBondFromAddress } from '../../utils'
+import { formatHttpError, getBondFromAddress } from '../../utils'
 
 import type { FormatType } from '@marinade.finance/cli-common'
 import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
@@ -150,11 +148,12 @@ export async function showSubscriptions({
       format,
     )
   } catch (e) {
-    if (e instanceof NetworkError) {
+    const httpMsg = formatHttpError(e, notificationsApiUrl)
+    if (httpMsg) {
       throw new CliCommandError({
         valueName: 'subscriptions',
         value: 'network error',
-        msg: `Failed to fetch subscriptions. ${formatNetworkError(e, notificationsApiUrl)}`,
+        msg: `Failed to fetch subscriptions. ${httpMsg}`,
       })
     }
     throw e

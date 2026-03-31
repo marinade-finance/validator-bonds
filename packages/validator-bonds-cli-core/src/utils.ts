@@ -447,6 +447,43 @@ export function isExpectedAnchorTransactionError(
   return false
 }
 
+/**
+ * Generic HTTP error formatting for CLI error messages.
+ * Works with any error that exposes status/response properties
+ * (e.g., NetworkError from ts-subscription-client).
+ */
+export function formatHttpError(
+  e: unknown,
+  apiUrl: string,
+): string | undefined {
+  if (!(e instanceof Error)) return undefined
+  const status = 'status' in e ? (e as { status: number }).status : undefined
+  const response =
+    'response' in e ? (e as { response: unknown }).response : undefined
+  if (!status) {
+    return `Cannot reach service at ${apiUrl}: ${e.message}`
+  }
+  const serverMessage = parseResponseMessage(response)
+  return serverMessage
+    ? `${serverMessage} (HTTP ${status} from ${apiUrl})`
+    : `HTTP ${status} from ${apiUrl}: ${e.message}`
+}
+
+function parseResponseMessage(response: unknown): string | undefined {
+  if (typeof response !== 'string') return undefined
+  try {
+    const parsed = JSON.parse(response) as Record<string, unknown>
+    const msg = parsed.message
+    if (typeof msg === 'string') return msg
+    if (Array.isArray(msg))
+      return msg.filter((m): m is string => typeof m === 'string').join('; ')
+  } catch {
+    // response is not JSON, return truncated text
+    if (response.length > 0) return response.substring(0, 500)
+  }
+  return undefined
+}
+
 export function toBN(value: string): BN {
   return new BN(value.replace(/_/g, ''), 10)
 }

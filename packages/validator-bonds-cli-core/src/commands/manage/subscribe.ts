@@ -8,7 +8,6 @@ import {
 } from '@marinade.finance/ledger-utils'
 import {
   createSubscriptionClient,
-  NetworkError,
   subscribeMessage,
   NOTIFICATION_TYPE_SAM_AUCTION,
 } from '@marinade.finance/ts-subscription-client'
@@ -20,7 +19,7 @@ import {
 import { Option } from 'commander'
 
 import { getCliContext } from '../../context'
-import { getBondFromAddress } from '../../utils'
+import { formatHttpError, getBondFromAddress } from '../../utils'
 
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 import type { SubscribeResponse } from '@marinade.finance/ts-subscription-client'
@@ -211,11 +210,12 @@ export async function manageSubscribe({
       )
     }
   } catch (e) {
-    if (e instanceof NetworkError) {
+    const httpMsg = formatHttpError(e, notificationsApiUrl)
+    if (httpMsg) {
       throw new CliCommandError({
         valueName: 'subscribe',
         value: 'network error',
-        msg: `Subscription failed. ${formatNetworkError(e, notificationsApiUrl)}`,
+        msg: `Subscription failed. ${httpMsg}`,
       })
     }
     throw e
@@ -265,32 +265,4 @@ function logTelegramResult(
   logger.info(
     `Successfully subscribed to telegram notifications for ${bondLabel}`,
   )
-}
-
-export function formatNetworkError(
-  e: NetworkError,
-  notificationsApiUrl: string,
-): string {
-  if (!e.status) {
-    return `Cannot reach notification service at ${notificationsApiUrl}: ${e.message}`
-  }
-  const serverMessage = parseResponseMessage(e.response)
-  return serverMessage
-    ? `${serverMessage} (HTTP ${e.status} from ${notificationsApiUrl})`
-    : `HTTP ${e.status} from ${notificationsApiUrl}: ${e.message}`
-}
-
-function parseResponseMessage(response: unknown): string | undefined {
-  if (typeof response !== 'string') return undefined
-  try {
-    const parsed = JSON.parse(response) as Record<string, unknown>
-    const msg = parsed.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg))
-      return msg.filter((m): m is string => typeof m === 'string').join('; ')
-  } catch {
-    // response is not JSON, return truncated text
-    if (response.length > 0) return response.substring(0, 500)
-  }
-  return undefined
 }
