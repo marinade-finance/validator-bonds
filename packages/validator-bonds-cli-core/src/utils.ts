@@ -470,6 +470,17 @@ export function formatHttpError(
 }
 
 function parseResponseMessage(response: unknown): string | undefined {
+  if (response == null) return undefined
+
+  // If response is already an object, extract message directly
+  if (typeof response === 'object') {
+    const msg = (response as Record<string, unknown>).message
+    if (typeof msg === 'string') return msg
+    if (Array.isArray(msg))
+      return msg.filter((m): m is string => typeof m === 'string').join('; ')
+    return undefined
+  }
+
   if (typeof response !== 'string') return undefined
   try {
     const parsed = JSON.parse(response) as Record<string, unknown>
