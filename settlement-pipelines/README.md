@@ -11,23 +11,26 @@ management of the [Validator Bonds Program](../programs/validator-bonds/README.m
 - [list-settlement](./src/bin/list_settlement.rs): Derives `Settlement` account addresses from the provided JSON files and prints them.
 - [close-settlement](./src/bin/close_settlement.rs): Checks the chain for `Settlement`s that can be closed and resets stake accounts,
   using the provided list of `Settlement` addresses to search for the settlement stake authorities.
+- [fund-settlement](./src/bin/fund_settlement.rs): Funds the `Settlement` accounts from the Bonds account based on data loaded by `init-settlement`.
+- [merge-stakes](./src/bin/merge_stakes.rs): Merges stake accounts that belong to the same validator bond.
 - [verify-settlement](./src/bin/verify_settlement.rs): Load all available `Settlement`'s on-chain
   and compares them to provided list of Settlement addresses (expected they were loaded from gcloud).
   It returns a list of Settlements found on-chain but not available from the gcloud listing.
 
 ## Pipeline Usage
 
-There are 4 pipelines used for the binary commands.
+There are 6 pipelines used for the binary commands.
 
 - [init-settlements](../.buildkite/init-settlements.yml): Initializes settlements for an epoch based on generated JSON files.
-  This pipeline is expected to be called after the JSON files are generated at [prepare-claims](../.buildkite/prepare-claims.yml).
+- [fund-settlements](../.buildkite/fund-settlements.yml): Funds the `Settlement` accounts from the Bonds account based on settlement data.
 - [claim-settlements](../.buildkite/claim-settlements.yml): Claims settlements when possible.
   It is executed as a cron job once at a set interval. It checks the on-chain state to see if any settlements can be claimed.
   The settlement can be claimed within the time range of `Settlement Creation + non-claimable slots` to `Settlement Creation Epoch - Config claimable epoch`.
 - [close-settlements](../.buildkite/close-settlements.yml): Closes `Settlement` and `SettlementClaims` accounts,
   and resets the state of stake accounts to be associated back to the validator `Bond` when not claimed.
+- [merge-stakes](../.buildkite/merge-stakes.yml): Merges stake accounts that belong to the same validator bond.
 - [verify-settlements](../.buildkite/verify-settlements.yml): Loading `Settlement` merkle tree data
-  from gcloud and do if the on-chain state does not contain some unknown `Settlement` in comparison
+  from gcloud and checking if the on-chain state does not contain some unknown `Settlement` in comparison
   to gcloud list.
 
 ## Usage
