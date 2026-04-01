@@ -3,14 +3,11 @@ import {
   FORMAT_TYPE_DEF,
   printData,
 } from '@marinade.finance/cli-common'
-import {
-  createSubscriptionClient,
-  NetworkError,
-} from '@marinade.finance/notifications-ts-subscription-client'
+import { createSubscriptionClient } from '@marinade.finance/notifications-ts-subscription-client'
 import { parsePubkey } from '@marinade.finance/web3js-1x'
 
 import { getCliContext } from '../../context'
-import { getBondFromAddress } from '../../utils'
+import { formatHttpError, getBondFromAddress } from '../../utils'
 
 import type { FormatType } from '@marinade.finance/cli-common'
 import type { PublicKey } from '@solana/web3.js'
@@ -113,11 +110,12 @@ export async function showNotifications({
       format,
     )
   } catch (e) {
-    if (e instanceof NetworkError) {
+    const httpMsg = formatHttpError(e, notificationsApiUrl)
+    if (httpMsg) {
       throw new CliCommandError({
         valueName: 'notifications',
-        value: e.status ? `HTTP ${e.status}` : 'connection error',
-        msg: `Failed to fetch notifications: ${e.message}`,
+        value: 'network error',
+        msg: `Failed to fetch notifications. ${httpMsg}`,
       })
     }
     throw e
