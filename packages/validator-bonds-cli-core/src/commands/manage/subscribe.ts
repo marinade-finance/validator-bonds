@@ -9,8 +9,7 @@ import {
 import {
   createSubscriptionClient,
   subscribeMessage,
-  NOTIFICATION_TYPE_SAM_AUCTION,
-} from '@marinade.finance/ts-subscription-client'
+} from '@marinade.finance/notifications-ts-subscription-client'
 import {
   instanceOfWallet,
   parsePubkey,
@@ -21,16 +20,12 @@ import { Option } from 'commander'
 import { getCliContext } from '../../context'
 import { formatHttpError, getBondFromAddress } from '../../utils'
 
+import type { SubscribeResponse } from '@marinade.finance/notifications-ts-subscription-client'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
-import type { SubscribeResponse } from '@marinade.finance/ts-subscription-client'
 import type { KeypairWallet } from '@marinade.finance/web3js-1x'
 import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 import type { PublicKey } from '@solana/web3.js'
 import type { Command } from 'commander'
-
-export const NOTIFICATIONS_API_URL_ENV = 'NOTIFICATIONS_API_URL'
-export const NOTIFICATIONS_API_URL_DEFAULT =
-  'https://marinade-notifications.marinade.finance'
 
 function openUrl(url: string, logger: LoggerWrapper): void {
   const cmd =
@@ -100,15 +95,6 @@ export function configureSubscribe(program: Command): Command {
     )
     .addOption(
       new Option(
-        '--notifications-api-url <url>',
-        'Override notification service URL',
-      )
-        .env(NOTIFICATIONS_API_URL_ENV)
-        .default(NOTIFICATIONS_API_URL_DEFAULT)
-        .hideHelp(),
-    )
-    .addOption(
-      new Option(
         '--no-browser',
         'Do not open browser for Telegram deep link',
       ).hideHelp(),
@@ -121,7 +107,6 @@ export async function manageSubscribe({
   authority,
   type,
   channelAddress,
-  notificationsApiUrl,
   browser = true,
 }: {
   address: PublicKey
@@ -129,10 +114,10 @@ export async function manageSubscribe({
   authority?: WalletInterface | PublicKey
   type: string
   channelAddress: string
-  notificationsApiUrl: string
   browser?: boolean
 }) {
-  const { program, logger, wallet } = getCliContext()
+  const { program, logger, wallet, notificationsApiUrl, notificationType } =
+    getCliContext()
 
   const bondAccountData = await getBondFromAddress({
     program,
@@ -162,11 +147,7 @@ export async function manageSubscribe({
   }
 
   const timestamp = Math.floor(Date.now() / 1000)
-  const messageText = subscribeMessage(
-    NOTIFICATION_TYPE_SAM_AUCTION,
-    type,
-    timestamp,
-  )
+  const messageText = subscribeMessage(notificationType, type, timestamp)
 
   logger.info(
     `Signing subscription message for bond ${bondPubkey.toBase58()} ` +
@@ -178,7 +159,7 @@ export async function manageSubscribe({
 
   const request = {
     pubkey: signingWallet.publicKey.toBase58(),
-    notification_type: NOTIFICATION_TYPE_SAM_AUCTION,
+    notification_type: notificationType,
     channel: type,
     channel_address: channelAddress,
     signature: signatureBase58,

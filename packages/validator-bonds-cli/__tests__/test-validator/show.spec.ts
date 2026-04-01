@@ -46,8 +46,8 @@ import type {
   ValidatorBondsProgram,
 } from '@marinade.finance/validator-bonds-sdk'
 
-const UNKNOWN_ANNOUNCEMENTS = {
-  env: { ...process.env, ANNOUNCEMENTS_API_URL: 'unknown' },
+const UNKNOWN_NOTIFICATIONS_API = {
+  env: { ...process.env, NOTIFICATIONS_API_URL: 'unknown' },
 }
 
 beforeAll(() => {
@@ -97,7 +97,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -141,7 +141,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -185,7 +185,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -209,7 +209,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -359,7 +359,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -383,7 +383,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -411,7 +411,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -434,7 +434,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -458,7 +458,7 @@ describe('Show command using CLI', () => {
         'yaml',
         '--with-funding',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -481,7 +481,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -507,7 +507,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -529,7 +529,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 200,
       signal: '',
@@ -627,7 +627,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -697,7 +697,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -726,7 +726,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -752,7 +752,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -780,7 +780,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -813,7 +813,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
@@ -878,7 +878,7 @@ describe('Show command using CLI', () => {
         '-f',
         'yaml',
       ],
-      UNKNOWN_ANNOUNCEMENTS,
+      UNKNOWN_NOTIFICATIONS_API,
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
