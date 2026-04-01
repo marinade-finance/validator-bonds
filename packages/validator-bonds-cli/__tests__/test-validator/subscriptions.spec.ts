@@ -37,7 +37,7 @@ describe('CLI subscription commands', () => {
 
     testServer = new TestHttpServer(NOTIFICATIONS_API_PORT)
     testServer.addRoute(
-      '/subscriptions',
+      '/v1/subscriptions',
       (req: IncomingMessage, res: ServerResponse) => {
         if (req.method === 'POST') {
           TestHttpServer.sendAsJson(

@@ -9,6 +9,14 @@ import {
 } from '../src/evaluate-deltas'
 
 import type { ValidatorState } from '../src/types'
+import type {
+  FirstSeenDetails,
+  AuctionEnteredDetails,
+  AuctionExitedDetails,
+  CapChangedDetails,
+  BondUnderfundedChangeDetails,
+  BondBalanceChangeDetails,
+} from '../src/types'
 import type { AuctionValidator } from '@marinade.finance/ds-sam-sdk'
 
 const logger = pino({ level: 'silent' })
@@ -112,10 +120,11 @@ describe('evaluateDeltas', () => {
     expect(events[0]!.bond_type).toBe('bidding')
     expect(events[0]!.created_at).toBeDefined()
     // Deficit metrics included in first_seen
-    expect(events[0]!.data.details.expected_max_eff_bid_pmpe).toBe(3.2)
-    expect(events[0]!.data.details.epoch_cost_sol).toBeCloseTo(160) // (3.2/1000)*50000
-    expect(events[0]!.data.details.deficit_sol).toBeDefined()
-    expect(events[0]!.data.details.required_sol).toBeDefined()
+    const firstSeenDetails = events[0]!.data.details as FirstSeenDetails
+    expect(firstSeenDetails.expected_max_eff_bid_pmpe).toBe(3.2)
+    expect(firstSeenDetails.epoch_cost_sol).toBeCloseTo(160) // (3.2/1000)*50000
+    expect(firstSeenDetails.deficit_sol).toBeDefined()
+    expect(firstSeenDetails.required_sol).toBeDefined()
   })
 
   it('emits bond_removed for missing validator', () => {
@@ -152,8 +161,9 @@ describe('evaluateDeltas', () => {
 
     const entered = events.find(e => e.inner_type === 'auction_entered')
     expect(entered).toBeDefined()
-    expect(entered!.data.details.previous_in_auction).toBe(false)
-    expect(entered!.data.details.current_in_auction).toBe(true)
+    const enteredDetails = entered!.data.details as AuctionEnteredDetails
+    expect(enteredDetails.previous_in_auction).toBe(false)
+    expect(enteredDetails.current_in_auction).toBe(true)
   })
 
   it('emits auction_exited when validator leaves auction', () => {
@@ -175,8 +185,9 @@ describe('evaluateDeltas', () => {
 
     const exited = events.find(e => e.inner_type === 'auction_exited')
     expect(exited).toBeDefined()
-    expect(exited!.data.details.previous_in_auction).toBe(true)
-    expect(exited!.data.details.current_in_auction).toBe(false)
+    const exitedDetails = exited!.data.details as AuctionExitedDetails
+    expect(exitedDetails.previous_in_auction).toBe(true)
+    expect(exitedDetails.current_in_auction).toBe(false)
   })
 
   it('emits cap_changed when constraint changes', () => {
@@ -204,8 +215,9 @@ describe('evaluateDeltas', () => {
 
     const capChanged = events.find(e => e.inner_type === 'cap_changed')
     expect(capChanged).toBeDefined()
-    expect(capChanged!.data.details.previous_cap).toBeNull()
-    expect(capChanged!.data.details.current_cap).toBe('BOND')
+    const capDetails = capChanged!.data.details as CapChangedDetails
+    expect(capDetails.previous_cap).toBeNull()
+    expect(capDetails.current_cap).toBe('BOND')
   })
 
   it('emits bond_underfunded_change when epochs change', () => {
@@ -228,15 +240,15 @@ describe('evaluateDeltas', () => {
       e => e.inner_type === 'bond_underfunded_change',
     )
     expect(underfunded).toBeDefined()
-    expect(underfunded!.data.details.previous_epochs).toBe(5)
-    expect(underfunded!.data.details.current_epochs).toBe(2)
+    const underfundedDetails = underfunded!.data
+      .details as BondUnderfundedChangeDetails
+    expect(underfundedDetails.previous_epochs).toBe(5)
+    expect(underfundedDetails.current_epochs).toBe(2)
     // Deficit metrics derived from revShare
-    expect(underfunded!.data.details.expected_max_eff_bid_pmpe).toBe(3.2)
-    expect(underfunded!.data.details.epoch_cost_sol).toBeCloseTo(
-      (3.2 / 1000) * 50000,
-    ) // 160 SOL
-    expect(underfunded!.data.details.deficit_sol).toBeGreaterThan(0)
-    expect(underfunded!.data.details.required_sol).toBeGreaterThan(0)
+    expect(underfundedDetails.expected_max_eff_bid_pmpe).toBe(3.2)
+    expect(underfundedDetails.epoch_cost_sol).toBeCloseTo((3.2 / 1000) * 50000) // 160 SOL
+    expect(underfundedDetails.deficit_sol).toBeGreaterThan(0)
+    expect(underfundedDetails.required_sol).toBeGreaterThan(0)
   })
 
   it('emits bond_balance_change when funded amount changes', () => {
@@ -260,7 +272,9 @@ describe('evaluateDeltas', () => {
       e => e.inner_type === 'bond_balance_change',
     )
     expect(balanceChange).toBeDefined()
-    expect(balanceChange!.data.details.delta_lamports).toBe('-2000000000')
+    const balanceDetails = balanceChange!.data
+      .details as BondBalanceChangeDetails
+    expect(balanceDetails.delta_lamports).toBe('-2000000000')
   })
 
   it('suppresses bond_underfunded_change on float jitter', () => {
@@ -335,7 +349,9 @@ describe('evaluateDeltas', () => {
       e => e.inner_type === 'bond_underfunded_change',
     )
     expect(underfunded).toBeDefined()
-    expect(underfunded!.data.details.deficit_sol).toBeGreaterThan(175)
+    const deficitDetails = underfunded!.data
+      .details as BondUnderfundedChangeDetails
+    expect(deficitDetails.deficit_sol).toBeGreaterThan(175)
   })
 
   it('emits no events when nothing changed', () => {
@@ -408,7 +424,9 @@ describe('evaluateDeltas', () => {
       e => e.inner_type === 'bond_balance_change',
     )
     expect(balanceChange).toBeDefined()
-    expect(balanceChange!.data.details.delta_lamports).toBe('1')
+    const lamportDetails = balanceChange!.data
+      .details as BondBalanceChangeDetails
+    expect(lamportDetails.delta_lamports).toBe('1')
   })
 })
 

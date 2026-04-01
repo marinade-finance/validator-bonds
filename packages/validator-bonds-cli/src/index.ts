@@ -2,10 +2,8 @@
 
 import 'reflect-metadata'
 
-import {
-  launchCliProgram,
-  CliType,
-} from '@marinade.finance/validator-bonds-cli-core'
+import { NOTIFICATION_TYPE_SAM_AUCTION } from '@marinade.finance/notifications-ts-subscription-client'
+import { launchCliProgram } from '@marinade.finance/validator-bonds-cli-core'
 import { VALIDATOR_BONDS_PROGRAM_ID } from '@marinade.finance/validator-bonds-sdk'
 import { parsePubkey } from '@marinade.finance/web3js-1x'
 
@@ -28,8 +26,8 @@ launchCliProgram({
     installCommands(program)
   },
   npmRegistryUrl: VALIDATOR_BONDS_NPM_URL,
-  announcementsConfig: {
+  notificationsConfig: {
     enabled: true,
-    cliType: CliType.Sam,
+    notificationType: NOTIFICATION_TYPE_SAM_AUCTION,
   },
 })

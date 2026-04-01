@@ -7,20 +7,14 @@ import {
 import {
   createSubscriptionClient,
   listSubscriptionsMessage,
-  NOTIFICATION_TYPE_SAM_AUCTION,
-} from '@marinade.finance/ts-subscription-client'
+} from '@marinade.finance/notifications-ts-subscription-client'
 import {
   instanceOfWallet,
   parsePubkey,
   parseWalletOrPubkeyOption,
 } from '@marinade.finance/web3js-1x'
-import { Option } from 'commander'
 
-import {
-  NOTIFICATIONS_API_URL_DEFAULT,
-  NOTIFICATIONS_API_URL_ENV,
-  signForSubscription,
-} from './subscribe'
+import { signForSubscription } from './subscribe'
 import { getCliContext } from '../../context'
 import { formatHttpError, getBondFromAddress } from '../../utils'
 
@@ -52,15 +46,6 @@ export function configureSubscriptions(program: Command): Command {
       'Format of output',
       'text',
     )
-    .addOption(
-      new Option(
-        '--notifications-api-url <url>',
-        'Override notification service URL',
-      )
-        .env(NOTIFICATIONS_API_URL_ENV)
-        .default(NOTIFICATIONS_API_URL_DEFAULT)
-        .hideHelp(),
-    )
 }
 
 export async function showSubscriptions({
@@ -68,15 +53,14 @@ export async function showSubscriptions({
   config,
   authority,
   format,
-  notificationsApiUrl,
 }: {
   address: PublicKey
   config: PublicKey
   authority?: WalletInterface | PublicKey
   format: FormatType
-  notificationsApiUrl: string
 }) {
-  const { program, logger, wallet } = getCliContext()
+  const { program, logger, wallet, notificationsApiUrl, notificationType } =
+    getCliContext()
 
   const bondAccountData = await getBondFromAddress({
     program,
@@ -120,7 +104,7 @@ export async function showSubscriptions({
     const data = await client.listSubscriptions(
       {
         pubkey,
-        notification_type: NOTIFICATION_TYPE_SAM_AUCTION,
+        notification_type: notificationType,
         additional_data: {
           config_address: configAddress.toBase58(),
           vote_account: voteAccount.toBase58(),
