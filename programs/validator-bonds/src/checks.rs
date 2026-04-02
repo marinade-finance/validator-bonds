@@ -250,7 +250,6 @@ mod tests {
     use anchor_lang::solana_program::stake::state::{Authorized, Lockup, Stake, StakeStateV2};
     use anchor_lang::solana_program::vote::state::{VoteInit, VoteState, VoteStateVersions};
     use std::ops::DerefMut;
-    use std::str::FromStr;
 
     fn test_bond_with_authority(authority: Pubkey) -> Bond {
         Bond {
@@ -838,9 +837,8 @@ mod tests {
     pub fn get_vote_account_v4_data() -> (Pubkey, Pubkey, Vec<u8>) {
         let serialized_data = include_bytes!("fixtures/chorus_v4_vote_account.bin").to_vec();
 
-        let node_pubkey = Pubkey::from_str("ChorusmmK7i1AxXeiTtQgQZhQNiXYU84ULeaYF1EH15n").unwrap();
-        let authorized_withdrawer =
-            Pubkey::from_str("JCkod8xUb83ejQ9pLq9tTDrpEQAuiWrcLWX6AS5gp2mp").unwrap();
+        let node_pubkey = pubkey!("ChorusmmK7i1AxXeiTtQgQZhQNiXYU84ULeaYF1EH15n");
+        let authorized_withdrawer = pubkey!("JCkod8xUb83ejQ9pLq9tTDrpEQAuiWrcLWX6AS5gp2mp");
 
         // sanity: discriminant is 3 (V4)
         assert_eq!(
