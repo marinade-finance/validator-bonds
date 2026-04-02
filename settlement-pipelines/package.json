@@ -39,7 +39,7 @@
     "@marinade.finance/anchor-common": "4.2.5",
     "@marinade.finance/web3js-1x": "4.2.5",
     "@marinade.finance/ts-common": "4.2.5",
-    "bn.js": "5.2.2",
+    "bn.js": "5.2.3",
     "jsbi": "4.3.2",
     "commander": "14.0.0",
     "pino": "9.7.0",
