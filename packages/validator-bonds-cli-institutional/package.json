@@ -47,7 +47,7 @@
     "@ledgerhq/hw-transport-node-hid-noevents": "6.33.0",
     "@marinade.finance/ledger-utils": "3.2.0",
     "@solana/web3.js": "1.98.4",
-    "bn.js": "5.2.2",
+    "bn.js": "5.2.3",
     "bs58": "6.0.0",
     "commander": "14.0.0",
     "jsbi": "4.3.2",
