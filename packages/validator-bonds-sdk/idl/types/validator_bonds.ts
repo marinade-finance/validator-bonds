@@ -8,7 +8,7 @@ export type ValidatorBonds = {
   "address": "vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4",
   "metadata": {
     "name": "validatorBonds",
-    "version": "2.2.0",
+    "version": "2.2.1",
     "spec": "0.1.0",
     "description": "Marinade validator bonds program protecting validators performance"
   },
