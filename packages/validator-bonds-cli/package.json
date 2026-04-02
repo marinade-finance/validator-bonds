@@ -1,6 +1,6 @@
 {
   "name": "@marinade.finance/validator-bonds-cli",
-  "version": "2.4.2",
+  "version": "2.4.3",
   "description": "CLI of the validator bonds contract",
   "repository": {
     "type": "git",
