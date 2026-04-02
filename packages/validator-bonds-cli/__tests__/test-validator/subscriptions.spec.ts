@@ -63,6 +63,42 @@ describe('CLI subscription commands', () => {
         }
       },
     )
+    testServer.addRoute(
+      '/v1/notifications',
+      (_req: IncomingMessage, res: ServerResponse) => {
+        TestHttpServer.sendAsJson(
+          res,
+          JSON.stringify([
+            {
+              id: 'notif-1',
+              notification_type: 'bonds',
+              priority: 'info',
+              inner_type: 'settlement',
+              title: 'Bond settlement',
+              body: 'Your bond has been settled',
+            },
+          ]),
+        )
+      },
+    )
+    testServer.addRoute(
+      '/v1/notifications/broadcast',
+      (_req: IncomingMessage, res: ServerResponse) => {
+        TestHttpServer.sendAsJson(
+          res,
+          JSON.stringify([
+            {
+              id: 'broadcast-1',
+              notification_type: 'bonds',
+              priority: 'warning',
+              inner_type: 'announcement',
+              title: 'Maintenance window',
+              body: 'Scheduled maintenance this weekend',
+            },
+          ]),
+        )
+      },
+    )
     await testServer.start()
   })
 
@@ -228,6 +264,57 @@ describe('CLI subscription commands', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       stdout: /telegram/,
+    })
+  })
+
+  it('show-notifications for a bond', async () => {
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-notifications',
+        bondAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--limit',
+        '10',
+      ],
+      {
+        env: {
+          ...process.env,
+          NOTIFICATIONS_API_URL: testServer.baseUrl,
+        },
+      },
+    ]).toHaveMatchingSpawnOutput({
+      code: 0,
+      stdout: /Bond settlement/,
+    })
+  })
+
+  it('show-notifications broadcast', async () => {
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-notifications',
+      ],
+      {
+        env: {
+          ...process.env,
+          NOTIFICATIONS_API_URL: testServer.baseUrl,
+        },
+      },
+    ]).toHaveMatchingSpawnOutput({
+      code: 0,
+      stdout: /Maintenance window/,
     })
   })
 })
