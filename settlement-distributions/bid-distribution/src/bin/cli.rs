@@ -272,8 +272,8 @@ fn main() -> anyhow::Result<()> {
         );
     }
 
-    // Sort settlements by reason
-    all_settlements.sort_by_key(|s| s.reason.to_string());
+    // Sort settlements deterministically by reason and vote account
+    all_settlements.sort_by_key(|s| (s.reason.to_string(), s.vote_account));
 
     // Create settlement collection
     let settlement_collection = SettlementCollection {
