@@ -250,6 +250,7 @@ mod tests {
     use anchor_lang::solana_program::stake::state::{Authorized, Lockup, Stake, StakeStateV2};
     use anchor_lang::solana_program::vote::state::{VoteInit, VoteState, VoteStateVersions};
     use std::ops::DerefMut;
+    use std::str::FromStr;
 
     fn test_bond_with_authority(authority: Pubkey) -> Bond {
         Bond {
@@ -837,17 +838,9 @@ mod tests {
     pub fn get_vote_account_v4_data() -> (Pubkey, Pubkey, Vec<u8>) {
         let serialized_data = include_bytes!("fixtures/chorus_v4_vote_account.bin").to_vec();
 
-        // Cvvh8nsKZet59nsDDo3orMa3rZnPWQhGYANgYZyJ5DYJ
-        let node_pubkey = Pubkey::new_from_array([
-            0xad, 0xe4, 0xc6, 0x20, 0xfa, 0x4c, 0xa8, 0xe9, 0xf1, 0xfc, 0xb4, 0x84, 0xc8, 0x59,
-            0x1a, 0x3e, 0x60, 0x3e, 0x5b, 0x15, 0x55, 0x17, 0x64, 0x80, 0xe3, 0x53, 0xeb, 0x45,
-            0x28, 0x84, 0xc1, 0x65,
-        ]);
-        let authorized_withdrawer = Pubkey::new_from_array([
-            0xff, 0x99, 0x98, 0x87, 0x46, 0x67, 0xd9, 0x5c, 0x50, 0x3c, 0x16, 0xe1, 0x14, 0x6f,
-            0x4a, 0xf8, 0x2f, 0xde, 0xf7, 0x1a, 0xed, 0x28, 0x71, 0x9d, 0x31, 0xdc, 0x49, 0xa3,
-            0x22, 0x60, 0x80, 0x53,
-        ]);
+        let node_pubkey = Pubkey::from_str("ChorusmmK7i1AxXeiTtQgQZhQNiXYU84ULeaYF1EH15n").unwrap();
+        let authorized_withdrawer =
+            Pubkey::from_str("JCkod8xUb83ejQ9pLq9tTDrpEQAuiWrcLWX6AS5gp2mp").unwrap();
 
         // sanity: discriminant is 3 (V4)
         assert_eq!(
