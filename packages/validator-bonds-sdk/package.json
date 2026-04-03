@@ -46,7 +46,7 @@
     "crypto-js": "4.2.0",
     "@types/crypto-js": "4.2.1",
     "anchor-bankrun": "0.2.0",
-    "bn.js": "5.2.2",
+    "bn.js": "5.2.3",
     "borsh": "0.7.0",
     "jsbi": "4.3.2",
     "solana-bankrun": "0.2.0",

@@ -10727,7 +10727,7 @@ dependencies = [
 
 [[package]]
 name = "validator-bonds"
-version = "2.2.0"
+version = "2.2.1"
 dependencies = [
  "anchor-lang",
  "anchor-spl",

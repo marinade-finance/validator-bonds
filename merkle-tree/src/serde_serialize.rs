@@ -67,8 +67,10 @@ pub mod map_pubkey_string_conversion {
     where
         S: Serializer,
     {
-        let mut map = serializer.serialize_map(Some(stake_accounts.len()))?;
-        for (k, v) in stake_accounts {
+        let mut sorted_entries: Vec<_> = stake_accounts.iter().collect();
+        sorted_entries.sort_by_key(|(k, _)| k.to_bytes());
+        let mut map = serializer.serialize_map(Some(sorted_entries.len()))?;
+        for (k, v) in sorted_entries {
             map.serialize_entry(&k.to_string(), v)?;
         }
         map.end()
