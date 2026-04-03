@@ -42,6 +42,7 @@
     "@marinade.finance/cli-common": "4.2.5",
     "@marinade.finance/ts-common": "4.2.5",
     "@marinade.finance/web3js-1x": "4.2.5",
+    "@marinade.finance/notifications-ts-subscription-client": "1.0.2-beta.4",
     "@ledgerhq/errors": "6.31.0",
     "@ledgerhq/hw-app-solana": "7.9.0",
     "@ledgerhq/hw-transport-node-hid-noevents": "6.33.0",

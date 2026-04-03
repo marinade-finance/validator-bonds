@@ -37,7 +37,7 @@ describe('CLI subscription commands', () => {
 
     testServer = new TestHttpServer(NOTIFICATIONS_API_PORT)
     testServer.addRoute(
-      '/subscriptions',
+      '/v1/subscriptions',
       (req: IncomingMessage, res: ServerResponse) => {
         if (req.method === 'POST') {
           TestHttpServer.sendAsJson(
@@ -61,6 +61,42 @@ describe('CLI subscription commands', () => {
           res.writeHead(405)
           res.end('Method Not Allowed')
         }
+      },
+    )
+    testServer.addRoute(
+      '/v1/notifications',
+      (_req: IncomingMessage, res: ServerResponse) => {
+        TestHttpServer.sendAsJson(
+          res,
+          JSON.stringify([
+            {
+              id: 'notif-1',
+              notification_type: 'bonds',
+              priority: 'info',
+              inner_type: 'settlement',
+              title: 'Bond settlement',
+              message: 'Your bond has been settled',
+            },
+          ]),
+        )
+      },
+    )
+    testServer.addRoute(
+      '/v1/notifications/broadcast',
+      (_req: IncomingMessage, res: ServerResponse) => {
+        TestHttpServer.sendAsJson(
+          res,
+          JSON.stringify([
+            {
+              id: 'broadcast-1',
+              notification_type: 'bonds',
+              priority: 'warning',
+              inner_type: 'announcement',
+              title: 'Maintenance window',
+              message: 'Scheduled maintenance this weekend',
+            },
+          ]),
+        )
       },
     )
     await testServer.start()
@@ -228,6 +264,102 @@ describe('CLI subscription commands', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       stdout: /telegram/,
+    })
+  })
+
+  it('show-notifications for a bond', async () => {
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-notifications',
+        bondAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--limit',
+        '10',
+      ],
+      {
+        env: {
+          ...process.env,
+          NOTIFICATIONS_API_URL: testServer.baseUrl,
+        },
+      },
+    ]).toHaveMatchingSpawnOutput({
+      code: 0,
+      stdout: /Bond settlement/,
+    })
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-notifications',
+        bondAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--limit',
+        '10',
+      ],
+      {
+        env: {
+          ...process.env,
+          NOTIFICATIONS_API_URL: testServer.baseUrl,
+        },
+      },
+    ]).toHaveMatchingSpawnOutput({
+      code: 0,
+      stdout: /Your bond has been settled/,
+    })
+  })
+
+  it('show-notifications broadcast', async () => {
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-notifications',
+      ],
+      {
+        env: {
+          ...process.env,
+          NOTIFICATIONS_API_URL: testServer.baseUrl,
+        },
+      },
+    ]).toHaveMatchingSpawnOutput({
+      code: 0,
+      stdout: /Maintenance window/,
+    })
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'show-notifications',
+      ],
+      {
+        env: {
+          ...process.env,
+          NOTIFICATIONS_API_URL: testServer.baseUrl,
+        },
+      },
+    ]).toHaveMatchingSpawnOutput({
+      code: 0,
+      stdout: /Scheduled maintenance this weekend/,
     })
   })
 })

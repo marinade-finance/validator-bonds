@@ -26,13 +26,11 @@ export function installUnsubscribe(program: Command) {
           authority,
           type,
           address: channelAddress,
-          notificationsApiUrl,
         }: {
           config?: Promise<PublicKey>
           authority?: Promise<WalletInterface | PublicKey>
           type: string
           address?: string
-          notificationsApiUrl: string
         },
       ) => {
         await manageUnsubscribe({
@@ -41,7 +39,6 @@ export function installUnsubscribe(program: Command) {
           authority: await authority,
           type,
           channelAddress,
-          notificationsApiUrl,
         })
       },
     )

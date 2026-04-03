@@ -75,6 +75,9 @@ importers:
       '@marinade.finance/ds-sam-sdk':
         specifier: 0.0.44
         version: 0.0.44
+      '@marinade.finance/notifications-bonds-event-v1':
+        specifier: 1.0.0-beta.4
+        version: 1.0.0-beta.4
       '@marinade.finance/ts-common':
         specifier: 4.2.5
         version: 4.2.5
@@ -130,6 +133,9 @@ importers:
       '@marinade.finance/ledger-utils':
         specifier: 3.2.0
         version: 3.2.0(@ledgerhq/errors@6.31.0)(@ledgerhq/hw-app-solana@7.9.0)(@ledgerhq/hw-transport-node-hid-noevents@6.33.0)(@marinade.finance/ts-common@4.2.5)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)
+      '@marinade.finance/notifications-ts-subscription-client':
+        specifier: 1.0.2-beta.4
+        version: 1.0.2-beta.4
       '@marinade.finance/ts-common':
         specifier: 4.2.5
         version: 4.2.5
@@ -203,12 +209,12 @@ importers:
       '@marinade.finance/ledger-utils':
         specifier: 3.2.0
         version: 3.2.0(@ledgerhq/errors@6.31.0)(@ledgerhq/hw-app-solana@7.9.0)(@ledgerhq/hw-transport-node-hid-noevents@6.33.0)(@marinade.finance/ts-common@4.2.5)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)
+      '@marinade.finance/notifications-ts-subscription-client':
+        specifier: 1.0.2-beta.4
+        version: 1.0.2-beta.4
       '@marinade.finance/ts-common':
         specifier: 4.2.5
         version: 4.2.5
-      '@marinade.finance/ts-subscription-client':
-        specifier: 1.0.1
-        version: 1.0.1
       '@marinade.finance/validator-bonds-sdk':
         specifier: 'workspace: *'
         version: link:../validator-bonds-sdk
@@ -275,6 +281,9 @@ importers:
       '@marinade.finance/ledger-utils':
         specifier: 3.2.0
         version: 3.2.0(@ledgerhq/errors@6.31.0)(@ledgerhq/hw-app-solana@7.9.0)(@ledgerhq/hw-transport-node-hid-noevents@6.33.0)(@marinade.finance/ts-common@4.2.5)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)
+      '@marinade.finance/notifications-ts-subscription-client':
+        specifier: 1.0.2-beta.4
+        version: 1.0.2-beta.4
       '@marinade.finance/ts-common':
         specifier: 4.2.5
         version: 4.2.5
@@ -1003,13 +1012,23 @@ packages:
   '@marinade.finance/native-staking-sdk@1.3.3':
     resolution: {integrity: sha512-bnjCiKj4AG7fiBXPjX0AOcsJ/VRYlGV9/vy83YM2Cg30L9tlkVYWEBf+WVcHDMMYAqTlO49nq9zTDCxu9Ui2JA==}
 
+  '@marinade.finance/notifications-bonds-event-v1@1.0.0-beta.4':
+    resolution: {integrity: sha512-kdEFjnTH/dsS3LZomwasFhgORhq2MGKUQp1BWNXwEb1P/EbO9poukZ0P89hED9VdfMQP3fepexR4gMCMDNRL/A==}
+
+  '@marinade.finance/notifications-header-v1@1.0.0-beta.4':
+    resolution: {integrity: sha512-yP94Uv0187+myGCUheOZWmXog5ikxZEQyWB36vo3Po0XZLKML/Am3l2lC4gUKU6Ib4+lnjJQDIculxygIu8i0g==}
+
+  '@marinade.finance/notifications-ts-message@1.0.0-beta.4':
+    resolution: {integrity: sha512-yZLoQEZF0SeS24LeH83LhRcLt8+IheeMwlA0+85dNTuXjKTa8vOyzmjfZWBzjL4XY6Hs8c/jHgKd2T0tievAsg==}
+    engines: {node: '>=20.0.0'}
+
+  '@marinade.finance/notifications-ts-subscription-client@1.0.2-beta.4':
+    resolution: {integrity: sha512-yMdeobWiuyw21RAMgPtY0JwmTqu2G7EU/VANNCP9DQmgw/9BQD1NYM0br6i7BCcQ9i8otX/cfXzv+tU+er89SQ==}
+    engines: {node: '>=20.0.0'}
+
   '@marinade.finance/ts-common@4.2.5':
     resolution: {integrity: sha512-qWMHo1pcWqFqGZ9ng4yxoL3UPkTmj8zUaSnoqsl4l2YtftYQjRQw6ZxIdZRCCmjri25vx7Eg0EGfY90rs15mfg==}
     engines: {node: '>=14'}
-
-  '@marinade.finance/ts-subscription-client@1.0.1':
-    resolution: {integrity: sha512-iM88WtqEL215A9fNdUeWJdJMk/2NB+Oxd9F43qXmjYlZW3K1VQZxSCHIBt/aUoB6aIQatLVhG49Ohd15+RM0Ew==}
-    engines: {node: '>=20.0.0'}
 
   '@marinade.finance/web3js-1x-testing@4.2.5':
     resolution: {integrity: sha512-UhZBi0KlOT6iLF7B9hEFW78An7vP9DZ4GQB1TH2RJjeNYVgaRXcM/R4jfF6/o9PCpyCeO4emjISJicr8OpTNRQ==}
@@ -1170,8 +1189,8 @@ packages:
   '@sinclair/typebox@0.27.8':
     resolution: {integrity: sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==}
 
-  '@sinclair/typebox@0.34.49':
-    resolution: {integrity: sha512-brySQQs7Jtn0joV8Xh9ZV/hZb9Ozb0pmazDIASBkYKCjXrXU3mpcFahmK/z4YDhGkQvP9mWJbVyahdtU5wQA+A==}
+  '@sinclair/typebox@0.34.48':
+    resolution: {integrity: sha512-kKJTNuK3AQOrgjjotVxMrCn1sUJwM76wMszfq1kdU4uYVJjvEWuFQ6HgvLt4Xz3fSmZlTOxJ/Ie13KnIcWQXFA==}
 
   '@sinonjs/commons@3.0.1':
     resolution: {integrity: sha512-K3mCHKQ9sVh8o1C9cxkwxaOmXoAMlDxC1mYyHrjqOWEcBjYr76t96zL2zlj5dUGZ3HSw240X1qgH3Mjf1yJWpQ==}
@@ -1946,8 +1965,27 @@ packages:
     resolution: {integrity: sha512-5GG/5IbQQpC9FpkRGsSvZI5QYeSCzlJHdpBQntCsuTOxhKD8lqKhrleg2Yi7yvMIf82Ycmmqln9U8V9qwEiJew==}
     engines: {node: '>= 8.0.0'}
 
+  ajv-formats@2.1.1:
+    resolution: {integrity: sha512-Wx0Kx52hxE7C18hkMEggYlEifqWZtYaRgouJor+WMdPnQyEK13vgEWyVNup7SoeeoLMsr4kf5h6dOW11I15MUA==}
+    peerDependencies:
+      ajv: ^8.0.0
+    peerDependenciesMeta:
+      ajv:
+        optional: true
+
+  ajv-formats@3.0.1:
+    resolution: {integrity: sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==}
+    peerDependencies:
+      ajv: ^8.0.0
+    peerDependenciesMeta:
+      ajv:
+        optional: true
+
   ajv@6.12.6:
     resolution: {integrity: sha512-j3fVLgvTo527anyYyJOGTYJbG+vnnQYvE0m5mmkc1TK+nxAppkCLMIL0aZ4dblVCNoGShhm+kzE4ZUykBoMg4g==}
+
+  ajv@8.18.0:
+    resolution: {integrity: sha512-PlXPeEWMXMZ7sPYOHqmDyCJzcfNrUr3fGNKtezX14ykXOEIvyK81d+qydx89KY5O71FKMPaQ2vBfBFI5NHR63A==}
 
   anchor-bankrun@0.2.0:
     resolution: {integrity: sha512-k/GIiYjkFzj10iluAXPjLjDInZtNNZ2FTcCTrtqgxwm5wofLbD8T0sy13LU9IfQSirj8/6eaTawDo+IvI03KRQ==}
@@ -2808,6 +2846,9 @@ packages:
   fast-stable-stringify@1.0.0:
     resolution: {integrity: sha512-wpYMUmFu5f00Sm0cj2pfivpmawLZ0NKdviQ4w9zJeR8JVtOpOxHmLaJuj0vxvGqMJQWyP/COUkF75/57OKyRag==}
 
+  fast-uri@3.1.0:
+    resolution: {integrity: sha512-iPeeDKJSWf4IEOasVVrknXpaBV0IApz/gp7S2bb7Z4Lljbl2MGJRqInZiUrQwV16cpzw/D3S5j5Julj/gT52AA==}
+
   fastestsmallesttextencoderdecoder@1.0.22:
     resolution: {integrity: sha512-Pb8d48e+oIuY4MaM64Cd7OW1gt4nxCHs7/ddPPZ/Ic3sg8yVGM7O9wDvZ7us6ScaUupzM+pfBolwtYhN1IxBIw==}
 
@@ -3432,6 +3473,9 @@ packages:
   json-schema-traverse@0.4.1:
     resolution: {integrity: sha512-xbbCH5dCYU5T8LcEhhuh7HJ88HXuW3qsI3Y0zOZFKfZEHcpWiHU/Jxzk629Brsab/mMiHQti9wMP+845RPe3Vg==}
 
+  json-schema-traverse@1.0.0:
+    resolution: {integrity: sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==}
+
   json-stable-stringify-without-jsonify@1.0.1:
     resolution: {integrity: sha512-Bdboy+l7tA3OGW6FjyFHWkP5LuByj1Tk33Ljyq0axyzdk9//JSi2u3fP1QSmd1KNwq6VOKYGlAu87CisVir6Pw==}
 
@@ -4017,6 +4061,10 @@ packages:
 
   require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
+    engines: {node: '>=0.10.0'}
+
+  require-from-string@2.0.2:
+    resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
     engines: {node: '>=0.10.0'}
 
   resolve-cwd@3.0.0:
@@ -5224,7 +5272,7 @@ snapshots:
 
   '@jest/schemas@30.0.5':
     dependencies:
-      '@sinclair/typebox': 0.34.49
+      '@sinclair/typebox': 0.34.48
 
   '@jest/source-map@29.6.3':
     dependencies:
@@ -5465,12 +5513,26 @@ snapshots:
       - typescript
       - utf-8-validate
 
+  '@marinade.finance/notifications-bonds-event-v1@1.0.0-beta.4':
+    dependencies:
+      '@marinade.finance/notifications-ts-message': 1.0.0-beta.4
+      ajv: 8.18.0
+      ajv-formats: 2.1.1(ajv@8.18.0)
+
+  '@marinade.finance/notifications-header-v1@1.0.0-beta.4': {}
+
+  '@marinade.finance/notifications-ts-message@1.0.0-beta.4':
+    dependencies:
+      '@marinade.finance/notifications-header-v1': 1.0.0-beta.4
+      ajv: 8.18.0
+      ajv-formats: 3.0.1(ajv@8.18.0)
+
+  '@marinade.finance/notifications-ts-subscription-client@1.0.2-beta.4': {}
+
   '@marinade.finance/ts-common@4.2.5':
     dependencies:
       async-retry: 1.3.3
       decimal.js: 10.6.0
-
-  '@marinade.finance/ts-subscription-client@1.0.1': {}
 
   '@marinade.finance/web3js-1x-testing@4.2.5(@jest/globals@29.7.0)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(@types/bn.js@5.2.0)(bn.js@5.2.3)':
     dependencies:
@@ -5641,7 +5703,7 @@ snapshots:
 
   '@sinclair/typebox@0.27.8': {}
 
-  '@sinclair/typebox@0.34.49': {}
+  '@sinclair/typebox@0.34.48': {}
 
   '@sinonjs/commons@3.0.1':
     dependencies:
@@ -6588,12 +6650,27 @@ snapshots:
     dependencies:
       humanize-ms: 1.2.1
 
+  ajv-formats@2.1.1(ajv@8.18.0):
+    optionalDependencies:
+      ajv: 8.18.0
+
+  ajv-formats@3.0.1(ajv@8.18.0):
+    optionalDependencies:
+      ajv: 8.18.0
+
   ajv@6.12.6:
     dependencies:
       fast-deep-equal: 3.1.3
       fast-json-stable-stringify: 2.1.0
       json-schema-traverse: 0.4.1
       uri-js: 4.4.1
+
+  ajv@8.18.0:
+    dependencies:
+      fast-deep-equal: 3.1.3
+      fast-uri: 3.1.0
+      json-schema-traverse: 1.0.0
+      require-from-string: 2.0.2
 
   anchor-bankrun@0.2.0(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10):
     dependencies:
@@ -7631,6 +7708,8 @@ snapshots:
 
   fast-stable-stringify@1.0.0: {}
 
+  fast-uri@3.1.0: {}
+
   fastestsmallesttextencoderdecoder@1.0.22: {}
 
   fastq@1.17.1:
@@ -8447,6 +8526,8 @@ snapshots:
 
   json-schema-traverse@0.4.1: {}
 
+  json-schema-traverse@1.0.0: {}
+
   json-stable-stringify-without-jsonify@1.0.1: {}
 
   json-stringify-safe@5.0.1: {}
@@ -9049,6 +9130,8 @@ snapshots:
       set-function-name: 2.0.2
 
   require-directory@2.1.1: {}
+
+  require-from-string@2.0.2: {}
 
   resolve-cwd@3.0.0:
     dependencies:

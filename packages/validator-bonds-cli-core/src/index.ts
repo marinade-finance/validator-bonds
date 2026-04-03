@@ -1,4 +1,4 @@
-export * from './announcements'
+export * from './notifications'
 export * from './banner'
 export * from './commands'
 export * from './computeUnits'

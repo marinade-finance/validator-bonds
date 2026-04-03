@@ -8,6 +8,7 @@ CLI for [Marinade](https://docs.marinade.finance/) Validator Bonds on-chain prog
 - [Quick Start Guide](#quick-start-guide)
 - [Core Concepts](#core-concepts)
 - [Bond Management](#bond-management)
+- [Notification Subscriptions](#notification-subscriptions)
 - [Understanding Bond Processing](#understanding-bond-processing)
 - [Advanced Topics](#advanced-topics)
 - [CLI Reference](#cli-reference)
@@ -645,6 +646,69 @@ validator-bonds -um show-config vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU
 - `minBondMaxStakeWanted` - Minimum allowed `maxStakeWanted` value
 
 [View config source code](https://github.com/marinade-finance/validator-bonds/blob/main/programs/validator-bonds/src/state/config.rs)
+
+---
+
+## Notification Subscriptions
+
+Subscribe to receive notifications about your bond activity (auction results, settlements, PSR events).
+Subscriptions are off-chain — no on-chain transaction is needed, but the CLI signs a message
+with your bond authority or validator identity to prove ownership.
+
+### Subscribe
+
+```sh
+# Subscribe via Telegram
+validator-bonds subscribe <bond-or-vote-account> \
+  --type telegram --address <your-telegram-handle> \
+  --authority <bond-authority-or-validator-identity-keypair>
+
+# Subscribe via email
+validator-bonds subscribe <bond-or-vote-account> \
+  --type email --address <your-email> \
+  --authority <bond-authority-or-validator-identity-keypair>
+```
+
+**Telegram activation:** After subscribing, the CLI returns a Telegram deep link and opens it in your browser.
+You **must click "Start"** in the Telegram bot to activate delivery.
+
+### Unsubscribe
+
+```sh
+# Unsubscribe a specific address
+validator-bonds unsubscribe <bond-or-vote-account> \
+  --type telegram --address <your-telegram-handle> \
+  --authority <bond-authority-or-validator-identity-keypair>
+
+# Unsubscribe all subscriptions of a given type
+validator-bonds unsubscribe <bond-or-vote-account> \
+  --type telegram \
+  --authority <bond-authority-or-validator-identity-keypair>
+```
+
+Omitting `--address` removes **all** subscriptions of the specified type for the bond.
+
+### List Current Subscriptions
+
+```sh
+validator-bonds subscriptions <bond-or-vote-account> \
+  --authority <bond-authority-or-validator-identity-keypair>
+```
+
+Shows channel type, address, and status (e.g., `active`, `pending`, `inactive`) for each subscription.
+
+### View Notifications
+
+```sh
+# Show notifications for a specific bond
+validator-bonds show-notifications <bond-or-vote-account>
+
+# Show broadcast announcements only
+validator-bonds show-notifications
+
+# Filter by priority or limit count
+validator-bonds show-notifications <bond-or-vote-account> --priority critical --limit 10
+```
 
 ---
 

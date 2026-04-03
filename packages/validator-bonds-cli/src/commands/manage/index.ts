@@ -15,6 +15,7 @@ import { installInitWithdrawRequest } from './initWithdrawRequest'
 import { installStakeMerge } from './mergeStake'
 import { installMintBond } from './mintBond'
 import { installResetStake } from './resetStake'
+import { installShowNotifications } from './show-notifications'
 import { installSubscribe } from './subscribe'
 import { installSubscriptions } from './subscriptions'
 import { installUnsubscribe } from './unsubscribe'
@@ -40,4 +41,5 @@ export function installManage(program: Command) {
   installSubscribe(program)
   installUnsubscribe(program)
   installSubscriptions(program)
+  installShowNotifications(program)
 }

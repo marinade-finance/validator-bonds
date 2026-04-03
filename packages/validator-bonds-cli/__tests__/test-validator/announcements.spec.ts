@@ -13,43 +13,47 @@ import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 import type { ServerResponse } from 'http'
 
-const ANNOUNCEMENTS_API_PORT = 13579
+const NOTIFICATIONS_API_PORT = 13579
 
 beforeAll(() => {
   extendJestWithShellMatchers()
 })
 
-describe('CLI Announcements', () => {
+describe('CLI Notification Banners', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
   let testServer: TestHttpServer
 
-  const mockAnnouncements = {
-    announcements: [
-      {
-        id: 1,
-        created_at: '2024-01-01T00:00:00Z',
-        updated_at: '2024-01-01T00:00:00Z',
-        group_id: 1,
-        group_order: 0,
-        title: 'Test Announcement',
-        text: 'This is a test announcement message',
-        enabled: true,
-        operation_filter: null,
-        vote_account_filter: null,
-        type_filter: 'sam',
-      },
-    ],
-  }
+  const mockBroadcastNotifications = [
+    {
+      id: 1,
+      notification_type: 'sam_auction',
+      inner_type: 'announcement',
+      user_id: 'MarinadeNotifications1111111111111111111111',
+      scope: 'broadcast',
+      priority: 'info',
+      message: 'This is a test announcement message',
+      data: {},
+      notification_id: null,
+      relevance_until: '2099-01-01T00:00:00Z',
+      created_at: '2024-01-01T00:00:00Z',
+    },
+  ]
 
   beforeAll(async () => {
     extendJestWithShellMatchers()
     ;({ provider, program } = initTest('processed'))
 
-    testServer = new TestHttpServer(ANNOUNCEMENTS_API_PORT)
-    testServer.addRoute('/v1/announcements', (_, res: ServerResponse) => {
-      TestHttpServer.sendAsJson(res, JSON.stringify(mockAnnouncements))
-    })
+    testServer = new TestHttpServer(NOTIFICATIONS_API_PORT)
+    testServer.addRoute(
+      '/v1/notifications/broadcast',
+      (_, res: ServerResponse) => {
+        TestHttpServer.sendAsJson(
+          res,
+          JSON.stringify(mockBroadcastNotifications),
+        )
+      },
+    )
     await testServer.start()
   })
 
@@ -57,7 +61,7 @@ describe('CLI Announcements', () => {
     await testServer.stop()
   })
 
-  it('displays announcements after command execution', async () => {
+  it('displays notification banners after command execution', async () => {
     const tx = await transaction(provider)
     const admin = Keypair.generate().publicKey
     const operator = Keypair.generate().publicKey
@@ -94,53 +98,53 @@ describe('CLI Announcements', () => {
       {
         env: {
           ...process.env,
-          ANNOUNCEMENTS_API_URL: `${testServer.baseUrl}/v1/announcements`,
+          NOTIFICATIONS_API_URL: testServer.baseUrl,
         },
       },
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      // Check that the announcement title and text appear in stdout
-      stdout: /Test Announcement[\s\S]*This is a test announcement message/,
+      stdout: /This is a test announcement message/,
     })
   })
 
-  it('handles multiple announcements in order', async () => {
-    const multipleAnnouncements = {
-      announcements: [
-        {
-          id: 1,
-          created_at: '2024-01-01T00:00:00Z',
-          updated_at: '2024-01-01T00:00:00Z',
-          group_id: 1,
-          group_order: 0,
-          title: 'First Announcement',
-          text: 'First message',
-          enabled: true,
-          operation_filter: null,
-          vote_account_filter: null,
-          type_filter: 'sam',
-        },
-        {
-          id: 2,
-          created_at: '2024-01-01T00:00:00Z',
-          updated_at: '2024-01-01T00:00:00Z',
-          group_id: 1,
-          group_order: 1,
-          title: null,
-          text: 'Second message without title',
-          enabled: true,
-          operation_filter: null,
-          vote_account_filter: null,
-          type_filter: 'sam',
-        },
-      ],
-    }
+  it('handles multiple notification banners in order', async () => {
+    const multipleNotifications = [
+      {
+        id: 1,
+        notification_type: 'sam_auction',
+        inner_type: 'announcement',
+        user_id: 'MarinadeNotifications1111111111111111111111',
+        scope: 'broadcast',
+        priority: 'info',
+        message: 'First message',
+        data: {},
+        notification_id: null,
+        relevance_until: '2099-01-01T00:00:00Z',
+        created_at: '2024-01-01T00:00:00Z',
+      },
+      {
+        id: 2,
+        notification_type: 'sam_auction',
+        inner_type: 'announcement',
+        user_id: 'MarinadeNotifications1111111111111111111111',
+        scope: 'broadcast',
+        priority: 'info',
+        message: 'Second message without title',
+        data: {},
+        notification_id: null,
+        relevance_until: '2099-01-01T00:00:00Z',
+        created_at: '2024-01-01T00:00:00Z',
+      },
+    ]
 
     const multiServer = new TestHttpServer(13580)
-    multiServer.addRoute('/v1/announcements', (_, res: ServerResponse) => {
-      TestHttpServer.sendAsJson(res, JSON.stringify(multipleAnnouncements))
-    })
+    multiServer.addRoute(
+      '/v1/notifications/broadcast',
+      (_, res: ServerResponse) => {
+        TestHttpServer.sendAsJson(res, JSON.stringify(multipleNotifications))
+      },
+    )
     await multiServer.start()
 
     try {
@@ -180,14 +184,13 @@ describe('CLI Announcements', () => {
         {
           env: {
             ...process.env,
-            ANNOUNCEMENTS_API_URL: `${multiServer.baseUrl}/v1/announcements`,
+            NOTIFICATIONS_API_URL: multiServer.baseUrl,
           },
         },
       ]).toHaveMatchingSpawnOutput({
         code: 0,
         signal: '',
-        stdout:
-          /First Announcement[\s\S]*First message[\s\S]*Second message without title/,
+        stdout: /First message[\s\S]*Second message without title/,
       })
     } finally {
       await multiServer.stop()
@@ -196,10 +199,13 @@ describe('CLI Announcements', () => {
 
   it('gracefully handles API errors', async () => {
     const errorServer = new TestHttpServer(13581)
-    errorServer.addRoute('/v1/announcements', (_, res: ServerResponse) => {
-      res.writeHead(500)
-      res.end('Internal Server Error')
-    })
+    errorServer.addRoute(
+      '/v1/notifications/broadcast',
+      (_, res: ServerResponse) => {
+        res.writeHead(500)
+        res.end('Internal Server Error')
+      },
+    )
     await errorServer.start()
 
     try {
@@ -222,7 +228,7 @@ describe('CLI Announcements', () => {
         configKeypair,
       ])
 
-      // CLI should still work even when announcements API fails
+      // CLI should still work even when notifications API fails
       await expect([
         'pnpm',
         [
@@ -240,7 +246,7 @@ describe('CLI Announcements', () => {
         {
           env: {
             ...process.env,
-            ANNOUNCEMENTS_API_URL: `${errorServer.baseUrl}/v1/announcements`,
+            NOTIFICATIONS_API_URL: errorServer.baseUrl,
           },
         },
       ]).toHaveMatchingSpawnOutput({
@@ -253,11 +259,14 @@ describe('CLI Announcements', () => {
     }
   })
 
-  it('handles empty announcements response', async () => {
+  it('handles empty notifications response', async () => {
     const emptyServer = new TestHttpServer(13582)
-    emptyServer.addRoute('/v1/announcements', (_, res: ServerResponse) => {
-      TestHttpServer.sendAsJson(res, JSON.stringify({ announcements: [] }))
-    })
+    emptyServer.addRoute(
+      '/v1/notifications/broadcast',
+      (_, res: ServerResponse) => {
+        TestHttpServer.sendAsJson(res, JSON.stringify([]))
+      },
+    )
     await emptyServer.start()
 
     try {
@@ -280,7 +289,7 @@ describe('CLI Announcements', () => {
         configKeypair,
       ])
 
-      // CLI should work normally with no announcements displayed
+      // CLI should work normally with no notifications displayed
       await expect([
         'pnpm',
         [
@@ -298,7 +307,7 @@ describe('CLI Announcements', () => {
         {
           env: {
             ...process.env,
-            ANNOUNCEMENTS_API_URL: `${emptyServer.baseUrl}/v1/announcements`,
+            NOTIFICATIONS_API_URL: emptyServer.baseUrl,
           },
         },
       ]).toHaveMatchingSpawnOutput({
