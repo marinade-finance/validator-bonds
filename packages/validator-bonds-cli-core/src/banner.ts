@@ -1,4 +1,4 @@
-import { getAnnouncements, ANNOUNCEMENTS_TIMEOUT_MS } from './announcements'
+import { getNotificationBanners } from './notifications'
 
 import type { Logger } from 'pino'
 
@@ -10,36 +10,37 @@ const BOTTOM_LEFT_CORNER = '╚'
 const BOTTOM_RIGHT_CORNER = '╝'
 
 /**
- * Prints announcements from the API as banners.
+ * Prints broadcast notifications from the API as banners.
  * Waits up to timeoutMs for the API response.
  * On error or timeout, nothing is printed (silent failure).
  */
-export async function printAnnouncementBanners(
+export async function printNotificationBanners(
   logger?: Logger,
-  timeoutMs: number = ANNOUNCEMENTS_TIMEOUT_MS,
+  timeoutMs?: number,
+  linesAround: number = 1,
 ): Promise<void> {
   try {
-    const response = await getAnnouncements(timeoutMs)
+    const notifications = await getNotificationBanners(timeoutMs)
 
-    if (!response || response.announcements.length === 0) {
-      logger?.debug('No announcements to display')
+    if (!notifications || notifications.length === 0) {
+      logger?.debug('No notifications to display')
       return
     }
 
-    for (const announcement of response.announcements) {
-      const banner = getBanner({
-        title: announcement.title ?? undefined,
-        text: announcement.text,
+    const banners = notifications.map(notification =>
+      getBanner({
+        title: notification.title ?? undefined,
+        text: notification.message,
         width: 80,
         centerText: false,
-        linesAround: 1,
         textColor: Color.Bold,
-      })
-      console.log(banner)
-    }
+      }),
+    )
+    const surrounding = '\n'.repeat(linesAround)
+    console.log(`${surrounding}${banners.join('\n')}${surrounding}`)
   } catch (error) {
     logger?.debug(
-      `Failed to print announcement banners: ${error instanceof Error ? error.message : String(error)}`,
+      `Failed to print notification banners: ${error instanceof Error ? error.message : String(error)}`,
     )
   }
 }

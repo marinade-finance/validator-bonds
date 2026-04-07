@@ -26,12 +26,10 @@ export function installSubscriptions(program: Command) {
           config,
           authority,
           format,
-          notificationsApiUrl,
         }: {
           config?: Promise<PublicKey>
           authority?: Promise<WalletInterface | PublicKey>
           format: FormatType
-          notificationsApiUrl: string
         },
       ) => {
         await showSubscriptions({
@@ -39,7 +37,6 @@ export function installSubscriptions(program: Command) {
           config: (await config) ?? MARINADE_CONFIG_ADDRESS,
           authority: await authority,
           format,
-          notificationsApiUrl,
         })
       },
     )
