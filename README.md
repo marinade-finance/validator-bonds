@@ -137,7 +137,7 @@ anchor build --verifiable \
 ## deploy (devnet, hot wallet upgrade)
 solana program deploy -v -ud \
    --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
-   -k [fee-payer-keypair]
+   -k [fee-payer-keypair] \
    --upgrade-authority [path-to-keypair] \
    ./target/verifiable/validator_bonds.so
 
@@ -177,8 +177,8 @@ anchor idl --provider.cluster mainnet set-buffer --print-only \
 # 3.check verifiable deployment (<BUFFER_PUBKEY> can be verified as well)
 #   a) when the target/verifiable/.so has been built already use switch --skip-build
 VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
-echo "Verification version $VERSION"
 COMMIT_HASH=`git rev-parse --short HEAD`
+echo "Verification version $VERSION, commit hash $COMMIT_HASH"
 anchor --provider.cluster mainnet \
    verify -p validator_bonds \
    --env "GIT_REV=${COMMIT_HASH}" --env "GIT_REV_NAME=${VERSION}" \
@@ -197,6 +197,9 @@ solana-verify -um verify-from-repo https://github.com/marinade-finance/validator
 # need to upload PDA verified build data account on-chain signed with upgrade authority
 # see https://solana.com/docs/programs/verified-builds#how-to-verify-your-program-when-its-controlled-by-a-multisig-like-squads
 # 4.a generate PDA transaction
+VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
+COMMIT_HASH=`git rev-parse --short HEAD`
+echo "Verification version $VERSION, commit hash $COMMIT_HASH"
 solana-verify -um export-pda-tx https://github.com/marinade-finance/validator-bonds \
   --library-name validator_bonds --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
   --commit-hash "${COMMIT_HASH}" --uploader 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm --encoding base64 \
