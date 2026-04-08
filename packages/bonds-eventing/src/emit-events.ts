@@ -1,6 +1,5 @@
-import crypto from 'crypto'
-
 import { sleep, type LoggerWrapper } from '@marinade.finance/ts-common'
+import { v7 as uuidv7 } from 'uuid'
 
 import type { BondsEventV1, EmitResult, EventingConfig } from './types'
 
@@ -19,7 +18,7 @@ async function postEvent(
 
   // Wrap event in the standard Message<T> envelope expected by
   // marinade-notifications ingress (header + payload pattern)
-  const messageId = crypto.randomUUID()
+  const messageId = uuidv7()
   const message = {
     header: {
       producer_id: 'bonds-eventing',
@@ -106,7 +105,7 @@ export async function emitEvents(
     for (const event of events) {
       results.set(event, {
         status: 'failed',
-        messageId: crypto.randomUUID(),
+        messageId: uuidv7(),
         error: 'No notifications API URL configured',
       })
     }
