@@ -15,7 +15,7 @@ use std::ops::Mul;
 
 use super::{add_to_settlement_collection, get_fee_deposit_stake_accounts};
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Debug, Default)]
 pub struct ResultSettlementClaims {
     pub inflation_commission_claim: Decimal,
     pub mev_commission_claim: Decimal,
