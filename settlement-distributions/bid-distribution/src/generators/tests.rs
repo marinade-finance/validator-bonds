@@ -981,6 +981,51 @@ fn test_activating_bid_charge_non_marinade_excluded() {
     );
 }
 
+#[test]
+fn test_activating_bid_charge_absent_when_no_field() {
+    // When activating_stake_pmpe is not set (None), activating stake must not be charged
+    let epoch = 100;
+    let vote_account = test_vote_account(4);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![create_stake_meta_with_activating(
+            test_stake_account(1),
+            vote_account,
+            TEST_PUBKEY_MARINADE,
+            TEST_PUBKEY_MARINADE,
+            LAMPORTS_PER_SOL,
+            5 * LAMPORTS_PER_SOL,
+        )],
+    };
+
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    // No activating_stake_pmpe set — old epoch data without the field
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .static_bid(0.0)
+        .build();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &create_test_fee_config(0, 0),
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+    )
+    .unwrap();
+
+    assert!(
+        settlements.is_empty(),
+        "No activating charge when activating_stake_pmpe is absent"
+    );
+}
+
 const TEST_PUBKEY_MARINADE: Pubkey = Pubkey::new_from_array([
     16, 193, 125, 202, 226, 246, 166, 247, 62, 235, 241, 168, 44, 170, 26, 135, 207, 86, 46, 127,
     152, 219, 15, 111, 57, 48, 64, 201, 193, 113, 238, 142,
