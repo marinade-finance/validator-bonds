@@ -849,8 +849,8 @@ fn test_activating_bid_charge_basic() {
     let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
 
     let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
-        .bid_pmpe(100.0)
         .static_bid(0.0)
+        .activating_stake_pmpe(100.0)
         .build();
 
     let settlements = generate_bid_settlements(
@@ -901,8 +901,8 @@ fn test_activating_bid_charge_with_active_stake() {
     let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
 
     let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
-        .bid_pmpe(100.0)
         .static_bid(50.0)
+        .activating_stake_pmpe(100.0)
         .build();
 
     let settlements = generate_bid_settlements(
@@ -957,8 +957,8 @@ fn test_activating_bid_charge_non_marinade_excluded() {
     let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
 
     let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
-        .bid_pmpe(100.0)
         .static_bid(0.0)
+        .activating_stake_pmpe(100.0)
         .build();
 
     let settlements = generate_bid_settlements(
@@ -1106,6 +1106,7 @@ struct SamMetaParams {
     auction_effective_static_bid_pmpe: Option<Decimal>,
     bid_too_low_penalty_pmpe: Decimal,
     blacklist_penalty_pmpe: Decimal,
+    activating_stake_pmpe: Option<Decimal>,
     values: Option<AuctionValidatorValues>,
 }
 
@@ -1120,6 +1121,7 @@ impl SamMetaParams {
             auction_effective_static_bid_pmpe: Some(Decimal::from(50)),
             bid_too_low_penalty_pmpe: Decimal::ZERO,
             blacklist_penalty_pmpe: Decimal::ZERO,
+            activating_stake_pmpe: None,
             values: None,
         }
     }
@@ -1149,6 +1151,11 @@ impl SamMetaParams {
         self
     }
 
+    fn activating_stake_pmpe(mut self, value: f64) -> Self {
+        self.activating_stake_pmpe = Some(Decimal::try_from(value).unwrap());
+        self
+    }
+
     fn auction_values(mut self, commissions: CommissionDetails) -> Self {
         self.values = Some(create_auction_validator_values(commissions));
         self
@@ -1170,6 +1177,7 @@ impl SamMetaParams {
                 bid_too_low_penalty_pmpe: self.bid_too_low_penalty_pmpe,
                 blacklist_penalty_pmpe: self.blacklist_penalty_pmpe,
                 auction_effective_static_bid_pmpe: self.auction_effective_static_bid_pmpe,
+                activating_stake_pmpe: self.activating_stake_pmpe,
                 ..RevShare::default()
             },
             stake_priority: 0,

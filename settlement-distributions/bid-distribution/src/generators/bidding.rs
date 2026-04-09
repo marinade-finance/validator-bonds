@@ -270,13 +270,11 @@ pub fn generate_bid_settlements(
             let effective_static_bid = auction_effective_static_bid / Decimal::ONE_THOUSAND;
             settlement_claim.static_bid_claim =
                 Decimal::from(total_marinade_active_stake) * effective_static_bid;
-            // Charge for activating (newly delegated) stake: rate = max(0, bid_pmpe - auction_effective_bid_pmpe)
-            let activating_charge_rate = (validator.rev_share.bid_pmpe
-                - validator.rev_share.auction_effective_bid_pmpe)
-                .max(Decimal::ZERO)
-                / Decimal::ONE_THOUSAND;
-            settlement_claim.activating_bid_claim =
-                Decimal::from(total_marinade_activating_stake) * activating_charge_rate;
+            if let Some(activating_stake_pmpe) = validator.rev_share.activating_stake_pmpe {
+                settlement_claim.activating_bid_claim =
+                    Decimal::from(total_marinade_activating_stake) * activating_stake_pmpe
+                        / Decimal::ONE_THOUSAND;
+            }
             info!(
                 "{} total stakers rewards: {} (inflation: {:?}, mev: {:?}, block: {:?}, bid: {:?}), claims: {}",
                 validator.vote_account,
