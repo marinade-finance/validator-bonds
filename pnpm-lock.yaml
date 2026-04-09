@@ -76,8 +76,8 @@ importers:
         specifier: 0.0.44
         version: 0.0.44
       '@marinade.finance/notifications-bonds-event-v1':
-        specifier: 1.0.0-beta.4
-        version: 1.0.0-beta.4
+        specifier: 1.0.0
+        version: 1.0.0
       '@marinade.finance/ts-common':
         specifier: 4.2.5
         version: 4.2.5
@@ -140,8 +140,8 @@ importers:
         specifier: 3.2.0
         version: 3.2.0(@ledgerhq/errors@6.31.0)(@ledgerhq/hw-app-solana@7.9.0)(@ledgerhq/hw-transport-node-hid-noevents@6.33.0)(@marinade.finance/ts-common@4.2.5)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)
       '@marinade.finance/notifications-ts-subscription-client':
-        specifier: 1.0.2-beta.4
-        version: 1.0.2-beta.4
+        specifier: 1.0.3
+        version: 1.0.3
       '@marinade.finance/ts-common':
         specifier: 4.2.5
         version: 4.2.5
@@ -216,8 +216,8 @@ importers:
         specifier: 3.2.0
         version: 3.2.0(@ledgerhq/errors@6.31.0)(@ledgerhq/hw-app-solana@7.9.0)(@ledgerhq/hw-transport-node-hid-noevents@6.33.0)(@marinade.finance/ts-common@4.2.5)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)
       '@marinade.finance/notifications-ts-subscription-client':
-        specifier: 1.0.2-beta.4
-        version: 1.0.2-beta.4
+        specifier: 1.0.3
+        version: 1.0.3
       '@marinade.finance/ts-common':
         specifier: 4.2.5
         version: 4.2.5
@@ -288,8 +288,8 @@ importers:
         specifier: 3.2.0
         version: 3.2.0(@ledgerhq/errors@6.31.0)(@ledgerhq/hw-app-solana@7.9.0)(@ledgerhq/hw-transport-node-hid-noevents@6.33.0)(@marinade.finance/ts-common@4.2.5)(@solana/web3.js@1.98.4(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10))(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)
       '@marinade.finance/notifications-ts-subscription-client':
-        specifier: 1.0.2-beta.4
-        version: 1.0.2-beta.4
+        specifier: 1.0.3
+        version: 1.0.3
       '@marinade.finance/ts-common':
         specifier: 4.2.5
         version: 4.2.5
@@ -1018,18 +1018,18 @@ packages:
   '@marinade.finance/native-staking-sdk@1.3.3':
     resolution: {integrity: sha512-bnjCiKj4AG7fiBXPjX0AOcsJ/VRYlGV9/vy83YM2Cg30L9tlkVYWEBf+WVcHDMMYAqTlO49nq9zTDCxu9Ui2JA==}
 
-  '@marinade.finance/notifications-bonds-event-v1@1.0.0-beta.4':
-    resolution: {integrity: sha512-kdEFjnTH/dsS3LZomwasFhgORhq2MGKUQp1BWNXwEb1P/EbO9poukZ0P89hED9VdfMQP3fepexR4gMCMDNRL/A==}
+  '@marinade.finance/notifications-bonds-event-v1@1.0.0':
+    resolution: {integrity: sha512-QOoBV87jawdT9wFrRHbZIu7qrAfCbXkU4o8UuLmZuFRkCZd6Z0yKOVL8JUh7OYah2IfrxvGmXaE3X7utUm35NA==}
 
-  '@marinade.finance/notifications-header-v1@1.0.0-beta.4':
-    resolution: {integrity: sha512-yP94Uv0187+myGCUheOZWmXog5ikxZEQyWB36vo3Po0XZLKML/Am3l2lC4gUKU6Ib4+lnjJQDIculxygIu8i0g==}
+  '@marinade.finance/notifications-header-v1@1.0.0':
+    resolution: {integrity: sha512-hoHr0gw8SrLEY8JePl0Te4nPT6EPAVL8cKLlURWvwii/NCC4gZkSr5L/t93GBpNqWJpMu48Y1BlnSwUadJ6Vvg==}
 
-  '@marinade.finance/notifications-ts-message@1.0.0-beta.4':
-    resolution: {integrity: sha512-yZLoQEZF0SeS24LeH83LhRcLt8+IheeMwlA0+85dNTuXjKTa8vOyzmjfZWBzjL4XY6Hs8c/jHgKd2T0tievAsg==}
+  '@marinade.finance/notifications-ts-message@1.0.0':
+    resolution: {integrity: sha512-pY0gCEAzW6Md7FV/GKpQ1zWSEKmfhj5Yn3rywZZrXvtNRbJDdpjn8zKs+4YukJWyJrczJVPvBSmcJJyjARE1PA==}
     engines: {node: '>=20.0.0'}
 
-  '@marinade.finance/notifications-ts-subscription-client@1.0.2-beta.4':
-    resolution: {integrity: sha512-yMdeobWiuyw21RAMgPtY0JwmTqu2G7EU/VANNCP9DQmgw/9BQD1NYM0br6i7BCcQ9i8otX/cfXzv+tU+er89SQ==}
+  '@marinade.finance/notifications-ts-subscription-client@1.0.3':
+    resolution: {integrity: sha512-u0DKaAEBiLHgq/YS8L/ZhDqSW9kotFVJqv7A7+EocOmvQTeWF3IkWapXgK1iI+E6zB4jM5dG8sm5kl3mlO/VaQ==}
     engines: {node: '>=20.0.0'}
 
   '@marinade.finance/ts-common@4.2.5':
@@ -5526,21 +5526,21 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@marinade.finance/notifications-bonds-event-v1@1.0.0-beta.4':
+  '@marinade.finance/notifications-bonds-event-v1@1.0.0':
     dependencies:
-      '@marinade.finance/notifications-ts-message': 1.0.0-beta.4
+      '@marinade.finance/notifications-ts-message': 1.0.0
       ajv: 8.18.0
       ajv-formats: 2.1.1(ajv@8.18.0)
 
-  '@marinade.finance/notifications-header-v1@1.0.0-beta.4': {}
+  '@marinade.finance/notifications-header-v1@1.0.0': {}
 
-  '@marinade.finance/notifications-ts-message@1.0.0-beta.4':
+  '@marinade.finance/notifications-ts-message@1.0.0':
     dependencies:
-      '@marinade.finance/notifications-header-v1': 1.0.0-beta.4
+      '@marinade.finance/notifications-header-v1': 1.0.0
       ajv: 8.18.0
       ajv-formats: 3.0.1(ajv@8.18.0)
 
-  '@marinade.finance/notifications-ts-subscription-client@1.0.2-beta.4': {}
+  '@marinade.finance/notifications-ts-subscription-client@1.0.3': {}
 
   '@marinade.finance/ts-common@4.2.5':
     dependencies:

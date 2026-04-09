@@ -3,13 +3,22 @@ import {
   FORMAT_TYPE_DEF,
   printData,
 } from '@marinade.finance/cli-common'
-import { createSubscriptionClient } from '@marinade.finance/notifications-ts-subscription-client'
+import {
+  BONDS_EVENT_INNER_TYPES,
+  NOTIFICATION_PRIORITIES,
+  createSubscriptionClient,
+} from '@marinade.finance/notifications-ts-subscription-client'
 import { parsePubkey } from '@marinade.finance/web3js-1x'
+import { Option } from 'commander'
 
 import { getCliContext } from '../../context'
 import { formatHttpError, getBondFromAddress } from '../../utils'
 
 import type { FormatType } from '@marinade.finance/cli-common'
+import type {
+  BondsEventInnerType,
+  NotificationPriority,
+} from '@marinade.finance/notifications-ts-subscription-client'
 import type { PublicKey } from '@solana/web3.js'
 import type { Command } from 'commander'
 
@@ -30,11 +39,17 @@ export function configureShowNotifications(program: Command): Command {
       'Format of output',
       'text',
     )
-    .option(
-      '--priority <priority>',
-      'Filter by priority level (critical, warning, info)',
+    .addOption(
+      new Option('--priority <priority>', 'Filter by priority level').choices(
+        NOTIFICATION_PRIORITIES,
+      ),
     )
-    .option('--inner-type <type>', 'Filter by notification inner type')
+    .addOption(
+      new Option(
+        '--inner-type <type>',
+        'Filter by notification inner type',
+      ).choices(BONDS_EVENT_INNER_TYPES),
+    )
     .option(
       '--limit <number>',
       'Maximum number of notifications to fetch',
@@ -53,8 +68,8 @@ export async function showNotifications({
   address?: PublicKey
   config: PublicKey
   format: FormatType
-  priority?: string
-  innerType?: string
+  priority?: NotificationPriority
+  innerType?: BondsEventInnerType
   limit: number
 }) {
   const { program, logger, notificationsApiUrl, notificationType } =
