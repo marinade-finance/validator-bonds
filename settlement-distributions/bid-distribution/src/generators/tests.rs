@@ -1,4 +1,6 @@
-use crate::generators::bidding::generate_bid_settlements;
+use crate::generators::bidding::{
+    generate_bid_settlements, BidSettlementDetails, ResultSettlementClaims,
+};
 use crate::generators::psr_events::generate_psr_settlements;
 use crate::generators::sam_penalties::generate_penalty_settlements;
 use crate::rewards::{RewardsCollection, VoteAccountRewards};
@@ -1374,7 +1376,8 @@ fn test_generate_settlements_from_json_values() {
               "bidTooLowPenaltyPmpe": 0,
               "effParticipatingBidPmpe": 0.022,
               "expectedMaxEffBidPmpe": 0.02,
-              "blacklistPenaltyPmpe": 0
+              "blacklistPenaltyPmpe": 0,
+              "activatingStakePmpe": 50.0
             },
             "values": {
               "bondBalanceSol": 100,
@@ -1434,6 +1437,15 @@ fn test_generate_settlements_from_json_values() {
                 TEST_PUBKEY_MARINADE,
                 10 * LAMPORTS_PER_SOL,
             ),
+            // activating marinade stake: 10 SOL → charge = 50/1000 * 10 SOL = 0.5 SOL
+            create_stake_meta_with_activating(
+                test_stake_account(101),
+                sam_meta.vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                0,
+                10 * LAMPORTS_PER_SOL,
+            ),
         ],
     };
 
@@ -1490,119 +1502,21 @@ fn test_generate_settlements_from_json_values() {
         commissions.inflation_commission_in_bond_dec,
         Some(Decimal::from_str("0.03").unwrap())
     );
-}
-
-#[test]
-fn test_generate_settlements_from_json_with_activating_stake() {
-    // Same JSON format as auction output, now with activatingStakePmpe set.
-    // activatingStakePmpe=50, activating marinade stake=10 SOL
-    // expected activating charge = 50/1000 * 10 SOL = 0.5 SOL = 500_000_000 lamports
-    let json_data = r#"
-        [
-          {
-            "voteAccount": "Mar1nade11111111111111111111111111111111111",
-            "marinadeMndeTargetSol": 0,
-            "marinadeSamTargetSol": 100,
-            "revShare": {
-              "totalPmpe": 1.76,
-              "inflationPmpe": 0.33,
-              "mevPmpe": 0.006,
-              "bidPmpe": 1.42,
-              "blockPmpe": 0,
-              "auctionEffectiveStaticBidPmpe": 0.0,
-              "auctionEffectiveBidPmpe": 0.022,
-              "bidTooLowPenaltyPmpe": 0,
-              "effParticipatingBidPmpe": 0.022,
-              "expectedMaxEffBidPmpe": 0.02,
-              "blacklistPenaltyPmpe": 0,
-              "activatingStakePmpe": 50.0
-            },
-            "values": {
-              "bondBalanceSol": 100,
-              "marinadeActivatedStakeSol": 1000,
-              "paidUndelegationSol": 0,
-              "bondRiskFeeSol": 0,
-              "samBlacklisted": false,
-              "commissions": {
-                "inflationCommissionDec": 0.05,
-                "mevCommissionDec": 0.10,
-                "blockRewardsCommissionDec": 0.15,
-                "inflationCommissionOnchainDec": 0.05,
-                "mevCommissionOnchainDec": 0.10,
-                "inflationCommissionInBondDec": 0.05,
-                "mevCommissionInBondDec": 0.10,
-                "blockRewardsCommissionInBondDec": 0.15
-              }
-            },
-            "stakePriority": 1,
-            "unstakePriority": 18,
-            "maxStakeWanted": 5500,
-            "effectiveBid": 0.022,
-            "constraints": "\"BOND\"",
-            "metadata": {
-              "scoringId": "test",
-              "tvl": { "marinadeSamTvlSol": 1000000 }
-            },
-            "scoringRunId": 1,
-            "epoch": 100
-          }
-        ]
-        "#;
-
-    let sam_metas: Vec<ValidatorSamMeta> =
-        serde_json::from_str(json_data).expect("Failed to parse JSON");
-    let sam_meta = &sam_metas[0];
-
     assert_eq!(
         sam_meta.rev_share.activating_stake_pmpe,
         Some(Decimal::from(50)),
         "activatingStakePmpe must deserialize"
     );
-
-    let epoch = 100u64;
-    let stake_meta_collection = StakeMetaCollection {
-        epoch,
-        slot: 1000,
-        stake_metas: vec![
-            // marinade active stake
-            create_stake_meta(
-                test_stake_account(1),
-                sam_meta.vote_account,
-                TEST_PUBKEY_MARINADE,
-                TEST_PUBKEY_MARINADE,
-                100 * LAMPORTS_PER_SOL,
-            ),
-            // marinade activating stake: 10 SOL
-            create_stake_meta_with_activating(
-                test_stake_account(2),
-                sam_meta.vote_account,
-                TEST_PUBKEY_MARINADE,
-                TEST_PUBKEY_MARINADE,
-                0,
-                10 * LAMPORTS_PER_SOL,
-            ),
-        ],
-    };
-
-    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
-
-    let settlements = generate_bid_settlements(
-        &stake_meta_index,
-        &sam_metas,
-        &RewardsCollection {
-            epoch,
-            rewards_by_vote_account: HashMap::new(),
-        },
-        &create_test_settlement_config(),
-        &create_test_fee_config(0, 0),
-        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-    )
-    .unwrap();
-
-    assert_eq!(settlements.len(), 1);
-    // static_bid = 0/1000 * 100 SOL = 0
-    // activating = 50/1000 * 10 SOL = 0.5 SOL = 500_000_000 lamports
-    assert_eq!(settlements[0].claims_amount, 500_000_000);
+    // activating charge = 50/1000 * 10 SOL = 0.5 SOL = 500_000_000 lamports
+    // (embedded in claims_amount alongside commission and static bid charges)
+    let details: BidSettlementDetails =
+        serde_json::from_value(settlement.details.clone().unwrap()).unwrap();
+    let claims: ResultSettlementClaims = serde_json::from_value(details.settlement_claims).unwrap();
+    assert_eq!(
+        claims.activating_bid_claim,
+        Decimal::from(500_000_000),
+        "activating charge must be 0.5 SOL"
+    );
 }
 
 // --- PSR (Protected Staking Rewards) settlement tests ---
