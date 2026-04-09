@@ -97,28 +97,19 @@ pub fn generate_bid_settlements(
         {
             let grouped_stake_metas: Vec<_> = grouped_stake_metas.collect();
             // Compute totals in a single pass (no double iteration)
-            let (total_active_stake, total_marinade_active_stake, total_marinade_activating_stake): (u64, u64, u64) =
-                grouped_stake_metas
-                    .iter()
-                    .flat_map(|(key, metas)| metas.iter().map(move |meta| (*key, meta)))
-                    .fold(
-                        (0, 0, 0),
-                        |(total, marinade_total, marinade_activating), ((_, stake_authority), meta)| {
-                            let lamports = meta.active_delegation_lamports;
-                            let is_marinade = stake_authority_filter(stake_authority);
-                            let marinade_lamports = if is_marinade { lamports } else { 0 };
-                            let marinade_activating_lamports = if is_marinade {
-                                meta.activating_delegation_lamports
-                            } else {
-                                0
-                            };
-                            (
-                                total + lamports,
-                                marinade_total + marinade_lamports,
-                                marinade_activating + marinade_activating_lamports,
-                            )
-                        },
-                    );
+            let mut total_active_stake: u64 = 0;
+            let mut total_marinade_active_stake: u64 = 0;
+            let mut total_marinade_activating_stake: u64 = 0;
+            for ((_, stake_authority), meta) in grouped_stake_metas
+                .iter()
+                .flat_map(|(key, metas)| metas.iter().map(move |meta| (*key, meta)))
+            {
+                total_active_stake += meta.active_delegation_lamports;
+                if stake_authority_filter(stake_authority) {
+                    total_marinade_active_stake += meta.active_delegation_lamports;
+                    total_marinade_activating_stake += meta.activating_delegation_lamports;
+                }
+            }
             if total_active_stake == 0 {
                 warn!(
                     "Skipping validator {} with zero total active stake {}",
@@ -290,7 +281,6 @@ pub fn generate_bid_settlements(
             settlement_claim.static_bid_claim =
                 Decimal::from(effective_sam_marinade_active_stake) * effective_static_bid;
             // Charge for activating (newly delegated) stake: rate = max(0, bid_pmpe - auction_effective_bid_pmpe)
-            // This covers the portion of the bid not already paid via on-chain commission adjustments.
             let activating_charge_rate = (validator.rev_share.bid_pmpe
                 - validator.rev_share.auction_effective_bid_pmpe)
                 .max(Decimal::ZERO)
