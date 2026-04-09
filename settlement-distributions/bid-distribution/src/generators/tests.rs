@@ -459,12 +459,6 @@ fn test_generate_bid_settlements_varying_rewards() {
 
     let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
 
-    let commissions = CommissionParams::new(0.10, 0.05).as_commission_details();
-
-    let _sam_meta = SamMetaParams::new(vote_account, epoch as u32)
-        .auction_values(commissions)
-        .build();
-
     // Test 1: Only inflation rewards
     let mut rewards_map1 = HashMap::new();
     rewards_map1.insert(

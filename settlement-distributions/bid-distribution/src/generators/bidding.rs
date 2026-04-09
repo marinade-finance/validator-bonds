@@ -61,7 +61,6 @@ pub struct BidSettlementDetails {
     pub total_marinade_active_stake: u64,
     pub total_marinade_activating_stake: u64,
     pub auction_effective_static_bid: String,
-    pub effective_sam_marinade_active_stake: u64,
     pub marinade_stake_share: String,
     pub marinade_inflation_rewards: String,
     pub marinade_mev_rewards: String,
@@ -118,16 +117,8 @@ pub fn generate_bid_settlements(
             }
             if total_marinade_active_stake == 0 {
                 warn!(
-                    "Skipping validator {} with zero marinade active stake {}",
-                    validator.vote_account, total_marinade_active_stake
-                );
-                continue;
-            }
-            let effective_sam_marinade_active_stake = total_marinade_active_stake;
-            if effective_sam_marinade_active_stake == 0 {
-                warn!(
-                    "Skipping validator {} with zero effective SAM marinade active stake {}",
-                    validator.vote_account, effective_sam_marinade_active_stake
+                    "Skipping validator {} with zero marinade active stake",
+                    validator.vote_account
                 );
                 continue;
             }
@@ -146,9 +137,9 @@ pub fn generate_bid_settlements(
                 }
             };
 
-            let marinade_stake_share = Decimal::from(effective_sam_marinade_active_stake)
-                / Decimal::from(total_active_stake);
-            debug!("Validator {} marinade stake share: {marinade_stake_share}, total: {total_active_stake}, marinade stake: {total_marinade_active_stake}, sam active stake: {effective_sam_marinade_active_stake}", validator.vote_account);
+            let marinade_stake_share =
+                Decimal::from(total_marinade_active_stake) / Decimal::from(total_active_stake);
+            debug!("Validator {} marinade stake share: {marinade_stake_share}, total: {total_active_stake}, marinade stake: {total_marinade_active_stake}, sam active stake: {total_marinade_active_stake}", validator.vote_account);
             let marinade_inflation_rewards =
                 Decimal::from(rewards.inflation_rewards).mul(marinade_stake_share);
             let marinade_mev_rewards = Decimal::from(rewards.mev_rewards).mul(marinade_stake_share);
@@ -181,11 +172,6 @@ pub fn generate_bid_settlements(
                 if inflation_commission_onchain_dec > inflation_commission_in_bond_dec {
                     let inflation_commission_diff =
                         inflation_commission_onchain_dec - inflation_commission_in_bond_dec;
-                    ensure!(
-                        inflation_commission_diff >= Decimal::ZERO,
-                        "Inflation commission diff cannot be negative for validator {}",
-                        validator.vote_account
-                    );
                     settlement_claim.inflation_commission_claim =
                         marinade_inflation_rewards.mul(inflation_commission_diff);
                 }
@@ -196,11 +182,6 @@ pub fn generate_bid_settlements(
                     if mev_commission_onchain_dec > mev_commission_in_bond_dec {
                         let mev_commission_diff =
                             mev_commission_onchain_dec - mev_commission_in_bond_dec;
-                        ensure!(
-                            mev_commission_diff >= Decimal::ZERO,
-                            "MEV commission diff cannot be negative for validator {}",
-                            validator.vote_account
-                        );
                         settlement_claim.mev_commission_claim =
                             marinade_mev_rewards.mul(mev_commission_diff);
                     }
@@ -220,11 +201,6 @@ pub fn generate_bid_settlements(
                             let block_rewards_commission_diff =
                                 block_rewards_jito_commission_onchain_dec
                                     - block_rewards_commission_in_bond_dec;
-                            ensure!(
-                                block_rewards_commission_diff >= Decimal::ZERO,
-                                "Block rewards commission diff cannot be negative for validator {}",
-                                validator.vote_account
-                            );
                             settlement_claim.block_commission_claim =
                                 marinade_block_rewards.mul(block_rewards_commission_diff);
                         }
@@ -253,7 +229,7 @@ pub fn generate_bid_settlements(
                 let staker_block_rewards = marinade_block_rewards
                     * (Decimal::ONE - commissions.block_rewards_commission_dec);
                 let staker_bid_rewards = validator.rev_share.bid_pmpe / Decimal::ONE_THOUSAND
-                    * Decimal::from(effective_sam_marinade_active_stake);
+                    * Decimal::from(total_marinade_active_stake);
                 let total = staker_inflation_rewards
                     + staker_mev_rewards
                     + staker_block_rewards
@@ -267,7 +243,7 @@ pub fn generate_bid_settlements(
                 )
             } else {
                 let total_rev_share = validator.rev_share.total_pmpe / Decimal::ONE_THOUSAND;
-                let total = Decimal::from(effective_sam_marinade_active_stake) * total_rev_share;
+                let total = Decimal::from(total_marinade_active_stake) * total_rev_share;
                 (total, None, None, None, None)
             };
 
@@ -278,7 +254,7 @@ pub fn generate_bid_settlements(
             // bid per mille, dividing by 1000 gives the ratio per unit - whatever SOL, lamport, etc., since it represents a ratio
             let effective_static_bid = auction_effective_static_bid / Decimal::ONE_THOUSAND;
             settlement_claim.static_bid_claim =
-                Decimal::from(effective_sam_marinade_active_stake) * effective_static_bid;
+                Decimal::from(total_marinade_active_stake) * effective_static_bid;
             // Charge for activating (newly delegated) stake: rate = max(0, bid_pmpe - auction_effective_bid_pmpe)
             let activating_charge_rate = (validator.rev_share.bid_pmpe
                 - validator.rev_share.auction_effective_bid_pmpe)
@@ -412,7 +388,6 @@ pub fn generate_bid_settlements(
                 total_active_stake,
                 total_marinade_active_stake,
                 total_marinade_activating_stake,
-                effective_sam_marinade_active_stake,
                 auction_effective_static_bid: auction_effective_static_bid.to_string(),
                 marinade_stake_share: marinade_stake_share.to_string(),
                 marinade_inflation_rewards: marinade_inflation_rewards.to_string(),
