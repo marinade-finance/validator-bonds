@@ -2074,3 +2074,102 @@ fn test_settlement_config_yaml_deserialization() {
         "Should have at least one PSR config"
     );
 }
+
+// --- Scenario tests with real epoch fixture data ---
+// Run fetch-scenario-fixtures.sh <epoch> to generate the fixture files.
+
+#[test]
+fn test_scenario_activating_charge_epoch_fixtures() {
+    use settlement_common::utils::read_from_json_file;
+    use std::path::PathBuf;
+
+    let fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/generators/fixtures");
+    let stakes_path = fixtures_dir.join("scenario_epoch_n1.json");
+
+    if !stakes_path.exists() {
+        eprintln!("skipping scenario test: run fetch-scenario-fixtures.sh to generate fixtures");
+        return;
+    }
+
+    let stake_meta_collection: snapshot_parser_validator_cli::stake_meta::StakeMetaCollection =
+        read_from_json_file(&stakes_path).expect("Failed to read scenario_epoch_n1.json");
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    // Build minimal sam metas with activating_stake_pmpe=50 for all validators in the fixture
+    let sam_metas: Vec<ValidatorSamMeta> = stake_meta_index
+        .stake_meta_collection
+        .stake_metas
+        .iter()
+        .filter_map(|m| m.validator)
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .map(|vote_account| ValidatorSamMeta {
+            vote_account,
+            epoch: stake_meta_collection.epoch as u32,
+            marinade_sam_target_sol: Decimal::from(100),
+            effective_bid: Decimal::from(50),
+            rev_share: crate::sam_meta::RevShare {
+                bid_pmpe: Decimal::from(50),
+                auction_effective_static_bid_pmpe: Some(Decimal::ZERO),
+                activating_stake_pmpe: Some(Decimal::from(50)),
+                ..crate::sam_meta::RevShare::default()
+            },
+            stake_priority: 0,
+            unstake_priority: 0,
+            max_stake_wanted: Decimal::ZERO,
+            constraints: String::new(),
+            metadata: crate::sam_meta::SamMetadata::default(),
+            scoring_run_id: 0,
+            values: None,
+        })
+        .collect();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &sam_metas,
+        &RewardsCollection {
+            epoch: stake_meta_collection.epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &create_test_fee_config(0, 0),
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+    )
+    .unwrap();
+
+    // Every validator with marinade activating stake must have a settlement with positive claims
+    let validators_with_activating: std::collections::HashSet<Pubkey> = stake_meta_index
+        .stake_meta_collection
+        .stake_metas
+        .iter()
+        .filter(|m| {
+            m.activating_delegation_lamports > 0
+                && m.stake_authority == TEST_PUBKEY_MARINADE
+                && m.validator.is_some()
+        })
+        .map(|m| m.validator.unwrap())
+        .collect();
+
+    for settlement in &settlements {
+        if validators_with_activating.contains(&settlement.vote_account) {
+            assert!(
+                settlement.claims_amount > 0,
+                "validator {} has activating stake but zero claims",
+                settlement.vote_account
+            );
+        }
+    }
+
+    // Validators with only active stake (no activating) must have zero claims
+    // when static_bid=0 and no rewards
+    let validators_with_activating_set = &validators_with_activating;
+    for settlement in &settlements {
+        if !validators_with_activating_set.contains(&settlement.vote_account) {
+            assert_eq!(
+                settlement.claims_amount, 0,
+                "validator {} has no activating stake but non-zero claims",
+                settlement.vote_account
+            );
+        }
+    }
+}
