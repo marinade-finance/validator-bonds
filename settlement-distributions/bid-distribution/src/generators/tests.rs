@@ -816,9 +816,8 @@ fn test_zero_rewards() {
 
 #[test]
 fn test_activating_bid_charge_basic() {
-    // Validator: bid_pmpe=100, auction_effective_bid_pmpe=0 (default)
-    // active marinade stake: 1 SOL, activating marinade stake: 2 SOL
-    // Expected activating charge = (100 - 0) / 1000 * 2 SOL = 0.2 SOL = 200_000_000 lamports
+    // activating_stake_pmpe=100, activating marinade stake=2 SOL
+    // charge = 100/1000 * 2 SOL = 0.2 SOL = 200_000_000 lamports
     let epoch = 100;
     let vote_account = test_vote_account(1);
 
@@ -876,11 +875,9 @@ fn test_activating_bid_charge_basic() {
 
 #[test]
 fn test_activating_bid_charge_with_active_stake() {
-    // active + activating both present, verify total claim = static_bid + activating_charge
-    // bid_pmpe=100, auction_effective_bid_pmpe=0, auction_effective_static_bid_pmpe=50
-    // active=2 SOL, activating=1 SOL
-    // static_bid = 50/1000 * 2 SOL = 0.1 SOL
-    // activating = (100-0)/1000 * 1 SOL = 0.1 SOL
+    // active=2 SOL, activating=1 SOL, static_bid_pmpe=50, activating_stake_pmpe=100
+    // static_bid    = 50/1000 * 2 SOL = 0.1 SOL
+    // activating    = 100/1000 * 1 SOL = 0.1 SOL
     // total = 0.2 SOL = 200_000_000 lamports
     let epoch = 100;
     let vote_account = test_vote_account(2);
@@ -1505,10 +1502,16 @@ fn test_generate_settlements_from_json_values() {
         Some(Decimal::from(50)),
         "activatingStakePmpe must deserialize"
     );
-    // activating charge = 50/1000 * 10 SOL = 0.5 SOL included in claims_amount
-    assert!(
-        settlement.claims_amount >= 500_000_000,
-        "claims_amount must include the activating charge of 0.5 SOL"
+    // activating charge = 50/1000 * 10 SOL = 0.5 SOL
+    // activating_bid_claim is in lamports: 50/1000 * 10 SOL = 500_000_000
+    let details = settlement.details.as_ref().unwrap();
+    let activating_claim: Decimal =
+        serde_json::from_value(details["settlement_claims"]["activating_bid_claim"].clone())
+            .unwrap();
+    assert_eq!(
+        activating_claim,
+        Decimal::from(500_000_000u64),
+        "activating charge must be exactly 0.5 SOL (500_000_000 lamports)"
     );
 }
 
