@@ -2,7 +2,7 @@ export type {
   BondsEventV1,
   BondsEventInnerType,
   FirstSeenDetails,
-  BondRemovedDetails,
+  ValidatorDelistedDetails,
   AuctionEnteredDetails,
   AuctionExitedDetails,
   CapChangedDetails,
