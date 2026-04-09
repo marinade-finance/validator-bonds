@@ -139,7 +139,7 @@ pub fn generate_bid_settlements(
 
             let marinade_stake_share =
                 Decimal::from(total_marinade_active_stake) / Decimal::from(total_active_stake);
-            debug!("Validator {} marinade stake share: {marinade_stake_share}, total: {total_active_stake}, marinade stake: {total_marinade_active_stake}, sam active stake: {total_marinade_active_stake}", validator.vote_account);
+            debug!("Validator {} marinade stake share: {marinade_stake_share}, total: {total_active_stake}, marinade stake: {total_marinade_active_stake}", validator.vote_account);
             let marinade_inflation_rewards =
                 Decimal::from(rewards.inflation_rewards).mul(marinade_stake_share);
             let marinade_mev_rewards = Decimal::from(rewards.mev_rewards).mul(marinade_stake_share);
