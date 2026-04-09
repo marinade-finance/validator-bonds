@@ -6,6 +6,10 @@ import { MARINADE_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
 import { parsePubkey } from '@marinade.finance/web3js-1x'
 
 import type { FormatType } from '@marinade.finance/cli-common'
+import type {
+  BondsEventInnerType,
+  NotificationPriority,
+} from '@marinade.finance/notifications-ts-subscription-client'
 import type { PublicKey } from '@solana/web3.js'
 import type { Command } from 'commander'
 
@@ -30,8 +34,8 @@ export function installShowNotifications(program: Command) {
         }: {
           config?: Promise<PublicKey>
           format: FormatType
-          priority?: string
-          innerType?: string
+          priority?: NotificationPriority
+          innerType?: BondsEventInnerType
           limit: string
         },
       ) => {
