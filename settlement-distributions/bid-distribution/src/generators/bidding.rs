@@ -100,14 +100,13 @@ pub fn generate_bid_settlements(
             let mut total_active_stake: u64 = 0;
             let mut total_marinade_active_stake: u64 = 0;
             let mut total_marinade_activating_stake: u64 = 0;
-            for ((_, stake_authority), meta) in grouped_stake_metas
-                .iter()
-                .flat_map(|(key, metas)| metas.iter().map(move |meta| (*key, meta)))
-            {
-                total_active_stake += meta.active_delegation_lamports;
-                if stake_authority_filter(stake_authority) {
-                    total_marinade_active_stake += meta.active_delegation_lamports;
-                    total_marinade_activating_stake += meta.activating_delegation_lamports;
+            for ((_, stake_authority), metas) in &grouped_stake_metas {
+                for meta in metas.iter() {
+                    total_active_stake += meta.active_delegation_lamports;
+                    if stake_authority_filter(stake_authority) {
+                        total_marinade_active_stake += meta.active_delegation_lamports;
+                        total_marinade_activating_stake += meta.activating_delegation_lamports;
+                    }
                 }
             }
             if total_active_stake == 0 {
