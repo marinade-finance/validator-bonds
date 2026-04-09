@@ -25,11 +25,12 @@ DB table and only emits events when something changes between runs.
 - When: A validator appears in the current auction data but has NO previous state in the DB
 - Not emitted: On every subsequent run (once state is saved, it becomes a known validator)
 
-2. bond_removed — Validator disappeared
+2. validator_delisted — Validator disappeared from auction data
 
-- When: A validator exists in previous state but is NOT in the current auction data
-- Not emitted: If the validator is still present (even with changed values)
-- Note: After successful emission + state save, the removed validator is deleted from bond_event_state, so this fires only once
+- When: A validator exists in previous state but is NOT in the current auction data, AND it had a funded bond (`funded_amount_lamports > 0`) or was in the auction (`in_auction = true`)
+- Not emitted: If the validator is still present, or if the previous state had zero balance and was not in auction (phantom entries from SAM data)
+- Note: After successful emission + state save, the delisted validator is deleted from bond_event_state, so this fires only once
+- Details include `last_known_sam_eligible` as a hint for the probable cause of delisting
 
 3. auction_entered — Validator joined the auction
 

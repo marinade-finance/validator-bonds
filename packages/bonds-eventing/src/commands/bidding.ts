@@ -194,7 +194,7 @@ async function manageBidding(opts: Record<string, unknown>) {
         .filter(v => !failedVoteAccounts.has(v.voteAccount))
         .map(v => validatorToState(v, epoch, bondType))
 
-      // Delete state only for removed validators whose bond_removed event succeeded.
+      // Delete state only for delisted validators whose validator_delisted event succeeded.
       // All validators still in auction must keep their state rows (even if their events failed).
       const keepVoteAccounts = new Set(validators.map(v => v.voteAccount))
       for (const va of failedVoteAccounts) {
