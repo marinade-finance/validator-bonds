@@ -172,6 +172,11 @@ pub fn generate_bid_settlements(
                 if inflation_commission_onchain_dec > inflation_commission_in_bond_dec {
                     let inflation_commission_diff =
                         inflation_commission_onchain_dec - inflation_commission_in_bond_dec;
+                    ensure!(
+                        inflation_commission_diff >= Decimal::ZERO,
+                        "Inflation commission diff cannot be negative for validator {}",
+                        validator.vote_account
+                    );
                     settlement_claim.inflation_commission_claim =
                         marinade_inflation_rewards.mul(inflation_commission_diff);
                 }
@@ -182,6 +187,11 @@ pub fn generate_bid_settlements(
                     if mev_commission_onchain_dec > mev_commission_in_bond_dec {
                         let mev_commission_diff =
                             mev_commission_onchain_dec - mev_commission_in_bond_dec;
+                        ensure!(
+                            mev_commission_diff >= Decimal::ZERO,
+                            "MEV commission diff cannot be negative for validator {}",
+                            validator.vote_account
+                        );
                         settlement_claim.mev_commission_claim =
                             marinade_mev_rewards.mul(mev_commission_diff);
                     }
@@ -201,6 +211,11 @@ pub fn generate_bid_settlements(
                             let block_rewards_commission_diff =
                                 block_rewards_jito_commission_onchain_dec
                                     - block_rewards_commission_in_bond_dec;
+                            ensure!(
+                                block_rewards_commission_diff >= Decimal::ZERO,
+                                "Block rewards commission diff cannot be negative for validator {}",
+                                validator.vote_account
+                            );
                             settlement_claim.block_commission_claim =
                                 marinade_block_rewards.mul(block_rewards_commission_diff);
                         }
