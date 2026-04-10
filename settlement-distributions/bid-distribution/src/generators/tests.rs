@@ -1088,6 +1088,81 @@ fn test_activating_bid_charge_skipped_for_multi_epoch_warmup() {
     );
 }
 
+#[test]
+fn test_activating_bid_charge_distributed_to_activating_stakers() {
+    // Activating charge must flow to activating stakers (not active stakers),
+    // and DAO must receive its fee cut.
+    // active=2 SOL (static_bid_pmpe=0 → no charge), activating=4 SOL (activating_stake_pmpe=100)
+    // activating charge = 100/1000 * 4 SOL = 0.4 SOL = 400_000_000 lamports
+    // With fee_config(1000bps marinade fee, 5000bps dao split):
+    //   distributor_fee = 10% of 0.4 SOL = 0.04 SOL = 40_000_000
+    //   stakers_net = 0.36 SOL = 360_000_000  → goes to activating staker
+    //   dao_fee = 50% of 40_000_000 = 20_000_000
+    //   marinade_fee = 20_000_000
+    let epoch = 100;
+    let vote_account = test_vote_account(6);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                2 * LAMPORTS_PER_SOL,
+            ),
+            create_stake_meta_with_activating(
+                test_stake_account(2),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                0,
+                4 * LAMPORTS_PER_SOL,
+            ),
+        ],
+    };
+
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .static_bid(0.0)
+        .activating_stake_pmpe(100.0)
+        .build();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &create_test_fee_config(1000, 5000),
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+    )
+    .unwrap();
+
+    assert_eq!(settlements.len(), 1);
+    let s = &settlements[0];
+
+    // Total = staker net + marinade fee + dao fee
+    assert_eq!(s.claims_amount, 400_000_000, "total must equal full activating charge");
+
+    // Activating staker (stake_account(2)) gets 90% of charge after 10% fee
+    let staker_claim = s
+        .claims
+        .iter()
+        .find(|c| c.stake_accounts.contains_key(&test_stake_account(2)));
+    assert!(staker_claim.is_some(), "activating staker must have a claim");
+    assert_eq!(staker_claim.unwrap().claim_amount, 360_000_000, "staker gets 90% after 10% fee");
+
+    // DAO and marinade each get half of the 10% fee
+    let details = s.details.as_ref().unwrap();
+    assert_eq!(details["dao_fee_claim"].as_u64().unwrap(), 20_000_000);
+    assert_eq!(details["marinade_fee_claim"].as_u64().unwrap(), 20_000_000);
+}
+
 const TEST_PUBKEY_MARINADE: Pubkey = Pubkey::new_from_array([
     16, 193, 125, 202, 226, 246, 166, 247, 62, 235, 241, 168, 44, 170, 26, 135, 207, 86, 46, 127,
     152, 219, 15, 111, 57, 48, 64, 201, 193, 113, 238, 142,
