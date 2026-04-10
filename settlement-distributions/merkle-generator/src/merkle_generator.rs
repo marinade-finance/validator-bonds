@@ -88,7 +88,7 @@ fn validate_sources(sources: &[SettlementSource]) -> anyhow::Result<(u64, u64)> 
 /// Merges claims with the same (withdraw_authority, stake_authority) key.
 /// `claim_amount` is summed (each source contributes a different claim).
 /// `stake_accounts` are unioned without double-counting (same on-chain accounts across sources).
-/// `stake_amount` is recomputed from the merged `stake_accounts` map.
+/// `active_stake` is recomputed from the merged `stake_accounts` map.
 fn merge_claims(claims: Vec<SettlementClaim>) -> Vec<SettlementClaim> {
     let mut claim_map: HashMap<ClaimKey, SettlementClaim> = HashMap::new();
 
@@ -112,8 +112,8 @@ fn merge_claims(claims: Vec<SettlementClaim>) -> Vec<SettlementClaim> {
                         .and_modify(|v| *v = (*v).max(*lamports))
                         .or_insert(*lamports);
                 }
-                // Recompute stake_amount from the merged stake_accounts
-                existing.stake_amount = existing.stake_accounts.values().sum();
+                // Recompute active_stake from the merged stake_accounts
+                existing.active_stake = existing.stake_accounts.values().sum();
             })
             .or_insert(claim);
     }
@@ -275,15 +275,15 @@ mod tests {
         withdraw: Pubkey,
         stake: Pubkey,
         amount: u64,
-        stake_amount: u64,
+        active_stake: u64,
     ) -> SettlementClaim {
         let mut stake_accounts = HashMap::new();
-        stake_accounts.insert(Pubkey::new_unique(), stake_amount);
+        stake_accounts.insert(Pubkey::new_unique(), active_stake);
         SettlementClaim {
             withdraw_authority: withdraw,
             stake_authority: stake,
             stake_accounts,
-            stake_amount,
+            active_stake,
             claim_amount: amount,
         }
     }
@@ -320,7 +320,7 @@ mod tests {
         let merged = merge_claims(claims);
         assert_eq!(merged.len(), 1);
         assert_eq!(merged[0].claim_amount, 300);
-        assert_eq!(merged[0].stake_amount, 3000);
+        assert_eq!(merged[0].active_stake, 3000);
     }
 
     #[test]
@@ -338,22 +338,22 @@ mod tests {
                 (shared_stake_account, 1000),
                 (unique_stake_account, 500),
             ]),
-            stake_amount: 1500,
+            active_stake: 1500,
             claim_amount: 100,
         };
         let claim2 = SettlementClaim {
             withdraw_authority: withdraw,
             stake_authority: stake,
             stake_accounts: HashMap::from([(shared_stake_account, 1000)]),
-            stake_amount: 1000,
+            active_stake: 1000,
             claim_amount: 50,
         };
 
         let merged = merge_claims(vec![claim1, claim2]);
         assert_eq!(merged.len(), 1);
         assert_eq!(merged[0].claim_amount, 150); // claims summed
-                                                 // stake_amount should NOT be double-counted: 1000 (shared) + 500 (unique) = 1500
-        assert_eq!(merged[0].stake_amount, 1500);
+                                                 // active_stake should NOT be double-counted: 1000 (shared) + 500 (unique) = 1500
+        assert_eq!(merged[0].active_stake, 1500);
         assert_eq!(merged[0].stake_accounts.len(), 2);
         assert_eq!(merged[0].stake_accounts[&shared_stake_account], 1000);
         assert_eq!(merged[0].stake_accounts[&unique_stake_account], 500);

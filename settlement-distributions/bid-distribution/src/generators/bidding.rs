@@ -3,6 +3,7 @@ use crate::sam_meta::{AuctionValidatorValues, ValidatorSamMeta};
 use crate::settlement_config::{FeeConfig, SettlementConfig};
 use anyhow::{anyhow, ensure};
 use log::{debug, info, warn};
+use merkle_tree::serde_serialize::map_pubkey_string_conversion;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -84,8 +85,8 @@ pub struct PriorityFeeSettlementDetails {
     pub activating_stakers_pool: u64,
     pub marinade_fee_claim: u64,
     pub dao_fee_claim: u64,
-    /// stake_authority -> (stake_account -> activating_lamports), for debugging
-    pub activating_stake_accounts: HashMap<String, HashMap<String, u64>>,
+    #[serde(with = "map_pubkey_string_conversion")]
+    pub activating_stake_accounts: HashMap<Pubkey, u64>,
 }
 
 pub fn generate_bid_settlements(
@@ -371,9 +372,7 @@ pub fn generate_bid_settlements(
             let mut bidding_claims_amount = 0;
             let mut priority_fee_claims = vec![];
             let mut priority_fee_claims_amount = 0;
-            // stake_authority -> (stake_account -> activating_lamports)
-            let mut all_activating_stake_accounts: HashMap<String, HashMap<String, u64>> =
-                HashMap::new();
+            let mut all_activating_stake_accounts: HashMap<Pubkey, u64> = HashMap::new();
 
             for (&(withdraw_authority, stake_authority), stake_metas) in &grouped_stake_metas {
                 if !stake_authority_filter(stake_authority) {
@@ -404,7 +403,7 @@ pub fn generate_bid_settlements(
                                 stake_authority: *stake_authority,
                                 stake_accounts: active_accounts,
                                 claim_amount,
-                                stake_amount: active_sum,
+                                active_stake: active_sum,
                             });
                             bidding_claims_amount += claim_amount;
                         }
@@ -422,10 +421,7 @@ pub fn generate_bid_settlements(
                         .collect();
                     let activating_sum: u64 = activating_accounts.values().sum();
                     if activating_sum > 0 {
-                        all_activating_stake_accounts
-                            .entry(stake_authority.to_string())
-                            .or_default()
-                            .extend(activating_accounts.iter().map(|(k, v)| (k.to_string(), *v)));
+                        all_activating_stake_accounts.extend(activating_accounts.iter());
                         let staker_share = Decimal::from(activating_sum)
                             / Decimal::from(total_marinade_activating_stake);
                         let claim_amount =
@@ -443,7 +439,7 @@ pub fn generate_bid_settlements(
                                 stake_authority: *stake_authority,
                                 stake_accounts: activating_accounts,
                                 claim_amount,
-                                stake_amount: activating_sum,
+                                active_stake: activating_sum,
                             });
                             priority_fee_claims_amount += claim_amount;
                         }
@@ -483,7 +479,7 @@ pub fn generate_bid_settlements(
                         stake_authority: authorities.marinade_stake,
                         stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
                         claim_amount: marinade_fee_for_bidding,
-                        stake_amount: marinade_fee_deposit_stake_accounts.values().sum(),
+                        active_stake: marinade_fee_deposit_stake_accounts.values().sum(),
                     });
                     bidding_claims_amount += marinade_fee_for_bidding;
                 }
@@ -493,7 +489,7 @@ pub fn generate_bid_settlements(
                         stake_authority: authorities.dao_stake,
                         stake_accounts: dao_fee_deposit_stake_accounts.clone(),
                         claim_amount: dao_fee_for_bidding,
-                        stake_amount: total_marinade_active_stake,
+                        active_stake: total_marinade_active_stake,
                     });
                     bidding_claims_amount += dao_fee_for_bidding;
                 }
@@ -506,7 +502,7 @@ pub fn generate_bid_settlements(
                         stake_authority: authorities.marinade_stake,
                         stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
                         claim_amount: marinade_fee_for_priority,
-                        stake_amount: marinade_fee_deposit_stake_accounts.values().sum(),
+                        active_stake: marinade_fee_deposit_stake_accounts.values().sum(),
                     });
                     priority_fee_claims_amount += marinade_fee_for_priority;
                 }
@@ -516,7 +512,7 @@ pub fn generate_bid_settlements(
                         stake_authority: authorities.dao_stake,
                         stake_accounts: dao_fee_deposit_stake_accounts.clone(),
                         claim_amount: dao_fee_for_priority,
-                        stake_amount: total_marinade_activating_stake,
+                        active_stake: total_marinade_activating_stake,
                     });
                     priority_fee_claims_amount += dao_fee_for_priority;
                 }

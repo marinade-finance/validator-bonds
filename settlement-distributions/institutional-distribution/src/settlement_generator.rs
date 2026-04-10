@@ -27,7 +27,7 @@ struct Payout {
     vote_account: Pubkey,
     withdrawer: Pubkey,
     staker: Pubkey,
-    stake_amount: u64,
+    active_stake: u64,
     payout_lamports: u64,
     stake_accounts: HashMap<Pubkey, u64>,
 }
@@ -51,7 +51,7 @@ fn merge_payouts(
             vote_account: payout_staker.vote_account,
             withdrawer: payout_staker.withdrawer,
             staker: payout_staker.staker,
-            stake_amount: payout_staker.effective_stake,
+            active_stake: payout_staker.effective_stake,
             payout_lamports: payout_staker.payout_lamports,
             stake_accounts,
         });
@@ -94,7 +94,7 @@ fn merge_payouts(
             vote_account: payout_distributor.vote_account,
             withdrawer: config.marinade_withdraw_authority,
             staker: config.marinade_stake_authority,
-            stake_amount: marinade_fee_deposit_stake_accounts
+            active_stake: marinade_fee_deposit_stake_accounts
                 .iter()
                 .fold(0, |acc, (_, v)| acc.saturating_add(*v)),
             payout_lamports: marinade_payout,
@@ -104,7 +104,7 @@ fn merge_payouts(
             vote_account: payout_distributor.vote_account,
             withdrawer: config.dao_withdraw_authority,
             staker: config.dao_stake_authority,
-            stake_amount: dao_fee_deposit_stake_accounts
+            active_stake: dao_fee_deposit_stake_accounts
                 .iter()
                 .fold(0, |acc, (_, v)| acc.saturating_add(*v)),
             payout_lamports: dao_payout,
@@ -145,7 +145,7 @@ fn generate_institutional_settlements(
             claim.withdraw_authority == payout.withdrawer && claim.stake_authority == payout.staker
         }) {
             existing_claim.claim_amount += payout.payout_lamports;
-            existing_claim.stake_amount += payout.stake_amount;
+            existing_claim.active_stake += payout.active_stake;
             for (k, v) in &payout.stake_accounts {
                 existing_claim.stake_accounts.entry(*k).or_insert(*v);
             }
@@ -153,7 +153,7 @@ fn generate_institutional_settlements(
             settlement.claims.push(SettlementClaim {
                 withdraw_authority: payout.withdrawer,
                 stake_authority: payout.staker,
-                stake_amount: payout.stake_amount,
+                active_stake: payout.active_stake,
                 stake_accounts: payout.stake_accounts,
                 claim_amount: payout.payout_lamports,
             });
