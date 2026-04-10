@@ -302,7 +302,8 @@ pub fn generate_bid_settlements(
                 let total = Decimal::from(total_marinade_active_stake) * total_rev_share;
                 (total, None, None, None, None)
             };
-            let total_marinade_stakers_rewards = active_stakers_rewards + activating_stakers_rewards;
+            let total_marinade_stakers_rewards =
+                active_stakers_rewards + activating_stakers_rewards;
             info!(
                 "{} total stakers rewards: {} (inflation: {:?}, mev: {:?}, block: {:?}, bid: {:?}), claims: {}",
                 validator.vote_account,
@@ -371,17 +372,16 @@ pub fn generate_bid_settlements(
                         .collect();
                     let active_sum: u64 = active_accounts.values().sum();
                     if active_sum > 0 {
-                        let staker_share = Decimal::from(active_sum)
-                            / Decimal::from(total_marinade_active_stake);
-                        let claim_amount =
-                            (staker_share * Decimal::from(active_stakers_pool))
-                                .to_u64()
-                                .ok_or_else(|| {
-                                    anyhow!(
-                                        "claim_amount is not representable as u64 for validator {}",
-                                        validator.vote_account
-                                    )
-                                })?;
+                        let staker_share =
+                            Decimal::from(active_sum) / Decimal::from(total_marinade_active_stake);
+                        let claim_amount = (staker_share * Decimal::from(active_stakers_pool))
+                            .to_u64()
+                            .ok_or_else(|| {
+                                anyhow!(
+                                    "claim_amount is not representable as u64 for validator {}",
+                                    validator.vote_account
+                                )
+                            })?;
                         if claim_amount > 0 {
                             claims.push(SettlementClaim {
                                 withdraw_authority: *withdraw_authority,

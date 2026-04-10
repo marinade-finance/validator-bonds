@@ -1147,15 +1147,25 @@ fn test_activating_bid_charge_distributed_to_activating_stakers() {
     let s = &settlements[0];
 
     // Total = staker net + marinade fee + dao fee
-    assert_eq!(s.claims_amount, 400_000_000, "total must equal full activating charge");
+    assert_eq!(
+        s.claims_amount, 400_000_000,
+        "total must equal full activating charge"
+    );
 
     // Activating staker (stake_account(2)) gets 90% of charge after 10% fee
     let staker_claim = s
         .claims
         .iter()
         .find(|c| c.stake_accounts.contains_key(&test_stake_account(2)));
-    assert!(staker_claim.is_some(), "activating staker must have a claim");
-    assert_eq!(staker_claim.unwrap().claim_amount, 360_000_000, "staker gets 90% after 10% fee");
+    assert!(
+        staker_claim.is_some(),
+        "activating staker must have a claim"
+    );
+    assert_eq!(
+        staker_claim.unwrap().claim_amount,
+        360_000_000,
+        "staker gets 90% after 10% fee"
+    );
 
     // DAO and marinade each get half of the 10% fee
     let details = s.details.as_ref().unwrap();
