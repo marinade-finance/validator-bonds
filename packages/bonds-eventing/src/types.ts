@@ -10,6 +10,7 @@ export type {
   BondUnderfundedChangeDetails,
   BondBalanceChangeDetails,
   SamEligibleChangeDetails,
+  SettlementAppliedDetails,
   AnnouncementDetails,
   VersionBumpDetails,
 } from '@marinade.finance/notifications-bonds-event-v1'

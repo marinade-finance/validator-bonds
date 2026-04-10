@@ -18,6 +18,7 @@ import type {
   BondUnderfundedChangeDetails,
   BondBalanceChangeDetails,
   SamEligibleChangeDetails,
+  SettlementAppliedDetails,
 } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
@@ -321,6 +322,48 @@ export function evaluateDeltas(
               prev.effective_amount_lamports.toString(),
             current_effective_lamports: currentEffectiveLamports.toString(),
           } satisfies BondBalanceChangeDetails,
+        ),
+      )
+    }
+
+    // Settlement detection: pending settlement = funded - effective
+    const currentSettlementLamports =
+      currentFundedLamports - currentEffectiveLamports
+    const prevSettlementLamports =
+      prev.funded_amount_lamports - prev.effective_amount_lamports
+    // Only emit when settlement > 0 (active), changed, and above dust (0.01 SOL)
+    const MIN_SETTLEMENT_LAMPORTS = 10_000_000n
+    if (
+      currentSettlementLamports > 0n &&
+      currentSettlementLamports !== prevSettlementLamports &&
+      currentSettlementLamports >= MIN_SETTLEMENT_LAMPORTS
+    ) {
+      const totalSol = lamportsToSol(currentSettlementLamports)
+      const prevSol =
+        prevSettlementLamports > 0n
+          ? lamportsToSol(prevSettlementLamports)
+          : null
+      events.push(
+        makeEvent(
+          'settlement_applied',
+          v,
+          epoch,
+          bondType,
+          configAddress,
+          `Validator ${v.voteAccount} has a pending settlement of ` +
+            `${totalSol} SOL against their bond` +
+            (prevSol !== null
+              ? ` (changed from ${prevSol} SOL).`
+              : `.`) +
+            ` Claimable balance: ${v.claimableBondBalanceSol ?? v.bondBalanceSol} SOL.`,
+          {
+            settlement_total_sol: totalSol,
+            previous_settlement_sol: prevSol,
+            bond_balance_sol: v.bondBalanceSol,
+            claimable_balance_sol:
+              v.claimableBondBalanceSol ?? v.bondBalanceSol,
+            bond_good_for_n_epochs: roundEpochs(v.bondGoodForNEpochs),
+          } satisfies SettlementAppliedDetails,
         ),
       )
     }
