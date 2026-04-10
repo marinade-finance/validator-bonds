@@ -38,7 +38,7 @@ impl Display for SettlementReason {
         match self {
             SettlementReason::ProtectedEvent(_) => write!(f, "ProtectedEvent"),
             SettlementReason::Bidding => write!(f, "Bidding"),
-            SettlementReason::PriorityFee { .. } => write!(f, "PriorityFee"),
+            SettlementReason::PriorityFee => write!(f, "PriorityFee"),
             SettlementReason::BidTooLowPenalty => write!(f, "BidTooLowPenalty"),
             SettlementReason::BlacklistPenalty => write!(f, "BlacklistPenalty"),
             SettlementReason::BondRiskFee => write!(f, "BondRiskFee"),

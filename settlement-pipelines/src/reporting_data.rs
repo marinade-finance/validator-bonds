@@ -44,7 +44,7 @@ impl From<&SettlementReason> for ReportingReasonSettlement {
         match reason {
             SettlementReason::ProtectedEvent(_) => ReportingReasonSettlement::ProtectedEvent,
             SettlementReason::Bidding => ReportingReasonSettlement::Bidding,
-            SettlementReason::PriorityFee { .. } => ReportingReasonSettlement::PriorityFee,
+            SettlementReason::PriorityFee => ReportingReasonSettlement::PriorityFee,
             SettlementReason::BidTooLowPenalty => ReportingReasonSettlement::BidTooLowPenalty,
             SettlementReason::BlacklistPenalty => ReportingReasonSettlement::BlacklistPenalty,
             SettlementReason::BondRiskFee => ReportingReasonSettlement::BondRiskFee,
