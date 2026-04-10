@@ -875,9 +875,10 @@ fn test_activating_bid_charge_basic() {
 
 #[test]
 fn test_activating_bid_charge_with_active_stake() {
-    // active=2 SOL, activating=1 SOL, static_bid_pmpe=50, activating_stake_pmpe=100
-    // static_bid    = 50/1000 * 2 SOL = 0.1 SOL
-    // activating    = 100/1000 * 1 SOL = 0.1 SOL
+    // Two separate accounts: one fully active, one brand-new (active=0, activating=1 SOL)
+    // static_bid_pmpe=50, activating_stake_pmpe=100
+    // static_bid = 50/1000 * 2 SOL = 0.1 SOL  (charged on active stake)
+    // activating = 100/1000 * 1 SOL = 0.1 SOL  (charged on brand-new delegation)
     // total = 0.2 SOL = 200_000_000 lamports
     let epoch = 100;
     let vote_account = test_vote_account(2);
@@ -885,14 +886,25 @@ fn test_activating_bid_charge_with_active_stake() {
     let stake_meta_collection = StakeMetaCollection {
         epoch,
         slot: 1000,
-        stake_metas: vec![create_stake_meta_with_activating(
-            test_stake_account(1),
-            vote_account,
-            TEST_PUBKEY_MARINADE,
-            TEST_PUBKEY_MARINADE,
-            2 * LAMPORTS_PER_SOL,
-            LAMPORTS_PER_SOL,
-        )],
+        stake_metas: vec![
+            // fully active account
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                2 * LAMPORTS_PER_SOL,
+            ),
+            // brand-new delegation: active=0, activating=1 SOL
+            create_stake_meta_with_activating(
+                test_stake_account(2),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                0,
+                LAMPORTS_PER_SOL,
+            ),
+        ],
     };
 
     let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
@@ -1020,6 +1032,59 @@ fn test_activating_bid_charge_absent_when_no_field() {
     assert!(
         settlements.is_empty(),
         "No activating charge when activating_stake_pmpe is absent"
+    );
+}
+
+#[test]
+fn test_activating_bid_charge_skipped_for_multi_epoch_warmup() {
+    // An account with active > 0 AND activating > 0 is mid-warmup from a prior epoch.
+    // The activating portion must NOT be charged to avoid double-counting.
+    // Only the static_bid on the active stake should be charged.
+    let epoch = 100;
+    let vote_account = test_vote_account(5);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            // mid-warmup account: active=2 SOL (already activated), activating=1 SOL (still warming)
+            create_stake_meta_with_activating(
+                test_stake_account(1),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                2 * LAMPORTS_PER_SOL,
+                LAMPORTS_PER_SOL,
+            ),
+        ],
+    };
+
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .static_bid(50.0)
+        .activating_stake_pmpe(100.0)
+        .build();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &create_test_fee_config(0, 0),
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+    )
+    .unwrap();
+
+    assert_eq!(settlements.len(), 1);
+    // Only static_bid on 2 SOL active: 50/1000 * 2 SOL = 0.1 SOL = 100_000_000 lamports
+    // No activating charge (multi-epoch warmup account skipped)
+    assert_eq!(
+        settlements[0].claims_amount, 100_000_000,
+        "only static_bid charged; activating skipped for mid-warmup account"
     );
 }
 
