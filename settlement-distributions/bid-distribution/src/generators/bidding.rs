@@ -139,13 +139,7 @@ pub fn generate_bid_settlements(
                     validator.vote_account, total_marinade_multi_epoch_activating_stake,
                 );
             }
-            if total_active_stake == 0 && total_marinade_activating_stake == 0 {
-                warn!(
-                    "Skipping validator {} with zero total active stake and no activating stake",
-                    validator.vote_account,
-                );
-                continue;
-            }
+            // Marinade stake is a subset of total stake, so this covers both zero-stake cases.
             if total_marinade_active_stake == 0 && total_marinade_activating_stake == 0 {
                 warn!(
                     "Skipping validator {} with zero marinade active and activating stake",
