@@ -107,9 +107,11 @@ pub fn generate_bid_settlements(
                     if stake_authority_filter(stake_authority) {
                         total_marinade_active_stake += meta.active_delegation_lamports;
                         if meta.activating_delegation_lamports > 0 {
-                            // Only charge activating stake on brand-new delegations (active == 0).
-                            // If active > 0 the account is already mid-warmup from a prior epoch;
-                            // charging again would double-count the same lamports.
+                            // Solana warmup is rate-limited: large delegations can take multiple
+                            // epochs to fully activate, appearing as `activating` each epoch.
+                            // We only charge when active == 0 (first epoch of the delegation).
+                            // Once any lamports have activated (active > 0) the account is
+                            // mid-warmup — charging again would double-count the same stake.
                             if meta.active_delegation_lamports == 0 {
                                 total_marinade_activating_stake +=
                                     meta.activating_delegation_lamports;
