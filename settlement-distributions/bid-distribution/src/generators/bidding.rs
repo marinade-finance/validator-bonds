@@ -363,7 +363,7 @@ pub fn generate_bid_settlements(
                     continue;
                 }
                 // Active stakers: proportional share of active_stakers_pool
-                if total_marinade_active_stake > 0 {
+                if total_marinade_active_stake > 0 && active_stakers_pool > 0 {
                     let active_accounts: HashMap<_, _> = stake_metas
                         .iter()
                         .filter(|s| s.active_delegation_lamports > 0)
