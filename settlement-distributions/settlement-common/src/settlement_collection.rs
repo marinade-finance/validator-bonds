@@ -15,10 +15,10 @@ pub struct SettlementClaim {
     pub withdraw_authority: Pubkey,
     #[serde(with = "pubkey_string_conversion")]
     pub stake_authority: Pubkey,
-    /// stake account pubkey -> active_delegation_lamports
+    /// stake account pubkey -> StakeAccount
     #[serde(with = "map_pubkey_string_conversion")]
     pub stake_accounts: HashMap<Pubkey, u64>,
-    pub active_stake: u64,
+    pub stake_amount: u64,
     pub claim_amount: u64,
 }
 
@@ -26,7 +26,7 @@ pub struct SettlementClaim {
 pub enum SettlementReason {
     ProtectedEvent(Box<ProtectedEvent>),
     Bidding,
-    PriorityFee { activating_stake: u64 },
+    PriorityFee,
     BidTooLowPenalty,
     BlacklistPenalty,
     BondRiskFee,

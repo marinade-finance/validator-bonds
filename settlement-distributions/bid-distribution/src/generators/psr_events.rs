@@ -82,17 +82,17 @@ fn generate_psr_settlements_for_config(
                     .iter()
                     .map(|s| (s.pubkey, s.active_delegation_lamports))
                     .collect();
-                let active_stake = stake_accounts.values().sum();
+                let stake_amount: u64 = stake_accounts.values().sum();
 
                 let claim_amount =
-                    protected_event.claim_amount_in_loss_range(settlement_config, active_stake);
+                    protected_event.claim_amount_in_loss_range(settlement_config, stake_amount);
 
-                if active_stake > 0 && claim_amount > 0 {
+                if stake_amount > 0 && claim_amount > 0 {
                     claims.push(SettlementClaim {
                         withdraw_authority: **withdraw_authority,
                         stake_authority: **stake_authority,
                         stake_accounts,
-                        active_stake,
+                        stake_amount,
                         claim_amount,
                     });
                     claims_amount += claim_amount;
@@ -107,7 +107,7 @@ fn generate_psr_settlements_for_config(
                     withdraw_authority: Pubkey::default(),
                     stake_authority: Pubkey::default(),
                     stake_accounts: HashMap::new(),
-                    active_stake: 0,
+                    stake_amount: 0,
                     claim_amount: 0,
                 });
             }
