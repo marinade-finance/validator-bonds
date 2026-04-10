@@ -35,9 +35,9 @@ impl ResultSettlementClaims {
     }
 
     pub fn sum_u64(&self) -> anyhow::Result<u64> {
-        let s = self.sum();
-        s.to_u64()
-            .ok_or_else(|| anyhow!("Failed to_u64 for total settlement claims: {s}"))
+        self.sum()
+            .to_u64()
+            .ok_or_else(|| anyhow!("Failed to_u64 for total settlement claims: {}", self.sum()))
     }
 }
 
