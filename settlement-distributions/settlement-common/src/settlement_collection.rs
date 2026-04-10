@@ -26,6 +26,7 @@ pub struct SettlementClaim {
 pub enum SettlementReason {
     ProtectedEvent(Box<ProtectedEvent>),
     Bidding,
+    PriorityFee { activating_stake: u64 },
     BidTooLowPenalty,
     BlacklistPenalty,
     BondRiskFee,
@@ -37,6 +38,7 @@ impl Display for SettlementReason {
         match self {
             SettlementReason::ProtectedEvent(_) => write!(f, "ProtectedEvent"),
             SettlementReason::Bidding => write!(f, "Bidding"),
+            SettlementReason::PriorityFee { .. } => write!(f, "PriorityFee"),
             SettlementReason::BidTooLowPenalty => write!(f, "BidTooLowPenalty"),
             SettlementReason::BlacklistPenalty => write!(f, "BlacklistPenalty"),
             SettlementReason::BondRiskFee => write!(f, "BondRiskFee"),
