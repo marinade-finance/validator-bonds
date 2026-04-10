@@ -1,4 +1,4 @@
-use crate::settlement_collection::SettlementClaim;
+use crate::settlement_collection::{SettlementClaim, SettlementKey};
 use log::info;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
@@ -80,13 +80,12 @@ pub fn file_error<'a>(
 /// Sort claims to ensure a deterministic order for identical input data
 /// This guarantees the same Merkle root is generated from the same claims
 pub fn sort_claims_deterministically(claims: &mut [SettlementClaim]) {
-    claims.sort_by_key(|claim| {
-        (
-            claim.withdraw_authority,
-            claim.stake_authority,
-            claim.claim_amount,
-        )
-    });
+    claims.sort_by_key(|c| (c.withdraw_authority, c.stake_authority, c.claim_amount));
+}
+
+/// Sort merged (key, amount) pairs deterministically
+pub fn sort_merged_claims_deterministically(claims: &mut [(SettlementKey, u64)]) {
+    claims.sort_by_key(|(key, amount)| (key.withdraw_authority, key.stake_authority, *amount));
 }
 
 fn stake_authorities_filter(whitelist: HashSet<Pubkey>) -> Box<dyn Fn(&Pubkey) -> bool> {

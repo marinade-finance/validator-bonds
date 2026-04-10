@@ -4,9 +4,8 @@ use merkle_tree::psr_claim::TreeNode;
 use merkle_tree::MerkleTree;
 use settlement_common::merkle_tree_collection::{get_proof, MerkleTreeCollection, MerkleTreeMeta};
 use settlement_common::settlement_collection::{
-    Settlement, SettlementClaim, SettlementCollection, SettlementFunder,
+    Settlement, SettlementClaim, SettlementCollection, SettlementFunder, SettlementKey,
 };
-use settlement_common::utils::sort_claims_deterministically;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 use std::path::Path;
@@ -23,13 +22,6 @@ pub struct GeneratorConfig {
 pub struct SettlementSource {
     pub name: String,
     pub collection: SettlementCollection,
-}
-
-/// Key for grouping claims within a settlement
-#[derive(Hash, Eq, PartialEq, Clone)]
-struct ClaimKey {
-    withdraw_authority: Pubkey,
-    stake_authority: Pubkey,
 }
 
 /// Loads settlement collections from multiple input files
@@ -86,28 +78,18 @@ fn validate_sources(sources: &[SettlementSource]) -> anyhow::Result<(u64, u64)> 
 }
 
 /// Merges claims with the same (withdraw_authority, stake_authority) key by summing claim_amount.
-/// Stake accounts are taken from the first occurrence (same on-chain accounts across sources).
-fn merge_claims(claims: Vec<SettlementClaim>) -> Vec<SettlementClaim> {
-    let mut amount_map: HashMap<ClaimKey, u64> = HashMap::new();
-    let mut base_claims: HashMap<ClaimKey, SettlementClaim> = HashMap::new();
+fn merge_claims(claims: Vec<SettlementClaim>) -> Vec<(SettlementKey, u64)> {
+    let mut amount_map: HashMap<SettlementKey, u64> = HashMap::new();
 
     for claim in claims {
-        let key = ClaimKey {
+        let key = SettlementKey {
             withdraw_authority: claim.withdraw_authority,
             stake_authority: claim.stake_authority,
         };
-        *amount_map.entry(key.clone()).or_default() += claim.claim_amount;
-        base_claims.entry(key).or_insert(claim);
+        *amount_map.entry(key).or_default() += claim.claim_amount;
     }
 
-    amount_map
-        .into_iter()
-        .map(|(key, total_amount)| {
-            let mut claim = base_claims.remove(&key).unwrap();
-            claim.claim_amount = total_amount;
-            claim
-        })
-        .collect()
+    amount_map.into_iter().collect()
 }
 
 /// Generates merkle trees from multiple settlement sources.
@@ -162,16 +144,16 @@ pub fn generate_merkle_tree_collection(
             settlements.iter().flat_map(|s| s.claims.clone()).collect();
 
         let mut merged_claims = merge_claims(all_claims);
-        sort_claims_deterministically(&mut merged_claims);
+        settlement_common::utils::sort_merged_claims_deterministically(&mut merged_claims);
 
         // Convert claims to tree nodes
         let mut tree_nodes: Vec<TreeNode> = merged_claims
             .iter()
             .enumerate()
-            .map(|(index, claim)| TreeNode {
-                stake_authority: claim.stake_authority,
-                withdraw_authority: claim.withdraw_authority,
-                claim: claim.claim_amount,
+            .map(|(index, (key, amount))| TreeNode {
+                stake_authority: key.stake_authority,
+                withdraw_authority: key.withdraw_authority,
+                claim: *amount,
                 index: index as u64,
                 proof: None,
             })
@@ -308,9 +290,7 @@ mod tests {
 
         let merged = merge_claims(claims);
         assert_eq!(merged.len(), 1);
-        assert_eq!(merged[0].claim_amount, 300);
-        // stake_amount is taken from the first claim; claims from different sources share the same on-chain stake accounts
-        assert_eq!(merged[0].stake_amount, 1000);
+        assert_eq!(merged[0].1, 300);
     }
 
     #[test]
@@ -320,7 +300,6 @@ mod tests {
         let shared_stake_account = Pubkey::new_unique();
         let unique_stake_account = Pubkey::new_unique();
 
-        // Two claims from different sources sharing the same stake account
         let claim1 = SettlementClaim {
             withdraw_authority: withdraw,
             stake_authority: stake,
@@ -341,10 +320,7 @@ mod tests {
 
         let merged = merge_claims(vec![claim1, claim2]);
         assert_eq!(merged.len(), 1);
-        assert_eq!(merged[0].claim_amount, 150); // claims summed
-                                                 // stake data taken from first claim
-        assert_eq!(merged[0].stake_amount, 1500);
-        assert_eq!(merged[0].stake_accounts.len(), 2);
+        assert_eq!(merged[0].1, 150); // claims summed
     }
 
     #[test]
