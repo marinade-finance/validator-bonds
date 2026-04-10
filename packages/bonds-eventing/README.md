@@ -60,6 +60,25 @@ DB table and only emits events when something changes between runs.
 - Not emitted: If balance is exactly the same
 - Note: Uses claimableBondBalanceSol (if available) as effective amount, falls back to bondBalanceSol
 
+8. sam_eligible_change — SAM eligibility changed
+
+- When: prev.sam_eligible !== current samEligible
+- Not emitted: If eligibility stays the same
+
+9. settlement_applied — Pending settlement claim detected (audit-only)
+
+- When: `bondBalanceSol - claimableBondBalanceSol > 0.01 SOL` AND changed from previous state
+- Not emitted: If no settlement pending, or amount unchanged, or below 0.01 SOL dust threshold
+- Note: This event is audit-only in the notification brain — it gets archived but does NOT produce a user notification. The actionable warning is provided by `penalty_expected`.
+
+10. penalty_expected — Predicted penalty from auction simulation
+
+- When: Total computed penalty > 0.001 SOL AND epoch changed from previous state
+- Penalty types covered: BidTooLowPenalty, BlacklistPenalty, BondRiskFee
+- Formula: `pmpe / 1000 * marinadeActivatedStakeSol` — matches the settlement pipeline (sam_penalties.rs)
+- Not emitted: If all penalty fields are zero, or if epoch is unchanged (avoids flooding on every run)
+- Note: PSR penalties (DowntimeRevenueImpact, CommissionSamIncrease) are computed by a separate pipeline and are NOT included.
+
 ### Events NOT auto-emitted
 
 1. announcement — For admin-posted messages (e.g., "maintenance window tomorrow")

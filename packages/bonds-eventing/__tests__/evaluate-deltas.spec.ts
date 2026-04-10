@@ -17,6 +17,8 @@ import type {
   CapChangedDetails,
   BondUnderfundedChangeDetails,
   BondBalanceChangeDetails,
+  SettlementAppliedDetails,
+  PenaltyExpectedDetails,
 } from '../src/types'
 import type { AuctionValidator } from '@marinade.finance/ds-sam-sdk'
 
@@ -426,6 +428,266 @@ describe('evaluateDeltas', () => {
     )
 
     expect(events).toHaveLength(0)
+  })
+
+  // --- settlement_applied ---
+
+  it('emits settlement_applied when new settlement appears', () => {
+    // bondBalanceSol=10, claimableBondBalanceSol=8 => 2 SOL settlement
+    const validators = [
+      makeValidator({ bondBalanceSol: 10.0, claimableBondBalanceSol: 8.0 }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(TEST_VOTE_ACCOUNT, makePrevState())
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const settlement = events.find(e => e.inner_type === 'settlement_applied')
+    expect(settlement).toBeDefined()
+    const details = settlement!.data.details as SettlementAppliedDetails
+    expect(details.settlement_total_sol).toBe(2)
+    expect(details.previous_settlement_sol).toBeNull()
+    expect(details.bond_balance_sol).toBe(10)
+    expect(details.claimable_balance_sol).toBe(8)
+  })
+
+  it('suppresses settlement_applied below dust threshold', () => {
+    // 0.005 SOL settlement < MIN_SETTLEMENT_LAMPORTS (0.01 SOL)
+    const validators = [
+      makeValidator({ bondBalanceSol: 10.0, claimableBondBalanceSol: 9.995 }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(TEST_VOTE_ACCOUNT, makePrevState())
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const settlement = events.find(e => e.inner_type === 'settlement_applied')
+    expect(settlement).toBeUndefined()
+  })
+
+  it('suppresses settlement_applied when unchanged', () => {
+    // Both prev and current have same 2 SOL settlement
+    const validators = [
+      makeValidator({ bondBalanceSol: 10.0, claimableBondBalanceSol: 8.0 }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(
+      TEST_VOTE_ACCOUNT,
+      makePrevState({
+        funded_amount_lamports: 10_000_000_000n,
+        effective_amount_lamports: 8_000_000_000n,
+      }),
+    )
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const settlement = events.find(e => e.inner_type === 'settlement_applied')
+    expect(settlement).toBeUndefined()
+  })
+
+  it('includes previous_settlement_sol when settlement changes', () => {
+    // Prev had 1 SOL settlement, now 3 SOL
+    const validators = [
+      makeValidator({ bondBalanceSol: 10.0, claimableBondBalanceSol: 7.0 }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(
+      TEST_VOTE_ACCOUNT,
+      makePrevState({
+        funded_amount_lamports: 10_000_000_000n,
+        effective_amount_lamports: 9_000_000_000n,
+      }),
+    )
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const settlement = events.find(e => e.inner_type === 'settlement_applied')
+    expect(settlement).toBeDefined()
+    const details = settlement!.data.details as SettlementAppliedDetails
+    expect(details.settlement_total_sol).toBe(3)
+    expect(details.previous_settlement_sol).toBe(1)
+  })
+
+  // --- penalty_expected ---
+
+  it('emits penalty_expected on epoch change with bid_too_low penalty', () => {
+    // bidTooLowPenaltyPmpe=0.5, stake=50000 => penalty = 0.5/1000*50000 = 25 SOL
+    const validators = [
+      makeValidator({
+        revShare: {
+          expectedMaxEffBidPmpe: 3.2,
+          onchainDistributedPmpe: 0.5,
+          bidTooLowPenaltyPmpe: 0.5,
+          blacklistPenaltyPmpe: 0,
+        },
+        values: { bondRiskFeeSol: 0 },
+      }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    // prev.epoch=929, current epoch=930 => epoch changed
+    previousState.set(TEST_VOTE_ACCOUNT, makePrevState())
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const penalty = events.find(e => e.inner_type === 'penalty_expected')
+    expect(penalty).toBeDefined()
+    const details = penalty!.data.details as PenaltyExpectedDetails
+    expect(details.bid_too_low_penalty_sol).toBe(25)
+    expect(details.blacklist_penalty_sol).toBe(0)
+    expect(details.bond_risk_fee_sol).toBe(0)
+    expect(details.total_penalty_sol).toBe(25)
+    expect(details.bid_too_low_penalty_pmpe).toBe(0.5)
+    expect(details.marinade_activated_stake_sol).toBe(50000)
+  })
+
+  it('suppresses penalty_expected on same epoch', () => {
+    const validators = [
+      makeValidator({
+        revShare: {
+          expectedMaxEffBidPmpe: 3.2,
+          onchainDistributedPmpe: 0.5,
+          bidTooLowPenaltyPmpe: 0.5,
+          blacklistPenaltyPmpe: 0,
+        },
+        values: { bondRiskFeeSol: 0 },
+      }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    // prev.epoch=930 === current epoch=930 => no epoch change
+    previousState.set(TEST_VOTE_ACCOUNT, makePrevState({ epoch: 930 }))
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const penalty = events.find(e => e.inner_type === 'penalty_expected')
+    expect(penalty).toBeUndefined()
+  })
+
+  it('suppresses penalty_expected below threshold', () => {
+    // bidTooLowPenaltyPmpe tiny => total <= 0.001 SOL
+    const validators = [
+      makeValidator({
+        revShare: {
+          expectedMaxEffBidPmpe: 3.2,
+          onchainDistributedPmpe: 0.5,
+          bidTooLowPenaltyPmpe: 0.00001,
+          blacklistPenaltyPmpe: 0,
+        },
+        values: { bondRiskFeeSol: 0 },
+      }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(TEST_VOTE_ACCOUNT, makePrevState())
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const penalty = events.find(e => e.inner_type === 'penalty_expected')
+    expect(penalty).toBeUndefined()
+  })
+
+  it('emits penalty_expected with blacklist penalty', () => {
+    const validators = [
+      makeValidator({
+        revShare: {
+          expectedMaxEffBidPmpe: 3.2,
+          onchainDistributedPmpe: 0.5,
+          bidTooLowPenaltyPmpe: 0,
+          blacklistPenaltyPmpe: 1.0,
+        },
+        values: { bondRiskFeeSol: 0 },
+      }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(TEST_VOTE_ACCOUNT, makePrevState())
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const penalty = events.find(e => e.inner_type === 'penalty_expected')
+    expect(penalty).toBeDefined()
+    const details = penalty!.data.details as PenaltyExpectedDetails
+    // blacklist = 1.0/1000 * 50000 = 50 SOL
+    expect(details.blacklist_penalty_sol).toBe(50)
+    expect(details.bid_too_low_penalty_sol).toBe(0)
+    expect(details.total_penalty_sol).toBe(50)
+  })
+
+  it('emits penalty_expected with bond_risk_fee', () => {
+    const validators = [
+      makeValidator({
+        revShare: {
+          expectedMaxEffBidPmpe: 3.2,
+          onchainDistributedPmpe: 0.5,
+          bidTooLowPenaltyPmpe: 0,
+          blacklistPenaltyPmpe: 0,
+        },
+        values: { bondRiskFeeSol: 5.5 },
+      }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(TEST_VOTE_ACCOUNT, makePrevState())
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const penalty = events.find(e => e.inner_type === 'penalty_expected')
+    expect(penalty).toBeDefined()
+    const details = penalty!.data.details as PenaltyExpectedDetails
+    expect(details.bond_risk_fee_sol).toBe(5.5)
+    expect(details.bid_too_low_penalty_sol).toBe(0)
+    expect(details.blacklist_penalty_sol).toBe(0)
+    expect(details.total_penalty_sol).toBe(5.5)
   })
 
   it('emits multiple events for multiple changes on same validator', () => {
