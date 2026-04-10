@@ -11,7 +11,7 @@ import type {
   BondsEventV1,
   ValidatorState,
   FirstSeenDetails,
-  BondRemovedDetails,
+  ValidatorDelistedDetails,
   AuctionEnteredDetails,
   AuctionExitedDetails,
   CapChangedDetails,
@@ -345,12 +345,17 @@ export function evaluateDeltas(
     }
   }
 
-  // Check for removed validators
+  // Validator was in previous SAM auction data but is no longer returned
+  // (e.g., delinquent, scoring change). Does NOT mean a bond was closed on-chain.
+  // Only emit for validators that actually had a funded bond or auction participation.
   for (const [voteAccount, prev] of previousState) {
-    if (!seenVoteAccounts.has(voteAccount)) {
+    if (
+      !seenVoteAccounts.has(voteAccount) &&
+      (prev.funded_amount_lamports > 0n || prev.in_auction)
+    ) {
       events.push(
         makeBaseEvent(
-          'bond_removed',
+          'validator_delisted',
           voteAccount,
           prev.bond_pubkey ??
             bondAddress(
@@ -359,12 +364,15 @@ export function evaluateDeltas(
             )[0].toBase58(),
           epoch,
           bondType,
-          `Bond removed for validator ${voteAccount}.`,
+          `Validator ${voteAccount} is no longer present in SAM auction data. ` +
+            `Last known balance: ${lamportsToSol(prev.funded_amount_lamports)} SOL, ` +
+            `last seen epoch: ${prev.epoch}.`,
           {
             last_known_funded_lamports: prev.funded_amount_lamports.toString(),
             last_known_epoch: prev.epoch,
             last_known_in_auction: prev.in_auction,
-          } satisfies BondRemovedDetails,
+            last_known_sam_eligible: prev.sam_eligible,
+          } satisfies ValidatorDelistedDetails,
         ),
       )
     }
