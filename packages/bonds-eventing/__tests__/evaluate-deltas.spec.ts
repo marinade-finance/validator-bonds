@@ -11,6 +11,7 @@ import {
 import type { ValidatorState } from '../src/types'
 import type {
   FirstSeenDetails,
+  ValidatorDelistedDetails,
   AuctionEnteredDetails,
   AuctionExitedDetails,
   CapChangedDetails,
@@ -127,7 +128,7 @@ describe('evaluateDeltas', () => {
     expect(firstSeenDetails.required_sol).toBeDefined()
   })
 
-  it('emits bond_removed for missing validator', () => {
+  it('emits validator_delisted for missing funded validator', () => {
     const validators: AuctionValidator[] = []
     const previousState = new Map<string, ValidatorState>()
     previousState.set(TEST_VOTE_ACCOUNT, makePrevState())
@@ -141,9 +142,66 @@ describe('evaluateDeltas', () => {
     )
 
     expect(events).toHaveLength(1)
-    expect(events[0]!.inner_type).toBe('bond_removed')
+    expect(events[0]!.inner_type).toBe('validator_delisted')
     expect(events[0]!.vote_account).toBe(TEST_VOTE_ACCOUNT)
     expect(events[0]!.bond_pubkey).toBe(expectedBondPubkey())
+    expect(events[0]!.data.message).toContain('no longer present in SAM')
+    const details = events[0]!.data.details as ValidatorDelistedDetails
+    expect(details.last_known_funded_lamports).toBe('10000000000')
+    expect(details.last_known_epoch).toBe(929)
+    expect(details.last_known_in_auction).toBe(true)
+    expect(details.last_known_sam_eligible).toBe(true)
+  })
+
+  it('does not emit validator_delisted for zero-balance non-auction validator', () => {
+    const validators: AuctionValidator[] = []
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(
+      TEST_VOTE_ACCOUNT,
+      makePrevState({
+        funded_amount_lamports: 0n,
+        effective_amount_lamports: 0n,
+        in_auction: false,
+        auction_stake_lamports: 0n,
+      }),
+    )
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    expect(events).toHaveLength(0)
+  })
+
+  it('emits validator_delisted for zero-balance validator that was in auction', () => {
+    const validators: AuctionValidator[] = []
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(
+      TEST_VOTE_ACCOUNT,
+      makePrevState({
+        funded_amount_lamports: 0n,
+        in_auction: true,
+      }),
+    )
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    expect(events).toHaveLength(1)
+    expect(events[0]!.inner_type).toBe('validator_delisted')
+    const details = events[0]!.data.details as ValidatorDelistedDetails
+    expect(details.last_known_funded_lamports).toBe('0')
+    expect(details.last_known_in_auction).toBe(true)
+    expect(details.last_known_sam_eligible).toBe(true)
   })
 
   it('emits auction_entered when validator joins auction', () => {
