@@ -78,13 +78,7 @@ export class ProtectedEventWrapper {
   // readonly SomeOtherEventType?: SomeOtherEventType
 }
 
-export class PriorityFeeWrapper {
-  @Expose()
-  @IsNumber()
-  readonly activating_stake!: number
-}
-
-// Settlement Reason - can be a string or an object with ProtectedEvent or PriorityFee
+// Settlement Reason - can be a string or an object with ProtectedEvent
 export class SettlementReason {
   @Expose()
   @IsObject()
@@ -92,13 +86,6 @@ export class SettlementReason {
   @Type(() => ProtectedEventWrapper)
   @IsOptional()
   readonly ProtectedEvent?: ProtectedEventWrapper
-
-  @Expose()
-  @IsObject()
-  @ValidateNested()
-  @Type(() => PriorityFeeWrapper)
-  @IsOptional()
-  readonly PriorityFee?: PriorityFeeWrapper
 
   @Expose()
   @IsString()
@@ -116,9 +103,6 @@ export class SettlementReason {
   getReasonType(): string {
     if (this.ProtectedEvent) {
       return 'ProtectedEvent'
-    }
-    if (this.PriorityFee) {
-      return 'PriorityFee'
     }
     return this.simpleReason || 'Unknown'
   }
