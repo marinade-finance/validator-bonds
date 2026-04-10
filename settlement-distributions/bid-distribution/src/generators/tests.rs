@@ -927,9 +927,10 @@ fn test_activating_bid_charge_with_active_stake() {
     )
     .unwrap();
 
-    assert_eq!(settlements.len(), 1);
+    assert_eq!(settlements.len(), 2);
+    let total: u64 = settlements.iter().map(|s| s.claims_amount).sum();
     let expected: u64 = 200_000_000; // 0.2 SOL
-    assert_eq!(settlements[0].claims_amount, expected);
+    assert_eq!(total, expected);
 }
 
 #[test]
@@ -1143,17 +1144,22 @@ fn test_activating_bid_charge_distributed_to_activating_stakers() {
     )
     .unwrap();
 
+    // Only activating stake → one PriorityFee settlement (no active stakers, no Bidding settlement)
     assert_eq!(settlements.len(), 1);
-    let s = &settlements[0];
+    let priority_fee_settlement = &settlements[0];
+    assert!(matches!(
+        priority_fee_settlement.reason,
+        SettlementReason::PriorityFee
+    ));
 
-    // Total = staker net + marinade fee + dao fee
+    // Total = staker net + marinade fee + dao fee (all goes to PriorityFee since only activating stake)
     assert_eq!(
-        s.claims_amount, 400_000_000,
+        priority_fee_settlement.claims_amount, 400_000_000,
         "total must equal full activating charge"
     );
 
     // Activating staker (stake_account(2)) gets 90% of charge after 10% fee
-    let staker_claim = s
+    let staker_claim = priority_fee_settlement
         .claims
         .iter()
         .find(|c| c.stake_accounts.contains_key(&test_stake_account(2)));
@@ -1167,10 +1173,24 @@ fn test_activating_bid_charge_distributed_to_activating_stakers() {
         "staker gets 90% after 10% fee"
     );
 
-    // DAO and marinade each get half of the 10% fee
-    let details = s.details.as_ref().unwrap();
-    assert_eq!(details["dao_fee_claim"].as_u64().unwrap(), 20_000_000);
-    assert_eq!(details["marinade_fee_claim"].as_u64().unwrap(), 20_000_000);
+    // DAO and marinade each get half of the 10% fee — all fees go to PriorityFee settlement
+    let dao_fee_total: u64 = priority_fee_settlement
+        .claims
+        .iter()
+        .filter(|c| c.withdraw_authority == TEST_PUBKEY_DAO)
+        .map(|c| c.claim_amount)
+        .sum();
+    let marinade_fee_total: u64 = priority_fee_settlement
+        .claims
+        .iter()
+        .filter(|c| {
+            c.withdraw_authority == TEST_PUBKEY_MARINADE
+                && !c.stake_accounts.contains_key(&test_stake_account(2))
+        })
+        .map(|c| c.claim_amount)
+        .sum();
+    assert_eq!(dao_fee_total, 20_000_000);
+    assert_eq!(marinade_fee_total, 20_000_000);
 }
 
 const TEST_PUBKEY_MARINADE: Pubkey = Pubkey::new_from_array([
@@ -1630,7 +1650,10 @@ fn test_generate_settlements_from_json_values() {
         !settlements.is_empty(),
         "Should generate settlements from JSON data"
     );
-    let settlement = &settlements[0];
+    let settlement = settlements
+        .iter()
+        .find(|s| matches!(s.reason, SettlementReason::Bidding))
+        .expect("Bidding settlement must exist");
     assert_eq!(settlement.vote_account, sam_meta.vote_account);
     assert!(
         settlement.claims_amount > 0,
