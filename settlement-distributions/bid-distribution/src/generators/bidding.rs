@@ -59,8 +59,6 @@ impl fmt::Display for ResultSettlementClaims {
 pub struct BidSettlementDetails {
     pub total_active_stake: u64,
     pub total_marinade_active_stake: u64,
-    pub total_marinade_activating_stake: u64,
-    pub total_marinade_uncharged_activating_stake: u64,
     pub auction_effective_static_bid: String,
     pub marinade_stake_share: String,
     pub marinade_inflation_rewards: String,
@@ -75,6 +73,19 @@ pub struct BidSettlementDetails {
     pub stakers_total_claim: u64,
     pub marinade_fee_claim: u64,
     pub dao_fee_claim: u64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct PriorityFeeSettlementDetails {
+    pub total_marinade_activating_stake: u64,
+    pub total_marinade_uncharged_activating_stake: u64,
+    pub activating_stake_pmpe: String,
+    pub activating_bid_claim: String,
+    pub activating_stakers_pool: u64,
+    pub marinade_fee_claim: u64,
+    pub dao_fee_claim: u64,
+    /// stake_authority -> (stake_account -> activating_lamports), for debugging
+    pub activating_stake_accounts: HashMap<String, HashMap<String, u64>>,
 }
 
 pub fn generate_bid_settlements(
@@ -360,6 +371,9 @@ pub fn generate_bid_settlements(
             let mut bidding_claims_amount = 0;
             let mut priority_fee_claims = vec![];
             let mut priority_fee_claims_amount = 0;
+            // stake_authority -> (stake_account -> activating_lamports)
+            let mut all_activating_stake_accounts: HashMap<String, HashMap<String, u64>> =
+                HashMap::new();
 
             for (&(withdraw_authority, stake_authority), stake_metas) in &grouped_stake_metas {
                 if !stake_authority_filter(stake_authority) {
@@ -408,6 +422,10 @@ pub fn generate_bid_settlements(
                         .collect();
                     let activating_sum: u64 = activating_accounts.values().sum();
                     if activating_sum > 0 {
+                        all_activating_stake_accounts
+                            .entry(stake_authority.to_string())
+                            .or_default()
+                            .extend(activating_accounts.iter().map(|(k, v)| (k.to_string(), *v)));
                         let staker_share = Decimal::from(activating_sum)
                             / Decimal::from(total_marinade_activating_stake);
                         let claim_amount =
@@ -514,8 +532,6 @@ pub fn generate_bid_settlements(
             let settlement_details = BidSettlementDetails {
                 total_active_stake,
                 total_marinade_active_stake,
-                total_marinade_activating_stake,
-                total_marinade_uncharged_activating_stake,
                 auction_effective_static_bid: auction_effective_static_bid.to_string(),
                 marinade_stake_share: marinade_stake_share.to_string(),
                 marinade_inflation_rewards: marinade_inflation_rewards.to_string(),
@@ -528,12 +544,26 @@ pub fn generate_bid_settlements(
                 total_marinade_stakers_rewards: total_marinade_stakers_rewards.to_string(),
                 settlement_claims: serde_json::to_value(&settlement_claim)?,
                 stakers_total_claim,
-                marinade_fee_claim,
-                dao_fee_claim,
+                marinade_fee_claim: marinade_fee_for_bidding,
+                dao_fee_claim: dao_fee_for_bidding,
             };
             let details_json = serde_json::to_value(&settlement_details)?;
 
             if !priority_fee_claims.is_empty() {
+                let priority_fee_details = PriorityFeeSettlementDetails {
+                    total_marinade_activating_stake,
+                    total_marinade_uncharged_activating_stake,
+                    activating_stake_pmpe: validator
+                        .rev_share
+                        .activating_stake_pmpe
+                        .unwrap_or(Decimal::ZERO)
+                        .to_string(),
+                    activating_bid_claim: settlement_claim.activating_bid_claim.to_string(),
+                    activating_stakers_pool,
+                    marinade_fee_claim: marinade_fee_for_priority,
+                    dao_fee_claim: dao_fee_for_priority,
+                    activating_stake_accounts: all_activating_stake_accounts,
+                };
                 add_to_settlement_collection(
                     &mut settlement_claim_collections,
                     priority_fee_claims,
@@ -541,7 +571,7 @@ pub fn generate_bid_settlements(
                     SettlementReason::PriorityFee,
                     validator.vote_account,
                     &settlement_meta_funder,
-                    None,
+                    Some(serde_json::to_value(&priority_fee_details)?),
                 );
             }
             add_to_settlement_collection(
