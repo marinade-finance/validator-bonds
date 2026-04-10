@@ -15,7 +15,7 @@ pub struct SettlementClaim {
     pub withdraw_authority: Pubkey,
     #[serde(with = "pubkey_string_conversion")]
     pub stake_authority: Pubkey,
-    /// stake account pubkey -> StakeAccount
+    /// stake account pubkey -> stake lamports (active or activating depending on settlement type)
     #[serde(with = "map_pubkey_string_conversion")]
     pub stake_accounts: HashMap<Pubkey, u64>,
     pub stake_amount: u64,

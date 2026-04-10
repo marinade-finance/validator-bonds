@@ -3,7 +3,6 @@ use crate::sam_meta::{AuctionValidatorValues, ValidatorSamMeta};
 use crate::settlement_config::{FeeConfig, SettlementConfig};
 use anyhow::{anyhow, ensure};
 use log::{debug, info, warn};
-use merkle_tree::serde_serialize::map_pubkey_string_conversion;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -85,8 +84,6 @@ pub struct PriorityFeeSettlementDetails {
     pub activating_stakers_pool: u64,
     pub marinade_fee_claim: u64,
     pub dao_fee_claim: u64,
-    #[serde(with = "map_pubkey_string_conversion")]
-    pub activating_stake_accounts: HashMap<Pubkey, u64>,
 }
 
 pub fn generate_bid_settlements(
@@ -372,7 +369,6 @@ pub fn generate_bid_settlements(
             let mut bidding_claims_amount = 0;
             let mut priority_fee_claims = vec![];
             let mut priority_fee_claims_amount = 0;
-            let mut all_activating_stake_accounts: HashMap<Pubkey, u64> = HashMap::new();
 
             for (&(withdraw_authority, stake_authority), stake_metas) in &grouped_stake_metas {
                 if !stake_authority_filter(stake_authority) {
@@ -421,7 +417,6 @@ pub fn generate_bid_settlements(
                         .collect();
                     let activating_sum: u64 = activating_accounts.values().sum();
                     if activating_sum > 0 {
-                        all_activating_stake_accounts.extend(activating_accounts.iter());
                         let staker_share = Decimal::from(activating_sum)
                             / Decimal::from(total_marinade_activating_stake);
                         let claim_amount =
@@ -558,7 +553,6 @@ pub fn generate_bid_settlements(
                     activating_stakers_pool,
                     marinade_fee_claim: marinade_fee_for_priority,
                     dao_fee_claim: dao_fee_for_priority,
-                    activating_stake_accounts: all_activating_stake_accounts,
                 };
                 add_to_settlement_collection(
                     &mut settlement_claim_collections,
