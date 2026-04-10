@@ -60,7 +60,7 @@ pub struct BidSettlementDetails {
     pub total_active_stake: u64,
     pub total_marinade_active_stake: u64,
     pub total_marinade_activating_stake: u64,
-    pub total_marinade_multi_epoch_activating_stake: u64,
+    pub total_marinade_uncharged_activating_stake: u64,
     pub auction_effective_static_bid: String,
     pub marinade_stake_share: String,
     pub marinade_inflation_rewards: String,
@@ -100,7 +100,7 @@ pub fn generate_bid_settlements(
             let mut total_active_stake: u64 = 0;
             let mut total_marinade_active_stake: u64 = 0;
             let mut total_marinade_activating_stake: u64 = 0;
-            let mut total_marinade_multi_epoch_activating_stake: u64 = 0;
+            let mut total_marinade_uncharged_activating_stake: u64 = 0;
             for ((_, stake_authority), metas) in &grouped_stake_metas {
                 for meta in metas.iter() {
                     total_active_stake += meta.active_delegation_lamports;
@@ -113,7 +113,7 @@ pub fn generate_bid_settlements(
                                 total_marinade_activating_stake +=
                                     meta.activating_delegation_lamports;
                             } else {
-                                total_marinade_multi_epoch_activating_stake +=
+                                total_marinade_uncharged_activating_stake +=
                                     meta.activating_delegation_lamports;
                                 info!(
                                     "activating charge skipped for stake account {} \
@@ -129,11 +129,11 @@ pub fn generate_bid_settlements(
                     }
                 }
             }
-            if total_marinade_multi_epoch_activating_stake > 0 {
+            if total_marinade_uncharged_activating_stake > 0 {
                 info!(
                     "validator {}: skipped activating charge on {} lamports \
                      across multi-epoch warmup accounts",
-                    validator.vote_account, total_marinade_multi_epoch_activating_stake,
+                    validator.vote_account, total_marinade_uncharged_activating_stake,
                 );
             }
             // Marinade stake is a subset of total stake, so this covers both zero-stake cases.
@@ -481,7 +481,7 @@ pub fn generate_bid_settlements(
                 total_active_stake,
                 total_marinade_active_stake,
                 total_marinade_activating_stake,
-                total_marinade_multi_epoch_activating_stake,
+                total_marinade_uncharged_activating_stake,
                 auction_effective_static_bid: auction_effective_static_bid.to_string(),
                 marinade_stake_share: marinade_stake_share.to_string(),
                 marinade_inflation_rewards: marinade_inflation_rewards.to_string(),
