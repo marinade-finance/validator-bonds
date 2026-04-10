@@ -18,7 +18,20 @@ pub struct SettlementClaim {
     /// stake account pubkey -> StakeAccount
     #[serde(with = "map_pubkey_string_conversion")]
     pub stake_accounts: HashMap<Pubkey, u64>,
-    pub active_stake: u64,
+    pub stake_amount: u64,
+    pub claim_amount: u64,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct SettlementClaimValue {
+    #[serde(with = "pubkey_string_conversion")]
+    pub withdraw_authority: Pubkey,
+    #[serde(with = "pubkey_string_conversion")]
+    pub stake_authority: Pubkey,
+    /// stake account pubkey -> StakeAccount
+    #[serde(with = "map_pubkey_string_conversion")]
+    pub stake_accounts: HashMap<Pubkey, u64>,
+    pub stake_amount: u64,
     pub claim_amount: u64,
 }
 
