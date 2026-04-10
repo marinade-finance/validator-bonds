@@ -94,9 +94,7 @@ fn merge_payouts(
             vote_account: payout_distributor.vote_account,
             withdrawer: config.marinade_withdraw_authority,
             staker: config.marinade_stake_authority,
-            stake_amount: marinade_fee_deposit_stake_accounts
-                .iter()
-                .fold(0, |acc, (_, v)| acc.saturating_add(*v)),
+            stake_amount: marinade_fee_deposit_stake_accounts.values().sum(),
             payout_lamports: marinade_payout,
             stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
         });
@@ -104,9 +102,7 @@ fn merge_payouts(
             vote_account: payout_distributor.vote_account,
             withdrawer: config.dao_withdraw_authority,
             staker: config.dao_stake_authority,
-            stake_amount: dao_fee_deposit_stake_accounts
-                .iter()
-                .fold(0, |acc, (_, v)| acc.saturating_add(*v)),
+            stake_amount: dao_fee_deposit_stake_accounts.values().sum(),
             payout_lamports: dao_payout,
             stake_accounts: dao_fee_deposit_stake_accounts.clone(),
         });

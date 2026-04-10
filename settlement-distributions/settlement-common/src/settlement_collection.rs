@@ -48,9 +48,7 @@ impl Display for SettlementReason {
             SettlementReason::BidTooLowPenalty => write!(f, "BidTooLowPenalty"),
             SettlementReason::BlacklistPenalty => write!(f, "BlacklistPenalty"),
             SettlementReason::BondRiskFee => write!(f, "BondRiskFee"),
-            SettlementReason::InstitutionalPayout => {
-                write!(f, "InstitutionalPayout")
-            }
+            SettlementReason::InstitutionalPayout => write!(f, "InstitutionalPayout"),
         }
     }
 }

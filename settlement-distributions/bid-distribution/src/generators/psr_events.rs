@@ -33,21 +33,15 @@ pub fn generate_psr_settlements(
         stake_meta_index.stake_meta_collection.slot
     );
 
-    let settlements: Vec<_> = settlement_configs
-        .iter()
-        .map(|settlement_config| {
-            generate_psr_settlements_for_config(
-                stake_meta_index,
-                protected_event_collection,
-                stake_authority_filter,
-                settlement_config,
-            )
-        })
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .flatten()
-        .collect();
-
+    let mut settlements = vec![];
+    for settlement_config in settlement_configs {
+        settlements.extend(generate_psr_settlements_for_config(
+            stake_meta_index,
+            protected_event_collection,
+            stake_authority_filter,
+            settlement_config,
+        )?);
+    }
     Ok(settlements)
 }
 

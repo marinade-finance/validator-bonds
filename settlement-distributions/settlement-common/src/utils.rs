@@ -88,21 +88,17 @@ pub fn sort_merged_claims_deterministically(claims: &mut [(SettlementKey, u64)])
     claims.sort_by_key(|(key, amount)| (key.withdraw_authority, key.stake_authority, *amount));
 }
 
-fn stake_authorities_filter(whitelist: HashSet<Pubkey>) -> Box<dyn Fn(&Pubkey) -> bool> {
-    Box::new(move |pubkey| whitelist.contains(pubkey))
-}
-
-fn no_filter() -> Box<dyn Fn(&Pubkey) -> bool> {
-    Box::new(|_| true)
-}
-
 /// Returns a filter function for stake authorities based on an optional whitelist.
 /// For `None` filter allows all stake authorities, if `Some` only those in the whitelist.
 pub fn stake_authority_filter(
     optional_filter: Option<Vec<Pubkey>>,
 ) -> Box<dyn Fn(&Pubkey) -> bool> {
     info!("Building stake authorities filter: {optional_filter:?}");
-    optional_filter.map_or(no_filter(), |filter| {
-        stake_authorities_filter(HashSet::from_iter(filter))
-    })
+    match optional_filter {
+        None => Box::new(|_| true),
+        Some(filter) => {
+            let whitelist: HashSet<Pubkey> = HashSet::from_iter(filter);
+            Box::new(move |pubkey| whitelist.contains(pubkey))
+        }
+    }
 }
