@@ -19,6 +19,7 @@ import type {
   BondBalanceChangeDetails,
   SamEligibleChangeDetails,
   SettlementAppliedDetails,
+  PenaltyExpectedDetails,
 } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
@@ -63,6 +64,33 @@ function isInAuction(v: AuctionValidator): boolean {
 
 function getCapConstraint(v: AuctionValidator): string | null {
   return v.lastCapConstraint?.constraintType ?? null
+}
+
+/**
+ * Compute expected penalties from DS SAM auction fields.
+ * These are known at auction time, before on-chain settlement.
+ *
+ * Formula: `pmpe / 1000 * stake` — matches the settlement pipeline
+ * (sam_penalties.rs) which uses the same conversion. Note: this differs
+ * from `v.values.paidUndelegationSol` which uses `/ winningTotalPmpe`
+ * and computes *undelegation amounts*, not *penalty claims*.
+ */
+function computePenalties(v: AuctionValidator): {
+  total: number
+  bidTooLow: number
+  blacklist: number
+  bondRiskFee: number
+} {
+  const stake = v.marinadeActivatedStakeSol
+  const bidTooLow = (v.revShare.bidTooLowPenaltyPmpe / 1000) * stake
+  const blacklist = (v.revShare.blacklistPenaltyPmpe / 1000) * stake
+  const bondRiskFee = v.values?.bondRiskFeeSol ?? 0
+  return {
+    total: bidTooLow + blacklist + bondRiskFee,
+    bidTooLow,
+    blacklist,
+    bondRiskFee,
+  }
 }
 
 /**
@@ -352,9 +380,7 @@ export function evaluateDeltas(
           configAddress,
           `Validator ${v.voteAccount} has a pending settlement of ` +
             `${totalSol} SOL against their bond` +
-            (prevSol !== null
-              ? ` (changed from ${prevSol} SOL).`
-              : `.`) +
+            (prevSol !== null ? ` (changed from ${prevSol} SOL).` : `.`) +
             ` Claimable balance: ${v.claimableBondBalanceSol ?? v.bondBalanceSol} SOL.`,
           {
             settlement_total_sol: totalSol,
@@ -364,6 +390,45 @@ export function evaluateDeltas(
               v.claimableBondBalanceSol ?? v.bondBalanceSol,
             bond_good_for_n_epochs: roundEpochs(v.bondGoodForNEpochs),
           } satisfies SettlementAppliedDetails,
+        ),
+      )
+    }
+
+    // Penalty prediction from auction simulation
+    // Only emit on epoch change to avoid flooding the queue every run.
+    // Brain dedup (per vote_account + epoch + renotify window) is the safety net.
+    const penalties = computePenalties(v)
+    if (penalties.total > 0.001 && prev.epoch !== epoch) {
+      events.push(
+        makeEvent(
+          'penalty_expected',
+          v,
+          epoch,
+          bondType,
+          configAddress,
+          `Validator ${v.voteAccount} is expected to face a penalty of ` +
+            `${penalties.total.toFixed(4)} SOL this epoch` +
+            (penalties.bidTooLow > 0
+              ? ` (bid too low: ${penalties.bidTooLow.toFixed(4)} SOL)`
+              : '') +
+            (penalties.blacklist > 0
+              ? ` (blacklist: ${penalties.blacklist.toFixed(4)} SOL)`
+              : '') +
+            (penalties.bondRiskFee > 0
+              ? ` (bond risk fee: ${penalties.bondRiskFee.toFixed(4)} SOL)`
+              : '') +
+            `.`,
+          {
+            total_penalty_sol: penalties.total,
+            bid_too_low_penalty_sol: penalties.bidTooLow,
+            blacklist_penalty_sol: penalties.blacklist,
+            bond_risk_fee_sol: penalties.bondRiskFee,
+            bid_too_low_penalty_pmpe: v.revShare.bidTooLowPenaltyPmpe,
+            blacklist_penalty_pmpe: v.revShare.blacklistPenaltyPmpe,
+            marinade_activated_stake_sol: v.marinadeActivatedStakeSol,
+            bond_balance_sol: v.bondBalanceSol,
+            bond_good_for_n_epochs: roundEpochs(v.bondGoodForNEpochs),
+          } satisfies PenaltyExpectedDetails,
         ),
       )
     }
