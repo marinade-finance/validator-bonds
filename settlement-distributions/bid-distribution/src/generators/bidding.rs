@@ -250,8 +250,24 @@ pub fn generate_bid_settlements(
 
             // The Marinade minimum fee must be at least the percentage derived from the rewards portion promised to stakers (what totalPmpe represents).
             // Based on the promised commission, we recalculate the stakers total share from the rewards earned in the previous epoch.
+            let auction_effective_static_bid = validator
+                .rev_share
+                .auction_effective_static_bid_pmpe
+                .unwrap_or(validator.effective_bid);
+            // bid per mille, dividing by 1000 gives the ratio per unit - whatever SOL, lamport, etc., since it represents a ratio
+            let effective_static_bid = auction_effective_static_bid / Decimal::ONE_THOUSAND;
+            settlement_claim.static_bid_claim =
+                Decimal::from(total_marinade_active_stake) * effective_static_bid;
+            if let Some(activating_stake_pmpe) = validator.rev_share.activating_stake_pmpe {
+                settlement_claim.activating_bid_claim =
+                    Decimal::from(total_marinade_activating_stake) * activating_stake_pmpe
+                        / Decimal::ONE_THOUSAND;
+            }
+            // DAO/Marinade fee applies to activating charge same as to bids.
+            let activating_stakers_rewards = settlement_claim.activating_bid_claim;
+
             let (
-                mut total_marinade_stakers_rewards,
+                active_stakers_rewards,
                 staker_inflation_rewards_opt,
                 staker_mev_rewards_opt,
                 staker_block_rewards_opt,
@@ -286,22 +302,7 @@ pub fn generate_bid_settlements(
                 let total = Decimal::from(total_marinade_active_stake) * total_rev_share;
                 (total, None, None, None, None)
             };
-
-            let auction_effective_static_bid = validator
-                .rev_share
-                .auction_effective_static_bid_pmpe
-                .unwrap_or(validator.effective_bid);
-            // bid per mille, dividing by 1000 gives the ratio per unit - whatever SOL, lamport, etc., since it represents a ratio
-            let effective_static_bid = auction_effective_static_bid / Decimal::ONE_THOUSAND;
-            settlement_claim.static_bid_claim =
-                Decimal::from(total_marinade_active_stake) * effective_static_bid;
-            if let Some(activating_stake_pmpe) = validator.rev_share.activating_stake_pmpe {
-                settlement_claim.activating_bid_claim =
-                    Decimal::from(total_marinade_activating_stake) * activating_stake_pmpe
-                        / Decimal::ONE_THOUSAND;
-            }
-            // DAO/Marinade fee applies to activating charge same as to bids.
-            total_marinade_stakers_rewards += settlement_claim.activating_bid_claim;
+            let total_marinade_stakers_rewards = active_stakers_rewards + activating_stakers_rewards;
             info!(
                 "{} total stakers rewards: {} (inflation: {:?}, mev: {:?}, block: {:?}, bid: {:?}), claims: {}",
                 validator.vote_account,
