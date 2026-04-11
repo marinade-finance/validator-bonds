@@ -15,17 +15,24 @@ pub struct SettlementClaim {
     pub withdraw_authority: Pubkey,
     #[serde(with = "pubkey_string_conversion")]
     pub stake_authority: Pubkey,
-    /// stake account pubkey -> active_delegation_lamports
+    /// stake account pubkey -> stake lamports (active or activating depending on settlement type)
     #[serde(with = "map_pubkey_string_conversion")]
     pub stake_accounts: HashMap<Pubkey, u64>,
-    pub active_stake: u64,
+    pub stake_amount: u64,
     pub claim_amount: u64,
+}
+
+#[derive(Hash, Eq, PartialEq, Clone)]
+pub struct SettlementKey {
+    pub withdraw_authority: Pubkey,
+    pub stake_authority: Pubkey,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug, utoipa::ToSchema)]
 pub enum SettlementReason {
     ProtectedEvent(Box<ProtectedEvent>),
     Bidding,
+    PriorityFee,
     BidTooLowPenalty,
     BlacklistPenalty,
     BondRiskFee,
@@ -37,12 +44,11 @@ impl Display for SettlementReason {
         match self {
             SettlementReason::ProtectedEvent(_) => write!(f, "ProtectedEvent"),
             SettlementReason::Bidding => write!(f, "Bidding"),
+            SettlementReason::PriorityFee => write!(f, "PriorityFee"),
             SettlementReason::BidTooLowPenalty => write!(f, "BidTooLowPenalty"),
             SettlementReason::BlacklistPenalty => write!(f, "BlacklistPenalty"),
             SettlementReason::BondRiskFee => write!(f, "BondRiskFee"),
-            SettlementReason::InstitutionalPayout => {
-                write!(f, "InstitutionalPayout")
-            }
+            SettlementReason::InstitutionalPayout => write!(f, "InstitutionalPayout"),
         }
     }
 }

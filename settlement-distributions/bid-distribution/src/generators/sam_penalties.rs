@@ -76,7 +76,6 @@ pub fn generate_penalty_settlements(
                 .sum();
 
             let effective_sam_marinade_active_stake = total_marinade_active_stake;
-
             let bid_too_low_penalty_total_claim =
                 Decimal::from(effective_sam_marinade_active_stake) * bid_too_low_penalty;
             let distributor_bid_too_low_penalty_claim = (bid_too_low_penalty_total_claim
@@ -165,7 +164,7 @@ pub fn generate_penalty_settlements(
                             stake_authority: *stake_authority,
                             stake_accounts: stake_accounts.clone(),
                             claim_amount: bid_penalty_claim_amount,
-                            active_stake,
+                            stake_amount: active_stake,
                         });
                         claimed_bid_too_low_penalty_amount += bid_penalty_claim_amount;
                     }
@@ -175,7 +174,7 @@ pub fn generate_penalty_settlements(
                             stake_authority: *stake_authority,
                             stake_accounts: stake_accounts.clone(),
                             claim_amount: blacklist_penalty_claim_amount,
-                            active_stake,
+                            stake_amount: active_stake,
                         });
                         claimed_blacklist_penalty_amount += blacklist_penalty_claim_amount;
                     }
@@ -185,7 +184,7 @@ pub fn generate_penalty_settlements(
                             stake_authority: *stake_authority,
                             stake_accounts,
                             claim_amount: bond_risk_fee_claim_amount,
-                            active_stake,
+                            stake_amount: active_stake,
                         });
                         claimed_bond_risk_fee_amount += bond_risk_fee_claim_amount;
                     }
@@ -218,45 +217,34 @@ pub fn generate_penalty_settlements(
                 let bid_too_low_penalty_total_claim_u64 = bid_too_low_penalty_total_claim
                     .to_u64()
                     .ok_or_else(|| anyhow!("Failed to_u64 for bid_penalty_total_claim"))?;
-
+                let authorities = fee_config.fee_authorities();
                 if marinade_bid_too_low_penalty_claim > 0 {
-                    let authorities = fee_config.fee_authorities();
                     bid_too_low_penalty_claims.push(SettlementClaim {
                         withdraw_authority: authorities.marinade_withdraw,
                         stake_authority: authorities.marinade_stake,
                         stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
                         claim_amount: marinade_bid_too_low_penalty_claim,
-                        active_stake: marinade_fee_deposit_stake_accounts.values().sum(),
+                        stake_amount: marinade_fee_deposit_stake_accounts.values().sum(),
                     });
                     claimed_bid_too_low_penalty_amount += marinade_bid_too_low_penalty_claim;
-
-                    ensure!(
-                        claimed_bid_too_low_penalty_amount <= bid_too_low_penalty_total_claim_u64,
-                        "The sum of total claims {} exceeds the bid penalty amount {} after adding the Marinade fee for validator {}",
-                        claimed_bid_too_low_penalty_amount,
-                        bid_too_low_penalty_total_claim_u64,
-                        validator.vote_account
-                    );
                 }
                 if dao_bid_too_low_penalty_claim > 0 {
-                    let authorities = fee_config.fee_authorities();
                     bid_too_low_penalty_claims.push(SettlementClaim {
                         withdraw_authority: authorities.dao_withdraw,
                         stake_authority: authorities.dao_stake,
                         stake_accounts: dao_fee_deposit_stake_accounts.clone(),
                         claim_amount: dao_bid_too_low_penalty_claim,
-                        active_stake: total_marinade_active_stake,
+                        stake_amount: total_marinade_active_stake,
                     });
                     claimed_bid_too_low_penalty_amount += dao_bid_too_low_penalty_claim;
-
-                    ensure!(
-                        claimed_bid_too_low_penalty_amount <= bid_too_low_penalty_total_claim_u64,
-                        "The sum of total claims {} exceeds the bid penalty amount {} after adding the DAO fee for validator {}",
-                        claimed_bid_too_low_penalty_amount,
-                        bid_too_low_penalty_total_claim_u64,
-                        validator.vote_account
-                    );
                 }
+                ensure!(
+                    claimed_bid_too_low_penalty_amount <= bid_too_low_penalty_total_claim_u64,
+                    "The sum of total claims {} exceeds the bid penalty amount {} for validator {}",
+                    claimed_bid_too_low_penalty_amount,
+                    bid_too_low_penalty_total_claim_u64,
+                    validator.vote_account
+                );
             }
 
             // Build settlement for bid_too_low_penalty

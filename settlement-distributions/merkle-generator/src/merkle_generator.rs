@@ -4,9 +4,8 @@ use merkle_tree::psr_claim::TreeNode;
 use merkle_tree::MerkleTree;
 use settlement_common::merkle_tree_collection::{get_proof, MerkleTreeCollection, MerkleTreeMeta};
 use settlement_common::settlement_collection::{
-    Settlement, SettlementClaim, SettlementCollection, SettlementFunder,
+    Settlement, SettlementClaim, SettlementCollection, SettlementFunder, SettlementKey,
 };
-use settlement_common::utils::sort_claims_deterministically;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 use std::path::Path;
@@ -23,13 +22,6 @@ pub struct GeneratorConfig {
 pub struct SettlementSource {
     pub name: String,
     pub collection: SettlementCollection,
-}
-
-/// Key for grouping claims within a settlement
-#[derive(Hash, Eq, PartialEq, Clone)]
-struct ClaimKey {
-    withdraw_authority: Pubkey,
-    stake_authority: Pubkey,
 }
 
 /// Loads settlement collections from multiple input files
@@ -85,40 +77,19 @@ fn validate_sources(sources: &[SettlementSource]) -> anyhow::Result<(u64, u64)> 
     Ok((epoch, slot))
 }
 
-/// Merges claims with the same (withdraw_authority, stake_authority) key.
-/// `claim_amount` is summed (each source contributes a different claim).
-/// `stake_accounts` are unioned without double-counting (same on-chain accounts across sources).
-/// `active_stake` is recomputed from the merged `stake_accounts` map.
-fn merge_claims(claims: Vec<SettlementClaim>) -> Vec<SettlementClaim> {
-    let mut claim_map: HashMap<ClaimKey, SettlementClaim> = HashMap::new();
+/// Merges claims with the same (withdraw_authority, stake_authority) key by summing claim_amount.
+fn merge_claims(claims: Vec<SettlementClaim>) -> Vec<(SettlementKey, u64)> {
+    let mut amount_map: HashMap<SettlementKey, u64> = HashMap::new();
 
     for claim in claims {
-        let key = ClaimKey {
+        let key = SettlementKey {
             withdraw_authority: claim.withdraw_authority,
             stake_authority: claim.stake_authority,
         };
-
-        claim_map
-            .entry(key)
-            .and_modify(|existing| {
-                // Sum claim amounts (each settlement source contributes independently)
-                existing.claim_amount += claim.claim_amount;
-                // Union stake accounts: same stake account across sources has the same
-                // on-chain balance, so keep the max rather than summing
-                for (pubkey, lamports) in claim.stake_accounts.iter() {
-                    existing
-                        .stake_accounts
-                        .entry(*pubkey)
-                        .and_modify(|v| *v = (*v).max(*lamports))
-                        .or_insert(*lamports);
-                }
-                // Recompute active_stake from the merged stake_accounts
-                existing.active_stake = existing.stake_accounts.values().sum();
-            })
-            .or_insert(claim);
+        *amount_map.entry(key).or_default() += claim.claim_amount;
     }
 
-    claim_map.into_values().collect()
+    amount_map.into_iter().collect()
 }
 
 /// Generates merkle trees from multiple settlement sources.
@@ -173,16 +144,16 @@ pub fn generate_merkle_tree_collection(
             settlements.iter().flat_map(|s| s.claims.clone()).collect();
 
         let mut merged_claims = merge_claims(all_claims);
-        sort_claims_deterministically(&mut merged_claims);
+        settlement_common::utils::sort_merged_claims_deterministically(&mut merged_claims);
 
         // Convert claims to tree nodes
         let mut tree_nodes: Vec<TreeNode> = merged_claims
             .iter()
             .enumerate()
-            .map(|(index, claim)| TreeNode {
-                stake_authority: claim.stake_authority,
-                withdraw_authority: claim.withdraw_authority,
-                claim: claim.claim_amount,
+            .map(|(index, (key, amount))| TreeNode {
+                stake_authority: key.stake_authority,
+                withdraw_authority: key.withdraw_authority,
+                claim: *amount,
                 index: index as u64,
                 proof: None,
             })
@@ -275,15 +246,15 @@ mod tests {
         withdraw: Pubkey,
         stake: Pubkey,
         amount: u64,
-        active_stake: u64,
+        stake_amount: u64,
     ) -> SettlementClaim {
         let mut stake_accounts = HashMap::new();
-        stake_accounts.insert(Pubkey::new_unique(), active_stake);
+        stake_accounts.insert(Pubkey::new_unique(), stake_amount);
         SettlementClaim {
             withdraw_authority: withdraw,
             stake_authority: stake,
             stake_accounts,
-            active_stake,
+            stake_amount,
             claim_amount: amount,
         }
     }
@@ -319,8 +290,7 @@ mod tests {
 
         let merged = merge_claims(claims);
         assert_eq!(merged.len(), 1);
-        assert_eq!(merged[0].claim_amount, 300);
-        assert_eq!(merged[0].active_stake, 3000);
+        assert_eq!(merged[0].1, 300);
     }
 
     #[test]
@@ -330,7 +300,6 @@ mod tests {
         let shared_stake_account = Pubkey::new_unique();
         let unique_stake_account = Pubkey::new_unique();
 
-        // Two claims from different sources sharing the same stake account
         let claim1 = SettlementClaim {
             withdraw_authority: withdraw,
             stake_authority: stake,
@@ -338,25 +307,20 @@ mod tests {
                 (shared_stake_account, 1000),
                 (unique_stake_account, 500),
             ]),
-            active_stake: 1500,
+            stake_amount: 1500,
             claim_amount: 100,
         };
         let claim2 = SettlementClaim {
             withdraw_authority: withdraw,
             stake_authority: stake,
             stake_accounts: HashMap::from([(shared_stake_account, 1000)]),
-            active_stake: 1000,
+            stake_amount: 1000,
             claim_amount: 50,
         };
 
         let merged = merge_claims(vec![claim1, claim2]);
         assert_eq!(merged.len(), 1);
-        assert_eq!(merged[0].claim_amount, 150); // claims summed
-                                                 // active_stake should NOT be double-counted: 1000 (shared) + 500 (unique) = 1500
-        assert_eq!(merged[0].active_stake, 1500);
-        assert_eq!(merged[0].stake_accounts.len(), 2);
-        assert_eq!(merged[0].stake_accounts[&shared_stake_account], 1000);
-        assert_eq!(merged[0].stake_accounts[&unique_stake_account], 500);
+        assert_eq!(merged[0].1, 150); // claims summed
     }
 
     #[test]

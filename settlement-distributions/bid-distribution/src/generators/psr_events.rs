@@ -33,21 +33,15 @@ pub fn generate_psr_settlements(
         stake_meta_index.stake_meta_collection.slot
     );
 
-    let settlements: Vec<_> = settlement_configs
-        .iter()
-        .map(|settlement_config| {
-            generate_psr_settlements_for_config(
-                stake_meta_index,
-                protected_event_collection,
-                stake_authority_filter,
-                settlement_config,
-            )
-        })
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .flatten()
-        .collect();
-
+    let mut settlements = vec![];
+    for settlement_config in settlement_configs {
+        settlements.extend(generate_psr_settlements_for_config(
+            stake_meta_index,
+            protected_event_collection,
+            stake_authority_filter,
+            settlement_config,
+        )?);
+    }
     Ok(settlements)
 }
 
@@ -92,7 +86,7 @@ fn generate_psr_settlements_for_config(
                         withdraw_authority: **withdraw_authority,
                         stake_authority: **stake_authority,
                         stake_accounts,
-                        active_stake,
+                        stake_amount: active_stake,
                         claim_amount,
                     });
                     claims_amount += claim_amount;
@@ -107,7 +101,7 @@ fn generate_psr_settlements_for_config(
                     withdraw_authority: Pubkey::default(),
                     stake_authority: Pubkey::default(),
                     stake_accounts: HashMap::new(),
-                    active_stake: 0,
+                    stake_amount: 0,
                     claim_amount: 0,
                 });
             }
