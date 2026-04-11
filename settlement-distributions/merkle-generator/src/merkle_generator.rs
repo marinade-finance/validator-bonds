@@ -6,6 +6,7 @@ use settlement_common::merkle_tree_collection::{get_proof, MerkleTreeCollection,
 use settlement_common::settlement_collection::{
     Settlement, SettlementClaim, SettlementCollection, SettlementFunder, SettlementKey,
 };
+use settlement_common::utils::sort_merged_claims_deterministically;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 use std::path::Path;
@@ -144,7 +145,7 @@ pub fn generate_merkle_tree_collection(
             settlements.iter().flat_map(|s| s.claims.clone()).collect();
 
         let mut merged_claims = merge_claims(all_claims);
-        settlement_common::utils::sort_merged_claims_deterministically(&mut merged_claims);
+        sort_merged_claims_deterministically(&mut merged_claims);
 
         // Convert claims to tree nodes
         let mut tree_nodes: Vec<TreeNode> = merged_claims
@@ -388,6 +389,85 @@ mod tests {
         assert_eq!(result.merkle_trees[0].max_total_claims, 1); // Claims merged
         assert_eq!(result.merkle_trees[0].max_total_claim_sum, 150); // 100 + 50
         assert_eq!(result.sources.len(), 2);
+    }
+
+    #[test]
+    fn test_validate_sources_empty_returns_error() {
+        let sources: Vec<SettlementSource> = vec![];
+        let result = validate_sources(&sources);
+        assert!(result.is_err(), "empty sources must return an error");
+        let msg = format!("{}", result.unwrap_err());
+        assert!(
+            msg.contains("No settlement sources"),
+            "error message should mention missing sources, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_generate_merkle_tree_same_authority_different_sources_sums() {
+        // Same (withdraw_authority, stake_authority) appears in two different sources for the
+        // same (vote_account, funder).  The resulting tree must contain exactly one node whose
+        // claim equals the sum of both source claims.
+        let vote_account = Pubkey::new_unique();
+        let withdraw = Pubkey::new_unique();
+        let stake = Pubkey::new_unique();
+
+        let settlement_a = create_test_settlement(
+            vote_account,
+            SettlementReason::Bidding,
+            SettlementFunder::ValidatorBond,
+            vec![create_test_claim(withdraw, stake, 300, 3000)],
+        );
+        let settlement_b = create_test_settlement(
+            vote_account,
+            SettlementReason::BidTooLowPenalty,
+            SettlementFunder::ValidatorBond,
+            vec![create_test_claim(withdraw, stake, 700, 7000)],
+        );
+
+        let source_a = SettlementSource {
+            name: "source-a.json".to_string(),
+            collection: SettlementCollection {
+                slot: 5000,
+                epoch: 42,
+                settlements: vec![settlement_a],
+            },
+        };
+        let source_b = SettlementSource {
+            name: "source-b.json".to_string(),
+            collection: SettlementCollection {
+                slot: 5000,
+                epoch: 42,
+                settlements: vec![settlement_b],
+            },
+        };
+
+        let config = GeneratorConfig {
+            validator_bonds_config: Pubkey::new_unique(),
+        };
+
+        let result = generate_merkle_tree_collection(vec![source_a, source_b], &config).unwrap();
+
+        assert_eq!(
+            result.merkle_trees.len(),
+            1,
+            "one (vote_account, funder) group"
+        );
+        let tree = &result.merkle_trees[0];
+
+        // Both sources had the same (withdraw, stake) key → merged into one node
+        assert_eq!(
+            tree.max_total_claims, 1,
+            "claims must be merged into one node"
+        );
+        assert_eq!(
+            tree.max_total_claim_sum, 1000,
+            "merged claim must equal 300+700"
+        );
+        assert_eq!(
+            tree.tree_nodes[0].claim, 1000,
+            "tree node claim must be the summed amount"
+        );
     }
 
     #[test]
