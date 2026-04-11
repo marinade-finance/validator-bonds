@@ -76,17 +76,17 @@ fn generate_psr_settlements_for_config(
                     .iter()
                     .map(|s| (s.pubkey, s.active_delegation_lamports))
                     .collect();
-                let stake_amount: u64 = stake_accounts.values().sum();
+                let active_stake: u64 = stake_accounts.values().sum();
 
                 let claim_amount =
-                    protected_event.claim_amount_in_loss_range(settlement_config, stake_amount);
+                    protected_event.claim_amount_in_loss_range(settlement_config, active_stake);
 
-                if stake_amount > 0 && claim_amount > 0 {
+                if active_stake > 0 && claim_amount > 0 {
                     claims.push(SettlementClaim {
                         withdraw_authority: **withdraw_authority,
                         stake_authority: **stake_authority,
                         stake_accounts,
-                        stake_amount,
+                        stake_amount: active_stake,
                         claim_amount,
                     });
                     claims_amount += claim_amount;

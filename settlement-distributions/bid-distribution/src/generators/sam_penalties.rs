@@ -134,10 +134,10 @@ pub fn generate_penalty_settlements(
                     .iter()
                     .map(|stake| (stake.pubkey, stake.active_delegation_lamports))
                     .collect();
-                let stake_amount: u64 = stake_accounts.values().sum();
-                if stake_amount > 0 {
+                let active_stake: u64 = stake_accounts.values().sum();
+                if active_stake > 0 {
                     let staker_share =
-                        Decimal::from(stake_amount) / Decimal::from(total_marinade_active_stake);
+                        Decimal::from(active_stake) / Decimal::from(total_marinade_active_stake);
 
                     let bid_penalty_claim_amount = (staker_share
                         * Decimal::from(stakers_bid_too_low_penalty_claim))
@@ -164,7 +164,7 @@ pub fn generate_penalty_settlements(
                             stake_authority: *stake_authority,
                             stake_accounts: stake_accounts.clone(),
                             claim_amount: bid_penalty_claim_amount,
-                            stake_amount,
+                            stake_amount: active_stake,
                         });
                         claimed_bid_too_low_penalty_amount += bid_penalty_claim_amount;
                     }
@@ -174,7 +174,7 @@ pub fn generate_penalty_settlements(
                             stake_authority: *stake_authority,
                             stake_accounts: stake_accounts.clone(),
                             claim_amount: blacklist_penalty_claim_amount,
-                            stake_amount,
+                            stake_amount: active_stake,
                         });
                         claimed_blacklist_penalty_amount += blacklist_penalty_claim_amount;
                     }
@@ -184,7 +184,7 @@ pub fn generate_penalty_settlements(
                             stake_authority: *stake_authority,
                             stake_accounts,
                             claim_amount: bond_risk_fee_claim_amount,
-                            stake_amount,
+                            stake_amount: active_stake,
                         });
                         claimed_bond_risk_fee_amount += bond_risk_fee_claim_amount;
                     }
