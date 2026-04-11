@@ -466,8 +466,8 @@ pub fn generate_bid_settlements(
                 .unwrap_or(0);
             let dao_fee_for_bidding = dao_fee_claim.saturating_sub(dao_fee_for_priority);
 
+            let authorities = fee_config.fee_authorities();
             if marinade_fee_for_bidding > 0 || dao_fee_for_bidding > 0 {
-                let authorities = fee_config.fee_authorities();
                 if marinade_fee_for_bidding > 0 {
                     bidding_claims.push(SettlementClaim {
                         withdraw_authority: authorities.marinade_withdraw,
@@ -490,7 +490,6 @@ pub fn generate_bid_settlements(
                 }
             }
             if marinade_fee_for_priority > 0 || dao_fee_for_priority > 0 {
-                let authorities = fee_config.fee_authorities();
                 if marinade_fee_for_priority > 0 {
                     priority_fee_claims.push(SettlementClaim {
                         withdraw_authority: authorities.marinade_withdraw,
