@@ -2250,3 +2250,273 @@ fn test_settlement_config_yaml_deserialization() {
         "Should have at least one PSR config"
     );
 }
+
+#[test]
+fn test_bid_both_active_and_activating_stakers() {
+    // active=3 SOL (static_bid_pmpe=50), activating=2 SOL (activating_stake_pmpe=100)
+    // Bidding charge    = 50/1000 * 3 SOL = 0.15 SOL = 150_000_000 lamports
+    // PriorityFee charge = 100/1000 * 2 SOL = 0.2 SOL = 200_000_000 lamports
+    // With zero fees: all goes to stakers.
+    let epoch = 100;
+    let vote_account = test_vote_account(10);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            // active marinade stake
+            create_stake_meta(
+                test_stake_account(10),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                3 * LAMPORTS_PER_SOL,
+            ),
+            // brand-new (active=0) marinade activating stake
+            create_stake_meta_with_activating(
+                test_stake_account(11),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                0,
+                2 * LAMPORTS_PER_SOL,
+            ),
+        ],
+    };
+
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .static_bid(50.0)
+        .activating_stake_pmpe(100.0)
+        .build();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &create_test_fee_config(0, 0),
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+    )
+    .unwrap();
+
+    // Both Bidding (active stakers) and PriorityFee (activating stakers) must be produced
+    assert_eq!(settlements.len(), 2, "should produce 2 settlements");
+    assert!(
+        settlements
+            .iter()
+            .any(|s| matches!(s.reason, SettlementReason::Bidding)),
+        "missing Bidding settlement"
+    );
+    assert!(
+        settlements
+            .iter()
+            .any(|s| matches!(s.reason, SettlementReason::PriorityFee)),
+        "missing PriorityFee settlement"
+    );
+
+    let bidding = settlements
+        .iter()
+        .find(|s| matches!(s.reason, SettlementReason::Bidding))
+        .unwrap();
+    let priority_fee = settlements
+        .iter()
+        .find(|s| matches!(s.reason, SettlementReason::PriorityFee))
+        .unwrap();
+
+    // 50/1000 * 3 SOL = 0.15 SOL (rounding may shift by 1 lamport)
+    assert!(
+        bidding.claims_amount.abs_diff(150_000_000) <= 1,
+        "Bidding claims_amount {} ≠ ~150_000_000",
+        bidding.claims_amount
+    );
+    assert!(
+        priority_fee.claims_amount.abs_diff(200_000_000) <= 1,
+        "PriorityFee claims_amount {} ≠ ~200_000_000",
+        priority_fee.claims_amount
+    );
+
+    // With zero fees there are no DAO fee claims (DAO pubkey != MARINADE pubkey)
+    let dao_total = sum_claims_for_authority(&settlements, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO);
+    assert_eq!(dao_total, 0, "zero fee config → no dao fee claim");
+
+    // Total across both settlements must be close to combined charge (rounding ±1)
+    let total: u64 = settlements.iter().map(|s| s.claims_amount).sum();
+    assert!(
+        total.abs_diff(350_000_000) <= 1,
+        "total {total} ≠ ~350_000_000"
+    );
+}
+
+#[test]
+fn test_bid_only_activating_no_active_marinade_stake() {
+    // total_marinade_active_stake == 0, total_marinade_activating_stake > 0
+    // Only one PriorityFee settlement should be produced; no Bidding settlement.
+    let epoch = 100;
+    let vote_account = test_vote_account(11);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![create_stake_meta_with_activating(
+            test_stake_account(20),
+            vote_account,
+            TEST_PUBKEY_MARINADE,
+            TEST_PUBKEY_MARINADE,
+            0,
+            5 * LAMPORTS_PER_SOL,
+        )],
+    };
+
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .static_bid(0.0)
+        .activating_stake_pmpe(100.0)
+        .build();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &create_test_fee_config(0, 0),
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+    )
+    .unwrap();
+
+    assert_eq!(settlements.len(), 1, "only PriorityFee settlement expected");
+    assert!(
+        matches!(settlements[0].reason, SettlementReason::PriorityFee),
+        "settlement must be PriorityFee, got {:?}",
+        settlements[0].reason
+    );
+    // 100/1000 * 5 SOL = 0.5 SOL = 500_000_000 lamports (rounding may shift ±1)
+    assert!(
+        settlements[0].claims_amount.abs_diff(500_000_000) <= 1,
+        "claims_amount {} ≠ ~500_000_000",
+        settlements[0].claims_amount
+    );
+}
+
+#[test]
+fn test_psr_missing_vote_account_in_stake_index_is_skipped() {
+    // Event references a vote account that has no stake in stake_meta_index.
+    // generate_psr_settlements should return an empty result (silent skip).
+    let epoch = 100;
+    let slot = 1000;
+    let vote_account_with_stake = test_vote_account(1);
+    let vote_account_missing = test_vote_account(20); // no stake metas for this one
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot,
+        stake_metas: vec![create_stake_meta(
+            test_stake_account(1),
+            vote_account_with_stake,
+            test_withdraw_authority(1),
+            test_stake_authority(1),
+            100 * LAMPORTS_PER_SOL,
+        )],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let protected_event_collection = ProtectedEventCollection {
+        epoch,
+        slot,
+        events: vec![ProtectedEvent::DowntimeRevenueImpact {
+            vote_account: vote_account_missing,
+            actual_credits: 5000,
+            expected_credits: 10000,
+            expected_epr: Decimal::from_str("0.001").unwrap(),
+            actual_epr: Decimal::from_str("0.0005").unwrap(),
+            epr_loss_bps: 5000,
+            stake: 100 * LAMPORTS_PER_SOL,
+        }],
+    };
+
+    let settlement_config = PsrSettlementConfig {
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+        kind: PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            min_settlement_lamports: 0,
+            grace_downtime_bps: None,
+            covered_range_bps: [0, 5000],
+        },
+    };
+
+    let settlements = generate_psr_settlements(
+        &stake_meta_index,
+        &protected_event_collection,
+        &accept_all,
+        &[settlement_config],
+    )
+    .unwrap();
+
+    assert!(
+        settlements.is_empty(),
+        "event for unknown vote account must be silently skipped"
+    );
+}
+
+#[test]
+fn test_psr_epoch_mismatch_returns_error() {
+    let slot = 1000;
+    let vote_account = test_vote_account(1);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch: 100,
+        slot,
+        stake_metas: vec![create_stake_meta(
+            test_stake_account(1),
+            vote_account,
+            test_withdraw_authority(1),
+            test_stake_authority(1),
+            100 * LAMPORTS_PER_SOL,
+        )],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    // Different epoch than stake_meta_collection
+    let protected_event_collection = ProtectedEventCollection {
+        epoch: 999,
+        slot,
+        events: vec![ProtectedEvent::DowntimeRevenueImpact {
+            vote_account,
+            actual_credits: 5000,
+            expected_credits: 10000,
+            expected_epr: Decimal::from_str("0.001").unwrap(),
+            actual_epr: Decimal::from_str("0.0005").unwrap(),
+            epr_loss_bps: 5000,
+            stake: 100 * LAMPORTS_PER_SOL,
+        }],
+    };
+
+    let settlement_config = PsrSettlementConfig {
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+        kind: PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            min_settlement_lamports: 0,
+            grace_downtime_bps: None,
+            covered_range_bps: [0, 5000],
+        },
+    };
+
+    let result = generate_psr_settlements(
+        &stake_meta_index,
+        &protected_event_collection,
+        &accept_all,
+        &[settlement_config],
+    );
+
+    assert!(result.is_err(), "epoch mismatch must return an error");
+}
