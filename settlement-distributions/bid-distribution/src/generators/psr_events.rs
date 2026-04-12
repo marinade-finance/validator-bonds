@@ -76,7 +76,7 @@ fn generate_psr_settlements_for_config(
                     .iter()
                     .map(|s| (s.pubkey, s.active_delegation_lamports))
                     .collect();
-                let active_stake: u64 = stake_accounts.values().sum();
+                let active_stake = stake_accounts.values().sum();
 
                 let claim_amount =
                     protected_event.claim_amount_in_loss_range(settlement_config, active_stake);
