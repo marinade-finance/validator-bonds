@@ -73,11 +73,11 @@ importers:
         specifier: 4.2.5
         version: 4.2.5(@marinade.finance/ts-common@4.2.5)(class-validator@0.14.2)
       '@marinade.finance/ds-sam-sdk':
-        specifier: 0.0.44
-        version: 0.0.44
+        specifier: 0.0.46
+        version: 0.0.46
       '@marinade.finance/notifications-bonds-event-v1':
-        specifier: 1.0.0
-        version: 1.0.0
+        specifier: 1.0.2
+        version: 1.0.2
       '@marinade.finance/ts-common':
         specifier: 4.2.5
         version: 4.2.5
@@ -998,8 +998,8 @@ packages:
       bn.js: ^5.2.1
       jsbi: ^4.3.0
 
-  '@marinade.finance/ds-sam-sdk@0.0.44':
-    resolution: {integrity: sha512-1QJjaK5JSL+K8x1AuuZGWwIxA0l7I6d7TA5ZEtLJZSTUJsfizOhmVbfgOVj9SSSqSo1Tu5zVA7l7qx8MniKy8Q==}
+  '@marinade.finance/ds-sam-sdk@0.0.46':
+    resolution: {integrity: sha512-Dj8BfaKS0vTQ9uHsMhoW1fCVNXmAj5GgXzwFnl6wyTbzHfF8Ynd4JQl7POX3JYSoA9gbJfsOso8F4TEF00TM2g==}
 
   '@marinade.finance/eslint-config@1.3.5':
     resolution: {integrity: sha512-yKLW2vI9QmQ6uWO3SQSbOYDmtSpYPU34zuomKGCfoLF7/bN+c6GinyzUumIPoUshqztRkqjOpFels4F4E6puEg==}
@@ -1033,8 +1033,8 @@ packages:
   '@marinade.finance/native-staking-sdk@1.3.3':
     resolution: {integrity: sha512-bnjCiKj4AG7fiBXPjX0AOcsJ/VRYlGV9/vy83YM2Cg30L9tlkVYWEBf+WVcHDMMYAqTlO49nq9zTDCxu9Ui2JA==}
 
-  '@marinade.finance/notifications-bonds-event-v1@1.0.0':
-    resolution: {integrity: sha512-QOoBV87jawdT9wFrRHbZIu7qrAfCbXkU4o8UuLmZuFRkCZd6Z0yKOVL8JUh7OYah2IfrxvGmXaE3X7utUm35NA==}
+  '@marinade.finance/notifications-bonds-event-v1@1.0.2':
+    resolution: {integrity: sha512-TRzqmu73rqai0qfcRvzMFCz5an7MZoQ1YK/R7l6X7dkS2riXvCIrZtidyv2pw7Neo5vlkAeO4OV1a8z1vwXSOw==}
 
   '@marinade.finance/notifications-header-v1@1.0.0':
     resolution: {integrity: sha512-hoHr0gw8SrLEY8JePl0Te4nPT6EPAVL8cKLlURWvwii/NCC4gZkSr5L/t93GBpNqWJpMu48Y1BlnSwUadJ6Vvg==}
@@ -1745,9 +1745,6 @@ packages:
 
   '@types/node@22.10.7':
     resolution: {integrity: sha512-V09KvXxFiutGp6B7XkpaDXlNadZxrzajcY50EuoLIpQ6WWYCSvf19lVIazzfIzQvhUN2HjX12spLojTnhuKlGg==}
-
-  '@types/node@25.6.0':
-    resolution: {integrity: sha512-+qIYRKdNYJwY3vRCZMdJbPLJAtGjQBudzZzdzwQYkEPQd+PJGixUL5QfvCLDaULoLv+RhT3LDkwEfKaAkgSmNQ==}
 
   '@types/pg@8.20.0':
     resolution: {integrity: sha512-bEPFOaMAHTEP1EzpvHTbmwR8UsFyHSKsRisLIHVMXnpNefSbGA1bD6CVy+qKjGSqmZqNqBDV2azOBo8TgkcVow==}
@@ -4617,9 +4614,6 @@ packages:
   undici-types@6.20.0:
     resolution: {integrity: sha512-Ny6QZ2Nju20vw1SRHe3d9jVu6gJ+4e3+MMpqu7pqE5HT6WsTSlce++GQmK5UXS8mzV8DSYHrQH+Xrf2jVcuKNg==}
 
-  undici-types@7.19.2:
-    resolution: {integrity: sha512-qYVnV5OEm2AW8cJMCpdV20CDyaN3g0AjDlOGf1OW4iaDEx8MwdtChUp4zu4H0VP3nDRF/8RKWH+IPp9uW0YGZg==}
-
   undici-types@7.22.0:
     resolution: {integrity: sha512-RKZvifiL60xdsIuC80UY0dq8Z7DbJUV8/l2hOVbyZAxBzEeQU4Z58+4ZzJ6WN2Lidi9KzT5EbiGX+PI/UGYuRw==}
 
@@ -5269,7 +5263,7 @@ snapshots:
 
   '@jest/pattern@30.0.1':
     dependencies:
-      '@types/node': 25.6.0
+      '@types/node': 22.10.7
       jest-regex-util: 30.0.1
 
   '@jest/reporters@29.7.0':
@@ -5364,7 +5358,7 @@ snapshots:
       '@jest/schemas': 30.0.5
       '@types/istanbul-lib-coverage': 2.0.6
       '@types/istanbul-reports': 3.0.4
-      '@types/node': 25.6.0
+      '@types/node': 22.10.7
       '@types/yargs': 17.0.35
       chalk: 4.1.2
 
@@ -5501,7 +5495,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@marinade.finance/ds-sam-sdk@0.0.44':
+  '@marinade.finance/ds-sam-sdk@0.0.46':
     dependencies:
       axios: 1.15.0
       decimal.js: 10.6.0
@@ -5600,7 +5594,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@marinade.finance/notifications-bonds-event-v1@1.0.0':
+  '@marinade.finance/notifications-bonds-event-v1@1.0.2':
     dependencies:
       '@marinade.finance/notifications-ts-message': 1.0.0
       ajv: 8.18.0
@@ -6500,10 +6494,6 @@ snapshots:
   '@types/node@22.10.7':
     dependencies:
       undici-types: 6.20.0
-
-  '@types/node@25.6.0':
-    dependencies:
-      undici-types: 7.19.2
 
   '@types/pg@8.20.0':
     dependencies:
@@ -8442,7 +8432,7 @@ snapshots:
   jest-mock@30.2.0:
     dependencies:
       '@jest/types': 30.2.0
-      '@types/node': 25.6.0
+      '@types/node': 22.10.7
       jest-util: 30.2.0
 
   jest-pnp-resolver@1.2.3(jest-resolve@29.7.0):
@@ -8562,7 +8552,7 @@ snapshots:
   jest-util@30.2.0:
     dependencies:
       '@jest/types': 30.2.0
-      '@types/node': 25.6.0
+      '@types/node': 22.10.7
       chalk: 4.1.2
       ci-info: 4.4.0
       graceful-fs: 4.2.11
@@ -9816,8 +9806,6 @@ snapshots:
       which-boxed-primitive: 1.1.1
 
   undici-types@6.20.0: {}
-
-  undici-types@7.19.2: {}
 
   undici-types@7.22.0: {}
 

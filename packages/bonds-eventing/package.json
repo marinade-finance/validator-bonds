@@ -31,10 +31,10 @@
   },
   "dependencies": {
     "@marinade.finance/cli-common": "4.2.5",
-    "@marinade.finance/ds-sam-sdk": "0.0.44",
+    "@marinade.finance/ds-sam-sdk": "0.0.46",
     "@marinade.finance/ts-common": "4.2.5",
     "@marinade.finance/validator-bonds-sdk": "workspace:*",
-    "@marinade.finance/notifications-bonds-event-v1": "1.0.0",
+    "@marinade.finance/notifications-bonds-event-v1": "1.0.2",
     "@solana/web3.js": "1.98.4",
     "commander": "14.0.1",
     "pino": "9.9.5",
