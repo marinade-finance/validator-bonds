@@ -18,10 +18,8 @@ pub struct SettlementClaim {
     /// stake account pubkey -> stake lamports (active or activating depending on settlement type)
     #[serde(with = "map_pubkey_string_conversion")]
     pub stake_accounts: HashMap<Pubkey, u64>,
-    // Renamed to stake_amount in Rust (holds active *or* activating lamports depending on
-    // settlement type), but kept as "active_stake" in JSON for backwards compatibility.
-    #[serde(rename = "active_stake")]
-    pub stake_amount: u64,
+    pub active_stake: u64,
+    pub activating_stake: u64,
     pub claim_amount: u64,
 }
 

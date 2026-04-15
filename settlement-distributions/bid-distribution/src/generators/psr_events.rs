@@ -86,7 +86,8 @@ fn generate_psr_settlements_for_config(
                         withdraw_authority: **withdraw_authority,
                         stake_authority: **stake_authority,
                         stake_accounts,
-                        stake_amount: active_stake,
+                        active_stake,
+                        activating_stake: 0,
                         claim_amount,
                     });
                     claims_amount += claim_amount;
@@ -101,7 +102,8 @@ fn generate_psr_settlements_for_config(
                     withdraw_authority: Pubkey::default(),
                     stake_authority: Pubkey::default(),
                     stake_accounts: HashMap::new(),
-                    stake_amount: 0,
+                    active_stake: 0,
+                    activating_stake: 0,
                     claim_amount: 0,
                 });
             }

@@ -164,7 +164,8 @@ pub fn generate_penalty_settlements(
                             stake_authority: *stake_authority,
                             stake_accounts: stake_accounts.clone(),
                             claim_amount: bid_penalty_claim_amount,
-                            stake_amount: active_stake,
+                            active_stake,
+                            activating_stake: 0,
                         });
                         claimed_bid_too_low_penalty_amount += bid_penalty_claim_amount;
                     }
@@ -174,7 +175,8 @@ pub fn generate_penalty_settlements(
                             stake_authority: *stake_authority,
                             stake_accounts: stake_accounts.clone(),
                             claim_amount: blacklist_penalty_claim_amount,
-                            stake_amount: active_stake,
+                            active_stake,
+                            activating_stake: 0,
                         });
                         claimed_blacklist_penalty_amount += blacklist_penalty_claim_amount;
                     }
@@ -184,7 +186,8 @@ pub fn generate_penalty_settlements(
                             stake_authority: *stake_authority,
                             stake_accounts,
                             claim_amount: bond_risk_fee_claim_amount,
-                            stake_amount: active_stake,
+                            active_stake,
+                            activating_stake: 0,
                         });
                         claimed_bond_risk_fee_amount += bond_risk_fee_claim_amount;
                     }
@@ -224,7 +227,8 @@ pub fn generate_penalty_settlements(
                         stake_authority: authorities.marinade_stake,
                         stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
                         claim_amount: marinade_bid_too_low_penalty_claim,
-                        stake_amount: marinade_fee_deposit_stake_accounts.values().sum(),
+                        active_stake: marinade_fee_deposit_stake_accounts.values().sum(),
+                        activating_stake: 0,
                     });
                     claimed_bid_too_low_penalty_amount += marinade_bid_too_low_penalty_claim;
                 }
@@ -234,7 +238,8 @@ pub fn generate_penalty_settlements(
                         stake_authority: authorities.dao_stake,
                         stake_accounts: dao_fee_deposit_stake_accounts.clone(),
                         claim_amount: dao_bid_too_low_penalty_claim,
-                        stake_amount: total_marinade_active_stake,
+                        active_stake: total_marinade_active_stake,
+                        activating_stake: 0,
                     });
                     claimed_bid_too_low_penalty_amount += dao_bid_too_low_penalty_claim;
                 }

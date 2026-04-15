@@ -145,7 +145,7 @@ fn generate_institutional_settlements(
             claim.withdraw_authority == payout.withdrawer && claim.stake_authority == payout.staker
         }) {
             existing_claim.claim_amount += payout.payout_lamports;
-            existing_claim.stake_amount += payout.stake_amount;
+            existing_claim.active_stake += payout.stake_amount;
             for (k, v) in &payout.stake_accounts {
                 existing_claim.stake_accounts.entry(*k).or_insert(*v);
             }
@@ -153,7 +153,8 @@ fn generate_institutional_settlements(
             settlement.claims.push(SettlementClaim {
                 withdraw_authority: payout.withdrawer,
                 stake_authority: payout.staker,
-                stake_amount: payout.stake_amount,
+                active_stake: payout.stake_amount,
+                activating_stake: 0,
                 stake_accounts: payout.stake_accounts,
                 claim_amount: payout.payout_lamports,
             });

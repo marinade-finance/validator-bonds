@@ -255,7 +255,8 @@ mod tests {
             withdraw_authority: withdraw,
             stake_authority: stake,
             stake_accounts,
-            stake_amount,
+            active_stake: stake_amount,
+            activating_stake: 0,
             claim_amount: amount,
         }
     }
