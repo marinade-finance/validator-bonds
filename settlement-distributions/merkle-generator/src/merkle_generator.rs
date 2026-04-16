@@ -309,14 +309,16 @@ mod tests {
                 (shared_stake_account, 1000),
                 (unique_stake_account, 500),
             ]),
-            stake_amount: 1500,
+            active_stake: 1500,
+            activating_stake: 0,
             claim_amount: 100,
         };
         let claim2 = SettlementClaim {
             withdraw_authority: withdraw,
             stake_authority: stake,
             stake_accounts: HashMap::from([(shared_stake_account, 1000)]),
-            stake_amount: 1000,
+            active_stake: 1000,
+            activating_stake: 0,
             claim_amount: 50,
         };
 
