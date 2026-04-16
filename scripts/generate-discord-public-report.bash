@@ -96,6 +96,10 @@ do
     else
         protected_stake="$protected_stake_raw"
     fi
+    activating_stake_raw=$(<<<"$settlement" jq '[.claims[].activating_stake // 0] | add / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
+    if [ "$activating_stake_raw" != "0" ]; then
+        protected_stake="$protected_stake (+☉$activating_stake_raw activating)"
+    fi
     
     reason_code=$(<<<"$settlement" jq '.reason | keys[0]' -r 2> /dev/null || <<<"$settlement" jq '.reason' -r)
 
