@@ -11,17 +11,24 @@ Mono repository for Validator Bonds product
 ## Repository structure
 
 - [`programs/validator-bonds`](./programs/validator-bonds/) - Anchor on-chain contract project
-- [`packages/`](./packages/) - TypeScript packages related to on-chain program (SDK, CLI)
-  ([SDK](./packages/validator-bonds-sdk/), [CLI](./packages/validator-bonds-cli/))
+- [`packages/`](./packages/) - TypeScript packages related to on-chain program
+  ([SDK](./packages/validator-bonds-sdk/), [CLI](./packages/validator-bonds-cli/),
+  [Codama](./packages/validator-bonds-codama/), [Sanity Check](./packages/validator-bonds-sanity-check/))
 - [`api/`](./api/) - in Rust developed OpenAPI service that publishes bonds data ([API endpoint](https://validator-bonds-api.marinade.finance/docs))
 - [`bonds-collector`](./bonds-collector/) - a CLI tool for loading on-chain bond data into a YAML file
 - [`.buildkite/`](./.buildkite/) - automated pipelines that prepare data for bonds claiming, updating API data and similar
-- [`settlement-distribution/`](settlement-distributions/) - CLIs for generating Settlement and Merkle Tree JSON data,
+- [`settlement-distributions/`](./settlement-distributions/) - CLIs for generating Settlement and Merkle Tree JSON data,
   which serve as the foundation for on-chain initialization and claim settlement transactions
+  ([bid-distribution](./settlement-distributions/bid-distribution/),
+  [institutional-distribution](./settlement-distributions/institutional-distribution/),
+  [merkle-generator](./settlement-distributions/merkle-generator/),
+  [settlement-common](./settlement-distributions/settlement-common/))
+- [`common-rs/`](./common-rs/) - shared Rust library for common utilities across the workspace
 - [`merkle-tree/`](./merkle-tree/) - generic Rust library implementing the merkle tree data structure management
 - [`migrations/`](./migrations/) - SQL scripts to prepare and change DB schemas
+- [`runbooks/`](./runbooks/) - Surfpool runbooks for program deployment and testing
 - [`scripts/`](./scripts/) - scripts used in pipeline and to manage and integrate various repository parts
-- [`settlement-pipelines`](./settlement-pipelines/) - a set of CLI binaries that works as a pipeline off-chain management for the Validator Bonds Program
+- [`settlement-pipelines/`](./settlement-pipelines/) - a set of CLI binaries that works as a pipeline off-chain management for the Validator Bonds Program
 
 ## Validator Bonds Programs Flow
 
@@ -47,7 +54,7 @@ The flow is encoded in code within [`buildkite` pipelines](./.buildkite)
 
 ### User related CLI from source
 
-To run the CLI you need to have installed Node.js in version 16+ and `pnpm`.
+To run the CLI you need to have installed Node.js in version 20+ and `pnpm`.
 For details on CLI options see [validator-bonds-cli README](./packages/validator-bonds-cli/README.md).
 
 ```sh
