@@ -499,7 +499,7 @@ pub fn generate_bid_settlements(
                     stake_accounts: fee_deposit.marinade_activating.clone(),
                     claim_amount: marinade_fee_for_priority,
                     active_stake: 0,
-                    activating_stake: total_marinade_activating_stake,
+                    activating_stake: fee_deposit.marinade_activating.values().sum(),
                 });
                 priority_fee_claims_amount += marinade_fee_for_priority;
             }
@@ -510,7 +510,7 @@ pub fn generate_bid_settlements(
                     stake_accounts: fee_deposit.dao_activating.clone(),
                     claim_amount: dao_fee_for_priority,
                     active_stake: 0,
-                    activating_stake: total_marinade_activating_stake,
+                    activating_stake: fee_deposit.dao_activating.values().sum(),
                 });
                 priority_fee_claims_amount += dao_fee_for_priority;
             }
