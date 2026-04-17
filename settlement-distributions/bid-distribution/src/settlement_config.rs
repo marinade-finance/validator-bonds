@@ -54,8 +54,7 @@ pub struct FeeConfig {
     /// Minimum fee floor in basis points; fee is never reduced below this (default: 0)
     #[serde(default)]
     pub min_fee_bps: u64,
-    /// Additive correction to SSI target in PMPE; target = SSI + apy_over_ssi_pmpe.
-    /// Set to 0 to match SSI exactly, negative to allow underperforming SSI (default: 0)
+    /// target = SSI + apy_over_ssi_pmpe. Set to -10 (or lower) to effectively disable fee cap.
     #[serde(default)]
     pub apy_over_ssi_pmpe: Decimal,
 }
