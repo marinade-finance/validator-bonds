@@ -339,15 +339,15 @@ pub fn generate_bid_settlements(
             let stakers_total_claim = settlement_claim_sum.saturating_sub(distributor_fee_claim);
             // Split stakers_total_claim between active stakers (earned rewards + static bid)
             // and activating stakers (activating charge), proportional to each pool's share.
-            let activating_stakers_pool: u64 = if settlement_claim_sum > 0 {
-                let activating_fraction =
-                    settlement_claim.activating_bid_claim / settlement_claim.sum();
-                (Decimal::from(stakers_total_claim) * activating_fraction)
-                    .to_u64()
-                    .unwrap_or(0)
+            let activating_fraction = if settlement_claim_sum > 0 {
+                settlement_claim.activating_bid_claim / settlement_claim.sum()
             } else {
-                0
+                Decimal::ZERO
             };
+            let activating_stakers_pool: u64 = (Decimal::from(stakers_total_claim)
+                * activating_fraction)
+                .to_u64()
+                .unwrap_or(0);
             let active_stakers_pool = stakers_total_claim.saturating_sub(activating_stakers_pool);
             let dao_fee_claim = (Decimal::from(distributor_fee_claim)
                 * fee_percentages.dao_fee_share)
@@ -460,6 +460,8 @@ pub fn generate_bid_settlements(
             // Split fee claims proportionally between active and activating pools
             let activating_fee_fraction = if stakers_total_claim > 0 {
                 Decimal::from(activating_stakers_pool) / Decimal::from(stakers_total_claim)
+            } else if settlement_claim_sum > 0 {
+                activating_fraction
             } else {
                 Decimal::ZERO
             };
