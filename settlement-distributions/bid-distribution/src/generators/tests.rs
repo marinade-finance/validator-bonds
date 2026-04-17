@@ -1439,7 +1439,7 @@ fn create_test_fee_config(marinade_fee_bps: u64, dao_fee_split_share_bps: u64) -
             withdraw_authority: TEST_PUBKEY_DAO,
         },
         min_fee_bps: 0,
-        ssi_underperformance_pmpe: Decimal::ZERO,
+        apy_over_ssi_pmpe: Decimal::ZERO,
     }
 }
 

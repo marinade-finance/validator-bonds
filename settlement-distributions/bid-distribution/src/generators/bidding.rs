@@ -325,7 +325,7 @@ pub fn generate_bid_settlements(
             let effective_fee = if total_marinade_stakers_rewards > Decimal::ZERO
                 && total_marinade_active_stake > 0
             {
-                let target = ssi_pmpe + fee_config.ssi_underperformance_pmpe;
+                let target = ssi_pmpe + fee_config.apy_over_ssi_pmpe;
                 let staker_yield_pmpe = total_marinade_stakers_rewards
                     / Decimal::from(total_marinade_active_stake)
                     * Decimal::ONE_THOUSAND;
