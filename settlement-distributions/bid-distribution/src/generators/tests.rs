@@ -103,7 +103,7 @@ fn test_generate_bid_settlements_basic_single_validator() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -204,7 +204,7 @@ fn test_generate_bid_settlements_positive_commission() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -343,7 +343,7 @@ fn test_generate_bid_settlements_negative_commission() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -526,7 +526,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -537,7 +537,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -548,7 +548,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -810,7 +810,7 @@ fn test_zero_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -869,7 +869,7 @@ fn test_activating_bid_charge_basic() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -932,7 +932,7 @@ fn test_activating_bid_charge_with_active_stake() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -990,7 +990,7 @@ fn test_activating_bid_charge_non_marinade_excluded() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -1037,7 +1037,7 @@ fn test_activating_bid_charge_absent_when_no_field() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -1088,7 +1088,7 @@ fn test_activating_bid_charge_skipped_for_multi_epoch_warmup() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -1153,7 +1153,7 @@ fn test_activating_bid_charge_distributed_to_activating_stakers() {
         &create_test_settlement_config(),
         &create_test_fee_config(1000, 5000),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -1658,7 +1658,7 @@ fn test_generate_settlements_from_json_values() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -2317,7 +2317,7 @@ fn test_bid_both_active_and_activating_stakers() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -2406,7 +2406,7 @@ fn test_bid_only_activating_no_active_marinade_stake() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 

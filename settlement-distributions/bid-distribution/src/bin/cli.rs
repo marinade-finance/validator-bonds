@@ -162,8 +162,8 @@ fn main() -> anyhow::Result<()> {
         info!("Computing SSI from validator meta collection...");
         let validator_meta: ValidatorMetaCollection = read_from_json_file(validator_meta_path)
             .map_err(file_error("validator-meta-collection", validator_meta_path))?;
-        let ssi_pmpe = calculate_ssi_pmpe(&rewards_collection, &validator_meta);
-        info!("SSI: {:?} pmpe", ssi_pmpe);
+        let ssi_pmpe = calculate_ssi_pmpe(&rewards_collection, &validator_meta)?;
+        info!("SSI: {} pmpe", ssi_pmpe);
 
         // Epoch consistency verification
         let rewards_epoch = rewards_collection.epoch;

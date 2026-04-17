@@ -15,17 +15,15 @@ use snapshot_parser_validator_cli::validator_meta::ValidatorMetaCollection;
 pub fn calculate_ssi_pmpe(
     rewards: &RewardsCollection,
     validator_meta: &ValidatorMetaCollection,
-) -> Option<Decimal> {
+) -> anyhow::Result<Decimal> {
     let total_stake = validator_meta.total_stake();
-    if total_stake == 0 {
-        return None;
-    }
+    anyhow::ensure!(total_stake > 0, "total stake is zero, cannot compute SSI");
     let total_block_rewards: u64 = rewards
         .rewards_by_vote_account
         .values()
         .map(|r| r.block_rewards)
         .sum();
-    Some(
+    Ok(
         (Decimal::from(validator_meta.validator_rewards) + Decimal::from(total_block_rewards))
             / Decimal::from(total_stake)
             * Decimal::ONE_THOUSAND,
