@@ -69,7 +69,6 @@ pub fn get_fee_deposit_stake_accounts(
     }
 }
 
-/// Adds a settlement to the collection if any claims are present, placing it in a deterministic order
 pub fn add_to_settlement_collection(
     settlement_collections: &mut Vec<Settlement>,
     mut claims: Vec<SettlementClaim>,

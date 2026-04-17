@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 use crate::protected_events::ProtectedEvent;
 use solana_sdk::pubkey::Pubkey;
 use std::fmt::Display;

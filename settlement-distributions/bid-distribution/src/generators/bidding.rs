@@ -272,9 +272,6 @@ pub fn generate_bid_settlements(
                     Decimal::from(total_marinade_activating_stake) * activating_stake_pmpe
                         / Decimal::ONE_THOUSAND;
             }
-            // DAO/Marinade fee applies to activating charge same as to bids.
-            let activating_stakers_rewards = settlement_claim.activating_bid_claim;
-
             let (
                 active_stakers_rewards,
                 staker_inflation_rewards_opt,
@@ -312,7 +309,7 @@ pub fn generate_bid_settlements(
                 (total, None, None, None, None)
             };
             let total_marinade_stakers_rewards =
-                active_stakers_rewards + activating_stakers_rewards;
+                active_stakers_rewards + settlement_claim.activating_bid_claim;
             info!(
                 "{} total stakers rewards: {} (inflation: {:?}, mev: {:?}, block: {:?}, bid: {:?}), claims: {}",
                 validator.vote_account,

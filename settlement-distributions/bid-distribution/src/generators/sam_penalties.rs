@@ -75,9 +75,8 @@ pub fn generate_penalty_settlements(
                 .map(|meta| meta.active_delegation_lamports)
                 .sum();
 
-            let effective_sam_marinade_active_stake = total_marinade_active_stake;
             let bid_too_low_penalty_total_claim =
-                Decimal::from(effective_sam_marinade_active_stake) * bid_too_low_penalty;
+                Decimal::from(total_marinade_active_stake) * bid_too_low_penalty;
             let distributor_bid_too_low_penalty_claim = (bid_too_low_penalty_total_claim
                 * bid_fee_percentages.marinade_distributor_fee)
                 .to_u64()
@@ -95,7 +94,7 @@ pub fn generate_penalty_settlements(
                 distributor_bid_too_low_penalty_claim.saturating_sub(dao_bid_too_low_penalty_claim);
 
             let blacklist_penalty_total_claim =
-                Decimal::from(effective_sam_marinade_active_stake) * blacklist_penalty;
+                Decimal::from(total_marinade_active_stake) * blacklist_penalty;
             let stakers_blacklist_penalty_claim = blacklist_penalty_total_claim
                 .to_u64()
                 .ok_or_else(|| anyhow!("Failed to_u64 for stakers_blacklist_penalty_claim"))?;
@@ -121,13 +120,9 @@ pub fn generate_penalty_settlements(
 
             let fee_deposit = get_fee_deposit_stake_accounts(stake_meta_index, fee_config);
 
-            let grouped_marinade_filtered_stake_metas: Vec<_> = grouped_stake_metas
+            for (&(withdraw_authority, stake_authority), stake_metas) in grouped_stake_metas
                 .iter()
                 .filter(|(&(_, &stake_authority), _)| stake_authority_filter(&stake_authority))
-                .collect();
-
-            for &(&(withdraw_authority, stake_authority), stake_metas) in
-                &grouped_marinade_filtered_stake_metas
             {
                 let stake_accounts: HashMap<_, _> = stake_metas
                     .iter()
@@ -215,7 +210,7 @@ pub fn generate_penalty_settlements(
                 validator.vote_account
             );
 
-            if effective_sam_marinade_active_stake > 0 {
+            if total_marinade_active_stake > 0 {
                 let bid_too_low_penalty_total_claim_u64 = bid_too_low_penalty_total_claim
                     .to_u64()
                     .ok_or_else(|| anyhow!("Failed to_u64 for bid_penalty_total_claim"))?;
@@ -255,7 +250,7 @@ pub fn generate_penalty_settlements(
             if !bid_too_low_penalty_claims.is_empty() {
                 let bid_penalty_details = BidTooLowPenaltyDetails {
                     total_marinade_active_stake,
-                    effective_sam_marinade_active_stake,
+                    effective_sam_marinade_active_stake: total_marinade_active_stake,
                     bid_too_low_penalty_pmpe: bid_too_low_penalty.to_string(),
                     bid_too_low_penalty_total_claim: bid_too_low_penalty_total_claim.to_string(),
                     distributor_bid_too_low_penalty_claim,
@@ -280,7 +275,7 @@ pub fn generate_penalty_settlements(
             if !blacklist_penalty_claims.is_empty() {
                 let blacklist_penalty_details = BlacklistPenaltyDetails {
                     total_marinade_active_stake,
-                    effective_sam_marinade_active_stake,
+                    effective_sam_marinade_active_stake: total_marinade_active_stake,
                     blacklist_penalty_pmpe: blacklist_penalty.to_string(),
                     blacklist_penalty_total_claim: blacklist_penalty_total_claim.to_string(),
                     stakers_blacklist_penalty_claim,
@@ -302,7 +297,7 @@ pub fn generate_penalty_settlements(
             if !bond_risk_fee_claims.is_empty() {
                 let bond_risk_fee_details = BondRiskFeeDetails {
                     total_marinade_active_stake,
-                    effective_sam_marinade_active_stake,
+                    effective_sam_marinade_active_stake: total_marinade_active_stake,
                     bond_risk_fee_sol: validator
                         .values
                         .as_ref()
