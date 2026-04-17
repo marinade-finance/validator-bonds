@@ -13,9 +13,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::ops::Mul;
 
-use super::{
-    add_to_settlement_collection, get_fee_deposit_stake_accounts, FeeDepositStakeAccounts,
-};
+use super::{add_to_settlement_collection, get_fee_deposit_stake_accounts};
 
 #[derive(Serialize, Debug, Default)]
 pub struct ResultSettlementClaims {
@@ -364,12 +362,7 @@ pub fn generate_bid_settlements(
                 validator.vote_account
             );
 
-            let FeeDepositStakeAccounts {
-                marinade_active: marinade_fee_deposit_stake_accounts,
-                marinade_activating: marinade_fee_deposit_activating_accounts,
-                dao_active: dao_fee_deposit_stake_accounts,
-                dao_activating: dao_fee_deposit_activating_accounts,
-            } = get_fee_deposit_stake_accounts(stake_meta_index, fee_config);
+            let fee_deposit = get_fee_deposit_stake_accounts(stake_meta_index, fee_config);
 
             let mut bidding_claims = vec![];
             let mut bidding_claims_amount = 0;
@@ -481,9 +474,9 @@ pub fn generate_bid_settlements(
                 bidding_claims.push(SettlementClaim {
                     withdraw_authority: authorities.marinade_withdraw,
                     stake_authority: authorities.marinade_stake,
-                    stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
+                    stake_accounts: fee_deposit.marinade_active.clone(),
                     claim_amount: marinade_fee_for_bidding,
-                    active_stake: marinade_fee_deposit_stake_accounts.values().sum(),
+                    active_stake: fee_deposit.marinade_active.values().sum(),
                     activating_stake: 0,
                 });
                 bidding_claims_amount += marinade_fee_for_bidding;
@@ -492,9 +485,9 @@ pub fn generate_bid_settlements(
                 bidding_claims.push(SettlementClaim {
                     withdraw_authority: authorities.dao_withdraw,
                     stake_authority: authorities.dao_stake,
-                    stake_accounts: dao_fee_deposit_stake_accounts.clone(),
+                    stake_accounts: fee_deposit.dao_active.clone(),
                     claim_amount: dao_fee_for_bidding,
-                    active_stake: dao_fee_deposit_stake_accounts.values().sum(),
+                    active_stake: fee_deposit.dao_active.values().sum(),
                     activating_stake: 0,
                 });
                 bidding_claims_amount += dao_fee_for_bidding;
@@ -503,10 +496,10 @@ pub fn generate_bid_settlements(
                 priority_fee_claims.push(SettlementClaim {
                     withdraw_authority: authorities.marinade_withdraw,
                     stake_authority: authorities.marinade_stake,
-                    stake_accounts: marinade_fee_deposit_activating_accounts.clone(),
+                    stake_accounts: fee_deposit.marinade_activating.clone(),
                     claim_amount: marinade_fee_for_priority,
                     active_stake: 0,
-                    activating_stake: marinade_fee_deposit_activating_accounts.values().sum(),
+                    activating_stake: fee_deposit.marinade_activating.values().sum(),
                 });
                 priority_fee_claims_amount += marinade_fee_for_priority;
             }
@@ -514,10 +507,10 @@ pub fn generate_bid_settlements(
                 priority_fee_claims.push(SettlementClaim {
                     withdraw_authority: authorities.dao_withdraw,
                     stake_authority: authorities.dao_stake,
-                    stake_accounts: dao_fee_deposit_activating_accounts.clone(),
+                    stake_accounts: fee_deposit.dao_activating.clone(),
                     claim_amount: dao_fee_for_priority,
                     active_stake: 0,
-                    activating_stake: dao_fee_deposit_activating_accounts.values().sum(),
+                    activating_stake: fee_deposit.dao_activating.values().sum(),
                 });
                 priority_fee_claims_amount += dao_fee_for_priority;
             }
