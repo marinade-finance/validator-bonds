@@ -98,7 +98,7 @@ pub fn generate_bid_settlements(
 ) -> anyhow::Result<Vec<Settlement>> {
     let epoch = stake_meta_index.stake_meta_collection.epoch;
     info!("Generating bid settlements in epoch {epoch}...");
-    let fee_rates = fee_config.fee_rates();
+    let fee_percentages = fee_config.fee_percentages();
     let settlement_meta_funder = settlement_config.meta().clone();
     let mut settlement_claim_collections = vec![];
 
@@ -330,16 +330,16 @@ pub fn generate_bid_settlements(
                     / Decimal::from(total_marinade_active_stake)
                     * Decimal::ONE_THOUSAND;
                 let fee_cap = (Decimal::ONE - target / staker_yield_pmpe).max(Decimal::ZERO);
-                fee_rates.marinade_distributor_fee.min(fee_cap).max(fee_rates.min_fee)
+                fee_percentages.marinade_distributor_fee.min(fee_cap).max(fee_percentages.min_fee)
             } else {
-                fee_rates.marinade_distributor_fee
+                fee_percentages.marinade_distributor_fee
             };
             info!(
                 "{} effective fee: {} (configured: {}, min: {}, ssi_pmpe: {})",
                 validator.vote_account,
                 effective_fee,
-                fee_rates.marinade_distributor_fee,
-                fee_rates.min_fee,
+                fee_percentages.marinade_distributor_fee,
+                fee_percentages.min_fee,
                 ssi_pmpe,
             );
             let minimum_distributor_fee_claim = total_marinade_stakers_rewards * effective_fee;
@@ -364,7 +364,7 @@ pub fn generate_bid_settlements(
                 .unwrap_or(0);
             let active_stakers_pool = stakers_total_claim.saturating_sub(activating_stakers_pool);
             let dao_fee_claim = (Decimal::from(distributor_fee_claim)
-                * fee_rates.dao_fee_share)
+                * fee_percentages.dao_fee_share)
                 .to_u64()
                 .ok_or_else(|| anyhow!("Failed to_u64 for dao_fee_claim"))?;
             let marinade_fee_claim = distributor_fee_claim - dao_fee_claim;

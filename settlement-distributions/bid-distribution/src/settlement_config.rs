@@ -9,7 +9,7 @@ use solana_sdk::pubkey::Pubkey;
 
 /// Fee percentages calculated from basis points
 #[derive(Debug, Clone, Copy, Default)]
-pub struct FeeRates {
+pub struct FeePercentages {
     /// Marinade distributor fee as a decimal percentage (e.g., 0.095 for 9.5%)
     pub marinade_distributor_fee: Decimal,
     /// DAO fee share as a decimal percentage (e.g., 0.05 for 5%)
@@ -90,8 +90,8 @@ impl FeeConfig {
     }
 
     /// Converts basis points to decimal percentages for fee calculations
-    pub fn fee_rates(&self) -> FeeRates {
-        FeeRates {
+    pub fn fee_percentages(&self) -> FeePercentages {
+        FeePercentages {
             marinade_distributor_fee: Decimal::from(self.marinade_fee_bps) / Decimal::from(10_000),
             dao_fee_share: Decimal::from(self.dao.fee_split_share_bps) / Decimal::from(10_000),
             min_fee: Decimal::from(self.min_fee_bps) / Decimal::from(10_000),
