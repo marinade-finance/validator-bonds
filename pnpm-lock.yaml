@@ -5,11 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  cross-spawn@<7.0.5: 7.0.5
-  braces@<3.0.3: 3.0.3
-  micromatch@<4.0.8: 4.0.8
   glob@<8: ^10.3.10
-  inflight: npm:inflight-v2@^1.0.0
 
 importers:
 
@@ -73,11 +69,11 @@ importers:
         specifier: 4.2.5
         version: 4.2.5(@marinade.finance/ts-common@4.2.5)(class-validator@0.14.2)
       '@marinade.finance/ds-sam-sdk':
-        specifier: 0.0.46
-        version: 0.0.46
+        specifier: 0.0.48
+        version: 0.0.48
       '@marinade.finance/notifications-bonds-event-v1':
-        specifier: 1.0.2
-        version: 1.0.2
+        specifier: 1.0.3
+        version: 1.0.3
       '@marinade.finance/ts-common':
         specifier: 4.2.5
         version: 4.2.5
@@ -998,8 +994,8 @@ packages:
       bn.js: ^5.2.1
       jsbi: ^4.3.0
 
-  '@marinade.finance/ds-sam-sdk@0.0.46':
-    resolution: {integrity: sha512-Dj8BfaKS0vTQ9uHsMhoW1fCVNXmAj5GgXzwFnl6wyTbzHfF8Ynd4JQl7POX3JYSoA9gbJfsOso8F4TEF00TM2g==}
+  '@marinade.finance/ds-sam-sdk@0.0.48':
+    resolution: {integrity: sha512-5Zif9CrMaIAAmrHUhFxSzbZK4+hsloNnj/XJjGIEfnww6wB3hwkuBLdu1DoyuJuJ+ga+14W1rnANg2uuBI2fkw==}
 
   '@marinade.finance/eslint-config@1.3.5':
     resolution: {integrity: sha512-yKLW2vI9QmQ6uWO3SQSbOYDmtSpYPU34zuomKGCfoLF7/bN+c6GinyzUumIPoUshqztRkqjOpFels4F4E6puEg==}
@@ -1033,8 +1029,8 @@ packages:
   '@marinade.finance/native-staking-sdk@1.3.3':
     resolution: {integrity: sha512-bnjCiKj4AG7fiBXPjX0AOcsJ/VRYlGV9/vy83YM2Cg30L9tlkVYWEBf+WVcHDMMYAqTlO49nq9zTDCxu9Ui2JA==}
 
-  '@marinade.finance/notifications-bonds-event-v1@1.0.2':
-    resolution: {integrity: sha512-TRzqmu73rqai0qfcRvzMFCz5an7MZoQ1YK/R7l6X7dkS2riXvCIrZtidyv2pw7Neo5vlkAeO4OV1a8z1vwXSOw==}
+  '@marinade.finance/notifications-bonds-event-v1@1.0.3':
+    resolution: {integrity: sha512-JNtXHhMr60Kepi3BCFFQpDXIhWHWG0YzKjfAVZmJAgS8Pu0e2VJOThDSdIoTj9OOmdnIUpkSCyY3YRHoAP+DjA==}
 
   '@marinade.finance/notifications-header-v1@1.0.0':
     resolution: {integrity: sha512-hoHr0gw8SrLEY8JePl0Te4nPT6EPAVL8cKLlURWvwii/NCC4gZkSr5L/t93GBpNqWJpMu48Y1BlnSwUadJ6Vvg==}
@@ -2008,8 +2004,8 @@ packages:
   ajv@6.12.6:
     resolution: {integrity: sha512-j3fVLgvTo527anyYyJOGTYJbG+vnnQYvE0m5mmkc1TK+nxAppkCLMIL0aZ4dblVCNoGShhm+kzE4ZUykBoMg4g==}
 
-  ajv@8.18.0:
-    resolution: {integrity: sha512-PlXPeEWMXMZ7sPYOHqmDyCJzcfNrUr3fGNKtezX14ykXOEIvyK81d+qydx89KY5O71FKMPaQ2vBfBFI5NHR63A==}
+  ajv@8.20.0:
+    resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
 
   anchor-bankrun@0.2.0:
     resolution: {integrity: sha512-k/GIiYjkFzj10iluAXPjLjDInZtNNZ2FTcCTrtqgxwm5wofLbD8T0sy13LU9IfQSirj8/6eaTawDo+IvI03KRQ==}
@@ -5495,7 +5491,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@marinade.finance/ds-sam-sdk@0.0.46':
+  '@marinade.finance/ds-sam-sdk@0.0.48':
     dependencies:
       axios: 1.15.0
       decimal.js: 10.6.0
@@ -5594,19 +5590,19 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@marinade.finance/notifications-bonds-event-v1@1.0.2':
+  '@marinade.finance/notifications-bonds-event-v1@1.0.3':
     dependencies:
       '@marinade.finance/notifications-ts-message': 1.0.0
-      ajv: 8.18.0
-      ajv-formats: 2.1.1(ajv@8.18.0)
+      ajv: 8.20.0
+      ajv-formats: 2.1.1(ajv@8.20.0)
 
   '@marinade.finance/notifications-header-v1@1.0.0': {}
 
   '@marinade.finance/notifications-ts-message@1.0.0':
     dependencies:
       '@marinade.finance/notifications-header-v1': 1.0.0
-      ajv: 8.18.0
-      ajv-formats: 3.0.1(ajv@8.18.0)
+      ajv: 8.20.0
+      ajv-formats: 3.0.1(ajv@8.20.0)
 
   '@marinade.finance/notifications-ts-subscription-client@1.0.3': {}
 
@@ -6746,13 +6742,13 @@ snapshots:
     dependencies:
       humanize-ms: 1.2.1
 
-  ajv-formats@2.1.1(ajv@8.18.0):
+  ajv-formats@2.1.1(ajv@8.20.0):
     optionalDependencies:
-      ajv: 8.18.0
+      ajv: 8.20.0
 
-  ajv-formats@3.0.1(ajv@8.18.0):
+  ajv-formats@3.0.1(ajv@8.20.0):
     optionalDependencies:
-      ajv: 8.18.0
+      ajv: 8.20.0
 
   ajv@6.12.6:
     dependencies:
@@ -6761,7 +6757,7 @@ snapshots:
       json-schema-traverse: 0.4.1
       uri-js: 4.4.1
 
-  ajv@8.18.0:
+  ajv@8.20.0:
     dependencies:
       fast-deep-equal: 3.1.3
       fast-uri: 3.1.0

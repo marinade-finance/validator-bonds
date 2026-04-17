@@ -17,6 +17,7 @@ export async function loadPreviousState(
       in_auction,
       bond_good_for_n_epochs,
       cap_constraint,
+      cap_marinade_stake_sol,
       funded_amount_lamports,
       effective_amount_lamports,
       auction_stake_lamports,
@@ -35,6 +36,7 @@ export async function loadPreviousState(
     in_auction: boolean
     bond_good_for_n_epochs: number | null
     cap_constraint: string | null
+    cap_marinade_stake_sol: number | null
     funded_amount_lamports: string
     effective_amount_lamports: string
     auction_stake_lamports: string
@@ -53,6 +55,7 @@ export async function loadPreviousState(
       in_auction: row.in_auction,
       bond_good_for_n_epochs: row.bond_good_for_n_epochs,
       cap_constraint: row.cap_constraint,
+      cap_marinade_stake_sol: row.cap_marinade_stake_sol,
       funded_amount_lamports: BigInt(row.funded_amount_lamports ?? '0'),
       effective_amount_lamports: BigInt(row.effective_amount_lamports ?? '0'),
       auction_stake_lamports: BigInt(row.auction_stake_lamports ?? '0'),
@@ -88,6 +91,7 @@ export async function saveCurrentState(
       ${state.in_auction},
       ${state.bond_good_for_n_epochs},
       ${state.cap_constraint},
+      ${state.cap_marinade_stake_sol},
       ${state.funded_amount_lamports.toString()},
       ${state.effective_amount_lamports.toString()},
       ${state.auction_stake_lamports.toString()},
@@ -101,6 +105,7 @@ export async function saveCurrentState(
     INSERT INTO bond_event_state (
       vote_account, bond_pubkey, bond_type, epoch,
       in_auction, bond_good_for_n_epochs, cap_constraint,
+      cap_marinade_stake_sol,
       funded_amount_lamports, effective_amount_lamports,
       auction_stake_lamports, deficit_lamports, sam_eligible, updated_at
     ) VALUES
@@ -111,6 +116,7 @@ export async function saveCurrentState(
       in_auction = EXCLUDED.in_auction,
       bond_good_for_n_epochs = EXCLUDED.bond_good_for_n_epochs,
       cap_constraint = EXCLUDED.cap_constraint,
+      cap_marinade_stake_sol = EXCLUDED.cap_marinade_stake_sol,
       funded_amount_lamports = EXCLUDED.funded_amount_lamports,
       effective_amount_lamports = EXCLUDED.effective_amount_lamports,
       auction_stake_lamports = EXCLUDED.auction_stake_lamports,

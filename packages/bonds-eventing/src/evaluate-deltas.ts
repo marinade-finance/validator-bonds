@@ -25,6 +25,13 @@ import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
 const LAMPORTS_PER_SOL = 1_000_000_000
 
+// Activating-stake fee: settlement-side support is not yet enabled, so the
+// emitter suppresses the fee from notifications (event, message body, and the
+// three payload fields stay at 0). Leave the calculation in place so
+// re-enabling is a one-line flip. TODO: when re-enabling, also revisit the
+// message copy — "fee" already; just confirm UX wording.
+const ACTIVATING_STAKE_FEE_ENABLED = false
+
 function solToLamports(sol: number | null | undefined): bigint {
   if (sol === null || sol === undefined || !isFinite(sol)) return 0n
   return BigInt(Math.round(sol * LAMPORTS_PER_SOL))
@@ -62,8 +69,84 @@ function isInAuction(v: AuctionValidator): boolean {
   return (v.auctionStake?.marinadeSamTargetSol ?? 0) > 0
 }
 
+/**
+ * Build the user-facing message for a penalty_expected event from the
+ * four possible charge components. Terminology:
+ *  - bid_too_low / blacklist   → "penalty" (punishment for validator behavior)
+ *  - bond_risk_fee             → "fee"     (cost of carrying risk)
+ *  - activating_stake_fee      → "fee"     (separate from bond-side total)
+ * Single bond-side component   → dedicated one-liner, no redundant total.
+ * Multiple bond-side components → "charges totaling X SOL … : a, b, c.".
+ * Activating-stake fee present → separate trailing sentence.
+ */
+function buildPenaltyExpectedMessage(
+  voteAccount: string,
+  penalties: {
+    total: number
+    bidTooLow: number
+    blacklist: number
+    bondRiskFee: number
+  },
+  activatingStakeFee: number,
+): string {
+  const components: string[] = []
+  if (penalties.bidTooLow > 0) {
+    components.push(`bid-too-low penalty ${penalties.bidTooLow.toFixed(4)} SOL`)
+  }
+  if (penalties.blacklist > 0) {
+    components.push(`blacklist penalty ${penalties.blacklist.toFixed(4)} SOL`)
+  }
+  if (penalties.bondRiskFee > 0) {
+    components.push(`bond risk fee ${penalties.bondRiskFee.toFixed(4)} SOL`)
+  }
+
+  let bondSideSentence: string | null = null
+  if (components.length === 1) {
+    bondSideSentence = `Validator ${voteAccount} is predicted to incur a ${components[0]} this epoch.`
+  } else if (components.length >= 2) {
+    bondSideSentence =
+      `Validator ${voteAccount} is predicted to incur charges totaling ${penalties.total.toFixed(4)} SOL this epoch: ` +
+      `${components.join(', ')}.`
+  }
+
+  if (activatingStakeFee > 0) {
+    const feeSentence =
+      bondSideSentence !== null
+        ? `In addition, an activating-stake fee of ${activatingStakeFee.toFixed(4)} SOL will be charged (separate from bond penalties).`
+        : `Validator ${voteAccount} is predicted to be charged an activating-stake fee of ${activatingStakeFee.toFixed(4)} SOL this epoch (separate from bond penalties).`
+    return bondSideSentence !== null
+      ? `${bondSideSentence} ${feeSentence}`
+      : feeSentence
+  }
+
+  // emit condition guarantees at least one of the components > 0
+  return bondSideSentence ?? ''
+}
+
 function getCapConstraint(v: AuctionValidator): string | null {
   return v.lastCapConstraint?.constraintType ?? null
+}
+
+function getCapMarinadeStakeSol(v: AuctionValidator): number | null {
+  return v.lastCapConstraint?.marinadeStakeSol ?? null
+}
+
+const VALID_CAP_TYPES = new Set([
+  'COUNTRY',
+  'ASO',
+  'VALIDATOR',
+  'BOND',
+  'WANT',
+  'RISK',
+])
+
+function asCapType(
+  value: string | null,
+): CapChangedDetails['current_cap_type'] {
+  if (value === null) return null
+  return VALID_CAP_TYPES.has(value)
+    ? (value as NonNullable<CapChangedDetails['current_cap_type']>)
+    : null
 }
 
 /**
@@ -266,6 +349,12 @@ export function evaluateDeltas(
 
     // Cap constraint changes
     if (prev.cap_constraint !== currentCap) {
+      const currentCapSol = getCapMarinadeStakeSol(v)
+      const bondBalanceSol = v.bondBalanceSol ?? null
+      const prevBondBalanceSol = lamportsToSol(prev.funded_amount_lamports)
+      const bondBalanceDeltaSol =
+        bondBalanceSol !== null ? bondBalanceSol - prevBondBalanceSol : null
+      const coverageMetrics = computeDeficitMetrics(v)
       events.push(
         makeEvent(
           'cap_changed',
@@ -279,6 +368,15 @@ export function evaluateDeltas(
             previous_cap: prev.cap_constraint,
             current_cap: currentCap,
             constraint_name: v.lastCapConstraint?.constraintName ?? null,
+            previous_cap_type: asCapType(prev.cap_constraint),
+            current_cap_type: asCapType(currentCap),
+            previous_cap_sol: prev.cap_marinade_stake_sol,
+            current_cap_sol: currentCapSol,
+            total_left_to_cap_sol:
+              v.lastCapConstraint?.totalLeftToCapSol ?? null,
+            bond_balance_sol: bondBalanceSol,
+            bond_balance_delta_sol: bondBalanceDeltaSol,
+            required_coverage_sol: coverageMetrics.epoch_cost_sol,
           } satisfies CapChangedDetails,
         ),
       )
@@ -398,7 +496,24 @@ export function evaluateDeltas(
     // Only emit on epoch change to avoid flooding the queue every run.
     // Brain dedup (per vote_account + epoch + renotify window) is the safety net.
     const penalties = computePenalties(v)
-    if (penalties.total > 0.001 && prev.epoch !== epoch) {
+    // Fee on newly activating stake: charged separately from total_penalty_sol.
+    // activating_stake_sol = max(0, SAM target - already activated); pairs with revShare.activatingStakePmpe.
+    const activatingStakeSol = Math.max(
+      0,
+      (v.auctionStake?.marinadeSamTargetSol ?? 0) - v.marinadeActivatedStakeSol,
+    )
+    const activatingStakePmpe = v.revShare.activatingStakePmpe ?? 0
+    const activatingStakeFee = (activatingStakeSol * activatingStakePmpe) / 1000
+    const effectiveActivatingStakeFee = ACTIVATING_STAKE_FEE_ENABLED
+      ? activatingStakeFee
+      : 0
+    // Emit when EITHER a bond-side penalty/fee OR an activating-stake fee is
+    // predicted. Activating-stake fee is charged separately from the bond-side
+    // total but still represents a real cost the validator should see.
+    if (
+      (penalties.total > 0.001 || effectiveActivatingStakeFee > 0.001) &&
+      prev.epoch !== epoch
+    ) {
       events.push(
         makeEvent(
           'penalty_expected',
@@ -406,18 +521,11 @@ export function evaluateDeltas(
           epoch,
           bondType,
           configAddress,
-          `Validator ${v.voteAccount} is expected to face a penalty of ` +
-            `${penalties.total.toFixed(4)} SOL this epoch` +
-            (penalties.bidTooLow > 0
-              ? ` (bid too low: ${penalties.bidTooLow.toFixed(4)} SOL)`
-              : '') +
-            (penalties.blacklist > 0
-              ? ` (blacklist: ${penalties.blacklist.toFixed(4)} SOL)`
-              : '') +
-            (penalties.bondRiskFee > 0
-              ? ` (bond risk fee: ${penalties.bondRiskFee.toFixed(4)} SOL)`
-              : '') +
-            '.',
+          buildPenaltyExpectedMessage(
+            v.voteAccount,
+            penalties,
+            effectiveActivatingStakeFee,
+          ),
           {
             total_penalty_sol: penalties.total,
             bid_too_low_penalty_sol: penalties.bidTooLow,
@@ -428,6 +536,13 @@ export function evaluateDeltas(
             marinade_activated_stake_sol: v.marinadeActivatedStakeSol,
             bond_balance_sol: v.bondBalanceSol,
             bond_good_for_n_epochs: roundEpochs(v.bondGoodForNEpochs),
+            activating_stake_sol: ACTIVATING_STAKE_FEE_ENABLED
+              ? activatingStakeSol
+              : 0,
+            activating_stake_pmpe: ACTIVATING_STAKE_FEE_ENABLED
+              ? activatingStakePmpe
+              : 0,
+            activating_stake_fee_sol: effectiveActivatingStakeFee,
           } satisfies PenaltyExpectedDetails,
         ),
       )
@@ -510,6 +625,7 @@ export function validatorToState(
     in_auction: isInAuction(v),
     bond_good_for_n_epochs: roundEpochs(v.bondGoodForNEpochs),
     cap_constraint: getCapConstraint(v),
+    cap_marinade_stake_sol: getCapMarinadeStakeSol(v),
     funded_amount_lamports: solToLamports(v.bondBalanceSol),
     effective_amount_lamports: solToLamports(
       v.claimableBondBalanceSol ?? v.bondBalanceSol,
