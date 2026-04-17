@@ -237,7 +237,7 @@ pub fn generate_penalty_settlements(
                         stake_authority: authorities.dao_stake,
                         stake_accounts: fee_deposit.dao_active.clone(),
                         claim_amount: dao_bid_too_low_penalty_claim,
-                        active_stake: total_marinade_active_stake,
+                        active_stake: fee_deposit.dao_active.values().sum(),
                         activating_stake: 0,
                     });
                     claimed_bid_too_low_penalty_amount += dao_bid_too_low_penalty_claim;

@@ -487,7 +487,7 @@ pub fn generate_bid_settlements(
                     stake_authority: authorities.dao_stake,
                     stake_accounts: fee_deposit.dao_active.clone(),
                     claim_amount: dao_fee_for_bidding,
-                    active_stake: total_marinade_active_stake,
+                    active_stake: fee_deposit.dao_active.values().sum(),
                     activating_stake: 0,
                 });
                 bidding_claims_amount += dao_fee_for_bidding;
