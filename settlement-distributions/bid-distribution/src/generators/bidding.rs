@@ -21,6 +21,7 @@ pub struct ResultSettlementClaims {
     pub mev_commission_claim: Decimal,
     pub block_commission_claim: Decimal,
     pub static_bid_claim: Decimal,
+    pub activating_bid_claim: Decimal,
 }
 
 impl ResultSettlementClaims {
@@ -29,6 +30,7 @@ impl ResultSettlementClaims {
             .saturating_add(self.mev_commission_claim)
             .saturating_add(self.block_commission_claim)
             .saturating_add(self.static_bid_claim)
+            .saturating_add(self.activating_bid_claim)
     }
 
     pub fn sum_u64(&self) -> anyhow::Result<u64> {
@@ -42,8 +44,9 @@ impl fmt::Display for ResultSettlementClaims {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "static_bid_claim={}, inflation_commission_claim={}, mev_commission_claim={}, block_commission_claim={}, total={}",
+            "static_bid_claim={}, activating_bid_claim={}, inflation_commission_claim={}, mev_commission_claim={}, block_commission_claim={}, total={}",
             self.static_bid_claim,
+            self.activating_bid_claim,
             self.inflation_commission_claim,
             self.mev_commission_claim,
             self.block_commission_claim,
@@ -56,6 +59,7 @@ impl fmt::Display for ResultSettlementClaims {
 pub struct BidSettlementDetails {
     pub total_active_stake: u64,
     pub total_marinade_active_stake: u64,
+    pub total_marinade_activating_stake: u64,
     pub auction_effective_static_bid: String,
     pub effective_sam_marinade_active_stake: u64,
     pub marinade_stake_share: String,
@@ -80,6 +84,7 @@ pub fn generate_bid_settlements(
     settlement_config: &SettlementConfig,
     fee_config: &FeeConfig,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+    ssi_pmpe: Option<Decimal>,
 ) -> anyhow::Result<Vec<Settlement>> {
     let epoch = stake_meta_index.stake_meta_collection.epoch;
     info!("Generating bid settlements in epoch {epoch}...");
@@ -92,22 +97,18 @@ pub fn generate_bid_settlements(
             stake_meta_index.iter_grouped_stake_metas(&validator.vote_account)
         {
             let grouped_stake_metas: Vec<_> = grouped_stake_metas.collect();
-            // Compute totals in a single pass (no double iteration)
-            let (total_active_stake, total_marinade_active_stake): (u64, u64) = grouped_stake_metas
-                .iter()
-                .flat_map(|(key, metas)| metas.iter().map(move |meta| (*key, meta)))
-                .fold(
-                    (0, 0),
-                    |(total, marinade_total), ((_, stake_authority), meta)| {
-                        let lamports = meta.active_delegation_lamports;
-                        let marinade_lamports = if stake_authority_filter(stake_authority) {
-                            lamports
-                        } else {
-                            0
-                        };
-                        (total + lamports, marinade_total + marinade_lamports)
-                    },
-                );
+            let mut total_active_stake: u64 = 0;
+            let mut total_marinade_active_stake: u64 = 0;
+            let mut total_marinade_activating_stake: u64 = 0;
+            for ((_, stake_authority), metas) in &grouped_stake_metas {
+                for meta in metas.iter() {
+                    total_active_stake += meta.active_delegation_lamports;
+                    if stake_authority_filter(stake_authority) {
+                        total_marinade_active_stake += meta.active_delegation_lamports;
+                        total_marinade_activating_stake += meta.activating_delegation_lamports;
+                    }
+                }
+            }
             if total_active_stake == 0 {
                 warn!(
                     "Skipping validator {} with zero total active stake {}",
@@ -278,6 +279,11 @@ pub fn generate_bid_settlements(
             let effective_static_bid = auction_effective_static_bid / Decimal::ONE_THOUSAND;
             settlement_claim.static_bid_claim =
                 Decimal::from(effective_sam_marinade_active_stake) * effective_static_bid;
+            if let Some(activating_stake_pmpe) = validator.rev_share.activating_stake_pmpe {
+                settlement_claim.activating_bid_claim =
+                    Decimal::from(total_marinade_activating_stake) * activating_stake_pmpe
+                        / Decimal::ONE_THOUSAND;
+            }
             info!(
                 "{} total stakers rewards: {} (inflation: {:?}, mev: {:?}, block: {:?}, bid: {:?}), claims: {}",
                 validator.vote_account,
@@ -289,9 +295,28 @@ pub fn generate_bid_settlements(
                 settlement_claim
             );
 
-            // Marinade should get at least the percentage amount of total rewards as per the distributor fee percentage
-            let minimum_distributor_fee_claim =
-                total_marinade_stakers_rewards * fee_percentages.marinade_distributor_fee;
+            let effective_fee = ssi_pmpe
+                .filter(|_| total_marinade_stakers_rewards > Decimal::ZERO)
+                .map(|ssi| {
+                    let target = ssi + fee_config.ssi_underperformance_pmpe;
+                    let staker_yield_pmpe = total_marinade_stakers_rewards
+                        / Decimal::from(total_marinade_active_stake)
+                        * Decimal::ONE_THOUSAND;
+                    let fee_cap = (Decimal::ONE - target / staker_yield_pmpe).max(Decimal::ZERO);
+                    fee_percentages
+                        .min_fee
+                        .max(fee_percentages.marinade_distributor_fee.min(fee_cap))
+                })
+                .unwrap_or(fee_percentages.marinade_distributor_fee);
+            info!(
+                "{} effective fee: {} (configured: {}, min: {}, ssi_pmpe: {:?})",
+                validator.vote_account,
+                effective_fee,
+                fee_percentages.marinade_distributor_fee,
+                fee_percentages.min_fee,
+                ssi_pmpe,
+            );
+            let minimum_distributor_fee_claim = total_marinade_stakers_rewards * effective_fee;
             let distributor_fee_claim = minimum_distributor_fee_claim
                 .min(settlement_claim.sum())
                 .to_u64()
@@ -403,6 +428,7 @@ pub fn generate_bid_settlements(
             let settlement_details = BidSettlementDetails {
                 total_active_stake,
                 total_marinade_active_stake,
+                total_marinade_activating_stake,
                 effective_sam_marinade_active_stake,
                 auction_effective_static_bid: auction_effective_static_bid.to_string(),
                 marinade_stake_share: marinade_stake_share.to_string(),

@@ -4,6 +4,7 @@ use bid_distribution::generators::sam_penalties::generate_penalty_settlements;
 use bid_distribution::rewards::load_rewards_from_directory;
 use bid_distribution::sam_meta::ValidatorSamMeta;
 use bid_distribution::settlement_config::BidDistributionConfig;
+use bid_distribution::ssi::calculate_ssi_pmpe;
 use env_logger::{Builder, Env};
 use settlement_common::protected_events::generate_protected_event_collection;
 use settlement_common::revenue_expectation_meta::RevenueExpectationMetaCollection;
@@ -162,6 +163,18 @@ fn main() -> anyhow::Result<()> {
             rewards_collection.total_rewards()
         );
 
+        let ssi_pmpe = if let Some(validator_meta_path) = &args.validator_meta_collection {
+            info!("Computing SSI from validator meta collection...");
+            let validator_meta: ValidatorMetaCollection = read_from_json_file(validator_meta_path)
+                .map_err(file_error("validator-meta-collection", validator_meta_path))?;
+            let ssi = calculate_ssi_pmpe(&rewards_collection, &validator_meta);
+            info!("SSI: {:?} pmpe", ssi);
+            ssi
+        } else {
+            info!("No validator meta collection provided; SSI-based fee adjustment disabled");
+            None
+        };
+
         // Epoch consistency verification
         let rewards_epoch = rewards_collection.epoch;
         anyhow::ensure!(
@@ -186,6 +199,7 @@ fn main() -> anyhow::Result<()> {
             bidding_config,
             &bid_distribution_config.fee_config,
             &*stake_authority_filter,
+            ssi_pmpe,
         )?;
         info!("Generated {} bid settlements", bid_settlements.len());
         all_settlements.extend(bid_settlements);

@@ -14,6 +14,8 @@ pub struct FeePercentages {
     pub marinade_distributor_fee: Decimal,
     /// DAO fee share as a decimal percentage (e.g., 0.05 for 5%)
     pub dao_fee_share: Decimal,
+    /// Minimum fee floor as a decimal percentage
+    pub min_fee: Decimal,
 }
 
 /// Named fee authorities returned by [FeeConfig::fee_authorities]
@@ -49,6 +51,13 @@ pub struct FeeConfig {
     pub marinade_fee_bps: u64,
     pub marinade: AuthorityConfig,
     pub dao: DaoConfig,
+    /// Minimum fee floor in basis points; fee is never reduced below this (default: 0)
+    #[serde(default)]
+    pub min_fee_bps: u64,
+    /// Additive correction to SSI target in PMPE; target = SSI + ssi_underperformance_pmpe.
+    /// Set to 0 to match SSI exactly, negative to allow underperforming SSI (default: 0)
+    #[serde(default)]
+    pub ssi_underperformance_pmpe: Decimal,
 }
 
 impl FeeConfig {
@@ -63,6 +72,11 @@ impl FeeConfig {
             self.dao.fee_split_share_bps <= 10_000,
             "dao.fee_split_share_bps {} exceeds maximum 10000 (100%)",
             self.dao.fee_split_share_bps
+        );
+        ensure!(
+            self.min_fee_bps <= 10_000,
+            "min_fee_bps {} exceeds maximum 10000 (100%)",
+            self.min_fee_bps
         );
         Ok(())
     }
@@ -81,6 +95,7 @@ impl FeeConfig {
         FeePercentages {
             marinade_distributor_fee: Decimal::from(self.marinade_fee_bps) / Decimal::from(10_000),
             dao_fee_share: Decimal::from(self.dao.fee_split_share_bps) / Decimal::from(10_000),
+            min_fee: Decimal::from(self.min_fee_bps) / Decimal::from(10_000),
         }
     }
 }

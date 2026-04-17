@@ -103,6 +103,7 @@ fn test_generate_bid_settlements_basic_single_validator() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        None,
     )
     .unwrap();
 
@@ -203,6 +204,7 @@ fn test_generate_bid_settlements_positive_commission() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        None,
     )
     .unwrap();
 
@@ -341,6 +343,7 @@ fn test_generate_bid_settlements_negative_commission() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        None,
     )
     .unwrap();
 
@@ -529,6 +532,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        None,
     )
     .unwrap();
 
@@ -539,6 +543,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        None,
     )
     .unwrap();
 
@@ -549,6 +554,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        None,
     )
     .unwrap();
 
@@ -810,6 +816,7 @@ fn test_zero_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        None,
     )
     .unwrap();
 
@@ -925,6 +932,7 @@ struct SamMetaParams {
     auction_effective_static_bid_pmpe: Option<Decimal>,
     bid_too_low_penalty_pmpe: Decimal,
     blacklist_penalty_pmpe: Decimal,
+    activating_stake_pmpe: Option<Decimal>,
     values: Option<AuctionValidatorValues>,
 }
 
@@ -939,6 +947,7 @@ impl SamMetaParams {
             auction_effective_static_bid_pmpe: Some(Decimal::from(50)),
             bid_too_low_penalty_pmpe: Decimal::ZERO,
             blacklist_penalty_pmpe: Decimal::ZERO,
+            activating_stake_pmpe: None,
             values: None,
         }
     }
@@ -968,6 +977,11 @@ impl SamMetaParams {
         self
     }
 
+    fn activating_stake_pmpe(mut self, value: f64) -> Self {
+        self.activating_stake_pmpe = Some(Decimal::try_from(value).unwrap());
+        self
+    }
+
     fn auction_values(mut self, commissions: CommissionDetails) -> Self {
         self.values = Some(create_auction_validator_values(commissions));
         self
@@ -989,6 +1003,7 @@ impl SamMetaParams {
                 bid_too_low_penalty_pmpe: self.bid_too_low_penalty_pmpe,
                 blacklist_penalty_pmpe: self.blacklist_penalty_pmpe,
                 auction_effective_static_bid_pmpe: self.auction_effective_static_bid_pmpe,
+                activating_stake_pmpe: self.activating_stake_pmpe,
                 ..RevShare::default()
             },
             stake_priority: 0,
@@ -1024,6 +1039,8 @@ fn create_test_fee_config(marinade_fee_bps: u64, dao_fee_split_share_bps: u64) -
             stake_authority: TEST_PUBKEY_DAO,
             withdraw_authority: TEST_PUBKEY_DAO,
         },
+        min_fee_bps: 0,
+        ssi_underperformance_pmpe: Decimal::ZERO,
     }
 }
 
@@ -1232,6 +1249,7 @@ fn test_generate_settlements_from_json_values() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        None,
     )
     .unwrap();
 
@@ -1819,4 +1837,337 @@ fn test_settlement_config_yaml_deserialization() {
         !psr_configs.is_empty(),
         "Should have at least one PSR config"
     );
+}
+
+fn create_stake_meta_with_activating(
+    pubkey: Pubkey,
+    validator: Pubkey,
+    withdraw_authority: Pubkey,
+    stake_authority: Pubkey,
+    active_delegation_lamports: u64,
+    activating_delegation_lamports: u64,
+) -> StakeMeta {
+    StakeMeta {
+        pubkey,
+        validator: Some(validator),
+        withdraw_authority,
+        stake_authority,
+        active_delegation_lamports,
+        balance_lamports: active_delegation_lamports + activating_delegation_lamports,
+        activating_delegation_lamports,
+        deactivating_delegation_lamports: 0,
+    }
+}
+
+#[test]
+fn test_activating_bid_charge_basic() {
+    // Validator: bid_pmpe=100, auction_effective_bid_pmpe=0 (default)
+    // active marinade stake: 1 SOL, activating marinade stake: 2 SOL
+    // Expected activating charge = (100 - 0) / 1000 * 2 SOL = 0.2 SOL = 200_000_000 lamports
+    let epoch = 100;
+    let vote_account = test_vote_account(1);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            // marinade active stake
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                LAMPORTS_PER_SOL,
+            ),
+            // marinade activating stake
+            create_stake_meta_with_activating(
+                test_stake_account(2),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                0,
+                2 * LAMPORTS_PER_SOL,
+            ),
+        ],
+    };
+
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .static_bid(0.0)
+        .activating_stake_pmpe(100.0)
+        .build();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &create_test_fee_config(0, 0),
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        None,
+    )
+    .unwrap();
+
+    assert_eq!(settlements.len(), 1);
+    let expected_activating_charge: u64 = 200_000_000; // 0.2 SOL in lamports
+    assert_eq!(
+        settlements[0].claims_amount, expected_activating_charge,
+        "Claims amount should equal the activating charge"
+    );
+}
+
+#[test]
+fn test_activating_bid_charge_with_active_stake() {
+    // active + activating both present, verify total claim = static_bid + activating_charge
+    // bid_pmpe=100, auction_effective_bid_pmpe=0, auction_effective_static_bid_pmpe=50
+    // active=2 SOL, activating=1 SOL
+    // static_bid = 50/1000 * 2 SOL = 0.1 SOL
+    // activating = (100-0)/1000 * 1 SOL = 0.1 SOL
+    // total = 0.2 SOL = 200_000_000 lamports
+    let epoch = 100;
+    let vote_account = test_vote_account(2);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![create_stake_meta_with_activating(
+            test_stake_account(1),
+            vote_account,
+            TEST_PUBKEY_MARINADE,
+            TEST_PUBKEY_MARINADE,
+            2 * LAMPORTS_PER_SOL,
+            LAMPORTS_PER_SOL,
+        )],
+    };
+
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .static_bid(50.0)
+        .activating_stake_pmpe(100.0)
+        .build();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &create_test_fee_config(0, 0),
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        None,
+    )
+    .unwrap();
+
+    assert_eq!(settlements.len(), 1);
+    let expected: u64 = 200_000_000; // 0.2 SOL
+    assert_eq!(settlements[0].claims_amount, expected);
+}
+
+#[test]
+fn test_activating_bid_charge_non_marinade_excluded() {
+    // Non-marinade activating stake should not contribute to the charge
+    let epoch = 100;
+    let vote_account = test_vote_account(3);
+    let other_authority = test_stake_authority(3);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            // marinade active stake (required so validator isn't skipped)
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                LAMPORTS_PER_SOL,
+            ),
+            // non-marinade activating stake — must NOT be charged
+            create_stake_meta_with_activating(
+                test_stake_account(2),
+                vote_account,
+                other_authority,
+                other_authority,
+                0,
+                10 * LAMPORTS_PER_SOL,
+            ),
+        ],
+    };
+
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .static_bid(0.0)
+        .activating_stake_pmpe(100.0)
+        .build();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &create_test_fee_config(0, 0),
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        None,
+    )
+    .unwrap();
+
+    // No charges at all: static_bid=0 and non-marinade activating doesn't contribute → no settlement
+    assert!(
+        settlements.is_empty(),
+        "Non-marinade activating stake must not be charged"
+    );
+}
+
+#[test]
+fn test_activating_bid_charge_absent_when_no_field() {
+    // When activating_stake_pmpe is not set (None), activating stake must not be charged
+    let epoch = 100;
+    let vote_account = test_vote_account(4);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![create_stake_meta_with_activating(
+            test_stake_account(1),
+            vote_account,
+            TEST_PUBKEY_MARINADE,
+            TEST_PUBKEY_MARINADE,
+            LAMPORTS_PER_SOL,
+            5 * LAMPORTS_PER_SOL,
+        )],
+    };
+
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    // No activating_stake_pmpe set — old epoch data without the field
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .static_bid(0.0)
+        .build();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &create_test_fee_config(0, 0),
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        None,
+    )
+    .unwrap();
+
+    assert!(
+        settlements.is_empty(),
+        "No activating charge when activating_stake_pmpe is absent"
+    );
+}
+
+#[test]
+fn test_scenario_activating_charge_epoch_fixtures() {
+    use settlement_common::utils::read_from_json_file;
+    use std::path::PathBuf;
+
+    let fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/generators/fixtures");
+    let stakes_path = fixtures_dir.join("scenario_epoch_n1.json");
+
+    if !stakes_path.exists() {
+        eprintln!("skipping scenario test: run fetch-scenario-fixtures.sh to generate fixtures");
+        return;
+    }
+
+    let stake_meta_collection: snapshot_parser_validator_cli::stake_meta::StakeMetaCollection =
+        read_from_json_file(&stakes_path).expect("Failed to read scenario_epoch_n1.json");
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    // Build minimal sam metas with activating_stake_pmpe=50 for all validators in the fixture
+    let sam_metas: Vec<ValidatorSamMeta> = stake_meta_index
+        .stake_meta_collection
+        .stake_metas
+        .iter()
+        .filter_map(|m| m.validator)
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .map(|vote_account| ValidatorSamMeta {
+            vote_account,
+            epoch: stake_meta_collection.epoch as u32,
+            marinade_sam_target_sol: Decimal::from(100),
+            effective_bid: Decimal::from(50),
+            rev_share: crate::sam_meta::RevShare {
+                bid_pmpe: Decimal::from(50),
+                auction_effective_static_bid_pmpe: Some(Decimal::ZERO),
+                activating_stake_pmpe: Some(Decimal::from(50)),
+                ..crate::sam_meta::RevShare::default()
+            },
+            stake_priority: 0,
+            unstake_priority: 0,
+            max_stake_wanted: Decimal::ZERO,
+            constraints: String::new(),
+            metadata: crate::sam_meta::SamMetadata::default(),
+            scoring_run_id: 0,
+            values: None,
+        })
+        .collect();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &sam_metas,
+        &RewardsCollection {
+            epoch: stake_meta_collection.epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &create_test_fee_config(0, 0),
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        None,
+    )
+    .unwrap();
+
+    // Every validator with marinade activating stake must have a settlement with positive claims
+    let validators_with_activating: std::collections::HashSet<Pubkey> = stake_meta_index
+        .stake_meta_collection
+        .stake_metas
+        .iter()
+        .filter(|m| {
+            m.activating_delegation_lamports > 0
+                && m.stake_authority == TEST_PUBKEY_MARINADE
+                && m.validator.is_some()
+        })
+        .map(|m| m.validator.unwrap())
+        .collect();
+
+    for settlement in &settlements {
+        if validators_with_activating.contains(&settlement.vote_account) {
+            assert!(
+                settlement.claims_amount > 0,
+                "validator {} has activating stake but zero claims",
+                settlement.vote_account
+            );
+        }
+    }
+
+    // Validators with only active stake (no activating) must have zero claims
+    // when static_bid=0 and no rewards
+    let validators_with_activating_set = &validators_with_activating;
+    for settlement in &settlements {
+        if !validators_with_activating_set.contains(&settlement.vote_account) {
+            assert_eq!(
+                settlement.claims_amount, 0,
+                "validator {} has no activating stake but non-zero claims",
+                settlement.vote_account
+            );
+        }
+    }
 }
