@@ -14,6 +14,8 @@ pub struct FeePercentages {
     pub marinade_distributor_fee: Decimal,
     /// DAO fee share as a decimal percentage (e.g., 0.05 for 5%)
     pub dao_fee_share: Decimal,
+    /// Minimum fee floor as a decimal percentage
+    pub min_fee: Decimal,
 }
 
 /// Named fee authorities returned by [FeeConfig::fee_authorities]
@@ -49,6 +51,12 @@ pub struct FeeConfig {
     pub marinade_fee_bps: u64,
     pub marinade: AuthorityConfig,
     pub dao: DaoConfig,
+    /// Minimum fee floor in basis points; fee is never reduced below this (default: 0)
+    #[serde(default)]
+    pub min_fee_bps: u64,
+    /// target = SSI + apy_over_ssi_pmpe. Set to -10 (or lower) to effectively disable fee cap.
+    #[serde(default)]
+    pub apy_over_ssi_pmpe: Decimal,
 }
 
 impl FeeConfig {
@@ -63,6 +71,11 @@ impl FeeConfig {
             self.dao.fee_split_share_bps <= 10_000,
             "dao.fee_split_share_bps {} exceeds maximum 10000 (100%)",
             self.dao.fee_split_share_bps
+        );
+        ensure!(
+            self.min_fee_bps <= 10_000,
+            "min_fee_bps {} exceeds maximum 10000 (100%)",
+            self.min_fee_bps
         );
         Ok(())
     }
@@ -81,6 +94,7 @@ impl FeeConfig {
         FeePercentages {
             marinade_distributor_fee: Decimal::from(self.marinade_fee_bps) / Decimal::from(10_000),
             dao_fee_share: Decimal::from(self.dao.fee_split_share_bps) / Decimal::from(10_000),
+            min_fee: Decimal::from(self.min_fee_bps) / Decimal::from(10_000),
         }
     }
 }
@@ -125,17 +139,6 @@ impl SettlementConfig {
         }
     }
 
-    /// Checks if this is a SAM settlement type (Bidding, BidTooLowPenalty, BlacklistPenalty)
-    pub fn is_sam_settlement(&self) -> bool {
-        matches!(self, SettlementConfig::Sam(_))
-    }
-
-    /// Checks if this is a PSR settlement type (DowntimeRevenueImpact, CommissionSamIncrease)
-    pub fn is_psr_settlement(&self) -> bool {
-        matches!(self, SettlementConfig::Psr(_))
-    }
-
-    /// Returns the PSR config reference if this is a PSR settlement type.
     pub fn to_psr_config(&self) -> Option<&PsrSettlementConfig> {
         match self {
             SettlementConfig::Psr(config) => Some(config),
@@ -163,15 +166,6 @@ impl BidDistributionConfig {
         stake_authority_filter(self.whitelist_stake_authorities.clone())
     }
 
-    /// Returns SAM settlement configs (Bidding, BidTooLowPenalty, BlacklistPenalty)
-    pub fn sam_settlements(&self) -> Vec<&SettlementConfig> {
-        self.settlements
-            .iter()
-            .filter(|c| c.is_sam_settlement())
-            .collect()
-    }
-
-    /// Returns PSR settlement configs (references to settlement-common types)
     pub fn psr_settlements(&self) -> Vec<PsrSettlementConfig> {
         self.settlements
             .iter()
@@ -179,7 +173,6 @@ impl BidDistributionConfig {
             .collect()
     }
 
-    /// Find the Bidding config (for SAM bid settlements)
     pub fn bidding_config(&self) -> Option<&SettlementConfig> {
         self.settlements.iter().find(|c| {
             matches!(
@@ -192,7 +185,6 @@ impl BidDistributionConfig {
         })
     }
 
-    /// Find the BidTooLowPenalty config (for SAM penalty settlements)
     pub fn bid_too_low_penalty_config(&self) -> Option<&SettlementConfig> {
         self.settlements.iter().find(|c| {
             matches!(
@@ -205,7 +197,6 @@ impl BidDistributionConfig {
         })
     }
 
-    /// Find the BlacklistPenalty config (for SAM penalty settlements)
     pub fn blacklist_penalty_config(&self) -> Option<&SettlementConfig> {
         self.settlements.iter().find(|c| {
             matches!(
@@ -218,7 +209,6 @@ impl BidDistributionConfig {
         })
     }
 
-    /// Find the BondRiskFee config (for SAM bond risk fee settlements)
     pub fn bond_risk_fee_config(&self) -> Option<&SettlementConfig> {
         self.settlements.iter().find(|c| {
             matches!(

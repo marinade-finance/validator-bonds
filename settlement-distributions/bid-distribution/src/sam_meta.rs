@@ -52,10 +52,10 @@ pub struct RevShare {
     pub expected_max_eff_bid_pmpe: Decimal,
 
     pub block_pmpe: Option<Decimal>,
+    pub activating_stake_pmpe: Option<Decimal>,
     pub onchain_distributed_pmpe: Option<Decimal>,
     pub bond_obligation_pmpe: Option<Decimal>,
     pub auction_effective_static_bid_pmpe: Option<Decimal>,
-    pub activating_stake_pmpe: Option<Decimal>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
