@@ -140,17 +140,6 @@ impl SettlementConfig {
         }
     }
 
-    /// Checks if this is a SAM settlement type (Bidding, BidTooLowPenalty, BlacklistPenalty)
-    pub fn is_sam_settlement(&self) -> bool {
-        matches!(self, SettlementConfig::Sam(_))
-    }
-
-    /// Checks if this is a PSR settlement type (DowntimeRevenueImpact, CommissionSamIncrease)
-    pub fn is_psr_settlement(&self) -> bool {
-        matches!(self, SettlementConfig::Psr(_))
-    }
-
-    /// Returns the PSR config reference if this is a PSR settlement type.
     pub fn to_psr_config(&self) -> Option<&PsrSettlementConfig> {
         match self {
             SettlementConfig::Psr(config) => Some(config),
@@ -178,15 +167,6 @@ impl BidDistributionConfig {
         stake_authority_filter(self.whitelist_stake_authorities.clone())
     }
 
-    /// Returns SAM settlement configs (Bidding, BidTooLowPenalty, BlacklistPenalty)
-    pub fn sam_settlements(&self) -> Vec<&SettlementConfig> {
-        self.settlements
-            .iter()
-            .filter(|c| c.is_sam_settlement())
-            .collect()
-    }
-
-    /// Returns PSR settlement configs (references to settlement-common types)
     pub fn psr_settlements(&self) -> Vec<PsrSettlementConfig> {
         self.settlements
             .iter()
@@ -194,7 +174,6 @@ impl BidDistributionConfig {
             .collect()
     }
 
-    /// Find the Bidding config (for SAM bid settlements)
     pub fn bidding_config(&self) -> Option<&SettlementConfig> {
         self.settlements.iter().find(|c| {
             matches!(
@@ -207,7 +186,6 @@ impl BidDistributionConfig {
         })
     }
 
-    /// Find the BidTooLowPenalty config (for SAM penalty settlements)
     pub fn bid_too_low_penalty_config(&self) -> Option<&SettlementConfig> {
         self.settlements.iter().find(|c| {
             matches!(
@@ -220,7 +198,6 @@ impl BidDistributionConfig {
         })
     }
 
-    /// Find the BlacklistPenalty config (for SAM penalty settlements)
     pub fn blacklist_penalty_config(&self) -> Option<&SettlementConfig> {
         self.settlements.iter().find(|c| {
             matches!(
@@ -233,7 +210,6 @@ impl BidDistributionConfig {
         })
     }
 
-    /// Find the BondRiskFee config (for SAM bond risk fee settlements)
     pub fn bond_risk_fee_config(&self) -> Option<&SettlementConfig> {
         self.settlements.iter().find(|c| {
             matches!(
