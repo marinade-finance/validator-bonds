@@ -264,10 +264,11 @@ fn main() -> anyhow::Result<()> {
         info!("Generated {} PSR settlements", psr_settlements.len());
         all_settlements.extend(psr_settlements);
     } else {
-        // No PSR configs — fail if PSR inputs were partially provided (likely a mistake)
+        // No PSR configs — fail if PSR-exclusive inputs were provided (likely a mistake).
+        // --validator-meta-collection is excluded: it is also required for SAM (SSI computation).
         anyhow::ensure!(
-            args.validator_meta_collection.is_none() && args.revenue_expectation_collection.is_none(),
-            "PSR inputs (--validator-meta-collection, --revenue-expectation-collection) provided but no PSR settlement configs found in config file"
+            args.revenue_expectation_collection.is_none(),
+            "--revenue-expectation-collection provided but no PSR settlement configs found in config file"
         );
     }
 
