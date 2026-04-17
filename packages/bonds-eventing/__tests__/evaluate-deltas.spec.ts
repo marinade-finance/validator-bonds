@@ -91,6 +91,7 @@ function makePrevState(
     in_auction: true,
     bond_good_for_n_epochs: 5,
     cap_constraint: null,
+    cap_marinade_stake_sol: null,
     funded_amount_lamports: 10_000_000_000n,
     effective_amount_lamports: 10_000_000_000n,
     auction_stake_lamports: 1_000_000_000_000n,
@@ -278,6 +279,48 @@ describe('evaluateDeltas', () => {
     const capDetails = capChanged!.data.details as CapChangedDetails
     expect(capDetails.previous_cap).toBeNull()
     expect(capDetails.current_cap).toBe('BOND')
+  })
+
+  it('emits cap_changed with numeric context and driver data', () => {
+    const validators = [
+      makeValidator({
+        bondBalanceSol: 4.0,
+        lastCapConstraint: {
+          constraintType: 'BOND',
+          constraintName: 'bond_cap',
+          marinadeStakeSol: 5_867,
+          totalLeftToCapSol: 1_000,
+        },
+      }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(
+      TEST_VOTE_ACCOUNT,
+      makePrevState({
+        cap_constraint: 'ASO',
+        cap_marinade_stake_sol: 12_345,
+        funded_amount_lamports: 10_000_000_000n, // 10 SOL
+      }),
+    )
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const capChanged = events.find(e => e.inner_type === 'cap_changed')
+    const d = capChanged!.data.details as CapChangedDetails
+    expect(d.previous_cap_type).toBe('ASO')
+    expect(d.current_cap_type).toBe('BOND')
+    expect(d.previous_cap_sol).toBe(12_345)
+    expect(d.current_cap_sol).toBe(5_867)
+    expect(d.total_left_to_cap_sol).toBe(1_000)
+    expect(d.bond_balance_sol).toBe(4.0)
+    expect(d.bond_balance_delta_sol).toBe(-6.0)
+    expect(d.required_coverage_sol).not.toBeNull()
   })
 
   it('emits bond_underfunded_change when epochs change', () => {

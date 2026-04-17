@@ -66,6 +66,28 @@ function getCapConstraint(v: AuctionValidator): string | null {
   return v.lastCapConstraint?.constraintType ?? null
 }
 
+function getCapMarinadeStakeSol(v: AuctionValidator): number | null {
+  return v.lastCapConstraint?.marinadeStakeSol ?? null
+}
+
+const VALID_CAP_TYPES = new Set([
+  'COUNTRY',
+  'ASO',
+  'VALIDATOR',
+  'BOND',
+  'WANT',
+  'RISK',
+])
+
+function asCapType(
+  value: string | null,
+): CapChangedDetails['current_cap_type'] {
+  if (value === null) return null
+  return VALID_CAP_TYPES.has(value)
+    ? (value as NonNullable<CapChangedDetails['current_cap_type']>)
+    : null
+}
+
 /**
  * Compute expected penalties from DS SAM auction fields.
  * These are known at auction time, before on-chain settlement.
@@ -266,6 +288,12 @@ export function evaluateDeltas(
 
     // Cap constraint changes
     if (prev.cap_constraint !== currentCap) {
+      const currentCapSol = getCapMarinadeStakeSol(v)
+      const bondBalanceSol = v.bondBalanceSol ?? null
+      const prevBondBalanceSol = lamportsToSol(prev.funded_amount_lamports)
+      const bondBalanceDeltaSol =
+        bondBalanceSol !== null ? bondBalanceSol - prevBondBalanceSol : null
+      const coverageMetrics = computeDeficitMetrics(v)
       events.push(
         makeEvent(
           'cap_changed',
@@ -279,6 +307,15 @@ export function evaluateDeltas(
             previous_cap: prev.cap_constraint,
             current_cap: currentCap,
             constraint_name: v.lastCapConstraint?.constraintName ?? null,
+            previous_cap_type: asCapType(prev.cap_constraint),
+            current_cap_type: asCapType(currentCap),
+            previous_cap_sol: prev.cap_marinade_stake_sol,
+            current_cap_sol: currentCapSol,
+            total_left_to_cap_sol:
+              v.lastCapConstraint?.totalLeftToCapSol ?? null,
+            bond_balance_sol: bondBalanceSol,
+            bond_balance_delta_sol: bondBalanceDeltaSol,
+            required_coverage_sol: coverageMetrics.epoch_cost_sol,
           } satisfies CapChangedDetails,
         ),
       )
@@ -510,6 +547,7 @@ export function validatorToState(
     in_auction: isInAuction(v),
     bond_good_for_n_epochs: roundEpochs(v.bondGoodForNEpochs),
     cap_constraint: getCapConstraint(v),
+    cap_marinade_stake_sol: getCapMarinadeStakeSol(v),
     funded_amount_lamports: solToLamports(v.bondBalanceSol),
     effective_amount_lamports: solToLamports(
       v.claimableBondBalanceSol ?? v.bondBalanceSol,
