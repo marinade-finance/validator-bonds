@@ -53,7 +53,7 @@ pub fn generate_penalty_settlements(
 ) -> anyhow::Result<Vec<Settlement>> {
     info!("Generating penalty settlements...");
 
-    let bid_fee_percentages = fee_config.fee_percentages();
+    let bid_fee_rates = fee_config.fee_rates();
 
     let mut penalty_settlement_collection = vec![];
 
@@ -78,7 +78,7 @@ pub fn generate_penalty_settlements(
             let bid_too_low_penalty_total_claim =
                 Decimal::from(total_marinade_active_stake) * bid_too_low_penalty;
             let distributor_bid_too_low_penalty_claim = (bid_too_low_penalty_total_claim
-                * bid_fee_percentages.marinade_distributor_fee)
+                * bid_fee_rates.marinade_distributor_fee)
                 .to_u64()
                 .ok_or_else(|| anyhow!("Failed to_u64 for distributor_bid_penalty_claim"))?;
             let stakers_bid_too_low_penalty_claim = bid_too_low_penalty_total_claim
@@ -87,7 +87,7 @@ pub fn generate_penalty_settlements(
                 .saturating_sub(distributor_bid_too_low_penalty_claim);
             let dao_bid_too_low_penalty_claim =
                 (Decimal::from(distributor_bid_too_low_penalty_claim)
-                    * bid_fee_percentages.dao_fee_share)
+                    * bid_fee_rates.dao_fee_share)
                     .to_u64()
                     .ok_or_else(|| anyhow!("Failed to_u64 for dao_bid_penalty_claim"))?;
             let marinade_bid_too_low_penalty_claim =
