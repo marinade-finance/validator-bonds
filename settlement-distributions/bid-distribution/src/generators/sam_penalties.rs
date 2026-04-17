@@ -226,7 +226,7 @@ pub fn generate_penalty_settlements(
                         stake_authority: authorities.marinade_stake,
                         stake_accounts: fee_deposit.marinade_active.clone(),
                         claim_amount: marinade_bid_too_low_penalty_claim,
-                        active_stake: total_marinade_active_stake,
+                        active_stake: fee_deposit.marinade_active.values().sum(),
                         activating_stake: 0,
                     });
                     claimed_bid_too_low_penalty_amount += marinade_bid_too_low_penalty_claim;

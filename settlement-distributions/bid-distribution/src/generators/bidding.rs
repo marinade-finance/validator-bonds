@@ -476,7 +476,7 @@ pub fn generate_bid_settlements(
                     stake_authority: authorities.marinade_stake,
                     stake_accounts: fee_deposit.marinade_active.clone(),
                     claim_amount: marinade_fee_for_bidding,
-                    active_stake: total_marinade_active_stake,
+                    active_stake: fee_deposit.marinade_active.values().sum(),
                     activating_stake: 0,
                 });
                 bidding_claims_amount += marinade_fee_for_bidding;
