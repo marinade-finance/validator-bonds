@@ -11,9 +11,7 @@ use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
-use super::{
-    add_to_settlement_collection, get_fee_deposit_stake_accounts, FeeDepositStakeAccounts,
-};
+use super::{add_to_settlement_collection, get_fee_deposit_stake_accounts};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BidTooLowPenaltyDetails {
@@ -121,11 +119,7 @@ pub fn generate_penalty_settlements(
             let mut bond_risk_fee_claims = vec![];
             let mut claimed_bond_risk_fee_amount = 0;
 
-            let FeeDepositStakeAccounts {
-                marinade_active: marinade_fee_deposit_stake_accounts,
-                dao_active: dao_fee_deposit_stake_accounts,
-                ..
-            } = get_fee_deposit_stake_accounts(stake_meta_index, fee_config);
+            let fee_deposit = get_fee_deposit_stake_accounts(stake_meta_index, fee_config);
 
             let grouped_marinade_filtered_stake_metas: Vec<_> = grouped_stake_metas
                 .iter()
@@ -230,9 +224,9 @@ pub fn generate_penalty_settlements(
                     bid_too_low_penalty_claims.push(SettlementClaim {
                         withdraw_authority: authorities.marinade_withdraw,
                         stake_authority: authorities.marinade_stake,
-                        stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
+                        stake_accounts: fee_deposit.marinade_active.clone(),
                         claim_amount: marinade_bid_too_low_penalty_claim,
-                        active_stake: marinade_fee_deposit_stake_accounts.values().sum(),
+                        active_stake: fee_deposit.marinade_active.values().sum(),
                         activating_stake: 0,
                     });
                     claimed_bid_too_low_penalty_amount += marinade_bid_too_low_penalty_claim;
@@ -241,9 +235,9 @@ pub fn generate_penalty_settlements(
                     bid_too_low_penalty_claims.push(SettlementClaim {
                         withdraw_authority: authorities.dao_withdraw,
                         stake_authority: authorities.dao_stake,
-                        stake_accounts: dao_fee_deposit_stake_accounts.clone(),
+                        stake_accounts: fee_deposit.dao_active.clone(),
                         claim_amount: dao_bid_too_low_penalty_claim,
-                        active_stake: dao_fee_deposit_stake_accounts.values().sum(),
+                        active_stake: fee_deposit.dao_active.values().sum(),
                         activating_stake: 0,
                     });
                     claimed_bid_too_low_penalty_amount += dao_bid_too_low_penalty_claim;

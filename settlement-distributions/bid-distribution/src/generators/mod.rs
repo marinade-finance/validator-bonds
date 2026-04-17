@@ -48,6 +48,7 @@ pub fn get_fee_deposit_stake_accounts(
     FeeDepositStakeAccounts {
         marinade_active: marinade_meta
             .iter()
+            .filter(|s| s.active_delegation_lamports > 0)
             .map(|s| (s.pubkey, s.active_delegation_lamports))
             .collect(),
         marinade_activating: marinade_meta
@@ -57,6 +58,7 @@ pub fn get_fee_deposit_stake_accounts(
             .collect(),
         dao_active: dao_meta
             .iter()
+            .filter(|s| s.active_delegation_lamports > 0)
             .map(|s| (s.pubkey, s.active_delegation_lamports))
             .collect(),
         dao_activating: dao_meta
