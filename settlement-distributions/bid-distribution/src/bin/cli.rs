@@ -156,19 +156,16 @@ fn main() -> anyhow::Result<()> {
             rewards_collection.total_rewards()
         );
 
-        let ssi_pmpe = args
-            .validator_meta_collection
-            .as_ref()
-            .map(|path| -> anyhow::Result<_> {
-                info!("Computing SSI from validator meta collection...");
-                let validator_meta: ValidatorMetaCollection =
-                    read_from_json_file(path).map_err(file_error("validator-meta-collection", path))?;
-                let ssi = calculate_ssi_pmpe(&rewards_collection, &validator_meta);
-                info!("SSI: {:?} pmpe", ssi);
-                Ok(ssi)
-            })
-            .transpose()?
-            .flatten();
+        let ssi_pmpe = if let Some(path) = &args.validator_meta_collection {
+            info!("Computing SSI from validator meta collection...");
+            let validator_meta: ValidatorMetaCollection =
+                read_from_json_file(path).map_err(file_error("validator-meta-collection", path))?;
+            let ssi = calculate_ssi_pmpe(&rewards_collection, &validator_meta);
+            info!("SSI: {:?} pmpe", ssi);
+            ssi
+        } else {
+            None
+        };
 
         // Epoch consistency verification
         let rewards_epoch = rewards_collection.epoch;

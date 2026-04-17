@@ -322,19 +322,17 @@ pub fn generate_bid_settlements(
                 settlement_claim
             );
 
-            let effective_fee = ssi_pmpe
-                .filter(|_| total_marinade_stakers_rewards > Decimal::ZERO)
-                .map(|ssi| {
+            let effective_fee = match ssi_pmpe {
+                Some(ssi) if total_marinade_stakers_rewards > Decimal::ZERO => {
                     let target = ssi + fee_config.ssi_underperformance_pmpe;
                     let staker_yield_pmpe = total_marinade_stakers_rewards
                         / Decimal::from(total_marinade_active_stake)
                         * Decimal::ONE_THOUSAND;
                     let fee_cap = (Decimal::ONE - target / staker_yield_pmpe).max(Decimal::ZERO);
-                    fee_percentages
-                        .min_fee
-                        .max(fee_percentages.marinade_distributor_fee.min(fee_cap))
-                })
-                .unwrap_or(fee_percentages.marinade_distributor_fee);
+                    fee_percentages.min_fee.max(fee_percentages.marinade_distributor_fee.min(fee_cap))
+                }
+                _ => fee_percentages.marinade_distributor_fee,
+            };
             info!(
                 "{} effective fee: {} (configured: {}, min: {}, ssi_pmpe: {:?})",
                 validator.vote_account,
