@@ -118,6 +118,9 @@ fn main() -> anyhow::Result<()> {
         let rewards_dir = args.rewards_dir.as_ref().ok_or_else(|| {
             anyhow::anyhow!("--rewards-dir is required when SAM settlement configs are present")
         })?;
+        let validator_meta_path = args.validator_meta_collection.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("--validator-meta-collection is required when SAM settlement configs are present")
+        })?;
         let bidding_config = bid_distribution_config.bidding_config().ok_or_else(|| {
             anyhow::anyhow!("Bidding settlement config is required in bid-distribution-config")
         })?;
@@ -156,16 +159,11 @@ fn main() -> anyhow::Result<()> {
             rewards_collection.total_rewards()
         );
 
-        let ssi_pmpe = if let Some(path) = &args.validator_meta_collection {
-            info!("Computing SSI from validator meta collection...");
-            let validator_meta: ValidatorMetaCollection =
-                read_from_json_file(path).map_err(file_error("validator-meta-collection", path))?;
-            let ssi = calculate_ssi_pmpe(&rewards_collection, &validator_meta);
-            info!("SSI: {:?} pmpe", ssi);
-            ssi
-        } else {
-            None
-        };
+        info!("Computing SSI from validator meta collection...");
+        let validator_meta: ValidatorMetaCollection = read_from_json_file(validator_meta_path)
+            .map_err(file_error("validator-meta-collection", validator_meta_path))?;
+        let ssi_pmpe = calculate_ssi_pmpe(&rewards_collection, &validator_meta);
+        info!("SSI: {:?} pmpe", ssi_pmpe);
 
         // Epoch consistency verification
         let rewards_epoch = rewards_collection.epoch;
