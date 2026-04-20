@@ -419,41 +419,104 @@ process_epoch() {
 
         if [[ "$epoch_format" == "new" ]]; then
           # --- NEW format: direct comparison (same structure on both sides) ---
+          #
+          # PR #388 introduces a new `PriorityFee` settlement type for activating-stake
+          # charges (ds-sam field `activatingStakePmpe`).  Production outputs in GCS
+          # pre-date this feature and contain only `Bidding` settlements; any vote
+          # account with `activatingStakePmpe > 0` will legitimately produce new
+          # `PriorityFee` settlements and a rebalanced `Bidding` fee split in the
+          # branch output, which is not a regression.
+          #
+          # We split comparison into two parts:
+          #   1) Regression check — restrict to vote accounts UNAFFECTED by the new
+          #      feature (no `PriorityFee` settlement in actual output). For those,
+          #      branch output must match production byte-for-byte on the extracted
+          #      metrics.
+          #   2) New-feature check — summarize the PriorityFee settlements as
+          #      informational; confirm funding integrity still holds on the full
+          #      actual merkle tree.
+          #
+          # When production eventually runs the post-#388 code, its outputs will
+          # contain PriorityFee settlements too and both sides can be compared
+          # directly — at which point the affected-set filter naturally becomes
+          # empty and this branch reduces to the old behavior.
 
-          # 1) Settlement count
+          # Extract vote accounts whose actual output contains a PriorityFee
+          # settlement (these are affected by the new feature).
+          local priority_fee_votes priority_fee_count priority_fee_filter
+          priority_fee_votes=$(jq -r '.settlements[] | select(.reason == "PriorityFee") | .vote_account' \
+            "$actual_dir/bid-distribution-settlements.json" 2>/dev/null | sort -u)
+          priority_fee_count=$(echo -n "$priority_fee_votes" | grep -c '^' || true)
+          if [[ "$priority_fee_count" -gt 0 ]]; then
+            # JSON array of affected vote accounts, consumable by jq --argjson
+            priority_fee_filter=$(printf '%s\n' "$priority_fee_votes" | jq -R . | jq -s .)
+            local priority_fee_settlements priority_fee_lamports
+            priority_fee_settlements=$(jq '[.settlements[] | select(.reason == "PriorityFee")] | length' \
+              "$actual_dir/bid-distribution-settlements.json")
+            priority_fee_lamports=$(jq '[.settlements[] | select(.reason == "PriorityFee") | .claims_amount] | add // 0' \
+              "$actual_dir/bid-distribution-settlements.json")
+            echo "  INFO PR #388 feature: $priority_fee_count vote account(s) with PriorityFee settlements"
+            echo "       ($priority_fee_settlements new settlements, $priority_fee_lamports lamports of activating charge)"
+            echo "       these vote accounts are EXCLUDED from regression comparison below"
+          else
+            priority_fee_filter="[]"
+            echo "  INFO no PriorityFee settlements in actual output (epoch not affected by PR #388)"
+          fi
+
+          # Produce filtered copies of the files, restricted to UNAFFECTED vote accounts.
+          # These are what we compare against production (which also predates the feature).
+          local expected_filtered="$actual_dir/.filtered-expected-settlements.json"
+          local actual_filtered="$actual_dir/.filtered-actual-settlements.json"
+          local expected_merkle_filtered="$actual_dir/.filtered-expected-merkle.json"
+          local actual_merkle_filtered="$actual_dir/.filtered-actual-merkle.json"
+
+          jq --argjson excl "$priority_fee_filter" \
+            '{slot, epoch, settlements: [.settlements[] | select(.vote_account as $va | $excl | index($va) | not)]}' \
+            "$expected_dir/bid-distribution-settlements.json" > "$expected_filtered"
+          jq --argjson excl "$priority_fee_filter" \
+            '{slot, epoch, settlements: [.settlements[] | select(.vote_account as $va | $excl | index($va) | not)]}' \
+            "$actual_dir/bid-distribution-settlements.json" > "$actual_filtered"
+          jq --argjson excl "$priority_fee_filter" \
+            '{epoch, slot, validator_bonds_config, sources, merkle_trees: [.merkle_trees[] | select(.vote_account as $va | $excl | index($va) | not)]}' \
+            "$expected_dir/unified-merkle-trees.json" > "$expected_merkle_filtered"
+          jq --argjson excl "$priority_fee_filter" \
+            '{epoch, slot, validator_bonds_config, sources, merkle_trees: [.merkle_trees[] | select(.vote_account as $va | $excl | index($va) | not)]}' \
+            "$actual_dir/unified-merkle-trees.json" > "$actual_merkle_filtered"
+
+          # 1) Settlement count (unaffected vote accounts only)
           local exp_count act_count
-          exp_count=$(jq '.settlements | length' "$expected_dir/bid-distribution-settlements.json" 2>/dev/null || echo "ERROR")
-          act_count=$(jq '.settlements | length' "$actual_dir/bid-distribution-settlements.json" 2>/dev/null || echo "ERROR")
+          exp_count=$(jq '.settlements | length' "$expected_filtered" 2>/dev/null || echo "ERROR")
+          act_count=$(jq '.settlements | length' "$actual_filtered" 2>/dev/null || echo "ERROR")
 
           if [[ "$exp_count" == "ERROR" || "$act_count" == "ERROR" ]]; then
             echo "  ERROR: could not read settlement counts"
             bid_claims_status="ERROR"
           elif [[ "$act_count" -ne "$exp_count" ]]; then
-            echo "  FAIL settlement count: expected $exp_count, got $act_count"
+            echo "  FAIL settlement count (unaffected): expected $exp_count, got $act_count"
             bid_claims_status="DIFFER"
           else
-            echo "  OK settlement count: $act_count"
+            echo "  OK settlement count (unaffected): $act_count"
           fi
 
-          # 2) Total claims amount
+          # 2) Total claims amount (unaffected vote accounts only)
           local exp_claims act_claims
-          exp_claims=$(sum_claims "$expected_dir/bid-distribution-settlements.json")
-          act_claims=$(sum_claims "$actual_dir/bid-distribution-settlements.json")
+          exp_claims=$(sum_claims "$expected_filtered")
+          act_claims=$(sum_claims "$actual_filtered")
 
           if [[ "$exp_claims" == "null" || "$act_claims" == "null" ]]; then
             echo "  ERROR: could not compute claim sums"
             bid_claims_status="ERROR"
           elif [[ "$exp_claims" -ne "$act_claims" ]]; then
-            echo "  FAIL total claims: expected $exp_claims, got $act_claims (diff: $(( act_claims - exp_claims )))"
+            echo "  FAIL total claims (unaffected): expected $exp_claims, got $act_claims (diff: $(( act_claims - exp_claims )))"
             bid_claims_status="DIFFER"
           else
-            echo "  OK total claims amount: $act_claims lamports"
+            echo "  OK total claims (unaffected): $act_claims lamports"
           fi
 
-          # 3) Per-vote-account claims
+          # 3) Per-vote-account claims (unaffected vote accounts only)
           local exp_per_vote act_per_vote
-          exp_per_vote=$(per_vote_claims "$expected_dir/bid-distribution-settlements.json")
-          act_per_vote=$(per_vote_claims "$actual_dir/bid-distribution-settlements.json")
+          exp_per_vote=$(per_vote_claims "$expected_filtered")
+          act_per_vote=$(per_vote_claims "$actual_filtered")
 
           if [[ "$exp_per_vote" == "null" || "$act_per_vote" == "null" ]]; then
             echo "  ERROR: could not compute per-vote claims"
@@ -465,19 +528,19 @@ process_epoch() {
                          || true)
             local diff_count
             diff_count=$(echo "$diff_votes" | awk '/^[<>]/ {print $2}' | sort -u | wc -l || true)
-            echo "  FAIL per-vote claims: $diff_count vote accounts differ"
+            echo "  FAIL per-vote claims (unaffected): $diff_count vote accounts differ"
             echo "$diff_votes" | head -10
             [[ "$bid_claims_status" == "MATCH" ]] && bid_claims_status="DIFFER"
           else
-            echo "  OK per-vote-account claims all match"
+            echo "  OK per-vote claims (unaffected) all match"
           fi
 
-          # 4) Merkle roots (direct comparison)
+          # 4) Merkle roots (unaffected vote accounts only)
           local exp_roots act_roots
           exp_roots=$(jq -r '.merkle_trees[] | "\(.vote_account) \(.merkle_root | @json)"' \
-            "$expected_dir/unified-merkle-trees.json" 2>/dev/null | sort || echo "ERROR")
+            "$expected_merkle_filtered" 2>/dev/null | sort || echo "ERROR")
           act_roots=$(jq -r '.merkle_trees[] | "\(.vote_account) \(.merkle_root | @json)"' \
-            "$actual_dir/unified-merkle-trees.json" 2>/dev/null | sort || echo "ERROR")
+            "$actual_merkle_filtered" 2>/dev/null | sort || echo "ERROR")
 
           if [[ "$exp_roots" == "ERROR" || "$act_roots" == "ERROR" ]]; then
             echo "  ERROR: could not extract merkle roots"
@@ -489,17 +552,17 @@ process_epoch() {
             root_diff=$(( root_diff / 2 ))
 
             if [[ "$root_diff" -eq 0 ]]; then
-              echo "  OK merkle roots: all $root_total match"
+              echo "  OK merkle roots (unaffected): all $root_total match"
             else
-              echo "  FAIL merkle roots: $root_diff/$root_total differ"
+              echo "  FAIL merkle roots (unaffected): $root_diff/$root_total differ"
               bid_merkle_status="DIFFER"
             fi
           fi
 
-          # 5) Per-funder amounts
+          # 5) Per-funder amounts (unaffected vote accounts only)
           local exp_funder act_funder
-          exp_funder=$(per_vote_funder_claims "$expected_dir/bid-distribution-settlements.json")
-          act_funder=$(merkle_tree_funding_sources "$actual_dir/unified-merkle-trees.json")
+          exp_funder=$(per_vote_funder_claims "$expected_filtered")
+          act_funder=$(merkle_tree_funding_sources "$actual_merkle_filtered")
 
           if [[ "$exp_funder" == "null" || "$act_funder" == "null" ]]; then
             echo "  WARN: could not compute per-funder amounts (skipping check)"
@@ -510,7 +573,7 @@ process_epoch() {
               <(echo "$act_funder" | jq -r '.[] | "\(.vote_account) \(.funder) \(.total)"') \
               | grep -c '^[<>]' || true)
             funder_diff_count=$(( funder_diff_count / 2 ))
-            echo "  FAIL per-funder amounts: $funder_diff_count entries differ"
+            echo "  FAIL per-funder amounts (unaffected): $funder_diff_count entries differ"
             diff \
               <(echo "$exp_funder" | jq -r '.[] | "\(.vote_account) \(.funder) \(.total)"') \
               <(echo "$act_funder" | jq -r '.[] | "\(.vote_account) \(.funder) \(.total)"') \
@@ -519,13 +582,18 @@ process_epoch() {
           else
             local funder_entries
             funder_entries=$(echo "$act_funder" | jq 'length')
-            echo "  OK per-funder amounts: all $funder_entries entries match"
+            echo "  OK per-funder amounts (unaffected): all $funder_entries entries match"
           fi
 
-          # 6) Funding integrity
+          # 6) Funding integrity — run on the FULL actual merkle tree (not the
+          #    filtered one), so new PriorityFee settlements are verified too.
           if ! check_funding_integrity "$actual_dir/unified-merkle-trees.json" ""; then
             bid_merkle_status="DIFFER"
           fi
+
+          # Clean up filtered intermediates
+          rm -f "$expected_filtered" "$actual_filtered" \
+                "$expected_merkle_filtered" "$actual_merkle_filtered"
 
         else
           # --- OLD format: cross-format comparison (separate SAM+PSR vs unified) ---
