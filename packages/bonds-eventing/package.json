@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "@marinade.finance/cli-common": "4.2.5",
-    "@marinade.finance/ds-sam-sdk": "0.0.44",
+    "@marinade.finance/ds-sam-sdk": "0.0.48",
     "@marinade.finance/ts-common": "4.2.5",
     "@marinade.finance/validator-bonds-sdk": "workspace:*",
     "@marinade.finance/notifications-bonds-event-v1": "1.0.0",

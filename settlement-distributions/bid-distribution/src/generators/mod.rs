@@ -15,6 +15,8 @@ use std::collections::HashMap;
 
 use crate::settlement_config::FeeConfig;
 
+/// Stake accounts owned by Marinade and DAO that fee claims in the output
+/// settlements are routed to.
 pub struct FeeDepositStakeAccounts {
     pub marinade_active: HashMap<Pubkey, u64>,
     pub marinade_activating: HashMap<Pubkey, u64>,

@@ -56,6 +56,7 @@ pub fn generate_penalty_settlements(
     let bid_fee_percentages = fee_config.fee_percentages();
 
     let mut penalty_settlement_collection = vec![];
+    let fee_deposit = get_fee_deposit_stake_accounts(stake_meta_index, fee_config);
 
     for validator in sam_validator_metas {
         if let Some(grouped_stake_metas) =
@@ -117,8 +118,6 @@ pub fn generate_penalty_settlements(
 
             let mut bond_risk_fee_claims = vec![];
             let mut claimed_bond_risk_fee_amount = 0;
-
-            let fee_deposit = get_fee_deposit_stake_accounts(stake_meta_index, fee_config);
 
             for (&(withdraw_authority, stake_authority), stake_metas) in grouped_stake_metas
                 .iter()
