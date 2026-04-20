@@ -9,6 +9,10 @@ Program ID: `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
 
 ## Build & Test
 
+Rust toolchain is pinned via `rust-toolchain.toml` to `1.88.0` with the `wasm32-unknown-unknown` target (needed for the Anchor program).
+
+**Footgun:** consumer TS packages (e.g. `bonds-eventing`) fail `eslint` with cryptic `"Unsafe … of a value of type error"` diagnostics until the workspace SDK is built, because typescript-eslint falls back to `error` for unresolved `@marinade.finance/validator-bonds-sdk` imports. Run `pnpm --filter @marinade.finance/validator-bonds-sdk build` (or `pnpm -r build`) before `pnpm check` on a fresh checkout.
+
 ```bash
 pnpm install && pnpm build               # TS deps + Anchor program + all TS packages
 cargo build --release                     # all Rust crates
@@ -18,7 +22,7 @@ pnpm check                               # cargo fmt --check + clippy + eslint +
 pnpm fix                                  # auto-fix all
 
 pnpm test:cargo                           # Rust unit tests (fast)
-pnpm test:unit                            # TS sanity-check tests
+pnpm test:unit                            # TS tests for sanity-check + cli-core + bonds-eventing
 pnpm test:bankrun                         # Anchor bankrun (requires anchor build)
 pnpm test:validator                       # Anchor local-validator tests
 cargo test --package bid-distribution     # single crate
@@ -45,7 +49,7 @@ cargo run --release --bin bid-distribution-cli -- \
 
 ### On-chain Program (`programs/validator-bonds/`)
 
-Anchor program: 6 state accounts, ~20 instructions.
+Anchor program: 6 state accounts, 23 active instructions (v1 handlers in `instructions/v1/` are commented out at `lib.rs:194-199`, kept for type exports only).
 
 **States:** Config, Bond (PDA: config+vote_account), BondProduct (PDA: bond+product_type), Settlement (PDA: bond+merkle_root+epoch), SettlementClaims (bitmap dedup), WithdrawRequest (PDA: bond, one per bond).
 
@@ -63,6 +67,7 @@ Anchor program: 6 state accounts, ~20 instructions.
 - **`validator-bonds-cli-institutional`** -- Institutional subset (no admin commands, fixed program ID).
 - **`validator-bonds-sanity-check`** -- `check-merkle-tree`: consistency checks, cross-validation, z-score anomaly detection.
 - **`validator-bonds-codama`** -- Generated Codama SDK (kit 6.x).
+- **`bonds-eventing`** -- Emit bond notification events after bonds collection (consumed by ops/notifications pipeline).
 
 ### Settlement Distributions (`settlement-distributions/`)
 
@@ -109,11 +114,11 @@ Epoch-driven, 15 pipeline files. Schedulers detect new epochs, trigger processin
 
 **Parallel:** `scheduler-institutional` -> `prepare-institutional-distribution` -> merges into merkle tree flow
 
-**Supporting:** `collect-bonds`, `merge-stakes`, `verify-settlements`, `sanity-unified`, `sanity-institutional-distribution`
+**Supporting:** `collect-bonds`, `merge-stakes`, `verify-settlements`, `sanity-unified`, `sanity-institutional-distribution`, `scheduler-merkle-tree`
 
 ## Config & Data
 
-**settlement-config.yaml** -- settlement types, fee splits (marinade_fee_bps: 950, dao_fee_split_share_bps: 10000), whitelist stake authorities, per-type parameters. See SKILL.md for settlement type details.
+**settlement-config.yaml** -- settlement types, fee splits (marinade_fee_bps: 800, dao_fee_split_share_bps: 10000), whitelist stake authorities, per-type parameters. See SKILL.md for settlement type details.
 
 | Source          | Location                                                     |
 | --------------- | ------------------------------------------------------------ |

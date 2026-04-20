@@ -11,15 +11,19 @@ Validators post SOL bonds as collateral to compete for Marinade's delegated stak
 
 ## Settlement Types
 
-| Type                  | Trigger                                 | Funder                                     | Recipient                     |
-| --------------------- | --------------------------------------- | ------------------------------------------ | ----------------------------- |
-| Bidding               | Validator wins auction, owes bid amount | ValidatorBond                              | mSOL stakers                  |
-| BidTooLowPenalty      | Bid below minimum threshold             | ValidatorBond                              | Stakers + Marinade/DAO fee    |
-| BlacklistPenalty      | Blacklisted (sandwich, slow slots)      | ValidatorBond                              | Stakers                       |
-| BondRiskFee           | Bond risk premium (scoring-calculated)  | ValidatorBond                              | Stakers                       |
-| DowntimeRevenueImpact | Fewer credits than expected             | ValidatorBond (0-50%) / Marinade (50-100%) | Stakers                       |
-| CommissionSamIncrease | Commission raised above declared bid    | ValidatorBond                              | Stakers (with markup penalty) |
-| InstitutionalPayout   | Select program APY settlement           | ValidatorBond                              | Institutional stakers         |
+Top-level `SettlementReason` variants (`settlement-common/src/settlement_collection.rs`): `Bidding`, `BidTooLowPenalty`, `BlacklistPenalty`, `BondRiskFee`, `InstitutionalPayout`, and `ProtectedEvent(...)` which wraps a protected-event sub-kind.
+
+| Type                  | SettlementReason          | Trigger                                 | Funder                                     | Recipient                     |
+| --------------------- | ------------------------- | --------------------------------------- | ------------------------------------------ | ----------------------------- |
+| Bidding               | `Bidding`                 | Validator wins auction, owes bid amount | ValidatorBond                              | mSOL stakers                  |
+| BidTooLowPenalty      | `BidTooLowPenalty`        | Bid below minimum threshold             | ValidatorBond                              | Stakers + Marinade/DAO fee    |
+| BlacklistPenalty      | `BlacklistPenalty`        | Blacklisted (sandwich, slow slots)      | ValidatorBond                              | Stakers                       |
+| BondRiskFee           | `BondRiskFee`             | Bond risk premium (scoring-calculated)  | ValidatorBond                              | Stakers                       |
+| DowntimeRevenueImpact | `ProtectedEvent` sub-kind | Fewer credits than expected             | ValidatorBond (0-50%) / Marinade (50-100%) | Stakers                       |
+| CommissionSamIncrease | `ProtectedEvent` sub-kind | Commission raised above declared bid    | ValidatorBond                              | Stakers (with markup penalty) |
+| InstitutionalPayout   | `InstitutionalPayout`     | Select program APY settlement           | ValidatorBond                              | Institutional stakers         |
+
+`ProtectedEvent` (`settlement-common/src/protected_events.rs`) also contains legacy `CommissionIncrease` and `LowCredits` (v1, no longer emitted).
 
 ## Epoch Lifecycle
 

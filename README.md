@@ -13,7 +13,11 @@ Mono repository for Validator Bonds product
 - [`programs/validator-bonds`](./programs/validator-bonds/) - Anchor on-chain contract project
 - [`packages/`](./packages/) - TypeScript packages related to on-chain program
   ([SDK](./packages/validator-bonds-sdk/), [CLI](./packages/validator-bonds-cli/),
-  [Codama](./packages/validator-bonds-codama/), [Sanity Check](./packages/validator-bonds-sanity-check/))
+  [CLI Core](./packages/validator-bonds-cli-core/),
+  [CLI Institutional](./packages/validator-bonds-cli-institutional/),
+  [Codama](./packages/validator-bonds-codama/),
+  [Sanity Check](./packages/validator-bonds-sanity-check/),
+  [Bonds Eventing](./packages/bonds-eventing/))
 - [`api/`](./api/) - in Rust developed OpenAPI service that publishes bonds data ([API endpoint](https://validator-bonds-api.marinade.finance/docs))
 - [`bonds-collector`](./bonds-collector/) - a CLI tool for loading on-chain bond data into a YAML file
 - [`.buildkite/`](./.buildkite/) - automated pipelines that prepare data for bonds claiming, updating API data and similar
