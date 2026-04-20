@@ -20,7 +20,7 @@ pub fn check_vote_account_validator_identity(
     vote_account: &UncheckedAccount,
     expected_validator_identity: &Pubkey,
 ) -> Result<()> {
-    // https://github.com/solana-labs/solana/blob/v1.17.10/sdk/program/src/vote/state/mod.rs#L287
+    // https://github.com/anza-xyz/solana-sdk/blob/vote-interface%40v5.1.1/vote-interface/src/state/vote_state_versions.rs#L18
     let node_pubkey = get_validator_vote_account_validator_identity(vote_account)?;
     require_keys_eq!(
         *expected_validator_identity,
@@ -65,10 +65,10 @@ fn get_from_validator_vote_account(
         error!(ErrorCode::FailedToDeserializeVoteAccount)
             .with_values(("vote_account", vote_account.key()))
     })?;
-    // https://github.com/solana-labs/solana/blob/v1.17.10/sdk/program/src/vote/state/vote_state_versions.rs#L4
-    // as of 1.17.10 the known state versions are: 0, 1, 2
+    // V1-V4: https://github.com/anza-xyz/solana-sdk/blob/master/vote-interface/src/state/vote_state_versions.rs#L18
+    // known state versions are: 0 (V1), 1 (V2), 2 (V3/Current), 3 (V4, SIMD-0185)
     let vote_state_type = u32::from_le_bytes(type_slice);
-    if vote_state_type > 2 {
+    if vote_state_type > 3 {
         msg!(
             "Invalid vote account {} data type: {}",
             vote_account.key,
@@ -79,8 +79,9 @@ fn get_from_validator_vote_account(
     }
 
     // let's find position of the pubkey within the vote state account data
-    // https://github.com/solana-labs/solana/pull/30515
-    // https://github.com/solana-labs/solana/blob/v1.17.10/sdk/program/src/vote/state/mod.rs#L290
+    // V1-V2: https://github.com/solana-labs/solana/blob/v1.17.10/sdk/program/src/vote/state/mod.rs#L290 (deprecated)
+    // V3-V4: https://github.com/anza-xyz/agave/blob/v3.1.9/programs/vote/src/vote_state/handler.rs#L649
+    // V4 (SIMD-0185): node_pubkey at offset 4, authorized_withdrawer at offset 36 (same layout as V3)
     if byte_position < 4 || validator_vote_data.len() < byte_position + 32 {
         msg!(
             "Cannot get {} from vote account {} data",
@@ -828,5 +829,96 @@ mod tests {
         let vote_state_versions = VoteStateVersions::Current(Box::new(vote_state));
         let serialized_data = bincode::serialize(&vote_state_versions).unwrap();
         (vote_init, serialized_data)
+    }
+
+    /// Real V4 (SIMD-0185) vote account data captured from mainnet
+    /// (Chorus6Kis8tFHA7AowrPMcRJk3LbApHTYpgSNXzY5KE)
+    /// Vote state type discriminant: 3
+    pub fn get_vote_account_v4_data() -> (Pubkey, Pubkey, Vec<u8>) {
+        let serialized_data = include_bytes!("fixtures/chorus_v4_vote_account.bin").to_vec();
+
+        let node_pubkey = pubkey!("ChorusmmK7i1AxXeiTtQgQZhQNiXYU84ULeaYF1EH15n");
+        let authorized_withdrawer = pubkey!("JCkod8xUb83ejQ9pLq9tTDrpEQAuiWrcLWX6AS5gp2mp");
+
+        // sanity: discriminant is 3 (V4)
+        assert_eq!(
+            u32::from_le_bytes(serialized_data[0..4].try_into().unwrap()),
+            3
+        );
+        // sanity: expected size
+        assert_eq!(serialized_data.len(), 3762);
+
+        (node_pubkey, authorized_withdrawer, serialized_data)
+    }
+
+    #[test]
+    pub fn vote_account_v4_identity_and_withdrawer_check() {
+        let (node_pubkey, authorized_withdrawer, mut serialized_data) = get_vote_account_v4_data();
+        let mut lamports = 387_379_824_515_u64;
+        let account_key = Pubkey::new_unique();
+        let owner = vote_program_id();
+        let account = AccountInfo::new(
+            &account_key,
+            false,
+            true,
+            &mut lamports,
+            serialized_data.deref_mut(),
+            &owner,
+            false,
+            3,
+        );
+        let unchecked_account = UncheckedAccount::try_from(&account);
+
+        // validator identity is correctly parsed from V4
+        check_vote_account_validator_identity(&unchecked_account, &node_pubkey).unwrap();
+        // wrong identity is rejected
+        assert_eq!(
+            check_vote_account_validator_identity(&unchecked_account, &Pubkey::default()),
+            Err(ErrorCode::VoteAccountValidatorIdentityMismatch.into())
+        );
+
+        // authorized withdrawer is correctly parsed from V4
+        let parsed_withdrawer =
+            get_validator_vote_account_authorized_withdrawer(&unchecked_account).unwrap();
+        assert_eq!(parsed_withdrawer, authorized_withdrawer);
+    }
+
+    #[test]
+    pub fn vote_account_v4_bond_authority_check() {
+        let (node_pubkey, _, mut serialized_data) = get_vote_account_v4_data();
+        let mut lamports = 387_379_824_515_u64;
+        let account_key = Pubkey::new_unique();
+        let owner = vote_program_id();
+        let account = AccountInfo::new(
+            &account_key,
+            false,
+            true,
+            &mut lamports,
+            serialized_data.deref_mut(),
+            &owner,
+            false,
+            3,
+        );
+        let unchecked_account = UncheckedAccount::try_from(&account);
+
+        let bond_authority = Pubkey::new_unique();
+        // bond authority itself is accepted
+        assert!(check_bond_authority(
+            &bond_authority,
+            &test_bond_with_authority(bond_authority),
+            &unchecked_account,
+        ));
+        // validator identity (node_pubkey) from V4 is accepted as authority
+        assert!(check_bond_authority(
+            &node_pubkey,
+            &test_bond_with_authority(bond_authority),
+            &unchecked_account,
+        ));
+        // random key is rejected
+        assert!(!check_bond_authority(
+            &Pubkey::new_unique(),
+            &test_bond_with_authority(bond_authority),
+            &unchecked_account,
+        ));
     }
 }

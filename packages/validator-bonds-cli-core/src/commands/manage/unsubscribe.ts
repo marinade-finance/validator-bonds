@@ -2,23 +2,17 @@ import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import { CliCommandError } from '@marinade.finance/cli-common'
 import {
   createSubscriptionClient,
-  NetworkError,
   unsubscribeMessage,
-} from '@marinade.finance/ts-subscription-client'
+} from '@marinade.finance/notifications-ts-subscription-client'
 import {
   instanceOfWallet,
   parsePubkey,
   parseWalletOrPubkeyOption,
 } from '@marinade.finance/web3js-1x'
-import { Option } from 'commander'
 
-import {
-  NOTIFICATIONS_API_URL_DEFAULT,
-  NOTIFICATIONS_API_URL_ENV,
-  signForSubscription,
-} from './subscribe'
+import { signForSubscription } from './subscribe'
 import { getCliContext } from '../../context'
-import { getBondFromAddress } from '../../utils'
+import { formatHttpError, getBondFromAddress } from '../../utils'
 
 import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 import type { PublicKey } from '@solana/web3.js'
@@ -51,15 +45,6 @@ export function configureUnsubscribe(program: Command): Command {
         '(default: wallet keypair)',
       parseWalletOrPubkeyOption,
     )
-    .addOption(
-      new Option(
-        '--notifications-api-url <url>',
-        'Override notification service URL',
-      )
-        .env(NOTIFICATIONS_API_URL_ENV)
-        .default(NOTIFICATIONS_API_URL_DEFAULT)
-        .hideHelp(),
-    )
 }
 
 export async function manageUnsubscribe({
@@ -68,16 +53,15 @@ export async function manageUnsubscribe({
   authority,
   type,
   channelAddress,
-  notificationsApiUrl,
 }: {
   address: PublicKey
   config: PublicKey
   authority?: WalletInterface | PublicKey
   type: string
   channelAddress?: string
-  notificationsApiUrl: string
 }) {
-  const { program, logger, wallet } = getCliContext()
+  const { program, logger, wallet, notificationsApiUrl, notificationType } =
+    getCliContext()
 
   const bondAccountData = await getBondFromAddress({
     program,
@@ -106,7 +90,7 @@ export async function manageUnsubscribe({
   }
 
   const timestamp = Math.floor(Date.now() / 1000)
-  const messageText = unsubscribeMessage('bonds', type, timestamp)
+  const messageText = unsubscribeMessage(notificationType, type, timestamp)
 
   logger.info(
     `Signing unsubscribe message for bond ${bondPubkey.toBase58()} ` +
@@ -126,7 +110,7 @@ export async function manageUnsubscribe({
     additional_data: Record<string, unknown>
   } = {
     pubkey: signingWallet.publicKey.toBase58(),
-    notification_type: 'bonds',
+    notification_type: notificationType,
     channel: type,
     signature: signatureBase58,
     message: messageText,
@@ -148,11 +132,12 @@ export async function manageUnsubscribe({
   try {
     await client.unsubscribe(request)
   } catch (e) {
-    if (e instanceof NetworkError) {
+    const httpMsg = formatHttpError(e, notificationsApiUrl)
+    if (httpMsg) {
       throw new CliCommandError({
         valueName: 'unsubscribe',
-        value: e.status ? `HTTP ${e.status}` : 'connection error',
-        msg: `Unsubscribe failed: ${e.message}`,
+        value: 'network error',
+        msg: `Unsubscribe failed. ${httpMsg}`,
       })
     }
     throw e

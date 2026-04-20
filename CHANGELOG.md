@@ -10,6 +10,22 @@ All notable changes to this project will be documented in this file. See [standa
 
 ---
 
+## contract release v2.2.1 (2025-04-02)
+
+- address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
+- tag: [`contract-v2.2.1`](https://github.com/marinade-finance/validator-bonds/releases/tag/contract-v2.2.1), commit: [`1989b66`](https://github.com/marinade-finance/validator-bonds/commit/1989b662d235c45961c41fbc9be9b4a86f70fe45),
+- tx: [`6499GiybJMXYDp6DuuJMe1kohrFpZ57YQxvNDfafmVDVpkPhDoAp5qW3PrDYWfkD2xw5Qtcmp7MyFfzkvevf68gg`](https://explorer.solana.com/tx/6499GiybJMXYDp6DuuJMe1kohrFpZ57YQxvNDfafmVDVpkPhDoAp5qW3PrDYWfkD2xw5Qtcmp7MyFfzkvevf68gg)
+- anchor verify command:
+  ```
+  git checkout 1989b66 &&\
+  anchor verify  --provider.cluster mainnet -p validator_bonds \
+    --env "GIT_REV=`git rev-parse --short HEAD`" --env 'GIT_REV_NAME=v2.2.1' vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
+  ```
+
+### Changes
+
+- Fix vote account parsing for vote accounts in V4 based on [SIMD-0185](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0185-vote-account-v4.md)
+
 ## contract release v2.2.0 (2025-12-12)
 
 - address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)

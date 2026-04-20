@@ -1,0 +1,54 @@
+{
+  "name": "@marinade.finance/bonds-eventing",
+  "version": "0.0.1",
+  "description": "Emit bond notification events after bonds collection",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:marinade-finance/validator-bonds.git"
+  },
+  "bin": {
+    "bonds-eventing": "./dist/src/index.js"
+  },
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "private": true,
+  "keywords": [
+    "solana",
+    "marinade.finance",
+    "staking",
+    "delegation"
+  ],
+  "files": [
+    "dist/",
+    "!dist/__tests__",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "pretest": "node -e \"if (process.versions.node.split('.')[0] < 20) { console.error('Node.js 20 or higher is required for running tests (crypto module is in use)'); process.exit(1); }\"",
+    "test": "jest --config jest.config.js --verbose",
+    "cli": "pnpm ts-node ./src/index.ts"
+  },
+  "dependencies": {
+    "@marinade.finance/cli-common": "4.2.5",
+    "@marinade.finance/ds-sam-sdk": "0.0.46",
+    "@marinade.finance/ts-common": "4.2.5",
+    "@marinade.finance/validator-bonds-sdk": "workspace:*",
+    "@marinade.finance/notifications-bonds-event-v1": "1.0.2",
+    "@solana/web3.js": "1.98.4",
+    "commander": "14.0.1",
+    "pino": "9.9.5",
+    "pino-pretty": "13.1.1",
+    "slonik": "37.0.0",
+    "uuid": "^10.0.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.7",
+    "@types/uuid": "^10.0.0",
+    "reflect-metadata": "0.2.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -9,25 +9,25 @@ import {
 import { Command, Option } from 'commander'
 import pino from 'pino'
 
-import { startFetchingAnnouncements } from '../announcements'
-import { printAnnouncementBanners } from '../banner'
+import { printNotificationBanners } from '../banner'
 import { setValidatorBondsCliContext } from '../context'
+import { startFetchingNotificationBanners } from '../notifications'
 import { requireLatestCliVersion } from '../npmRegistry'
 
-import type { AnnouncementsConfig } from '../announcements'
+import type { NotificationsConfig } from '../notifications'
 
 export function launchCliProgram({
   version,
   installAdditionalOptions,
   installSubcommands,
   npmRegistryUrl,
-  announcementsConfig,
+  notificationsConfig,
 }: {
   version: string
   installAdditionalOptions: (program: Command) => void
   installSubcommands: (program: Command) => void
   npmRegistryUrl: string
-  announcementsConfig?: AnnouncementsConfig
+  notificationsConfig?: NotificationsConfig
 }) {
   const logger = pino(pinoConfiguration('info'), pino.destination())
   logger.level = 'debug'
@@ -87,9 +87,12 @@ export function launchCliProgram({
     .option('-v, --verbose', 'alias for --debug', false)
     .addOption(
       new Option(
-        '--announcements-api-url <url>',
-        'Override announcements API URL (for testing)',
-      ).hideHelp(),
+        '--notifications-api-url <url>',
+        'Override notifications API URL',
+      )
+        .env('NOTIFICATIONS_API_URL')
+        .default('https://marinade-notifications.marinade.finance')
+        .hideHelp(),
     )
 
   installAdditionalOptions(program)
@@ -111,15 +114,13 @@ export function launchCliProgram({
     )
     const commandName = action.name()
 
-    if (announcementsConfig?.enabled) {
-      // fetching announcements early but in non-blocking way
-      startFetchingAnnouncements(
+    const notificationsApiUrl = command.opts().notificationsApiUrl as string
+
+    if (notificationsConfig?.enabled) {
+      startFetchingNotificationBanners(
         {
-          cliType: announcementsConfig.cliType,
-          cliVersion: version,
-          apiUrl: command.opts().announcementsApiUrl,
-          operation: commandName,
-          account: action.processedArgs?.[0],
+          notificationType: notificationsConfig.notificationType,
+          apiUrl: notificationsApiUrl,
         },
         logger,
       )
@@ -137,14 +138,16 @@ export function launchCliProgram({
       logger,
       verbose,
       command: commandName,
+      notificationsApiUrl,
+      notificationType: notificationsConfig?.notificationType ?? '',
     })
 
     await requireLatestCliVersion(logger, npmRegistryUrl, version)
   })
 
-  if (announcementsConfig?.enabled) {
+  if (notificationsConfig?.enabled) {
     program.hook('postAction', async () => {
-      await printAnnouncementBanners(logger)
+      await printNotificationBanners(logger)
     })
   }
 

@@ -2,10 +2,8 @@
 
 import 'reflect-metadata'
 
-import {
-  launchCliProgram,
-  CliType,
-} from '@marinade.finance/validator-bonds-cli-core'
+import { NOTIFICATION_TYPE_INSTITUTIONAL_SELECT } from '@marinade.finance/notifications-ts-subscription-client'
+import { launchCliProgram } from '@marinade.finance/validator-bonds-cli-core'
 import { VALIDATOR_BONDS_PROGRAM_ID } from '@marinade.finance/validator-bonds-sdk'
 
 import { installCommands } from './commands'
@@ -14,7 +12,7 @@ export const VALIDATOR_BONDS_NPM_URL =
   'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli-institutional'
 
 launchCliProgram({
-  version: '2.4.0',
+  version: '2.4.3',
   installAdditionalOptions: program => {
     program.setOptionValueWithSource(
       'programId',
@@ -26,8 +24,8 @@ launchCliProgram({
     installCommands(program)
   },
   npmRegistryUrl: VALIDATOR_BONDS_NPM_URL,
-  announcementsConfig: {
+  notificationsConfig: {
     enabled: true,
-    cliType: CliType.Institutional,
+    notificationType: NOTIFICATION_TYPE_INSTITUTIONAL_SELECT,
   },
 })

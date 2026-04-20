@@ -1,24 +1,22 @@
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
-import { CliCommandError, printData } from '@marinade.finance/cli-common'
+import {
+  CliCommandError,
+  FORMAT_TYPE_DEF,
+  printData,
+} from '@marinade.finance/cli-common'
 import {
   createSubscriptionClient,
   listSubscriptionsMessage,
-  NetworkError,
-} from '@marinade.finance/ts-subscription-client'
+} from '@marinade.finance/notifications-ts-subscription-client'
 import {
   instanceOfWallet,
   parsePubkey,
   parseWalletOrPubkeyOption,
 } from '@marinade.finance/web3js-1x'
-import { Option } from 'commander'
 
-import {
-  NOTIFICATIONS_API_URL_DEFAULT,
-  NOTIFICATIONS_API_URL_ENV,
-  signForSubscription,
-} from './subscribe'
+import { signForSubscription } from './subscribe'
 import { getCliContext } from '../../context'
-import { getBondFromAddress } from '../../utils'
+import { formatHttpError, getBondFromAddress } from '../../utils'
 
 import type { FormatType } from '@marinade.finance/cli-common'
 import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
@@ -43,15 +41,10 @@ export function configureSubscriptions(program: Command): Command {
         '(default: wallet keypair)',
       parseWalletOrPubkeyOption,
     )
-    .option('-f, --format <format>', 'Output format: text, yaml, json', 'text')
-    .addOption(
-      new Option(
-        '--notifications-api-url <url>',
-        'Override notification service URL',
-      )
-        .env(NOTIFICATIONS_API_URL_ENV)
-        .default(NOTIFICATIONS_API_URL_DEFAULT)
-        .hideHelp(),
+    .option(
+      `-f, --format <${FORMAT_TYPE_DEF.join('|')}>`,
+      'Format of output',
+      'text',
     )
 }
 
@@ -60,15 +53,14 @@ export async function showSubscriptions({
   config,
   authority,
   format,
-  notificationsApiUrl,
 }: {
   address: PublicKey
   config: PublicKey
   authority?: WalletInterface | PublicKey
   format: FormatType
-  notificationsApiUrl: string
 }) {
-  const { program, logger, wallet } = getCliContext()
+  const { program, logger, wallet, notificationsApiUrl, notificationType } =
+    getCliContext()
 
   const bondAccountData = await getBondFromAddress({
     program,
@@ -77,6 +69,8 @@ export async function showSubscriptions({
     logger,
   })
   const voteAccount = bondAccountData.account.data.voteAccount
+  const configAddress = bondAccountData.account.data.config
+  const bondPubkey = bondAccountData.publicKey
 
   if (authority && !instanceOfWallet(authority)) {
     throw new CliCommandError({
@@ -110,7 +104,12 @@ export async function showSubscriptions({
     const data = await client.listSubscriptions(
       {
         pubkey,
-        notification_type: 'bonds',
+        notification_type: notificationType,
+        additional_data: {
+          config_address: configAddress.toBase58(),
+          vote_account: voteAccount.toBase58(),
+          bond_pubkey: bondPubkey.toBase58(),
+        },
       },
       {
         signature: signatureBase58,
@@ -133,11 +132,12 @@ export async function showSubscriptions({
       format,
     )
   } catch (e) {
-    if (e instanceof NetworkError) {
+    const httpMsg = formatHttpError(e, notificationsApiUrl)
+    if (httpMsg) {
       throw new CliCommandError({
         valueName: 'subscriptions',
-        value: e.status ? `HTTP ${e.status}` : 'connection error',
-        msg: `Failed to fetch subscriptions: ${e.message}`,
+        value: 'network error',
+        msg: `Failed to fetch subscriptions. ${httpMsg}`,
       })
     }
     throw e

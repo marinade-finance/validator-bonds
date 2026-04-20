@@ -26,14 +26,12 @@ export function installSubscribe(program: Command) {
           authority,
           type,
           address: channelAddress,
-          notificationsApiUrl,
           browser,
         }: {
           config?: Promise<PublicKey>
           authority?: Promise<WalletInterface | PublicKey>
           type: string
           address: string
-          notificationsApiUrl: string
           browser: boolean
         },
       ) => {
@@ -43,7 +41,6 @@ export function installSubscribe(program: Command) {
           authority: await authority,
           type,
           channelAddress,
-          notificationsApiUrl,
           browser,
         })
       },

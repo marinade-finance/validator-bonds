@@ -1,6 +1,6 @@
 {
   "name": "@marinade.finance/validator-bonds-cli",
-  "version": "2.4.0",
+  "version": "2.4.3",
   "description": "CLI of the validator bonds contract",
   "repository": {
     "type": "git",
@@ -38,23 +38,24 @@
     "@marinade.finance/validator-bonds-sdk": "workspace: *",
     "@marinade.finance/validator-bonds-cli-core": "workspace: *",
     "@coral-xyz/anchor": "0.31.1",
-    "@marinade.finance/anchor-common": "4.2.4",
-    "@marinade.finance/cli-common": "4.2.4",
-    "@marinade.finance/ts-common": "4.2.4",
-    "@marinade.finance/web3js-1x": "4.2.4",
+    "@marinade.finance/anchor-common": "4.2.5",
+    "@marinade.finance/cli-common": "4.2.5",
+    "@marinade.finance/ts-common": "4.2.5",
+    "@marinade.finance/web3js-1x": "4.2.5",
+    "@marinade.finance/notifications-ts-subscription-client": "1.0.3",
     "@ledgerhq/errors": "6.31.0",
     "@ledgerhq/hw-app-solana": "7.9.0",
     "@ledgerhq/hw-transport-node-hid-noevents": "6.33.0",
     "@marinade.finance/ledger-utils": "3.2.0",
     "@solana/web3.js": "1.98.4",
-    "bn.js": "5.2.2",
+    "bn.js": "5.2.3",
     "bs58": "6.0.0",
     "commander": "14.0.0",
     "jsbi": "4.3.2",
     "pino": "9.7.0",
     "pino-pretty": "13.0.0",
     "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
-    "yaml": "2.8.1"
+    "yaml": "2.8.3"
   },
   "devDependencies": {
     "crypto-js": "4.2.0",
