@@ -1,6 +1,10 @@
 use api::api_docs::ApiDoc;
 use api::context::{Context, WrappedContext};
-use api::handlers::{bonds, cli_announcements, docs, protected_events};
+use api::handlers::{bonds, cli_usage, docs, protected_events};
+use api::rate_limit::{
+    public_routes_limiter, recover_rate_limited, spawn_limiter_gc, with_rate_limit,
+    write_routes_limiter,
+};
 use api::repositories::protected_events::spawn_protected_events_cache;
 use env_logger::Env;
 use log::{error, info};
@@ -66,6 +70,12 @@ async fn main() -> anyhow::Result<()> {
         _ => anyhow::bail!("All GCP parameters must be used together."),
     };
 
+    // Only GET is CORS-allowed here: every browser-facing endpoint is GET.
+    // `/v1/cli-usage` is POST but is called by the CLI (Node/Rust), which is
+    // not subject to CORS — so omitting POST from this list removes the
+    // cross-origin-POST vector without affecting CLI callers. If a future
+    // endpoint needs browser-driven POST, add "POST" back here AND tighten
+    // `.allow_any_origin()` to an explicit origin allowlist.
     let cors = warp::cors()
         .allow_any_origin()
         .allow_headers(vec![
@@ -77,22 +87,39 @@ async fn main() -> anyhow::Result<()> {
             "Access-Control-Request-Method",
             "Access-Control-Request-Headers",
         ])
-        .allow_methods(vec!["POST", "GET"]);
+        .allow_methods(vec!["GET"]);
+
+    // Per-IP rate limiters. State lives in an in-process DashMap per
+    // limiter instance, so both reset on restart. Public reads share one
+    // bucket (generous); the telemetry write endpoint has its own tighter
+    // bucket. See `api::rate_limit` for the policies. `spawn_limiter_gc`
+    // starts the keyed-store eviction task — skipping it leaks memory
+    // linearly in the number of unique observed client IPs.
+    let public_limiter = public_routes_limiter();
+    spawn_limiter_gc(public_limiter.clone());
+    let cli_usage_limiter = write_routes_limiter();
+    spawn_limiter_gc(cli_usage_limiter.clone());
 
     let top_level = warp::path::end()
         .and(warp::get())
+        .and(with_rate_limit(public_limiter.clone()))
         .map(|| "API for Validator Bonds 2.0");
 
     let route_api_docs_oas = warp::path("docs.json")
         .and(warp::get())
+        .and(with_rate_limit(public_limiter.clone()))
         .map(|| warp::reply::json(&<ApiDoc as utoipa::OpenApi>::openapi()));
 
-    let route_api_docs_html = warp::path("docs").and(warp::get()).and_then(docs::handler);
+    let route_api_docs_html = warp::path("docs")
+        .and(warp::get())
+        .and(with_rate_limit(public_limiter.clone()))
+        .and_then(docs::handler);
 
     #[allow(deprecated)] // backwards compatibility
     let route_bonds = warp::path!("bonds")
         .and(warp::path::end())
         .and(warp::get())
+        .and(with_rate_limit(public_limiter.clone()))
         .and(warp::query::<bonds::QueryParams>())
         .and(with_context(context.clone()))
         .and_then(bonds::handler);
@@ -100,6 +127,7 @@ async fn main() -> anyhow::Result<()> {
     let route_bonds_bidding = warp::path!("bonds" / "bidding")
         .and(warp::path::end())
         .and(warp::get())
+        .and(with_rate_limit(public_limiter.clone()))
         .and(warp::query::<bonds::QueryParams>())
         .and(with_context(context.clone()))
         .and_then(bonds::handler_bidding);
@@ -107,6 +135,7 @@ async fn main() -> anyhow::Result<()> {
     let route_bonds_institutional = warp::path!("bonds" / "institutional")
         .and(warp::path::end())
         .and(warp::get())
+        .and(with_rate_limit(public_limiter.clone()))
         .and(warp::query::<bonds::QueryParams>())
         .and(with_context(context.clone()))
         .and_then(bonds::handler_institutional);
@@ -114,16 +143,18 @@ async fn main() -> anyhow::Result<()> {
     let route_protected_events = warp::path!("protected-events")
         .and(warp::path::end())
         .and(warp::get())
+        .and(with_rate_limit(public_limiter))
         .and(warp::query::<protected_events::QueryParams>())
         .and(with_context(context.clone()))
         .and_then(protected_events::handler);
 
-    let route_cli_announcements = warp::path!("v1" / "announcements")
+    let route_cli_usage = warp::path!("v1" / "cli-usage")
         .and(warp::path::end())
-        .and(warp::get())
-        .and(warp::query::<cli_announcements::QueryParams>())
+        .and(warp::post())
+        .and(with_rate_limit(cli_usage_limiter))
+        .and(warp::query::<cli_usage::QueryParams>())
         .and(with_context(context.clone()))
-        .and_then(cli_announcements::handler);
+        .and_then(cli_usage::handler);
 
     let base_routes = top_level
         .or(route_api_docs_oas)
@@ -132,8 +163,7 @@ async fn main() -> anyhow::Result<()> {
         .or(route_bonds_bidding)
         .or(route_bonds_institutional)
         .or(route_protected_events)
-        .or(route_cli_announcements)
-        .with(cors);
+        .or(route_cli_usage);
 
     // Serve compressed responses only when client requests it via Accept-Encoding: gzip header
     let accepts_gzip = warp::header::optional::<String>("accept-encoding")
@@ -149,7 +179,14 @@ async fn main() -> anyhow::Result<()> {
         .and(base_routes.clone())
         .with(warp::filters::compression::gzip());
 
-    let routes = routes_compressed.or(base_routes);
+    // CORS is the outermost wrapper so the 429 produced by
+    // `recover_rate_limited` also carries the Access-Control-* headers —
+    // otherwise a browser that trips the limiter on a GET endpoint sees a
+    // CORS error instead of a readable 429.
+    let routes = routes_compressed
+        .or(base_routes)
+        .recover(recover_rate_limited)
+        .with(cors);
 
     warp::serve(routes).run(([0, 0, 0, 0], params.port)).await;
 

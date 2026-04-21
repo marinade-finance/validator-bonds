@@ -85,6 +85,8 @@ DB table and only emits events when something changes between runs.
 
 This exists in the type enum but is never produced automatically.
 It's meant to be POSTed manually by admins directly to the notifications API.
+See [DEV_GUIDE.md — Publishing a CLI announcement banner](../../DEV_GUIDE.md#publishing-a-cli-announcement-banner)
+for the curl recipe and retraction steps.
 
 ## MISSING / TODO
 

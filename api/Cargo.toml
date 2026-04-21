@@ -16,6 +16,9 @@ anyhow = { workspace = true }
 chrono = { workspace = true }
 env_logger = { workspace = true }
 gcp-bigquery-client = { workspace = true }
+# In-memory per-IP rate limiting. Paired with a warp filter in
+# `rate_limit.rs`; consider `tower-governor` if this API moves to axum.
+governor = "0.6"
 log = { workspace = true }
 merkle-tree = { workspace = true }
 rust_decimal = { workspace = true }
