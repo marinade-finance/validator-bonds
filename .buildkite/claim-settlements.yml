@@ -5,12 +5,21 @@ env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   SLACK_API: https://slack.com/api/chat.postMessage
   command_name: 'claim-settlement'
+  RPC_URL: $WAYPOINT_URL
 
 steps:
   - label: ":closed_lock_with_key: Concurrency gate claim-settlements lock"
     command: echo "--> Start of concurrency gate"
     concurrency_group: 'validator-bonds/claim-settlements-${CLAIM_TYPE}'
     concurrency: 1
+
+  - label: ":mag: DEBUG RPC_URL resolution"
+    commands:
+      - 'echo "WAYPOINT_URL is set? [$${WAYPOINT_URL:+yes}$${WAYPOINT_URL:-no}]"'
+      - 'echo "WAYPOINT_URL length: $${#WAYPOINT_URL}"'
+      - 'echo "raw RPC_URL length:  $${#RPC_URL}"'
+      - 'echo "RPC_URL first 12:    $${RPC_URL:0:12}"'
+      - 'echo "RPC_URL last 8:      $${RPC_URL: -8}"'
 
   - input: "What is the Bonds Config type to claim?"
     fields:
@@ -78,7 +87,6 @@ steps:
   - label: ":campfire: List claimable epochs"
     key: "list-claimable-epochs"
     env:
-      RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,list_claimable_epoch=debug
     commands:
     - . "$HOME/.cargo/env"
@@ -140,7 +148,6 @@ steps:
   - label: ":campfire::arrow_right: Claim settlements"
     key: "claim-settlement"
     env:
-      RPC_URL: "$$RPC_URL"
       RUST_LOG: info,solana_transaction_builder_executor=debug,solana_transaction_builder=debug,builder_executor=debug,solana_transaction_executor=debug,settlement_pipelines=debug,claim_settlement=debug
       # RUST_BACKTRACE: full
     commands:
