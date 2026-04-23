@@ -38,7 +38,7 @@ gcp-bigquery-client = "0.17.1"
 hex = "0.4.3"
 log = "0.4.14"
 merkle-tree = { path = "./merkle-tree" }
-openssl = "0.10.72"
+openssl = "0.10.78"
 postgres-openssl = "0.5.1"
 regex = "1.10.4"
 reqwest = "0.11.22"
