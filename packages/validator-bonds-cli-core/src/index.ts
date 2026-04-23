@@ -1,5 +1,6 @@
 export * from './notifications'
 export * from './banner'
+export * from './cliUsage'
 export * from './commands'
 export * from './computeUnits'
 export * from './context'

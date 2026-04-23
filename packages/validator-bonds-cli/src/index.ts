@@ -13,7 +13,7 @@ export const VALIDATOR_BONDS_NPM_URL =
   'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli'
 
 launchCliProgram({
-  version: '2.4.3',
+  version: '2.4.4',
   installAdditionalOptions: program => {
     program.option(
       '--program-id <pubkey>',
@@ -29,5 +29,9 @@ launchCliProgram({
   notificationsConfig: {
     enabled: true,
     notificationType: NOTIFICATION_TYPE_SAM_AUCTION,
+  },
+  cliUsageConfig: {
+    enabled: true,
+    cliType: 'sam',
   },
 })

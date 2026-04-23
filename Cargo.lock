@@ -481,6 +481,7 @@ dependencies = [
  "chrono",
  "env_logger 0.10.2",
  "gcp-bigquery-client",
+ "governor",
  "log",
  "merkle-tree",
  "openssl",

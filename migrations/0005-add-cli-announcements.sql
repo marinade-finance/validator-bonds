@@ -1,6 +1,15 @@
+-- DEPRECATION NOTE (PR #376, 2026-04-07):
+-- The `cli_announcements` table and the `/v1/announcements` endpoint are deprecated.
+-- CLI banners are now served by marinade-notifications (broadcast notifications).
+-- The table is kept for historical data only; no new rows should be written to it.
+--
+-- The `cli_usage` table below is still in use — it is now written by a dedicated
+-- `/v1/cli-usage` endpoint that the CLI calls on every command invocation.
+
 CREATE TYPE cli_type AS ENUM ('sam', 'institutional');
 
--- Used by validator-bonds CLI to display announcements to users
+-- DEPRECATED: no longer read by the CLI (replaced by marinade-notifications).
+-- Historical data retained; no new rows should be inserted.
 CREATE TABLE cli_announcements (
     id BIGSERIAL NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
@@ -23,11 +32,13 @@ CREATE TABLE cli_announcements (
 ALTER TABLE cli_announcements ADD CONSTRAINT group_order_unique UNIQUE (group_id, group_order);
 COMMENT ON TABLE cli_announcements IS 'Dynamic announcements displayed to CLI users as banners';
 
--- Records each time a validator uses the CLI (via announcements endpoint)
+-- Records each time a validator uses the CLI (written by /v1/cli-usage).
 CREATE TABLE cli_usage (
     id BIGSERIAL NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    -- account: bond account or vote account address used in the CLI operation
+    -- account: best-effort capture of the CLI command's first positional
+    -- pubkey argument. May be NULL when the target is passed as an option,
+    -- and the account type varies by command (bond, vote, stake, config, ...).
     account TEXT,
     operation TEXT,
     cli_version TEXT,

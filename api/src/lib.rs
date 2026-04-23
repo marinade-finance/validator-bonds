@@ -3,4 +3,5 @@ pub mod context;
 pub mod dto;
 pub mod error;
 pub mod handlers;
+pub mod rate_limit;
 pub mod repositories;
