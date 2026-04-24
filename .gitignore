@@ -40,6 +40,7 @@ fuzzing/
 
 # Local
 *.local.json
+*.lock
 
 # Testing
 regression-data*
