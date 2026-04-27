@@ -1311,3 +1311,52 @@ Commands:
   **Solution:**
 
   Use the `-k <keypair-path>` parameter to specify a keypair wallet that has sufficient lamports to pay the transaction fee.
+
+- **NPM registry fetch timed out after 1000ms** (or similar fetch timeout when installing the `@marinade.finance/validator-bonds-cli` package).
+  <a id='troubleshooting-npm-fetch-timeout'></a>
+
+  The npm CLI failed to download the package within the configured fetch timeout.
+  The default npm fetch timeout is 5 minutes, so a very low value (e.g. `1000ms`) is likely set explicitly
+  somewhere. Other common causes include a slow or unstable network, a corporate proxy or firewall,
+  a corrupted npm cache, stale DNS entries, or a registry outage.
+
+  **Investigation steps:**
+  1. **Check if the npm registry is up.** Visit the [npm status page](https://status.npmjs.org/)
+     and confirm "Registry" and "CDN" are operational. You can also test reachability directly:
+
+     ```bash
+     curl -v $(npm config get registry)
+     ```
+
+  2. **Check your npm configuration** for a low timeout, custom registry, or proxy settings:
+
+     ```bash
+     npm config get fetch-timeout
+     npm config get registry
+     npm config list
+     ```
+
+     Also inspect any `.npmrc` file (in the project root, `$HOME/.npmrc`, or `/etc/npmrc`) and the `NPM_CONFIG_FETCH_TIMEOUT` environment variable.
+
+  3. **Run the install with verbose logging** to see exactly where it fails:
+
+     ```bash
+     npm install @marinade.finance/validator-bonds-cli --verbose
+     ```
+
+  4. **Clear a potentially corrupted cache:**
+
+     ```bash
+     npm cache clean --force
+     ```
+
+  **Solution:**
+
+  Increase the timeout for a single command:
+
+  ```bash
+  npm install @marinade.finance/validator-bonds-cli --fetch-timeout=300000
+
+  # or persist for future installs
+  npm config set fetch-timeout 300000
+  ```
