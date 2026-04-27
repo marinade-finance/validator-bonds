@@ -104,7 +104,7 @@ describe('CLI Notification Banners', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stdout: /This is a test announcement message/,
+      stderr: /This is a test announcement message/,
     })
   })
 
@@ -190,7 +190,7 @@ describe('CLI Notification Banners', () => {
       ]).toHaveMatchingSpawnOutput({
         code: 0,
         signal: '',
-        stdout: /First message[\s\S]*Second message without title/,
+        stderr: /First message[\s\S]*Second message without title/,
       })
     } finally {
       await multiServer.stop()
