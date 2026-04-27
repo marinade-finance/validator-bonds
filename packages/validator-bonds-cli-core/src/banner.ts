@@ -37,7 +37,7 @@ export async function printNotificationBanners(
       }),
     )
     const surrounding = '\n'.repeat(linesAround)
-    console.log(`${surrounding}${banners.join('\n')}${surrounding}`)
+    console.error(`${surrounding}${banners.join('\n')}${surrounding}`)
   } catch (error) {
     logger?.debug(
       `Failed to print notification banners: ${error instanceof Error ? error.message : String(error)}`,
