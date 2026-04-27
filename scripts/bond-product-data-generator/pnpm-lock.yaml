@@ -116,8 +116,8 @@ packages:
   '@ledgerhq/hw-transport@6.31.13':
     resolution: {integrity: sha512-MrJRDk74wY980ofiFPRpTHQBbRw1wDuKbdag1zqlO1xtJglymwwY03K2kvBNvkm1RTSCPUp/nAoNG+WThZuuew==}
 
-  '@ledgerhq/logs@6.16.0':
-    resolution: {integrity: sha512-v/PLfb1dq1En35kkpbfRWp8jLYgbPUXxGhmd4pmvPSIe0nRGkNTomsZASmWQAv6pRonVGqHIBVlte7j1MBbOww==}
+  '@ledgerhq/logs@6.17.0':
+    resolution: {integrity: sha512-yra33g5q/AU7+PwAws+GaVpQGUuxnDREjVBnviJjcaJLVKuLzI4pnj8Bd3nY3fypM5k1yZEYKEXfUuGFUjP2+w==}
 
   '@marinade.finance/directed-stake-sdk@0.1.0':
     resolution: {integrity: sha512-jpdz5XYMa/5tTe5W2isUWT8P38X49KeFNrqYlzPouhYPxqjdt4a/aSzuMqhP5s1xILFxRmqpZIv02iYeH0xjiA==}
@@ -543,8 +543,8 @@ packages:
   json-stringify-safe@5.0.1:
     resolution: {integrity: sha512-ZClg6AaYvamvYEE82d3Iyd3vSSIjQ+odgjaTzRuO3s7toCdFKczob2i0zCh7JE8kWn17yvAWhUVxvqGwUalsRA==}
 
-  libphonenumber-js@1.12.41:
-    resolution: {integrity: sha512-lsmMmGXBxXIK/VMLEj0kL6MtUs1kBGj1nTCzi6zgQoG1DEwqwt2DQyHxcLykceIxAnfE3hya7NuIh6PpC6S3fA==}
+  libphonenumber-js@1.12.42:
+    resolution: {integrity: sha512-oKQFPTibqQwZZkChCDVMFVJXMZdyJNqDWZWYNn8BgyAaK/6yFJEowxCY0RVFirRyWP63hMRuKlkSEd9qlvbWXg==}
 
   lower-case@2.0.2:
     resolution: {integrity: sha512-7fm3l3NAF9WfN6W3JOmf5drwpVqX78JtoGJ3A6W0a6ZnldM41w2fV5D490psKFTpMds8TJse/eHLFFsNHHjHgg==}
@@ -720,8 +720,8 @@ packages:
   v8-compile-cache-lib@3.0.1:
     resolution: {integrity: sha512-wa7YjyUGfNZngI/vtK0UHAN+lgDCxBPCylVXGp0zu59Fz5aiGtNXaq3DhIov063MorB+VfufLh3JlF2KdTK3xg==}
 
-  validator@13.15.26:
-    resolution: {integrity: sha512-spH26xU080ydGggxRyR1Yhcbgx+j3y5jbNXk/8L+iRvdIEQ4uTRH2Sgf2dokud6Q4oAtsbNvJ1Ft+9xmm6IZcA==}
+  validator@13.15.35:
+    resolution: {integrity: sha512-TQ5pAGhd5whStmqWvYF4OjQROlmv9SMFVt37qoCBdqRffuuklWYQlCNnEs2ZaIBD1kZRNnikiZOS1eqgkar0iw==}
     engines: {node: '>= 0.10'}
 
   webidl-conversions@3.0.1:
@@ -875,7 +875,7 @@ snapshots:
   '@ledgerhq/devices@8.7.0':
     dependencies:
       '@ledgerhq/errors': 6.27.0
-      '@ledgerhq/logs': 6.16.0
+      '@ledgerhq/logs': 6.17.0
       rxjs: 7.8.2
       semver: 7.7.4
 
@@ -892,17 +892,17 @@ snapshots:
       '@ledgerhq/devices': 8.7.0
       '@ledgerhq/errors': 6.27.0
       '@ledgerhq/hw-transport': 6.31.13
-      '@ledgerhq/logs': 6.16.0
+      '@ledgerhq/logs': 6.17.0
       node-hid: 2.1.2
 
   '@ledgerhq/hw-transport@6.31.13':
     dependencies:
       '@ledgerhq/devices': 8.7.0
       '@ledgerhq/errors': 6.27.0
-      '@ledgerhq/logs': 6.16.0
+      '@ledgerhq/logs': 6.17.0
       events: 3.3.0
 
-  '@ledgerhq/logs@6.16.0': {}
+  '@ledgerhq/logs@6.17.0': {}
 
   '@marinade.finance/directed-stake-sdk@0.1.0(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10))(bn.js@5.2.2)(bufferutil@4.0.9)(jsbi@4.3.2)(typescript@5.9.3)(utf-8-validate@5.0.10)':
     dependencies:
@@ -1289,8 +1289,8 @@ snapshots:
   class-validator@0.14.2:
     dependencies:
       '@types/validator': 13.15.10
-      libphonenumber-js: 1.12.41
-      validator: 13.15.26
+      libphonenumber-js: 1.12.42
+      validator: 13.15.35
 
   commander@12.1.0: {}
 
@@ -1399,7 +1399,7 @@ snapshots:
 
   json-stringify-safe@5.0.1: {}
 
-  libphonenumber-js@1.12.41: {}
+  libphonenumber-js@1.12.42: {}
 
   lower-case@2.0.2:
     dependencies:
@@ -1590,7 +1590,7 @@ snapshots:
 
   v8-compile-cache-lib@3.0.1: {}
 
-  validator@13.15.26: {}
+  validator@13.15.35: {}
 
   webidl-conversions@3.0.1: {}
 
