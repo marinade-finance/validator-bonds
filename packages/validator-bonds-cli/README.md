@@ -1312,7 +1312,7 @@ Commands:
 
   Use the `-k <keypair-path>` parameter to specify a keypair wallet that has sufficient lamports to pay the transaction fee.
 
-- **NPM registry fetch timed out after 1000ms** (or similar fetch timeout when installing `validator-bonds`).
+- **NPM registry fetch timed out after 1000ms** (or similar fetch timeout when installing the `@marinade.finance/validator-bonds-cli` package).
   <a id='troubleshooting-npm-fetch-timeout'></a>
 
   The npm CLI failed to download the package within the configured fetch timeout.
