@@ -1041,7 +1041,7 @@ fn create_test_fee_config(max_fee_bps: u64, dao_fee_split_share_bps: u64) -> Fee
             withdraw_authority: TEST_PUBKEY_DAO,
         },
         min_fee_bps: 0,
-        apy_over_ssi_pmpe: Decimal::ZERO,
+        min_yield_premium_over_ssi_pmpe: Decimal::ZERO,
     }
 }
 
@@ -1845,7 +1845,7 @@ fn test_settlement_config_yaml_deserialization() {
 // → staker_yield_pmpe = 20, static_bid_claim = 20 SOL = settlement_claim.sum()
 // → effective_fee drives marinade_fee_claim = 20 SOL * effective_fee (dao_split=0)
 
-fn ssi_fee_config(max_fee_bps: u64, min_fee_bps: u64, apy_over_ssi: f64) -> FeeConfig {
+fn ssi_fee_config(max_fee_bps: u64, min_fee_bps: u64, min_yield_premium: f64) -> FeeConfig {
     FeeConfig {
         max_fee_bps,
         marinade: AuthorityConfig {
@@ -1858,7 +1858,7 @@ fn ssi_fee_config(max_fee_bps: u64, min_fee_bps: u64, apy_over_ssi: f64) -> FeeC
             withdraw_authority: TEST_PUBKEY_DAO,
         },
         min_fee_bps,
-        apy_over_ssi_pmpe: Decimal::try_from(apy_over_ssi).unwrap(),
+        min_yield_premium_over_ssi_pmpe: Decimal::try_from(min_yield_premium).unwrap(),
     }
 }
 

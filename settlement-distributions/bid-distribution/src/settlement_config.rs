@@ -51,7 +51,7 @@ pub struct FeeConfig {
     #[serde(default)]
     pub min_fee_bps: u64,
     #[serde(default)]
-    pub apy_over_ssi_pmpe: Decimal,
+    pub min_yield_premium_over_ssi_pmpe: Decimal,
 }
 
 impl FeeConfig {
