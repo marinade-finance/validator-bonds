@@ -48,8 +48,10 @@ pub struct FeeConfig {
     pub max_fee_bps: u64,
     pub marinade: AuthorityConfig,
     pub dao: DaoConfig,
+    /// Minimum fee floor in basis points; fee is never reduced below this
     #[serde(default)]
     pub min_fee_bps: u64,
+    /// target = SSI + apy_over_ssi_pmpe.
     #[serde(default)]
     pub apy_over_ssi_pmpe: Decimal,
 }
