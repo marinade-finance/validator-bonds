@@ -16,6 +16,10 @@ DB table and only emits events when something changes between runs.
 - State is saved per validator. If a validator's event fails to POST, only that validator's state save is skipped (so its delta is retried on next run). Other validators whose events succeeded get their state saved normally.
 - The state snapshot stored per validator is always the same shape (balance, auction status, bondGoodForNEpochs, cap constraint, SAM eligibility) regardless of which event fires. Events are derived from comparing the previous and current snapshots — the event type is orthogonal to the stored state.
 
+#### Engineering Todo
+
+- **Outbox cleanup**: The `notifications_outbox` table in `marinade-notifications` accumulates rows unconditionally (even for events with no subscribers). A periodic cleanup job should be implemented to delete expired rows where `relevance_until < now()` or `deactivated_at IS NOT NULL`.
+
 ## Event types
 
 ### Events emitted automatically
@@ -88,6 +92,27 @@ It's meant to be POSTed manually by admins directly to the notifications API.
 See [DEV_GUIDE.md — Publishing a CLI announcement banner](../../DEV_GUIDE.md#publishing-a-cli-announcement-banner)
 for the curl recipe and retraction steps.
 
-## MISSING / TODO
+## Troubleshooting
 
-- **Outbox cleanup**: The `notifications_outbox` table in `marinade-notifications` accumulates rows unconditionally (even for events with no subscribers). A periodic cleanup job should be implemented to delete expired rows where `relevance_until < now()` or `deactivated_at IS NOT NULL`.
+- **`Validator X is predicted to incur a bond risk fee Y SOL this epoch.`**<a id='troubleshooting-bond-risk-fee'></a>
+
+  Example body emitted by the `penalty_expected` event:
+
+  ```
+  Validator 8szGkuLTAux9XMgZ2vtY39jVSowEcpBfFfD8hXSEqdGC is predicted to
+  incur a bond risk fee 23.7997 SOL this epoch.
+  ```
+
+  **Meaning.** When this event fires, two things happen in settlement:
+  1. A portion of the validator's Marinade stake gets undelegated — stake moves away from the validator this epoch.
+  2. A fee (the amount shown, e.g. 23.8 SOL) is debited from the bond and given to stakers as compensation for the cost of moving that stake.
+
+  This is not a punishment. It is _risk compensation_ — stakers had been trusting the bond to cover risk, the bond got too thin, so the protocol rebalances: move stake to a properly-bonded validator and charge the under-bonded one for the disruption. See the [Bond Risk Reduction Mechanism](https://docs.marinade.finance/marinade-protocol/protocol-overview/stake-auction-market/bond-risk-reduction-mechanism) docs for the full formula and configuration.
+
+  The fee triggered because the bond dropped below **5 epochs of coverage** for the validator's current Marinade stake allocation.
+
+  **Solution:**
+  1. **Top up the bond.** The target is **≥ 13 epochs** of coverage — this keeps the validator both fee-safe and eligible to receive new stake from the auction. Rule of thumb: _maintain a bond that covers your own bid for 13 epochs across the current stake allocation._ Because `expectedMaxEffBidPmpe` in the auction formula can never exceed the validator's own bid, bonding for the validator's own bid is always sufficient.
+  2. Monitor bond coverage on the [PSR Dashboard](https://psr.marinade.finance/) and Subscribe to [Bond Notifications](https://docs.marinade.finance/marinade-protocol/protocol-overview/stake-auction-market/bond-notifications)
+
+  Related field in the SAM auction output: `bondGoodForNEpochs` is the same signal on a shifted scale — `0` is the fee threshold, negative means a fee is due this epoch, positive is headroom.
