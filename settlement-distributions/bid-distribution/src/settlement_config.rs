@@ -112,7 +112,7 @@ pub struct SamSettlementConfig {
 }
 
 /// SAM settlement type variants
-#[derive(Clone, Deserialize, Serialize, Debug)]
+#[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
 #[serde(tag = "type")]
 pub enum SamSettlementKind {
     /// SAM Bidding - rewards from auction participation
@@ -205,35 +205,29 @@ impl BidDistributionConfig {
             .collect()
     }
 
+    fn find_sam(&self, kind: SamSettlementKind) -> Option<&SettlementConfig> {
+        self.settlements
+            .iter()
+            .find(|c| c.to_sam_config().is_some_and(|s| s.kind == kind))
+    }
+
     /// Find the Bidding config (for SAM bid settlements)
     pub fn bidding_config(&self) -> Option<&SettlementConfig> {
-        self.settlements.iter().find(|c| {
-            c.to_sam_config()
-                .is_some_and(|s| matches!(s.kind, SamSettlementKind::Bidding))
-        })
+        self.find_sam(SamSettlementKind::Bidding)
     }
 
     /// Find the BidTooLowPenalty config (for SAM penalty settlements)
     pub fn bid_too_low_penalty_config(&self) -> Option<&SettlementConfig> {
-        self.settlements.iter().find(|c| {
-            c.to_sam_config()
-                .is_some_and(|s| matches!(s.kind, SamSettlementKind::BidTooLowPenalty))
-        })
+        self.find_sam(SamSettlementKind::BidTooLowPenalty)
     }
 
     /// Find the BlacklistPenalty config (for SAM penalty settlements)
     pub fn blacklist_penalty_config(&self) -> Option<&SettlementConfig> {
-        self.settlements.iter().find(|c| {
-            c.to_sam_config()
-                .is_some_and(|s| matches!(s.kind, SamSettlementKind::BlacklistPenalty))
-        })
+        self.find_sam(SamSettlementKind::BlacklistPenalty)
     }
 
     /// Find the BondRiskFee config (for SAM bond risk fee settlements)
     pub fn bond_risk_fee_config(&self) -> Option<&SettlementConfig> {
-        self.settlements.iter().find(|c| {
-            c.to_sam_config()
-                .is_some_and(|s| matches!(s.kind, SamSettlementKind::BondRiskFee))
-        })
+        self.find_sam(SamSettlementKind::BondRiskFee)
     }
 }
