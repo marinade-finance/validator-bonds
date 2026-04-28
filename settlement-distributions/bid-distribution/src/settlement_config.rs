@@ -48,6 +48,7 @@ pub struct DaoConfig {
 /// Shared fee configuration for SAM settlement types (Bidding, BidTooLowPenalty)
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct FeeConfig {
+    #[serde(alias = "marinade_fee_bps")]
     pub max_fee_bps: u64,
     pub marinade: AuthorityConfig,
     pub dao: DaoConfig,
