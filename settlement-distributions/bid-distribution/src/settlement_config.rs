@@ -10,8 +10,11 @@ use solana_sdk::pubkey::Pubkey;
 /// Fee percentages calculated from basis points
 #[derive(Debug, Clone, Copy, Default)]
 pub struct FeePercentages {
+    /// Marinade distributor max fee as a decimal percentage (e.g., 0.095 for 9.5%)
     pub max_fee: Decimal,
+    /// DAO fee share as a decimal percentage (e.g., 0.05 for 5%)
     pub dao_fee_share: Decimal,
+    /// Marinade distributor min fee as a decimal percentage (e.g., 0.01 for 1%)
     pub min_fee: Decimal,
 }
 
