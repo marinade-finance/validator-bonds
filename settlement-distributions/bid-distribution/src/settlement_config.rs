@@ -205,32 +205,35 @@ impl BidDistributionConfig {
             .collect()
     }
 
-    fn find_sam_kind(
-        &self,
-        pred: impl Fn(&SamSettlementKind) -> bool,
-    ) -> Option<&SettlementConfig> {
-        self.settlements
-            .iter()
-            .find(|c| c.to_sam_config().is_some_and(|s| pred(&s.kind)))
-    }
-
     /// Find the Bidding config (for SAM bid settlements)
     pub fn bidding_config(&self) -> Option<&SettlementConfig> {
-        self.find_sam_kind(|k| matches!(k, SamSettlementKind::Bidding))
+        self.settlements.iter().find(|c| {
+            c.to_sam_config()
+                .is_some_and(|s| matches!(s.kind, SamSettlementKind::Bidding))
+        })
     }
 
     /// Find the BidTooLowPenalty config (for SAM penalty settlements)
     pub fn bid_too_low_penalty_config(&self) -> Option<&SettlementConfig> {
-        self.find_sam_kind(|k| matches!(k, SamSettlementKind::BidTooLowPenalty))
+        self.settlements.iter().find(|c| {
+            c.to_sam_config()
+                .is_some_and(|s| matches!(s.kind, SamSettlementKind::BidTooLowPenalty))
+        })
     }
 
     /// Find the BlacklistPenalty config (for SAM penalty settlements)
     pub fn blacklist_penalty_config(&self) -> Option<&SettlementConfig> {
-        self.find_sam_kind(|k| matches!(k, SamSettlementKind::BlacklistPenalty))
+        self.settlements.iter().find(|c| {
+            c.to_sam_config()
+                .is_some_and(|s| matches!(s.kind, SamSettlementKind::BlacklistPenalty))
+        })
     }
 
     /// Find the BondRiskFee config (for SAM bond risk fee settlements)
     pub fn bond_risk_fee_config(&self) -> Option<&SettlementConfig> {
-        self.find_sam_kind(|k| matches!(k, SamSettlementKind::BondRiskFee))
+        self.settlements.iter().find(|c| {
+            c.to_sam_config()
+                .is_some_and(|s| matches!(s.kind, SamSettlementKind::BondRiskFee))
+        })
     }
 }
