@@ -159,13 +159,16 @@ fn main() -> anyhow::Result<()> {
 
         let ssi_pmpe = sam_validator_metas
             .first()
-            .map(|m| m.ssi_pmpe)
-            .ok_or_else(|| anyhow::anyhow!("SAM meta collection is empty; cannot read ssi_pmpe"))?;
+            .ok_or_else(|| anyhow::anyhow!("SAM meta collection is empty"))?
+            .ssi_pmpe;
         anyhow::ensure!(
             sam_validator_metas.iter().all(|m| m.ssi_pmpe == ssi_pmpe),
             "Inconsistent ssi_pmpe across SAM meta entries"
         );
-        info!("SSI: {ssi_pmpe} pmpe (from sam-meta-collection)");
+        match ssi_pmpe {
+            Some(v) => info!("SSI: {v} pmpe (from sam-meta-collection)"),
+            None => info!("SSI: not provided in sam-meta; fee correction disabled"),
+        }
 
         // Epoch consistency verification
         let rewards_epoch = rewards_collection.epoch;

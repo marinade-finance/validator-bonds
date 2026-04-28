@@ -103,7 +103,7 @@ fn test_generate_bid_settlements_basic_single_validator() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Decimal::ZERO,
+        Some(Decimal::ZERO),
     )
     .unwrap();
 
@@ -204,7 +204,7 @@ fn test_generate_bid_settlements_positive_commission() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Decimal::ZERO,
+        Some(Decimal::ZERO),
     )
     .unwrap();
 
@@ -343,7 +343,7 @@ fn test_generate_bid_settlements_negative_commission() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Decimal::ZERO,
+        Some(Decimal::ZERO),
     )
     .unwrap();
 
@@ -532,7 +532,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Decimal::ZERO,
+        Some(Decimal::ZERO),
     )
     .unwrap();
 
@@ -543,7 +543,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Decimal::ZERO,
+        Some(Decimal::ZERO),
     )
     .unwrap();
 
@@ -554,7 +554,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Decimal::ZERO,
+        Some(Decimal::ZERO),
     )
     .unwrap();
 
@@ -816,7 +816,7 @@ fn test_zero_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Decimal::ZERO,
+        Some(Decimal::ZERO),
     )
     .unwrap();
 
@@ -1013,7 +1013,7 @@ impl SamMetaParams {
             metadata: SamMetadata::default(),
             scoring_run_id: 0,
             values: self.values,
-            ssi_pmpe: Decimal::ZERO,
+            ssi_pmpe: Some(Decimal::ZERO),
         }
     }
 }
@@ -1251,7 +1251,7 @@ fn test_generate_settlements_from_json_values() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Decimal::ZERO,
+        Some(Decimal::ZERO),
     )
     .unwrap();
 
@@ -1900,7 +1900,7 @@ fn run_ssi_test(ssi_pmpe: f64, fee_config: FeeConfig) -> Vec<Settlement> {
         &create_test_settlement_config(),
         &fee_config,
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        Decimal::try_from(ssi_pmpe).unwrap(),
+        Some(Decimal::try_from(ssi_pmpe).unwrap()),
     )
     .unwrap()
 }
