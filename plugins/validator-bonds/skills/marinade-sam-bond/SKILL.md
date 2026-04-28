@@ -1,6 +1,6 @@
 ---
 name: marinade-sam-bond
-description: Marinade Validator Bonds protocol and CLI. Stake auction, bond collateral, PSR protection, settlement lifecycle, SAM bidding. Triggers on bond, validator, CLI, show-bond, fund-bond, withdraw, cpmpe, settlement, SAM, PSR, auction, delegation.
+description: Marinade Validator Bonds protocol domain knowledge. TRIGGER when working in the validator-bonds repo, or when the user mentions CPMPE, PSR, SAM auction, ValidatorBond, Settlement/SettlementReason, ProtectedEvent, bid-distribution, merkle settlement, BidTooLowPenalty, BlacklistPenalty, BondRiskFee, InstitutionalPayout, fund_bond, withdraw_request, or mSOL stakers. TRIGGER on file paths under programs/validator-bonds/, settlement-distributions/, settlement-pipelines/, packages/validator-bonds-*, or settlement-config.yaml. SKIP for unrelated Solana/Marinade work (liquid staking, general validator ops).
 ---
 
 # Validator Bonds Protocol Context
