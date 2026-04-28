@@ -1,6 +1,6 @@
 use crate::sam_meta::ValidatorSamMeta;
 use crate::settlement_config::{FeeConfig, SettlementConfig};
-use anyhow::{anyhow, ensure};
+use anyhow::{anyhow, ensure, Context};
 use log::info;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
@@ -319,7 +319,7 @@ pub fn generate_penalty_settlements(
                     stakers_bond_risk_fee_claim,
                 };
                 let details_json = serde_json::to_value(&bond_risk_fee_details)
-                    .expect("Failed to serialize BondRiskFeeDetails");
+                    .context("Failed to serialize BondRiskFeeDetails")?;
 
                 add_to_settlement_collection(
                     &mut penalty_settlement_collection,

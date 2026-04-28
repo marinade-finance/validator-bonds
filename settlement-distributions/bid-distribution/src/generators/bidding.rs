@@ -298,10 +298,7 @@ pub fn generate_bid_settlements(
                     / Decimal::from(total_marinade_active_stake)
                     * Decimal::ONE_THOUSAND;
                 let fee_cap = (Decimal::ONE - target / staker_yield_pmpe).max(Decimal::ZERO);
-                fee_percentages
-                    .max_fee
-                    .min(fee_cap)
-                    .max(fee_percentages.min_fee)
+                fee_cap.clamp(fee_percentages.min_fee, fee_percentages.max_fee)
             } else {
                 fee_percentages.max_fee
             };

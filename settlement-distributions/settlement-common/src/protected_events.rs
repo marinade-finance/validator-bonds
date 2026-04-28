@@ -1,6 +1,7 @@
 use crate::revenue_expectation_meta::{RevenueExpectationMeta, RevenueExpectationMetaCollection};
 use crate::settlement_config::SettlementConfig;
 use crate::utils::bps_decimal;
+use anyhow::Context;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -130,7 +131,11 @@ impl ProtectedEvent {
         }
     }
 
-    pub fn claim_amount_in_loss_range(&self, cfg: &SettlementConfig, stake: u64) -> u64 {
+    pub fn claim_amount_in_loss_range(
+        &self,
+        cfg: &SettlementConfig,
+        stake: u64,
+    ) -> anyhow::Result<u64> {
         let range_bps = cfg.kind.covered_range_bps();
         let lower_bps = range_bps[0];
         let upper_bps = range_bps[1];
@@ -140,10 +145,10 @@ impl ProtectedEvent {
         let claim_per_stake =
             self.claim_per_stake(cfg).min(max_claim_per_stake) - ignored_claim_per_stake;
 
-        (Decimal::from(stake) * claim_per_stake)
-            .max(Decimal::ZERO)
-            .to_u64()
-            .expect("claim_amount_in_loss_range: cannot convert to u64")
+        let amount = (Decimal::from(stake) * claim_per_stake).max(Decimal::ZERO);
+        amount.to_u64().with_context(|| {
+            format!("claim_amount_in_loss_range: cannot convert {amount} to u64 (stake={stake})")
+        })
     }
 }
 

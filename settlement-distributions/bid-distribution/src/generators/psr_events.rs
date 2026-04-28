@@ -85,7 +85,7 @@ fn generate_psr_settlements_for_config(
                 let active_stake = stake_accounts.values().sum();
 
                 let claim_amount =
-                    protected_event.claim_amount_in_loss_range(settlement_config, active_stake);
+                    protected_event.claim_amount_in_loss_range(settlement_config, active_stake)?;
 
                 if active_stake > 0 && claim_amount > 0 {
                     claims.push(SettlementClaim {
