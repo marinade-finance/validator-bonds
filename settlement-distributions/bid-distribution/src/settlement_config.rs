@@ -77,6 +77,12 @@ impl FeeConfig {
             "min_fee_bps {} exceeds maximum 10000 (100%)",
             self.min_fee_bps
         );
+        ensure!(
+            self.min_fee_bps <= self.marinade_fee_bps,
+            "min_fee_bps {} exceeds marinade_fee_bps {} (would push effective fee above configured fee)",
+            self.min_fee_bps,
+            self.marinade_fee_bps
+        );
         Ok(())
     }
 
