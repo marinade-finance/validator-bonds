@@ -4,7 +4,6 @@ use bid_distribution::generators::sam_penalties::generate_penalty_settlements;
 use bid_distribution::rewards::load_rewards_from_directory;
 use bid_distribution::sam_meta::ValidatorSamMeta;
 use bid_distribution::settlement_config::BidDistributionConfig;
-use bid_distribution::ssi::calculate_ssi_pmpe;
 use env_logger::{Builder, Env};
 use settlement_common::protected_events::generate_protected_event_collection;
 use settlement_common::revenue_expectation_meta::RevenueExpectationMetaCollection;
@@ -120,11 +119,6 @@ fn main() -> anyhow::Result<()> {
         let rewards_dir = args.rewards_dir.as_ref().ok_or_else(|| {
             anyhow::anyhow!("--rewards-dir is required when SAM settlement configs are present")
         })?;
-        let validator_meta_path = args.validator_meta_collection.as_ref().ok_or_else(|| {
-            anyhow::anyhow!(
-                "--validator-meta-collection is required when SAM settlement configs are present"
-            )
-        })?;
         let bidding_config = bid_distribution_config.bidding_config().ok_or_else(|| {
             anyhow::anyhow!("Bidding settlement config is required in bid-distribution-config")
         })?;
@@ -163,11 +157,15 @@ fn main() -> anyhow::Result<()> {
             rewards_collection.total_rewards()
         );
 
-        info!("Computing SSI from validator meta collection...");
-        let validator_meta: ValidatorMetaCollection = read_from_json_file(validator_meta_path)
-            .map_err(file_error("validator-meta-collection", validator_meta_path))?;
-        let ssi_pmpe = calculate_ssi_pmpe(&rewards_collection, &validator_meta)?;
-        info!("SSI: {ssi_pmpe} pmpe");
+        let ssi_pmpe = sam_validator_metas
+            .first()
+            .map(|m| m.ssi_pmpe)
+            .ok_or_else(|| anyhow::anyhow!("SAM meta collection is empty; cannot read ssi_pmpe"))?;
+        anyhow::ensure!(
+            sam_validator_metas.iter().all(|m| m.ssi_pmpe == ssi_pmpe),
+            "Inconsistent ssi_pmpe across SAM meta entries"
+        );
+        info!("SSI: {ssi_pmpe} pmpe (from sam-meta-collection)");
 
         // Epoch consistency verification
         let rewards_epoch = rewards_collection.epoch;
@@ -270,11 +268,11 @@ fn main() -> anyhow::Result<()> {
         info!("Generated {} PSR settlements", psr_settlements.len());
         all_settlements.extend(psr_settlements);
     } else {
-        // No PSR configs — fail if PSR-exclusive inputs were provided (likely a mistake).
-        // --validator-meta-collection is excluded: it is also required for SAM (SSI computation).
+        // No PSR configs — fail if PSR inputs were partially provided (likely a mistake)
         anyhow::ensure!(
-            args.revenue_expectation_collection.is_none(),
-            "--revenue-expectation-collection provided but no PSR settlement configs found in config file"
+            args.validator_meta_collection.is_none()
+                && args.revenue_expectation_collection.is_none(),
+            "PSR inputs (--validator-meta-collection, --revenue-expectation-collection) provided but no PSR settlement configs found in config file"
         );
     }
 
