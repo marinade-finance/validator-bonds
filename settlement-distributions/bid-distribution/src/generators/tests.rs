@@ -1028,9 +1028,9 @@ fn create_auction_validator_values(commissions: CommissionDetails) -> AuctionVal
     }
 }
 
-fn create_test_fee_config(marinade_fee_bps: u64, dao_fee_split_share_bps: u64) -> FeeConfig {
+fn create_test_fee_config(max_fee_bps: u64, dao_fee_split_share_bps: u64) -> FeeConfig {
     FeeConfig {
-        marinade_fee_bps,
+        max_fee_bps,
         marinade: AuthorityConfig {
             stake_authority: TEST_PUBKEY_MARINADE,
             withdraw_authority: TEST_PUBKEY_MARINADE,
@@ -1845,9 +1845,9 @@ fn test_settlement_config_yaml_deserialization() {
 // → staker_yield_pmpe = 20, static_bid_claim = 20 SOL = settlement_claim.sum()
 // → effective_fee drives marinade_fee_claim = 20 SOL * effective_fee (dao_split=0)
 
-fn ssi_fee_config(marinade_fee_bps: u64, min_fee_bps: u64, apy_over_ssi: f64) -> FeeConfig {
+fn ssi_fee_config(max_fee_bps: u64, min_fee_bps: u64, apy_over_ssi: f64) -> FeeConfig {
     FeeConfig {
-        marinade_fee_bps,
+        max_fee_bps,
         marinade: AuthorityConfig {
             stake_authority: TEST_PUBKEY_MARINADE,
             withdraw_authority: TEST_PUBKEY_MARINADE,

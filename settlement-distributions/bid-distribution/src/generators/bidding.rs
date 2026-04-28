@@ -299,17 +299,17 @@ pub fn generate_bid_settlements(
                     * Decimal::ONE_THOUSAND;
                 let fee_cap = (Decimal::ONE - target / staker_yield_pmpe).max(Decimal::ZERO);
                 fee_percentages
-                    .marinade_distributor_fee
+                    .max_fee
                     .min(fee_cap)
                     .max(fee_percentages.min_fee)
             } else {
-                fee_percentages.marinade_distributor_fee
+                fee_percentages.max_fee
             };
             info!(
                 "{} effective fee: {} (configured: {}, min: {}, ssi_pmpe: {})",
                 validator.vote_account,
                 effective_fee,
-                fee_percentages.marinade_distributor_fee,
+                fee_percentages.max_fee,
                 fee_percentages.min_fee,
                 ssi_pmpe,
             );

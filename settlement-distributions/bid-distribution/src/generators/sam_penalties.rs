@@ -80,7 +80,7 @@ pub fn generate_penalty_settlements(
             let bid_too_low_penalty_total_claim =
                 Decimal::from(effective_sam_marinade_active_stake) * bid_too_low_penalty;
             let distributor_bid_too_low_penalty_claim = (bid_too_low_penalty_total_claim
-                * bid_fee_percentages.marinade_distributor_fee)
+                * bid_fee_percentages.max_fee)
                 .to_u64()
                 .ok_or_else(|| anyhow!("Failed to_u64 for distributor_bid_penalty_claim"))?;
             let stakers_bid_too_low_penalty_claim = bid_too_low_penalty_total_claim

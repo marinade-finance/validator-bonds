@@ -1,6 +1,6 @@
 ---
 fee_config:
-  marinade_fee_bps: 800
+  max_fee_bps: 800
   marinade:
     stake_authority: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
     withdraw_authority: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x

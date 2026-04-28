@@ -10,11 +10,8 @@ use solana_sdk::pubkey::Pubkey;
 /// Fee percentages calculated from basis points
 #[derive(Debug, Clone, Copy, Default)]
 pub struct FeePercentages {
-    /// Marinade distributor fee as a decimal percentage (e.g., 0.095 for 9.5%)
-    pub marinade_distributor_fee: Decimal,
-    /// DAO fee share as a decimal percentage (e.g., 0.05 for 5%)
+    pub max_fee: Decimal,
     pub dao_fee_share: Decimal,
-    /// Minimum fee floor as a decimal percentage
     pub min_fee: Decimal,
 }
 
@@ -48,13 +45,11 @@ pub struct DaoConfig {
 /// Shared fee configuration for SAM settlement types (Bidding, BidTooLowPenalty)
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct FeeConfig {
-    pub marinade_fee_bps: u64,
+    pub max_fee_bps: u64,
     pub marinade: AuthorityConfig,
     pub dao: DaoConfig,
-    /// Minimum fee floor in basis points; fee is never reduced below this (default: 0)
     #[serde(default)]
     pub min_fee_bps: u64,
-    /// target = SSI + apy_over_ssi_pmpe. Set to -10 (or lower) to effectively disable fee cap.
     #[serde(default)]
     pub apy_over_ssi_pmpe: Decimal,
 }
@@ -63,9 +58,9 @@ impl FeeConfig {
     /// Validates that fee basis points are within valid range (0..=10000)
     pub fn validate(&self) -> anyhow::Result<()> {
         ensure!(
-            self.marinade_fee_bps <= 10_000,
-            "marinade_fee_bps {} exceeds maximum 10000 (100%)",
-            self.marinade_fee_bps
+            self.max_fee_bps <= 10_000,
+            "max_fee_bps {} exceeds maximum 10000 (100%)",
+            self.max_fee_bps
         );
         ensure!(
             self.dao.fee_split_share_bps <= 10_000,
@@ -78,10 +73,10 @@ impl FeeConfig {
             self.min_fee_bps
         );
         ensure!(
-            self.min_fee_bps <= self.marinade_fee_bps,
-            "min_fee_bps {} exceeds marinade_fee_bps {} (would push effective fee above configured fee)",
+            self.min_fee_bps <= self.max_fee_bps,
+            "min_fee_bps {} exceeds max_fee_bps {} (would push effective fee above configured fee)",
             self.min_fee_bps,
-            self.marinade_fee_bps
+            self.max_fee_bps
         );
         Ok(())
     }
@@ -98,7 +93,7 @@ impl FeeConfig {
     /// Converts basis points to decimal percentages for fee calculations
     pub fn fee_percentages(&self) -> FeePercentages {
         FeePercentages {
-            marinade_distributor_fee: Decimal::from(self.marinade_fee_bps) / Decimal::from(10_000),
+            max_fee: Decimal::from(self.max_fee_bps) / Decimal::from(10_000),
             dao_fee_share: Decimal::from(self.dao.fee_split_share_bps) / Decimal::from(10_000),
             min_fee: Decimal::from(self.min_fee_bps) / Decimal::from(10_000),
         }
