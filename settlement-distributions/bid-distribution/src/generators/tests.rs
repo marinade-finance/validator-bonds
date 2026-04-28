@@ -1933,13 +1933,14 @@ fn test_ssi_fee_cap_not_binding_keeps_configured_fee() {
 
 #[test]
 fn test_ssi_fee_cap_clamped_to_min_when_ssi_exceeds_yield() {
-    // staker_yield_pmpe=20, ssi=25 → fee_cap=0, min_fee=0 → effective=0
-    let settlements = run_ssi_test(25.0, ssi_fee_config(3000, 0, 0.0));
+    // staker_yield_pmpe=20, ssi=25 → fee_cap=0, min_fee=0.10 → effective=0.10
+    let settlements = run_ssi_test(25.0, ssi_fee_config(3000, 1000, 0.0));
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
     assert_eq!(
-        marinade_fee, 0,
-        "fee must equal min_fee when SSI exceeds staker yield"
+        marinade_fee,
+        2 * solana_sdk::native_token::LAMPORTS_PER_SOL,
+        "fee must equal min_fee (0.10) when SSI exceeds staker yield"
     );
 }
 
