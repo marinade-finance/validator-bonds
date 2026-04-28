@@ -36,7 +36,6 @@ pub struct ValidatorSamMeta {
     pub scoring_run_id: u32,
     pub epoch: u32,
     pub values: Option<AuctionValidatorValues>,
-    #[serde(default)]
     pub ssi_pmpe: Decimal,
 }
 

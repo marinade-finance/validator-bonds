@@ -1190,7 +1190,8 @@ fn test_generate_settlements_from_json_values() {
               "delegationStrategyMndeVotes": 1000000
             },
             "scoringRunId": 1,
-            "epoch": 100
+            "epoch": 100,
+            "ssiPmpe": "0"
           }
         ]
         "#;
