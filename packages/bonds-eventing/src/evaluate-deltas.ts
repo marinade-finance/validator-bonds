@@ -25,13 +25,6 @@ import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
 const LAMPORTS_PER_SOL = 1_000_000_000
 
-// Activating-stake fee: settlement-side support is not yet enabled, so the
-// emitter suppresses the fee from notifications (event, message body, and the
-// three payload fields stay at 0). Leave the calculation in place so
-// re-enabling is a one-line flip. TODO: when re-enabling, also revisit the
-// message copy — "fee" already; just confirm UX wording.
-const ACTIVATING_STAKE_FEE_ENABLED = false
-
 function solToLamports(sol: number | null | undefined): bigint {
   if (sol === null || sol === undefined || !isFinite(sol)) return 0n
   return BigInt(Math.round(sol * LAMPORTS_PER_SOL))
@@ -504,14 +497,11 @@ export function evaluateDeltas(
     )
     const activatingStakePmpe = v.revShare.activatingStakePmpe ?? 0
     const activatingStakeFee = (activatingStakeSol * activatingStakePmpe) / 1000
-    const effectiveActivatingStakeFee = ACTIVATING_STAKE_FEE_ENABLED
-      ? activatingStakeFee
-      : 0
     // Emit when EITHER a bond-side penalty/fee OR an activating-stake fee is
     // predicted. Activating-stake fee is charged separately from the bond-side
     // total but still represents a real cost the validator should see.
     if (
-      (penalties.total > 0.001 || effectiveActivatingStakeFee > 0.001) &&
+      (penalties.total > 0.001 || activatingStakeFee > 0.001) &&
       prev.epoch !== epoch
     ) {
       events.push(
@@ -524,7 +514,7 @@ export function evaluateDeltas(
           buildPenaltyExpectedMessage(
             v.voteAccount,
             penalties,
-            effectiveActivatingStakeFee,
+            activatingStakeFee,
           ),
           {
             total_penalty_sol: penalties.total,
@@ -536,13 +526,9 @@ export function evaluateDeltas(
             marinade_activated_stake_sol: v.marinadeActivatedStakeSol,
             bond_balance_sol: v.bondBalanceSol,
             bond_good_for_n_epochs: roundEpochs(v.bondGoodForNEpochs),
-            activating_stake_sol: ACTIVATING_STAKE_FEE_ENABLED
-              ? activatingStakeSol
-              : 0,
-            activating_stake_pmpe: ACTIVATING_STAKE_FEE_ENABLED
-              ? activatingStakePmpe
-              : 0,
-            activating_stake_fee_sol: effectiveActivatingStakeFee,
+            activating_stake_sol: activatingStakeSol,
+            activating_stake_pmpe: activatingStakePmpe,
+            activating_stake_fee_sol: activatingStakeFee,
           } satisfies PenaltyExpectedDetails,
         ),
       )

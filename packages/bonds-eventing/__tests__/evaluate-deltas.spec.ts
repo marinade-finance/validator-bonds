@@ -733,11 +733,7 @@ describe('evaluateDeltas', () => {
     expect(details.total_penalty_sol).toBe(5.5)
   })
 
-  // Skipped while ACTIVATING_STAKE_FEE_ENABLED=false in evaluate-deltas.ts.
-  // Re-enable this assertion once settlement-side support for the activating-
-  // stake fee is in place. See src/evaluate-deltas.ts for the flag.
-  // eslint-disable-next-line jest/no-disabled-tests
-  it.skip('emits penalty_expected with activating-stake fee fields', () => {
+  it('emits penalty_expected with activating-stake fee fields', () => {
     // activating_stake_sol = max(0, SAM target 60000 - already activated 50000) = 10000
     // activating_stake_fee_sol = 10000 * 2.0 / 1000 = 20
     // total_penalty_sol must NOT include the activating-stake fee (it is a separate line item).
@@ -779,11 +775,7 @@ describe('evaluateDeltas', () => {
     expect(details.total_penalty_sol).toBe(25)
   })
 
-  // Skipped while ACTIVATING_STAKE_FEE_ENABLED=false in evaluate-deltas.ts.
-  // Re-enable this assertion once settlement-side support for the activating-
-  // stake fee is in place. See src/evaluate-deltas.ts for the flag.
-  // eslint-disable-next-line jest/no-disabled-tests
-  it.skip('emits penalty_expected when only activating-stake fee is present (no bond-side penalty)', () => {
+  it('emits penalty_expected when only activating-stake fee is present (no bond-side penalty)', () => {
     // penalties.total = 0 (no bidTooLow, no blacklist, no bondRiskFee)
     // activating_stake_sol = max(0, 60000 - 50000) = 10000; pmpe 3.0 => activating-stake fee = 30 SOL
     const validators = [
