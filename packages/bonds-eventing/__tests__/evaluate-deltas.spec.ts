@@ -819,6 +819,51 @@ describe('evaluateDeltas', () => {
     expect(penalty!.data.message).toContain('separate from bond penalties')
   })
 
+  it('zeroes sub-dust activating-stake fee while bond-side penalty triggers emit', () => {
+    // bid_too_low (25 SOL) triggers the emit; activating-stake fee is sub-dust
+    // (0.0008 SOL < 0.001) and must NOT surface in the message or details.
+    // activating_stake_sol = max(0, 60000 - 50000) = 10000;
+    // pmpe 0.00008 => fee = 10000 * 0.00008 / 1000 = 0.0008 SOL.
+    const validators = [
+      makeValidator({
+        marinadeActivatedStakeSol: 50000,
+        auctionStake: {
+          marinadeSamTargetSol: 60000,
+          externalActivatedSol: 0,
+        },
+        revShare: {
+          expectedMaxEffBidPmpe: 3.2,
+          onchainDistributedPmpe: 0.5,
+          bidTooLowPenaltyPmpe: 0.5,
+          blacklistPenaltyPmpe: 0,
+          activatingStakePmpe: 0.00008,
+        },
+        values: { bondRiskFeeSol: 0 },
+      }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(TEST_VOTE_ACCOUNT, makePrevState())
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const penalty = events.find(e => e.inner_type === 'penalty_expected')
+    expect(penalty).toBeDefined()
+    const details = penalty!.data.details as PenaltyExpectedDetails
+    // Inputs are preserved (they are not the fee).
+    expect(details.activating_stake_sol).toBe(10000)
+    expect(details.activating_stake_pmpe).toBe(0.00008)
+    // Sub-dust fee is zeroed for display.
+    expect(details.activating_stake_fee_sol).toBe(0)
+    // Message must not mention the activating-stake fee.
+    expect(penalty!.data.message).not.toContain('activating-stake fee')
+  })
+
   it('emits penalty_expected with zero activating-stake fields when SAM target <= activated', () => {
     const validators = [
       makeValidator({
@@ -911,6 +956,67 @@ describe('evaluateDeltas', () => {
     const lamportDetails = balanceChange!.data
       .details as BondBalanceChangeDetails
     expect(lamportDetails.delta_lamports).toBe('1')
+  })
+
+  it('produces finite numbers when SDK aggregate fields are NaN', () => {
+    // The DS SAM SDK initializes several aggregate fields to `NaN` in
+    // `validatorAggDefaults()` and only fills them in for eligible
+    // validators. `value ?? 0` does NOT catch NaN, so any NaN that leaked
+    // into the event payload made slonik's `sql.jsonb` throw
+    // `JSON payload cannot be stringified.` (safe-stable-stringify strict).
+    // This test reproduces those NaN inputs and asserts every numeric leaf
+    // in every emitted event is finite.
+    const validators = [
+      makeValidator({
+        // SDK ineligibleValidatorAggDefaults() leaves these as NaN
+        unprotectedStakeSol: NaN,
+        bondGoodForNEpochs: NaN,
+        unprotectedStakeCapSol: NaN,
+        bondSamStakeCapSol: NaN,
+        // Conditional auction-side fields can also stay NaN/undefined
+        values: { bondRiskFeeSol: NaN },
+        revShare: {
+          expectedMaxEffBidPmpe: 3.2,
+          onchainDistributedPmpe: 0.5,
+          // Triggers a penalty_expected emit so the path is exercised
+          bidTooLowPenaltyPmpe: 0.5,
+          // omitted: blacklistPenaltyPmpe, activatingStakePmpe → undefined
+        },
+      }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    expect(events.length).toBeGreaterThan(0)
+
+    function collectNonFinite(
+      value: unknown,
+      path: string,
+      out: string[],
+    ): void {
+      if (typeof value === 'number') {
+        if (!isFinite(value)) out.push(`${path}=${value}`)
+      } else if (Array.isArray(value)) {
+        value.forEach((v, i) => collectNonFinite(v, `${path}[${i}]`, out))
+      } else if (value !== null && typeof value === 'object') {
+        for (const [k, v] of Object.entries(value)) {
+          collectNonFinite(v, `${path}.${k}`, out)
+        }
+      }
+    }
+
+    const offenders: string[] = []
+    for (const event of events) {
+      collectNonFinite(event, event.inner_type, offenders)
+    }
+    expect(offenders).toEqual([])
   })
 })
 
