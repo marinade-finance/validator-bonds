@@ -131,6 +131,11 @@ export class StakeAccountClaim {
   @Expose()
   @IsBigInt()
   @Transform(({ value }) => (value ? BigInt(value) : 0n))
+  readonly activating_stake!: bigint
+
+  @Expose()
+  @IsBigInt()
+  @Transform(({ value }) => (value ? BigInt(value) : 0n))
   readonly claim_amount!: bigint
 }
 
