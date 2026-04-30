@@ -5,11 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  cross-spawn@<7.0.5: 7.0.5
-  braces@<3.0.3: 3.0.3
-  micromatch@<4.0.8: 4.0.8
   glob@<8: ^10.3.10
-  inflight: npm:inflight-v2@^1.0.0
 
 importers:
 
@@ -73,11 +69,11 @@ importers:
         specifier: 4.2.5
         version: 4.2.5(@marinade.finance/ts-common@4.2.5)(class-validator@0.14.2)
       '@marinade.finance/ds-sam-sdk':
-        specifier: 0.0.46
-        version: 0.0.46
+        specifier: 0.0.48
+        version: 0.0.48
       '@marinade.finance/notifications-bonds-event-v1':
-        specifier: 1.0.2
-        version: 1.0.2
+        specifier: 1.0.3
+        version: 1.0.3
       '@marinade.finance/ts-common':
         specifier: 4.2.5
         version: 4.2.5
@@ -998,8 +994,8 @@ packages:
       bn.js: ^5.2.1
       jsbi: ^4.3.0
 
-  '@marinade.finance/ds-sam-sdk@0.0.46':
-    resolution: {integrity: sha512-Dj8BfaKS0vTQ9uHsMhoW1fCVNXmAj5GgXzwFnl6wyTbzHfF8Ynd4JQl7POX3JYSoA9gbJfsOso8F4TEF00TM2g==}
+  '@marinade.finance/ds-sam-sdk@0.0.48':
+    resolution: {integrity: sha512-5Zif9CrMaIAAmrHUhFxSzbZK4+hsloNnj/XJjGIEfnww6wB3hwkuBLdu1DoyuJuJ+ga+14W1rnANg2uuBI2fkw==}
 
   '@marinade.finance/eslint-config@1.3.5':
     resolution: {integrity: sha512-yKLW2vI9QmQ6uWO3SQSbOYDmtSpYPU34zuomKGCfoLF7/bN+c6GinyzUumIPoUshqztRkqjOpFels4F4E6puEg==}
@@ -1033,8 +1029,8 @@ packages:
   '@marinade.finance/native-staking-sdk@1.3.3':
     resolution: {integrity: sha512-bnjCiKj4AG7fiBXPjX0AOcsJ/VRYlGV9/vy83YM2Cg30L9tlkVYWEBf+WVcHDMMYAqTlO49nq9zTDCxu9Ui2JA==}
 
-  '@marinade.finance/notifications-bonds-event-v1@1.0.2':
-    resolution: {integrity: sha512-TRzqmu73rqai0qfcRvzMFCz5an7MZoQ1YK/R7l6X7dkS2riXvCIrZtidyv2pw7Neo5vlkAeO4OV1a8z1vwXSOw==}
+  '@marinade.finance/notifications-bonds-event-v1@1.0.3':
+    resolution: {integrity: sha512-JNtXHhMr60Kepi3BCFFQpDXIhWHWG0YzKjfAVZmJAgS8Pu0e2VJOThDSdIoTj9OOmdnIUpkSCyY3YRHoAP+DjA==}
 
   '@marinade.finance/notifications-header-v1@1.0.0':
     resolution: {integrity: sha512-hoHr0gw8SrLEY8JePl0Te4nPT6EPAVL8cKLlURWvwii/NCC4gZkSr5L/t93GBpNqWJpMu48Y1BlnSwUadJ6Vvg==}
@@ -1911,41 +1907,49 @@ packages:
     resolution: {integrity: sha512-34gw7PjDGB9JgePJEmhEqBhWvCiiWCuXsL9hYphDF7crW7UgI05gyBAi6MF58uGcMOiOqSJ2ybEeCvHcq0BCmQ==}
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   '@unrs/resolver-binding-linux-arm64-musl@1.11.1':
     resolution: {integrity: sha512-RyMIx6Uf53hhOtJDIamSbTskA99sPHS96wxVE/bJtePJJtpdKGXO1wY90oRdXuYOGOTuqjT8ACccMc4K6QmT3w==}
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   '@unrs/resolver-binding-linux-ppc64-gnu@1.11.1':
     resolution: {integrity: sha512-D8Vae74A4/a+mZH0FbOkFJL9DSK2R6TFPC9M+jCWYia/q2einCubX10pecpDiTmkJVUH+y8K3BZClycD8nCShA==}
     cpu: [ppc64]
     os: [linux]
+    libc: [glibc]
 
   '@unrs/resolver-binding-linux-riscv64-gnu@1.11.1':
     resolution: {integrity: sha512-frxL4OrzOWVVsOc96+V3aqTIQl1O2TjgExV4EKgRY09AJ9leZpEg8Ak9phadbuX0BA4k8U5qtvMSQQGGmaJqcQ==}
     cpu: [riscv64]
     os: [linux]
+    libc: [glibc]
 
   '@unrs/resolver-binding-linux-riscv64-musl@1.11.1':
     resolution: {integrity: sha512-mJ5vuDaIZ+l/acv01sHoXfpnyrNKOk/3aDoEdLO/Xtn9HuZlDD6jKxHlkN8ZhWyLJsRBxfv9GYM2utQ1SChKew==}
     cpu: [riscv64]
     os: [linux]
+    libc: [musl]
 
   '@unrs/resolver-binding-linux-s390x-gnu@1.11.1':
     resolution: {integrity: sha512-kELo8ebBVtb9sA7rMe1Cph4QHreByhaZ2QEADd9NzIQsYNQpt9UkM9iqr2lhGr5afh885d/cB5QeTXSbZHTYPg==}
     cpu: [s390x]
     os: [linux]
+    libc: [glibc]
 
   '@unrs/resolver-binding-linux-x64-gnu@1.11.1':
     resolution: {integrity: sha512-C3ZAHugKgovV5YvAMsxhq0gtXuwESUKc5MhEtjBpLoHPLYM+iuwSj3lflFwK3DPm68660rZ7G8BMcwSro7hD5w==}
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   '@unrs/resolver-binding-linux-x64-musl@1.11.1':
     resolution: {integrity: sha512-rV0YSoyhK2nZ4vEswT/QwqzqQXw5I6CjoaYMOX0TqBlWhojUf8P94mvI7nuJTeaCkkds3QE4+zS8Ko+GdXuZtA==}
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   '@unrs/resolver-binding-wasm32-wasi@1.11.1':
     resolution: {integrity: sha512-5u4RkfxJm+Ng7IWgkzi3qrFOvLvQYnPBmjmZQ8+szTK/b31fQCnleNl1GgEt7nIsZRIf5PLhPwT0WM+q45x/UQ==}
@@ -2008,8 +2012,8 @@ packages:
   ajv@6.12.6:
     resolution: {integrity: sha512-j3fVLgvTo527anyYyJOGTYJbG+vnnQYvE0m5mmkc1TK+nxAppkCLMIL0aZ4dblVCNoGShhm+kzE4ZUykBoMg4g==}
 
-  ajv@8.18.0:
-    resolution: {integrity: sha512-PlXPeEWMXMZ7sPYOHqmDyCJzcfNrUr3fGNKtezX14ykXOEIvyK81d+qydx89KY5O71FKMPaQ2vBfBFI5NHR63A==}
+  ajv@8.20.0:
+    resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
 
   anchor-bankrun@0.2.0:
     resolution: {integrity: sha512-k/GIiYjkFzj10iluAXPjLjDInZtNNZ2FTcCTrtqgxwm5wofLbD8T0sy13LU9IfQSirj8/6eaTawDo+IvI03KRQ==}
@@ -4298,12 +4302,14 @@ packages:
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   solana-bankrun-linux-x64-musl@0.2.0:
     resolution: {integrity: sha512-8mtf14ZBoah30+MIJBUwb5BlGLRZyK5cZhCkYnC/ROqaIDN8RxMM44NL63gTUIaNHsFwWGA9xR0KSeljeh3PKQ==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   solana-bankrun@0.2.0:
     resolution: {integrity: sha512-TS6vYoO/9YJZng7oiLOVyuz8V7yLow5Hp4SLYWW71XM3702v+z9f1fvUBKudRfa4dfpta4tRNufApSiBIALxJQ==}
@@ -5495,7 +5501,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@marinade.finance/ds-sam-sdk@0.0.46':
+  '@marinade.finance/ds-sam-sdk@0.0.48':
     dependencies:
       axios: 1.15.0
       decimal.js: 10.6.0
@@ -5594,19 +5600,19 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@marinade.finance/notifications-bonds-event-v1@1.0.2':
+  '@marinade.finance/notifications-bonds-event-v1@1.0.3':
     dependencies:
       '@marinade.finance/notifications-ts-message': 1.0.0
-      ajv: 8.18.0
-      ajv-formats: 2.1.1(ajv@8.18.0)
+      ajv: 8.20.0
+      ajv-formats: 2.1.1(ajv@8.20.0)
 
   '@marinade.finance/notifications-header-v1@1.0.0': {}
 
   '@marinade.finance/notifications-ts-message@1.0.0':
     dependencies:
       '@marinade.finance/notifications-header-v1': 1.0.0
-      ajv: 8.18.0
-      ajv-formats: 3.0.1(ajv@8.18.0)
+      ajv: 8.20.0
+      ajv-formats: 3.0.1(ajv@8.20.0)
 
   '@marinade.finance/notifications-ts-subscription-client@1.0.3': {}
 
@@ -6746,13 +6752,13 @@ snapshots:
     dependencies:
       humanize-ms: 1.2.1
 
-  ajv-formats@2.1.1(ajv@8.18.0):
+  ajv-formats@2.1.1(ajv@8.20.0):
     optionalDependencies:
-      ajv: 8.18.0
+      ajv: 8.20.0
 
-  ajv-formats@3.0.1(ajv@8.18.0):
+  ajv-formats@3.0.1(ajv@8.20.0):
     optionalDependencies:
-      ajv: 8.18.0
+      ajv: 8.20.0
 
   ajv@6.12.6:
     dependencies:
@@ -6761,7 +6767,7 @@ snapshots:
       json-schema-traverse: 0.4.1
       uri-js: 4.4.1
 
-  ajv@8.18.0:
+  ajv@8.20.0:
     dependencies:
       fast-deep-equal: 3.1.3
       fast-uri: 3.1.0

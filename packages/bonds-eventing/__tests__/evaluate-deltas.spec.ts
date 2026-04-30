@@ -91,6 +91,7 @@ function makePrevState(
     in_auction: true,
     bond_good_for_n_epochs: 5,
     cap_constraint: null,
+    cap_marinade_stake_sol: null,
     funded_amount_lamports: 10_000_000_000n,
     effective_amount_lamports: 10_000_000_000n,
     auction_stake_lamports: 1_000_000_000_000n,
@@ -278,6 +279,48 @@ describe('evaluateDeltas', () => {
     const capDetails = capChanged!.data.details as CapChangedDetails
     expect(capDetails.previous_cap).toBeNull()
     expect(capDetails.current_cap).toBe('BOND')
+  })
+
+  it('emits cap_changed with numeric context and driver data', () => {
+    const validators = [
+      makeValidator({
+        bondBalanceSol: 4.0,
+        lastCapConstraint: {
+          constraintType: 'BOND',
+          constraintName: 'bond_cap',
+          marinadeStakeSol: 5_867,
+          totalLeftToCapSol: 1_000,
+        },
+      }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(
+      TEST_VOTE_ACCOUNT,
+      makePrevState({
+        cap_constraint: 'ASO',
+        cap_marinade_stake_sol: 12_345,
+        funded_amount_lamports: 10_000_000_000n, // 10 SOL
+      }),
+    )
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const capChanged = events.find(e => e.inner_type === 'cap_changed')
+    const d = capChanged!.data.details as CapChangedDetails
+    expect(d.previous_cap_type).toBe('ASO')
+    expect(d.current_cap_type).toBe('BOND')
+    expect(d.previous_cap_sol).toBe(12_345)
+    expect(d.current_cap_sol).toBe(5_867)
+    expect(d.total_left_to_cap_sol).toBe(1_000)
+    expect(d.bond_balance_sol).toBe(4.0)
+    expect(d.bond_balance_delta_sol).toBe(-6.0)
+    expect(d.required_coverage_sol).not.toBeNull()
   })
 
   it('emits bond_underfunded_change when epochs change', () => {
@@ -690,6 +733,172 @@ describe('evaluateDeltas', () => {
     expect(details.total_penalty_sol).toBe(5.5)
   })
 
+  it('emits penalty_expected with activating-stake fee fields', () => {
+    // activating_stake_sol = max(0, SAM target 60000 - already activated 50000) = 10000
+    // activating_stake_fee_sol = 10000 * 2.0 / 1000 = 20
+    // total_penalty_sol must NOT include the activating-stake fee (it is a separate line item).
+    const validators = [
+      makeValidator({
+        marinadeActivatedStakeSol: 50000,
+        auctionStake: {
+          marinadeSamTargetSol: 60000,
+          externalActivatedSol: 0,
+        },
+        revShare: {
+          expectedMaxEffBidPmpe: 3.2,
+          onchainDistributedPmpe: 0.5,
+          bidTooLowPenaltyPmpe: 0.5,
+          blacklistPenaltyPmpe: 0,
+          activatingStakePmpe: 2.0,
+        },
+        values: { bondRiskFeeSol: 0 },
+      }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(TEST_VOTE_ACCOUNT, makePrevState())
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const penalty = events.find(e => e.inner_type === 'penalty_expected')
+    expect(penalty).toBeDefined()
+    const details = penalty!.data.details as PenaltyExpectedDetails
+    expect(details.activating_stake_sol).toBe(10000)
+    expect(details.activating_stake_pmpe).toBe(2.0)
+    expect(details.activating_stake_fee_sol).toBe(20)
+    // bid_too_low only: 0.5/1000 * 50000 = 25 SOL; activating-stake fee (20) is NOT rolled in.
+    expect(details.total_penalty_sol).toBe(25)
+  })
+
+  it('emits penalty_expected when only activating-stake fee is present (no bond-side penalty)', () => {
+    // penalties.total = 0 (no bidTooLow, no blacklist, no bondRiskFee)
+    // activating_stake_sol = max(0, 60000 - 50000) = 10000; pmpe 3.0 => activating-stake fee = 30 SOL
+    const validators = [
+      makeValidator({
+        marinadeActivatedStakeSol: 50000,
+        auctionStake: {
+          marinadeSamTargetSol: 60000,
+          externalActivatedSol: 0,
+        },
+        revShare: {
+          expectedMaxEffBidPmpe: 3.2,
+          onchainDistributedPmpe: 0.5,
+          bidTooLowPenaltyPmpe: 0,
+          blacklistPenaltyPmpe: 0,
+          activatingStakePmpe: 3.0,
+        },
+        values: { bondRiskFeeSol: 0 },
+      }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(TEST_VOTE_ACCOUNT, makePrevState())
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const penalty = events.find(e => e.inner_type === 'penalty_expected')
+    expect(penalty).toBeDefined()
+    const details = penalty!.data.details as PenaltyExpectedDetails
+    expect(details.total_penalty_sol).toBe(0)
+    expect(details.activating_stake_fee_sol).toBe(30)
+    // Emitter message uses the "activating-stake fee" wording and the
+    // pure-fee template (no bond-side charges)
+    expect(penalty!.data.message).toContain(
+      'activating-stake fee of 30.0000 SOL',
+    )
+    expect(penalty!.data.message).toContain('separate from bond penalties')
+  })
+
+  it('zeroes sub-dust activating-stake fee while bond-side penalty triggers emit', () => {
+    // bid_too_low (25 SOL) triggers the emit; activating-stake fee is sub-dust
+    // (0.0008 SOL < 0.001) and must NOT surface in the message or details.
+    // activating_stake_sol = max(0, 60000 - 50000) = 10000;
+    // pmpe 0.00008 => fee = 10000 * 0.00008 / 1000 = 0.0008 SOL.
+    const validators = [
+      makeValidator({
+        marinadeActivatedStakeSol: 50000,
+        auctionStake: {
+          marinadeSamTargetSol: 60000,
+          externalActivatedSol: 0,
+        },
+        revShare: {
+          expectedMaxEffBidPmpe: 3.2,
+          onchainDistributedPmpe: 0.5,
+          bidTooLowPenaltyPmpe: 0.5,
+          blacklistPenaltyPmpe: 0,
+          activatingStakePmpe: 0.00008,
+        },
+        values: { bondRiskFeeSol: 0 },
+      }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(TEST_VOTE_ACCOUNT, makePrevState())
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const penalty = events.find(e => e.inner_type === 'penalty_expected')
+    expect(penalty).toBeDefined()
+    const details = penalty!.data.details as PenaltyExpectedDetails
+    // Inputs are preserved (they are not the fee).
+    expect(details.activating_stake_sol).toBe(10000)
+    expect(details.activating_stake_pmpe).toBe(0.00008)
+    // Sub-dust fee is zeroed for display.
+    expect(details.activating_stake_fee_sol).toBe(0)
+    // Message must not mention the activating-stake fee.
+    expect(penalty!.data.message).not.toContain('activating-stake fee')
+  })
+
+  it('emits penalty_expected with zero activating-stake fields when SAM target <= activated', () => {
+    const validators = [
+      makeValidator({
+        marinadeActivatedStakeSol: 50000,
+        auctionStake: {
+          marinadeSamTargetSol: 40000,
+          externalActivatedSol: 0,
+        },
+        revShare: {
+          expectedMaxEffBidPmpe: 3.2,
+          onchainDistributedPmpe: 0.5,
+          bidTooLowPenaltyPmpe: 0.5,
+          blacklistPenaltyPmpe: 0,
+          activatingStakePmpe: 2.0,
+        },
+        values: { bondRiskFeeSol: 0 },
+      }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(TEST_VOTE_ACCOUNT, makePrevState())
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const details = events.find(e => e.inner_type === 'penalty_expected')!.data
+      .details as PenaltyExpectedDetails
+    expect(details.activating_stake_sol).toBe(0)
+    expect(details.activating_stake_fee_sol).toBe(0)
+  })
+
   it('emits multiple events for multiple changes on same validator', () => {
     // Bond balance dropped AND cap constraint changed AND exited auction
     const validators = [
@@ -747,6 +956,67 @@ describe('evaluateDeltas', () => {
     const lamportDetails = balanceChange!.data
       .details as BondBalanceChangeDetails
     expect(lamportDetails.delta_lamports).toBe('1')
+  })
+
+  it('produces finite numbers when SDK aggregate fields are NaN', () => {
+    // The DS SAM SDK initializes several aggregate fields to `NaN` in
+    // `validatorAggDefaults()` and only fills them in for eligible
+    // validators. `value ?? 0` does NOT catch NaN, so any NaN that leaked
+    // into the event payload made slonik's `sql.jsonb` throw
+    // `JSON payload cannot be stringified.` (safe-stable-stringify strict).
+    // This test reproduces those NaN inputs and asserts every numeric leaf
+    // in every emitted event is finite.
+    const validators = [
+      makeValidator({
+        // SDK ineligibleValidatorAggDefaults() leaves these as NaN
+        unprotectedStakeSol: NaN,
+        bondGoodForNEpochs: NaN,
+        unprotectedStakeCapSol: NaN,
+        bondSamStakeCapSol: NaN,
+        // Conditional auction-side fields can also stay NaN/undefined
+        values: { bondRiskFeeSol: NaN },
+        revShare: {
+          expectedMaxEffBidPmpe: 3.2,
+          onchainDistributedPmpe: 0.5,
+          // Triggers a penalty_expected emit so the path is exercised
+          bidTooLowPenaltyPmpe: 0.5,
+          // omitted: blacklistPenaltyPmpe, activatingStakePmpe → undefined
+        },
+      }),
+    ]
+    const previousState = new Map<string, ValidatorState>()
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    expect(events.length).toBeGreaterThan(0)
+
+    function collectNonFinite(
+      value: unknown,
+      path: string,
+      out: string[],
+    ): void {
+      if (typeof value === 'number') {
+        if (!isFinite(value)) out.push(`${path}=${value}`)
+      } else if (Array.isArray(value)) {
+        value.forEach((v, i) => collectNonFinite(v, `${path}[${i}]`, out))
+      } else if (value !== null && typeof value === 'object') {
+        for (const [k, v] of Object.entries(value)) {
+          collectNonFinite(v, `${path}.${k}`, out)
+        }
+      }
+    }
+
+    const offenders: string[] = []
+    for (const event of events) {
+      collectNonFinite(event, event.inner_type, offenders)
+    }
+    expect(offenders).toEqual([])
   })
 })
 

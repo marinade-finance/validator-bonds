@@ -65,11 +65,7 @@
       }
     },
     "overrides": {
-      "cross-spawn@<7.0.5": "7.0.5",
-      "braces@<3.0.3": "3.0.3",
-      "micromatch@<4.0.8": "4.0.8",
-      "glob@<8": "^10.3.10",
-      "inflight": "npm:inflight-v2@^1.0.0"
+      "glob@<8": "^10.3.10"
     },
     "onlyBuiltDependencies": [
       "bigint-buffer",

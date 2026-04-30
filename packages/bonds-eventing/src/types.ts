@@ -26,6 +26,7 @@ export interface ValidatorState {
   in_auction: boolean
   bond_good_for_n_epochs: number | null
   cap_constraint: string | null
+  cap_marinade_stake_sol: number | null
   funded_amount_lamports: bigint
   effective_amount_lamports: bigint
   auction_stake_lamports: bigint
