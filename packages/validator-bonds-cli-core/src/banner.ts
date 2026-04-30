@@ -29,8 +29,10 @@ export async function printNotificationBanners(
 
     const banners = notifications.map(notification =>
       getBanner({
-        title: notification.title ?? undefined,
-        text: notification.message,
+        title: notification.title
+          ? stripMarkdownForTerminal(notification.title)
+          : undefined,
+        text: stripMarkdownForTerminal(notification.message),
         width: 80,
         centerText: false,
         textColor: Color.Bold,
@@ -211,4 +213,42 @@ function coloredText(text: string, color?: Color): string {
     return `${color}${text}${RESET}`
   }
   return text
+}
+
+/**
+ * Strips a small subset of markdown syntax so notification messages render
+ * cleanly in a terminal banner. This is intentionally not a full markdown
+ * parser — it targets only the constructs the notifications API is known to
+ * emit.
+ */
+export function stripMarkdownForTerminal(text: string): string {
+  let out = text
+
+  // Links: [label](url) → "label (url)", or just "url" if label equals the url.
+  out = out.replace(
+    /\[([^\]]+)\]\(([^)]+)\)/g,
+    (_match: string, label: string, url: string) =>
+      label === url ? url : `${label} (${url})`,
+  )
+
+  // Bold: **x** or __x__ → x
+  out = out.replace(/\*\*([^*]+)\*\*/g, '$1')
+  out = out.replace(/__([^_]+)__/g, '$1')
+
+  // Italic: *x* or _x_ → x. Avoid eating intra-word underscores by requiring
+  // word boundaries around the underscore form.
+  out = out.replace(/(?<![*\w])\*([^*\n]+)\*(?!\w)/g, '$1')
+  out = out.replace(/(?<![_\w])_([^_\n]+)_(?!\w)/g, '$1')
+
+  // Strikethrough: ~~x~~ → x
+  out = out.replace(/~~([^~]+)~~/g, '$1')
+
+  // Inline code: `x` → x
+  out = out.replace(/`([^`]+)`/g, '$1')
+
+  // Heading markers and blockquote prefixes at line starts.
+  out = out.replace(/^#{1,6} +/gm, '')
+  out = out.replace(/^> ?/gm, '')
+
+  return out
 }
