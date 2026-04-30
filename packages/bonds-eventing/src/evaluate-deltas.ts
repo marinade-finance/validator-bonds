@@ -25,13 +25,6 @@ import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
 const LAMPORTS_PER_SOL = 1_000_000_000
 
-// Activating-stake fee: settlement-side support is not yet enabled, so the
-// emitter suppresses the fee from notifications (event, message body, and the
-// three payload fields stay at 0). Leave the calculation in place so
-// re-enabling is a one-line flip. TODO: when re-enabling, also revisit the
-// message copy — "fee" already; just confirm UX wording.
-const ACTIVATING_STAKE_FEE_ENABLED = false
-
 function solToLamports(sol: number | null | undefined): bigint {
   if (sol === null || sol === undefined || !isFinite(sol)) return 0n
   return BigInt(Math.round(sol * LAMPORTS_PER_SOL))
@@ -39,6 +32,18 @@ function solToLamports(sol: number | null | undefined): bigint {
 
 function lamportsToSol(lamports: bigint): number {
   return Number(lamports) / LAMPORTS_PER_SOL
+}
+
+/**
+ * Coerce a possibly-non-finite number to a fallback. The DS SAM SDK
+ * initializes several validator aggregate fields to `NaN` (see
+ * `validatorAggDefaults()` in ds-sam-sdk) and only fills them in for
+ * eligible validators. `value ?? 0` does NOT catch NaN, so any NaN that
+ * leaks into an event payload makes slonik's `sql.jsonb` throw
+ * `JSON payload cannot be stringified.` (safe-stable-stringify strict mode).
+ */
+function finiteOr(value: number | null | undefined, fallback: number): number {
+  return value == null || !isFinite(value) ? fallback : value
 }
 
 /**
@@ -164,10 +169,12 @@ function computePenalties(v: AuctionValidator): {
   blacklist: number
   bondRiskFee: number
 } {
-  const stake = v.marinadeActivatedStakeSol
-  const bidTooLow = (v.revShare.bidTooLowPenaltyPmpe / 1000) * stake
-  const blacklist = (v.revShare.blacklistPenaltyPmpe / 1000) * stake
-  const bondRiskFee = v.values?.bondRiskFeeSol ?? 0
+  const stake = finiteOr(v.marinadeActivatedStakeSol, 0)
+  const bidTooLow =
+    (finiteOr(v.revShare?.bidTooLowPenaltyPmpe, 0) / 1000) * stake
+  const blacklist =
+    (finiteOr(v.revShare?.blacklistPenaltyPmpe, 0) / 1000) * stake
+  const bondRiskFee = finiteOr(v.values?.bondRiskFeeSol, 0)
   return {
     total: bidTooLow + blacklist + bondRiskFee,
     bidTooLow,
@@ -187,7 +194,8 @@ function computeDeficitMetrics(v: AuctionValidator): {
 } {
   const pmpe = v.revShare?.expectedMaxEffBidPmpe
   const onchainPmpe = v.revShare?.onchainDistributedPmpe
-  if (pmpe === undefined || pmpe === null || !v.marinadeActivatedStakeSol) {
+  const stake = v.marinadeActivatedStakeSol
+  if (pmpe == null || !isFinite(pmpe) || !stake || !isFinite(stake)) {
     return {
       epoch_cost_sol: null,
       expected_max_eff_bid_pmpe: null,
@@ -196,19 +204,19 @@ function computeDeficitMetrics(v: AuctionValidator): {
     }
   }
 
-  const epochCostSol = (pmpe / 1000) * v.marinadeActivatedStakeSol
+  const epochCostSol = (pmpe / 1000) * stake
   const protectedStakeSol = Math.max(
     0,
-    v.marinadeActivatedStakeSol - (v.unprotectedStakeSol ?? 0),
+    stake - finiteOr(v.unprotectedStakeSol, 0),
   )
   const onchainCostSol =
-    onchainPmpe !== undefined && onchainPmpe !== null
+    onchainPmpe != null && isFinite(onchainPmpe)
       ? (onchainPmpe / 1000) * protectedStakeSol
       : 0
 
   // Required for 1 epoch of bid coverage + on-chain obligations
   const requiredSol = onchainCostSol + epochCostSol
-  const bondBalance = v.bondBalanceSol ?? 0
+  const bondBalance = finiteOr(v.bondBalanceSol, 0)
   const deficitSol = Math.max(0, requiredSol - bondBalance)
 
   return {
@@ -500,18 +508,22 @@ export function evaluateDeltas(
     // activating_stake_sol = max(0, SAM target - already activated); pairs with revShare.activatingStakePmpe.
     const activatingStakeSol = Math.max(
       0,
-      (v.auctionStake?.marinadeSamTargetSol ?? 0) - v.marinadeActivatedStakeSol,
+      finiteOr(v.auctionStake?.marinadeSamTargetSol, 0) -
+        finiteOr(v.marinadeActivatedStakeSol, 0),
     )
-    const activatingStakePmpe = v.revShare.activatingStakePmpe ?? 0
+    const activatingStakePmpe = finiteOr(v.revShare?.activatingStakePmpe, 0)
     const activatingStakeFee = (activatingStakeSol * activatingStakePmpe) / 1000
-    const effectiveActivatingStakeFee = ACTIVATING_STAKE_FEE_ENABLED
-      ? activatingStakeFee
-      : 0
+    // Shared dust threshold: aligns the emit gate with displayed/emitted
+    // values so a sub-dust fee never surfaces as "0.0000 SOL".
+    const DUST_SOL_THRESHOLD = 0.001
+    const activatingStakeFeeDisplay =
+      activatingStakeFee > DUST_SOL_THRESHOLD ? activatingStakeFee : 0
     // Emit when EITHER a bond-side penalty/fee OR an activating-stake fee is
     // predicted. Activating-stake fee is charged separately from the bond-side
     // total but still represents a real cost the validator should see.
     if (
-      (penalties.total > 0.001 || effectiveActivatingStakeFee > 0.001) &&
+      (penalties.total > DUST_SOL_THRESHOLD ||
+        activatingStakeFee > DUST_SOL_THRESHOLD) &&
       prev.epoch !== epoch
     ) {
       events.push(
@@ -524,7 +536,7 @@ export function evaluateDeltas(
           buildPenaltyExpectedMessage(
             v.voteAccount,
             penalties,
-            effectiveActivatingStakeFee,
+            activatingStakeFeeDisplay,
           ),
           {
             total_penalty_sol: penalties.total,
@@ -536,13 +548,9 @@ export function evaluateDeltas(
             marinade_activated_stake_sol: v.marinadeActivatedStakeSol,
             bond_balance_sol: v.bondBalanceSol,
             bond_good_for_n_epochs: roundEpochs(v.bondGoodForNEpochs),
-            activating_stake_sol: ACTIVATING_STAKE_FEE_ENABLED
-              ? activatingStakeSol
-              : 0,
-            activating_stake_pmpe: ACTIVATING_STAKE_FEE_ENABLED
-              ? activatingStakePmpe
-              : 0,
-            activating_stake_fee_sol: effectiveActivatingStakeFee,
+            activating_stake_sol: activatingStakeSol,
+            activating_stake_pmpe: activatingStakePmpe,
+            activating_stake_fee_sol: activatingStakeFeeDisplay,
           } satisfies PenaltyExpectedDetails,
         ),
       )
