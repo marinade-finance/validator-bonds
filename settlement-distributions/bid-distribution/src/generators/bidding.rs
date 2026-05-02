@@ -92,6 +92,7 @@ pub fn generate_bid_settlements(
     settlement_config: &SettlementConfig,
     fee_config: &FeeConfig,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+    ssi_pmpe: Option<Decimal>,
 ) -> anyhow::Result<Vec<Settlement>> {
     let epoch = stake_meta_index.stake_meta_collection.epoch;
     info!("Generating bid settlements in epoch {epoch}...");
@@ -298,9 +299,29 @@ pub fn generate_bid_settlements(
                 settlement_claim
             );
 
-            // Marinade should get at least the percentage amount of total rewards as per the distributor fee percentage
-            let minimum_distributor_fee_claim =
-                total_marinade_stakers_rewards * fee_percentages.marinade_distributor_fee;
+            let effective_fee = match ssi_pmpe {
+                Some(ssi)
+                    if total_marinade_stakers_rewards > Decimal::ZERO
+                        && total_marinade_active_stake > 0 =>
+                {
+                    let target = ssi + fee_config.min_yield_premium_over_ssi_pmpe;
+                    let staker_yield_pmpe = total_marinade_stakers_rewards
+                        / Decimal::from(total_marinade_active_stake)
+                        * Decimal::ONE_THOUSAND;
+                    let fee_cap = (Decimal::ONE - target / staker_yield_pmpe).max(Decimal::ZERO);
+                    fee_cap.clamp(fee_percentages.min_fee, fee_percentages.max_fee)
+                }
+                _ => fee_percentages.max_fee,
+            };
+            info!(
+                "{} effective fee: {} (configured: {}, min: {}, ssi_pmpe: {:?})",
+                validator.vote_account,
+                effective_fee,
+                fee_percentages.max_fee,
+                fee_percentages.min_fee,
+                ssi_pmpe,
+            );
+            let minimum_distributor_fee_claim = total_marinade_stakers_rewards * effective_fee;
             let distributor_fee_claim = minimum_distributor_fee_claim
                 .min(settlement_claim.sum())
                 .to_u64()

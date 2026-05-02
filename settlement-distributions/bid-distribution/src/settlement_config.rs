@@ -10,10 +10,12 @@ use solana_sdk::pubkey::Pubkey;
 /// Fee percentages calculated from basis points
 #[derive(Debug, Clone, Copy, Default)]
 pub struct FeePercentages {
-    /// Marinade distributor fee as a decimal percentage (e.g., 0.095 for 9.5%)
-    pub marinade_distributor_fee: Decimal,
+    /// Marinade distributor max fee as a decimal percentage (e.g., 0.095 for 9.5%)
+    pub max_fee: Decimal,
     /// DAO fee share as a decimal percentage (e.g., 0.05 for 5%)
     pub dao_fee_share: Decimal,
+    /// Marinade distributor min fee as a decimal percentage (e.g., 0.01 for 1%)
+    pub min_fee: Decimal,
 }
 
 /// Named fee authorities returned by [FeeConfig::fee_authorities]
@@ -46,23 +48,39 @@ pub struct DaoConfig {
 /// Shared fee configuration for SAM settlement types (Bidding, BidTooLowPenalty)
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct FeeConfig {
-    pub marinade_fee_bps: u64,
+    #[serde(alias = "marinade_fee_bps")]
+    pub max_fee_bps: u64,
     pub marinade: AuthorityConfig,
     pub dao: DaoConfig,
+    #[serde(default)]
+    pub min_fee_bps: u64,
+    #[serde(default)]
+    pub min_yield_premium_over_ssi_pmpe: Decimal,
 }
 
 impl FeeConfig {
     /// Validates that fee basis points are within valid range (0..=10000)
     pub fn validate(&self) -> anyhow::Result<()> {
         ensure!(
-            self.marinade_fee_bps <= 10_000,
-            "marinade_fee_bps {} exceeds maximum 10000 (100%)",
-            self.marinade_fee_bps
+            self.max_fee_bps <= 10_000,
+            "max_fee_bps {} exceeds maximum 10000 (100%)",
+            self.max_fee_bps
         );
         ensure!(
             self.dao.fee_split_share_bps <= 10_000,
             "dao.fee_split_share_bps {} exceeds maximum 10000 (100%)",
             self.dao.fee_split_share_bps
+        );
+        ensure!(
+            self.min_fee_bps <= 10_000,
+            "min_fee_bps {} exceeds maximum 10000 (100%)",
+            self.min_fee_bps
+        );
+        ensure!(
+            self.min_fee_bps <= self.max_fee_bps,
+            "min_fee_bps {} exceeds max_fee_bps {} (would push effective fee above configured fee)",
+            self.min_fee_bps,
+            self.max_fee_bps
         );
         Ok(())
     }
@@ -79,8 +97,9 @@ impl FeeConfig {
     /// Converts basis points to decimal percentages for fee calculations
     pub fn fee_percentages(&self) -> FeePercentages {
         FeePercentages {
-            marinade_distributor_fee: Decimal::from(self.marinade_fee_bps) / Decimal::from(10_000),
+            max_fee: Decimal::from(self.max_fee_bps) / Decimal::from(10_000),
             dao_fee_share: Decimal::from(self.dao.fee_split_share_bps) / Decimal::from(10_000),
+            min_fee: Decimal::from(self.min_fee_bps) / Decimal::from(10_000),
         }
     }
 }
@@ -94,7 +113,7 @@ pub struct SamSettlementConfig {
 }
 
 /// SAM settlement type variants
-#[derive(Clone, Deserialize, Serialize, Debug)]
+#[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
 #[serde(tag = "type")]
 pub enum SamSettlementKind {
     /// SAM Bidding - rewards from auction participation
@@ -142,6 +161,14 @@ impl SettlementConfig {
             _ => None,
         }
     }
+
+    /// Returns the SAM config reference if this is a SAM settlement type.
+    pub fn to_sam_config(&self) -> Option<&SamSettlementConfig> {
+        match self {
+            SettlementConfig::Sam(config) => Some(config),
+            _ => None,
+        }
+    }
 }
 
 /// Top-level configuration for bid distribution.
@@ -179,55 +206,29 @@ impl BidDistributionConfig {
             .collect()
     }
 
+    fn find_sam(&self, kind: SamSettlementKind) -> Option<&SettlementConfig> {
+        self.settlements
+            .iter()
+            .find(|c| c.to_sam_config().is_some_and(|s| s.kind == kind))
+    }
+
     /// Find the Bidding config (for SAM bid settlements)
     pub fn bidding_config(&self) -> Option<&SettlementConfig> {
-        self.settlements.iter().find(|c| {
-            matches!(
-                c,
-                SettlementConfig::Sam(SamSettlementConfig {
-                    kind: SamSettlementKind::Bidding,
-                    ..
-                })
-            )
-        })
+        self.find_sam(SamSettlementKind::Bidding)
     }
 
     /// Find the BidTooLowPenalty config (for SAM penalty settlements)
     pub fn bid_too_low_penalty_config(&self) -> Option<&SettlementConfig> {
-        self.settlements.iter().find(|c| {
-            matches!(
-                c,
-                SettlementConfig::Sam(SamSettlementConfig {
-                    kind: SamSettlementKind::BidTooLowPenalty,
-                    ..
-                })
-            )
-        })
+        self.find_sam(SamSettlementKind::BidTooLowPenalty)
     }
 
     /// Find the BlacklistPenalty config (for SAM penalty settlements)
     pub fn blacklist_penalty_config(&self) -> Option<&SettlementConfig> {
-        self.settlements.iter().find(|c| {
-            matches!(
-                c,
-                SettlementConfig::Sam(SamSettlementConfig {
-                    kind: SamSettlementKind::BlacklistPenalty,
-                    ..
-                })
-            )
-        })
+        self.find_sam(SamSettlementKind::BlacklistPenalty)
     }
 
     /// Find the BondRiskFee config (for SAM bond risk fee settlements)
     pub fn bond_risk_fee_config(&self) -> Option<&SettlementConfig> {
-        self.settlements.iter().find(|c| {
-            matches!(
-                c,
-                SettlementConfig::Sam(SamSettlementConfig {
-                    kind: SamSettlementKind::BondRiskFee,
-                    ..
-                })
-            )
-        })
+        self.find_sam(SamSettlementKind::BondRiskFee)
     }
 }

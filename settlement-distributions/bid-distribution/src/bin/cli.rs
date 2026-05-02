@@ -111,19 +111,14 @@ fn main() -> anyhow::Result<()> {
     if has_sam_configs {
         info!("Generating SAM settlements...");
 
-        // SAM inputs are required when SAM configs are present
-        anyhow::ensure!(
-            args.sam_meta_collection.is_some(),
-            "--sam-meta-collection is required when SAM settlement configs are present"
-        );
-        anyhow::ensure!(
-            args.rewards_dir.is_some(),
-            "--rewards-dir is required when SAM settlement configs are present"
-        );
-        let sam_meta_path = args.sam_meta_collection.as_ref().unwrap();
-        let rewards_dir = args.rewards_dir.as_ref().unwrap();
-
-        // All three SAM config types are required
+        let sam_meta_path = args.sam_meta_collection.as_ref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "--sam-meta-collection is required when SAM settlement configs are present"
+            )
+        })?;
+        let rewards_dir = args.rewards_dir.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("--rewards-dir is required when SAM settlement configs are present")
+        })?;
         let bidding_config = bid_distribution_config.bidding_config().ok_or_else(|| {
             anyhow::anyhow!("Bidding settlement config is required in bid-distribution-config")
         })?;
@@ -162,6 +157,19 @@ fn main() -> anyhow::Result<()> {
             rewards_collection.total_rewards()
         );
 
+        let ssi_pmpe = sam_validator_metas
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("SAM meta collection is empty"))?
+            .ssi_pmpe;
+        anyhow::ensure!(
+            sam_validator_metas.iter().all(|m| m.ssi_pmpe == ssi_pmpe),
+            "Inconsistent ssi_pmpe across SAM meta entries"
+        );
+        match ssi_pmpe {
+            Some(v) => info!("SSI: {v} pmpe (from sam-meta-collection)"),
+            None => info!("SSI: not provided in sam-meta; fee correction disabled"),
+        }
+
         // Epoch consistency verification
         let rewards_epoch = rewards_collection.epoch;
         anyhow::ensure!(
@@ -186,6 +194,7 @@ fn main() -> anyhow::Result<()> {
             bidding_config,
             &bid_distribution_config.fee_config,
             &*stake_authority_filter,
+            ssi_pmpe,
         )?;
         info!("Generated {} bid settlements", bid_settlements.len());
         all_settlements.extend(bid_settlements);
@@ -220,17 +229,14 @@ fn main() -> anyhow::Result<()> {
     if !psr_configs.is_empty() {
         info!("Generating PSR settlements...");
 
-        // PSR inputs are required when PSR configs are present
-        anyhow::ensure!(
-            args.validator_meta_collection.is_some(),
-            "--validator-meta-collection is required when PSR settlement configs are present"
-        );
-        anyhow::ensure!(
-            args.revenue_expectation_collection.is_some(),
-            "--revenue-expectation-collection is required when PSR settlement configs are present"
-        );
-        let validator_meta_path = args.validator_meta_collection.as_ref().unwrap();
-        let revenue_path = args.revenue_expectation_collection.as_ref().unwrap();
+        let validator_meta_path = args.validator_meta_collection.as_ref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "--validator-meta-collection is required when PSR settlement configs are present"
+            )
+        })?;
+        let revenue_path = args.revenue_expectation_collection.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("--revenue-expectation-collection is required when PSR settlement configs are present")
+        })?;
 
         info!("Loading validator meta collection...");
         let validator_meta_collection: ValidatorMetaCollection =
@@ -267,7 +273,8 @@ fn main() -> anyhow::Result<()> {
     } else {
         // No PSR configs — fail if PSR inputs were partially provided (likely a mistake)
         anyhow::ensure!(
-            args.validator_meta_collection.is_none() && args.revenue_expectation_collection.is_none(),
+            args.validator_meta_collection.is_none()
+                && args.revenue_expectation_collection.is_none(),
             "PSR inputs (--validator-meta-collection, --revenue-expectation-collection) provided but no PSR settlement configs found in config file"
         );
     }
