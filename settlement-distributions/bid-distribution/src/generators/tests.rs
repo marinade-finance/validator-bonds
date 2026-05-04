@@ -2691,8 +2691,7 @@ fn test_ssi_premium_with_max_clamp() {
 
 #[test]
 fn test_ssi_pmpe_none_falls_back_to_max_fee() {
-    // ssi_pmpe=None → match arm guard fails → effective=max_fee=0.30
-    // Premium is irrelevant when ssi is None. 20 SOL * 0.30 = 6 SOL
+    // ssi_pmpe=None → effective=max_fee=0.30 (premium ignored). 20 SOL * 0.30 = 6 SOL
     let settlements = run_ssi_test_with_pmpe(None, 20.0, 20.0, ssi_fee_config(3000, 0, 0.05));
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
@@ -2704,15 +2703,15 @@ fn test_ssi_pmpe_none_falls_back_to_max_fee() {
 }
 
 #[test]
-fn test_ssi_zero_yield_falls_back_to_max_fee() {
-    // total_pmpe=0, static_bid=0 → staker_yield=0 → guard fails → effective=max_fee
-    // But settlement claim sum is 0, so marinade_fee_claim = 0 * 0.30 = 0.
+fn test_ssi_zero_yield_produces_no_fee() {
+    // total_pmpe=0, static_bid=0 → claim sum=0 → marinade_fee=0 regardless of fee path.
+    // Verifies zero stakes don't panic and don't yield a phantom fee claim.
     let settlements = run_ssi_test_with_pmpe(Some(10.0), 0.0, 0.0, ssi_fee_config(3000, 0, 0.0));
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
     assert_eq!(
         marinade_fee, 0,
-        "zero staker yield must fall back to max_fee path with no marinade fee claim"
+        "zero staker yield must produce no marinade fee"
     );
 }
 
