@@ -79,8 +79,8 @@ done < <(<"$settlement_collection_file" jq -r '
   | [.reason_key, (.count | tostring), .amount] | @tsv
 ')
 echo
-echo "                                vote account    settlement                        reason       stake     funded by"
-echo "--------------------------------------------+-------------+-----------------------------+-----------+-------------"
+echo "                                vote account    settlement                        reason  stake     funded by"
+echo "--------------------------------------------+-------------+-----------------------------+------+-------------"
 while read -r settlement
 do
     reason=""
@@ -93,16 +93,18 @@ do
     protected_stake_raw=$(<<<"$settlement" jq '[.claims[].active_stake] | add / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
     activating_stake_raw=$(<<<"$settlement" jq '[.claims[].activating_stake // 0] | add / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
     if [ "$activating_stake_raw" != "0" ]; then
-        # Activating-stake settlement (PriorityFee): show activating amount with +(☉) marker
-        stake_display="+☉$activating_stake_raw"
+        # Activating-stake settlement (PriorityFee): "+" sign before ☉ marks activating
+        stake_sign="+"
+        stake_value="$activating_stake_raw"
     else
+        stake_sign=" "
         if [ "$protected_stake_filtered" != "0" ] && [ "$protected_stake_filtered" != "$protected_stake_raw" ]; then
-            protected_stake="$protected_stake_filtered"
+            stake_value="$protected_stake_filtered"
         else
-            protected_stake="$protected_stake_raw"
+            stake_value="$protected_stake_raw"
         fi
-        stake_display="☉$protected_stake"
     fi
+    stake_display=$(printf "%s☉%4s" "$stake_sign" "$stake_value")
     
     reason_code=$(<<<"$settlement" jq '.reason | keys[0]' -r 2> /dev/null || <<<"$settlement" jq '.reason' -r)
 
@@ -188,5 +190,5 @@ do
           ;;
     esac
 
-    echo -e "$(printf "%44s" "$vote_account") $(printf "%15s" "☉$claims_amount") $(printf "%28s" "$reason") $(printf "%11s" "$stake_display") $(printf "%13s" "$funder_info")"
+    echo -e "$(printf "%44s" "$vote_account") $(printf "%15s" "☉$claims_amount") $(printf "%28s" "$reason") $(printf "%6s" "$stake_display") $(printf "%13s" "$funder_info")"
 done < <(<"$settlement_collection_file" jq '.settlements | sort_by(.vote_account, -.claims_amount) | .[]' -c)
