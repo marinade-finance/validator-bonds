@@ -68,7 +68,7 @@ export function getBanner({
   textColor?: Color
   titleColor?: Color
 }): string {
-  const terminalWidth = process.stdout.columns || preferredWidth + BOX_OVERHEAD
+  const terminalWidth = process.stderr.columns || preferredWidth + BOX_OVERHEAD
   const useSimpleMode = terminalWidth < minWidth + BOX_OVERHEAD
 
   const wrapTarget = useSimpleMode
@@ -235,8 +235,7 @@ export enum Color {
 }
 
 function isSupportsColor(): boolean {
-  // Check if output is a TTY (not piped/redirected)
-  if (!process.stdout.isTTY) {
+  if (!process.stderr.isTTY) {
     return false
   }
   // Check environment variables
