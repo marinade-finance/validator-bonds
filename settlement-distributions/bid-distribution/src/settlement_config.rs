@@ -9,7 +9,7 @@ use settlement_common::utils::stake_authority_filter;
 use solana_sdk::pubkey::Pubkey;
 
 /// Fee percentages calculated from basis points
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub struct FeePercentages {
     /// Marinade distributor max fee as a decimal percentage (e.g., 0.095 for 9.5%)
     pub max_fee: Decimal,
