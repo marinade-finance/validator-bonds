@@ -149,8 +149,12 @@ function buildSimpleBanner(
   const bannerLines: string[] = []
 
   if (title) {
-    bannerLines.push(coloredText(title, titleColor))
-    bannerLines.push(HORIZONTAL_LINE.repeat(Math.min(title.length, maxLength)))
+    const titleLines = wrapLines([title], maxLength)
+    titleLines.forEach(line => bannerLines.push(coloredText(line, titleColor)))
+    const longestTitleLine = Math.max(...titleLines.map(line => line.length))
+    bannerLines.push(
+      HORIZONTAL_LINE.repeat(Math.min(longestTitleLine, maxLength)),
+    )
   } else {
     bannerLines.push(HORIZONTAL_LINE.repeat(maxLength))
   }
