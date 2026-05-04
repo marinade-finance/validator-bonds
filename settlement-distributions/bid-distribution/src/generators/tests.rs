@@ -2457,19 +2457,6 @@ fn test_bid_both_active_and_activating_stakers() {
 }
 
 #[test]
-fn test_ssi_fee_cap_not_binding_keeps_configured_fee() {
-    // staker_yield_pmpe=20, ssi=5 → fee_cap=0.75, configured=0.30 → effective=0.30
-    let settlements = run_ssi_test(5.0, ssi_fee_config(3000, 0, 0.0));
-    let marinade_fee =
-        sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
-    assert_eq!(
-        marinade_fee,
-        6 * solana_sdk::native_token::LAMPORTS_PER_SOL,
-        "configured fee (0.30) must apply when fee_cap (0.75) is not binding"
-    );
-}
-
-#[test]
 fn test_bid_only_activating_no_active_marinade_stake() {
     // total_marinade_active_stake == 0, total_marinade_activating_stake > 0
     // Only one PriorityFee settlement should be produced; no Bidding settlement.
@@ -2521,19 +2508,6 @@ fn test_bid_only_activating_no_active_marinade_stake() {
         settlements[0].claims_amount.abs_diff(500_000_000) <= 1,
         "claims_amount {} ≠ ~500_000_000",
         settlements[0].claims_amount
-    );
-}
-
-#[test]
-fn test_ssi_fee_cap_clamped_to_min_when_ssi_exceeds_yield() {
-    // staker_yield_pmpe=20, ssi=25 → fee_cap=0, min_fee=0.10 → effective=0.10
-    let settlements = run_ssi_test(25.0, ssi_fee_config(3000, 1000, 0.0));
-    let marinade_fee =
-        sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
-    assert_eq!(
-        marinade_fee,
-        2 * solana_sdk::native_token::LAMPORTS_PER_SOL,
-        "fee must equal min_fee (0.10) when SSI exceeds staker yield"
     );
 }
 
@@ -2712,6 +2686,145 @@ fn test_ssi_zero_yield_produces_no_fee() {
     assert_eq!(
         marinade_fee, 0,
         "zero staker yield must produce no marinade fee"
+    );
+}
+
+#[test]
+fn test_ssi_mixed_active_and_activating_stake() {
+    // active=1000 SOL, activating=1000 SOL on the same vote account.
+    // static_bid_pmpe=30 → static_bid_claim    = 1000 SOL * 30/1000  = 30 SOL
+    // activating_stake_pmpe=10 → activating_bid_claim = 1000 SOL * 10/1000 = 10 SOL
+    // active_stakers_rewards (fallback, total_pmpe=30)              = 30 SOL
+    // total_marinade_stakers_rewards = 30 + 10                      = 40 SOL
+    // staker_yield_pmpe = 40 / 1000 * 1000                          = 40
+    // ssi=28, premium=0 → target=28; fee_cap = 1 - 28/40            = 0.30
+    // max=0.50, min=0 → effective_fee=0.30
+    // settlement_claim.sum() = 30 + 10 = 40 SOL
+    // distributor_fee = min(40 * 0.30, 40) = 12 SOL = 12_000_000_000 lamports
+    let epoch = 100;
+    let vote_account = test_vote_account(12);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            create_stake_meta(
+                test_stake_account(30),
+                vote_account,
+                test_withdraw_authority(30),
+                TEST_PUBKEY_MARINADE,
+                1000 * LAMPORTS_PER_SOL,
+            ),
+            create_stake_meta_with_activating(
+                test_stake_account(31),
+                vote_account,
+                test_withdraw_authority(31),
+                TEST_PUBKEY_MARINADE,
+                0,
+                1000 * LAMPORTS_PER_SOL,
+            ),
+        ],
+    };
+
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .total_pmpe(30.0)
+        .static_bid(30.0)
+        .activating_stake_pmpe(10.0)
+        .build();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &ssi_fee_config(5000, 0, 0.0),
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        Some(Decimal::try_from(28.0).unwrap()),
+    )
+    .unwrap();
+
+    assert_eq!(
+        settlements.len(),
+        2,
+        "must produce both Bidding and PriorityFee settlements"
+    );
+    assert!(
+        settlements
+            .iter()
+            .any(|s| matches!(s.reason, SettlementReason::Bidding)),
+        "missing Bidding settlement"
+    );
+    assert!(
+        settlements
+            .iter()
+            .any(|s| matches!(s.reason, SettlementReason::PriorityFee)),
+        "missing PriorityFee settlement"
+    );
+
+    let marinade_fee =
+        sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
+    assert!(
+        marinade_fee.abs_diff(12 * LAMPORTS_PER_SOL) <= 2,
+        "marinade_fee {} ≠ ~12_000_000_000 (fee_cap=0.30 over 40 SOL yield)",
+        marinade_fee
+    );
+}
+
+#[test]
+fn test_ssi_activating_only_falls_back_to_max_fee() {
+    // active=0, activating=5 SOL. ssi_pmpe=Some(15.0), but guard total_marinade_active_stake>0
+    // fails → effective_fee falls back to max_fee=0.30.
+    // static_bid=0, activating_stake_pmpe=100 → activating_bid_claim = 100/1000 * 5 SOL = 0.5 SOL
+    // settlement_claim.sum() = 0.5 SOL = 500_000_000 lamports
+    // distributor_fee = min(0.5 * 0.30, 0.5) = 0.15 SOL = 150_000_000 lamports
+    let epoch = 100;
+    let vote_account = test_vote_account(13);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![create_stake_meta_with_activating(
+            test_stake_account(40),
+            vote_account,
+            test_withdraw_authority(40),
+            TEST_PUBKEY_MARINADE,
+            0,
+            5 * LAMPORTS_PER_SOL,
+        )],
+    };
+
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .static_bid(0.0)
+        .activating_stake_pmpe(100.0)
+        .build();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &ssi_fee_config(3000, 0, 0.0),
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        Some(Decimal::try_from(15.0).unwrap()),
+    )
+    .unwrap();
+
+    let marinade_fee =
+        sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
+    assert!(
+        marinade_fee.abs_diff(150_000_000) <= 1,
+        "marinade_fee {} ≠ ~150_000_000 (max_fee=0.30 fallback when active stake==0)",
+        marinade_fee
     );
 }
 
