@@ -91,12 +91,15 @@ do
     # when there is some user stake accounts to distribute to the stake sum is doubled
     protected_stake_filtered=$(<<<"$settlement" jq "[.claims[] | select(.withdraw_authority != \"$marinade_fee_withdraw_authority\" and .withdraw_authority != \"$dao_fee_withdraw_authority\" and .stake_authority != \"$marinade_fee_stake_authority\" and .stake_authority != \"$dao_fee_stake_authority\") | .active_stake] | add // 0 | . / 1e9" -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
     protected_stake_raw=$(<<<"$settlement" jq '[.claims[].active_stake] | add / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
-    if [ "$protected_stake_filtered" != "0" ] && [ "$protected_stake_filtered" != "$protected_stake_raw" ]; then
+    activating_stake_raw=$(<<<"$settlement" jq '[.claims[].activating_stake // 0] | add / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
+    if [ "$activating_stake_raw" != "0" ]; then
+        # PriorityFee-shaped settlement: stakers' active_stake is 0; fall-back to raw would surface fee-deposit stake
+        protected_stake="$protected_stake_filtered"
+    elif [ "$protected_stake_filtered" != "0" ] && [ "$protected_stake_filtered" != "$protected_stake_raw" ]; then
         protected_stake="$protected_stake_filtered"
     else
         protected_stake="$protected_stake_raw"
     fi
-    activating_stake_raw=$(<<<"$settlement" jq '[.claims[].activating_stake // 0] | add / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
     if [ "$activating_stake_raw" != "0" ]; then
         protected_stake="$protected_stake (+☉$activating_stake_raw activating)"
     fi
@@ -146,6 +149,9 @@ do
     case $reason_code in
         Bidding)
             reason="Bidding"
+            ;;
+        PriorityFee)
+            reason="PriorityFee"
             ;;
         BidTooLowPenalty)
             reason="BidTooLow"
