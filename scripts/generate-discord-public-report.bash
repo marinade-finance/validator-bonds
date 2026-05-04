@@ -79,8 +79,8 @@ done < <(<"$settlement_collection_file" jq -r '
   | [.reason_key, (.count | tostring), .amount] | @tsv
 ')
 echo
-echo "                                vote account    settlement                        reason  stake     funded by"
-echo "--------------------------------------------+-------------+-----------------------------+------+-------------"
+echo "                                vote account    settlement                        reason  stake      funded by"
+echo "--------------------------------------------+-------------+-----------------------------+-------+-------------"
 while read -r settlement
 do
     reason=""
@@ -104,15 +104,24 @@ do
             stake_value="$protected_stake_raw"
         fi
     fi
-    # Split SI suffix (K/M/G/T) so numeric digits right-align and the unit (or space) sits in a fixed column
+    # Split into integer / decimal / fraction / unit so each column aligns across rows.
     stake_unit_char="${stake_value: -1}"
     if [[ "$stake_unit_char" =~ [KMGT] ]]; then
-        stake_num="${stake_value:0:-1}"
+        stake_body="${stake_value:0:-1}"
     else
-        stake_num="$stake_value"
+        stake_body="$stake_value"
         stake_unit_char=" "
     fi
-    stake_display=$(printf "%s☉%3s%s" "$stake_sign" "$stake_num" "$stake_unit_char")
+    if [[ "$stake_body" == *.* ]]; then
+        stake_int="${stake_body%.*}"
+        stake_frac="${stake_body#*.}"
+        stake_dec="."
+    else
+        stake_int="$stake_body"
+        stake_frac=" "
+        stake_dec=" "
+    fi
+    stake_display=$(printf "%s☉%3s%s%s%s" "$stake_sign" "$stake_int" "$stake_dec" "$stake_frac" "$stake_unit_char")
     
     reason_code=$(<<<"$settlement" jq '.reason | keys[0]' -r 2> /dev/null || <<<"$settlement" jq '.reason' -r)
 
@@ -198,5 +207,5 @@ do
           ;;
     esac
 
-    echo -e "$(printf "%44s" "$vote_account") $(printf "%15s" "☉$claims_amount") $(printf "%28s" "$reason") $(printf "%6s" "$stake_display") $(printf "%13s" "$funder_info")"
+    echo -e "$(printf "%44s" "$vote_account") $(printf "%15s" "☉$claims_amount") $(printf "%28s" "$reason") $(printf "%7s" "$stake_display") $(printf "%13s" "$funder_info")"
 done < <(<"$settlement_collection_file" jq '.settlements | sort_by(.vote_account, -.claims_amount) | .[]' -c)
