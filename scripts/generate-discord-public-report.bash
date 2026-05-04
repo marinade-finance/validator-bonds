@@ -79,8 +79,8 @@ done < <(<"$settlement_collection_file" jq -r '
   | [.reason_key, (.count | tostring), .amount] | @tsv
 ')
 echo
-echo "                                vote account    settlement                        reason  stake     funded by"
-echo "--------------------------------------------+-------------+-----------------------------+------+-------------"
+echo "                                vote account    settlement                        reason  stake       funded by"
+echo "--------------------------------------------+-------------+-----------------------------+--------+-------------"
 while read -r settlement
 do
     reason=""
@@ -104,7 +104,22 @@ do
             stake_value="$protected_stake_raw"
         fi
     fi
-    stake_display=$(printf "%s☉%4s" "$stake_sign" "$stake_value")
+    # Right-align integer part of value, left-align trailing (decimal/unit) so
+    # units digits line up under each other regardless of suffix or fraction.
+    if [[ "$stake_value" == *.* ]]; then
+        stake_int="${stake_value%%.*}"
+        stake_tail=".${stake_value#*.}"
+    else
+        stake_unit_char="${stake_value: -1}"
+        if [[ "$stake_unit_char" =~ [kmgt] ]]; then
+            stake_int="${stake_value:0:-1}"
+            stake_tail="$stake_unit_char"
+        else
+            stake_int="$stake_value"
+            stake_tail=""
+        fi
+    fi
+    stake_display=$(printf "%s☉%3s%-3s" "$stake_sign" "$stake_int" "$stake_tail")
     
     reason_code=$(<<<"$settlement" jq '.reason | keys[0]' -r 2> /dev/null || <<<"$settlement" jq '.reason' -r)
 
@@ -190,5 +205,5 @@ do
           ;;
     esac
 
-    echo -e "$(printf "%44s" "$vote_account") $(printf "%15s" "☉$claims_amount") $(printf "%28s" "$reason") $(printf "%6s" "$stake_display") $(printf "%13s" "$funder_info")"
+    echo -e "$(printf "%44s" "$vote_account") $(printf "%15s" "☉$claims_amount") $(printf "%28s" "$reason") $(printf "%-8s" "$stake_display") $(printf "%13s" "$funder_info")"
 done < <(<"$settlement_collection_file" jq '.settlements | sort_by(.vote_account, -.claims_amount) | .[]' -c)
