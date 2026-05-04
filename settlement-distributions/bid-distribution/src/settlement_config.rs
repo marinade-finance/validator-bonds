@@ -80,11 +80,6 @@ impl FeeConfig {
             self.min_fee_bps,
             self.max_fee_bps
         );
-        ensure!(
-            self.min_yield_premium_over_ssi_pmpe >= Decimal::ZERO,
-            "min_yield_premium_over_ssi_pmpe {} must be >= 0",
-            self.min_yield_premium_over_ssi_pmpe
-        );
         Ok(())
     }
 
