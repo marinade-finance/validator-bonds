@@ -104,7 +104,15 @@ do
             stake_value="$protected_stake_raw"
         fi
     fi
-    stake_display=$(printf "%s☉%4s" "$stake_sign" "$stake_value")
+    # Split SI suffix (K/M/G/T) so numeric digits right-align and the unit (or space) sits in a fixed column
+    stake_unit_char="${stake_value: -1}"
+    if [[ "$stake_unit_char" =~ [KMGT] ]]; then
+        stake_num="${stake_value:0:-1}"
+    else
+        stake_num="$stake_value"
+        stake_unit_char=" "
+    fi
+    stake_display=$(printf "%s☉%3s%s" "$stake_sign" "$stake_num" "$stake_unit_char")
     
     reason_code=$(<<<"$settlement" jq '.reason | keys[0]' -r 2> /dev/null || <<<"$settlement" jq '.reason' -r)
 
