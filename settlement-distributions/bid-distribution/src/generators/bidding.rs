@@ -311,6 +311,7 @@ pub fn generate_bid_settlements(
                     let fee_cap = (Decimal::ONE - target / staker_yield_pmpe).max(Decimal::ZERO);
                     fee_cap.clamp(fee_percentages.min_fee, fee_percentages.max_fee)
                 }
+                // does not really matter what we use here, so we use the "default"
                 _ => fee_percentages.max_fee,
             };
             info!(
