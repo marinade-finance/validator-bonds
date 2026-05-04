@@ -31,7 +31,6 @@ export async function printNotificationBanners(
       getBanner({
         title: notification.title ?? undefined,
         text: notification.message,
-        width: 80,
         centerText: false,
         textColor: Color.Bold,
       }),
@@ -45,10 +44,16 @@ export async function printNotificationBanners(
   }
 }
 
+const DEFAULT_PREFERRED_WIDTH = 150
+const DEFAULT_MIN_WIDTH = 80
+const BOX_OVERHEAD = 4 // ║ + space + space + ║
+const SIMPLE_OVERHEAD = 2 // small margin for the simple-mode horizontal line
+
 export function getBanner({
   text,
   title,
-  width,
+  preferredWidth = DEFAULT_PREFERRED_WIDTH,
+  minWidth = DEFAULT_MIN_WIDTH,
   centerText,
   linesAround,
   textColor,
@@ -56,27 +61,35 @@ export function getBanner({
 }: {
   text: string
   title?: string
-  width?: number
+  preferredWidth?: number
+  minWidth?: number
   centerText?: boolean
   linesAround?: number
   textColor?: Color
   titleColor?: Color
 }): string {
-  const lines = text.split('\n')
+  const terminalWidth = process.stdout.columns || preferredWidth + BOX_OVERHEAD
+  const useSimpleMode = terminalWidth < minWidth + BOX_OVERHEAD
 
-  let maxLength = Math.max(
-    ...lines.map(l => l.length),
-    title ? title.length : 0,
+  const wrapTarget = useSimpleMode
+    ? Math.max(20, terminalWidth - SIMPLE_OVERHEAD)
+    : Math.min(preferredWidth, terminalWidth - BOX_OVERHEAD)
+
+  const wrappedLines = wrapLines(
+    normalizeBannerText(text).split('\n'),
+    wrapTarget,
   )
-  maxLength = width ? Math.max(maxLength, width) : maxLength
-
-  const terminalWidth = process.stdout.columns || 80
-  const requiredWidth = maxLength + 4 // +4 for borders and spaces
-  const useSimpleMode = terminalWidth < requiredWidth
 
   const bannerLines = useSimpleMode
-    ? buildSimpleBanner(lines, title, maxLength, textColor, titleColor)
-    : buildBoxBanner(lines, title, maxLength, centerText, textColor, titleColor)
+    ? buildSimpleBanner(wrappedLines, title, wrapTarget, textColor, titleColor)
+    : buildBoxBanner(
+        wrappedLines,
+        title,
+        wrapTarget,
+        centerText,
+        textColor,
+        titleColor,
+      )
   let banner = bannerLines.join('\n')
 
   if (linesAround && linesAround > 0) {
@@ -86,6 +99,46 @@ export function getBanner({
   return banner
 }
 
+// Decodes &nbsp; and forces markdown links onto their own line.
+// Skips inserting \n if one is already adjacent so existing blank lines are preserved.
+export function normalizeBannerText(text: string): string {
+  return text
+    .replace(/&nbsp;/g, ' ')
+    .replace(
+      /\[[^\]\n]+\]\([^)\n]+\)[.,;:!?]?/g,
+      (match: string, offset: number, full: string) => {
+        const before = offset === 0 || full[offset - 1] === '\n' ? '' : '\n'
+        const afterIdx = offset + match.length
+        const after =
+          afterIdx === full.length || full[afterIdx] === '\n' ? '' : '\n'
+        return `${before}${match}${after}`
+      },
+    )
+}
+
+// Word-wraps on whitespace; tokens longer than `width` overflow on their own line.
+export function wrapLines(lines: string[], width: number): string[] {
+  if (width <= 0) return lines
+  const out: string[] = []
+  for (const line of lines) {
+    if (line.length <= width) {
+      out.push(line)
+      continue
+    }
+    let current = ''
+    for (const word of line.split(/\s+/).filter(Boolean)) {
+      if (!current) current = word
+      else if (current.length + 1 + word.length <= width) current += ' ' + word
+      else {
+        out.push(current)
+        current = word
+      }
+    }
+    if (current) out.push(current)
+  }
+  return out
+}
+
 function buildSimpleBanner(
   lines: string[],
   title: string | undefined,
@@ -93,22 +146,20 @@ function buildSimpleBanner(
   textColor: Color | undefined,
   titleColor: Color | undefined,
 ): string[] {
-  const terminalWidth = process.stdout.columns || 80
-  const lineLength = Math.min(maxLength, terminalWidth - 2)
   const bannerLines: string[] = []
 
   if (title) {
     bannerLines.push(coloredText(title, titleColor))
-    bannerLines.push(HORIZONTAL_LINE.repeat(Math.min(title.length, lineLength)))
+    bannerLines.push(HORIZONTAL_LINE.repeat(Math.min(title.length, maxLength)))
   } else {
-    bannerLines.push(HORIZONTAL_LINE.repeat(lineLength))
+    bannerLines.push(HORIZONTAL_LINE.repeat(maxLength))
   }
 
   lines.forEach(line => {
     bannerLines.push(coloredText(line, textColor))
   })
 
-  bannerLines.push(HORIZONTAL_LINE.repeat(lineLength))
+  bannerLines.push(HORIZONTAL_LINE.repeat(maxLength))
   return bannerLines
 }
 
@@ -124,7 +175,7 @@ function buildBoxBanner(
 
   // Top border with optional title
   if (title) {
-    const totalPadding = maxLength - title.length
+    const totalPadding = Math.max(0, maxLength - title.length)
     const leftPad = Math.floor(totalPadding / 2)
     const rightPad = totalPadding - leftPad
     const coloredTitle = coloredText(title, titleColor)
@@ -137,20 +188,19 @@ function buildBoxBanner(
     )
   }
 
-  // Content lines
+  // Oversized lines emit without padding; their right border slips past the box edge.
   lines.forEach(line => {
     const coloredLine = coloredText(line, textColor)
+    const overflow = Math.max(0, maxLength - line.length)
     if (centerText) {
-      const totalPadding = maxLength - line.length
-      const leftPad = Math.floor(totalPadding / 2)
-      const rightPad = totalPadding - leftPad
+      const leftPad = Math.floor(overflow / 2)
+      const rightPad = overflow - leftPad
       bannerLines.push(
         `${VERTICAL_LINE} ${' '.repeat(leftPad)}${coloredLine}${' '.repeat(rightPad)} ${VERTICAL_LINE}`,
       )
     } else {
-      const padding = ' '.repeat(maxLength - line.length)
       bannerLines.push(
-        `${VERTICAL_LINE} ${coloredLine}${padding} ${VERTICAL_LINE}`,
+        `${VERTICAL_LINE} ${coloredLine}${' '.repeat(overflow)} ${VERTICAL_LINE}`,
       )
     }
   })
