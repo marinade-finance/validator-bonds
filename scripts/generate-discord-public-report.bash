@@ -111,7 +111,7 @@ do
         stake_tail=".${stake_value#*.}"
     else
         stake_unit_char="${stake_value: -1}"
-        if [[ "$stake_unit_char" =~ [kmgt] ]]; then
+        if [[ "$stake_unit_char" =~ [kMGT] ]]; then
             stake_int="${stake_value:0:-1}"
             stake_tail="$stake_unit_char"
         else
