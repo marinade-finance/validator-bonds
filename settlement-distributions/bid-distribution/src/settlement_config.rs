@@ -1,6 +1,7 @@
 use anyhow::ensure;
 use merkle_tree::serde_serialize::{option_vec_pubkey_string_conversion, pubkey_string_conversion};
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use settlement_common::settlement_collection::SettlementMeta;
 use settlement_common::settlement_config::SettlementConfig as PsrSettlementConfig;
@@ -79,6 +80,11 @@ impl FeeConfig {
             "min_fee_bps {} exceeds max_fee_bps {} (would push effective fee above configured fee)",
             self.min_fee_bps,
             self.max_fee_bps
+        );
+        ensure!(
+            self.min_yield_premium_over_ssi_pmpe.abs() <= dec!(0.1),
+            "min_yield_premium_over_ssi_pmpe {} exceeds ±0.1 PMPE (~2% APY)",
+            self.min_yield_premium_over_ssi_pmpe
         );
         Ok(())
     }
