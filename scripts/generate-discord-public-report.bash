@@ -46,7 +46,7 @@ decimal_format="%0.9f"
 
 function fmt_human_number {
     integer_part=$(echo "$@" | cut -d. -f1)
-    numfmt -d. --to si "$integer_part" | tr 'KMGT' 'kmgt'
+    numfmt -d. --to si "$integer_part" | tr 'K' 'k'
 }
 export -f fmt_human_number
 
@@ -111,7 +111,7 @@ do
         stake_tail=".${stake_value#*.}"
     else
         stake_unit_char="${stake_value: -1}"
-        if [[ "$stake_unit_char" =~ [kMGT] ]]; then
+        if [[ "$stake_unit_char" =~ [KMGT] ]]; then
             stake_int="${stake_value:0:-1}"
             stake_tail="$stake_unit_char"
         else
