@@ -2611,6 +2611,111 @@ fn test_ssi_min_fee_overrides_fee_cap() {
     );
 }
 
+fn run_ssi_test_with_pmpe(
+    ssi_pmpe: Option<f64>,
+    total_pmpe: f64,
+    static_bid_pmpe: f64,
+    fee_config: FeeConfig,
+) -> Vec<Settlement> {
+    let (collection, vote_account) = ssi_stake_meta_index();
+    let index = StakeMetaIndex::new(&collection);
+    let sam_meta = ssi_sam_meta(vote_account, total_pmpe, static_bid_pmpe);
+    generate_bid_settlements(
+        &index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch: 100,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &fee_config,
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        ssi_pmpe.map(|v| Decimal::try_from(v).unwrap()),
+    )
+    .unwrap()
+}
+
+#[test]
+fn test_ssi_premium_positive_tightens_fee_cap() {
+    // staker_yield_pmpe=20, ssi=15, premium=0.05 → target=15.05, fee_cap=1-15.05/20=0.2475
+    // configured max=0.30 → effective=0.2475 → 20 SOL * 0.2475 = 4.95 SOL
+    let settlements = run_ssi_test(15.0, ssi_fee_config(3000, 0, 0.05));
+    let marinade_fee =
+        sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
+    assert_eq!(
+        marinade_fee, 4_950_000_000,
+        "positive premium must tighten fee cap to 0.2475"
+    );
+}
+
+#[test]
+fn test_ssi_premium_negative_loosens_fee_cap() {
+    // staker_yield_pmpe=20, ssi=15, premium=-0.05 → target=14.95, fee_cap=1-14.95/20=0.2525
+    // configured max=0.30 → effective=0.2525 → 20 SOL * 0.2525 = 5.05 SOL
+    let settlements = run_ssi_test(15.0, ssi_fee_config(3000, 0, -0.05));
+    let marinade_fee =
+        sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
+    assert_eq!(
+        marinade_fee, 5_050_000_000,
+        "negative premium must loosen fee cap to 0.2525"
+    );
+}
+
+#[test]
+fn test_ssi_premium_pushes_target_above_yield_clamps_to_min() {
+    // staker_yield_pmpe=20, ssi=19.99, premium=0.1 → target=20.09 > yield
+    // → fee_cap=0, clamped to min_fee=0.10 → 20 SOL * 0.10 = 2 SOL
+    let settlements = run_ssi_test(19.99, ssi_fee_config(3000, 1000, 0.1));
+    let marinade_fee =
+        sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
+    assert_eq!(
+        marinade_fee,
+        2 * solana_sdk::native_token::LAMPORTS_PER_SOL,
+        "target above yield must clamp fee_cap to min_fee (0.10)"
+    );
+}
+
+#[test]
+fn test_ssi_premium_with_max_clamp() {
+    // staker_yield_pmpe=20, ssi=5, premium=0.1 → target=5.1, fee_cap=1-5.1/20=0.745
+    // configured max=0.30 → effective=0.30 → 20 SOL * 0.30 = 6 SOL
+    let settlements = run_ssi_test(5.0, ssi_fee_config(3000, 0, 0.1));
+    let marinade_fee =
+        sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
+    assert_eq!(
+        marinade_fee,
+        6 * solana_sdk::native_token::LAMPORTS_PER_SOL,
+        "fee_cap (0.745) must be clamped down to configured max (0.30)"
+    );
+}
+
+#[test]
+fn test_ssi_pmpe_none_falls_back_to_max_fee() {
+    // ssi_pmpe=None → match arm guard fails → effective=max_fee=0.30
+    // Premium is irrelevant when ssi is None. 20 SOL * 0.30 = 6 SOL
+    let settlements = run_ssi_test_with_pmpe(None, 20.0, 20.0, ssi_fee_config(3000, 0, 0.05));
+    let marinade_fee =
+        sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
+    assert_eq!(
+        marinade_fee,
+        6 * solana_sdk::native_token::LAMPORTS_PER_SOL,
+        "None ssi_pmpe must fall back to configured max_fee"
+    );
+}
+
+#[test]
+fn test_ssi_zero_yield_falls_back_to_max_fee() {
+    // total_pmpe=0, static_bid=0 → staker_yield=0 → guard fails → effective=max_fee
+    // But settlement claim sum is 0, so marinade_fee_claim = 0 * 0.30 = 0.
+    let settlements = run_ssi_test_with_pmpe(Some(10.0), 0.0, 0.0, ssi_fee_config(3000, 0, 0.0));
+    let marinade_fee =
+        sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
+    assert_eq!(
+        marinade_fee, 0,
+        "zero staker yield must fall back to max_fee path with no marinade fee claim"
+    );
+}
+
 #[test]
 fn test_psr_epoch_mismatch_returns_error() {
     let slot = 1000;
