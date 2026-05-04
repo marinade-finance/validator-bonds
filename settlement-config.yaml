@@ -1,5 +1,6 @@
 ---
 fee_config:
+  min_fee_bps: 200
   max_fee_bps: 800
   marinade:
     stake_authority: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
