@@ -2695,12 +2695,13 @@ fn test_ssi_mixed_active_and_activating_stake() {
     // static_bid_pmpe=30 → static_bid_claim    = 1000 SOL * 30/1000  = 30 SOL
     // activating_stake_pmpe=10 → activating_bid_claim = 1000 SOL * 10/1000 = 10 SOL
     // active_stakers_rewards (fallback, total_pmpe=30)              = 30 SOL
-    // total_marinade_stakers_rewards = 30 + 10                      = 40 SOL
+    // total_marinade_stakers_rewards = 30 + 10                      = 40 SOL  ← combined!
     // staker_yield_pmpe = 40 / 1000 * 1000                          = 40
     // ssi=28, premium=0 → target=28; fee_cap = 1 - 28/40            = 0.30
-    // max=0.50, min=0 → effective_fee=0.30
-    // settlement_claim.sum() = 30 + 10 = 40 SOL
+    // max=0.50 chosen so fee_cap (0.30) binds, not max.
     // distributor_fee = min(40 * 0.30, 40) = 12 SOL = 12_000_000_000 lamports
+    // (A regression that used only active_stakers_rewards (30 SOL) as the yield
+    //  base would compute fee_cap = 1-28/30 = 0.0667 → 2 SOL fee, not 12.)
     let epoch = 100;
     let vote_account = test_vote_account(12);
 
@@ -2768,20 +2769,27 @@ fn test_ssi_mixed_active_and_activating_stake() {
 
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
+    // ±2 tolerance: fee is split across both settlements, each with its own to_u64 rounding.
     assert!(
         marinade_fee.abs_diff(12 * LAMPORTS_PER_SOL) <= 2,
         "marinade_fee {} ≠ ~12_000_000_000 (fee_cap=0.30 over 40 SOL yield)",
         marinade_fee
     );
+    let dao_fee = sum_claims_for_authority(&settlements, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO);
+    assert_eq!(dao_fee, 0, "dao share is 0 in ssi_fee_config");
 }
 
 #[test]
 fn test_ssi_activating_only_falls_back_to_max_fee() {
     // active=0, activating=5 SOL. ssi_pmpe=Some(15.0), but guard total_marinade_active_stake>0
     // fails → effective_fee falls back to max_fee=0.30.
-    // static_bid=0, activating_stake_pmpe=100 → activating_bid_claim = 100/1000 * 5 SOL = 0.5 SOL
+    // static_bid=0, activating_stake_pmpe=100 (high so 5 SOL activating produces a clean
+    // 0.5 SOL claim) → activating_bid_claim = 100/1000 * 5 SOL = 0.5 SOL
     // settlement_claim.sum() = 0.5 SOL = 500_000_000 lamports
     // distributor_fee = min(0.5 * 0.30, 0.5) = 0.15 SOL = 150_000_000 lamports
+    // Note: if the active_stake>0 guard were removed, the SSI branch would attempt
+    // staker_yield_pmpe = rewards / 0 * 1000 and panic — so a passing run here
+    // confirms the guard is what dispatched the fallback.
     let epoch = 100;
     let vote_account = test_vote_account(13);
 
@@ -2801,6 +2809,7 @@ fn test_ssi_activating_only_falls_back_to_max_fee() {
     let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
 
     let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .total_pmpe(0.0)
         .static_bid(0.0)
         .activating_stake_pmpe(100.0)
         .build();
@@ -2826,6 +2835,8 @@ fn test_ssi_activating_only_falls_back_to_max_fee() {
         "marinade_fee {} ≠ ~150_000_000 (max_fee=0.30 fallback when active stake==0)",
         marinade_fee
     );
+    let dao_fee = sum_claims_for_authority(&settlements, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO);
+    assert_eq!(dao_fee, 0, "dao share is 0 in ssi_fee_config");
 }
 
 #[test]
