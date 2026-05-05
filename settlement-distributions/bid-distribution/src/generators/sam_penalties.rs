@@ -1,6 +1,6 @@
 use crate::sam_meta::ValidatorSamMeta;
 use crate::settlement_config::{FeeConfig, SettlementConfig};
-use anyhow::{anyhow, ensure};
+use anyhow::{anyhow, ensure, Context};
 use log::info;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
@@ -79,7 +79,7 @@ pub fn generate_penalty_settlements(
             let bid_too_low_penalty_total_claim =
                 Decimal::from(total_marinade_active_stake) * bid_too_low_penalty;
             let distributor_bid_too_low_penalty_claim = (bid_too_low_penalty_total_claim
-                * bid_fee_percentages.marinade_distributor_fee)
+                * bid_fee_percentages.max_fee)
                 .to_u64()
                 .ok_or_else(|| anyhow!("Failed to_u64 for distributor_bid_penalty_claim"))?;
             let stakers_bid_too_low_penalty_claim = bid_too_low_penalty_total_claim
@@ -305,7 +305,7 @@ pub fn generate_penalty_settlements(
                     stakers_bond_risk_fee_claim,
                 };
                 let details_json = serde_json::to_value(&bond_risk_fee_details)
-                    .expect("Failed to serialize BondRiskFeeDetails");
+                    .context("Failed to serialize BondRiskFeeDetails")?;
 
                 add_to_settlement_collection(
                     &mut penalty_settlement_collection,
