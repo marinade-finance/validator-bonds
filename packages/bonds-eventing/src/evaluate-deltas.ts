@@ -57,6 +57,64 @@ function roundEpochs(value: number | null | undefined): number | null {
   return Math.round(value * 100) / 100
 }
 
+// User-facing SOL formatter: cap to 4 decimals, trim trailing zeros.
+function fmtSol(value: number | null): string {
+  if (value === null || !isFinite(value)) return 'unknown'
+  return Number(value.toFixed(4)).toString()
+}
+
+function fmtEpochs(value: number | null): string {
+  if (value === null) return 'unknown'
+  return value.toString()
+}
+
+function fmtSigned(delta: number): string {
+  const rounded = Number(delta.toFixed(4))
+  return (rounded >= 0 ? '+' : '') + rounded.toString()
+}
+
+/**
+ * Build the user-facing message for bond_underfunded_change. Combines
+ * coverage and top-up deltas into a single sentence so operators see both
+ * dimensions in one alert. When `newlyKnown` is set the message reports
+ * only coverage, since previous deficit context isn't meaningful.
+ */
+function buildUnderfundedMessage(
+  voteAccount: string,
+  prevEpochs: number | null,
+  currEpochs: number | null,
+  prevDeficitSol: number | null,
+  currDeficitSol: number | null,
+  newlyKnown: boolean,
+): string {
+  if (newlyKnown && currEpochs !== null) {
+    return (
+      `Validator ${voteAccount} bond coverage is now ` +
+      `${fmtEpochs(currEpochs)} epochs (was unknown).`
+    )
+  }
+  const parts: string[] = []
+  if (prevEpochs !== null && currEpochs !== null) {
+    parts.push(
+      `coverage ${fmtEpochs(prevEpochs)} → ${fmtEpochs(currEpochs)} epochs ` +
+        `(Δ ${fmtSigned(currEpochs - prevEpochs)})`,
+    )
+  } else if (currEpochs !== null) {
+    parts.push(`coverage ${fmtEpochs(currEpochs)} epochs`)
+  }
+  if (prevDeficitSol !== null && currDeficitSol !== null) {
+    parts.push(
+      `top-up needed ${fmtSol(prevDeficitSol)} → ${fmtSol(currDeficitSol)} SOL ` +
+        `(Δ ${fmtSigned(currDeficitSol - prevDeficitSol)})`,
+    )
+  } else if (currDeficitSol !== null) {
+    parts.push(`top-up needed ${fmtSol(currDeficitSol)} SOL`)
+  }
+  const body =
+    parts.length > 0 ? parts.join(', ') : 'underfunding state changed'
+  return `Validator ${voteAccount} bond ${body}.`
+}
+
 export function configAddressForBondType(bondType: BondType): PublicKey {
   switch (bondType) {
     case 'bidding':
@@ -392,9 +450,13 @@ export function evaluateDeltas(
 
     // Bond good for N epochs change (rounded to avoid float jitter)
     // OR deficit changed (any lamport-level difference).
+    // The receiving side (notifications-bonds) applies relative-change and
+    // direction filters; the producer emits all detected deltas.
     const currentEpochsRounded = roundEpochs(v.bondGoodForNEpochs)
-    const currentDeficitSol = computeDeficitMetrics(v).deficit_sol
+    const deficitMetrics = computeDeficitMetrics(v)
+    const currentDeficitSol = deficitMetrics.deficit_sol
     const currentDeficitLamports = solToLamports(currentDeficitSol)
+    const previousDeficitSol = lamportsToSol(prev.deficit_lamports)
     const epochsChanged =
       prev.bond_good_for_n_epochs !== null &&
       currentEpochsRounded !== null &&
@@ -408,14 +470,14 @@ export function evaluateDeltas(
       currentDeficitLamports !== prev.deficit_lamports
 
     if (epochsChanged || epochsNewlyKnown || deficitChanged) {
-      const deficitMetrics = computeDeficitMetrics(v)
-      const message = epochsNewlyKnown
-        ? `Validator ${v.voteAccount} bond coverage is now ${currentEpochsRounded} epochs (was unknown).`
-        : epochsChanged
-          ? `Validator ${v.voteAccount} bond coverage changed ` +
-            `from ${prev.bond_good_for_n_epochs} to ${currentEpochsRounded} epochs.`
-          : `Validator ${v.voteAccount} bond deficit changed ` +
-            `from ${lamportsToSol(prev.deficit_lamports)} to ${lamportsToSol(currentDeficitLamports)} SOL.`
+      const message = buildUnderfundedMessage(
+        v.voteAccount,
+        prev.bond_good_for_n_epochs,
+        currentEpochsRounded,
+        previousDeficitSol,
+        currentDeficitSol,
+        epochsNewlyKnown,
+      )
       events.push(
         makeEvent(
           'bond_underfunded_change',
@@ -427,6 +489,7 @@ export function evaluateDeltas(
           {
             previous_epochs: prev.bond_good_for_n_epochs,
             current_epochs: currentEpochsRounded,
+            previous_deficit_sol: previousDeficitSol,
             bond_balance_sol: v.bondBalanceSol,
             marinade_activated_stake_sol: v.marinadeActivatedStakeSol,
             ...deficitMetrics,

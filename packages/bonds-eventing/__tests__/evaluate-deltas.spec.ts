@@ -352,6 +352,12 @@ describe('evaluateDeltas', () => {
     expect(underfundedDetails.epoch_cost_sol).toBeCloseTo((3.2 / 1000) * 50000) // 160 SOL
     expect(underfundedDetails.deficit_sol).toBeGreaterThan(0)
     expect(underfundedDetails.required_sol).toBeGreaterThan(0)
+    // previous_deficit_sol carries the prior state's deficit so the consumer
+    // can compute Δ for direction + min-change-pct gating.
+    expect(underfundedDetails.previous_deficit_sol).toBeCloseTo(175)
+    // Combined message must include both metrics with arrow + delta.
+    expect(underfunded!.data.message).toMatch(/coverage 5 → 2 epochs \(Δ -3\)/)
+    expect(underfunded!.data.message).toMatch(/top-up needed .* SOL \(Δ /)
   })
 
   it('emits bond_balance_change when funded amount changes', () => {
@@ -455,6 +461,9 @@ describe('evaluateDeltas', () => {
     const deficitDetails = underfunded!.data
       .details as BondUnderfundedChangeDetails
     expect(deficitDetails.deficit_sol).toBeGreaterThan(175)
+    // Even when rounded epochs match, previous_deficit_sol is populated so
+    // the consumer can compare against current_deficit.
+    expect(deficitDetails.previous_deficit_sol).toBeCloseTo(175)
   })
 
   it('emits no events when nothing changed', () => {

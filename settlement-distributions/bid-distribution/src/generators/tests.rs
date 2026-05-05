@@ -2772,8 +2772,7 @@ fn test_ssi_mixed_active_and_activating_stake() {
     // ±2 tolerance: fee is split across both settlements, each with its own to_u64 rounding.
     assert!(
         marinade_fee.abs_diff(12 * LAMPORTS_PER_SOL) <= 2,
-        "marinade_fee {} ≠ ~12_000_000_000 (fee_cap=0.30 over 40 SOL yield)",
-        marinade_fee
+        "marinade_fee {marinade_fee} ≠ ~12_000_000_000 (fee_cap=0.30 over 40 SOL yield)"
     );
     let dao_fee = sum_claims_for_authority(&settlements, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO);
     assert_eq!(dao_fee, 0, "dao share is 0 in ssi_fee_config");
@@ -2832,8 +2831,7 @@ fn test_ssi_activating_only_falls_back_to_max_fee() {
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
     assert!(
         marinade_fee.abs_diff(150_000_000) <= 1,
-        "marinade_fee {} ≠ ~150_000_000 (max_fee=0.30 fallback when active stake==0)",
-        marinade_fee
+        "marinade_fee {marinade_fee} ≠ ~150_000_000 (max_fee=0.30 fallback when active stake==0)"
     );
     let dao_fee = sum_claims_for_authority(&settlements, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO);
     assert_eq!(dao_fee, 0, "dao share is 0 in ssi_fee_config");
