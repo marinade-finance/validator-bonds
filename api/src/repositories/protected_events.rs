@@ -27,17 +27,48 @@ async fn get_protected_events(
         .await?;
 
     let mut protected_events = vec![];
+    let mut skipped = 0usize;
     while rs.next_row() {
-        protected_events.push(ProtectedEventRecord {
-            epoch: rs.get_i64_by_name("epoch")?.unwrap().try_into()?,
-            amount: rs.get_i64_by_name("amount")?.unwrap().try_into()?,
-            vote_account: Pubkey::from_str(&rs.get_string_by_name("vote_account")?.unwrap())?,
-            meta: serde_json::from_str(&rs.get_string_by_name("meta")?.unwrap())?,
-            reason: serde_json::from_str(&rs.get_string_by_name("reason")?.unwrap())?,
-        });
+        match parse_row(&rs) {
+            Ok(record) => protected_events.push(record),
+            Err(err) => {
+                skipped += 1;
+                log::error!("Skipping unparseable protected_events row: {err}");
+            }
+        }
+    }
+    if skipped > 0 {
+        log::warn!("Skipped {skipped} unparseable protected_events row(s)");
     }
 
     Ok(protected_events)
+}
+
+fn parse_row(
+    rs: &gcp_bigquery_client::model::query_response::ResultSet,
+) -> anyhow::Result<ProtectedEventRecord> {
+    Ok(ProtectedEventRecord {
+        epoch: rs
+            .get_i64_by_name("epoch")?
+            .ok_or_else(|| anyhow::anyhow!("missing epoch"))?
+            .try_into()?,
+        amount: rs
+            .get_i64_by_name("amount")?
+            .ok_or_else(|| anyhow::anyhow!("missing amount"))?
+            .try_into()?,
+        vote_account: Pubkey::from_str(
+            &rs.get_string_by_name("vote_account")?
+                .ok_or_else(|| anyhow::anyhow!("missing vote_account"))?,
+        )?,
+        meta: serde_json::from_str(
+            &rs.get_string_by_name("meta")?
+                .ok_or_else(|| anyhow::anyhow!("missing meta"))?,
+        )?,
+        reason: serde_json::from_str(
+            &rs.get_string_by_name("reason")?
+                .ok_or_else(|| anyhow::anyhow!("missing reason"))?,
+        )?,
+    })
 }
 
 pub async fn spawn_protected_events_cache(
