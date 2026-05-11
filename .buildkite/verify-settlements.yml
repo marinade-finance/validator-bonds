@@ -57,7 +57,9 @@ steps:
       slack_feed=${SLACK_FEED:-$(./scripts/bonds-slack-feed.sh "$$claim_type")}
       buildkite-agent meta-data set --redacted-vars='' slack_feed "$$slack_feed"
     - |
+      printable_rpc_url=$(./scripts/printable-rpc-url.sh "$$RPC_URL")
       echo "Claim Type: '$$claim_type'/'$$config_pubkey', Slack Feed: '$$slack_feed'"
+      echo "# RPC_URL='$$printable_rpc_url'"
     - |
       buildkite-agent meta-data set --redacted-vars='' non_funded_threshold "${NON_FUNDED_THRESHOLD:-7}"
       buildkite-agent meta-data set --redacted-vars='' non_existing_to_report "${NON_EXISTING_TO_REPORT:-0}"
@@ -70,6 +72,7 @@ steps:
       - slack_feed=$(buildkite-agent meta-data get slack_feed)
       - non_funded_threshold=$(buildkite-agent meta-data get non_funded_threshold)
       - non_existing_to_report=$(buildkite-agent meta-data get non_existing_to_report)
+      - printable_rpc_url=$(./scripts/printable-rpc-url.sh "$$RPC_URL")
       - |
         cat <<- EOF | buildkite-agent annotate --priority 6 --style info --context "general-info"
         ### Retry environment variables
@@ -81,6 +84,7 @@ steps:
         NOTIFY_FEED=${NOTIFY_FEED:-false}
         NON_FUNDED_THRESHOLD=$$non_funded_threshold
         NON_EXISTING_TO_REPORT=$$non_existing_to_report
+        # RPC_URL='$$printable_rpc_url'
         \`\`\`
         EOF
 
