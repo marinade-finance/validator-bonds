@@ -5,6 +5,7 @@ use std::{str::FromStr, sync::Arc};
 
 pub mod bond_products;
 pub mod bonds;
+pub mod cli_result;
 pub mod config;
 pub mod constants;
 pub mod dto;

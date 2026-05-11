@@ -6,7 +6,37 @@ use postgres_openssl::MakeTlsConnector;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
 use tokio_postgres::{types::ToSql, Client};
+use validator_bonds_common::cli_result::CliError;
 use validator_bonds_common::dto::{BondType, ValidatorBondRecord};
+
+fn pg_transient(err: tokio_postgres::Error) -> CliError {
+    let is_transient = err.is_closed()
+        || std::error::Error::source(&err)
+            .and_then(|s| s.downcast_ref::<std::io::Error>())
+            .map(is_transient_io_kind)
+            .unwrap_or(false);
+
+    if is_transient {
+        CliError::retry_able(err)
+    } else {
+        CliError::critical(err)
+    }
+}
+
+fn is_transient_io_kind(io: &std::io::Error) -> bool {
+    use std::io::ErrorKind::*;
+    matches!(
+        io.kind(),
+        ConnectionRefused
+            | ConnectionReset
+            | ConnectionAborted
+            | NotConnected
+            | TimedOut
+            | UnexpectedEof
+            | Interrupted
+            | WouldBlock
+    )
+}
 
 pub async fn get_bonds_by_type(
     psql_client: &Client,
@@ -83,13 +113,13 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
     builder.set_ca_file(&options.postgres_ssl_root_cert)?;
     let connector = MakeTlsConnector::new(builder.build());
 
-    let (psql_client, psql_conn) =
-        tokio_postgres::connect(&options.postgres_url, connector).await?;
+    let (psql_client, psql_conn) = tokio_postgres::connect(&options.postgres_url, connector)
+        .await
+        .map_err(pg_transient)?;
 
     tokio::spawn(async move {
         if let Err(err) = psql_conn.await {
-            log::error!("Connection error: {err}");
-            std::process::exit(1);
+            log::error!("PSQL connection terminated: {err}");
         }
     });
 
@@ -164,7 +194,10 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
             .iter()
             .map(|param| param.as_ref() as &(dyn ToSql + Sync))
             .collect::<Vec<_>>();
-        psql_client.query(&query, &params).await?;
+        psql_client
+            .query(&query, &params)
+            .await
+            .map_err(pg_transient)?;
     }
 
     Ok(())

@@ -9,7 +9,6 @@ use settlement_pipelines::arguments::{
     init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, ReportOpts, TipPolicyOpts,
 };
 use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
-use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::execute_parallel;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::institutional_validators::{fetch_validator_data, ValidatorsData};
@@ -41,6 +40,7 @@ use std::sync::Arc;
 use validator_bonds::instructions::InitSettlementArgs;
 use validator_bonds::state::settlement::find_settlement_claims_address;
 use validator_bonds::ID as validator_bonds_id;
+use validator_bonds_common::cli_result::{CliError, CliResult};
 use validator_bonds_common::constants::find_event_authority;
 use validator_bonds_common::settlements::get_settlements_for_pubkeys;
 use validator_bonds_common::utils::try_get_all_account_infos_for_pubkeys;

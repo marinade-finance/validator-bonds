@@ -10,7 +10,6 @@ use settlement_pipelines::arguments::{
     init_from_opts, load_pubkey, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts,
     ReportOpts, TipPolicyOpts,
 };
-use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::execute_parallel;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::BondSettlement;
@@ -48,6 +47,7 @@ use validator_bonds::state::settlement::{
 };
 use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::bonds::get_bonds_for_pubkeys;
+use validator_bonds_common::cli_result::{CliError, CliResult};
 use validator_bonds_common::config::get_config;
 use validator_bonds_common::constants::find_event_authority;
 use validator_bonds_common::settlements::get_settlements;
@@ -419,7 +419,7 @@ async fn get_expired_settlements(
 ) -> Result<Vec<(Pubkey, Settlement, Option<Bond>)>, CliError> {
     let expired_settlements = load_expired_settlements(rpc_client.clone(), config_address, config)
         .await
-        .map_err(CliError::RetryAble)?;
+        .map_err(CliError::retry_able)?;
     let expired_settlements_bond_pubkeys = expired_settlements
         .iter()
         .map(|(_, settlement)| settlement.bond)
@@ -428,7 +428,7 @@ async fn get_expired_settlements(
         .collect::<Vec<Pubkey>>();
     let bonds = get_bonds_for_pubkeys(rpc_client, &expired_settlements_bond_pubkeys)
         .await
-        .map_err(CliError::RetryAble)?;
+        .map_err(CliError::retry_able)?;
     Ok(expired_settlements
         .into_iter()
         .map(|(pubkey, settlement)| {
