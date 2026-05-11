@@ -47,7 +47,9 @@ steps:
         slack_feed=$(./scripts/bonds-slack-feed.sh "$$claim_type")
         buildkite-agent meta-data set --redacted-vars='' slack_feed "$$slack_feed"
       - |
+        printable_rpc_url=$(./scripts/printable-rpc-url.sh "$$RPC_URL")
         echo "Claim Type: '$$claim_type'/'$$config_pubkey', Slack feed: '$$slack_feed'"
+        echo "# RPC_URL='$$printable_rpc_url'"
 
   - label: ":memo: Annotate retry parameters"
     depends_on: setup-env-claim
@@ -55,6 +57,7 @@ steps:
     commands:
       - claim_type=${CLAIM_TYPE:-$(buildkite-agent meta-data get claim_type)}
       - slack_feed=$(buildkite-agent meta-data get slack_feed)
+      - printable_rpc_url=$(./scripts/printable-rpc-url.sh "$$RPC_URL")
       - |
         cat <<- EOF | buildkite-agent annotate --priority 6 --style info --context "general-info"
         ### Retry environment variables
@@ -64,6 +67,7 @@ steps:
         CLAIM_TYPE=$$claim_type
         SLACK_FEED=$$slack_feed
         NOTIFY_FEED=${NOTIFY_FEED:-false}
+        # RPC_URL='$$printable_rpc_url'
         \`\`\`
         EOF
 
