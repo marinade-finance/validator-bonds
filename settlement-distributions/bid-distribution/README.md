@@ -16,6 +16,9 @@ gcloud storage cp "gs://$bucket/$epoch/stakes.json" "${pipeline_dir}/stakes.json
 # Input data comes from ds-sam-pipeline
 curl scoring.marinade.finance/api/v1/scores/sam?epoch=${epoch} > "${pipeline_dir}/sam-scores.json"
 
+# SSI/SSR pmpe for the scoring epoch comes from apy-api; the CLI fetches it directly.
+# Configure via --apy-api-url or APY_API_URL (default: https://apy.marinade.finance)
+
 # Rewards input data from stakes-etl
 rewards_dir="${pipeline_dir}/rewards"
 mkdir -p "$rewards_dir"
