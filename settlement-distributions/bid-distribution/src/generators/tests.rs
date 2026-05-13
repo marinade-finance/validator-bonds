@@ -1420,7 +1420,6 @@ impl SamMetaParams {
             metadata: SamMetadata::default(),
             scoring_run_id: 0,
             values: self.values,
-            ssi_pmpe: Some(Decimal::ZERO),
         }
     }
 }
