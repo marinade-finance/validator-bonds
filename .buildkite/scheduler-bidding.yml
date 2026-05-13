@@ -26,11 +26,14 @@ steps:
 
         max_available_epoch=$(gcloud storage ls "${gs_bucket_snapshots}/**/stakes.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 2) || exit 2
         max_available_etl_epoch=$(gcloud storage ls "$gs_bucket_etl" | awk -F / '{print $$4}' | sort -nr | head -n 1) || exit 22
-        echo "Bidding:: > max_processed_epoch_bid: $$max_processed_epoch_bid, max_available_epoch: $$max_available_epoch, max_available_etl_epoch: $$max_available_etl_epoch"
+        ssr_json=$(curl -fsSL --max-time 15 "https://apy.marinade.finance/v1/epoch-pmpe/ssr") || exit 23
+        max_available_ssr_epoch=$(echo "$$ssr_json" | jq '[.epochs[].epoch] | max // 0')
+        echo "Bidding:: > max_processed_epoch_bid: $$max_processed_epoch_bid, max_available_epoch: $$max_available_epoch, max_available_etl_epoch: $$max_available_etl_epoch, max_available_ssr_epoch: $$max_available_ssr_epoch"
       - |
         buildkite-agent meta-data set max_processed_epoch_bid "$$max_processed_epoch_bid"
         buildkite-agent meta-data set max_available_epoch "$$max_available_epoch"
         buildkite-agent meta-data set max_available_etl_epoch "$$max_available_etl_epoch"
+        buildkite-agent meta-data set max_available_ssr_epoch "$$max_available_ssr_epoch"
 
   - wait: ~
 
@@ -39,8 +42,10 @@ steps:
       - max_processed_epoch_bid=$(buildkite-agent meta-data get max_processed_epoch_bid)
       - max_available_epoch=$(buildkite-agent meta-data get max_available_epoch)
       - max_available_etl_epoch=$(buildkite-agent meta-data get max_available_etl_epoch)
+      - max_available_ssr_epoch=$(buildkite-agent meta-data get max_available_ssr_epoch)
       - |
-        if (( $$max_available_etl_epoch >= $$max_available_epoch )); then
+        if (( $$max_available_etl_epoch >= $$max_available_epoch )) \
+           && (( $$max_available_ssr_epoch >= $$max_available_epoch )); then
           epoch=$${max_available_epoch}
           if (( $$max_processed_epoch_bid < $$max_available_epoch )); then
             gcloud storage cp "$gs_bucket_snapshots/$$epoch/past-validators.json" "$gs_bucket/$$epoch/"
