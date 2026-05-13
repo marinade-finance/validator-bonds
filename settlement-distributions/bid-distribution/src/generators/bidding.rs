@@ -92,7 +92,7 @@ pub fn generate_bid_settlements(
     settlement_config: &SettlementConfig,
     fee_config: &FeeConfig,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
-    ssi_pmpe: Decimal,
+    ssr_pmpe: Decimal,
 ) -> anyhow::Result<Vec<Settlement>> {
     let epoch = stake_meta_index.stake_meta_collection.epoch;
     info!("Generating bid settlements in epoch {epoch}...");
@@ -302,7 +302,7 @@ pub fn generate_bid_settlements(
             let effective_fee = if total_marinade_stakers_rewards > Decimal::ZERO
                 && total_marinade_active_stake > 0
             {
-                let target = ssi_pmpe + fee_config.min_yield_premium_over_ssi_pmpe;
+                let target = ssr_pmpe + fee_config.min_yield_premium_over_ssr_pmpe;
                 let staker_yield_pmpe = total_marinade_stakers_rewards
                     / Decimal::from(total_marinade_active_stake)
                     * Decimal::ONE_THOUSAND;
@@ -312,12 +312,12 @@ pub fn generate_bid_settlements(
                 fee_percentages.max_fee
             };
             info!(
-                "{} effective fee: {} (configured: {}, min: {}, ssi_pmpe: {})",
+                "{} effective fee: {} (configured: {}, min: {}, ssr_pmpe: {})",
                 validator.vote_account,
                 effective_fee,
                 fee_percentages.max_fee,
                 fee_percentages.min_fee,
-                ssi_pmpe,
+                ssr_pmpe,
             );
             let minimum_distributor_fee_claim = total_marinade_stakers_rewards * effective_fee;
             let distributor_fee_claim = minimum_distributor_fee_claim

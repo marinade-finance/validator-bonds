@@ -1,4 +1,4 @@
-use bid_distribution::apy_api::fetch_ssi_pmpe;
+use bid_distribution::apy_api::fetch_ssr_pmpe;
 use bid_distribution::generators::bidding::generate_bid_settlements;
 use bid_distribution::generators::psr_events::generate_psr_settlements;
 use bid_distribution::generators::sam_penalties::generate_penalty_settlements;
@@ -162,8 +162,8 @@ fn main() -> anyhow::Result<()> {
             rewards_collection.total_rewards()
         );
 
-        let ssi_pmpe = fetch_ssi_pmpe(&args.apy_api_url, stake_meta_epoch)?;
-        info!("SSI/SSR: {ssi_pmpe} pmpe (from apy-api, epoch {stake_meta_epoch})");
+        let ssr_pmpe = fetch_ssr_pmpe(&args.apy_api_url, stake_meta_epoch)?;
+        info!("SSI/SSR: {ssr_pmpe} pmpe (from apy-api, epoch {stake_meta_epoch})");
 
         // Epoch consistency verification
         let rewards_epoch = rewards_collection.epoch;
@@ -189,7 +189,7 @@ fn main() -> anyhow::Result<()> {
             bidding_config,
             &bid_distribution_config.fee_config,
             &*stake_authority_filter,
-            ssi_pmpe,
+            ssr_pmpe,
         )?;
         info!("Generated {} bid settlements", bid_settlements.len());
         all_settlements.extend(bid_settlements);
