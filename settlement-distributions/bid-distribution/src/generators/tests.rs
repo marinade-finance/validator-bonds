@@ -103,7 +103,7 @@ fn test_generate_bid_settlements_basic_single_validator() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Some(Decimal::ZERO),
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -204,7 +204,7 @@ fn test_generate_bid_settlements_positive_commission() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Some(Decimal::ZERO),
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -343,7 +343,7 @@ fn test_generate_bid_settlements_negative_commission() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Some(Decimal::ZERO),
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -526,7 +526,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Some(Decimal::ZERO),
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -537,7 +537,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Some(Decimal::ZERO),
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -548,7 +548,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Some(Decimal::ZERO),
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -810,7 +810,7 @@ fn test_zero_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Some(Decimal::ZERO),
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -869,7 +869,7 @@ fn test_activating_bid_charge_basic() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -932,7 +932,7 @@ fn test_activating_bid_charge_with_active_stake() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -990,7 +990,7 @@ fn test_activating_bid_charge_non_marinade_excluded() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -1037,7 +1037,7 @@ fn test_activating_bid_charge_absent_when_no_field() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -1088,7 +1088,7 @@ fn test_activating_bid_charge_skipped_for_multi_epoch_warmup() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -1153,7 +1153,7 @@ fn test_activating_bid_charge_distributed_to_activating_stakers() {
         &create_test_settlement_config(),
         &create_test_fee_config(1000, 5000),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -1667,7 +1667,7 @@ fn test_generate_settlements_from_json_values() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Some(Decimal::ZERO),
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -2335,7 +2335,7 @@ fn run_ssi_test(ssi_pmpe: f64, fee_config: FeeConfig) -> Vec<Settlement> {
         &create_test_settlement_config(),
         &fee_config,
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        Some(Decimal::try_from(ssi_pmpe).unwrap()),
+        Decimal::try_from(ssi_pmpe).unwrap(),
     )
     .unwrap()
 }
@@ -2403,7 +2403,7 @@ fn test_bid_both_active_and_activating_stakers() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -2492,7 +2492,7 @@ fn test_bid_only_activating_no_active_marinade_stake() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -2585,7 +2585,7 @@ fn test_ssi_min_fee_overrides_fee_cap() {
 }
 
 fn run_ssi_test_with_pmpe(
-    ssi_pmpe: Option<f64>,
+    ssi_pmpe: f64,
     total_pmpe: f64,
     static_bid_pmpe: f64,
     fee_config: FeeConfig,
@@ -2603,7 +2603,7 @@ fn run_ssi_test_with_pmpe(
         &create_test_settlement_config(),
         &fee_config,
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        ssi_pmpe.map(|v| Decimal::try_from(v).unwrap()),
+        Decimal::try_from(ssi_pmpe).unwrap(),
     )
     .unwrap()
 }
@@ -2663,23 +2663,10 @@ fn test_ssi_premium_with_max_clamp() {
 }
 
 #[test]
-fn test_ssi_pmpe_none_falls_back_to_max_fee() {
-    // ssi_pmpe=None → effective=max_fee=0.30 (premium ignored). 20 SOL * 0.30 = 6 SOL
-    let settlements = run_ssi_test_with_pmpe(None, 20.0, 20.0, ssi_fee_config(3000, 0, 0.05));
-    let marinade_fee =
-        sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
-    assert_eq!(
-        marinade_fee,
-        6 * solana_sdk::native_token::LAMPORTS_PER_SOL,
-        "None ssi_pmpe must fall back to configured max_fee"
-    );
-}
-
-#[test]
 fn test_ssi_zero_yield_produces_no_fee() {
     // total_pmpe=0, static_bid=0 → claim sum=0 → marinade_fee=0 regardless of fee path.
     // Verifies zero stakes don't panic and don't yield a phantom fee claim.
-    let settlements = run_ssi_test_with_pmpe(Some(10.0), 0.0, 0.0, ssi_fee_config(3000, 0, 0.0));
+    let settlements = run_ssi_test_with_pmpe(10.0, 0.0, 0.0, ssi_fee_config(3000, 0, 0.0));
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
     assert_eq!(
@@ -2744,7 +2731,7 @@ fn test_ssi_mixed_active_and_activating_stake() {
         &create_test_settlement_config(),
         &ssi_fee_config(5000, 0, 0.0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        Some(Decimal::try_from(28.0).unwrap()),
+        Decimal::try_from(28.0).unwrap(),
     )
     .unwrap();
 
@@ -2822,7 +2809,7 @@ fn test_ssi_activating_only_falls_back_to_max_fee() {
         &create_test_settlement_config(),
         &ssi_fee_config(3000, 0, 0.0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        Some(Decimal::try_from(15.0).unwrap()),
+        Decimal::try_from(15.0).unwrap(),
     )
     .unwrap();
 
