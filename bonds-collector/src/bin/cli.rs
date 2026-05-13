@@ -2,6 +2,7 @@ use bonds_collector::commands::bonds::collect_bonds;
 use bonds_collector::commands::common::CommonCollectOptions;
 use structopt::StructOpt;
 use tracing_log::LogTracer;
+use validator_bonds_common::cli_result::CliResult;
 
 #[derive(Debug, StructOpt)]
 pub struct Common {
@@ -24,7 +25,11 @@ pub enum Command {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> CliResult {
+    CliResult(real_main().await)
+}
+
+async fn real_main() -> anyhow::Result<()> {
     let params = Params::from_args();
     LogTracer::init().expect("Setting up log compatibility failed");
     let subscriber = tracing_subscriber::fmt::Subscriber::builder()

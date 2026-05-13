@@ -8,7 +8,6 @@ use settlement_pipelines::arguments::{
     init_from_opts, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts, ReportOpts,
     TipPolicyOpts,
 };
-use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::execute_parallel;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::load_merkle_tree_collections;
@@ -45,6 +44,7 @@ use validator_bonds::state::settlement::{
     find_settlement_claims_address, find_settlement_staker_authority, Settlement,
 };
 use validator_bonds::ID as validator_bonds_id;
+use validator_bonds_common::cli_result::{CliError, CliResult};
 use validator_bonds_common::config::get_config;
 use validator_bonds_common::constants::find_event_authority;
 use validator_bonds_common::settlement_claims::SettlementClaimsBitmap;

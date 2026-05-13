@@ -1,4 +1,3 @@
-use crate::cli_result::CliError;
 use crate::settlement_data::{
     parse_from_merkle_tree_collections, parse_settlements_from_json, SettlementRecord,
 };
@@ -18,6 +17,7 @@ use std::sync::Arc;
 use validator_bonds::state::bond::Bond;
 use validator_bonds::state::settlement::Settlement as SettlementContract;
 use validator_bonds_common::bonds::get_bonds_for_pubkeys;
+use validator_bonds_common::cli_result::CliError;
 use validator_bonds_common::settlements::get_settlements_for_pubkeys;
 
 /// For Closing and Listing settlements
@@ -115,14 +115,16 @@ fn insert_json_parsed_data(
                 "Epoch mismatch between merkle tree collection and settlement collection: {} != {}",
                 mc.epoch,
                 sc.epoch
-            )));
+            ))
+            .into());
         }
         (Some(mc), _) => mc.epoch,
         (_, Some(sc)) => sc.epoch,
         _ => {
-            return Err(CliError::critical(
-                "No epoch found in either merkle tree collection or settlement collection",
-            ));
+            return Err(CliError::critical(anyhow!(
+                "No epoch found in either merkle tree collection or settlement collection"
+            ))
+            .into());
         }
     };
 
@@ -241,7 +243,7 @@ pub async fn load_json_with_on_chain(
 ) -> Result<HashMap<u64, Vec<SettlementRecord>>, CliError> {
     let mut settlement_records_by_epoch =
         parse_settlements_from_json(json_data, config_address, epoch)
-            .map_err(CliError::Critical)?;
+            .map_err(CliError::critical)?;
 
     // Loading accounts from on-chain, trying to not pushing many RPC calls to the network
     let (settlement_addresses, bond_addresses) = settlement_records_by_epoch
@@ -255,12 +257,12 @@ pub async fn load_json_with_on_chain(
 
     let settlements = get_settlements_for_pubkeys(rpc_client.clone(), &settlement_addresses)
         .await
-        .map_err(CliError::RetryAble)?
+        .map_err(CliError::retry_able)?
         .into_iter()
         .collect::<HashMap<Pubkey, Option<SettlementContract>>>();
     let bonds = get_bonds_for_pubkeys(rpc_client.clone(), &bond_addresses)
         .await
-        .map_err(CliError::RetryAble)?
+        .map_err(CliError::retry_able)?
         .into_iter()
         .collect::<HashMap<Pubkey, Option<Bond>>>();
 
@@ -337,7 +339,7 @@ pub async fn load_merkle_tree_with_on_chain(
     epoch: Option<u64>,
 ) -> Result<HashMap<u64, Vec<SettlementRecord>>, CliError> {
     let mut settlement_records_by_epoch =
-        parse_from_merkle_tree_collections(collections, epoch).map_err(CliError::Critical)?;
+        parse_from_merkle_tree_collections(collections, epoch).map_err(CliError::critical)?;
 
     // Loading accounts from on-chain
     let (settlement_addresses, bond_addresses) = settlement_records_by_epoch
@@ -351,12 +353,12 @@ pub async fn load_merkle_tree_with_on_chain(
 
     let settlements = get_settlements_for_pubkeys(rpc_client.clone(), &settlement_addresses)
         .await
-        .map_err(CliError::RetryAble)?
+        .map_err(CliError::retry_able)?
         .into_iter()
         .collect::<HashMap<Pubkey, Option<SettlementContract>>>();
     let bonds = get_bonds_for_pubkeys(rpc_client.clone(), &bond_addresses)
         .await
-        .map_err(CliError::RetryAble)?
+        .map_err(CliError::retry_able)?
         .into_iter()
         .collect::<HashMap<Pubkey, Option<Bond>>>();
 
