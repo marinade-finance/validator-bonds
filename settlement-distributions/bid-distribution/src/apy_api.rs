@@ -25,7 +25,7 @@ pub fn fetch_ssr_pmpe(apy_api_url: &str, epoch: u64) -> anyhow::Result<Decimal> 
         .timeout(HTTP_TIMEOUT)
         .build()?;
     let resp: EpochPmpeResponse = client
-        .get(url.clone())
+        .get(url.as_str())
         .send()
         .with_context(|| format!("apy-api request failed for {url}"))?
         .error_for_status()?
