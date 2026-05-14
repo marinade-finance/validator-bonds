@@ -19,13 +19,13 @@ struct EpochPmpeResponse {
 
 // SSI and SSR refer to the same network-wide Solana Staking Index/Rate (pmpe).
 pub fn fetch_ssr_pmpe(apy_api_url: &str, epoch: u64) -> anyhow::Result<Decimal> {
-    let url = format!("{apy_api_url}/v1/epoch-pmpe/ssr");
+    let url = reqwest::Url::parse(apy_api_url)?.join("/v1/epoch-pmpe/ssr")?;
     info!("Fetching SSI/SSR pmpe for epoch {epoch} from {url}");
     let client = reqwest::blocking::Client::builder()
         .timeout(HTTP_TIMEOUT)
         .build()?;
     let resp: EpochPmpeResponse = client
-        .get(&url)
+        .get(url.clone())
         .send()
         .with_context(|| format!("apy-api request failed for {url}"))?
         .error_for_status()?
