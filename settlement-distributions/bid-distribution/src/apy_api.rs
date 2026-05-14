@@ -1,3 +1,4 @@
+use anyhow::Context;
 use log::info;
 use rust_decimal::Decimal;
 use serde::Deserialize;
@@ -23,7 +24,13 @@ pub fn fetch_ssr_pmpe(apy_api_url: &str, epoch: u64) -> anyhow::Result<Decimal> 
     let client = reqwest::blocking::Client::builder()
         .timeout(HTTP_TIMEOUT)
         .build()?;
-    let resp: EpochPmpeResponse = client.get(&url).send()?.error_for_status()?.json()?;
+    let resp: EpochPmpeResponse = client
+        .get(&url)
+        .send()
+        .with_context(|| format!("apy-api request failed for {url}"))?
+        .error_for_status()?
+        .json()
+        .with_context(|| format!("apy-api request failed for {url}"))?;
     resp.epochs
         .iter()
         .find(|e| e.epoch == epoch)
