@@ -54,7 +54,7 @@ pub struct FeeConfig {
     pub marinade: AuthorityConfig,
     pub dao: DaoConfig,
     pub min_fee_bps: u64,
-    pub min_yield_premium_over_ssi_pmpe: Decimal,
+    pub min_yield_premium_over_ssr_pmpe: Decimal,
 }
 
 impl FeeConfig {
@@ -82,9 +82,9 @@ impl FeeConfig {
             self.max_fee_bps
         );
         ensure!(
-            self.min_yield_premium_over_ssi_pmpe.abs() <= dec!(0.1),
-            "min_yield_premium_over_ssi_pmpe {} exceeds ±0.1 PMPE (~2% APY)",
-            self.min_yield_premium_over_ssi_pmpe
+            self.min_yield_premium_over_ssr_pmpe.abs() <= dec!(0.1),
+            "min_yield_premium_over_ssr_pmpe {} exceeds ±0.1 PMPE (~2% APY)",
+            self.min_yield_premium_over_ssr_pmpe
         );
         Ok(())
     }

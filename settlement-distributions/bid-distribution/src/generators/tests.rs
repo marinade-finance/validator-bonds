@@ -103,7 +103,7 @@ fn test_generate_bid_settlements_basic_single_validator() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Some(Decimal::ZERO),
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -204,7 +204,7 @@ fn test_generate_bid_settlements_positive_commission() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Some(Decimal::ZERO),
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -343,7 +343,7 @@ fn test_generate_bid_settlements_negative_commission() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Some(Decimal::ZERO),
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -526,7 +526,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Some(Decimal::ZERO),
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -537,7 +537,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Some(Decimal::ZERO),
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -548,7 +548,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Some(Decimal::ZERO),
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -810,7 +810,7 @@ fn test_zero_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Some(Decimal::ZERO),
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -869,7 +869,7 @@ fn test_activating_bid_charge_basic() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -932,7 +932,7 @@ fn test_activating_bid_charge_with_active_stake() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -990,7 +990,7 @@ fn test_activating_bid_charge_non_marinade_excluded() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -1037,7 +1037,7 @@ fn test_activating_bid_charge_absent_when_no_field() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -1088,7 +1088,7 @@ fn test_activating_bid_charge_skipped_for_multi_epoch_warmup() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -1153,7 +1153,7 @@ fn test_activating_bid_charge_distributed_to_activating_stakers() {
         &create_test_settlement_config(),
         &create_test_fee_config(1000, 5000),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -1420,7 +1420,6 @@ impl SamMetaParams {
             metadata: SamMetadata::default(),
             scoring_run_id: 0,
             values: self.values,
-            ssi_pmpe: Some(Decimal::ZERO),
         }
     }
 }
@@ -1448,7 +1447,7 @@ fn create_test_fee_config(max_fee_bps: u64, dao_fee_split_share_bps: u64) -> Fee
             withdraw_authority: TEST_PUBKEY_DAO,
         },
         min_fee_bps: 0,
-        min_yield_premium_over_ssi_pmpe: Decimal::ZERO,
+        min_yield_premium_over_ssr_pmpe: Decimal::ZERO,
     }
 }
 
@@ -1668,7 +1667,7 @@ fn test_generate_settlements_from_json_values() {
         &settlement_config,
         &fee_config,
         &accept_all,
-        Some(Decimal::ZERO),
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -2277,12 +2276,12 @@ fn test_settlement_config_yaml_deserialization() {
     );
 }
 
-// ===== SSI fee cap tests =====
+// ===== SSI/SSR fee cap tests =====
 // Setup: 1000 SOL Marinade-only active stake, total_pmpe=20 (fallback path, no AuctionValidatorValues)
 // → staker_yield_pmpe = 20, static_bid_claim = 20 SOL = settlement_claim.sum()
 // → effective_fee drives marinade_fee_claim = 20 SOL * effective_fee (dao_split=0)
 
-fn ssi_fee_config(max_fee_bps: u64, min_fee_bps: u64, min_yield_premium: f64) -> FeeConfig {
+fn ssr_fee_config(max_fee_bps: u64, min_fee_bps: u64, min_yield_premium: f64) -> FeeConfig {
     FeeConfig {
         max_fee_bps,
         marinade: AuthorityConfig {
@@ -2295,11 +2294,11 @@ fn ssi_fee_config(max_fee_bps: u64, min_fee_bps: u64, min_yield_premium: f64) ->
             withdraw_authority: TEST_PUBKEY_DAO,
         },
         min_fee_bps,
-        min_yield_premium_over_ssi_pmpe: Decimal::try_from(min_yield_premium).unwrap(),
+        min_yield_premium_over_ssr_pmpe: Decimal::try_from(min_yield_premium).unwrap(),
     }
 }
 
-fn ssi_stake_meta_index() -> (StakeMetaCollection, Pubkey) {
+fn ssr_stake_meta_index() -> (StakeMetaCollection, Pubkey) {
     let vote_account = test_vote_account(10);
     let collection = StakeMetaCollection {
         epoch: 100,
@@ -2315,17 +2314,17 @@ fn ssi_stake_meta_index() -> (StakeMetaCollection, Pubkey) {
     (collection, vote_account)
 }
 
-fn ssi_sam_meta(vote_account: Pubkey, total_pmpe: f64, static_bid_pmpe: f64) -> ValidatorSamMeta {
+fn ssr_sam_meta(vote_account: Pubkey, total_pmpe: f64, static_bid_pmpe: f64) -> ValidatorSamMeta {
     SamMetaParams::new(vote_account, 100)
         .total_pmpe(total_pmpe)
         .static_bid(static_bid_pmpe)
         .build()
 }
 
-fn run_ssi_test(ssi_pmpe: f64, fee_config: FeeConfig) -> Vec<Settlement> {
-    let (collection, vote_account) = ssi_stake_meta_index();
+fn run_ssr_test(ssr_pmpe: f64, fee_config: FeeConfig) -> Vec<Settlement> {
+    let (collection, vote_account) = ssr_stake_meta_index();
     let index = StakeMetaIndex::new(&collection);
-    let sam_meta = ssi_sam_meta(vote_account, 20.0, 20.0);
+    let sam_meta = ssr_sam_meta(vote_account, 20.0, 20.0);
     generate_bid_settlements(
         &index,
         &vec![sam_meta],
@@ -2336,15 +2335,15 @@ fn run_ssi_test(ssi_pmpe: f64, fee_config: FeeConfig) -> Vec<Settlement> {
         &create_test_settlement_config(),
         &fee_config,
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        Some(Decimal::try_from(ssi_pmpe).unwrap()),
+        Decimal::try_from(ssr_pmpe).unwrap(),
     )
     .unwrap()
 }
 
 #[test]
-fn test_ssi_fee_cap_active_reduces_fee() {
-    // staker_yield_pmpe=20, ssi=15 → fee_cap=0.25, configured=0.30 → effective=0.25
-    let settlements = run_ssi_test(15.0, ssi_fee_config(3000, 0, 0.0));
+fn test_ssr_fee_cap_active_reduces_fee() {
+    // staker_yield_pmpe=20, ssi/ssr=15 → fee_cap=0.25, configured=0.30 → effective=0.25
+    let settlements = run_ssr_test(15.0, ssr_fee_config(3000, 0, 0.0));
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
     assert_eq!(
@@ -2404,7 +2403,7 @@ fn test_bid_both_active_and_activating_stakers() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -2493,7 +2492,7 @@ fn test_bid_only_activating_no_active_marinade_stake() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        None,
+        Decimal::ZERO,
     )
     .unwrap();
 
@@ -2573,9 +2572,9 @@ fn test_psr_missing_vote_account_in_stake_index_is_skipped() {
 }
 
 #[test]
-fn test_ssi_min_fee_overrides_fee_cap() {
-    // staker_yield_pmpe=20, ssi=19 → fee_cap=0.05, min_fee=0.10 → effective=0.10
-    let settlements = run_ssi_test(19.0, ssi_fee_config(3000, 1000, 0.0));
+fn test_ssr_min_fee_overrides_fee_cap() {
+    // staker_yield_pmpe=20, ssi/ssr=19 → fee_cap=0.05, min_fee=0.10 → effective=0.10
+    let settlements = run_ssr_test(19.0, ssr_fee_config(3000, 1000, 0.0));
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
     assert_eq!(
@@ -2585,15 +2584,15 @@ fn test_ssi_min_fee_overrides_fee_cap() {
     );
 }
 
-fn run_ssi_test_with_pmpe(
-    ssi_pmpe: Option<f64>,
+fn run_ssr_test_with_pmpe(
+    ssr_pmpe: f64,
     total_pmpe: f64,
     static_bid_pmpe: f64,
     fee_config: FeeConfig,
 ) -> Vec<Settlement> {
-    let (collection, vote_account) = ssi_stake_meta_index();
+    let (collection, vote_account) = ssr_stake_meta_index();
     let index = StakeMetaIndex::new(&collection);
-    let sam_meta = ssi_sam_meta(vote_account, total_pmpe, static_bid_pmpe);
+    let sam_meta = ssr_sam_meta(vote_account, total_pmpe, static_bid_pmpe);
     generate_bid_settlements(
         &index,
         &vec![sam_meta],
@@ -2604,16 +2603,16 @@ fn run_ssi_test_with_pmpe(
         &create_test_settlement_config(),
         &fee_config,
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        ssi_pmpe.map(|v| Decimal::try_from(v).unwrap()),
+        Decimal::try_from(ssr_pmpe).unwrap(),
     )
     .unwrap()
 }
 
 #[test]
-fn test_ssi_premium_positive_tightens_fee_cap() {
-    // staker_yield_pmpe=20, ssi=15, premium=0.05 → target=15.05, fee_cap=1-15.05/20=0.2475
+fn test_ssr_premium_positive_tightens_fee_cap() {
+    // staker_yield_pmpe=20, ssi/ssr=15, premium=0.05 → target=15.05, fee_cap=1-15.05/20=0.2475
     // configured max=0.30 → effective=0.2475 → 20 SOL * 0.2475 = 4.95 SOL
-    let settlements = run_ssi_test(15.0, ssi_fee_config(3000, 0, 0.05));
+    let settlements = run_ssr_test(15.0, ssr_fee_config(3000, 0, 0.05));
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
     assert_eq!(
@@ -2623,10 +2622,10 @@ fn test_ssi_premium_positive_tightens_fee_cap() {
 }
 
 #[test]
-fn test_ssi_premium_negative_loosens_fee_cap() {
-    // staker_yield_pmpe=20, ssi=15, premium=-0.05 → target=14.95, fee_cap=1-14.95/20=0.2525
+fn test_ssr_premium_negative_loosens_fee_cap() {
+    // staker_yield_pmpe=20, ssi/ssr=15, premium=-0.05 → target=14.95, fee_cap=1-14.95/20=0.2525
     // configured max=0.30 → effective=0.2525 → 20 SOL * 0.2525 = 5.05 SOL
-    let settlements = run_ssi_test(15.0, ssi_fee_config(3000, 0, -0.05));
+    let settlements = run_ssr_test(15.0, ssr_fee_config(3000, 0, -0.05));
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
     assert_eq!(
@@ -2636,10 +2635,10 @@ fn test_ssi_premium_negative_loosens_fee_cap() {
 }
 
 #[test]
-fn test_ssi_premium_pushes_target_above_yield_clamps_to_min() {
-    // staker_yield_pmpe=20, ssi=19.99, premium=0.1 → target=20.09 > yield
+fn test_ssr_premium_pushes_target_above_yield_clamps_to_min() {
+    // staker_yield_pmpe=20, ssi/ssr=19.99, premium=0.1 → target=20.09 > yield
     // → fee_cap=0, clamped to min_fee=0.10 → 20 SOL * 0.10 = 2 SOL
-    let settlements = run_ssi_test(19.99, ssi_fee_config(3000, 1000, 0.1));
+    let settlements = run_ssr_test(19.99, ssr_fee_config(3000, 1000, 0.1));
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
     assert_eq!(
@@ -2650,10 +2649,10 @@ fn test_ssi_premium_pushes_target_above_yield_clamps_to_min() {
 }
 
 #[test]
-fn test_ssi_premium_with_max_clamp() {
-    // staker_yield_pmpe=20, ssi=5, premium=0.1 → target=5.1, fee_cap=1-5.1/20=0.745
+fn test_ssr_premium_with_max_clamp() {
+    // staker_yield_pmpe=20, ssi/ssr=5, premium=0.1 → target=5.1, fee_cap=1-5.1/20=0.745
     // configured max=0.30 → effective=0.30 → 20 SOL * 0.30 = 6 SOL
-    let settlements = run_ssi_test(5.0, ssi_fee_config(3000, 0, 0.1));
+    let settlements = run_ssr_test(5.0, ssr_fee_config(3000, 0, 0.1));
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
     assert_eq!(
@@ -2664,23 +2663,10 @@ fn test_ssi_premium_with_max_clamp() {
 }
 
 #[test]
-fn test_ssi_pmpe_none_falls_back_to_max_fee() {
-    // ssi_pmpe=None → effective=max_fee=0.30 (premium ignored). 20 SOL * 0.30 = 6 SOL
-    let settlements = run_ssi_test_with_pmpe(None, 20.0, 20.0, ssi_fee_config(3000, 0, 0.05));
-    let marinade_fee =
-        sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
-    assert_eq!(
-        marinade_fee,
-        6 * solana_sdk::native_token::LAMPORTS_PER_SOL,
-        "None ssi_pmpe must fall back to configured max_fee"
-    );
-}
-
-#[test]
-fn test_ssi_zero_yield_produces_no_fee() {
+fn test_ssr_zero_yield_produces_no_fee() {
     // total_pmpe=0, static_bid=0 → claim sum=0 → marinade_fee=0 regardless of fee path.
     // Verifies zero stakes don't panic and don't yield a phantom fee claim.
-    let settlements = run_ssi_test_with_pmpe(Some(10.0), 0.0, 0.0, ssi_fee_config(3000, 0, 0.0));
+    let settlements = run_ssr_test_with_pmpe(10.0, 0.0, 0.0, ssr_fee_config(3000, 0, 0.0));
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
     assert_eq!(
@@ -2690,14 +2676,14 @@ fn test_ssi_zero_yield_produces_no_fee() {
 }
 
 #[test]
-fn test_ssi_mixed_active_and_activating_stake() {
+fn test_ssr_mixed_active_and_activating_stake() {
     // active=1000 SOL, activating=1000 SOL on the same vote account.
     // static_bid_pmpe=30 → static_bid_claim    = 1000 SOL * 30/1000  = 30 SOL
     // activating_stake_pmpe=10 → activating_bid_claim = 1000 SOL * 10/1000 = 10 SOL
     // active_stakers_rewards (fallback, total_pmpe=30)              = 30 SOL
     // total_marinade_stakers_rewards = 30 + 10                      = 40 SOL  ← combined!
     // staker_yield_pmpe = 40 / 1000 * 1000                          = 40
-    // ssi=28, premium=0 → target=28; fee_cap = 1 - 28/40            = 0.30
+    // ssi/ssr=28, premium=0 → target=28; fee_cap = 1 - 28/40            = 0.30
     // max=0.50 chosen so fee_cap (0.30) binds, not max.
     // distributor_fee = min(40 * 0.30, 40) = 12 SOL = 12_000_000_000 lamports
     // (A regression that used only active_stakers_rewards (30 SOL) as the yield
@@ -2743,9 +2729,9 @@ fn test_ssi_mixed_active_and_activating_stake() {
             rewards_by_vote_account: HashMap::new(),
         },
         &create_test_settlement_config(),
-        &ssi_fee_config(5000, 0, 0.0),
+        &ssr_fee_config(5000, 0, 0.0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        Some(Decimal::try_from(28.0).unwrap()),
+        Decimal::try_from(28.0).unwrap(),
     )
     .unwrap();
 
@@ -2775,18 +2761,18 @@ fn test_ssi_mixed_active_and_activating_stake() {
         "marinade_fee {marinade_fee} ≠ ~12_000_000_000 (fee_cap=0.30 over 40 SOL yield)"
     );
     let dao_fee = sum_claims_for_authority(&settlements, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO);
-    assert_eq!(dao_fee, 0, "dao share is 0 in ssi_fee_config");
+    assert_eq!(dao_fee, 0, "dao share is 0 in ssr_fee_config");
 }
 
 #[test]
-fn test_ssi_activating_only_falls_back_to_max_fee() {
-    // active=0, activating=5 SOL. ssi_pmpe=Some(15.0), but guard total_marinade_active_stake>0
+fn test_ssr_activating_only_falls_back_to_max_fee() {
+    // active=0, activating=5 SOL. ssr_pmpe=Some(15.0), but guard total_marinade_active_stake>0
     // fails → effective_fee falls back to max_fee=0.30.
     // static_bid=0, activating_stake_pmpe=100 (high so 5 SOL activating produces a clean
     // 0.5 SOL claim) → activating_bid_claim = 100/1000 * 5 SOL = 0.5 SOL
     // settlement_claim.sum() = 0.5 SOL = 500_000_000 lamports
     // distributor_fee = min(0.5 * 0.30, 0.5) = 0.15 SOL = 150_000_000 lamports
-    // Note: if the active_stake>0 guard were removed, the SSI branch would attempt
+    // Note: if the active_stake>0 guard were removed, the SSI/SSR branch would attempt
     // staker_yield_pmpe = rewards / 0 * 1000 and panic — so a passing run here
     // confirms the guard is what dispatched the fallback.
     let epoch = 100;
@@ -2821,9 +2807,9 @@ fn test_ssi_activating_only_falls_back_to_max_fee() {
             rewards_by_vote_account: HashMap::new(),
         },
         &create_test_settlement_config(),
-        &ssi_fee_config(3000, 0, 0.0),
+        &ssr_fee_config(3000, 0, 0.0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
-        Some(Decimal::try_from(15.0).unwrap()),
+        Decimal::try_from(15.0).unwrap(),
     )
     .unwrap();
 
@@ -2834,7 +2820,7 @@ fn test_ssi_activating_only_falls_back_to_max_fee() {
         "marinade_fee {marinade_fee} ≠ ~150_000_000 (max_fee=0.30 fallback when active stake==0)"
     );
     let dao_fee = sum_claims_for_authority(&settlements, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO);
-    assert_eq!(dao_fee, 0, "dao share is 0 in ssi_fee_config");
+    assert_eq!(dao_fee, 0, "dao share is 0 in ssr_fee_config");
 }
 
 #[test]

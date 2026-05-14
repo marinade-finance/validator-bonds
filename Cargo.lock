@@ -896,6 +896,7 @@ dependencies = [
  "env_logger 0.10.2",
  "log",
  "merkle-tree",
+ "reqwest 0.11.27",
  "rust_decimal",
  "rust_decimal_macros",
  "serde",

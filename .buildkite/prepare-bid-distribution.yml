@@ -5,6 +5,7 @@ env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   gs_bucket_etl: gs://marinade-stakes-etl-mainnet
   MARINADE_SCORING_API_URL: https://scoring.marinade.finance/api/v1
+  APY_API_URL: https://apy.marinade.finance
   SLACK_API: https://slack.com/api/chat.postMessage
   SLACK_FEED: "feed-pipeline-sam-psr"
   ds_sam_auction_github_api_link: "https://api.github.com/repos/marinade-finance/ds-sam-pipeline/contents/auctions/"

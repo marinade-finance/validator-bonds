@@ -1,3 +1,4 @@
+use bid_distribution::apy_api::fetch_ssr_pmpe;
 use bid_distribution::generators::bidding::generate_bid_settlements;
 use bid_distribution::generators::psr_events::generate_psr_settlements;
 use bid_distribution::generators::sam_penalties::generate_penalty_settlements;
@@ -60,6 +61,10 @@ struct Args {
     /// Output path for protected events collection JSON (PSR only)
     #[arg(long, env)]
     output_protected_event_collection: Option<String>,
+
+    /// Base URL of the apy-api service (used to fetch SSI/SSR pmpe for the scoring epoch)
+    #[arg(long, env, default_value = "https://apy.marinade.finance")]
+    apy_api_url: String,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -157,18 +162,8 @@ fn main() -> anyhow::Result<()> {
             rewards_collection.total_rewards()
         );
 
-        let ssi_pmpe = sam_validator_metas
-            .first()
-            .ok_or_else(|| anyhow::anyhow!("SAM meta collection is empty"))?
-            .ssi_pmpe;
-        anyhow::ensure!(
-            sam_validator_metas.iter().all(|m| m.ssi_pmpe == ssi_pmpe),
-            "Inconsistent ssi_pmpe across SAM meta entries"
-        );
-        match ssi_pmpe {
-            Some(v) => info!("SSI: {v} pmpe (from sam-meta-collection)"),
-            None => info!("SSI: not provided in sam-meta; fee correction disabled"),
-        }
+        let ssr_pmpe = fetch_ssr_pmpe(&args.apy_api_url, stake_meta_epoch)?;
+        info!("SSI/SSR: {ssr_pmpe} pmpe (from apy-api, epoch {stake_meta_epoch})");
 
         // Epoch consistency verification
         let rewards_epoch = rewards_collection.epoch;
@@ -194,7 +189,7 @@ fn main() -> anyhow::Result<()> {
             bidding_config,
             &bid_distribution_config.fee_config,
             &*stake_authority_filter,
-            ssi_pmpe,
+            ssr_pmpe,
         )?;
         info!("Generated {} bid settlements", bid_settlements.len());
         all_settlements.extend(bid_settlements);
