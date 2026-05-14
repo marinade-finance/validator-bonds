@@ -30,7 +30,7 @@ pub fn fetch_ssr_pmpe(apy_api_url: &str, epoch: u64) -> anyhow::Result<Decimal> 
         .with_context(|| format!("apy-api request failed for {url}"))?
         .error_for_status()?
         .json()
-        .with_context(|| format!("apy-api request failed for {url}"))?;
+        .with_context(|| format!("apy-api json parsing failed for {url}"))?;
     resp.epochs
         .iter()
         .find(|e| e.epoch == epoch)
