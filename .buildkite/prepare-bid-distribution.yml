@@ -57,6 +57,7 @@ steps:
         \`\`\`
         EPOCH=$$epoch
         MARINADE_SCORING_API_URL=$MARINADE_SCORING_API_URL
+        APY_API_URL=$APY_API_URL
         SLACK_FEED=$SLACK_FEED
         NOTIFY_FEED=${NOTIFY_FEED:-false}
         \`\`\`
