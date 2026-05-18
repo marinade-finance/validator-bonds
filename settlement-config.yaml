@@ -1,7 +1,7 @@
 ---
 fee_config:
   min_fee_bps: 0
-  max_fee_bps: 700
+  max_fee_bps: 650
   # PMPE premium added to ssi/ssr target. Range: -0.1..0.1 (~±2% APY).
   min_yield_premium_over_ssr_pmpe: 0
   marinade:
