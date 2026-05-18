@@ -21,7 +21,9 @@
   ],
   "scripts": {
     "build": "tsc --build",
-    "test": "jest --config jest.config.js --verbose"
+    "pretest": "tsc --build",
+    "test": "jest --config jest.config.js --verbose",
+    "prepublishOnly": "node ../../scripts/inject-mixpanel-token.js"
   },
   "devDependencies": {
     "@marinade.finance/validator-bonds-sdk": "workspace: *",

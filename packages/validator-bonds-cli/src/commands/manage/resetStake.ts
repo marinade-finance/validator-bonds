@@ -3,6 +3,7 @@ import {
   RESET_STAKE_LIMIT_UNITS,
   computeUnitLimitOption,
   getCliContext,
+  setProgramTelemetryFields,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { resetStakeInstruction } from '@marinade.finance/validator-bonds-sdk'
 import {
@@ -17,8 +18,9 @@ import type { PublicKey, Signer } from '@solana/web3.js'
 import type { Command } from 'commander'
 
 export function installResetStake(program: Command) {
-  program
-    .command('reset-stake')
+  setProgramTelemetryFields(program.command('reset-stake'), {
+    accountField: 'stake_account',
+  })
     .description(
       'Resetting stake that is not associated to a closed Settlement. ' +
         'The stake account is to be returned to Bond then used for funding another settlement.',

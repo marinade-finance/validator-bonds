@@ -13,6 +13,7 @@ import {
   transaction,
 } from '@marinade.finance/web3js-1x'
 
+import { recordResolvedAccounts } from '../../cliUsage'
 import {
   INIT_BOND_CONFIG_COMMISSION_LIMIT_UNITS,
   INIT_BOND_LIMIT_UNITS,
@@ -135,6 +136,11 @@ export async function manageInitBond({
     maxStakeWanted,
   })
   tx.add(instruction)
+  recordResolvedAccounts({
+    bondAccount,
+    voteAccount,
+    configAccount: config,
+  })
 
   const { instruction: commissionInstruction, bondProduct } =
     await initCommissionProductInstruction({

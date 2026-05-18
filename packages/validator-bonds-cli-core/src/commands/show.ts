@@ -32,6 +32,7 @@ import {
 } from '@marinade.finance/web3js-1x'
 import BN from 'bn.js'
 
+import { recordResolvedAccounts, setProgramTelemetryFields } from '../cliUsage'
 import { getCliContext } from '../context'
 import { getBondFromAddress, formatUnit, formatToSolWithAll } from '../utils'
 
@@ -57,8 +58,9 @@ export type ProgramAccountWithProgramId<T> = ProgramAccount<T> & {
 }
 
 export function installShowConfig(program: Command) {
-  program
-    .command('show-config')
+  setProgramTelemetryFields(program.command('show-config'), {
+    accountField: 'config_account',
+  })
     .description('Showing data of config account(s)')
     .argument(
       '[config-account]',
@@ -104,8 +106,9 @@ export function installShowConfig(program: Command) {
 }
 
 export function configureShowBond(program: Command): Command {
-  return program
-    .command('show-bond')
+  return setProgramTelemetryFields(program.command('show-bond'), {
+    accountField: 'vote_account',
+  })
     .description('Showing data of bond account(s)')
     .argument(
       '[bond-or-vote-or-withdraw-request]',
@@ -132,8 +135,9 @@ export function configureShowBond(program: Command): Command {
 }
 
 export function installShowSettlement(program: Command) {
-  program
-    .command('show-settlement')
+  setProgramTelemetryFields(program.command('show-settlement'), {
+    accountField: 'settlement_account',
+  })
     .description('Showing data of settlement account(s)')
     .argument('[settlement]', 'Address of the settlement account', parsePubkey)
     .option(
@@ -303,6 +307,11 @@ export async function showBond({
       config,
     })
     address = bondData.publicKey
+    recordResolvedAccounts({
+      bondAccount: bondData.publicKey,
+      voteAccount: bondData.account.data.voteAccount,
+      configAccount: bondData.account.data.config,
+    })
 
     let voteAccount: VoteAccountShow | undefined = undefined
     const voteAccounts = await loadVoteAccounts([
@@ -359,6 +368,11 @@ export async function showBond({
     data.amountToWithdraw = bondFunding[0].amountToWithdraw
     data.epochsToElapseToWithdraw = bondFunding[0].epochsToElapseToWithdraw
     data.withdrawRequest = bondFunding[0].withdrawRequest
+    if (data.withdrawRequest !== undefined) {
+      recordResolvedAccounts({
+        withdrawRequestAccount: data.withdrawRequest.publicKey,
+      })
+    }
     data.bondMint = constructBondMintAddress(data, program)
     if (cliContext.logger.isLevelEnabled('debug')) {
       data.bondFundedStakeAccounts = bondFunding[0].bondFundedStakeAccounts

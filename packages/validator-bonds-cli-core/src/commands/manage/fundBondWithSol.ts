@@ -19,6 +19,11 @@ import BN from 'bn.js'
 
 import { failIfUnexpectedFundingError } from './fundBond'
 import {
+  recordAmountLamports,
+  recordResolvedAccounts,
+  setProgramTelemetryFields,
+} from '../../cliUsage'
+import {
   FUND_BOND_WITH_SOL_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
@@ -37,8 +42,9 @@ import type { PublicKey, Signer } from '@solana/web3.js'
 import type { Command } from 'commander'
 
 export function configureFundBondWithSol(program: Command): Command {
-  return program
-    .command('fund-bond-sol')
+  return setProgramTelemetryFields(program.command('fund-bond-sol'), {
+    accountField: 'vote_account',
+  })
     .description(
       'Funding a bond account with amount of SOL. ' +
         'The command creates a stake account, transfers SOLs to it and delegates it to bond.',
@@ -119,6 +125,7 @@ export async function manageFundBondWithSol({
   } else {
     amountLamports = new BN(amount).mul(new BN(LAMPORTS_PER_SOL))
   }
+  recordAmountLamports(amountLamports.toString())
   if (amountLamports.lt(minimalAmountToFund)) {
     throw new Error(
       `Provided amount ${amount} SOL is lower than minimal amount ` +
@@ -136,6 +143,12 @@ export async function manageFundBondWithSol({
   let stakeAccount: Keypair | PublicKey = Keypair.generate()
   signers.push(stakeAccount)
   stakeAccount = stakeAccount.publicKey
+  recordResolvedAccounts({
+    bondAccount: bondAccountAddress,
+    voteAccount,
+    configAccount: config,
+    stakeAccount,
+  })
   const createStakeAccountIx = StakeProgram.createAccount({
     fromPubkey: from,
     stakePubkey: stakeAccount,

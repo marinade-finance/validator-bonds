@@ -2,6 +2,7 @@ import {
   CLOSE_SETTLEMENT_LIMIT_UNITS,
   computeUnitLimitOption,
   getCliContext,
+  setProgramTelemetryFields,
 } from '@marinade.finance/validator-bonds-cli-core'
 import {
   closeSettlementV2Instruction,
@@ -20,8 +21,9 @@ import type { PublicKey, Signer } from '@solana/web3.js'
 import type { Command } from 'commander'
 
 export function installCloseSettlement(program: Command) {
-  program
-    .command('close-settlement')
+  setProgramTelemetryFields(program.command('close-settlement'), {
+    accountField: 'settlement_account',
+  })
     .description(
       'Closing Settlement. It is a permission-less action permitted when the Settlement expires. ' +
         'To finalize closing the dangling stake accounts need to be reset.',

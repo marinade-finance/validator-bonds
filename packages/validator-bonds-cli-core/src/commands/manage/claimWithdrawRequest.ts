@@ -13,6 +13,10 @@ import {
 import { BN } from 'bn.js'
 
 import {
+  recordResolvedAccounts,
+  setProgramTelemetryFields,
+} from '../../cliUsage'
+import {
   CLAIM_WITHDRAW_REQUEST_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
@@ -31,8 +35,9 @@ import type { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
 import type { Command } from 'commander'
 
 export function configureClaimWithdrawRequest(program: Command): Command {
-  return program
-    .command('claim-withdraw-request')
+  return setProgramTelemetryFields(program.command('claim-withdraw-request'), {
+    accountField: 'vote_account',
+  })
     .description(
       'Claim funds from an existing withdraw request (second step of bond withdrawal). ' +
         'Claiming is permitted only after the lockup period has expired. ' +
@@ -230,6 +235,12 @@ export async function manageClaimWithdrawRequest({
     })
   }
   tx.add(...instructionsToProcess)
+  recordResolvedAccounts({
+    bondAccount,
+    voteAccount,
+    configAccount: config,
+    withdrawRequestAccount: withdrawRequestAddress,
+  })
 
   logger.info(
     `Claiming withdraw request ${withdrawRequestAddress?.toBase58()} ` +

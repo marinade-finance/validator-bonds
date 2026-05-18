@@ -52,15 +52,6 @@ pub type KeyedLimiter = RateLimiter<IpAddr, DashMapStateStore<IpAddr>, DefaultCl
 pub struct RateLimited;
 impl Reject for RateLimited {}
 
-/// Per-IP policy for write endpoints: 10 rps, burst 10.
-/// Covers a short CLI script running a handful of commands back-to-back
-/// from the same (possibly NAT'd) IP without giving abusive clients room
-/// to flood. Burst is the `per_second` default in `governor`.
-pub fn write_routes_limiter() -> Arc<KeyedLimiter> {
-    let quota = Quota::per_second(NonZeroU32::new(10).expect("10 is non-zero"));
-    Arc::new(RateLimiter::keyed(quota))
-}
-
 /// Per-IP policy for public read endpoints: 30 rps, burst 30.
 /// Generous enough for browser dashboards loading several resources at once
 /// and for polling monitors, while still blocking scraping-scale floods.

@@ -2,6 +2,7 @@ import {
   computeUnitLimitOption,
   CONFIGURE_CONFIG_LIMIT_UNITS,
   getCliContext,
+  setProgramTelemetryFields,
   toBN,
 } from '@marinade.finance/validator-bonds-cli-core'
 import {
@@ -25,8 +26,9 @@ import type BN from 'bn.js'
 import type { Command } from 'commander'
 
 export function installConfigureConfig(program: Command) {
-  program
-    .command('configure-config')
+  setProgramTelemetryFields(program.command('configure-config'), {
+    accountField: 'config_account',
+  })
     .description('Configure existing config account.')
     .argument(
       '[config-address]',

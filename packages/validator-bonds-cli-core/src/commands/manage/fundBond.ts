@@ -13,6 +13,10 @@ import {
 } from '@marinade.finance/web3js-1x'
 
 import {
+  recordResolvedAccounts,
+  setProgramTelemetryFields,
+} from '../../cliUsage'
+import {
   FUND_BOND_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
@@ -32,8 +36,9 @@ import type { PublicKey, Signer } from '@solana/web3.js'
 import type { Command } from 'commander'
 
 export function configureFundBond(program: Command): Command {
-  return program
-    .command('fund-bond')
+  return setProgramTelemetryFields(program.command('fund-bond'), {
+    accountField: 'vote_account',
+  })
     .description(
       'Funding a bond account with amount of SOL within a stake account.',
     )
@@ -102,6 +107,12 @@ export async function manageFundBond({
   const bondAccountAddress = bondAccountData.publicKey
   config = bondAccountData.account.data.config
   const voteAccount = bondAccountData.account.data.voteAccount
+  recordResolvedAccounts({
+    bondAccount: bondAccountAddress,
+    voteAccount,
+    configAccount: config,
+    stakeAccount,
+  })
 
   const { instruction, bondAccount } = await fundBondInstruction({
     program,
