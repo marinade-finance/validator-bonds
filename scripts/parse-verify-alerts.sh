@@ -180,8 +180,7 @@ if [ "$non_funded_count" -gt 0 ]; then
             non_funded_settlements_alerting=$((non_funded_settlements_alerting + count))
             is_to_alert=true
             echo "    epoch=$epoch count=$count sol=$sol ALERT" >&2
-            non_funded_summary="${non_funded_summary}Epoch ${epoch}: ${count} settlements / ${sol} SOL
-"
+            non_funded_summary="${non_funded_summary}Epoch ${epoch}: ${count} settlements / ${sol} SOL"$'\n'
         else
             echo "    epoch=$epoch count=$count sol=$sol (below threshold)" >&2
         fi
