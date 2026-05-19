@@ -101,6 +101,12 @@ pub fn generate_bid_settlements(
     let mut settlement_claim_collections = vec![];
     let fee_deposit = get_fee_deposit_stake_accounts(stake_meta_index, fee_config);
 
+    let mut network_marinade_active_stake: u64 = 0;
+    let mut network_post_fee_rewards = Decimal::ZERO;
+    let mut network_total_rewards = Decimal::ZERO;
+    let mut validators_counted: u64 = 0;
+    let mut validators_cap_binding: u64 = 0;
+
     for validator in sam_validator_metas {
         if let Some(grouped_stake_metas) =
             stake_meta_index.iter_grouped_stake_metas(&validator.vote_account)
@@ -311,6 +317,15 @@ pub fn generate_bid_settlements(
             } else {
                 fee_percentages.max_fee
             };
+            network_marinade_active_stake =
+                network_marinade_active_stake.saturating_add(total_marinade_active_stake);
+            network_post_fee_rewards +=
+                total_marinade_stakers_rewards * (Decimal::ONE - effective_fee);
+            network_total_rewards += total_marinade_stakers_rewards;
+            validators_counted += 1;
+            if effective_fee < fee_percentages.max_fee {
+                validators_cap_binding += 1;
+            }
             info!(
                 "{} effective fee: {} (configured: {}, min: {}, ssr_pmpe: {})",
                 validator.vote_account,
@@ -569,6 +584,25 @@ pub fn generate_bid_settlements(
                 validator.vote_account,
                 &settlement_meta_funder,
                 Some(details_json),
+            );
+        }
+    }
+    if network_marinade_active_stake > 0 {
+        let network_post_fee_pmpe = network_post_fee_rewards
+            / Decimal::from(network_marinade_active_stake)
+            * Decimal::ONE_THOUSAND;
+        info!("Network-wide post-fee staker pmpe: {network_post_fee_pmpe} (epoch {epoch})");
+        if network_total_rewards > Decimal::ZERO {
+            let fee_at_max = network_total_rewards * fee_percentages.max_fee;
+            let cap_savings = fee_at_max - (network_total_rewards - network_post_fee_rewards);
+            let pct_rewards = cap_savings / network_total_rewards * Decimal::ONE_HUNDRED;
+            let pct_max_fee = if fee_at_max > Decimal::ZERO {
+                cap_savings / fee_at_max * Decimal::ONE_HUNDRED
+            } else {
+                Decimal::ZERO
+            };
+            info!(
+                "SSR cap refunded {cap_savings} lamports ({pct_rewards:.4}% of rewards, {pct_max_fee:.4}% of max-fee); cap binding for {validators_cap_binding}/{validators_counted} validators"
             );
         }
     }
