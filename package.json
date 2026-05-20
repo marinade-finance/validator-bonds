@@ -27,7 +27,8 @@
     "publish:cli": "pnpm build && pnpm publish -r --filter \"./packages/*cli*\"",
     "publish:sdk": "pnpm build && pnpm publish -r --filter \"./packages/*sdk*\"",
     "publish:codama": "pnpm build && pnpm publish -r --filter \"./packages/*codama\"",
-    "publish:all": "pnpm publish:sdk && pnpm publish:cli"
+    "publish:all": "pnpm publish:sdk && pnpm publish:cli && pnpm run tag:release",
+    "tag:release": "VERSION=$(node -p \"require('./packages/validator-bonds-sdk/package.json').version\") && if git tag -a \"v$VERSION\" -m \"Release v$VERSION\" 2>/dev/null; then echo \"Tag v$VERSION created locally. Push it with: git push <remote> v$VERSION\"; else echo \"Tag v$VERSION already exists (or could not be created). If it points to the right commit, push with: git push <remote> v$VERSION\"; fi"
   },
   "devDependencies": {
     "@jest/globals": "29.7.0",
