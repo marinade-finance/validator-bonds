@@ -68,7 +68,8 @@
     },
     "overrides": {
       "glob@<8": "^10.3.10",
-      "rpc-websockets": "^9.3.10"
+      "rpc-websockets": "^9.3.10",
+      "utf-8-validate": "^6.0.6"
     },
     "onlyBuiltDependencies": [
       "bigint-buffer",
