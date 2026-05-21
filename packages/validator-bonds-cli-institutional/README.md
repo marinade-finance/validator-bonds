@@ -31,7 +31,7 @@ validator-bonds-institutional --version
 validator-bonds-institutional --help
 ```
 
-**Requirements:** Node.js version 16 or higher.
+**Requirements:** Node.js version 20.18.0 or higher.
 
 ## Required steps for a validator to be eligible for stake distribution
 

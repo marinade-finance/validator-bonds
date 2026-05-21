@@ -16,7 +16,7 @@ CLI for [Marinade](https://docs.marinade.finance/) Validator Bonds on-chain prog
 
 ## Prerequisites & Installation
 
-**Requirements:** Node.js version 20 or higher.
+**Requirements:** Node.js version 20.18.0 or higher.
 
 ### Global Installation
 
@@ -1067,7 +1067,7 @@ Commands:
   ...
   ```
 
-  **Solution:** old version of Node.js is installed on the machine. Node.js upgrade to version 16 or later is needed.
+  **Solution:** old version of Node.js is installed on the machine. Node.js upgrade to version 20.18.0 or later is needed.
 
 - **ExecutionError: Transaction XYZ not found**<a id='troubleshooting-execution-error'></a>
 
@@ -1190,7 +1190,7 @@ Commands:
 
   **Solution:**
 
-  Upgrade Node.js to version 16 or later.
+  Upgrade Node.js to version 20.18.0 or later.
 
 - **Segmentation fault (core dumped)**<a id='troubleshooting-segmentation-fault'></a>
 
