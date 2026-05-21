@@ -17,7 +17,6 @@ import {
   getSettlement,
   findSettlements,
   findStakeAccounts,
-  withdrawRequestAddress,
   settlementClaimsAddress,
   bondMintAddress,
   findBondProducts,
@@ -121,9 +120,8 @@ export function configureShowBond(program: Command): Command {
     )
     .option(
       '--with-funding',
-      'Show information about funding of the Bond account. This option requires a query search ' +
-        'for stake accounts at the RPC, which is rate-limited by some operators, especially public RPC endpoints. ' +
-        "If you receive the error '429 Too Many Requests,' consider using a private RPC node.",
+      'Include bond funding info. Always on when querying a specific account; ' +
+        'required for listing mode (may be rate-limited on public RPCs).',
       false,
     )
     .option(
@@ -338,53 +336,35 @@ export async function showBond({
       voteAccount,
     }
 
-    if (withFunding) {
-      const configAccount = config ?? bondData.account.data.config
-      const bondFunding = await getBondsFunding({
-        program,
-        configAccount,
-        bondAccounts: [address],
-        voteAccounts: [bondData.account.data.voteAccount],
+    // single-account query always includes funding info
+    const configAccount = config ?? bondData.account.data.config
+    const bondFunding = await getBondsFunding({
+      program,
+      configAccount,
+      bondAccounts: [address],
+      voteAccounts: [bondData.account.data.voteAccount],
+    })
+    if (bondFunding.length !== 1 || bondFunding[0] === undefined) {
+      throw new CliCommandError({
+        valueName: '[vote account address]|[bond address]',
+        value: `${bondData.account.data.voteAccount.toBase58()}|${address.toBase58()}`,
+        msg: 'Failed to fetch stake accounts while computing bond funding.',
       })
-      if (bondFunding.length !== 1 || bondFunding[0] === undefined) {
-        throw new CliCommandError({
-          valueName: '[vote account address]|[bond address]',
-          value: `${bondData.account.data.voteAccount.toBase58()}|${address.toBase58()}`,
-          msg: 'For argument "--with-funding", failed to fetch stake accounts to check evaluate',
-        })
-      }
-      data.amountOwned = bondFunding[0].amountOwned
-      data.amountActive = bondFunding[0].amountActive
-      data.numberActiveStakeAccounts = bondFunding[0].numberActiveStakeAccounts
-      data.amountAtSettlements = bondFunding[0].amountAtSettlements
-      data.numberSettlementStakeAccounts =
-        bondFunding[0].numberSettlementStakeAccounts
-      data.amountToWithdraw = bondFunding[0].amountToWithdraw
-      data.epochsToElapseToWithdraw = bondFunding[0].epochsToElapseToWithdraw
-      data.withdrawRequest = bondFunding[0].withdrawRequest
-      data.bondMint = constructBondMintAddress(data, program)
-      if (cliContext.logger.isLevelEnabled('debug')) {
-        data.bondFundedStakeAccounts = bondFunding[0].bondFundedStakeAccounts
-        data.settlementFundedStakeAccounts =
-          bondFunding[0].settlementFundedStakeAccounts
-      }
-    } else {
-      // funding data is not requested, let's search for withdraw request data at least
-      const [withdrawRequestAddr] = withdrawRequestAddress(
-        address,
-        program.programId,
-      )
-      const withdrawRequestData =
-        await program.account.withdrawRequest.fetchNullable(withdrawRequestAddr)
-      if (withdrawRequestData !== null) {
-        data.withdrawRequest = {
-          publicKey: withdrawRequestAddr,
-          account: withdrawRequestData,
-        }
-      } else {
-        data.withdrawRequest = undefined // output shows it does not exist
-      }
-      data.bondMint = constructBondMintAddress(data, program)
+    }
+    data.amountOwned = bondFunding[0].amountOwned
+    data.amountActive = bondFunding[0].amountActive
+    data.numberActiveStakeAccounts = bondFunding[0].numberActiveStakeAccounts
+    data.amountAtSettlements = bondFunding[0].amountAtSettlements
+    data.numberSettlementStakeAccounts =
+      bondFunding[0].numberSettlementStakeAccounts
+    data.amountToWithdraw = bondFunding[0].amountToWithdraw
+    data.epochsToElapseToWithdraw = bondFunding[0].epochsToElapseToWithdraw
+    data.withdrawRequest = bondFunding[0].withdrawRequest
+    data.bondMint = constructBondMintAddress(data, program)
+    if (cliContext.logger.isLevelEnabled('debug')) {
+      data.bondFundedStakeAccounts = bondFunding[0].bondFundedStakeAccounts
+      data.settlementFundedStakeAccounts =
+        bondFunding[0].settlementFundedStakeAccounts
     }
   } else {
     // CLI did not provide an address, searching for accounts based on filter parameters
@@ -419,18 +399,28 @@ export async function showBond({
       })
 
       if (withFunding && bondDataArray.length > 0) {
-        assert(bondDataArray[0] !== undefined)
-        const configAccount = config ?? bondDataArray[0].account.config
-        const bondAccounts = bondDataArray.map(bondData => bondData.publicKey)
-        const voteAccounts = bondDataArray.map(
-          bondData => bondData.account.voteAccount,
-        )
-        const bondsFunding = await getBondsFunding({
-          program,
-          configAccount,
-          bondAccounts,
-          voteAccounts,
-        })
+        // getBondsFunding takes one configAccount; without --config, findBonds
+        // can return bonds across configs, so call once per config group.
+        const bondsByConfig = new Map<string, ProgramAccount<Bond>[]>()
+        for (const bondData of bondDataArray) {
+          const key = bondData.account.config.toBase58()
+          const list = bondsByConfig.get(key) ?? []
+          list.push(bondData)
+          bondsByConfig.set(key, list)
+        }
+        const bondsFunding = (
+          await Promise.all(
+            [...bondsByConfig.values()].map(group => {
+              assert(group[0] !== undefined)
+              return getBondsFunding({
+                program,
+                configAccount: group[0].account.config,
+                bondAccounts: group.map(b => b.publicKey),
+                voteAccounts: group.map(b => b.account.voteAccount),
+              })
+            }),
+          )
+        ).flat()
         for (let i = 0; i < data.length; i++) {
           const bond = data[i]
           assert(bond !== undefined)

@@ -102,9 +102,10 @@ validator-bonds configure-bond <vote-account-address> --authority ./validator-id
 # Check the new configuration
 validator-bonds show-bond <vote-account-address>
 
-# Track detailed funding information (requires non-public RPC)
+# Track detailed funding information. Funding is included automatically when querying
+# a specific account; for listings (e.g. --bond-authority), pass --with-funding.
 RPC_URL=<url-to-solana-rpc-node>
-validator-bonds -u $RPC_URL show-bond <vote-account-address> --with-funding
+validator-bonds -u $RPC_URL show-bond <vote-account-address>
 ```
 
 **Next Steps:** Read the [Core Concepts](#core-concepts) section to understand how bonds, auctions, and settlements work, then explore the detailed [Bond Management](#bond-management) commands.
@@ -253,12 +254,13 @@ validator-bonds -um show-bond <bond-or-vote-account-address>
 View detailed bond information including funding details:
 
 ```sh
-# Requires a private RPC endpoint (public endpoints rate-limit these calls)
+# Funding info is automatic for a specific account; for listings pass --with-funding.
+# Either way it queries stake accounts and may be rate-limited on public RPCs.
 RPC_URL=<your-rpc-url>
-validator-bonds -u $RPC_URL show-bond <bond-or-vote-account-address> --with-funding --verbose
+validator-bonds -u $RPC_URL show-bond <bond-or-vote-account-address> --verbose
 ```
 
-**Note:** The `--with-funding` flag makes multiple RPC calls and won't work with public endpoints (see [Troubleshooting](#troubleshooting) for RPC options).
+**Note:** Funding information requires multiple RPC calls and won't work with public endpoints (see [Troubleshooting](#troubleshooting) for RPC options). It is fetched automatically when querying a specific bond/vote/identity address; for filter-based listings, opt in with `--with-funding`.
 
 **Example output:**
 
