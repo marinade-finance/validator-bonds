@@ -170,6 +170,9 @@ importers:
       pino-pretty:
         specifier: 13.0.0
         version: 13.0.0
+      reflect-metadata:
+        specifier: 0.2.2
+        version: 0.2.2
       rpc-websockets:
         specifier: 9.3.10
         version: 9.3.10
@@ -321,6 +324,9 @@ importers:
       pino-pretty:
         specifier: 13.0.0
         version: 13.0.0
+      reflect-metadata:
+        specifier: 0.2.2
+        version: 0.2.2
       rpc-websockets:
         specifier: 9.3.10
         version: 9.3.10

@@ -54,6 +54,7 @@
     "jsbi": "4.3.2",
     "pino": "9.7.0",
     "pino-pretty": "13.0.0",
+    "reflect-metadata": "0.2.2",
     "rpc-websockets": "9.3.10",
     "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
     "yaml": "2.9.0"
