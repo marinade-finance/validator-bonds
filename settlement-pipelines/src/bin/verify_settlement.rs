@@ -52,6 +52,8 @@ struct SettlementEpoch {
     vote_account: Option<Pubkey>,
     #[serde(with = "option_pubkey_string_conversion")]
     bond: Option<Pubkey>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    claims_lamports: Option<u64>,
 }
 
 impl SettlementEpoch {
@@ -66,7 +68,13 @@ impl SettlementEpoch {
             address,
             vote_account,
             bond,
+            claims_lamports: None,
         }
+    }
+
+    fn with_claims_lamports(mut self, claims_lamports: u64) -> Self {
+        self.claims_lamports = Some(claims_lamports);
+        self
     }
 }
 
@@ -152,12 +160,15 @@ fn verify_epoch_settlements(
                         "Existing JSON settlement {} emitted on-chain but not funded (epoch: {})",
                         listed_settlement.settlement_address, epoch_to_verify
                     );
-                    non_funded_settlements.push(SettlementEpoch::new(
-                        epoch_to_verify,
-                        listed_settlement.settlement_address,
-                        Some(listed_settlement.vote_account_address),
-                        Some(listed_settlement.bond_address),
-                    ));
+                    non_funded_settlements.push(
+                        SettlementEpoch::new(
+                            epoch_to_verify,
+                            listed_settlement.settlement_address,
+                            Some(listed_settlement.vote_account_address),
+                            Some(listed_settlement.bond_address),
+                        )
+                        .with_claims_lamports(listed_settlement.claims_lamports),
+                    );
                 }
             } else {
                 error!(
