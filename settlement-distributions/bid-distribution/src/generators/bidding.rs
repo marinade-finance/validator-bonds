@@ -268,8 +268,7 @@ pub fn generate_bid_settlements(
                     marinade_mev_rewards * (Decimal::ONE - commissions.mev_commission_dec);
                 let staker_block_rewards = marinade_block_rewards
                     * (Decimal::ONE - commissions.block_rewards_commission_dec);
-                let staker_bid_rewards = validator.rev_share.bid_pmpe / Decimal::ONE_THOUSAND
-                    * Decimal::from(total_marinade_active_stake);
+                let staker_bid_rewards = settlement_claim.static_bid_claim;
                 let total = staker_inflation_rewards
                     + staker_mev_rewards
                     + staker_block_rewards
