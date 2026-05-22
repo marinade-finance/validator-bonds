@@ -107,7 +107,7 @@ for epoch in $(seq "$EPOCH_START" "$EPOCH_END"); do
       --output-protected-event-collection /dev/null \
       --apy-api-url "$APY_API_URL" \
       2>"$log"
-    cat "$log" >&2
+    grep -E 'WARN|ERROR|Network-wide|SSR cap' "$log" >&2 || true
     pmpe=$(grep -oE 'post-fee staker pmpe: adj: [0-9.]+' "$log" | awk '{print $NF}')
     rm -f "$log"
     [[ -n "$pmpe" ]] || { echo "  # no pmpe output for fee=$fee epoch=$epoch" >&2; continue; }
