@@ -113,6 +113,7 @@ for epoch in $(seq "$EPOCH_START" "$EPOCH_END"); do
     pmpe_max=$(grep -oE 'post-fee staker pmpe: adj: [0-9.]+ max: [0-9.]+' "$log" | awk '{print $NF}')
     fee_adj=$(grep -oE 'fee_lamports: adj: [0-9.]+' "$log" | awk '{print $NF}')
     fee_max=$(grep -oE 'fee_lamports: adj: [0-9.]+ max: [0-9.]+' "$log" | awk '{print $NF}')
+    stakers_claim=$(grep -oE 'Stakers total claim: [0-9]+' "$log" | grep -oE '[0-9]+$')
     cap=$(grep -oE 'cap_binding: [0-9]+/[0-9]+' "$log" | awk '{print $NF}')
     [[ -n "$pmpe_adj" ]] || { echo "  # no pmpe output for fee=$fee epoch=$epoch" >&2; continue; }
     sol() { jq -rn --argjson v "$1" '$v / 1e9 * 1000 | round / 1000'; }
