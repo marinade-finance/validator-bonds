@@ -90,7 +90,7 @@ for epoch in $(seq "$EPOCH_START" "$EPOCH_END"); do
   echo "  ssr_pmpe: $SSR"
   echo "  ssr_apy: $(apy "$SSR" "$EPY")"
   echo "  epochs_per_year: ${EPY%.*}"
-  echo "  fees:"
+  echo "  simulations:"
 
   for fee in "${FEES[@]}"; do
     sed -E "s/(max_fee_bps:)[[:space:]]*[0-9]+/\1 $fee/" ./settlement-config.yaml > "$cfg"
@@ -109,10 +109,20 @@ for epoch in $(seq "$EPOCH_START" "$EPOCH_END"); do
       2>"$log"
     pat=$([[ -n "$VERBOSE" ]] && echo 'Network-wide|SSR cap| ERROR ' || echo ' ERROR ')
     grep -E "$pat" "$log" >&2 || true
-    pmpe=$(grep -oE 'post-fee staker pmpe: adj: [0-9.]+' "$log" | awk '{print $NF}')
-    [[ -n "$pmpe" ]] || { echo "  # no pmpe output for fee=$fee epoch=$epoch" >&2; continue; }
+    pmpe_adj=$(grep -oE 'post-fee staker pmpe: adj: [0-9.]+' "$log" | awk '{print $NF}')
+    pmpe_max=$(grep -oE 'post-fee staker pmpe: adj: [0-9.]+ max: [0-9.]+' "$log" | awk '{print $NF}')
+    fee_adj=$(grep -oE 'fee_lamports: adj: [0-9.]+' "$log" | awk '{print $NF}')
+    fee_max=$(grep -oE 'fee_lamports: adj: [0-9.]+ max: [0-9.]+' "$log" | awk '{print $NF}')
+    cap=$(grep -oE 'cap_binding: [0-9]+/[0-9]+' "$log" | awk '{print $NF}')
+    [[ -n "$pmpe_adj" ]] || { echo "  # no pmpe output for fee=$fee epoch=$epoch" >&2; continue; }
+    sol() { jq -rn --argjson v "$1" '$v / 1e9 * 1000 | round / 1000'; }
     echo "  - max_fee_bps: $fee"
-    echo "    post_fee_pmpe: $pmpe"
-    echo "    apy: $(apy "$pmpe" "$EPY")"
+    echo "    post_fee_pmpe_adj: $pmpe_adj"
+    echo "    post_fee_pmpe_max: $pmpe_max"
+    echo "    apy_adj: $(apy "$pmpe_adj" "$EPY")"
+    echo "    apy_max: $(apy "$pmpe_max" "$EPY")"
+    echo "    fee_sol_adj: $(sol "$fee_adj")"
+    echo "    fee_sol_max: $(sol "$fee_max")"
+    echo "    validators_capped: $cap"
   done
 done
