@@ -96,26 +96,42 @@ for epoch in $(seq "$EPOCH_START" "$EPOCH_END"); do
     sed -E "s/(max_fee_bps:)[[:space:]]*[0-9]+/\1 $fee/" ./settlement-config.yaml > "$cfg"
     grep -q "max_fee_bps: $fee" "$cfg" || { echo "Failed to patch max_fee_bps=$fee" >&2; exit 1; }
     log=$(mk)
-    RUST_LOG="warn,bid_distribution::generators::bidding=info" "${CLI[@]}" \
+    out=$(mk)
+    RUST_LOG="warn" "${CLI[@]}" \
       --settlement-config "$cfg" \
       --stake-meta-collection "$IN/stakes.json" \
       --sam-meta-collection "$IN/sam-scores.json" \
       --rewards-dir "$IN/rewards" \
       --validator-meta-collection "$IN/validators.json" \
       --revenue-expectation-collection "$IN/evaluation.json" \
-      --output-settlement-collection /dev/null \
+      --output-settlement-collection "$out" \
       --output-protected-event-collection /dev/null \
       --apy-api-url "$APY_API_URL" \
       2>"$log"
-    pat=$([[ -n "$VERBOSE" ]] && echo 'Network-wide|SSR cap| ERROR ' || echo ' ERROR ')
-    grep -E "$pat" "$log" >&2 || true
-    pmpe_adj=$(grep -oE 'post-fee staker pmpe: adj: [0-9.]+' "$log" | awk '{print $NF}')
-    pmpe_max=$(grep -oE 'post-fee staker pmpe: adj: [0-9.]+ max: [0-9.]+' "$log" | awk '{print $NF}')
-    fee_adj=$(grep -oE 'fee_lamports: adj: [0-9.]+' "$log" | awk '{print $NF}')
-    fee_max=$(grep -oE 'fee_lamports: adj: [0-9.]+ max: [0-9.]+' "$log" | awk '{print $NF}')
-    stakers_claim=$(grep -oE 'Stakers total claim: [0-9]+' "$log" | grep -oE '[0-9]+$')
-    cap=$(grep -oE 'cap_binding: [0-9]+/[0-9]+' "$log" | awk '{print $NF}')
-    [[ -n "$pmpe_adj" ]] || { echo "  # no pmpe output for fee=$fee epoch=$epoch" >&2; continue; }
+    grep -E ' ERROR ' "$log" >&2 || true
+    [[ -n "$VERBOSE" ]] && grep -E 'SSR cap' "$log" >&2 || true
+    stats=$(jq -r --argjson fee "$fee" '
+      [ .settlements[] | select(.reason == "Bidding") | .details ] |
+      {
+        stake: (map(.total_marinade_active_stake) | add),
+        total: (map(.total_marinade_stakers_rewards | tonumber) | add),
+        fee_a: (map(.marinade_fee_claim + .dao_fee_claim) | add),
+        n:     length,
+        ncap:  (map(select(
+                  (.total_marinade_stakers_rewards | tonumber) > 0 and
+                  (.marinade_fee_claim + .dao_fee_claim) <
+                  (.total_marinade_stakers_rewards | tonumber) * $fee / 10000 * 0.9999
+                )) | length)
+      } | [
+        ((.total - .fee_a) / .stake * 1000 | . * 1e6 | round / 1e6 | tostring),
+        (.total * (1 - $fee/10000) / .stake * 1000 | . * 1e6 | round / 1e6 | tostring),
+        (.fee_a | tostring),
+        (.total * $fee / 10000 | round | tostring),
+        ("\(.ncap)/\(.n)")
+      ] | join(" ")
+    ' "$out")
+    [[ -n "$stats" ]] || { echo "  # no settlement data for fee=$fee epoch=$epoch" >&2; continue; }
+    read -r pmpe_adj pmpe_max fee_adj fee_max cap <<< "$stats"
     sol() { jq -rn --argjson v "$1" '$v / 1e9 * 1000 | round / 1000'; }
     echo "  - max_fee_bps: $fee"
     echo "    post_fee_pmpe_adj: $pmpe_adj"
