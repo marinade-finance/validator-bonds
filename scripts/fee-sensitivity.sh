@@ -45,9 +45,9 @@ else
   EPOCH_END="$EPOCH_ARG"
 fi
 
-CLI="cargo run -q ${RELEASE:+--release} --bin bid-distribution-cli --"
+CLI=(cargo run -q ${RELEASE:+--release} --bin bid-distribution-cli --)
 
-SSR_JSON=$(curl -fsSL "$APY_API_URL/v1/epoch-pmpe/ssr")
+SSR_JSON=$(curl -fsSL "$APY_API_URL/v1/epoch-pmpe/ssr") || { echo "Failed to fetch $APY_API_URL/v1/epoch-pmpe/ssr" >&2; exit 1; }
 apy() {
   jq -rn --argjson p "$1" --argjson n "$2" \
     '(pow(1 + $p/1000; $n) - 1) * 100 | . * 100 | round / 100 | tostring + "%"'
@@ -60,30 +60,31 @@ trap 'rm -f "${TMPS[@]}"' EXIT
 cfg=$(mk)
 
 have_inputs() {
-  local IN="$DATA_DIR/$1/inputs"
   for f in stakes.json sam-scores.json validators.json evaluation.json \
             rewards/mev.json rewards/validators_mev.json rewards/inflation.json \
             rewards/validators_inflation.json rewards/validators_blocks.json \
             rewards/jito_priority_fee.json
-  do [[ -f "$IN/$f" ]] || return 1; done
+  do [[ -f "$1/$f" ]] || return 1; done
 }
 
 echo "epochs:"
 for epoch in $(seq "$EPOCH_START" "$EPOCH_END"); do
   IN="$DATA_DIR/$epoch/inputs"
 
-  if ! have_inputs "$epoch"; then
+  if ! have_inputs "$IN"; then
     echo "  # fetching $epoch..." >&2
     ./scripts/regression-test-settlements.sh \
       --start-epoch "$epoch" --end-epoch "$epoch" --data-dir "$DATA_DIR" >&2 || true
-    have_inputs "$epoch" || { echo "  # fetch failed for $epoch, skipping" >&2; continue; }
+    have_inputs "$IN" || { echo "  # fetch failed for $epoch, skipping" >&2; continue; }
   fi
 
   EPY=$(jq --argjson e "$epoch" '
     [.epochs[] | select(.epoch == $e or .epoch == ($e - 1))] | sort_by(.epoch) as $p
     | if ($p | length) == 2 then (31557600 / ($p[1].time - $p[0].time)) else 182 end
+    # seconds-per-year / epoch-duration = epochs-per-year
   ' <<<"$SSR_JSON")
   SSR=$(jq --argjson e "$epoch" '.epochs[] | select(.epoch == $e) | .pmpe' <<<"$SSR_JSON")
+  [[ -n "$SSR" ]] || { echo "  # epoch $epoch not in SSR feed, skipping" >&2; continue; }
 
   echo "- epoch: $epoch"
   echo "  ssr_pmpe: $SSR"
@@ -95,7 +96,7 @@ for epoch in $(seq "$EPOCH_START" "$EPOCH_END"); do
     sed -E "s/(max_fee_bps:)[[:space:]]*[0-9]+/\1 $fee/" ./settlement-config.yaml > "$cfg"
     grep -q "max_fee_bps: $fee" "$cfg" || { echo "Failed to patch max_fee_bps=$fee" >&2; exit 1; }
     log=$(mk)
-    RUST_LOG="warn,bid_distribution::generators::bidding=info" "$CLI" \
+    RUST_LOG="warn,bid_distribution::generators::bidding=info" "${CLI[@]}" \
       --settlement-config "$cfg" \
       --stake-meta-collection "$IN/stakes.json" \
       --sam-meta-collection "$IN/sam-scores.json" \
@@ -106,11 +107,8 @@ for epoch in $(seq "$EPOCH_START" "$EPOCH_END"); do
       --output-protected-event-collection /dev/null \
       --apy-api-url "$APY_API_URL" \
       2>"$log"
-    if [[ -n "$VERBOSE" ]]; then
-      grep -E ' ERROR |Network-wide|SSR cap' "$log" >&2 || true
-    else
-      grep -E ' ERROR ' "$log" >&2 || true
-    fi
+    pat=$([[ -n "$VERBOSE" ]] && echo 'Network-wide|SSR cap| ERROR ' || echo ' ERROR ')
+    grep -E "$pat" "$log" >&2 || true
     pmpe=$(grep -oE 'post-fee staker pmpe: adj: [0-9.]+' "$log" | awk '{print $NF}')
     [[ -n "$pmpe" ]] || { echo "  # no pmpe output for fee=$fee epoch=$epoch" >&2; continue; }
     echo "  - max_fee_bps: $fee"
