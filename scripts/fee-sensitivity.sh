@@ -41,8 +41,8 @@ else
   EPOCH_END="$EPOCH_ARG"
 fi
 
-CLI="./target/release/bid-distribution-cli"
-[[ -x "$CLI" ]] || cargo build --release --bin bid-distribution-cli >&2
+CLI="${BID_CLI:-./target/debug/bid-distribution-cli}"
+[[ -x "$CLI" ]] || cargo build --bin bid-distribution-cli >&2
 
 SSR_JSON=$(curl -fsSL "$APY_API_URL/v1/epoch-pmpe/ssr")
 apy() {
