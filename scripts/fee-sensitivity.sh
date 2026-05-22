@@ -53,7 +53,7 @@ cfg=$(mktemp)
 trap 'rm -f "$cfg"' EXIT
 
 have_inputs() {
-  local e="$1" IN="$DATA_DIR/$1/inputs"
+  local IN="$DATA_DIR/$1/inputs"
   for f in stakes.json sam-scores.json validators.json evaluation.json \
             rewards/mev.json rewards/validators_mev.json rewards/inflation.json \
             rewards/validators_inflation.json rewards/validators_blocks.json \
