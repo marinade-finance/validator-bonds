@@ -52,34 +52,36 @@ for (const r of rows)
 console.log("-----  ----------  --------  --------------");
 console.log(`${"total".padEnd(5)}  ${"".padStart(10)}  ${"".padStart(8)}  ${total.toFixed(2).padStart(14)}`);
 
-// PNG via quickchart.io
-const chart = {
-  type: "bar",
-  data: {
-    labels: rows.map(r => String(r.epoch)),
-    datasets: [{
-      label: "Overcharge to DAO (SOL)",
-      data: rows.map(r => r.overcharge_sol),
-      backgroundColor: "rgba(255, 99, 132, 0.7)",
-    }],
-  },
-  options: {
-    plugins: {
-      title: { display: true, text: `DAO fee overcharge per epoch (total: ${total.toFixed(1)} SOL)` },
-    },
-    scales: { y: { title: { display: true, text: "SOL" } } },
-  },
-};
+// SVG bar chart
+const W = 1100, H = 420, pad = { top: 40, right: 20, bottom: 50, left: 60 };
+const chartW = W - pad.left - pad.right;
+const chartH = H - pad.top - pad.bottom;
+const maxVal = Math.max(...rows.map(r => r.overcharge_sol));
+const barW = Math.floor(chartW / rows.length) - 1;
+const scaleY = (v: number) => chartH - (v / maxVal) * chartH;
+const yTicks = 5;
 
-const res = await fetch("https://quickchart.io/chart", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ chart, width: 900, height: 400, backgroundColor: "white" }),
-});
+const bars = rows.map((r, i) => {
+  const x = pad.left + i * (chartW / rows.length);
+  const y = pad.top + scaleY(r.overcharge_sol);
+  const h = chartH - scaleY(r.overcharge_sol);
+  return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${h.toFixed(1)}" fill="#e05c6a"/>
+    <text x="${(x + barW/2).toFixed(1)}" y="${(H - pad.bottom + 14).toFixed(1)}" text-anchor="middle" font-size="9" fill="#333">${r.epoch}</text>`;
+}).join("\n  ");
 
-if (res.ok) {
-  writeFileSync("./tmp/fee-analysis.png", Buffer.from(await res.arrayBuffer()));
-  console.log("\nchart: ./tmp/fee-analysis.png");
-} else {
-  process.stderr.write(`chart render failed: ${res.status}\n`);
-}
+const gridLines = Array.from({ length: yTicks + 1 }, (_, i) => {
+  const v = (maxVal * i / yTicks);
+  const y = pad.top + scaleY(v);
+  return `<line x1="${pad.left}" y1="${y.toFixed(1)}" x2="${W - pad.right}" y2="${y.toFixed(1)}" stroke="#ddd"/>
+    <text x="${pad.left - 5}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="#555">${v.toFixed(0)}</text>`;
+}).join("\n  ");
+
+const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" style="background:white;font-family:sans-serif">
+  <text x="${W/2}" y="22" text-anchor="middle" font-size="14" font-weight="bold" fill="#222">DAO fee overcharge per epoch — total ${total.toFixed(1)} SOL</text>
+  <text x="${pad.left - 40}" y="${(pad.top + chartH/2).toFixed(1)}" text-anchor="middle" font-size="11" fill="#555" transform="rotate(-90,${pad.left-40},${(pad.top+chartH/2).toFixed(1)})">SOL</text>
+  ${gridLines}
+  ${bars}
+</svg>`;
+
+writeFileSync("./tmp/fee-analysis.svg", svg);
+console.log("\nchart: ./tmp/fee-analysis.svg");
