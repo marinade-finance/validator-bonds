@@ -605,7 +605,11 @@ pub fn generate_bid_settlements(
         let network_post_max_fee_pmpe = network_post_max_fee_rewards
             / Decimal::from(network_marinade_active_stake)
             * Decimal::ONE_THOUSAND;
-        info!("Network-wide post-fee staker pmpe: adj: {network_post_adj_fee_pmpe} max: {network_post_max_fee_rewards} epoch: {epoch}");
+        info!(
+            "Network-wide post-fee staker pmpe: adj: {} max: {} epoch: {epoch}",
+            network_post_adj_fee_pmpe.round_dp(6),
+            network_post_max_fee_pmpe.round_dp(6),
+        );
         if network_marinade_total_rewards > Decimal::ZERO {
             let adj_redistributed = network_post_adj_fee_rewards - network_post_max_fee_rewards;
             let pct_rewards =
