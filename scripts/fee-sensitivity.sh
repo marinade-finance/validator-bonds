@@ -35,13 +35,14 @@ done
 if [[ "$EPOCH_ARG" == *-* ]]; then
   EPOCH_START="${EPOCH_ARG%-*}"
   EPOCH_END="${EPOCH_ARG#*-}"
+  [[ "$EPOCH_START" -le "$EPOCH_END" ]] || { echo "invalid range: $EPOCH_ARG"; exit 2; }
 else
   EPOCH_START="$EPOCH_ARG"
   EPOCH_END="$EPOCH_ARG"
 fi
 
 CLI="./target/release/bid-distribution-cli"
-[[ -x "$CLI" ]] || cargo build --bin bid-distribution-cli >&2
+[[ -x "$CLI" ]] || cargo build --release --bin bid-distribution-cli >&2
 
 SSR_JSON=$(curl -fsSL "$APY_API_URL/v1/epoch-pmpe/ssr")
 apy() {
