@@ -1,4 +1,10 @@
 #!/usr/bin/env bun
+// Simulates bid-distribution-cli across a range of epochs at multiple fee tiers.
+// For each (epoch, fee) pair: patches settlement-config.yaml in a temp file, runs the CLI,
+// and computes post-fee pmpe (adj = actual fees deducted, max = full fee applied uniformly).
+// Fetches epoch timing from the SSR API to convert pmpe → APY.
+// Downloads epoch input data via regression-test-settlements.sh if not already cached.
+//
 // Usage: bun scripts/fee-sensitivity.ts [-r] [-v] <epoch|start-end> <fees_bps>... [--data-dir DIR]
 
 import { existsSync, unlinkSync } from "node:fs";
@@ -30,6 +36,9 @@ const apyUrl = process.env.APY_API_URL ?? "https://apy.marinade.finance";
 const [epochStart, epochEnd] = epochArg.includes("-")
   ? epochArg.split("-").map(Number)
   : [Number(epochArg), Number(epochArg)];
+if (!Number.isInteger(epochStart) || !Number.isInteger(epochEnd) || epochStart > epochEnd) {
+  process.stderr.write("Failed: invalid epoch range\n"); process.exit(2);
+}
 
 const ssrRes = await fetch(`${apyUrl}/v1/epoch-pmpe/ssr`);
 if (!ssrRes.ok) { process.stderr.write("Failed to fetch SSR\n"); process.exit(1); }
@@ -45,7 +54,7 @@ const INPUTS = [
 const tmps: string[] = [];
 process.on("exit", () => { for (const t of tmps) try { unlinkSync(t); } catch {} });
 function mk() {
-  const p = join("/tmp", `fee-${randomBytes(6).toString("hex")}.tmp`);
+  const p = join("./tmp", `fee-${randomBytes(6).toString("hex")}.tmp`);
   tmps.push(p); return p;
 }
 
@@ -100,14 +109,18 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       if (line.includes(" ERROR ")) process.stderr.write(line + "\n");
       else if (values.v && line.includes("SSR cap")) process.stderr.write(line + "\n");
     }
+    if (proc.exitCode !== 0) {
+      process.stderr.write(`  # cli failed (exit ${proc.exitCode}) for fee=${fee} epoch=${epoch}\n`); continue;
+    }
 
     const settlements = await Bun.file(out).json();
-    const bids = (settlements.settlements as any[]).filter(s => s.reason === "Bidding").map(s => s.details);
+    const all  = settlements.settlements as any[];
+    const bids = all.filter(s => s.reason === "Bidding").map(s => s.details);
     if (!bids.length) { process.stderr.write(`  # no data for fee=${fee} epoch=${epoch}\n`); continue; }
 
     const stake: number = bids.reduce((s, d) => s + d.total_marinade_active_stake, 0);
     const total: number = bids.reduce((s, d) => s + parseFloat(d.total_marinade_stakers_rewards), 0);
-    const feeAdj: number = bids.reduce((s, d) => s + d.marinade_fee_claim + d.dao_fee_claim, 0);
+    const feeAdj: number = all.reduce((s, e) => s + (e.details?.marinade_fee_claim ?? 0) + (e.details?.dao_fee_claim ?? 0), 0);
     const pmpeAdj = (total - feeAdj) / stake * 1000;
     const pmpeMax = total * (1 - fee / 10000) / stake * 1000;
     const ncap = bids.filter(d => {
