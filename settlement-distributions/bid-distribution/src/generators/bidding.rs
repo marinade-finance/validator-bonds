@@ -604,17 +604,28 @@ pub fn generate_bid_settlements(
         let network_post_max_fee_pmpe = network_post_max_fee_rewards
             / Decimal::from(network_marinade_active_stake)
             * Decimal::ONE_THOUSAND;
+        let adj_fee_lamports = network_marinade_total_rewards - network_post_adj_fee_rewards;
+        let max_fee_lamports = network_marinade_total_rewards - network_post_max_fee_rewards;
         info!(
             "Network-wide post-fee staker pmpe: adj: {} max: {} epoch: {epoch}",
             network_post_adj_fee_pmpe.round_dp(6),
             network_post_max_fee_pmpe.round_dp(6),
+        );
+        info!(
+            "Network-wide fee_lamports: adj: {} max: {} cap_binding: {}/{} epoch: {epoch}",
+            adj_fee_lamports.round_dp(0),
+            max_fee_lamports.round_dp(0),
+            validators_cap_binding,
+            validators_counted,
         );
         if network_marinade_total_rewards > Decimal::ZERO {
             let adj_redistributed = network_post_adj_fee_rewards - network_post_max_fee_rewards;
             let pct_rewards =
                 adj_redistributed / network_marinade_total_rewards * Decimal::ONE_HUNDRED;
             info!(
-                "SSR cap refunded {adj_redistributed} lamports ({pct_rewards:.4}% of rewards; cap binding for {validators_cap_binding}/{validators_counted} validators"
+                "SSR cap refunded {adj_redistributed} lamports \
+                 ({pct_rewards:.4}% of rewards; \
+                 cap binding for {validators_cap_binding}/{validators_counted} validators)"
             );
         }
     }
