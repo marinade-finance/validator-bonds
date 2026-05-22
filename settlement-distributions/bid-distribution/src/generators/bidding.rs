@@ -618,7 +618,6 @@ pub fn generate_bid_settlements(
             validators_cap_binding,
             validators_counted,
         );
-        info!("Stakers total claim: {stakers_total_claim}");
         if network_marinade_total_rewards > Decimal::ZERO {
             let adj_redistributed = network_post_adj_fee_rewards - network_post_max_fee_rewards;
             let pct_rewards =
