@@ -623,8 +623,11 @@ pub fn generate_bid_settlements(
             let pct_rewards =
                 adj_redistributed / network_marinade_total_rewards * Decimal::ONE_HUNDRED;
             info!(
-                "SSR cap refunded {} lamports ({pct_rewards:.4}% of rewards; cap binding for {validators_cap_binding}/{validators_counted} validators)",
+                "SSR cap refunded lamports: {} pct_rewards: {:.4} cap_binding: {}/{}",
                 adj_redistributed.round_dp(0),
+                pct_rewards,
+                validators_cap_binding,
+                validators_counted,
             );
         }
     }
