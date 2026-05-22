@@ -13,18 +13,20 @@ set -Eeuo pipefail
 [[ -f Cargo.toml ]] || { echo "run from repo root"; exit 1; }
 
 usage() {
-  echo "usage: ./scripts/fee-sensitivity.sh <epoch|start-end> <fees_bps>... [--data-dir DIR]"
+  echo "usage: ./scripts/fee-sensitivity.sh [-r] <epoch|start-end> <fees_bps>... [--data-dir DIR]"
   exit 2
 }
 
 DATA_DIR="./regression-data"
 APY_API_URL="${APY_API_URL:-https://apy.marinade.finance}"
+RELEASE=""
 EPOCH_ARG=""
 FEES=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --data-dir) DATA_DIR="$2"; shift 2 ;;
+    -r) RELEASE=1; shift ;;
     *) [[ -z "$EPOCH_ARG" ]] && EPOCH_ARG="$1" || FEES+=("$1"); shift ;;
   esac
 done
@@ -41,8 +43,13 @@ else
   EPOCH_END="$EPOCH_ARG"
 fi
 
-CLI="${BID_CLI:-./target/debug/bid-distribution-cli}"
-[[ -x "$CLI" ]] || cargo build --bin bid-distribution-cli >&2
+if [[ -n "$RELEASE" ]]; then
+  CLI="./target/release/bid-distribution-cli"
+  [[ -x "$CLI" ]] || cargo build --release --bin bid-distribution-cli >&2
+else
+  CLI="./target/debug/bid-distribution-cli"
+  [[ -x "$CLI" ]] || cargo build --bin bid-distribution-cli >&2
+fi
 
 SSR_JSON=$(curl -fsSL "$APY_API_URL/v1/epoch-pmpe/ssr")
 apy() {
@@ -87,7 +94,8 @@ for epoch in $(seq "$EPOCH_START" "$EPOCH_END"); do
 
   for fee in "${FEES[@]}"; do
     sed -E "s/(max_fee_bps:)[[:space:]]*[0-9]+/\1 $fee/" ./settlement-config.yaml > "$cfg"
-    pmpe=$(RUST_LOG="warn,bid_distribution::generators::bidding=info" "$CLI" \
+    log=$(mktemp)
+    RUST_LOG="warn,bid_distribution::generators::bidding=info" "$CLI" \
       --settlement-config "$cfg" \
       --stake-meta-collection "$IN/stakes.json" \
       --sam-meta-collection "$IN/sam-scores.json" \
@@ -97,7 +105,10 @@ for epoch in $(seq "$EPOCH_START" "$EPOCH_END"); do
       --output-settlement-collection /dev/null \
       --output-protected-event-collection /dev/null \
       --apy-api-url "$APY_API_URL" \
-      2>&1 | grep -oE 'post-fee staker pmpe: adj: [0-9.]+' | awk '{print $NF}')
+      2>"$log"
+    cat "$log" >&2
+    pmpe=$(grep -oE 'post-fee staker pmpe: adj: [0-9.]+' "$log" | awk '{print $NF}')
+    rm -f "$log"
     echo "  - max_fee_bps: $fee"
     echo "    post_fee_pmpe: $pmpe"
     echo "    apy: $(apy "$pmpe" "$EPY")"
