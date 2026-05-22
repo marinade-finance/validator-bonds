@@ -319,8 +319,6 @@ pub fn generate_bid_settlements(
             };
             network_marinade_active_stake =
                 network_marinade_active_stake.saturating_add(total_marinade_active_stake);
-            network_post_fee_rewards +=
-                total_marinade_stakers_rewards * (Decimal::ONE - effective_fee);
             network_total_rewards += total_marinade_stakers_rewards;
             validators_counted += 1;
             if effective_fee < fee_percentages.max_fee {
@@ -343,6 +341,8 @@ pub fn generate_bid_settlements(
             // minimum is 0 when distributor fee is of amount of total (stakers get nothing)
             let settlement_claim_sum = settlement_claim.sum_u64()?;
             let stakers_total_claim = settlement_claim_sum.saturating_sub(distributor_fee_claim);
+            // exact post-fee: natural on-chain yield + net bond payout (bond - actual fee taken)
+            network_post_fee_rewards += active_stakers_rewards + Decimal::from(stakers_total_claim);
             // Split stakers_total_claim between active stakers (earned rewards + static bid)
             // and activating stakers (activating charge), proportional to each pool's share.
             let activating_fraction = if settlement_claim.sum() > Decimal::ZERO {
