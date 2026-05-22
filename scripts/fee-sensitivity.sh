@@ -13,13 +13,14 @@ set -Eeuo pipefail
 [[ -f Cargo.toml ]] || { echo "run from repo root"; exit 1; }
 
 usage() {
-  echo "usage: ./scripts/fee-sensitivity.sh [-r] <epoch|start-end> <fees_bps>... [--data-dir DIR]"
+  echo "usage: ./scripts/fee-sensitivity.sh [-r] [-v] <epoch|start-end> <fees_bps>... [--data-dir DIR]"
   exit 2
 }
 
 DATA_DIR="./regression-data"
 APY_API_URL="${APY_API_URL:-https://apy.marinade.finance}"
 RELEASE=""
+VERBOSE=""
 EPOCH_ARG=""
 FEES=()
 
@@ -27,6 +28,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --data-dir) DATA_DIR="$2"; shift 2 ;;
     -r) RELEASE=1; shift ;;
+    -v) VERBOSE=1; shift ;;
     *) [[ -z "$EPOCH_ARG" ]] && EPOCH_ARG="$1" || FEES+=("$1"); shift ;;
   esac
 done
@@ -110,7 +112,11 @@ for epoch in $(seq "$EPOCH_START" "$EPOCH_END"); do
       --output-protected-event-collection /dev/null \
       --apy-api-url "$APY_API_URL" \
       2>"$log"
-    grep -E ' ERROR |Network-wide|SSR cap' "$log" >&2 || true
+    if [[ -n "$VERBOSE" ]]; then
+      grep -E ' ERROR |Network-wide|SSR cap' "$log" >&2 || true
+    else
+      grep -E ' ERROR ' "$log" >&2 || true
+    fi
     pmpe=$(grep -oE 'post-fee staker pmpe: adj: [0-9.]+' "$log" | awk '{print $NF}')
     [[ -n "$pmpe" ]] || { echo "  # no pmpe output for fee=$fee epoch=$epoch" >&2; continue; }
     echo "  - max_fee_bps: $fee"
