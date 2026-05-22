@@ -102,8 +102,9 @@ pub fn generate_bid_settlements(
     let fee_deposit = get_fee_deposit_stake_accounts(stake_meta_index, fee_config);
 
     let mut network_marinade_active_stake: u64 = 0;
-    let mut network_post_fee_rewards = Decimal::ZERO;
-    let mut network_total_rewards = Decimal::ZERO;
+    let mut network_post_adj_fee_rewards = Decimal::ZERO;
+    let mut network_post_max_fee_rewards = Decimal::ZERO;
+    let mut network_marinade_total_rewards = Decimal::ZERO;
     let mut validators_counted: u64 = 0;
     let mut validators_cap_binding: u64 = 0;
 
@@ -319,7 +320,7 @@ pub fn generate_bid_settlements(
             };
             network_marinade_active_stake =
                 network_marinade_active_stake.saturating_add(total_marinade_active_stake);
-            network_total_rewards += total_marinade_stakers_rewards;
+            network_marinade_total_rewards += total_marinade_stakers_rewards;
             validators_counted += 1;
             if effective_fee < fee_percentages.max_fee {
                 validators_cap_binding += 1;
@@ -333,16 +334,26 @@ pub fn generate_bid_settlements(
                 ssr_pmpe,
             );
             let minimum_distributor_fee_claim = total_marinade_stakers_rewards * effective_fee;
+            let minimum_distributor_max_fee_claim =
+                total_marinade_stakers_rewards * fee_percentages.max_fee;
             let distributor_fee_claim = minimum_distributor_fee_claim
                 .min(settlement_claim.sum())
                 .to_u64()
                 .ok_or_else(|| anyhow!("Failed to_u64 for distributor_fee_claim"))?;
+            let distributor_max_fee_claim = minimum_distributor_max_fee_claim
+                .min(settlement_claim.sum())
+                .to_u64()
+                .ok_or_else(|| anyhow!("Failed to_u64 for distributor_max_fee_claim"))?;
 
             // minimum is 0 when distributor fee is of amount of total (stakers get nothing)
             let settlement_claim_sum = settlement_claim.sum_u64()?;
             let stakers_total_claim = settlement_claim_sum.saturating_sub(distributor_fee_claim);
             // exact post-fee: natural on-chain yield + net bond payout (bond - actual fee taken)
-            network_post_fee_rewards += active_stakers_rewards + Decimal::from(stakers_total_claim);
+            network_post_max_fee_rewards += active_stakers_rewards
+                + Decimal::from(settlement_claim_sum.saturating_sub(distributor_max_fee_claim));
+            // exact post-fee: natural on-chain yield + net bond payout (bond - actual fee taken)
+            network_post_adj_fee_rewards +=
+                active_stakers_rewards + Decimal::from(stakers_total_claim);
             // Split stakers_total_claim between active stakers (earned rewards + static bid)
             // and activating stakers (activating charge), proportional to each pool's share.
             let activating_fraction = if settlement_claim.sum() > Decimal::ZERO {
@@ -588,21 +599,19 @@ pub fn generate_bid_settlements(
         }
     }
     if network_marinade_active_stake > 0 {
-        let network_post_fee_pmpe = network_post_fee_rewards
+        let network_post_adj_fee_pmpe = network_post_adj_fee_rewards
             / Decimal::from(network_marinade_active_stake)
             * Decimal::ONE_THOUSAND;
-        info!("Network-wide post-fee staker pmpe: {network_post_fee_pmpe} (epoch {epoch})");
-        if network_total_rewards > Decimal::ZERO {
-            let fee_at_max = network_total_rewards * fee_percentages.max_fee;
-            let cap_savings = fee_at_max - (network_total_rewards - network_post_fee_rewards);
-            let pct_rewards = cap_savings / network_total_rewards * Decimal::ONE_HUNDRED;
-            let pct_max_fee = if fee_at_max > Decimal::ZERO {
-                cap_savings / fee_at_max * Decimal::ONE_HUNDRED
-            } else {
-                Decimal::ZERO
-            };
+        let network_post_max_fee_pmpe = network_post_max_fee_rewards
+            / Decimal::from(network_marinade_active_stake)
+            * Decimal::ONE_THOUSAND;
+        info!("Network-wide post-fee staker pmpe: adj: {network_post_adj_fee_pmpe} max: {network_post_max_fee_rewards} epoch: {epoch}");
+        if network_marinade_total_rewards > Decimal::ZERO {
+            let adj_redistributed = network_post_adj_fee_rewards - network_post_max_fee_rewards;
+            let pct_rewards =
+                adj_redistributed / network_marinade_total_rewards * Decimal::ONE_HUNDRED;
             info!(
-                "SSR cap refunded {cap_savings} lamports ({pct_rewards:.4}% of rewards, {pct_max_fee:.4}% of max-fee); cap binding for {validators_cap_binding}/{validators_counted} validators"
+                "SSR cap refunded {adj_redistributed} lamports ({pct_rewards:.4}% of rewards; cap binding for {validators_cap_binding}/{validators_counted} validators"
             );
         }
     }
