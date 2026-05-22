@@ -94,6 +94,7 @@ for epoch in $(seq "$EPOCH_START" "$EPOCH_END"); do
 
   for fee in "${FEES[@]}"; do
     sed -E "s/(max_fee_bps:)[[:space:]]*[0-9]+/\1 $fee/" ./settlement-config.yaml > "$cfg"
+    grep -q "max_fee_bps: $fee" "$cfg" || { echo "Failed to patch max_fee_bps=$fee" >&2; exit 1; }
     log=$(mktemp)
     RUST_LOG="warn,bid_distribution::generators::bidding=info" "$CLI" \
       --settlement-config "$cfg" \
@@ -109,6 +110,7 @@ for epoch in $(seq "$EPOCH_START" "$EPOCH_END"); do
     cat "$log" >&2
     pmpe=$(grep -oE 'post-fee staker pmpe: adj: [0-9.]+' "$log" | awk '{print $NF}')
     rm -f "$log"
+    [[ -n "$pmpe" ]] || { echo "  # no pmpe output for fee=$fee epoch=$epoch" >&2; continue; }
     echo "  - max_fee_bps: $fee"
     echo "    post_fee_pmpe: $pmpe"
     echo "    apy: $(apy "$pmpe" "$EPY")"
