@@ -47,7 +47,7 @@ The flow is encoded in code within [`buildkite` pipelines](./.buildkite)
 
 ### User related CLI from source
 
-To run the CLI you need to have installed Node.js in version 16+ and `pnpm`.
+To run the CLI you need to have installed Node.js in version 20.18.0+ and `pnpm`.
 For details on CLI options see [validator-bonds-cli README](./packages/validator-bonds-cli/README.md).
 
 ```sh
