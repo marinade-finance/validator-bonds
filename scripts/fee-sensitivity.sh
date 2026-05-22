@@ -57,8 +57,11 @@ apy() {
     '(pow(1 + $p/1000; $n) - 1) * 100 | . * 100 | round / 100 | tostring + "%"'
 }
 
-cfg=$(mktemp)
-trap 'rm -f "$cfg"' EXIT
+TMPS=()
+mk() { local t; t=$(mktemp); TMPS+=("$t"); printf '%s' "$t"; }
+trap 'rm -f "${TMPS[@]}"' EXIT
+
+cfg=$(mk)
 
 have_inputs() {
   local IN="$DATA_DIR/$1/inputs"
@@ -95,7 +98,7 @@ for epoch in $(seq "$EPOCH_START" "$EPOCH_END"); do
   for fee in "${FEES[@]}"; do
     sed -E "s/(max_fee_bps:)[[:space:]]*[0-9]+/\1 $fee/" ./settlement-config.yaml > "$cfg"
     grep -q "max_fee_bps: $fee" "$cfg" || { echo "Failed to patch max_fee_bps=$fee" >&2; exit 1; }
-    log=$(mktemp)
+    log=$(mk)
     RUST_LOG="warn,bid_distribution::generators::bidding=info" "$CLI" \
       --settlement-config "$cfg" \
       --stake-meta-collection "$IN/stakes.json" \
@@ -109,7 +112,6 @@ for epoch in $(seq "$EPOCH_START" "$EPOCH_END"); do
       2>"$log"
     grep -E ' ERROR |Network-wide|SSR cap' "$log" >&2 || true
     pmpe=$(grep -oE 'post-fee staker pmpe: adj: [0-9.]+' "$log" | awk '{print $NF}')
-    rm -f "$log"
     [[ -n "$pmpe" ]] || { echo "  # no pmpe output for fee=$fee epoch=$epoch" >&2; continue; }
     echo "  - max_fee_bps: $fee"
     echo "    post_fee_pmpe: $pmpe"
