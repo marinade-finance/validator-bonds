@@ -101,13 +101,6 @@ pub fn generate_bid_settlements(
     let mut settlement_claim_collections = vec![];
     let fee_deposit = get_fee_deposit_stake_accounts(stake_meta_index, fee_config);
 
-    let mut network_marinade_active_stake: u64 = 0;
-    let mut network_post_adj_fee_rewards = Decimal::ZERO;
-    let mut network_post_max_fee_rewards = Decimal::ZERO;
-    let mut network_marinade_total_rewards = Decimal::ZERO;
-    let mut validators_counted: u64 = 0;
-    let mut validators_cap_binding: u64 = 0;
-
     for validator in sam_validator_metas {
         if let Some(grouped_stake_metas) =
             stake_meta_index.iter_grouped_stake_metas(&validator.vote_account)
@@ -318,14 +311,6 @@ pub fn generate_bid_settlements(
             } else {
                 fee_percentages.max_fee
             };
-            network_marinade_active_stake =
-                network_marinade_active_stake.saturating_add(total_marinade_active_stake);
-            network_marinade_total_rewards =
-                network_marinade_total_rewards.saturating_add(total_marinade_stakers_rewards);
-            validators_counted += 1;
-            if effective_fee < fee_percentages.max_fee {
-                validators_cap_binding += 1;
-            }
             info!(
                 "{} effective fee: {} (configured: {}, min: {}, ssr_pmpe: {})",
                 validator.vote_account,
@@ -335,24 +320,14 @@ pub fn generate_bid_settlements(
                 ssr_pmpe,
             );
             let minimum_distributor_fee_claim = total_marinade_stakers_rewards * effective_fee;
-            let minimum_distributor_max_fee_claim =
-                total_marinade_stakers_rewards * fee_percentages.max_fee;
             let distributor_fee_claim = minimum_distributor_fee_claim
                 .min(settlement_claim.sum())
                 .to_u64()
                 .ok_or_else(|| anyhow!("Failed to_u64 for distributor_fee_claim"))?;
-            let distributor_max_fee_claim = minimum_distributor_max_fee_claim
-                .min(settlement_claim.sum())
-                .to_u64()
-                .ok_or_else(|| anyhow!("Failed to_u64 for distributor_max_fee_claim"))?;
 
             // minimum is 0 when distributor fee is of amount of total (stakers get nothing)
             let settlement_claim_sum = settlement_claim.sum_u64()?;
             let stakers_total_claim = settlement_claim_sum.saturating_sub(distributor_fee_claim);
-            network_post_max_fee_rewards +=
-                total_marinade_stakers_rewards - Decimal::from(distributor_max_fee_claim);
-            network_post_adj_fee_rewards +=
-                total_marinade_stakers_rewards - Decimal::from(distributor_fee_claim);
             // Split stakers_total_claim between active stakers (earned rewards + static bid)
             // and activating stakers (activating charge), proportional to each pool's share.
             let activating_fraction = if settlement_claim.sum() > Decimal::ZERO {
@@ -594,40 +569,6 @@ pub fn generate_bid_settlements(
                 validator.vote_account,
                 &settlement_meta_funder,
                 Some(details_json),
-            );
-        }
-    }
-    if network_marinade_active_stake > 0 {
-        let network_post_adj_fee_pmpe = network_post_adj_fee_rewards
-            / Decimal::from(network_marinade_active_stake)
-            * Decimal::ONE_THOUSAND;
-        let network_post_max_fee_pmpe = network_post_max_fee_rewards
-            / Decimal::from(network_marinade_active_stake)
-            * Decimal::ONE_THOUSAND;
-        let adj_fee_lamports = network_marinade_total_rewards - network_post_adj_fee_rewards;
-        let max_fee_lamports = network_marinade_total_rewards - network_post_max_fee_rewards;
-        info!(
-            "Network-wide post-fee staker pmpe: adj: {} max: {} epoch: {epoch}",
-            network_post_adj_fee_pmpe.round_dp(6),
-            network_post_max_fee_pmpe.round_dp(6),
-        );
-        info!(
-            "Network-wide fee_lamports: adj: {} max: {} cap_binding: {}/{} epoch: {epoch}",
-            adj_fee_lamports.round_dp(0),
-            max_fee_lamports.round_dp(0),
-            validators_cap_binding,
-            validators_counted,
-        );
-        if network_marinade_total_rewards > Decimal::ZERO {
-            let adj_redistributed = network_post_adj_fee_rewards - network_post_max_fee_rewards;
-            let pct_rewards =
-                adj_redistributed / network_marinade_total_rewards * Decimal::ONE_HUNDRED;
-            info!(
-                "SSR cap refunded lamports: {} pct_rewards: {:.4} cap_binding: {}/{}",
-                adj_redistributed.round_dp(0),
-                pct_rewards,
-                validators_cap_binding,
-                validators_counted,
             );
         }
     }
