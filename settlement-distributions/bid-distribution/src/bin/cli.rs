@@ -1,5 +1,5 @@
 use bid_distribution::apy_api::fetch_ssr_pmpe;
-use bid_distribution::generators::bidding::generate_bid_settlements;
+use bid_distribution::generators::fee_optimizer::generate_bid_settlements;
 use bid_distribution::generators::psr_events::{
     calculate_total_psr_staker_claims, generate_psr_settlements,
 };
@@ -7,7 +7,7 @@ use bid_distribution::generators::sam_penalties::{
     calculate_total_penalties, generate_penalty_settlements,
 };
 use bid_distribution::rewards::load_rewards_from_directory;
-use bid_distribution::sam_meta::ValidatorSamMeta;
+use bid_distribution::sam_meta::{SamAuctionResult, ValidatorSamMeta};
 use bid_distribution::settlement_config::BidDistributionConfig;
 use env_logger::{Builder, Env};
 use settlement_common::protected_events::generate_protected_event_collection;
@@ -40,9 +40,13 @@ struct Args {
     settlement_config: String,
 
     // ===== SAM-specific inputs (optional) =====
-    /// SAM scoring meta collection JSON file
+    /// SAM scoring meta collection JSON file (scoring-API `/scores/sam` shape)
     #[arg(long, env)]
     sam_meta_collection: Option<String>,
+
+    /// ds-sam auction `results.json` (reads `auctionData.validators`); alternative to --sam-meta-collection
+    #[arg(long, env)]
+    sam_results_collection: Option<String>,
 
     /// Directory containing reward JSON files
     #[arg(long, env)]
@@ -182,11 +186,6 @@ fn main() -> anyhow::Result<()> {
     if has_sam_configs {
         info!("Generating SAM settlements...");
 
-        let sam_meta_path = args.sam_meta_collection.as_ref().ok_or_else(|| {
-            anyhow::anyhow!(
-                "--sam-meta-collection is required when SAM settlement configs are present"
-            )
-        })?;
         let rewards_dir = args.rewards_dir.as_ref().ok_or_else(|| {
             anyhow::anyhow!("--rewards-dir is required when SAM settlement configs are present")
         })?;
@@ -216,9 +215,29 @@ fn main() -> anyhow::Result<()> {
                     )
                 })?;
 
-        info!("Loading SAM scoring meta collection...");
-        let sam_validator_metas: Vec<ValidatorSamMeta> = read_from_json_file(sam_meta_path)
-            .map_err(file_error("sam-meta-collection", sam_meta_path))?;
+        let sam_validator_metas: Vec<ValidatorSamMeta> =
+            match (&args.sam_meta_collection, &args.sam_results_collection) {
+                (Some(_), Some(_)) => anyhow::bail!(
+                    "Provide only one of --sam-meta-collection or --sam-results-collection"
+                ),
+                (Some(path), None) => {
+                    info!("Loading SAM scoring meta collection (scores/sam shape): {path}");
+                    read_from_json_file(path).map_err(file_error("sam-meta-collection", path))?
+                }
+                (None, Some(path)) => {
+                    info!("Loading SAM auction results collection (results.json): {path}");
+                    let results: SamAuctionResult = read_from_json_file(path)
+                        .map_err(file_error("sam-results-collection", path))?;
+                    results.into_validator_sam_metas()
+                }
+                (None, None) => anyhow::bail!(
+                    "--sam-meta-collection or --sam-results-collection is required when SAM settlement configs are present"
+                ),
+            };
+        anyhow::ensure!(
+            !sam_validator_metas.is_empty(),
+            "SAM settlement configs are present but the SAM input contains no validators"
+        );
 
         info!("Loading rewards from directory: {rewards_dir:?}");
         let rewards_collection = load_rewards_from_directory(rewards_dir, &stake_meta_collection)?;
@@ -285,8 +304,10 @@ fn main() -> anyhow::Result<()> {
     } else {
         // No SAM configs — fail if SAM inputs were partially provided (likely a mistake)
         anyhow::ensure!(
-            args.sam_meta_collection.is_none() && args.rewards_dir.is_none(),
-            "SAM inputs (--sam-meta-collection, --rewards-dir) provided but no SAM settlement configs found in config file"
+            args.sam_meta_collection.is_none()
+                && args.sam_results_collection.is_none()
+                && args.rewards_dir.is_none(),
+            "SAM inputs (--sam-meta-collection, --sam-results-collection, --rewards-dir) provided but no SAM settlement configs found in config file"
         );
     }
 
