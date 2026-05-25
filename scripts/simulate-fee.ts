@@ -38,11 +38,15 @@ const { values, positionals } = parseArgs({
 })
 
 const [epochArg, ...feeStrs] = positionals
-const fees = feeStrs.map(Number)
+let fees = feeStrs.map(Number)
+
+if (fees.length === 0) {
+  fees = [null]
+}
 
 if (!epochArg || fees.length === 0) {
   process.stderr.write(
-    'usage: bun scripts/simulate-fee.ts [-r] [-v] <epoch|start-end> <fees_bps>... [--data-dir DIR]\n',
+    'usage: bun scripts/simulate-fee.ts [-r] [-v] <epoch|start-end> [-m <min_fee>] [<max_fee>]... [--data-dir DIR]\n',
   )
   process.exit(2)
 }
@@ -152,7 +156,9 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
   for (const fee of fees) {
     const cfg = mk(),
       out = mk()
-    let cfgText = cfgTemplate.replace(/(max_fee_bps:)\s*\d+/, `$1 ${fee}`)
+    let cfgText = cfgTemplate
+    if (fee != null)
+      cfgText = cfgTemplate.replace(/(max_fee_bps:)\s*\d+/, `$1 ${fee}`)
     if (values.m !== undefined)
       cfgText = cfgText.replace(/(min_fee_bps:)\s*\d+/, `$1 ${values.m}`)
     await writeFile(cfg, cfgText)
