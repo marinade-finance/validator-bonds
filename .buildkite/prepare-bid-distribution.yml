@@ -219,8 +219,9 @@ steps:
     allow_dependency_failure: true
     commands:
     - buildkite-agent artifact download --include-retried-jobs bid-distribution-settlements.json .
+    - pnpm install
     - |
-      npx tsx scripts/fee-annotation.ts \
+      pnpm exec tsx scripts/fee-annotation.ts \
         "./bid-distribution-settlements.json" \
         "./settlement-config.yaml" \
         | buildkite-agent annotate --priority 6 --style info --context "fee-analysis"
