@@ -60,7 +60,7 @@ async function main() {
 
   if (bids.length === 0 || stake === 0) {
     process.stdout.write(
-      `### DAO Fee Summary — Epoch ${epoch}\nNo Bidding settlements found.\n`,
+      `### Fee Report — Epoch ${epoch}\nNo Bidding settlements found.\n`,
     )
     return
   }
@@ -127,7 +127,7 @@ async function main() {
   const apyMax = apyFor(pmpeMax)
 
   process.stdout
-    .write(`### DAO Fee Summary — Epoch ${epoch}   (max_fee_bps: ${maxFeeBps}, min_fee_bps: ${minFeeBps})
+    .write(`### Fee Report — Epoch ${epoch}   (max_fee_bps: ${maxFeeBps}, min_fee_bps: ${minFeeBps})
 
 | scenario  | fee ◎              | pmpe              | APY      | vs gross  |
 |-----------|--------------------|-------------------|----------|-----------|
