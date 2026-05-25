@@ -86,6 +86,11 @@ pub struct ProtectedEventRecord {
     pub amount: u64,
     #[serde(with = "pubkey_string_conversion")]
     pub vote_account: Pubkey,
+    /// DEPRECATED: the `{ "funder": ... }` wrapper is retained only for backward
+    /// compatibility. The generated settlement JSON now exposes `funder` directly;
+    /// this nested `meta` field will be flattened to a top-level `funder` in a future
+    /// API version. Read `meta.funder` for now.
+    #[schema(deprecated)]
     pub meta: SettlementMeta,
     pub reason: SettlementReason,
 }

@@ -24,7 +24,7 @@ pub fn get_validator_bonds_program(
     rpc_client: Arc<RpcClient>,
     payer: Option<Arc<DynSigner>>,
 ) -> anyhow::Result<Program<Arc<DynSigner>>> {
-    // anchor-client's Program/Client API dictates the Arc<DynSigner> handle type
+    // anchor's DynSigner wraps Arc<dyn Signer> (!Send+!Sync); Arc<DynSigner> is the Program<C> API pattern
     #[allow(clippy::arc_with_non_send_sync)]
     let payer = payer.unwrap_or(Arc::new(DynSigner(Arc::new(Keypair::new()))));
 

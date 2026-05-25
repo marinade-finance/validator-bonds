@@ -1,20 +1,24 @@
 use crate::institutional_payouts::InstitutionalPayout;
 use log::info;
-use settlement_common::settlement_collection::{Settlement, SettlementClaim, SettlementCollection};
+use settlement_common::settlement_collection::{
+    ClaimDetail, Settlement, SettlementClaim, SettlementCollection,
+};
 
 use crate::settlement_config::InstitutionalDistributionConfig;
-use settlement_common::stake_meta_index::StakeMetaIndex;
 use settlement_common::utils::sort_claims_deterministically;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
+enum PayoutKind {
+    Staker,
+    FeeDeposit,
+}
+
 pub fn generate_institutional_settlement_collection(
     config: &InstitutionalDistributionConfig,
     institutional_payout: &InstitutionalPayout,
-    stake_meta_index: &StakeMetaIndex,
 ) -> SettlementCollection {
-    let settlements =
-        generate_institutional_settlements(config, institutional_payout, stake_meta_index);
+    let settlements = generate_institutional_settlements(config, institutional_payout);
 
     SettlementCollection {
         epoch: institutional_payout.epoch,
@@ -31,12 +35,12 @@ struct Payout {
     stake_amount: u64,
     payout_lamports: u64,
     stake_accounts: HashMap<Pubkey, u64>,
+    kind: PayoutKind,
 }
 
 fn merge_payouts(
     config: &InstitutionalDistributionConfig,
     institutional_payout: &InstitutionalPayout,
-    stake_meta_index: &StakeMetaIndex,
 ) -> Vec<Payout> {
     let mut payouts: Vec<Payout> = Vec::new();
 
@@ -55,32 +59,9 @@ fn merge_payouts(
             stake_amount: payout_staker.effective_stake,
             payout_lamports: payout_staker.payout_lamports,
             stake_accounts,
+            kind: PayoutKind::Staker,
         });
     }
-
-    let marinade_fee_deposit_stake_accounts: HashMap<_, _> = stake_meta_index
-        .stake_meta_collection
-        .stake_metas
-        .iter()
-        .find(|x| {
-            x.withdraw_authority.eq(&config.marinade_withdraw_authority)
-                && x.stake_authority.eq(&config.marinade_stake_authority)
-        })
-        .iter()
-        .map(|s| (s.pubkey, s.active_delegation_lamports))
-        .collect();
-
-    let dao_fee_deposit_stake_accounts: HashMap<_, _> = stake_meta_index
-        .stake_meta_collection
-        .stake_metas
-        .iter()
-        .find(|x| {
-            x.withdraw_authority.eq(&config.dao_withdraw_authority)
-                && x.stake_authority.eq(&config.dao_stake_authority)
-        })
-        .iter()
-        .map(|s| (s.pubkey, s.active_delegation_lamports))
-        .collect();
 
     for payout_distributor in institutional_payout.payout_distributors.iter() {
         let dao_payout = payout_distributor
@@ -95,21 +76,19 @@ fn merge_payouts(
             vote_account: payout_distributor.vote_account,
             withdrawer: config.marinade_withdraw_authority,
             staker: config.marinade_stake_authority,
-            stake_amount: marinade_fee_deposit_stake_accounts
-                .values()
-                .fold(0, |acc, v| acc.saturating_add(*v)),
+            stake_amount: 0,
             payout_lamports: marinade_payout,
-            stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
+            stake_accounts: HashMap::new(),
+            kind: PayoutKind::FeeDeposit,
         });
         payouts.push(Payout {
             vote_account: payout_distributor.vote_account,
             withdrawer: config.dao_withdraw_authority,
             staker: config.dao_stake_authority,
-            stake_amount: dao_fee_deposit_stake_accounts
-                .values()
-                .fold(0, |acc, v| acc.saturating_add(*v)),
+            stake_amount: 0,
             payout_lamports: dao_payout,
-            stake_accounts: dao_fee_deposit_stake_accounts.clone(),
+            stake_accounts: HashMap::new(),
+            kind: PayoutKind::FeeDeposit,
         });
     }
 
@@ -119,46 +98,63 @@ fn merge_payouts(
 fn generate_institutional_settlements(
     config: &InstitutionalDistributionConfig,
     institutional_payout: &InstitutionalPayout,
-    stake_meta_index: &StakeMetaIndex,
 ) -> Vec<Settlement> {
     info!("Generating Institutional Payout Bonds settlements...");
 
     // vote account -> Settlement
     let mut settlements: HashMap<Pubkey, Settlement> = HashMap::new();
 
-    let payouts = merge_payouts(config, institutional_payout, stake_meta_index);
+    let payouts = merge_payouts(config, institutional_payout);
     for payout in payouts {
         let settlement = settlements
             .entry(payout.vote_account)
             .or_insert(Settlement {
                 reason: config.settlement_reason.clone(),
-                meta: config.settlement_meta.clone(),
+                funder: config.settlement_meta.funder.clone(),
                 vote_account: payout.vote_account,
                 claims_count: 0,
                 claims_amount: 0,
                 claims: vec![],
                 details: None,
             });
-        settlement.claims_count += 1;
         settlement.claims_amount += payout.payout_lamports;
 
+        let incoming_is_staker = matches!(payout.kind, PayoutKind::Staker);
         if let Some(existing_claim) = settlement.claims.iter_mut().find(|claim| {
-            claim.withdraw_authority == payout.withdrawer && claim.stake_authority == payout.staker
+            let existing_is_staker = matches!(claim.detail, ClaimDetail::StakerPayout { .. });
+            claim.withdraw_authority == payout.withdrawer
+                && claim.stake_authority == payout.staker
+                && existing_is_staker == incoming_is_staker
         }) {
             existing_claim.claim_amount += payout.payout_lamports;
-            existing_claim.active_stake += payout.stake_amount;
-            for (k, v) in &payout.stake_accounts {
-                existing_claim.stake_accounts.entry(*k).or_insert(*v);
+            if let ClaimDetail::StakerPayout {
+                active_stake,
+                stake_accounts: existing_accounts,
+                ..
+            } = &mut existing_claim.detail
+            {
+                *active_stake += payout.stake_amount;
+                for (k, v) in &payout.stake_accounts {
+                    *existing_accounts.entry(*k).or_insert(0) += *v;
+                }
             }
         } else {
-            settlement.claims.push(SettlementClaim {
-                withdraw_authority: payout.withdrawer,
-                stake_authority: payout.staker,
-                active_stake: payout.stake_amount,
-                activating_stake: 0,
-                stake_accounts: payout.stake_accounts,
-                claim_amount: payout.payout_lamports,
-            });
+            let claim = match payout.kind {
+                PayoutKind::Staker => SettlementClaim::staker_payout(
+                    payout.withdrawer,
+                    payout.staker,
+                    payout.stake_amount,
+                    0,
+                    payout.payout_lamports,
+                    payout.stake_accounts,
+                ),
+                PayoutKind::FeeDeposit => SettlementClaim::fee_deposit(
+                    payout.withdrawer,
+                    payout.staker,
+                    payout.payout_lamports,
+                ),
+            };
+            settlement.claims.push(claim);
         }
     }
 
@@ -166,6 +162,7 @@ fn generate_institutional_settlements(
         .into_values()
         .map(|mut settlement| {
             sort_claims_deterministically(&mut settlement.claims);
+            settlement.claims_count = settlement.claims.len();
             settlement
         })
         .collect()
@@ -180,7 +177,6 @@ mod tests {
     };
     use std::collections::HashSet;
 
-    use snapshot_parser_validator_cli::stake_meta::StakeMetaCollection;
     use solana_sdk::pubkey::Pubkey;
     use std::fs::File;
     use std::io::BufReader;
@@ -294,12 +290,7 @@ mod tests {
     fn test_generate_marinade() {
         let institutional_payout = read_json_payout("marinade");
 
-        let stake_meta_index = default_stake_meta_index();
-        let settlements = generate_institutional_settlements(
-            &TEST_CONFIG,
-            &institutional_payout,
-            &stake_meta_index,
-        );
+        let settlements = generate_institutional_settlements(&TEST_CONFIG, &institutional_payout);
 
         // 4 different validators
         assert_eq!(settlements.len(), 4);
@@ -340,12 +331,7 @@ mod tests {
     fn test_generate_prime() {
         let institutional_payout = read_json_payout("prime");
 
-        let stake_meta_index = default_stake_meta_index();
-        let settlements = generate_institutional_settlements(
-            &TEST_CONFIG,
-            &institutional_payout,
-            &stake_meta_index,
-        );
+        let settlements = generate_institutional_settlements(&TEST_CONFIG, &institutional_payout);
 
         // 6 different validators
         assert_eq!(settlements.len(), 6);
@@ -382,13 +368,183 @@ mod tests {
         );
     }
 
-    fn default_stake_meta_index() -> StakeMetaIndex<'static> {
-        static EMPTY_COLLECTION: once_cell::sync::Lazy<StakeMetaCollection> =
-            once_cell::sync::Lazy::new(|| StakeMetaCollection {
-                epoch: 0,
-                slot: 0,
-                stake_metas: vec![],
-            });
-        StakeMetaIndex::new(&EMPTY_COLLECTION)
+    fn make_payout_staker(
+        vote_account: Pubkey,
+        staker: Pubkey,
+        withdrawer: Pubkey,
+        stake_accounts: Vec<(Pubkey, u64)>,
+        payout_lamports: u64,
+    ) -> crate::institutional_payouts::PayoutStaker {
+        use crate::institutional_payouts::{PayoutStaker, StakeAccount};
+        use rust_decimal::Decimal;
+
+        let stake_accounts: Vec<StakeAccount> = stake_accounts
+            .into_iter()
+            .map(|(address, effective_stake)| StakeAccount {
+                address,
+                effective_stake,
+            })
+            .collect();
+        let effective_stake: u64 = stake_accounts.iter().map(|s| s.effective_stake).sum();
+        PayoutStaker {
+            vote_account,
+            stake_accounts,
+            staker,
+            withdrawer,
+            active_stake: 0,
+            effective_stake,
+            activating_stake: 0,
+            deactivating_stake: 0,
+            balance_lamports: 0,
+            share_institutional: Decimal::ZERO,
+            share_deactivation: Decimal::ZERO,
+            payout_lamports,
+        }
+    }
+
+    fn make_empty_institutional_payout(
+        epoch: u64,
+    ) -> crate::institutional_payouts::InstitutionalPayout {
+        use crate::institutional_payouts::{
+            ConfigDto, InstitutionalPayout, InstitutionalValidatorsDto, PsrPercentileData,
+        };
+        use rust_decimal::Decimal;
+
+        InstitutionalPayout {
+            epoch,
+            slot: 0,
+            config: ConfigDto {
+                staker_authority_filter: vec![],
+                psr_percentile: 0,
+                psr_grace_downtime_bps: 0,
+                validator_fee_bps: 0,
+                distributor_fee_bps: 0,
+            },
+            institutional_validators: InstitutionalValidatorsDto { validators: vec![] },
+            psr_percentile_data: PsrPercentileData {
+                psr_percentile: 0,
+                psr_percentile_apy: Decimal::ZERO,
+                psr_percentile_effective_stake: 0,
+                psr_grace_downtime_bps: 0,
+            },
+            institutional_staker_authorities: vec![],
+            validator_fee_bps: 0,
+            distributor_fee_bps: 0,
+            payout_stakers: vec![],
+            payout_distributors: vec![],
+            validators: vec![],
+            validator_payout_info: vec![],
+        }
+    }
+
+    #[test]
+    fn test_existing_claim_merge_sums_stake_accounts() {
+        // On merge, claim_amount/active_stake/stake_accounts are all summed; claims_count == claims.len().
+        let vote_account = Pubkey::new_unique();
+        let staker = Pubkey::new_unique();
+        let withdrawer = Pubkey::new_unique();
+        let stake_a = Pubkey::new_unique();
+        let stake_b = Pubkey::new_unique();
+        let stake_c = Pubkey::new_unique();
+
+        let mut payout = make_empty_institutional_payout(123);
+        payout.payout_stakers = vec![
+            make_payout_staker(
+                vote_account,
+                staker,
+                withdrawer,
+                vec![(stake_a, 100), (stake_b, 200)],
+                1_000,
+            ),
+            make_payout_staker(
+                vote_account,
+                staker,
+                withdrawer,
+                vec![(stake_b, 999), (stake_c, 400)],
+                2_000,
+            ),
+        ];
+
+        let settlements = generate_institutional_settlements(&TEST_CONFIG, &payout);
+
+        assert_eq!(settlements.len(), 1);
+        let settlement = &settlements[0];
+        assert_eq!(
+            settlement.claims.len(),
+            1,
+            "collision collapses into one claim"
+        );
+        assert_eq!(
+            settlement.claims_count, 1,
+            "claims_count == claims.len() after merge",
+        );
+        assert_eq!(settlement.claims_amount, 3_000);
+
+        let claim = &settlement.claims[0];
+        assert_eq!(claim.claim_amount, 3_000, "claim_amount summed");
+        let active_stake = claim.active_stake().expect("StakerPayout has active_stake");
+        assert_eq!(active_stake, 1_699, "active_stake summed (300 + 1399)");
+
+        let stake_accounts = claim
+            .stake_accounts()
+            .expect("staker payout must carry stake_accounts");
+        assert_eq!(stake_accounts.len(), 3);
+        assert_eq!(stake_accounts.get(&stake_a), Some(&100));
+        assert_eq!(
+            stake_accounts.get(&stake_b),
+            Some(&1_199),
+            "B summed across payouts (200 + 999)",
+        );
+        assert_eq!(stake_accounts.get(&stake_c), Some(&400));
+
+        let stake_accounts_sum: u64 = stake_accounts.values().sum();
+        assert_eq!(
+            active_stake, stake_accounts_sum,
+            "active_stake ({active_stake}) == sum(stake_accounts.values()) ({stake_accounts_sum})",
+        );
+    }
+
+    #[test]
+    fn test_cross_kind_authority_collision_creates_distinct_claims() {
+        // Defensive: when an institutional staker shares authorities with the Marinade
+        // fee deposit (config-defined), staker and fee_deposit payouts must NOT merge.
+        use crate::institutional_payouts::PayoutDistributor;
+
+        let vote_account = Pubkey::new_unique();
+        let stake_a = Pubkey::new_unique();
+
+        let mut payout = make_empty_institutional_payout(456);
+        // Staker uses MARINADE authorities — same as TEST_CONFIG.marinade_{stake,withdraw}_authority.
+        payout.payout_stakers = vec![make_payout_staker(
+            vote_account,
+            TEST_PUBKEY_MARINADE,
+            TEST_PUBKEY_MARINADE,
+            vec![(stake_a, 100)],
+            1_000,
+        )];
+        payout.payout_distributors = vec![PayoutDistributor {
+            vote_account,
+            payout_lamports: 400,
+            stake_accounts: vec![],
+        }];
+
+        let settlements = generate_institutional_settlements(&TEST_CONFIG, &payout);
+
+        assert_eq!(settlements.len(), 1);
+        let claims = &settlements[0].claims;
+        // 2 claims: one Staker, one FeeDeposit — all with same (withdraw, stake) authorities.
+        // TEST_CONFIG.dao_fee_split_share_bps = 2500 → dao_payout = 100, marinade_payout = 300.
+        let staker = claims
+            .iter()
+            .find(|c| matches!(c.detail, ClaimDetail::StakerPayout { .. }))
+            .expect("Staker claim must remain distinct");
+        let fee = claims
+            .iter()
+            .find(|c| matches!(c.detail, ClaimDetail::FeeDeposit))
+            .expect("FeeDeposit claim must remain distinct");
+        assert_eq!(staker.withdraw_authority, TEST_PUBKEY_MARINADE);
+        assert_eq!(fee.withdraw_authority, TEST_PUBKEY_MARINADE);
+        assert_eq!(staker.claim_amount, 1_000);
+        assert_eq!(fee.claim_amount, 300);
     }
 }

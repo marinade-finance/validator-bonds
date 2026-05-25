@@ -14,15 +14,14 @@ path = "src/bin/cli.rs"
 
 [dependencies]
 anyhow = { workspace = true }
+axum = "0.8.8"
 clap = { workspace = true }
 chrono = { workspace = true }
 env_logger = { workspace = true }
 gcp-bigquery-client = { workspace = true }
-# In-memory per-IP rate limiting. Paired with a warp filter in
-# `rate_limit.rs`; consider `tower-governor` if this API moves to axum.
-governor = "0.6"
 log = { workspace = true }
 merkle-tree = { workspace = true }
+prometheus = "0.14.0"
 rust_decimal = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -33,9 +32,17 @@ postgres-openssl = { workspace = true }
 solana-sdk = { workspace = true }
 tokio = { workspace = true }
 tokio-postgres = { workspace = true }
+tower_governor = { version = "0.8.0", features = ["axum"] }
+tower-http = { version = "0.6.6", features = ["cors", "compression-gzip"] }
 tracing = { workspace = true }
 tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true }
 utoipa = { workspace = true }
 validator-bonds-common = { workspace = true }
-warp = { workspace = true }
+
+[dev-dependencies]
+# Black-box HTTP characterization tests for the route/middleware stack
+# (rate-limit, CORS, gzip, routing). reqwest default features (no gzip) keep
+# the Content-Encoding header visible so compression can be asserted.
+reqwest = { workspace = true }
+tokio = { workspace = true }

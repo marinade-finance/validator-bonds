@@ -4,9 +4,7 @@ use institutional_distribution::settlement_config::{
     ConfigParams, InstitutionalDistributionConfig,
 };
 use institutional_distribution::settlement_generator::generate_institutional_settlement_collection;
-use settlement_common::stake_meta_index::StakeMetaIndex;
 use settlement_common::utils::{file_error, read_from_json_file, write_to_json_file};
-use snapshot_parser_validator_cli::stake_meta::StakeMetaCollection;
 use solana_sdk::pubkey::Pubkey;
 use {clap::Parser, log::info};
 
@@ -16,9 +14,6 @@ struct Args {
     /// Input institutional payout data calculated in the institutional-staking CLI
     #[arg(long, env)]
     institutional_payouts: String,
-
-    #[arg(long, env)]
-    stake_meta_collection: String,
 
     #[arg(long, env)]
     marinade_fee_stake_authority: Pubkey,
@@ -62,15 +57,6 @@ fn main() -> anyhow::Result<()> {
             &args.institutional_payouts,
         ))?;
 
-    info!("Loading Stake Meta Collection...");
-    let stake_meta_collection: StakeMetaCollection =
-        read_from_json_file(&args.stake_meta_collection).map_err(file_error(
-            "stake-meta-collection",
-            &args.stake_meta_collection,
-        ))?;
-    info!("Building Stake Meta Collection Index...");
-    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
-
     let config = InstitutionalDistributionConfig::new(ConfigParams {
         marinade_stake_authority: args.marinade_fee_stake_authority,
         marinade_withdraw_authority: args.marinade_fee_withdraw_authority,
@@ -81,11 +67,8 @@ fn main() -> anyhow::Result<()> {
     });
 
     info!("Generating Institutional Payout Settlement collection...");
-    let settlement_collection = generate_institutional_settlement_collection(
-        &config,
-        &institutional_payouts,
-        &stake_meta_index,
-    );
+    let settlement_collection =
+        generate_institutional_settlement_collection(&config, &institutional_payouts);
     write_to_json_file(&settlement_collection, &args.output_settlement_collection).map_err(
         file_error(
             "output-settlement-collection",

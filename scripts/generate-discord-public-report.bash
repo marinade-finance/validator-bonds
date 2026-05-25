@@ -2,6 +2,9 @@
 
 set -e
 
+# Deterministic decimal-point formatting regardless of the caller's locale
+export LC_NUMERIC=C
+
 settlement_collection_file="$1"
 settlement_type="$2"
 if [[ -z $settlement_collection_file ]]
@@ -16,6 +19,14 @@ if (( settlements_count == 0 ))
 then
     echo "No settlements in epoch '$epoch'."
     exit
+fi
+
+# Stake sums below rely on the claim 'kind' tag; legacy (pre-kind) JSON would silently report 0
+untagged_claims=$(<"$settlement_collection_file" jq '[.settlements[].claims[] | select(has("kind") | not)] | length' -r)
+if (( untagged_claims > 0 ))
+then
+    echo "Error: $untagged_claims claims without 'kind' field — '$settlement_collection_file' is a legacy (pre-kind) settlement collection; regenerate it or use the pre-refactor script version." >&2
+    exit 1
 fi
 
 decimal_format="%0.9f"
@@ -35,7 +46,7 @@ echo "Settlements${label} in epoch $epoch: $settlements_count total, ☉$total_a
 
 # Per-reason breakdown: count and total amount
 while IFS=$'\t' read -r reason_key count amount; do
-  echo "  $reason_key: $count settlements, ☉$(LC_NUMERIC=C printf $decimal_format "$amount")"
+  echo "  $reason_key: $count settlements, ☉$(printf $decimal_format "$amount")"
 done < <(<"$settlement_collection_file" jq -r '
   [.settlements[] | {
     reason_key: (
@@ -64,9 +75,10 @@ do
     claims_amount=$(<<<"$settlement" jq '.claims_amount / 1e9' -r | xargs printf $decimal_format)
 
     # Marinade stake the settlement charges the validator for, read from settlement details.
-    # Claim-level active_stake is 0 when the whole bid is captured as fee; ProtectedEvent has no details, so fall back to the claim sum.
-    active_basis=$(<<<"$settlement" jq -r '(.details // {}) as $d | ($d.total_marinade_active_stake // 0) as $a | (if $a > 0 then $a else ([.claims[].active_stake] | add // 0) end) / 1e9' | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
-    activating_basis=$(<<<"$settlement" jq -r '(.details // {}) as $d | ($d.total_marinade_activating_stake // 0) as $g | (if $g > 0 then $g else ([.claims[].activating_stake // 0] | add // 0) end) / 1e9' | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
+    # Claim-level active_stake is 0 when the whole bid is captured as fee; ProtectedEvent has no
+    # details, so fall back to summing staker claims (FeeDeposit claims carry neither field by design).
+    active_basis=$(<<<"$settlement" jq -r '(.details // {}) as $d | ($d.total_marinade_active_stake // 0) as $a | (if $a > 0 then $a else ([.claims[] | select(.kind == "StakerPayout") | .active_stake] | add // 0) end) / 1e9' | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
+    activating_basis=$(<<<"$settlement" jq -r '(.details // {}) as $d | ($d.total_marinade_activating_stake // 0) as $g | (if $g > 0 then $g else ([.claims[] | select(.kind == "StakerPayout") | .activating_stake // 0] | add // 0) end) / 1e9' | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
     if [ "$activating_basis" != "0" ]; then
         # Activating-stake settlement (PriorityFee): "+" sign before ☉ marks activating
         stake_sign="+"
@@ -160,7 +172,7 @@ do
       continue
     fi
 
-    funder=$(<<<"$settlement" jq '.meta.funder' -r)
+    funder=$(<<<"$settlement" jq '.funder // .meta.funder' -r)
     case $funder in
         Marinade)
           funder_info="Marinade DAO"
