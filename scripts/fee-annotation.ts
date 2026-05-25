@@ -60,15 +60,17 @@ async function main() {
 
   if (bids.length === 0 || stake === 0) {
     process.stdout.write(
-      `### Fee Analysis — Epoch ${epoch}\nNo Bidding settlements found.\n`,
+      `### DAO Fee Summary — Epoch ${epoch}\nNo Bidding settlements found.\n`,
     )
     return
   }
 
+  // gross and stake: Bidding-only — PriorityFee has null stakers_rewards and null stake
   const gross = bids.reduce(
     (s, b) => s + parseFloat(b.details.total_marinade_stakers_rewards),
     0,
   )
+  // fees: all settlement types — PriorityFee carries dao_fee_claim even with no staking rewards
   const fees = settlements.reduce(
     (s, b) =>
       s +
@@ -125,7 +127,7 @@ async function main() {
   const apyMax = apyFor(pmpeMax)
 
   process.stdout
-    .write(`### Fee Analysis — Epoch ${epoch}   (max_fee_bps: ${maxFeeBps}, min_fee_bps: ${minFeeBps})
+    .write(`### DAO Fee Summary — Epoch ${epoch}   (max_fee_bps: ${maxFeeBps}, min_fee_bps: ${minFeeBps})
 
 | scenario  | fee ◎              | pmpe              | APY      | vs gross  |
 |-----------|--------------------|-------------------|----------|-----------|
