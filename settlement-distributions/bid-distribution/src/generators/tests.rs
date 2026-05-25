@@ -1206,6 +1206,561 @@ fn test_activating_bid_charge_distributed_to_activating_stakers() {
     assert_eq!(marinade_fee_total, 20_000_000);
 }
 
+#[test]
+fn test_fee_claims_identified_by_authority_pair_across_all_kinds() {
+    // Demonstrates §1-resilient fee identification: when staker auth differs from
+    // fee-deposit auth, (stake_authority, withdraw_authority) is a stable disambiguator
+    // and stake_accounts probing is not needed.
+    let epoch = 100;
+    let vote_account = test_vote_account(1);
+    let staker_auth = test_stake_authority(3);
+    let withdraw_auth = test_withdraw_authority(3);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                withdraw_auth,
+                staker_auth,
+                100 * LAMPORTS_PER_SOL,
+            ),
+            create_stake_meta_with_activating(
+                test_stake_account(2),
+                vote_account,
+                withdraw_auth,
+                staker_auth,
+                0,
+                50 * LAMPORTS_PER_SOL,
+            ),
+            create_stake_meta(
+                test_stake_account(3),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                LAMPORTS_PER_SOL,
+            ),
+            create_stake_meta(
+                test_stake_account(4),
+                vote_account,
+                TEST_PUBKEY_DAO,
+                TEST_PUBKEY_DAO,
+                LAMPORTS_PER_SOL,
+            ),
+        ],
+    };
+
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+    let fee_config = create_test_fee_config(1000, 5000);
+
+    let sam_metas = vec![SamMetaParams::new(vote_account, epoch as u32)
+        .static_bid(0.1)
+        .activating_stake_pmpe(50.0)
+        .bid_too_low_penalty(0.05)
+        .effective_bid(0.2)
+        .bid_pmpe(0.3)
+        .build()];
+
+    let bid_settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &sam_metas,
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &fee_config,
+        &accept_all,
+        Decimal::ZERO,
+    )
+    .unwrap();
+
+    let bidding =
+        find_settlement_by_reason(&bid_settlements, |r| matches!(r, SettlementReason::Bidding))
+            .expect("Bidding settlement must exist (static_bid > 0)");
+    assert!(
+        find_claim_by_authority(bidding, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
+            .map(|c| c.claim_amount > 0)
+            .unwrap_or(false),
+        "Marinade fee claim in Bidding must exist and be positive",
+    );
+    assert!(
+        find_claim_by_authority(bidding, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO)
+            .map(|c| c.claim_amount > 0)
+            .unwrap_or(false),
+        "DAO fee claim in Bidding must exist and be positive",
+    );
+    assert!(
+        find_claim_by_authority(bidding, &staker_auth, &withdraw_auth)
+            .map(|c| c.claim_amount > 0)
+            .unwrap_or(false),
+        "Staker claim in Bidding must exist (distinct authority pair)",
+    );
+
+    let priority = find_settlement_by_reason(&bid_settlements, |r| {
+        matches!(r, SettlementReason::PriorityFee)
+    })
+    .expect("PriorityFee settlement must exist (activating_stake_pmpe > 0)");
+    assert!(
+        find_claim_by_authority(priority, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE).is_some()
+    );
+    assert!(find_claim_by_authority(priority, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO).is_some());
+
+    let penalty_settlements = generate_penalty_settlements(
+        &stake_meta_index,
+        &sam_metas,
+        &SettlementConfig::Sam(SamSettlementConfig {
+            meta: SettlementMeta {
+                funder: SettlementFunder::ValidatorBond,
+            },
+            kind: SamSettlementKind::BidTooLowPenalty,
+        }),
+        &SettlementConfig::Sam(SamSettlementConfig {
+            meta: SettlementMeta {
+                funder: SettlementFunder::ValidatorBond,
+            },
+            kind: SamSettlementKind::BlacklistPenalty,
+        }),
+        &SettlementConfig::Sam(SamSettlementConfig {
+            meta: SettlementMeta {
+                funder: SettlementFunder::ValidatorBond,
+            },
+            kind: SamSettlementKind::BondRiskFee,
+        }),
+        &fee_config,
+        &accept_all,
+    )
+    .unwrap();
+
+    let bid_too_low = find_settlement_by_reason(&penalty_settlements, |r| {
+        matches!(r, SettlementReason::BidTooLowPenalty)
+    })
+    .expect("BidTooLowPenalty settlement must exist");
+    assert!(
+        find_claim_by_authority(bid_too_low, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
+            .is_some(),
+        "Marinade fee claim in BidTooLowPenalty must exist",
+    );
+    assert!(
+        find_claim_by_authority(bid_too_low, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO).is_some(),
+        "DAO fee claim in BidTooLowPenalty must exist",
+    );
+}
+
+#[test]
+fn test_fee_claim_active_stake_equals_fee_deposit_total_lamports() {
+    // Pins the current contract: fee claim `active_stake` field equals the sum of the
+    // marinade/DAO fee-deposit accounts' active_delegation_lamports.
+    // TODO §1 typed-split: this field may go away on FeeDeposit variant — update assertions accordingly.
+    let epoch = 100;
+    let vote_account = test_vote_account(1);
+    let staker_auth = test_stake_authority(2);
+    let withdraw_auth = test_withdraw_authority(2);
+
+    let marinade_fee_deposit_lamports = 5 * LAMPORTS_PER_SOL;
+    let dao_fee_deposit_lamports = 7 * LAMPORTS_PER_SOL;
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                withdraw_auth,
+                staker_auth,
+                100 * LAMPORTS_PER_SOL,
+            ),
+            create_stake_meta(
+                test_stake_account(2),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                marinade_fee_deposit_lamports,
+            ),
+            create_stake_meta(
+                test_stake_account(3),
+                vote_account,
+                TEST_PUBKEY_DAO,
+                TEST_PUBKEY_DAO,
+                dao_fee_deposit_lamports,
+            ),
+        ],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .static_bid(1.0)
+        .total_pmpe(1.0)
+        .build();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &create_test_fee_config(950, 500),
+        &|pk: &Pubkey| *pk == staker_auth,
+        Decimal::ZERO,
+    )
+    .unwrap();
+
+    let bidding =
+        find_settlement_by_reason(&settlements, |r| matches!(r, SettlementReason::Bidding))
+            .expect("Bidding settlement must exist");
+
+    let marinade_fee =
+        find_claim_by_authority(bidding, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
+            .expect("Marinade fee claim must exist");
+    let dao_fee = find_claim_by_authority(bidding, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO)
+        .expect("DAO fee claim must exist");
+
+    assert_eq!(
+        marinade_fee.active_stake, marinade_fee_deposit_lamports,
+        "marinade fee claim active_stake == sum(marinade fee-deposit lamports)",
+    );
+    assert_eq!(
+        dao_fee.active_stake, dao_fee_deposit_lamports,
+        "DAO fee claim active_stake == sum(DAO fee-deposit lamports)",
+    );
+    assert_eq!(marinade_fee.activating_stake, 0);
+    assert_eq!(dao_fee.activating_stake, 0);
+}
+
+#[test]
+fn test_bid_too_low_penalty_fee_claims_split_between_marinade_and_dao() {
+    // Pins the marinade/DAO fee split in BidTooLowPenalty (sam_penalties.rs:218-239)
+    // with deterministic amounts. After §1 removes stake_accounts from fee claims,
+    // these exact amounts must still hold.
+    let epoch = 100;
+    let vote_account = test_vote_account(1);
+    let staker_auth = test_stake_authority(2);
+    let withdraw_auth = test_withdraw_authority(2);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![create_stake_meta(
+            test_stake_account(1),
+            vote_account,
+            withdraw_auth,
+            staker_auth,
+            100 * LAMPORTS_PER_SOL,
+        )],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .bid_too_low_penalty(0.16)
+        .build();
+
+    // max_fee=10%, dao_split=50% → clean integer arithmetic.
+    let fee_config = create_test_fee_config(1000, 5000);
+    let bid_too_low_config = SettlementConfig::Sam(SamSettlementConfig {
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+        kind: SamSettlementKind::BidTooLowPenalty,
+    });
+    let blacklist_config = SettlementConfig::Sam(SamSettlementConfig {
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+        kind: SamSettlementKind::BlacklistPenalty,
+    });
+    let bond_risk_fee_config = SettlementConfig::Sam(SamSettlementConfig {
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+        kind: SamSettlementKind::BondRiskFee,
+    });
+
+    let settlements = generate_penalty_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &bid_too_low_config,
+        &blacklist_config,
+        &bond_risk_fee_config,
+        &fee_config,
+        &|pk: &Pubkey| *pk == staker_auth,
+    )
+    .unwrap();
+
+    let bid_too_low = find_settlement_by_reason(&settlements, |r| {
+        matches!(r, SettlementReason::BidTooLowPenalty)
+    })
+    .expect("BidTooLowPenalty settlement must exist");
+
+    // Total = 100 SOL * 0.16/1000 = 16_000_000 lamports
+    // distributor = 1_600_000; stakers = 14_400_000; dao = 800_000; marinade = 800_000
+    let marinade_fee =
+        find_claim_by_authority(bid_too_low, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
+            .expect("Marinade BidTooLowPenalty fee claim must exist");
+    let dao_fee = find_claim_by_authority(bid_too_low, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO)
+        .expect("DAO BidTooLowPenalty fee claim must exist");
+    let staker_claim = find_claim_by_authority(bid_too_low, &staker_auth, &withdraw_auth)
+        .expect("Staker BidTooLowPenalty claim must exist");
+
+    assert_eq!(marinade_fee.claim_amount, 800_000);
+    assert_eq!(dao_fee.claim_amount, 800_000);
+    assert_eq!(staker_claim.claim_amount, 14_400_000);
+    assert_eq!(
+        marinade_fee.claim_amount + dao_fee.claim_amount + staker_claim.claim_amount,
+        16_000_000,
+        "marinade + dao + staker == total penalty",
+    );
+    assert_eq!(
+        dao_fee.claim_amount,
+        (marinade_fee.claim_amount + dao_fee.claim_amount) / 2,
+        "dao_split=50% → dao == half of distributor fee",
+    );
+}
+
+#[test]
+fn test_golden_snapshot_bid_settlements() {
+    // Pins the serialized JSON shape of generate_bid_settlements output.
+    // To update after an intentional change, re-run with BLESS_SNAPSHOTS=1.
+    let epoch = 100;
+    let vote_account = test_vote_account(1);
+    let staker_auth = test_stake_authority(2);
+    let withdraw_auth = test_withdraw_authority(2);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                withdraw_auth,
+                staker_auth,
+                100 * LAMPORTS_PER_SOL,
+            ),
+            create_stake_meta_with_activating(
+                test_stake_account(2),
+                vote_account,
+                withdraw_auth,
+                staker_auth,
+                0,
+                50 * LAMPORTS_PER_SOL,
+            ),
+            create_stake_meta(
+                test_stake_account(3),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                LAMPORTS_PER_SOL,
+            ),
+            create_stake_meta(
+                test_stake_account(4),
+                vote_account,
+                TEST_PUBKEY_DAO,
+                TEST_PUBKEY_DAO,
+                LAMPORTS_PER_SOL,
+            ),
+        ],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .static_bid(0.5)
+        .activating_stake_pmpe(50.0)
+        .total_pmpe(0.5)
+        .build();
+
+    let mut settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &create_test_fee_config(1000, 5000),
+        &|pk: &Pubkey| *pk == staker_auth,
+        Decimal::ZERO,
+    )
+    .unwrap();
+    // Stable order: sort by reason then vote_account (matches CLI).
+    settlements.sort_by_key(|s| (s.reason.to_string(), s.vote_account));
+    // details contains internal computation context; strip to keep snapshot focused on claim shape.
+    for s in &mut settlements {
+        s.details = None;
+    }
+
+    let actual = serde_json::to_string_pretty(&settlements).unwrap();
+    let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/golden_settlement.json");
+
+    if std::env::var("BLESS_SNAPSHOTS").is_ok() {
+        std::fs::create_dir_all(fixture_path.parent().unwrap()).unwrap();
+        std::fs::write(&fixture_path, &actual).unwrap();
+        return;
+    }
+
+    let expected = std::fs::read_to_string(&fixture_path).unwrap_or_else(|_| {
+        panic!(
+            "Snapshot {} missing. Re-run with BLESS_SNAPSHOTS=1 to create it.",
+            fixture_path.display()
+        )
+    });
+    assert_eq!(
+        actual.trim(),
+        expected.trim(),
+        "Snapshot mismatch at {}. If the change is intentional, re-run with BLESS_SNAPSHOTS=1.",
+        fixture_path.display(),
+    );
+}
+
+#[test]
+fn test_activating_fee_fraction_falls_back_when_distributor_takes_all_active() {
+    // Branch 2a of bidding.rs:444-450: stakers_total_claim == 0 (distributor=100% fee),
+    // settlement_claim_sum > 0, all stake active → activating_fraction == 0 → fees go to Bidding only.
+    let epoch = 100;
+    let vote_account = test_vote_account(1);
+    let stake_lamports = 100 * LAMPORTS_PER_SOL;
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![create_stake_meta(
+            test_stake_account(1),
+            vote_account,
+            TEST_PUBKEY_MARINADE,
+            TEST_PUBKEY_MARINADE,
+            stake_lamports,
+        )],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .static_bid(0.5)
+        .total_pmpe(0.5)
+        .build();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &create_test_fee_config(10_000, 5_000),
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        Decimal::ZERO,
+    )
+    .unwrap();
+
+    let bidding =
+        find_settlement_by_reason(&settlements, |r| matches!(r, SettlementReason::Bidding))
+            .expect("Bidding settlement must exist");
+    assert!(
+        !find_settlement_by_reason(&settlements, |r| matches!(r, SettlementReason::PriorityFee))
+            .map(|s| s.claims_amount > 0)
+            .unwrap_or(false),
+        "No PriorityFee claims when activating_fraction == 0 (all-active fallback)",
+    );
+
+    let marinade_fee =
+        find_claim_by_authority(bidding, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
+            .expect("Marinade fee claim must exist in Bidding");
+    let dao_fee = find_claim_by_authority(bidding, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO)
+        .expect("DAO fee claim must exist in Bidding");
+    // 100 SOL * 0.5/1000 = 50_000_000 lamports total; dao_split=50% → 25M each
+    assert_eq!(marinade_fee.claim_amount, 25_000_000);
+    assert_eq!(dao_fee.claim_amount, 25_000_000);
+
+    let staker_total = bidding
+        .claims
+        .iter()
+        .filter(|c| {
+            c.stake_authority != TEST_PUBKEY_MARINADE && c.stake_authority != TEST_PUBKEY_DAO
+        })
+        .map(|c| c.claim_amount)
+        .sum::<u64>();
+    assert_eq!(
+        staker_total, 0,
+        "stakers_total_claim == 0 → no staker claims"
+    );
+}
+
+#[test]
+fn test_activating_fee_fraction_falls_back_when_distributor_takes_all_activating() {
+    // Branch 2b: stakers_total_claim == 0, all stake activating → activating_fraction == 1 → fees go to PriorityFee only.
+    let epoch = 100;
+    let vote_account = test_vote_account(1);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![create_stake_meta_with_activating(
+            test_stake_account(1),
+            vote_account,
+            TEST_PUBKEY_MARINADE,
+            TEST_PUBKEY_MARINADE,
+            0,
+            50 * LAMPORTS_PER_SOL,
+        )],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .activating_stake_pmpe(100.0)
+        .build();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &create_test_fee_config(10_000, 5_000),
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        Decimal::ZERO,
+    )
+    .unwrap();
+
+    let priority =
+        find_settlement_by_reason(&settlements, |r| matches!(r, SettlementReason::PriorityFee))
+            .expect("PriorityFee settlement must exist");
+    assert!(
+        !find_settlement_by_reason(&settlements, |r| matches!(r, SettlementReason::Bidding))
+            .map(|s| s.claims_amount > 0)
+            .unwrap_or(false),
+        "No Bidding claims when activating_fraction == 1 (all-activating fallback)",
+    );
+
+    let marinade_fee =
+        find_claim_by_authority(priority, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
+            .expect("Marinade fee claim must exist in PriorityFee");
+    let dao_fee = find_claim_by_authority(priority, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO)
+        .expect("DAO fee claim must exist in PriorityFee");
+    // 50 SOL * 100/1000 = 5_000_000_000 total; dao_split=50% → 2.5B each
+    assert_eq!(marinade_fee.claim_amount, 2_500_000_000);
+    assert_eq!(dao_fee.claim_amount, 2_500_000_000);
+
+    let staker_total = priority
+        .claims
+        .iter()
+        .filter(|c| {
+            c.stake_authority != TEST_PUBKEY_MARINADE && c.stake_authority != TEST_PUBKEY_DAO
+        })
+        .map(|c| c.claim_amount)
+        .sum::<u64>();
+    assert_eq!(
+        staker_total, 0,
+        "stakers_total_claim == 0 → no staker claims"
+    );
+}
+
 const TEST_PUBKEY_MARINADE: Pubkey = Pubkey::new_from_array([
     16, 193, 125, 202, 226, 246, 166, 247, 62, 235, 241, 168, 44, 170, 26, 135, 207, 86, 46, 127,
     152, 219, 15, 111, 57, 48, 64, 201, 193, 113, 238, 142,
@@ -1543,6 +2098,23 @@ fn sum_claims_for_authority(
         })
         .map(|c| c.claim_amount)
         .sum()
+}
+
+fn find_settlement_by_reason(
+    settlements: &[Settlement],
+    reason_matches: impl Fn(&SettlementReason) -> bool,
+) -> Option<&Settlement> {
+    settlements.iter().find(|s| reason_matches(&s.reason))
+}
+
+fn find_claim_by_authority<'a>(
+    settlement: &'a Settlement,
+    stake_authority: &Pubkey,
+    withdraw_authority: &Pubkey,
+) -> Option<&'a settlement_common::settlement_collection::SettlementClaim> {
+    settlement.claims.iter().find(|c| {
+        c.stake_authority == *stake_authority && c.withdraw_authority == *withdraw_authority
+    })
 }
 
 #[test]

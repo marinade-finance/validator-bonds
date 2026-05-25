@@ -390,4 +390,142 @@ mod tests {
             });
         StakeMetaIndex::new(&EMPTY_COLLECTION)
     }
+
+    fn make_payout_staker(
+        vote_account: Pubkey,
+        staker: Pubkey,
+        withdrawer: Pubkey,
+        stake_accounts: Vec<(Pubkey, u64)>,
+        payout_lamports: u64,
+    ) -> crate::institutional_payouts::PayoutStaker {
+        use crate::institutional_payouts::{PayoutStaker, StakeAccount};
+        use rust_decimal::Decimal;
+
+        let stake_accounts: Vec<StakeAccount> = stake_accounts
+            .into_iter()
+            .map(|(address, effective_stake)| StakeAccount {
+                address,
+                effective_stake,
+            })
+            .collect();
+        let effective_stake: u64 = stake_accounts.iter().map(|s| s.effective_stake).sum();
+        PayoutStaker {
+            vote_account,
+            stake_accounts,
+            staker,
+            withdrawer,
+            active_stake: 0,
+            effective_stake,
+            activating_stake: 0,
+            deactivating_stake: 0,
+            balance_lamports: 0,
+            share_institutional: Decimal::ZERO,
+            share_deactivation: Decimal::ZERO,
+            payout_lamports,
+        }
+    }
+
+    fn make_empty_institutional_payout(
+        epoch: u64,
+    ) -> crate::institutional_payouts::InstitutionalPayout {
+        use crate::institutional_payouts::{
+            ConfigDto, InstitutionalPayout, InstitutionalValidatorsDto, PsrPercentileData,
+        };
+        use rust_decimal::Decimal;
+
+        InstitutionalPayout {
+            epoch,
+            slot: 0,
+            config: ConfigDto {
+                staker_authority_filter: vec![],
+                psr_percentile: 0,
+                psr_grace_downtime_bps: 0,
+                validator_fee_bps: 0,
+                distributor_fee_bps: 0,
+            },
+            institutional_validators: InstitutionalValidatorsDto { validators: vec![] },
+            psr_percentile_data: PsrPercentileData {
+                psr_percentile: 0,
+                psr_percentile_apy: Decimal::ZERO,
+                psr_percentile_effective_stake: 0,
+                psr_grace_downtime_bps: 0,
+            },
+            institutional_staker_authorities: vec![],
+            validator_fee_bps: 0,
+            distributor_fee_bps: 0,
+            payout_stakers: vec![],
+            payout_distributors: vec![],
+            validators: vec![],
+            validator_payout_info: vec![],
+        }
+    }
+
+    #[test]
+    fn test_existing_claim_merge_pins_first_write_wins_on_stake_accounts() {
+        // Pins §3 bug: on merge, claim_amount/active_stake are summed but stake_accounts uses or_insert (first-write-wins).
+        let vote_account = Pubkey::new_unique();
+        let staker = Pubkey::new_unique();
+        let withdrawer = Pubkey::new_unique();
+        let stake_a = Pubkey::new_unique();
+        let stake_b = Pubkey::new_unique();
+        let stake_c = Pubkey::new_unique();
+
+        let mut payout = make_empty_institutional_payout(123);
+        payout.payout_stakers = vec![
+            make_payout_staker(
+                vote_account,
+                staker,
+                withdrawer,
+                vec![(stake_a, 100), (stake_b, 200)],
+                1_000,
+            ),
+            make_payout_staker(
+                vote_account,
+                staker,
+                withdrawer,
+                vec![(stake_b, 999), (stake_c, 400)],
+                2_000,
+            ),
+        ];
+
+        let settlements =
+            generate_institutional_settlements(&TEST_CONFIG, &payout, &default_stake_meta_index());
+
+        assert_eq!(settlements.len(), 1);
+        let settlement = &settlements[0];
+        assert_eq!(
+            settlement.claims.len(),
+            1,
+            "collision collapses into one claim"
+        );
+        assert_eq!(
+            settlement.claims_count, 2,
+            "claims_count increments per payout, even on merge",
+        );
+        assert_eq!(settlement.claims_amount, 3_000);
+
+        let claim = &settlement.claims[0];
+        assert_eq!(claim.claim_amount, 3_000, "claim_amount summed");
+        assert_eq!(
+            claim.active_stake, 1_699,
+            "active_stake summed (300 + 1399)"
+        );
+
+        assert_eq!(claim.stake_accounts.len(), 3);
+        assert_eq!(claim.stake_accounts.get(&stake_a), Some(&100));
+        assert_eq!(
+            claim.stake_accounts.get(&stake_b),
+            Some(&200),
+            "B keeps FIRST value (200), proving or_insert bug",
+        );
+        assert_eq!(claim.stake_accounts.get(&stake_c), Some(&400));
+
+        let stake_accounts_sum: u64 = claim.stake_accounts.values().sum();
+        // BUG WITNESS — TODO §3: flip to assert_eq! once merge uses sum semantics.
+        assert_ne!(
+            claim.active_stake, stake_accounts_sum,
+            "active_stake ({}) != sum(stake_accounts.values()) ({})",
+            claim.active_stake, stake_accounts_sum,
+        );
+    }
 }

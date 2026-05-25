@@ -1,0 +1,84 @@
+[
+  {
+    "reason": "Bidding",
+    "meta": {
+      "funder": "ValidatorBond"
+    },
+    "vote_account": "4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM",
+    "claims_count": 3,
+    "claims_amount": 50000000,
+    "claims": [
+      {
+        "withdraw_authority": "28Qeabkx5pB1fhT23W3mvMmTydXZzPN76MeKofR4xG1j",
+        "stake_authority": "28Qeabkx5pB1fhT23W3mvMmTydXZzPN76MeKofR4xG1j",
+        "stake_accounts": {
+          "7w4zb1jh47zY5FPMPyRzDSmYf1CPirVP9LmTr5xWEs6X": 1000000000
+        },
+        "active_stake": 1000000000,
+        "activating_stake": 0,
+        "claim_amount": 2500000
+      },
+      {
+        "withdraw_authority": "9Yt3gCARfU7ESgoUuLDEjPtiGPEXFFSwD1BmiPFdwu1c",
+        "stake_authority": "9Yt3gCARfU7ESgoUuLDEjPtiGPEXFFSwD1BmiPFdwu1c",
+        "stake_accounts": {
+          "7zyQEWTmwxVFUwWKuUhS7NWmv1mARobHjD5MMHGVxfks": 1000000000
+        },
+        "active_stake": 1000000000,
+        "activating_stake": 0,
+        "claim_amount": 2500000
+      },
+      {
+        "withdraw_authority": "EbXMb3a3Xu1DWjHokvoBrBZBGy8hcua8xDJNgPg2bWYf",
+        "stake_authority": "HxhjuorGDhkuwKJXCA7WcWpcDTPEvQfU9aimr9Bndjbu",
+        "stake_accounts": {
+          "7oGBJ2HXGT17Fs9QNxu6RbH68z4rJxHZyc9gqhLWoFmq": 100000000000
+        },
+        "active_stake": 100000000000,
+        "activating_stake": 0,
+        "claim_amount": 45000000
+      }
+    ]
+  },
+  {
+    "reason": "PriorityFee",
+    "meta": {
+      "funder": "ValidatorBond"
+    },
+    "vote_account": "4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM",
+    "claims_count": 3,
+    "claims_amount": 2500000000,
+    "claims": [
+      {
+        "withdraw_authority": "28Qeabkx5pB1fhT23W3mvMmTydXZzPN76MeKofR4xG1j",
+        "stake_authority": "28Qeabkx5pB1fhT23W3mvMmTydXZzPN76MeKofR4xG1j",
+        "stake_accounts": {
+          "7w4zb1jh47zY5FPMPyRzDSmYf1CPirVP9LmTr5xWEs6X": 1000000000
+        },
+        "active_stake": 1000000000,
+        "activating_stake": 0,
+        "claim_amount": 125000000
+      },
+      {
+        "withdraw_authority": "9Yt3gCARfU7ESgoUuLDEjPtiGPEXFFSwD1BmiPFdwu1c",
+        "stake_authority": "9Yt3gCARfU7ESgoUuLDEjPtiGPEXFFSwD1BmiPFdwu1c",
+        "stake_accounts": {
+          "7zyQEWTmwxVFUwWKuUhS7NWmv1mARobHjD5MMHGVxfks": 1000000000
+        },
+        "active_stake": 1000000000,
+        "activating_stake": 0,
+        "claim_amount": 125000000
+      },
+      {
+        "withdraw_authority": "EbXMb3a3Xu1DWjHokvoBrBZBGy8hcua8xDJNgPg2bWYf",
+        "stake_authority": "HxhjuorGDhkuwKJXCA7WcWpcDTPEvQfU9aimr9Bndjbu",
+        "stake_accounts": {
+          "7sAawX1cAHVpfZGNtUAYKX2KPzdd1uPUZUTaLteWX4SB": 50000000000
+        },
+        "active_stake": 0,
+        "activating_stake": 50000000000,
+        "claim_amount": 2250000000
+      }
+    ]
+  }
+]
