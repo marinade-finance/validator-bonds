@@ -30,6 +30,7 @@ const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
   options: {
     'data-dir': { type: 'string', default: './regression-data' },
+    m: { type: 'string' },
     r: { type: 'boolean', default: false },
     v: { type: 'boolean', default: false },
   },
@@ -115,6 +116,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
 
   if (!INPUTS.every(f => existsSync(join(inp, f)))) {
     process.stderr.write(`  # fetching ${epoch}...\n`)
+    process.stderr.write('  # compiling...\n')
     Bun.spawnSync(
       [
         './scripts/regression-test-settlements.sh',
@@ -125,7 +127,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
         '--data-dir',
         dataDir,
       ],
-      { stderr: 'inherit' },
+      { stderr: 'pipe' },
     )
     if (!INPUTS.every(f => existsSync(join(inp, f)))) {
       process.stderr.write(`  # fetch failed for ${epoch}, skipping\n`)
@@ -150,10 +152,10 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
   for (const fee of fees) {
     const cfg = mk(),
       out = mk()
-    await writeFile(
-      cfg,
-      cfgTemplate.replace(/(max_fee_bps:)\s*\d+/, `$1 ${fee}`),
-    )
+    let cfgText = cfgTemplate.replace(/(max_fee_bps:)\s*\d+/, `$1 ${fee}`)
+    if (values.m !== undefined)
+      cfgText = cfgText.replace(/(min_fee_bps:)\s*\d+/, `$1 ${values.m}`)
+    await writeFile(cfg, cfgText)
 
     const proc = Bun.spawnSync(
       [
