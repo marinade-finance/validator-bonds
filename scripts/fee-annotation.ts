@@ -1,9 +1,5 @@
 #!/usr/bin/env bun
 /* eslint-disable n/no-process-exit */
-// Computes gross / actual / full-fee pmpe + APY from bid-distribution-settlements.json
-// and prints a markdown table suitable for buildkite-agent annotate.
-//
-// Usage: tsx scripts/fee-annotation.ts <settlements.json> [settlement-config.yaml]
 
 import { readFileSync } from 'node:fs'
 
@@ -21,25 +17,6 @@ type Settlement = {
 
 type BidSettlement = Settlement & {
   details: NonNullable<Settlement['details']>
-}
-
-async function fetchWithRetry(
-  url: string,
-  attempts = 3,
-  delayMs = 2000,
-): Promise<unknown> {
-  for (let i = 0; i < attempts; i++) {
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
-      if (res.ok) return await res.json()
-    } catch {}
-    if (i < attempts - 1)
-      await new Promise<void>(r => {
-        setTimeout(r, delayMs)
-      })
-  }
-  process.stderr.write('warn: APY feed unavailable, using fallback epy=182\n')
-  return null
 }
 
 async function main() {
@@ -106,9 +83,21 @@ async function main() {
           0.9999,
   ).length
 
-  const ssrFeed = (await fetchWithRetry(`${apyUrl}/v1/epoch-pmpe/ssr`)) as {
-    epochs: { epoch: number; time: number }[]
-  } | null
+  let ssrFeed: { epochs: { epoch: number; time: number }[] } | null = null
+  for (let i = 0; i < 3; i++) {
+    try {
+      const res = await fetch(`${apyUrl}/v1/epoch-pmpe/ssr`, {
+        signal: AbortSignal.timeout(15000),
+      })
+      if (res.ok) {
+        ssrFeed = (await res.json()) as typeof ssrFeed
+        break
+      }
+    } catch {}
+    if (i < 2) await new Promise<void>(r => { setTimeout(r, 2000) })
+  }
+  if (ssrFeed === null)
+    process.stderr.write('warn: APY feed unavailable, using fallback epy=182\n')
 
   const cur = ssrFeed?.epochs.find(e => e.epoch === epoch)
   const prev = ssrFeed?.epochs.find(e => e.epoch === epoch - 1)
@@ -129,7 +118,6 @@ async function main() {
   const apyGross = apyFor(pmpeGross)
   const apyAdj = apyFor(pmpeAdj)
   const apyMax = apyFor(pmpeMax)
-  const sign = (n: number) => (n >= 0 ? '+' : '')
 
   process.stdout
     .write(`### Fee Analysis — Epoch ${epoch}   (max_fee_bps: ${maxFeeBps}, min_fee_bps: ${minFeeBps})
@@ -137,8 +125,8 @@ async function main() {
 | scenario  | fee ◎              | pmpe              | APY      | vs gross  |
 |-----------|--------------------|-------------------|----------|-----------|
 | gross     | 0.000              | ${pmpeGross.toFixed(6)} | ${apyGross.toFixed(2)}%  | —         |
-| actual    | ${feesSol.toFixed(3)} | ${pmpeAdj.toFixed(6)} | ${apyAdj.toFixed(2)}%  | ${sign(apyAdj - apyGross)}${(apyAdj - apyGross).toFixed(2)}pp |
-| full fee  | ${feesFull.toFixed(3)} | ${pmpeMax.toFixed(6)} | ${apyMax.toFixed(2)}%  | ${sign(apyMax - apyGross)}${(apyMax - apyGross).toFixed(2)}pp |
+| actual    | ${feesSol.toFixed(3)} | ${pmpeAdj.toFixed(6)} | ${apyAdj.toFixed(2)}%  | ${apyAdj - apyGross >= 0 ? '+' : ''}${(apyAdj - apyGross).toFixed(2)}pp |
+| full fee  | ${feesFull.toFixed(3)} | ${pmpeMax.toFixed(6)} | ${apyMax.toFixed(2)}%  | ${apyMax - apyGross >= 0 ? '+' : ''}${(apyMax - apyGross).toFixed(2)}pp |
 
 ${ncap} of ${bids.length} Bidding validators were SSR-capped (paid less than full fee)
 `)
