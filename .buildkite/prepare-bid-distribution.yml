@@ -4,7 +4,6 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   gs_bucket_etl: gs://marinade-stakes-etl-mainnet
-  MARINADE_SCORING_API_URL: https://scoring.marinade.finance/api/v1
   APY_API_URL: https://apy.marinade.finance
   SLACK_API: https://slack.com/api/chat.postMessage
   SLACK_FEED: "feed-pipeline-sam-psr"
@@ -56,7 +55,6 @@ steps:
 
         \`\`\`
         EPOCH=$$epoch
-        MARINADE_SCORING_API_URL=$MARINADE_SCORING_API_URL
         APY_API_URL=$APY_API_URL
         SLACK_FEED=$SLACK_FEED
         NOTIFY_FEED=${NOTIFY_FEED:-false}
@@ -66,19 +64,12 @@ steps:
   - wait: ~
 
   # Download all required input data in parallel
-  - label: ":floppy_disk: :arrow_left: :cloud: Download SAM scores and stakes"
+  - label: ":floppy_disk: :arrow_left: :cloud: Download stakes"
     key: "download-sam-stakes"
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
-    - |
-      curl -s "${MARINADE_SCORING_API_URL}/scores/sam?epoch=$$epoch" -o sam-scores.json
-      if [ $(jq '. | length' ./sam-scores.json) -eq 0 ]; then
-        echo "No SAM scores found for epoch $$epoch"
-        exit 1
-      fi
-      gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
+    - gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
     artifact_paths:
-      - "./sam-scores.json"
       - "./stakes.json"
 
   - label: ":man-surfing: Download ETL rewards data"
@@ -179,7 +170,7 @@ steps:
     env:
       RUST_LOG: info,bid_distribution=debug
     commands:
-    - 'buildkite-agent artifact download --include-retried-jobs sam-scores.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs outputs/results.json .'
     - 'buildkite-agent artifact download --include-retried-jobs stakes.json .'
     - 'buildkite-agent artifact download --include-retried-jobs validators.json .'
     - 'buildkite-agent artifact download --include-retried-jobs evaluation.json .'
@@ -195,7 +186,7 @@ steps:
       ./target/release/bid-distribution-cli \
         --settlement-config settlement-config.yaml \
         --stake-meta-collection ./stakes.json \
-        --sam-meta-collection ./sam-scores.json \
+        --sam-results-collection ./outputs/results.json \
         --rewards-dir ./rewards \
         --validator-meta-collection ./validators.json \
         --revenue-expectation-collection ./evaluation.json \

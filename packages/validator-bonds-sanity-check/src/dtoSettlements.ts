@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call */
 
 import {
   CliCommandError,
@@ -23,12 +23,6 @@ import {
 enum FunderType {
   ValidatorBond = 'ValidatorBond',
   Marinade = 'Marinade',
-}
-
-export class SettlementMeta {
-  @Expose()
-  @IsEnum(FunderType)
-  readonly funder!: FunderType
 }
 
 // Protected Event Details
@@ -108,7 +102,13 @@ export class SettlementReason {
   }
 }
 
-export class StakeAccountClaim {
+export enum ClaimKind {
+  StakerPayout = 'StakerPayout',
+  FeeDeposit = 'FeeDeposit',
+  Marker = 'Marker',
+}
+
+export abstract class SettlementClaim {
   @Expose()
   @IsPublicKey({ message: 'Invalid withdraw authority public key' })
   @Transform(({ value }) => (value ? new PublicKey(value) : value))
@@ -119,6 +119,17 @@ export class StakeAccountClaim {
   @Transform(({ value }) => (value ? new PublicKey(value) : value))
   readonly stake_authority!: PublicKey
 
+  @Expose()
+  @IsBigInt()
+  @Transform(({ value }) => (value ? BigInt(value) : 0n))
+  readonly claim_amount!: bigint
+
+  @Expose()
+  @IsEnum(ClaimKind)
+  readonly kind!: ClaimKind
+}
+
+export class StakerPayoutClaim extends SettlementClaim {
   @Expose()
   @IsDefined()
   readonly stake_accounts!: Record<string, number>
@@ -132,12 +143,11 @@ export class StakeAccountClaim {
   @IsBigInt()
   @Transform(({ value }) => (value ? BigInt(value) : 0n))
   readonly activating_stake!: bigint
-
-  @Expose()
-  @IsBigInt()
-  @Transform(({ value }) => (value ? BigInt(value) : 0n))
-  readonly claim_amount!: bigint
 }
+
+export class FeeDepositClaim extends SettlementClaim {}
+
+export class MarkerClaim extends SettlementClaim {}
 
 export class Settlement {
   @Expose()
@@ -157,10 +167,8 @@ export class Settlement {
   readonly reason!: SettlementReason
 
   @Expose()
-  @IsObject()
-  @ValidateNested()
-  @Type(() => SettlementMeta)
-  readonly meta!: SettlementMeta
+  @IsEnum(FunderType)
+  readonly funder!: FunderType
 
   @Expose()
   @IsPublicKey({ message: 'Invalid vote account public key' })
@@ -178,8 +186,18 @@ export class Settlement {
 
   @Expose()
   @ValidateNested({ each: true })
-  @Type(() => StakeAccountClaim)
-  readonly claims!: StakeAccountClaim[]
+  @Type(() => SettlementClaim, {
+    keepDiscriminatorProperty: true,
+    discriminator: {
+      property: 'kind',
+      subTypes: [
+        { value: StakerPayoutClaim, name: ClaimKind.StakerPayout },
+        { value: FeeDepositClaim, name: ClaimKind.FeeDeposit },
+        { value: MarkerClaim, name: ClaimKind.Marker },
+      ],
+    },
+  })
+  readonly claims!: SettlementClaim[]
 }
 
 export class SettlementsDto {
@@ -198,11 +216,41 @@ export class SettlementsDto {
   readonly settlements!: Settlement[]
 }
 
+// Detects pre-refactor settlement JSON (top-level `meta` instead of `funder`,
+// or claims without a `kind` discriminator) and fails with an actionable message
+// instead of class-validator's cryptic `isEnum` error. Legacy files are not
+// supported: regenerate them with the current pipeline to get the new format.
+function assertNotLegacyFormat(inputJson: string, path?: string): void {
+  let parsed: any
+  try {
+    parsed = JSON.parse(inputJson)
+  } catch {
+    return // leave malformed JSON to parseAndValidate's own error
+  }
+  const settlements = parsed?.settlements
+  if (!Array.isArray(settlements) || settlements.length === 0) {
+    return
+  }
+  const first = settlements[0]
+  const legacyFunder =
+    first?.funder === undefined && first?.meta?.funder !== undefined
+  const legacyClaim =
+    Array.isArray(first?.claims) &&
+    first.claims.length > 0 &&
+    first.claims.every((claim: any) => claim?.kind === undefined)
+  if (legacyFunder || legacyClaim) {
+    throw CliCommandError.instance(
+      `'settlements' data at path '${path}' is in the legacy pre-refactor format (missing top-level 'funder' and/or per-claim 'kind'). Legacy files are not supported — regenerate this epoch with the current pipeline to produce the new format.`,
+    )
+  }
+}
+
 export async function parseSettlements(
   inputJson: string,
   path?: string,
 ): Promise<SettlementsDto> {
   const { logger } = getContext()
+  assertNotLegacyFormat(inputJson, path)
   try {
     const { data: settlements } = await parseAndValidate<SettlementsDto>(
       inputJson,
