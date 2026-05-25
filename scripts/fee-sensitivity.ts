@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+/* eslint-disable n/no-process-exit */
 // Simulates bid-distribution-cli across a range of epochs at multiple fee tiers.
 // For each (epoch, fee) pair: patches settlement-config.yaml in a temp file, runs the CLI,
 // and computes post-fee pmpe (adj = actual fees deducted, max = full fee applied uniformly).
@@ -7,10 +8,10 @@
 //
 // Usage: bun scripts/fee-sensitivity.ts [-r] [-v] <epoch|start-end> <fees_bps>... [--data-dir DIR]
 
+import { randomBytes } from 'node:crypto'
 import { existsSync, unlinkSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { randomBytes } from 'node:crypto'
 import { parseArgs } from 'node:util'
 
 type Settlement = {
@@ -22,6 +23,8 @@ type Settlement = {
     dao_fee_claim: number
   } | null
 }
+
+type BidDetails = NonNullable<Settlement['details']>
 
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
@@ -43,7 +46,7 @@ if (!epochArg || fees.length === 0) {
   process.exit(2)
 }
 
-const dataDir = values['data-dir'] as string
+const dataDir = values['data-dir']
 const apyUrl = process.env.APY_API_URL ?? 'https://apy.marinade.finance'
 const [epochStart, epochEnd] = epochArg.includes('-')
   ? epochArg.split('-').map(Number)
@@ -81,7 +84,10 @@ const INPUTS = [
 
 const tmps: string[] = []
 process.on('exit', () => {
-  for (const t of tmps) try { unlinkSync(t) } catch {}
+  for (const t of tmps)
+    try {
+      unlinkSync(t)
+    } catch {}
 })
 function mk() {
   const p = join('./tmp', `fee-${randomBytes(6).toString('hex')}.tmp`)
@@ -139,12 +145,15 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
   console.log(`  ssr_pmpe: ${eData.pmpe}`)
   console.log(`  ssr_apy: ${apy(eData.pmpe, epy)}`)
   console.log(`  epochs_per_year: ${Math.floor(epy)}`)
-  console.log(`  simulations:`)
+  console.log('  simulations:')
 
   for (const fee of fees) {
     const cfg = mk(),
       out = mk()
-    await writeFile(cfg, cfgTemplate.replace(/(max_fee_bps:)\s*\d+/, `$1 ${fee}`))
+    await writeFile(
+      cfg,
+      cfgTemplate.replace(/(max_fee_bps:)\s*\d+/, `$1 ${fee}`),
+    )
 
     const proc = Bun.spawnSync(
       [
@@ -188,8 +197,11 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       settlements: Settlement[]
     }
     const bids = settlements
-      .filter(s => s.reason === 'Bidding' && s.details !== null)
-      .map(s => s.details!)
+      .filter(
+        (s): s is Settlement & { details: BidDetails } =>
+          s.reason === 'Bidding' && s.details !== null,
+      )
+      .map(s => s.details)
     if (!bids.length) {
       process.stderr.write(`  # no data for fee=${fee} epoch=${epoch}\n`)
       continue
@@ -202,7 +214,9 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     )
     const feeAdj = settlements.reduce(
       (s, e) =>
-        s + (e.details?.marinade_fee_claim ?? 0) + (e.details?.dao_fee_claim ?? 0),
+        s +
+        (e.details?.marinade_fee_claim ?? 0) +
+        (e.details?.dao_fee_claim ?? 0),
       0,
     )
     const pmpeAdj = ((total - feeAdj) / stake) * 1000
@@ -211,7 +225,8 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       d =>
         parseFloat(d.total_marinade_stakers_rewards) > 0 &&
         d.marinade_fee_claim + d.dao_fee_claim <
-          ((parseFloat(d.total_marinade_stakers_rewards) * fee) / 10000) * 0.9999,
+          ((parseFloat(d.total_marinade_stakers_rewards) * fee) / 10000) *
+            0.9999,
     ).length
 
     console.log(`  - max_fee_bps: ${fee}`)
