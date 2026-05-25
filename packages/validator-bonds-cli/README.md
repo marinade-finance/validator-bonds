@@ -16,7 +16,7 @@ CLI for [Marinade](https://docs.marinade.finance/) Validator Bonds on-chain prog
 
 ## Prerequisites & Installation
 
-**Requirements:** Node.js version 20 or higher.
+**Requirements:** Node.js version 20.18.0 or higher.
 
 ### Global Installation
 
@@ -914,7 +914,7 @@ When installed globally
 # Get npm global installation folder
 npm list -g
 > /usr/lib
-> +-- @marinade.finance/validator-bonds-cli@2.4.6
+> +-- @marinade.finance/validator-bonds-cli@2.4.7
 > ...
 # In this case, the `bin` folder is located at /usr/bin
 ```
@@ -934,7 +934,7 @@ npm i -g @marinade.finance/validator-bonds-cli@latest
 # Verify installation
 npm list -g
 # Output: ~/.local/share/npm/lib
-#         └── @marinade.finance/validator-bonds-cli@2.4.6
+#         └── @marinade.finance/validator-bonds-cli@2.4.7
 ```
 
 To execute the installed packages from any location,
@@ -1067,7 +1067,7 @@ Commands:
   ...
   ```
 
-  **Solution:** old version of Node.js is installed on the machine. Node.js upgrade to version 16 or later is needed.
+  **Solution:** old version of Node.js is installed on the machine. Node.js upgrade to version 20.18.0 or later is needed.
 
 - **ExecutionError: Transaction XYZ not found**<a id='troubleshooting-execution-error'></a>
 
@@ -1129,7 +1129,7 @@ Commands:
   # Get npm global installation folder
   npm list -g
   > ~/.local/share/npm/lib
-  > `-- @marinade.finance/validator-bonds-cli@2.4.6
+  > `-- @marinade.finance/validator-bonds-cli@2.4.7
   # In this case, the 'bin' folder is located at ~/.local/share/npm/bin
 
   # Get validator-bonds binary folder
@@ -1190,7 +1190,7 @@ Commands:
 
   **Solution:**
 
-  Upgrade Node.js to version 16 or later.
+  Upgrade Node.js to version 20.18.0 or later.
 
 - **Segmentation fault (core dumped)**<a id='troubleshooting-segmentation-fault'></a>
 
