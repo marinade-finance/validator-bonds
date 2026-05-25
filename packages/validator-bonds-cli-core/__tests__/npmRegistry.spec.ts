@@ -96,7 +96,7 @@ describe('fetchLatestVersionInNpmRegistry', () => {
           '2.4.1-beta.2': {},
         },
       }),
-    })
+    }) as unknown as typeof fetch
 
     const result = await fetchLatestVersionInNpmRegistry(
       mockLogger,
@@ -117,7 +117,7 @@ describe('fetchLatestVersionInNpmRegistry', () => {
           '2.4.1-beta.2': {},
         },
       }),
-    })
+    }) as unknown as typeof fetch
 
     const result = await fetchLatestVersionInNpmRegistry(
       mockLogger,
