@@ -6,7 +6,7 @@
 // Fetches epoch timing from the SSR API to convert pmpe → APY.
 // Downloads epoch input data via regression-test-settlements.sh if not already cached.
 //
-// Usage: bun scripts/fee-sensitivity.ts [-r] [-v] <epoch|start-end> <fees_bps>... [--data-dir DIR]
+// Usage: bun scripts/simulate-fee.ts [-r] [-v] <epoch|start-end> <fees_bps>... [--data-dir DIR]
 
 import { randomBytes } from 'node:crypto'
 import { existsSync, unlinkSync } from 'node:fs'
@@ -42,7 +42,7 @@ const fees = feeStrs.map(Number)
 
 if (!epochArg || fees.length === 0) {
   process.stderr.write(
-    'usage: bun scripts/fee-sensitivity.ts [-r] [-v] <epoch|start-end> <fees_bps>... [--data-dir DIR]\n',
+    'usage: bun scripts/simulate-fee.ts [-r] [-v] <epoch|start-end> <fees_bps>... [--data-dir DIR]\n',
   )
   process.exit(2)
 }
