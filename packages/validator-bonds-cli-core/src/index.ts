@@ -4,6 +4,11 @@ export * from './cliUsage'
 export * from './commands'
 export * from './computeUnits'
 export * from './context'
-export * from './errorTranslators'
+export {
+  buildRpcRemediationMsg,
+  resolveRpcEndpoint,
+  translateKnownError,
+} from './errorTranslators'
+export type { TranslateCtx } from './errorTranslators'
 export * from './npmRegistry'
 export * from './utils'

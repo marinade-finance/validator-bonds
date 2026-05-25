@@ -203,11 +203,7 @@ export function launchCliProgram({
       } catch (_e) {
         // context not yet set (error happened before preAction completed)
       }
-      try {
-        translateKnownError(err, { rpcEndpoint })
-      } catch (translated) {
-        err = translated as Error
-      }
+      err = translateKnownError(err, { rpcEndpoint })
       logger.error(
         err instanceof ExecutionError
           ? err.messageWithTransactionError()

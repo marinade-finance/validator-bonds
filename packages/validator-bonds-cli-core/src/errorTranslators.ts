@@ -136,7 +136,7 @@ export const translateRpcRateLimitError: Translator = (err, ctx) => {
   const endpoint = ctx.rpcEndpoint ?? 'the configured RPC endpoint'
   const code = getRpcErrorCode(err)
   const message = err instanceof Error ? err.message : ''
-  if (code === -32005 || code === -32429 || /429/.test(message)) {
+  if (code === -32005 || code === -32429 || /\b429\b/.test(message)) {
     return new CliCommandError({
       valueName: '--url',
       value: endpoint,
@@ -201,10 +201,10 @@ const KNOWN_ERROR_TRANSLATORS: Translator[] = [
   translateInsufficientLamportsError,
 ]
 
-export function translateKnownError(err: unknown, ctx: TranslateCtx): never {
+export function translateKnownError(err: unknown, ctx: TranslateCtx): Error {
   for (const translator of KNOWN_ERROR_TRANSLATORS) {
     const translated = translator(err, ctx)
-    if (translated) throw translated
+    if (translated) return translated
   }
-  throw err
+  return err as Error
 }

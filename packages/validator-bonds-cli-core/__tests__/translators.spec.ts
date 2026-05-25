@@ -1,13 +1,18 @@
 import { CliCommandError, CLIContext } from '@marinade.finance/cli-common'
 import { setContext } from '@marinade.finance/ts-common'
-import { SolanaJSONRPCError } from '@solana/web3.js'
+import { ExecutionError } from '@marinade.finance/web3js-1x'
+import { Keypair, SolanaJSONRPCError } from '@solana/web3.js'
 import pino from 'pino'
 
 import {
   buildRpcRemediationMsg,
+  translateKnownError,
   translateRpcConnectivityError,
   translateRpcRateLimitError,
 } from '../src/errorTranslators'
+
+import type { ExecuteTxParams } from '@marinade.finance/web3js-1x'
+import type { Connection, PublicKey, Transaction } from '@solana/web3.js'
 
 beforeAll(() => {
   setContext(
@@ -107,6 +112,14 @@ describe('translateRpcRateLimitError', () => {
     })
     expect(translated).toBeInstanceOf(CliCommandError)
   })
+
+  it('does not match unrelated messages that happen to contain the digit sequence 429', () => {
+    const err = new Error('balance: 14290 lamports')
+    const translated = translateRpcRateLimitError(err, {
+      rpcEndpoint: endpoint,
+    })
+    expect(translated).toBeUndefined()
+  })
 })
 
 describe('buildRpcRemediationMsg', () => {
@@ -133,5 +146,103 @@ describe('buildRpcRemediationMsg', () => {
     delete process.env.RPC_URL
     const msg = buildRpcRemediationMsg('Problem.')
     expect(msg).toContain('RPC_URL env var is not set')
+  })
+})
+
+function buildTxArgs(feePayer?: PublicKey): ExecuteTxParams {
+  return {
+    connection: {} as Connection,
+    transaction: {} as Transaction,
+    errMessage: 'test',
+    feePayer,
+  }
+}
+
+describe('translateKnownError → translateFeePayerMissingError', () => {
+  it('translates ExecutionError whose cause carries the debit-credit message', () => {
+    const feePayer = Keypair.generate().publicKey
+    const err = new ExecutionError({
+      msg: 'tx failed',
+      cause: new Error(
+        'Attempt to debit an account but found no record of a prior credit',
+      ),
+    })
+    const translated = translateKnownError(err, {
+      txArgs: buildTxArgs(feePayer),
+    })
+    expect(translated).toBeInstanceOf(CliCommandError)
+    expect((translated as CliCommandError).value).toBe(feePayer.toBase58())
+    expect(translated.message).toContain(
+      'fee payer account does not exist on-chain',
+    )
+    expect((translated as CliCommandError).cause).toBe(err)
+  })
+
+  it('detects the debit-credit pattern in transaction logs', () => {
+    const feePayer = Keypair.generate().publicKey
+    const err = new ExecutionError({
+      msg: 'tx failed',
+      logs: [
+        'Attempt to debit an account but found no record of a prior credit',
+      ],
+    })
+    const translated = translateKnownError(err, {
+      txArgs: buildTxArgs(feePayer),
+    })
+    expect(translated).toBeInstanceOf(CliCommandError)
+    expect((translated as CliCommandError).value).toBe(feePayer.toBase58())
+  })
+
+  it("falls back to 'unknown' fee-payer when txArgs has no feePayer or signers", () => {
+    const err = new ExecutionError({
+      msg: 'tx failed',
+      cause: new Error(
+        'Attempt to debit an account but found no record of a prior credit',
+      ),
+    })
+    const translated = translateKnownError(err, { txArgs: buildTxArgs() })
+    expect(translated).toBeInstanceOf(CliCommandError)
+    expect((translated as CliCommandError).value).toBe('unknown')
+  })
+
+  it('returns the original error when txArgs is missing', () => {
+    const err = new ExecutionError({
+      msg: 'tx failed',
+      cause: new Error(
+        'Attempt to debit an account but found no record of a prior credit',
+      ),
+    })
+    const translated = translateKnownError(err, {})
+    expect(translated).toBe(err)
+  })
+})
+
+describe('translateKnownError → translateInsufficientLamportsError', () => {
+  it('extracts balance and needed lamports from logs', () => {
+    const feePayer = Keypair.generate().publicKey
+    const err = new ExecutionError({
+      msg: 'tx failed',
+      logs: ['Transfer: insufficient lamports 1000, need 5000'],
+    })
+    const translated = translateKnownError(err, {
+      txArgs: buildTxArgs(feePayer),
+    })
+    expect(translated).toBeInstanceOf(CliCommandError)
+    const value = (translated as CliCommandError).value as string
+    expect(value).toContain(feePayer.toBase58())
+    expect(value).toContain('balance: 1000 lamports')
+    expect(value).toContain('needed: 5000 lamports')
+    expect(translated.message).toContain('does not have enough SOL')
+  })
+
+  it('returns the original error when no insufficient-lamports pattern matches', () => {
+    const err = new ExecutionError({
+      msg: 'tx failed',
+      logs: ['some unrelated log line'],
+    })
+    const translated = translateKnownError(err, {
+      txArgs: buildTxArgs(Keypair.generate().publicKey),
+    })
+    expect(translated).toBe(err)
   })
 })

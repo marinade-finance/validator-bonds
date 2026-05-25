@@ -520,7 +520,7 @@ export async function executeTxHandleErrors(
   try {
     return await executeTx(args)
   } catch (err) {
-    return translateKnownError(err, {
+    throw translateKnownError(err, {
       txArgs: args,
       rpcEndpoint: resolveRpcEndpoint(args.connection),
     })
@@ -533,7 +533,7 @@ export async function splitAndExecuteTxHandleErrors(
   try {
     return await splitAndExecuteTx(args)
   } catch (err) {
-    return translateKnownError(err, {
+    throw translateKnownError(err, {
       txArgs: args,
       rpcEndpoint: resolveRpcEndpoint(args.connection),
     })

@@ -420,11 +420,14 @@ export async function showBond({
             }),
           )
         ).flat()
+        const bondsFundingByAccount = new Map(
+          bondsFunding.map(f => [f.bondAccount.toBase58(), f]),
+        )
         for (let i = 0; i < data.length; i++) {
           const bond = data[i]
           assert(bond !== undefined)
-          const bondFunding = bondsFunding.find(bondFunding =>
-            bondFunding.bondAccount.equals(bond.publicKey),
+          const bondFunding = bondsFundingByAccount.get(
+            bond.publicKey.toBase58(),
           )
           bond.amountOwned = bondFunding?.amountOwned
           bond.amountActive = bondFunding?.amountActive
