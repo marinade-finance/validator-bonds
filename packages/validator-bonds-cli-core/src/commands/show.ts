@@ -336,7 +336,6 @@ export async function showBond({
       voteAccount,
     }
 
-    // single-account query always includes funding info
     const configAccount = config ?? bondData.account.data.config
     const bondFunding = await getBondsFunding({
       program,

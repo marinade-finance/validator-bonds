@@ -102,8 +102,7 @@ validator-bonds configure-bond <vote-account-address> --authority ./validator-id
 # Check the new configuration
 validator-bonds show-bond <vote-account-address>
 
-# Track detailed funding information. Funding is included automatically when querying
-# a specific account; for listings (e.g. --bond-authority), pass --with-funding.
+# Track detailed funding information
 RPC_URL=<url-to-solana-rpc-node>
 validator-bonds -u $RPC_URL show-bond <vote-account-address>
 ```
@@ -254,8 +253,6 @@ validator-bonds -um show-bond <bond-or-vote-account-address>
 View detailed bond information including funding details:
 
 ```sh
-# Funding info is automatic for a specific account; for listings pass --with-funding.
-# Either way it queries stake accounts and may be rate-limited on public RPCs.
 RPC_URL=<your-rpc-url>
 validator-bonds -u $RPC_URL show-bond <bond-or-vote-account-address> --verbose
 ```

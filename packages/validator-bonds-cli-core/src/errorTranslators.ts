@@ -66,13 +66,6 @@ function getCauseChain(err: unknown): unknown[] {
   return chain
 }
 
-function findInCauseChain(
-  err: unknown,
-  predicate: (e: unknown) => boolean,
-): unknown {
-  return getCauseChain(err).find(predicate)
-}
-
 // Exported solely for unit tests (`__tests__/translators.spec.ts`). Not part of
 // the cli-core public API; treat as internal.
 export const translateRpcConnectivityError: Translator = (err, ctx) => {
@@ -92,7 +85,7 @@ export const translateRpcConnectivityError: Translator = (err, ctx) => {
     })
   }
 
-  const networkErr = findInCauseChain(err, e => {
+  const networkErr = getCauseChain(err).find(e => {
     const c = (e as { code?: unknown }).code
     return (
       typeof c === 'string' &&

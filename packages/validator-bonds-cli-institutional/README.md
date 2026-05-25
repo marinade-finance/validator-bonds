@@ -52,7 +52,7 @@ validator-bonds-institutional init-bond --vote-account <vote-account-address> \
 # number of SOL is transferred to a stake account that is assigned under Validator Bonds program
 validator-bonds-institutional fund-bond-sol <vote-account-address> --from <wallet-keypair> --amount <1 SOL for every 1,000 SOL staked>
 
-# STEP 3: SHOW BOND DATA (funding info is included automatically for a specific account)
+# STEP 3: SHOW BOND DATA
 RPC_URL=<url-to-solana-rpc-node>
 validator-bonds-institutional -u $RPC_URL show-bond <vote-account-address>
 ```
