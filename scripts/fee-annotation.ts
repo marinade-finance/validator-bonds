@@ -19,6 +19,8 @@ type BidSettlement = Settlement & {
   details: NonNullable<Settlement['details']>
 }
 
+type SsrFeed = { epochs: { epoch: number; time: number }[] }
+
 async function main() {
   const [settlementsFile, configFile = './settlement-config.yaml'] =
     process.argv.slice(2)
@@ -83,18 +85,21 @@ async function main() {
           0.9999,
   ).length
 
-  let ssrFeed: { epochs: { epoch: number; time: number }[] } | null = null
+  let ssrFeed: SsrFeed | null = null
   for (let i = 0; i < 3; i++) {
     try {
       const res = await fetch(`${apyUrl}/v1/epoch-pmpe/ssr`, {
         signal: AbortSignal.timeout(15000),
       })
       if (res.ok) {
-        ssrFeed = (await res.json()) as typeof ssrFeed
+        ssrFeed = (await res.json()) as SsrFeed
         break
       }
     } catch {}
-    if (i < 2) await new Promise<void>(r => { setTimeout(r, 2000) })
+    if (i < 2)
+      await new Promise<void>(r => {
+        setTimeout(r, 2000)
+      })
   }
   if (ssrFeed === null)
     process.stderr.write('warn: APY feed unavailable, using fallback epy=182\n')
