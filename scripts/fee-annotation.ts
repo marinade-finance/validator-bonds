@@ -1,4 +1,4 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env bun
 /* eslint-disable n/no-process-exit */
 // Computes gross / actual / full-fee pmpe + APY from bid-distribution-settlements.json
 // and prints a markdown table suitable for buildkite-agent annotate.
