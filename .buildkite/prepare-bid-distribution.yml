@@ -220,7 +220,7 @@ steps:
     commands:
     - buildkite-agent artifact download --include-retried-jobs bid-distribution-settlements.json .
     - |
-      ./scripts/fee-annotation.bash \
+      npx tsx scripts/fee-annotation.ts \
         "./bid-distribution-settlements.json" \
         "./settlement-config.yaml" \
         | buildkite-agent annotate --priority 6 --style info --context "fee-analysis"
