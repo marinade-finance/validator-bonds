@@ -14,9 +14,13 @@ type Settlement = {
   details: {
     total_marinade_active_stake: number
     total_marinade_stakers_rewards: string
-    marinade_fee_claim: number
-    dao_fee_claim: number
+    marinade_fee_claim: number | null
+    dao_fee_claim: number | null
   } | null
+}
+
+type BidSettlement = Settlement & {
+  details: NonNullable<Settlement['details']>
 }
 
 async function fetchWithRetry(
@@ -34,6 +38,7 @@ async function fetchWithRetry(
         setTimeout(r, delayMs)
       })
   }
+  process.stderr.write('warn: APY feed unavailable, using fallback epy=182\n')
   return null
 }
 
@@ -52,6 +57,10 @@ async function main() {
   const cfg = parse(readFileSync(configFile, 'utf8')) as {
     fee_config: { max_fee_bps: number; min_fee_bps: number }
   }
+  if (!cfg?.fee_config) {
+    process.stderr.write(`Failed: fee_config missing in ${configFile}\n`)
+    process.exit(1)
+  }
   const maxFeeBps = cfg.fee_config.max_fee_bps
   const minFeeBps = cfg.fee_config.min_fee_bps
 
@@ -62,9 +71,6 @@ async function main() {
     settlements: Settlement[]
   }
 
-  type BidSettlement = Settlement & {
-    details: NonNullable<Settlement['details']>
-  }
   const bids = settlements.filter(
     (s): s is BidSettlement => s.reason === 'Bidding' && s.details !== null,
   )
@@ -94,7 +100,7 @@ async function main() {
   const ncap = bids.filter(
     b =>
       parseFloat(b.details.total_marinade_stakers_rewards) > 0 &&
-      b.details.marinade_fee_claim + b.details.dao_fee_claim <
+      (b.details.marinade_fee_claim ?? 0) + (b.details.dao_fee_claim ?? 0) <
         ((parseFloat(b.details.total_marinade_stakers_rewards) * maxFeeBps) /
           10000) *
           0.9999,
@@ -106,6 +112,11 @@ async function main() {
 
   const cur = ssrFeed?.epochs.find(e => e.epoch === epoch)
   const prev = ssrFeed?.epochs.find(e => e.epoch === epoch - 1)
+  if (ssrFeed !== null && (!cur || !prev)) {
+    process.stderr.write(
+      `warn: epoch ${epoch} or ${epoch - 1} not in APY feed, using fallback epy=182\n`,
+    )
+  }
   const epy = cur && prev ? 31557600 / (cur.time - prev.time) : 182
 
   const pmpeGross = (gross / stake) * 1000
