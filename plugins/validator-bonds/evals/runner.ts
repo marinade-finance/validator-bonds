@@ -3,7 +3,7 @@
 // Each .yaml in cases-dir: { question: string, facts: string[] }
 // Facts checked with includes() first; semantic misses go to haiku.
 
-// eslint-disable-next-line import/no-extraneous-dependencies, n/no-extraneous-import
+// eslint-disable-next-line import/no-extraneous-dependencies
 import { parse } from "yaml"
 import { $ } from "bun"
 import { readdir, readFile } from "fs/promises"
