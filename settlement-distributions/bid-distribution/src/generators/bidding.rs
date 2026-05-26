@@ -383,14 +383,14 @@ pub fn generate_bid_settlements(
                                 )
                             })?;
                         if claim_amount > 0 {
-                            bidding_claims.push(SettlementClaim {
-                                withdraw_authority: *withdraw_authority,
-                                stake_authority: *stake_authority,
-                                stake_accounts: active_accounts,
+                            bidding_claims.push(SettlementClaim::staker_payout(
+                                *withdraw_authority,
+                                *stake_authority,
+                                active_sum,
+                                0,
                                 claim_amount,
-                                active_stake: active_sum,
-                                activating_stake: 0,
-                            });
+                                active_accounts,
+                            ));
                             bidding_claims_amount += claim_amount;
                         }
                     }
@@ -419,14 +419,14 @@ pub fn generate_bid_settlements(
                                     )
                                 })?;
                         if claim_amount > 0 {
-                            priority_fee_claims.push(SettlementClaim {
-                                withdraw_authority: *withdraw_authority,
-                                stake_authority: *stake_authority,
-                                stake_accounts: activating_accounts,
+                            priority_fee_claims.push(SettlementClaim::staker_payout(
+                                *withdraw_authority,
+                                *stake_authority,
+                                0,
+                                activating_sum,
                                 claim_amount,
-                                active_stake: 0,
-                                activating_stake: activating_sum,
-                            });
+                                activating_accounts,
+                            ));
                             priority_fee_claims_amount += claim_amount;
                         }
                     }
@@ -461,25 +461,21 @@ pub fn generate_bid_settlements(
 
             let authorities = fee_config.fee_authorities();
             if marinade_fee_for_bidding > 0 {
-                bidding_claims.push(SettlementClaim {
-                    withdraw_authority: authorities.marinade_withdraw,
-                    stake_authority: authorities.marinade_stake,
-                    stake_accounts: fee_deposit.marinade_active.clone(),
-                    claim_amount: marinade_fee_for_bidding,
-                    active_stake: fee_deposit.marinade_active.values().sum(),
-                    activating_stake: 0,
-                });
+                bidding_claims.push(SettlementClaim::fee_deposit(
+                    authorities.marinade_withdraw,
+                    authorities.marinade_stake,
+                    fee_deposit.marinade_active.values().sum(),
+                    marinade_fee_for_bidding,
+                ));
                 bidding_claims_amount += marinade_fee_for_bidding;
             }
             if dao_fee_for_bidding > 0 {
-                bidding_claims.push(SettlementClaim {
-                    withdraw_authority: authorities.dao_withdraw,
-                    stake_authority: authorities.dao_stake,
-                    stake_accounts: fee_deposit.dao_active.clone(),
-                    claim_amount: dao_fee_for_bidding,
-                    active_stake: fee_deposit.dao_active.values().sum(),
-                    activating_stake: 0,
-                });
+                bidding_claims.push(SettlementClaim::fee_deposit(
+                    authorities.dao_withdraw,
+                    authorities.dao_stake,
+                    fee_deposit.dao_active.values().sum(),
+                    dao_fee_for_bidding,
+                ));
                 bidding_claims_amount += dao_fee_for_bidding;
             }
             ensure!(
@@ -490,25 +486,21 @@ pub fn generate_bid_settlements(
                 validator.vote_account
             );
             if marinade_fee_for_priority > 0 {
-                priority_fee_claims.push(SettlementClaim {
-                    withdraw_authority: authorities.marinade_withdraw,
-                    stake_authority: authorities.marinade_stake,
-                    stake_accounts: fee_deposit.marinade_active.clone(),
-                    claim_amount: marinade_fee_for_priority,
-                    active_stake: fee_deposit.marinade_active.values().sum(),
-                    activating_stake: 0,
-                });
+                priority_fee_claims.push(SettlementClaim::fee_deposit(
+                    authorities.marinade_withdraw,
+                    authorities.marinade_stake,
+                    fee_deposit.marinade_active.values().sum(),
+                    marinade_fee_for_priority,
+                ));
                 priority_fee_claims_amount += marinade_fee_for_priority;
             }
             if dao_fee_for_priority > 0 {
-                priority_fee_claims.push(SettlementClaim {
-                    withdraw_authority: authorities.dao_withdraw,
-                    stake_authority: authorities.dao_stake,
-                    stake_accounts: fee_deposit.dao_active.clone(),
-                    claim_amount: dao_fee_for_priority,
-                    active_stake: fee_deposit.dao_active.values().sum(),
-                    activating_stake: 0,
-                });
+                priority_fee_claims.push(SettlementClaim::fee_deposit(
+                    authorities.dao_withdraw,
+                    authorities.dao_stake,
+                    fee_deposit.dao_active.values().sum(),
+                    dao_fee_for_priority,
+                ));
                 priority_fee_claims_amount += dao_fee_for_priority;
             }
             ensure!(

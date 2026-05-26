@@ -13,7 +13,7 @@ use rust_decimal::Decimal;
 use serde_json::json;
 use settlement_common::protected_events::{ProtectedEvent, ProtectedEventCollection};
 use settlement_common::settlement_collection::{
-    Settlement, SettlementFunder, SettlementMeta, SettlementReason,
+    ClaimDetail, Settlement, SettlementFunder, SettlementMeta, SettlementReason,
 };
 use settlement_common::settlement_config::{
     SettlementConfig as PsrSettlementConfig, SettlementConfigKind as PsrSettlementConfigKind,
@@ -422,7 +422,8 @@ fn test_generate_bid_settlements_negative_commission() {
     let stake_accounts_in_settlement: HashSet<Pubkey> = settlement
         .claims
         .iter()
-        .flat_map(|claim| claim.stake_accounts.keys())
+        .filter_map(|claim| claim.stake_accounts())
+        .flat_map(|s| s.keys())
         .cloned()
         .collect();
 
@@ -1172,10 +1173,10 @@ fn test_activating_bid_charge_distributed_to_activating_stakers() {
     );
 
     // Activating staker (stake_account(2)) gets 90% of charge after 10% fee
-    let staker_claim = priority_fee_settlement
-        .claims
-        .iter()
-        .find(|c| c.stake_accounts.contains_key(&test_stake_account(2)));
+    let staker_claim = priority_fee_settlement.claims.iter().find(|c| {
+        c.stake_accounts()
+            .is_some_and(|s| s.contains_key(&test_stake_account(2)))
+    });
     assert!(
         staker_claim.is_some(),
         "activating staker must have a claim"
@@ -1190,15 +1191,17 @@ fn test_activating_bid_charge_distributed_to_activating_stakers() {
     let dao_fee_total: u64 = priority_fee_settlement
         .claims
         .iter()
-        .filter(|c| c.withdraw_authority == TEST_PUBKEY_DAO)
+        .filter(|c| {
+            matches!(c.detail, ClaimDetail::FeeDeposit) && c.withdraw_authority == TEST_PUBKEY_DAO
+        })
         .map(|c| c.claim_amount)
         .sum();
     let marinade_fee_total: u64 = priority_fee_settlement
         .claims
         .iter()
         .filter(|c| {
-            c.withdraw_authority == TEST_PUBKEY_MARINADE
-                && !c.stake_accounts.contains_key(&test_stake_account(2))
+            matches!(c.detail, ClaimDetail::FeeDeposit)
+                && c.withdraw_authority == TEST_PUBKEY_MARINADE
         })
         .map(|c| c.claim_amount)
         .sum();

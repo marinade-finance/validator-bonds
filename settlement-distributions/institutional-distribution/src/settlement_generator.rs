@@ -1,12 +1,19 @@
 use crate::institutional_payouts::InstitutionalPayout;
 use log::info;
-use settlement_common::settlement_collection::{Settlement, SettlementClaim, SettlementCollection};
+use settlement_common::settlement_collection::{
+    ClaimDetail, Settlement, SettlementClaim, SettlementCollection,
+};
 
 use crate::settlement_config::InstitutionalDistributionConfig;
 use settlement_common::stake_meta_index::StakeMetaIndex;
 use settlement_common::utils::sort_claims_deterministically;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
+
+enum PayoutKind {
+    Staker,
+    FeeDeposit,
+}
 
 pub fn generate_institutional_settlement_collection(
     config: &InstitutionalDistributionConfig,
@@ -30,6 +37,7 @@ struct Payout {
     stake_amount: u64,
     payout_lamports: u64,
     stake_accounts: HashMap<Pubkey, u64>,
+    kind: PayoutKind,
 }
 
 fn merge_payouts(
@@ -54,6 +62,7 @@ fn merge_payouts(
             stake_amount: payout_staker.effective_stake,
             payout_lamports: payout_staker.payout_lamports,
             stake_accounts,
+            kind: PayoutKind::Staker,
         });
     }
 
@@ -99,6 +108,7 @@ fn merge_payouts(
                 .fold(0, |acc, v| acc.saturating_add(*v)),
             payout_lamports: marinade_payout,
             stake_accounts: marinade_fee_deposit_stake_accounts.clone(),
+            kind: PayoutKind::FeeDeposit,
         });
         payouts.push(Payout {
             vote_account: payout_distributor.vote_account,
@@ -109,6 +119,7 @@ fn merge_payouts(
                 .fold(0, |acc, v| acc.saturating_add(*v)),
             payout_lamports: dao_payout,
             stake_accounts: dao_fee_deposit_stake_accounts.clone(),
+            kind: PayoutKind::FeeDeposit,
         });
     }
 
@@ -146,18 +157,34 @@ fn generate_institutional_settlements(
         }) {
             existing_claim.claim_amount += payout.payout_lamports;
             existing_claim.active_stake += payout.stake_amount;
-            for (k, v) in &payout.stake_accounts {
-                existing_claim.stake_accounts.entry(*k).or_insert(*v);
+            // TODO §3: stake_accounts uses or_insert (first-write-wins) — pinned by
+            // test_existing_claim_merge_pins_first_write_wins_on_stake_accounts; revisit when §3 lands.
+            if let ClaimDetail::StakerPayout {
+                stake_accounts: existing_accounts,
+            } = &mut existing_claim.detail
+            {
+                for (k, v) in &payout.stake_accounts {
+                    existing_accounts.entry(*k).or_insert(*v);
+                }
             }
         } else {
-            settlement.claims.push(SettlementClaim {
-                withdraw_authority: payout.withdrawer,
-                stake_authority: payout.staker,
-                active_stake: payout.stake_amount,
-                activating_stake: 0,
-                stake_accounts: payout.stake_accounts,
-                claim_amount: payout.payout_lamports,
-            });
+            let claim = match payout.kind {
+                PayoutKind::Staker => SettlementClaim::staker_payout(
+                    payout.withdrawer,
+                    payout.staker,
+                    payout.stake_amount,
+                    0,
+                    payout.payout_lamports,
+                    payout.stake_accounts,
+                ),
+                PayoutKind::FeeDeposit => SettlementClaim::fee_deposit(
+                    payout.withdrawer,
+                    payout.staker,
+                    payout.stake_amount,
+                    payout.payout_lamports,
+                ),
+            };
+            settlement.claims.push(claim);
         }
     }
 
@@ -511,16 +538,19 @@ mod tests {
             "active_stake summed (300 + 1399)"
         );
 
-        assert_eq!(claim.stake_accounts.len(), 3);
-        assert_eq!(claim.stake_accounts.get(&stake_a), Some(&100));
+        let stake_accounts = claim
+            .stake_accounts()
+            .expect("staker payout must carry stake_accounts");
+        assert_eq!(stake_accounts.len(), 3);
+        assert_eq!(stake_accounts.get(&stake_a), Some(&100));
         assert_eq!(
-            claim.stake_accounts.get(&stake_b),
+            stake_accounts.get(&stake_b),
             Some(&200),
             "B keeps FIRST value (200), proving or_insert bug",
         );
-        assert_eq!(claim.stake_accounts.get(&stake_c), Some(&400));
+        assert_eq!(stake_accounts.get(&stake_c), Some(&400));
 
-        let stake_accounts_sum: u64 = claim.stake_accounts.values().sum();
+        let stake_accounts_sum: u64 = stake_accounts.values().sum();
         // BUG WITNESS — TODO §3: flip to assert_eq! once merge uses sum semantics.
         assert_ne!(
             claim.active_stake, stake_accounts_sum,

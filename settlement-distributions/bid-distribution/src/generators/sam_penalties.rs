@@ -152,36 +152,36 @@ pub fn generate_penalty_settlements(
                     })?;
 
                     if bid_penalty_claim_amount > 0 {
-                        bid_too_low_penalty_claims.push(SettlementClaim {
-                            withdraw_authority: *withdraw_authority,
-                            stake_authority: *stake_authority,
-                            stake_accounts: stake_accounts.clone(),
-                            claim_amount: bid_penalty_claim_amount,
+                        bid_too_low_penalty_claims.push(SettlementClaim::staker_payout(
+                            *withdraw_authority,
+                            *stake_authority,
                             active_stake,
-                            activating_stake: 0,
-                        });
+                            0,
+                            bid_penalty_claim_amount,
+                            stake_accounts.clone(),
+                        ));
                         claimed_bid_too_low_penalty_amount += bid_penalty_claim_amount;
                     }
                     if blacklist_penalty_claim_amount > 0 {
-                        blacklist_penalty_claims.push(SettlementClaim {
-                            withdraw_authority: *withdraw_authority,
-                            stake_authority: *stake_authority,
-                            stake_accounts: stake_accounts.clone(),
-                            claim_amount: blacklist_penalty_claim_amount,
+                        blacklist_penalty_claims.push(SettlementClaim::staker_payout(
+                            *withdraw_authority,
+                            *stake_authority,
                             active_stake,
-                            activating_stake: 0,
-                        });
+                            0,
+                            blacklist_penalty_claim_amount,
+                            stake_accounts.clone(),
+                        ));
                         claimed_blacklist_penalty_amount += blacklist_penalty_claim_amount;
                     }
                     if bond_risk_fee_claim_amount > 0 {
-                        bond_risk_fee_claims.push(SettlementClaim {
-                            withdraw_authority: *withdraw_authority,
-                            stake_authority: *stake_authority,
-                            stake_accounts,
-                            claim_amount: bond_risk_fee_claim_amount,
+                        bond_risk_fee_claims.push(SettlementClaim::staker_payout(
+                            *withdraw_authority,
+                            *stake_authority,
                             active_stake,
-                            activating_stake: 0,
-                        });
+                            0,
+                            bond_risk_fee_claim_amount,
+                            stake_accounts,
+                        ));
                         claimed_bond_risk_fee_amount += bond_risk_fee_claim_amount;
                     }
                 }
@@ -215,25 +215,21 @@ pub fn generate_penalty_settlements(
                     .ok_or_else(|| anyhow!("Failed to_u64 for bid_penalty_total_claim"))?;
                 let authorities = fee_config.fee_authorities();
                 if marinade_bid_too_low_penalty_claim > 0 {
-                    bid_too_low_penalty_claims.push(SettlementClaim {
-                        withdraw_authority: authorities.marinade_withdraw,
-                        stake_authority: authorities.marinade_stake,
-                        stake_accounts: fee_deposit.marinade_active.clone(),
-                        claim_amount: marinade_bid_too_low_penalty_claim,
-                        active_stake: fee_deposit.marinade_active.values().sum(),
-                        activating_stake: 0,
-                    });
+                    bid_too_low_penalty_claims.push(SettlementClaim::fee_deposit(
+                        authorities.marinade_withdraw,
+                        authorities.marinade_stake,
+                        fee_deposit.marinade_active.values().sum(),
+                        marinade_bid_too_low_penalty_claim,
+                    ));
                     claimed_bid_too_low_penalty_amount += marinade_bid_too_low_penalty_claim;
                 }
                 if dao_bid_too_low_penalty_claim > 0 {
-                    bid_too_low_penalty_claims.push(SettlementClaim {
-                        withdraw_authority: authorities.dao_withdraw,
-                        stake_authority: authorities.dao_stake,
-                        stake_accounts: fee_deposit.dao_active.clone(),
-                        claim_amount: dao_bid_too_low_penalty_claim,
-                        active_stake: fee_deposit.dao_active.values().sum(),
-                        activating_stake: 0,
-                    });
+                    bid_too_low_penalty_claims.push(SettlementClaim::fee_deposit(
+                        authorities.dao_withdraw,
+                        authorities.dao_stake,
+                        fee_deposit.dao_active.values().sum(),
+                        dao_bid_too_low_penalty_claim,
+                    ));
                     claimed_bid_too_low_penalty_amount += dao_bid_too_low_penalty_claim;
                 }
                 ensure!(

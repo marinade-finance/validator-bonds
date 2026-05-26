@@ -82,14 +82,14 @@ fn generate_psr_settlements_for_config(
                     protected_event.claim_amount_in_loss_range(settlement_config, active_stake)?;
 
                 if active_stake > 0 && claim_amount > 0 {
-                    claims.push(SettlementClaim {
-                        withdraw_authority: **withdraw_authority,
-                        stake_authority: **stake_authority,
-                        stake_accounts,
+                    claims.push(SettlementClaim::staker_payout(
+                        **withdraw_authority,
+                        **stake_authority,
                         active_stake,
-                        activating_stake: 0,
+                        0,
                         claim_amount,
-                    });
+                        stake_accounts,
+                    ));
                     claims_amount += claim_amount;
                 }
             }
@@ -98,14 +98,14 @@ fn generate_psr_settlements_for_config(
             // To distinguish between Validator and Marinade funders in cases where both are funding the same amount
             // (i.e., the Merkle root would be identical), we add a 'null' claim with a zero amount
             if settlement_config.meta.funder == SettlementFunder::Marinade {
-                claims.push(SettlementClaim {
-                    withdraw_authority: Pubkey::default(),
-                    stake_authority: Pubkey::default(),
-                    stake_accounts: HashMap::new(),
-                    active_stake: 0,
-                    activating_stake: 0,
-                    claim_amount: 0,
-                });
+                claims.push(SettlementClaim::staker_payout(
+                    Pubkey::default(),
+                    Pubkey::default(),
+                    0,
+                    0,
+                    0,
+                    HashMap::new(),
+                ));
             }
 
             sort_claims_deterministically(&mut claims);

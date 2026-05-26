@@ -14,12 +14,64 @@ pub struct SettlementClaim {
     pub withdraw_authority: Pubkey,
     #[serde(with = "pubkey_string_conversion")]
     pub stake_authority: Pubkey,
-    /// stake account pubkey -> stake lamports (active or activating depending on settlement type)
-    #[serde(with = "map_pubkey_string_conversion")]
-    pub stake_accounts: HashMap<Pubkey, u64>,
     pub active_stake: u64,
     pub activating_stake: u64,
     pub claim_amount: u64,
+    #[serde(flatten)]
+    pub detail: ClaimDetail,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(tag = "kind")]
+pub enum ClaimDetail {
+    StakerPayout {
+        #[serde(with = "map_pubkey_string_conversion")]
+        stake_accounts: HashMap<Pubkey, u64>,
+    },
+    FeeDeposit,
+}
+
+impl SettlementClaim {
+    pub fn staker_payout(
+        withdraw_authority: Pubkey,
+        stake_authority: Pubkey,
+        active_stake: u64,
+        activating_stake: u64,
+        claim_amount: u64,
+        stake_accounts: HashMap<Pubkey, u64>,
+    ) -> Self {
+        Self {
+            withdraw_authority,
+            stake_authority,
+            active_stake,
+            activating_stake,
+            claim_amount,
+            detail: ClaimDetail::StakerPayout { stake_accounts },
+        }
+    }
+
+    pub fn fee_deposit(
+        withdraw_authority: Pubkey,
+        stake_authority: Pubkey,
+        active_stake: u64,
+        claim_amount: u64,
+    ) -> Self {
+        Self {
+            withdraw_authority,
+            stake_authority,
+            active_stake,
+            activating_stake: 0,
+            claim_amount,
+            detail: ClaimDetail::FeeDeposit,
+        }
+    }
+
+    pub fn stake_accounts(&self) -> Option<&HashMap<Pubkey, u64>> {
+        match &self.detail {
+            ClaimDetail::StakerPayout { stake_accounts } => Some(stake_accounts),
+            ClaimDetail::FeeDeposit => None,
+        }
+    }
 }
 
 #[derive(Hash, Eq, PartialEq, Clone)]
