@@ -156,13 +156,15 @@ fn generate_institutional_settlements(
             claim.withdraw_authority == payout.withdrawer && claim.stake_authority == payout.staker
         }) {
             existing_claim.claim_amount += payout.payout_lamports;
-            existing_claim.active_stake += payout.stake_amount;
             // TODO §3: stake_accounts uses or_insert (first-write-wins) — pinned by
             // test_existing_claim_merge_pins_first_write_wins_on_stake_accounts; revisit when §3 lands.
             if let ClaimDetail::StakerPayout {
+                active_stake,
                 stake_accounts: existing_accounts,
+                ..
             } = &mut existing_claim.detail
             {
+                *active_stake += payout.stake_amount;
                 for (k, v) in &payout.stake_accounts {
                     existing_accounts.entry(*k).or_insert(*v);
                 }
@@ -180,7 +182,6 @@ fn generate_institutional_settlements(
                 PayoutKind::FeeDeposit => SettlementClaim::fee_deposit(
                     payout.withdrawer,
                     payout.staker,
-                    payout.stake_amount,
                     payout.payout_lamports,
                 ),
             };
@@ -533,10 +534,8 @@ mod tests {
 
         let claim = &settlement.claims[0];
         assert_eq!(claim.claim_amount, 3_000, "claim_amount summed");
-        assert_eq!(
-            claim.active_stake, 1_699,
-            "active_stake summed (300 + 1399)"
-        );
+        let active_stake = claim.active_stake().expect("StakerPayout has active_stake");
+        assert_eq!(active_stake, 1_699, "active_stake summed (300 + 1399)");
 
         let stake_accounts = claim
             .stake_accounts()
@@ -553,9 +552,9 @@ mod tests {
         let stake_accounts_sum: u64 = stake_accounts.values().sum();
         // BUG WITNESS — TODO §3: flip to assert_eq! once merge uses sum semantics.
         assert_ne!(
-            claim.active_stake, stake_accounts_sum,
+            active_stake, stake_accounts_sum,
             "active_stake ({}) != sum(stake_accounts.values()) ({})",
-            claim.active_stake, stake_accounts_sum,
+            active_stake, stake_accounts_sum,
         );
     }
 }

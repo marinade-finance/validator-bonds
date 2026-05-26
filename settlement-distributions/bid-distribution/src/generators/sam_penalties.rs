@@ -11,7 +11,7 @@ use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
-use super::{add_to_settlement_collection, get_fee_deposit_stake_accounts};
+use super::add_to_settlement_collection;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BidTooLowPenaltyDetails {
@@ -56,7 +56,6 @@ pub fn generate_penalty_settlements(
     let bid_fee_percentages = fee_config.fee_percentages();
 
     let mut penalty_settlement_collection = vec![];
-    let fee_deposit = get_fee_deposit_stake_accounts(stake_meta_index, fee_config);
 
     for validator in sam_validator_metas {
         if let Some(grouped_stake_metas) =
@@ -218,7 +217,6 @@ pub fn generate_penalty_settlements(
                     bid_too_low_penalty_claims.push(SettlementClaim::fee_deposit(
                         authorities.marinade_withdraw,
                         authorities.marinade_stake,
-                        fee_deposit.marinade_active.values().sum(),
                         marinade_bid_too_low_penalty_claim,
                     ));
                     claimed_bid_too_low_penalty_amount += marinade_bid_too_low_penalty_claim;
@@ -227,7 +225,6 @@ pub fn generate_penalty_settlements(
                     bid_too_low_penalty_claims.push(SettlementClaim::fee_deposit(
                         authorities.dao_withdraw,
                         authorities.dao_stake,
-                        fee_deposit.dao_active.values().sum(),
                         dao_bid_too_low_penalty_claim,
                     ));
                     claimed_bid_too_low_penalty_amount += dao_bid_too_low_penalty_claim;

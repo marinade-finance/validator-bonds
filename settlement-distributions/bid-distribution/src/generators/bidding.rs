@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::ops::Mul;
 
-use super::{add_to_settlement_collection, get_fee_deposit_stake_accounts};
+use super::add_to_settlement_collection;
 
 #[derive(Serialize, Debug, Default)]
 pub struct ResultSettlementClaims {
@@ -99,7 +99,6 @@ pub fn generate_bid_settlements(
     let fee_percentages = fee_config.fee_percentages();
     let settlement_meta_funder = settlement_config.meta().clone();
     let mut settlement_claim_collections = vec![];
-    let fee_deposit = get_fee_deposit_stake_accounts(stake_meta_index, fee_config);
 
     for validator in sam_validator_metas {
         if let Some(grouped_stake_metas) =
@@ -464,7 +463,6 @@ pub fn generate_bid_settlements(
                 bidding_claims.push(SettlementClaim::fee_deposit(
                     authorities.marinade_withdraw,
                     authorities.marinade_stake,
-                    fee_deposit.marinade_active.values().sum(),
                     marinade_fee_for_bidding,
                 ));
                 bidding_claims_amount += marinade_fee_for_bidding;
@@ -473,7 +471,6 @@ pub fn generate_bid_settlements(
                 bidding_claims.push(SettlementClaim::fee_deposit(
                     authorities.dao_withdraw,
                     authorities.dao_stake,
-                    fee_deposit.dao_active.values().sum(),
                     dao_fee_for_bidding,
                 ));
                 bidding_claims_amount += dao_fee_for_bidding;
@@ -489,7 +486,6 @@ pub fn generate_bid_settlements(
                 priority_fee_claims.push(SettlementClaim::fee_deposit(
                     authorities.marinade_withdraw,
                     authorities.marinade_stake,
-                    fee_deposit.marinade_active.values().sum(),
                     marinade_fee_for_priority,
                 ));
                 priority_fee_claims_amount += marinade_fee_for_priority;
@@ -498,7 +494,6 @@ pub fn generate_bid_settlements(
                 priority_fee_claims.push(SettlementClaim::fee_deposit(
                     authorities.dao_withdraw,
                     authorities.dao_stake,
-                    fee_deposit.dao_active.values().sum(),
                     dao_fee_for_priority,
                 ));
                 priority_fee_claims_amount += dao_fee_for_priority;

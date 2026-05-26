@@ -14,8 +14,6 @@ pub struct SettlementClaim {
     pub withdraw_authority: Pubkey,
     #[serde(with = "pubkey_string_conversion")]
     pub stake_authority: Pubkey,
-    pub active_stake: u64,
-    pub activating_stake: u64,
     pub claim_amount: u64,
     #[serde(flatten)]
     pub detail: ClaimDetail,
@@ -25,6 +23,8 @@ pub struct SettlementClaim {
 #[serde(tag = "kind")]
 pub enum ClaimDetail {
     StakerPayout {
+        active_stake: u64,
+        activating_stake: u64,
         #[serde(with = "map_pubkey_string_conversion")]
         stake_accounts: HashMap<Pubkey, u64>,
     },
@@ -43,24 +43,23 @@ impl SettlementClaim {
         Self {
             withdraw_authority,
             stake_authority,
-            active_stake,
-            activating_stake,
             claim_amount,
-            detail: ClaimDetail::StakerPayout { stake_accounts },
+            detail: ClaimDetail::StakerPayout {
+                active_stake,
+                activating_stake,
+                stake_accounts,
+            },
         }
     }
 
     pub fn fee_deposit(
         withdraw_authority: Pubkey,
         stake_authority: Pubkey,
-        active_stake: u64,
         claim_amount: u64,
     ) -> Self {
         Self {
             withdraw_authority,
             stake_authority,
-            active_stake,
-            activating_stake: 0,
             claim_amount,
             detail: ClaimDetail::FeeDeposit,
         }
@@ -68,7 +67,23 @@ impl SettlementClaim {
 
     pub fn stake_accounts(&self) -> Option<&HashMap<Pubkey, u64>> {
         match &self.detail {
-            ClaimDetail::StakerPayout { stake_accounts } => Some(stake_accounts),
+            ClaimDetail::StakerPayout { stake_accounts, .. } => Some(stake_accounts),
+            ClaimDetail::FeeDeposit => None,
+        }
+    }
+
+    pub fn active_stake(&self) -> Option<u64> {
+        match &self.detail {
+            ClaimDetail::StakerPayout { active_stake, .. } => Some(*active_stake),
+            ClaimDetail::FeeDeposit => None,
+        }
+    }
+
+    pub fn activating_stake(&self) -> Option<u64> {
+        match &self.detail {
+            ClaimDetail::StakerPayout {
+                activating_stake, ..
+            } => Some(*activating_stake),
             ClaimDetail::FeeDeposit => None,
         }
     }
