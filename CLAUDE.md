@@ -22,9 +22,13 @@ pnpm fix                                  # auto-fix all
 pnpm test:cargo                           # Rust unit tests (fast)
 pnpm test:unit                            # TS tests for sanity-check + cli-core + bonds-eventing
 pnpm test:bankrun                         # Anchor bankrun (requires anchor build)
-pnpm test:validator                       # Anchor local-validator tests
+pnpm test:validator                       # Anchor local-validator tests (maxWorkers=1, timeout=1200s)
 cargo test --package bid-distribution     # single crate
 cargo test --package settlement-common ts_cross_check_hash_generate  # single test
+
+# Run a single TS test by name (works for both bankrun and validator suites):
+pnpm test:bankrun -- --testNamePattern="pattern"
+pnpm test:validator -- --testNamePattern="pattern"
 ```
 
 ### Local Testing (bid-distribution-cli)
@@ -113,6 +117,12 @@ Epoch-driven, 15 pipeline files. Schedulers detect new epochs, trigger processin
 **Parallel:** `scheduler-institutional` -> `prepare-institutional-distribution` -> merges into merkle tree flow
 
 **Supporting:** `collect-bonds`, `merge-stakes`, `verify-settlements`, `sanity-unified`, `sanity-institutional-distribution`, `scheduler-merkle-tree`
+
+## Knowledge Base
+
+`facts/` — protocol-specific reference documents (SAM scoring, PSR, bond health, commission rules). Read these before working on settlement logic or scoring. Not code — historical design docs and memos.
+
+`plugins/validator-bonds/skills/marinade-sam-bond/` — Claude Code skill for the SAM/bond domain. Contains evals.
 
 ## Config & Data
 
