@@ -57,7 +57,7 @@ for (const file of files) {
     console.log(`✗  ${basename(file, ".yaml")}`)
     facts.forEach((f, i) => {
       if (!results[i])
-      console.log(`     missing: ${f}`)
+        console.log(`     missing: ${f}`)
     })
     failed++
   }
