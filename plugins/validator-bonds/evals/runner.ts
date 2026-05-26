@@ -12,7 +12,6 @@ import { join, basename } from 'path'
 interface Case {
   question: string
   facts: string[]
-  uncertain?: boolean
 }
 
 const { values, positionals } = parseArgs({
@@ -54,12 +53,9 @@ if (files.length === 0) throw new Error('No .yaml files found')
 
 let passed = 0
 let failed = 0
-let warned = 0
 
 for (const file of files) {
-  const { question, facts, uncertain } = parse(
-    await readFile(file, 'utf8'),
-  ) as Case
+  const { question, facts } = parse(await readFile(file, 'utf8')) as Case
   const answer = await ask(question)
   const results = await Promise.all(facts.map(f => supports(answer, f)))
   const ok = results.every(Boolean)
@@ -67,12 +63,6 @@ for (const file of files) {
   if (ok) {
     console.log(`✓  ${basename(file, '.yaml')}`)
     passed++
-  } else if (uncertain) {
-    console.log(`?  ${basename(file, '.yaml')} (uncertain)`)
-    facts.forEach((f, i) => {
-      if (!results[i]) console.log(`     missing: ${f}`)
-    })
-    warned++
   } else {
     console.log(`✗  ${basename(file, '.yaml')}`)
     facts.forEach((f, i) => {
@@ -82,8 +72,5 @@ for (const file of files) {
   }
 }
 
-const total = passed + failed + warned
-console.log(
-  `\n${passed}/${total} passed${warned > 0 ? `, ${warned} uncertain` : ''}`,
-)
+console.log(`\n${passed}/${passed + failed} passed`)
 if (failed > 0) throw new Error(`${failed} case(s) failed`)
