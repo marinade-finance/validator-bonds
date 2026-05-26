@@ -47,8 +47,14 @@ if (positionals.length === 0)
   )
 
 const skillFile = values['skill-file']
+
+const stripFrontmatter = (content: string): string => {
+  const parts = content.split('---\n', 3)
+  return parts.length >= 3 ? parts[2].trim() : content.trim()
+}
+
 const systemPrompt = skillFile
-  ? await readFile(skillFile, 'utf8')
+  ? stripFrontmatter(await readFile(skillFile, 'utf8'))
   : 'You are a helpful assistant. Answer questions directly and concisely.'
 
 const ask = async (question: string): Promise<string> =>
