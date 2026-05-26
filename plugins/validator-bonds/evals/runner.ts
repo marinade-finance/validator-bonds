@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
-// Usage: bun runner.ts <cases-dir>
+// Usage: bun runner.ts [--no-skills] <cases-dir>
 // Each .yaml in cases-dir: { question: string, facts: string[] }
 // Facts checked with includes() first; semantic misses go to haiku.
 
+import { parseArgs } from "node:util"
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { parse } from "yaml"
 import { $ } from "bun"
@@ -14,13 +15,22 @@ interface Case {
   facts: string[]
 }
 
-const dir = process.argv[2]
-if (!dir) {
-  throw new Error("Usage: bun runner.ts <cases-dir>")
-}
+const { values, positionals } = parseArgs({
+  args: Bun.argv.slice(2),
+  options: {
+    "no-skills": { type: "boolean", default: false },
+  },
+  allowPositionals: true,
+})
+
+const dir = positionals[0]
+if (!dir)
+  throw new Error("Usage: bun runner.ts [--no-skills] <cases-dir>")
+
+const extraFlags = values["no-skills"] ? ["--no-skills"] : []
 
 const ask = async (question: string): Promise<string> =>
-  $`claude -p ${question}`.text()
+  $`claude ${extraFlags} -p ${question}`.text()
 
 const supports = async (answer: string, fact: string): Promise<boolean> => {
   if (answer.includes(fact))
@@ -35,9 +45,8 @@ const files = (await readdir(dir))
   .filter((f) => f.endsWith(".yaml") || f.endsWith(".yml"))
   .sort()
 
-if (files.length === 0) {
+if (files.length === 0)
   throw new Error(`No .yaml files found in ${dir}`)
-}
 
 let passed = 0
 let failed = 0
@@ -64,6 +73,5 @@ for (const file of files) {
 }
 
 console.log(`\n${passed}/${passed + failed} passed`)
-if (failed > 0) {
+if (failed > 0)
   throw new Error(`${failed} case(s) failed`)
-}
