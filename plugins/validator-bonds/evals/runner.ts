@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
-// Usage: bun runner.ts [--skill-file <path>] <cases-dir|file.yaml...>
+// Usage: bun runner.ts [--plugin-dir <path>] [--no-skills] <cases-dir|file.yaml...>
 // Each .yaml: { question: string, facts: string[] }
-// --skill-file  inject a SKILL.md via --append-system-prompt-file (with skill)
-// omit          no skill (baseline)
+// --plugin-dir  load only this plugin (designed for dockbox: fresh home = no global skills)
+// --no-skills   disable all skills (baseline)
 // Facts checked with includes() first; semantic misses go to haiku.
 // Writes a detailed YAML log to ./tmp/eval-<timestamp>.yml
 
@@ -35,20 +35,23 @@ interface CaseResult {
 const { values, positionals } = parseArgs({
   args: Bun.argv.slice(2),
   options: {
-    'skill-file': { type: 'string' },
+    'plugin-dir': { type: 'string' },
+    'no-skills': { type: 'boolean', default: false },
   },
   allowPositionals: true,
 })
 
 if (positionals.length === 0)
   throw new Error(
-    'Usage: bun runner.ts [--skill-file <path>] <cases-dir|file.yaml...>',
+    'Usage: bun runner.ts [--plugin-dir <path>] [--no-skills] <cases-dir|file.yaml...>',
   )
 
-const skillFile = values['skill-file']
-const baseFlags = skillFile
-  ? ['--disable-slash-commands', '--append-system-prompt-file', skillFile]
-  : ['--disable-slash-commands']
+const pluginDir = values['plugin-dir']
+const baseFlags = values['no-skills']
+  ? ['--disable-slash-commands']
+  : pluginDir
+    ? ['--plugin-dir', pluginDir]
+    : []
 
 const ask = async (question: string): Promise<string> =>
   $`claude ${baseFlags} -p ${question}`.text()

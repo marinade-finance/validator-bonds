@@ -1,6 +1,6 @@
-question: "What is a Bidding settlement and where do the funds go?"
+question: 'What is a Bidding settlement and where do the funds go?'
 facts:
-  - "Bidding"
-  - "mSOL stakers"
-  - "bid amount"
-  - "ValidatorBond"
+  - 'Bidding'
+  - 'mSOL stakers'
+  - 'bid amount'
+  - 'Bond'
