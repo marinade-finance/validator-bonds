@@ -1,0 +1,4 @@
+q: "What triggers a BidTooLowPenalty?"
+facts:
+  - "bid below clearing price"
+  - "penalty deducted from bond"
