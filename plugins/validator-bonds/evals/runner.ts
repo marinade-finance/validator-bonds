@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
-// Usage: bun runner.ts [--plugin-dir <path>] [--no-skills] <cases-dir|file.yaml...>
+// Usage: bun runner.ts [--skill-file <path>] <cases-dir|file.yaml...>
 // Each .yaml: { question: string, facts: string[] }
-// --plugin-dir  load only this plugin (designed for dockbox: fresh home = no global skills)
-// --no-skills   disable all skills (baseline)
+// --skill-file  SKILL.md to use as system prompt (with skill)
+// omit          minimal system prompt, no skill (baseline)
+// Uses --system-prompt to replace the default (prevents CLAUDE.md startup noise).
 // Facts checked with includes() first; semantic misses go to haiku.
 // Writes a detailed YAML log to ./tmp/eval-<timestamp>.yml
 
@@ -35,31 +36,29 @@ interface CaseResult {
 const { values, positionals } = parseArgs({
   args: Bun.argv.slice(2),
   options: {
-    'plugin-dir': { type: 'string' },
-    'no-skills': { type: 'boolean', default: false },
+    'skill-file': { type: 'string' },
   },
   allowPositionals: true,
 })
 
 if (positionals.length === 0)
   throw new Error(
-    'Usage: bun runner.ts [--plugin-dir <path>] [--no-skills] <cases-dir|file.yaml...>',
+    'Usage: bun runner.ts [--skill-file <path>] <cases-dir|file.yaml...>',
   )
 
-const pluginDir = values['plugin-dir']
-const baseFlags = values['no-skills']
-  ? ['--disable-slash-commands']
-  : pluginDir
-    ? ['--plugin-dir', pluginDir]
-    : []
+const skillFile = values['skill-file']
+const systemPrompt = skillFile
+  ? await readFile(skillFile, 'utf8')
+  : 'You are a helpful assistant. Answer questions directly and concisely.'
 
 const ask = async (question: string): Promise<string> =>
-  $`claude ${baseFlags} -p ${question}`.text()
+  $`claude --system-prompt ${systemPrompt} -p ${question}`.text()
 
 const supports = async (answer: string, fact: string): Promise<FactResult> => {
   if (answer.includes(fact)) return { fact, passed: true, method: 'exact' }
+  const judgePrompt = 'Answer YES or NO only. No explanation.'
   const raw =
-    await $`claude --disable-slash-commands --model claude-haiku-4-5-20251001 -p ${`Does the response below support this fact? Answer YES or NO only.\nFact: ${fact}\nResponse: ${answer}`}`.text()
+    await $`claude --system-prompt ${judgePrompt} --model claude-haiku-4-5-20251001 -p ${`Does the response below support this fact?\nFact: ${fact}\nResponse: ${answer}`}`.text()
   const verdict = raw.trim()
   return {
     fact,
