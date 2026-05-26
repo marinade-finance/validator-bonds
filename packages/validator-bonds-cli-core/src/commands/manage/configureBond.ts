@@ -44,7 +44,7 @@ import type { Command } from 'commander'
 
 export function configureConfigureBond(program: Command): Command {
   return setProgramTelemetryFields(program.command('configure-bond'), {
-    accountField: 'vote_account',
+    accountField: 'account',
   })
     .description('Configure existing bond account.')
     .argument(

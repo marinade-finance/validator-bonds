@@ -127,6 +127,7 @@ let pendingTxData: PendingTxData = {
 }
 
 export function recordTxSignature(signature: string): void {
+  if (isTelemetryDisabled()) return
   if (pendingTxData.signatures.length >= SIGNATURE_CAP) {
     pendingTxData.signaturesTruncated = true
     return
@@ -137,6 +138,7 @@ export function recordTxSignature(signature: string): void {
 // Caller stringifies its BN/bigint to keep this module free of bn.js dependency;
 // 'ALL' is the sentinel for U64_MAX-encoded full withdrawals.
 export function recordAmountLamports(amountLamports: string): void {
+  if (isTelemetryDisabled()) return
   pendingTxData.amountLamports = amountLamports
 }
 
@@ -147,6 +149,7 @@ export function recordResolvedAccounts(accounts: {
   stakeAccount?: PublicKey
   withdrawRequestAccount?: PublicKey
 }): void {
+  if (isTelemetryDisabled()) return
   if (accounts.bondAccount)
     pendingTxData.bondAccount = accounts.bondAccount.toBase58()
   if (accounts.voteAccount)

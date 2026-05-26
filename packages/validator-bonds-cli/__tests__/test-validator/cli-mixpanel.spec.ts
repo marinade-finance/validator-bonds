@@ -286,7 +286,9 @@ describe('CLI Mixpanel Reporting', () => {
           ...process.env,
           NOTIFICATIONS_API_URL: testServer.baseUrl,
           MIX_PROXY_URL: testServer.baseUrl,
-          MIXPANEL_TOKEN_TEST: '',
+          // Pin the placeholder sentinel so telemetry is disabled regardless of
+          // whether the built dist has been token-injected.
+          MIXPANEL_TOKEN_TEST: '__MIXPANEL_TOKEN_PLACEHOLDER__',
         },
       },
     ]).toHaveMatchingSpawnOutput({

@@ -26,7 +26,7 @@ import type { Command } from 'commander'
 
 export function configureMintBond(program: Command) {
   return setProgramTelemetryFields(program.command('mint-bond'), {
-    accountField: 'vote_account',
+    accountField: 'account',
   })
     .description(
       'Mint a Validator Bond token, providing a means to configure the bond account ' +

@@ -24,7 +24,7 @@
     "fix": "pnpm lint:ts-fix && pnpm lint:cargo-fix",
     "prepare": "husky",
     "publish:test": "pnpm build && pnpm lint && pnpm publish -r --dry-run",
-    "publish:cli": "pnpm build && pnpm publish -r --filter \"./packages/*cli*\"",
+    "publish:cli": "pnpm build && MIXPANEL_TOKEN_REQUIRED=1 pnpm publish -r --filter \"./packages/*cli*\"",
     "publish:sdk": "pnpm build && pnpm publish -r --filter \"./packages/*sdk*\"",
     "publish:codama": "pnpm build && pnpm publish -r --filter \"./packages/*codama\"",
     "publish:all": "pnpm publish:sdk && pnpm publish:cli && pnpm run tag:release",

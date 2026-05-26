@@ -36,7 +36,7 @@ import type { Command } from 'commander'
 
 export function configureClaimWithdrawRequest(program: Command): Command {
   return setProgramTelemetryFields(program.command('claim-withdraw-request'), {
-    accountField: 'vote_account',
+    accountField: 'account',
   })
     .description(
       'Claim funds from an existing withdraw request (second step of bond withdrawal). ' +

@@ -107,7 +107,7 @@ export function installShowConfig(program: Command) {
 
 export function configureShowBond(program: Command): Command {
   return setProgramTelemetryFields(program.command('show-bond'), {
-    accountField: 'vote_account',
+    accountField: 'account',
   })
     .description('Showing data of bond account(s)')
     .argument(

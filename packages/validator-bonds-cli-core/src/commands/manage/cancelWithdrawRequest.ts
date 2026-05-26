@@ -31,7 +31,7 @@ import type { Command } from 'commander'
 
 export function configureCancelWithdrawRequest(program: Command): Command {
   return setProgramTelemetryFields(program.command('cancel-withdraw-request'), {
-    accountField: 'vote_account',
+    accountField: 'account',
   })
     .description(
       'Cancelling the withdraw request account, which is the withdrawal request ticket, ' +

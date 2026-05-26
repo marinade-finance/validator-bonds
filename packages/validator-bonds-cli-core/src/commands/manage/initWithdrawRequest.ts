@@ -45,7 +45,7 @@ import type { Command } from 'commander'
 
 export function configureInitWithdrawRequest(program: Command): Command {
   return setProgramTelemetryFields(program.command('init-withdraw-request'), {
-    accountField: 'vote_account',
+    accountField: 'account',
   })
     .description(
       'Create a withdraw request ticket (first step of bond withdrawal; use claim-withdraw-request after lockup expires). ' +

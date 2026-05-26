@@ -43,7 +43,7 @@ import type { Command } from 'commander'
 
 export function configureFundBondWithSol(program: Command): Command {
   return setProgramTelemetryFields(program.command('fund-bond-sol'), {
-    accountField: 'vote_account',
+    accountField: 'account',
   })
     .description(
       'Funding a bond account with amount of SOL. ' +

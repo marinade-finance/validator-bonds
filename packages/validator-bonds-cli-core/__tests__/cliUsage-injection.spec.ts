@@ -7,11 +7,10 @@ import {
   readFileSync,
   rmSync,
 } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 
-const PACKAGE_DIR = resolve(__dirname, '..')
-const REPO_ROOT = resolve(PACKAGE_DIR, '..', '..')
+const PACKAGE_DIR = join(__dirname, '..')
+const REPO_ROOT = join(__dirname, '..', '..', '..')
 const INJECT_SCRIPT = join(REPO_ROOT, 'scripts', 'inject-mixpanel-token.js')
 const DIST_CLIUSAGE = join(PACKAGE_DIR, 'dist', 'src', 'cliUsage.js')
 
@@ -24,7 +23,10 @@ describe('inject-mixpanel-token.js round-trip', () => {
         `Missing ${DIST_CLIUSAGE}; run "pnpm build" before "pnpm test".`,
       )
     }
-    tmpDir = mkdtempSync(join(tmpdir(), 'mp-inject-'))
+    // Place the temp probe under PACKAGE_DIR (not OS tmpdir) so Node's
+    // upward node_modules walk from the required file reaches the workspace
+    // store.
+    tmpDir = mkdtempSync(join(PACKAGE_DIR, '.tmp-mp-inject-'))
   })
 
   afterAll(() => {
@@ -39,11 +41,11 @@ describe('inject-mixpanel-token.js round-trip', () => {
 
     execFileSync('node', [INJECT_SCRIPT], {
       cwd: tmpDir,
-      env: { ...process.env, MIXPANEL_TOKEN: 'spec-injected-token' },
+      env: { ...process.env, MIXPANEL_TOKEN: 'specinjectedtoken' },
     })
 
     const after = readFileSync(tmpFile, 'utf-8')
-    expect(after).toContain('spec-injected-token')
+    expect(after).toContain('specinjectedtoken')
     expect(after).not.toContain('__MIXPANEL_TOKEN_PLACEHOLDER__')
 
     const probe = `
@@ -64,7 +66,7 @@ describe('inject-mixpanel-token.js round-trip', () => {
       token: string | null
       disabled: boolean
     }
-    expect(result.token).toBe('spec-injected-token')
+    expect(result.token).toBe('specinjectedtoken')
     expect(result.disabled).toBe(false)
   })
 })

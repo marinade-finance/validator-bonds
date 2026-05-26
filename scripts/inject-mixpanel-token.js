@@ -10,13 +10,20 @@ function die(msg) {
 }
 
 const token = process.env.MIXPANEL_TOKEN
+const required = process.env.MIXPANEL_TOKEN_REQUIRED === '1'
 if (!token || token.length === 0) {
-  die('MIXPANEL_TOKEN env var must be set and non-empty for publish builds')
+  if (required) {
+    die('MIXPANEL_TOKEN env var must be set and non-empty for publish builds')
+  }
+  console.log(
+    'inject-mixpanel-token: MIXPANEL_TOKEN unset — skipping injection (dry-run / pack).',
+  )
+  process.exit(0)
 }
 if (token === PLACEHOLDER) {
   die('MIXPANEL_TOKEN must not equal the placeholder value')
 }
-if (!/^[A-Za-z0-9._-]+$/.test(token)) {
+if (!/^[A-Za-z0-9]+$/.test(token)) {
   die('MIXPANEL_TOKEN contains unexpected characters')
 }
 
@@ -27,6 +34,7 @@ if (!fs.existsSync(distDir)) {
 
 let totalFiles = 0
 let totalReplacements = 0
+let totalMapsRemoved = 0
 
 function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -48,6 +56,21 @@ function walk(dir) {
   }
 }
 
+// .js.map files would still reference pre-injection byte offsets after rewrite,
+// so drop them from the published artifact. .d.ts.map files reference .d.ts and
+// stay valid.
+function stripJsSourceMaps(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) {
+      stripJsSourceMaps(full)
+    } else if (entry.isFile() && /\.js\.map$/.test(entry.name)) {
+      fs.unlinkSync(full)
+      totalMapsRemoved += 1
+    }
+  }
+}
+
 walk(distDir)
 
 if (totalReplacements === 0) {
@@ -56,6 +79,8 @@ if (totalReplacements === 0) {
   )
 }
 
+stripJsSourceMaps(distDir)
+
 console.log(
-  `inject-mixpanel-token: ${totalReplacements} replacement(s) across ${totalFiles} file(s)`,
+  `inject-mixpanel-token: ${totalReplacements} replacement(s) across ${totalFiles} file(s); removed ${totalMapsRemoved} .js.map file(s)`,
 )
