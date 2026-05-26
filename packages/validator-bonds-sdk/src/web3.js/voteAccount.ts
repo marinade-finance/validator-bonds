@@ -65,7 +65,7 @@ export async function findVoteAccountByIdentity({
   ) {
     logDebug(
       logger,
-      `Found ${accounts.length} (${accounts.map(a => a.pubkey.toBase58()).join(', ')}) vote accounts for identity ${identity.toBase58()}.` +
+      `Found ${accounts.length} (${accounts.map(a => a.pubkey.toBase58()).join(', ')}) vote accounts for identity ${identity.toBase58()}. ` +
         'Expectation was to have potentially find one vote account for the identity.',
     )
     return undefined

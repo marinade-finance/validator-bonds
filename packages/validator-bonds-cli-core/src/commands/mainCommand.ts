@@ -12,7 +12,8 @@ import pino from 'pino'
 
 import { printNotificationBanners } from '../banner'
 import { recordCliUsage } from '../cliUsage'
-import { setValidatorBondsCliContext } from '../context'
+import { getCliContext, setValidatorBondsCliContext } from '../context'
+import { translateKnownError } from '../errorTranslators'
 import { startFetchingNotificationBanners } from '../notifications'
 import { requireLatestCliVersion } from '../npmRegistry'
 
@@ -195,6 +196,14 @@ export function launchCliProgram({
       logger.flush()
     },
     (err: Error) => {
+      const originalErr = err
+      let rpcEndpoint: string | undefined
+      try {
+        rpcEndpoint = getCliContext().provider.connection.rpcEndpoint
+      } catch (_e) {
+        // context not yet set (error happened before preAction completed)
+      }
+      err = translateKnownError(err, { rpcEndpoint })
       logger.error(
         err instanceof ExecutionError
           ? err.messageWithTransactionError()
@@ -202,9 +211,11 @@ export function launchCliProgram({
       )
       logger.debug({
         resolution: 'Failure',
-        err,
+        err: originalErr,
         error_stack:
-          err instanceof Error ? JSON.stringify(err.stack, null, 2) : undefined,
+          originalErr instanceof Error
+            ? JSON.stringify(originalErr.stack, null, 2)
+            : undefined,
         args: process.argv,
       })
 

@@ -54,7 +54,7 @@ validator-bonds-institutional fund-bond-sol <vote-account-address> --from <walle
 
 # STEP 3: SHOW BOND DATA
 RPC_URL=<url-to-solana-rpc-node>
-validator-bonds-institutional -u $RPC_URL show-bond <vote-account-address> --with-funding
+validator-bonds-institutional -u $RPC_URL show-bond <vote-account-address>
 ```
 
 ### Creating a bond
@@ -123,8 +123,10 @@ validator-bonds-institutional configure-bond --authority <recipient-wallet-keypa
 
 ```sh
 RPC_URL=<url-to-solana-rpc-node>
-validator-bonds-institutional -u$RPC_URL show-bond <bond-or-vote-account-address> --with-funding --verbose
+validator-bonds-institutional -u$RPC_URL show-bond <bond-or-vote-account-address> --verbose
 ```
+
+Funding information is included automatically when querying a specific account; for filter-based listings, opt in with `--with-funding`.
 
 For details on meanings of the particular fields in the listing, please refer to
 [`Show the bond account` in the Validator Bonds CLI README](https://github.com/marinade-finance/validator-bonds/blob/main/packages/validator-bonds-cli/README.md#show-the-bond-account).
