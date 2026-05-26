@@ -3,6 +3,7 @@ use crate::utils::rpc::get_rpc_client;
 use log::{log, Level};
 use serde_yaml;
 use std::sync::Arc;
+use validator_bonds_common::cli_result::CliError;
 use validator_bonds_common::dto::ValidatorBondRecord;
 use validator_bonds_common::funded_bonds::collect_validator_bonds_with_funds;
 
@@ -22,9 +23,12 @@ pub async fn collect_bonds(options: CommonCollectOptions) -> anyhow::Result<()> 
     let funded_bonds =
         collect_validator_bonds_with_funds(rpc_client.clone(), config_address).await?;
 
-    let updated_at = chrono::Utc::now();
-    let current_epoch_info = rpc_client.get_epoch_info().await?;
+    let current_epoch_info = rpc_client
+        .get_epoch_info()
+        .await
+        .map_err(CliError::retry_able)?;
     let epoch = current_epoch_info.epoch;
+    let updated_at = chrono::Utc::now();
 
     let mut bonds: Vec<ValidatorBondRecord> = vec![];
 

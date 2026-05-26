@@ -287,7 +287,7 @@ export async function authorizeStakeAccount({
   if (custodian) {
     signers.push(custodian)
   }
-  await provider.sendIx(signers, ...ixes)
+  await retryOnEpochRewardsPeriod(() => provider.sendIx(signers, ...ixes))
 }
 
 export type DelegatedStakeAccount = {

@@ -16,6 +16,7 @@ pub struct SettlementsReportData {
 pub enum ReportingReasonSettlement {
     ProtectedEvent,
     Bidding,
+    PriorityFee,
     BidTooLowPenalty,
     BlacklistPenalty,
     BondRiskFee,
@@ -28,6 +29,7 @@ impl ReportingReasonSettlement {
         vec![
             ReportingReasonSettlement::ProtectedEvent,
             ReportingReasonSettlement::Bidding,
+            ReportingReasonSettlement::PriorityFee,
             ReportingReasonSettlement::BidTooLowPenalty,
             ReportingReasonSettlement::BlacklistPenalty,
             ReportingReasonSettlement::BondRiskFee,
@@ -42,6 +44,7 @@ impl From<&SettlementReason> for ReportingReasonSettlement {
         match reason {
             SettlementReason::ProtectedEvent(_) => ReportingReasonSettlement::ProtectedEvent,
             SettlementReason::Bidding => ReportingReasonSettlement::Bidding,
+            SettlementReason::PriorityFee => ReportingReasonSettlement::PriorityFee,
             SettlementReason::BidTooLowPenalty => ReportingReasonSettlement::BidTooLowPenalty,
             SettlementReason::BlacklistPenalty => ReportingReasonSettlement::BlacklistPenalty,
             SettlementReason::BondRiskFee => ReportingReasonSettlement::BondRiskFee,
@@ -55,6 +58,7 @@ impl Display for ReportingReasonSettlement {
         match self {
             ReportingReasonSettlement::ProtectedEvent => write!(f, "ProtectedEvent"),
             ReportingReasonSettlement::Bidding => write!(f, "Bidding"),
+            ReportingReasonSettlement::PriorityFee => write!(f, "PriorityFee"),
             ReportingReasonSettlement::BidTooLowPenalty => write!(f, "BidTooLowPenalty"),
             ReportingReasonSettlement::BlacklistPenalty => write!(f, "BlacklistPenalty"),
             ReportingReasonSettlement::BondRiskFee => write!(f, "BondRiskFee"),

@@ -16,7 +16,7 @@ CLI for [Marinade](https://docs.marinade.finance/) Validator Bonds on-chain prog
 
 ## Prerequisites & Installation
 
-**Requirements:** Node.js version 20 or higher.
+**Requirements:** Node.js version 20.18.0 or higher.
 
 ### Global Installation
 
@@ -102,9 +102,9 @@ validator-bonds configure-bond <vote-account-address> --authority ./validator-id
 # Check the new configuration
 validator-bonds show-bond <vote-account-address>
 
-# Track detailed funding information (requires non-public RPC)
+# Track detailed funding information
 RPC_URL=<url-to-solana-rpc-node>
-validator-bonds -u $RPC_URL show-bond <vote-account-address> --with-funding
+validator-bonds -u $RPC_URL show-bond <vote-account-address>
 ```
 
 **Next Steps:** Read the [Core Concepts](#core-concepts) section to understand how bonds, auctions, and settlements work, then explore the detailed [Bond Management](#bond-management) commands.
@@ -253,12 +253,11 @@ validator-bonds -um show-bond <bond-or-vote-account-address>
 View detailed bond information including funding details:
 
 ```sh
-# Requires a private RPC endpoint (public endpoints rate-limit these calls)
 RPC_URL=<your-rpc-url>
-validator-bonds -u $RPC_URL show-bond <bond-or-vote-account-address> --with-funding --verbose
+validator-bonds -u $RPC_URL show-bond <bond-or-vote-account-address> --verbose
 ```
 
-**Note:** The `--with-funding` flag makes multiple RPC calls and won't work with public endpoints (see [Troubleshooting](#troubleshooting) for RPC options).
+**Note:** Funding information requires multiple RPC calls and won't work with public endpoints (see [Troubleshooting](#troubleshooting) for RPC options). It is fetched automatically when querying a specific bond/vote/identity address; for filter-based listings, opt in with `--with-funding`.
 
 **Example output:**
 
@@ -914,7 +913,7 @@ When installed globally
 # Get npm global installation folder
 npm list -g
 > /usr/lib
-> +-- @marinade.finance/validator-bonds-cli@2.4.3
+> +-- @marinade.finance/validator-bonds-cli@2.4.7
 > ...
 # In this case, the `bin` folder is located at /usr/bin
 ```
@@ -934,7 +933,7 @@ npm i -g @marinade.finance/validator-bonds-cli@latest
 # Verify installation
 npm list -g
 # Output: ~/.local/share/npm/lib
-#         └── @marinade.finance/validator-bonds-cli@2.4.3
+#         └── @marinade.finance/validator-bonds-cli@2.4.7
 ```
 
 To execute the installed packages from any location,
@@ -1067,7 +1066,7 @@ Commands:
   ...
   ```
 
-  **Solution:** old version of Node.js is installed on the machine. Node.js upgrade to version 16 or later is needed.
+  **Solution:** old version of Node.js is installed on the machine. Node.js upgrade to version 20.18.0 or later is needed.
 
 - **ExecutionError: Transaction XYZ not found**<a id='troubleshooting-execution-error'></a>
 
@@ -1129,7 +1128,7 @@ Commands:
   # Get npm global installation folder
   npm list -g
   > ~/.local/share/npm/lib
-  > `-- @marinade.finance/validator-bonds-cli@2.4.3
+  > `-- @marinade.finance/validator-bonds-cli@2.4.7
   # In this case, the 'bin' folder is located at ~/.local/share/npm/bin
 
   # Get validator-bonds binary folder
@@ -1190,7 +1189,7 @@ Commands:
 
   **Solution:**
 
-  Upgrade Node.js to version 16 or later.
+  Upgrade Node.js to version 20.18.0 or later.
 
 - **Segmentation fault (core dumped)**<a id='troubleshooting-segmentation-fault'></a>
 
@@ -1311,3 +1310,52 @@ Commands:
   **Solution:**
 
   Use the `-k <keypair-path>` parameter to specify a keypair wallet that has sufficient lamports to pay the transaction fee.
+
+- **NPM registry fetch timed out after 1000ms** (or similar fetch timeout when installing the `@marinade.finance/validator-bonds-cli` package).
+  <a id='troubleshooting-npm-fetch-timeout'></a>
+
+  The npm CLI failed to download the package within the configured fetch timeout.
+  The default npm fetch timeout is 5 minutes, so a very low value (e.g. `1000ms`) is likely set explicitly
+  somewhere. Other common causes include a slow or unstable network, a corporate proxy or firewall,
+  a corrupted npm cache, stale DNS entries, or a registry outage.
+
+  **Investigation steps:**
+  1. **Check if the npm registry is up.** Visit the [npm status page](https://status.npmjs.org/)
+     and confirm "Registry" and "CDN" are operational. You can also test reachability directly:
+
+     ```bash
+     curl -v $(npm config get registry)
+     ```
+
+  2. **Check your npm configuration** for a low timeout, custom registry, or proxy settings:
+
+     ```bash
+     npm config get fetch-timeout
+     npm config get registry
+     npm config list
+     ```
+
+     Also inspect any `.npmrc` file (in the project root, `$HOME/.npmrc`, or `/etc/npmrc`) and the `NPM_CONFIG_FETCH_TIMEOUT` environment variable.
+
+  3. **Run the install with verbose logging** to see exactly where it fails:
+
+     ```bash
+     npm install @marinade.finance/validator-bonds-cli --verbose
+     ```
+
+  4. **Clear a potentially corrupted cache:**
+
+     ```bash
+     npm cache clean --force
+     ```
+
+  **Solution:**
+
+  Increase the timeout for a single command:
+
+  ```bash
+  npm install @marinade.finance/validator-bonds-cli --fetch-timeout=300000
+
+  # or persist for future installs
+  npm config set fetch-timeout 300000
+  ```

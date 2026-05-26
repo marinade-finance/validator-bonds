@@ -8,7 +8,6 @@ use settlement_pipelines::arguments::{
     init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, ReportOpts, TipPolicyOpts,
 };
 use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
-use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::execute_in_sequence;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::institutional_validators::{fetch_validator_data, ValidatorsData};
@@ -52,6 +51,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use validator_bonds::state::config::{find_bonds_withdrawer_authority, Config};
 use validator_bonds::ID as validator_bonds_id;
+use validator_bonds_common::cli_result::{CliError, CliResult};
 use validator_bonds_common::config::get_config;
 use validator_bonds_common::constants::find_event_authority;
 use validator_bonds_common::stake_accounts::{
@@ -743,7 +743,7 @@ async fn get_on_chain_bond_stake_accounts(
 
     let non_funded_delegated_stakes = obtain_delegated_stake_accounts(non_funded, clock)
         .await
-        .map_err(CliError::RetryAble)?;
+        .map_err(CliError::retry_able)?;
 
     // creating a map of vote account to stake accounts
     let result_map = non_funded_delegated_stakes

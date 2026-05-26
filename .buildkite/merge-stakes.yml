@@ -9,6 +9,7 @@ env:
 steps:
   - label: ":memo: Annotate retry parameters"
     commands:
+      - printable_rpc_url=$(./scripts/printable-rpc-url.sh "$$RPC_URL")
       - |
         cat <<- EOF | buildkite-agent annotate --priority 6 --style info --context "general-info"
         ### Retry environment variables
@@ -17,6 +18,7 @@ steps:
         \`\`\`
         SLACK_FEED=$SLACK_FEED
         NOTIFY_FEED=${NOTIFY_FEED:-false}
+        # RPC_URL='$$printable_rpc_url'
         \`\`\`
         EOF
 

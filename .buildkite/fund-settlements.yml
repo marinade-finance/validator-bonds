@@ -46,7 +46,9 @@ steps:
       slack_feed=$(./scripts/bonds-slack-feed.sh "$$claim_type")
       buildkite-agent meta-data set --redacted-vars='' slack_feed "$$slack_feed"
     - |
+      printable_rpc_url=$(./scripts/printable-rpc-url.sh "$$RPC_URL")
       echo "Epoch: '$${epoch:-unknown}', Claim Type: '$$claim_type'/'$$config_pubkey', Slack Feed: '$$slack_feed'"
+      echo "# RPC_URL='$$printable_rpc_url'"
 
   - wait: ~
 

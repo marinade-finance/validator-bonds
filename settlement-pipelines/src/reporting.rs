@@ -1,5 +1,4 @@
 use crate::arguments::{ReportFormat, ReportOpts};
-use crate::cli_result::{CliError, CliResult};
 use anyhow::format_err;
 use chrono::Utc;
 use log::{error, info};
@@ -12,6 +11,7 @@ use std::future::Future;
 use std::io::Write;
 use std::path::PathBuf;
 use std::pin::Pin;
+use validator_bonds_common::cli_result::{CliError, CliResult};
 
 pub trait PrintReportable {
     fn get_report(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + '_>>;
@@ -402,9 +402,9 @@ impl ErrorHandler {
     pub fn add_cli_error(&mut self, error: CliError) {
         error!("{error:?}");
         match error {
-            CliError::Critical(err) => self.error().with_msg(format!("{err}")).add(),
-            CliError::RetryAble(r_err) => self.retryable().with_msg(format!("{r_err}")).add(),
-            CliError::Warning(warn) => self.warning().with_msg(format!("{warn}")).add(),
+            CliError::Critical(err) => self.error().with_msg(format!("{err:#}")).add(),
+            CliError::RetryAble(r_err) => self.retryable().with_msg(format!("{r_err:#}")).add(),
+            CliError::Warning(warn) => self.warning().with_msg(format!("{warn:#}")).add(),
         }
     }
 
@@ -531,7 +531,8 @@ impl ErrorHandler {
             result = Err(CliError::warning(format_err!(
                 "Some warnings occurred during processing: {} warnings",
                 warnings.len()
-            )));
+            ))
+            .into());
         }
 
         let retryable_errors = self.get_retryable_errors();
@@ -543,7 +544,8 @@ impl ErrorHandler {
             result = Err(CliError::retry_able(format_err!(
                 "Some retry-able errors occurred: {} errors",
                 retryable_errors.len()
-            )));
+            ))
+            .into());
         }
 
         let errors = self.get_errors();
@@ -555,7 +557,8 @@ impl ErrorHandler {
             result = Err(CliError::critical(format_err!(
                 "Some errors occurred during processing: {} errors",
                 errors.len()
-            )));
+            ))
+            .into());
         }
 
         result
@@ -686,17 +689,20 @@ pub async fn with_reporting_ext<T: ReportSerializable>(
         CliResult(Err(CliError::critical(format_err!(
             "Errors occurred: {} errors",
             status.error_count
-        ))))
+        ))
+        .into()))
     } else if status.retryable_error_count > 0 {
         CliResult(Err(CliError::retry_able(format_err!(
             "Retryable errors occurred: {} errors",
             status.retryable_error_count
-        ))))
+        ))
+        .into()))
     } else if status.warning_count > 0 {
         CliResult(Err(CliError::warning(format_err!(
             "Warnings occurred: {} warnings",
             status.warning_count
-        ))))
+        ))
+        .into()))
     } else {
         CliResult(Ok(()))
     }

@@ -5,7 +5,7 @@
     "anchor:build": "anchor build",
     "build": "pnpm anchor:build && pnpm -r build",
     "_test": "pnpm jest --config jest.config.test-validator.js --verbose --runInBand -- \"$FILE\"",
-    "pretest:validator": "node -e \"if (process.versions.node.split('.')[0] < 20) { console.error('Node.js 20 or higher is required for running tests (crypto module is in use)'); process.exit(1); }\"",
+    "pretest:validator": "node -e \"const [maj,min] = process.versions.node.split('.').map(Number); if (maj < 20 || (maj === 20 && min < 18)) { console.error('Node.js 20.18.0 or higher is required for running tests (crypto module is in use)'); process.exit(1); }\"",
     "test:validator": "anchor test",
     "test:bankrun": "pnpm anchor:build && pnpm jest --config jest.config.bankrun.js --runInBand true -- \"$FILE\"",
     "test:download-institutional": "T=`mktemp -d` && git clone --depth=1 --single-branch git@github.com:marinade-finance/institutional-staking.git \"$T\" && TARGET='settlement-distributions/institutional-distribution/tests/fixtures' && rm -f \"$TARGET\"/*payouts.json && cp \"$T/fixtures/\"*payouts.json \"$TARGET/\"; rm -rf \"$T\"",
@@ -27,7 +27,8 @@
     "publish:cli": "pnpm build && pnpm publish -r --filter \"./packages/*cli*\"",
     "publish:sdk": "pnpm build && pnpm publish -r --filter \"./packages/*sdk*\"",
     "publish:codama": "pnpm build && pnpm publish -r --filter \"./packages/*codama\"",
-    "publish:all": "pnpm publish:sdk && pnpm publish:cli"
+    "publish:all": "pnpm publish:sdk && pnpm publish:cli && pnpm run tag:release",
+    "tag:release": "VERSION=$(node -p \"require('./packages/validator-bonds-sdk/package.json').version\") && if git tag -a \"v$VERSION\" -m \"Release v$VERSION\" 2>/dev/null; then echo \"Tag v$VERSION created locally. Push it with: git push <remote> v$VERSION\"; else echo \"Tag v$VERSION already exists (or could not be created). If it points to the right commit, push with: git push <remote> v$VERSION\"; fi"
   },
   "devDependencies": {
     "@jest/globals": "29.7.0",
@@ -37,6 +38,7 @@
     "@marinade.finance/eslint-config": "1.3.5",
     "@marinade.finance/web3js-1x-testing": "4.2.5",
     "@types/bn.js": "5.2.0",
+    "@types/bun": "^1.3.14",
     "@types/jest": "29.5.14",
     "@types/node": "22.10.7",
     "eslint": "9.36.0",
@@ -65,11 +67,9 @@
       }
     },
     "overrides": {
-      "cross-spawn@<7.0.5": "7.0.5",
-      "braces@<3.0.3": "3.0.3",
-      "micromatch@<4.0.8": "4.0.8",
       "glob@<8": "^10.3.10",
-      "inflight": "npm:inflight-v2@^1.0.0"
+      "rpc-websockets": "9.3.10",
+      "utf-8-validate": "^6.0.6"
     },
     "onlyBuiltDependencies": [
       "bigint-buffer",
@@ -80,6 +80,6 @@
     ]
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.18.0"
   }
 }

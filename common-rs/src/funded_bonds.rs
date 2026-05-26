@@ -1,4 +1,5 @@
 use crate::bond_products::{find_bond_products, FindBondProductsArgs};
+use crate::cli_result::CliError;
 use crate::{
     bonds::get_bonds_for_config,
     settlements::get_settlements_for_config,
@@ -25,22 +26,26 @@ pub struct Funds {
 pub async fn collect_validator_bonds_with_funds(
     rpc_client: Arc<RpcClient>,
     config_address: Pubkey,
-) -> anyhow::Result<Vec<(Pubkey, Bond, Funds, CommissionProductConfig)>> {
+) -> Result<Vec<(Pubkey, Bond, Funds, CommissionProductConfig)>, CliError> {
     let (withdraw_authority, _) = find_bonds_withdrawer_authority(&config_address);
     log::info!("Config withdraw authority: {withdraw_authority:?}");
 
     let mut validator_funds: HashMap<Pubkey, Funds> = HashMap::new();
 
     let bonds: HashMap<_, _> = get_bonds_for_config(rpc_client.clone(), &config_address)
-        .await?
+        .await
+        .map_err(CliError::retry_able)?
         .into_iter()
         .collect();
     let stake_accounts =
-        collect_stake_accounts(rpc_client.clone(), Some(&withdraw_authority), None).await?;
+        collect_stake_accounts(rpc_client.clone(), Some(&withdraw_authority), None)
+            .await
+            .map_err(CliError::retry_able)?;
     let settlements = get_settlements_for_config(rpc_client.clone(), &config_address).await?;
     let withdraw_requests: Vec<(Pubkey, WithdrawRequest)> =
         get_withdraw_requests(rpc_client.clone())
-            .await?
+            .await
+            .map_err(CliError::retry_able)?
             .into_iter()
             .filter(|(_, wr)| bonds.contains_key(&wr.bond))
             .collect();
@@ -53,10 +58,13 @@ pub async fn collect_validator_bonds_with_funds(
             ..Default::default()
         },
     )
-    .await?
+    .await
+    .map_err(CliError::retry_able)?
     {
         if let Some((existing_pubkey, _)) = bond_products.insert(pb.bond, (pubkey, pb)) {
-            anyhow::bail!("Multiple BondProducts ({existing_pubkey},{pubkey}) found for one bond",);
+            return Err(CliError::critical(anyhow::anyhow!(
+                "Multiple BondProducts ({existing_pubkey},{pubkey}) found for one bond"
+            )));
         }
     }
 
@@ -66,7 +74,9 @@ pub async fn collect_validator_bonds_with_funds(
     log::info!("Found settlements: {}", settlements.len());
     log::info!("Found bond commission products: {}", bond_products.len());
 
-    let clock = get_clock(rpc_client.clone()).await?;
+    let clock = get_clock(rpc_client.clone())
+        .await
+        .map_err(CliError::retry_able)?;
     for (pubkey, lamports_available, stake_account) in stake_accounts {
         if let Some(lockup) = stake_account.lockup() {
             if lockup.is_in_force(&clock, None) {

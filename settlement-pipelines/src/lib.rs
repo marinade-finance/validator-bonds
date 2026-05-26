@@ -2,7 +2,6 @@ use std::time::Duration;
 
 pub mod anchor;
 pub mod arguments;
-pub mod cli_result;
 pub mod executor;
 pub mod init;
 pub mod institutional_validators;

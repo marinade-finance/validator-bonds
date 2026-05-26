@@ -1,4 +1,3 @@
-use crate::cli_result::CliError;
 use anyhow::anyhow;
 use log::{debug, info};
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -6,6 +5,7 @@ use solana_sdk::pubkey::Pubkey;
 use std::sync::Arc;
 use validator_bonds::state::config::{find_bonds_withdrawer_authority, Config};
 use validator_bonds::state::settlement::{find_settlement_staker_authority, Settlement};
+use validator_bonds_common::cli_result::CliError;
 
 use crate::stake_accounts::STAKE_ACCOUNT_RENT_EXEMPTION;
 use crate::CONTRACT_V2_DEPLOYMENT_EPOCH;
@@ -35,7 +35,7 @@ pub async fn list_claimable_settlements(
 ) -> Result<Vec<ClaimableSettlementsReturn>, CliError> {
     let clock = get_clock(rpc_client.clone())
         .await
-        .map_err(CliError::RetryAble)?;
+        .map_err(CliError::retry_able)?;
     let current_epoch = clock.epoch;
     let current_slot = clock.slot;
 
@@ -43,7 +43,7 @@ pub async fn list_claimable_settlements(
 
     let all_settlements = get_settlements(rpc_client.clone())
         .await
-        .map_err(CliError::RetryAble)?;
+        .map_err(CliError::retry_able)?;
 
     let claimable_settlements = all_settlements
         .into_iter()
@@ -68,7 +68,7 @@ pub async fn list_claimable_settlements(
     let stake_accounts =
         collect_stake_accounts(rpc_client.clone(), Some(&withdraw_authority), None)
             .await
-            .map_err(CliError::RetryAble)?;
+            .map_err(CliError::retry_able)?;
     info!(
         "For config {} existing {} stake accounts",
         config_address,
@@ -84,7 +84,7 @@ pub async fn list_claimable_settlements(
             .collect::<Vec<_>>(),
     )
     .await
-    .map_err(CliError::RetryAble)?
+    .map_err(CliError::retry_able)?
         .into_iter().zip(claimable_settlements.into_iter())
         .filter_map(|((settlement_pubkey, claims_pubkey, claims), (s_addr, settlement))|
         {
@@ -117,7 +117,7 @@ pub async fn list_claimable_settlements(
         rpc_client.clone(),
     )
     .await
-    .map_err(CliError::RetryAble)?;
+    .map_err(CliError::retry_able)?;
 
     let results = claimable_settlement_claims
         .into_iter()

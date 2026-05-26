@@ -15,43 +15,62 @@ use std::collections::HashMap;
 
 use crate::settlement_config::FeeConfig;
 
-/// The output Settlements data is updated with stake accounts owned by Marinade and DAO
+/// Stake accounts owned by Marinade and DAO that fee claims in the output
+/// settlements are routed to.
+pub struct FeeDepositStakeAccounts {
+    pub marinade_active: HashMap<Pubkey, u64>,
+    pub marinade_activating: HashMap<Pubkey, u64>,
+    pub dao_active: HashMap<Pubkey, u64>,
+    pub dao_activating: HashMap<Pubkey, u64>,
+}
+
 pub fn get_fee_deposit_stake_accounts(
     stake_meta_index: &StakeMetaIndex,
     fee_config: &FeeConfig,
-) -> (HashMap<Pubkey, u64>, HashMap<Pubkey, u64>) {
+) -> FeeDepositStakeAccounts {
     let authorities = fee_config.fee_authorities();
 
-    let marinade_fee_deposit_stake_accounts: HashMap<_, _> = stake_meta_index
+    let marinade_meta = stake_meta_index
         .stake_meta_collection
         .stake_metas
         .iter()
         .find(|x| {
             x.withdraw_authority.eq(&authorities.marinade_withdraw)
                 && x.stake_authority.eq(&authorities.marinade_stake)
-        })
-        .iter()
-        .map(|s| (s.pubkey, s.active_delegation_lamports))
-        .collect();
-    let dao_fee_deposit_stake_accounts: HashMap<_, _> = stake_meta_index
+        });
+    let dao_meta = stake_meta_index
         .stake_meta_collection
         .stake_metas
         .iter()
         .find(|x| {
             x.withdraw_authority.eq(&authorities.dao_withdraw)
                 && x.stake_authority.eq(&authorities.dao_stake)
-        })
-        .iter()
-        .map(|s| (s.pubkey, s.active_delegation_lamports))
-        .collect();
+        });
 
-    (
-        marinade_fee_deposit_stake_accounts,
-        dao_fee_deposit_stake_accounts,
-    )
+    FeeDepositStakeAccounts {
+        marinade_active: marinade_meta
+            .iter()
+            .filter(|s| s.active_delegation_lamports > 0)
+            .map(|s| (s.pubkey, s.active_delegation_lamports))
+            .collect(),
+        marinade_activating: marinade_meta
+            .iter()
+            .filter(|s| s.activating_delegation_lamports > 0)
+            .map(|s| (s.pubkey, s.activating_delegation_lamports))
+            .collect(),
+        dao_active: dao_meta
+            .iter()
+            .filter(|s| s.active_delegation_lamports > 0)
+            .map(|s| (s.pubkey, s.active_delegation_lamports))
+            .collect(),
+        dao_activating: dao_meta
+            .iter()
+            .filter(|s| s.activating_delegation_lamports > 0)
+            .map(|s| (s.pubkey, s.activating_delegation_lamports))
+            .collect(),
+    }
 }
 
-/// Adds a settlement to the collection if any claims are present, placing it in a deterministic order
 pub fn add_to_settlement_collection(
     settlement_collections: &mut Vec<Settlement>,
     mut claims: Vec<SettlementClaim>,

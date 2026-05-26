@@ -1,7 +1,5 @@
-use anyhow::anyhow;
 use log::error;
 use std::fmt;
-use std::fmt::Debug;
 use std::process::{ExitCode, Termination};
 
 /// For wrapping the main function to be able to return a Result
@@ -13,7 +11,7 @@ use std::process::{ExitCode, Termination};
 /// }
 ///
 /// fn real_main() -> anyhow::Result<()> {
-///     Err(CliError::retry_able("This is a retry-able error"))
+///     Err(CliError::retry_able(anyhow::anyhow!("This is a retry-able error")))
 /// }
 pub struct CliResult(pub anyhow::Result<()>);
 
@@ -40,16 +38,16 @@ pub enum CliError {
 }
 
 impl CliError {
-    pub fn critical<T: Debug>(err: T) -> anyhow::Error {
-        CliError::Critical(anyhow!("{err:?}")).into()
+    pub fn critical<E: Into<anyhow::Error>>(err: E) -> CliError {
+        CliError::Critical(err.into())
     }
 
-    pub fn warning<T: Debug>(err: T) -> anyhow::Error {
-        CliError::Warning(anyhow!("{err:?}")).into()
+    pub fn warning<E: Into<anyhow::Error>>(err: E) -> CliError {
+        CliError::Warning(err.into())
     }
 
-    pub fn retry_able<T: Debug>(err: T) -> anyhow::Error {
-        CliError::RetryAble(anyhow!("{err:?}")).into()
+    pub fn retry_able<E: Into<anyhow::Error>>(err: E) -> CliError {
+        CliError::RetryAble(err.into())
     }
 }
 

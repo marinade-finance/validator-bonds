@@ -105,6 +105,10 @@ steps:
         --bond-type $$bond_type > bonds.yaml
     artifact_paths:
       - bonds.yaml
+    retry:
+      automatic:
+        - exit_status: 100
+          limit: 5
 
   - wait: ~
 
@@ -117,6 +121,10 @@ steps:
     - |
       ./target/release/validator-bonds-api-cli \
         store-bonds --postgres-url "$$POSTGRES_URL" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file bonds.yaml
+    retry:
+      automatic:
+        - exit_status: 100
+          limit: 5
 
   - wait: ~
 

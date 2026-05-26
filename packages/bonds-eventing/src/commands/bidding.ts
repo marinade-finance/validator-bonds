@@ -126,40 +126,40 @@ async function manageBidding(opts: Record<string, unknown>) {
   const hasDb = !!config.postgresUrl
   let pool: Awaited<ReturnType<typeof createPool>> | null = null
 
-  if (hasDb) {
-    const postgresUrl = config.postgresUrl as string
-    const poolConfig: Parameters<typeof createPool>[1] = {
-      typeParsers: [
-        ...createTypeParserPreset(),
-        {
-          name: 'timestamptz',
-          parse: (timestamp: string) => new Date(timestamp).toISOString(),
-        },
-        {
-          name: 'numeric',
-          parse: (numeric: string) => numeric,
-        },
-      ],
-      maximumPoolSize: 5,
-    }
-
-    if (config.postgresSslRootCert) {
-      const ca = fs.readFileSync(config.postgresSslRootCert, 'utf8')
-      ;(poolConfig as Record<string, unknown>).ssl = {
-        rejectUnauthorized: true,
-        ca: [ca],
-      }
-    }
-
-    pool = await createPool(postgresUrl, poolConfig)
-    previousState = await loadPreviousState(pool, bondType, logger)
-  } else {
-    logger.warn(
-      'No POSTGRES_URL configured, running without state (all validators will be first_seen)',
-    )
-  }
-
   try {
+    if (hasDb) {
+      const postgresUrl = config.postgresUrl as string
+      const poolConfig: Parameters<typeof createPool>[1] = {
+        typeParsers: [
+          ...createTypeParserPreset(),
+          {
+            name: 'timestamptz',
+            parse: (timestamp: string) => new Date(timestamp).toISOString(),
+          },
+          {
+            name: 'numeric',
+            parse: (numeric: string) => numeric,
+          },
+        ],
+        maximumPoolSize: 5,
+      }
+
+      if (config.postgresSslRootCert) {
+        const ca = fs.readFileSync(config.postgresSslRootCert, 'utf8')
+        ;(poolConfig as Record<string, unknown>).ssl = {
+          rejectUnauthorized: true,
+          ca: [ca],
+        }
+      }
+
+      pool = await createPool(postgresUrl, poolConfig)
+      previousState = await loadPreviousState(pool, bondType, logger)
+    } else {
+      logger.warn(
+        'No POSTGRES_URL configured, running without state (all validators will be first_seen)',
+      )
+    }
+
     // 3. Evaluate deltas
     const events = evaluateDeltas(
       validators,
@@ -217,6 +217,20 @@ async function manageBidding(opts: Record<string, unknown>) {
     logger.info(
       `Eventing complete: ${events.length} events (${sent} sent, ${failed} failed)`,
     )
+  } catch (err) {
+    // Surface the stack and any structured payload so log scrapers see more
+    // than just `err.message` (the top-level handler in `index.ts` only logs
+    // the message, which made past slonik failures untraceable).
+    logger.error(
+      {
+        err:
+          err instanceof Error
+            ? { name: err.name, message: err.message, stack: err.stack }
+            : err,
+      },
+      'Eventing failed',
+    )
+    throw err
   } finally {
     if (pool) {
       await pool.end()

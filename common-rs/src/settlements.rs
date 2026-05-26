@@ -1,4 +1,5 @@
 use crate::bonds::get_bonds_for_pubkeys;
+use crate::cli_result::CliError;
 use crate::get_validator_bonds_program;
 use crate::settlement_claims::SettlementClaimsBitmap;
 use crate::utils::{get_account_infos_for_pubkeys, get_accounts_for_pubkeys};
@@ -24,8 +25,10 @@ pub async fn get_settlements(
 pub async fn get_settlements_for_config(
     rpc_client: Arc<RpcClient>,
     config_address: &Pubkey,
-) -> anyhow::Result<Vec<(Pubkey, Settlement)>> {
-    let all_settlements = get_settlements(rpc_client.clone()).await?;
+) -> Result<Vec<(Pubkey, Settlement)>, CliError> {
+    let all_settlements = get_settlements(rpc_client.clone())
+        .await
+        .map_err(CliError::retry_able)?;
 
     let settlement_bonds = all_settlements
         .iter()
@@ -33,16 +36,18 @@ pub async fn get_settlements_for_config(
         .collect::<HashSet<_>>()
         .into_iter()
         .collect::<Vec<Pubkey>>();
-    let bonds = get_bonds_for_pubkeys(rpc_client.clone(), &settlement_bonds).await?;
+    let bonds = get_bonds_for_pubkeys(rpc_client.clone(), &settlement_bonds)
+        .await
+        .map_err(CliError::retry_able)?;
     let bonds_map = bonds.into_iter()
         .map(|(pubkey, bond)| {
             if let Some(bond) = bond {
                 Ok((pubkey, bond))
             } else {
-                Err(anyhow!("Bond not found for Settlement: {pubkey}. The Bond account existence for a Settlement is the program invariant"))
+                Err(CliError::critical(anyhow!("Bond not found for Settlement: {pubkey}. The Bond account existence for a Settlement is the program invariant")))
             }
         })
-        .collect::<anyhow::Result<HashMap<_, _>>>()?;
+        .collect::<Result<HashMap<_, _>, CliError>>()?;
 
     debug!(
         "Found {} bonds for {} settlements for program id {}",

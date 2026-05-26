@@ -1,11 +1,10 @@
 use anyhow::anyhow;
 use clap::Parser;
 use log::{error, info};
-use merkle_tree::serde_serialize::pubkey_string_conversion;
+use merkle_tree::serde_serialize::{option_pubkey_string_conversion, pubkey_string_conversion};
 use serde::{Deserialize, Serialize};
 use settlement_common::utils::read_from_json_file;
 use settlement_pipelines::arguments::{get_rpc_client, GlobalOpts, ReportOpts};
-use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::init::init_log;
 use settlement_pipelines::json_data::BondSettlement;
 use settlement_pipelines::reporting::{
@@ -18,6 +17,7 @@ use std::ops::Range;
 use std::path::PathBuf;
 use std::pin::Pin;
 use validator_bonds::state::settlement::Settlement;
+use validator_bonds_common::cli_result::{CliError, CliResult};
 use validator_bonds_common::config::get_config;
 use validator_bonds_common::settlements::get_settlements_for_config;
 
@@ -48,11 +48,33 @@ struct SettlementEpoch {
     epoch: u64,
     #[serde(with = "pubkey_string_conversion")]
     address: Pubkey,
+    #[serde(with = "option_pubkey_string_conversion")]
+    vote_account: Option<Pubkey>,
+    #[serde(with = "option_pubkey_string_conversion")]
+    bond: Option<Pubkey>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    claims_lamports: Option<u64>,
 }
 
 impl SettlementEpoch {
-    fn new(epoch: u64, address: Pubkey) -> Self {
-        Self { epoch, address }
+    fn new(
+        epoch: u64,
+        address: Pubkey,
+        vote_account: Option<Pubkey>,
+        bond: Option<Pubkey>,
+    ) -> Self {
+        Self {
+            epoch,
+            address,
+            vote_account,
+            bond,
+            claims_lamports: None,
+        }
+    }
+
+    fn with_claims_lamports(mut self, claims_lamports: u64) -> Self {
+        self.claims_lamports = Some(claims_lamports);
+        self
     }
 }
 
@@ -97,6 +119,8 @@ fn verify_unknown_settlements(
             unknown_settlements.push(SettlementEpoch::new(
                 settlement.epoch_created_for,
                 *settlement_pubkey,
+                None,
+                Some(settlement.bond),
             ));
         }
     }
@@ -136,10 +160,15 @@ fn verify_epoch_settlements(
                         "Existing JSON settlement {} emitted on-chain but not funded (epoch: {})",
                         listed_settlement.settlement_address, epoch_to_verify
                     );
-                    non_funded_settlements.push(SettlementEpoch::new(
-                        epoch_to_verify,
-                        listed_settlement.settlement_address,
-                    ));
+                    non_funded_settlements.push(
+                        SettlementEpoch::new(
+                            epoch_to_verify,
+                            listed_settlement.settlement_address,
+                            Some(listed_settlement.vote_account_address),
+                            Some(listed_settlement.bond_address),
+                        )
+                        .with_claims_lamports(listed_settlement.claims_lamports),
+                    );
                 }
             } else {
                 error!(
@@ -149,6 +178,8 @@ fn verify_epoch_settlements(
                 non_existing_settlements.push(SettlementEpoch::new(
                     epoch_to_verify,
                     listed_settlement.settlement_address,
+                    Some(listed_settlement.vote_account_address),
+                    Some(listed_settlement.bond_address),
                 ));
             }
         }
@@ -176,7 +207,7 @@ async fn real_main(
     // Load JSON settlements
     let listed_settlements: Vec<BondSettlement> = read_from_json_file(&args.listed_settlements)
         .map_err(|e| anyhow!("Failed to load --listed-settlements: {e:?}"))
-        .map_err(CliError::Critical)?;
+        .map_err(CliError::critical)?;
 
     info!(
         "Loaded {} settlements from --listed-settlements file",
@@ -190,16 +221,16 @@ async fn real_main(
             acc
         });
 
-    let (rpc_client, _) = get_rpc_client(&args.global_opts).map_err(CliError::RetryAble)?;
+    let (rpc_client, _) = get_rpc_client(&args.global_opts).map_err(CliError::retry_able)?;
 
     let config_data = get_config(rpc_client.clone(), config_address)
         .await
-        .map_err(CliError::RetryAble)?;
+        .map_err(CliError::retry_able)?;
 
     let current_epoch = rpc_client
         .get_epoch_info()
         .await
-        .map_err(|e| CliError::retry_able(&e))?
+        .map_err(CliError::retry_able)?
         .epoch;
 
     let claiming_start_epoch = current_epoch.saturating_sub(config_data.epochs_to_claim_settlement);
@@ -209,8 +240,7 @@ async fn real_main(
 
     let onchain_settlements: HashMap<Pubkey, Settlement> =
         get_settlements_for_config(rpc_client.clone(), &config_address)
-            .await
-            .map_err(CliError::RetryAble)?
+            .await?
             .into_iter()
             .collect();
 

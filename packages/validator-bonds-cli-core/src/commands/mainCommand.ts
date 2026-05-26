@@ -6,15 +6,24 @@ import {
   ExecutionError,
   parseWalletFromOpts,
 } from '@marinade.finance/web3js-1x'
+import { PublicKey } from '@solana/web3.js'
 import { Command, Option } from 'commander'
 import pino from 'pino'
 
 import { printNotificationBanners } from '../banner'
-import { setValidatorBondsCliContext } from '../context'
+import { recordCliUsage } from '../cliUsage'
+import { getCliContext, setValidatorBondsCliContext } from '../context'
+import { translateKnownError } from '../errorTranslators'
 import { startFetchingNotificationBanners } from '../notifications'
 import { requireLatestCliVersion } from '../npmRegistry'
 
+import type { CliUsageConfig } from '../cliUsage'
 import type { NotificationsConfig } from '../notifications'
+
+export const DEFAULT_NOTIFICATIONS_API_URL =
+  'https://marinade-notifications.marinade.finance'
+export const DEFAULT_CLI_USAGE_API_URL =
+  'https://validator-bonds-api.marinade.finance'
 
 export function launchCliProgram({
   version,
@@ -22,12 +31,14 @@ export function launchCliProgram({
   installSubcommands,
   npmRegistryUrl,
   notificationsConfig,
+  cliUsageConfig,
 }: {
   version: string
   installAdditionalOptions: (program: Command) => void
   installSubcommands: (program: Command) => void
   npmRegistryUrl: string
   notificationsConfig?: NotificationsConfig
+  cliUsageConfig?: CliUsageConfig
 }) {
   const logger = pino(pinoConfiguration('info'), pino.destination())
   logger.level = 'debug'
@@ -91,7 +102,13 @@ export function launchCliProgram({
         'Override notifications API URL',
       )
         .env('NOTIFICATIONS_API_URL')
-        .default('https://marinade-notifications.marinade.finance')
+        .default(DEFAULT_NOTIFICATIONS_API_URL)
+        .hideHelp(),
+    )
+    .addOption(
+      new Option('--cli-usage-api-url <url>', 'Override CLI usage API URL')
+        .env('CLI_USAGE_API_URL')
+        .default(DEFAULT_CLI_USAGE_API_URL)
         .hideHelp(),
     )
 
@@ -115,12 +132,32 @@ export function launchCliProgram({
     const commandName = action.name()
 
     const notificationsApiUrl = command.opts().notificationsApiUrl as string
+    const cliUsageApiUrl = command.opts().cliUsageApiUrl as string
 
     if (notificationsConfig?.enabled) {
       startFetchingNotificationBanners(
         {
           notificationType: notificationsConfig.notificationType,
           apiUrl: notificationsApiUrl,
+        },
+        logger,
+      )
+    }
+
+    if (cliUsageConfig?.enabled) {
+      // Argument parsers like parsePubkey return Promise<PublicKey>; unwrap so
+      // we inspect the resolved value, not the pending Promise.
+      const arg = await Promise.resolve(action.processedArgs?.[0]).catch(
+        () => undefined,
+      )
+      const account = arg instanceof PublicKey ? arg.toBase58() : undefined
+      void recordCliUsage(
+        {
+          apiUrl: cliUsageApiUrl,
+          cliType: cliUsageConfig.cliType,
+          cliVersion: version,
+          operation: commandName,
+          account,
         },
         logger,
       )
@@ -159,6 +196,14 @@ export function launchCliProgram({
       logger.flush()
     },
     (err: Error) => {
+      const originalErr = err
+      let rpcEndpoint: string | undefined
+      try {
+        rpcEndpoint = getCliContext().provider.connection.rpcEndpoint
+      } catch (_e) {
+        // context not yet set (error happened before preAction completed)
+      }
+      err = translateKnownError(err, { rpcEndpoint })
       logger.error(
         err instanceof ExecutionError
           ? err.messageWithTransactionError()
@@ -166,9 +211,11 @@ export function launchCliProgram({
       )
       logger.debug({
         resolution: 'Failure',
-        err,
+        err: originalErr,
         error_stack:
-          err instanceof Error ? JSON.stringify(err.stack, null, 2) : undefined,
+          originalErr instanceof Error
+            ? JSON.stringify(originalErr.stack, null, 2)
+            : undefined,
         args: process.argv,
       })
 

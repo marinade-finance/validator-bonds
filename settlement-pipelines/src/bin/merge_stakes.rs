@@ -11,9 +11,9 @@ use settlement_pipelines::arguments::GlobalOpts;
 use settlement_pipelines::arguments::{
     init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, ReportOpts, TipPolicyOpts,
 };
-use settlement_pipelines::cli_result::{CliError, CliResult};
 use settlement_pipelines::executor::execute_parallel_with_rate;
 use settlement_pipelines::init::{get_executor, init_log};
+use validator_bonds_common::cli_result::{CliError, CliResult};
 
 use settlement_pipelines::reporting::{
     with_reporting_ext, PrintReportable, ReportHandler, ReportSerializable,
@@ -233,12 +233,13 @@ async fn merge_stake(
         )
         .await?;
         if !non_mergeable.is_empty() {
-            return Err(CliError::critical(format!(
+            return Err(CliError::critical(anyhow::anyhow!(
                 "Not expecting non-mergeable stake accounts here. Config: {}, Stake accounts type: {:?}, accounts: {}",
                 config_address,
                 destination_stake_state_type,
                 non_mergeable.iter().map(|p| p.to_string()).collect::<Vec<String>>().join(", ")
-            )));
+            ))
+            .into());
         }
 
         reporting

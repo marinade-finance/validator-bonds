@@ -31,21 +31,20 @@
   },
   "dependencies": {
     "@marinade.finance/cli-common": "4.2.5",
-    "@marinade.finance/ds-sam-sdk": "0.0.46",
+    "@marinade.finance/ds-sam-sdk": "0.0.51",
     "@marinade.finance/ts-common": "4.2.5",
     "@marinade.finance/validator-bonds-sdk": "workspace:*",
-    "@marinade.finance/notifications-bonds-event-v1": "1.0.2",
+    "@marinade.finance/notifications-bonds-event-v1": "1.0.4",
     "@solana/web3.js": "1.98.4",
     "commander": "14.0.1",
     "pino": "9.9.5",
     "pino-pretty": "13.1.1",
     "slonik": "37.0.0",
-    "uuid": "^10.0.0",
+    "uuid": "^11.0.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
     "@types/node": "22.10.7",
-    "@types/uuid": "^10.0.0",
     "reflect-metadata": "0.2.2"
   },
   "engines": {
