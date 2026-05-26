@@ -1,4 +1,3 @@
-#!/usr/bin/env bun
 /* eslint-disable n/no-process-exit */
 
 import { readFileSync } from 'node:fs'
@@ -10,8 +9,8 @@ type Settlement = {
   details: {
     total_marinade_active_stake: number
     total_marinade_stakers_rewards: string
-    marinade_fee_claim: number | null
-    dao_fee_claim: number | null
+    marinade_fee_claim: number
+    dao_fee_claim: number
   } | null
 }
 
@@ -81,7 +80,7 @@ async function main() {
   const ncap = bids.filter(
     b =>
       parseFloat(b.details.total_marinade_stakers_rewards) > 0 &&
-      (b.details.marinade_fee_claim ?? 0) + (b.details.dao_fee_claim ?? 0) <
+      b.details.marinade_fee_claim + b.details.dao_fee_claim <
         ((parseFloat(b.details.total_marinade_stakers_rewards) * maxFeeBps) /
           10000) *
           0.9999,

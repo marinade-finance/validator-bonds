@@ -221,6 +221,7 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs bid-distribution-settlements.json .
     - pnpm install
     - |
+      set -o pipefail
       pnpm exec tsx scripts/fee-annotation.ts \
         "./bid-distribution-settlements.json" \
         "./settlement-config.yaml" \
