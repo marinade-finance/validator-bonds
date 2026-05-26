@@ -1,0 +1,6 @@
+question: "What triggers a BlacklistPenalty and who receives the settlement?"
+facts:
+  - "blacklisted"
+  - "sandwich"
+  - "stakers"
+  - "ValidatorBond"

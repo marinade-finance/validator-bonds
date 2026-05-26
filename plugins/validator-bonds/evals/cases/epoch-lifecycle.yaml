@@ -1,0 +1,6 @@
+question: "Explain the epoch lifecycle for Validator Bonds settlements."
+facts:
+  - "merkle"
+  - "claiming window"
+  - "off-chain"
+  - "on-chain"

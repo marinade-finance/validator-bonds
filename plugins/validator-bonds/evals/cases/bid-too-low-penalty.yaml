@@ -1,4 +1,5 @@
-q: "What triggers a BidTooLowPenalty?"
+question: "What triggers a BidTooLowPenalty settlement?"
 facts:
-  - "bid below clearing price"
-  - "penalty deducted from bond"
+  - "bid below minimum threshold"
+  - "ValidatorBond"
+  - "BidTooLowPenalty"

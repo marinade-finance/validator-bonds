@@ -1,0 +1,8 @@
+question: "What are all the settlement types in the Validator Bonds protocol?"
+facts:
+  - "Bidding"
+  - "BidTooLowPenalty"
+  - "BlacklistPenalty"
+  - "BondRiskFee"
+  - "InstitutionalPayout"
+  - "ProtectedEvent"
