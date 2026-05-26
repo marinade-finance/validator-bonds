@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
-// Usage: bun runner.ts [--no-skills] <cases-dir>
-// Each .yaml in cases-dir: { question: string, facts: string[] }
+// Usage: bun runner.ts [--skill-file <path>] <cases-dir|file.yaml...>
+// Each .yaml: { question: string, facts: string[] }
+// --skill-file  inject a SKILL.md via --append-system-prompt-file (with skill)
+// omit          bare run, no skill (baseline)
 // Facts checked with includes() first; semantic misses go to haiku.
 
 import { parseArgs } from 'node:util'
@@ -17,23 +19,28 @@ interface Case {
 const { values, positionals } = parseArgs({
   args: Bun.argv.slice(2),
   options: {
-    'no-skills': { type: 'boolean', default: false },
+    'skill-file': { type: 'string' },
   },
   allowPositionals: true,
 })
 
 if (positionals.length === 0)
-  throw new Error('Usage: bun runner.ts [--no-skills] <cases-dir|file.yaml...>')
+  throw new Error(
+    'Usage: bun runner.ts [--skill-file <path>] <cases-dir|file.yaml...>',
+  )
 
-const extraFlags = values['no-skills'] ? ['--no-skills'] : []
+const skillFile = values['skill-file']
+const baseFlags = skillFile
+  ? ['--bare', '--append-system-prompt-file', skillFile]
+  : ['--bare']
 
 const ask = async (question: string): Promise<string> =>
-  $`claude ${extraFlags} -p ${question}`.text()
+  $`claude ${baseFlags} -p ${question}`.text()
 
 const supports = async (answer: string, fact: string): Promise<boolean> => {
   if (answer.includes(fact)) return true
   const verdict =
-    await $`claude --model claude-haiku-4-5-20251001 -p ${`Does the response below support this fact? Answer YES or NO only.\nFact: ${fact}\nResponse: ${answer}`}`.text()
+    await $`claude --bare --model claude-haiku-4-5-20251001 -p ${`Does the response below support this fact? Answer YES or NO only.\nFact: ${fact}\nResponse: ${answer}`}`.text()
   return verdict.trim().startsWith('YES')
 }
 
