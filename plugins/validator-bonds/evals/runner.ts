@@ -4,16 +4,32 @@
 // --skill-file  inject a SKILL.md via --append-system-prompt-file (with skill)
 // omit          bare run, no skill (baseline)
 // Facts checked with includes() first; semantic misses go to haiku.
+// Writes a detailed YAML log to ./tmp/eval-<timestamp>.yml
 
 import { parseArgs } from 'node:util'
-import { parse } from 'yaml'
+import { parse, stringify } from 'yaml'
 import { $ } from 'bun'
-import { readdir, readFile, stat } from 'fs/promises'
+import { readdir, readFile, stat, mkdir, writeFile } from 'fs/promises'
 import { join, basename } from 'path'
 
 interface Case {
   question: string
   facts: string[]
+}
+
+interface FactResult {
+  fact: string
+  passed: boolean
+  method: 'exact' | 'haiku'
+  haiku_verdict?: string
+}
+
+interface CaseResult {
+  case: string
+  result: 'pass' | 'fail'
+  question: string
+  answer: string
+  facts: FactResult[]
 }
 
 const { values, positionals } = parseArgs({
@@ -37,11 +53,17 @@ const baseFlags = skillFile
 const ask = async (question: string): Promise<string> =>
   $`claude ${baseFlags} -p ${question}`.text()
 
-const supports = async (answer: string, fact: string): Promise<boolean> => {
-  if (answer.includes(fact)) return true
-  const verdict =
+const supports = async (answer: string, fact: string): Promise<FactResult> => {
+  if (answer.includes(fact)) return { fact, passed: true, method: 'exact' }
+  const raw =
     await $`claude --bare --model claude-haiku-4-5-20251001 -p ${`Does the response below support this fact? Answer YES or NO only.\nFact: ${fact}\nResponse: ${answer}`}`.text()
-  return verdict.trim().startsWith('YES')
+  const verdict = raw.trim()
+  return {
+    fact,
+    passed: verdict.startsWith('YES'),
+    method: 'haiku',
+    haiku_verdict: verdict,
+  }
 }
 
 const expand = async (p: string): Promise<string[]> => {
@@ -60,24 +82,37 @@ if (files.length === 0) throw new Error('No .yaml files found')
 
 let passed = 0
 let failed = 0
+const log: CaseResult[] = []
 
 for (const file of files) {
   const { question, facts } = parse(await readFile(file, 'utf8')) as Case
   const answer = await ask(question)
-  const results = await Promise.all(facts.map(f => supports(answer, f)))
-  const ok = results.every(Boolean)
+  const factResults = await Promise.all(facts.map(f => supports(answer, f)))
+  const ok = factResults.every(r => r.passed)
+
+  const entry: CaseResult = {
+    case: basename(file, '.yaml'),
+    result: ok ? 'pass' : 'fail',
+    question,
+    answer: answer.trim(),
+    facts: factResults,
+  }
+  log.push(entry)
 
   if (ok) {
-    console.log(`✓  ${basename(file, '.yaml')}`)
+    console.log(`✓  ${entry.case}`)
     passed++
   } else {
-    console.log(`✗  ${basename(file, '.yaml')}`)
-    facts.forEach((f, i) => {
-      if (!results[i]) console.log(`     missing: ${f}`)
+    console.log(`✗  ${entry.case}`)
+    factResults.forEach(r => {
+      if (!r.passed) console.log(`     missing: ${r.fact}`)
     })
     failed++
   }
 }
 
-console.log(`\n${passed}/${passed + failed} passed`)
+await mkdir('./tmp', { recursive: true })
+const logPath = `./tmp/eval-${new Date().toISOString().replace(/[:.]/g, '-')}.yml`
+await writeFile(logPath, stringify(log))
+console.log(`\n${passed}/${passed + failed} passed  →  ${logPath}`)
 if (failed > 0) throw new Error(`${failed} case(s) failed`)
