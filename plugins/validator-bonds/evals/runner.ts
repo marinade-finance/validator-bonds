@@ -2,7 +2,7 @@
 // Usage: bun runner.ts [--skill-file <path>] <cases-dir|file.yaml...>
 // Each .yaml: { question: string, facts: string[] }
 // --skill-file  inject a SKILL.md via --append-system-prompt-file (with skill)
-// omit          bare run, no skill (baseline)
+// omit          no skill (baseline)
 // Facts checked with includes() first; semantic misses go to haiku.
 // Writes a detailed YAML log to ./tmp/eval-<timestamp>.yml
 
@@ -47,8 +47,8 @@ if (positionals.length === 0)
 
 const skillFile = values['skill-file']
 const baseFlags = skillFile
-  ? ['--bare', '--append-system-prompt-file', skillFile]
-  : ['--bare']
+  ? ['--disable-slash-commands', '--append-system-prompt-file', skillFile]
+  : ['--disable-slash-commands']
 
 const ask = async (question: string): Promise<string> =>
   $`claude ${baseFlags} -p ${question}`.text()
@@ -56,7 +56,7 @@ const ask = async (question: string): Promise<string> =>
 const supports = async (answer: string, fact: string): Promise<FactResult> => {
   if (answer.includes(fact)) return { fact, passed: true, method: 'exact' }
   const raw =
-    await $`claude --bare --model claude-haiku-4-5-20251001 -p ${`Does the response below support this fact? Answer YES or NO only.\nFact: ${fact}\nResponse: ${answer}`}`.text()
+    await $`claude --disable-slash-commands --model claude-haiku-4-5-20251001 -p ${`Does the response below support this fact? Answer YES or NO only.\nFact: ${fact}\nResponse: ${answer}`}`.text()
   const verdict = raw.trim()
   return {
     fact,
