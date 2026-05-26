@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
-// Usage: bun runner.ts [--skill-file <path>] <cases-dir|file.yaml...>
+// Usage: bun runner.ts [--plugin-dir <path>] [--no-skills] <cases-dir|file.yaml...>
 // Each .yaml: { question: string, facts: string[] }
-// --skill-file  SKILL.md to use as system prompt (with skill)
-// omit          minimal system prompt, no skill (baseline)
-// Uses --system-prompt to replace the default (prevents CLAUDE.md startup noise).
+// --plugin-dir  load only this plugin; skills auto-trigger based on routing
+// --no-skills   disable all skills (baseline comparison)
+// Run in dockbox for clean isolation (fresh home = no global skills, ANTHROPIC_API_KEY forwarded).
 // Facts checked with includes() first; semantic misses go to haiku.
 // Writes a detailed YAML log to ./tmp/eval-<timestamp>.yml
 
@@ -36,33 +36,31 @@ interface CaseResult {
 const { values, positionals } = parseArgs({
   args: Bun.argv.slice(2),
   options: {
-    'skill-file': { type: 'string' },
+    'plugin-dir': { type: 'string' },
+    'no-skills': { type: 'boolean', default: false },
   },
   allowPositionals: true,
 })
 
 if (positionals.length === 0)
   throw new Error(
-    'Usage: bun runner.ts [--skill-file <path>] <cases-dir|file.yaml...>',
+    'Usage: bun runner.ts [--plugin-dir <path>] [--no-skills] <cases-dir|file.yaml...>',
   )
 
-const skillFile = values['skill-file']
-
-const stripFrontmatter = (content: string): string => {
-  const parts = content.split('---\n', 3)
-  return parts.length >= 3 ? parts[2].trim() : content.trim()
-}
-
-const systemPrompt = skillFile
-  ? stripFrontmatter(await readFile(skillFile, 'utf8'))
-  : 'You are a helpful assistant. Answer questions directly and concisely.'
+const pluginDir = values['plugin-dir']
+const baseFlags = values['no-skills']
+  ? ['--disable-slash-commands']
+  : pluginDir
+    ? ['--plugin-dir', pluginDir]
+    : []
 
 const ask = async (question: string): Promise<string> =>
-  $`claude --system-prompt ${systemPrompt} -p ${question}`.text()
+  $`claude ${baseFlags} -p ${question}`.text()
+
+const judgePrompt = 'Answer YES or NO only. No explanation.'
 
 const supports = async (answer: string, fact: string): Promise<FactResult> => {
   if (answer.includes(fact)) return { fact, passed: true, method: 'exact' }
-  const judgePrompt = 'Answer YES or NO only. No explanation.'
   const raw =
     await $`claude --system-prompt ${judgePrompt} --model claude-haiku-4-5-20251001 -p ${`Does the response below support this fact?\nFact: ${fact}\nResponse: ${answer}`}`.text()
   const verdict = raw.trim()

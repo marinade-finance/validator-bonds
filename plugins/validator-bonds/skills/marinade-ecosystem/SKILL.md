@@ -1,6 +1,7 @@
 ---
 name: marinade-ecosystem
-description: Marinade Finance public ecosystem map. Use when navigating cross-repo work, looking up program IDs, public SDKs, shared TS/Rust patterns, or understanding how repos relate to each other.
+description: Marinade Finance public ecosystem map — repos, program IDs, SDKs, APIs, issue filing. NOT for Validator Bonds protocol internals (use marinade-sam-bond).
+when_to_use: marinade-finance GitHub org, liquid-staking-program, ds-sam, ds-scoring, delegation-strategy, institutional-staking, marinade.finance site, filing an issue, program IDs, mSOL mint, MNDE token, marinade-ts-sdk, configGetter, psr.marinade.finance, scoring.marinade.finance, cross-repo navigation, how repos relate
 ---
 
 # Marinade Ecosystem
