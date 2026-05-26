@@ -108,7 +108,12 @@ export class SettlementReason {
   }
 }
 
-export class StakeAccountClaim {
+export enum ClaimKind {
+  StakerPayout = 'StakerPayout',
+  FeeDeposit = 'FeeDeposit',
+}
+
+export abstract class SettlementClaim {
   @Expose()
   @IsPublicKey({ message: 'Invalid withdraw authority public key' })
   @Transform(({ value }) => (value ? new PublicKey(value) : value))
@@ -119,6 +124,17 @@ export class StakeAccountClaim {
   @Transform(({ value }) => (value ? new PublicKey(value) : value))
   readonly stake_authority!: PublicKey
 
+  @Expose()
+  @IsBigInt()
+  @Transform(({ value }) => (value ? BigInt(value) : 0n))
+  readonly claim_amount!: bigint
+
+  @Expose()
+  @IsEnum(ClaimKind)
+  readonly kind!: ClaimKind
+}
+
+export class StakerPayoutClaim extends SettlementClaim {
   @Expose()
   @IsDefined()
   readonly stake_accounts!: Record<string, number>
@@ -132,12 +148,9 @@ export class StakeAccountClaim {
   @IsBigInt()
   @Transform(({ value }) => (value ? BigInt(value) : 0n))
   readonly activating_stake!: bigint
-
-  @Expose()
-  @IsBigInt()
-  @Transform(({ value }) => (value ? BigInt(value) : 0n))
-  readonly claim_amount!: bigint
 }
+
+export class FeeDepositClaim extends SettlementClaim {}
 
 export class Settlement {
   @Expose()
@@ -178,8 +191,17 @@ export class Settlement {
 
   @Expose()
   @ValidateNested({ each: true })
-  @Type(() => StakeAccountClaim)
-  readonly claims!: StakeAccountClaim[]
+  @Type(() => SettlementClaim, {
+    keepDiscriminatorProperty: true,
+    discriminator: {
+      property: 'kind',
+      subTypes: [
+        { value: StakerPayoutClaim, name: ClaimKind.StakerPayout },
+        { value: FeeDepositClaim, name: ClaimKind.FeeDeposit },
+      ],
+    },
+  })
+  readonly claims!: SettlementClaim[]
 }
 
 export class SettlementsDto {

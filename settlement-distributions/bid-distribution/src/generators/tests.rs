@@ -29,6 +29,10 @@ fn accept_all(_: &Pubkey) -> bool {
     true
 }
 
+fn only(auth: Pubkey) -> impl Fn(&Pubkey) -> bool {
+    move |pk: &Pubkey| *pk == auth
+}
+
 #[test]
 fn test_generate_bid_settlements_basic_single_validator() {
     // -- SETUP
@@ -1407,7 +1411,7 @@ fn test_bid_too_low_penalty_fee_claims_split_between_marinade_and_dao() {
         &blacklist_config,
         &bond_risk_fee_config,
         &fee_config,
-        &|pk: &Pubkey| *pk == staker_auth,
+        &only(staker_auth),
     )
     .unwrap();
 
@@ -1502,7 +1506,7 @@ fn test_golden_snapshot_bid_settlements() {
         },
         &create_test_settlement_config(),
         &create_test_fee_config(1000, 5000),
-        &|pk: &Pubkey| *pk == staker_auth,
+        &only(staker_auth),
         Decimal::ZERO,
     )
     .unwrap();
@@ -1572,7 +1576,7 @@ fn test_activating_fee_fraction_falls_back_when_distributor_takes_all_active() {
         },
         &create_test_settlement_config(),
         &create_test_fee_config(10_000, 5_000),
-        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &only(TEST_PUBKEY_MARINADE),
         Decimal::ZERO,
     )
     .unwrap();
@@ -1643,7 +1647,7 @@ fn test_activating_fee_fraction_falls_back_when_distributor_takes_all_activating
         },
         &create_test_settlement_config(),
         &create_test_fee_config(10_000, 5_000),
-        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &only(TEST_PUBKEY_MARINADE),
         Decimal::ZERO,
     )
     .unwrap();
