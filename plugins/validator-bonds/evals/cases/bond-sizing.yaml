@@ -1,5 +1,6 @@
-question: "My bond dropped below 7 SOL — will I be excluded from the next auction?"
+uncertain: true
+question: 'My bond dropped below 7 SOL — will I be excluded from the next auction?'
 facts:
-  - "7 SOL"
-  - "minimum"
-  - "excluded"
+  - '7 SOL'
+  - 'minimum'
+  - 'stake cap'

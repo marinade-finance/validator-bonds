@@ -1,5 +1,6 @@
-question: "What are the steps to withdraw from a validator bond?"
+uncertain: true
+question: 'What are the steps to withdraw from a validator bond?'
 facts:
-  - "init_withdraw_request"
-  - "3-epoch lockup"
-  - "claim_withdraw_request"
+  - 'init_withdraw_request'
+  - '3-epoch lockup'
+  - 'claim_withdraw_request'
