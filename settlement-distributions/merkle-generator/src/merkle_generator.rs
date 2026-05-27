@@ -116,7 +116,7 @@ pub fn generate_merkle_tree_collection(
     for source in &sources {
         for settlement in &source.collection.settlements {
             grouped_settlements
-                .entry((settlement.vote_account, settlement.meta.funder.clone()))
+                .entry((settlement.vote_account, settlement.funder.clone()))
                 .or_default()
                 .push(settlement);
         }
@@ -237,9 +237,7 @@ pub fn generate_merkle_tree_collection(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use settlement_common::settlement_collection::{
-        SettlementFunder, SettlementMeta, SettlementReason,
-    };
+    use settlement_common::settlement_collection::{SettlementFunder, SettlementReason};
     use solana_sdk::pubkey::Pubkey;
     use std::collections::HashMap;
 
@@ -264,7 +262,7 @@ mod tests {
         let claims_count = claims.len();
         Settlement {
             reason,
-            meta: SettlementMeta { funder },
+            funder,
             vote_account,
             claims_count,
             claims_amount,

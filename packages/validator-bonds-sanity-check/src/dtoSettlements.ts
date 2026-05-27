@@ -25,12 +25,6 @@ enum FunderType {
   Marinade = 'Marinade',
 }
 
-export class SettlementMeta {
-  @Expose()
-  @IsEnum(FunderType)
-  readonly funder!: FunderType
-}
-
 // Protected Event Details
 export class DowntimeRevenueImpact {
   @Expose()
@@ -111,6 +105,7 @@ export class SettlementReason {
 export enum ClaimKind {
   StakerPayout = 'StakerPayout',
   FeeDeposit = 'FeeDeposit',
+  Marker = 'Marker',
 }
 
 export abstract class SettlementClaim {
@@ -152,6 +147,8 @@ export class StakerPayoutClaim extends SettlementClaim {
 
 export class FeeDepositClaim extends SettlementClaim {}
 
+export class MarkerClaim extends SettlementClaim {}
+
 export class Settlement {
   @Expose()
   @Transform(({ value }) => {
@@ -170,10 +167,8 @@ export class Settlement {
   readonly reason!: SettlementReason
 
   @Expose()
-  @IsObject()
-  @ValidateNested()
-  @Type(() => SettlementMeta)
-  readonly meta!: SettlementMeta
+  @IsEnum(FunderType)
+  readonly funder!: FunderType
 
   @Expose()
   @IsPublicKey({ message: 'Invalid vote account public key' })
@@ -198,6 +193,7 @@ export class Settlement {
       subTypes: [
         { value: StakerPayoutClaim, name: ClaimKind.StakerPayout },
         { value: FeeDepositClaim, name: ClaimKind.FeeDeposit },
+        { value: MarkerClaim, name: ClaimKind.Marker },
       ],
     },
   })

@@ -98,14 +98,7 @@ fn generate_psr_settlements_for_config(
             // To distinguish between Validator and Marinade funders in cases where both are funding the same amount
             // (i.e., the Merkle root would be identical), we add a 'null' claim with a zero amount
             if settlement_config.meta.funder == SettlementFunder::Marinade {
-                claims.push(SettlementClaim::staker_payout(
-                    Pubkey::default(),
-                    Pubkey::default(),
-                    0,
-                    0,
-                    0,
-                    HashMap::new(),
-                ));
+                claims.push(SettlementClaim::marker());
             }
 
             sort_claims_deterministically(&mut claims);
@@ -113,7 +106,7 @@ fn generate_psr_settlements_for_config(
             if claims_amount >= settlement_config.kind.min_settlement_lamports() {
                 settlement_claim_collections.push(Settlement {
                     reason: SettlementReason::ProtectedEvent(Box::new(protected_event.clone())),
-                    meta: settlement_config.meta.clone(),
+                    funder: settlement_config.meta.funder.clone(),
                     vote_account: *protected_event.vote_account(),
                     claims_count: claims.len(),
                     claims_amount,

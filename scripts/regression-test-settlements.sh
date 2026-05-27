@@ -213,7 +213,7 @@ per_vote_claims() {
 # Usage: per_vote_funder_claims <file> [<file2> ...]
 per_vote_funder_claims() {
   jq -n '
-    [inputs.settlements[] | {vote_account, funder: .meta.funder, claims_amount}]
+    [inputs.settlements[] | {vote_account, funder: .funder, claims_amount}]
     | group_by([.vote_account, .funder])
     | map({vote_account: .[0].vote_account, funder: .[0].funder, total: (map(.claims_amount) | add)})
     | sort_by([.vote_account, .funder])

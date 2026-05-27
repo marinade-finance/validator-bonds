@@ -18,6 +18,7 @@ use settlement_common::settlement_collection::{
 use settlement_common::settlement_config::{
     SettlementConfig as PsrSettlementConfig, SettlementConfigKind as PsrSettlementConfigKind,
 };
+use settlement_common::settlement_details::SettlementDetails;
 use settlement_common::stake_meta_index::StakeMetaIndex;
 use snapshot_parser_validator_cli::stake_meta::{StakeMeta, StakeMetaCollection};
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
@@ -2198,9 +2199,12 @@ fn test_generate_settlements_from_json_values() {
     );
     // activating charge = 50/1000 * 10 SOL = 0.5 SOL
     // activating_bid_claim is in lamports: 50/1000 * 10 SOL = 500_000_000
-    let details = settlement.details.as_ref().unwrap();
+    let bid_details = match settlement.details.as_ref().unwrap() {
+        SettlementDetails::Bidding(d) => d,
+        other => panic!("expected Bidding details, got {other:?}"),
+    };
     let activating_claim: Decimal =
-        serde_json::from_value(details["settlement_claims"]["activating_bid_claim"].clone())
+        serde_json::from_value(bid_details.settlement_claims["activating_bid_claim"].clone())
             .unwrap();
     assert_eq!(
         activating_claim,

@@ -1,9 +1,7 @@
 [
   {
     "reason": "Bidding",
-    "meta": {
-      "funder": "ValidatorBond"
-    },
+    "funder": "ValidatorBond",
     "vote_account": "4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM",
     "claims_count": 3,
     "claims_amount": 50000000,
@@ -35,9 +33,7 @@
   },
   {
     "reason": "PriorityFee",
-    "meta": {
-      "funder": "ValidatorBond"
-    },
+    "funder": "ValidatorBond",
     "vote_account": "4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM",
     "claims_count": 3,
     "claims_amount": 2500000000,

@@ -5,8 +5,11 @@ use anyhow::{anyhow, ensure};
 use log::{debug, info, warn};
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use settlement_common::settlement_collection::{Settlement, SettlementClaim, SettlementReason};
+use settlement_common::settlement_details::{
+    BidSettlementDetails, PriorityFeeSettlementDetails, SettlementDetails,
+};
 use settlement_common::stake_meta_index::StakeMetaIndex;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
@@ -55,36 +58,6 @@ impl fmt::Display for ResultSettlementClaims {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct BidSettlementDetails {
-    pub total_active_stake: u64,
-    pub total_marinade_active_stake: u64,
-    pub auction_effective_static_bid: String,
-    pub marinade_stake_share: String,
-    pub marinade_inflation_rewards: String,
-    pub marinade_mev_rewards: String,
-    pub marinade_block_rewards: String,
-    pub staker_inflation_rewards: Option<String>,
-    pub staker_mev_rewards: Option<String>,
-    pub staker_block_rewards: Option<String>,
-    pub staker_bid_rewards: Option<String>,
-    pub total_marinade_stakers_rewards: String,
-    pub settlement_claims: serde_json::Value,
-    pub stakers_total_claim: u64,
-    pub marinade_fee_claim: u64,
-    pub dao_fee_claim: u64,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct PriorityFeeSettlementDetails {
-    pub total_marinade_activating_stake: u64,
-    pub activating_stake_pmpe: String,
-    pub activating_bid_claim: String,
-    pub activating_stakers_pool: u64,
-    pub marinade_fee_claim: u64,
-    pub dao_fee_claim: u64,
-}
-
 struct StakerStakeGroup {
     withdraw_authority: Pubkey,
     stake_authority: Pubkey,
@@ -112,7 +85,7 @@ pub fn generate_bid_settlements(
     let epoch = stake_meta_index.stake_meta_collection.epoch;
     info!("Generating bid settlements in epoch {epoch}...");
     let fee_percentages = fee_config.fee_percentages();
-    let settlement_meta_funder = settlement_config.meta().clone();
+    let funder = settlement_config.meta().funder.clone();
     let mut settlement_claim_collections = vec![];
 
     for validator in sam_validator_metas {
@@ -548,8 +521,6 @@ pub fn generate_bid_settlements(
                 marinade_fee_claim: marinade_fee_for_bidding,
                 dao_fee_claim: dao_fee_for_bidding,
             };
-            let details_json = serde_json::to_value(&settlement_details)?;
-
             let priority_fee_details = PriorityFeeSettlementDetails {
                 total_marinade_activating_stake,
                 activating_stake_pmpe: validator
@@ -568,8 +539,8 @@ pub fn generate_bid_settlements(
                 priority_fee_claims_amount,
                 SettlementReason::PriorityFee,
                 validator.vote_account,
-                &settlement_meta_funder,
-                Some(serde_json::to_value(&priority_fee_details)?),
+                funder.clone(),
+                Some(SettlementDetails::PriorityFee(priority_fee_details)),
             );
             add_to_settlement_collection(
                 &mut settlement_claim_collections,
@@ -577,8 +548,8 @@ pub fn generate_bid_settlements(
                 bidding_claims_amount,
                 SettlementReason::Bidding,
                 validator.vote_account,
-                &settlement_meta_funder,
-                Some(details_json),
+                funder.clone(),
+                Some(SettlementDetails::Bidding(Box::new(settlement_details))),
             );
         }
     }

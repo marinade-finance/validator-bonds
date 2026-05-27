@@ -29,6 +29,9 @@ pub enum ClaimDetail {
         stake_accounts: HashMap<Pubkey, u64>,
     },
     FeeDeposit,
+    // Zero-amount placeholder distinguishing Marinade- vs ValidatorBond-funded merkle
+    // roots when claim amounts would otherwise coincide. Not a real payout.
+    Marker,
 }
 
 impl SettlementClaim {
@@ -65,17 +68,26 @@ impl SettlementClaim {
         }
     }
 
+    pub fn marker() -> Self {
+        Self {
+            withdraw_authority: Pubkey::default(),
+            stake_authority: Pubkey::default(),
+            claim_amount: 0,
+            detail: ClaimDetail::Marker,
+        }
+    }
+
     pub fn stake_accounts(&self) -> Option<&HashMap<Pubkey, u64>> {
         match &self.detail {
             ClaimDetail::StakerPayout { stake_accounts, .. } => Some(stake_accounts),
-            ClaimDetail::FeeDeposit => None,
+            ClaimDetail::FeeDeposit | ClaimDetail::Marker => None,
         }
     }
 
     pub fn active_stake(&self) -> Option<u64> {
         match &self.detail {
             ClaimDetail::StakerPayout { active_stake, .. } => Some(*active_stake),
-            ClaimDetail::FeeDeposit => None,
+            ClaimDetail::FeeDeposit | ClaimDetail::Marker => None,
         }
     }
 
@@ -84,7 +96,7 @@ impl SettlementClaim {
             ClaimDetail::StakerPayout {
                 activating_stake, ..
             } => Some(*activating_stake),
-            ClaimDetail::FeeDeposit => None,
+            ClaimDetail::FeeDeposit | ClaimDetail::Marker => None,
         }
     }
 }
@@ -128,6 +140,9 @@ pub enum SettlementFunder {
     Marinade,
 }
 
+// Retained for the settlement-config YAML input and the protected-events API response,
+// both of which still carry the nested `{ "meta": { "funder": ... } }` shape. The
+// generated settlement JSON itself now stores `funder` directly on Settlement.
 #[derive(Clone, Deserialize, Serialize, Debug, Eq, PartialEq, Hash, utoipa::ToSchema)]
 pub struct SettlementMeta {
     pub funder: SettlementFunder,
@@ -136,14 +151,14 @@ pub struct SettlementMeta {
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct Settlement {
     pub reason: SettlementReason,
-    pub meta: SettlementMeta,
+    pub funder: SettlementFunder,
     #[serde(with = "pubkey_string_conversion")]
     pub vote_account: Pubkey,
     pub claims_count: usize,
     pub claims_amount: u64,
     pub claims: Vec<SettlementClaim>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub details: Option<serde_json::Value>,
+    pub details: Option<crate::settlement_details::SettlementDetails>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]

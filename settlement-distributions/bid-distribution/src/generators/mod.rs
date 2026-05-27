@@ -6,8 +6,9 @@ pub mod sam_penalties;
 mod tests;
 
 use settlement_common::settlement_collection::{
-    Settlement, SettlementClaim, SettlementMeta, SettlementReason,
+    Settlement, SettlementClaim, SettlementFunder, SettlementReason,
 };
+use settlement_common::settlement_details::SettlementDetails;
 use settlement_common::utils::sort_claims_deterministically;
 use solana_sdk::pubkey::Pubkey;
 
@@ -17,14 +18,14 @@ pub fn add_to_settlement_collection(
     claims_amount: u64,
     reason: SettlementReason,
     vote_account: Pubkey,
-    settlement_meta: &SettlementMeta,
-    details: Option<serde_json::Value>,
+    funder: SettlementFunder,
+    details: Option<SettlementDetails>,
 ) {
     if !claims.is_empty() {
         sort_claims_deterministically(&mut claims);
         settlement_collections.push(Settlement {
             reason,
-            meta: settlement_meta.clone(),
+            funder,
             vote_account,
             claims_count: claims.len(),
             claims_amount,

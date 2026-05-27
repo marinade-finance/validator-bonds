@@ -5,6 +5,7 @@ import {
   parseSettlements,
   StakerPayoutClaim,
   FeeDepositClaim,
+  MarkerClaim,
 } from '../src/dtoSettlements'
 
 beforeAll(() => {
@@ -17,7 +18,7 @@ const SAMPLE_JSON = JSON.stringify({
   settlements: [
     {
       reason: 'Bidding',
-      meta: { funder: 'ValidatorBond' },
+      funder: 'ValidatorBond',
       vote_account: '11111111111111111111111111111111',
       claims_count: 2,
       claims_amount: 100,
@@ -63,7 +64,7 @@ describe('parseSettlements typed-split discrimination', () => {
       settlements: [
         {
           reason: 'Bidding',
-          meta: { funder: 'ValidatorBond' },
+          funder: 'ValidatorBond',
           vote_account: '11111111111111111111111111111111',
           claims_count: 1,
           claims_amount: 50,
@@ -81,5 +82,32 @@ describe('parseSettlements typed-split discrimination', () => {
     const dto = await parseSettlements(stale)
     const claim = dto.settlements[0]!.claims[0]
     expect(claim).toBeInstanceOf(FeeDepositClaim)
+  })
+
+  it('parses the Marker placeholder claim by kind', async () => {
+    const withMarker = JSON.stringify({
+      slot: 1,
+      epoch: 1,
+      settlements: [
+        {
+          reason: 'Bidding',
+          funder: 'Marinade',
+          vote_account: '11111111111111111111111111111111',
+          claims_count: 1,
+          claims_amount: 0,
+          claims: [
+            {
+              withdraw_authority: '11111111111111111111111111111111',
+              stake_authority: '11111111111111111111111111111111',
+              claim_amount: 0,
+              kind: 'Marker',
+            },
+          ],
+        },
+      ],
+    })
+    const dto = await parseSettlements(withMarker)
+    const claim = dto.settlements[0]!.claims[0]
+    expect(claim).toBeInstanceOf(MarkerClaim)
   })
 })

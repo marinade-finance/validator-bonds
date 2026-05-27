@@ -113,7 +113,7 @@ fn generate_institutional_settlements(
             .entry(payout.vote_account)
             .or_insert(Settlement {
                 reason: config.settlement_reason.clone(),
-                meta: config.settlement_meta.clone(),
+                funder: config.settlement_meta.funder.clone(),
                 vote_account: payout.vote_account,
                 claims_count: 0,
                 claims_amount: 0,
