@@ -1,7 +1,7 @@
 ---
 name: marinade-ecosystem
 description: Marinade Finance public ecosystem map — repos, program IDs, SDKs, APIs, issue filing. NOT for settlement mechanics, SAM auction internals, or bond lifecycle (use marinade-sam-bond).
-when_to_use: marinade-finance GitHub org, liquid-staking-program, ds-sam, ds-scoring, delegation-strategy, institutional-staking, marinade.finance site, filing an issue, program IDs, mSOL mint, MNDE token, marinade-ts-sdk, configGetter, psr.marinade.finance, scoring.marinade.finance, cross-repo navigation, how repos relate
+when_to_use: marinade-finance GitHub org, liquid-staking-program, institutional-staking, marinade.finance site, filing an issue, program IDs, mSOL mint, MNDE token, marinade-ts-sdk, psr.marinade.finance, scoring.marinade.finance, cross-repo navigation, how repos relate
 ---
 
 # Marinade Ecosystem
@@ -72,8 +72,8 @@ All at https://github.com/marinade-finance/
 - **ds-scoring** — NestJS scoring service for validators
 - **delegation-strategy-2** — validator scoring API, stake allocation
 - **sam-blacklist** — blacklist generator (sandwich + slow slot data)
-- **marcrank** — management CLI for liquid-staking-program delegation
-- **malicious-validators** — validator abuse tracking
+- **marcrank** — management CLI for liquid-staking-program delegation (internal)
+- **malicious-validators** — validator abuse tracking (internal)
 
 ### SDKs & Libraries
 
@@ -99,9 +99,9 @@ All at https://github.com/marinade-finance/
 ### Infrastructure & Data
 
 - **stakes-etl** — ETL pipelines to Google BigQuery
-- **solana-snapshot-manager** — Solana snapshot parser + API
-- **solana-snapshot-parser** — low-level snapshot parsing
-- **kedgeree** — reverse PDA/seeded address calculation
+- **solana-snapshot-manager** — Solana snapshot parser + API (internal/unconfirmed)
+- **solana-snapshot-parser** — low-level snapshot parsing (internal/unconfirmed)
+- **kedgeree** — reverse PDA/seeded address calculation (internal/unconfirmed)
 - **solana-sandwich-report** — validator sandwich rate API + epoch charts
 - **spl-gov-notifier** — SPL governance event notification bot
 
@@ -126,38 +126,3 @@ Published from `typescript-common` monorepo:
 | `web3js-kit`    | web3.js 2.x helpers: connection, transaction building  |
 | `web3js-1x`     | web3.js 1.x compat layer and helpers                   |
 | `anchor-common` | Anchor framework helpers: IDL loading, program access  |
-
-## Patterns
-
-### configGetter
-
-Typed config access from env vars:
-
-```typescript
-import { configGetter } from '@marinade.finance/config-common'
-
-const config = configGetter({
-  RPC_URL: { type: 'string', required: true },
-  PORT: { type: 'number', default: 3000 },
-})
-```
-
-### pnpm monorepo
-
-All TS repos use pnpm workspaces. `pnpm -r` for recursive, `pnpm --filter <pkg>` for targeting.
-
-### Database
-
-PostgreSQL via Slonik (strict SQL tagged templates, no ORM). NEVER raw string interpolation in queries.
-
-### Runtime
-
-- Bun for new services and scripts
-- Node.js for existing NestJS services
-- ALWAYS check which runtime the repo uses
-
-### Solana / Anchor
-
-- Anchor framework for on-chain programs (Rust)
-- `@marinade.finance/anchor-common` for TS client side
-- web3.js 1.x in older code, 2.x in newer (`web3js-kit`)

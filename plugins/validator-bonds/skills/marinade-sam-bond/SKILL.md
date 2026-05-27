@@ -1,12 +1,12 @@
 ---
 name: marinade-sam-bond
 description: Validator Bonds protocol internals — settlement types, SAM auction, bond collateral, PSR, epoch lifecycle. NOT for ecosystem navigation or issue filing (use marinade-ecosystem).
-when_to_use: CPMPE, PSR, SAM auction, ValidatorBond, SettlementReason, ProtectedEvent, BidTooLowPenalty, BlacklistPenalty, BondRiskFee, InstitutionalPayout, fund_bond, withdraw_request, merkle settlement, bid-distribution, settlement-config.yaml, programs/validator-bonds/, settlement-distributions/, settlement-pipelines/, packages/validator-bonds-*, mSOL stakers, bond collateral, clearing price, validator bid
+when_to_use: CPMPE, PMPE, totalPmpe, PSR, SAM auction, ValidatorBond, SettlementReason, ProtectedEvent, BidTooLowPenalty, BlacklistPenalty, BondRiskFee, InstitutionalPayout, fund_bond, withdraw_request, init_withdraw_request, claim_withdraw_request, merkle settlement, bid-distribution, settlement-config.yaml, programs/validator-bonds/, settlement-distributions/, settlement-pipelines/, packages/validator-bonds-*, mSOL stakers, native staking, Select stakers, institutional stakers, bond collateral, clearing price, winningTotalPmpe, validator bid, dynamic commission, dynamic bids, minimum bond balance, minBondBalance, 7 SOL, program ID, vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
 ---
 
 # Validator Bonds Protocol Context
 
-Validators post SOL bonds as collateral to compete for Marinade's delegated stake via SAM (Stake Auction Marketplace). Bonds guarantee stakers earn at minimum network-average rewards -- underperformance triggers automatic compensation from the bond.
+Validators post SOL bonds as collateral to compete for Marinade's delegated stake via SAM (Stake Auction Marketplace). Bonds guarantee mSOL holders earn at minimum network-average rewards (PSR), and provide a 50bps APY guarantee for institutional/Select stakers -- underperformance triggers automatic compensation from the bond.
 
 **Two staker populations:** mSOL holders (liquid staking, bidding settlements) and institutional/Select stakers (native staking, 50bps APY guarantee).
 
@@ -28,7 +28,7 @@ Top-level `SettlementReason` variants (`settlement-common/src/settlement_collect
 
 ## Epoch Lifecycle
 
-1. **Epoch X**: Validators bid (CPMPE + commission), SAM allocates stake
+1. **Epoch X**: Validators bid (static CPMPE or dynamic commission, since Jan 2026), SAM allocates stake
 2. **Epoch X+1**: Off-chain pipelines calculate charges from epoch X performance
 3. Merkle trees generated, Settlement accounts created on-chain
 4. Bond stake accounts fund settlements (deactivated)
@@ -38,6 +38,9 @@ Top-level `SettlementReason` variants (`settlement-common/src/settlement_collect
 ## Key Concepts
 
 - **CPMPE** -- lamports per 1000 SOL per epoch, the validator's fixed bid price
+- **Clearing price** -- `winningTotalPmpe`: PMPE of the last validator group to receive stake in the auction
+- **Program ID** -- `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
+- **Min bond balance** -- 7 SOL (production `minBondBalance`); below this, stake cap is reduced, not eligibility revoked
 - **Bond authority** -- `bond.authority` field or validator identity can sign
 - **fund_bond** transfers stake ownership to bonds PDA; recovery via withdraw request (3-epoch lockup)
 - **PSR** -- Protected Staking Rewards, ensures network-average inflation regardless of validator performance
@@ -59,8 +62,6 @@ Repos that feed data directly into the validator-bonds pipeline. All at `https:/
 **On-chain programs sharing state:**
 
 - **liquid-staking-program** -- core mSOL staking
-- **vote-aggregator** -- SPL governance delegation plugin
-- **voter-stake-registry** -- vote weight plugin, token lockups
 
 **SDKs/libraries:**
 
@@ -70,4 +71,3 @@ Repos that feed data directly into the validator-bonds pipeline. All at `https:/
 **Downstream consumers:**
 
 - **psr-dashboard** -- PSR validator bond dashboard (reads bonds API)
-- **delegation-strategy-2** -- validator scoring API, stake allocation
