@@ -43,9 +43,9 @@ Top-level `SettlementReason` variants (`settlement-common/src/settlement_collect
 - **PSR** -- Protected Staking Rewards, ensures network-average inflation regardless of validator performance
 - **Merkle settlements** -- off-chain generated, on-chain verified, efficient for large claim sets
 
-## Related Marinade Repos
+## Direct Data Dependencies
 
-All at `https://github.com/marinade-finance/`. Clone under `./refs/` when deeper context needed.
+Repos that feed data directly into the validator-bonds pipeline. All at `https://github.com/marinade-finance/`. Clone under `./refs/` when deeper context needed.
 
 **Direct data dependencies:**
 
