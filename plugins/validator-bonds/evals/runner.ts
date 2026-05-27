@@ -164,4 +164,4 @@ await mkdir('./tmp', { recursive: true })
 const logPath = `./tmp/eval-${new Date().toISOString().replace(/[:.]/g, '-')}.yml`
 await writeFile(logPath, stringify(log))
 console.log(`\n${passed}/${passed + failed} passed  →  ${logPath}`)
-if (failed > 0) throw new Error(`${failed} case(s) failed`)
+if (failed > 0) process.exit(1)
