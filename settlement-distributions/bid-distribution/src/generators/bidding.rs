@@ -85,6 +85,13 @@ pub struct PriorityFeeSettlementDetails {
     pub dao_fee_claim: u64,
 }
 
+struct StakerStakeGroup {
+    withdraw_authority: Pubkey,
+    stake_authority: Pubkey,
+    active_accounts: HashMap<Pubkey, u64>,
+    activating_accounts: HashMap<Pubkey, u64>,
+}
+
 fn fraction_or_fallback(numerator: Decimal, denominator: Decimal, fallback: Decimal) -> Decimal {
     if denominator > Decimal::ZERO {
         numerator / denominator
@@ -112,22 +119,42 @@ pub fn generate_bid_settlements(
         if let Some(grouped_stake_metas) =
             stake_meta_index.iter_grouped_stake_metas(&validator.vote_account)
         {
-            let grouped_stake_metas: Vec<_> = grouped_stake_metas.collect();
-            // Compute totals in a single pass (no double iteration)
+            // Classify each staker's accounts as active/activating once, then reuse for
+            // both the totals below and the per-staker claim shares (single source of truth).
+            let staker_stake_groups: Vec<StakerStakeGroup> = grouped_stake_metas
+                .map(|(&(withdraw_authority, stake_authority), metas)| {
+                    let active_accounts = metas
+                        .iter()
+                        .filter(|s| s.active_delegation_lamports > 0)
+                        .map(|s| (s.pubkey, s.active_delegation_lamports))
+                        .collect();
+                    let activating_accounts = metas
+                        .iter()
+                        .filter(|s| {
+                            s.active_delegation_lamports == 0
+                                && s.activating_delegation_lamports > 0
+                        })
+                        .map(|s| (s.pubkey, s.activating_delegation_lamports))
+                        .collect();
+                    StakerStakeGroup {
+                        withdraw_authority: *withdraw_authority,
+                        stake_authority: *stake_authority,
+                        active_accounts,
+                        activating_accounts,
+                    }
+                })
+                .collect();
+
             let mut total_active_stake: u64 = 0;
             let mut total_marinade_active_stake: u64 = 0;
             let mut total_marinade_activating_stake: u64 = 0;
-            for ((_, stake_authority), metas) in &grouped_stake_metas {
-                for meta in metas.iter() {
-                    total_active_stake += meta.active_delegation_lamports;
-                    if stake_authority_filter(stake_authority) {
-                        total_marinade_active_stake += meta.active_delegation_lamports;
-                        if meta.activating_delegation_lamports > 0
-                            && meta.active_delegation_lamports == 0
-                        {
-                            total_marinade_activating_stake += meta.activating_delegation_lamports;
-                        }
-                    }
+            for group in &staker_stake_groups {
+                let active_sum: u64 = group.active_accounts.values().sum();
+                total_active_stake += active_sum;
+                if stake_authority_filter(&group.stake_authority) {
+                    total_marinade_active_stake += active_sum;
+                    total_marinade_activating_stake +=
+                        group.activating_accounts.values().sum::<u64>();
                 }
             }
             // Marinade stake is a subset of total stake, so this covers both zero-stake cases.
@@ -366,18 +393,13 @@ pub fn generate_bid_settlements(
             let mut priority_fee_claims = vec![];
             let mut priority_fee_claims_amount = 0;
 
-            for (&(withdraw_authority, stake_authority), stake_metas) in &grouped_stake_metas {
-                if !stake_authority_filter(stake_authority) {
+            for group in &staker_stake_groups {
+                if !stake_authority_filter(&group.stake_authority) {
                     continue;
                 }
                 // Active stakers: proportional share of active_stakers_pool
                 if total_marinade_active_stake > 0 && active_stakers_pool > 0 {
-                    let active_accounts: HashMap<_, _> = stake_metas
-                        .iter()
-                        .filter(|s| s.active_delegation_lamports > 0)
-                        .map(|s| (s.pubkey, s.active_delegation_lamports))
-                        .collect();
-                    let active_sum: u64 = active_accounts.values().sum();
+                    let active_sum: u64 = group.active_accounts.values().sum();
                     if active_sum > 0 {
                         let staker_share =
                             Decimal::from(active_sum) / Decimal::from(total_marinade_active_stake);
@@ -391,12 +413,12 @@ pub fn generate_bid_settlements(
                             })?;
                         if claim_amount > 0 {
                             bidding_claims.push(SettlementClaim::staker_payout(
-                                *withdraw_authority,
-                                *stake_authority,
+                                group.withdraw_authority,
+                                group.stake_authority,
                                 active_sum,
                                 0,
                                 claim_amount,
-                                active_accounts,
+                                group.active_accounts.clone(),
                             ));
                             bidding_claims_amount += claim_amount;
                         }
@@ -404,15 +426,7 @@ pub fn generate_bid_settlements(
                 }
                 // Activating stakers: proportional share of activating_stakers_pool → PriorityFee settlement
                 if total_marinade_activating_stake > 0 && activating_stakers_pool > 0 {
-                    let activating_accounts: HashMap<_, _> = stake_metas
-                        .iter()
-                        .filter(|s| {
-                            s.active_delegation_lamports == 0
-                                && s.activating_delegation_lamports > 0
-                        })
-                        .map(|s| (s.pubkey, s.activating_delegation_lamports))
-                        .collect();
-                    let activating_sum: u64 = activating_accounts.values().sum();
+                    let activating_sum: u64 = group.activating_accounts.values().sum();
                     if activating_sum > 0 {
                         let staker_share = Decimal::from(activating_sum)
                             / Decimal::from(total_marinade_activating_stake);
@@ -427,12 +441,12 @@ pub fn generate_bid_settlements(
                                 })?;
                         if claim_amount > 0 {
                             priority_fee_claims.push(SettlementClaim::staker_payout(
-                                *withdraw_authority,
-                                *stake_authority,
+                                group.withdraw_authority,
+                                group.stake_authority,
                                 0,
                                 activating_sum,
                                 claim_amount,
-                                activating_accounts,
+                                group.activating_accounts.clone(),
                             ));
                             priority_fee_claims_amount += claim_amount;
                         }
