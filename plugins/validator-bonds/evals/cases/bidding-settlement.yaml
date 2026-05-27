@@ -4,3 +4,4 @@ facts:
   - mSOL stakers
   - bid amount
   - bond
+  - ValidatorBond

@@ -36,7 +36,7 @@ interface CaseResult {
 }
 
 interface RunMeta {
-  model: string
+  mode: string
   flags: string[]
   plugin_dir?: string
   started_at: string
@@ -67,7 +67,7 @@ const ask = async (question: string): Promise<string> =>
   $`claude ${baseFlags} -p ${question}`.text()
 
 const judgePrompt =
-  'You are a strict fact-checker. Given a fact and a response, answer YES if the response explicitly and accurately conveys that fact. Answer NO if the fact is absent, contradicted, or only vaguely implied. Output exactly YES or NO with no other text.'
+  'You are a strict fact-checker. Given a fact and a response, output the single word YES if the response explicitly and accurately conveys that fact, or the single word NO if absent, contradicted, or only vaguely implied. No other output.'
 
 const supports = async (answer: string, fact: string): Promise<FactResult> => {
   if (answer.toLowerCase().includes(fact.toLowerCase()))
@@ -79,7 +79,7 @@ const supports = async (answer: string, fact: string): Promise<FactResult> => {
     const verdict = raw.trim()
     return {
       fact,
-      passed: verdict === 'YES',
+      passed: verdict.toUpperCase() === 'YES',
       method: 'haiku',
       haiku_verdict: verdict,
     }
@@ -96,6 +96,8 @@ const expand = async (p: string): Promise<string[]> => {
       .filter(f => f.endsWith('.yaml') || f.endsWith('.yml'))
       .sort()
       .map(f => join(p, f))
+  if (!p.endsWith('.yaml') && !p.endsWith('.yml'))
+    throw new Error(`not a YAML file: ${p}`)
   return [p]
 }
 
@@ -106,7 +108,11 @@ if (files.length === 0) throw new Error('No .yaml files found')
 let passed = 0
 let failed = 0
 const meta: RunMeta = {
-  model: 'claude-sonnet-4-6',
+  mode: values['no-skills']
+    ? 'no-skills'
+    : pluginDir
+      ? `plugin:${pluginDir}`
+      : 'default',
   flags: baseFlags,
   ...(pluginDir ? { plugin_dir: pluginDir } : {}),
   started_at: new Date().toISOString(),
@@ -115,6 +121,8 @@ const log: { meta: RunMeta; cases: CaseResult[] } = { meta, cases: [] }
 
 for (const file of files) {
   const { question, facts } = parse(await readFile(file, 'utf8')) as Case
+  if (!question || !Array.isArray(facts))
+    throw new Error('invalid case file: missing question or facts')
   let entry: CaseResult
   try {
     const answer = await ask(question)
