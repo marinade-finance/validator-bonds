@@ -10,6 +10,8 @@ module.exports = [
       'scripts/validator-bonds-client-generator/**',
       'packages/validator-bonds-sdk/idl/**',
       'plugins/**/evals/**',
+      '.refs/**',
+      'tmp/**',
     ],
   },
   {
