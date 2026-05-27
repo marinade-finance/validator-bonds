@@ -7,15 +7,19 @@ surface the right content.
 ## Quick Start
 
 ```bash
-# From repo root — run all cases with validator-bonds skills loaded
 cd plugins/validator-bonds/evals
-bun runner.ts --plugin-dir ../../.. cases/
 
-# Baseline — no skills, compare against skill-assisted
-bun runner.ts --no-skills cases/
+# Run all cases (skills load from your normal Claude Code config)
+bun runner.ts cases/
 
 # Single case
-bun runner.ts --plugin-dir ../../.. cases/bidding-settlement.yaml
+bun runner.ts cases/bidding-settlement.yaml
+
+# Baseline — disable all skills for comparison
+bun runner.ts --no-skills cases/
+
+# Explicit plugin dir — override which plugin is loaded
+bun runner.ts --plugin-dir ../../.. cases/
 ```
 
 Output: pass/fail per case, missing facts printed inline, detailed YAML log at
