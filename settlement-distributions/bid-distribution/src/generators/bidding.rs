@@ -85,6 +85,14 @@ pub struct PriorityFeeSettlementDetails {
     pub dao_fee_claim: u64,
 }
 
+fn fraction_or_fallback(numerator: Decimal, denominator: Decimal, fallback: Decimal) -> Decimal {
+    if denominator > Decimal::ZERO {
+        numerator / denominator
+    } else {
+        fallback
+    }
+}
+
 pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],
@@ -328,11 +336,11 @@ pub fn generate_bid_settlements(
             let stakers_total_claim = settlement_claim_sum.saturating_sub(distributor_fee_claim);
             // Split stakers_total_claim between active stakers (earned rewards + static bid)
             // and activating stakers (activating charge), proportional to each pool's share.
-            let activating_fraction = if settlement_claim.sum() > Decimal::ZERO {
-                settlement_claim.activating_bid_claim / settlement_claim.sum()
-            } else {
-                Decimal::ZERO
-            };
+            let activating_fraction = fraction_or_fallback(
+                settlement_claim.activating_bid_claim,
+                settlement_claim.sum(),
+                Decimal::ZERO,
+            );
             let activating_stakers_pool: u64 = (Decimal::from(stakers_total_claim)
                 * activating_fraction)
                 .to_u64()
@@ -440,13 +448,15 @@ pub fn generate_bid_settlements(
             );
 
             // Split fee claims proportionally between active and activating pools
-            let activating_fee_fraction = if stakers_total_claim > 0 {
-                Decimal::from(activating_stakers_pool) / Decimal::from(stakers_total_claim)
-            } else if settlement_claim_sum > 0 {
-                activating_fraction
-            } else {
-                Decimal::ZERO
-            };
+            let activating_fee_fraction = fraction_or_fallback(
+                Decimal::from(activating_stakers_pool),
+                Decimal::from(stakers_total_claim),
+                if settlement_claim_sum > 0 {
+                    activating_fraction
+                } else {
+                    Decimal::ZERO
+                },
+            );
             let marinade_fee_for_priority = (Decimal::from(marinade_fee_claim)
                 * activating_fee_fraction)
                 .to_u64()

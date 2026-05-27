@@ -120,7 +120,6 @@ fn generate_institutional_settlements(
                 claims: vec![],
                 details: None,
             });
-        settlement.claims_count += 1;
         settlement.claims_amount += payout.payout_lamports;
 
         let incoming_is_staker = matches!(payout.kind, PayoutKind::Staker);
@@ -131,8 +130,6 @@ fn generate_institutional_settlements(
                 && existing_is_staker == incoming_is_staker
         }) {
             existing_claim.claim_amount += payout.payout_lamports;
-            // TODO §3: stake_accounts uses or_insert (first-write-wins) — pinned by
-            // test_existing_claim_merge_pins_first_write_wins_on_stake_accounts; revisit when §3 lands.
             if let ClaimDetail::StakerPayout {
                 active_stake,
                 stake_accounts: existing_accounts,
@@ -141,7 +138,7 @@ fn generate_institutional_settlements(
             {
                 *active_stake += payout.stake_amount;
                 for (k, v) in &payout.stake_accounts {
-                    existing_accounts.entry(*k).or_insert(*v);
+                    *existing_accounts.entry(*k).or_insert(0) += *v;
                 }
             }
         } else {
@@ -168,6 +165,7 @@ fn generate_institutional_settlements(
         .into_values()
         .map(|mut settlement| {
             sort_claims_deterministically(&mut settlement.claims);
+            settlement.claims_count = settlement.claims.len();
             settlement
         })
         .collect()
@@ -443,8 +441,8 @@ mod tests {
     }
 
     #[test]
-    fn test_existing_claim_merge_pins_first_write_wins_on_stake_accounts() {
-        // Pins §3 bug: on merge, claim_amount/active_stake are summed but stake_accounts uses or_insert (first-write-wins).
+    fn test_existing_claim_merge_sums_stake_accounts() {
+        // On merge, claim_amount/active_stake/stake_accounts are all summed; claims_count == claims.len().
         let vote_account = Pubkey::new_unique();
         let staker = Pubkey::new_unique();
         let withdrawer = Pubkey::new_unique();
@@ -480,8 +478,8 @@ mod tests {
             "collision collapses into one claim"
         );
         assert_eq!(
-            settlement.claims_count, 2,
-            "claims_count increments per payout, even on merge",
+            settlement.claims_count, 1,
+            "claims_count == claims.len() after merge",
         );
         assert_eq!(settlement.claims_amount, 3_000);
 
@@ -497,17 +495,15 @@ mod tests {
         assert_eq!(stake_accounts.get(&stake_a), Some(&100));
         assert_eq!(
             stake_accounts.get(&stake_b),
-            Some(&200),
-            "B keeps FIRST value (200), proving or_insert bug",
+            Some(&1_199),
+            "B summed across payouts (200 + 999)",
         );
         assert_eq!(stake_accounts.get(&stake_c), Some(&400));
 
         let stake_accounts_sum: u64 = stake_accounts.values().sum();
-        // BUG WITNESS — TODO §3: flip to assert_eq! once merge uses sum semantics.
-        assert_ne!(
+        assert_eq!(
             active_stake, stake_accounts_sum,
-            "active_stake ({}) != sum(stake_accounts.values()) ({})",
-            active_stake, stake_accounts_sum,
+            "active_stake ({active_stake}) == sum(stake_accounts.values()) ({stake_accounts_sum})",
         );
     }
 
