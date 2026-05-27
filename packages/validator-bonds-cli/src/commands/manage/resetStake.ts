@@ -2,12 +2,12 @@ import { CliCommandError } from '@marinade.finance/cli-common'
 import {
   RESET_STAKE_LIMIT_UNITS,
   computeUnitLimitOption,
+  executeTxHandleErrors,
   getCliContext,
   setProgramTelemetryFields,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { resetStakeInstruction } from '@marinade.finance/validator-bonds-sdk'
 import {
-  executeTx,
   parsePubkey,
   parseWalletOrPubkeyOption,
   transaction,
@@ -105,7 +105,7 @@ export async function manageResetStake({
   logger.info(
     `Resetting stake ${address.toBase58()} for closed settlement account ${settlement.toBase58()}`,
   )
-  await executeTx({
+  await executeTxHandleErrors({
     connection: provider.connection,
     transaction: tx,
     errMessage: `'Failed to reset stake ${address.toBase58()}`,

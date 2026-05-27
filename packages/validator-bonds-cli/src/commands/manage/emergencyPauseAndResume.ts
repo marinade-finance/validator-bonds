@@ -1,5 +1,6 @@
 import {
   computeUnitLimitOption,
+  executeTxHandleErrors,
   getCliContext,
   setProgramTelemetryFields,
 } from '@marinade.finance/validator-bonds-cli-core'
@@ -10,7 +11,6 @@ import {
   emergencyResumeInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
-  executeTx,
   instanceOfWallet,
   parsePubkey,
   parseWalletOrPubkeyOption,
@@ -151,7 +151,7 @@ async function manageEmergencyPauseAndResume({
   }
   tx.add(instruction)
 
-  await executeTx({
+  await executeTxHandleErrors({
     connection: provider.connection,
     transaction: tx,
     errMessage: `'Failed to ${action} validator bonds contract config account ${address.toBase58()}`,
