@@ -1,10 +1,10 @@
 use crate::context::WrappedContext;
-use crate::error::CustomError;
 use crate::repositories::cli_usage::{record_cli_usage, CliType, CliUsageParams};
+use axum::extract::{Query, State};
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use log::error;
 use serde::{Deserialize, Serialize};
-use warp::http::StatusCode;
-use warp::reply::{Reply, Response};
 
 /// Max number of characters accepted for the free-form TEXT fields
 /// (account, operation, cli_version). Enforced at the handler only; the
@@ -40,9 +40,9 @@ pub struct QueryParams {
     )
 )]
 pub async fn handler(
-    query_params: QueryParams,
-    context: WrappedContext,
-) -> Result<Response, warp::Rejection> {
+    State(context): State<WrappedContext>,
+    Query(query_params): Query<QueryParams>,
+) -> Response {
     let too_long = |v: &Option<String>| {
         v.as_deref()
             .is_some_and(|s| s.chars().count() > MAX_FIELD_CHARS)
@@ -51,11 +51,11 @@ pub async fn handler(
         || too_long(&query_params.operation)
         || too_long(&query_params.cli_version)
     {
-        return Ok(warp::reply::with_status(
-            format!("Field exceeds {MAX_FIELD_CHARS} characters"),
+        return (
             StatusCode::BAD_REQUEST,
+            format!("Field exceeds {MAX_FIELD_CHARS} characters"),
         )
-        .into_response());
+            .into_response();
     }
 
     let usage_params = CliUsageParams {
@@ -67,14 +67,16 @@ pub async fn handler(
 
     let ctx = context.read().await;
     match record_cli_usage(&ctx.psql_client, usage_params).await {
-        Ok(()) => Ok(StatusCode::NO_CONTENT.into_response()),
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(err) => {
             // Log the underlying DB error for diagnostics; do not echo it back
             // to the client (may contain schema/constraint detail).
             error!("Failed to record CLI usage: {err:?}");
-            Err(warp::reject::custom(CustomError {
-                message: "Failed to record CLI usage".to_string(),
-            }))
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to record CLI usage",
+            )
+                .into_response()
         }
     }
 }
