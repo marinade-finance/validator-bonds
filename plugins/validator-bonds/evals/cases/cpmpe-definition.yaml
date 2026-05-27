@@ -1,4 +1,5 @@
 question: 'What does CPMPE mean and how is it used in the SAM auction?'
 facts:
   - 'lamports per 1000 SOL per epoch'
+  - 'fixed bid price'
   - 'auction'
