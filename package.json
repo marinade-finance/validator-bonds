@@ -59,26 +59,6 @@
       "cargo fmt --"
     ]
   },
-  "pnpm": {
-    "peerDependencyRules": {
-      "allowedVersions": {
-        "jest": "29",
-        "@coral-xyz/anchor": "0.31"
-      }
-    },
-    "overrides": {
-      "glob@<8": "^10.3.10",
-      "rpc-websockets": "9.3.10",
-      "utf-8-validate": "^6.0.6"
-    },
-    "onlyBuiltDependencies": [
-      "bigint-buffer",
-      "bufferutil",
-      "node-hid",
-      "unrs-resolver",
-      "utf-8-validate"
-    ]
-  },
   "engines": {
     "node": ">=20.18.0"
   }
