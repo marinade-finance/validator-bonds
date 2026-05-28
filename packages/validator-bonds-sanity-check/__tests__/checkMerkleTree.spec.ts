@@ -10,6 +10,7 @@ import {
   extractMetrics,
   reportMerkleTreeAnomalies,
   detectIndividualAnomaly,
+  checkEpochHopGuardrail,
 } from '../src/commands/checkMerkleTree'
 
 import type { MerkleTreeMetrics } from '../src/commands/checkMerkleTree'
@@ -219,6 +220,121 @@ describe('detectIndividualAnomaly', () => {
     })
 
     expect(result.description).toBe('Test field description')
+  })
+})
+
+describe('checkEpochHopGuardrail', () => {
+  const hopThreshold = new Decimal(1.5)
+
+  it('passes when both metrics are within threshold', () => {
+    const previous = mockMetrics({
+      epoch: 976,
+      totalClaimAmount: 259_000_000_000n,
+      avgClaimAmountPerValidator: new Decimal(25_900_000_000),
+    })
+    const current = mockMetrics({
+      epoch: 977,
+      totalClaimAmount: 320_000_000_000n, // ~23.6% jump
+      avgClaimAmountPerValidator: new Decimal(32_000_000_000),
+    })
+
+    const { violations, report } = checkEpochHopGuardrail({
+      currentMetrics: current,
+      previousMetrics: previous,
+      hopThreshold,
+    })
+
+    expect(violations).toHaveLength(0)
+    expect(report).toContain('WITHIN ALLOWED HOP')
+  })
+
+  it('fails when totalClaimAmount nearly doubles (the 259 -> 457 SOL case)', () => {
+    const previous = mockMetrics({
+      epoch: 976,
+      totalClaimAmount: 259_000_000_000n,
+      avgClaimAmountPerValidator: new Decimal(25_900_000_000),
+    })
+    const current = mockMetrics({
+      epoch: 977,
+      totalClaimAmount: 457_000_000_000n,
+      avgClaimAmountPerValidator: new Decimal(45_700_000_000),
+    })
+
+    const { violations, report } = checkEpochHopGuardrail({
+      currentMetrics: current,
+      previousMetrics: previous,
+      hopThreshold,
+    })
+
+    expect(violations).toHaveLength(2)
+    expect(violations.map(v => v.field)).toEqual([
+      'totalClaimAmount',
+      'avgClaimAmountPerValidator',
+    ])
+    expect(report).toContain('HOP GUARDRAIL VIOLATED')
+  })
+
+  it('fails when totalClaimAmount drops below 1/threshold', () => {
+    const previous = mockMetrics({
+      epoch: 976,
+      totalClaimAmount: 450_000_000_000n,
+      avgClaimAmountPerValidator: new Decimal(45_000_000_000),
+    })
+    const current = mockMetrics({
+      epoch: 977,
+      totalClaimAmount: 200_000_000_000n, // ratio 0.444 < 1/1.5
+      avgClaimAmountPerValidator: new Decimal(20_000_000_000),
+    })
+
+    const { violations } = checkEpochHopGuardrail({
+      currentMetrics: current,
+      previousMetrics: previous,
+      hopThreshold,
+    })
+
+    expect(violations).toHaveLength(2)
+  })
+
+  it('flags zero-baseline as violation when current is non-zero', () => {
+    const previous = mockMetrics({
+      epoch: 976,
+      totalClaimAmount: 0n,
+      avgClaimAmountPerValidator: new Decimal(0),
+    })
+    const current = mockMetrics({
+      epoch: 977,
+      totalClaimAmount: 100n,
+      avgClaimAmountPerValidator: new Decimal(100),
+    })
+
+    const { violations } = checkEpochHopGuardrail({
+      currentMetrics: current,
+      previousMetrics: previous,
+      hopThreshold,
+    })
+
+    expect(violations).toHaveLength(2)
+  })
+
+  it('passes when both epochs are zero on guarded fields', () => {
+    const previous = mockMetrics({
+      epoch: 976,
+      totalClaimAmount: 0n,
+      avgClaimAmountPerValidator: new Decimal(0),
+    })
+    const current = mockMetrics({
+      epoch: 977,
+      totalClaimAmount: 0n,
+      avgClaimAmountPerValidator: new Decimal(0),
+    })
+
+    const { violations } = checkEpochHopGuardrail({
+      currentMetrics: current,
+      previousMetrics: previous,
+      hopThreshold,
+    })
+
+    expect(violations).toHaveLength(0)
   })
 })
 
