@@ -1,0 +1,4 @@
+question: "Who can sign bond management transactions?"
+facts:
+  - "bond.authority"
+  - "validator identity"
