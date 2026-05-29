@@ -1,17 +1,20 @@
 #!/usr/bin/env bun
-// Usage: bun runner.ts [--plugin-dir <path>] [--no-skills] <cases-dir|file.yaml...>
+// Usage: bun runner.ts [--plugin-dir <path>] [--no-skills] [-t <tag>] [-N] [cases-dir|file.yaml...]
 // Each .yaml: { question: string, facts: string[] }
 // --plugin-dir  load only this plugin; skills auto-trigger based on routing
 // --no-skills   disable all skills (baseline comparison)
+// -t <tag>      output tag (default: YYYYMMDD); written to ./report/<tag>/
+// -N            run only first N cases (e.g. -1, -2, -3)
+// Positionals default to ./cases relative to this script.
 // Run in dockbox for clean isolation (fresh home = no global skills, ANTHROPIC_API_KEY forwarded).
 // Facts: case-insensitive includes() first; semantic misses go to haiku with XML delimiters.
-// Writes a detailed YAML log to ./tmp/eval-<timestamp>.yml
 
 import { parseArgs } from 'node:util'
 import { parse, stringify } from 'yaml'
 import { $ } from 'bun'
 import { readdir, readFile, stat, mkdir, writeFile } from 'fs/promises'
-import { join, basename } from 'path'
+import { join, basename, dirname } from 'path'
+import { fileURLToPath } from 'url'
 
 interface Case {
   question: string
@@ -39,22 +42,39 @@ interface RunMeta {
   mode: string
   flags: string[]
   plugin_dir?: string
+  tag: string
   started_at: string
 }
 
+// Extract -N flags (e.g. -1, -2) before parseArgs since they're not valid option names
+const rawArgs = Bun.argv.slice(2)
+let limit: number | null = null
+const filteredArgs = rawArgs.filter(a => {
+  const m = a.match(/^-(\d+)$/)
+  if (m) {
+    limit = parseInt(m[1], 10)
+    return false
+  }
+  return true
+})
+
 const { values, positionals } = parseArgs({
-  args: Bun.argv.slice(2),
+  args: filteredArgs,
   options: {
     'plugin-dir': { type: 'string' },
     'no-skills': { type: 'boolean', default: false },
+    t: { type: 'string' },
   },
   allowPositionals: true,
 })
 
-if (positionals.length === 0)
-  throw new Error(
-    'Usage: bun runner.ts [--plugin-dir <path>] [--no-skills] <cases-dir|file.yaml...>',
-  )
+const scriptDir = dirname(fileURLToPath(import.meta.url))
+const defaultCasesDir = join(scriptDir, 'cases')
+const casePaths = positionals.length > 0 ? positionals : [defaultCasesDir]
+
+const today = new Date()
+const defaultTag = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
+const tag = values.t ?? defaultTag
 
 const pluginDir = values['plugin-dir']
 const baseFlags = values['no-skills']
@@ -101,9 +121,10 @@ const expand = async (p: string): Promise<string[]> => {
   return [p]
 }
 
-const files = (await Promise.all(positionals.map(expand))).flat()
+let files = (await Promise.all(casePaths.map(expand))).flat()
 
 if (files.length === 0) throw new Error('No .yaml files found')
+if (limit !== null) files = files.slice(0, limit)
 
 let passed = 0
 let failed = 0
@@ -115,6 +136,7 @@ const meta: RunMeta = {
       : 'default',
   flags: baseFlags,
   ...(pluginDir ? { plugin_dir: pluginDir } : {}),
+  tag,
   started_at: new Date().toISOString(),
 }
 const log: { meta: RunMeta; cases: CaseResult[] } = { meta, cases: [] }
@@ -160,8 +182,12 @@ for (const file of files) {
   log.cases.push(entry)
 }
 
-await mkdir('./tmp', { recursive: true })
-const logPath = `./tmp/eval-${new Date().toISOString().replace(/[:.]/g, '-')}.yml`
+const reportDir = join('./report', tag)
+await mkdir(reportDir, { recursive: true })
+const logPath = join(
+  reportDir,
+  `eval-${new Date().toISOString().replace(/[:.]/g, '-')}.yml`,
+)
 await writeFile(logPath, stringify(log))
 console.log(`\n${passed}/${passed + failed} passed  →  ${logPath}`)
 if (failed > 0) process.exit(1)

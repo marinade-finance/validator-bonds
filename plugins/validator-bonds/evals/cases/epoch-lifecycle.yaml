@@ -1,8 +1,11 @@
-question: 'Explain the epoch lifecycle for Validator Bonds settlements.'
+question: >
+  Explain the full epoch lifecycle for Validator Bonds settlements: how are
+  settlement trees generated, how do they reach the chain, what is the
+  claiming window, and what happens to unclaimed funds after it closes?
 facts:
-  - 'merkle'
-  - 'claiming window'
-  - 'off-chain'
-  - 'on-chain'
-  - '~4 epochs'
-  - 'unclaimed funds return to bond'
+  - merkle
+  - claiming window
+  - off-chain
+  - on-chain
+  - epochs_to_claim_settlement
+  - unclaimed funds return to bond

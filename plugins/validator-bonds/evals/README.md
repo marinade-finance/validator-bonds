@@ -9,21 +9,27 @@ surface the right content.
 ```bash
 cd plugins/validator-bonds/evals
 
-# Run all cases (skills load from your normal Claude Code config)
-bun runner.ts cases/
+# Run all cases (default: ./cases/)
+bun runner.ts
+
+# Run only first 2 cases
+bun runner.ts -2
 
 # Single case
 bun runner.ts cases/bidding-settlement.yaml
 
 # Baseline — disable all skills for comparison
-bun runner.ts --no-skills cases/
+bun runner.ts --no-skills
 
 # Explicit plugin dir — override which plugin is loaded
-bun runner.ts --plugin-dir ../../.. cases/
+bun runner.ts --plugin-dir ../../..
+
+# Custom output tag (default: YYYYMMDD)
+bun runner.ts -t baseline-20260527
 ```
 
 Output: pass/fail per case, missing facts printed inline, detailed YAML log at
-`./tmp/eval-<timestamp>.yml`.
+`./report/<tag>/eval-<timestamp>.yml`.
 
 ## Clean Isolation (dockbox)
 
@@ -34,19 +40,20 @@ means no global skills load, only `--plugin-dir` content.
 ```bash
 dockbox run --env ANTHROPIC_API_KEY -v $(pwd)/../../../:/repo \
   bun /repo/plugins/validator-bonds/evals/runner.ts \
-    --plugin-dir /repo/plugins/validator-bonds \
-    /repo/plugins/validator-bonds/evals/cases/
+    --plugin-dir /repo/plugins/validator-bonds
 ```
 
 ## Case Format
 
 ```yaml
-question: 'What is a Bidding settlement and where do the funds go?'
+question: >
+  What is a Bidding settlement? Which staker population receives it,
+  how is the payout determined, and what backs the payment?
 facts:
   - Bidding
-  - mSOL stakers
-  - bid amount
-  - ValidatorBond
+  - native stakers
+  - effective_bid_pmpe
+  - bond
 ```
 
 `facts` are checked case-insensitively (substring). Misses go to Haiku as a
@@ -72,6 +79,7 @@ meta:
   mode: plugin:../../.. # or 'no-skills' or 'default'
   flags: [--plugin-dir, ../../..]
   plugin_dir: ../../..
+  tag: '20260527'
   started_at: 2026-05-27T10:00:00.000Z
 cases:
   - case: bidding-settlement

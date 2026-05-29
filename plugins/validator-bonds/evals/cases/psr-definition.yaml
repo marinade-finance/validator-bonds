@@ -1,4 +1,7 @@
-question: 'What is PSR (Protected Staking Rewards)?'
+question: >
+  What is PSR (Protected Staking Rewards)? Explain what triggers a PSR
+  payout, how the underperformance threshold is calculated, and what staker
+  population is covered.
 facts:
-  - 'network-average'
-  - 'underperformance'
+  - network average
+  - underperformance
