@@ -84,7 +84,9 @@ const baseFlags = values['no-skills']
     : []
 
 const ask = async (question: string): Promise<string> =>
-  $`claude ${baseFlags} -p ${question}`.text()
+  $`claude ${baseFlags} -p ${question}`
+    .env({ ...process.env, CLAUDE_EVAL: '1' })
+    .text()
 
 const judgePrompt =
   'You are a strict fact-checker. Given a fact and a response, output the single word YES if the response explicitly and accurately conveys that fact, or the single word NO if absent, contradicted, or only vaguely implied. No other output.'
