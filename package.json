@@ -24,7 +24,7 @@
     "fix": "pnpm lint:ts-fix && pnpm lint:cargo-fix",
     "prepare": "husky",
     "publish:test": "pnpm build && pnpm lint && pnpm publish -r --dry-run",
-    "publish:cli": "pnpm build && pnpm publish -r --filter \"./packages/*cli*\"",
+    "publish:cli": "pnpm build && MIXPANEL_TOKEN_REQUIRED=1 pnpm publish -r --filter \"./packages/*cli*\"",
     "publish:sdk": "pnpm build && pnpm publish -r --filter \"./packages/*sdk*\"",
     "publish:codama": "pnpm build && pnpm publish -r --filter \"./packages/*codama\"",
     "publish:all": "pnpm publish:sdk && pnpm publish:cli && pnpm run tag:release",
@@ -57,26 +57,6 @@
     ],
     "*.rs": [
       "cargo fmt --"
-    ]
-  },
-  "pnpm": {
-    "peerDependencyRules": {
-      "allowedVersions": {
-        "jest": "29",
-        "@coral-xyz/anchor": "0.31"
-      }
-    },
-    "overrides": {
-      "glob@<8": "^10.3.10",
-      "rpc-websockets": "9.3.10",
-      "utf-8-validate": "^6.0.6"
-    },
-    "onlyBuiltDependencies": [
-      "bigint-buffer",
-      "bufferutil",
-      "node-hid",
-      "unrs-resolver",
-      "utf-8-validate"
     ]
   },
   "engines": {

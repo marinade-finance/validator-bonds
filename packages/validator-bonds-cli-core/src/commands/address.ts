@@ -5,14 +5,16 @@ import {
 } from '@marinade.finance/validator-bonds-sdk'
 import { parsePubkeyOrPubkeyFromWallet } from '@marinade.finance/web3js-1x'
 
+import { setProgramTelemetryFields } from '../cliUsage'
 import { getCliContext } from '../context'
 
 import type { PublicKey } from '@solana/web3.js'
 import type { Command } from 'commander'
 
 export function configureShowBondAddress(program: Command): Command {
-  return program
-    .command('bond-address')
+  return setProgramTelemetryFields(program.command('bond-address'), {
+    accountField: 'vote_account',
+  })
     .description(
       'From provided vote account address derives the bond account address',
     )

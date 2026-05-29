@@ -56,8 +56,4 @@ cargo run --bin api -- --postgres-url "$POSTGRES_URL" \
 
 # data is gzipped so we use curl --compressed
 curl -X GET --compressed "http://localhost:8000/bonds/bidding"
-
-# CLI telemetry write — POST (called by the CLI on every invocation;
-# browsers cannot reach this endpoint, CORS allows only GET).
-curl -X POST "http://localhost:8000/v1/cli-usage?type=sam&operation=show-config&cli_version=2.4.4"
 ```

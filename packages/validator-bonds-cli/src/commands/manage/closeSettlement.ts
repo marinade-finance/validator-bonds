@@ -1,7 +1,9 @@
 import {
   CLOSE_SETTLEMENT_LIMIT_UNITS,
   computeUnitLimitOption,
+  executeTxHandleErrors,
   getCliContext,
+  setProgramTelemetryFields,
 } from '@marinade.finance/validator-bonds-cli-core'
 import {
   closeSettlementV2Instruction,
@@ -9,7 +11,6 @@ import {
   getSettlement,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
-  executeTx,
   parsePubkey,
   parseWalletOrPubkeyOption,
   transaction,
@@ -20,8 +21,9 @@ import type { PublicKey, Signer } from '@solana/web3.js'
 import type { Command } from 'commander'
 
 export function installCloseSettlement(program: Command) {
-  program
-    .command('close-settlement')
+  setProgramTelemetryFields(program.command('close-settlement'), {
+    accountField: 'settlement_account',
+  })
     .description(
       'Closing Settlement. It is a permission-less action permitted when the Settlement expires. ' +
         'To finalize closing the dangling stake accounts need to be reset.',
@@ -101,7 +103,7 @@ export async function manageCloseSettlement({
   tx.add(instruction)
 
   logger.info(`Closing settlement account ${address.toBase58()}`)
-  await executeTx({
+  await executeTxHandleErrors({
     connection: provider.connection,
     transaction: tx,
     errMessage: `'Failed to close settlement ${address.toBase58()}`,

@@ -1,11 +1,11 @@
 import {
   computeUnitLimitOption,
+  executeTxHandleErrors,
   getCliContext,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { INIT_CONFIG_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
 import { initConfigInstruction } from '@marinade.finance/validator-bonds-sdk'
 import {
-  executeTx,
   instanceOfWallet,
   transaction,
   parseKeypair,
@@ -152,7 +152,7 @@ async function manageInitConfig({
   })
   tx.add(instruction)
 
-  await executeTx({
+  await executeTxHandleErrors({
     connection: provider.connection,
     transaction: tx,
     errMessage: `'Failed to create config account ${address.publicKey.toBase58()}`,

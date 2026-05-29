@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment */
 
+import { randomUUID } from 'node:crypto'
+
 import { pinoConfiguration } from '@marinade.finance/ts-common'
 import {
   DEFAULT_KEYPAIR_PATH,
@@ -11,19 +13,31 @@ import { Command, Option } from 'commander'
 import pino from 'pino'
 
 import { printNotificationBanners } from '../banner'
-import { recordCliUsage } from '../cliUsage'
+import {
+  DEFAULT_MIX_PROXY_URL,
+  clusterLabel,
+  drainTxData,
+  errorClass,
+  getOrCreateInstallId,
+  getProgramTelemetryFields,
+  isTelemetryDisabled,
+  recordCliCommand,
+  recordCliCommandComplete,
+} from '../cliUsage'
 import { getCliContext, setValidatorBondsCliContext } from '../context'
 import { translateKnownError } from '../errorTranslators'
 import { startFetchingNotificationBanners } from '../notifications'
 import { requireLatestCliVersion } from '../npmRegistry'
 
-import type { CliUsageConfig } from '../cliUsage'
+import type {
+  CliUsageConfig,
+  CompletionResult,
+  PendingCompletion,
+} from '../cliUsage'
 import type { NotificationsConfig } from '../notifications'
 
 export const DEFAULT_NOTIFICATIONS_API_URL =
   'https://marinade-notifications.marinade.finance'
-export const DEFAULT_CLI_USAGE_API_URL =
-  'https://validator-bonds-api.marinade.finance'
 
 export function launchCliProgram({
   version,
@@ -106,13 +120,15 @@ export function launchCliProgram({
         .hideHelp(),
     )
     .addOption(
-      new Option('--cli-usage-api-url <url>', 'Override CLI usage API URL')
-        .env('CLI_USAGE_API_URL')
-        .default(DEFAULT_CLI_USAGE_API_URL)
+      new Option('--mix-proxy-url <url>', 'Override Mixpanel proxy URL')
+        .env('MIX_PROXY_URL')
+        .default(DEFAULT_MIX_PROXY_URL)
         .hideHelp(),
     )
 
   installAdditionalOptions(program)
+
+  let pendingCompletion: PendingCompletion | undefined
 
   program.hook('preAction', async (command: Command, action: Command) => {
     const verbose = command.opts().debug || command.opts().verbose
@@ -132,7 +148,9 @@ export function launchCliProgram({
     const commandName = action.name()
 
     const notificationsApiUrl = command.opts().notificationsApiUrl as string
-    const cliUsageApiUrl = command.opts().cliUsageApiUrl as string
+    const mixProxyUrl = command.opts().mixProxyUrl as string
+    const cluster = (command.opts().url ?? command.opts().cluster) as string
+    const simulate = Boolean(command.opts().simulate)
 
     if (notificationsConfig?.enabled) {
       startFetchingNotificationBanners(
@@ -144,29 +162,40 @@ export function launchCliProgram({
       )
     }
 
-    if (cliUsageConfig?.enabled) {
+    if (cliUsageConfig?.enabled && !isTelemetryDisabled()) {
       // Argument parsers like parsePubkey return Promise<PublicKey>; unwrap so
       // we inspect the resolved value, not the pending Promise.
       const arg = await Promise.resolve(action.processedArgs?.[0]).catch(
         () => undefined,
       )
       const account = arg instanceof PublicKey ? arg.toBase58() : undefined
-      void recordCliUsage(
-        {
-          apiUrl: cliUsageApiUrl,
-          cliType: cliUsageConfig.cliType,
-          cliVersion: version,
-          operation: commandName,
-          account,
-        },
+      const { accountField } = getProgramTelemetryFields(action)
+      const walletPubkey = walletInterface.publicKey?.toBase58()
+      const installId = getOrCreateInstallId(logger)
+      const sessionId = randomUUID()
+      pendingCompletion = {
+        mixProxyUrl,
+        cliType: cliUsageConfig.cliType,
+        cliVersion: version,
+        operation: commandName,
+        sessionId,
+        walletPubkey,
+        installId,
+        cluster: clusterLabel(cluster),
+        simulate,
+        printOnly,
+        startedAt: Date.now(),
+      }
+      void recordCliCommand(
+        { ...pendingCompletion, account, accountField },
         logger,
       )
     }
 
     setValidatorBondsCliContext({
-      cluster: (command.opts().url ?? command.opts().cluster) as string,
+      cluster,
       wallet: walletInterface,
-      simulate: Boolean(command.opts().simulate),
+      simulate,
       printOnly,
       skipPreflight: Boolean(command.opts().skipPreflight),
       commitment: command.opts().commitment,
@@ -182,6 +211,20 @@ export function launchCliProgram({
     await requireLatestCliVersion(logger, npmRegistryUrl, version)
   })
 
+  const fireCompletion = (result: CompletionResult) => {
+    if (!pendingCompletion) return
+    const drained = drainTxData()
+    void recordCliCommandComplete(
+      {
+        ...pendingCompletion,
+        ...drained,
+        result,
+        durationMs: Date.now() - pendingCompletion.startedAt,
+      },
+      logger,
+    )
+  }
+
   if (notificationsConfig?.enabled) {
     program.hook('postAction', async () => {
       await printNotificationBanners(logger)
@@ -192,10 +235,12 @@ export function launchCliProgram({
 
   program.parseAsync(process.argv).then(
     () => {
+      fireCompletion('success')
       logger.debug({ resolution: 'Success', args: process.argv })
       logger.flush()
     },
     (err: Error) => {
+      fireCompletion(errorClass(err))
       const originalErr = err
       let rpcEndpoint: string | undefined
       try {

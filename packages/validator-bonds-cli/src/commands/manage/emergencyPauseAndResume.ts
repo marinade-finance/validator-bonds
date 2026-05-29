@@ -1,6 +1,8 @@
 import {
   computeUnitLimitOption,
+  executeTxHandleErrors,
   getCliContext,
+  setProgramTelemetryFields,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { EMERGENCY_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
 import {
@@ -9,7 +11,6 @@ import {
   emergencyResumeInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
-  executeTx,
   instanceOfWallet,
   parsePubkey,
   parseWalletOrPubkeyOption,
@@ -24,8 +25,9 @@ import type { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
 import type { Command } from 'commander'
 
 export function installEmergencyPause(program: Command) {
-  program
-    .command('pause')
+  setProgramTelemetryFields(program.command('pause'), {
+    accountField: 'config_account',
+  })
     .description('Pausing Validator Bond contract for config account')
     .argument(
       '[config-address]',
@@ -61,8 +63,9 @@ export function installEmergencyPause(program: Command) {
 }
 
 export function installEmergencyResume(program: Command) {
-  program
-    .command('resume')
+  setProgramTelemetryFields(program.command('resume'), {
+    accountField: 'config_account',
+  })
     .description('Resuming Validator Bond contract for config account')
     .argument(
       '[address]',
@@ -148,7 +151,7 @@ async function manageEmergencyPauseAndResume({
   }
   tx.add(instruction)
 
-  await executeTx({
+  await executeTxHandleErrors({
     connection: provider.connection,
     transaction: tx,
     errMessage: `'Failed to ${action} validator bonds contract config account ${address.toBase58()}`,

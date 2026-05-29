@@ -8,6 +8,10 @@ import {
 } from '@marinade.finance/web3js-1x'
 
 import {
+  recordResolvedAccounts,
+  setProgramTelemetryFields,
+} from '../../cliUsage'
+import {
   CANCEL_WITHDRAW_REQUEST_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
@@ -26,8 +30,9 @@ import type { PublicKey, Signer } from '@solana/web3.js'
 import type { Command } from 'commander'
 
 export function configureCancelWithdrawRequest(program: Command): Command {
-  return program
-    .command('cancel-withdraw-request')
+  return setProgramTelemetryFields(program.command('cancel-withdraw-request'), {
+    accountField: 'account',
+  })
     .description(
       'Cancelling the withdraw request account, which is the withdrawal request ticket, ' +
         'by removing the account from the chain.',
@@ -136,6 +141,12 @@ export async function manageCancelWithdrawRequest({
       logger,
     })
   tx.add(instruction)
+  recordResolvedAccounts({
+    bondAccount,
+    voteAccount,
+    configAccount: config,
+    withdrawRequestAccount,
+  })
 
   logger.info(
     `Cancelling withdraw request account ${withdrawRequestAccount.toBase58()} ` +

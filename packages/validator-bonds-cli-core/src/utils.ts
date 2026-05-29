@@ -27,6 +27,7 @@ import {
 } from '@solana/web3.js'
 import BN from 'bn.js'
 
+import { recordTxSignature } from './cliUsage'
 import { getCliContext } from './context'
 import { resolveRpcEndpoint, translateKnownError } from './errorTranslators'
 
@@ -518,7 +519,11 @@ export async function executeTxHandleErrors(
   args: ExecuteTxParams,
 ): Promise<ExecuteTxReturn> {
   try {
-    return await executeTx(args)
+    const result = await executeTx(args)
+    if (result && 'signature' in result && result.signature) {
+      recordTxSignature(result.signature)
+    }
+    return result
   } catch (err) {
     throw translateKnownError(err, {
       txArgs: args,
@@ -531,7 +536,13 @@ export async function splitAndExecuteTxHandleErrors(
   args: ExecuteTxParams,
 ): Promise<(ExecuteTxReturnExecuted & SplitAndExecuteTxData)[]> {
   try {
-    return await splitAndExecuteTx(args)
+    const results = await splitAndExecuteTx(args)
+    for (const entry of results) {
+      if (entry.signature) {
+        recordTxSignature(entry.signature)
+      }
+    }
+    return results
   } catch (err) {
     throw translateKnownError(err, {
       txArgs: args,
