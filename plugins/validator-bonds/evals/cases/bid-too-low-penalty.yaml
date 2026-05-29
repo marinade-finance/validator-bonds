@@ -1,5 +1,5 @@
-question: "What triggers a BidTooLowPenalty settlement?"
+question: 'What triggers a BidTooLowPenalty settlement?'
 facts:
-  - "bid below minimum threshold"
-  - "ValidatorBond"
-  - "BidTooLowPenalty"
+  - 'BidTooLowPenalty'
+  - 'reduces'
+  - 'previous epoch'
