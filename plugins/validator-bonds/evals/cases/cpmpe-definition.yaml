@@ -4,5 +4,5 @@ question: >
   must be a fixed amount or can be expressed differently.
 facts:
   - lamports per 1000 SOL per epoch
-  - dynamic bids
+  - dynamic commission
   - auction

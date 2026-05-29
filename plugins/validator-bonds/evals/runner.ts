@@ -97,7 +97,9 @@ const supports = async (answer: string, fact: string): Promise<FactResult> => {
   try {
     const prompt = `<fact>${fact}</fact>\n<response>${answer}</response>`
     const raw =
-      await $`claude --system-prompt ${judgePrompt} --model claude-haiku-4-5-20251001 -p ${prompt}`.text()
+      await $`claude --system-prompt ${judgePrompt} --model claude-haiku-4-5-20251001 -p ${prompt}`
+        .env({ ...process.env, CLAUDE_EVAL: '1' })
+        .text()
     const verdict = raw.trim()
     return {
       fact,
@@ -153,7 +155,7 @@ for (const file of files) {
     const factResults = await Promise.all(facts.map(f => supports(answer, f)))
     const ok = factResults.every(r => r.passed)
     entry = {
-      case: basename(file, '.yaml'),
+      case: basename(file).replace(/\.ya?ml$/, ''),
       result: ok ? 'pass' : 'fail',
       question,
       answer: answer.trim(),
@@ -172,7 +174,7 @@ for (const file of files) {
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e)
     entry = {
-      case: basename(file, '.yaml'),
+      case: basename(file).replace(/\.ya?ml$/, ''),
       result: 'error',
       question,
       error,

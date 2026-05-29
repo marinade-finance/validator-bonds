@@ -2,4 +2,4 @@ question: 'How does the last-price clearing mechanism work in the SAM auction?'
 facts:
   - 'clearing price'
   - 'bid'
-  - 'overpaying'
+  - 'winningTotalPmpe'

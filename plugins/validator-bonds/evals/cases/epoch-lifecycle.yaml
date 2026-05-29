@@ -7,5 +7,5 @@ facts:
   - claiming window
   - off-chain
   - on-chain
-  - epochs_to_claim_settlement
+  - ~4 epochs
   - unclaimed funds return to bond
