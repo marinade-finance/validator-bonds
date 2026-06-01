@@ -161,6 +161,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       cfgText = cfgTemplate.replace(/(max_fee_bps:)\s*\d+/, `$1 ${fee}`)
     if (values.m !== undefined)
       cfgText = cfgText.replace(/(min_fee_bps:)\s*\d+/, `$1 ${values.m}`)
+    const minFee = Number(cfgText.match(/min_fee_bps:\s*(\d+)/)?.[1] ?? 0)
     await writeFile(cfg, cfgText)
 
     const proc = Bun.spawnSync(
@@ -238,6 +239,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     ).length
 
     console.log(`  - max_fee_bps: ${fee}`)
+    console.log(`    min_fee_bps: ${minFee}`)
     console.log(`    post_fee_pmpe_adj: ${pmpeAdj.toFixed(6)}`)
     console.log(`    post_fee_pmpe_max: ${pmpeMax.toFixed(6)}`)
     console.log(`    apy_adj: ${apy(pmpeAdj, epy)}`)
