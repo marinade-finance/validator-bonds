@@ -186,12 +186,19 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
         '--apy-api-url',
         apyUrl,
       ],
-      { env: { ...process.env, RUST_LOG: 'warn' }, stderr: 'pipe' },
+      {
+        env: {
+          ...process.env,
+          RUST_LOG: 'warn,bid_distribution::generators::bidding=info',
+        },
+        stderr: 'pipe',
+      },
     )
 
     const stderr = Buffer.from(proc.stderr as Uint8Array).toString()
     for (const line of stderr.split('\n')) {
-      if (line.includes(' ERROR ')) process.stderr.write(line + '\n')
+      if (line.includes(' ERROR ') || line.includes('Adjusted max_fee_bps'))
+        process.stderr.write(line + '\n')
       else if (values.v && line.includes('SSR cap'))
         process.stderr.write(line + '\n')
     }
