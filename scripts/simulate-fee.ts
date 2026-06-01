@@ -237,6 +237,13 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
           ((parseFloat(d.total_marinade_stakers_rewards) * fee) / 10000) *
             0.9999,
     ).length
+    const nmin = bids.filter(
+      d =>
+        parseFloat(d.total_marinade_stakers_rewards) > 0 &&
+        d.marinade_fee_claim + d.dao_fee_claim <=
+          ((parseFloat(d.total_marinade_stakers_rewards) * minFee) / 10000) *
+            1.0001,
+    ).length
 
     console.log(`  - max_fee_bps: ${fee}`)
     console.log(`    min_fee_bps: ${minFee}`)
@@ -247,5 +254,6 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     console.log(`    fee_sol_adj: ${sol(feeAdj)}`)
     console.log(`    fee_sol_max: ${sol((total * fee) / 10000)}`)
     console.log(`    validators_capped: ${ncap}/${bids.length}`)
+    console.log(`    validators_at_min_fee: ${nmin}/${bids.length}`)
   }
 }
