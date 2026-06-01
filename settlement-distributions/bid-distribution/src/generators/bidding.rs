@@ -85,7 +85,131 @@ pub struct PriorityFeeSettlementDetails {
     pub dao_fee_claim: u64,
 }
 
+const MAX_ADJ_ITER: u32 = 20;
+
+#[derive(Default)]
+pub struct BidSettlementTotals {
+    pub stake: Decimal,
+    pub rewards: Decimal,
+    pub fees: Decimal,
+}
+
+fn extract_fees(value: &serde_json::Value) -> u64 {
+    let marinade = value
+        .get("marinade_fee_claim")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let dao = value
+        .get("dao_fee_claim")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    marinade + dao
+}
+
+pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlementTotals {
+    let mut totals = BidSettlementTotals::default();
+    // Per-validator fee = Bidding share + PriorityFee share.
+    let mut fees_by_vote_account: HashMap<Pubkey, u64> = HashMap::new();
+    for settlement in settlements {
+        if !matches!(
+            settlement.reason,
+            SettlementReason::Bidding | SettlementReason::PriorityFee
+        ) {
+            continue;
+        }
+        let Some(details) = &settlement.details else {
+            continue;
+        };
+        *fees_by_vote_account
+            .entry(settlement.vote_account)
+            .or_default() += extract_fees(details);
+    }
+    for settlement in settlements {
+        if !matches!(settlement.reason, SettlementReason::Bidding) {
+            continue;
+        }
+        let Some(details) = &settlement.details else {
+            continue;
+        };
+        let Ok(bid) = serde_json::from_value::<BidSettlementDetails>(details.clone()) else {
+            continue;
+        };
+        totals.stake += Decimal::from(bid.total_marinade_active_stake);
+        totals.rewards +=
+            Decimal::from_str(&bid.total_marinade_stakers_rewards).unwrap_or(Decimal::ZERO);
+        totals.fees += Decimal::from(
+            fees_by_vote_account
+                .get(&settlement.vote_account)
+                .copied()
+                .unwrap_or(0),
+        );
+    }
+    totals
+}
+
 pub fn generate_bid_settlements(
+    stake_meta_index: &StakeMetaIndex,
+    sam_validator_metas: &[ValidatorSamMeta],
+    rewards_collection: &RewardsCollection,
+    settlement_config: &SettlementConfig,
+    fee_config: &FeeConfig,
+    stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+    ssr_pmpe: Decimal,
+) -> anyhow::Result<Vec<Settlement>> {
+    let max_cap = fee_config.max_fee_bps as i64;
+    let min_cap = fee_config.min_fee_bps as i64;
+    // Start from the ceiling and bisect downward toward the largest max_fee_bps that still
+    // keeps post_fee_pmpe >= ssr_pmpe. Starting at max_cap means when ssr is not a
+    // binding constraint (all fees satisfy it), we return max_cap on the first iteration.
+    let mut current = max_cap;
+    let mut undershoot = max_cap;
+    let mut overshoot = min_cap;
+    let mut best_max_fee = min_cap;
+    let mut best_settlements: Option<Vec<Settlement>> = None;
+    for _ in 0..MAX_ADJ_ITER {
+        let mut fc = fee_config.clone();
+        fc.max_fee_bps = current as u64;
+        let settlements = generate_bid_settlements_worker(
+            stake_meta_index,
+            sam_validator_metas,
+            rewards_collection,
+            settlement_config,
+            &fc,
+            stake_authority_filter,
+            ssr_pmpe,
+        )?;
+        let totals = calculate_bid_settlement_totals(&settlements);
+        if totals.stake.is_zero() {
+            return Ok(settlements);
+        }
+        let post_fee = (totals.rewards - totals.fees) / totals.stake * Decimal::ONE_THOUSAND;
+        let next = if ssr_pmpe <= post_fee {
+            if best_settlements.is_none() || current > best_max_fee {
+                best_max_fee = current;
+                best_settlements = Some(settlements);
+            }
+            overshoot = current;
+            (current + undershoot) / 2
+        } else {
+            best_settlements.get_or_insert(settlements);
+            undershoot = current;
+            (current + overshoot) / 2
+        };
+        let next = next.clamp(min_cap, max_cap);
+        if next == current {
+            break;
+        }
+        info!(
+            "Adjusted max_fee_bps: {} -> {} (post_fee_pmpe {}, ssr_pmpe {})",
+            current, next, post_fee, ssr_pmpe,
+        );
+        current = next;
+    }
+    // safety: if MAX_ADJ_ITER > 0 there is a value in the option
+    Ok(best_settlements.expect("MAX_ADJ_ITER = 0"))
+}
+
+fn generate_bid_settlements_worker(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],
     rewards_collection: &RewardsCollection,

@@ -1,4 +1,4 @@
-use crate::generators::bidding::generate_bid_settlements;
+use crate::generators::bidding::{calculate_bid_settlement_totals, generate_bid_settlements};
 use crate::generators::psr_events::generate_psr_settlements;
 use crate::generators::sam_penalties::generate_penalty_settlements;
 use crate::rewards::{RewardsCollection, VoteAccountRewards};
@@ -2624,13 +2624,15 @@ fn test_ssr_premium_positive_tightens_fee_cap() {
 #[test]
 fn test_ssr_premium_negative_loosens_fee_cap() {
     // staker_yield_pmpe=20, ssi/ssr=15, premium=-0.05 → target=14.95, fee_cap=1-14.95/20=0.2525
-    // configured max=0.30 → effective=0.2525 → 20 SOL * 0.2525 = 5.05 SOL
+    // BUT: global ssr=15 requires post_fee >= 15, so bisect converges to max_fee=2500 bps (0.25)
+    // which caps effective_fee at 0.25 (not 0.2525). fees = 20*0.25 = 5 SOL.
+    // The negative premium loosens the per-validator cap but the global floor still binds.
     let settlements = run_ssr_test(15.0, ssr_fee_config(3000, 0, -0.05));
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
     assert_eq!(
-        marinade_fee, 5_050_000_000,
-        "negative premium must loosen fee cap to 0.2525"
+        marinade_fee, 5_000_000_000,
+        "global ssr floor (15) caps effective_fee at 0.25 regardless of per-validator premium"
     );
 }
 
@@ -2875,4 +2877,94 @@ fn test_psr_epoch_mismatch_returns_error() {
     );
 
     assert!(result.is_err(), "epoch mismatch must return an error");
+}
+
+fn make_bid_settlement(stake: u64, rewards: &str, fee: u64) -> Settlement {
+    make_bid_settlement_for(Pubkey::default(), stake, rewards, fee)
+}
+
+fn make_bid_settlement_for(
+    vote_account: Pubkey,
+    stake: u64,
+    rewards: &str,
+    fee: u64,
+) -> Settlement {
+    Settlement {
+        reason: SettlementReason::Bidding,
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+        vote_account,
+        claims_count: 0,
+        claims_amount: 0,
+        claims: vec![],
+        details: Some(json!({
+            "total_active_stake": stake,
+            "total_marinade_active_stake": stake,
+            "auction_effective_static_bid": "0",
+            "marinade_stake_share": "1",
+            "marinade_inflation_rewards": "0",
+            "marinade_mev_rewards": "0",
+            "marinade_block_rewards": "0",
+            "total_marinade_stakers_rewards": rewards,
+            "settlement_claims": {},
+            "stakers_total_claim": 0,
+            "marinade_fee_claim": fee,
+            "dao_fee_claim": 0,
+        })),
+    }
+}
+
+fn make_priority_fee_settlement(vote_account: Pubkey, fee: u64) -> Settlement {
+    Settlement {
+        reason: SettlementReason::PriorityFee,
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+        vote_account,
+        claims_count: 0,
+        claims_amount: 0,
+        claims: vec![],
+        details: Some(json!({
+            "total_marinade_activating_stake": 0,
+            "activating_stake_pmpe": "0",
+            "activating_bid_claim": "0",
+            "activating_stakers_pool": 0,
+            "marinade_fee_claim": fee,
+            "dao_fee_claim": 0,
+        })),
+    }
+}
+
+#[test]
+fn test_calculate_bid_settlement_totals_sums_bidding() {
+    let settlements = vec![
+        make_bid_settlement_for(test_vote_account(1), 1_000_000, "500", 50),
+        make_bid_settlement_for(test_vote_account(2), 2_000_000, "1000", 100),
+    ];
+    let totals = calculate_bid_settlement_totals(&settlements);
+    assert_eq!(totals.stake, Decimal::from(3_000_000));
+    assert_eq!(totals.rewards, Decimal::from(1500));
+    assert_eq!(totals.fees, Decimal::from(150));
+}
+
+#[test]
+fn test_calculate_bid_settlement_totals_skips_non_bidding() {
+    let mut other = make_bid_settlement(1_000_000, "500", 50);
+    other.reason = SettlementReason::BidTooLowPenalty;
+    let totals = calculate_bid_settlement_totals(&[other]);
+    assert!(totals.stake.is_zero());
+    assert!(totals.rewards.is_zero());
+    assert!(totals.fees.is_zero());
+}
+
+#[test]
+fn test_calculate_bid_settlement_totals_includes_priority_fees() {
+    let vote = test_vote_account(1);
+    let settlements = vec![
+        make_bid_settlement_for(vote, 1_000_000, "1000", 30),
+        make_priority_fee_settlement(vote, 50),
+    ];
+    let totals = calculate_bid_settlement_totals(&settlements);
+    assert_eq!(totals.fees, Decimal::from(80));
 }
