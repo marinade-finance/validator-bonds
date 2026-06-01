@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 /* eslint-disable n/no-process-exit */
-// Per stake-size bucket of individual stakers, prints (as YAML, one epoch per file from
-// tmp/settlements-<epoch>.json) their net staking yield and the fee Marinade extracts.
+// Per stake-size bucket of individual stakers, emits JSON Lines -- one flat record per
+// (epoch, bucket) with numeric fields, ready for a plotter -- of their net staking yield and the
+// fee Marinade extracts, from tmp/settlements-<epoch>.json.
 //
 //   active stakers    -> binned by active_stake; yield = (inflation+mev+block+static_bid - fee)
 //                        per active SOL, from the Bidding settlement. Excludes the activating bid.
@@ -66,9 +67,9 @@ const [epochStart, epochEnd] = epochArg.includes('-')
   ? epochArg.split('-').map(Number)
   : [Number(epochArg), Number(epochArg)]
 
-const sol = (lamports: number) => (lamports / 1e9).toFixed(3)
-const apy = (pmpe: number) =>
-  ((Math.pow(1 + pmpe / 1000, EPOCHS_PER_YEAR) - 1) * 100).toFixed(2) + '%'
+const r3 = (lamports: number) => Math.round((lamports / 1e9) * 1000) / 1000
+const apyPct = (pmpe: number) =>
+  Math.round((Math.pow(1 + pmpe / 1000, EPOCHS_PER_YEAR) - 1) * 10000) / 100
 const pmpe = (amount: number, stake: number) =>
   stake > 0 ? (amount / stake) * 1000 : 0
 const num = (s?: string) => parseFloat(s ?? '0')
@@ -106,17 +107,19 @@ function fetch(epoch: number, path: string) {
   return true
 }
 
-const row = (name: string, n: number, b: Acc) => {
-  console.log(`  - ${name}`)
-  console.log(`    stakers: ${n}`)
-  console.log(`    stake_sol: ${sol(b.stake)}`)
-  console.log(`    yield_sol: ${sol(b.yield)}`)
-  console.log(`    yield_apy: ${apy(pmpe(b.yield, b.stake))}`)
-  console.log(`    fee_sol: ${sol(b.fee)}`)
-  console.log(`    fee_apy: ${apy(pmpe(b.fee, b.stake))}`)
-}
-
-console.log('epochs:')
+const emit = (epoch: number, bucket: string, n: number, b: Acc) =>
+  console.log(
+    JSON.stringify({
+      epoch,
+      bucket,
+      stakers: n,
+      stake_sol: r3(b.stake),
+      yield_sol: r3(b.yield),
+      yield_apy: apyPct(pmpe(b.yield, b.stake)),
+      fee_sol: r3(b.fee),
+      fee_apy: apyPct(pmpe(b.fee, b.stake)),
+    }),
+  )
 for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
   const path = join(DIR, `settlements-${epoch}.json`)
   if (!fetch(epoch, path)) continue
@@ -126,7 +129,6 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
 
   const stakers = new Map<string, Acc>()
   const pool: Acc = { stake: 0, yield: 0, fee: 0 }
-  let feeTotal = 0
   let legacy = false
   const get = (wa: string) => {
     let w = stakers.get(wa)
@@ -136,7 +138,6 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
 
   for (const s of settlements) {
     const fee = s.claims.filter(isFee).reduce((a, c) => a + c.claim_amount, 0)
-    feeTotal += fee
     const d = s.details
 
     if (s.reason === 'Bidding') {
@@ -204,7 +205,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
   )
   if (dropped.length)
     process.stderr.write(
-      `  # epoch ${epoch}: dropped ${dropped.length} stakers with yield but no stake (${sol(dropped.reduce((a, w) => a + w.yield, 0))} SOL)\n`,
+      `  # epoch ${epoch}: dropped ${dropped.length} stakers with yield but no stake (${r3(dropped.reduce((a, w) => a + w.yield, 0))} SOL)\n`,
     )
   const counted = [...stakers.values()].filter(w => w.stake > 0)
   if (!counted.length) {
@@ -238,16 +239,9 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     { stake: 0, yield: 0, fee: 0 },
   )
 
-  console.log(`- epoch: ${epoch}`)
-  console.log(`  stakers: ${counted.length}`)
-  console.log(`  stake_sol: ${sol(all.stake)}`)
-  console.log(`  yield_apy: ${apy(pmpe(all.yield, all.stake))}`)
-  console.log(`  fee_sol: ${sol(all.fee)}`)
-  console.log(`  fee_total_sol: ${sol(feeTotal)}`)
-  console.log(`  other_fee_sol: ${sol(feeTotal - (all.fee + pool.fee))}`)
-  console.log('  bins:')
   for (let i = 0; i < bins.length; i++) {
-    if (bins[i].n > 0) row(`range: ${label(i)}`, bins[i].n, bins[i])
+    if (bins[i].n > 0) emit(epoch, label(i), bins[i].n, bins[i])
   }
-  if (pool.stake > 0) row('range: pool (mSOL/DAO)', 1, pool)
+  if (pool.stake > 0) emit(epoch, 'pool (mSOL/DAO)', 0, pool)
+  emit(epoch, 'all', counted.length, all)
 }
