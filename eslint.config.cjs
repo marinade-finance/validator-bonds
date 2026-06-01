@@ -21,6 +21,12 @@ module.exports = [
     },
   },
   {
+    files: ['scripts/**'],
+    rules: {
+      'import/no-extraneous-dependencies': ['error', { devDependencies: true }],
+    },
+  },
+  {
     files: ['**/*.spec.ts', '**/__tests__/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-member-access': 'off',
