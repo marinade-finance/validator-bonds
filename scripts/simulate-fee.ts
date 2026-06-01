@@ -120,7 +120,6 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
 
   if (!INPUTS.every(f => existsSync(join(inp, f)))) {
     process.stderr.write(`  # fetching ${epoch}...\n`)
-    process.stderr.write('  # compiling...\n')
     Bun.spawnSync(
       [
         './scripts/regression-test-settlements.sh',
