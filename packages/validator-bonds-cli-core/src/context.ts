@@ -1,5 +1,5 @@
 import { AnchorProvider } from '@coral-xyz/anchor'
-import { CLIContext } from '@marinade.finance/cli-common'
+import { CliCommandError, CLIContext } from '@marinade.finance/cli-common'
 import { getContext, setContext } from '@marinade.finance/ts-common'
 import {
   VALIDATOR_BONDS_PROGRAM_ID,
@@ -11,6 +11,8 @@ import {
   parseConfirmationFinality,
 } from '@marinade.finance/web3js-1x'
 import { Connection } from '@solana/web3.js'
+
+import { buildRpcRemediationMsg } from './errorTranslators'
 
 import type { Provider } from '@coral-xyz/anchor'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
@@ -147,7 +149,15 @@ export function setValidatorBondsCliContext({
     )
   } catch (e) {
     logger.debug(e)
-    throw new Error(`Failed to connect Solana cluster at ${cluster}`)
+    throw new CliCommandError({
+      commandName: command,
+      valueName: '--url',
+      value: cluster,
+      msg: buildRpcRemediationMsg(
+        `Failed to connect Solana cluster at ${cluster}.`,
+      ),
+      cause: e as Error,
+    })
   }
 }
 

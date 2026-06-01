@@ -1,5 +1,6 @@
 import {
   computeUnitLimitOption,
+  executeTxHandleErrors,
   getCliContext,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { MERGE_STAKE_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
@@ -7,11 +8,7 @@ import {
   MARINADE_CONFIG_ADDRESS,
   mergeStakeInstruction,
 } from '@marinade.finance/validator-bonds-sdk'
-import {
-  executeTx,
-  parsePubkey,
-  transaction,
-} from '@marinade.finance/web3js-1x'
+import { parsePubkey, transaction } from '@marinade.finance/web3js-1x'
 import { PublicKey } from '@solana/web3.js'
 
 import type { Wallet } from '@marinade.finance/web3js-1x'
@@ -110,7 +107,7 @@ async function manageMerge({
   })
   tx.add(instruction)
 
-  await executeTx({
+  await executeTxHandleErrors({
     connection: provider.connection,
     transaction: tx,
     errMessage:

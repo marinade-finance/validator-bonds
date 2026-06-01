@@ -102,9 +102,9 @@ validator-bonds configure-bond <vote-account-address> --authority ./validator-id
 # Check the new configuration
 validator-bonds show-bond <vote-account-address>
 
-# Track detailed funding information (requires non-public RPC)
+# Track detailed funding information
 RPC_URL=<url-to-solana-rpc-node>
-validator-bonds -u $RPC_URL show-bond <vote-account-address> --with-funding
+validator-bonds -u $RPC_URL show-bond <vote-account-address>
 ```
 
 **Next Steps:** Read the [Core Concepts](#core-concepts) section to understand how bonds, auctions, and settlements work, then explore the detailed [Bond Management](#bond-management) commands.
@@ -253,12 +253,11 @@ validator-bonds -um show-bond <bond-or-vote-account-address>
 View detailed bond information including funding details:
 
 ```sh
-# Requires a private RPC endpoint (public endpoints rate-limit these calls)
 RPC_URL=<your-rpc-url>
-validator-bonds -u $RPC_URL show-bond <bond-or-vote-account-address> --with-funding --verbose
+validator-bonds -u $RPC_URL show-bond <bond-or-vote-account-address> --verbose
 ```
 
-**Note:** The `--with-funding` flag makes multiple RPC calls and won't work with public endpoints (see [Troubleshooting](#troubleshooting) for RPC options).
+**Note:** Funding information requires multiple RPC calls and won't work with public endpoints (see [Troubleshooting](#troubleshooting) for RPC options). It is fetched automatically when querying a specific bond/vote/identity address; for filter-based listings, opt in with `--with-funding`.
 
 **Example output:**
 
@@ -914,7 +913,7 @@ When installed globally
 # Get npm global installation folder
 npm list -g
 > /usr/lib
-> +-- @marinade.finance/validator-bonds-cli@2.4.7
+> +-- @marinade.finance/validator-bonds-cli@2.4.8
 > ...
 # In this case, the `bin` folder is located at /usr/bin
 ```
@@ -934,7 +933,7 @@ npm i -g @marinade.finance/validator-bonds-cli@latest
 # Verify installation
 npm list -g
 # Output: ~/.local/share/npm/lib
-#         └── @marinade.finance/validator-bonds-cli@2.4.7
+#         └── @marinade.finance/validator-bonds-cli@2.4.8
 ```
 
 To execute the installed packages from any location,
@@ -1129,7 +1128,7 @@ Commands:
   # Get npm global installation folder
   npm list -g
   > ~/.local/share/npm/lib
-  > `-- @marinade.finance/validator-bonds-cli@2.4.7
+  > `-- @marinade.finance/validator-bonds-cli@2.4.8
   # In this case, the 'bin' folder is located at ~/.local/share/npm/bin
 
   # Get validator-bonds binary folder

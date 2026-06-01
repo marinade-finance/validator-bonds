@@ -8,3 +8,11 @@ allowBuilds:
   node-hid: true
   unrs-resolver: true
   utf-8-validate: true
+overrides:
+  glob@<8: ^10.3.10
+  rpc-websockets: 9.3.10
+  utf-8-validate: ^6.0.6
+peerDependencyRules:
+  allowedVersions:
+    jest: '29'
+    '@coral-xyz/anchor': '0.31'

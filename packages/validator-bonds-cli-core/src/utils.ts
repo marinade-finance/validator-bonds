@@ -17,7 +17,6 @@ import {
   U64_MAX,
   executeTx,
   splitAndExecuteTx,
-  pubkey,
 } from '@marinade.finance/web3js-1x'
 import {
   LAMPORTS_PER_SOL,
@@ -28,7 +27,9 @@ import {
 } from '@solana/web3.js'
 import BN from 'bn.js'
 
+import { recordTxSignature } from './cliUsage'
 import { getCliContext } from './context'
+import { resolveRpcEndpoint, translateKnownError } from './errorTranslators'
 
 import type { VoteAccountShow } from './commands'
 import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
@@ -514,72 +515,20 @@ export async function loadTestingVoteAccount(
   }
 }
 
-function resolveFeePayer(args: ExecuteTxParams): PublicKey | undefined {
-  if (args.feePayer) {
-    return args.feePayer
-  }
-  const firstSigner = args.signers?.[0]
-  if (firstSigner) {
-    try {
-      return pubkey(firstSigner)
-    } catch {
-      return undefined
-    }
-  }
-  return undefined
-}
-
-function translateKnownError(err: unknown, args: ExecuteTxParams): never {
-  if (err instanceof ExecutionError) {
-    const fullMessage = err.messageWithCause()
-    const logs = err.logs ?? []
-    const allText = [fullMessage, ...logs].join('\n')
-    const feePayerAddress = resolveFeePayer(args)
-
-    // "no record of a prior credit" is a transaction-level fee payer error
-    // (the account has never existed on-chain)
-    if (
-      allText.includes(
-        'Attempt to debit an account but found no record of a prior credit',
-      )
-    ) {
-      throw new CliCommandError({
-        valueName: 'fee-payer',
-        value: feePayerAddress?.toBase58() ?? 'unknown',
-        msg:
-          'The fee payer account does not exist on-chain.' +
-          ' Make sure the fee payer account is funded with SOL before executing the transaction.',
-        cause: err,
-      })
-    }
-
-    // "insufficient lamports" in program logs is typically a rent payer error
-    // (the account exists but doesn't have enough SOL)
-    const insufficientMatch = allText.match(
-      /insufficient lamports (\d+), need (\d+)/,
-    )
-    if (insufficientMatch) {
-      const feePayerInfo = feePayerAddress?.toBase58() ?? 'unknown'
-      throw new CliCommandError({
-        valueName: 'fee-payer/rent-payer',
-        value: `${feePayerInfo}, balance: ${insufficientMatch[1]} lamports, needed: ${insufficientMatch[2]} lamports`,
-        msg:
-          'The fee payer or rent payer account does not have enough SOL to cover the transaction fees and rent.' +
-          ' Make sure the account is funded before executing the transaction.',
-        cause: err,
-      })
-    }
-  }
-  throw err
-}
-
 export async function executeTxHandleErrors(
   args: ExecuteTxParams,
 ): Promise<ExecuteTxReturn> {
   try {
-    return await executeTx(args)
+    const result = await executeTx(args)
+    if (result && 'signature' in result && result.signature) {
+      recordTxSignature(result.signature)
+    }
+    return result
   } catch (err) {
-    return translateKnownError(err, args)
+    throw translateKnownError(err, {
+      txArgs: args,
+      rpcEndpoint: resolveRpcEndpoint(args.connection),
+    })
   }
 }
 
@@ -587,8 +536,17 @@ export async function splitAndExecuteTxHandleErrors(
   args: ExecuteTxParams,
 ): Promise<(ExecuteTxReturnExecuted & SplitAndExecuteTxData)[]> {
   try {
-    return await splitAndExecuteTx(args)
+    const results = await splitAndExecuteTx(args)
+    for (const entry of results) {
+      if (entry.signature) {
+        recordTxSignature(entry.signature)
+      }
+    }
+    return results
   } catch (err) {
-    return translateKnownError(err, args)
+    throw translateKnownError(err, {
+      txArgs: args,
+      rpcEndpoint: resolveRpcEndpoint(args.connection),
+    })
   }
 }

@@ -18,6 +18,10 @@ import {
 import BN from 'bn.js'
 
 import {
+  recordResolvedAccounts,
+  setProgramTelemetryFields,
+} from '../../cliUsage'
+import {
   CONFIGURE_BOND_CONFIG_COMMISSION_LIMIT_UNITS,
   CONFIGURE_BOND_LIMIT_UNITS,
   CONFIGURE_BOND_MINT_LIMIT_UNITS,
@@ -39,8 +43,9 @@ import type { PublicKey, Signer, TransactionInstruction } from '@solana/web3.js'
 import type { Command } from 'commander'
 
 export function configureConfigureBond(program: Command): Command {
-  return program
-    .command('configure-bond')
+  return setProgramTelemetryFields(program.command('configure-bond'), {
+    accountField: 'account',
+  })
     .description('Configure existing bond account.')
     .argument(
       '<bond-or-vote>',
@@ -129,6 +134,11 @@ export async function manageConfigureBond({
   const bondAccountAddress = bondAccountData.publicKey
   config = bondAccountData.account.data.config
   const voteAccount = bondAccountData.account.data.voteAccount
+  recordResolvedAccounts({
+    bondAccount: bondAccountAddress,
+    voteAccount,
+    configAccount: config,
+  })
 
   if (cpmpe !== undefined && !force) {
     const currentCpmpe = new BN(bondAccountData.account.data.cpmpe.toString())
