@@ -4,14 +4,14 @@
 // For each (epoch, fee) pair: patches settlement-config.yaml in a temp file, runs the CLI,
 // and computes post-fee pmpe (adj = actual fees deducted, max = full fee applied uniformly).
 // Fetches epoch timing from the SSR API to convert pmpe → APY.
-// Downloads only the cli's input files directly from GCS (not the full regression bundle) if not cached.
+// Downloads epoch input data via regression-test-settlements.sh if not already cached.
 //
 // Usage: bun scripts/simulate-fee.ts [-r] [-v] <epoch|start-end> <fees_bps>... [--data-dir DIR]
 
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdirSync, unlinkSync } from 'node:fs'
+import { existsSync, unlinkSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 
 type Settlement = {
@@ -114,63 +114,24 @@ const apy = (p: number, n: number) =>
   ((Math.pow(1 + p / 1000, n) - 1) * 100).toFixed(2) + '%'
 const sol = (v: number) => (Math.round((v / 1e9) * 1000) / 1000).toFixed(3)
 
-// Download only the inputs bid-distribution-cli consumes -- a fraction of the full regression
-// bundle (which also builds + runs three CLIs and pulls institutional/expected data). Paths
-// mirror regression-test-settlements.sh.
-const gsBonds = 'gs://marinade-validator-bonds-mainnet'
-const gsEtl = 'gs://marinade-stakes-etl-mainnet'
-const scoringUrl =
-  process.env.SCORING_API_URL ?? 'https://scoring.marinade.finance/api/v1'
-function fetchInputs(epoch: number, inp: string) {
-  const files: [string, string][] = [
-    [`${gsBonds}/${epoch}/stakes.json`, 'stakes.json'],
-    [`${gsBonds}/${epoch}/validators.json`, 'validators.json'],
-    [
-      `${gsBonds}/${epoch}/bid-psr-distribution-evaluation.json`,
-      'evaluation.json',
-    ],
-    [`${gsEtl}/${epoch}/rewards_mev.json`, 'rewards/mev.json'],
-    [
-      `${gsEtl}/${epoch}/rewards_validators_mev.json`,
-      'rewards/validators_mev.json',
-    ],
-    [`${gsEtl}/${epoch}/rewards_inflation.json`, 'rewards/inflation.json'],
-    [
-      `${gsEtl}/${epoch}/rewards_validators_inflation.json`,
-      'rewards/validators_inflation.json',
-    ],
-    [
-      `${gsEtl}/${epoch}/rewards_validators_blocks.json`,
-      'rewards/validators_blocks.json',
-    ],
-    [
-      `${gsEtl}/${epoch}/rewards_priority_fee.json`,
-      'rewards/jito_priority_fee.json',
-    ],
-  ]
-  for (const [src, rel] of files) {
-    const dst = join(inp, rel)
-    if (existsSync(dst)) continue
-    mkdirSync(dirname(dst), { recursive: true })
-    Bun.spawnSync(['gcloud', 'storage', 'cp', src, dst], { stderr: 'pipe' })
-  }
-  const sam = join(inp, 'sam-scores.json')
-  if (!existsSync(sam)) {
-    mkdirSync(inp, { recursive: true })
-    Bun.spawnSync(
-      ['curl', '-sf', `${scoringUrl}/scores/sam?epoch=${epoch}`, '-o', sam],
-      { stderr: 'pipe' },
-    )
-  }
-}
-
 console.log('epochs:')
 for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
   const inp = `${dataDir}/${epoch}/inputs`
 
   if (!INPUTS.every(f => existsSync(join(inp, f)))) {
     process.stderr.write(`  # fetching ${epoch}...\n`)
-    fetchInputs(epoch, inp)
+    Bun.spawnSync(
+      [
+        './scripts/regression-test-settlements.sh',
+        '--start-epoch',
+        String(epoch),
+        '--end-epoch',
+        String(epoch),
+        '--data-dir',
+        dataDir,
+      ],
+      { stderr: 'pipe' },
+    )
     if (!INPUTS.every(f => existsSync(join(inp, f)))) {
       process.stderr.write(`  # fetch failed for ${epoch}, skipping\n`)
       continue
