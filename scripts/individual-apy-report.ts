@@ -29,6 +29,7 @@ type Claim = {
 }
 type Settlement = {
   reason: string | object
+  vote_account?: string
   claims: Claim[]
   details?: {
     total_marinade_active_stake?: number
@@ -71,8 +72,8 @@ const pmpe = (amount: number, stake: number) =>
   stake > 0 ? (amount / stake) * 1000 : 0
 const label = (i: number) =>
   i < edges.length
-    ? `<=${edges[i].toLocaleString()} SOL`
-    : `>${edges.at(-1)?.toLocaleString()} SOL`
+    ? `< ${edges[i].toLocaleString()} SOL`
+    : `>= ${edges.at(-1)?.toLocaleString()} SOL`
 
 function binOf(stakeSol: number) {
   for (let i = 0; i < edges.length; i++) if (stakeSol < edges[i]) return i
@@ -95,7 +96,7 @@ const row = (
 
 console.log('epochs:')
 for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
-  const path = join('.', values['data-dir'], `settlements-${epoch}.json`)
+  const path = join(values['data-dir'], `settlements-${epoch}.json`)
   if (!existsSync(path)) {
     process.stderr.write(`  # no distribution for ${epoch}, skipping\n`)
     continue
@@ -110,13 +111,18 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
   >()
   const pool = { stake: 0, yield: 0, fee: 0 }
   let feeTotal = 0
+  let legacy = false
   for (const s of settlements) {
     const feeSum = s.claims
       .filter(c => FEE_AUTHORITIES.has(c.stake_authority))
       .reduce((a, c) => a + c.claim_amount, 0)
     feeTotal += feeSum
     const mstake = s.details?.total_marinade_active_stake ?? 0
-    if (s.reason === 'Bidding' && mstake > 0) {
+    if (s.reason === 'Bidding' && mstake <= 0) {
+      legacy = true
+      continue
+    }
+    if (s.reason === 'Bidding') {
       // Uniform per-SOL rate from validator totals; split into stakers' net yield and the fee.
       const gross = parseFloat(s.details?.total_marinade_stakers_rewards ?? '0')
       const yieldRate = (gross - feeSum) / mstake
@@ -135,12 +141,19 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
         stakers.set(c.withdraw_authority, w)
         indiv += c.active_stake
       }
+      if (indiv > mstake) {
+        process.stderr.write(
+          `  # epoch ${epoch}: WARN individual stake exceeds marinade total at ${s.vote_account}\n`,
+        )
+      }
       const ps = Math.max(0, mstake - indiv)
       pool.stake += ps
       pool.yield += ps * yieldRate
       pool.fee += ps * feeRate
     } else {
-      // PSR / penalties / priority fees: extra SOL paid to stakers on top of the bid reward.
+      // PSR / penalties: extra SOL paid to stakers on top of the bid reward.
+      // PriorityFee pays the activating bid that is already in the Bidding gross -- skip it.
+      if (s.reason === 'PriorityFee') continue
       for (const c of s.claims) {
         if (FEE_AUTHORITIES.has(c.stake_authority)) continue
         const w = stakers.get(c.withdraw_authority) ?? {
@@ -153,9 +166,24 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       }
     }
   }
+  const dropped = [...stakers.values()].filter(
+    w => w.stake === 0 && w.yield > 0,
+  )
+  if (dropped.length) {
+    const sum = dropped.reduce((a, w) => a + w.yield, 0)
+    process.stderr.write(
+      `  # epoch ${epoch}: dropped ${dropped.length} stakers with yield but no active stake (${sol(sum)} SOL)\n`,
+    )
+  }
   const counted = [...stakers.values()].filter(w => w.stake > 0)
   if (!counted.length) {
-    process.stderr.write(`  # no individual stakers for ${epoch}, skipping\n`)
+    if (legacy) {
+      process.stderr.write(
+        `  # epoch ${epoch}: legacy format (no Bidding details), skipping\n`,
+      )
+    } else {
+      process.stderr.write(`  # no individual stakers for ${epoch}, skipping\n`)
+    }
     continue
   }
 
@@ -184,6 +212,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
   console.log(`  yield_apy: ${apy(pmpe(all.yield, all.stake))}`)
   console.log(`  fee_sol: ${sol(all.fee)}`)
   console.log(`  fee_total_sol: ${sol(feeTotal)}`)
+  console.log(`  other_fee_sol: ${sol(feeTotal - (all.fee + pool.fee))}`)
   console.log('  bins:')
   for (let i = 0; i < bins.length; i++) {
     if (bins[i].n > 0) row(`range: ${label(i)}`, bins[i].n, bins[i])
