@@ -47,6 +47,7 @@ type Settlement = {
 type Acc = { stake: number; yield: number; fee: number }
 
 const DIR = 'tmp'
+const GS_BUCKET = 'gs://marinade-validator-bonds-mainnet'
 const EDGES = [10, 100, 1000, 10000]
 const EPOCHS_PER_YEAR = 182
 const FEE_AUTHORITIES = new Set([
@@ -82,6 +83,29 @@ function binOf(stakeSol: number) {
   return EDGES.length
 }
 
+// Fetch the published distribution from GCS on miss (needs `gcloud auth login`).
+function fetch(epoch: number, path: string) {
+  if (existsSync(path)) return true
+  process.stderr.write(`  # fetching ${epoch} from GCS...\n`)
+  const p = Bun.spawnSync(
+    [
+      'gcloud',
+      'storage',
+      'cp',
+      `${GS_BUCKET}/${epoch}/bid-distribution-settlements.json`,
+      path,
+    ],
+    { stderr: 'pipe' },
+  )
+  if (p.exitCode !== 0 || !existsSync(path)) {
+    process.stderr.write(
+      `  # fetch failed for ${epoch} (gcloud auth? epoch on GCS?)\n`,
+    )
+    return false
+  }
+  return true
+}
+
 const row = (name: string, n: number, b: Acc) => {
   console.log(`  - ${name}`)
   console.log(`    stakers: ${n}`)
@@ -95,10 +119,7 @@ const row = (name: string, n: number, b: Acc) => {
 console.log('epochs:')
 for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
   const path = join(DIR, `settlements-${epoch}.json`)
-  if (!existsSync(path)) {
-    process.stderr.write(`  # no distribution for ${epoch}, skipping\n`)
-    continue
-  }
+  if (!fetch(epoch, path)) continue
   const { settlements } = (await Bun.file(path).json()) as {
     settlements: Settlement[]
   }
