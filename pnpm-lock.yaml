@@ -12,10 +12,6 @@ overrides:
 importers:
 
   .:
-    dependencies:
-      yaml:
-        specifier: ^2.8.0
-        version: 2.9.0
     devDependencies:
       '@jest/globals':
         specifier: 29.7.0
@@ -74,6 +70,9 @@ importers:
       typescript:
         specifier: 5.4.5
         version: 5.4.5
+      yaml:
+        specifier: ^2.8.0
+        version: 2.9.0
 
   packages/bonds-eventing:
     dependencies:
