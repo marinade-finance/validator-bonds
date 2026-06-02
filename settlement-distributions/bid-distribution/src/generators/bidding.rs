@@ -102,20 +102,16 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
         };
         match settlement.reason {
             SettlementReason::Bidding => {
-                let Ok(bid) = serde_json::from_value::<BidSettlementDetails>(details.clone())
-                else {
+                let Ok(bid) = BidSettlementDetails::deserialize(details) else {
                     continue;
                 };
                 totals.stake += Decimal::from(bid.total_marinade_active_stake);
-                // total_marinade_stakers_rewards already includes activating_bid_claim
                 totals.rewards +=
                     Decimal::from_str(&bid.total_marinade_stakers_rewards).unwrap_or(Decimal::ZERO);
                 totals.fees += Decimal::from(bid.marinade_fee_claim + bid.dao_fee_claim);
             }
             SettlementReason::PriorityFee => {
-                let Ok(pf) =
-                    serde_json::from_value::<PriorityFeeSettlementDetails>(details.clone())
-                else {
+                let Ok(pf) = PriorityFeeSettlementDetails::deserialize(details) else {
                     continue;
                 };
                 totals.stake += Decimal::from(pf.total_marinade_activating_stake);
@@ -127,6 +123,9 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
     totals
 }
 
+/// Bisects max_fee_bps downward from the configured ceiling to find the highest fee that
+/// keeps the global post-fee PMPE across all Marinade stake at or above `ssr_pmpe`.
+/// Returns settlements computed at the winning fee level.
 pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],
@@ -138,9 +137,6 @@ pub fn generate_bid_settlements(
 ) -> anyhow::Result<Vec<Settlement>> {
     let max_cap = fee_config.max_fee_bps as i64;
     let min_cap = fee_config.min_fee_bps as i64;
-    // Start from the ceiling and bisect downward toward the largest max_fee_bps that still
-    // keeps post_fee_pmpe >= ssr_pmpe. Starting at max_cap means when ssr is not a
-    // binding constraint (all fees satisfy it), we return max_cap on the first iteration.
     let mut current = max_cap;
     let mut undershoot = max_cap;
     let mut overshoot = min_cap;
