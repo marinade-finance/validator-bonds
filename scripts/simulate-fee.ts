@@ -161,6 +161,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     if (values.m !== undefined)
       cfgText = cfgText.replace(/(min_fee_bps:)\s*\d+/, `$1 ${values.m}`)
     const minFee = Number(cfgText.match(/min_fee_bps:\s*(\d+)/)?.[1] ?? 0)
+    const maxFee = Number(cfgText.match(/max_fee_bps:\s*(\d+)/)?.[1] ?? 0)
     await writeFile(cfg, cfgText)
 
     const proc = Bun.spawnSync(
@@ -227,20 +228,22 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       (s, d) => s + parseFloat(d.total_marinade_stakers_rewards),
       0,
     )
-    const feeAdj = settlements.reduce(
-      (s, e) =>
-        s +
-        (e.details?.marinade_fee_claim ?? 0) +
-        (e.details?.dao_fee_claim ?? 0),
-      0,
-    )
+    const feeAdj = settlements
+      .filter(s => s.reason === 'Bidding' || s.reason === 'PriorityFee')
+      .reduce(
+        (s, e) =>
+          s +
+          (e.details?.marinade_fee_claim ?? 0) +
+          (e.details?.dao_fee_claim ?? 0),
+        0,
+      )
     const pmpeAdj = ((total - feeAdj) / stake) * 1000
-    const pmpeMax = ((total * (1 - fee / 10000)) / stake) * 1000
+    const pmpeMax = ((total * (1 - maxFee / 10000)) / stake) * 1000
     const ncap = bids.filter(
       d =>
         parseFloat(d.total_marinade_stakers_rewards) > 0 &&
         d.marinade_fee_claim + d.dao_fee_claim <
-          ((parseFloat(d.total_marinade_stakers_rewards) * fee) / 10000) *
+          ((parseFloat(d.total_marinade_stakers_rewards) * maxFee) / 10000) *
             0.9999,
     ).length
     const nmin = bids.filter(
@@ -251,14 +254,14 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
             1.0001,
     ).length
 
-    console.log(`  - max_fee_bps: ${fee}`)
+    console.log(`  - max_fee_bps: ${maxFee}`)
     console.log(`    min_fee_bps: ${minFee}`)
     console.log(`    post_fee_pmpe_adj: ${pmpeAdj.toFixed(6)}`)
     console.log(`    post_fee_pmpe_max: ${pmpeMax.toFixed(6)}`)
     console.log(`    apy_adj: ${apy(pmpeAdj, epy)}`)
     console.log(`    apy_max: ${apy(pmpeMax, epy)}`)
     console.log(`    fee_sol_adj: ${sol(feeAdj)}`)
-    console.log(`    fee_sol_max: ${sol((total * fee) / 10000)}`)
+    console.log(`    fee_sol_max: ${sol((total * maxFee) / 10000)}`)
     console.log(`    validators_capped: ${ncap}/${bids.length}`)
     console.log(`    validators_at_min_fee: ${nmin}/${bids.length}`)
   }
