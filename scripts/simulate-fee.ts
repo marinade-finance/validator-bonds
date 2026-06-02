@@ -14,17 +14,23 @@ import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 
-type Settlement = {
-  reason: string
-  details: {
-    total_marinade_active_stake: number
-    total_marinade_stakers_rewards: string
-    marinade_fee_claim: number
-    dao_fee_claim: number
-  } | null
+type BidDetails = {
+  total_marinade_active_stake: number
+  total_marinade_stakers_rewards: string
+  marinade_fee_claim: number
+  dao_fee_claim: number
 }
 
-type BidDetails = NonNullable<Settlement['details']>
+type PriorityFeeDetails = {
+  total_marinade_activating_stake: number
+  marinade_fee_claim: number
+  dao_fee_claim: number
+}
+
+type Settlement = {
+  reason: string
+  details: (BidDetails & Partial<PriorityFeeDetails>) | null
+}
 
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
@@ -223,7 +229,17 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       continue
     }
 
-    const stake = bids.reduce((s, d) => s + d.total_marinade_active_stake, 0)
+    const activeStake = bids.reduce(
+      (s, d) => s + d.total_marinade_active_stake,
+      0,
+    )
+    const activatingStake = settlements
+      .filter(s => s.reason === 'PriorityFee' && s.details !== null)
+      .reduce(
+        (s, e) => s + (e.details?.total_marinade_activating_stake ?? 0),
+        0,
+      )
+    const stake = activeStake + activatingStake
     const total = bids.reduce(
       (s, d) => s + parseFloat(d.total_marinade_stakers_rewards),
       0,

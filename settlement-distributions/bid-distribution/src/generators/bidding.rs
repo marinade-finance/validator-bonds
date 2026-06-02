@@ -94,18 +94,6 @@ pub struct BidSettlementTotals {
     pub fees: Decimal,
 }
 
-fn extract_fees(value: &serde_json::Value) -> u64 {
-    let marinade = value
-        .get("marinade_fee_claim")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0);
-    let dao = value
-        .get("dao_fee_claim")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0);
-    marinade + dao
-}
-
 pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlementTotals {
     let mut totals = BidSettlementTotals::default();
     for settlement in settlements {
@@ -125,7 +113,13 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
                 totals.fees += Decimal::from(bid.marinade_fee_claim + bid.dao_fee_claim);
             }
             SettlementReason::PriorityFee => {
-                totals.fees += Decimal::from(extract_fees(details));
+                let Ok(pf) =
+                    serde_json::from_value::<PriorityFeeSettlementDetails>(details.clone())
+                else {
+                    continue;
+                };
+                totals.stake += Decimal::from(pf.total_marinade_activating_stake);
+                totals.fees += Decimal::from(pf.marinade_fee_claim + pf.dao_fee_claim);
             }
             _ => {}
         }
