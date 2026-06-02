@@ -172,8 +172,9 @@ pub fn generate_bid_settlements(
         let (post_fee, feasible) = if totals.stake.is_zero() {
             (Decimal::ZERO, false)
         } else {
-            let pf = (totals.rewards - totals.fees) / totals.stake * Decimal::ONE_THOUSAND;
-            (pf, ssr_pmpe <= pf)
+            let post_fee_pmpe =
+                (totals.rewards - totals.fees) / totals.stake * Decimal::ONE_THOUSAND;
+            (post_fee_pmpe, ssr_pmpe <= post_fee_pmpe)
         };
         let next = if feasible {
             if best_feasible.is_none() || current > best_feasible_fee {
