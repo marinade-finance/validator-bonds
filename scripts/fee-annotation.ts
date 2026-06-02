@@ -88,7 +88,7 @@ async function main() {
     const prev = feesByValidator.get(s.vote_account) ?? 0
     feesByValidator.set(
       s.vote_account,
-      prev + s.details.marinade_fee_claim + s.details.dao_fee_claim,
+      prev + (s.details.marinade_fee_claim ?? 0) + (s.details.dao_fee_claim ?? 0),
     )
   }
   const ncap = bids.filter(b => {
