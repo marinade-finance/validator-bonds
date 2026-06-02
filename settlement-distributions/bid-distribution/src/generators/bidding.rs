@@ -111,10 +111,10 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
                 totals.fees += Decimal::from(bid.marinade_fee_claim + bid.dao_fee_claim);
             }
             SettlementReason::PriorityFee => {
-                let Ok(pf) = PriorityFeeSettlementDetails::deserialize(details) else {
+                let Ok(value) = PriorityFeeSettlementDetails::deserialize(details) else {
                     continue;
                 };
-                totals.fees += Decimal::from(pf.marinade_fee_claim + pf.dao_fee_claim);
+                totals.fees += Decimal::from(value.marinade_fee_claim + value.dao_fee_claim);
             }
             _ => {}
         }
