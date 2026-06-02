@@ -20,9 +20,7 @@ type BidSettlement = Settlement & {
 
 type SsrFeed = { epochs: { epoch: number; time: number }[] }
 
-const SECONDS_PER_YEAR = 31_557_600 // Julian year: 365.25 × 86400
-// SECONDS_PER_YEAR / (0.4 s/slot × 432_000 slots/epoch) ≈ 182.625
-const FALLBACK_EPY = 182
+const SECONDS_PER_YEAR = 365.25 * 24 * 60 * 60 // Julian year
 
 async function main() {
   const [settlementsFile, configFile = './settlement-config.yaml'] =
@@ -106,21 +104,26 @@ async function main() {
         setTimeout(r, 2000)
       })
   }
-  if (ssrFeed === null)
-    process.stderr.write(
-      `warn: APY feed unavailable, using fallback epy=${FALLBACK_EPY}\n`,
-    )
-
-  const cur = ssrFeed?.epochs.find(e => e.epoch === epoch)
-  const prev = ssrFeed?.epochs.find(e => e.epoch === epoch - 1)
-  if (ssrFeed !== null && (!cur || !prev)) {
-    process.stderr.write(
-      `warn: epoch ${epoch} or ${epoch - 1} not in APY feed, using fallback epy=${FALLBACK_EPY}\n`,
-    )
+  if (ssrFeed === null) {
+    process.stderr.write('Failed: APY SSR feed unavailable\n')
+    process.exit(1)
   }
-  const epochDuration = cur && prev ? cur.time - prev.time : 0
-  const epy =
-    epochDuration > 0 ? SECONDS_PER_YEAR / epochDuration : FALLBACK_EPY
+
+  const cur = ssrFeed.epochs.find(e => e.epoch === epoch)
+  const prev = ssrFeed.epochs.find(e => e.epoch === epoch - 1)
+  if (!cur || !prev) {
+    process.stderr.write(
+      `Failed: epoch ${epoch} or ${epoch - 1} not in APY feed\n`,
+    )
+    process.exit(1)
+  }
+  if (cur.time === prev.time) {
+    process.stderr.write(
+      `Failed: epoch ${epoch} and ${epoch - 1} have identical timestamps\n`,
+    )
+    process.exit(1)
+  }
+  const epochsPerYear = SECONDS_PER_YEAR / (cur.time - prev.time)
 
   const pmpeGross = (gross / stake) * 1000
   const pmpeAdj = ((gross - fees) / stake) * 1000
@@ -128,7 +131,7 @@ async function main() {
   const feesSol = fees / 1e9
   const feesFull = (gross * maxFeeBps) / 10000 / 1e9
   const apyFor = (p: number) =>
-    (Math.exp(epy * Math.log(1 + p / 1000)) - 1) * 100
+    (Math.exp(epochsPerYear * Math.log(1 + p / 1000)) - 1) * 100
   const apyGross = apyFor(pmpeGross)
   const apyAdj = apyFor(pmpeAdj)
   const apyMax = apyFor(pmpeMax)
