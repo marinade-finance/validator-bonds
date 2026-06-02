@@ -136,8 +136,8 @@ pub fn generate_bid_settlements(
 ) -> anyhow::Result<Vec<Settlement>> {
     let max_cap = fee_config.max_fee_bps as i64;
     let min_cap = fee_config.min_fee_bps as i64;
-    let mut current = max_cap;
     let mut undershoot = max_cap;
+    let mut current = min_cap;
     let mut overshoot = min_cap;
     let mut best_max_fee = min_cap;
     let mut best_settlements: Option<Vec<Settlement>> = None;
@@ -166,7 +166,9 @@ pub fn generate_bid_settlements(
             overshoot = current;
             (current + undershoot) / 2
         } else {
-            best_settlements.get_or_insert(settlements);
+            if best_settlements.is_none() {
+                best_settlements = Some(settlements);
+            }
             undershoot = current;
             (current + overshoot) / 2
         };
