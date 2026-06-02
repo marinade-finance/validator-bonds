@@ -20,6 +20,10 @@ type BidSettlement = Settlement & {
 
 type SsrFeed = { epochs: { epoch: number; time: number }[] }
 
+const SECONDS_PER_YEAR = 31_557_600 // Julian year: 365.25 × 86400
+// SECONDS_PER_YEAR / (0.4 s/slot × 432_000 slots/epoch) ≈ 182.625
+const FALLBACK_EPY = 182
+
 async function main() {
   const [settlementsFile, configFile = './settlement-config.yaml'] =
     process.argv.slice(2)
@@ -103,16 +107,20 @@ async function main() {
       })
   }
   if (ssrFeed === null)
-    process.stderr.write('warn: APY feed unavailable, using fallback epy=182\n')
+    process.stderr.write(
+      `warn: APY feed unavailable, using fallback epy=${FALLBACK_EPY}\n`,
+    )
 
   const cur = ssrFeed?.epochs.find(e => e.epoch === epoch)
   const prev = ssrFeed?.epochs.find(e => e.epoch === epoch - 1)
   if (ssrFeed !== null && (!cur || !prev)) {
     process.stderr.write(
-      `warn: epoch ${epoch} or ${epoch - 1} not in APY feed, using fallback epy=182\n`,
+      `warn: epoch ${epoch} or ${epoch - 1} not in APY feed, using fallback epy=${FALLBACK_EPY}\n`,
     )
   }
-  const epy = cur && prev ? 31557600 / (cur.time - prev.time) : 182
+  const epochDuration = cur && prev ? cur.time - prev.time : 0
+  const epy =
+    epochDuration > 0 ? SECONDS_PER_YEAR / epochDuration : FALLBACK_EPY
 
   const pmpeGross = (gross / stake) * 1000
   const pmpeAdj = ((gross - fees) / stake) * 1000
