@@ -151,9 +151,7 @@ pub fn generate_bid_settlements(
     let max_cap = fee_config.max_fee_bps;
     let min_cap = fee_config.min_fee_bps;
     let mut current = max_cap;
-    // undershoot is initialised one above max_cap so (current + undershoot) / 2 = max_cap
-    // on the first feasible iteration, producing an immediate break.
-    let mut undershoot = max_cap.saturating_add(1);
+    let mut undershoot = max_cap;
     let mut overshoot = min_cap;
     let mut best_feasible_fee = min_cap;
     let mut best_feasible: Option<Vec<Settlement>> = None;
