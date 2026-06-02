@@ -6,6 +6,7 @@ import { parse } from 'yaml'
 
 type Settlement = {
   reason: string
+  vote_account: string
   details: {
     total_marinade_active_stake: number
     total_marinade_stakers_rewards: string
@@ -79,14 +80,22 @@ async function main() {
       (b.details?.dao_fee_claim ?? 0),
     0,
   )
-  const ncap = bids.filter(
-    b =>
-      parseFloat(b.details.total_marinade_stakers_rewards) > 0 &&
-      b.details.marinade_fee_claim + b.details.dao_fee_claim <
-        ((parseFloat(b.details.total_marinade_stakers_rewards) * maxFeeBps) /
-          10000) *
-          0.9999,
-  ).length
+  // Sum fees across all settlement types per validator (Bidding + PriorityFee).
+  // Bidding row has only the bidding-portion fee; PriorityFee carries the activating portion.
+  const feesByValidator = new Map<string, number>()
+  for (const s of settlements) {
+    if (!s.details) continue
+    const prev = feesByValidator.get(s.vote_account) ?? 0
+    feesByValidator.set(
+      s.vote_account,
+      prev + s.details.marinade_fee_claim + s.details.dao_fee_claim,
+    )
+  }
+  const ncap = bids.filter(b => {
+    const rewards = parseFloat(b.details.total_marinade_stakers_rewards)
+    const totalFee = feesByValidator.get(b.vote_account) ?? 0
+    return rewards > 0 && totalFee < (rewards * maxFeeBps * 0.9999) / 10000
+  }).length
 
   let ssrFeed: SsrFeed | null = null
   for (let i = 0; i < 3; i++) {
