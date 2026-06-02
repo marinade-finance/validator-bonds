@@ -166,9 +166,7 @@ pub fn generate_bid_settlements(
             overshoot = current;
             (current + undershoot) / 2
         } else {
-            if best_settlements.is_none() {
-                best_settlements = Some(settlements);
-            }
+            best_settlements.get_or_insert(settlements);
             undershoot = current;
             (current + overshoot) / 2
         };
