@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use settlement_common::settlement_collection::{Settlement, SettlementClaim, SettlementReason};
 use settlement_common::stake_meta_index::StakeMetaIndex;
 use solana_sdk::pubkey::Pubkey;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::ops::Mul;
 
@@ -97,7 +97,7 @@ pub struct BidSettlementTotals {
 
 pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlementTotals {
     let mut totals = BidSettlementTotals::default();
-    let bidding_votes: std::collections::HashSet<Pubkey> = settlements
+    let bidding_votes: HashSet<Pubkey> = settlements
         .iter()
         .filter(|s| matches!(s.reason, SettlementReason::Bidding))
         .map(|s| s.vote_account)
