@@ -1,5 +1,4 @@
 const createSharedConfig = require('@marinade.finance/eslint-config')
-const eslintPluginImport = require('eslint-plugin-import')
 
 const sharedConfig = createSharedConfig({})
 
@@ -19,13 +18,6 @@ module.exports = [
       complexity: 'off',
       'no-param-reassign': 'off',
       'no-await-in-loop': 'off',
-    },
-  },
-  {
-    files: ['scripts/**'],
-    plugins: { import: eslintPluginImport },
-    rules: {
-      'import/no-extraneous-dependencies': ['error', { devDependencies: true }],
     },
   },
   {

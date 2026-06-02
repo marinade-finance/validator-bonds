@@ -1,4 +1,4 @@
-/* eslint-disable n/no-process-exit */
+/* eslint-disable n/no-process-exit, import/no-extraneous-dependencies */
 
 import { readFileSync } from 'node:fs'
 
