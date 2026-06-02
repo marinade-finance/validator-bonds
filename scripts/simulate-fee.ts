@@ -14,17 +14,17 @@ import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 
-type BidDetails = {
-  total_marinade_active_stake: number
-  total_marinade_stakers_rewards: string
-  marinade_fee_claim: number
-  dao_fee_claim: number
-}
-
 type Settlement = {
   reason: string
-  details: BidDetails | null
+  details: {
+    total_marinade_active_stake: number
+    total_marinade_stakers_rewards: string
+    marinade_fee_claim: number
+    dao_fee_claim: number
+  } | null
 }
+
+type BidDetails = NonNullable<Settlement['details']>
 
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
