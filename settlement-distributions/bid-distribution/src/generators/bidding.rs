@@ -122,9 +122,10 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
     totals
 }
 
-/// Bisects max_fee_bps upward from min_cap to find the highest fee that keeps the global
-/// post-fee PMPE across all Marinade stake at or above `ssr_pmpe`. Starts at min_cap so
-/// that if SSR can never be satisfied, the lowest-fee result is returned as best effort.
+/// Bisects max_fee_bps to find the highest fee that keeps global post-fee PMPE at or above
+/// `ssr_pmpe`. Probes max_cap first: if SSR is satisfied (or there is no active stake to
+/// measure), returns immediately. Otherwise bisects upward from min_cap; if SSR can never
+/// be satisfied, min_cap settlements are returned as best effort.
 pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],
@@ -134,8 +135,29 @@ pub fn generate_bid_settlements(
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     ssr_pmpe: Decimal,
 ) -> anyhow::Result<Vec<Settlement>> {
-    let max_cap = fee_config.max_fee_bps as i64;
-    let min_cap = fee_config.min_fee_bps as i64;
+    let max_cap = fee_config.max_fee_bps;
+    let min_cap = fee_config.min_fee_bps;
+    // Probe max_cap first: common case (SSR not binding) returns in one worker call.
+    // Also covers zero-active-stake epochs where PMPE is unmeasurable.
+    let max_settlements = generate_bid_settlements_worker(
+        stake_meta_index,
+        sam_validator_metas,
+        rewards_collection,
+        settlement_config,
+        fee_config,
+        stake_authority_filter,
+        ssr_pmpe,
+    )?;
+    let max_totals = calculate_bid_settlement_totals(&max_settlements);
+    if max_totals.stake.is_zero() {
+        return Ok(max_settlements);
+    }
+    let max_post_fee =
+        (max_totals.rewards - max_totals.fees) / max_totals.stake * Decimal::ONE_THOUSAND;
+    if ssr_pmpe <= max_post_fee {
+        return Ok(max_settlements);
+    }
+    // SSR floor requires a lower fee; bisect upward from min_cap.
     let mut undershoot = max_cap;
     let mut current = min_cap;
     let mut overshoot = min_cap;
@@ -143,7 +165,7 @@ pub fn generate_bid_settlements(
     let mut best_settlements: Option<Vec<Settlement>> = None;
     for _ in 0..MAX_ADJ_ITER {
         let mut fc = fee_config.clone();
-        fc.max_fee_bps = current as u64;
+        fc.max_fee_bps = current;
         let settlements = generate_bid_settlements_worker(
             stake_meta_index,
             sam_validator_metas,
@@ -154,9 +176,6 @@ pub fn generate_bid_settlements(
             ssr_pmpe,
         )?;
         let totals = calculate_bid_settlement_totals(&settlements);
-        if totals.stake.is_zero() {
-            return Ok(settlements);
-        }
         let post_fee = (totals.rewards - totals.fees) / totals.stake * Decimal::ONE_THOUSAND;
         let next = if ssr_pmpe <= post_fee {
             if best_settlements.is_none() || current > best_max_fee {
@@ -164,11 +183,11 @@ pub fn generate_bid_settlements(
                 best_settlements = Some(settlements);
             }
             overshoot = current;
-            (current + undershoot) / 2
+            current.saturating_add(undershoot) / 2
         } else {
             best_settlements.get_or_insert(settlements);
             undershoot = current;
-            (current + overshoot) / 2
+            current.saturating_add(overshoot) / 2
         };
         let next = next.clamp(min_cap, max_cap);
         if next == current {
