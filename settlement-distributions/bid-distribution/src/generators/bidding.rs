@@ -114,7 +114,6 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
                 let Ok(pf) = PriorityFeeSettlementDetails::deserialize(details) else {
                     continue;
                 };
-                totals.stake += Decimal::from(pf.total_marinade_activating_stake);
                 totals.fees += Decimal::from(pf.marinade_fee_claim + pf.dao_fee_claim);
             }
             _ => {}
