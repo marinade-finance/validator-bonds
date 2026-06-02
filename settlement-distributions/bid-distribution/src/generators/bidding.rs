@@ -77,6 +77,7 @@ pub struct BidSettlementDetails {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PriorityFeeSettlementDetails {
+    pub total_marinade_active_stake: u64,
     pub total_marinade_activating_stake: u64,
     pub activating_stake_pmpe: String,
     pub activating_bid_claim: String,
@@ -96,36 +97,51 @@ pub struct BidSettlementTotals {
 
 pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlementTotals {
     let mut totals = BidSettlementTotals::default();
+    let mut bidding_stake = Decimal::ZERO;
+    let mut priority_active_stake = Decimal::ZERO;
+    let mut priority_rewards = Decimal::ZERO;
     for settlement in settlements {
         let Some(details) = &settlement.details else {
             continue;
         };
         match settlement.reason {
             SettlementReason::Bidding => {
-                let Ok(bid) = BidSettlementDetails::deserialize(details) else {
+                let Ok(value) = BidSettlementDetails::deserialize(details) else {
                     continue;
                 };
-                totals.stake += Decimal::from(bid.total_marinade_active_stake);
-                totals.rewards +=
-                    Decimal::from_str(&bid.total_marinade_stakers_rewards).unwrap_or(Decimal::ZERO);
-                totals.fees += Decimal::from(bid.marinade_fee_claim + bid.dao_fee_claim);
+                bidding_stake += Decimal::from(value.total_marinade_active_stake);
+                totals.rewards += Decimal::from_str(&value.total_marinade_stakers_rewards)
+                    .unwrap_or(Decimal::ZERO);
+                totals.fees += Decimal::from(value.marinade_fee_claim + value.dao_fee_claim);
             }
             SettlementReason::PriorityFee => {
                 let Ok(value) = PriorityFeeSettlementDetails::deserialize(details) else {
                     continue;
                 };
+                priority_active_stake += Decimal::from(value.total_marinade_active_stake);
+                priority_rewards +=
+                    Decimal::from_str(&value.activating_bid_claim).unwrap_or(Decimal::ZERO);
                 totals.fees += Decimal::from(value.marinade_fee_claim + value.dao_fee_claim);
             }
             _ => {}
         }
     }
+    // When no Bidding settlement was generated (active stakers earned nothing this epoch),
+    // fall back to stake/rewards from PriorityFeeSettlementDetails so the SSR bisect
+    // has a valid denominator. Zero priority_active_stake = truly no active stake.
+    if bidding_stake > Decimal::ZERO {
+        totals.stake = bidding_stake;
+    } else {
+        totals.stake = priority_active_stake;
+        totals.rewards = priority_rewards;
+    }
     totals
 }
 
-/// Bisects max_fee_bps to find the highest fee that keeps global post-fee PMPE at or above
-/// `ssr_pmpe`. Probes max_cap first: if SSR is satisfied (or there is no active stake to
-/// measure), returns immediately. Otherwise bisects upward from min_cap; if SSR can never
-/// be satisfied, min_cap settlements are returned as best effort.
+/// Bisects max_fee_bps downward from max_cap to find the highest fee that keeps global
+/// post-fee PMPE at or above `ssr_pmpe`. Converges in one iteration when SSR is not
+/// binding. If SSR can never be satisfied (or there is no active stake), min_cap
+/// settlements are returned.
 pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],
@@ -137,32 +153,14 @@ pub fn generate_bid_settlements(
 ) -> anyhow::Result<Vec<Settlement>> {
     let max_cap = fee_config.max_fee_bps;
     let min_cap = fee_config.min_fee_bps;
-    // Probe max_cap first: common case (SSR not binding) returns in one worker call.
-    // Also covers zero-active-stake epochs where PMPE is unmeasurable.
-    let max_settlements = generate_bid_settlements_worker(
-        stake_meta_index,
-        sam_validator_metas,
-        rewards_collection,
-        settlement_config,
-        fee_config,
-        stake_authority_filter,
-        ssr_pmpe,
-    )?;
-    let max_totals = calculate_bid_settlement_totals(&max_settlements);
-    if max_totals.stake.is_zero() {
-        return Ok(max_settlements);
-    }
-    let max_post_fee =
-        (max_totals.rewards - max_totals.fees) / max_totals.stake * Decimal::ONE_THOUSAND;
-    if ssr_pmpe <= max_post_fee {
-        return Ok(max_settlements);
-    }
-    // SSR floor requires a lower fee; bisect upward from min_cap.
-    let mut undershoot = max_cap;
-    let mut current = min_cap;
+    let mut current = max_cap;
+    // undershoot is initialised one above max_cap so (current + undershoot) / 2 = max_cap
+    // on the first feasible iteration, producing an immediate break.
+    let mut undershoot = max_cap.saturating_add(1);
     let mut overshoot = min_cap;
-    let mut best_max_fee = min_cap;
-    let mut best_settlements: Option<Vec<Settlement>> = None;
+    let mut best_feasible_fee = min_cap;
+    let mut best_feasible: Option<Vec<Settlement>> = None;
+    let mut best_infeasible: Option<Vec<Settlement>> = None;
     for _ in 0..MAX_ADJ_ITER {
         let mut fc = fee_config.clone();
         fc.max_fee_bps = current;
@@ -176,16 +174,21 @@ pub fn generate_bid_settlements(
             ssr_pmpe,
         )?;
         let totals = calculate_bid_settlement_totals(&settlements);
-        let post_fee = (totals.rewards - totals.fees) / totals.stake * Decimal::ONE_THOUSAND;
-        let next = if ssr_pmpe <= post_fee {
-            if best_settlements.is_none() || current > best_max_fee {
-                best_max_fee = current;
-                best_settlements = Some(settlements);
+        let (post_fee, feasible) = if totals.stake.is_zero() {
+            (Decimal::ZERO, false)
+        } else {
+            let pf = (totals.rewards - totals.fees) / totals.stake * Decimal::ONE_THOUSAND;
+            (pf, ssr_pmpe <= pf)
+        };
+        let next = if feasible {
+            if best_feasible.is_none() || current > best_feasible_fee {
+                best_feasible_fee = current;
+                best_feasible = Some(settlements);
             }
             overshoot = current;
             current.saturating_add(undershoot) / 2
         } else {
-            best_settlements.get_or_insert(settlements);
+            best_infeasible = Some(settlements);
             undershoot = current;
             current.saturating_add(overshoot) / 2
         };
@@ -199,8 +202,7 @@ pub fn generate_bid_settlements(
         );
         current = next;
     }
-    // safety: if MAX_ADJ_ITER > 0 there is a value in the option
-    Ok(best_settlements.expect("MAX_ADJ_ITER = 0"))
+    Ok(best_feasible.unwrap_or_else(|| best_infeasible.expect("MAX_ADJ_ITER = 0")))
 }
 
 fn generate_bid_settlements_worker(
@@ -658,6 +660,7 @@ fn generate_bid_settlements_worker(
             let details_json = serde_json::to_value(&settlement_details)?;
 
             let priority_fee_details = PriorityFeeSettlementDetails {
+                total_marinade_active_stake,
                 total_marinade_activating_stake,
                 activating_stake_pmpe: validator
                     .rev_share

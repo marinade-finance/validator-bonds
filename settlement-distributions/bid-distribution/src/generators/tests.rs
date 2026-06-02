@@ -2767,16 +2767,11 @@ fn test_ssr_mixed_active_and_activating_stake() {
 }
 
 #[test]
-fn test_ssr_activating_only_falls_back_to_max_fee() {
-    // active=0, activating=5 SOL. ssr_pmpe=Some(15.0), but guard total_marinade_active_stake>0
-    // fails → effective_fee falls back to max_fee=0.30.
-    // static_bid=0, activating_stake_pmpe=100 (high so 5 SOL activating produces a clean
-    // 0.5 SOL claim) → activating_bid_claim = 100/1000 * 5 SOL = 0.5 SOL
-    // settlement_claim.sum() = 0.5 SOL = 500_000_000 lamports
-    // distributor_fee = min(0.5 * 0.30, 0.5) = 0.15 SOL = 150_000_000 lamports
-    // Note: if the active_stake>0 guard were removed, the SSI/SSR branch would attempt
-    // staker_yield_pmpe = rewards / 0 * 1000 and panic — so a passing run here
-    // confirms the guard is what dispatched the fallback.
+fn test_ssr_activating_only_uses_min_fee() {
+    // active=0, activating=5 SOL. No active stake → PMPE is unmeasurable → SSR floor
+    // does not apply → min_fee_bps=0 is used → stakers receive full activating_bid_claim.
+    // static_bid=0, activating_stake_pmpe=100 → activating_bid_claim = 100/1000 * 5 SOL = 0.5 SOL
+    // With min_fee=0: distributor_fee=0, all 0.5 SOL goes to activating stakers.
     let epoch = 100;
     let vote_account = test_vote_account(13);
 
@@ -2817,12 +2812,12 @@ fn test_ssr_activating_only_falls_back_to_max_fee() {
 
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
-    assert!(
-        marinade_fee.abs_diff(150_000_000) <= 1,
-        "marinade_fee {marinade_fee} ≠ ~150_000_000 (max_fee=0.30 fallback when active stake==0)"
+    assert_eq!(
+        marinade_fee, 0,
+        "no active stake → min_fee=0 → no marinade fee"
     );
     let dao_fee = sum_claims_for_authority(&settlements, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO);
-    assert_eq!(dao_fee, 0, "dao share is 0 in ssr_fee_config");
+    assert_eq!(dao_fee, 0, "no active stake → min_fee=0 → no dao fee");
 }
 
 #[test]
@@ -2926,6 +2921,7 @@ fn make_priority_fee_settlement(vote_account: Pubkey, fee: u64) -> Settlement {
         claims_amount: 0,
         claims: vec![],
         details: Some(json!({
+            "total_marinade_active_stake": 0,
             "total_marinade_activating_stake": 0,
             "activating_stake_pmpe": "0",
             "activating_bid_claim": "0",
