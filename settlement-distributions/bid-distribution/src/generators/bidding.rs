@@ -97,9 +97,11 @@ pub struct BidSettlementTotals {
 
 pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlementTotals {
     let mut totals = BidSettlementTotals::default();
-    let mut bidding_stake = Decimal::ZERO;
-    let mut priority_active_stake = Decimal::ZERO;
-    let mut priority_rewards = Decimal::ZERO;
+    let bidding_votes: std::collections::HashSet<Pubkey> = settlements
+        .iter()
+        .filter(|s| matches!(s.reason, SettlementReason::Bidding))
+        .map(|s| s.vote_account)
+        .collect();
     for settlement in settlements {
         let Some(details) = &settlement.details else {
             continue;
@@ -109,7 +111,7 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
                 let Ok(value) = BidSettlementDetails::deserialize(details) else {
                     continue;
                 };
-                bidding_stake += Decimal::from(value.total_marinade_active_stake);
+                totals.stake += Decimal::from(value.total_marinade_active_stake);
                 totals.rewards += Decimal::from_str(&value.total_marinade_stakers_rewards)
                     .unwrap_or(Decimal::ZERO);
                 totals.fees += Decimal::from(value.marinade_fee_claim + value.dao_fee_claim);
@@ -118,22 +120,17 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
                 let Ok(value) = PriorityFeeSettlementDetails::deserialize(details) else {
                     continue;
                 };
-                priority_active_stake += Decimal::from(value.total_marinade_active_stake);
-                priority_rewards +=
-                    Decimal::from_str(&value.activating_bid_claim).unwrap_or(Decimal::ZERO);
+                // Only use PriorityFee stake/rewards as fallback for validators where no
+                // Bidding settlement was generated (active stakers earned nothing).
+                if !bidding_votes.contains(&settlement.vote_account) {
+                    totals.stake += Decimal::from(value.total_marinade_active_stake);
+                    totals.rewards +=
+                        Decimal::from_str(&value.activating_bid_claim).unwrap_or(Decimal::ZERO);
+                }
                 totals.fees += Decimal::from(value.marinade_fee_claim + value.dao_fee_claim);
             }
             _ => {}
         }
-    }
-    // When no Bidding settlement was generated (active stakers earned nothing this epoch),
-    // fall back to stake/rewards from PriorityFeeSettlementDetails so the SSR bisect
-    // has a valid denominator. Zero priority_active_stake = truly no active stake.
-    if bidding_stake > Decimal::ZERO {
-        totals.stake = bidding_stake;
-    } else {
-        totals.stake = priority_active_stake;
-        totals.rewards = priority_rewards;
     }
     totals
 }
