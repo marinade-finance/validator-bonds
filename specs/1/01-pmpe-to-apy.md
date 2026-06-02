@@ -19,15 +19,19 @@ from ts-common (`src/constants.ts`).
 
 ## Approach
 
-Add `pmpeToApy(pmpe: number, epochsPerYear: number): number` to ts-common's
-`src/apy.ts`. Returns APY as a fraction (consistent with `calculateApy`).
-`Math.pow(1 + pmpe/1000, epochsPerYear) - 1` — no new dependencies.
+Extend `calculateApy` in ts-common's `src/apy.ts` with an optional
+`epochsPerYear` parameter that defaults to the existing `EPOCHS_PER_YEAR`
+constant — backwards compatible, no new function name.
 
-The distinction between the fixed `EPOCHS_PER_YEAR` constant (nominal) and a
-caller-supplied `epochsPerYear` (measured) is intentional and must remain.
+```ts
+calculateApy({ rewards, stakedAmount, epochsPerYear?: number }): Decimal
+```
+
+`fee-annotation.ts` can then call it directly with `gross`/`stake` and the
+measured `epochsPerYear`, dropping the inline `apyFor` closure entirely.
 
 ## Where
 
-- ts-common is an external package; the function goes in its `src/apy.ts`
+- ts-common is an external package; change goes in its `src/apy.ts`
 - `scripts/fee-annotation.ts:23` — local `SECONDS_PER_YEAR` to replace with ts-common import
-- `scripts/fee-annotation.ts:133` — `apyFor` closure to replace with `pmpeToApy` calls
+- `scripts/fee-annotation.ts:131` — `apyFor` closure to replace with `calculateApy` calls
