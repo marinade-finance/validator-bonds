@@ -122,9 +122,9 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
     totals
 }
 
-/// Bisects max_fee_bps downward from the configured ceiling to find the highest fee that
-/// keeps the global post-fee PMPE across all Marinade stake at or above `ssr_pmpe`.
-/// Returns settlements computed at the winning fee level.
+/// Bisects max_fee_bps upward from min_cap to find the highest fee that keeps the global
+/// post-fee PMPE across all Marinade stake at or above `ssr_pmpe`. Starts at min_cap so
+/// that if SSR can never be satisfied, the lowest-fee result is returned as best effort.
 pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],
