@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use settlement_common::settlement_collection::{Settlement, SettlementClaim, SettlementReason};
 use settlement_common::stake_meta_index::StakeMetaIndex;
 use solana_sdk::pubkey::Pubkey;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::ops::Mul;
 
@@ -77,6 +77,7 @@ pub struct BidSettlementDetails {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PriorityFeeSettlementDetails {
+    pub total_marinade_active_stake: u64,
     pub total_marinade_activating_stake: u64,
     pub activating_stake_pmpe: String,
     pub activating_bid_claim: String,
@@ -85,7 +86,122 @@ pub struct PriorityFeeSettlementDetails {
     pub dao_fee_claim: u64,
 }
 
+const MAX_ADJ_ITER: u32 = 20;
+
+#[derive(Default)]
+pub struct BidSettlementTotals {
+    pub stake: Decimal,
+    pub rewards: Decimal,
+    pub fees: Decimal,
+}
+
+pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlementTotals {
+    let mut totals = BidSettlementTotals::default();
+    let bidding_votes: HashSet<Pubkey> = settlements
+        .iter()
+        .filter(|s| matches!(s.reason, SettlementReason::Bidding))
+        .map(|s| s.vote_account)
+        .collect();
+    for settlement in settlements {
+        let Some(details) = &settlement.details else {
+            continue;
+        };
+        match settlement.reason {
+            SettlementReason::Bidding => {
+                let Ok(value) = BidSettlementDetails::deserialize(details) else {
+                    continue;
+                };
+                totals.stake += Decimal::from(value.total_marinade_active_stake);
+                totals.rewards += Decimal::from_str(&value.total_marinade_stakers_rewards)
+                    .unwrap_or(Decimal::ZERO);
+                totals.fees += Decimal::from(value.marinade_fee_claim + value.dao_fee_claim);
+            }
+            SettlementReason::PriorityFee => {
+                let Ok(value) = PriorityFeeSettlementDetails::deserialize(details) else {
+                    continue;
+                };
+                // Only use PriorityFee stake/rewards as fallback for validators where no
+                // Bidding settlement was generated (active stakers earned nothing).
+                if !bidding_votes.contains(&settlement.vote_account) {
+                    totals.stake += Decimal::from(value.total_marinade_active_stake);
+                    totals.rewards +=
+                        Decimal::from_str(&value.activating_bid_claim).unwrap_or(Decimal::ZERO);
+                }
+                totals.fees += Decimal::from(value.marinade_fee_claim + value.dao_fee_claim);
+            }
+            _ => {}
+        }
+    }
+    totals
+}
+
+/// Bisects max_fee_bps downward from max_cap to find the highest fee that keeps
+/// global post-fee PMPE at or above `ssr_pmpe`. Converges in one iteration when
+/// SSR is not binding. If SSR can never be satisfied, min_cap settlements are
+/// returned.
 pub fn generate_bid_settlements(
+    stake_meta_index: &StakeMetaIndex,
+    sam_validator_metas: &[ValidatorSamMeta],
+    rewards_collection: &RewardsCollection,
+    settlement_config: &SettlementConfig,
+    fee_config: &FeeConfig,
+    stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+    ssr_pmpe: Decimal,
+) -> anyhow::Result<Vec<Settlement>> {
+    let max_cap = fee_config.max_fee_bps;
+    let min_cap = fee_config.min_fee_bps;
+    let mut current = max_cap;
+    let mut undershoot = max_cap;
+    let mut overshoot = min_cap;
+    let mut best_feasible_fee = min_cap;
+    let mut best_feasible: Option<Vec<Settlement>> = None;
+    let mut best_infeasible: Option<Vec<Settlement>> = None;
+    for _ in 0..MAX_ADJ_ITER {
+        let mut fc = fee_config.clone();
+        fc.max_fee_bps = current;
+        let settlements = generate_bid_settlements_worker(
+            stake_meta_index,
+            sam_validator_metas,
+            rewards_collection,
+            settlement_config,
+            &fc,
+            stake_authority_filter,
+            ssr_pmpe,
+        )?;
+        let totals = calculate_bid_settlement_totals(&settlements);
+        let (post_fee, feasible) = if totals.stake.is_zero() {
+            (Decimal::ZERO, false)
+        } else {
+            let post_fee_pmpe =
+                (totals.rewards - totals.fees) / totals.stake * Decimal::ONE_THOUSAND;
+            (post_fee_pmpe, ssr_pmpe <= post_fee_pmpe)
+        };
+        let next = if feasible {
+            if best_feasible.is_none() || current > best_feasible_fee {
+                best_feasible_fee = current;
+                best_feasible = Some(settlements);
+            }
+            overshoot = current;
+            current.saturating_add(undershoot) / 2
+        } else {
+            best_infeasible = Some(settlements);
+            undershoot = current;
+            current.saturating_add(overshoot) / 2
+        };
+        let next = next.clamp(min_cap, max_cap);
+        if next == current {
+            break;
+        }
+        info!(
+            "Adjusted max_fee_bps: {} -> {} (post_fee_pmpe {}, ssr_pmpe {})",
+            current, next, post_fee, ssr_pmpe,
+        );
+        current = next;
+    }
+    Ok(best_feasible.unwrap_or_else(|| best_infeasible.expect("MAX_ADJ_ITER = 0")))
+}
+
+fn generate_bid_settlements_worker(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],
     rewards_collection: &RewardsCollection,
@@ -540,6 +656,7 @@ pub fn generate_bid_settlements(
             let details_json = serde_json::to_value(&settlement_details)?;
 
             let priority_fee_details = PriorityFeeSettlementDetails {
+                total_marinade_active_stake,
                 total_marinade_activating_stake,
                 activating_stake_pmpe: validator
                     .rev_share
