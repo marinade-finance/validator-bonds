@@ -21,7 +21,7 @@ type BidSettlement = Settlement & {
 
 type SsrFeed = { epochs: { epoch: number; time: number }[] }
 
-const SECONDS_PER_YEAR = 365.25 * 24 * 60 * 60 // Julian year
+const SECONDS_PER_YEAR = 365.25 * 24 * 60 * 60
 
 async function main() {
   const [settlementsFile, configFile = './settlement-config.yaml'] =
