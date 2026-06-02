@@ -2,38 +2,38 @@
 status: draft
 ---
 
-# pmpe-to-APY in @marinade.finance/ts-common
+# APY math in @marinade.finance/ts-common
 
 ## Problem
 
-`scripts/fee-annotation.ts` computes APY from pmpe (per-mille per epoch) using
-a dynamic `epochsPerYear` derived from real SSR-feed timestamps. The formula is
-reusable but lives inline in a script with no tests.
+Both `scripts/fee-annotation.ts` and `scripts/simulate-fee.ts` compute APY
+from pmpe and epoch timing independently:
 
-`@marinade.finance/ts-common` already has `calculateApy` (`src/apy.ts`) but it
-uses the fixed `EPOCHS_PER_YEAR` constant — not suitable for callers that have
-an actual measured epoch duration from live data.
+- `fee-annotation.ts` — `apyFor` closure using `Math.exp/Math.log`
+- `simulate-fee.ts` — `apy` function using `Math.pow`
+- Both hardcode `31557600` (seconds/year) and fall back to `182` epochs/year
+- Both fetch the SSR feed and derive `epochsPerYear` from consecutive timestamps
 
-`SECONDS_PER_YEAR` is also defined locally in the script but already exported
-from ts-common (`src/constants.ts`).
+`@marinade.finance/ts-common` already exports `SECONDS_PER_YEAR` and
+`calculateApy({ rewards, stakedAmount })` in `src/apy.ts`, but `calculateApy`
+uses the fixed `EPOCHS_PER_YEAR` constant — not usable with a measured
+epoch duration from live SSR data.
 
 ## Approach
 
-Extend `calculateApy` in ts-common's `src/apy.ts` with an optional
-`epochsPerYear` parameter that defaults to the existing `EPOCHS_PER_YEAR`
-constant — backwards compatible, no new function name.
+Extend `calculateApy` in `src/apy.ts` with an optional `epochsPerYear`
+parameter defaulting to `EPOCHS_PER_YEAR` — backwards compatible.
 
 ```ts
 calculateApy({ rewards, stakedAmount, epochsPerYear?: number }): Decimal
 ```
 
-`fee-annotation.ts` calls `calculateApy` directly with `gross`/`stake` (and
-`gross-fees`, `gross*(1-maxFeeBps/10000)` for the other scenarios), dropping
-`SECONDS_PER_YEAR`, `epochsPerYear`, and the `apyFor` closure. The `pmpeGross`/
-`pmpeAdj`/`pmpeMax` intermediates stay — they are printed in the table.
+Both scripts then call `calculateApy` directly with `rewards`/`stakedAmount`
+and the measured `epochsPerYear`, importing `SECONDS_PER_YEAR` from ts-common
+instead of defining it locally.
 
 ## Where
 
 - ts-common is an external package; change goes in its `src/apy.ts`
-- `scripts/fee-annotation.ts:23` — `SECONDS_PER_YEAR` and `epochsPerYear` removed
-- `scripts/fee-annotation.ts:128` — `apyFor` closure and its three call sites replaced with `calculateApy`
+- `scripts/fee-annotation.ts` — drop `SECONDS_PER_YEAR`, `epochsPerYear`, `apyFor`; call `calculateApy`
+- `scripts/simulate-fee.ts` — drop `31557600`, `182`, `epy`, `apy` fn; call `calculateApy`
