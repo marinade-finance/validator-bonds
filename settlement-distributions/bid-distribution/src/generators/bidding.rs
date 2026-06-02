@@ -135,10 +135,10 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
     totals
 }
 
-/// Bisects max_fee_bps downward from max_cap to find the highest fee that keeps global
-/// post-fee PMPE at or above `ssr_pmpe`. Converges in one iteration when SSR is not
-/// binding. If SSR can never be satisfied (or there is no active stake), min_cap
-/// settlements are returned.
+/// Bisects max_fee_bps downward from max_cap to find the highest fee that keeps
+/// global post-fee PMPE at or above `ssr_pmpe`. Converges in one iteration when
+/// SSR is not binding. If SSR can never be satisfied, min_cap settlements are
+/// returned.
 pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],
