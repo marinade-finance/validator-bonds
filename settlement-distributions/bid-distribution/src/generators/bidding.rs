@@ -108,41 +108,27 @@ fn extract_fees(value: &serde_json::Value) -> u64 {
 
 pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlementTotals {
     let mut totals = BidSettlementTotals::default();
-    // Per-validator fee = Bidding share + PriorityFee share.
-    let mut fees_by_vote_account: HashMap<Pubkey, u64> = HashMap::new();
     for settlement in settlements {
-        if !matches!(
-            settlement.reason,
-            SettlementReason::Bidding | SettlementReason::PriorityFee
-        ) {
-            continue;
-        }
         let Some(details) = &settlement.details else {
             continue;
         };
-        *fees_by_vote_account
-            .entry(settlement.vote_account)
-            .or_default() += extract_fees(details);
-    }
-    for settlement in settlements {
-        if !matches!(settlement.reason, SettlementReason::Bidding) {
-            continue;
+        match settlement.reason {
+            SettlementReason::Bidding => {
+                let Ok(bid) = serde_json::from_value::<BidSettlementDetails>(details.clone())
+                else {
+                    continue;
+                };
+                totals.stake += Decimal::from(bid.total_marinade_active_stake);
+                // total_marinade_stakers_rewards already includes activating_bid_claim
+                totals.rewards +=
+                    Decimal::from_str(&bid.total_marinade_stakers_rewards).unwrap_or(Decimal::ZERO);
+                totals.fees += Decimal::from(bid.marinade_fee_claim + bid.dao_fee_claim);
+            }
+            SettlementReason::PriorityFee => {
+                totals.fees += Decimal::from(extract_fees(details));
+            }
+            _ => {}
         }
-        let Some(details) = &settlement.details else {
-            continue;
-        };
-        let Ok(bid) = serde_json::from_value::<BidSettlementDetails>(details.clone()) else {
-            continue;
-        };
-        totals.stake += Decimal::from(bid.total_marinade_active_stake);
-        totals.rewards +=
-            Decimal::from_str(&bid.total_marinade_stakers_rewards).unwrap_or(Decimal::ZERO);
-        totals.fees += Decimal::from(
-            fees_by_vote_account
-                .get(&settlement.vote_account)
-                .copied()
-                .unwrap_or(0),
-        );
     }
     totals
 }
