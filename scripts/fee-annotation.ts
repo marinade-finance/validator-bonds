@@ -180,13 +180,13 @@ async function main() {
   process.stdout
     .write(`### Fee Report — Epoch ${epoch}   (max_fee_bps: ${maxFeeBps}, min_fee_bps: ${minFeeBps})
 
-| scenario  | fee ◎              | pmpe              | APY      | vs gross  |
-|-----------|--------------------|-------------------|----------|-----------|
-| gross     | 0.000              | ${pmpeGross.toFixed(6)} | ${apyGross.toFixed(2)}%  | —         |
-| actual    | ${feesSol.toFixed(3)} | ${pmpeAdj.toFixed(6)} | ${apyAdj.toFixed(2)}%  | ${apyAdj - apyGross >= 0 ? '+' : ''}${(apyAdj - apyGross).toFixed(2)}pp |
-| full fee  | ${feesFull.toFixed(3)} | ${pmpeMax.toFixed(6)} | ${apyMax.toFixed(2)}%  | ${apyMax - apyGross >= 0 ? '+' : ''}${(apyMax - apyGross).toFixed(2)}pp |
+| scenario  | fee (SOL)   | pmpe       | APY      | vs gross  |
+|-----------|-------------|------------|----------|-----------|
+| gross     | 0.000       | ${pmpeGross.toFixed(6)} | ${apyGross.toFixed(2)}%  | —         |
+| actual    | ${feesSol.toFixed(3).padEnd(11)} | ${pmpeAdj.toFixed(6)} | ${apyAdj.toFixed(2)}%  | ${apyAdj - apyGross >= 0 ? '+' : ''}${(apyAdj - apyGross).toFixed(2)}pp |
+| full fee  | ${feesFull.toFixed(3).padEnd(11)} | ${pmpeMax.toFixed(6)} | ${apyMax.toFixed(2)}%  | ${apyMax - apyGross >= 0 ? '+' : ''}${(apyMax - apyGross).toFixed(2)}pp |
 
-${ncap} of ${bids.length} Bidding validators were SSR-capped (paid less than full fee)${stakerExtras > 0 ? `\nPSR/penalty extras to stakers: ◎${(stakerExtras / 1e9).toFixed(3)} (psr: ◎${(psrToStakers / 1e9).toFixed(3)}, penalty: ◎${(penaltyToStakers / 1e9).toFixed(3)})` : ''}
+${ncap} of ${bids.length} Bidding validators were SSR-capped (paid less than full fee)${stakerExtras > 0 ? `\nPSR/penalty extras to stakers: ${(stakerExtras / 1e9).toFixed(3)} SOL (psr: ${(psrToStakers / 1e9).toFixed(3)}, penalty: ${(penaltyToStakers / 1e9).toFixed(3)})` : ''}
 `)
 }
 
