@@ -127,6 +127,33 @@ function mk() {
 }
 
 const cfgTemplate = await Bun.file('./settlement-config.yaml').text()
+
+function parseAuthorityList(yaml: string, key: string): Set<string> {
+  const m = yaml.match(new RegExp(`${key}:[\\s\\S]*?(?=\\n\\S|$)`))
+  if (!m) return new Set()
+  return new Set([...m[0].matchAll(/- (\S+)/g)].map(x => x[1]))
+}
+
+async function redelegationStakeFromFile(
+  stakesPath: string,
+  cfgYaml: string,
+): Promise<number> {
+  const { stake_metas: metas } = (await Bun.file(stakesPath).json()) as {
+    stake_metas: {
+      stake_authority: string
+      deactivating_delegation_lamports: number
+    }[]
+  }
+  const whitelist = parseAuthorityList(cfgYaml, 'whitelist_stake_authorities')
+  const exiting = parseAuthorityList(cfgYaml, 'exiting_stake_authorities')
+  return metas.reduce(
+    (s, m) =>
+      whitelist.has(m.stake_authority) && !exiting.has(m.stake_authority)
+        ? s + m.deactivating_delegation_lamports
+        : s,
+    0,
+  )
+}
 const cli = [
   'cargo',
   'run',
@@ -293,13 +320,22 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       continue
     }
 
-    const stake = bids.reduce(
-      (s, d) =>
-        s +
-        d.total_marinade_active_stake +
-        (d.total_marinade_redelegation_stake ?? 0),
+    const activeStake = bids.reduce(
+      (s, d) => s + d.total_marinade_active_stake,
       0,
     )
+    const rustRedeleg = bids.reduce(
+      (s, d) => s + (d.total_marinade_redelegation_stake ?? 0),
+      0,
+    )
+    const stakesPath = join(inp, 'stakes.json')
+    const redeleg =
+      rustRedeleg > 0
+        ? rustRedeleg
+        : existsSync(stakesPath)
+          ? await redelegationStakeFromFile(stakesPath, cfgText)
+          : 0
+    const stake = activeStake + redeleg
     const total = bids.reduce(
       (s, d) => s + parseFloat(d.total_marinade_stakers_rewards),
       0,
