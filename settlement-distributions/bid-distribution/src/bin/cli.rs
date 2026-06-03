@@ -102,6 +102,7 @@ fn main() -> anyhow::Result<()> {
     let stake_meta_epoch = stake_meta_collection.epoch;
 
     let stake_authority_filter = bid_distribution_config.whitelist_stake_authorities_filter();
+    let exiting_stake_authority_filter = bid_distribution_config.exiting_stake_authorities_filter();
 
     let mut all_settlements = vec![];
 
@@ -189,6 +190,7 @@ fn main() -> anyhow::Result<()> {
             bidding_config,
             &bid_distribution_config.fee_config,
             &*stake_authority_filter,
+            &*exiting_stake_authority_filter,
             ssr_pmpe,
         )?;
         info!("Generated {} bid settlements", bid_settlements.len());

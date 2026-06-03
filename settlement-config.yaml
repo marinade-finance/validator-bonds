@@ -17,6 +17,9 @@ whitelist_stake_authorities:
   - 4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk
   - ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
 
+exiting_stake_authorities:
+  - ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
+
 settlements:
   - type: Bidding
     meta:

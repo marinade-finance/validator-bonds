@@ -1,4 +1,6 @@
-use crate::generators::bidding::{calculate_bid_settlement_totals, generate_bid_settlements};
+use crate::generators::bidding::{
+    calculate_bid_settlement_totals, generate_bid_settlements, BidSettlementDetails,
+};
 use crate::generators::psr_events::generate_psr_settlements;
 use crate::generators::sam_penalties::generate_penalty_settlements;
 use crate::rewards::{RewardsCollection, VoteAccountRewards};
@@ -103,6 +105,7 @@ fn test_generate_bid_settlements_basic_single_validator() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -204,6 +207,7 @@ fn test_generate_bid_settlements_positive_commission() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -343,6 +347,7 @@ fn test_generate_bid_settlements_negative_commission() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -526,6 +531,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -537,6 +543,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -548,6 +555,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -810,6 +818,7 @@ fn test_zero_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -869,6 +878,7 @@ fn test_activating_bid_charge_basic() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -932,6 +942,7 @@ fn test_activating_bid_charge_with_active_stake() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -990,6 +1001,7 @@ fn test_activating_bid_charge_non_marinade_excluded() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -1037,6 +1049,7 @@ fn test_activating_bid_charge_absent_when_no_field() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -1088,6 +1101,7 @@ fn test_activating_bid_charge_skipped_for_multi_epoch_warmup() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -1153,6 +1167,7 @@ fn test_activating_bid_charge_distributed_to_activating_stakers() {
         &create_test_settlement_config(),
         &create_test_fee_config(1000, 5000),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -1299,6 +1314,26 @@ fn create_stake_meta(
         balance_lamports: active_delegation_lamports,
         activating_delegation_lamports: 0,
         deactivating_delegation_lamports: 0,
+    }
+}
+
+fn create_stake_meta_with_deactivating(
+    pubkey: Pubkey,
+    validator: Pubkey,
+    withdraw_authority: Pubkey,
+    stake_authority: Pubkey,
+    active_delegation_lamports: u64,
+    deactivating_delegation_lamports: u64,
+) -> StakeMeta {
+    StakeMeta {
+        pubkey,
+        validator: Some(validator),
+        withdraw_authority,
+        stake_authority,
+        active_delegation_lamports,
+        balance_lamports: active_delegation_lamports,
+        activating_delegation_lamports: 0,
+        deactivating_delegation_lamports,
     }
 }
 
@@ -1667,6 +1702,7 @@ fn test_generate_settlements_from_json_values() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -2335,6 +2371,7 @@ fn run_ssr_test(ssr_pmpe: f64, fee_config: FeeConfig) -> Vec<Settlement> {
         &create_test_settlement_config(),
         &fee_config,
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
         Decimal::try_from(ssr_pmpe).unwrap(),
     )
     .unwrap()
@@ -2403,6 +2440,7 @@ fn test_bid_both_active_and_activating_stakers() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -2492,6 +2530,7 @@ fn test_bid_only_activating_no_active_marinade_stake() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -2603,6 +2642,7 @@ fn run_ssr_test_with_pmpe(
         &create_test_settlement_config(),
         &fee_config,
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
         Decimal::try_from(ssr_pmpe).unwrap(),
     )
     .unwrap()
@@ -2733,6 +2773,7 @@ fn test_ssr_mixed_active_and_activating_stake() {
         &create_test_settlement_config(),
         &ssr_fee_config(5000, 0, 0.0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
         Decimal::try_from(28.0).unwrap(),
     )
     .unwrap();
@@ -2806,6 +2847,7 @@ fn test_ssr_activating_only_uses_min_fee() {
         &create_test_settlement_config(),
         &ssr_fee_config(3000, 0, 0.0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
         Decimal::try_from(15.0).unwrap(),
     )
     .unwrap();
@@ -2896,6 +2938,7 @@ fn make_bid_settlement_for(
         details: Some(json!({
             "total_active_stake": stake,
             "total_marinade_active_stake": stake,
+            "total_marinade_redelegation_stake": 0u64,
             "auction_effective_static_bid": "0",
             "marinade_stake_share": "1",
             "marinade_inflation_rewards": "0",
@@ -2963,4 +3006,120 @@ fn test_calculate_bid_settlement_totals_includes_priority_fees() {
     ];
     let totals = calculate_bid_settlement_totals(&settlements);
     assert_eq!(totals.fees, Decimal::from(80));
+}
+
+// --- redelegation_stake / exiting_stake_authorities tests ---
+
+const TEST_EXITING_SA: Pubkey = Pubkey::new_from_array([
+    99, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+]);
+
+fn make_simple_sam_meta(vote_account: Pubkey, epoch: u32, bid_pmpe: f64) -> ValidatorSamMeta {
+    SamMetaParams::new(vote_account, epoch)
+        .bid_pmpe(bid_pmpe)
+        .build()
+}
+
+#[test]
+fn test_redelegation_stake_included_in_settlement_details() {
+    let epoch = 100u64;
+    let vote_account = test_vote_account(1);
+    let active = 1_000 * LAMPORTS_PER_SOL;
+    let deactivating = 200 * LAMPORTS_PER_SOL;
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![create_stake_meta_with_deactivating(
+            test_stake_account(1),
+            vote_account,
+            TEST_PUBKEY_MARINADE,
+            TEST_PUBKEY_MARINADE,
+            active,
+            deactivating,
+        )],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+    let sam_meta = make_simple_sam_meta(vote_account, epoch as u32, 1.0);
+    let rewards_collection = RewardsCollection {
+        epoch,
+        rewards_by_vote_account: HashMap::new(),
+    };
+    let fee_config = create_test_fee_config(0, 0);
+    let settlement_config = create_test_settlement_config();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &rewards_collection,
+        &settlement_config,
+        &fee_config,
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false, // no exiting authorities
+        Decimal::ZERO,
+    )
+    .unwrap();
+
+    assert_eq!(settlements.len(), 1);
+    let details: BidSettlementDetails =
+        serde_json::from_value(settlements[0].details.clone().unwrap()).unwrap();
+    assert_eq!(details.total_marinade_active_stake, active);
+    assert_eq!(details.total_marinade_redelegation_stake, deactivating);
+}
+
+#[test]
+fn test_exiting_authority_excluded_from_redelegation_stake() {
+    let epoch = 100u64;
+    let vote_account = test_vote_account(1);
+    let active = 1_000 * LAMPORTS_PER_SOL;
+    let deactivating = 200 * LAMPORTS_PER_SOL;
+
+    // Deactivating stake under the exiting authority should not count as redelegation
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                active,
+            ),
+            create_stake_meta_with_deactivating(
+                test_stake_account(2),
+                vote_account,
+                TEST_EXITING_SA,
+                TEST_EXITING_SA,
+                deactivating,
+                deactivating,
+            ),
+        ],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+    let sam_meta = make_simple_sam_meta(vote_account, epoch as u32, 1.0);
+    let rewards_collection = RewardsCollection {
+        epoch,
+        rewards_by_vote_account: HashMap::new(),
+    };
+    let fee_config = create_test_fee_config(0, 0);
+    let settlement_config = create_test_settlement_config();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &rewards_collection,
+        &settlement_config,
+        &fee_config,
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE || *pk == TEST_EXITING_SA,
+        &|pk: &Pubkey| *pk == TEST_EXITING_SA, // exiting authority: deactivating excluded
+        Decimal::ZERO,
+    )
+    .unwrap();
+
+    assert_eq!(settlements.len(), 1);
+    let details: BidSettlementDetails =
+        serde_json::from_value(settlements[0].details.clone().unwrap()).unwrap();
+    assert_eq!(details.total_marinade_active_stake, active + deactivating);
+    assert_eq!(details.total_marinade_redelegation_stake, 0);
 }
