@@ -215,6 +215,18 @@ steps:
     artifact_paths:
       - "./bid-distribution-discord-report.txt"
 
+  - label: ":moneybag: Fee analysis"
+    allow_dependency_failure: true
+    commands:
+    - buildkite-agent artifact download --include-retried-jobs bid-distribution-settlements.json .
+    - pnpm install
+    - |
+      set -o pipefail
+      pnpm exec tsx scripts/fee-annotation.ts \
+        "./bid-distribution-settlements.json" \
+        "./settlement-config.yaml" \
+        | buildkite-agent annotate --priority 6 --style info --context "fee-analysis"
+
   - wait: ~
 
   - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
