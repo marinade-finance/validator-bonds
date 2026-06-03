@@ -22,7 +22,8 @@ type BidDetails = {
 }
 
 type Settlement = {
-  reason: string
+  reason: string | { ProtectedEvent: unknown }
+  claims_amount: number
   details: BidDetails | null
 }
 
@@ -239,6 +240,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       )
     const penaltyStakerClaims = settlements.reduce((s, e) => {
       const d = e.details as Record<string, number | undefined> | null
+      if (typeof e.reason === 'object') return s + e.claims_amount
       if (e.reason === 'BidTooLowPenalty')
         return s + (d?.stakers_bid_too_low_penalty_claim ?? 0)
       if (e.reason === 'BlacklistPenalty')
