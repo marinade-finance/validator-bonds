@@ -86,6 +86,7 @@ fn test_generate_bid_settlements_basic_single_validator() {
             .mev(500_000_000)
             .block_rewards(300_000_000)
             .jito(100_000_000)
+            .onchain_commissions(0.10, 0.10)
             .build(),
     );
 
@@ -189,6 +190,7 @@ fn test_generate_bid_settlements_positive_commission() {
             .inflation(10 * LAMPORTS_PER_SOL)
             .mev(5 * LAMPORTS_PER_SOL)
             .block_rewards(2 * LAMPORTS_PER_SOL)
+            .onchain_commissions(0.15, 0.15)
             .build(),
     );
 
@@ -319,6 +321,7 @@ fn test_generate_bid_settlements_negative_commission() {
             .mev(mev_rewards)
             .block_rewards(block_rewards)
             .jito(jito_rewards)
+            .onchain_commissions(on_chain_commission, on_chain_commission)
             .build(),
     );
     rewards_map.insert(
@@ -473,6 +476,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         vote_account,
         RewardsParams::new(vote_account)
             .inflation(10 * LAMPORTS_PER_SOL)
+            .onchain_commissions(0.10, 0.10)
             .build(),
     );
     let rewards_collection1 = RewardsCollection {
@@ -485,6 +489,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         vote_account,
         RewardsParams::new(vote_account)
             .mev(10 * LAMPORTS_PER_SOL)
+            .onchain_commissions(0.10, 0.10)
             .build(),
     );
     let rewards_collection2 = RewardsCollection {
@@ -500,6 +505,7 @@ fn test_generate_bid_settlements_varying_rewards() {
             .mev(3 * LAMPORTS_PER_SOL)
             .block_rewards(2 * LAMPORTS_PER_SOL)
             .jito(500_000_000)
+            .onchain_commissions(0.10, 0.10)
             .build(),
     );
     let rewards_collection3 = RewardsCollection {
@@ -827,6 +833,161 @@ fn test_zero_rewards() {
     assert!(
         settlements[0].claims_amount > 0,
         "Should have claims from static bid even with zero rewards"
+    );
+}
+
+#[test]
+fn test_commission_raised_after_auction_charged_from_rewards() {
+    // auction snapshot saw 0% onchain commission but rewards were distributed at 5%;
+    // the claim has to follow the snapshot rewards, not the auction-time sam-meta value
+    let epoch = 100;
+    let vote_account = test_vote_account(1);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                test_withdraw_authority(1),
+                test_stake_authority(1),
+                100 * LAMPORTS_PER_SOL,
+            ),
+            create_stake_meta(
+                test_stake_account(100),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                LAMPORTS_PER_SOL,
+            ),
+        ],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let commissions = CommissionParams::new(0.0, 0.0).as_commission_details();
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .auction_values(commissions)
+        .build();
+
+    let inflation_rewards = 20 * LAMPORTS_PER_SOL;
+    let mev_rewards = 10 * LAMPORTS_PER_SOL;
+    let mut rewards_map = HashMap::new();
+    rewards_map.insert(
+        vote_account,
+        RewardsParams::new(vote_account)
+            .inflation(inflation_rewards)
+            .mev(mev_rewards)
+            .onchain_commissions(0.05, 0.05)
+            .build(),
+    );
+    let rewards_collection = RewardsCollection {
+        epoch,
+        rewards_by_vote_account: rewards_map,
+    };
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &[sam_meta],
+        &rewards_collection,
+        &create_test_settlement_config(),
+        &create_test_fee_config(950, 500),
+        &accept_all,
+        Decimal::ZERO,
+    )
+    .unwrap();
+
+    assert_eq!(settlements.len(), 1);
+    let details = settlements[0].details.as_ref().unwrap();
+    let inflation_claim: Decimal =
+        serde_json::from_value(details["settlement_claims"]["inflation_commission_claim"].clone())
+            .unwrap();
+    let mev_claim: Decimal =
+        serde_json::from_value(details["settlement_claims"]["mev_commission_claim"].clone())
+            .unwrap();
+    // 5% of gross rewards kept onchain above the 0% in-bond promise
+    assert_eq!(
+        inflation_claim,
+        Decimal::from(inflation_rewards) * Decimal::from_str("0.05").unwrap(),
+        "Inflation claim must cover the commission raised after the auction snapshot"
+    );
+    assert_eq!(
+        mev_claim,
+        Decimal::from(mev_rewards) * Decimal::from_str("0.05").unwrap(),
+        "MEV claim must cover the commission raised after the auction snapshot"
+    );
+}
+
+#[test]
+fn test_negative_block_commission_charged_against_negative_in_bond() {
+    // jito distributed more than the gross block rewards -> derived onchain commission is negative;
+    // the claim covers only the gap above the (also negative) in-bond commission
+    let epoch = 100;
+    let vote_account = test_vote_account(1);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                test_withdraw_authority(1),
+                test_stake_authority(1),
+                100 * LAMPORTS_PER_SOL,
+            ),
+            create_stake_meta(
+                test_stake_account(100),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                LAMPORTS_PER_SOL,
+            ),
+        ],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let commissions = CommissionParams::new(0.0, -0.6).as_commission_details();
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .auction_values(commissions)
+        .build();
+
+    let block_rewards = 2 * LAMPORTS_PER_SOL;
+    let jito_rewards = 3 * LAMPORTS_PER_SOL;
+    let mut rewards_map = HashMap::new();
+    rewards_map.insert(
+        vote_account,
+        RewardsParams::new(vote_account)
+            .block_rewards(block_rewards)
+            .jito(jito_rewards)
+            .build(),
+    );
+    let rewards_collection = RewardsCollection {
+        epoch,
+        rewards_by_vote_account: rewards_map,
+    };
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &[sam_meta],
+        &rewards_collection,
+        &create_test_settlement_config(),
+        &create_test_fee_config(950, 500),
+        &accept_all,
+        Decimal::ZERO,
+    )
+    .unwrap();
+
+    assert_eq!(settlements.len(), 1);
+    let details = settlements[0].details.as_ref().unwrap();
+    let block_claim: Decimal =
+        serde_json::from_value(details["settlement_claims"]["block_commission_claim"].clone())
+            .unwrap();
+    // derived onchain commission (2 - 3) / 2 = -0.5; in-bond -0.6 -> charge the 0.1 gap (accept_all -> share 1)
+    assert_eq!(
+        block_claim,
+        Decimal::from(block_rewards) * Decimal::from_str("0.1").unwrap(),
+        "Block claim must charge the gap between negative onchain and negative in-bond commission"
     );
 }
 
@@ -1234,27 +1395,23 @@ const TEST_PUBKEY_DAO: Pubkey = Pubkey::new_from_array([
 #[derive(Default)]
 struct CommissionParams {
     inflation_final: Decimal,
-    inflation_onchain: Decimal,
     inflation_in_bond: Option<Decimal>,
     mev_final: Decimal,
-    mev_onchain: Option<Decimal>,
     mev_in_bond: Option<Decimal>,
     block_rewards_final: Decimal,
     block_rewards_in_bond: Option<Decimal>,
 }
 
 impl CommissionParams {
-    fn new(onchain: f64, in_bond: f64) -> Self {
-        let onchain_dec = Decimal::try_from(onchain).unwrap();
+    fn new(final_commission: f64, in_bond: f64) -> Self {
+        let final_dec = Decimal::try_from(final_commission).unwrap();
         let bonds_dec = Decimal::try_from(in_bond).unwrap();
         Self {
-            inflation_final: onchain_dec,
-            inflation_onchain: onchain_dec,
+            inflation_final: final_dec,
             inflation_in_bond: Some(bonds_dec),
-            mev_final: onchain_dec,
-            mev_onchain: Some(onchain_dec),
+            mev_final: final_dec,
             mev_in_bond: Some(bonds_dec),
-            block_rewards_final: onchain_dec,
+            block_rewards_final: final_dec,
             block_rewards_in_bond: Some(bonds_dec),
         }
     }
@@ -1264,10 +1421,8 @@ impl CommissionParams {
             inflation_commission_dec: self.inflation_final,
             mev_commission_dec: self.mev_final,
             block_rewards_commission_dec: self.block_rewards_final,
-            inflation_commission_onchain_dec: self.inflation_onchain,
             inflation_commission_in_bond_dec: self.inflation_in_bond,
             inflation_commission_override_dec: None,
-            mev_commission_onchain_dec: self.mev_onchain,
             mev_commission_in_bond_dec: self.mev_in_bond,
             mev_commission_override_dec: None,
             block_rewards_commission_in_bond_dec: self.block_rewards_in_bond,
@@ -1501,6 +1656,8 @@ struct RewardsParams {
     mev_rewards: u64,
     block_rewards: u64,
     jito_priority_fee_rewards: u64,
+    onchain_inflation_commission: f64,
+    onchain_mev_commission: f64,
 }
 
 impl RewardsParams {
@@ -1511,6 +1668,8 @@ impl RewardsParams {
             mev_rewards: 0,
             block_rewards: 0,
             jito_priority_fee_rewards: 0,
+            onchain_inflation_commission: 1.0,
+            onchain_mev_commission: 1.0,
         }
     }
 
@@ -1534,9 +1693,24 @@ impl RewardsParams {
         self
     }
 
+    // commission actually applied when rewards were distributed; stakers' parts are derived from it
+    fn onchain_commissions(mut self, inflation: f64, mev: f64) -> Self {
+        self.onchain_inflation_commission = inflation;
+        self.onchain_mev_commission = mev;
+        self
+    }
+
     fn build(self) -> VoteAccountRewards {
         let total_amount = self.inflation_rewards + self.mev_rewards + self.block_rewards;
-        let validators_total_amount = total_amount - self.jito_priority_fee_rewards;
+        let validators_total_amount = total_amount.saturating_sub(self.jito_priority_fee_rewards);
+        let stakers_inflation_rewards = (Decimal::from(self.inflation_rewards)
+            * (Decimal::ONE - Decimal::try_from(self.onchain_inflation_commission).unwrap()))
+        .to_u64()
+        .unwrap();
+        let stakers_mev_rewards = (Decimal::from(self.mev_rewards)
+            * (Decimal::ONE - Decimal::try_from(self.onchain_mev_commission).unwrap()))
+        .to_u64()
+        .unwrap();
         VoteAccountRewards {
             vote_account: self.vote_account,
             total_amount,
@@ -1545,10 +1719,12 @@ impl RewardsParams {
             block_rewards: self.block_rewards,
             jito_priority_fee_rewards: self.jito_priority_fee_rewards,
             validators_total_amount,
-            stakers_inflation_rewards: 0,
-            stakers_mev_rewards: 0,
-            stakers_priority_fee_rewards: 0,
-            stakers_total_amount: 0,
+            stakers_inflation_rewards,
+            stakers_mev_rewards,
+            stakers_priority_fee_rewards: self.jito_priority_fee_rewards,
+            stakers_total_amount: stakers_inflation_rewards
+                + stakers_mev_rewards
+                + self.jito_priority_fee_rewards,
         }
     }
 }
@@ -1683,6 +1859,7 @@ fn test_generate_settlements_from_json_values() {
             .mev(5 * LAMPORTS_PER_SOL)
             .block_rewards(3 * LAMPORTS_PER_SOL)
             .jito(LAMPORTS_PER_SOL)
+            .onchain_commissions(0.08, 0.12)
             .build(),
     );
 
@@ -1723,10 +1900,6 @@ fn test_generate_settlements_from_json_values() {
 
     let values = sam_meta.values.as_ref().unwrap();
     let commissions = values.commissions.as_ref().unwrap();
-    assert_eq!(
-        commissions.inflation_commission_onchain_dec,
-        Decimal::from_str("0.08").unwrap()
-    );
     assert_eq!(
         commissions.inflation_commission_in_bond_dec,
         Some(Decimal::from_str("0.03").unwrap())

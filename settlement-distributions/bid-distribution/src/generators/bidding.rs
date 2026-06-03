@@ -195,10 +195,7 @@ pub fn generate_bid_settlements(
         if next == current {
             break;
         }
-        info!(
-            "Adjusted max_fee_bps: {} -> {} (post_fee_pmpe {}, ssr_pmpe {})",
-            current, next, post_fee, ssr_pmpe,
-        );
+        info!("Adjusted max_fee_bps: {current} -> {next} (post_fee_pmpe {post_fee}, ssr_pmpe {ssr_pmpe})");
         current = next;
     }
     Ok(best_feasible.unwrap_or_else(|| best_infeasible.expect("MAX_ADJ_ITER = 0")))
@@ -296,67 +293,26 @@ fn generate_bid_settlements_worker(
                 ..
             }) = &validator.values
             {
-                let inflation_commission_in_bond_dec = commissions
-                    .inflation_commission_in_bond_dec
-                    .unwrap_or(Decimal::ONE);
-                let inflation_commission_onchain_dec = commissions.inflation_commission_onchain_dec;
-                ensure!(
-                    inflation_commission_onchain_dec <= Decimal::ONE,
-                    "Inflation commission validator {} onchain decimal {} cannot be greater than 1",
-                    validator.vote_account,
-                    inflation_commission_onchain_dec
-                );
-                if inflation_commission_onchain_dec > inflation_commission_in_bond_dec {
-                    let inflation_commission_diff =
-                        inflation_commission_onchain_dec - inflation_commission_in_bond_dec;
-                    ensure!(
-                        inflation_commission_diff >= Decimal::ZERO,
-                        "Inflation commission diff cannot be negative for validator {}",
-                        validator.vote_account
+                if let Some(in_bond) = commissions.inflation_commission_in_bond_dec {
+                    settlement_claim.inflation_commission_claim = commission_claim(
+                        rewards.realized_inflation_commission_dec(),
+                        in_bond,
+                        marinade_inflation_rewards,
                     );
-                    settlement_claim.inflation_commission_claim =
-                        marinade_inflation_rewards.mul(inflation_commission_diff);
                 }
-                if let Some(mev_commission_in_bond_dec) = commissions.mev_commission_in_bond_dec {
-                    let mev_commission_onchain_dec = commissions
-                        .mev_commission_onchain_dec
-                        .unwrap_or(Decimal::ONE);
-                    if mev_commission_onchain_dec > mev_commission_in_bond_dec {
-                        let mev_commission_diff =
-                            mev_commission_onchain_dec - mev_commission_in_bond_dec;
-                        ensure!(
-                            mev_commission_diff >= Decimal::ZERO,
-                            "MEV commission diff cannot be negative for validator {}",
-                            validator.vote_account
-                        );
-                        settlement_claim.mev_commission_claim =
-                            marinade_mev_rewards.mul(mev_commission_diff);
-                    }
+                if let Some(in_bond) = commissions.mev_commission_in_bond_dec {
+                    settlement_claim.mev_commission_claim = commission_claim(
+                        rewards.realized_mev_commission_dec(),
+                        in_bond,
+                        marinade_mev_rewards,
+                    );
                 }
-                if let Some(block_rewards_commission_in_bond_dec) =
-                    commissions.block_rewards_commission_in_bond_dec
-                {
-                    if rewards.block_rewards > 0 {
-                        // Use Decimal to avoid u64 underflow if jito_priority_fee_rewards > block_rewards
-                        let block_rewards_jito_commission_onchain_dec =
-                            (Decimal::from(rewards.block_rewards)
-                                - Decimal::from(rewards.jito_priority_fee_rewards))
-                                / Decimal::from(rewards.block_rewards);
-                        if block_rewards_jito_commission_onchain_dec
-                            > block_rewards_commission_in_bond_dec
-                        {
-                            let block_rewards_commission_diff =
-                                block_rewards_jito_commission_onchain_dec
-                                    - block_rewards_commission_in_bond_dec;
-                            ensure!(
-                                block_rewards_commission_diff >= Decimal::ZERO,
-                                "Block rewards commission diff cannot be negative for validator {}",
-                                validator.vote_account
-                            );
-                            settlement_claim.block_commission_claim =
-                                marinade_block_rewards.mul(block_rewards_commission_diff);
-                        }
-                    }
+                if let Some(in_bond) = commissions.block_rewards_commission_in_bond_dec {
+                    settlement_claim.block_commission_claim = commission_claim(
+                        rewards.realized_block_commission_dec(),
+                        in_bond,
+                        marinade_block_rewards,
+                    );
                 }
             }
 
@@ -699,4 +655,18 @@ fn generate_bid_settlements_worker(
         }
     }
     Ok(settlement_claim_collections)
+}
+
+// charges the realized commission from snapshot rewards; the auction-time sam-meta value misses commission raised after the auction snapshot
+fn commission_claim(
+    commission_realized_dec: Option<Decimal>,
+    commission_in_bond_dec: Decimal,
+    marinade_rewards: Decimal,
+) -> Decimal {
+    match commission_realized_dec {
+        Some(realized) if realized > commission_in_bond_dec => {
+            marinade_rewards.mul(realized - commission_in_bond_dec)
+        }
+        _ => Decimal::ZERO,
+    }
 }
