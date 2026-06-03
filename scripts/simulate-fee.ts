@@ -1,21 +1,11 @@
 #!/usr/bin/env bun
 /* eslint-disable n/no-process-exit */
-// Simulates bid-distribution-cli across a range of epochs at multiple fee tiers.
-// For each (epoch, fee) pair: patches settlement-config.yaml in a temp file, runs the CLI,
-// and computes post-fee pmpe (adj = actual fees deducted, max = full fee applied uniformly).
-// Fetches epoch timing from the SSR API to convert pmpe → APY.
-// Downloads epoch input data via regression-test-settlements.sh if not already cached.
-//
-// Usage: bun scripts/simulate-fee.ts [-r] [-v] <epoch|start-end> <fees_bps>... [--data-dir DIR]
-
 import { randomBytes } from 'node:crypto'
 import { existsSync, unlinkSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 
-// Externally-tagged SettlementReason: unit variants serialize as plain strings,
-// ProtectedEvent serializes as { ProtectedEvent: {...} }.
 type Reason =
   | 'Bidding'
   | 'PriorityFee'
@@ -25,9 +15,6 @@ type Reason =
   | 'InstitutionalPayout'
   | { ProtectedEvent: unknown }
 
-// Bidding / PriorityFee settlement details. Only Bidding settlements are read into `bids`,
-// and those always carry total_marinade_stakers_rewards (a string, since it can exceed u64-safe
-// JS numbers); PriorityFee feeAdj reads only the fee-claim fields below.
 type BidDetails = {
   total_marinade_active_stake: number
   total_marinade_redelegation_stake: number
@@ -36,7 +23,6 @@ type BidDetails = {
   dao_fee_claim: number
 }
 
-// Penalty settlement details carry the staker share under a per-type field name.
 type PenaltyDetails = {
   stakers_bid_too_low_penalty_claim?: number
   stakers_blacklist_penalty_claim?: number
@@ -65,7 +51,6 @@ const { values, positionals } = parseArgs({
 })
 
 const [epochArg, ...feeStrs] = positionals
-// null = keep the config's own max_fee_bps (no override).
 const fees: (number | null)[] = feeStrs.length ? feeStrs.map(Number) : [null]
 
 if (!epochArg) {
@@ -96,7 +81,7 @@ if (!ssrRes.ok) {
   process.stderr.write('Failed to fetch SSR\n')
   process.exit(1)
 }
-const ssrFeed = (await ssrRes.json()) as {
+const ssr = (await ssrRes.json()) as {
   epochs: { epoch: number; pmpe: number; time: number }[]
 }
 
@@ -120,7 +105,7 @@ process.on('exit', () => {
       unlinkSync(t)
     } catch {}
 })
-function mk() {
+function tmpFile() {
   const p = join('./tmp', `fee-${randomBytes(6).toString('hex')}.tmp`)
   tmps.push(p)
   return p
@@ -147,13 +132,14 @@ async function redelegationStakeFromFile(
   const whitelist = parseAuthorityList(cfgYaml, 'whitelist_stake_authorities')
   const exiting = parseAuthorityList(cfgYaml, 'exiting_stake_authorities')
   return metas.reduce(
-    (s, m) =>
+    (sum, m) =>
       whitelist.has(m.stake_authority) && !exiting.has(m.stake_authority)
-        ? s + m.deactivating_delegation_lamports
-        : s,
+        ? sum + m.deactivating_delegation_lamports
+        : sum,
     0,
   )
 }
+
 const cli = [
   'cargo',
   'run',
@@ -172,8 +158,7 @@ const PROD_FILE = 'bid-distribution-settlements.json'
 
 console.log('epochs:')
 for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
-  // -c: use production settlement JSON, downloading if absent
-  let cachedSettlementFile: string | null = null
+  let prodFile: string | null = null
   if (values.c) {
     const cached = join(dataDir, String(epoch), PROD_FILE)
     if (!existsSync(cached)) {
@@ -200,7 +185,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       )
       continue
     }
-    cachedSettlementFile = cached
+    prodFile = cached
   } else {
     const inp = `${dataDir}/${epoch}/inputs`
     if (!INPUTS.every(f => existsSync(join(inp, f)))) {
@@ -224,25 +209,23 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     }
   }
 
-  const eData = ssrFeed.epochs.find(e => e.epoch === epoch)
-  if (!eData) {
+  const epochData = ssr.epochs.find(e => e.epoch === epoch)
+  if (!epochData) {
     process.stderr.write(`  # epoch ${epoch} not in SSR feed, skipping\n`)
     continue
   }
-  const prev = ssrFeed.epochs.find(e => e.epoch === epoch - 1)
-  const epy = prev ? 31557600 / (eData.time - prev.time) : 182
+  const prev = ssr.epochs.find(e => e.epoch === epoch - 1)
+  const epy = prev ? 31557600 / (epochData.time - prev.time) : 182
 
   console.log(`- epoch: ${epoch}`)
-  console.log(`  ssr_pmpe: ${eData.pmpe}`)
-  console.log(`  ssr_apy: ${apy(eData.pmpe, epy)}`)
+  console.log(`  ssr_pmpe: ${epochData.pmpe}`)
+  console.log(`  ssr_apy: ${apy(epochData.pmpe, epy)}`)
   console.log(`  epochs_per_year: ${Math.floor(epy)}`)
   console.log('  simulations:')
 
-  // In -c mode run once with production config (no fee override)
-  const feesToRun = cachedSettlementFile ? [null] : fees
   const inp = `${dataDir}/${epoch}/inputs`
 
-  for (const fee of feesToRun) {
+  for (const fee of prodFile ? [null] : fees) {
     let cfgText = cfgTemplate
     if (fee != null)
       cfgText = cfgTemplate.replace(/(max_fee_bps:)\s*\d+/, `$1 ${fee}`)
@@ -252,11 +235,11 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     const maxFee = Number(cfgText.match(/max_fee_bps:\s*(\d+)/)?.[1] ?? 0)
 
     let settlementsJson: string
-    if (cachedSettlementFile) {
-      settlementsJson = cachedSettlementFile
+    if (prodFile) {
+      settlementsJson = prodFile
     } else {
-      const cfg = mk(),
-        out = mk()
+      const cfg = tmpFile(),
+        out = tmpFile()
       await writeFile(cfg, cfgText)
 
       const proc = Bun.spawnSync(
@@ -290,7 +273,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
         },
       )
 
-      const stderr = Buffer.from(proc.stderr as Uint8Array).toString()
+      const stderr = Buffer.from(proc.stderr).toString()
       for (const line of stderr.split('\n')) {
         if (line.includes(' ERROR ') || line.includes('Adjusted max_fee_bps'))
           process.stderr.write(line + '\n')
@@ -309,23 +292,23 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     const { settlements } = (await Bun.file(settlementsJson).json()) as {
       settlements: Settlement[]
     }
-    const bids = settlements
+    const bidDetails = settlements
       .filter(
         (s): s is Settlement & { details: BidDetails } =>
           s.reason === 'Bidding' && s.details !== null,
       )
       .map(s => s.details)
-    if (!bids.length) {
+    if (!bidDetails.length) {
       process.stderr.write(`  # no data for fee=${fee} epoch=${epoch}\n`)
       continue
     }
 
-    const activeStake = bids.reduce(
-      (s, d) => s + d.total_marinade_active_stake,
+    const activeStake = bidDetails.reduce(
+      (sum, d) => sum + d.total_marinade_active_stake,
       0,
     )
-    const rustRedeleg = bids.reduce(
-      (s, d) => s + (d.total_marinade_redelegation_stake ?? 0),
+    const rustRedeleg = bidDetails.reduce(
+      (sum, d) => sum + (d.total_marinade_redelegation_stake ?? 0),
       0,
     )
     const stakesPath = join(inp, 'stakes.json')
@@ -336,49 +319,45 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
           ? await redelegationStakeFromFile(stakesPath, cfgText)
           : 0
     const stake = activeStake + redeleg
-    const total = bids.reduce(
-      (s, d) => s + parseFloat(d.total_marinade_stakers_rewards),
+    const totalRewards = bidDetails.reduce(
+      (sum, d) => sum + parseFloat(d.total_marinade_stakers_rewards),
       0,
     )
     const feeAdj = settlements
       .filter(s => s.reason === 'Bidding' || s.reason === 'PriorityFee')
       .reduce(
-        (s, e) =>
-          s +
-          (e.details?.marinade_fee_claim ?? 0) +
-          (e.details?.dao_fee_claim ?? 0),
+        (sum, s) =>
+          sum +
+          (s.details?.marinade_fee_claim ?? 0) +
+          (s.details?.dao_fee_claim ?? 0),
         0,
       )
-    // Protected-event (PSR/commission/downtime) payouts to stakers: details is null,
-    // the staker amount is the whole claims_amount.
     const protectedEventClaims = settlements.reduce(
-      (s, e) => (isProtectedEvent(e.reason) ? s + e.claims_amount : s),
+      (sum, s) => (isProtectedEvent(s.reason) ? sum + s.claims_amount : sum),
       0,
     )
-    // Penalty payouts routed to stakers (bond-funded), keyed per penalty type.
-    const penaltyStakerClaims = settlements.reduce((s, e) => {
-      const d = e.details
-      if (e.reason === 'BidTooLowPenalty')
-        return s + (d?.stakers_bid_too_low_penalty_claim ?? 0)
-      if (e.reason === 'BlacklistPenalty')
-        return s + (d?.stakers_blacklist_penalty_claim ?? 0)
-      if (e.reason === 'BondRiskFee')
-        return s + (d?.stakers_bond_risk_fee_claim ?? 0)
-      return s
+    const penaltyStakerClaims = settlements.reduce((sum, s) => {
+      const d = s.details
+      if (s.reason === 'BidTooLowPenalty')
+        return sum + (d?.stakers_bid_too_low_penalty_claim ?? 0)
+      if (s.reason === 'BlacklistPenalty')
+        return sum + (d?.stakers_blacklist_penalty_claim ?? 0)
+      if (s.reason === 'BondRiskFee')
+        return sum + (d?.stakers_bond_risk_fee_claim ?? 0)
+      return sum
     }, 0)
-    // Extra SOL paid to stakers on top of bidding rewards; raises post-fee pmpe.
     const stakerExtras = protectedEventClaims + penaltyStakerClaims
-    const pmpeAdj = ((total - feeAdj + stakerExtras) / stake) * 1000
+    const pmpeAdj = ((totalRewards - feeAdj + stakerExtras) / stake) * 1000
     const pmpeMax =
-      ((total * (1 - maxFee / 10000) + stakerExtras) / stake) * 1000
-    const ncap = bids.filter(
+      ((totalRewards * (1 - maxFee / 10000) + stakerExtras) / stake) * 1000
+    const nCapped = bidDetails.filter(
       d =>
         parseFloat(d.total_marinade_stakers_rewards) > 0 &&
         d.marinade_fee_claim + d.dao_fee_claim <
           ((parseFloat(d.total_marinade_stakers_rewards) * maxFee) / 10000) *
             0.9999,
     ).length
-    const nmin = bids.filter(
+    const nAtMin = bidDetails.filter(
       d =>
         parseFloat(d.total_marinade_stakers_rewards) > 0 &&
         d.marinade_fee_claim + d.dao_fee_claim <=
@@ -394,14 +373,14 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     console.log(`    apy_adj: ${apy(pmpeAdj, epy)}`)
     console.log(`    apy_max: ${apy(pmpeMax, epy)}`)
     console.log(`    fee_sol_adj: ${sol(feeAdj)}`)
-    console.log(`    fee_sol_max: ${sol((total * maxFee) / 10000)}`)
+    console.log(`    fee_sol_max: ${sol((totalRewards * maxFee) / 10000)}`)
     if (protectedEventClaims > 0)
       console.log(
         `    protected_event_sol_to_stakers: ${sol(protectedEventClaims)}`,
       )
     if (penaltyStakerClaims > 0)
       console.log(`    penalty_sol_to_stakers: ${sol(penaltyStakerClaims)}`)
-    console.log(`    validators_capped: ${ncap}/${bids.length}`)
-    console.log(`    validators_at_min_fee: ${nmin}/${bids.length}`)
+    console.log(`    validators_capped: ${nCapped}/${bidDetails.length}`)
+    console.log(`    validators_at_min_fee: ${nAtMin}/${bidDetails.length}`)
   }
 }
