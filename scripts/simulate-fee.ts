@@ -34,6 +34,7 @@ type PenaltyDetails = {
 
 type Settlement = {
   reason: Reason
+  vote_account: string
   claims_amount: number
   details: (BidDetails & PenaltyDetails) | null
 }
@@ -322,12 +323,11 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     const { settlements } = (await Bun.file(settlementsJson).json()) as {
       settlements: Settlement[]
     }
-    const bidDetails = settlements
-      .filter(
-        (s): s is Settlement & { details: BidDetails } =>
-          s.reason === 'Bidding' && s.details !== null,
-      )
-      .map(s => s.details)
+    const bidSettlements = settlements.filter(
+      (s): s is Settlement & { details: BidDetails } =>
+        s.reason === 'Bidding' && s.details !== null,
+    )
+    const bidDetails = bidSettlements.map(s => s.details)
     if (!bidDetails.length) {
       process.stderr.write(`  # no data for fee=${fee} epoch=${epoch}\n`)
       continue
@@ -380,20 +380,27 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     const pmpeAdj = ((totalRewards - feeAdj + stakerExtras) / stake) * 1000
     const pmpeMax =
       ((totalRewards * (1 - maxFee / 10000) + stakerExtras) / stake) * 1000
-    const nCapped = bidDetails.filter(
-      d =>
-        parseFloat(d.total_marinade_stakers_rewards) > 0 &&
-        d.marinade_fee_claim + d.dao_fee_claim <
-          ((parseFloat(d.total_marinade_stakers_rewards) * maxFee) / 10000) *
-            0.9999,
-    ).length
-    const nAtMin = bidDetails.filter(
-      d =>
-        parseFloat(d.total_marinade_stakers_rewards) > 0 &&
-        d.marinade_fee_claim + d.dao_fee_claim <=
-          ((parseFloat(d.total_marinade_stakers_rewards) * minFee) / 10000) *
-            1.0001,
-    ).length
+    const feesByVote = new Map<string, number>()
+    for (const s of settlements) {
+      if (!s.details) continue
+      const prev = feesByVote.get(s.vote_account) ?? 0
+      feesByVote.set(
+        s.vote_account,
+        prev +
+          (s.details.marinade_fee_claim ?? 0) +
+          (s.details.dao_fee_claim ?? 0),
+      )
+    }
+    const nCapped = bidSettlements.filter(s => {
+      const rewards = parseFloat(s.details.total_marinade_stakers_rewards)
+      const totalFee = feesByVote.get(s.vote_account) ?? 0
+      return rewards > 0 && totalFee < (rewards * maxFee * 0.9999) / 10000
+    }).length
+    const nAtMin = bidSettlements.filter(s => {
+      const rewards = parseFloat(s.details.total_marinade_stakers_rewards)
+      const totalFee = feesByVote.get(s.vote_account) ?? 0
+      return rewards > 0 && totalFee <= (rewards * minFee * 1.0001) / 10000
+    }).length
 
     console.log(`  - max_fee_bps: ${maxFee}`)
     console.log(`    min_fee_bps: ${minFee}`)
@@ -408,7 +415,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       console.log(`    psr_sol_to_stakers: ${sol(protectedEventClaims)}`)
     if (penaltyStakerClaims > 0)
       console.log(`    penalty_sol_to_stakers: ${sol(penaltyStakerClaims)}`)
-    console.log(`    validators_capped: ${nCapped}/${bidDetails.length}`)
-    console.log(`    validators_at_min_fee: ${nAtMin}/${bidDetails.length}`)
+    console.log(`    validators_capped: ${nCapped}/${bidSettlements.length}`)
+    console.log(`    validators_at_min_fee: ${nAtMin}/${bidSettlements.length}`)
   }
 }
