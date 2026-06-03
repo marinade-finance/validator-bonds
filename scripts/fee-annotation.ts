@@ -5,7 +5,12 @@ import { readFileSync } from 'node:fs'
 import { parse } from 'yaml'
 
 type Reason =
-  | string
+  | 'Bidding'
+  | 'PriorityFee'
+  | 'BidTooLowPenalty'
+  | 'BlacklistPenalty'
+  | 'BondRiskFee'
+  | 'InstitutionalPayout'
   | { ProtectedEvent: { DowntimeRevenueImpact?: Record<string, unknown> } }
 
 type Settlement = {
