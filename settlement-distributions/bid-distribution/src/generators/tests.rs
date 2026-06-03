@@ -838,7 +838,7 @@ fn test_zero_rewards() {
 
 #[test]
 fn test_commission_raised_after_auction_charged_from_rewards() {
-    // auction snapshot saw 0% onchain commission but rewards were distributed at 5%;
+    // auction snapshot saw 0% onchain commission but rewards were distributed at 5%/8%;
     // the claim has to follow the snapshot rewards, not the auction-time sam-meta value
     let epoch = 100;
     let vote_account = test_vote_account(1);
@@ -878,7 +878,7 @@ fn test_commission_raised_after_auction_charged_from_rewards() {
         RewardsParams::new(vote_account)
             .inflation(inflation_rewards)
             .mev(mev_rewards)
-            .onchain_commissions(0.05, 0.05)
+            .onchain_commissions(0.05, 0.08)
             .build(),
     );
     let rewards_collection = RewardsCollection {
@@ -905,7 +905,7 @@ fn test_commission_raised_after_auction_charged_from_rewards() {
     let mev_claim: Decimal =
         serde_json::from_value(details["settlement_claims"]["mev_commission_claim"].clone())
             .unwrap();
-    // 5% of gross rewards kept onchain above the 0% in-bond promise
+    // distinct per-type rates kept onchain above the 0% in-bond promise
     assert_eq!(
         inflation_claim,
         Decimal::from(inflation_rewards) * Decimal::from_str("0.05").unwrap(),
@@ -913,7 +913,7 @@ fn test_commission_raised_after_auction_charged_from_rewards() {
     );
     assert_eq!(
         mev_claim,
-        Decimal::from(mev_rewards) * Decimal::from_str("0.05").unwrap(),
+        Decimal::from(mev_rewards) * Decimal::from_str("0.08").unwrap(),
         "MEV claim must cover the commission raised after the auction snapshot"
     );
 }
@@ -1922,6 +1922,23 @@ fn test_generate_settlements_from_json_values() {
         Decimal::from(500_000_000u64),
         "activating charge must be exactly 0.5 SOL (500_000_000 lamports)"
     );
+
+    // distinct per-type inputs pin commission claim wiring: any inflation/mev/block mix-up fails
+    let inflation_claim: Decimal =
+        serde_json::from_value(details["settlement_claims"]["inflation_commission_claim"].clone())
+            .unwrap();
+    let mev_claim: Decimal =
+        serde_json::from_value(details["settlement_claims"]["mev_commission_claim"].clone())
+            .unwrap();
+    let block_claim: Decimal =
+        serde_json::from_value(details["settlement_claims"]["block_commission_claim"].clone())
+            .unwrap();
+    // inflation: 10 SOL * (realized 0.08 - in_bond 0.03)
+    assert_eq!(inflation_claim, Decimal::from(500_000_000u64));
+    // mev: 5 SOL * (realized 0.12 - in_bond 0.05)
+    assert_eq!(mev_claim, Decimal::from(350_000_000u64));
+    // block: 3 SOL * (realized (3-1)/3 - in_bond 0.10) = 1.7 SOL, rounded to whole lamports
+    assert_eq!(block_claim.round(), Decimal::from(1_700_000_000u64));
 }
 
 // --- PSR (Protected Staking Rewards) settlement tests ---

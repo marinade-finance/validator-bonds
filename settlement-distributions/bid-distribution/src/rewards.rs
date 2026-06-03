@@ -80,7 +80,7 @@ impl VoteAccountRewards {
     }
 
     pub fn realized_block_commission_dec(&self) -> Option<Decimal> {
-        realized_commission_dec(self.block_rewards, self.jito_priority_fee_rewards)
+        realized_commission_dec(self.block_rewards, self.stakers_priority_fee_rewards)
     }
 }
 
@@ -290,6 +290,13 @@ pub fn load_rewards_from_directory(
     )?;
     info!("All reward files match epoch {epoch}");
 
+    verify_stakers_rewards_present(
+        &inflation_rewards,
+        &mev_rewards,
+        &validators_inflation,
+        &validators_mev,
+    )?;
+
     info!("Aggregating rewards by vote account...");
     let rewards_by_vote_account = aggregate_rewards(
         inflation_rewards,
@@ -305,6 +312,26 @@ pub fn load_rewards_from_directory(
         epoch,
         rewards_by_vote_account,
     })
+}
+
+// an empty stakers' rewards file with a populated validators' counterpart would derive 100% commissions and overcharge bonds
+fn verify_stakers_rewards_present(
+    inflation_rewards: &[StakeRewardEntry],
+    mev_rewards: &[StakeRewardEntry],
+    validators_inflation: &[VoteRewardEntry],
+    validators_mev: &[VoteRewardEntry],
+) -> anyhow::Result<()> {
+    if !validators_inflation.is_empty() && inflation_rewards.is_empty() {
+        return Err(anyhow::anyhow!(
+            "{VALIDATORS_INFLATION_REWARDS_FILE} has entries but {INFLATION_REWARDS_FILE} is empty - stakers' inflation rewards export is incomplete"
+        ));
+    }
+    if !validators_mev.is_empty() && mev_rewards.is_empty() {
+        return Err(anyhow::anyhow!(
+            "{VALIDATORS_MEV_REWARDS_FILE} has entries but {MEV_REWARDS_FILE} is empty - stakers' MEV rewards export is incomplete"
+        ));
+    }
+    Ok(())
 }
 
 /// Aggregate all reward types by vote account
@@ -510,6 +537,35 @@ mod tests {
         }
     }
 
+    fn vote_entry(vote_account: Pubkey, amount: u64) -> VoteRewardEntry {
+        VoteRewardEntry {
+            epoch: 1,
+            vote_account,
+            amount,
+        }
+    }
+
+    #[test]
+    fn test_verify_stakers_rewards_present() {
+        let stakers = vec![stake_entry(Pubkey::new_unique(), 90)];
+        let validators = vec![vote_entry(Pubkey::new_unique(), 10)];
+
+        assert!(
+            verify_stakers_rewards_present(&stakers, &stakers, &validators, &validators).is_ok()
+        );
+        assert!(verify_stakers_rewards_present(&[], &[], &[], &[]).is_ok());
+
+        let error = verify_stakers_rewards_present(&[], &stakers, &validators, &validators)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("inflation.json is empty"), "{error}");
+
+        let error = verify_stakers_rewards_present(&stakers, &[], &validators, &validators)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("mev.json is empty"), "{error}");
+    }
+
     #[test]
     fn test_realized_commission_dec() {
         let rewards = VoteAccountRewards {
@@ -518,7 +574,9 @@ mod tests {
             mev_rewards: 0,
             stakers_mev_rewards: 0,
             block_rewards: 10,
-            jito_priority_fee_rewards: 12,
+            stakers_priority_fee_rewards: 12,
+            // distinct from stakers_priority_fee_rewards to catch a wrong-field regression
+            jito_priority_fee_rewards: 7,
             ..Default::default()
         };
         assert_eq!(
@@ -589,5 +647,10 @@ mod tests {
         assert_eq!(rewards.stakers_mev_rewards, 20);
         assert_eq!(rewards.stakers_priority_fee_rewards, 10);
         assert_eq!(rewards.stakers_total_amount, 130);
+        assert_eq!(rewards.inflation_rewards, 100);
+        assert_eq!(rewards.mev_rewards, 20);
+        assert_eq!(rewards.jito_priority_fee_rewards, 10);
+        // jito is excluded from total_amount (it redistributes block rewards)
+        assert_eq!(rewards.total_amount, 120);
     }
 }
