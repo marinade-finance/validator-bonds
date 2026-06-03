@@ -1,4 +1,6 @@
-use crate::generators::bidding::{calculate_bid_settlement_totals, generate_bid_settlements};
+use crate::generators::bidding::{
+    calculate_bid_settlement_totals, generate_bid_settlements, BidSettlementDetails,
+};
 use crate::generators::psr_events::generate_psr_settlements;
 use crate::generators::sam_penalties::generate_penalty_settlements;
 use crate::rewards::{RewardsCollection, VoteAccountRewards};
@@ -1312,6 +1314,26 @@ fn create_stake_meta(
         balance_lamports: active_delegation_lamports,
         activating_delegation_lamports: 0,
         deactivating_delegation_lamports: 0,
+    }
+}
+
+fn create_stake_meta_with_deactivating(
+    pubkey: Pubkey,
+    validator: Pubkey,
+    withdraw_authority: Pubkey,
+    stake_authority: Pubkey,
+    active_delegation_lamports: u64,
+    deactivating_delegation_lamports: u64,
+) -> StakeMeta {
+    StakeMeta {
+        pubkey,
+        validator: Some(validator),
+        withdraw_authority,
+        stake_authority,
+        active_delegation_lamports,
+        balance_lamports: active_delegation_lamports + deactivating_delegation_lamports,
+        activating_delegation_lamports: 0,
+        deactivating_delegation_lamports,
     }
 }
 
@@ -2984,4 +3006,120 @@ fn test_calculate_bid_settlement_totals_includes_priority_fees() {
     ];
     let totals = calculate_bid_settlement_totals(&settlements);
     assert_eq!(totals.fees, Decimal::from(80));
+}
+
+// --- redelegation_stake / exiting_stake_authorities tests ---
+
+const TEST_EXITING_SA: Pubkey = Pubkey::new_from_array([
+    99, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+]);
+
+fn make_simple_sam_meta(vote_account: Pubkey, epoch: u32, bid_pmpe: f64) -> ValidatorSamMeta {
+    SamMetaParams::new(vote_account, epoch)
+        .bid_pmpe(bid_pmpe)
+        .build()
+}
+
+#[test]
+fn test_redelegation_stake_included_in_settlement_details() {
+    let epoch = 100u64;
+    let vote_account = test_vote_account(1);
+    let active = 1_000 * LAMPORTS_PER_SOL;
+    let deactivating = 200 * LAMPORTS_PER_SOL;
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![create_stake_meta_with_deactivating(
+            test_stake_account(1),
+            vote_account,
+            TEST_PUBKEY_MARINADE,
+            TEST_PUBKEY_MARINADE,
+            active,
+            deactivating,
+        )],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+    let sam_meta = make_simple_sam_meta(vote_account, epoch as u32, 1.0);
+    let rewards_collection = RewardsCollection {
+        epoch,
+        rewards_by_vote_account: HashMap::new(),
+    };
+    let fee_config = create_test_fee_config(0, 0);
+    let settlement_config = create_test_settlement_config();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &rewards_collection,
+        &settlement_config,
+        &fee_config,
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false, // no exiting authorities
+        Decimal::ZERO,
+    )
+    .unwrap();
+
+    assert_eq!(settlements.len(), 1);
+    let details: BidSettlementDetails =
+        serde_json::from_value(settlements[0].details.clone().unwrap()).unwrap();
+    assert_eq!(details.total_marinade_active_stake, active);
+    assert_eq!(details.total_marinade_redelegation_stake, deactivating);
+}
+
+#[test]
+fn test_exiting_authority_excluded_from_redelegation_stake() {
+    let epoch = 100u64;
+    let vote_account = test_vote_account(1);
+    let active = 1_000 * LAMPORTS_PER_SOL;
+    let deactivating = 200 * LAMPORTS_PER_SOL;
+
+    // Deactivating stake under the exiting authority should not count as redelegation
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                active,
+            ),
+            create_stake_meta_with_deactivating(
+                test_stake_account(2),
+                vote_account,
+                TEST_EXITING_SA,
+                TEST_EXITING_SA,
+                deactivating,
+                deactivating,
+            ),
+        ],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+    let sam_meta = make_simple_sam_meta(vote_account, epoch as u32, 1.0);
+    let rewards_collection = RewardsCollection {
+        epoch,
+        rewards_by_vote_account: HashMap::new(),
+    };
+    let fee_config = create_test_fee_config(0, 0);
+    let settlement_config = create_test_settlement_config();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &rewards_collection,
+        &settlement_config,
+        &fee_config,
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE || *pk == TEST_EXITING_SA,
+        &|pk: &Pubkey| *pk == TEST_EXITING_SA, // exiting authority: deactivating excluded
+        Decimal::ZERO,
+    )
+    .unwrap();
+
+    assert_eq!(settlements.len(), 1);
+    let details: BidSettlementDetails =
+        serde_json::from_value(settlements[0].details.clone().unwrap()).unwrap();
+    assert_eq!(details.total_marinade_active_stake, active + deactivating);
+    assert_eq!(details.total_marinade_redelegation_stake, 0);
 }
