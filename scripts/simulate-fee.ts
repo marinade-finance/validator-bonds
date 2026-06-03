@@ -14,6 +14,20 @@ import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 
+// Externally-tagged SettlementReason: unit variants serialize as plain strings,
+// ProtectedEvent serializes as { ProtectedEvent: {...} }.
+type Reason =
+  | 'Bidding'
+  | 'PriorityFee'
+  | 'BidTooLowPenalty'
+  | 'BlacklistPenalty'
+  | 'BondRiskFee'
+  | 'InstitutionalPayout'
+  | { ProtectedEvent: unknown }
+
+// Bidding / PriorityFee settlement details. Only Bidding settlements are read into `bids`,
+// and those always carry total_marinade_stakers_rewards (a string, since it can exceed u64-safe
+// JS numbers); PriorityFee feeAdj reads only the fee-claim fields below.
 type BidDetails = {
   total_marinade_active_stake: number
   total_marinade_stakers_rewards: string
@@ -21,11 +35,21 @@ type BidDetails = {
   dao_fee_claim: number
 }
 
-type Settlement = {
-  reason: string | { ProtectedEvent: unknown }
-  claims_amount: number
-  details: BidDetails | null
+// Penalty settlement details carry the staker share under a per-type field name.
+type PenaltyDetails = {
+  stakers_bid_too_low_penalty_claim?: number
+  stakers_blacklist_penalty_claim?: number
+  stakers_bond_risk_fee_claim?: number
 }
+
+type Settlement = {
+  reason: Reason
+  claims_amount: number
+  details: (BidDetails & PenaltyDetails) | null
+}
+
+const isProtectedEvent = (r: Reason): r is { ProtectedEvent: unknown } =>
+  typeof r === 'object'
 
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
@@ -39,13 +63,10 @@ const { values, positionals } = parseArgs({
 })
 
 const [epochArg, ...feeStrs] = positionals
-let fees = feeStrs.map(Number)
+// null = keep the config's own max_fee_bps (no override).
+const fees: (number | null)[] = feeStrs.length ? feeStrs.map(Number) : [null]
 
-if (fees.length === 0) {
-  fees = [null]
-}
-
-if (!epochArg || fees.length === 0) {
+if (!epochArg) {
   process.stderr.write(
     'usage: bun scripts/simulate-fee.ts [-r] [-v] <epoch|start-end> [-m <min_fee>] [<max_fee>]... [--data-dir DIR]\n',
   )
@@ -238,9 +259,15 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
           (e.details?.dao_fee_claim ?? 0),
         0,
       )
+    // Protected-event (PSR/commission/downtime) payouts to stakers: details is null,
+    // the staker amount is the whole claims_amount.
+    const protectedEventClaims = settlements.reduce(
+      (s, e) => (isProtectedEvent(e.reason) ? s + e.claims_amount : s),
+      0,
+    )
+    // Penalty payouts routed to stakers (bond-funded), keyed per penalty type.
     const penaltyStakerClaims = settlements.reduce((s, e) => {
-      const d = e.details as Record<string, number | undefined> | null
-      if (typeof e.reason === 'object') return s + e.claims_amount
+      const d = e.details
       if (e.reason === 'BidTooLowPenalty')
         return s + (d?.stakers_bid_too_low_penalty_claim ?? 0)
       if (e.reason === 'BlacklistPenalty')
@@ -249,9 +276,11 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
         return s + (d?.stakers_bond_risk_fee_claim ?? 0)
       return s
     }, 0)
-    const pmpeAdj = ((total - feeAdj + penaltyStakerClaims) / stake) * 1000
+    // Extra SOL paid to stakers on top of bidding rewards; raises post-fee pmpe.
+    const stakerExtras = protectedEventClaims + penaltyStakerClaims
+    const pmpeAdj = ((total - feeAdj + stakerExtras) / stake) * 1000
     const pmpeMax =
-      ((total * (1 - maxFee / 10000) + penaltyStakerClaims) / stake) * 1000
+      ((total * (1 - maxFee / 10000) + stakerExtras) / stake) * 1000
     const ncap = bids.filter(
       d =>
         parseFloat(d.total_marinade_stakers_rewards) > 0 &&
@@ -275,6 +304,10 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     console.log(`    apy_max: ${apy(pmpeMax, epy)}`)
     console.log(`    fee_sol_adj: ${sol(feeAdj)}`)
     console.log(`    fee_sol_max: ${sol((total * maxFee) / 10000)}`)
+    if (protectedEventClaims > 0)
+      console.log(
+        `    protected_event_sol_to_stakers: ${sol(protectedEventClaims)}`,
+      )
     if (penaltyStakerClaims > 0)
       console.log(`    penalty_sol_to_stakers: ${sol(penaltyStakerClaims)}`)
     console.log(`    validators_capped: ${ncap}/${bids.length}`)
