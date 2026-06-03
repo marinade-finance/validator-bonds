@@ -137,14 +137,12 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
     totals
 }
 
-/// Finds the (max_fee_bps, min_fee_bps) pair maximizing Marinade fee extraction
-/// while keeping global post-fee PMPE (bid + `total_staker_penalties`
-/// redistributed to stakers) at or above the target (`ssr_pmpe +
-/// min_yield_premium`). Alternates one bisection step per axis — max_fee caps
-/// high-yield validators, min_fee floors low-yield ones — so tuning both extracts
-/// more than either alone. `overshoot` is the highest known-feasible value of an
-/// axis, `undershoot` the lowest known-infeasible. The highest-extraction
-/// feasible probe wins; if the target can never be met, the lowest-fee probe.
+/// Bisects max_fee_bps (min_fee at min_cap) for the highest fee that keeps global
+/// post-fee PMPE (bid + `total_staker_penalties` redistributed to stakers) at or
+/// above the target (`ssr_pmpe + min_yield_premium`). If max_fee pins at max_cap
+/// with post-fee still above target there is leftover staker budget — a second
+/// phase raises min_fee to extract it. If the target can never be met, min_cap
+/// settlements are returned.
 pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],
@@ -159,18 +157,23 @@ pub fn generate_bid_settlements(
     let max_cap = fee_config.max_fee_bps;
     let min_cap = fee_config.min_fee_bps;
     let target = ssr_pmpe + fee_config.min_yield_premium_over_ssr_pmpe;
-    // Axis 0 = max_fee_bps (caps high-yield validators), 1 = min_fee_bps (floors
-    // low-yield ones). overshoot = highest known-feasible value of an axis,
-    // undershoot = lowest known-infeasible.
-    let mut fee = [max_cap, min_cap];
-    let mut overshoot = [min_cap, min_cap];
-    let mut undershoot = [max_cap, max_cap];
-    let mut axis = 0;
-    let mut best: Option<((bool, Decimal), Vec<Settlement>)> = None;
+    // `current` is the active axis: max_fee_bps, then min_fee_bps once max pins at
+    // the feasible ceiling. `overshoot` is its highest known-feasible value,
+    // `undershoot` the lowest known-infeasible. Feasible probes only climb, so the
+    // last feasible probe is the highest-fee one.
+    let mut current = max_cap;
+    let mut overshoot = min_cap;
+    let mut undershoot = max_cap;
+    let mut tuning_max = true;
+    let mut best: Option<Vec<Settlement>> = None;
+    let mut fallback: Option<Vec<Settlement>> = None;
     let mut fc = fee_config.clone();
     for _ in 0..MAX_ADJ_ITER {
-        fc.max_fee_bps = fee[0];
-        fc.min_fee_bps = fee[1].min(fee[0]);
+        if tuning_max {
+            fc.max_fee_bps = current;
+        } else {
+            fc.min_fee_bps = current;
+        }
         let settlements = generate_bid_settlements_worker(
             stake_meta_index,
             sam_validator_metas,
@@ -190,34 +193,38 @@ pub fn generate_bid_settlements(
                 * Decimal::ONE_THOUSAND;
             (post_fee_pmpe, target <= post_fee_pmpe)
         };
-        // Rank: any feasible probe beats any infeasible; among feasible the highest
-        // fee wins, among infeasible the lowest fee (best fallback).
-        let rank = (feasible, if feasible { totals.fees } else { -totals.fees });
-        if best.as_ref().is_none_or(|(r, _)| rank > *r) {
-            best = Some((rank, settlements));
-        }
-        // One bisection step on the active axis (feasible -> raise toward
-        // undershoot, else lower toward overshoot), then swap axes. min_fee
-        // (axis 1) is bounded by the current max_fee, not max_cap.
         if feasible {
-            overshoot[axis] = fee[axis];
+            overshoot = current;
+            best = Some(settlements);
         } else {
-            undershoot[axis] = fee[axis];
+            undershoot = current;
+            fallback = Some(settlements);
         }
-        let upper = if axis == 0 { max_cap } else { fee[0] };
-        let next = (overshoot[axis].saturating_add(undershoot[axis]) / 2).clamp(min_cap, upper);
-        info!(
-            "Adjusted {}_fee_bps: {} -> {} (post_fee_pmpe {}, target {})",
-            ["max", "min"][axis],
-            fee[axis],
-            next,
-            post_fee,
-            target,
-        );
-        fee[axis] = next;
-        axis ^= 1;
+        let next = (overshoot.saturating_add(undershoot) / 2).clamp(min_cap, max_cap);
+        if next != current {
+            info!(
+                "Adjusted {}_fee_bps: {} -> {} (post_fee_pmpe {}, target {})",
+                if tuning_max { "max" } else { "min" },
+                current,
+                next,
+                post_fee,
+                target,
+            );
+            current = next;
+            continue;
+        }
+        // Active axis converged. If max_fee pinned at the feasible ceiling there is
+        // leftover budget; switch to raising min_fee. Otherwise done.
+        if tuning_max && feasible && current == max_cap {
+            tuning_max = false;
+            current = min_cap;
+            overshoot = min_cap;
+            undershoot = max_cap;
+            continue;
+        }
+        break;
     }
-    Ok(best.map(|(_, s)| s).expect("MAX_ADJ_ITER = 0"))
+    Ok(best.or(fallback).expect("MAX_ADJ_ITER = 0"))
 }
 
 fn generate_bid_settlements_worker(
