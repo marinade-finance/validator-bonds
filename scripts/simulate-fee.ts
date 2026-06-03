@@ -55,6 +55,7 @@ const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
   options: {
     'data-dir': { type: 'string', default: './regression-data' },
+    c: { type: 'boolean', default: false },
     m: { type: 'string' },
     r: { type: 'boolean', default: false },
     v: { type: 'boolean', default: false },
@@ -68,7 +69,9 @@ const fees: (number | null)[] = feeStrs.length ? feeStrs.map(Number) : [null]
 
 if (!epochArg) {
   process.stderr.write(
-    'usage: bun scripts/simulate-fee.ts [-r] [-v] <epoch|start-end> [-m <min_fee>] [<max_fee>]... [--data-dir DIR]\n',
+    'usage: bun scripts/simulate-fee.ts [-r] [-v] [-c] <epoch|start-end> [-m <min_fee>] [<max_fee>]... [--data-dir DIR]\n' +
+      '  -c  cached: read production bid-distribution-settlements.json from data-dir\n' +
+      '      (downloads from gs://marinade-validator-bonds-mainnet/<epoch>/ if absent)\n',
   )
   process.exit(2)
 }
@@ -136,27 +139,60 @@ const apy = (p: number, n: number) =>
   ((Math.pow(1 + p / 1000, n) - 1) * 100).toFixed(2) + '%'
 const sol = (v: number) => (Math.round((v / 1e9) * 1000) / 1000).toFixed(3)
 
+const GCS_BONDS = 'gs://marinade-validator-bonds-mainnet'
+const PROD_FILE = 'bid-distribution-settlements.json'
+
 console.log('epochs:')
 for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
-  const inp = `${dataDir}/${epoch}/inputs`
-
-  if (!INPUTS.every(f => existsSync(join(inp, f)))) {
-    process.stderr.write(`  # fetching ${epoch}...\n`)
-    Bun.spawnSync(
-      [
-        './scripts/regression-test-settlements.sh',
-        '--start-epoch',
-        String(epoch),
-        '--end-epoch',
-        String(epoch),
-        '--data-dir',
-        dataDir,
-      ],
-      { stderr: 'pipe' },
-    )
-    if (!INPUTS.every(f => existsSync(join(inp, f)))) {
-      process.stderr.write(`  # fetch failed for ${epoch}, skipping\n`)
+  // -c: use production settlement JSON, downloading if absent
+  let cachedSettlementFile: string | null = null
+  if (values.c) {
+    const cached = join(dataDir, String(epoch), PROD_FILE)
+    if (!existsSync(cached)) {
+      process.stderr.write(
+        `  # downloading ${PROD_FILE} for epoch ${epoch}...\n`,
+      )
+      Bun.spawnSync(['mkdir', '-p', join(dataDir, String(epoch))], {
+        stderr: 'pipe',
+      })
+      Bun.spawnSync(
+        [
+          'gcloud',
+          'storage',
+          'cp',
+          `${GCS_BONDS}/${epoch}/${PROD_FILE}`,
+          cached,
+        ],
+        { stderr: 'pipe' },
+      )
+    }
+    if (!existsSync(cached)) {
+      process.stderr.write(
+        `  # ${PROD_FILE} not found for epoch ${epoch}, skipping\n`,
+      )
       continue
+    }
+    cachedSettlementFile = cached
+  } else {
+    const inp = `${dataDir}/${epoch}/inputs`
+    if (!INPUTS.every(f => existsSync(join(inp, f)))) {
+      process.stderr.write(`  # fetching ${epoch}...\n`)
+      Bun.spawnSync(
+        [
+          './scripts/regression-test-settlements.sh',
+          '--start-epoch',
+          String(epoch),
+          '--end-epoch',
+          String(epoch),
+          '--data-dir',
+          dataDir,
+        ],
+        { stderr: 'pipe' },
+      )
+      if (!INPUTS.every(f => existsSync(join(inp, f)))) {
+        process.stderr.write(`  # fetch failed for ${epoch}, skipping\n`)
+        continue
+      }
     }
   }
 
@@ -174,9 +210,11 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
   console.log(`  epochs_per_year: ${Math.floor(epy)}`)
   console.log('  simulations:')
 
-  for (const fee of fees) {
-    const cfg = mk(),
-      out = mk()
+  // In -c mode run once with production config (no fee override)
+  const feesToRun = cachedSettlementFile ? [null] : fees
+  const inp = `${dataDir}/${epoch}/inputs`
+
+  for (const fee of feesToRun) {
     let cfgText = cfgTemplate
     if (fee != null)
       cfgText = cfgTemplate.replace(/(max_fee_bps:)\s*\d+/, `$1 ${fee}`)
@@ -184,54 +222,63 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       cfgText = cfgText.replace(/(min_fee_bps:)\s*\d+/, `$1 ${values.m}`)
     const minFee = Number(cfgText.match(/min_fee_bps:\s*(\d+)/)?.[1] ?? 0)
     const maxFee = Number(cfgText.match(/max_fee_bps:\s*(\d+)/)?.[1] ?? 0)
-    await writeFile(cfg, cfgText)
 
-    const proc = Bun.spawnSync(
-      [
-        ...cli,
-        '--settlement-config',
-        cfg,
-        '--stake-meta-collection',
-        `${inp}/stakes.json`,
-        '--sam-meta-collection',
-        `${inp}/sam-scores.json`,
-        '--rewards-dir',
-        `${inp}/rewards`,
-        '--validator-meta-collection',
-        `${inp}/validators.json`,
-        '--revenue-expectation-collection',
-        `${inp}/evaluation.json`,
-        '--output-settlement-collection',
-        out,
-        '--output-protected-event-collection',
-        '/dev/null',
-        '--apy-api-url',
-        apyUrl,
-      ],
-      {
-        env: {
-          ...process.env,
-          RUST_LOG: 'warn,bid_distribution::generators::bidding=info',
+    let settlementsJson: string
+    if (cachedSettlementFile) {
+      settlementsJson = cachedSettlementFile
+    } else {
+      const cfg = mk(),
+        out = mk()
+      await writeFile(cfg, cfgText)
+
+      const proc = Bun.spawnSync(
+        [
+          ...cli,
+          '--settlement-config',
+          cfg,
+          '--stake-meta-collection',
+          `${inp}/stakes.json`,
+          '--sam-meta-collection',
+          `${inp}/sam-scores.json`,
+          '--rewards-dir',
+          `${inp}/rewards`,
+          '--validator-meta-collection',
+          `${inp}/validators.json`,
+          '--revenue-expectation-collection',
+          `${inp}/evaluation.json`,
+          '--output-settlement-collection',
+          out,
+          '--output-protected-event-collection',
+          '/dev/null',
+          '--apy-api-url',
+          apyUrl,
+        ],
+        {
+          env: {
+            ...process.env,
+            RUST_LOG: 'warn,bid_distribution::generators::bidding=info',
+          },
+          stderr: 'pipe',
         },
-        stderr: 'pipe',
-      },
-    )
-
-    const stderr = Buffer.from(proc.stderr as Uint8Array).toString()
-    for (const line of stderr.split('\n')) {
-      if (line.includes(' ERROR ') || line.includes('Adjusted max_fee_bps'))
-        process.stderr.write(line + '\n')
-      else if (values.v && line.includes('SSR cap'))
-        process.stderr.write(line + '\n')
-    }
-    if (proc.exitCode !== 0) {
-      process.stderr.write(
-        `  # cli failed (exit ${proc.exitCode}) for fee=${fee} epoch=${epoch}\n`,
       )
-      continue
+
+      const stderr = Buffer.from(proc.stderr as Uint8Array).toString()
+      for (const line of stderr.split('\n')) {
+        if (line.includes(' ERROR ') || line.includes('Adjusted max_fee_bps'))
+          process.stderr.write(line + '\n')
+        else if (values.v && line.includes('SSR cap'))
+          process.stderr.write(line + '\n')
+      }
+      if (proc.exitCode !== 0) {
+        process.stderr.write(
+          `  # cli failed (exit ${proc.exitCode}) for fee=${fee} epoch=${epoch}\n`,
+        )
+        continue
+      }
+      settlementsJson = out
     }
 
-    const { settlements } = (await Bun.file(out).json()) as {
+    const { settlements } = (await Bun.file(settlementsJson).json()) as {
       settlements: Settlement[]
     }
     const bids = settlements
