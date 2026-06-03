@@ -4,16 +4,26 @@ import { readFileSync } from 'node:fs'
 
 import { parse } from 'yaml'
 
+type Reason = string | { ProtectedEvent: unknown }
+
 type Settlement = {
-  reason: string
+  reason: Reason
   vote_account: string
+  claims_amount: number
   details: {
     total_marinade_active_stake: number
+    total_marinade_redelegation_stake?: number
     total_marinade_stakers_rewards: string
     marinade_fee_claim: number
     dao_fee_claim: number
+    stakers_bid_too_low_penalty_claim?: number
+    stakers_blacklist_penalty_claim?: number
+    stakers_bond_risk_fee_claim?: number
   } | null
 }
+
+const isProtectedEvent = (r: Reason): r is { ProtectedEvent: unknown } =>
+  typeof r === 'object'
 
 type BidSettlement = Settlement & {
   details: NonNullable<Settlement['details']>
@@ -56,7 +66,10 @@ async function main() {
     (s): s is BidSettlement => s.reason === 'Bidding' && s.details !== null,
   )
   const stake = bids.reduce(
-    (s, b) => s + b.details.total_marinade_active_stake,
+    (s, b) =>
+      s +
+      b.details.total_marinade_active_stake +
+      (b.details.total_marinade_redelegation_stake ?? 0),
     0,
   )
 
@@ -136,9 +149,26 @@ async function main() {
   }
   const epochsPerYear = SECONDS_PER_YEAR / (cur.time - prev.time)
 
+  const psrToStakers = settlements.reduce(
+    (sum, s) => (isProtectedEvent(s.reason) ? sum + s.claims_amount : sum),
+    0,
+  )
+  const penaltyToStakers = settlements.reduce((sum, s) => {
+    const d = s.details
+    if (s.reason === 'BidTooLowPenalty')
+      return sum + (d?.stakers_bid_too_low_penalty_claim ?? 0)
+    if (s.reason === 'BlacklistPenalty')
+      return sum + (d?.stakers_blacklist_penalty_claim ?? 0)
+    if (s.reason === 'BondRiskFee')
+      return sum + (d?.stakers_bond_risk_fee_claim ?? 0)
+    return sum
+  }, 0)
+  const stakerExtras = psrToStakers + penaltyToStakers
+
   const pmpeGross = (gross / stake) * 1000
-  const pmpeAdj = ((gross - fees) / stake) * 1000
-  const pmpeMax = ((gross * (1 - maxFeeBps / 10000)) / stake) * 1000
+  const pmpeAdj = ((gross - fees + stakerExtras) / stake) * 1000
+  const pmpeMax =
+    ((gross * (1 - maxFeeBps / 10000) + stakerExtras) / stake) * 1000
   const feesSol = fees / 1e9
   const feesFull = (gross * maxFeeBps) / 10000 / 1e9
   const apyFor = (p: number) =>
@@ -156,7 +186,7 @@ async function main() {
 | actual    | ${feesSol.toFixed(3)} | ${pmpeAdj.toFixed(6)} | ${apyAdj.toFixed(2)}%  | ${apyAdj - apyGross >= 0 ? '+' : ''}${(apyAdj - apyGross).toFixed(2)}pp |
 | full fee  | ${feesFull.toFixed(3)} | ${pmpeMax.toFixed(6)} | ${apyMax.toFixed(2)}%  | ${apyMax - apyGross >= 0 ? '+' : ''}${(apyMax - apyGross).toFixed(2)}pp |
 
-${ncap} of ${bids.length} Bidding validators were SSR-capped (paid less than full fee)
+${ncap} of ${bids.length} Bidding validators were SSR-capped (paid less than full fee)${stakerExtras > 0 ? `\nPSR/penalty extras to stakers: ◎${(stakerExtras / 1e9).toFixed(3)} (psr: ◎${(psrToStakers / 1e9).toFixed(3)}, penalty: ◎${(penaltyToStakers / 1e9).toFixed(3)})` : ''}
 `)
 }
 
