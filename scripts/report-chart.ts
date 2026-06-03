@@ -19,7 +19,12 @@ const C_MINFEE = '#9370db'
 const C_COST = '#b22222'
 
 type SimYaml = Record<string, string | number>
-type EpochYaml = { epoch: number; ssr_apy: string; simulations: SimYaml[] }
+type EpochYaml = {
+  epoch: number
+  time: number
+  ssr_apy: string
+  simulations: SimYaml[] | null
+}
 type ReportYaml = { epochs: EpochYaml[] }
 
 const S_AT_CAP = 'At cap'
@@ -28,7 +33,7 @@ const S_ADJUSTED = 'Adjusted'
 const S_MAXFEE = 'Max-fee cap'
 
 type Row = {
-  epoch: number
+  date: string
   ssrApy: number
   apyAdj: number
   apyMax: number
@@ -40,13 +45,13 @@ type Row = {
 }
 
 type ApyPoint = {
-  epoch: number
+  date: string
   ssrApy: number
   apyAdj: number
   apyMax: number
 }
-type FeePoint = { epoch: number; series: string; fee: number }
-type ValPoint = { epoch: number; series: string; pct: number }
+type FeePoint = { date: string; series: string; fee: number }
+type ValPoint = { date: string; series: string; pct: number }
 
 const pct = (s: string | number): number =>
   parseFloat(String(s).replace('%', ''))
@@ -61,54 +66,59 @@ function load(): Row[] {
   const data = parseYaml(
     fs.readFileSync(REPORT, 'utf8'),
   ) as unknown as ReportYaml
-  return data.epochs.map(e => {
-    const sim = e.simulations[0]
+  // Skip epochs the CLI could not simulate (no `simulations` entries).
+  return data.epochs.flatMap(e => {
+    const sim = e.simulations?.[0]
+    if (!sim) return []
     const feeAdj = Number(sim['fee_sol_adj'])
     const feeMax = Number(sim['fee_sol_max'])
-    return {
-      epoch: e.epoch,
-      ssrApy: pct(e.ssr_apy),
-      apyAdj: pct(sim['apy_adj']),
-      apyMax: pct(sim['apy_max']),
-      feeAdj,
-      feeMax,
-      vcap: ratio(String(sim['validators_capped'])),
-      vmin: ratio(String(sim['validators_at_min_fee'] ?? '0/1')),
-      shortfall: feeMax - feeAdj,
-    }
+    return [
+      {
+        date: new Date(e.time * 1000).toISOString().slice(0, 10),
+        ssrApy: pct(e.ssr_apy),
+        apyAdj: pct(sim['apy_adj']),
+        apyMax: pct(sim['apy_max']),
+        feeAdj,
+        feeMax,
+        vcap: ratio(String(sim['validators_capped'])),
+        vmin: ratio(String(sim['validators_at_min_fee'] ?? '0/1')),
+        shortfall: feeMax - feeAdj,
+      },
+    ]
   })
 }
 
 async function main() {
   const rows = load()
-  const epochs = rows.map(r => r.epoch)
+  const dates = rows.map(r => r.date)
   const totalShortfall = rows.reduce((s, r) => s + r.shortfall, 0)
-  const title = `Marinade Validator Bond Fee Simulation · Epochs ${epochs[0]}–${epochs[epochs.length - 1]}`
+  const title = `Marinade Validator Bond Fee Simulation · ${dates[0]} – ${dates[dates.length - 1]}`
 
   const apyData: ApyPoint[] = rows.map(r => ({
-    epoch: r.epoch,
+    date: r.date,
     ssrApy: r.ssrApy,
     apyAdj: r.apyAdj,
     apyMax: r.apyMax,
   }))
 
   const feeTidy: FeePoint[] = rows.flatMap(r => [
-    { epoch: r.epoch, series: S_ADJUSTED, fee: r.feeAdj },
-    { epoch: r.epoch, series: S_MAXFEE, fee: r.feeMax },
+    { date: r.date, series: S_ADJUSTED, fee: r.feeAdj },
+    { date: r.date, series: S_MAXFEE, fee: r.feeMax },
   ])
 
   const valTidy: ValPoint[] = rows.flatMap(r => [
-    { epoch: r.epoch, series: S_AT_CAP, pct: r.vcap },
-    { epoch: r.epoch, series: S_AT_MIN, pct: r.vmin },
+    { date: r.date, series: S_AT_CAP, pct: r.vcap },
+    { date: r.date, series: S_AT_MIN, pct: r.vmin },
   ])
 
-  const epochDomain = epochs.map(String)
+  const dateDomain = dates
 
   const spec: TopLevelSpec = {
     $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
     title: { text: title, fontSize: 15, fontWeight: 'bold' },
     background: 'white',
     config: { view: { stroke: null }, axis: { grid: true, gridOpacity: 0.4 } },
+    resolve: { scale: { color: 'independent' } },
     vconcat: [
       {
         width: 960,
@@ -116,10 +126,10 @@ async function main() {
         title: 'Post-Fee APY  (adjusted · SSR baseline · max-fee cap)',
         encoding: {
           x: {
-            field: 'epoch',
+            field: 'date',
             type: 'ordinal',
             axis: { labelAngle: -45 },
-            scale: { domain: epochDomain },
+            scale: { domain: dateDomain },
           },
         },
         layer: [
@@ -180,10 +190,10 @@ async function main() {
         mark: { type: 'bar', opacity: 0.85 },
         encoding: {
           x: {
-            field: 'epoch',
+            field: 'date',
             type: 'ordinal',
             axis: { labelAngle: -45 },
-            scale: { domain: epochDomain },
+            scale: { domain: dateDomain },
           },
           xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
           y: { field: 'fee', type: 'quantitative', title: 'SOL' },
@@ -206,10 +216,10 @@ async function main() {
                 mark: { type: 'area', opacity: 0.1 },
                 encoding: {
                   x: {
-                    field: 'epoch',
+                    field: 'date',
                     type: 'ordinal',
                     axis: { labelAngle: -45 },
-                    scale: { domain: epochDomain },
+                    scale: { domain: dateDomain },
                   },
                   y: {
                     field: 'pct',
@@ -235,10 +245,10 @@ async function main() {
                 },
                 encoding: {
                   x: {
-                    field: 'epoch',
+                    field: 'date',
                     type: 'ordinal',
                     axis: { labelAngle: -45 },
-                    scale: { domain: epochDomain },
+                    scale: { domain: dateDomain },
                   },
                   y: {
                     field: 'pct',
@@ -266,10 +276,10 @@ async function main() {
             mark: { type: 'bar', color: C_COST, opacity: 0.8 },
             encoding: {
               x: {
-                field: 'epoch',
+                field: 'date',
                 type: 'ordinal',
                 axis: { labelAngle: -45 },
-                scale: { domain: epochDomain },
+                scale: { domain: dateDomain },
               },
               y: { field: 'shortfall', type: 'quantitative', title: 'SOL' },
             },
