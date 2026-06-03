@@ -59,7 +59,7 @@ impl fmt::Display for ResultSettlementClaims {
 pub struct BidSettlementDetails {
     pub total_active_stake: u64,
     pub total_marinade_active_stake: u64,
-    pub total_marinade_redelegation_stake: u64,
+    pub total_marinade_redelegation_stake: String,
     pub auction_effective_static_bid: String,
     pub marinade_stake_share: String,
     pub marinade_inflation_rewards: String,
@@ -647,7 +647,7 @@ fn generate_bid_settlements_worker(
             let settlement_details = BidSettlementDetails {
                 total_active_stake,
                 total_marinade_active_stake,
-                total_marinade_redelegation_stake,
+                total_marinade_redelegation_stake: total_marinade_redelegation_stake.to_string(),
                 auction_effective_static_bid: auction_effective_static_bid.to_string(),
                 marinade_stake_share: marinade_stake_share.to_string(),
                 marinade_inflation_rewards: marinade_inflation_rewards.to_string(),
