@@ -199,7 +199,6 @@ fn main() -> anyhow::Result<()> {
             penalty_settlements.len()
         );
         let total_staker_penalties = calculate_total_staker_penalties(&penalty_settlements);
-        all_settlements.extend(penalty_settlements);
 
         // Generate bid settlements
         info!("Generating bid settlements...");
@@ -215,7 +214,9 @@ fn main() -> anyhow::Result<()> {
             total_staker_penalties,
         )?;
         info!("Generated {} bid settlements", bid_settlements.len());
+
         all_settlements.extend(bid_settlements);
+        all_settlements.extend(penalty_settlements);
     } else {
         // No SAM configs — fail if SAM inputs were partially provided (likely a mistake)
         anyhow::ensure!(
