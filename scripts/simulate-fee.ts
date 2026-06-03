@@ -19,7 +19,7 @@ type Reason =
   | { ProtectedEvent: unknown }
 
 type BidDetails = {
-  total_marinade_active_stake: number
+  total_marinade_active_stake: string
   total_marinade_redelegation_stake: string
   total_marinade_stakers_rewards: string
   marinade_fee_claim: number
@@ -69,7 +69,12 @@ if (values.c && feeStrs.length) {
 
 if (!epochArg) {
   process.stderr.write(
-    'usage: bun scripts/simulate-fee.ts [-r] [-v] [-c] [-d DIR] <epoch|start-end> [-m <min_fee>] [<max_fee>]...\n' +
+    'Simulates bid-distribution-cli across a range of epochs at multiple fee tiers.\n' +
+      'Patches settlement-config.yaml per (epoch, fee) pair, runs the CLI, and computes\n' +
+      'post-fee pmpe (adj = actual fees deducted, max = uniform max fee).\n' +
+      'Fetches SSR timing from apy-api to convert pmpe → APY.\n' +
+      '\n' +
+      'usage: bun scripts/simulate-fee.ts [-r] [-v] [-c] [-d DIR] <epoch|start-end> [-m <min_fee>] [<max_fee>]...\n' +
       '  -d DIR  data dir (default: $DATA_DIR or ./regression-data)\n' +
       '  -c      read production settlement from GCS instead of re-running CLI\n',
   )
@@ -130,6 +135,11 @@ const cfgTemplate = await Bun.file('./settlement-config.yaml').text()
 type BidConfig = {
   whitelist_stake_authorities?: string[]
   exiting_stake_authorities?: string[]
+  fee_config: { min_fee_bps: number; max_fee_bps: number }
+}
+
+function loadConfig(yaml: string): BidConfig {
+  return parseYaml(yaml) as BidConfig
 }
 
 async function redelegationStakeFromFile(
@@ -169,17 +179,21 @@ const sol = (v: number) => (Math.round((v / 1e9) * 1000) / 1000).toFixed(3)
 const GCS_BONDS = 'gs://marinade-validator-bonds-mainnet'
 const PROD_FILE = 'bid-distribution-settlements.json'
 
+function runMkdir(dir: string) {
+  Bun.spawnSync(['mkdir', '-p', dir], { stderr: 'pipe' })
+}
+
+function runGcsCp(src: string, dst: string) {
+  Bun.spawnSync(['gcloud', 'storage', 'cp', src, dst], { stderr: 'pipe' })
+}
+
 function fetchProductionSettlement(epoch: number): string | null {
-  const path = join(dataDir, String(epoch), PROD_FILE)
+  const dir = join(dataDir, String(epoch))
+  const path = join(dir, PROD_FILE)
   if (!existsSync(path)) {
     process.stderr.write(`  # downloading ${PROD_FILE} for epoch ${epoch}...\n`)
-    Bun.spawnSync(['mkdir', '-p', join(dataDir, String(epoch))], {
-      stderr: 'pipe',
-    })
-    Bun.spawnSync(
-      ['gcloud', 'storage', 'cp', `${GCS_BONDS}/${epoch}/${PROD_FILE}`, path],
-      { stderr: 'pipe' },
-    )
+    runMkdir(dir)
+    runGcsCp(`${GCS_BONDS}/${epoch}/${PROD_FILE}`, path)
   }
   if (!existsSync(path)) {
     process.stderr.write(
@@ -280,15 +294,14 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
 
   const inp = `${dataDir}/${epoch}/inputs`
 
-  for (const fee of prodFile ? [null] : fees) {
+  const feesToRun = prodFile ? [null] : fees
+  for (const fee of feesToRun) {
     let cfgText = cfgTemplate
     if (fee != null)
       cfgText = cfgTemplate.replace(/(max_fee_bps:)\s*\d+/, `$1 ${fee}`)
     if (values.m !== undefined)
       cfgText = cfgText.replace(/(min_fee_bps:)\s*\d+/, `$1 ${values.m}`)
-    const cfg = parseYaml(cfgText) as BidConfig & {
-      fee_config: { min_fee_bps: number; max_fee_bps: number }
-    }
+    const cfg = loadConfig(cfgText)
     const minFee = cfg.fee_config.min_fee_bps
     const maxFee = cfg.fee_config.max_fee_bps
 
@@ -321,7 +334,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     }
 
     const activeStake = bidDetails.reduce(
-      (sum, d) => sum + d.total_marinade_active_stake,
+      (sum, d) => sum + parseFloat(d.total_marinade_active_stake),
       0,
     )
     const rustRedeleg = bidDetails.reduce(

@@ -58,7 +58,7 @@ impl fmt::Display for ResultSettlementClaims {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct BidSettlementDetails {
     pub total_active_stake: u64,
-    pub total_marinade_active_stake: u64,
+    pub total_marinade_active_stake: String,
     pub total_marinade_redelegation_stake: String,
     pub auction_effective_static_bid: String,
     pub marinade_stake_share: String,
@@ -78,7 +78,7 @@ pub struct BidSettlementDetails {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PriorityFeeSettlementDetails {
-    pub total_marinade_active_stake: u64,
+    pub total_marinade_active_stake: String,
     pub total_marinade_activating_stake: u64,
     pub activating_stake_pmpe: String,
     pub activating_bid_claim: String,
@@ -112,7 +112,8 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
                 let Ok(value) = BidSettlementDetails::deserialize(details) else {
                     continue;
                 };
-                totals.stake += Decimal::from(value.total_marinade_active_stake);
+                totals.stake +=
+                    Decimal::from_str(&value.total_marinade_active_stake).unwrap_or(Decimal::ZERO);
                 totals.rewards += Decimal::from_str(&value.total_marinade_stakers_rewards)
                     .unwrap_or(Decimal::ZERO);
                 totals.fees += Decimal::from(value.marinade_fee_claim + value.dao_fee_claim);
@@ -124,7 +125,8 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
                 // Only use PriorityFee stake/rewards as fallback for validators where no
                 // Bidding settlement was generated (active stakers earned nothing).
                 if !bidding_votes.contains(&settlement.vote_account) {
-                    totals.stake += Decimal::from(value.total_marinade_active_stake);
+                    totals.stake += Decimal::from_str(&value.total_marinade_active_stake)
+                        .unwrap_or(Decimal::ZERO);
                     totals.rewards +=
                         Decimal::from_str(&value.activating_bid_claim).unwrap_or(Decimal::ZERO);
                 }
@@ -646,7 +648,7 @@ fn generate_bid_settlements_worker(
 
             let settlement_details = BidSettlementDetails {
                 total_active_stake,
-                total_marinade_active_stake,
+                total_marinade_active_stake: total_marinade_active_stake.to_string(),
                 total_marinade_redelegation_stake: total_marinade_redelegation_stake.to_string(),
                 auction_effective_static_bid: auction_effective_static_bid.to_string(),
                 marinade_stake_share: marinade_stake_share.to_string(),
@@ -666,7 +668,7 @@ fn generate_bid_settlements_worker(
             let details_json = serde_json::to_value(&settlement_details)?;
 
             let priority_fee_details = PriorityFeeSettlementDetails {
-                total_marinade_active_stake,
+                total_marinade_active_stake: total_marinade_active_stake.to_string(),
                 total_marinade_activating_stake,
                 activating_stake_pmpe: validator
                     .rev_share
