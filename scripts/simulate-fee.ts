@@ -382,6 +382,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     }, 0)
     const stakerExtras = protectedEventClaims + penaltyStakerClaims
     const pmpeAdj = ((totalRewards - feeAdj + stakerExtras) / stake) * 1000
+    const pmpeBid = ((totalRewards - feeAdj) / stake) * 1000
     const pmpeMax =
       ((totalRewards * (1 - maxFee / 10000) + stakerExtras) / stake) * 1000
     const feesByVote = new Map<string, number>()
@@ -412,9 +413,11 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     const pmpePreFee = ((totalRewards + stakerExtras) / stake) * 1000
     console.log(`    pre_fee_pmpe: ${pmpePreFee.toFixed(6)}`)
     console.log(`    post_fee_pmpe_adj: ${pmpeAdj.toFixed(6)}`)
+    console.log(`    post_fee_pmpe_bid: ${pmpeBid.toFixed(6)}`)
     console.log(`    post_fee_pmpe_max: ${pmpeMax.toFixed(6)}`)
     console.log(`    apy_pre_fee: ${apy(pmpePreFee, epy)}`)
     console.log(`    apy_adj: ${apy(pmpeAdj, epy)}`)
+    console.log(`    apy_bid: ${apy(pmpeBid, epy)}`)
     console.log(`    apy_max: ${apy(pmpeMax, epy)}`)
     console.log(`    fee_sol_adj: ${sol(feeAdj)}`)
     console.log(`    fee_sol_max: ${sol((totalRewards * maxFee) / 10000)}`)
