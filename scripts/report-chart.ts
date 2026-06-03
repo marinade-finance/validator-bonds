@@ -1,6 +1,5 @@
 #!/usr/bin/env bun
 /* eslint-disable import/no-extraneous-dependencies */
-// deps: bun add -d vega vega-lite sharp
 import * as fs from 'node:fs'
 
 import sharp from 'sharp'
