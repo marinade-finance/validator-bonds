@@ -370,16 +370,14 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       (sum, s) => (isProtectedEvent(s.reason) ? sum + s.claims_amount : sum),
       0,
     )
-    const penaltyStakerClaims = settlements.reduce((sum, s) => {
-      const d = s.details
-      if (s.reason === 'BidTooLowPenalty')
-        return sum + (d?.stakers_bid_too_low_penalty_claim ?? 0)
-      if (s.reason === 'BlacklistPenalty')
-        return sum + (d?.stakers_blacklist_penalty_claim ?? 0)
-      if (s.reason === 'BondRiskFee')
-        return sum + (d?.stakers_bond_risk_fee_claim ?? 0)
-      return sum
-    }, 0)
+    const penaltyStakerClaims = settlements
+      .filter(
+        s =>
+          s.reason === 'BidTooLowPenalty' ||
+          s.reason === 'BlacklistPenalty' ||
+          s.reason === 'BondRiskFee',
+      )
+      .reduce((sum, s) => sum + s.claims_amount, 0)
     const stakerExtras = protectedEventClaims + penaltyStakerClaims
     const pmpeAdj = ((totalRewards - feeAdj + stakerExtras) / stake) * 1000
     const pmpeMax =

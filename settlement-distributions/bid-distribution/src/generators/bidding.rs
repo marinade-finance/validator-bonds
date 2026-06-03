@@ -138,8 +138,9 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
 }
 
 /// Bisects max_fee_bps (min_fee at min_cap) for the highest fee that keeps global
-/// post-fee PMPE (bid + `total_staker_penalties` redistributed to stakers) at or
-/// above the target (`ssr_pmpe + min_yield_premium`). If max_fee pins at max_cap
+/// post-fee PMPE (bid + `total_staker_extras`, i.e. penalty + PSR payouts to
+/// stakers) at or above the target (`ssr_pmpe + min_yield_premium`). If max_fee
+/// pins at max_cap
 /// with post-fee still above target there is leftover staker budget — a second
 /// phase raises min_fee to extract it. If the target can never be met, min_cap
 /// settlements are returned.
@@ -152,7 +153,7 @@ pub fn generate_bid_settlements(
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     ssr_pmpe: Decimal,
-    total_staker_penalties: Decimal,
+    total_staker_extras: Decimal,
 ) -> anyhow::Result<Vec<Settlement>> {
     let max_cap = fee_config.max_fee_bps;
     let min_cap = fee_config.min_fee_bps;
@@ -188,8 +189,7 @@ pub fn generate_bid_settlements(
         let (post_fee, feasible) = if totals.stake.is_zero() {
             (Decimal::ZERO, false)
         } else {
-            let post_fee_pmpe = (totals.rewards + total_staker_penalties - totals.fees)
-                / totals.stake
+            let post_fee_pmpe = (totals.rewards + total_staker_extras - totals.fees) / totals.stake
                 * Decimal::ONE_THOUSAND;
             (post_fee_pmpe, target <= post_fee_pmpe)
         };
@@ -217,7 +217,7 @@ pub fn generate_bid_settlements(
         // leftover budget; switch to raising min_fee. Otherwise done.
         if tuning_max && feasible && current == max_cap {
             tuning_max = false;
-            current = min_cap;
+            current = max_cap;
             overshoot = min_cap;
             undershoot = max_cap;
             continue;

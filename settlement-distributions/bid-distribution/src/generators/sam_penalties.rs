@@ -45,31 +45,18 @@ pub struct BondRiskFeeDetails {
 /// Total lamports the penalty settlements redistribute to stakers (excludes the
 /// Marinade/DAO distributor cut). Fed to the bid bisection so post-fee yield
 /// reflects penalty payouts.
-pub fn calculate_total_staker_penalties(settlements: &[Settlement]) -> Decimal {
+pub fn calculate_total_penalties(settlements: &[Settlement]) -> Decimal {
     settlements
         .iter()
-        .filter_map(|s| {
-            let d = s.details.as_ref()?;
-            let staker = match s.reason {
-                SettlementReason::BidTooLowPenalty => {
-                    BidTooLowPenaltyDetails::deserialize(d)
-                        .ok()?
-                        .stakers_bid_too_low_penalty_claim
-                }
-                SettlementReason::BlacklistPenalty => {
-                    BlacklistPenaltyDetails::deserialize(d)
-                        .ok()?
-                        .stakers_blacklist_penalty_claim
-                }
-                SettlementReason::BondRiskFee => {
-                    BondRiskFeeDetails::deserialize(d)
-                        .ok()?
-                        .stakers_bond_risk_fee_claim
-                }
-                _ => return None,
-            };
-            Some(Decimal::from(staker))
+        .filter(|s| {
+            matches!(
+                s.reason,
+                SettlementReason::BidTooLowPenalty
+                    | SettlementReason::BlacklistPenalty
+                    | SettlementReason::BondRiskFee
+            )
         })
+        .map(|s| Decimal::from(s.claims_amount))
         .sum()
 }
 

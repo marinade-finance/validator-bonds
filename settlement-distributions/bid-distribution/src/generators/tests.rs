@@ -2,9 +2,7 @@ use crate::generators::bidding::{
     calculate_bid_settlement_totals, generate_bid_settlements, BidSettlementDetails,
 };
 use crate::generators::psr_events::generate_psr_settlements;
-use crate::generators::sam_penalties::{
-    calculate_total_staker_penalties, generate_penalty_settlements,
-};
+use crate::generators::sam_penalties::{calculate_total_penalties, generate_penalty_settlements};
 use crate::rewards::{RewardsCollection, VoteAccountRewards};
 use crate::sam_meta::{
     AuctionValidatorValues, CommissionDetails, RevShare, SamMetadata, ValidatorSamMeta,
@@ -3173,9 +3171,8 @@ fn run_ssr_test_with_penalties(
 }
 
 #[test]
-fn test_calculate_total_staker_penalties_uses_staker_field() {
-    // claims_amount carries the Marinade/DAO distributor cut too — the total must
-    // sum only the per-reason staker claim fields (here 500 + 700 = 1200).
+fn test_calculate_total_penalties_uses_claims_amount() {
+    // All penalty types use claims_amount directly (9_999 + 9_999 = 19_998).
     let blacklist = Settlement {
         reason: SettlementReason::BlacklistPenalty,
         meta: SettlementMeta {
@@ -3213,8 +3210,8 @@ fn test_calculate_total_staker_penalties_uses_staker_field() {
             "marinade_bid_too_low_penalty_claim": 300,
         })),
     };
-    let total = calculate_total_staker_penalties(&[blacklist, bid_too_low]);
-    assert_eq!(total, Decimal::from(1200));
+    let total = calculate_total_penalties(&[blacklist, bid_too_low]);
+    assert_eq!(total, Decimal::from(9_999 + 9_999));
 }
 
 #[test]
