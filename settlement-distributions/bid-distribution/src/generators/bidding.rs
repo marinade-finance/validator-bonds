@@ -230,7 +230,8 @@ fn generate_bid_settlements_worker(
                 for meta in metas.iter() {
                     total_active_stake += meta.active_delegation_lamports;
                     if stake_authority_filter(stake_authority) {
-                        total_marinade_active_stake += meta.active_delegation_lamports;
+                        total_marinade_active_stake +=
+                            meta.active_delegation_lamports + meta.deactivating_delegation_lamports;
                         if meta.activating_delegation_lamports > 0
                             && meta.active_delegation_lamports == 0
                         {
