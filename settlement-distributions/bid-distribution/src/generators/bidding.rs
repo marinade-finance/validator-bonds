@@ -214,7 +214,7 @@ pub fn generate_bid_settlements(
         // Active axis converged. If max_fee pinned at the feasible ceiling,
         // headroom remains: restart the same bisection on min_fee. Else done.
         if tuning_max && feasible {
-            tuning_max ^= true;
+            tuning_max = false;
             current = min_cap;
             undershoot = fc.max_fee_bps;
             overshoot = min_cap;
