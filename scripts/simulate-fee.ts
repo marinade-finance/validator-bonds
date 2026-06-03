@@ -30,6 +30,7 @@ type Reason =
 // JS numbers); PriorityFee feeAdj reads only the fee-claim fields below.
 type BidDetails = {
   total_marinade_active_stake: number
+  total_marinade_redelegation_stake: number
   total_marinade_stakers_rewards: string
   marinade_fee_claim: number
   dao_fee_claim: number
@@ -292,7 +293,13 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       continue
     }
 
-    const stake = bids.reduce((s, d) => s + d.total_marinade_active_stake, 0)
+    const stake = bids.reduce(
+      (s, d) =>
+        s +
+        d.total_marinade_active_stake +
+        (d.total_marinade_redelegation_stake ?? 0),
+      0,
+    )
     const total = bids.reduce(
       (s, d) => s + parseFloat(d.total_marinade_stakers_rewards),
       0,
