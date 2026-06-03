@@ -16,7 +16,7 @@ type Reason =
   | 'BlacklistPenalty'
   | 'BondRiskFee'
   | 'InstitutionalPayout'
-  | { ProtectedEvent: unknown }
+  | { ProtectedEvent: { DowntimeRevenueImpact?: Record<string, unknown> } }
 
 type BidDetails = {
   total_marinade_active_stake: number
@@ -39,8 +39,11 @@ type Settlement = {
   details: (BidDetails & PenaltyDetails) | null
 }
 
-const isProtectedEvent = (r: Reason): r is { ProtectedEvent: unknown } =>
-  typeof r === 'object'
+const isProtectedEvent = (
+  r: Reason,
+): r is {
+  ProtectedEvent: { DowntimeRevenueImpact?: Record<string, unknown> }
+} => typeof r === 'object'
 
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),

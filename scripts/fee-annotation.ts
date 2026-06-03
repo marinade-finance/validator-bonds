@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs'
 
 import { parse } from 'yaml'
 
-type Reason = string | { ProtectedEvent: unknown }
+type Reason =
+  | string
+  | { ProtectedEvent: { DowntimeRevenueImpact?: Record<string, unknown> } }
 
 type Settlement = {
   reason: Reason
@@ -22,8 +24,11 @@ type Settlement = {
   } | null
 }
 
-const isProtectedEvent = (r: Reason): r is { ProtectedEvent: unknown } =>
-  typeof r === 'object'
+const isProtectedEvent = (
+  r: Reason,
+): r is {
+  ProtectedEvent: { DowntimeRevenueImpact?: Record<string, unknown> }
+} => typeof r === 'object'
 
 type BidSettlement = Settlement & {
   details: NonNullable<Settlement['details']>
