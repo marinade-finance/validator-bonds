@@ -410,6 +410,9 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     console.log(`    min_fee_bps: ${minFee}`)
     console.log(`    marinade_stake_sol: ${sol(stake)}`)
     const pmpePreFee = ((totalRewards + stakerExtras) / stake) * 1000
+    console.log(`    pre_fee_pmpe: ${pmpePreFee.toFixed(6)}`)
+    console.log(`    post_fee_pmpe_adj: ${pmpeAdj.toFixed(6)}`)
+    console.log(`    post_fee_pmpe_max: ${pmpeMax.toFixed(6)}`)
     console.log(`    apy_pre_fee: ${apy(pmpePreFee, epy)}`)
     console.log(`    apy_adj: ${apy(pmpeAdj, epy)}`)
     console.log(`    apy_max: ${apy(pmpeMax, epy)}`)
