@@ -6,6 +6,9 @@ import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 
+// eslint-disable-next-line import/no-extraneous-dependencies
+import { parse as parseYaml } from 'yaml'
+
 type Reason =
   | 'Bidding'
   | 'PriorityFee'
@@ -17,7 +20,7 @@ type Reason =
 
 type BidDetails = {
   total_marinade_active_stake: number
-  total_marinade_redelegation_stake: number
+  total_marinade_redelegation_stake: string
   total_marinade_stakers_rewards: string
   marinade_fee_claim: number
   dao_fee_claim: number
@@ -41,7 +44,11 @@ const isProtectedEvent = (r: Reason): r is { ProtectedEvent: unknown } =>
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
   options: {
-    'data-dir': { type: 'string', default: './regression-data' },
+    'data-dir': {
+      type: 'string',
+      default: process.env.DATA_DIR ?? './regression-data',
+    },
+    d: { type: 'string' },
     c: { type: 'boolean', default: false },
     m: { type: 'string' },
     r: { type: 'boolean', default: false },
@@ -53,16 +60,23 @@ const { values, positionals } = parseArgs({
 const [epochArg, ...feeStrs] = positionals
 const fees: (number | null)[] = feeStrs.length ? feeStrs.map(Number) : [null]
 
-if (!epochArg) {
+if (values.c && feeStrs.length) {
   process.stderr.write(
-    'usage: bun scripts/simulate-fee.ts [-r] [-v] [-c] <epoch|start-end> [-m <min_fee>] [<max_fee>]... [--data-dir DIR]\n' +
-      '  -c  cached: read production bid-distribution-settlements.json from data-dir\n' +
-      '      (downloads from gs://marinade-validator-bonds-mainnet/<epoch>/ if absent)\n',
+    'Failed: fee arguments are ignored in -c mode (production settlement already has fees baked in)\n',
   )
   process.exit(2)
 }
 
-const dataDir = values['data-dir']
+if (!epochArg) {
+  process.stderr.write(
+    'usage: bun scripts/simulate-fee.ts [-r] [-v] [-c] [-d DIR] <epoch|start-end> [-m <min_fee>] [<max_fee>]...\n' +
+      '  -d DIR  data dir (default: $DATA_DIR or ./regression-data)\n' +
+      '  -c      read production settlement from GCS instead of re-running CLI\n',
+  )
+  process.exit(2)
+}
+
+const dataDir = values.d ?? values['data-dir']
 const apyUrl = process.env.APY_API_URL ?? 'https://apy.marinade.finance'
 const [epochStart, epochEnd] = epochArg.includes('-')
   ? epochArg.split('-').map(Number)
@@ -113,28 +127,27 @@ function tmpFile() {
 
 const cfgTemplate = await Bun.file('./settlement-config.yaml').text()
 
-function parseAuthorityList(yaml: string, key: string): Set<string> {
-  const m = yaml.match(new RegExp(`${key}:[\\s\\S]*?(?=\\n\\S|$)`))
-  if (!m) return new Set()
-  return new Set([...m[0].matchAll(/- (\S+)/g)].map(x => x[1]))
+type BidConfig = {
+  whitelist_stake_authorities?: string[]
+  exiting_stake_authorities?: string[]
 }
 
 async function redelegationStakeFromFile(
   stakesPath: string,
-  cfgYaml: string,
+  cfg: BidConfig,
 ): Promise<number> {
   const { stake_metas: metas } = (await Bun.file(stakesPath).json()) as {
     stake_metas: {
       stake_authority: string
-      deactivating_delegation_lamports: number
+      deactivating_delegation_lamports: string | number
     }[]
   }
-  const whitelist = parseAuthorityList(cfgYaml, 'whitelist_stake_authorities')
-  const exiting = parseAuthorityList(cfgYaml, 'exiting_stake_authorities')
+  const whitelist = new Set(cfg.whitelist_stake_authorities ?? [])
+  const exiting = new Set(cfg.exiting_stake_authorities ?? [])
   return metas.reduce(
     (sum, m) =>
       whitelist.has(m.stake_authority) && !exiting.has(m.stake_authority)
-        ? sum + m.deactivating_delegation_lamports
+        ? sum + parseFloat(String(m.deactivating_delegation_lamports))
         : sum,
     0,
   )
@@ -156,58 +169,100 @@ const sol = (v: number) => (Math.round((v / 1e9) * 1000) / 1000).toFixed(3)
 const GCS_BONDS = 'gs://marinade-validator-bonds-mainnet'
 const PROD_FILE = 'bid-distribution-settlements.json'
 
+function fetchProductionSettlement(epoch: number): string | null {
+  const path = join(dataDir, String(epoch), PROD_FILE)
+  if (!existsSync(path)) {
+    process.stderr.write(`  # downloading ${PROD_FILE} for epoch ${epoch}...\n`)
+    Bun.spawnSync(['mkdir', '-p', join(dataDir, String(epoch))], {
+      stderr: 'pipe',
+    })
+    Bun.spawnSync(
+      ['gcloud', 'storage', 'cp', `${GCS_BONDS}/${epoch}/${PROD_FILE}`, path],
+      { stderr: 'pipe' },
+    )
+  }
+  if (!existsSync(path)) {
+    process.stderr.write(
+      `  # ${PROD_FILE} not found for epoch ${epoch}, skipping\n`,
+    )
+    return null
+  }
+  return path
+}
+
+function fetchInputs(epoch: number): boolean {
+  const inp = join(dataDir, String(epoch), 'inputs')
+  if (INPUTS.every(f => existsSync(join(inp, f)))) return true
+  process.stderr.write(`  # fetching ${epoch}...\n`)
+  Bun.spawnSync(
+    [
+      './scripts/regression-test-settlements.sh',
+      '--start-epoch',
+      String(epoch),
+      '--end-epoch',
+      String(epoch),
+      '--data-dir',
+      dataDir,
+    ],
+    { stderr: 'pipe' },
+  )
+  if (!INPUTS.every(f => existsSync(join(inp, f)))) {
+    process.stderr.write(`  # fetch failed for ${epoch}, skipping\n`)
+    return false
+  }
+  return true
+}
+
+type CliResult = { ok: true; path: string } | { ok: false }
+
+function runCli(cfgFile: string, inp: string): CliResult {
+  const out = tmpFile()
+  const proc = Bun.spawnSync(
+    [
+      ...cli,
+      '--settlement-config',
+      cfgFile,
+      '--stake-meta-collection',
+      `${inp}/stakes.json`,
+      '--sam-meta-collection',
+      `${inp}/sam-scores.json`,
+      '--rewards-dir',
+      `${inp}/rewards`,
+      '--validator-meta-collection',
+      `${inp}/validators.json`,
+      '--revenue-expectation-collection',
+      `${inp}/evaluation.json`,
+      '--output-settlement-collection',
+      out,
+      '--output-protected-event-collection',
+      '/dev/null',
+      '--apy-api-url',
+      apyUrl,
+    ],
+    {
+      env: {
+        ...process.env,
+        RUST_LOG: 'warn,bid_distribution::generators::bidding=info',
+      },
+      stderr: 'pipe',
+    },
+  )
+  const stderr = Buffer.from(proc.stderr).toString()
+  for (const line of stderr.split('\n')) {
+    if (line.includes(' ERROR ') || line.includes('Adjusted max_fee_bps'))
+      process.stderr.write(line + '\n')
+    else if (values.v && line.includes('SSR cap'))
+      process.stderr.write(line + '\n')
+  }
+  if (proc.exitCode !== 0) return { ok: false }
+  return { ok: true, path: out }
+}
+
 console.log('epochs:')
 for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
-  let prodFile: string | null = null
-  if (values.c) {
-    const cached = join(dataDir, String(epoch), PROD_FILE)
-    if (!existsSync(cached)) {
-      process.stderr.write(
-        `  # downloading ${PROD_FILE} for epoch ${epoch}...\n`,
-      )
-      Bun.spawnSync(['mkdir', '-p', join(dataDir, String(epoch))], {
-        stderr: 'pipe',
-      })
-      Bun.spawnSync(
-        [
-          'gcloud',
-          'storage',
-          'cp',
-          `${GCS_BONDS}/${epoch}/${PROD_FILE}`,
-          cached,
-        ],
-        { stderr: 'pipe' },
-      )
-    }
-    if (!existsSync(cached)) {
-      process.stderr.write(
-        `  # ${PROD_FILE} not found for epoch ${epoch}, skipping\n`,
-      )
-      continue
-    }
-    prodFile = cached
-  } else {
-    const inp = `${dataDir}/${epoch}/inputs`
-    if (!INPUTS.every(f => existsSync(join(inp, f)))) {
-      process.stderr.write(`  # fetching ${epoch}...\n`)
-      Bun.spawnSync(
-        [
-          './scripts/regression-test-settlements.sh',
-          '--start-epoch',
-          String(epoch),
-          '--end-epoch',
-          String(epoch),
-          '--data-dir',
-          dataDir,
-        ],
-        { stderr: 'pipe' },
-      )
-      if (!INPUTS.every(f => existsSync(join(inp, f)))) {
-        process.stderr.write(`  # fetch failed for ${epoch}, skipping\n`)
-        continue
-      }
-    }
-  }
+  const prodFile = values.c ? fetchProductionSettlement(epoch) : null
+  if (values.c && prodFile === null) continue
+  if (!values.c && !fetchInputs(epoch)) continue
 
   const epochData = ssr.epochs.find(e => e.epoch === epoch)
   if (!epochData) {
@@ -231,62 +286,24 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       cfgText = cfgTemplate.replace(/(max_fee_bps:)\s*\d+/, `$1 ${fee}`)
     if (values.m !== undefined)
       cfgText = cfgText.replace(/(min_fee_bps:)\s*\d+/, `$1 ${values.m}`)
-    const minFee = Number(cfgText.match(/min_fee_bps:\s*(\d+)/)?.[1] ?? 0)
-    const maxFee = Number(cfgText.match(/max_fee_bps:\s*(\d+)/)?.[1] ?? 0)
+    const cfg = parseYaml(cfgText) as BidConfig & {
+      fee_config: { min_fee_bps: number; max_fee_bps: number }
+    }
+    const minFee = cfg.fee_config.min_fee_bps
+    const maxFee = cfg.fee_config.max_fee_bps
 
     let settlementsJson: string
     if (prodFile) {
       settlementsJson = prodFile
     } else {
-      const cfg = tmpFile(),
-        out = tmpFile()
-      await writeFile(cfg, cfgText)
-
-      const proc = Bun.spawnSync(
-        [
-          ...cli,
-          '--settlement-config',
-          cfg,
-          '--stake-meta-collection',
-          `${inp}/stakes.json`,
-          '--sam-meta-collection',
-          `${inp}/sam-scores.json`,
-          '--rewards-dir',
-          `${inp}/rewards`,
-          '--validator-meta-collection',
-          `${inp}/validators.json`,
-          '--revenue-expectation-collection',
-          `${inp}/evaluation.json`,
-          '--output-settlement-collection',
-          out,
-          '--output-protected-event-collection',
-          '/dev/null',
-          '--apy-api-url',
-          apyUrl,
-        ],
-        {
-          env: {
-            ...process.env,
-            RUST_LOG: 'warn,bid_distribution::generators::bidding=info',
-          },
-          stderr: 'pipe',
-        },
-      )
-
-      const stderr = Buffer.from(proc.stderr).toString()
-      for (const line of stderr.split('\n')) {
-        if (line.includes(' ERROR ') || line.includes('Adjusted max_fee_bps'))
-          process.stderr.write(line + '\n')
-        else if (values.v && line.includes('SSR cap'))
-          process.stderr.write(line + '\n')
-      }
-      if (proc.exitCode !== 0) {
-        process.stderr.write(
-          `  # cli failed (exit ${proc.exitCode}) for fee=${fee} epoch=${epoch}\n`,
-        )
+      const cfgFile = tmpFile()
+      await writeFile(cfgFile, cfgText)
+      const result = runCli(cfgFile, inp)
+      if (!result.ok) {
+        process.stderr.write(`  # cli failed for fee=${fee} epoch=${epoch}\n`)
         continue
       }
-      settlementsJson = out
+      settlementsJson = result.path
     }
 
     const { settlements } = (await Bun.file(settlementsJson).json()) as {
@@ -308,7 +325,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       0,
     )
     const rustRedeleg = bidDetails.reduce(
-      (sum, d) => sum + (d.total_marinade_redelegation_stake ?? 0),
+      (sum, d) => sum + parseFloat(d.total_marinade_redelegation_stake ?? '0'),
       0,
     )
     const stakesPath = join(inp, 'stakes.json')
@@ -316,7 +333,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       rustRedeleg > 0
         ? rustRedeleg
         : existsSync(stakesPath)
-          ? await redelegationStakeFromFile(stakesPath, cfgText)
+          ? await redelegationStakeFromFile(stakesPath, cfg)
           : 0
     const stake = activeStake + redeleg
     const totalRewards = bidDetails.reduce(
@@ -375,9 +392,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     console.log(`    fee_sol_adj: ${sol(feeAdj)}`)
     console.log(`    fee_sol_max: ${sol((totalRewards * maxFee) / 10000)}`)
     if (protectedEventClaims > 0)
-      console.log(
-        `    protected_event_sol_to_stakers: ${sol(protectedEventClaims)}`,
-      )
+      console.log(`    psr_sol_to_stakers: ${sol(protectedEventClaims)}`)
     if (penaltyStakerClaims > 0)
       console.log(`    penalty_sol_to_stakers: ${sol(penaltyStakerClaims)}`)
     console.log(`    validators_capped: ${nCapped}/${bidDetails.length}`)
