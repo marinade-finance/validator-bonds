@@ -345,6 +345,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
 
     console.log(`  - max_fee_bps: ${maxFee}`)
     console.log(`    min_fee_bps: ${minFee}`)
+    console.log(`    marinade_stake_sol: ${sol(stake)}`)
     console.log(`    post_fee_pmpe_adj: ${pmpeAdj.toFixed(6)}`)
     console.log(`    post_fee_pmpe_max: ${pmpeMax.toFixed(6)}`)
     console.log(`    apy_adj: ${apy(pmpeAdj, epy)}`)
