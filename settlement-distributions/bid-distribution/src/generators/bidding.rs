@@ -137,12 +137,10 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
     totals
 }
 
-/// Finds the most aggressive fee that keeps global post-fee PMPE at or above
-/// `ssr_pmpe`, tuning one axis at a time by where we stand. First bisects
-/// max_fee_bps (min_fee_bps pinned at min_cap). If max_fee_bps stays pinned at
-/// max_cap — the ceiling itself is feasible, so headroom remains — it then
-/// raises min_fee_bps within [min_cap, max_cap] to extract that headroom. If
-/// SSR can never be satisfied, min_cap settlements are returned.
+/// Bisects max_fee_bps for the highest fee keeping global post-fee PMPE (bid +
+/// `total_staker_penalties` redistributed to stakers) at or above the target
+/// (`ssr_pmpe + min_yield_premium`). Once max_fee is feasible, raises min_fee to
+/// extract remaining headroom. If the target can never be met, min_cap settlements.
 pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],
@@ -152,6 +150,7 @@ pub fn generate_bid_settlements(
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     ssr_pmpe: Decimal,
+    total_staker_penalties: Decimal,
 ) -> anyhow::Result<Vec<Settlement>> {
     let max_cap = fee_config.max_fee_bps;
     let min_cap = fee_config.min_fee_bps;
@@ -185,8 +184,9 @@ pub fn generate_bid_settlements(
         let (post_fee, feasible) = if totals.stake.is_zero() {
             (Decimal::ZERO, false)
         } else {
-            let post_fee_pmpe =
-                (totals.rewards - totals.fees) / totals.stake * Decimal::ONE_THOUSAND;
+            let post_fee_pmpe = (totals.rewards + total_staker_penalties - totals.fees)
+                / totals.stake
+                * Decimal::ONE_THOUSAND;
             (post_fee_pmpe, target <= post_fee_pmpe)
         };
         let next = if feasible {
@@ -213,10 +213,10 @@ pub fn generate_bid_settlements(
         }
         // Active axis converged. If max_fee pinned at the feasible ceiling,
         // headroom remains: restart the same bisection on min_fee. Else done.
-        if tuning_max && feasible && current == max_cap {
-            tuning_max = false;
+        if tuning_max && feasible {
+            tuning_max ^= true;
             current = min_cap;
-            undershoot = max_cap;
+            undershoot = fc.max_fee_bps;
             overshoot = min_cap;
             continue;
         }

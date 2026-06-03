@@ -1,7 +1,9 @@
 use bid_distribution::apy_api::fetch_ssr_pmpe;
 use bid_distribution::generators::bidding::generate_bid_settlements;
 use bid_distribution::generators::psr_events::generate_psr_settlements;
-use bid_distribution::generators::sam_penalties::generate_penalty_settlements;
+use bid_distribution::generators::sam_penalties::{
+    calculate_total_staker_penalties, generate_penalty_settlements,
+};
 use bid_distribution::rewards::load_rewards_from_directory;
 use bid_distribution::sam_meta::ValidatorSamMeta;
 use bid_distribution::settlement_config::BidDistributionConfig;
@@ -181,21 +183,6 @@ fn main() -> anyhow::Result<()> {
             "Epoch mismatch between SAM metas ({metas_epochs:?}) and stake meta collection ({stake_meta_epoch})",
         );
 
-        // Generate bid settlements
-        info!("Generating bid settlements...");
-        let bid_settlements = generate_bid_settlements(
-            &stake_meta_index,
-            &sam_validator_metas,
-            &rewards_collection,
-            bidding_config,
-            &bid_distribution_config.fee_config,
-            &*stake_authority_filter,
-            &*exiting_stake_authority_filter,
-            ssr_pmpe,
-        )?;
-        info!("Generated {} bid settlements", bid_settlements.len());
-        all_settlements.extend(bid_settlements);
-
         // Generate penalty settlements
         info!("Generating penalty settlements...");
         let penalty_settlements = generate_penalty_settlements(
@@ -211,7 +198,24 @@ fn main() -> anyhow::Result<()> {
             "Generated {} penalty settlements",
             penalty_settlements.len()
         );
+        let total_staker_penalties = calculate_total_staker_penalties(&penalty_settlements);
         all_settlements.extend(penalty_settlements);
+
+        // Generate bid settlements
+        info!("Generating bid settlements...");
+        let bid_settlements = generate_bid_settlements(
+            &stake_meta_index,
+            &sam_validator_metas,
+            &rewards_collection,
+            bidding_config,
+            &bid_distribution_config.fee_config,
+            &*stake_authority_filter,
+            &*exiting_stake_authority_filter,
+            ssr_pmpe,
+            total_staker_penalties,
+        )?;
+        info!("Generated {} bid settlements", bid_settlements.len());
+        all_settlements.extend(bid_settlements);
     } else {
         // No SAM configs — fail if SAM inputs were partially provided (likely a mistake)
         anyhow::ensure!(
