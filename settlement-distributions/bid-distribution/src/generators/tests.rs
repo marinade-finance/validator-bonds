@@ -2664,15 +2664,14 @@ fn test_ssr_premium_positive_tightens_fee_cap() {
 #[test]
 fn test_ssr_premium_negative_loosens_fee_cap() {
     // staker_yield_pmpe=20, ssi/ssr=15, premium=-0.05 → target=14.95, fee_cap=1-14.95/20=0.2525
-    // BUT: global ssr=15 requires post_fee >= 15, so bisect converges to max_fee=2500 bps (0.25)
-    // which caps effective_fee at 0.25 (not 0.2525). fees = 20*0.25 = 5 SOL.
-    // The negative premium loosens the per-validator cap but the global floor still binds.
+    // The bisection feasibility uses the same target (ssr+premium=14.95), so the loosened
+    // per-validator cap holds: effective_fee=0.2525 → fees = 20*0.2525 = 5.05 SOL.
     let settlements = run_ssr_test(15.0, ssr_fee_config(3000, 0, -0.05));
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
     assert_eq!(
-        marinade_fee, 5_000_000_000,
-        "global ssr floor (15) caps effective_fee at 0.25 regardless of per-validator premium"
+        marinade_fee, 5_050_000_000,
+        "negative premium loosens fee cap to 0.2525; global target (14.95) matches"
     );
 }
 
