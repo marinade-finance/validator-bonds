@@ -1702,7 +1702,6 @@ impl RewardsParams {
 
     fn build(self) -> VoteAccountRewards {
         let total_amount = self.inflation_rewards + self.mev_rewards + self.block_rewards;
-        let validators_total_amount = total_amount.saturating_sub(self.jito_priority_fee_rewards);
         let stakers_inflation_rewards = (Decimal::from(self.inflation_rewards)
             * (Decimal::ONE - Decimal::try_from(self.onchain_inflation_commission).unwrap()))
         .to_u64()
@@ -1711,6 +1710,9 @@ impl RewardsParams {
             * (Decimal::ONE - Decimal::try_from(self.onchain_mev_commission).unwrap()))
         .to_u64()
         .unwrap();
+        let validators_total_amount = total_amount.saturating_sub(
+            stakers_inflation_rewards + stakers_mev_rewards + self.jito_priority_fee_rewards,
+        );
         VoteAccountRewards {
             vote_account: self.vote_account,
             total_amount,
