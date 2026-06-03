@@ -166,8 +166,7 @@ pub fn generate_bid_settlements(
     let mut overshoot = [min_cap, min_cap];
     let mut undershoot = [max_cap, max_cap];
     let mut axis = 0;
-    let mut best: Option<(Decimal, Vec<Settlement>)> = None;
-    let mut fallback: Option<Vec<Settlement>> = None;
+    let mut best: Option<((bool, Decimal), Vec<Settlement>)> = None;
     let mut fc = fee_config.clone();
     for _ in 0..MAX_ADJ_ITER {
         fc.max_fee_bps = fee[0];
@@ -191,12 +190,11 @@ pub fn generate_bid_settlements(
                 * Decimal::ONE_THOUSAND;
             (post_fee_pmpe, target <= post_fee_pmpe)
         };
-        if feasible {
-            if best.as_ref().is_none_or(|(fees, _)| totals.fees > *fees) {
-                best = Some((totals.fees, settlements));
-            }
-        } else {
-            fallback = Some(settlements);
+        // Rank: any feasible probe beats any infeasible; among feasible the highest
+        // fee wins, among infeasible the lowest fee (best fallback).
+        let rank = (feasible, if feasible { totals.fees } else { -totals.fees });
+        if best.as_ref().is_none_or(|(r, _)| rank > *r) {
+            best = Some((rank, settlements));
         }
         // One bisection step on the active axis (feasible -> raise toward
         // undershoot, else lower toward overshoot), then swap axes. min_fee
@@ -219,7 +217,7 @@ pub fn generate_bid_settlements(
         fee[axis] = next;
         axis ^= 1;
     }
-    Ok(best.map(|(_, s)| s).or(fallback).expect("MAX_ADJ_ITER = 0"))
+    Ok(best.map(|(_, s)| s).expect("MAX_ADJ_ITER = 0"))
 }
 
 fn generate_bid_settlements_worker(
