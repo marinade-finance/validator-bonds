@@ -67,6 +67,9 @@ importers:
       typescript:
         specifier: 5.4.5
         version: 5.4.5
+      yaml:
+        specifier: ^2.8.1
+        version: 2.9.0
 
   packages/bonds-eventing:
     dependencies:
