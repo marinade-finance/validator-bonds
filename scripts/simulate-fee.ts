@@ -267,7 +267,7 @@ function runCli(cfgFile: string, inp: string): CliResult {
   )
   const stderr = Buffer.from(proc.stderr).toString()
   for (const line of stderr.split('\n')) {
-    if (line.includes(' ERROR ') || line.includes('Adjusted max_fee_bps'))
+    if (line.includes(' ERROR ') || line.includes('Adjusted '))
       process.stderr.write(line + '\n')
     else if (values.v && line.includes('SSR cap'))
       process.stderr.write(line + '\n')
