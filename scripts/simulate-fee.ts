@@ -20,7 +20,7 @@ type Reason =
 
 type BidDetails = {
   total_marinade_active_stake: number
-  total_marinade_redelegation_stake: number
+  total_marinade_redelegation_stake?: number
   total_marinade_stakers_rewards: string
   marinade_fee_claim: number
   dao_fee_claim: number
@@ -67,6 +67,12 @@ const fees: (number | null)[] = feeStrs.length ? feeStrs.map(Number) : [null]
 if (values.c && feeStrs.length) {
   process.stderr.write(
     'Failed: fee arguments are ignored in -c mode (production settlement already has fees baked in)\n',
+  )
+  process.exit(2)
+}
+if (values.c && values.m !== undefined) {
+  process.stderr.write(
+    'Failed: -m is ignored in -c mode (production settlement already has fees baked in)\n',
   )
   process.exit(2)
 }
@@ -345,12 +351,16 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       0,
     )
     const stakesPath = join(inp, 'stakes.json')
-    const redeleg =
-      rustRedeleg > 0
-        ? rustRedeleg
-        : existsSync(stakesPath)
-          ? await redelegationStakeFromFile(stakesPath, cfg)
-          : 0
+    const fieldAbsent = bidDetails.some(
+      d => d.total_marinade_redelegation_stake === undefined,
+    )
+    const redeleg = !fieldAbsent
+      ? rustRedeleg
+      : existsSync(stakesPath)
+        ? await redelegationStakeFromFile(stakesPath, cfg)
+        : 0
+    if (fieldAbsent && redeleg > 0)
+      process.stderr.write('  # redeleg from stakes.json (approx)\n')
     const stake = activeStake + redeleg
     const totalRewards = bidDetails.reduce(
       (sum, d) => sum + parseFloat(d.total_marinade_stakers_rewards),

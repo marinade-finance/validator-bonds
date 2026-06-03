@@ -23,9 +23,6 @@ type Settlement = {
     total_marinade_stakers_rewards: string
     marinade_fee_claim: number
     dao_fee_claim: number
-    stakers_bid_too_low_penalty_claim?: number
-    stakers_blacklist_penalty_claim?: number
-    stakers_bond_risk_fee_claim?: number
   } | null
 }
 
@@ -163,16 +160,14 @@ async function main() {
     (sum, s) => (isProtectedEvent(s.reason) ? sum + s.claims_amount : sum),
     0,
   )
-  const penaltyToStakers = settlements.reduce((sum, s) => {
-    const d = s.details
-    if (s.reason === 'BidTooLowPenalty')
-      return sum + (d?.stakers_bid_too_low_penalty_claim ?? 0)
-    if (s.reason === 'BlacklistPenalty')
-      return sum + (d?.stakers_blacklist_penalty_claim ?? 0)
-    if (s.reason === 'BondRiskFee')
-      return sum + (d?.stakers_bond_risk_fee_claim ?? 0)
-    return sum
-  }, 0)
+  const penaltyToStakers = settlements
+    .filter(
+      s =>
+        s.reason === 'BidTooLowPenalty' ||
+        s.reason === 'BlacklistPenalty' ||
+        s.reason === 'BondRiskFee',
+    )
+    .reduce((sum, s) => sum + s.claims_amount, 0)
   const stakerExtras = psrToStakers + penaltyToStakers
 
   const pmpeGross = (gross / stake) * 1000
