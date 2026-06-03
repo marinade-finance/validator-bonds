@@ -1331,7 +1331,7 @@ fn create_stake_meta_with_deactivating(
         withdraw_authority,
         stake_authority,
         active_delegation_lamports,
-        balance_lamports: active_delegation_lamports + deactivating_delegation_lamports,
+        balance_lamports: active_delegation_lamports,
         activating_delegation_lamports: 0,
         deactivating_delegation_lamports,
     }
