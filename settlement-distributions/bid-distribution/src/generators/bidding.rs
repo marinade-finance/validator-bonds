@@ -144,7 +144,7 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
 /// high-yield validators, min_fee floors low-yield ones — so tuning both extracts
 /// more than either alone. `overshoot` is the highest known-feasible value of an
 /// axis, `undershoot` the lowest known-infeasible. The highest-extraction
-/// feasible probe wins; if the target can never be met, min_cap settlements.
+/// feasible probe wins; if the target can never be met, the lowest-fee probe.
 pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],
@@ -167,6 +167,7 @@ pub fn generate_bid_settlements(
     let mut undershoot = [max_cap, max_cap];
     let mut axis = 0;
     let mut best: Option<(Decimal, Vec<Settlement>)> = None;
+    let mut fallback: Option<Vec<Settlement>> = None;
     let mut fc = fee_config.clone();
     for _ in 0..MAX_ADJ_ITER {
         fc.max_fee_bps = fee[0];
@@ -190,8 +191,12 @@ pub fn generate_bid_settlements(
                 * Decimal::ONE_THOUSAND;
             (post_fee_pmpe, target <= post_fee_pmpe)
         };
-        if feasible && best.as_ref().is_none_or(|(fees, _)| totals.fees > *fees) {
-            best = Some((totals.fees, settlements));
+        if feasible {
+            if best.as_ref().is_none_or(|(fees, _)| totals.fees > *fees) {
+                best = Some((totals.fees, settlements));
+            }
+        } else {
+            fallback = Some(settlements);
         }
         // One bisection step on the active axis (feasible -> raise toward
         // undershoot, else lower toward overshoot), then swap axes. min_fee
@@ -214,22 +219,7 @@ pub fn generate_bid_settlements(
         fee[axis] = next;
         axis ^= 1;
     }
-    if let Some((_, settlements)) = best {
-        return Ok(settlements);
-    }
-    // Target unreachable at any fee — return the lowest-fee (min_cap) settlements.
-    fc.max_fee_bps = min_cap;
-    fc.min_fee_bps = min_cap;
-    generate_bid_settlements_worker(
-        stake_meta_index,
-        sam_validator_metas,
-        rewards_collection,
-        settlement_config,
-        &fc,
-        stake_authority_filter,
-        exiting_stake_authority_filter,
-        ssr_pmpe,
-    )
+    Ok(best.map(|(_, s)| s).or(fallback).expect("MAX_ADJ_ITER = 0"))
 }
 
 fn generate_bid_settlements_worker(
