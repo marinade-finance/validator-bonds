@@ -237,8 +237,19 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
           (e.details?.dao_fee_claim ?? 0),
         0,
       )
-    const pmpeAdj = ((total - feeAdj) / stake) * 1000
-    const pmpeMax = ((total * (1 - maxFee / 10000)) / stake) * 1000
+    const penaltyStakerClaims = settlements.reduce((s, e) => {
+      const d = e.details as Record<string, number | undefined> | null
+      if (e.reason === 'BidTooLowPenalty')
+        return s + (d?.stakers_bid_too_low_penalty_claim ?? 0)
+      if (e.reason === 'BlacklistPenalty')
+        return s + (d?.stakers_blacklist_penalty_claim ?? 0)
+      if (e.reason === 'BondRiskFee')
+        return s + (d?.stakers_bond_risk_fee_claim ?? 0)
+      return s
+    }, 0)
+    const pmpeAdj = ((total - feeAdj + penaltyStakerClaims) / stake) * 1000
+    const pmpeMax =
+      ((total * (1 - maxFee / 10000) + penaltyStakerClaims) / stake) * 1000
     const ncap = bids.filter(
       d =>
         parseFloat(d.total_marinade_stakers_rewards) > 0 &&
@@ -262,6 +273,8 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     console.log(`    apy_max: ${apy(pmpeMax, epy)}`)
     console.log(`    fee_sol_adj: ${sol(feeAdj)}`)
     console.log(`    fee_sol_max: ${sol((total * maxFee) / 10000)}`)
+    if (penaltyStakerClaims > 0)
+      console.log(`    penalty_sol_to_stakers: ${sol(penaltyStakerClaims)}`)
     console.log(`    validators_capped: ${ncap}/${bids.length}`)
     console.log(`    validators_at_min_fee: ${nmin}/${bids.length}`)
   }
