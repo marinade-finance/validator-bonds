@@ -19,8 +19,8 @@ type Reason =
   | { ProtectedEvent: unknown }
 
 type BidDetails = {
-  total_marinade_active_stake: string
-  total_marinade_redelegation_stake: string
+  total_marinade_active_stake: number
+  total_marinade_redelegation_stake: number
   total_marinade_stakers_rewards: string
   marinade_fee_claim: number
   dao_fee_claim: number
@@ -334,11 +334,11 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     }
 
     const activeStake = bidDetails.reduce(
-      (sum, d) => sum + parseFloat(d.total_marinade_active_stake),
+      (sum, d) => sum + d.total_marinade_active_stake,
       0,
     )
     const rustRedeleg = bidDetails.reduce(
-      (sum, d) => sum + parseFloat(d.total_marinade_redelegation_stake ?? '0'),
+      (sum, d) => sum + (d.total_marinade_redelegation_stake ?? 0),
       0,
     )
     const stakesPath = join(inp, 'stakes.json')
