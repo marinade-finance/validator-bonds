@@ -301,8 +301,14 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       settlementsJson = result.path
     }
 
-    const { settlements } = (await Bun.file(settlementsJson).json()) as {
+    const {
+      settlements,
+      adj_max_fee_bps: adjMax,
+      adj_min_fee_bps: adjMin,
+    } = (await Bun.file(settlementsJson).json()) as {
       settlements: Settlement[]
+      adj_max_fee_bps?: number
+      adj_min_fee_bps?: number
     }
     const bidSettlements = settlements.filter(
       (s): s is BidSettlement => s.reason === 'Bidding' && s.details !== null,
@@ -359,16 +365,24 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     const pmpeMax =
       ((totalRewards * (1 - maxFee / 10000) + stakerExtras) / stake) * 1000
     const feesByVote = feesByVoteAccount(settlements)
-    const nCapped = bidSettlements.filter(s => {
-      const rewards = parseFloat(s.details.total_marinade_stakers_rewards)
-      const totalFee = feesByVote.get(s.vote_account) ?? 0
-      return rewards > 0 && totalFee < (rewards * maxFee * 0.9999) / 10000
-    }).length
-    const nAtMin = bidSettlements.filter(s => {
-      const rewards = parseFloat(s.details.total_marinade_stakers_rewards)
-      const totalFee = feesByVote.get(s.vote_account) ?? 0
-      return rewards > 0 && totalFee <= (rewards * minFee * 1.0001) / 10000
-    }).length
+    const nCapped =
+      adjMax !== undefined
+        ? bidSettlements.filter(s => {
+            const rewards = parseFloat(s.details.total_marinade_stakers_rewards)
+            const totalFee = feesByVote.get(s.vote_account) ?? 0
+            return rewards > 0 && totalFee < (rewards * adjMax * 0.9999) / 10000
+          }).length
+        : null
+    const nAtMin =
+      adjMin !== undefined
+        ? bidSettlements.filter(s => {
+            const rewards = parseFloat(s.details.total_marinade_stakers_rewards)
+            const totalFee = feesByVote.get(s.vote_account) ?? 0
+            return (
+              rewards > 0 && totalFee <= (rewards * adjMin * 1.0001) / 10000
+            )
+          }).length
+        : null
 
     console.log(`  - max_fee_bps: ${maxFee}`)
     console.log(`    min_fee_bps: ${minFee}`)
@@ -383,7 +397,11 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       console.log(`    psr_sol_to_stakers: ${sol(protectedEventClaims)}`)
     if (penaltyStakerClaims > 0)
       console.log(`    penalty_sol_to_stakers: ${sol(penaltyStakerClaims)}`)
-    console.log(`    validators_capped: ${nCapped}/${bidSettlements.length}`)
-    console.log(`    validators_at_min_fee: ${nAtMin}/${bidSettlements.length}`)
+    if (nCapped !== null)
+      console.log(`    validators_capped: ${nCapped}/${bidSettlements.length}`)
+    if (nAtMin !== null)
+      console.log(
+        `    validators_at_min_fee: ${nAtMin}/${bidSettlements.length}`,
+      )
   }
 }
