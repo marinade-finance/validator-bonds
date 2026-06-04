@@ -186,12 +186,24 @@ pub struct BidDistributionConfig {
         skip_serializing_if = "Option::is_none"
     )]
     pub whitelist_stake_authorities: Option<Vec<Pubkey>>,
+    /// Stake authorities whose deactivating stake represents real withdrawals (not
+    /// re-delegation churn). Excluded from redelegation_stake TVL accounting.
+    #[serde(
+        default,
+        with = "option_vec_pubkey_string_conversion",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub exiting_stake_authorities: Option<Vec<Pubkey>>,
     pub settlements: Vec<SettlementConfig>,
 }
 
 impl BidDistributionConfig {
     pub fn whitelist_stake_authorities_filter(&self) -> Box<dyn Fn(&Pubkey) -> bool> {
         stake_authority_filter(self.whitelist_stake_authorities.clone())
+    }
+
+    pub fn exiting_stake_authorities_filter(&self) -> Box<dyn Fn(&Pubkey) -> bool> {
+        stake_authority_filter(self.exiting_stake_authorities.clone())
     }
 
     /// Returns SAM settlement configs (Bidding, BidTooLowPenalty, BlacklistPenalty)

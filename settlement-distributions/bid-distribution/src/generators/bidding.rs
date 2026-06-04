@@ -59,6 +59,7 @@ impl fmt::Display for ResultSettlementClaims {
 pub struct BidSettlementDetails {
     pub total_active_stake: u64,
     pub total_marinade_active_stake: u64,
+    pub total_marinade_redelegation_stake: u64,
     pub auction_effective_static_bid: String,
     pub marinade_stake_share: String,
     pub marinade_inflation_rewards: String,
@@ -146,6 +147,7 @@ pub fn generate_bid_settlements(
     settlement_config: &SettlementConfig,
     fee_config: &FeeConfig,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+    exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     ssr_pmpe: Decimal,
 ) -> anyhow::Result<Vec<Settlement>> {
     let max_cap = fee_config.max_fee_bps;
@@ -166,6 +168,7 @@ pub fn generate_bid_settlements(
             settlement_config,
             &fc,
             stake_authority_filter,
+            exiting_stake_authority_filter,
             ssr_pmpe,
         )?;
         let totals = calculate_bid_settlement_totals(&settlements);
@@ -208,6 +211,7 @@ fn generate_bid_settlements_worker(
     settlement_config: &SettlementConfig,
     fee_config: &FeeConfig,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+    exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     ssr_pmpe: Decimal,
 ) -> anyhow::Result<Vec<Settlement>> {
     let epoch = stake_meta_index.stake_meta_collection.epoch;
@@ -225,12 +229,17 @@ fn generate_bid_settlements_worker(
             // Compute totals in a single pass (no double iteration)
             let mut total_active_stake: u64 = 0;
             let mut total_marinade_active_stake: u64 = 0;
+            let mut total_marinade_redelegation_stake: u64 = 0;
             let mut total_marinade_activating_stake: u64 = 0;
             for ((_, stake_authority), metas) in &grouped_stake_metas {
                 for meta in metas.iter() {
                     total_active_stake += meta.active_delegation_lamports;
                     if stake_authority_filter(stake_authority) {
                         total_marinade_active_stake += meta.active_delegation_lamports;
+                        if !exiting_stake_authority_filter(stake_authority) {
+                            total_marinade_redelegation_stake +=
+                                meta.deactivating_delegation_lamports;
+                        }
                         if meta.activating_delegation_lamports > 0
                             && meta.active_delegation_lamports == 0
                         {
@@ -638,6 +647,7 @@ fn generate_bid_settlements_worker(
             let settlement_details = BidSettlementDetails {
                 total_active_stake,
                 total_marinade_active_stake,
+                total_marinade_redelegation_stake,
                 auction_effective_static_bid: auction_effective_static_bid.to_string(),
                 marinade_stake_share: marinade_stake_share.to_string(),
                 marinade_inflation_rewards: marinade_inflation_rewards.to_string(),
