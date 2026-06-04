@@ -108,7 +108,8 @@ fn test_generate_bid_settlements_basic_single_validator() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     // -- VERIFY
     assert!(!settlements.is_empty(), "Should generate settlements");
@@ -210,7 +211,8 @@ fn test_generate_bid_settlements_positive_commission() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert!(!settlements.is_empty());
     assert!(
@@ -350,7 +352,8 @@ fn test_generate_bid_settlements_negative_commission() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     // -- VERIFY
     let marinade_inflation_rewards = (Decimal::from(inflation_rewards) * marinade_delegation_share)
@@ -534,7 +537,8 @@ fn test_generate_bid_settlements_varying_rewards() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     let settlements2 = generate_bid_settlements(
         &stake_meta_index,
@@ -546,7 +550,8 @@ fn test_generate_bid_settlements_varying_rewards() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     let settlements3 = generate_bid_settlements(
         &stake_meta_index,
@@ -558,7 +563,8 @@ fn test_generate_bid_settlements_varying_rewards() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert!(!settlements1.is_empty());
     assert!(!settlements2.is_empty());
@@ -821,7 +827,8 @@ fn test_zero_rewards() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert!(!settlements.is_empty());
     assert!(
@@ -881,7 +888,8 @@ fn test_activating_bid_charge_basic() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert_eq!(settlements.len(), 1);
     let expected_activating_charge: u64 = 200_000_000; // 0.2 SOL in lamports
@@ -945,7 +953,8 @@ fn test_activating_bid_charge_with_active_stake() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert_eq!(settlements.len(), 2);
     let total: u64 = settlements.iter().map(|s| s.claims_amount).sum();
@@ -1004,7 +1013,8 @@ fn test_activating_bid_charge_non_marinade_excluded() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     // No charges at all: static_bid=0 and non-marinade activating doesn't contribute → no settlement
     assert!(
@@ -1052,7 +1062,8 @@ fn test_activating_bid_charge_absent_when_no_field() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert!(
         settlements.is_empty(),
@@ -1104,7 +1115,8 @@ fn test_activating_bid_charge_skipped_for_multi_epoch_warmup() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert_eq!(settlements.len(), 1);
     // Only static_bid on 2 SOL active: 50/1000 * 2 SOL = 0.1 SOL = 100_000_000 lamports
@@ -1170,7 +1182,8 @@ fn test_activating_bid_charge_distributed_to_activating_stakers() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     // Only activating stake → one PriorityFee settlement (no active stakers, no Bidding settlement)
     assert_eq!(settlements.len(), 1);
@@ -1705,7 +1718,8 @@ fn test_generate_settlements_from_json_values() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert!(
         !settlements.is_empty(),
@@ -2375,6 +2389,7 @@ fn run_ssr_test(ssr_pmpe: f64, fee_config: FeeConfig) -> Vec<Settlement> {
         Decimal::try_from(ssr_pmpe).unwrap(),
     )
     .unwrap()
+    .settlements
 }
 
 #[test]
@@ -2443,7 +2458,8 @@ fn test_bid_both_active_and_activating_stakers() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     // Both Bidding (active stakers) and PriorityFee (activating stakers) must be produced
     assert_eq!(settlements.len(), 2, "should produce 2 settlements");
@@ -2533,7 +2549,8 @@ fn test_bid_only_activating_no_active_marinade_stake() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert_eq!(settlements.len(), 1, "only PriorityFee settlement expected");
     assert!(
@@ -2646,6 +2663,7 @@ fn run_ssr_test_with_pmpe(
         Decimal::try_from(ssr_pmpe).unwrap(),
     )
     .unwrap()
+    .settlements
 }
 
 #[test]
@@ -2776,7 +2794,8 @@ fn test_ssr_mixed_active_and_activating_stake() {
         &|_| false,
         Decimal::try_from(28.0).unwrap(),
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert_eq!(
         settlements.len(),
@@ -2850,7 +2869,8 @@ fn test_ssr_activating_only_uses_min_fee() {
         &|_| false,
         Decimal::try_from(15.0).unwrap(),
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
@@ -3058,7 +3078,8 @@ fn test_redelegation_stake_included_in_settlement_details() {
         &|_| false, // no exiting authorities
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert_eq!(settlements.len(), 1);
     let details: BidSettlementDetails =
@@ -3115,7 +3136,8 @@ fn test_exiting_authority_excluded_from_redelegation_stake() {
         &|pk: &Pubkey| *pk == TEST_EXITING_SA, // exiting authority: deactivating excluded
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert_eq!(settlements.len(), 1);
     let details: BidSettlementDetails =
