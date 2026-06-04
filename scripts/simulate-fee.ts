@@ -169,7 +169,7 @@ function runGcsCp(src: string, dst: string) {
   Bun.spawnSync(['gcloud', 'storage', 'cp', src, dst], { stderr: 'pipe' })
 }
 
-function fetchProductionSettlement(epoch: number): string | null {
+function fetchProductionSettlement(epoch: number): string {
   const dir = join(dataDir, String(epoch))
   const path = join(dir, PROD_FILE)
   if (!existsSync(path)) {
@@ -178,17 +178,15 @@ function fetchProductionSettlement(epoch: number): string | null {
     runGcsCp(`${GCS_BONDS}/${epoch}/${PROD_FILE}`, path)
   }
   if (!existsSync(path)) {
-    process.stderr.write(
-      `  # ${PROD_FILE} not found for epoch ${epoch}, skipping\n`,
-    )
-    return null
+    process.stderr.write(`Failed: ${PROD_FILE} not found for epoch ${epoch}\n`)
+    process.exit(1)
   }
   return path
 }
 
-function fetchInputs(epoch: number): boolean {
+function fetchInputs(epoch: number): void {
   const inp = join(dataDir, String(epoch), 'inputs')
-  if (INPUTS.every(f => existsSync(join(inp, f)))) return true
+  if (INPUTS.every(f => existsSync(join(inp, f)))) return
   process.stderr.write(`  # fetching ${epoch}...\n`)
   Bun.spawnSync(
     [
@@ -203,15 +201,12 @@ function fetchInputs(epoch: number): boolean {
     { stderr: 'pipe' },
   )
   if (!INPUTS.every(f => existsSync(join(inp, f)))) {
-    process.stderr.write(`  # fetch failed for ${epoch}, skipping\n`)
-    return false
+    process.stderr.write(`Failed: fetch failed for epoch ${epoch}\n`)
+    process.exit(1)
   }
-  return true
 }
 
-type CliResult = { ok: true; path: string } | { ok: false }
-
-function runCli(cfgFile: string, inp: string): CliResult {
+function runCli(cfgFile: string, inp: string): string {
   const out = tmpFile()
   const proc = Bun.spawnSync(
     [
@@ -250,15 +245,19 @@ function runCli(cfgFile: string, inp: string): CliResult {
     else if (values.v && line.includes('SSR cap'))
       process.stderr.write(line + '\n')
   }
-  if (proc.exitCode !== 0) return { ok: false }
-  return { ok: true, path: out }
+  if (proc.exitCode !== 0) {
+    process.stderr.write(
+      `Failed: bid-distribution-cli exited ${proc.exitCode}\n`,
+    )
+    process.exit(1)
+  }
+  return out
 }
 
 console.log('epochs:')
 for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
   const prodFile = values.c ? fetchProductionSettlement(epoch) : null
-  if (values.c && prodFile === null) continue
-  if (!values.c && !fetchInputs(epoch)) continue
+  if (!values.c) fetchInputs(epoch)
 
   const epochData = ssr.epochs.find(e => e.epoch === epoch)
   if (!epochData) {
@@ -293,12 +292,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     } else {
       const cfgFile = tmpFile()
       await writeFile(cfgFile, cfgText)
-      const result = runCli(cfgFile, inp)
-      if (!result.ok) {
-        process.stderr.write(`  # cli failed for fee=${fee} epoch=${epoch}\n`)
-        continue
-      }
-      settlementsJson = result.path
+      settlementsJson = runCli(cfgFile, inp)
     }
 
     const {
