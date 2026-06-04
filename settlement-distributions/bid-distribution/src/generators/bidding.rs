@@ -89,6 +89,12 @@ pub struct PriorityFeeSettlementDetails {
 
 const MAX_ADJ_ITER: u32 = 20;
 
+pub struct BidSettlementValues {
+    pub settlements: Vec<Settlement>,
+    pub adj_max_fee_bps: u64,
+    pub adj_min_fee_bps: u64,
+}
+
 #[derive(Default)]
 pub struct BidSettlementTotals {
     pub stake: Decimal,
@@ -154,7 +160,7 @@ pub fn generate_bid_settlements(
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     ssr_pmpe: Decimal,
     total_staker_extras: Decimal,
-) -> anyhow::Result<Vec<Settlement>> {
+) -> anyhow::Result<BidSettlementValues> {
     let max_cap = fee_config.max_fee_bps;
     let min_cap = fee_config.min_fee_bps;
     let target = ssr_pmpe + fee_config.min_yield_premium_over_ssr_pmpe;
@@ -224,7 +230,11 @@ pub fn generate_bid_settlements(
         }
         break;
     }
-    Ok(best.or(fallback).expect("MAX_ADJ_ITER = 0"))
+    Ok(BidSettlementValues {
+        settlements: best.or(fallback).expect("MAX_ADJ_ITER = 0"),
+        adj_max_fee_bps: overshoot,
+        adj_min_fee_bps: fc.min_fee_bps,
+    })
 }
 
 fn generate_bid_settlements_worker(
