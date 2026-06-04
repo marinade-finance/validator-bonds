@@ -155,9 +155,11 @@ pub fn generate_bid_settlements(
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     ssr_pmpe: Decimal,
+    total_staker_extras: Decimal,
 ) -> anyhow::Result<BidSettlementValues> {
     let max_cap = fee_config.max_fee_bps;
     let min_cap = fee_config.min_fee_bps;
+    let target = ssr_pmpe + fee_config.min_yield_premium_over_ssr_pmpe;
     let mut current = max_cap;
     let mut undershoot = max_cap;
     let mut overshoot = min_cap;
@@ -181,9 +183,9 @@ pub fn generate_bid_settlements(
         let (post_fee, feasible) = if totals.stake.is_zero() {
             (Decimal::ZERO, false)
         } else {
-            let post_fee_pmpe =
-                (totals.rewards - totals.fees) / totals.stake * Decimal::ONE_THOUSAND;
-            (post_fee_pmpe, ssr_pmpe <= post_fee_pmpe)
+            let post_fee_pmpe = (totals.rewards + total_staker_extras - totals.fees) / totals.stake
+                * Decimal::ONE_THOUSAND;
+            (post_fee_pmpe, target <= post_fee_pmpe)
         };
         let next = if feasible {
             if best_feasible.is_none() || current > best_feasible_fee {
