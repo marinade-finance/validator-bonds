@@ -48,6 +48,9 @@ async function main() {
   const bids = settlements.filter(
     (s): s is BidSettlement => s.reason === 'Bidding' && s.details !== null,
   )
+  // Deactivating (redelegating) stake is included because it still earns
+  // rewards in the epoch it deactivates. Omitting it would overstate APY.
+  // total_marinade_active_stake does NOT include deactivating lamports.
   const stake = bids.reduce(
     (s, b) =>
       s +

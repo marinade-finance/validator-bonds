@@ -313,6 +313,9 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       continue
     }
 
+    // Deactivating (redelegating) stake is included in the TVL denominator
+    // because it still earns rewards in the epoch it deactivates. Omitting it
+    // would overstate APY. total_marinade_active_stake excludes deactivating.
     const activeStake = bidDetails.reduce(
       (sum, d) => sum + d.total_marinade_active_stake,
       0,
