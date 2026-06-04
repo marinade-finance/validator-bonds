@@ -10,6 +10,14 @@ export type Reason =
   | 'InstitutionalPayout'
   | { ProtectedEvent: { DowntimeRevenueImpact?: Record<string, unknown> } }
 
+export type BidDetails = {
+  total_marinade_active_stake: number
+  total_marinade_redelegation_stake?: number
+  total_marinade_stakers_rewards: string
+  marinade_fee_claim: number
+  dao_fee_claim: number
+}
+
 export type Settlement = {
   reason: Reason
   vote_account: string
@@ -19,6 +27,11 @@ export type Settlement = {
     dao_fee_claim: number
     [k: string]: unknown
   } | null
+}
+
+/** Settlement with a non-null BidDetails — use after filtering reason === 'Bidding'. */
+export type BidSettlement = Omit<Settlement, 'details'> & {
+  details: BidDetails
 }
 
 export function isProtectedEvent(r: Reason): r is {

@@ -6,18 +6,11 @@ import { parse } from 'yaml'
 
 import {
   type Settlement,
+  type BidSettlement,
   isProtectedEvent,
   sumStakerExtras,
   feesByVoteAccount,
 } from './settlement-utils'
-
-type BidSettlement = Settlement & {
-  details: NonNullable<Settlement['details']> & {
-    total_marinade_active_stake: number
-    total_marinade_redelegation_stake?: number
-    total_marinade_stakers_rewards: string
-  }
-}
 
 type SsrFeed = { epochs: { epoch: number; time: number }[] }
 
@@ -84,10 +77,10 @@ async function main() {
     0,
   )
   // Sum fees across all settlement types per validator (Bidding + PriorityFee).
-  const feesByValidator = feesByVoteAccount(settlements)
+  const feesByVote = feesByVoteAccount(settlements)
   const ncap = bids.filter(b => {
     const rewards = parseFloat(b.details.total_marinade_stakers_rewards)
-    const totalFee = feesByValidator.get(b.vote_account) ?? 0
+    const totalFee = feesByVote.get(b.vote_account) ?? 0
     return rewards > 0 && totalFee < (rewards * maxFeeBps * 0.9999) / 10000
   }).length
 

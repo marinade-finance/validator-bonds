@@ -10,23 +10,12 @@ import { parseArgs } from 'node:util'
 import { parse as parseYaml } from 'yaml'
 
 import {
-  type Settlement as SettlementBase,
+  type Settlement,
+  type BidSettlement,
   isProtectedEvent,
   sumStakerExtras,
   feesByVoteAccount,
 } from './settlement-utils'
-
-type BidDetails = {
-  total_marinade_active_stake: number
-  total_marinade_redelegation_stake?: number
-  total_marinade_stakers_rewards: string
-  marinade_fee_claim: number
-  dao_fee_claim: number
-}
-
-type Settlement = SettlementBase & {
-  details: BidDetails | null
-}
 
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
@@ -316,8 +305,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       settlements: Settlement[]
     }
     const bidSettlements = settlements.filter(
-      (s): s is Settlement & { details: BidDetails } =>
-        s.reason === 'Bidding' && s.details !== null,
+      (s): s is BidSettlement => s.reason === 'Bidding' && s.details !== null,
     )
     const bidDetails = bidSettlements.map(s => s.details)
     if (!bidDetails.length) {
