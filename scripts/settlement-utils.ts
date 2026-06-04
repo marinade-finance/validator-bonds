@@ -58,6 +58,13 @@ export type Settlement =
     }
 
 export type BidSettlement = Extract<Settlement, { reason: 'Bidding' }>
+export type FeeSettlement = Extract<
+  Settlement,
+  { reason: 'Bidding' | 'PriorityFee' }
+>
+export function isFeeSettlement(s: Settlement): s is FeeSettlement {
+  return s.reason === 'Bidding' || s.reason === 'PriorityFee'
+}
 
 /** Sum of PSR + penalty lamports redistributed to stakers (uses claims_amount). */
 export function sumStakerExtras(settlements: Settlement[]): number {

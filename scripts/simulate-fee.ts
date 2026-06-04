@@ -13,6 +13,7 @@ import {
   type Settlement,
   type BidSettlement,
   isProtectedEvent,
+  isFeeSettlement,
   sumStakerExtras,
   feesByVoteAccount,
 } from './settlement-utils'
@@ -338,12 +339,10 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       0,
     )
     const feeAdj = settlements
-      .filter(s => s.reason === 'Bidding' || s.reason === 'PriorityFee')
+      .filter(isFeeSettlement)
       .reduce(
         (sum, s) =>
-          sum +
-          (s.details?.marinade_fee_claim ?? 0) +
-          (s.details?.dao_fee_claim ?? 0),
+          sum + s.details.marinade_fee_claim + s.details.dao_fee_claim,
         0,
       )
     const stakerExtras = sumStakerExtras(settlements)
