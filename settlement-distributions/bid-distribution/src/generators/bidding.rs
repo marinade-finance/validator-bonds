@@ -89,6 +89,7 @@ pub struct PriorityFeeSettlementDetails {
 
 const MAX_ADJ_ITER: u32 = 20;
 
+#[derive(Serialize)]
 pub struct BidSettlementValues {
     pub settlements: Vec<Settlement>,
     pub adj_max_fee_bps: u64,

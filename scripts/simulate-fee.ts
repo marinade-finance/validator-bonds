@@ -314,9 +314,6 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       continue
     }
 
-    // Deactivating (redelegating) stake is included in the TVL denominator
-    // because it still earns rewards in the epoch it deactivates. Omitting it
-    // would overstate APY. total_marinade_active_stake excludes deactivating.
     const activeStake = bidDetails.reduce(
       (sum, d) => sum + d.total_marinade_active_stake,
       0,
@@ -341,15 +338,14 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       (sum, d) => sum + parseFloat(d.total_marinade_stakers_rewards),
       0,
     )
-    const feeAdj = settlements
-      .filter(s => s.reason === 'Bidding' || s.reason === 'PriorityFee')
-      .reduce(
-        (sum, s) =>
-          sum +
-          (s.details?.marinade_fee_claim ?? 0) +
-          (s.details?.dao_fee_claim ?? 0),
-        0,
-      )
+    const feeAdj = settlements.reduce(
+      (sum, s) =>
+        sum +
+        (s.reason === 'Bidding' || s.reason === 'PriorityFee'
+          ? s.details.marinade_fee_claim + s.details.dao_fee_claim
+          : 0),
+      0,
+    )
     const stakerExtras = sumStakerExtras(settlements)
     const protectedEventClaims = settlements.reduce(
       (sum, s) => (isProtectedEvent(s.reason) ? sum + s.claims_amount : sum),

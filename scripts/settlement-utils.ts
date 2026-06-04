@@ -13,7 +13,7 @@ type PriorityFeeDetails = FeeDetails & {
   total_marinade_active_stake: number
 }
 
-type PenaltyDetails = Record<string, never>
+type PenaltyDetails = Record<string, unknown>
 
 type ProtectedEventReason = {
   ProtectedEvent: { DowntimeRevenueImpact?: Record<string, unknown> }

@@ -48,9 +48,6 @@ async function main() {
   const bids = settlements.filter(
     (s): s is BidSettlement => s.reason === 'Bidding' && s.details !== null,
   )
-  // Deactivating (redelegating) stake is included because it still earns
-  // rewards in the epoch it deactivates. Omitting it would overstate APY.
-  // total_marinade_active_stake does NOT include deactivating lamports.
   const stake = bids.reduce(
     (s, b) =>
       s +
@@ -75,8 +72,9 @@ async function main() {
   const fees = settlements.reduce(
     (s, b) =>
       s +
-      (b.details?.marinade_fee_claim ?? 0) +
-      (b.details?.dao_fee_claim ?? 0),
+      (b.reason === 'Bidding' || b.reason === 'PriorityFee'
+        ? b.details.marinade_fee_claim + b.details.dao_fee_claim
+        : 0),
     0,
   )
   // Sum fees across all settlement types per validator (Bidding + PriorityFee).
