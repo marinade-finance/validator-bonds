@@ -89,6 +89,7 @@ pub struct PriorityFeeSettlementDetails {
 
 const MAX_ADJ_ITER: u32 = 20;
 
+#[derive(Serialize)]
 pub struct BidSettlementValues {
     pub settlements: Vec<Settlement>,
     pub adj_max_fee_bps: u64,
@@ -207,7 +208,7 @@ pub fn generate_bid_settlements(
         );
         current = next;
     }
-    let settlements = best_feasible.unwrap_or_else(|| best_infeasible.expect("MAX_ADJ_ITER = 0"));
+    let settlements = best_feasible.or(best_infeasible).expect("MAX_ADJ_ITER = 0");
     Ok(BidSettlementValues {
         settlements,
         adj_max_fee_bps: best_feasible_fee,
