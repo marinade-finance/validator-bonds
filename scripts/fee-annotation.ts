@@ -8,6 +8,7 @@ import {
   type Settlement,
   type BidSettlement,
   isProtectedEvent,
+  isFeeSettlement,
   sumStakerExtras,
   feesByVoteAccount,
 } from './settlement-utils'
@@ -69,14 +70,12 @@ async function main() {
     0,
   )
   // fees: all settlement types — PriorityFee carries dao_fee_claim even with no staking rewards
-  const fees = settlements.reduce(
-    (s, b) =>
-      s +
-      (b.reason === 'Bidding' || b.reason === 'PriorityFee'
-        ? b.details.marinade_fee_claim + b.details.dao_fee_claim
-        : 0),
-    0,
-  )
+  const fees = settlements
+    .filter(isFeeSettlement)
+    .reduce(
+      (sum, s) => sum + s.details.marinade_fee_claim + s.details.dao_fee_claim,
+      0,
+    )
   // Sum fees across all settlement types per validator (Bidding + PriorityFee).
   const feesByVote = feesByVoteAccount(settlements)
   const ncap = bids.filter(b => {
