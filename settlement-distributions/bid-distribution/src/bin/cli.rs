@@ -199,7 +199,7 @@ fn main() -> anyhow::Result<()> {
         info!("Generated {} bid settlements", bid.settlements.len());
         adj_max_fee_bps = Some(bid.adj_max_fee_bps);
         adj_min_fee_bps = Some(bid.adj_min_fee_bps);
-        collection_ssr_pmpe = Some(f64::try_from(ssr_pmpe).unwrap_or(0.0));
+        collection_ssr_pmpe = f64::try_from(ssr_pmpe).ok();
         all_settlements.extend(bid.settlements);
 
         // Generate penalty settlements
