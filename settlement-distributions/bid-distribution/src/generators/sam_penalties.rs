@@ -42,9 +42,9 @@ pub struct BondRiskFeeDetails {
     pub stakers_bond_risk_fee_claim: u64,
 }
 
-/// Total lamports the penalty settlements redistribute to stakers (excludes the
-/// Marinade/DAO distributor cut). Fed to the bid bisection so post-fee yield
-/// reflects penalty payouts.
+/// Total lamports across all penalty settlements (includes the Marinade/DAO
+/// distributor cut for BidTooLowPenalty). Fed to the bid bisection so post-fee
+/// yield accounts for penalty payouts redistributed within the ecosystem.
 pub fn calculate_total_penalties(settlements: &[Settlement]) -> Decimal {
     settlements
         .iter()
