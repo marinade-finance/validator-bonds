@@ -7,7 +7,6 @@ use settlement_common::settlement_collection::SettlementMeta;
 use settlement_common::settlement_config::SettlementConfig as PsrSettlementConfig;
 use settlement_common::utils::stake_authority_filter;
 use solana_sdk::pubkey::Pubkey;
-use std::collections::HashSet;
 
 /// Fee percentages calculated from basis points
 #[derive(Debug, Clone, Copy)]
@@ -207,12 +206,9 @@ impl BidDistributionConfig {
         // None = no exiting authorities = nobody is exiting = always false.
         // stake_authority_filter(None) returns |_| true which inverts semantics
         // in the !exiting(...) call sites.
-        match &self.exiting_stake_authorities {
+        match self.exiting_stake_authorities.clone() {
             None => Box::new(|_| false),
-            Some(list) => {
-                let set: HashSet<Pubkey> = list.iter().cloned().collect();
-                Box::new(move |pk| set.contains(pk))
-            }
+            Some(list) => Box::new(move |pk| list.contains(pk)),
         }
     }
 
