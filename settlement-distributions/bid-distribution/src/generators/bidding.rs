@@ -140,6 +140,7 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
 /// global post-fee PMPE at or above `ssr_pmpe`. Converges in one iteration when
 /// SSR is not binding. If SSR can never be satisfied, min_cap settlements are
 /// returned.
+#[allow(clippy::too_many_arguments)]
 pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],
@@ -201,6 +202,7 @@ pub fn generate_bid_settlements(
     Ok(best_feasible.unwrap_or_else(|| best_infeasible.expect("MAX_ADJ_ITER = 0")))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn generate_bid_settlements_worker(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],

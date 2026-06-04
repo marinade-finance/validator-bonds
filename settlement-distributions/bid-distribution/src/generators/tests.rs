@@ -893,6 +893,7 @@ fn test_commission_raised_after_auction_charged_from_rewards() {
         &create_test_settlement_config(),
         &create_test_fee_config(950, 500),
         &accept_all,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
@@ -974,6 +975,7 @@ fn test_negative_block_commission_charged_against_negative_in_bond() {
         &create_test_settlement_config(),
         &create_test_fee_config(950, 500),
         &accept_all,
+        &|_| false,
         Decimal::ZERO,
     )
     .unwrap();
