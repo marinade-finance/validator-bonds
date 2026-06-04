@@ -9,14 +9,12 @@ import { parseArgs } from 'node:util'
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { parse as parseYaml } from 'yaml'
 
-type Reason =
-  | 'Bidding'
-  | 'PriorityFee'
-  | 'BidTooLowPenalty'
-  | 'BlacklistPenalty'
-  | 'BondRiskFee'
-  | 'InstitutionalPayout'
-  | { ProtectedEvent: { DowntimeRevenueImpact?: Record<string, unknown> } }
+import {
+  type Settlement as SettlementBase,
+  isProtectedEvent,
+  sumStakerExtras,
+  feesByVoteAccount,
+} from './settlement-utils'
 
 type BidDetails = {
   total_marinade_active_stake: number
@@ -26,24 +24,9 @@ type BidDetails = {
   dao_fee_claim: number
 }
 
-type PenaltyDetails = {
-  stakers_bid_too_low_penalty_claim?: number
-  stakers_blacklist_penalty_claim?: number
-  stakers_bond_risk_fee_claim?: number
+type Settlement = SettlementBase & {
+  details: BidDetails | null
 }
-
-type Settlement = {
-  reason: Reason
-  vote_account: string
-  claims_amount: number
-  details: (BidDetails & PenaltyDetails) | null
-}
-
-const isProtectedEvent = (
-  r: Reason,
-): r is {
-  ProtectedEvent: { DowntimeRevenueImpact?: Record<string, unknown> }
-} => typeof r === 'object'
 
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
@@ -375,35 +358,16 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
           (s.details?.dao_fee_claim ?? 0),
         0,
       )
+    const stakerExtras = sumStakerExtras(settlements)
     const protectedEventClaims = settlements.reduce(
       (sum, s) => (isProtectedEvent(s.reason) ? sum + s.claims_amount : sum),
       0,
     )
-    const penaltyStakerClaims = settlements.reduce((sum, s) => {
-      const d = s.details
-      if (s.reason === 'BidTooLowPenalty')
-        return sum + (d?.stakers_bid_too_low_penalty_claim ?? 0)
-      if (s.reason === 'BlacklistPenalty')
-        return sum + (d?.stakers_blacklist_penalty_claim ?? 0)
-      if (s.reason === 'BondRiskFee')
-        return sum + (d?.stakers_bond_risk_fee_claim ?? 0)
-      return sum
-    }, 0)
-    const stakerExtras = protectedEventClaims + penaltyStakerClaims
+    const penaltyStakerClaims = stakerExtras - protectedEventClaims
     const pmpeAdj = ((totalRewards - feeAdj + stakerExtras) / stake) * 1000
     const pmpeMax =
       ((totalRewards * (1 - maxFee / 10000) + stakerExtras) / stake) * 1000
-    const feesByVote = new Map<string, number>()
-    for (const s of settlements) {
-      if (!s.details) continue
-      const prev = feesByVote.get(s.vote_account) ?? 0
-      feesByVote.set(
-        s.vote_account,
-        prev +
-          (s.details.marinade_fee_claim ?? 0) +
-          (s.details.dao_fee_claim ?? 0),
-      )
-    }
+    const feesByVote = feesByVoteAccount(settlements)
     const nCapped = bidSettlements.filter(s => {
       const rewards = parseFloat(s.details.total_marinade_stakers_rewards)
       const totalFee = feesByVote.get(s.vote_account) ?? 0
