@@ -36,6 +36,16 @@ const { values, positionals } = parseArgs({
 const [epochArg, ...feeStrs] = positionals
 const fees: (number | null)[] = feeStrs.length ? feeStrs.map(Number) : [null]
 
+const isNonNegInt = (s: string) => /^\d+$/.test(s)
+if (feeStrs.some(f => !isNonNegInt(f))) {
+  process.stderr.write('Failed: fee arguments must be non-negative integers\n')
+  process.exit(2)
+}
+if (values.m !== undefined && !isNonNegInt(values.m)) {
+  process.stderr.write('Failed: -m must be a non-negative integer\n')
+  process.exit(2)
+}
+
 if (values.c && feeStrs.length) {
   process.stderr.write(
     'Failed: fee arguments are ignored in -c mode (production settlement already has fees baked in)\n',
