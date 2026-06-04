@@ -203,7 +203,13 @@ impl BidDistributionConfig {
     }
 
     pub fn exiting_stake_authorities_filter(&self) -> Box<dyn Fn(&Pubkey) -> bool> {
-        stake_authority_filter(self.exiting_stake_authorities.clone())
+        // None = no exiting authorities = nobody is exiting = always false.
+        // stake_authority_filter(None) returns |_| true which inverts semantics
+        // in the !exiting(...) call sites.
+        match self.exiting_stake_authorities.clone() {
+            None => Box::new(|_| false),
+            Some(list) => Box::new(move |pk| list.contains(pk)),
+        }
     }
 
     /// Returns SAM settlement configs (Bidding, BidTooLowPenalty, BlacklistPenalty)

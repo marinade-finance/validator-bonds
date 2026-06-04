@@ -20,6 +20,7 @@ pub fn generate_institutional_settlement_collection(
         epoch: institutional_payout.epoch,
         slot: config.snapshot_slot,
         settlements,
+        ..Default::default()
     }
 }
 
