@@ -105,6 +105,9 @@ fn main() -> anyhow::Result<()> {
     let exiting_stake_authority_filter = bid_distribution_config.exiting_stake_authorities_filter();
 
     let mut all_settlements = vec![];
+    let mut adj_max_fee_bps: Option<u64> = None;
+    let mut adj_min_fee_bps: Option<u64> = None;
+    let mut collection_ssr_pmpe: Option<f64> = None;
 
     // ===== SAM Settlements (Bidding + Penalties) =====
     let has_sam_configs = bid_distribution_config.bidding_config().is_some()
@@ -183,7 +186,7 @@ fn main() -> anyhow::Result<()> {
 
         // Generate bid settlements
         info!("Generating bid settlements...");
-        let bid_settlements = generate_bid_settlements(
+        let bid = generate_bid_settlements(
             &stake_meta_index,
             &sam_validator_metas,
             &rewards_collection,
@@ -193,8 +196,11 @@ fn main() -> anyhow::Result<()> {
             &*exiting_stake_authority_filter,
             ssr_pmpe,
         )?;
-        info!("Generated {} bid settlements", bid_settlements.len());
-        all_settlements.extend(bid_settlements);
+        info!("Generated {} bid settlements", bid.settlements.len());
+        adj_max_fee_bps = Some(bid.adj_max_fee_bps);
+        adj_min_fee_bps = Some(bid.adj_min_fee_bps);
+        collection_ssr_pmpe = Some(f64::try_from(ssr_pmpe).unwrap_or(0.0));
+        all_settlements.extend(bid.settlements);
 
         // Generate penalty settlements
         info!("Generating penalty settlements...");
@@ -284,6 +290,9 @@ fn main() -> anyhow::Result<()> {
         slot: stake_meta_collection.slot,
         epoch: stake_meta_collection.epoch,
         settlements: all_settlements,
+        adj_max_fee_bps,
+        adj_min_fee_bps,
+        ssr_pmpe: collection_ssr_pmpe,
     };
 
     info!(
