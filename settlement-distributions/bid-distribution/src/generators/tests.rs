@@ -3190,6 +3190,7 @@ fn run_ssr_test_with_penalties(
         total_staker_penalties,
     )
     .unwrap()
+    .settlements
 }
 
 #[test]
