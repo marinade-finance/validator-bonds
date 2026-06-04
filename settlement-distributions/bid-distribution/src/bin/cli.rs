@@ -184,6 +184,24 @@ fn main() -> anyhow::Result<()> {
             "Epoch mismatch between SAM metas ({metas_epochs:?}) and stake meta collection ({stake_meta_epoch})",
         );
 
+        // Generate bid settlements
+        info!("Generating bid settlements...");
+        let bid = generate_bid_settlements(
+            &stake_meta_index,
+            &sam_validator_metas,
+            &rewards_collection,
+            bidding_config,
+            &bid_distribution_config.fee_config,
+            &*stake_authority_filter,
+            &*exiting_stake_authority_filter,
+            ssr_pmpe,
+        )?;
+        info!("Generated {} bid settlements", bid.settlements.len());
+        adj_max_fee_bps = Some(bid.adj_max_fee_bps);
+        adj_min_fee_bps = Some(bid.adj_min_fee_bps);
+        collection_ssr_pmpe = Some(f64::try_from(ssr_pmpe).unwrap_or(0.0));
+        all_settlements.extend(bid.settlements);
+
         // Generate penalty settlements
         info!("Generating penalty settlements...");
         let penalty_settlements = generate_penalty_settlements(
