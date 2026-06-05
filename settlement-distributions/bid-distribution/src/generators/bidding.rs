@@ -119,7 +119,8 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
                 let Ok(value) = BidSettlementDetails::deserialize(details) else {
                     continue;
                 };
-                totals.stake += Decimal::from(value.total_marinade_active_stake);
+                totals.stake += Decimal::from(value.total_marinade_active_stake)
+                    + Decimal::from(value.total_marinade_redelegation_stake);
                 totals.rewards += Decimal::from_str(&value.total_marinade_stakers_rewards)
                     .unwrap_or(Decimal::ZERO);
                 totals.fees += Decimal::from(value.marinade_fee_claim + value.dao_fee_claim);
@@ -143,10 +144,13 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
     totals
 }
 
-/// Bisects max_fee_bps downward from max_cap to find the highest fee that keeps
-/// global post-fee PMPE at or above `ssr_pmpe`. Converges in one iteration when
-/// SSR is not binding. If SSR can never be satisfied, min_cap settlements are
-/// returned.
+/// Bisects max_fee_bps (min_fee at min_cap) for the highest fee that keeps global
+/// post-fee PMPE (bid + `total_staker_extras`, i.e. penalty + PSR payouts to
+/// stakers) at or above the target (`ssr_pmpe + min_yield_premium`). If max_fee
+/// pins at max_cap
+/// with post-fee still above target there is leftover staker budget — a second
+/// phase raises min_fee to extract it. If the target can never be met, min_cap
+/// settlements are returned.
 pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],
@@ -156,18 +160,29 @@ pub fn generate_bid_settlements(
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     ssr_pmpe: Decimal,
+    total_staker_extras: Decimal,
 ) -> anyhow::Result<BidSettlementValues> {
     let max_cap = fee_config.max_fee_bps;
     let min_cap = fee_config.min_fee_bps;
+    let target = ssr_pmpe + fee_config.min_yield_premium_over_ssr_pmpe;
+    // `current` is the active axis: max_fee_bps, then min_fee_bps once max pins at
+    // the feasible ceiling. `overshoot` is its highest known-feasible value,
+    // `undershoot` the lowest known-infeasible. Feasible probes only climb, so the
+    // last feasible probe is the highest-fee one.
     let mut current = max_cap;
-    let mut undershoot = max_cap;
     let mut overshoot = min_cap;
-    let mut best_feasible_fee = min_cap;
-    let mut best_feasible: Option<Vec<Settlement>> = None;
-    let mut best_infeasible: Option<Vec<Settlement>> = None;
+    let mut undershoot = max_cap;
+    let mut tuning_max = true;
+    let mut adj_max = min_cap;
+    let mut best: Option<Vec<Settlement>> = None;
+    let mut fallback: Option<Vec<Settlement>> = None;
+    let mut fc = fee_config.clone();
     for _ in 0..MAX_ADJ_ITER {
-        let mut fc = fee_config.clone();
-        fc.max_fee_bps = current;
+        if tuning_max {
+            fc.max_fee_bps = current;
+        } else {
+            fc.min_fee_bps = current;
+        }
         let settlements = generate_bid_settlements_worker(
             stake_meta_index,
             sam_validator_metas,
@@ -182,37 +197,50 @@ pub fn generate_bid_settlements(
         let (post_fee, feasible) = if totals.stake.is_zero() {
             (Decimal::ZERO, false)
         } else {
-            let post_fee_pmpe =
-                (totals.rewards - totals.fees) / totals.stake * Decimal::ONE_THOUSAND;
-            (post_fee_pmpe, ssr_pmpe <= post_fee_pmpe)
+            let post_fee_pmpe = (totals.rewards + total_staker_extras - totals.fees) / totals.stake
+                * Decimal::ONE_THOUSAND;
+            (post_fee_pmpe, target <= post_fee_pmpe)
         };
-        let next = if feasible {
-            if best_feasible.is_none() || current > best_feasible_fee {
-                best_feasible_fee = current;
-                best_feasible = Some(settlements);
-            }
+        if feasible {
             overshoot = current;
-            current.saturating_add(undershoot) / 2
+            best = Some(settlements);
         } else {
-            best_infeasible = Some(settlements);
             undershoot = current;
-            current.saturating_add(overshoot) / 2
-        };
-        let next = next.clamp(min_cap, max_cap);
-        if next == current {
-            break;
+            fallback = Some(settlements);
         }
-        info!(
-            "Adjusted max_fee_bps: {} -> {} (post_fee_pmpe {}, ssr_pmpe {})",
-            current, next, post_fee, ssr_pmpe,
-        );
-        current = next;
+        let next = (overshoot.saturating_add(undershoot) / 2).clamp(min_cap, max_cap);
+        if next != current {
+            info!(
+                "Adjusted {}_fee_bps: {} -> {} (post_fee_pmpe {}, target {})",
+                if tuning_max { "max" } else { "min" },
+                current,
+                next,
+                post_fee,
+                target,
+            );
+            current = next;
+            continue;
+        }
+        // Active axis converged. If max_fee pinned at the feasible ceiling there is
+        // leftover budget; switch to raising min_fee. Otherwise done.
+        if tuning_max && feasible && current == max_cap {
+            adj_max = current;
+            tuning_max = false;
+            current = max_cap;
+            overshoot = min_cap;
+            undershoot = max_cap;
+            continue;
+        }
+        break;
     }
-    let settlements = best_feasible.or(best_infeasible).expect("MAX_ADJ_ITER = 0");
     Ok(BidSettlementValues {
-        settlements,
-        adj_max_fee_bps: best_feasible_fee,
-        adj_min_fee_bps: min_cap,
+        settlements: best.or(fallback).expect("MAX_ADJ_ITER = 0"),
+        adj_max_fee_bps: if tuning_max { overshoot } else { adj_max },
+        adj_min_fee_bps: if tuning_max {
+            fc.min_fee_bps
+        } else {
+            overshoot
+        },
     })
 }
 
@@ -440,7 +468,8 @@ fn generate_bid_settlements_worker(
             {
                 let target = ssr_pmpe + fee_config.min_yield_premium_over_ssr_pmpe;
                 let staker_yield_pmpe = total_marinade_stakers_rewards
-                    / Decimal::from(total_marinade_active_stake)
+                    / (Decimal::from(total_marinade_active_stake)
+                        + Decimal::from(total_marinade_redelegation_stake))
                     * Decimal::ONE_THOUSAND;
                 let fee_cap = (Decimal::ONE - target / staker_yield_pmpe).max(Decimal::ZERO);
                 fee_cap.clamp(fee_percentages.min_fee, fee_percentages.max_fee)

@@ -42,6 +42,24 @@ pub struct BondRiskFeeDetails {
     pub stakers_bond_risk_fee_claim: u64,
 }
 
+/// Total lamports across all penalty settlements (includes the Marinade/DAO
+/// distributor cut for BidTooLowPenalty). Fed to the bid bisection so post-fee
+/// yield accounts for penalty payouts redistributed within the ecosystem.
+pub fn calculate_total_penalties(settlements: &[Settlement]) -> Decimal {
+    settlements
+        .iter()
+        .filter(|s| {
+            matches!(
+                s.reason,
+                SettlementReason::BidTooLowPenalty
+                    | SettlementReason::BlacklistPenalty
+                    | SettlementReason::BondRiskFee
+            )
+        })
+        .map(|s| Decimal::from(s.claims_amount))
+        .sum()
+}
+
 pub fn generate_penalty_settlements(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],

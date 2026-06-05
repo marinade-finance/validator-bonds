@@ -241,7 +241,7 @@ function runCli(cfgFile: string, inp: string): string {
   )
   const stderr = Buffer.from(proc.stderr).toString()
   for (const line of stderr.split('\n')) {
-    if (line.includes(' ERROR ') || line.includes('Adjusted max_fee_bps'))
+    if (line.includes(' ERROR ') || line.includes('Adjusted '))
       process.stderr.write(line + '\n')
     else if (values.v && line.includes('SSR cap'))
       process.stderr.write(line + '\n')
@@ -269,6 +269,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
   const epy = prev ? 31557600 / (epochData.time - prev.time) : 182
 
   console.log(`- epoch: ${epoch}`)
+  console.log(`  time: ${epochData.time}`)
   console.log(`  ssr_pmpe: ${epochData.pmpe}`)
   console.log(`  ssr_apy: ${apy(epochData.pmpe, epy)}`)
   console.log(`  epochs_per_year: ${Math.floor(epy)}`)
@@ -377,8 +378,11 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     console.log(`  - max_fee_bps: ${maxFee}`)
     console.log(`    min_fee_bps: ${minFee}`)
     console.log(`    marinade_stake_sol: ${sol(stake)}`)
+    const pmpePreFee = ((totalRewards + stakerExtras) / stake) * 1000
+    console.log(`    pre_fee_pmpe: ${pmpePreFee.toFixed(6)}`)
     console.log(`    post_fee_pmpe_adj: ${pmpeAdj.toFixed(6)}`)
     console.log(`    post_fee_pmpe_max: ${pmpeMax.toFixed(6)}`)
+    console.log(`    apy_pre_fee: ${apy(pmpePreFee, epy)}`)
     console.log(`    apy_adj: ${apy(pmpeAdj, epy)}`)
     console.log(`    apy_max: ${apy(pmpeMax, epy)}`)
     console.log(`    fee_sol_adj: ${sol(feeAdj)}`)

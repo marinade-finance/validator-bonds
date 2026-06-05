@@ -1,5 +1,6 @@
 use anyhow::ensure;
 use log::{debug, info};
+use rust_decimal::Decimal;
 use settlement_common::protected_events::ProtectedEventCollection;
 use settlement_common::settlement_collection::{
     Settlement, SettlementClaim, SettlementFunder, SettlementReason,
@@ -11,6 +12,16 @@ use settlement_common::stake_meta_index::StakeMetaIndex;
 use settlement_common::utils::sort_claims_deterministically;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
+
+/// Total lamports PSR settlements redistribute to stakers. PSR settlements have
+/// no Marinade/DAO distributor cut, so claims_amount is the full staker payout.
+pub fn calculate_total_psr_staker_claims(settlements: &[Settlement]) -> Decimal {
+    settlements
+        .iter()
+        .filter(|s| matches!(s.reason, SettlementReason::ProtectedEvent(_)))
+        .map(|s| Decimal::from(s.claims_amount))
+        .sum()
+}
 
 /// Generates PSR settlements for protected events.
 /// Takes settlement configs that match the ProtectedEvent types (DowntimeRevenueImpact, CommissionSamIncrease).

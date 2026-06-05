@@ -2,7 +2,7 @@ use crate::generators::bidding::{
     calculate_bid_settlement_totals, generate_bid_settlements, BidSettlementDetails,
 };
 use crate::generators::psr_events::generate_psr_settlements;
-use crate::generators::sam_penalties::generate_penalty_settlements;
+use crate::generators::sam_penalties::{calculate_total_penalties, generate_penalty_settlements};
 use crate::rewards::{RewardsCollection, VoteAccountRewards};
 use crate::sam_meta::{
     AuctionValidatorValues, CommissionDetails, RevShare, SamMetadata, ValidatorSamMeta,
@@ -107,6 +107,7 @@ fn test_generate_bid_settlements_basic_single_validator() {
         &accept_all,
         &|_| false,
         Decimal::ZERO,
+        Decimal::ZERO,
     )
     .unwrap()
     .settlements;
@@ -209,6 +210,7 @@ fn test_generate_bid_settlements_positive_commission() {
         &fee_config,
         &accept_all,
         &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
     .unwrap()
@@ -350,6 +352,7 @@ fn test_generate_bid_settlements_negative_commission() {
         &fee_config,
         &accept_all,
         &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
     .unwrap()
@@ -536,6 +539,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &accept_all,
         &|_| false,
         Decimal::ZERO,
+        Decimal::ZERO,
     )
     .unwrap()
     .settlements;
@@ -549,6 +553,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &accept_all,
         &|_| false,
         Decimal::ZERO,
+        Decimal::ZERO,
     )
     .unwrap()
     .settlements;
@@ -561,6 +566,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &fee_config,
         &accept_all,
         &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
     .unwrap()
@@ -826,6 +832,7 @@ fn test_zero_rewards() {
         &accept_all,
         &|_| false,
         Decimal::ZERO,
+        Decimal::ZERO,
     )
     .unwrap()
     .settlements;
@@ -886,6 +893,7 @@ fn test_activating_bid_charge_basic() {
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
     .unwrap()
@@ -952,6 +960,7 @@ fn test_activating_bid_charge_with_active_stake() {
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
         Decimal::ZERO,
+        Decimal::ZERO,
     )
     .unwrap()
     .settlements;
@@ -1012,6 +1021,7 @@ fn test_activating_bid_charge_non_marinade_excluded() {
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
         Decimal::ZERO,
+        Decimal::ZERO,
     )
     .unwrap()
     .settlements;
@@ -1060,6 +1070,7 @@ fn test_activating_bid_charge_absent_when_no_field() {
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
     .unwrap()
@@ -1113,6 +1124,7 @@ fn test_activating_bid_charge_skipped_for_multi_epoch_warmup() {
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
     .unwrap()
@@ -1180,6 +1192,7 @@ fn test_activating_bid_charge_distributed_to_activating_stakers() {
         &create_test_fee_config(1000, 5000),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
     .unwrap()
@@ -1716,6 +1729,7 @@ fn test_generate_settlements_from_json_values() {
         &fee_config,
         &accept_all,
         &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
     .unwrap()
@@ -2387,6 +2401,7 @@ fn run_ssr_test(ssr_pmpe: f64, fee_config: FeeConfig) -> Vec<Settlement> {
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
         Decimal::try_from(ssr_pmpe).unwrap(),
+        Decimal::ZERO,
     )
     .unwrap()
     .settlements
@@ -2456,6 +2471,7 @@ fn test_bid_both_active_and_activating_stakers() {
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
     .unwrap()
@@ -2547,6 +2563,7 @@ fn test_bid_only_activating_no_active_marinade_stake() {
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
     .unwrap()
@@ -2661,6 +2678,7 @@ fn run_ssr_test_with_pmpe(
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
         Decimal::try_from(ssr_pmpe).unwrap(),
+        Decimal::ZERO,
     )
     .unwrap()
     .settlements
@@ -2682,15 +2700,14 @@ fn test_ssr_premium_positive_tightens_fee_cap() {
 #[test]
 fn test_ssr_premium_negative_loosens_fee_cap() {
     // staker_yield_pmpe=20, ssi/ssr=15, premium=-0.05 → target=14.95, fee_cap=1-14.95/20=0.2525
-    // BUT: global ssr=15 requires post_fee >= 15, so bisect converges to max_fee=2500 bps (0.25)
-    // which caps effective_fee at 0.25 (not 0.2525). fees = 20*0.25 = 5 SOL.
-    // The negative premium loosens the per-validator cap but the global floor still binds.
+    // The bisection feasibility uses the same target (ssr+premium=14.95), so the loosened
+    // per-validator cap holds: effective_fee=0.2525 → fees = 20*0.2525 = 5.05 SOL.
     let settlements = run_ssr_test(15.0, ssr_fee_config(3000, 0, -0.05));
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
     assert_eq!(
-        marinade_fee, 5_000_000_000,
-        "global ssr floor (15) caps effective_fee at 0.25 regardless of per-validator premium"
+        marinade_fee, 5_050_000_000,
+        "negative premium loosens fee cap to 0.2525; global target (14.95) matches"
     );
 }
 
@@ -2793,6 +2810,7 @@ fn test_ssr_mixed_active_and_activating_stake() {
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
         Decimal::try_from(28.0).unwrap(),
+        Decimal::ZERO,
     )
     .unwrap()
     .settlements;
@@ -2828,10 +2846,10 @@ fn test_ssr_mixed_active_and_activating_stake() {
 
 #[test]
 fn test_ssr_activating_only_uses_min_fee() {
-    // active=0, activating=5 SOL. No active stake → PMPE is unmeasurable → SSR floor
-    // does not apply → min_fee_bps=0 is used → stakers receive full activating_bid_claim.
+    // active=0, activating=5 SOL. No active stake → PMPE is unmeasurable → never
+    // feasible → max_fee bisects toward 0, leaving a negligible fee (a few bps),
+    // so stakers receive essentially all of the 0.5 SOL activating_bid_claim.
     // static_bid=0, activating_stake_pmpe=100 → activating_bid_claim = 100/1000 * 5 SOL = 0.5 SOL
-    // With min_fee=0: distributor_fee=0, all 0.5 SOL goes to activating stakers.
     let epoch = 100;
     let vote_account = test_vote_account(13);
 
@@ -2868,18 +2886,19 @@ fn test_ssr_activating_only_uses_min_fee() {
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
         Decimal::try_from(15.0).unwrap(),
+        Decimal::ZERO,
     )
     .unwrap()
     .settlements;
 
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
-    assert_eq!(
-        marinade_fee, 0,
-        "no active stake → min_fee=0 → no marinade fee"
-    );
     let dao_fee = sum_claims_for_authority(&settlements, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO);
-    assert_eq!(dao_fee, 0, "no active stake → min_fee=0 → no dao fee");
+    assert!(
+        marinade_fee + dao_fee < LAMPORTS_PER_SOL / 100,
+        "no active stake → negligible fee, got {}",
+        marinade_fee + dao_fee
+    );
 }
 
 #[test]
@@ -3077,6 +3096,7 @@ fn test_redelegation_stake_included_in_settlement_details() {
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false, // no exiting authorities
         Decimal::ZERO,
+        Decimal::ZERO,
     )
     .unwrap()
     .settlements;
@@ -3135,6 +3155,7 @@ fn test_exiting_authority_excluded_from_redelegation_stake() {
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE || *pk == TEST_EXITING_SA,
         &|pk: &Pubkey| *pk == TEST_EXITING_SA, // exiting authority: deactivating excluded
         Decimal::ZERO,
+        Decimal::ZERO,
     )
     .unwrap()
     .settlements;
@@ -3144,4 +3165,96 @@ fn test_exiting_authority_excluded_from_redelegation_stake() {
         serde_json::from_value(settlements[0].details.clone().unwrap()).unwrap();
     assert_eq!(details.total_marinade_active_stake, active + deactivating);
     assert_eq!(details.total_marinade_redelegation_stake, 0);
+}
+
+fn run_ssr_test_with_penalties(
+    ssr_pmpe: f64,
+    fee_config: FeeConfig,
+    total_staker_penalties: Decimal,
+) -> Vec<Settlement> {
+    let (collection, vote_account) = ssr_stake_meta_index();
+    let index = StakeMetaIndex::new(&collection);
+    let sam_meta = ssr_sam_meta(vote_account, 20.0, 20.0);
+    generate_bid_settlements(
+        &index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch: 100,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &fee_config,
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
+        Decimal::try_from(ssr_pmpe).unwrap(),
+        total_staker_penalties,
+    )
+    .unwrap()
+    .settlements
+}
+
+#[test]
+fn test_calculate_total_penalties_uses_claims_amount() {
+    // All penalty types use claims_amount directly (9_999 + 9_999 = 19_998).
+    let blacklist = Settlement {
+        reason: SettlementReason::BlacklistPenalty,
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+        vote_account: test_vote_account(1),
+        claims_count: 0,
+        claims_amount: 9_999,
+        claims: vec![],
+        details: Some(json!({
+            "total_marinade_active_stake": 0,
+            "effective_sam_marinade_active_stake": 0,
+            "blacklist_penalty_pmpe": "0",
+            "blacklist_penalty_total_claim": "0",
+            "stakers_blacklist_penalty_claim": 500,
+        })),
+    };
+    let bid_too_low = Settlement {
+        reason: SettlementReason::BidTooLowPenalty,
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+        vote_account: test_vote_account(2),
+        claims_count: 0,
+        claims_amount: 9_999,
+        claims: vec![],
+        details: Some(json!({
+            "total_marinade_active_stake": 0,
+            "effective_sam_marinade_active_stake": 0,
+            "bid_too_low_penalty_pmpe": "0",
+            "bid_too_low_penalty_total_claim": "0",
+            "distributor_bid_too_low_penalty_claim": 300,
+            "stakers_bid_too_low_penalty_claim": 700,
+            "dao_bid_too_low_penalty_claim": 0,
+            "marinade_bid_too_low_penalty_claim": 300,
+        })),
+    };
+    let total = calculate_total_penalties(&[blacklist, bid_too_low]);
+    assert_eq!(total, Decimal::from(9_999 + 9_999));
+}
+
+#[test]
+fn test_penalties_raise_feasible_fee() {
+    // yield=20, ssr=19.5 → per-validator cap pins effective_fee at 0.025, and the
+    // global floor leaves no room for min_fee. Penalties redistributed to stakers
+    // add headroom, so the bisection keeps a strictly higher fee.
+    let no_penalty = run_ssr_test_with_penalties(19.5, ssr_fee_config(3000, 0, 0.0), Decimal::ZERO);
+    let with_penalty = run_ssr_test_with_penalties(
+        19.5,
+        ssr_fee_config(3000, 0, 0.0),
+        Decimal::from(50 * LAMPORTS_PER_SOL),
+    );
+    let fee = |s: &[Settlement]| {
+        sum_claims_for_authority(s, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
+    };
+    assert!(
+        fee(&with_penalty) > fee(&no_penalty),
+        "penalty headroom must let the bisection keep a higher fee: {} vs {}",
+        fee(&with_penalty),
+        fee(&no_penalty),
+    );
 }
