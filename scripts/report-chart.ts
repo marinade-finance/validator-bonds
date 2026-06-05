@@ -32,7 +32,6 @@ const S_AT_MIN = 'At min fee'
 const S_ADJUSTED = 'Adjusted'
 const S_MAXFEE = 'Max-fee cap'
 const S_SSR = 'SSR baseline'
-const S_SPREAD = 'Adj–Max spread'
 
 type Row = {
   epoch: number
@@ -123,97 +122,169 @@ async function main() {
     scale: { domain: epochDomain },
   }
 
-  const apyColorScale = {
-    domain: [S_SSR, S_ADJUSTED, S_MAXFEE, S_SPREAD],
-    range: [C_REF, C_ACTUAL, C_REF, C_ACTUAL],
-  }
-  const apyLegend = {
-    field: 'k',
-    type: 'nominal' as const,
-    scale: apyColorScale,
-    legend: {
-      title: null,
-      orient: 'bottom-left' as const,
-      direction: 'horizontal' as const,
-    },
-  }
+  // Tidy APY data for a legend-friendly encoding: one row per (epoch, series)
+  type ApyTidy = { epoch: number; series: string; apy: number }
+  const apyTidy: ApyTidy[] = rows.flatMap(r => [
+    { epoch: r.epoch, series: S_SSR, apy: r.ssrApy },
+    { epoch: r.epoch, series: S_ADJUSTED, apy: r.apyAdj },
+    { epoch: r.epoch, series: S_MAXFEE, apy: r.apyMax },
+  ])
+
+  // Read max_fee_bps from first sim row if available
+  const firstSim = (() => {
+    const raw = fs.readFileSync(REPORT, 'utf8')
+    const data = parseYaml(raw) as unknown as ReportYaml
+    for (const e of data.epochs) {
+      if (e.simulations?.[0]) return e.simulations[0]
+    }
+    return null
+  })()
+  const maxFeeBps = firstSim?.['max_fee_bps'] ?? 800
 
   const spec: TopLevelSpec = {
     $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
-    title: { text: title, fontSize: 15, fontWeight: 'bold' },
+    title: { text: title, fontSize: 15, fontWeight: 'bold', offset: 8 },
     background: 'white',
-    config: { view: { stroke: null }, axis: { grid: true, gridOpacity: 0.4 } },
+    config: {
+      view: { stroke: null },
+      axis: {
+        grid: true,
+        gridOpacity: 0.35,
+        labelFontSize: 11,
+        titleFontSize: 12,
+      },
+      legend: { labelFontSize: 11 },
+    },
     resolve: { scale: { color: 'independent' } },
     vconcat: [
+      // ── Panel 1: Post-Fee APY ─────────────────────────────────────────────
       {
         width: 960,
-        height: 240,
-        title: 'Post-Fee APY  (adjusted · SSR baseline · max-fee cap)',
-        encoding: { x: xEnc },
+        height: 230,
+        title: { text: 'Post-Fee APY', fontSize: 13 },
         layer: [
+          // Shaded band (spread between adjusted and max-fee)
           {
             data: { values: apyData },
-            mark: { type: 'area', opacity: 0.08, color: C_ACTUAL },
+            mark: { type: 'area', opacity: 0.13, color: C_ACTUAL },
             encoding: {
-              y: { field: 'apyAdj', type: 'quantitative' },
-              y2: { field: 'apyMax' },
-              color: { datum: S_SPREAD, ...apyLegend },
-            },
-          },
-          {
-            data: { values: apyData },
-            mark: { type: 'line', strokeDash: [4, 2], strokeWidth: 1.8 },
-            encoding: {
-              y: {
-                field: 'ssrApy',
-                type: 'quantitative',
-                title: 'APY %',
-                scale: { zero: false },
-                axis: { format: '.2f', labelExpr: "datum.label + '%'" },
-              },
-              color: { datum: S_SSR, ...apyLegend },
-            },
-          },
-          {
-            data: { values: apyData },
-            mark: { type: 'line', strokeWidth: 2.5 },
-            encoding: {
+              x: xEnc,
               y: {
                 field: 'apyAdj',
                 type: 'quantitative',
-                title: 'APY %',
                 scale: { zero: false },
               },
-              color: { datum: S_ADJUSTED, ...apyLegend },
+              y2: { field: 'apyMax' },
             },
           },
+          // SSR baseline — dashed gray
           {
-            data: { values: apyData },
-            mark: { type: 'line', strokeDash: [2, 2], strokeWidth: 1.5 },
+            data: { values: apyTidy.filter(d => d.series === S_SSR) },
+            mark: {
+              type: 'line',
+              strokeDash: [5, 3],
+              strokeWidth: 1.6,
+              color: C_REF,
+            },
             encoding: {
+              x: xEnc,
               y: {
-                field: 'apyMax',
+                field: 'apy',
                 type: 'quantitative',
                 title: 'APY %',
                 scale: { zero: false },
+                axis: { format: '.1f', labelExpr: "datum.label + '%'" },
               },
-              color: { datum: S_MAXFEE, ...apyLegend },
             },
           },
+          // Max-fee cap — dotted light gray
           {
-            data: { values: apyData },
-            mark: { type: 'text', dy: -8, fontSize: 8, color: C_ACTUAL },
+            data: { values: apyTidy.filter(d => d.series === S_MAXFEE) },
+            mark: {
+              type: 'line',
+              strokeDash: [2, 3],
+              strokeWidth: 1.3,
+              color: '#aaaaaa',
+            },
             encoding: {
+              x: xEnc,
+              y: { field: 'apy', type: 'quantitative', scale: { zero: false } },
+            },
+          },
+          // Adjusted — solid blue with points (main series)
+          {
+            data: { values: apyTidy.filter(d => d.series === S_ADJUSTED) },
+            mark: {
+              type: 'line',
+              strokeWidth: 2.5,
+              color: C_ACTUAL,
+              point: { filled: true, size: 35, color: C_ACTUAL },
+            },
+            encoding: {
+              x: xEnc,
+              y: { field: 'apy', type: 'quantitative', scale: { zero: false } },
+            },
+          },
+          // Legend proxy — single-row tidy data drives the shared color legend
+          {
+            data: { values: apyTidy },
+            mark: { type: 'line', opacity: 0 },
+            encoding: {
+              x: xEnc,
+              y: { field: 'apy', type: 'quantitative' },
+              color: {
+                field: 'series',
+                sort: [S_ADJUSTED, S_SSR, S_MAXFEE],
+                scale: {
+                  domain: [S_ADJUSTED, S_SSR, S_MAXFEE],
+                  range: [C_ACTUAL, C_REF, '#aaaaaa'],
+                },
+                legend: {
+                  title: null,
+                  orient: 'bottom-left',
+                  direction: 'horizontal',
+                  symbolSize: 250,
+                  symbolStrokeWidth: 3,
+                },
+              },
+            },
+          },
+          // Labels: first, last, min, max of adjusted
+          {
+            data: {
+              values: (() => {
+                const adj = apyData
+                const minV = Math.min(...adj.map(d => d.apyAdj))
+                const maxV = Math.max(...adj.map(d => d.apyAdj))
+                return adj.filter(
+                  (d, i) =>
+                    i === 0 ||
+                    i === adj.length - 1 ||
+                    d.apyAdj === minV ||
+                    d.apyAdj === maxV,
+                )
+              })(),
+            },
+            mark: {
+              type: 'text',
+              dy: -11,
+              fontSize: 9,
+              fontWeight: 'bold',
+              color: C_ACTUAL,
+            },
+            encoding: {
+              x: xEnc,
               y: { field: 'apyAdj', type: 'quantitative' },
               text: { field: 'apyAdj', type: 'quantitative', format: '.2f' },
             },
           },
         ],
       },
+      // ── Panel 2: Fee Extraction ───────────────────────────────────────────
       {
         width: 960,
-        height: 240,
-        title: 'Marinade Fee Extraction (SOL)',
+        height: 210,
+        title: { text: 'Marinade Fee Extraction (SOL)', fontSize: 13 },
         data: { values: feeTidy },
         layer: [
           {
@@ -228,13 +299,18 @@ async function main() {
                   domain: [S_ADJUSTED, S_MAXFEE],
                   range: [C_ACTUAL, C_REF],
                 },
-                legend: { title: null, orient: 'top-right' },
+                legend: {
+                  title: null,
+                  orient: 'top-right',
+                  direction: 'vertical',
+                },
               },
             },
           },
+          // Label only the adjusted bars
           {
             transform: [{ filter: `datum.series === '${S_ADJUSTED}'` }],
-            mark: { type: 'text', dy: -4, fontSize: 8, color: 'black' },
+            mark: { type: 'text', dy: -5, fontSize: 8.5, color: '#333' },
             encoding: {
               x: xEnc,
               xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
@@ -244,48 +320,31 @@ async function main() {
           },
         ],
       },
+      // ── Panel 3a + 3b: Validators & Shortfall ────────────────────────────
       {
+        spacing: 24,
         hconcat: [
           {
-            width: 440,
-            height: 170,
-            title: 'Validators at Cap / at Min Fee (%)',
+            width: 460,
+            height: 190,
+            title: { text: 'Validators at Cap / at Min Fee (%)', fontSize: 13 },
             data: { values: valTidy },
             layer: [
-              {
-                mark: { type: 'area', opacity: 0.1 },
-                encoding: {
-                  x: xEnc,
-                  y: {
-                    field: 'pct',
-                    type: 'quantitative',
-                    title: '%',
-                    scale: { domain: [0, 115] },
-                    axis: { labelExpr: "datum.label + '%'" },
-                  },
-                  color: {
-                    field: 'series',
-                    scale: {
-                      domain: [S_AT_CAP, S_AT_MIN],
-                      range: [C_CAP, C_MINFEE],
-                    },
-                    legend: { title: null, orient: 'top-right' },
-                  },
-                },
-              },
+              // Lines with points
               {
                 mark: {
                   type: 'line',
                   strokeWidth: 2,
-                  point: { filled: true, size: 25 },
+                  point: { filled: true, size: 35 },
                 },
                 encoding: {
                   x: xEnc,
                   y: {
                     field: 'pct',
                     type: 'quantitative',
-                    title: '%',
+                    title: '% of validators',
                     scale: { domain: [0, 115] },
+                    axis: { format: 'd', labelExpr: "datum.label + '%'" },
                   },
                   color: {
                     field: 'series',
@@ -293,25 +352,33 @@ async function main() {
                       domain: [S_AT_CAP, S_AT_MIN],
                       range: [C_CAP, C_MINFEE],
                     },
-                    legend: { title: null, orient: 'top-right' },
+                    legend: {
+                      title: null,
+                      orient: 'top-left',
+                      direction: 'vertical',
+                    },
                   },
                 },
               },
+              // 100% reference line
               {
                 mark: {
                   type: 'rule',
-                  color: 'gray',
-                  strokeWidth: 0.8,
-                  strokeDash: [2, 2],
+                  color: '#888',
+                  strokeWidth: 1,
+                  strokeDash: [4, 3],
                 },
                 encoding: { y: { datum: 100 } },
               },
             ],
           },
           {
-            width: 440,
-            height: 170,
-            title: `Shortfall vs Max Fee (SOL)  [total: ${totalShortfall.toFixed(0)} SOL]`,
+            width: 460,
+            height: 190,
+            title: {
+              text: `Fee Shortfall vs Max-Fee Scenario (SOL)  [Σ ${totalShortfall.toFixed(0)} SOL]`,
+              fontSize: 13,
+            },
             data: { values: rows },
             layer: [
               {
@@ -322,7 +389,7 @@ async function main() {
                 },
               },
               {
-                mark: { type: 'text', dy: -4, fontSize: 8, color: 'black' },
+                mark: { type: 'text', dy: -5, fontSize: 8.5, color: '#333' },
                 encoding: {
                   x: xEnc,
                   y: { field: 'shortfall', type: 'quantitative' },
@@ -337,6 +404,7 @@ async function main() {
           },
         ],
       },
+      // ── Footer ────────────────────────────────────────────────────────────
       {
         width: 960,
         height: 1,
@@ -344,8 +412,8 @@ async function main() {
         data: { values: [{}] },
         mark: {
           type: 'text',
-          text: 'max_fee_bps = 800 · source: report.yml',
-          color: 'gray',
+          text: `max_fee_bps = ${String(maxFeeBps)} · source: report.yml`,
+          color: '#999',
           fontSize: 9,
           align: 'center',
         },
