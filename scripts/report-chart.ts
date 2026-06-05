@@ -27,6 +27,7 @@ type EpochYaml = {
 }
 type ReportYaml = { epochs: EpochYaml[] }
 
+const INCOMPLETE_TEST = 'datum.incomplete'
 const S_AT_CAP = 'At cap'
 const S_AT_MIN = 'At min fee'
 const S_ADJUSTED = 'Adjusted'
@@ -127,26 +128,58 @@ async function main() {
   const useMonth = spanDays > 60
   const periodKey = (r: Row) => (useMonth ? r.month : isoWeek(r.time))
 
-  type PeriodData = { feeAdj: number; feeMax: number; shortfall: number }
+  type PeriodData = {
+    feeAdj: number
+    feeMax: number
+    shortfall: number
+    count: number
+  }
   const periodMap = new Map<string, PeriodData>()
   for (const r of rows) {
     const k = periodKey(r)
-    const e = periodMap.get(k) ?? { feeAdj: 0, feeMax: 0, shortfall: 0 }
+    const e = periodMap.get(k) ?? {
+      feeAdj: 0,
+      feeMax: 0,
+      shortfall: 0,
+      count: 0,
+    }
     e.feeAdj += r.feeAdj
     e.feeMax += r.feeMax
     e.shortfall += r.shortfall
+    e.count += 1
     periodMap.set(k, e)
   }
   const periodDomain = [...periodMap.keys()].sort()
-  type PeriodRow = { period: string; series: string; sol: number }
+  // Periods with < 60% of the max epoch count are incomplete (first/last partial period)
+  const maxCount = Math.max(...[...periodMap.values()].map(v => v.count))
+  const incompletePeriods = new Set(
+    periodDomain.filter(p => (periodMap.get(p)?.count ?? 0) < maxCount * 0.6),
+  )
+  type PeriodRow = {
+    period: string
+    series: string
+    sol: number
+    incomplete: boolean
+  }
   const feePeriodTidy: PeriodRow[] = periodDomain.flatMap(p => [
-    { period: p, series: S_ADJUSTED, sol: periodMap.get(p)?.feeAdj ?? 0 },
-    { period: p, series: S_MAXFEE, sol: periodMap.get(p)?.feeMax ?? 0 },
+    {
+      period: p,
+      series: S_ADJUSTED,
+      sol: periodMap.get(p)?.feeAdj ?? 0,
+      incomplete: incompletePeriods.has(p),
+    },
+    {
+      period: p,
+      series: S_MAXFEE,
+      sol: periodMap.get(p)?.feeMax ?? 0,
+      incomplete: incompletePeriods.has(p),
+    },
   ])
-  type ShortRow = { period: string; sol: number }
+  type ShortRow = { period: string; sol: number; incomplete: boolean }
   const shortfallPeriod: ShortRow[] = periodDomain.map(p => ({
     period: p,
     sol: periodMap.get(p)?.shortfall ?? 0,
+    incomplete: incompletePeriods.has(p),
   }))
 
   // Missing epochs enumerated from the gaps — null rows inserted at these
@@ -499,7 +532,7 @@ async function main() {
             data: { values: feePeriodTidy },
             layer: [
               {
-                mark: { type: 'bar', opacity: 0.85 },
+                mark: { type: 'bar' },
                 encoding: {
                   x: {
                     field: 'period',
@@ -523,6 +556,26 @@ async function main() {
                       symbolType: 'square',
                       symbolSize: 220,
                     },
+                  },
+                  fillOpacity: {
+                    condition: { test: INCOMPLETE_TEST, value: 0 },
+                    value: 0.85,
+                  },
+                  stroke: {
+                    field: 'series',
+                    scale: {
+                      domain: [S_ADJUSTED, S_MAXFEE],
+                      range: [C_ACTUAL, C_REF],
+                    },
+                    legend: null,
+                  },
+                  strokeWidth: {
+                    condition: { test: INCOMPLETE_TEST, value: 1.5 },
+                    value: 0,
+                  },
+                  strokeDash: {
+                    condition: { test: INCOMPLETE_TEST, value: [4, 2] },
+                    value: [1, 0],
                   },
                 },
               },
@@ -564,7 +617,7 @@ async function main() {
             data: { values: shortfallPeriod },
             layer: [
               {
-                mark: { type: 'bar', color: C_COST, opacity: 0.8 },
+                mark: { type: 'bar' },
                 encoding: {
                   x: {
                     field: 'period',
@@ -574,6 +627,20 @@ async function main() {
                     scale: { domain: periodDomain },
                   },
                   y: { field: 'sol', type: 'quantitative', title: 'SOL' },
+                  fillOpacity: {
+                    condition: { test: INCOMPLETE_TEST, value: 0 },
+                    value: 0.8,
+                  },
+                  stroke: { value: C_COST },
+                  strokeWidth: {
+                    condition: { test: INCOMPLETE_TEST, value: 1.5 },
+                    value: 0,
+                  },
+                  strokeDash: {
+                    condition: { test: INCOMPLETE_TEST, value: [4, 2] },
+                    value: [1, 0],
+                  },
+                  color: { value: C_COST },
                 },
               },
             ],
