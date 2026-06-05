@@ -1,5 +1,6 @@
 use log::info;
 use merkle_tree::serde_serialize::pubkey_string_conversion;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use settlement_common::utils::{file_error, read_from_json_file};
 use snapshot_parser_validator_cli::stake_meta::StakeMetaCollection;
@@ -66,6 +67,31 @@ pub struct VoteAccountRewards {
     pub stakers_mev_rewards: u64,
     pub stakers_priority_fee_rewards: u64,
     pub stakers_total_amount: u64,
+}
+
+impl VoteAccountRewards {
+    // commission rate actually applied at rewards distribution; None when there were no rewards
+    pub fn realized_inflation_commission_dec(&self) -> Option<Decimal> {
+        realized_commission_dec(self.inflation_rewards, self.stakers_inflation_rewards)
+    }
+
+    pub fn realized_mev_commission_dec(&self) -> Option<Decimal> {
+        realized_commission_dec(self.mev_rewards, self.stakers_mev_rewards)
+    }
+
+    pub fn realized_block_commission_dec(&self) -> Option<Decimal> {
+        realized_commission_dec(self.block_rewards, self.stakers_priority_fee_rewards)
+    }
+}
+
+fn realized_commission_dec(gross_rewards: u64, stakers_rewards: u64) -> Option<Decimal> {
+    if gross_rewards == 0 {
+        return None;
+    }
+    Some(
+        (Decimal::from(gross_rewards) - Decimal::from(stakers_rewards))
+            / Decimal::from(gross_rewards),
+    )
 }
 
 /// Collection of rewards aggregated by vote account
@@ -264,6 +290,13 @@ pub fn load_rewards_from_directory(
     )?;
     info!("All reward files match epoch {epoch}");
 
+    verify_stakers_rewards_present(
+        &inflation_rewards,
+        &mev_rewards,
+        &validators_inflation,
+        &validators_mev,
+    )?;
+
     info!("Aggregating rewards by vote account...");
     let rewards_by_vote_account = aggregate_rewards(
         inflation_rewards,
@@ -279,6 +312,26 @@ pub fn load_rewards_from_directory(
         epoch,
         rewards_by_vote_account,
     })
+}
+
+// an empty stakers' rewards file with a populated validators' counterpart would derive 100% commissions and overcharge bonds
+fn verify_stakers_rewards_present(
+    inflation_rewards: &[StakeRewardEntry],
+    mev_rewards: &[StakeRewardEntry],
+    validators_inflation: &[VoteRewardEntry],
+    validators_mev: &[VoteRewardEntry],
+) -> anyhow::Result<()> {
+    if !validators_inflation.is_empty() && inflation_rewards.is_empty() {
+        return Err(anyhow::anyhow!(
+            "{VALIDATORS_INFLATION_REWARDS_FILE} has entries but {INFLATION_REWARDS_FILE} is empty - either the stakers' inflation rewards export is incomplete or no stakers received inflation rewards; refusing to derive 100% commissions"
+        ));
+    }
+    if !validators_mev.is_empty() && mev_rewards.is_empty() {
+        return Err(anyhow::anyhow!(
+            "{VALIDATORS_MEV_REWARDS_FILE} has entries but {MEV_REWARDS_FILE} is empty - either the stakers' MEV rewards export is incomplete or no stakers received MEV rewards; refusing to derive 100% commissions"
+        ));
+    }
+    Ok(())
 }
 
 /// Aggregate all reward types by vote account
@@ -303,6 +356,9 @@ fn aggregate_rewards(
         .collect();
 
     let mut rewards_map: HashMap<Pubkey, VoteAccountRewards> = HashMap::new();
+    let mut unmatched_inflation: u64 = 0;
+    let mut unmatched_mev: u64 = 0;
+    let mut unmatched_jito: u64 = 0;
 
     info!(" > Processing stakers' inflation rewards...");
     for reward in inflation_rewards {
@@ -320,6 +376,7 @@ fn aggregate_rewards(
             entry.inflation_rewards = entry.inflation_rewards.saturating_add(reward.amount);
             entry.total_amount = entry.total_amount.saturating_add(reward.amount);
         } else {
+            unmatched_inflation = unmatched_inflation.saturating_add(reward.amount);
             log::warn!(
                 "No vote account found for stake account {} in inflation rewards",
                 reward.stake_account
@@ -341,6 +398,7 @@ fn aggregate_rewards(
             entry.mev_rewards = entry.mev_rewards.saturating_add(reward.amount);
             entry.total_amount = entry.total_amount.saturating_add(reward.amount);
         } else {
+            unmatched_mev = unmatched_mev.saturating_add(reward.amount);
             log::warn!(
                 "No vote account found for stake account {} in MEV rewards",
                 reward.stake_account
@@ -409,11 +467,19 @@ fn aggregate_rewards(
             entry.validators_total_amount =
                 entry.validators_total_amount.saturating_sub(reward.amount);
         } else {
+            unmatched_jito = unmatched_jito.saturating_add(reward.amount);
             log::warn!(
                 "No vote account found for stake account {} in Jito priority fee rewards",
                 reward.stake_account
             );
         }
+    }
+
+    // unmatched stakers' rewards would inflate the derived onchain commissions and overcharge validator bonds
+    if unmatched_inflation > 0 || unmatched_mev > 0 || unmatched_jito > 0 {
+        return Err(anyhow::anyhow!(
+            "Unmatched stake accounts in rewards files (lamports): inflation {unmatched_inflation}, mev {unmatched_mev}, jito priority fee {unmatched_jito}"
+        ));
     }
 
     let total_rewards = rewards_map
@@ -443,4 +509,148 @@ fn aggregate_rewards(
     );
 
     Ok(rewards_map)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use snapshot_parser_validator_cli::stake_meta::StakeMeta;
+
+    fn stake_meta(pubkey: Pubkey, validator: Pubkey) -> StakeMeta {
+        StakeMeta {
+            pubkey,
+            validator: Some(validator),
+            withdraw_authority: Pubkey::default(),
+            stake_authority: Pubkey::default(),
+            active_delegation_lamports: 0,
+            balance_lamports: 0,
+            activating_delegation_lamports: 0,
+            deactivating_delegation_lamports: 0,
+        }
+    }
+
+    fn stake_entry(stake_account: Pubkey, amount: u64) -> StakeRewardEntry {
+        StakeRewardEntry {
+            epoch: 1,
+            stake_account,
+            amount,
+        }
+    }
+
+    fn vote_entry(vote_account: Pubkey, amount: u64) -> VoteRewardEntry {
+        VoteRewardEntry {
+            epoch: 1,
+            vote_account,
+            amount,
+        }
+    }
+
+    #[test]
+    fn test_verify_stakers_rewards_present() {
+        let stakers = vec![stake_entry(Pubkey::new_unique(), 90)];
+        let validators = vec![vote_entry(Pubkey::new_unique(), 10)];
+
+        assert!(
+            verify_stakers_rewards_present(&stakers, &stakers, &validators, &validators).is_ok()
+        );
+        assert!(verify_stakers_rewards_present(&[], &[], &[], &[]).is_ok());
+
+        let error = verify_stakers_rewards_present(&[], &stakers, &validators, &validators)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("inflation.json is empty"), "{error}");
+
+        let error = verify_stakers_rewards_present(&stakers, &[], &validators, &validators)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("mev.json is empty"), "{error}");
+    }
+
+    #[test]
+    fn test_realized_commission_dec() {
+        let rewards = VoteAccountRewards {
+            inflation_rewards: 100,
+            stakers_inflation_rewards: 95,
+            mev_rewards: 0,
+            stakers_mev_rewards: 0,
+            block_rewards: 10,
+            stakers_priority_fee_rewards: 12,
+            // distinct from stakers_priority_fee_rewards to catch a wrong-field regression
+            jito_priority_fee_rewards: 7,
+            ..Default::default()
+        };
+        assert_eq!(
+            rewards.realized_inflation_commission_dec(),
+            Some(Decimal::new(5, 2))
+        );
+        assert_eq!(rewards.realized_mev_commission_dec(), None);
+        assert_eq!(
+            rewards.realized_block_commission_dec(),
+            Some(Decimal::new(-2, 1))
+        );
+    }
+
+    #[test]
+    fn test_aggregate_rewards_fails_on_unmatched_stake_account() {
+        let vote_account = Pubkey::new_unique();
+        let known_stake = Pubkey::new_unique();
+        let unknown_stake = Pubkey::new_unique();
+        let stake_meta_collection = StakeMetaCollection {
+            epoch: 1,
+            slot: 1,
+            stake_metas: vec![stake_meta(known_stake, vote_account)],
+        };
+
+        let result = aggregate_rewards(
+            vec![
+                stake_entry(known_stake, 100),
+                stake_entry(unknown_stake, 50),
+            ],
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            &stake_meta_collection,
+        );
+
+        let error = result.unwrap_err().to_string();
+        assert!(
+            error.contains("Unmatched stake accounts") && error.contains("inflation 50"),
+            "Unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn test_aggregate_rewards_all_matched() {
+        let vote_account = Pubkey::new_unique();
+        let known_stake = Pubkey::new_unique();
+        let stake_meta_collection = StakeMetaCollection {
+            epoch: 1,
+            slot: 1,
+            stake_metas: vec![stake_meta(known_stake, vote_account)],
+        };
+
+        let rewards_map = aggregate_rewards(
+            vec![stake_entry(known_stake, 100)],
+            vec![stake_entry(known_stake, 10)],
+            vec![stake_entry(known_stake, 20)],
+            vec![],
+            vec![],
+            vec![],
+            &stake_meta_collection,
+        )
+        .unwrap();
+
+        let rewards = rewards_map.get(&vote_account).unwrap();
+        assert_eq!(rewards.stakers_inflation_rewards, 100);
+        assert_eq!(rewards.stakers_mev_rewards, 20);
+        assert_eq!(rewards.stakers_priority_fee_rewards, 10);
+        assert_eq!(rewards.stakers_total_amount, 130);
+        assert_eq!(rewards.inflation_rewards, 100);
+        assert_eq!(rewards.mev_rewards, 20);
+        assert_eq!(rewards.jito_priority_fee_rewards, 10);
+        // jito is excluded from total_amount (it redistributes block rewards)
+        assert_eq!(rewards.total_amount, 120);
+    }
 }
