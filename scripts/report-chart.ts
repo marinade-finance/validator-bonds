@@ -473,7 +473,7 @@ async function main() {
         data: { values: apyTidy },
         mark: { type: 'line', opacity: 0 },
         encoding: {
-          x: xEnc,
+          x: { ...xEnc, axis: null },
           y: { field: 'apy', type: 'quantitative', axis: null },
           color: {
             field: 'series',
