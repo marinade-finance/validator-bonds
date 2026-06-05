@@ -67,14 +67,15 @@ const ratio = (s: string | undefined): number => {
   return b ? (a / b) * 100 : 0
 }
 
-function load(): Row[] {
+function load(): { rows: Row[]; maxFeeBps: number } {
   const data = parseYaml(
     fs.readFileSync(REPORT, 'utf8'),
   ) as unknown as ReportYaml
-  // Skip epochs the CLI could not simulate (no `simulations` entries).
-  return data.epochs.flatMap(e => {
+  let maxFeeBps = 800
+  const rows = data.epochs.flatMap(e => {
     const sim = e.simulations?.[0]
     if (!sim) return []
+    if (maxFeeBps === 800) maxFeeBps = Number(sim['max_fee_bps'] ?? 800)
     const feeAdj = Number(sim['fee_sol_adj'])
     const feeMax = Number(sim['fee_sol_max'])
     return [
@@ -95,10 +96,11 @@ function load(): Row[] {
       },
     ]
   })
+  return { rows, maxFeeBps }
 }
 
 async function main() {
-  const rows = load()
+  const { rows, maxFeeBps } = load()
   const epochs = rows.map(r => r.epoch)
   const totalShortfall = rows.reduce((s, r) => s + r.shortfall, 0)
   const title = `Marinade Validator Bond Fee Simulation · Epochs ${epochs[0]}–${epochs[epochs.length - 1]}`
@@ -128,33 +130,22 @@ async function main() {
   const useMonth = spanDays > 60
   const periodKey = (r: Row) => (useMonth ? r.month : isoWeek(r.time))
 
-  type PeriodData = {
-    feeAdj: number
-    feeMax: number
-    shortfall: number
-    count: number
-  }
+  type PeriodData = { feeAdj: number; feeMax: number; shortfall: number }
   const periodMap = new Map<string, PeriodData>()
   for (const r of rows) {
     const k = periodKey(r)
-    const e = periodMap.get(k) ?? {
-      feeAdj: 0,
-      feeMax: 0,
-      shortfall: 0,
-      count: 0,
-    }
+    const e = periodMap.get(k) ?? { feeAdj: 0, feeMax: 0, shortfall: 0 }
     e.feeAdj += r.feeAdj
     e.feeMax += r.feeMax
     e.shortfall += r.shortfall
-    e.count += 1
     periodMap.set(k, e)
   }
   const periodDomain = [...periodMap.keys()].sort()
-  // Periods with < 60% of the max epoch count are incomplete (first/last partial period)
-  const maxCount = Math.max(...[...periodMap.values()].map(v => v.count))
-  const incompletePeriods = new Set(
-    periodDomain.filter(p => (periodMap.get(p)?.count ?? 0) < maxCount * 0.6),
-  )
+  // The current period is incomplete — compare against today's period key
+  const nowKey = useMonth
+    ? new Date().toISOString().slice(0, 7)
+    : isoWeek(Date.now() / 1000)
+  const incompletePeriods = new Set(periodDomain.filter(p => p === nowKey))
   type PeriodRow = {
     period: string
     series: string
@@ -226,6 +217,16 @@ async function main() {
       d.delta === maxDelta,
   )
 
+  // Shared encoding for hollow (dashed outline) bars on incomplete periods
+  const hollowBar = {
+    fillOpacity: { condition: { test: INCOMPLETE_TEST, value: 0 }, value: 1 },
+    strokeWidth: { condition: { test: INCOMPLETE_TEST, value: 1.5 }, value: 0 },
+    strokeDash: {
+      condition: { test: INCOMPLETE_TEST, value: [4, 2] },
+      value: [1, 0],
+    },
+  }
+
   // Full consecutive range so missing epochs reserve a slot on the ordinal
   // axis: lines break across the gap and bars are simply absent, rather than
   // the gap being silently collapsed.
@@ -288,17 +289,6 @@ async function main() {
     }
     return out
   })
-
-  // Read max_fee_bps from first sim row if available
-  const firstSim = (() => {
-    const raw = fs.readFileSync(REPORT, 'utf8')
-    const data = parseYaml(raw) as unknown as ReportYaml
-    for (const e of data.epochs) {
-      if (e.simulations?.[0]) return e.simulations[0]
-    }
-    return null
-  })()
-  const maxFeeBps = firstSim?.['max_fee_bps'] ?? 800
 
   const spec: TopLevelSpec = {
     $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
@@ -557,10 +547,7 @@ async function main() {
                       symbolSize: 220,
                     },
                   },
-                  fillOpacity: {
-                    condition: { test: INCOMPLETE_TEST, value: 0 },
-                    value: 0.85,
-                  },
+                  ...hollowBar,
                   stroke: {
                     field: 'series',
                     scale: {
@@ -568,14 +555,6 @@ async function main() {
                       range: [C_ACTUAL, C_REF],
                     },
                     legend: null,
-                  },
-                  strokeWidth: {
-                    condition: { test: INCOMPLETE_TEST, value: 1.5 },
-                    value: 0,
-                  },
-                  strokeDash: {
-                    condition: { test: INCOMPLETE_TEST, value: [4, 2] },
-                    value: [1, 0],
                   },
                 },
               },
@@ -627,20 +606,9 @@ async function main() {
                     scale: { domain: periodDomain },
                   },
                   y: { field: 'sol', type: 'quantitative', title: 'SOL' },
-                  fillOpacity: {
-                    condition: { test: INCOMPLETE_TEST, value: 0 },
-                    value: 0.8,
-                  },
-                  stroke: { value: C_COST },
-                  strokeWidth: {
-                    condition: { test: INCOMPLETE_TEST, value: 1.5 },
-                    value: 0,
-                  },
-                  strokeDash: {
-                    condition: { test: INCOMPLETE_TEST, value: [4, 2] },
-                    value: [1, 0],
-                  },
                   color: { value: C_COST },
+                  stroke: { value: C_COST },
+                  ...hollowBar,
                 },
               },
             ],
