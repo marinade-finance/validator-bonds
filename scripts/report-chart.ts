@@ -391,49 +391,6 @@ async function main() {
               y: { field: 'apy', type: 'quantitative', scale: apyYScale },
             },
           },
-          // Legend proxy — drives a single merged color+dash legend below the
-          // panel. Encoding both `color` and `strokeDash` on the same field
-          // makes the legend symbols mirror the real line styles: solid blue,
-          // dashed gray, dotted light gray.
-          {
-            data: { values: apyTidy },
-            mark: { type: 'line', opacity: 0 },
-            encoding: {
-              x: xEnc,
-              y: { field: 'apy', type: 'quantitative' },
-              color: {
-                field: 'series',
-                sort: [S_ADJUSTED, S_SSR, S_MAXFEE],
-                scale: {
-                  domain: [S_ADJUSTED, S_SSR, S_MAXFEE],
-                  range: [C_ACTUAL, '#586573', '#c2c8cf'],
-                },
-                legend: {
-                  title: null,
-                  orient: 'bottom',
-                  direction: 'horizontal',
-                  offset: 52,
-                  labelFontSize: 13,
-                  symbolType: 'stroke',
-                  symbolSize: 900,
-                  symbolStrokeWidth: 3.5,
-                },
-              },
-              strokeDash: {
-                field: 'series',
-                sort: [S_ADJUSTED, S_SSR, S_MAXFEE],
-                scale: {
-                  domain: [S_ADJUSTED, S_SSR, S_MAXFEE],
-                  range: [
-                    [1, 0],
-                    [6, 3],
-                    [2, 3],
-                  ],
-                },
-                legend: null,
-              },
-            },
-          },
           // APY value labels at key epochs
           {
             data: {
@@ -485,6 +442,49 @@ async function main() {
           },
         ],
       },
+      // ── APY Legend row (standalone, below APY panel) ─────────────────────
+      {
+        width: 960,
+        height: 20,
+        view: { stroke: null },
+        data: { values: apyTidy },
+        mark: { type: 'line', opacity: 0 },
+        encoding: {
+          x: xEnc,
+          y: { field: 'apy', type: 'quantitative', axis: null },
+          color: {
+            field: 'series',
+            sort: [S_ADJUSTED, S_SSR, S_MAXFEE],
+            scale: {
+              domain: [S_ADJUSTED, S_SSR, S_MAXFEE],
+              range: [C_ACTUAL, '#586573', '#c2c8cf'],
+            },
+            legend: {
+              title: null,
+              orient: 'top',
+              direction: 'horizontal',
+              offset: 0,
+              labelFontSize: 13,
+              symbolType: 'stroke',
+              symbolSize: 900,
+              symbolStrokeWidth: 3.5,
+            },
+          },
+          strokeDash: {
+            field: 'series',
+            sort: [S_ADJUSTED, S_SSR, S_MAXFEE],
+            scale: {
+              domain: [S_ADJUSTED, S_SSR, S_MAXFEE],
+              range: [
+                [1, 0],
+                [6, 3],
+                [2, 3],
+              ],
+            },
+            legend: null,
+          },
+        },
+      },
       // ── Panel 2: Fee Extraction + Weekly Shortfall side by side ──────────
       {
         spacing: 24,
@@ -526,23 +526,6 @@ async function main() {
                   },
                 },
               },
-              {
-                mark: { type: 'text', dy: -5, fontSize: 8.5, color: '#333' },
-                encoding: {
-                  x: {
-                    field: 'period',
-                    type: 'ordinal',
-                    scale: { domain: periodDomain },
-                  },
-                  xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
-                  y: { field: 'sol', type: 'quantitative' as const },
-                  text: {
-                    field: 'sol',
-                    type: 'quantitative' as const,
-                    format: '.0f',
-                  },
-                },
-              },
             ],
           },
           // Shortfall (right of fee extraction, same period)
@@ -566,18 +549,6 @@ async function main() {
                     scale: { domain: periodDomain },
                   },
                   y: { field: 'sol', type: 'quantitative', title: 'SOL' },
-                },
-              },
-              {
-                mark: { type: 'text', dy: -5, fontSize: 8.5, color: '#333' },
-                encoding: {
-                  x: {
-                    field: 'period',
-                    type: 'ordinal',
-                    scale: { domain: periodDomain },
-                  },
-                  y: { field: 'sol', type: 'quantitative' },
-                  text: { field: 'sol', type: 'quantitative', format: '.0f' },
                 },
               },
             ],
