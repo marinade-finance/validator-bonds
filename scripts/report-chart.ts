@@ -99,6 +99,21 @@ async function main() {
   const totalShortfall = rows.reduce((s, r) => s + r.shortfall, 0)
   const title = `Marinade Validator Bond Fee Simulation · Epochs ${epochs[0]}–${epochs[epochs.length - 1]}`
 
+  // Per-bar value labels only read cleanly when bars are sparse. Above this
+  // density the labels collide into illegible mush, so suppress them.
+  const showBarLabels = rows.length <= 16
+
+  // Detect gaps in the otherwise-consecutive epoch sequence. The ordinal axis
+  // silently connects across missing epochs, so we draw a marker at each gap.
+  type Gap = { after: number; before: number; missing: number }
+  const gaps: Gap[] = []
+  for (let i = 1; i < epochs.length; i++) {
+    const missing = epochs[i] - epochs[i - 1] - 1
+    if (missing > 0) {
+      gaps.push({ after: epochs[i - 1], before: epochs[i], missing })
+    }
+  }
+
   // Weekly aggregation: sum feeAdj and shortfall per ISO week (YYYY-Www)
   const isoWeek = (ts: number): string => {
     const d = new Date(ts * 1000)
@@ -126,15 +141,40 @@ async function main() {
     sol: weekMap.get(w)?.shortfall ?? 0,
   }))
 
+  // Missing epochs enumerated from the gaps — null rows inserted at these
+  // positions break lines/areas so they don't connect across the gap.
+  const missingEpochs: number[] = gaps.flatMap(g => {
+    const out: number[] = []
+    for (let e = g.after + 1; e < g.before; e++) out.push(e)
+    return out
+  })
+
   const apyData: ApyPoint[] = rows.map(r => ({
     epoch: r.epoch,
     ssrApy: r.ssrApy,
     apyAdj: r.apyAdj,
     apyMax: r.apyMax,
   }))
-  // Split into overshoot (adj >= ssr, green) and undershoot (adj < ssr, red)
-  const apyOver = apyData.filter(d => d.apyAdj >= d.ssrApy)
-  const apyUnder = apyData.filter(d => d.apyAdj < d.ssrApy)
+  // Split into overshoot (adj >= ssr, green) and undershoot (adj < ssr, red).
+  // Null rows at missing epochs force the area to break across the gap.
+  type ApyBand = {
+    epoch: number
+    ssrApy: number | null
+    apyAdj: number | null
+  }
+  const gapBand: ApyBand[] = missingEpochs.map(e => ({
+    epoch: e,
+    ssrApy: null,
+    apyAdj: null,
+  }))
+  const apyOver: ApyBand[] = [
+    ...apyData.filter(d => d.apyAdj >= d.ssrApy),
+    ...gapBand,
+  ].sort((a, b) => a.epoch - b.epoch)
+  const apyUnder: ApyBand[] = [
+    ...apyData.filter(d => d.apyAdj < d.ssrApy),
+    ...gapBand,
+  ].sort((a, b) => a.epoch - b.epoch)
 
   const feeTidy: FeePoint[] = rows.flatMap(r => [
     { epoch: r.epoch, series: S_ADJUSTED, fee: r.feeAdj },
@@ -146,23 +186,68 @@ async function main() {
     { epoch: r.epoch, series: S_AT_MIN, pct: r.vmin },
   ])
 
-  const epochDomain = epochs
+  // Full consecutive range so missing epochs reserve a slot on the ordinal
+  // axis: lines break across the gap and bars are simply absent, rather than
+  // the gap being silently collapsed.
+  const epochDomain: number[] = []
+  for (let e = epochs[0]; e <= epochs[epochs.length - 1]; e++) {
+    epochDomain.push(e)
+  }
+
+  // With many epochs, every-epoch tick labels overlap; show every Nth.
+  const labelStride = Math.ceil(epochDomain.length / 26)
+  const labelExpr =
+    labelStride > 1
+      ? `(datum.value - ${epochs[0]}) % ${labelStride} === 0 ? datum.label : ''`
+      : 'datum.label'
 
   const xEnc = {
     field: 'epoch',
     type: 'ordinal' as const,
     title: null,
-    axis: { labelAngle: -45 },
+    axis: { labelAngle: -45, labelExpr },
     scale: { domain: epochDomain },
   }
 
-  // Tidy APY data for a legend-friendly encoding: one row per (epoch, series)
-  type ApyTidy = { epoch: number; series: string; apy: number }
-  const apyTidy: ApyTidy[] = rows.flatMap(r => [
-    { epoch: r.epoch, series: S_SSR, apy: r.ssrApy },
-    { epoch: r.epoch, series: S_ADJUSTED, apy: r.apyAdj },
-    { epoch: r.epoch, series: S_MAXFEE, apy: r.apyMax },
-  ])
+  // Tidy APY data for a legend-friendly encoding: one row per (epoch, series).
+  // Null rows at missing epochs break the lines so they don't bridge the gap.
+  type ApyTidy = { epoch: number; series: string; apy: number | null }
+  const apyTidy: ApyTidy[] = [
+    ...rows.flatMap(r => [
+      { epoch: r.epoch, series: S_SSR, apy: r.ssrApy },
+      { epoch: r.epoch, series: S_ADJUSTED, apy: r.apyAdj },
+      { epoch: r.epoch, series: S_MAXFEE, apy: r.apyMax },
+    ]),
+    ...missingEpochs.flatMap(e => [
+      { epoch: e, series: S_SSR, apy: null },
+      { epoch: e, series: S_ADJUSTED, apy: null },
+      { epoch: e, series: S_MAXFEE, apy: null },
+    ]),
+  ].sort((a, b) => a.epoch - b.epoch)
+
+  // Tight APY y-domain: span the data (all three series) with a small pad so
+  // the chart is not mostly empty space below the lowest line.
+  const apyVals = rows.flatMap(r => [r.apyAdj, r.apyMax, r.ssrApy])
+  const apyLo = Math.floor((Math.min(...apyVals) - 0.1) * 10) / 10
+  const apyHi = Math.ceil((Math.max(...apyVals) + 0.1) * 10) / 10
+  const apyYScale = { domain: [apyLo, apyHi], nice: false } as const
+
+  // Gap markers for the APY panel: a vertical band over the reserved-but-empty
+  // slots plus a label naming the skipped epochs.
+  type GapMark = { epoch: number; label: string }
+  const gapBands: GapMark[] = gaps.flatMap(g => {
+    const out: GapMark[] = []
+    const lo = g.after + 1
+    const hi = g.before - 1
+    const mid = Math.round((lo + hi) / 2)
+    for (let e = lo; e <= hi; e++) {
+      out.push({
+        epoch: e,
+        label: e === mid ? `epochs ${lo}–${hi} skipped` : '',
+      })
+    }
+    return out
+  })
 
   // Read max_fee_bps from first sim row if available
   const firstSim = (() => {
@@ -190,6 +275,7 @@ async function main() {
       legend: { labelFontSize: 12, symbolStrokeWidth: 3, symbolSize: 320 },
     },
     resolve: { scale: { color: 'independent', strokeDash: 'independent' } },
+    spacing: 40,
     vconcat: [
       // ── Panel 1: Post-Fee APY ─────────────────────────────────────────────
       {
@@ -197,6 +283,29 @@ async function main() {
         height: 230,
         title: { text: 'Post-Fee APY vs SSR Baseline', fontSize: 13 },
         layer: [
+          // Gap band: shade reserved-but-empty epoch slots so the break in the
+          // lines reads as "missing data", not a sudden dip.
+          {
+            data: { values: gapBands },
+            mark: { type: 'rule', color: '#d8a657', opacity: 0.5, size: 6 },
+            encoding: { x: xEnc },
+          },
+          {
+            data: { values: gapBands.filter(g => g.label) },
+            mark: {
+              type: 'text',
+              angle: -90,
+              fontSize: 9,
+              color: '#9a7b2e',
+              fontStyle: 'italic',
+              baseline: 'middle',
+            },
+            encoding: {
+              x: xEnc,
+              y: { value: 55 },
+              text: { field: 'label', type: 'nominal' },
+            },
+          },
           // Green band: adjusted ABOVE SSR (overshoot)
           {
             data: { values: apyOver },
@@ -206,7 +315,7 @@ async function main() {
               y: {
                 field: 'apyAdj',
                 type: 'quantitative',
-                scale: { zero: false },
+                scale: apyYScale,
               },
               y2: { field: 'ssrApy' },
             },
@@ -220,7 +329,7 @@ async function main() {
               y: {
                 field: 'ssrApy',
                 type: 'quantitative',
-                scale: { zero: false },
+                scale: apyYScale,
               },
               y2: { field: 'apyAdj' },
             },
@@ -240,7 +349,7 @@ async function main() {
                 field: 'apy',
                 type: 'quantitative',
                 title: 'APY %',
-                scale: { zero: false },
+                scale: apyYScale,
                 axis: { format: '.1f', labelExpr: "datum.label + '%'" },
               },
             },
@@ -256,7 +365,7 @@ async function main() {
             },
             encoding: {
               x: xEnc,
-              y: { field: 'apy', type: 'quantitative', scale: { zero: false } },
+              y: { field: 'apy', type: 'quantitative', scale: apyYScale },
             },
           },
           // Adjusted — solid blue with points (main series)
@@ -270,7 +379,7 @@ async function main() {
             },
             encoding: {
               x: xEnc,
-              y: { field: 'apy', type: 'quantitative', scale: { zero: false } },
+              y: { field: 'apy', type: 'quantitative', scale: apyYScale },
             },
           },
           // Legend proxy — drives a single merged color+dash legend below the
@@ -385,16 +494,29 @@ async function main() {
               },
             },
           },
-          // Labels on both bar series
-          {
-            mark: { type: 'text', dy: -5, fontSize: 8.5, color: '#333' },
-            encoding: {
-              x: xEnc,
-              xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
-              y: { field: 'fee', type: 'quantitative' },
-              text: { field: 'fee', type: 'quantitative', format: '.0f' },
-            },
-          },
+          // Labels on both bar series (only when sparse enough to read)
+          ...(showBarLabels
+            ? [
+                {
+                  mark: {
+                    type: 'text' as const,
+                    dy: -5,
+                    fontSize: 8,
+                    color: '#333',
+                  },
+                  encoding: {
+                    x: xEnc,
+                    xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
+                    y: { field: 'fee', type: 'quantitative' as const },
+                    text: {
+                      field: 'fee',
+                      type: 'quantitative' as const,
+                      format: '.0f',
+                    },
+                  },
+                },
+              ]
+            : []),
         ],
       },
       // ── Panel 3a + 3b: Validators & Shortfall ────────────────────────────
@@ -468,18 +590,30 @@ async function main() {
                   y: { field: 'shortfall', type: 'quantitative', title: 'SOL' },
                 },
               },
-              {
-                mark: { type: 'text', dy: -5, fontSize: 8.5, color: '#333' },
-                encoding: {
-                  x: xEnc,
-                  y: { field: 'shortfall', type: 'quantitative' },
-                  text: {
-                    field: 'shortfall',
-                    type: 'quantitative',
-                    format: '.0f',
-                  },
-                },
-              },
+              ...(showBarLabels
+                ? [
+                    {
+                      mark: {
+                        type: 'text' as const,
+                        dy: -5,
+                        fontSize: 8,
+                        color: '#333',
+                      },
+                      encoding: {
+                        x: xEnc,
+                        y: {
+                          field: 'shortfall',
+                          type: 'quantitative' as const,
+                        },
+                        text: {
+                          field: 'shortfall',
+                          type: 'quantitative' as const,
+                          format: '.0f',
+                        },
+                      },
+                    },
+                  ]
+                : []),
             ],
           },
         ],
