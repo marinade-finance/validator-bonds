@@ -187,9 +187,9 @@ async function main() {
         labelFontSize: 11,
         titleFontSize: 12,
       },
-      legend: { labelFontSize: 11 },
+      legend: { labelFontSize: 12, symbolStrokeWidth: 3, symbolSize: 320 },
     },
-    resolve: { scale: { color: 'independent' } },
+    resolve: { scale: { color: 'independent', strokeDash: 'independent' } },
     vconcat: [
       // ── Panel 1: Post-Fee APY ─────────────────────────────────────────────
       {
@@ -230,9 +230,9 @@ async function main() {
             data: { values: apyTidy.filter(d => d.series === S_SSR) },
             mark: {
               type: 'line',
-              strokeDash: [5, 3],
-              strokeWidth: 1.6,
-              color: C_REF,
+              strokeDash: [6, 3],
+              strokeWidth: 1.8,
+              color: '#586573',
             },
             encoding: {
               x: xEnc,
@@ -251,8 +251,8 @@ async function main() {
             mark: {
               type: 'line',
               strokeDash: [2, 3],
-              strokeWidth: 1.3,
-              color: '#aaaaaa',
+              strokeWidth: 1.5,
+              color: '#c2c8cf',
             },
             encoding: {
               x: xEnc,
@@ -273,7 +273,10 @@ async function main() {
               y: { field: 'apy', type: 'quantitative', scale: { zero: false } },
             },
           },
-          // Legend proxy — single-row tidy data drives the shared color legend
+          // Legend proxy — drives a single merged color+dash legend below the
+          // panel. Encoding both `color` and `strokeDash` on the same field
+          // makes the legend symbols mirror the real line styles: solid blue,
+          // dashed gray, dotted light gray.
           {
             data: { values: apyTidy },
             mark: { type: 'line', opacity: 0 },
@@ -285,14 +288,39 @@ async function main() {
                 sort: [S_ADJUSTED, S_SSR, S_MAXFEE],
                 scale: {
                   domain: [S_ADJUSTED, S_SSR, S_MAXFEE],
-                  range: [C_ACTUAL, C_REF, '#aaaaaa'],
+                  range: [C_ACTUAL, '#586573', '#c2c8cf'],
                 },
                 legend: {
                   title: null,
-                  orient: 'bottom-left',
+                  orient: 'bottom',
                   direction: 'horizontal',
-                  symbolSize: 250,
-                  symbolStrokeWidth: 3,
+                  offset: 16,
+                  labelFontSize: 13,
+                  symbolType: 'stroke',
+                  symbolSize: 900,
+                  symbolStrokeWidth: 3.5,
+                },
+              },
+              strokeDash: {
+                field: 'series',
+                sort: [S_ADJUSTED, S_SSR, S_MAXFEE],
+                scale: {
+                  domain: [S_ADJUSTED, S_SSR, S_MAXFEE],
+                  range: [
+                    [1, 0],
+                    [6, 3],
+                    [2, 3],
+                  ],
+                },
+                legend: {
+                  title: null,
+                  orient: 'bottom',
+                  direction: 'horizontal',
+                  offset: 16,
+                  labelFontSize: 13,
+                  symbolType: 'stroke',
+                  symbolSize: 900,
+                  symbolStrokeWidth: 3.5,
                 },
               },
             },
@@ -349,8 +377,10 @@ async function main() {
                 },
                 legend: {
                   title: null,
-                  orient: 'top-right',
+                  orient: 'right',
                   direction: 'vertical',
+                  symbolType: 'square',
+                  symbolSize: 220,
                 },
               },
             },
@@ -401,8 +431,11 @@ async function main() {
                     },
                     legend: {
                       title: null,
-                      orient: 'top-left',
-                      direction: 'vertical',
+                      orient: 'bottom',
+                      direction: 'horizontal',
+                      offset: 12,
+                      symbolType: 'circle',
+                      symbolSize: 140,
                     },
                   },
                 },
