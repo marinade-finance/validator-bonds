@@ -31,9 +31,11 @@ const S_AT_CAP = 'At cap'
 const S_AT_MIN = 'At min fee'
 const S_ADJUSTED = 'Adjusted'
 const S_MAXFEE = 'Max-fee cap'
+const S_SSR = 'SSR baseline'
+const S_SPREAD = 'Adj–Max spread'
 
 type Row = {
-  date: string
+  epoch: number
   ssrApy: number
   apyAdj: number
   apyMax: number
@@ -45,13 +47,13 @@ type Row = {
 }
 
 type ApyPoint = {
-  date: string
+  epoch: number
   ssrApy: number
   apyAdj: number
   apyMax: number
 }
-type FeePoint = { date: string; series: string; fee: number }
-type ValPoint = { date: string; series: string; pct: number }
+type FeePoint = { epoch: number; series: string; fee: number }
+type ValPoint = { epoch: number; series: string; pct: number }
 
 const pct = (s: string | number): number =>
   parseFloat(String(s).replace('%', ''))
@@ -74,7 +76,7 @@ function load(): Row[] {
     const feeMax = Number(sim['fee_sol_max'])
     return [
       {
-        date: new Date(e.time * 1000).toISOString().slice(0, 10),
+        epoch: e.epoch,
         ssrApy: pct(e.ssr_apy),
         apyAdj: pct(sim['apy_adj']),
         apyMax: pct(sim['apy_max']),
@@ -90,28 +92,51 @@ function load(): Row[] {
 
 async function main() {
   const rows = load()
-  const dates = rows.map(r => r.date)
+  const epochs = rows.map(r => r.epoch)
   const totalShortfall = rows.reduce((s, r) => s + r.shortfall, 0)
-  const title = `Marinade Validator Bond Fee Simulation · ${dates[0]} – ${dates[dates.length - 1]}`
+  const title = `Marinade Validator Bond Fee Simulation · Epochs ${epochs[0]}–${epochs[epochs.length - 1]}`
 
   const apyData: ApyPoint[] = rows.map(r => ({
-    date: r.date,
+    epoch: r.epoch,
     ssrApy: r.ssrApy,
     apyAdj: r.apyAdj,
     apyMax: r.apyMax,
   }))
 
   const feeTidy: FeePoint[] = rows.flatMap(r => [
-    { date: r.date, series: S_ADJUSTED, fee: r.feeAdj },
-    { date: r.date, series: S_MAXFEE, fee: r.feeMax },
+    { epoch: r.epoch, series: S_ADJUSTED, fee: r.feeAdj },
+    { epoch: r.epoch, series: S_MAXFEE, fee: r.feeMax },
   ])
 
   const valTidy: ValPoint[] = rows.flatMap(r => [
-    { date: r.date, series: S_AT_CAP, pct: r.vcap },
-    { date: r.date, series: S_AT_MIN, pct: r.vmin },
+    { epoch: r.epoch, series: S_AT_CAP, pct: r.vcap },
+    { epoch: r.epoch, series: S_AT_MIN, pct: r.vmin },
   ])
 
-  const dateDomain = dates
+  const epochDomain = epochs
+
+  const xEnc = {
+    field: 'epoch',
+    type: 'ordinal' as const,
+    title: null,
+    axis: { labelAngle: -45 },
+    scale: { domain: epochDomain },
+  }
+
+  const apyColorScale = {
+    domain: [S_SSR, S_ADJUSTED, S_MAXFEE, S_SPREAD],
+    range: [C_REF, C_ACTUAL, C_REF, C_ACTUAL],
+  }
+  const apyLegend = {
+    field: 'k',
+    type: 'nominal' as const,
+    scale: apyColorScale,
+    legend: {
+      title: null,
+      orient: 'bottom-left' as const,
+      direction: 'horizontal' as const,
+    },
+  }
 
   const spec: TopLevelSpec = {
     $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
@@ -122,16 +147,9 @@ async function main() {
     vconcat: [
       {
         width: 960,
-        height: 200,
+        height: 240,
         title: 'Post-Fee APY  (adjusted · SSR baseline · max-fee cap)',
-        encoding: {
-          x: {
-            field: 'date',
-            type: 'ordinal',
-            axis: { labelAngle: -45 },
-            scale: { domain: dateDomain },
-          },
-        },
+        encoding: { x: xEnc },
         layer: [
           {
             data: { values: apyData },
@@ -139,37 +157,47 @@ async function main() {
             encoding: {
               y: { field: 'apyAdj', type: 'quantitative' },
               y2: { field: 'apyMax' },
+              color: { datum: S_SPREAD, ...apyLegend },
             },
           },
           {
             data: { values: apyData },
-            mark: {
-              type: 'line',
-              strokeDash: [4, 2],
-              color: C_REF,
-              strokeWidth: 1.8,
-            },
+            mark: { type: 'line', strokeDash: [4, 2], strokeWidth: 1.8 },
             encoding: {
-              y: { field: 'ssrApy', type: 'quantitative', title: 'APY %' },
+              y: {
+                field: 'ssrApy',
+                type: 'quantitative',
+                title: 'APY %',
+                scale: { zero: false },
+                axis: { format: '.2f', labelExpr: "datum.label + '%'" },
+              },
+              color: { datum: S_SSR, ...apyLegend },
             },
           },
           {
             data: { values: apyData },
-            mark: { type: 'line', color: C_ACTUAL, strokeWidth: 2.5 },
+            mark: { type: 'line', strokeWidth: 2.5 },
             encoding: {
-              y: { field: 'apyAdj', type: 'quantitative', title: 'APY %' },
+              y: {
+                field: 'apyAdj',
+                type: 'quantitative',
+                title: 'APY %',
+                scale: { zero: false },
+              },
+              color: { datum: S_ADJUSTED, ...apyLegend },
             },
           },
           {
             data: { values: apyData },
-            mark: {
-              type: 'line',
-              strokeDash: [2, 2],
-              color: C_REF,
-              strokeWidth: 1.5,
-            },
+            mark: { type: 'line', strokeDash: [2, 2], strokeWidth: 1.5 },
             encoding: {
-              y: { field: 'apyMax', type: 'quantitative', title: 'APY %' },
+              y: {
+                field: 'apyMax',
+                type: 'quantitative',
+                title: 'APY %',
+                scale: { zero: false },
+              },
+              color: { datum: S_MAXFEE, ...apyLegend },
             },
           },
           {
@@ -184,48 +212,56 @@ async function main() {
       },
       {
         width: 960,
-        height: 200,
+        height: 240,
         title: 'Marinade Fee Extraction (SOL)',
         data: { values: feeTidy },
-        mark: { type: 'bar', opacity: 0.85 },
-        encoding: {
-          x: {
-            field: 'date',
-            type: 'ordinal',
-            axis: { labelAngle: -45 },
-            scale: { domain: dateDomain },
+        layer: [
+          {
+            mark: { type: 'bar', opacity: 0.85 },
+            encoding: {
+              x: xEnc,
+              xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
+              y: { field: 'fee', type: 'quantitative', title: 'SOL' },
+              color: {
+                field: 'series',
+                scale: {
+                  domain: [S_ADJUSTED, S_MAXFEE],
+                  range: [C_ACTUAL, C_REF],
+                },
+                legend: { title: null, orient: 'top-right' },
+              },
+            },
           },
-          xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
-          y: { field: 'fee', type: 'quantitative', title: 'SOL' },
-          color: {
-            field: 'series',
-            scale: { domain: [S_ADJUSTED, S_MAXFEE], range: [C_ACTUAL, C_REF] },
-            legend: { title: null },
+          {
+            transform: [{ filter: `datum.series === '${S_ADJUSTED}'` }],
+            mark: { type: 'text', dy: -4, fontSize: 8, color: 'black' },
+            encoding: {
+              x: xEnc,
+              xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
+              y: { field: 'fee', type: 'quantitative' },
+              text: { field: 'fee', type: 'quantitative', format: '.0f' },
+            },
           },
-        },
+        ],
       },
       {
         hconcat: [
           {
-            width: 460,
-            height: 150,
+            width: 440,
+            height: 170,
             title: 'Validators at Cap / at Min Fee (%)',
             data: { values: valTidy },
             layer: [
               {
                 mark: { type: 'area', opacity: 0.1 },
                 encoding: {
-                  x: {
-                    field: 'date',
-                    type: 'ordinal',
-                    axis: { labelAngle: -45 },
-                    scale: { domain: dateDomain },
-                  },
+                  x: xEnc,
                   y: {
                     field: 'pct',
                     type: 'quantitative',
                     title: '%',
                     scale: { domain: [0, 115] },
+                    axis: { labelExpr: "datum.label + '%'" },
                   },
                   color: {
                     field: 'series',
@@ -233,7 +269,7 @@ async function main() {
                       domain: [S_AT_CAP, S_AT_MIN],
                       range: [C_CAP, C_MINFEE],
                     },
-                    legend: { title: null },
+                    legend: { title: null, orient: 'top-right' },
                   },
                 },
               },
@@ -241,15 +277,10 @@ async function main() {
                 mark: {
                   type: 'line',
                   strokeWidth: 2,
-                  point: { filled: true, size: 20 },
+                  point: { filled: true, size: 25 },
                 },
                 encoding: {
-                  x: {
-                    field: 'date',
-                    type: 'ordinal',
-                    axis: { labelAngle: -45 },
-                    scale: { domain: dateDomain },
-                  },
+                  x: xEnc,
                   y: {
                     field: 'pct',
                     type: 'quantitative',
@@ -262,29 +293,63 @@ async function main() {
                       domain: [S_AT_CAP, S_AT_MIN],
                       range: [C_CAP, C_MINFEE],
                     },
-                    legend: { title: null },
+                    legend: { title: null, orient: 'top-right' },
+                  },
+                },
+              },
+              {
+                mark: {
+                  type: 'rule',
+                  color: 'gray',
+                  strokeWidth: 0.8,
+                  strokeDash: [2, 2],
+                },
+                encoding: { y: { datum: 100 } },
+              },
+            ],
+          },
+          {
+            width: 440,
+            height: 170,
+            title: `Shortfall vs Max Fee (SOL)  [total: ${totalShortfall.toFixed(0)} SOL]`,
+            data: { values: rows },
+            layer: [
+              {
+                mark: { type: 'bar', color: C_COST, opacity: 0.8 },
+                encoding: {
+                  x: xEnc,
+                  y: { field: 'shortfall', type: 'quantitative', title: 'SOL' },
+                },
+              },
+              {
+                mark: { type: 'text', dy: -4, fontSize: 8, color: 'black' },
+                encoding: {
+                  x: xEnc,
+                  y: { field: 'shortfall', type: 'quantitative' },
+                  text: {
+                    field: 'shortfall',
+                    type: 'quantitative',
+                    format: '.0f',
                   },
                 },
               },
             ],
           },
-          {
-            width: 460,
-            height: 150,
-            title: `Shortfall vs Max Fee (SOL)  [total: ${totalShortfall.toFixed(0)} SOL]`,
-            data: { values: rows },
-            mark: { type: 'bar', color: C_COST, opacity: 0.8 },
-            encoding: {
-              x: {
-                field: 'date',
-                type: 'ordinal',
-                axis: { labelAngle: -45 },
-                scale: { domain: dateDomain },
-              },
-              y: { field: 'shortfall', type: 'quantitative', title: 'SOL' },
-            },
-          },
         ],
+      },
+      {
+        width: 960,
+        height: 1,
+        view: { stroke: null },
+        data: { values: [{}] },
+        mark: {
+          type: 'text',
+          text: 'max_fee_bps = 800 · source: report.yml',
+          color: 'gray',
+          fontSize: 9,
+          align: 'center',
+        },
+        encoding: { x: { value: 480 } },
       },
     ],
   }
