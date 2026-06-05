@@ -155,27 +155,6 @@ async function main() {
     apyAdj: r.apyAdj,
     apyMax: r.apyMax,
   }))
-  // Split into overshoot (adj >= ssr, green) and undershoot (adj < ssr, red).
-  // Null rows at missing epochs force the area to break across the gap.
-  type ApyBand = {
-    epoch: number
-    ssrApy: number | null
-    apyAdj: number | null
-  }
-  const gapBand: ApyBand[] = missingEpochs.map(e => ({
-    epoch: e,
-    ssrApy: null,
-    apyAdj: null,
-  }))
-  const apyOver: ApyBand[] = [
-    ...apyData.filter(d => d.apyAdj >= d.ssrApy),
-    ...gapBand,
-  ].sort((a, b) => a.epoch - b.epoch)
-  const apyUnder: ApyBand[] = [
-    ...apyData.filter(d => d.apyAdj < d.ssrApy),
-    ...gapBand,
-  ].sort((a, b) => a.epoch - b.epoch)
-
   const feeTidy: FeePoint[] = rows.flatMap(r => [
     { epoch: r.epoch, series: S_ADJUSTED, fee: r.feeAdj },
     { epoch: r.epoch, series: S_MAXFEE, fee: r.feeMax },
@@ -306,23 +285,25 @@ async function main() {
               text: { field: 'label', type: 'nominal' },
             },
           },
-          // Green band: adjusted ABOVE SSR (overshoot)
+          // Green band: adjusted ABOVE SSR — y2 clamped so area collapses when adj < ssr
           {
-            data: { values: apyOver },
+            data: { values: apyData },
+            transform: [
+              { calculate: 'max(datum.apyAdj, datum.ssrApy)', as: 'adjCeil' },
+            ],
             mark: { type: 'area', opacity: 0.18, color: '#2e8b57' },
             encoding: {
               x: xEnc,
-              y: {
-                field: 'apyAdj',
-                type: 'quantitative',
-                scale: apyYScale,
-              },
+              y: { field: 'adjCeil', type: 'quantitative', scale: apyYScale },
               y2: { field: 'ssrApy' },
             },
           },
-          // Red band: adjusted BELOW SSR (undershoot)
+          // Red band: adjusted BELOW SSR — y2 clamped so area collapses when adj >= ssr
           {
-            data: { values: apyUnder },
+            data: { values: apyData },
+            transform: [
+              { calculate: 'min(datum.apyAdj, datum.ssrApy)', as: 'adjFloor' },
+            ],
             mark: { type: 'area', opacity: 0.25, color: '#b22222' },
             encoding: {
               x: xEnc,
@@ -331,7 +312,7 @@ async function main() {
                 type: 'quantitative',
                 scale: apyYScale,
               },
-              y2: { field: 'apyAdj' },
+              y2: { field: 'adjFloor' },
             },
           },
           // SSR baseline — dashed gray
