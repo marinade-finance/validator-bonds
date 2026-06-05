@@ -521,100 +521,53 @@ async function main() {
       },
       // ── Panel 3a + 3b: Validators & Shortfall ────────────────────────────
       {
-        spacing: 24,
-        hconcat: [
+        width: 960,
+        height: 190,
+        title: { text: 'Validators at Cap / at Min Fee (%)', fontSize: 13 },
+        data: { values: valTidy },
+        layer: [
+          // Lines with points
           {
-            width: 460,
-            height: 190,
-            title: { text: 'Validators at Cap / at Min Fee (%)', fontSize: 13 },
-            data: { values: valTidy },
-            layer: [
-              // Lines with points
-              {
-                mark: {
-                  type: 'line',
-                  strokeWidth: 2,
-                  point: { filled: true, size: 35 },
-                },
-                encoding: {
-                  x: xEnc,
-                  y: {
-                    field: 'pct',
-                    type: 'quantitative',
-                    title: '% of validators',
-                    scale: { domain: [0, 115] },
-                    axis: { format: 'd', labelExpr: "datum.label + '%'" },
-                  },
-                  color: {
-                    field: 'series',
-                    scale: {
-                      domain: [S_AT_CAP, S_AT_MIN],
-                      range: [C_CAP, C_MINFEE],
-                    },
-                    legend: {
-                      title: null,
-                      orient: 'bottom',
-                      direction: 'horizontal',
-                      offset: 12,
-                      symbolType: 'circle',
-                      symbolSize: 140,
-                    },
-                  },
-                },
-              },
-              // 100% reference line
-              {
-                mark: {
-                  type: 'rule',
-                  color: '#888',
-                  strokeWidth: 1,
-                  strokeDash: [4, 3],
-                },
-                encoding: { y: { datum: 100 } },
-              },
-            ],
-          },
-          {
-            width: 460,
-            height: 190,
-            title: {
-              text: `Fee Shortfall vs Max-Fee Scenario (SOL)  [Σ ${totalShortfall.toFixed(0)} SOL]`,
-              fontSize: 13,
+            mark: {
+              type: 'line',
+              strokeWidth: 2,
+              point: { filled: true, size: 35 },
             },
-            data: { values: rows },
-            layer: [
-              {
-                mark: { type: 'bar', color: C_COST, opacity: 0.8 },
-                encoding: {
-                  x: xEnc,
-                  y: { field: 'shortfall', type: 'quantitative', title: 'SOL' },
+            encoding: {
+              x: xEnc,
+              y: {
+                field: 'pct',
+                type: 'quantitative',
+                title: '% of validators',
+                scale: { domain: [0, 115] },
+                axis: { format: 'd', labelExpr: "datum.label + '%'" },
+              },
+              color: {
+                field: 'series',
+                scale: {
+                  domain: [S_AT_CAP, S_AT_MIN],
+                  range: [C_CAP, C_MINFEE],
+                },
+                legend: {
+                  title: null,
+                  orient: 'bottom',
+                  direction: 'horizontal',
+                  offset: 12,
+                  symbolType: 'circle',
+                  symbolSize: 140,
                 },
               },
-              ...(showBarLabels
-                ? [
-                    {
-                      mark: {
-                        type: 'text' as const,
-                        dy: -5,
-                        fontSize: 8,
-                        color: '#333',
-                      },
-                      encoding: {
-                        x: xEnc,
-                        y: {
-                          field: 'shortfall',
-                          type: 'quantitative' as const,
-                        },
-                        text: {
-                          field: 'shortfall',
-                          type: 'quantitative' as const,
-                          format: '.0f',
-                        },
-                      },
-                    },
-                  ]
-                : []),
-            ],
+            },
+          },
+          // 100% reference line
+          {
+            mark: {
+              type: 'rule',
+              color: '#888',
+              strokeWidth: 1,
+              strokeDash: [4, 3],
+            },
+            encoding: { y: { datum: 100 } },
           },
         ],
       },
