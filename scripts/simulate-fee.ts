@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 /* eslint-disable n/no-process-exit */
 import { randomBytes } from 'node:crypto'
-import { existsSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, unlinkSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 
@@ -197,41 +198,49 @@ function fetchInputs(epoch: number): void {
   process.stderr.write(`  # fetching inputs for epoch ${epoch}...\n`)
   runMkdir(rwd)
 
-  const downloads: [string, string][] = [
-    [`${GCS_BONDS}/${epoch}/stakes.json`, join(inp, STAKES_FILE)],
-    [`${GCS_BONDS}/${epoch}/validators.json`, join(inp, 'validators.json')],
-    [
-      `${GCS_BONDS}/${epoch}/bid-psr-distribution-evaluation.json`,
-      join(inp, 'evaluation.json'),
-    ],
-    [`${GCS_ETL}/${epoch}/rewards_mev.json`, join(rwd, 'mev.json')],
-    [
-      `${GCS_ETL}/${epoch}/rewards_validators_mev.json`,
-      join(rwd, 'validators_mev.json'),
-    ],
-    [`${GCS_ETL}/${epoch}/rewards_inflation.json`, join(rwd, 'inflation.json')],
-    [
-      `${GCS_ETL}/${epoch}/rewards_validators_inflation.json`,
-      join(rwd, 'validators_inflation.json'),
-    ],
-    [
-      `${GCS_ETL}/${epoch}/rewards_validators_blocks.json`,
-      join(rwd, 'validators_blocks.json'),
-    ],
-    [
-      `${GCS_ETL}/${epoch}/rewards_priority_fee.json`,
-      join(rwd, 'jito_priority_fee.json'),
-    ],
-  ]
-  for (const [src, dst] of downloads) {
-    if (!existsSync(dst)) gcsCp(src, dst)
+  const gz = (f: string) => f + '.gz'
+  const gzip = (f: string) => Bun.spawnSync(['gzip', f], { stderr: 'pipe' })
+  const fetch1 = (src: string, dst: string) => {
+    if (existsSync(gz(dst))) return
+    gcsCp(src, dst)
+    gzip(dst)
   }
-  // SAM scores come from HTTP API, not GCS
-  const samPath = join(inp, 'sam-scores.json')
-  if (!existsSync(samPath))
-    httpGet(`${SCORING_API}/scores/sam?epoch=${epoch}`, samPath)
 
-  if (!INPUTS.every(f => existsSync(join(inp, f)))) {
+  fetch1(`${GCS_BONDS}/${epoch}/${STAKES_FILE}`, join(inp, STAKES_FILE))
+  fetch1(`${GCS_BONDS}/${epoch}/validators.json`, join(inp, 'validators.json'))
+  fetch1(
+    `${GCS_BONDS}/${epoch}/bid-psr-distribution-evaluation.json`,
+    join(inp, 'evaluation.json'),
+  )
+  fetch1(`${GCS_ETL}/${epoch}/rewards_mev.json`, join(rwd, 'mev.json'))
+  fetch1(
+    `${GCS_ETL}/${epoch}/rewards_validators_mev.json`,
+    join(rwd, 'validators_mev.json'),
+  )
+  fetch1(
+    `${GCS_ETL}/${epoch}/rewards_inflation.json`,
+    join(rwd, 'inflation.json'),
+  )
+  fetch1(
+    `${GCS_ETL}/${epoch}/rewards_validators_inflation.json`,
+    join(rwd, 'validators_inflation.json'),
+  )
+  fetch1(
+    `${GCS_ETL}/${epoch}/rewards_validators_blocks.json`,
+    join(rwd, 'validators_blocks.json'),
+  )
+  fetch1(
+    `${GCS_ETL}/${epoch}/rewards_priority_fee.json`,
+    join(rwd, 'jito_priority_fee.json'),
+  )
+
+  const samPath = join(inp, 'sam-scores.json')
+  if (!existsSync(gz(samPath))) {
+    httpGet(`${SCORING_API}/scores/sam?epoch=${epoch}`, samPath)
+    gzip(samPath)
+  }
+
+  if (!INPUTS.every(f => existsSync(join(inp, gz(f))))) {
     process.stderr.write(`Failed: fetch failed for epoch ${epoch}\n`)
     process.exit(1)
   }
@@ -239,21 +248,33 @@ function fetchInputs(epoch: number): void {
 
 function runCli(cfgFile: string, inp: string): string {
   const out = tmpFile()
+  // Decompress inputs to /tmp (tmpfs) — deleted after CLI exits
+  const tmp = mkdtempSync('/tmp/bd-')
+  for (const f of INPUTS) {
+    const src = join(inp, f)
+    const dst = join(tmp, f)
+    Bun.spawnSync(['mkdir', '-p', dirname(dst)], { stderr: 'pipe' })
+    if (existsSync(src + '.gz'))
+      Bun.spawnSync(['sh', '-c', `gzip -dc "${src}.gz" > "${dst}"`], {
+        stderr: 'pipe',
+      })
+    else Bun.spawnSync(['cp', src, dst], { stderr: 'pipe' })
+  }
   const proc = Bun.spawnSync(
     [
       ...cli,
       '--settlement-config',
       cfgFile,
       '--stake-meta-collection',
-      `${inp}/stakes.json`,
+      `${tmp}/${STAKES_FILE}`,
       '--sam-meta-collection',
-      `${inp}/sam-scores.json`,
+      `${tmp}/sam-scores.json`,
       '--rewards-dir',
-      `${inp}/rewards`,
+      `${tmp}/rewards`,
       '--validator-meta-collection',
-      `${inp}/validators.json`,
+      `${tmp}/validators.json`,
       '--revenue-expectation-collection',
-      `${inp}/evaluation.json`,
+      `${tmp}/evaluation.json`,
       '--output-settlement-collection',
       out,
       '--output-protected-event-collection',
@@ -281,6 +302,7 @@ function runCli(cfgFile: string, inp: string): string {
     else if (values.v && line.includes('SSR cap'))
       process.stderr.write(line + '\n')
   }
+  rmSync(tmp, { recursive: true })
   if (proc.exitCode !== 0) {
     process.stderr.write(
       `Failed: bid-distribution-cli exited ${proc.exitCode}\n`,
