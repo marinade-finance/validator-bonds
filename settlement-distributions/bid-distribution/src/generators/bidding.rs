@@ -229,18 +229,22 @@ pub fn generate_bid_settlements(
             current = max_cap;
             overshoot = min_cap;
             undershoot = max_cap;
+            info!("max_fee_bps converged at {adj_max}, switching to tuning min_fee_bps");
             continue;
         }
         break;
     }
+    let adj_max_out = if tuning_max { overshoot } else { adj_max };
+    let adj_min_out = if tuning_max {
+        fc.min_fee_bps
+    } else {
+        overshoot
+    };
+    info!("adj_max_fee_bps: {adj_max_out}, adj_min_fee_bps: {adj_min_out}");
     Ok(BidSettlementValues {
         settlements: best.or(fallback).expect("MAX_ADJ_ITER = 0"),
-        adj_max_fee_bps: if tuning_max { overshoot } else { adj_max },
-        adj_min_fee_bps: if tuning_max {
-            fc.min_fee_bps
-        } else {
-            overshoot
-        },
+        adj_max_fee_bps: adj_max_out,
+        adj_min_fee_bps: adj_min_out,
     })
 }
 
