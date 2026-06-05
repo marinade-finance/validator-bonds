@@ -234,17 +234,17 @@ pub fn generate_bid_settlements(
         }
         break;
     }
-    let adj_max_out = if tuning_max { overshoot } else { adj_max };
-    let adj_min_out = if tuning_max {
+    let adj_max_fee_bps = if tuning_max { overshoot } else { adj_max };
+    let adj_min_fee_bps = if tuning_max {
         fc.min_fee_bps
     } else {
         overshoot
     };
-    info!("adj_max_fee_bps: {adj_max_out}, adj_min_fee_bps: {adj_min_out}");
+    info!("adj_max_fee_bps: {adj_max_fee_bps}, adj_min_fee_bps: {adj_min_fee_bps}");
     Ok(BidSettlementValues {
         settlements: best.or(fallback).expect("MAX_ADJ_ITER = 0"),
-        adj_max_fee_bps: adj_max_out,
-        adj_min_fee_bps: adj_min_out,
+        adj_max_fee_bps,
+        adj_min_fee_bps,
     })
 }
 
