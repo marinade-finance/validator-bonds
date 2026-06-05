@@ -490,7 +490,7 @@ async function main() {
         spacing: 24,
         hconcat: [
           {
-            width: 680,
+            width: 460,
             height: 210,
             title: {
               text: `Marinade Fee Extraction by ${useMonth ? 'Month' : 'Week'} (SOL)`,
@@ -547,7 +547,7 @@ async function main() {
           },
           // Shortfall (right of fee extraction, same period)
           {
-            width: 256,
+            width: 460,
             height: 210,
             title: {
               text: `Shortfall (SOL)  [Σ ${totalShortfall.toFixed(0)}]`,
