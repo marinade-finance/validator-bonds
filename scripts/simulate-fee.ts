@@ -340,10 +340,17 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     if (fieldAbsent && redeleg > 0)
       process.stderr.write('  # redeleg from stakes.json (approx)\n')
     const stake = activeStake + redeleg
-    const totalRewards = bidDetails.reduce(
-      (sum, d) => sum + parseFloat(d.total_marinade_stakers_rewards),
-      0,
-    )
+    const bidVotes = new Set(bidSettlements.map(s => s.vote_account))
+    const totalRewards =
+      bidDetails.reduce(
+        (sum, d) => sum + parseFloat(d.total_marinade_stakers_rewards),
+        0,
+      ) +
+      settlements.reduce((sum, s) => {
+        if (s.reason !== 'PriorityFee' || bidVotes.has(s.vote_account))
+          return sum
+        return sum + parseFloat(s.details.activating_bid_claim)
+      }, 0)
     const feeAdj = settlements
       .filter(isFeeSettlement)
       .reduce(

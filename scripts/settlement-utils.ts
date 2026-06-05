@@ -11,6 +11,7 @@ export type BidDetails = FeeDetails & {
 
 type PriorityFeeDetails = FeeDetails & {
   total_marinade_active_stake: number
+  activating_bid_claim: string
 }
 
 type PenaltyDetails = Record<string, unknown>
