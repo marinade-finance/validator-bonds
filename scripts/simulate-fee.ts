@@ -397,5 +397,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       console.log(
         `    validators_at_min_fee: ${nAtMin}/${bidSettlements.length}`,
       )
+    if (adjMax !== undefined) console.log(`    adj_max_fee_bps: ${adjMax}`)
+    if (adjMin !== undefined) console.log(`    adj_min_fee_bps: ${adjMin}`)
   }
 }
