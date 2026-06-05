@@ -45,6 +45,8 @@ type Row = {
   vcap: number
   vmin: number
   shortfall: number
+  adjMaxFee: number
+  adjMinFee: number
 }
 
 type ApyPoint = {
@@ -88,6 +90,8 @@ function load(): Row[] {
         vcap: ratio(String(sim['validators_capped'])),
         vmin: ratio(String(sim['validators_at_min_fee'] ?? '0/1')),
         shortfall: feeMax - feeAdj,
+        adjMaxFee: Number(sim['adj_max_fee_bps'] ?? 0),
+        adjMinFee: Number(sim['adj_min_fee_bps'] ?? 0),
       },
     ]
   })
@@ -165,6 +169,31 @@ async function main() {
     { epoch: r.epoch, series: S_AT_MIN, pct: r.vmin },
   ])
 
+  // adj_max / adj_min fee bps from the optimizer
+  const S_ADJ_MAX = 'adj_max_fee_bps'
+  const S_ADJ_MIN = 'adj_min_fee_bps'
+  type FeeBps = { epoch: number; series: string; bps: number }
+  const feeBpsTidy: FeeBps[] = rows.flatMap(r => [
+    { epoch: r.epoch, series: S_ADJ_MAX, bps: r.adjMaxFee },
+    { epoch: r.epoch, series: S_ADJ_MIN, bps: r.adjMinFee },
+  ])
+
+  // APY delta (adj - ssr) in pp — for labelling key epochs on the top panel
+  const deltas = rows.map(r => ({
+    epoch: r.epoch,
+    apyAdj: r.apyAdj,
+    delta: r.apyAdj - r.ssrApy,
+  }))
+  const minDelta = Math.min(...deltas.map(d => d.delta))
+  const maxDelta = Math.max(...deltas.map(d => d.delta))
+  const deltaLabels = deltas.filter(
+    (d, i) =>
+      i === 0 ||
+      i === deltas.length - 1 ||
+      d.delta === minDelta ||
+      d.delta === maxDelta,
+  )
+
   // Full consecutive range so missing epochs reserve a slot on the ordinal
   // axis: lines break across the gap and bars are simply absent, rather than
   // the gap being silently collapsed.
@@ -174,7 +203,7 @@ async function main() {
   }
 
   // With many epochs, every-epoch tick labels overlap; show every Nth.
-  const labelStride = Math.ceil(epochDomain.length / 26)
+  const labelStride = Math.ceil(epochDomain.length / 40)
   const labelExpr =
     labelStride > 1
       ? `(datum.value - ${epochs[0]}) % ${labelStride} === 0 ? datum.label : ''`
@@ -415,7 +444,7 @@ async function main() {
               },
             },
           },
-          // Labels: first, last, min, max of adjusted
+          // APY value labels at key epochs
           {
             data: {
               values: (() => {
@@ -442,6 +471,26 @@ async function main() {
               x: xEnc,
               y: { field: 'apyAdj', type: 'quantitative' },
               text: { field: 'apyAdj', type: 'quantitative', format: '.2f' },
+            },
+          },
+          // Delta labels (adj − SSR in pp) at key epochs — green above, red below
+          {
+            data: { values: deltaLabels },
+            mark: { type: 'text', dy: 14, fontSize: 8, fontStyle: 'italic' },
+            encoding: {
+              x: xEnc,
+              y: { field: 'apyAdj', type: 'quantitative' },
+              text: {
+                field: 'delta',
+                type: 'quantitative',
+                format: '+.2f',
+              },
+              color: {
+                field: 'delta',
+                type: 'quantitative',
+                scale: { domain: [-1, 0, 1], range: [C_COST, '#888', C_CAP] },
+                legend: null,
+              },
             },
           },
         ],
@@ -500,55 +549,101 @@ async function main() {
             : []),
         ],
       },
-      // ── Panel 3a + 3b: Validators & Shortfall ────────────────────────────
+      // ── Panel 3: Validators (left) + Optimized Fee bps (right) ──────────
       {
-        width: 960,
-        height: 190,
-        title: { text: 'Validators at Cap / at Min Fee (%)', fontSize: 13 },
-        data: { values: valTidy },
-        layer: [
-          // Lines with points
+        spacing: 24,
+        resolve: { scale: { color: 'independent' } },
+        hconcat: [
           {
-            mark: {
-              type: 'line',
-              strokeWidth: 2,
-              point: { filled: true, size: 35 },
-            },
-            encoding: {
-              x: xEnc,
-              y: {
-                field: 'pct',
-                type: 'quantitative',
-                title: '% of validators',
-                scale: { domain: [0, 115] },
-                axis: { format: 'd', labelExpr: "datum.label + '%'" },
-              },
-              color: {
-                field: 'series',
-                scale: {
-                  domain: [S_AT_CAP, S_AT_MIN],
-                  range: [C_CAP, C_MINFEE],
+            width: 460,
+            height: 170,
+            title: { text: 'Validators at Cap / at Min Fee (%)', fontSize: 13 },
+            data: { values: valTidy },
+            layer: [
+              {
+                mark: {
+                  type: 'line',
+                  strokeWidth: 2,
+                  point: { filled: true, size: 30 },
                 },
-                legend: {
-                  title: null,
-                  orient: 'bottom',
-                  direction: 'horizontal',
-                  offset: 12,
-                  symbolType: 'circle',
-                  symbolSize: 140,
+                encoding: {
+                  x: xEnc,
+                  y: {
+                    field: 'pct',
+                    type: 'quantitative',
+                    title: '% of validators',
+                    scale: { domain: [0, 115] },
+                    axis: { format: 'd', labelExpr: "datum.label + '%'" },
+                  },
+                  color: {
+                    field: 'series',
+                    scale: {
+                      domain: [S_AT_CAP, S_AT_MIN],
+                      range: [C_CAP, C_MINFEE],
+                    },
+                    legend: {
+                      title: null,
+                      orient: 'bottom',
+                      direction: 'horizontal',
+                      offset: 10,
+                      symbolType: 'circle',
+                      symbolSize: 130,
+                    },
+                  },
                 },
               },
-            },
+              {
+                mark: {
+                  type: 'rule',
+                  color: '#888',
+                  strokeWidth: 1,
+                  strokeDash: [4, 3],
+                },
+                encoding: { y: { datum: 100 } },
+              },
+            ],
           },
-          // 100% reference line
           {
-            mark: {
-              type: 'rule',
-              color: '#888',
-              strokeWidth: 1,
-              strokeDash: [4, 3],
+            width: 460,
+            height: 170,
+            title: {
+              text: 'Optimized Fee Floor / Ceiling (bps)',
+              fontSize: 13,
             },
-            encoding: { y: { datum: 100 } },
+            data: { values: feeBpsTidy },
+            layer: [
+              {
+                mark: {
+                  type: 'line',
+                  strokeWidth: 2,
+                  point: { filled: true, size: 30 },
+                },
+                encoding: {
+                  x: xEnc,
+                  y: {
+                    field: 'bps',
+                    type: 'quantitative',
+                    title: 'fee (bps)',
+                    scale: { domain: [0, 850] },
+                  },
+                  color: {
+                    field: 'series',
+                    scale: {
+                      domain: [S_ADJ_MAX, S_ADJ_MIN],
+                      range: [C_ACTUAL, C_MINFEE],
+                    },
+                    legend: {
+                      title: null,
+                      orient: 'bottom',
+                      direction: 'horizontal',
+                      offset: 10,
+                      symbolType: 'circle',
+                      symbolSize: 130,
+                    },
+                  },
+                },
+              },
+            ],
           },
         ],
       },
