@@ -173,6 +173,7 @@ pub fn generate_bid_settlements(
     let mut overshoot = min_cap;
     let mut undershoot = max_cap;
     let mut tuning_max = true;
+    let mut adj_max = min_cap;
     let mut best: Option<Vec<Settlement>> = None;
     let mut fallback: Option<Vec<Settlement>> = None;
     let mut fc = fee_config.clone();
@@ -223,6 +224,7 @@ pub fn generate_bid_settlements(
         // Active axis converged. If max_fee pinned at the feasible ceiling there is
         // leftover budget; switch to raising min_fee. Otherwise done.
         if tuning_max && feasible && current == max_cap {
+            adj_max = current;
             tuning_max = false;
             current = max_cap;
             overshoot = min_cap;
@@ -233,8 +235,12 @@ pub fn generate_bid_settlements(
     }
     Ok(BidSettlementValues {
         settlements: best.or(fallback).expect("MAX_ADJ_ITER = 0"),
-        adj_max_fee_bps: overshoot,
-        adj_min_fee_bps: fc.min_fee_bps,
+        adj_max_fee_bps: if tuning_max { overshoot } else { adj_max },
+        adj_min_fee_bps: if tuning_max {
+            fc.min_fee_bps
+        } else {
+            overshoot
+        },
     })
 }
 
