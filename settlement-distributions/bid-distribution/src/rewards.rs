@@ -323,12 +323,12 @@ fn verify_stakers_rewards_present(
 ) -> anyhow::Result<()> {
     if !validators_inflation.is_empty() && inflation_rewards.is_empty() {
         return Err(anyhow::anyhow!(
-            "{VALIDATORS_INFLATION_REWARDS_FILE} has entries but {INFLATION_REWARDS_FILE} is empty - stakers' inflation rewards export is incomplete"
+            "{VALIDATORS_INFLATION_REWARDS_FILE} has entries but {INFLATION_REWARDS_FILE} is empty - either the stakers' inflation rewards export is incomplete or no stakers received inflation rewards; refusing to derive 100% commissions"
         ));
     }
     if !validators_mev.is_empty() && mev_rewards.is_empty() {
         return Err(anyhow::anyhow!(
-            "{VALIDATORS_MEV_REWARDS_FILE} has entries but {MEV_REWARDS_FILE} is empty - stakers' MEV rewards export is incomplete"
+            "{VALIDATORS_MEV_REWARDS_FILE} has entries but {MEV_REWARDS_FILE} is empty - either the stakers' MEV rewards export is incomplete or no stakers received MEV rewards; refusing to derive 100% commissions"
         ));
     }
     Ok(())

@@ -296,24 +296,18 @@ fn generate_bid_settlements_worker(
             }) = &validator.values
             {
                 if let Some(in_bond) = commissions.inflation_commission_in_bond_dec {
-                    settlement_claim.inflation_commission_claim = commission_claim(
-                        rewards.realized_inflation_commission_dec(),
-                        in_bond,
-                        marinade_inflation_rewards,
+                    settlement_claim.inflation_commission_claim = marinade_inflation_rewards.mul(
+                        commission_eff(rewards.realized_inflation_commission_dec(), in_bond),
                     );
                 }
                 if let Some(in_bond) = commissions.mev_commission_in_bond_dec {
-                    settlement_claim.mev_commission_claim = commission_claim(
-                        rewards.realized_mev_commission_dec(),
-                        in_bond,
-                        marinade_mev_rewards,
+                    settlement_claim.mev_commission_claim = marinade_mev_rewards.mul(
+                        commission_eff(rewards.realized_mev_commission_dec(), in_bond),
                     );
                 }
                 if let Some(in_bond) = commissions.block_rewards_commission_in_bond_dec {
-                    settlement_claim.block_commission_claim = commission_claim(
-                        rewards.realized_block_commission_dec(),
-                        in_bond,
-                        marinade_block_rewards,
+                    settlement_claim.block_commission_claim = marinade_block_rewards.mul(
+                        commission_eff(rewards.realized_block_commission_dec(), in_bond),
                     );
                 }
             }
@@ -659,16 +653,13 @@ fn generate_bid_settlements_worker(
     Ok(settlement_claim_collections)
 }
 
-// charges the realized commission from snapshot rewards; the auction-time sam-meta value misses commission raised after the auction snapshot
-fn commission_claim(
+// effective rate of the realized commission from snapshot rewards above the in-bond promise; the auction-time sam-meta value misses commission raised after the auction snapshot
+fn commission_eff(
     commission_realized_dec: Option<Decimal>,
     commission_in_bond_dec: Decimal,
-    marinade_rewards: Decimal,
 ) -> Decimal {
     match commission_realized_dec {
-        Some(realized) if realized > commission_in_bond_dec => {
-            marinade_rewards.mul(realized - commission_in_bond_dec)
-        }
+        Some(realized) if realized > commission_in_bond_dec => realized - commission_in_bond_dec,
         _ => Decimal::ZERO,
     }
 }

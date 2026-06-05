@@ -917,6 +917,14 @@ fn test_commission_raised_after_auction_charged_from_rewards() {
         Decimal::from(mev_rewards) * Decimal::from_str("0.08").unwrap(),
         "MEV claim must cover the commission raised after the auction snapshot"
     );
+    let block_claim: Decimal =
+        serde_json::from_value(details["settlement_claims"]["block_commission_claim"].clone())
+            .unwrap();
+    assert_eq!(
+        block_claim,
+        Decimal::ZERO,
+        "No block rewards in this test, the zero claim is intentional"
+    );
 }
 
 #[test]
