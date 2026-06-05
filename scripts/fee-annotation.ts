@@ -4,14 +4,40 @@ import { readFileSync } from 'node:fs'
 
 import { parse } from 'yaml'
 
-import {
-  type Settlement,
-  type BidSettlement,
-  isProtectedEvent,
-  isFeeSettlement,
-  sumStakerExtras,
-  feesByVoteAccount,
-} from './settlement-utils'
+type Reason =
+  | 'Bidding'
+  | 'PriorityFee'
+  | 'BidTooLowPenalty'
+  | 'BlacklistPenalty'
+  | 'BondRiskFee'
+  | 'InstitutionalPayout'
+  | { ProtectedEvent: { DowntimeRevenueImpact?: Record<string, unknown> } }
+
+type Settlement = {
+  reason: Reason
+  vote_account: string
+  claims_amount: number
+  details: {
+    total_marinade_active_stake: number
+    total_marinade_redelegation_stake?: number
+    total_marinade_stakers_rewards: string
+    marinade_fee_claim: number
+    dao_fee_claim: number
+    stakers_bid_too_low_penalty_claim?: number
+    stakers_blacklist_penalty_claim?: number
+    stakers_bond_risk_fee_claim?: number
+  } | null
+}
+
+const isProtectedEvent = (
+  r: Reason,
+): r is {
+  ProtectedEvent: { DowntimeRevenueImpact?: Record<string, unknown> }
+} => typeof r === 'object'
+
+type BidSettlement = Settlement & {
+  details: NonNullable<Settlement['details']>
+}
 
 type SsrFeed = { epochs: { epoch: number; time: number }[] }
 
@@ -70,17 +96,28 @@ async function main() {
     0,
   )
   // fees: all settlement types — PriorityFee carries dao_fee_claim even with no staking rewards
-  const fees = settlements
-    .filter(isFeeSettlement)
-    .reduce(
-      (sum, s) => sum + s.details.marinade_fee_claim + s.details.dao_fee_claim,
-      0,
-    )
+  const fees = settlements.reduce(
+    (s, b) =>
+      s +
+      (b.details?.marinade_fee_claim ?? 0) +
+      (b.details?.dao_fee_claim ?? 0),
+    0,
+  )
   // Sum fees across all settlement types per validator (Bidding + PriorityFee).
-  const feesByVote = feesByVoteAccount(settlements)
+  const feesByValidator = new Map<string, number>()
+  for (const s of settlements) {
+    if (!s.details) continue
+    const prev = feesByValidator.get(s.vote_account) ?? 0
+    feesByValidator.set(
+      s.vote_account,
+      prev +
+        (s.details.marinade_fee_claim ?? 0) +
+        (s.details.dao_fee_claim ?? 0),
+    )
+  }
   const ncap = bids.filter(b => {
     const rewards = parseFloat(b.details.total_marinade_stakers_rewards)
-    const totalFee = feesByVote.get(b.vote_account) ?? 0
+    const totalFee = feesByValidator.get(b.vote_account) ?? 0
     return rewards > 0 && totalFee < (rewards * maxFeeBps * 0.9999) / 10000
   }).length
 
@@ -121,12 +158,21 @@ async function main() {
   }
   const epochsPerYear = SECONDS_PER_YEAR / (cur.time - prev.time)
 
-  const stakerExtras = sumStakerExtras(settlements)
   const psrToStakers = settlements.reduce(
     (sum, s) => (isProtectedEvent(s.reason) ? sum + s.claims_amount : sum),
     0,
   )
-  const penaltyToStakers = stakerExtras - psrToStakers
+  const penaltyToStakers = settlements.reduce((sum, s) => {
+    const d = s.details
+    if (s.reason === 'BidTooLowPenalty')
+      return sum + (d?.stakers_bid_too_low_penalty_claim ?? 0)
+    if (s.reason === 'BlacklistPenalty')
+      return sum + (d?.stakers_blacklist_penalty_claim ?? 0)
+    if (s.reason === 'BondRiskFee')
+      return sum + (d?.stakers_bond_risk_fee_claim ?? 0)
+    return sum
+  }, 0)
+  const stakerExtras = psrToStakers + penaltyToStakers
 
   const pmpeGross = (gross / stake) * 1000
   const pmpeAdj = ((gross - fees + stakerExtras) / stake) * 1000
