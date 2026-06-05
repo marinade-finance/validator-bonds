@@ -495,58 +495,103 @@ async function main() {
           },
         ],
       },
-      // ── Panel 2: Fee Extraction ───────────────────────────────────────────
+      // ── Panel 2: Fee Extraction + Weekly Shortfall side by side ──────────
       {
-        width: 960,
-        height: 210,
-        title: { text: 'Marinade Fee Extraction (SOL)', fontSize: 13 },
-        data: { values: feeTidy },
-        layer: [
+        spacing: 24,
+        hconcat: [
           {
-            mark: { type: 'bar', opacity: 0.85 },
-            encoding: {
-              x: xEnc,
-              xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
-              y: { field: 'fee', type: 'quantitative', title: 'SOL' },
-              color: {
-                field: 'series',
-                scale: {
-                  domain: [S_ADJUSTED, S_MAXFEE],
-                  range: [C_ACTUAL, C_REF],
-                },
-                legend: {
-                  title: null,
-                  orient: 'right',
-                  direction: 'vertical',
-                  symbolType: 'square',
-                  symbolSize: 220,
-                },
-              },
-            },
-          },
-          // Labels on both bar series (only when sparse enough to read)
-          ...(showBarLabels
-            ? [
-                {
-                  mark: {
-                    type: 'text' as const,
-                    dy: -5,
-                    fontSize: 8,
-                    color: '#333',
-                  },
-                  encoding: {
-                    x: xEnc,
-                    xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
-                    y: { field: 'fee', type: 'quantitative' as const },
-                    text: {
-                      field: 'fee',
-                      type: 'quantitative' as const,
-                      format: '.0f',
+            width: 680,
+            height: 210,
+            title: { text: 'Marinade Fee Extraction (SOL)', fontSize: 13 },
+            data: { values: feeTidy },
+            layer: [
+              {
+                mark: { type: 'bar', opacity: 0.85 },
+                encoding: {
+                  x: xEnc,
+                  xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
+                  y: { field: 'fee', type: 'quantitative', title: 'SOL' },
+                  color: {
+                    field: 'series',
+                    scale: {
+                      domain: [S_ADJUSTED, S_MAXFEE],
+                      range: [C_ACTUAL, C_REF],
+                    },
+                    legend: {
+                      title: null,
+                      orient: 'right',
+                      direction: 'vertical',
+                      symbolType: 'square',
+                      symbolSize: 220,
                     },
                   },
                 },
-              ]
-            : []),
+              },
+              // Labels on both bar series (only when sparse enough to read)
+              ...(showBarLabels
+                ? [
+                    {
+                      mark: {
+                        type: 'text' as const,
+                        dy: -5,
+                        fontSize: 8,
+                        color: '#333',
+                      },
+                      encoding: {
+                        x: xEnc,
+                        xOffset: {
+                          field: 'series',
+                          sort: [S_ADJUSTED, S_MAXFEE],
+                        },
+                        y: { field: 'fee', type: 'quantitative' as const },
+                        text: {
+                          field: 'fee',
+                          type: 'quantitative' as const,
+                          format: '.0f',
+                        },
+                      },
+                    },
+                  ]
+                : []),
+            ],
+          },
+          // Weekly Shortfall (right of fee extraction)
+          {
+            width: 256,
+            height: 210,
+            title: {
+              text: `Weekly Shortfall (SOL)  [Σ ${totalShortfall.toFixed(0)}]`,
+              fontSize: 13,
+            },
+            data: { values: weeklyShortfall },
+            layer: [
+              {
+                mark: { type: 'bar', color: C_COST, opacity: 0.8 },
+                encoding: {
+                  x: {
+                    field: 'week',
+                    type: 'ordinal',
+                    title: null,
+                    axis: { labelAngle: -35 },
+                    scale: { domain: weekDomain },
+                  },
+                  y: { field: 'sol', type: 'quantitative', title: 'SOL' },
+                },
+              },
+              {
+                mark: { type: 'text', dy: -5, fontSize: 8.5, color: '#333' },
+                encoding: {
+                  x: {
+                    field: 'week',
+                    type: 'ordinal',
+                    scale: { domain: weekDomain },
+                  },
+                  y: { field: 'sol', type: 'quantitative' },
+                  text: { field: 'sol', type: 'quantitative', format: '.0f' },
+                },
+              },
+            ],
+          },
         ],
       },
       // ── Panel 3: Validators (left) + Optimized Fee bps (right) ──────────
@@ -644,43 +689,6 @@ async function main() {
                 },
               },
             ],
-          },
-        ],
-      },
-      // ── Panel 4: Weekly Shortfall ─────────────────────────────────────────
-      {
-        width: 960,
-        height: 140,
-        title: {
-          text: `Weekly Fee Shortfall vs Max-Fee (SOL)  [Σ ${totalShortfall.toFixed(0)} SOL]`,
-          fontSize: 13,
-        },
-        data: { values: weeklyShortfall },
-        layer: [
-          {
-            mark: { type: 'bar', color: C_COST, opacity: 0.8 },
-            encoding: {
-              x: {
-                field: 'week',
-                type: 'ordinal',
-                title: null,
-                axis: { labelAngle: -30 },
-                scale: { domain: weekDomain },
-              },
-              y: { field: 'sol', type: 'quantitative', title: 'SOL' },
-            },
-          },
-          {
-            mark: { type: 'text', dy: -5, fontSize: 8.5, color: '#333' },
-            encoding: {
-              x: {
-                field: 'week',
-                type: 'ordinal',
-                scale: { domain: weekDomain },
-              },
-              y: { field: 'sol', type: 'quantitative' },
-              text: { field: 'sol', type: 'quantitative', format: '.0f' },
-            },
           },
         ],
       },
