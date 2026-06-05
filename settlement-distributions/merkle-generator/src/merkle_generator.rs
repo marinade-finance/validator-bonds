@@ -368,6 +368,7 @@ mod tests {
                 slot: 12345,
                 epoch: 100,
                 settlements: vec![settlement1],
+                ..Default::default()
             },
         };
 
@@ -377,6 +378,7 @@ mod tests {
                 slot: 12345,
                 epoch: 100,
                 settlements: vec![settlement2],
+                ..Default::default()
             },
         };
 
@@ -434,6 +436,7 @@ mod tests {
                 slot: 5000,
                 epoch: 42,
                 settlements: vec![settlement_a],
+                ..Default::default()
             },
         };
         let source_b = SettlementSource {
@@ -442,6 +445,7 @@ mod tests {
                 slot: 5000,
                 epoch: 42,
                 settlements: vec![settlement_b],
+                ..Default::default()
             },
         };
 
@@ -500,6 +504,7 @@ mod tests {
                 slot: 12345,
                 epoch: 100,
                 settlements: vec![settlement_bond, settlement_marinade],
+                ..Default::default()
             },
         };
 

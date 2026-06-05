@@ -4,20 +4,14 @@ import { readFileSync } from 'node:fs'
 
 import { parse } from 'yaml'
 
-type Settlement = {
-  reason: string
-  vote_account: string
-  details: {
-    total_marinade_active_stake: number
-    total_marinade_stakers_rewards: string
-    marinade_fee_claim: number
-    dao_fee_claim: number
-  } | null
-}
-
-type BidSettlement = Settlement & {
-  details: NonNullable<Settlement['details']>
-}
+import {
+  type Settlement,
+  type BidSettlement,
+  isProtectedEvent,
+  isFeeSettlement,
+  sumStakerExtras,
+  feesByVoteAccount,
+} from './settlement-utils'
 
 type SsrFeed = { epochs: { epoch: number; time: number }[] }
 
@@ -56,7 +50,10 @@ async function main() {
     (s): s is BidSettlement => s.reason === 'Bidding' && s.details !== null,
   )
   const stake = bids.reduce(
-    (s, b) => s + b.details.total_marinade_active_stake,
+    (s, b) =>
+      s +
+      b.details.total_marinade_active_stake +
+      (b.details.total_marinade_redelegation_stake ?? 0),
     0,
   )
 
@@ -73,29 +70,17 @@ async function main() {
     0,
   )
   // fees: all settlement types — PriorityFee carries dao_fee_claim even with no staking rewards
-  const fees = settlements.reduce(
-    (s, b) =>
-      s +
-      (b.details?.marinade_fee_claim ?? 0) +
-      (b.details?.dao_fee_claim ?? 0),
-    0,
-  )
-  // Sum fees across all settlement types per validator (Bidding + PriorityFee).
-  // Bidding row has only the bidding-portion fee; PriorityFee carries the activating portion.
-  const feesByValidator = new Map<string, number>()
-  for (const s of settlements) {
-    if (!s.details) continue
-    const prev = feesByValidator.get(s.vote_account) ?? 0
-    feesByValidator.set(
-      s.vote_account,
-      prev +
-        (s.details.marinade_fee_claim ?? 0) +
-        (s.details.dao_fee_claim ?? 0),
+  const fees = settlements
+    .filter(isFeeSettlement)
+    .reduce(
+      (sum, s) => sum + s.details.marinade_fee_claim + s.details.dao_fee_claim,
+      0,
     )
-  }
+  // Sum fees across all settlement types per validator (Bidding + PriorityFee).
+  const feesByVote = feesByVoteAccount(settlements)
   const ncap = bids.filter(b => {
     const rewards = parseFloat(b.details.total_marinade_stakers_rewards)
-    const totalFee = feesByValidator.get(b.vote_account) ?? 0
+    const totalFee = feesByVote.get(b.vote_account) ?? 0
     return rewards > 0 && totalFee < (rewards * maxFeeBps * 0.9999) / 10000
   }).length
 
@@ -136,9 +121,17 @@ async function main() {
   }
   const epochsPerYear = SECONDS_PER_YEAR / (cur.time - prev.time)
 
+  const stakerExtras = sumStakerExtras(settlements)
+  const psrToStakers = settlements.reduce(
+    (sum, s) => (isProtectedEvent(s.reason) ? sum + s.claims_amount : sum),
+    0,
+  )
+  const penaltyToStakers = stakerExtras - psrToStakers
+
   const pmpeGross = (gross / stake) * 1000
-  const pmpeAdj = ((gross - fees) / stake) * 1000
-  const pmpeMax = ((gross * (1 - maxFeeBps / 10000)) / stake) * 1000
+  const pmpeAdj = ((gross - fees + stakerExtras) / stake) * 1000
+  const pmpeMax =
+    ((gross * (1 - maxFeeBps / 10000) + stakerExtras) / stake) * 1000
   const feesSol = fees / 1e9
   const feesFull = (gross * maxFeeBps) / 10000 / 1e9
   const apyFor = (p: number) =>
@@ -150,13 +143,13 @@ async function main() {
   process.stdout
     .write(`### Fee Report — Epoch ${epoch}   (max_fee_bps: ${maxFeeBps}, min_fee_bps: ${minFeeBps})
 
-| scenario  | fee ◎              | pmpe              | APY      | vs gross  |
-|-----------|--------------------|-------------------|----------|-----------|
-| gross     | 0.000              | ${pmpeGross.toFixed(6)} | ${apyGross.toFixed(2)}%  | —         |
-| actual    | ${feesSol.toFixed(3)} | ${pmpeAdj.toFixed(6)} | ${apyAdj.toFixed(2)}%  | ${apyAdj - apyGross >= 0 ? '+' : ''}${(apyAdj - apyGross).toFixed(2)}pp |
-| full fee  | ${feesFull.toFixed(3)} | ${pmpeMax.toFixed(6)} | ${apyMax.toFixed(2)}%  | ${apyMax - apyGross >= 0 ? '+' : ''}${(apyMax - apyGross).toFixed(2)}pp |
+| scenario  | fee (SOL)   | pmpe       | APY      | vs gross  |
+|-----------|-------------|------------|----------|-----------|
+| gross     | 0.000       | ${pmpeGross.toFixed(6)} | ${apyGross.toFixed(2)}%  | —         |
+| actual    | ${feesSol.toFixed(3).padEnd(11)} | ${pmpeAdj.toFixed(6)} | ${apyAdj.toFixed(2)}%  | ${apyAdj - apyGross >= 0 ? '+' : ''}${(apyAdj - apyGross).toFixed(2)}pp |
+| full fee  | ${feesFull.toFixed(3).padEnd(11)} | ${pmpeMax.toFixed(6)} | ${apyMax.toFixed(2)}%  | ${apyMax - apyGross >= 0 ? '+' : ''}${(apyMax - apyGross).toFixed(2)}pp |
 
-${ncap} of ${bids.length} Bidding validators were SSR-capped (paid less than full fee)
+${ncap} of ${bids.length} Bidding validators were SSR-capped (paid less than full fee)${stakerExtras > 0 ? `\nPSR/penalty extras to stakers: ${(stakerExtras / 1e9).toFixed(3)} SOL (psr: ${(psrToStakers / 1e9).toFixed(3)}, penalty: ${(penaltyToStakers / 1e9).toFixed(3)})` : ''}
 `)
 }
 

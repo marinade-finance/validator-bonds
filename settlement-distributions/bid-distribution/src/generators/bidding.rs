@@ -89,6 +89,13 @@ pub struct PriorityFeeSettlementDetails {
 
 const MAX_ADJ_ITER: u32 = 20;
 
+#[derive(Serialize)]
+pub struct BidSettlementValues {
+    pub settlements: Vec<Settlement>,
+    pub adj_max_fee_bps: u64,
+    pub adj_min_fee_bps: u64,
+}
+
 #[derive(Default)]
 pub struct BidSettlementTotals {
     pub stake: Decimal,
@@ -150,7 +157,7 @@ pub fn generate_bid_settlements(
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     ssr_pmpe: Decimal,
-) -> anyhow::Result<Vec<Settlement>> {
+) -> anyhow::Result<BidSettlementValues> {
     let max_cap = fee_config.max_fee_bps;
     let min_cap = fee_config.min_fee_bps;
     let mut current = max_cap;
@@ -199,7 +206,12 @@ pub fn generate_bid_settlements(
         info!("Adjusted max_fee_bps: {current} -> {next} (post_fee_pmpe {post_fee}, ssr_pmpe {ssr_pmpe})");
         current = next;
     }
-    Ok(best_feasible.unwrap_or_else(|| best_infeasible.expect("MAX_ADJ_ITER = 0")))
+    let settlements = best_feasible.or(best_infeasible).expect("MAX_ADJ_ITER = 0");
+    Ok(BidSettlementValues {
+        settlements,
+        adj_max_fee_bps: best_feasible_fee,
+        adj_min_fee_bps: min_cap,
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
