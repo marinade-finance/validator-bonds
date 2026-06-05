@@ -99,22 +99,32 @@ async function main() {
   const totalShortfall = rows.reduce((s, r) => s + r.shortfall, 0)
   const title = `Marinade Validator Bond Fee Simulation · Epochs ${epochs[0]}–${epochs[epochs.length - 1]}`
 
-  // Monthly aggregation: sum feeAdj and shortfall per calendar month
-  const monthMap = new Map<string, { feeAdj: number; shortfall: number }>()
-  for (const r of rows) {
-    const m = monthMap.get(r.month) ?? { feeAdj: 0, shortfall: 0 }
-    m.feeAdj += r.feeAdj
-    m.shortfall += r.shortfall
-    monthMap.set(r.month, m)
+  // Weekly aggregation: sum feeAdj and shortfall per ISO week (YYYY-Www)
+  const isoWeek = (ts: number): string => {
+    const d = new Date(ts * 1000)
+    const jan4 = new Date(d.getFullYear(), 0, 4)
+    const startOfWeek1 = new Date(jan4)
+    startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7))
+    const diffDays = Math.floor(
+      (d.getTime() - startOfWeek1.getTime()) / 86400000,
+    )
+    const week = Math.floor(diffDays / 7) + 1
+    return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`
   }
-  type MonthRow = { month: string; series: string; sol: number }
-  const monthlyTidy: MonthRow[] = [...monthMap.entries()].flatMap(
-    ([month, v]) => [
-      { month, series: S_ADJUSTED, sol: v.feeAdj },
-      { month, series: 'Shortfall', sol: v.shortfall },
-    ],
-  )
-  const monthDomain = [...monthMap.keys()].sort()
+  const weekMap = new Map<string, { feeAdj: number; shortfall: number }>()
+  for (const r of rows) {
+    const w = isoWeek(r.time)
+    const entry = weekMap.get(w) ?? { feeAdj: 0, shortfall: 0 }
+    entry.feeAdj += r.feeAdj
+    entry.shortfall += r.shortfall
+    weekMap.set(w, entry)
+  }
+  type WeekRow = { week: string; sol: number }
+  const weekDomain = [...weekMap.keys()].sort()
+  const weeklyShortfall: WeekRow[] = weekDomain.map(w => ({
+    week: w,
+    sol: weekMap.get(w)?.shortfall ?? 0,
+  }))
 
   const apyData: ApyPoint[] = rows.map(r => ({
     epoch: r.epoch,
@@ -441,48 +451,37 @@ async function main() {
           },
         ],
       },
-      // ── Panel 4: Monthly Fee Take & Shortfall ────────────────────────────
+      // ── Panel 4: Weekly Shortfall ─────────────────────────────────────────
       {
         width: 960,
-        height: 180,
-        title: { text: 'Monthly Fee Take vs Shortfall (SOL)', fontSize: 13 },
-        data: { values: monthlyTidy },
+        height: 140,
+        title: {
+          text: `Weekly Fee Shortfall vs Max-Fee (SOL)  [Σ ${totalShortfall.toFixed(0)} SOL]`,
+          fontSize: 13,
+        },
+        data: { values: weeklyShortfall },
         layer: [
           {
-            mark: { type: 'bar', opacity: 0.85 },
+            mark: { type: 'bar', color: C_COST, opacity: 0.8 },
             encoding: {
               x: {
-                field: 'month',
+                field: 'week',
                 type: 'ordinal',
                 title: null,
                 axis: { labelAngle: -30 },
-                scale: { domain: monthDomain },
+                scale: { domain: weekDomain },
               },
-              xOffset: { field: 'series', sort: [S_ADJUSTED, 'Shortfall'] },
               y: { field: 'sol', type: 'quantitative', title: 'SOL' },
-              color: {
-                field: 'series',
-                scale: {
-                  domain: [S_ADJUSTED, 'Shortfall'],
-                  range: [C_ACTUAL, C_COST],
-                },
-                legend: {
-                  title: null,
-                  orient: 'top-right',
-                  direction: 'vertical',
-                },
-              },
             },
           },
           {
             mark: { type: 'text', dy: -5, fontSize: 8.5, color: '#333' },
             encoding: {
               x: {
-                field: 'month',
+                field: 'week',
                 type: 'ordinal',
-                scale: { domain: monthDomain },
+                scale: { domain: weekDomain },
               },
-              xOffset: { field: 'series', sort: [S_ADJUSTED, 'Shortfall'] },
               y: { field: 'sol', type: 'quantitative' },
               text: { field: 'sol', type: 'quantitative', format: '.0f' },
             },
