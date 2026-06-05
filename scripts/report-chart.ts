@@ -412,7 +412,7 @@ async function main() {
                   title: null,
                   orient: 'bottom',
                   direction: 'horizontal',
-                  offset: 16,
+                  offset: 52,
                   labelFontSize: 13,
                   symbolType: 'stroke',
                   symbolSize: 900,
