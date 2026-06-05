@@ -526,6 +526,31 @@ async function main() {
                   },
                 },
               },
+              {
+                mark: {
+                  type: 'rule',
+                  color: C_COST,
+                  strokeWidth: 1.5,
+                  strokeDash: [4, 3],
+                },
+                encoding: { y: { datum: 3000 } },
+              },
+              {
+                data: { values: [{}] },
+                mark: {
+                  type: 'text',
+                  text: '3000 SOL target',
+                  color: C_COST,
+                  fontSize: 9,
+                  align: 'right',
+                  dx: -4,
+                  dy: -5,
+                },
+                encoding: {
+                  x: { value: 460 },
+                  y: { datum: 3000, type: 'quantitative' },
+                },
+              },
             ],
           },
           // Shortfall (right of fee extraction, same period)
