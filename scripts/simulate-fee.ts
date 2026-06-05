@@ -82,11 +82,13 @@ const ssr = (await ssrRes.json()) as {
 }
 
 const STAKES_FILE = 'stakes.json'
+const SAM_FILE = 'sam-scores.json'
+const VALIDATORS_FILE = 'validators.json'
 
 const INPUTS = [
   STAKES_FILE,
-  'sam-scores.json',
-  'validators.json',
+  SAM_FILE,
+  VALIDATORS_FILE,
   'evaluation.json',
   'rewards/mev.json',
   'rewards/validators_mev.json',
@@ -160,6 +162,12 @@ const GCS_ETL = 'gs://marinade-stakes-etl-mainnet'
 const SCORING_API = 'https://scoring.marinade.finance/api/v1'
 const PROD_FILE = 'bid-distribution-settlements.json'
 
+// GCS path helpers — one per data source
+const gcsBonds = (epoch: number, file: string) =>
+  `${GCS_BONDS}/${epoch}/${file}`
+const gcsEtl = (epoch: number, file: string) => `${GCS_ETL}/${epoch}/${file}`
+const scoringUrl = (epoch: number) => `${SCORING_API}/scores/sam?epoch=${epoch}`
+
 function runMkdir(dir: string) {
   Bun.spawnSync(['mkdir', '-p', dir], { stderr: 'pipe' })
 }
@@ -196,7 +204,7 @@ function fetchProductionSettlement(epoch: number): string {
   if (!existsSync(path)) {
     process.stderr.write(`  # downloading ${PROD_FILE} for epoch ${epoch}...\n`)
     runMkdir(dir)
-    runGcsCp(`${GCS_BONDS}/${epoch}/${PROD_FILE}`, path)
+    runGcsCp(gcsBonds(epoch, PROD_FILE), path)
   }
   if (!existsSync(path)) {
     process.stderr.write(`Failed: ${PROD_FILE} not found for epoch ${epoch}\n`)
@@ -219,40 +227,34 @@ function fetchInputs(epoch: number): void {
     runGzip(dst)
   }
 
-  fetchOne(`${GCS_BONDS}/${epoch}/${STAKES_FILE}`, join(inp, STAKES_FILE))
+  fetchOne(gcsBonds(epoch, STAKES_FILE), join(inp, STAKES_FILE))
+  fetchOne(gcsBonds(epoch, VALIDATORS_FILE), join(inp, VALIDATORS_FILE))
   fetchOne(
-    `${GCS_BONDS}/${epoch}/validators.json`,
-    join(inp, 'validators.json'),
-  )
-  fetchOne(
-    `${GCS_BONDS}/${epoch}/bid-psr-distribution-evaluation.json`,
+    gcsBonds(epoch, 'bid-psr-distribution-evaluation.json'),
     join(inp, 'evaluation.json'),
   )
-  fetchOne(`${GCS_ETL}/${epoch}/rewards_mev.json`, join(rwd, 'mev.json'))
+  fetchOne(gcsEtl(epoch, 'rewards_mev.json'), join(rwd, 'mev.json'))
   fetchOne(
-    `${GCS_ETL}/${epoch}/rewards_validators_mev.json`,
+    gcsEtl(epoch, 'rewards_validators_mev.json'),
     join(rwd, 'validators_mev.json'),
   )
+  fetchOne(gcsEtl(epoch, 'rewards_inflation.json'), join(rwd, 'inflation.json'))
   fetchOne(
-    `${GCS_ETL}/${epoch}/rewards_inflation.json`,
-    join(rwd, 'inflation.json'),
-  )
-  fetchOne(
-    `${GCS_ETL}/${epoch}/rewards_validators_inflation.json`,
+    gcsEtl(epoch, 'rewards_validators_inflation.json'),
     join(rwd, 'validators_inflation.json'),
   )
   fetchOne(
-    `${GCS_ETL}/${epoch}/rewards_validators_blocks.json`,
+    gcsEtl(epoch, 'rewards_validators_blocks.json'),
     join(rwd, 'validators_blocks.json'),
   )
   fetchOne(
-    `${GCS_ETL}/${epoch}/rewards_priority_fee.json`,
+    gcsEtl(epoch, 'rewards_priority_fee.json'),
     join(rwd, 'jito_priority_fee.json'),
   )
 
-  const samPath = join(inp, 'sam-scores.json')
+  const samPath = join(inp, SAM_FILE)
   if (!existsSync(gz(samPath))) {
-    runHttpGet(`${SCORING_API}/scores/sam?epoch=${epoch}`, samPath)
+    runHttpGet(scoringUrl(epoch), samPath)
     runGzip(samPath)
   }
 
@@ -262,7 +264,7 @@ function fetchInputs(epoch: number): void {
   }
 }
 
-function runCli(cfgFile: string, inp: string): string {
+function runBidDistributionCli(cfgFile: string, inp: string): string {
   const out = tmpFile()
   // Decompress inputs to /tmp (tmpfs) — deleted after CLI exits
   const tmp = mkdtempSync('/tmp/bd-')
@@ -367,7 +369,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     } else {
       const cfgFile = tmpFile()
       await writeFile(cfgFile, cfgText)
-      settlementsJson = runCli(cfgFile, inp)
+      settlementsJson = runBidDistributionCli(cfgFile, inp)
     }
 
     const {
@@ -411,9 +413,9 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
         0,
       ) +
       settlements.reduce((sum, s) => {
-        if (s.reason !== 'PriorityFee' || bidVotes.has(s.vote_account))
-          return sum
-        return sum + parseFloat(s.details.activating_bid_claim)
+        if (s.reason === 'PriorityFee' && !bidVotes.has(s.vote_account))
+          return sum + parseFloat(s.details.activating_bid_claim)
+        return sum
       }, 0)
     const feeAdj = settlements
       .filter(isFeeSettlement)
