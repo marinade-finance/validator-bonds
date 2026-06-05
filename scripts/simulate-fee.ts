@@ -3,6 +3,7 @@
 import { randomBytes } from 'node:crypto'
 import { existsSync, mkdtempSync, rmSync, unlinkSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { dirname } from 'node:path'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
@@ -267,7 +268,7 @@ function fetchInputs(epoch: number): void {
 function runBidDistributionCli(cfgFile: string, inp: string): string {
   const out = tmpFile()
   // Decompress inputs to /tmp (tmpfs) — deleted after CLI exits
-  const tmp = mkdtempSync('/tmp/bd-')
+  const tmp = mkdtempSync(join(tmpdir(), 'bd-'))
   for (const f of INPUTS) {
     const src = join(inp, f)
     const dst = join(tmp, f)
