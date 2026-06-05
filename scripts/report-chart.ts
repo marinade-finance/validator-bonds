@@ -55,7 +55,6 @@ type ApyPoint = {
   apyAdj: number
   apyMax: number
 }
-type FeePoint = { epoch: number; series: string; fee: number }
 type ValPoint = { epoch: number; series: string; pct: number }
 
 const pct = (s: string | number): number =>
@@ -103,10 +102,6 @@ async function main() {
   const totalShortfall = rows.reduce((s, r) => s + r.shortfall, 0)
   const title = `Marinade Validator Bond Fee Simulation · Epochs ${epochs[0]}–${epochs[epochs.length - 1]}`
 
-  // Per-bar value labels only read cleanly when bars are sparse. Above this
-  // density the labels collide into illegible mush, so suppress them.
-  const showBarLabels = rows.length <= 16
-
   // Detect gaps in the otherwise-consecutive epoch sequence. The ordinal axis
   // silently connects across missing epochs, so we draw a marker at each gap.
   type Gap = { after: number; before: number; missing: number }
@@ -118,31 +113,40 @@ async function main() {
     }
   }
 
-  // Weekly aggregation: sum feeAdj and shortfall per ISO week (YYYY-Www)
+  // Time-range-aware aggregation: monthly when span > 2 months, weekly otherwise
   const isoWeek = (ts: number): string => {
     const d = new Date(ts * 1000)
     const jan4 = new Date(d.getFullYear(), 0, 4)
-    const startOfWeek1 = new Date(jan4)
-    startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7))
-    const diffDays = Math.floor(
-      (d.getTime() - startOfWeek1.getTime()) / 86400000,
-    )
-    const week = Math.floor(diffDays / 7) + 1
+    const start = new Date(jan4)
+    start.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7))
+    const week = Math.floor((d.getTime() - start.getTime()) / 86400000 / 7) + 1
     return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`
   }
-  const weekMap = new Map<string, { feeAdj: number; shortfall: number }>()
+  const spanDays =
+    rows.length > 1 ? (rows[rows.length - 1].time - rows[0].time) / 86400 : 0
+  const useMonth = spanDays > 60
+  const periodKey = (r: Row) => (useMonth ? r.month : isoWeek(r.time))
+
+  type PeriodData = { feeAdj: number; feeMax: number; shortfall: number }
+  const periodMap = new Map<string, PeriodData>()
   for (const r of rows) {
-    const w = isoWeek(r.time)
-    const entry = weekMap.get(w) ?? { feeAdj: 0, shortfall: 0 }
-    entry.feeAdj += r.feeAdj
-    entry.shortfall += r.shortfall
-    weekMap.set(w, entry)
+    const k = periodKey(r)
+    const e = periodMap.get(k) ?? { feeAdj: 0, feeMax: 0, shortfall: 0 }
+    e.feeAdj += r.feeAdj
+    e.feeMax += r.feeMax
+    e.shortfall += r.shortfall
+    periodMap.set(k, e)
   }
-  type WeekRow = { week: string; sol: number }
-  const weekDomain = [...weekMap.keys()].sort()
-  const weeklyShortfall: WeekRow[] = weekDomain.map(w => ({
-    week: w,
-    sol: weekMap.get(w)?.shortfall ?? 0,
+  const periodDomain = [...periodMap.keys()].sort()
+  type PeriodRow = { period: string; series: string; sol: number }
+  const feePeriodTidy: PeriodRow[] = periodDomain.flatMap(p => [
+    { period: p, series: S_ADJUSTED, sol: periodMap.get(p)?.feeAdj ?? 0 },
+    { period: p, series: S_MAXFEE, sol: periodMap.get(p)?.feeMax ?? 0 },
+  ])
+  type ShortRow = { period: string; sol: number }
+  const shortfallPeriod: ShortRow[] = periodDomain.map(p => ({
+    period: p,
+    sol: periodMap.get(p)?.shortfall ?? 0,
   }))
 
   // Missing epochs enumerated from the gaps — null rows inserted at these
@@ -159,11 +163,6 @@ async function main() {
     apyAdj: r.apyAdj,
     apyMax: r.apyMax,
   }))
-  const feeTidy: FeePoint[] = rows.flatMap(r => [
-    { epoch: r.epoch, series: S_ADJUSTED, fee: r.feeAdj },
-    { epoch: r.epoch, series: S_MAXFEE, fee: r.feeMax },
-  ])
-
   const valTidy: ValPoint[] = rows.flatMap(r => [
     { epoch: r.epoch, series: S_AT_CAP, pct: r.vcap },
     { epoch: r.epoch, series: S_AT_MIN, pct: r.vmin },
@@ -502,15 +501,24 @@ async function main() {
           {
             width: 680,
             height: 210,
-            title: { text: 'Marinade Fee Extraction (SOL)', fontSize: 13 },
-            data: { values: feeTidy },
+            title: {
+              text: `Marinade Fee Extraction by ${useMonth ? 'Month' : 'Week'} (SOL)`,
+              fontSize: 13,
+            },
+            data: { values: feePeriodTidy },
             layer: [
               {
                 mark: { type: 'bar', opacity: 0.85 },
                 encoding: {
-                  x: xEnc,
+                  x: {
+                    field: 'period',
+                    type: 'ordinal',
+                    title: null,
+                    axis: { labelAngle: -35 },
+                    scale: { domain: periodDomain },
+                  },
                   xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
-                  y: { field: 'fee', type: 'quantitative', title: 'SOL' },
+                  y: { field: 'sol', type: 'quantitative', title: 'SOL' },
                   color: {
                     field: 'series',
                     scale: {
@@ -519,7 +527,7 @@ async function main() {
                     },
                     legend: {
                       title: null,
-                      orient: 'right',
+                      orient: 'top-right',
                       direction: 'vertical',
                       symbolType: 'square',
                       symbolSize: 220,
@@ -527,53 +535,44 @@ async function main() {
                   },
                 },
               },
-              // Labels on both bar series (only when sparse enough to read)
-              ...(showBarLabels
-                ? [
-                    {
-                      mark: {
-                        type: 'text' as const,
-                        dy: -5,
-                        fontSize: 8,
-                        color: '#333',
-                      },
-                      encoding: {
-                        x: xEnc,
-                        xOffset: {
-                          field: 'series',
-                          sort: [S_ADJUSTED, S_MAXFEE],
-                        },
-                        y: { field: 'fee', type: 'quantitative' as const },
-                        text: {
-                          field: 'fee',
-                          type: 'quantitative' as const,
-                          format: '.0f',
-                        },
-                      },
-                    },
-                  ]
-                : []),
+              {
+                mark: { type: 'text', dy: -5, fontSize: 8.5, color: '#333' },
+                encoding: {
+                  x: {
+                    field: 'period',
+                    type: 'ordinal',
+                    scale: { domain: periodDomain },
+                  },
+                  xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
+                  y: { field: 'sol', type: 'quantitative' as const },
+                  text: {
+                    field: 'sol',
+                    type: 'quantitative' as const,
+                    format: '.0f',
+                  },
+                },
+              },
             ],
           },
-          // Weekly Shortfall (right of fee extraction)
+          // Shortfall (right of fee extraction, same period)
           {
             width: 256,
             height: 210,
             title: {
-              text: `Weekly Shortfall (SOL)  [Σ ${totalShortfall.toFixed(0)}]`,
+              text: `Shortfall (SOL)  [Σ ${totalShortfall.toFixed(0)}]`,
               fontSize: 13,
             },
-            data: { values: weeklyShortfall },
+            data: { values: shortfallPeriod },
             layer: [
               {
                 mark: { type: 'bar', color: C_COST, opacity: 0.8 },
                 encoding: {
                   x: {
-                    field: 'week',
+                    field: 'period',
                     type: 'ordinal',
                     title: null,
                     axis: { labelAngle: -35 },
-                    scale: { domain: weekDomain },
+                    scale: { domain: periodDomain },
                   },
                   y: { field: 'sol', type: 'quantitative', title: 'SOL' },
                 },
@@ -582,9 +581,9 @@ async function main() {
                 mark: { type: 'text', dy: -5, fontSize: 8.5, color: '#333' },
                 encoding: {
                   x: {
-                    field: 'week',
+                    field: 'period',
                     type: 'ordinal',
-                    scale: { domain: weekDomain },
+                    scale: { domain: periodDomain },
                   },
                   y: { field: 'sol', type: 'quantitative' },
                   text: { field: 'sol', type: 'quantitative', format: '.0f' },
