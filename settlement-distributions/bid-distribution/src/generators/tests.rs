@@ -903,7 +903,8 @@ fn test_commission_raised_after_auction_charged_from_rewards() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert_eq!(settlements.len(), 1);
     let details = settlements[0].details.as_ref().unwrap();
@@ -993,7 +994,8 @@ fn test_negative_block_commission_charged_against_negative_in_bond() {
         &|_| false,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert_eq!(settlements.len(), 1);
     let details = settlements[0].details.as_ref().unwrap();
