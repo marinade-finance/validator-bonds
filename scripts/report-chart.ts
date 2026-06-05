@@ -9,8 +9,9 @@ import { parse as parseYaml } from 'yaml'
 
 import type { TopLevelSpec } from 'vega-lite'
 
-const REPORT = 'report.yml'
-const OUT = 'report.png'
+const [, , argReport, argOut] = process.argv
+const REPORT = argReport ?? 'report.yml'
+const OUT = argOut ?? REPORT.replace(/\.yml$/, '.png')
 
 const C_ACTUAL = '#4682b4'
 const C_REF = '#708090'
