@@ -81,7 +81,7 @@ const ssr = (await ssrRes.json()) as {
 }
 
 const INPUTS = [
-  'stakes.json',
+  STAKES_FILE,
   'sam-scores.json',
   'validators.json',
   'evaluation.json',
@@ -152,15 +152,26 @@ const apy = (p: number, n: number) =>
   ((Math.pow(1 + p / 1000, n) - 1) * 100).toFixed(2) + '%'
 const sol = (v: number) => (Math.round((v / 1e9) * 1000) / 1000).toFixed(3)
 
+const STAKES_FILE = 'stakes.json'
 const GCS_BONDS = 'gs://marinade-validator-bonds-mainnet'
+const GCS_ETL = 'gs://marinade-stakes-etl-mainnet'
+const SCORING_API = 'https://scoring.marinade.finance/api/v1'
 const PROD_FILE = 'bid-distribution-settlements.json'
 
 function runMkdir(dir: string) {
   Bun.spawnSync(['mkdir', '-p', dir], { stderr: 'pipe' })
 }
 
-function runGcsCp(src: string, dst: string) {
-  Bun.spawnSync(['gcloud', 'storage', 'cp', src, dst], { stderr: 'pipe' })
+function gcsCp(src: string, dst: string): boolean {
+  const r = Bun.spawnSync(['gcloud', 'storage', 'cp', src, dst], {
+    stderr: 'pipe',
+  })
+  return r.exitCode === 0
+}
+
+function httpGet(url: string, dst: string): boolean {
+  const r = Bun.spawnSync(['curl', '-sf', url, '-o', dst], { stderr: 'pipe' })
+  return r.exitCode === 0
 }
 
 function fetchProductionSettlement(epoch: number): string {
@@ -169,7 +180,7 @@ function fetchProductionSettlement(epoch: number): string {
   if (!existsSync(path)) {
     process.stderr.write(`  # downloading ${PROD_FILE} for epoch ${epoch}...\n`)
     runMkdir(dir)
-    runGcsCp(`${GCS_BONDS}/${epoch}/${PROD_FILE}`, path)
+    gcsCp(`${GCS_BONDS}/${epoch}/${PROD_FILE}`, path)
   }
   if (!existsSync(path)) {
     process.stderr.write(`Failed: ${PROD_FILE} not found for epoch ${epoch}\n`)
@@ -180,20 +191,45 @@ function fetchProductionSettlement(epoch: number): string {
 
 function fetchInputs(epoch: number): void {
   const inp = join(dataDir, String(epoch), 'inputs')
+  const rwd = join(inp, 'rewards')
   if (INPUTS.every(f => existsSync(join(inp, f)))) return
-  process.stderr.write(`  # fetching ${epoch}...\n`)
-  Bun.spawnSync(
+  process.stderr.write(`  # fetching inputs for epoch ${epoch}...\n`)
+  runMkdir(rwd)
+
+  const downloads: [string, string][] = [
+    [`${GCS_BONDS}/${epoch}/stakes.json`, join(inp, STAKES_FILE)],
+    [`${GCS_BONDS}/${epoch}/validators.json`, join(inp, 'validators.json')],
     [
-      './scripts/regression-test-settlements.sh',
-      '--start-epoch',
-      String(epoch),
-      '--end-epoch',
-      String(epoch),
-      '--data-dir',
-      dataDir,
+      `${GCS_BONDS}/${epoch}/bid-psr-distribution-evaluation.json`,
+      join(inp, 'evaluation.json'),
     ],
-    { stderr: 'pipe' },
-  )
+    [`${GCS_ETL}/${epoch}/rewards_mev.json`, join(rwd, 'mev.json')],
+    [
+      `${GCS_ETL}/${epoch}/rewards_validators_mev.json`,
+      join(rwd, 'validators_mev.json'),
+    ],
+    [`${GCS_ETL}/${epoch}/rewards_inflation.json`, join(rwd, 'inflation.json')],
+    [
+      `${GCS_ETL}/${epoch}/rewards_validators_inflation.json`,
+      join(rwd, 'validators_inflation.json'),
+    ],
+    [
+      `${GCS_ETL}/${epoch}/rewards_validators_blocks.json`,
+      join(rwd, 'validators_blocks.json'),
+    ],
+    [
+      `${GCS_ETL}/${epoch}/rewards_priority_fee.json`,
+      join(rwd, 'jito_priority_fee.json'),
+    ],
+  ]
+  for (const [src, dst] of downloads) {
+    if (!existsSync(dst)) gcsCp(src, dst)
+  }
+  // SAM scores come from HTTP API, not GCS
+  const samPath = join(inp, 'sam-scores.json')
+  if (!existsSync(samPath))
+    httpGet(`${SCORING_API}/scores/sam?epoch=${epoch}`, samPath)
+
   if (!INPUTS.every(f => existsSync(join(inp, f)))) {
     process.stderr.write(`Failed: fetch failed for epoch ${epoch}\n`)
     process.exit(1)
@@ -321,7 +357,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       (sum, d) => sum + (d.total_marinade_redelegation_stake ?? 0),
       0,
     )
-    const stakesPath = join(inp, 'stakes.json')
+    const stakesPath = join(inp, STAKES_FILE)
     const redeleg =
       rustRedeleg > 0
         ? rustRedeleg
