@@ -80,6 +80,8 @@ const ssr = (await ssrRes.json()) as {
   epochs: { epoch: number; pmpe: number; time: number }[]
 }
 
+const STAKES_FILE = 'stakes.json'
+
 const INPUTS = [
   STAKES_FILE,
   'sam-scores.json',
@@ -152,7 +154,6 @@ const apy = (p: number, n: number) =>
   ((Math.pow(1 + p / 1000, n) - 1) * 100).toFixed(2) + '%'
 const sol = (v: number) => (Math.round((v / 1e9) * 1000) / 1000).toFixed(3)
 
-const STAKES_FILE = 'stakes.json'
 const GCS_BONDS = 'gs://marinade-validator-bonds-mainnet'
 const GCS_ETL = 'gs://marinade-stakes-etl-mainnet'
 const SCORING_API = 'https://scoring.marinade.finance/api/v1'
