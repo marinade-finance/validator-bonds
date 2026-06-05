@@ -35,6 +35,8 @@ const S_SSR = 'SSR baseline'
 
 type Row = {
   epoch: number
+  time: number
+  month: string
   ssrApy: number
   apyAdj: number
   apyMax: number
@@ -76,6 +78,8 @@ function load(): Row[] {
     return [
       {
         epoch: e.epoch,
+        time: e.time,
+        month: new Date(e.time * 1000).toISOString().slice(0, 7),
         ssrApy: pct(e.ssr_apy),
         apyAdj: pct(sim['apy_adj']),
         apyMax: pct(sim['apy_max']),
@@ -95,12 +99,32 @@ async function main() {
   const totalShortfall = rows.reduce((s, r) => s + r.shortfall, 0)
   const title = `Marinade Validator Bond Fee Simulation · Epochs ${epochs[0]}–${epochs[epochs.length - 1]}`
 
+  // Monthly aggregation: sum feeAdj and shortfall per calendar month
+  const monthMap = new Map<string, { feeAdj: number; shortfall: number }>()
+  for (const r of rows) {
+    const m = monthMap.get(r.month) ?? { feeAdj: 0, shortfall: 0 }
+    m.feeAdj += r.feeAdj
+    m.shortfall += r.shortfall
+    monthMap.set(r.month, m)
+  }
+  type MonthRow = { month: string; series: string; sol: number }
+  const monthlyTidy: MonthRow[] = [...monthMap.entries()].flatMap(
+    ([month, v]) => [
+      { month, series: S_ADJUSTED, sol: v.feeAdj },
+      { month, series: 'Shortfall', sol: v.shortfall },
+    ],
+  )
+  const monthDomain = [...monthMap.keys()].sort()
+
   const apyData: ApyPoint[] = rows.map(r => ({
     epoch: r.epoch,
     ssrApy: r.ssrApy,
     apyAdj: r.apyAdj,
     apyMax: r.apyMax,
   }))
+  // Split into overshoot (adj >= ssr, green) and undershoot (adj < ssr, red)
+  const apyOver = apyData.filter(d => d.apyAdj >= d.ssrApy)
+  const apyUnder = apyData.filter(d => d.apyAdj < d.ssrApy)
 
   const feeTidy: FeePoint[] = rows.flatMap(r => [
     { epoch: r.epoch, series: S_ADJUSTED, fee: r.feeAdj },
@@ -161,12 +185,12 @@ async function main() {
       {
         width: 960,
         height: 230,
-        title: { text: 'Post-Fee APY', fontSize: 13 },
+        title: { text: 'Post-Fee APY vs SSR Baseline', fontSize: 13 },
         layer: [
-          // Shaded band (spread between adjusted and max-fee)
+          // Green band: adjusted ABOVE SSR (overshoot)
           {
-            data: { values: apyData },
-            mark: { type: 'area', opacity: 0.13, color: C_ACTUAL },
+            data: { values: apyOver },
+            mark: { type: 'area', opacity: 0.18, color: '#2e8b57' },
             encoding: {
               x: xEnc,
               y: {
@@ -174,7 +198,21 @@ async function main() {
                 type: 'quantitative',
                 scale: { zero: false },
               },
-              y2: { field: 'apyMax' },
+              y2: { field: 'ssrApy' },
+            },
+          },
+          // Red band: adjusted BELOW SSR (undershoot)
+          {
+            data: { values: apyUnder },
+            mark: { type: 'area', opacity: 0.25, color: '#b22222' },
+            encoding: {
+              x: xEnc,
+              y: {
+                field: 'ssrApy',
+                type: 'quantitative',
+                scale: { zero: false },
+              },
+              y2: { field: 'apyAdj' },
             },
           },
           // SSR baseline — dashed gray
@@ -307,9 +345,8 @@ async function main() {
               },
             },
           },
-          // Label only the adjusted bars
+          // Labels on both bar series
           {
-            transform: [{ filter: `datum.series === '${S_ADJUSTED}'` }],
             mark: { type: 'text', dy: -5, fontSize: 8.5, color: '#333' },
             encoding: {
               x: xEnc,
@@ -401,6 +438,54 @@ async function main() {
                 },
               },
             ],
+          },
+        ],
+      },
+      // ── Panel 4: Monthly Fee Take & Shortfall ────────────────────────────
+      {
+        width: 960,
+        height: 180,
+        title: { text: 'Monthly Fee Take vs Shortfall (SOL)', fontSize: 13 },
+        data: { values: monthlyTidy },
+        layer: [
+          {
+            mark: { type: 'bar', opacity: 0.85 },
+            encoding: {
+              x: {
+                field: 'month',
+                type: 'ordinal',
+                title: null,
+                axis: { labelAngle: -30 },
+                scale: { domain: monthDomain },
+              },
+              xOffset: { field: 'series', sort: [S_ADJUSTED, 'Shortfall'] },
+              y: { field: 'sol', type: 'quantitative', title: 'SOL' },
+              color: {
+                field: 'series',
+                scale: {
+                  domain: [S_ADJUSTED, 'Shortfall'],
+                  range: [C_ACTUAL, C_COST],
+                },
+                legend: {
+                  title: null,
+                  orient: 'top-right',
+                  direction: 'vertical',
+                },
+              },
+            },
+          },
+          {
+            mark: { type: 'text', dy: -5, fontSize: 8.5, color: '#333' },
+            encoding: {
+              x: {
+                field: 'month',
+                type: 'ordinal',
+                scale: { domain: monthDomain },
+              },
+              xOffset: { field: 'series', sort: [S_ADJUSTED, 'Shortfall'] },
+              y: { field: 'sol', type: 'quantitative' },
+              text: { field: 'sol', type: 'quantitative', format: '.0f' },
+            },
           },
         ],
       },
