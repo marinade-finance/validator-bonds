@@ -2,7 +2,12 @@ import assert from 'assert'
 
 import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
-import { createUserAndFund, signer } from '@marinade.finance/web3js-1x'
+import {
+  createUserAndFund,
+  getStakeAccount,
+  signer,
+  waitForEpoch,
+} from '@marinade.finance/web3js-1x'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import BN from 'bn.js'
 
@@ -117,6 +122,19 @@ describe('Validator Bonds claim settlement', () => {
         throw e
       }
       break
+    }
+    // stake activated before being deactivated by funding stays effective until next epoch; claim withdraw would fail
+    const { activationEpoch, deactivationEpoch } = await getStakeAccount(
+      provider.connection,
+      stakeAccount,
+    )
+    assert(activationEpoch !== null && deactivationEpoch !== null)
+    if (deactivationEpoch.gt(activationEpoch)) {
+      await waitForEpoch(
+        provider.connection,
+        deactivationEpoch.toNumber() + 1,
+        60,
+      )
     }
   })
 
