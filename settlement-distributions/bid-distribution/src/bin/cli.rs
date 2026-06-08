@@ -238,7 +238,8 @@ fn main() -> anyhow::Result<()> {
         info!("SSI/SSR: {ssr_pmpe} pmpe (from apy-api, epoch {stake_meta_epoch})");
         let target_pmpe = args
             .target_pmpe
-            .map(|v| Decimal::try_from(v).expect("target_pmpe out of range"))
+            .map(|v| Decimal::try_from(v).map_err(|e| anyhow::anyhow!("--target-pmpe: {e}")))
+            .transpose()?
             .unwrap_or(ssr_pmpe);
         info!("target_pmpe: {target_pmpe}");
 
