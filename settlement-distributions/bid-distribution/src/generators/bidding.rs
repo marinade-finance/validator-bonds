@@ -144,12 +144,11 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
     totals
 }
 
-/// Bisects max_fee_bps (min_fee at min_cap) for the highest fee that keeps global
-/// post-fee PMPE (bid + `total_staker_extras`, i.e. penalty + PSR payouts to
-/// stakers) at or above the target (`ssr_pmpe + min_yield_premium`). If max_fee
-/// pins at max_cap
-/// with post-fee still above target there is leftover staker budget — a second
-/// phase raises min_fee to extract it. If the target can never be met, min_cap
+/// Bisects max_fee_bps (min_fee at min_cap) for the highest fee that keeps
+/// global post-fee PMPE (bid + `total_staker_extras`, i.e. penalty + PSR
+/// payouts to stakers) at or above the target. If max_fee pins at max_cap with
+/// post-fee still above target there is leftover staker budget — a second phase
+/// raises min_fee to extract it. If the target can never be met, min_cap
 /// settlements are returned.
 #[allow(clippy::too_many_arguments)]
 pub fn generate_bid_settlements(
@@ -160,12 +159,11 @@ pub fn generate_bid_settlements(
     fee_config: &FeeConfig,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
-    ssr_pmpe: Decimal,
+    target_pmpe: Decimal,
     total_staker_extras: Decimal,
 ) -> anyhow::Result<BidSettlementValues> {
     let max_cap = fee_config.max_fee_bps;
     let min_cap = fee_config.min_fee_bps;
-    let target = ssr_pmpe + fee_config.min_yield_premium_over_ssr_pmpe;
     // `current` is the active axis: max_fee_bps, then min_fee_bps once max pins at
     // the feasible ceiling. `overshoot` is its highest known-feasible value,
     // `undershoot` the lowest known-infeasible. Feasible probes only climb, so the
@@ -192,7 +190,7 @@ pub fn generate_bid_settlements(
             &fc,
             stake_authority_filter,
             exiting_stake_authority_filter,
-            ssr_pmpe,
+            target_pmpe,
         )?;
         let totals = calculate_bid_settlement_totals(&settlements);
         let (post_fee, feasible) = if totals.stake.is_zero() {
@@ -200,7 +198,7 @@ pub fn generate_bid_settlements(
         } else {
             let post_fee_pmpe = (totals.rewards + total_staker_extras - totals.fees) / totals.stake
                 * Decimal::ONE_THOUSAND;
-            (post_fee_pmpe, target <= post_fee_pmpe)
+            (post_fee_pmpe, target_pmpe <= post_fee_pmpe)
         };
         if feasible {
             overshoot = current;
@@ -217,7 +215,7 @@ pub fn generate_bid_settlements(
                 current,
                 next,
                 post_fee,
-                target,
+                target_pmpe,
             );
             current = next;
             continue;
@@ -258,7 +256,7 @@ fn generate_bid_settlements_worker(
     fee_config: &FeeConfig,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
-    ssr_pmpe: Decimal,
+    target_pmpe: Decimal,
 ) -> anyhow::Result<Vec<Settlement>> {
     let epoch = stake_meta_index.stake_meta_collection.epoch;
     info!("Generating bid settlements in epoch {epoch}...");
@@ -422,7 +420,6 @@ fn generate_bid_settlements_worker(
                 settlement_claim
             );
 
-            let target = Decimal::ZERO; // ssr_pmpe + fee_config.min_yield_premium_over_ssr_pmpe;
             let staker_yield_pmpe = total_marinade_stakers_rewards
                 / (Decimal::from(total_marinade_active_stake)
                     + Decimal::from(total_marinade_redelegation_stake))
@@ -430,7 +427,7 @@ fn generate_bid_settlements_worker(
             let effective_fee = if total_marinade_stakers_rewards > Decimal::ZERO
                 && total_marinade_active_stake > 0
             {
-                let fee_cap = (Decimal::ONE - target / staker_yield_pmpe).max(Decimal::ZERO);
+                let fee_cap = (Decimal::ONE - target_pmpe / staker_yield_pmpe).max(Decimal::ZERO);
                 fee_cap.clamp(fee_percentages.min_fee, fee_percentages.max_fee)
             } else {
                 fee_percentages.max_fee
@@ -439,7 +436,7 @@ fn generate_bid_settlements_worker(
                 "{} current: {} (target: {}), fee: effective: {} (max: {}, min: {})",
                 validator.vote_account,
                 staker_yield_pmpe,
-                target,
+                target_pmpe,
                 effective_fee,
                 fee_percentages.max_fee,
                 fee_percentages.min_fee,
