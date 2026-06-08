@@ -422,26 +422,27 @@ fn generate_bid_settlements_worker(
                 settlement_claim
             );
 
+            let target = Decimal::ZERO; // ssr_pmpe + fee_config.min_yield_premium_over_ssr_pmpe;
+            let staker_yield_pmpe = total_marinade_stakers_rewards
+                / (Decimal::from(total_marinade_active_stake)
+                    + Decimal::from(total_marinade_redelegation_stake))
+                * Decimal::ONE_THOUSAND;
             let effective_fee = if total_marinade_stakers_rewards > Decimal::ZERO
                 && total_marinade_active_stake > 0
             {
-                let target = ssr_pmpe + fee_config.min_yield_premium_over_ssr_pmpe;
-                let staker_yield_pmpe = total_marinade_stakers_rewards
-                    / (Decimal::from(total_marinade_active_stake)
-                        + Decimal::from(total_marinade_redelegation_stake))
-                    * Decimal::ONE_THOUSAND;
                 let fee_cap = (Decimal::ONE - target / staker_yield_pmpe).max(Decimal::ZERO);
                 fee_cap.clamp(fee_percentages.min_fee, fee_percentages.max_fee)
             } else {
                 fee_percentages.max_fee
             };
             info!(
-                "{} effective fee: {} (configured: {}, min: {}, ssr_pmpe: {})",
+                "{} current: {} (target: {}), fee: effective: {} (max: {}, min: {})",
                 validator.vote_account,
+                staker_yield_pmpe,
+                target,
                 effective_fee,
                 fee_percentages.max_fee,
                 fee_percentages.min_fee,
-                ssr_pmpe,
             );
             let minimum_distributor_fee_claim = total_marinade_stakers_rewards * effective_fee;
             let distributor_fee_claim = minimum_distributor_fee_claim
