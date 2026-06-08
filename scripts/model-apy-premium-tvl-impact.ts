@@ -272,7 +272,7 @@ async function main() {
   // Rolling avg
   const roll4w = rollingAvg(rows, 28)
 
-  // Build regression dataset: need rows[t], rows[t-1], rows[t-2] and tvl[t], tvl[t-1]
+  // Build regression dataset from rows[t], rows[t-1], rows[t-2]
   type RegRow = {
     dLogTvl: number
     premium0: number
@@ -280,8 +280,6 @@ async function main() {
     premium2: number
     dLogSol: number
     solPrice: number
-    time: number
-    epoch: number
   }
   const regRows: RegRow[] = []
   for (let i = 2; i < rows.length; i++) {
@@ -297,8 +295,6 @@ async function main() {
       premium2: r2.premium_bps,
       dLogSol: Math.log(r.sol_price) - Math.log(r1.sol_price),
       solPrice: r.sol_price,
-      time: r.time,
-      epoch: r.epoch,
     })
   }
 
