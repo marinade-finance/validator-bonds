@@ -268,12 +268,7 @@ function fetchProductionSettlement(epoch: number): string {
 function fetchInputs(epoch: number): void {
   const inp = join(dataDir, String(epoch), 'inputs')
   const rwd = join(inp, 'rewards')
-  if (
-    INPUTS.every(
-      f => existsSync(join(inp, f) + '.gz') || existsSync(join(inp, f)),
-    )
-  )
-    return
+  if (INPUTS.every(f => existsSync(join(inp, f) + '.gz'))) return
   process.stderr.write(`  # fetching inputs for epoch ${epoch}...\n`)
   runMkdir(rwd)
 
