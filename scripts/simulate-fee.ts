@@ -54,7 +54,33 @@ if (!epochArg) {
       '\n' +
       'usage: bun scripts/simulate-fee.ts [-r] [-v] [-c] [-d DIR] <epoch|start-end> [-m <min_fee>] [<max_fee>]...\n' +
       '  -d DIR  data dir (default: $DATA_DIR or ./regression-data)\n' +
-      '  -c      read production settlement from GCS instead of re-running CLI\n',
+      '  -c      read production settlement from GCS instead of re-running CLI\n' +
+      '\n' +
+      'epoch header fields:\n' +
+      '  ssr_pmpe / ssr_apy          Solana Staking Rate — baseline staking return\n' +
+      '  min_yield_premium_pmpe      min_yield_premium_over_ssr_pmpe from settlement-config\n' +
+      '  min_yield_floor_pmpe/apy    SSR + premium — the floor the tuner targets for stakers\n' +
+      '  inf_apy                     Sanctum INF APY for reference (source: DefiLlama;\n' +
+      '                              only emitted for epochs within ~30d of a data point)\n' +
+      '  epochs_per_year             year / epoch duration, used to compound pmpe → apy\n' +
+      '\n' +
+      'simulation fields:\n' +
+      '  max_fee_bps / min_fee_bps   fee bounds the CLI ran with (after -m / max_fee args)\n' +
+      '  marinade_stake_sol          active + redelegation Marinade stake the fee is drawn from\n' +
+      '  pre_fee_pmpe/apy            gross staker yield before Marinade fee\n' +
+      '  post_fee_pmpe_adj/apy_adj   net staker yield using actual fees from settlements\n' +
+      '  post_fee_pmpe_max/apy_max   net staker yield if every validator charged max_fee\n' +
+      '    (theoretical; does not account for settlement cap)\n' +
+      '  fee_sol_adj                 actual Marinade fee = Σ(marinade_fee_claim + dao_fee_claim)\n' +
+      '  fee_sol_max                 theoretical max = total_rewards × max_fee (no settlement cap)\n' +
+      '  settlement_sol              total bond payout = Σ(staker_claims + fees); hard cap on fee\n' +
+      '    (fee_sol_max > settlement_sol when fee rate is high → gap cannot be collected)\n' +
+      '  psr_sol_to_stakers          PSR protected-event claims redistributed to stakers (if any)\n' +
+      '  penalty_sol_to_stakers      bid-too-low / blacklist penalty claims to stakers (if any)\n' +
+      '  validators_capped           validators where actual fee < adj_max_fee (hit settlement cap)\n' +
+      '  validators_at_min_fee       validators paying the minimum floor fee\n' +
+      '  adj_max_fee_bps             tuned max fee found by bisection (Phase 1)\n' +
+      '  adj_min_fee_bps             tuned min fee raised to use remaining budget (Phase 2)\n',
   )
   process.exit(2)
 }
@@ -80,6 +106,27 @@ if (!ssrRes.ok) {
 }
 const ssr = (await ssrRes.json()) as {
   epochs: { epoch: number; pmpe: number; time: number }[]
+}
+
+const INF_LLAMA =
+  'https://yields.llama.fi/chart/3075a746-bdd1-4aac-bcd5-b035abee2622'
+type LlamaPoint = { timestamp: string; apy: number }
+const infRes = await fetch(INF_LLAMA)
+const infPoints: LlamaPoint[] = infRes.ok
+  ? ((await infRes.json()) as { data: LlamaPoint[] }).data
+  : []
+function infApyAt(epochTime: number): number | null {
+  if (!infPoints.length) return null
+  let best = infPoints[0]
+  let bestDiff = Math.abs(new Date(best.timestamp).getTime() / 1000 - epochTime)
+  for (const p of infPoints) {
+    const diff = Math.abs(new Date(p.timestamp).getTime() / 1000 - epochTime)
+    if (diff < bestDiff) {
+      bestDiff = diff
+      best = p
+    }
+  }
+  return bestDiff < 30 * 86400 ? best.apy : null
 }
 
 const STAKES_FILE = 'stakes.json'
@@ -359,6 +406,8 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
   console.log(`  min_yield_premium_pmpe: ${yieldPremium}`)
   console.log(`  min_yield_floor_pmpe: ${floorPmpe.toFixed(6)}`)
   console.log(`  min_yield_floor_apy: ${apy(floorPmpe, epy)}`)
+  const infApy = infApyAt(epochData.time)
+  if (infApy !== null) console.log(`  inf_apy: ${infApy.toFixed(2)}%`)
   console.log(`  epochs_per_year: ${Math.floor(epy)}`)
   console.log('  simulations:')
 
@@ -436,6 +485,16 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
           sum + s.details.marinade_fee_claim + s.details.dao_fee_claim,
         0,
       )
+    const settlementSol = settlements
+      .filter(isFeeSettlement)
+      .reduce(
+        (sum, s) =>
+          sum +
+          s.claims_amount +
+          s.details.marinade_fee_claim +
+          s.details.dao_fee_claim,
+        0,
+      )
     const stakerExtras = sumStakerExtras(settlements)
     const protectedEventClaims = settlements.reduce(
       (sum, s) => (isProtectedEvent(s.reason) ? sum + s.claims_amount : sum),
@@ -477,6 +536,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     console.log(`    apy_max: ${apy(pmpeMax, epy)}`)
     console.log(`    fee_sol_adj: ${sol(feeAdj)}`)
     console.log(`    fee_sol_max: ${sol((totalRewards * maxFee) / 10000)}`)
+    console.log(`    settlement_sol: ${sol(settlementSol)}`)
     if (protectedEventClaims > 0)
       console.log(`    psr_sol_to_stakers: ${sol(protectedEventClaims)}`)
     if (penaltyStakerClaims > 0)
