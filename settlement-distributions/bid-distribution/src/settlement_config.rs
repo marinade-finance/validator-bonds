@@ -54,7 +54,8 @@ pub struct FeeConfig {
     pub marinade: AuthorityConfig,
     pub dao: DaoConfig,
     pub min_fee_bps: u64,
-    pub min_yield_premium_over_ssr_pmpe: Decimal,
+    #[serde(default)]
+    pub min_yield_premium_over_ssr_pmpe: Option<Decimal>,
 }
 
 impl FeeConfig {
@@ -81,12 +82,19 @@ impl FeeConfig {
             self.min_fee_bps,
             self.max_fee_bps
         );
-        ensure!(
-            self.min_yield_premium_over_ssr_pmpe.abs() <= dec!(0.1),
-            "min_yield_premium_over_ssr_pmpe {} exceeds ±0.1 PMPE (~2% APY)",
-            self.min_yield_premium_over_ssr_pmpe
-        );
+        if let Some(p) = self.min_yield_premium_over_ssr_pmpe {
+            ensure!(
+                p.abs() <= dec!(0.1),
+                "min_yield_premium_over_ssr_pmpe {} exceeds ±0.1 PMPE (~2% APY)",
+                p
+            );
+        }
         Ok(())
+    }
+
+    pub fn yield_premium(&self) -> Decimal {
+        self.min_yield_premium_over_ssr_pmpe
+            .unwrap_or(-Decimal::ONE)
     }
 
     pub fn fee_authorities(&self) -> FeeAuthorities {

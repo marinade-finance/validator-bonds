@@ -10,7 +10,6 @@ use bid_distribution::rewards::load_rewards_from_directory;
 use bid_distribution::sam_meta::ValidatorSamMeta;
 use bid_distribution::settlement_config::BidDistributionConfig;
 use env_logger::{Builder, Env};
-use rust_decimal::Decimal;
 use settlement_common::protected_events::generate_protected_event_collection;
 use settlement_common::revenue_expectation_meta::RevenueExpectationMetaCollection;
 use settlement_common::settlement_collection::SettlementCollection;
@@ -70,11 +69,6 @@ struct Args {
     /// Base URL of the apy-api service (used to fetch SSI/SSR pmpe for the scoring epoch)
     #[arg(long, env, default_value = "https://apy.marinade.finance")]
     apy_api_url: String,
-
-    /// Override the bisection target pmpe (default: ssr_pmpe from apy-api).
-    /// Set to 0 to disable the yield floor (every validator pays max fee).
-    #[arg(long, env)]
-    target_pmpe: Option<f64>,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -236,17 +230,7 @@ fn main() -> anyhow::Result<()> {
 
         let ssr_pmpe = fetch_ssr_pmpe(&args.apy_api_url, stake_meta_epoch)?;
         info!("SSI/SSR: {ssr_pmpe} pmpe (from apy-api, epoch {stake_meta_epoch})");
-        let target_pmpe = args
-            .target_pmpe
-            .map(|v| {
-                Decimal::try_from(v).map_err(|_| {
-                    anyhow::anyhow!(
-                        "--target-pmpe: {v} out of validation range (must be finite decimal)"
-                    )
-                })
-            })
-            .transpose()?
-            .unwrap_or(ssr_pmpe);
+        let target_pmpe = ssr_pmpe + bid_distribution_config.fee_config.yield_premium();
         info!("target_pmpe: {target_pmpe}");
 
         // Epoch consistency verification
