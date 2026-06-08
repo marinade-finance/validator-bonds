@@ -335,25 +335,28 @@ async function manageCheckMerkleTree({
       `Comparing against ${resolvedPaths.length} historical merkle tree file(s)...`,
     )
 
-    const historicalDtos: UnifiedMerkleTreesDto[] = []
+    const currentMetrics = extractMetrics(merkleTreesDto)
+
+    // Extract metrics per file and discard each large DTO before loading the next
+    // one; retaining all of them at once exhausts the heap on multi-GB inputs.
+    const historicalMetrics: MerkleTreeMetrics[] = []
+    let previousMetrics: MerkleTreeMetrics | undefined
     for (const pastPath of resolvedPaths) {
       logger.info(`Loading past merkle tree: ${pastPath}`)
       const dto = await loadAndValidateUnifiedMerkleTree(pastPath)
-      historicalDtos.push(dto)
+      const metrics = extractMetrics(dto)
+      historicalMetrics.push(metrics)
+      if (dto.epoch === merkleTreesDto.epoch - 1) {
+        previousMetrics = metrics
+      }
     }
-
-    const currentMetrics = extractMetrics(merkleTreesDto)
-    const historicalMetrics = historicalDtos.map(extractMetrics)
 
     // Epoch-over-epoch hop guardrail: stricter than the statistical check below,
     // catches large N-1 -> N jumps that high-variance windows can dilute under z-score.
-    const previousDto = historicalDtos.find(
-      d => d.epoch === merkleTreesDto.epoch - 1,
-    )
-    if (previousDto) {
+    if (previousMetrics) {
       const { violations, report } = checkEpochHopGuardrail({
         currentMetrics,
-        previousMetrics: extractMetrics(previousDto),
+        previousMetrics,
         hopThreshold: epochHopThreshold,
       })
       logger.info(report)
