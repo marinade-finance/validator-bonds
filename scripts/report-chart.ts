@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 /* eslint-disable import/no-extraneous-dependencies */
+/* eslint-disable n/no-process-exit */
 import * as fs from 'node:fs'
 
 import sharp from 'sharp'
@@ -8,6 +9,36 @@ import { compile } from 'vega-lite'
 import { parse as parseYaml } from 'yaml'
 
 import type { TopLevelSpec } from 'vega-lite'
+
+if (process.argv.includes('-h') || process.argv.includes('--help')) {
+  process.stderr.write(
+    'Renders a multi-panel PNG from simulate-fee.ts YAML output.\n' +
+      '\n' +
+      'usage: bun scripts/report-chart.ts [report.yml] [out.png]\n' +
+      '  report.yml  input (default: report.yml)\n' +
+      '  out.png     output (default: report file with .png extension)\n' +
+      '\n' +
+      'epoch header fields read:\n' +
+      '  epoch                 x-axis position\n' +
+      '  time                  unix seconds — drives month/week period aggregation\n' +
+      '  ssr_apy               SSR baseline line on the APY panel\n' +
+      '  inf_apy (optional)    Sanctum INF APY reference; absent for older epochs\n' +
+      '\n' +
+      'simulations[0] fields read:\n' +
+      '  max_fee_bps           configured ceiling — shown in footer\n' +
+      '  apy_adj / apy_max     adjusted vs max-fee APY lines\n' +
+      '  fee_sol_adj           actual fee bars (per period)\n' +
+      '  fee_sol_max           max-fee fee bars; shortfall = fee_sol_max − fee_sol_adj\n' +
+      '  validators_capped     "a/b" → % of validators at the settlement cap\n' +
+      '  validators_at_min_fee "a/b" → % of validators at the min fee\n' +
+      '  adj_max_fee_bps       optimized ceiling line (bps panel)\n' +
+      '  adj_min_fee_bps       optimized floor line (bps panel)\n' +
+      '\n' +
+      'present in the YAML but not charted: apy_pre_fee, min_fee_bps,\n' +
+      'marinade_stake_sol, settlement_sol\n',
+  )
+  process.exit(2)
+}
 
 const [, , argReport, argOut] = process.argv
 const REPORT = argReport ?? 'report.yml'
@@ -19,10 +50,20 @@ const C_CAP = '#2e8b57'
 const C_MINFEE = '#9370db'
 const C_COST = '#b22222'
 
-type SimYaml = Record<string, string | number>
+type SimYaml = {
+  max_fee_bps?: string | number
+  apy_adj?: string | number
+  apy_max?: string | number
+  fee_sol_adj?: string | number
+  fee_sol_max?: string | number
+  validators_capped?: string | number
+  validators_at_min_fee?: string | number
+  adj_max_fee_bps?: string | number
+  adj_min_fee_bps?: string | number
+}
 type EpochYaml = {
   epoch: number
-  time: number
+  time: string | number
   ssr_apy: string
   simulations: SimYaml[] | null
 }
@@ -59,13 +100,18 @@ type ApyPoint = {
 }
 type ValPoint = { epoch: number; series: string; pct: number }
 
-const pct = (s: string | number): number =>
-  parseFloat(String(s).replace('%', ''))
+function pct(s: string | number): number {
+  return parseFloat(String(s).replace('%', ''))
+}
 
-const ratio = (s: string | undefined): number => {
+function ratio(s: string | undefined): number {
   if (!s) return 0
   const [a, b] = String(s).split('/').map(Number)
   return b ? (a / b) * 100 : 0
+}
+
+function epochUnix(t: string | number): number {
+  return typeof t === 'string' ? Math.floor(new Date(t).getTime() / 1000) : t
 }
 
 function load(): { rows: Row[]; maxFeeBps: number } {
@@ -73,27 +119,28 @@ function load(): { rows: Row[]; maxFeeBps: number } {
     fs.readFileSync(REPORT, 'utf8'),
   ) as unknown as ReportYaml
   let maxFeeBps = 800
-  const rows = data.epochs.flatMap(e => {
+  const rows = data.epochs.flatMap<Row>(e => {
     const sim = e.simulations?.[0]
     if (!sim) return []
-    if (maxFeeBps === 800) maxFeeBps = Number(sim['max_fee_bps'] ?? 800)
-    const feeAdj = Number(sim['fee_sol_adj'])
-    const feeMax = Number(sim['fee_sol_max'])
+    maxFeeBps = Number(sim.max_fee_bps ?? maxFeeBps)
+    const feeAdj = Number(sim.fee_sol_adj)
+    const feeMax = Number(sim.fee_sol_max)
+    const t = epochUnix(e.time)
     return [
       {
         epoch: e.epoch,
-        time: e.time,
-        month: new Date(e.time * 1000).toISOString().slice(0, 7),
+        time: t,
+        month: new Date(t * 1000).toISOString().slice(0, 7),
         ssrApy: pct(e.ssr_apy),
-        apyAdj: pct(sim['apy_adj']),
-        apyMax: pct(sim['apy_max']),
+        apyAdj: pct(sim.apy_adj ?? 0),
+        apyMax: pct(sim.apy_max ?? 0),
         feeAdj,
         feeMax,
-        vcap: ratio(String(sim['validators_capped'])),
-        vmin: ratio(String(sim['validators_at_min_fee'] ?? '0/1')),
+        vcap: ratio(String(sim.validators_capped)),
+        vmin: ratio(String(sim.validators_at_min_fee ?? '0/1')),
         shortfall: feeMax - feeAdj,
-        adjMaxFee: Number(sim['adj_max_fee_bps'] ?? 0),
-        adjMinFee: Number(sim['adj_min_fee_bps'] ?? 0),
+        adjMaxFee: Number(sim.adj_max_fee_bps ?? 0),
+        adjMinFee: Number(sim.adj_min_fee_bps ?? 0),
       },
     ]
   })
@@ -723,7 +770,7 @@ async function main() {
         data: { values: [{}] },
         mark: {
           type: 'text',
-          text: `max_fee_bps = ${String(maxFeeBps)} · source: report.yml`,
+          text: `max_fee_bps = ${String(maxFeeBps)} · source: ${REPORT}`,
           color: '#999',
           fontSize: 9,
           align: 'center',

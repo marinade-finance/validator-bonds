@@ -400,7 +400,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
   const floorPmpe = epochData.pmpe + yieldPremium
 
   console.log(`- epoch: ${epoch}`)
-  console.log(`  time: ${epochData.time}`)
+  console.log(`  time: ${new Date(epochData.time * 1000).toISOString()}`)
   console.log(`  ssr_pmpe: ${epochData.pmpe}`)
   console.log(`  ssr_apy: ${apy(epochData.pmpe, epy)}`)
   console.log(`  min_yield_premium_pmpe: ${yieldPremium}`)
