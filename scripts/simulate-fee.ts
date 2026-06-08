@@ -72,9 +72,8 @@ if (!epochArg) {
       '  post_fee_pmpe_max/apy_max   net staker yield if every validator charged max_fee\n' +
       '    (theoretical; does not account for settlement cap)\n' +
       '  fee_sol_adj                 actual Marinade fee = Σ(marinade_fee_claim + dao_fee_claim)\n' +
-      '  fee_sol_max                 theoretical max = total_rewards × max_fee (no settlement cap)\n' +
+      '  fee_sol_max                 min(total_rewards × max_fee, settlement_sol) — capped at bond\n' +
       '  settlement_sol              total bond payout = Σ(staker_claims + fees); hard cap on fee\n' +
-      '    (fee_sol_max > settlement_sol when fee rate is high → gap cannot be collected)\n' +
       '  psr_sol_to_stakers          PSR protected-event claims redistributed to stakers (if any)\n' +
       '  penalty_sol_to_stakers      bid-too-low / blacklist penalty claims to stakers (if any)\n' +
       '  validators_capped           validators where actual fee < adj_max_fee (hit settlement cap)\n' +
@@ -502,8 +501,8 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     )
     const penaltyStakerClaims = stakerExtras - protectedEventClaims
     const pmpeAdj = ((totalRewards - feeAdj + stakerExtras) / stake) * 1000
-    const pmpeMax =
-      ((totalRewards * (1 - maxFee / 10000) + stakerExtras) / stake) * 1000
+    const feeMax = Math.min((totalRewards * maxFee) / 10000, settlementSol)
+    const pmpeMax = ((totalRewards - feeMax + stakerExtras) / stake) * 1000
     const feesByVote = feesByVoteAccount(settlements)
     const nCapped =
       adjMax !== undefined
@@ -535,7 +534,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     console.log(`    apy_adj: ${apy(pmpeAdj, epy)}`)
     console.log(`    apy_max: ${apy(pmpeMax, epy)}`)
     console.log(`    fee_sol_adj: ${sol(feeAdj)}`)
-    console.log(`    fee_sol_max: ${sol((totalRewards * maxFee) / 10000)}`)
+    console.log(`    fee_sol_max: ${sol(feeMax)}`)
     console.log(`    settlement_sol: ${sol(settlementSol)}`)
     if (protectedEventClaims > 0)
       console.log(`    psr_sol_to_stakers: ${sol(protectedEventClaims)}`)
