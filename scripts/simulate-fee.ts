@@ -76,6 +76,8 @@ if (!epochArg) {
       '  settlement_sol              total bond payout = Σ(staker_claims + fees); hard cap on fee\n' +
       '  psr_sol_to_stakers          PSR protected-event claims redistributed to stakers (if any)\n' +
       '  penalty_sol_to_stakers      bid-too-low / blacklist penalty claims to stakers (if any)\n' +
+      '  effective_fee_bps           p25/p50/p75 of per-validator effective fee (bps)\n' +
+      '    = clamp(max(0, 1 − floor/yield_pmpe), min, max) where floor = ssr_pmpe + premium\n' +
       '  validators_capped           validators where actual fee < adj_max_fee (hit settlement cap)\n' +
       '  validators_at_min_fee       validators paying the minimum floor fee\n' +
       '  adj_max_fee_bps             tuned max fee found by bisection (Phase 1)\n' +
@@ -523,6 +525,29 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
           }).length
         : null
 
+    // effective fee = clamp(max(0, 1 - target/yield_pmpe), min, max) per validator
+    // mirrors bid_distribution::generators::bidding effective fee computation
+    const effMaxFrac = (adjMax ?? maxFee) / 10000
+    const effMinFrac = (adjMin ?? minFee) / 10000
+    const yieldTarget = epochData.pmpe + yieldPremium
+    const sortedEffFees = bidDetails
+      .map(d => {
+        const stakeD =
+          d.total_marinade_active_stake +
+          (d.total_marinade_redelegation_stake ?? 0)
+        const rewards = parseFloat(d.total_marinade_stakers_rewards)
+        if (rewards <= 0 || d.total_marinade_active_stake === 0)
+          return Math.round(effMaxFrac * 10000)
+        const yieldPmpe = (rewards / stakeD) * 1000
+        const feeCap = Math.max(0, 1 - yieldTarget / yieldPmpe)
+        return Math.round(
+          Math.min(effMaxFrac, Math.max(effMinFrac, feeCap)) * 10000,
+        )
+      })
+      .sort((a, b) => a - b)
+    const pct = (p: number) =>
+      sortedEffFees[Math.floor((sortedEffFees.length - 1) * p)]
+
     console.log(`  - max_fee_bps: ${maxFee}`)
     console.log(`    min_fee_bps: ${minFee}`)
     console.log(`    marinade_stake_sol: ${sol(stake)}`)
@@ -540,6 +565,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       console.log(`    psr_sol_to_stakers: ${sol(protectedEventClaims)}`)
     if (penaltyStakerClaims > 0)
       console.log(`    penalty_sol_to_stakers: ${sol(penaltyStakerClaims)}`)
+    console.log(`    effective_fee_bps: ${pct(0.25)}/${pct(0.5)}/${pct(0.75)}`)
     if (nCapped !== null)
       console.log(`    validators_capped: ${nCapped}/${bidSettlements.length}`)
     if (nAtMin !== null)
