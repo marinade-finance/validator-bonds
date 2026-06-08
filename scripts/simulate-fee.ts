@@ -371,7 +371,7 @@ function runBidDistributionCli(cfgFile: string, inp: string): string {
       process.stderr.write(line + '\n')
     else if (
       values.v &&
-      (line.includes('SSR cap') || line.includes('effective fee'))
+      (line.includes('SSR cap') || line.includes('fee: effective:'))
     )
       process.stderr.write(line + '\n')
   }
