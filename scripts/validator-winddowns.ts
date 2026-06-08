@@ -144,7 +144,7 @@ for (let i = 1; i < epochs.length; i++) {
     const cs = curr.get(va)
     const currActivated = cs?.activated ?? 0n
     // wind-down: lost ≥pctDrop% of activated stake in one epoch
-    if (currActivated * 100n >= ps.activated * (100n - threshold)) continue
+    if (currActivated * 100n > ps.activated * (100n - threshold)) continue
     const lost = ps.activated - currActivated
     const mndeManaged = ps.marinade + ps.native + ps.institutional
     totalLost += lost
