@@ -351,6 +351,10 @@ async function manageCheckMerkleTree({
       }
     }
 
+    // Resolved paths can be unordered (glob/CLI order, mixed digit-length epochs);
+    // the recent-epochs heuristic relies on chronological order.
+    historicalMetrics.sort((a, b) => a.epoch - b.epoch)
+
     // Epoch-over-epoch hop guardrail: stricter than the statistical check below,
     // catches large N-1 -> N jumps that high-variance windows can dilute under z-score.
     if (previousMetrics) {
