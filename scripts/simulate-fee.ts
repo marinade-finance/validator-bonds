@@ -32,6 +32,8 @@ const { values, positionals } = parseArgs({
     m: { type: 'string' },
     r: { type: 'boolean', default: false },
     v: { type: 'boolean', default: false },
+    s: { type: 'string' },
+    'target-sol': { type: 'string' },
   },
   allowPositionals: true,
 })
@@ -168,6 +170,7 @@ type BidConfig = {
     min_fee_bps: number
     max_fee_bps: number
     min_yield_premium_over_ssr_pmpe?: number
+    min_sol_revenue?: number
   }
 }
 
@@ -411,6 +414,9 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     console.log(`  min_yield_floor_pmpe: ${floorPmpe.toFixed(6)}`)
     console.log(`  min_yield_floor_apy: ${apy(floorPmpe, epy)}`)
   }
+  const targetSolArg = values['target-sol'] ?? values.s
+  if (targetSolArg !== undefined)
+    console.log(`  min_sol_revenue_sol: ${targetSolArg}`)
   const infApy = infApyAt(epochData.time)
   if (infApy !== null) console.log(`  inf_apy: ${infApy.toFixed(2)}%`)
   console.log(`  epochs_per_year: ${Math.floor(epy)}`)
@@ -425,6 +431,22 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       cfgText = cfgTemplate.replace(/(max_fee_bps:)\s*\d+/, `$1 ${fee}`)
     if (values.m !== undefined)
       cfgText = cfgText.replace(/(min_fee_bps:)\s*\d+/, `$1 ${values.m}`)
+    const targetSol = values['target-sol'] ?? values.s
+    if (targetSol !== undefined) {
+      if (/min_sol_revenue:/.test(cfgText)) {
+        cfgText = cfgText.replace(
+          /(min_sol_revenue:)\s*[\d.]+/,
+          `$1 ${targetSol}`,
+        )
+      } else {
+        cfgText = cfgText.replace(
+          /(min_fee_bps:.*\n)/,
+          `$1  min_sol_revenue: ${targetSol}\n`,
+        )
+      }
+      // Remove min_yield_premium to avoid the mutual-exclusion validation error
+      cfgText = cfgText.replace(/^\s*min_yield_premium_over_ssr_pmpe:.*\n/m, '')
+    }
     const cfg = loadConfig(cfgText)
     const minFee = cfg.fee_config.min_fee_bps
     const maxFee = cfg.fee_config.max_fee_bps

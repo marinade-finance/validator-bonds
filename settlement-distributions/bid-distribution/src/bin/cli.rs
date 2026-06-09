@@ -10,6 +10,7 @@ use bid_distribution::rewards::load_rewards_from_directory;
 use bid_distribution::sam_meta::ValidatorSamMeta;
 use bid_distribution::settlement_config::BidDistributionConfig;
 use env_logger::{Builder, Env};
+use rust_decimal::Decimal;
 use settlement_common::protected_events::generate_protected_event_collection;
 use settlement_common::revenue_expectation_meta::RevenueExpectationMetaCollection;
 use settlement_common::settlement_collection::SettlementCollection;
@@ -230,11 +231,23 @@ fn main() -> anyhow::Result<()> {
 
         let ssr_pmpe = fetch_ssr_pmpe(&args.apy_api_url, stake_meta_epoch)?;
         info!("SSI/SSR: {ssr_pmpe} pmpe (from apy-api, epoch {stake_meta_epoch})");
-        let target_pmpe = bid_distribution_config
-            .fee_config
-            .min_yield_premium_over_ssr_pmpe
-            .map(|x| ssr_pmpe + x);
+        let target_pmpe = if bid_distribution_config.fee_config.min_sol_revenue.is_some() {
+            // SOL revenue mode: use SSR as per-validator PMPE reference (no premium)
+            Some(ssr_pmpe)
+        } else {
+            bid_distribution_config
+                .fee_config
+                .min_yield_premium_over_ssr_pmpe
+                .map(|x| ssr_pmpe + x)
+        };
         info!("target_pmpe: {target_pmpe:?}");
+        // Convert min_sol_revenue (SOL) to lamports as Decimal for the bisection
+        const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
+        let target_sol = bid_distribution_config
+            .fee_config
+            .min_sol_revenue
+            .map(|sol| sol * Decimal::from(LAMPORTS_PER_SOL));
+        info!("target_sol (lamports): {target_sol:?}");
 
         // Epoch consistency verification
         let rewards_epoch = rewards_collection.epoch;
@@ -281,6 +294,7 @@ fn main() -> anyhow::Result<()> {
             &*exiting_stake_authority_filter,
             target_pmpe,
             total_staker_penalties + total_staker_psr_settlements,
+            target_sol,
         )?;
         info!("Generated {} bid settlements", bid.settlements.len());
         adj_max_fee_bps = Some(bid.adj_max_fee_bps);
