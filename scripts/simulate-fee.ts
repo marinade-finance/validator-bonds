@@ -170,7 +170,7 @@ type BidConfig = {
     min_fee_bps: number
     max_fee_bps: number
     min_yield_premium_over_ssr_pmpe?: number
-    min_sol_revenue?: number
+    target_sol_revenue?: number
   }
 }
 
@@ -416,7 +416,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
   }
   const targetSolArg = values['target-sol'] ?? values.s
   if (targetSolArg !== undefined)
-    console.log(`  min_sol_revenue_sol: ${targetSolArg}`)
+    console.log(`  target_sol_revenue_sol: ${targetSolArg}`)
   const infApy = infApyAt(epochData.time)
   if (infApy !== null) console.log(`  inf_apy: ${infApy.toFixed(2)}%`)
   console.log(`  epochs_per_year: ${Math.floor(epy)}`)
@@ -433,15 +433,15 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       cfgText = cfgText.replace(/(min_fee_bps:)\s*\d+/, `$1 ${values.m}`)
     const targetSol = values['target-sol'] ?? values.s
     if (targetSol !== undefined) {
-      if (/min_sol_revenue:/.test(cfgText)) {
+      if (/target_sol_revenue:/.test(cfgText)) {
         cfgText = cfgText.replace(
-          /(min_sol_revenue:)\s*[\d.]+/,
+          /(target_sol_revenue:)\s*[\d.]+/,
           `$1 ${targetSol}`,
         )
       } else {
         cfgText = cfgText.replace(
           /(min_fee_bps:.*\n)/,
-          `$1  min_sol_revenue: ${targetSol}\n`,
+          `$1  target_sol_revenue: ${targetSol}\n`,
         )
       }
       // Remove min_yield_premium to avoid the mutual-exclusion validation error
@@ -514,14 +514,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       )
     const settlementSol = settlements
       .filter(isFeeSettlement)
-      .reduce(
-        (sum, s) =>
-          sum +
-          s.claims_amount +
-          s.details.marinade_fee_claim +
-          s.details.dao_fee_claim,
-        0,
-      )
+      .reduce((sum, s) => sum + s.claims_amount, 0)
     const stakerExtras = sumStakerExtras(settlements)
     const protectedEventClaims = settlements.reduce(
       (sum, s) => (isProtectedEvent(s.reason) ? sum + s.claims_amount : sum),

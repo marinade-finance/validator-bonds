@@ -231,7 +231,11 @@ fn main() -> anyhow::Result<()> {
 
         let ssr_pmpe = fetch_ssr_pmpe(&args.apy_api_url, stake_meta_epoch)?;
         info!("SSI/SSR: {ssr_pmpe} pmpe (from apy-api, epoch {stake_meta_epoch})");
-        let target_pmpe = if bid_distribution_config.fee_config.min_sol_revenue.is_some() {
+        let target_pmpe = if bid_distribution_config
+            .fee_config
+            .target_sol_revenue
+            .is_some()
+        {
             // SOL revenue mode: use SSR as per-validator PMPE reference (no premium)
             Some(ssr_pmpe)
         } else {
@@ -241,11 +245,11 @@ fn main() -> anyhow::Result<()> {
                 .map(|x| ssr_pmpe + x)
         };
         info!("target_pmpe: {target_pmpe:?}");
-        // Convert min_sol_revenue (SOL) to lamports as Decimal for the bisection
+        // Convert target_sol_revenue (SOL) to lamports as Decimal for the bisection
         const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
         let target_sol = bid_distribution_config
             .fee_config
-            .min_sol_revenue
+            .target_sol_revenue
             .map(|sol| sol * Decimal::from(LAMPORTS_PER_SOL));
         info!("target_sol (lamports): {target_sol:?}");
 
