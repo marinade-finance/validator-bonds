@@ -159,7 +159,7 @@ pub fn generate_bid_settlements(
     fee_config: &FeeConfig,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
-    target_pmpe: Decimal,
+    target_pmpe: Option<Decimal>,
     total_staker_extras: Decimal,
 ) -> anyhow::Result<BidSettlementValues> {
     let max_cap = fee_config.max_fee_bps;
@@ -176,6 +176,7 @@ pub fn generate_bid_settlements(
     let mut best: Option<Vec<Settlement>> = None;
     let mut fallback: Option<Vec<Settlement>> = None;
     let mut fc = fee_config.clone();
+    let target_pmpe = target_pmpe.unwrap_or(Decimal::ZERO);
     for _ in 0..MAX_ADJ_ITER {
         if tuning_max {
             fc.max_fee_bps = current;
@@ -420,17 +421,20 @@ fn generate_bid_settlements_worker(
                 settlement_claim
             );
 
-            let staker_yield_pmpe = total_marinade_stakers_rewards
-                / (Decimal::from(total_marinade_active_stake)
-                    + Decimal::from(total_marinade_redelegation_stake))
-                * Decimal::ONE_THOUSAND;
-            let effective_fee = if total_marinade_stakers_rewards > Decimal::ZERO
-                && total_marinade_active_stake > 0
+            let staker_yield_pmpe = if total_marinade_stakers_rewards > Decimal::ZERO
+                && total_marinade_active_stake + total_marinade_redelegation_stake > 0
             {
+                total_marinade_stakers_rewards
+                    / (Decimal::from(total_marinade_active_stake)
+                        + Decimal::from(total_marinade_redelegation_stake))
+                    * Decimal::ONE_THOUSAND
+            } else {
+                target_pmpe
+            };
+            // safety: target_pmpe > 0 always
+            let effective_fee = {
                 let fee_cap = (Decimal::ONE - target_pmpe / staker_yield_pmpe).max(Decimal::ZERO);
                 fee_cap.clamp(fee_percentages.min_fee, fee_percentages.max_fee)
-            } else {
-                fee_percentages.max_fee
             };
             info!(
                 "{} current: {} (target: {}), fee: effective: {} (max: {}, min: {})",

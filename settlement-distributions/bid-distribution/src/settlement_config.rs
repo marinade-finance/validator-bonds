@@ -1,9 +1,5 @@
 use anyhow::ensure;
 use merkle_tree::serde_serialize::{option_vec_pubkey_string_conversion, pubkey_string_conversion};
-
-fn default_yield_premium() -> Decimal {
-    -Decimal::ONE
-}
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -58,8 +54,8 @@ pub struct FeeConfig {
     pub marinade: AuthorityConfig,
     pub dao: DaoConfig,
     pub min_fee_bps: u64,
-    #[serde(default = "default_yield_premium")]
-    pub min_yield_premium_over_ssr_pmpe: Decimal,
+    #[serde(default)]
+    pub min_yield_premium_over_ssr_pmpe: Option<Decimal>,
 }
 
 impl FeeConfig {
@@ -86,11 +82,11 @@ impl FeeConfig {
             self.min_fee_bps,
             self.max_fee_bps
         );
-        if self.min_yield_premium_over_ssr_pmpe != -Decimal::ONE {
+        if let Some(value) = self.min_yield_premium_over_ssr_pmpe {
             ensure!(
-                self.min_yield_premium_over_ssr_pmpe.abs() <= dec!(0.1),
+                value.abs() <= dec!(0.1),
                 "min_yield_premium_over_ssr_pmpe {} exceeds ±0.1 PMPE (~2% APY)",
-                self.min_yield_premium_over_ssr_pmpe
+                value
             );
         }
         Ok(())

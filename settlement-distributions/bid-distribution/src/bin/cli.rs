@@ -230,11 +230,11 @@ fn main() -> anyhow::Result<()> {
 
         let ssr_pmpe = fetch_ssr_pmpe(&args.apy_api_url, stake_meta_epoch)?;
         info!("SSI/SSR: {ssr_pmpe} pmpe (from apy-api, epoch {stake_meta_epoch})");
-        let target_pmpe = ssr_pmpe
-            + bid_distribution_config
-                .fee_config
-                .min_yield_premium_over_ssr_pmpe;
-        info!("target_pmpe: {target_pmpe}");
+        let target_pmpe = bid_distribution_config
+            .fee_config
+            .min_yield_premium_over_ssr_pmpe
+            .map(|x| ssr_pmpe + x);
+        info!("target_pmpe: {target_pmpe:?}");
 
         // Epoch consistency verification
         let rewards_epoch = rewards_collection.epoch;

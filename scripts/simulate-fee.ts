@@ -399,16 +399,18 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
   const prev = ssr.epochs.find(e => e.epoch === epoch - 1)
   const epy = prev ? 31557600 / (epochData.time - prev.time) : 182
 
-  const yieldPremium = baseCfg.fee_config.min_yield_premium_over_ssr_pmpe ?? -1
-  const floorPmpe = epochData.pmpe + yieldPremium
+  const yieldPremium = baseCfg.fee_config.min_yield_premium_over_ssr_pmpe
 
   console.log(`- epoch: ${epoch}`)
   console.log(`  time: ${new Date(epochData.time * 1000).toISOString()}`)
   console.log(`  ssr_pmpe: ${epochData.pmpe}`)
   console.log(`  ssr_apy: ${apy(epochData.pmpe, epy)}`)
-  console.log(`  min_yield_premium_pmpe: ${yieldPremium}`)
-  console.log(`  min_yield_floor_pmpe: ${floorPmpe.toFixed(6)}`)
-  console.log(`  min_yield_floor_apy: ${apy(floorPmpe, epy)}`)
+  if (yieldPremium != null) {
+    const floorPmpe = epochData.pmpe + yieldPremium
+    console.log(`  min_yield_premium_pmpe: ${yieldPremium}`)
+    console.log(`  min_yield_floor_pmpe: ${floorPmpe.toFixed(6)}`)
+    console.log(`  min_yield_floor_apy: ${apy(floorPmpe, epy)}`)
+  }
   const infApy = infApyAt(epochData.time)
   if (infApy !== null) console.log(`  inf_apy: ${infApy.toFixed(2)}%`)
   console.log(`  epochs_per_year: ${Math.floor(epy)}`)
