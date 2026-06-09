@@ -144,20 +144,6 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
     totals
 }
 
-/// Bisects the fee bounds to hit a fee target. Two mutually exclusive modes:
-///
-/// PMPE mode (`target_sol` is None): keeps global post-fee PMPE (bid +
-/// `total_staker_extras`, i.e. penalty + PSR payouts to stakers) at or above
-/// `target_pmpe`. Phase 1 raises max_fee to the feasible ceiling; if it pins at
-/// max_cap with leftover staker budget, Phase 2 raises min_fee to extract it.
-///
-/// SOL revenue mode (`target_sol` is Some): keeps total Marinade fees at or
-/// above `target_sol` (lamports). The bisection inverts — Phase 1 raises
-/// min_fee to the feasible floor; if min_fee pins at min_cap with the target
-/// already met, Phase 2 lowers max_fee to the lowest feasible value.
-///
-/// If the target can never be met, fallback settlements are returned.
-
 /// Pre-computes (total_marinade_stakers_rewards, total_stake) across all
 /// fee-bearing validators without running the full settlement generator.
 /// Fee-independent — used to derive `target_pmpe` in SOL revenue mode before
@@ -257,6 +243,19 @@ pub fn sum_fee_validator_totals(
     (total_rewards, total_stake)
 }
 
+/// Bisects the fee bounds to hit a fee target. Two mutually exclusive modes:
+///
+/// PMPE mode (`target_sol` is None): keeps global post-fee PMPE (bid +
+/// `total_staker_extras`, i.e. penalty + PSR payouts to stakers) at or above
+/// `target_pmpe`. Phase 1 raises max_fee to the feasible ceiling; if it pins at
+/// max_cap with leftover staker budget, Phase 2 raises min_fee to extract it.
+///
+/// SOL revenue mode (`target_sol` is Some): keeps total Marinade fees at or
+/// above `target_sol` (lamports). The bisection inverts — Phase 1 raises
+/// min_fee to the feasible floor; if min_fee pins at min_cap with the target
+/// already met, Phase 2 lowers max_fee to the lowest feasible value.
+///
+/// If the target can never be met, fallback settlements are returned.
 #[allow(clippy::too_many_arguments)]
 pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
