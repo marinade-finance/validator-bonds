@@ -421,16 +421,15 @@ fn generate_bid_settlements_worker(
                 settlement_claim
             );
 
-            let staker_yield_pmpe = if total_marinade_stakers_rewards > Decimal::ZERO
-                && total_marinade_active_stake + total_marinade_redelegation_stake > 0
-            {
-                total_marinade_stakers_rewards
-                    / (Decimal::from(total_marinade_active_stake)
-                        + Decimal::from(total_marinade_redelegation_stake))
-                    * Decimal::ONE_THOUSAND
-            } else {
-                Decimal::ZERO
-            };
+            let staker_yield_pmpe =
+                if total_marinade_active_stake + total_marinade_redelegation_stake > 0 {
+                    total_marinade_stakers_rewards
+                        / (Decimal::from(total_marinade_active_stake)
+                            + Decimal::from(total_marinade_redelegation_stake))
+                        * Decimal::ONE_THOUSAND
+                } else {
+                    Decimal::ZERO
+                };
             let effective_fee = if staker_yield_pmpe > Decimal::ZERO {
                 let fee_cap = (Decimal::ONE - target_pmpe / staker_yield_pmpe).max(Decimal::ZERO);
                 fee_cap.clamp(fee_percentages.min_fee, fee_percentages.max_fee)
