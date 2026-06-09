@@ -157,6 +157,106 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
 /// already met, Phase 2 lowers max_fee to the lowest feasible value.
 ///
 /// If the target can never be met, fallback settlements are returned.
+
+/// Pre-computes (total_marinade_stakers_rewards, total_stake) across all
+/// fee-bearing validators without running the full settlement generator.
+/// Fee-independent — used to derive `target_pmpe` in SOL revenue mode before
+/// the bisection starts.
+pub fn sum_fee_validator_totals(
+    stake_meta_index: &StakeMetaIndex,
+    sam_validator_metas: &[ValidatorSamMeta],
+    rewards_collection: &RewardsCollection,
+    stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+    exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+) -> (Decimal, Decimal) {
+    let mut total_rewards = Decimal::ZERO;
+    let mut total_stake = Decimal::ZERO;
+
+    for validator in sam_validator_metas {
+        let Some(grouped) = stake_meta_index.iter_grouped_stake_metas(&validator.vote_account)
+        else {
+            continue;
+        };
+        let grouped: Vec<_> = grouped.collect();
+
+        let mut total_active: u64 = 0;
+        let mut marinade_active: u64 = 0;
+        let mut marinade_redelegation: u64 = 0;
+        let mut marinade_activating: u64 = 0;
+        for ((_, stake_authority), metas) in &grouped {
+            for meta in metas.iter() {
+                total_active += meta.active_delegation_lamports;
+                if stake_authority_filter(stake_authority) {
+                    marinade_active += meta.active_delegation_lamports;
+                    if !exiting_stake_authority_filter(stake_authority) {
+                        marinade_redelegation += meta.deactivating_delegation_lamports;
+                    }
+                    if meta.activating_delegation_lamports > 0
+                        && meta.active_delegation_lamports == 0
+                    {
+                        marinade_activating += meta.activating_delegation_lamports;
+                    }
+                }
+            }
+        }
+        if marinade_active == 0 && marinade_activating == 0 {
+            continue;
+        }
+
+        let blank;
+        let rewards = match rewards_collection.get(&validator.vote_account) {
+            Some(r) => r,
+            None => {
+                blank = VoteAccountRewards {
+                    vote_account: validator.vote_account,
+                    ..VoteAccountRewards::default()
+                };
+                &blank
+            }
+        };
+
+        let stake_share = if total_active > 0 {
+            Decimal::from(marinade_active) / Decimal::from(total_active)
+        } else {
+            Decimal::ZERO
+        };
+        let m_inflation = Decimal::from(rewards.inflation_rewards) * stake_share;
+        let m_mev = Decimal::from(rewards.mev_rewards) * stake_share;
+        let m_block = Decimal::from(rewards.block_rewards) * stake_share;
+
+        let static_bid = {
+            let effective_static_bid = validator
+                .rev_share
+                .auction_effective_static_bid_pmpe
+                .unwrap_or(validator.effective_bid);
+            Decimal::from(marinade_active) * effective_static_bid / Decimal::ONE_THOUSAND
+        };
+        let activating_bid = validator
+            .rev_share
+            .activating_stake_pmpe
+            .map(|p| Decimal::from(marinade_activating) * p / Decimal::ONE_THOUSAND)
+            .unwrap_or(Decimal::ZERO);
+
+        let stakers_active = if let Some(crate::sam_meta::AuctionValidatorValues {
+            commissions: Some(c),
+            ..
+        }) = &validator.values
+        {
+            m_inflation * (Decimal::ONE - c.inflation_commission_dec)
+                + m_mev * (Decimal::ONE - c.mev_commission_dec)
+                + m_block * (Decimal::ONE - c.block_rewards_commission_dec)
+                + static_bid
+        } else {
+            Decimal::from(marinade_active) * validator.rev_share.total_pmpe / Decimal::ONE_THOUSAND
+        };
+
+        total_rewards += stakers_active + activating_bid;
+        total_stake += Decimal::from(marinade_active) + Decimal::from(marinade_redelegation);
+    }
+
+    (total_rewards, total_stake)
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
@@ -216,9 +316,10 @@ pub fn generate_bid_settlements(
         } else {
             let post_fee_pmpe = (totals.rewards + total_staker_extras - totals.fees) / totals.stake
                 * Decimal::ONE_THOUSAND;
-            let feasible = match target_sol {
-                Some(t) => totals.fees >= t,
-                None => target_pmpe <= post_fee_pmpe,
+            let feasible = if sol_mode {
+                post_fee_pmpe <= target_pmpe
+            } else {
+                post_fee_pmpe >= target_pmpe
             };
             (post_fee_pmpe, feasible)
         };

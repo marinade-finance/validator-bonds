@@ -1,5 +1,5 @@
 use bid_distribution::apy_api::fetch_ssr_pmpe;
-use bid_distribution::generators::bidding::generate_bid_settlements;
+use bid_distribution::generators::bidding::{generate_bid_settlements, sum_fee_validator_totals};
 use bid_distribution::generators::psr_events::{
     calculate_total_psr_staker_claims, generate_psr_settlements,
 };
@@ -229,28 +229,34 @@ fn main() -> anyhow::Result<()> {
             rewards_collection.total_rewards()
         );
 
-        let ssr_pmpe = fetch_ssr_pmpe(&args.apy_api_url, stake_meta_epoch)?;
-        info!("SSI/SSR: {ssr_pmpe} pmpe (from apy-api, epoch {stake_meta_epoch})");
-        let target_pmpe = if bid_distribution_config
-            .fee_config
-            .target_sol_revenue
-            .is_some()
-        {
-            // SOL revenue mode: use SSR as per-validator PMPE reference (no premium)
-            Some(ssr_pmpe)
-        } else {
-            bid_distribution_config
-                .fee_config
-                .min_yield_premium_over_ssr_pmpe
-                .map(|x| ssr_pmpe + x)
-        };
-        info!("target_pmpe: {target_pmpe:?}");
-        // Convert target_sol_revenue (SOL) to lamports as Decimal for the bisection
         const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
-        let target_sol = bid_distribution_config
-            .fee_config
-            .target_sol_revenue
-            .map(|sol| sol * Decimal::from(LAMPORTS_PER_SOL));
+        let (target_pmpe, target_sol, ssr_pmpe_opt) =
+            if let Some(rev) = bid_distribution_config.fee_config.target_sol_revenue {
+                let target_sol_lamports = rev * Decimal::from(LAMPORTS_PER_SOL);
+                let (settlement_sol, total_stake) = sum_fee_validator_totals(
+                    &stake_meta_index,
+                    &sam_validator_metas,
+                    &rewards_collection,
+                    &*stake_authority_filter,
+                    &*exiting_stake_authority_filter,
+                );
+                let pmpe = if total_stake.is_zero() {
+                    Decimal::ZERO
+                } else {
+                    (settlement_sol - target_sol_lamports) / total_stake * Decimal::ONE_THOUSAND
+                };
+                info!("SOL mode: settlement_sol={settlement_sol} target_pmpe={pmpe}");
+                (Some(pmpe), Some(target_sol_lamports), None)
+            } else {
+                let ssr = fetch_ssr_pmpe(&args.apy_api_url, stake_meta_epoch)?;
+                info!("SSI/SSR: {ssr} pmpe (epoch {stake_meta_epoch})");
+                let pmpe = bid_distribution_config
+                    .fee_config
+                    .min_yield_premium_over_ssr_pmpe
+                    .map(|x| ssr + x);
+                (pmpe, None, Some(f64::try_from(ssr).unwrap_or(0.0)))
+            };
+        info!("target_pmpe: {target_pmpe:?}");
         info!("target_sol (lamports): {target_sol:?}");
 
         // Epoch consistency verification
@@ -303,7 +309,7 @@ fn main() -> anyhow::Result<()> {
         info!("Generated {} bid settlements", bid.settlements.len());
         adj_max_fee_bps = Some(bid.adj_max_fee_bps);
         adj_min_fee_bps = Some(bid.adj_min_fee_bps);
-        collection_ssr_pmpe = Some(f64::try_from(ssr_pmpe).unwrap_or(0.0));
+        collection_ssr_pmpe = ssr_pmpe_opt;
         all_settlements.extend(bid.settlements);
     } else {
         // No SAM configs — fail if SAM inputs were partially provided (likely a mistake)

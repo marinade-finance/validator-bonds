@@ -107,8 +107,9 @@ fn test_generate_bid_settlements_basic_single_validator() {
         &fee_config,
         &accept_all,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -212,8 +213,9 @@ fn test_generate_bid_settlements_positive_commission() {
         &fee_config,
         &accept_all,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -355,8 +357,9 @@ fn test_generate_bid_settlements_negative_commission() {
         &fee_config,
         &accept_all,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -544,8 +547,9 @@ fn test_generate_bid_settlements_varying_rewards() {
         &fee_config,
         &accept_all,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -558,8 +562,9 @@ fn test_generate_bid_settlements_varying_rewards() {
         &fee_config,
         &accept_all,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -572,8 +577,9 @@ fn test_generate_bid_settlements_varying_rewards() {
         &fee_config,
         &accept_all,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -837,8 +843,9 @@ fn test_zero_rewards() {
         &fee_config,
         &accept_all,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -908,8 +915,9 @@ fn test_commission_raised_after_auction_charged_from_rewards() {
         &create_test_fee_config(950, 500),
         &accept_all,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -1000,8 +1008,9 @@ fn test_negative_block_commission_charged_against_negative_in_bond() {
         &create_test_fee_config(950, 500),
         &accept_all,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -1068,8 +1077,9 @@ fn test_activating_bid_charge_basic() {
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -1134,8 +1144,9 @@ fn test_activating_bid_charge_with_active_stake() {
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -1195,8 +1206,9 @@ fn test_activating_bid_charge_non_marinade_excluded() {
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -1245,8 +1257,9 @@ fn test_activating_bid_charge_absent_when_no_field() {
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -1299,8 +1312,9 @@ fn test_activating_bid_charge_skipped_for_multi_epoch_warmup() {
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -1367,8 +1381,9 @@ fn test_activating_bid_charge_distributed_to_activating_stakers() {
         &create_test_fee_config(1000, 5000),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -1677,7 +1692,8 @@ fn create_test_fee_config(max_fee_bps: u64, dao_fee_split_share_bps: u64) -> Fee
             withdraw_authority: TEST_PUBKEY_DAO,
         },
         min_fee_bps: 0,
-        min_yield_premium_over_ssr_pmpe: Decimal::ZERO,
+        min_yield_premium_over_ssr_pmpe: Some(Decimal::ZERO),
+        target_sol_revenue: None,
     }
 }
 
@@ -1922,8 +1938,9 @@ fn test_generate_settlements_from_json_values() {
         &fee_config,
         &accept_all,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -2564,7 +2581,8 @@ fn ssr_fee_config(max_fee_bps: u64, min_fee_bps: u64, min_yield_premium: f64) ->
             withdraw_authority: TEST_PUBKEY_DAO,
         },
         min_fee_bps,
-        min_yield_premium_over_ssr_pmpe: Decimal::try_from(min_yield_premium).unwrap(),
+        min_yield_premium_over_ssr_pmpe: Some(Decimal::try_from(min_yield_premium).unwrap()),
+        target_sol_revenue: None,
     }
 }
 
@@ -2595,6 +2613,10 @@ fn run_ssr_test(ssr_pmpe: f64, fee_config: FeeConfig) -> Vec<Settlement> {
     let (collection, vote_account) = ssr_stake_meta_index();
     let index = StakeMetaIndex::new(&collection);
     let sam_meta = ssr_sam_meta(vote_account, 20.0, 20.0);
+    let target_pmpe = Decimal::try_from(ssr_pmpe).unwrap()
+        + fee_config
+            .min_yield_premium_over_ssr_pmpe
+            .unwrap_or(Decimal::ZERO);
     generate_bid_settlements(
         &index,
         &vec![sam_meta],
@@ -2606,8 +2628,9 @@ fn run_ssr_test(ssr_pmpe: f64, fee_config: FeeConfig) -> Vec<Settlement> {
         &fee_config,
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
-        Decimal::try_from(ssr_pmpe).unwrap(),
+        Some(target_pmpe),
         Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements
@@ -2677,8 +2700,9 @@ fn test_bid_both_active_and_activating_stakers() {
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -2769,8 +2793,9 @@ fn test_bid_only_activating_no_active_marinade_stake() {
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -2872,6 +2897,10 @@ fn run_ssr_test_with_pmpe(
     let (collection, vote_account) = ssr_stake_meta_index();
     let index = StakeMetaIndex::new(&collection);
     let sam_meta = ssr_sam_meta(vote_account, total_pmpe, static_bid_pmpe);
+    let target_pmpe = Decimal::try_from(ssr_pmpe).unwrap()
+        + fee_config
+            .min_yield_premium_over_ssr_pmpe
+            .unwrap_or(Decimal::ZERO);
     generate_bid_settlements(
         &index,
         &vec![sam_meta],
@@ -2883,8 +2912,9 @@ fn run_ssr_test_with_pmpe(
         &fee_config,
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
-        Decimal::try_from(ssr_pmpe).unwrap(),
+        Some(target_pmpe),
         Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements
@@ -3015,8 +3045,9 @@ fn test_ssr_mixed_active_and_activating_stake() {
         &ssr_fee_config(5000, 0, 0.0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
-        Decimal::try_from(28.0).unwrap(),
+        Some(Decimal::try_from(28.0).unwrap()),
         Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -3091,8 +3122,9 @@ fn test_ssr_activating_only_uses_min_fee() {
         &ssr_fee_config(3000, 0, 0.0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
-        Decimal::try_from(15.0).unwrap(),
+        Some(Decimal::try_from(15.0).unwrap()),
         Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -3301,8 +3333,9 @@ fn test_redelegation_stake_included_in_settlement_details() {
         &fee_config,
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false, // no exiting authorities
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -3360,8 +3393,9 @@ fn test_exiting_authority_excluded_from_redelegation_stake() {
         &fee_config,
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE || *pk == TEST_EXITING_SA,
         &|pk: &Pubkey| *pk == TEST_EXITING_SA, // exiting authority: deactivating excluded
+        Some(Decimal::ZERO),
         Decimal::ZERO,
-        Decimal::ZERO,
+        None,
     )
     .unwrap()
     .settlements;
@@ -3381,6 +3415,10 @@ fn run_ssr_test_with_penalties(
     let (collection, vote_account) = ssr_stake_meta_index();
     let index = StakeMetaIndex::new(&collection);
     let sam_meta = ssr_sam_meta(vote_account, 20.0, 20.0);
+    let target_pmpe = Decimal::try_from(ssr_pmpe).unwrap()
+        + fee_config
+            .min_yield_premium_over_ssr_pmpe
+            .unwrap_or(Decimal::ZERO);
     generate_bid_settlements(
         &index,
         &vec![sam_meta],
@@ -3392,8 +3430,9 @@ fn run_ssr_test_with_penalties(
         &fee_config,
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
         &|_| false,
-        Decimal::try_from(ssr_pmpe).unwrap(),
+        Some(target_pmpe),
         total_staker_penalties,
+        None,
     )
     .unwrap()
     .settlements
