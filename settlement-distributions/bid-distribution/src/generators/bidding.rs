@@ -429,12 +429,13 @@ fn generate_bid_settlements_worker(
                         + Decimal::from(total_marinade_redelegation_stake))
                     * Decimal::ONE_THOUSAND
             } else {
-                target_pmpe
+                Decimal::ZERO
             };
-            // safety: target_pmpe > 0 always
-            let effective_fee = {
+            let effective_fee = if staker_yield_pmpe > Decimal::ZERO {
                 let fee_cap = (Decimal::ONE - target_pmpe / staker_yield_pmpe).max(Decimal::ZERO);
                 fee_cap.clamp(fee_percentages.min_fee, fee_percentages.max_fee)
+            } else {
+                fee_percentages.max_fee
             };
             info!(
                 "{} current: {} (target: {}), fee: effective: {} (max: {}, min: {})",
