@@ -3,6 +3,7 @@ name = "bid-distribution-cli"
 path = "src/bin/cli.rs"
 
 [package]
+publish = false
 name = "bid-distribution"
 version = "0.0.0"
 edition = "2021"

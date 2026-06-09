@@ -1,24 +1,24 @@
 use api::repositories::{bond::store_bonds, common::CommonStoreOptions};
-use structopt::StructOpt;
+use clap::{Args, Parser, Subcommand};
 use tracing_log::LogTracer;
 use validator_bonds_common::cli_result::CliResult;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct Common {
-    #[structopt(short = "v")]
+    #[arg(short = 'v')]
     verbose: bool,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 struct Params {
-    #[structopt(flatten)]
+    #[command(flatten)]
     common: Common,
 
-    #[structopt(subcommand)]
+    #[command(subcommand)]
     command: Command,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Subcommand)]
 pub enum Command {
     StoreBonds(CommonStoreOptions),
 }
@@ -29,7 +29,7 @@ async fn main() -> CliResult {
 }
 
 async fn real_main() -> anyhow::Result<()> {
-    let params = Params::from_args();
+    let params = Params::parse();
     LogTracer::init().expect("Setting up log compatibility failed");
     let subscriber = tracing_subscriber::fmt::Subscriber::builder()
         .with_target(false)

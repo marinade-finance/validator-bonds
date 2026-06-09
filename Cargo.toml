@@ -46,7 +46,7 @@ rust_decimal = { version = "1.37.1", features = ["db-postgres"] }
 rust_decimal_macros = "1.37.1"
 serde = "1.0.197"
 serde_json = "1.0.114"
-serde_yaml = "0.8"
+serde_yaml = "0.9"
 settlement-common = { path = "settlement-distributions/settlement-common" }
 snapshot-parser-validator-cli = { git = "https://github.com/marinade-finance/solana-snapshot-parser", tag = "solana-2.3.x" }
 shellexpand = "3.1.0"
@@ -63,7 +63,6 @@ solana-security-txt = "1.1.1"
 solana-transaction-executor = { git = "https://github.com/marinade-finance/solana-transaction-executor", tag = "solana-2.3.x" }
 solana-transaction-builder = { git = "https://github.com/marinade-finance/solana-transaction-builder", tag = "solana-2.3.x" }
 solana-transaction-builder-executor = { git = "https://github.com/marinade-finance/solana-transaction-builder", tag = "solana-2.3.x" }
-structopt = "0.3.21"
 tokio = { version = "1", features = ["full"] }
 tokio-postgres = { version = "0.7.7", features = ["with-chrono-0_4"] }
 tracing = "0.1.37"
