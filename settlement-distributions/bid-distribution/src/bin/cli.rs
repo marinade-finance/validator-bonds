@@ -20,6 +20,7 @@ use settlement_common::utils::{
 };
 use snapshot_parser_validator_cli::stake_meta::StakeMetaCollection;
 use snapshot_parser_validator_cli::validator_meta::ValidatorMetaCollection;
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use {clap::Parser, log::info};
@@ -73,8 +74,7 @@ struct Args {
 }
 
 fn main() -> anyhow::Result<()> {
-    let mut builder = Builder::from_env(Env::default().default_filter_or("info"));
-    builder.init();
+    Builder::from_env(Env::default().default_filter_or("info")).init();
 
     info!("Starting unified bid distribution...");
     let args: Args = Args::parse();
@@ -116,7 +116,7 @@ fn main() -> anyhow::Result<()> {
 
     // ===== PSR Settlements (Protected Events) =====
     let psr_configs = bid_distribution_config.psr_settlements();
-    let mut total_staker_psr_settlements = calculate_total_psr_staker_claims(&[]);
+    let mut total_staker_psr_settlements = Decimal::ZERO;
 
     if !psr_configs.is_empty() {
         info!("Generating PSR settlements...");
@@ -229,35 +229,36 @@ fn main() -> anyhow::Result<()> {
             rewards_collection.total_rewards()
         );
 
-        const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
-        let (target_pmpe, target_sol, ssr_pmpe_opt) =
-            if let Some(rev) = bid_distribution_config.fee_config.target_sol_revenue {
-                let target_sol_lamports = rev * Decimal::from(LAMPORTS_PER_SOL);
-                let (settlement_sol, total_stake) = sum_fee_validator_totals(
-                    &stake_meta_index,
-                    &sam_validator_metas,
-                    &rewards_collection,
-                    &*stake_authority_filter,
-                    &*exiting_stake_authority_filter,
-                );
-                let pmpe = if total_stake.is_zero() {
-                    Decimal::ZERO
-                } else {
-                    (settlement_sol - target_sol_lamports) / total_stake * Decimal::ONE_THOUSAND
-                };
-                info!("SOL mode: settlement_sol={settlement_sol} target_pmpe={pmpe}");
-                (Some(pmpe), Some(target_sol_lamports), None)
+        let sol_mode = bid_distribution_config
+            .fee_config
+            .target_sol_revenue
+            .is_some();
+        let target_pmpe = if let Some(rev) = bid_distribution_config.fee_config.target_sol_revenue {
+            let target_sol_lamports = rev * Decimal::from(LAMPORTS_PER_SOL);
+            let (settlement_sol, total_stake) = sum_fee_validator_totals(
+                &stake_meta_index,
+                &sam_validator_metas,
+                &rewards_collection,
+                &*stake_authority_filter,
+                &*exiting_stake_authority_filter,
+            );
+            let pmpe = if total_stake.is_zero() {
+                Decimal::ZERO
             } else {
-                let ssr = fetch_ssr_pmpe(&args.apy_api_url, stake_meta_epoch)?;
-                info!("SSI/SSR: {ssr} pmpe (epoch {stake_meta_epoch})");
-                let pmpe = bid_distribution_config
-                    .fee_config
-                    .min_yield_premium_over_ssr_pmpe
-                    .map(|x| ssr + x);
-                (pmpe, None, Some(f64::try_from(ssr).unwrap_or(0.0)))
+                (settlement_sol - target_sol_lamports) / total_stake * Decimal::ONE_THOUSAND
             };
+            info!("SOL mode: settlement_sol={settlement_sol} target_sol={target_sol_lamports} target_pmpe={pmpe}");
+            Some(pmpe)
+        } else {
+            let ssr = fetch_ssr_pmpe(&args.apy_api_url, stake_meta_epoch)?;
+            info!("SSI/SSR: {ssr} pmpe (epoch {stake_meta_epoch})");
+            collection_ssr_pmpe = Some(f64::try_from(ssr).unwrap_or(0.0));
+            bid_distribution_config
+                .fee_config
+                .min_yield_premium_over_ssr_pmpe
+                .map(|x| ssr + x)
+        };
         info!("target_pmpe: {target_pmpe:?}");
-        info!("target_sol (lamports): {target_sol:?}");
 
         // Epoch consistency verification
         let rewards_epoch = rewards_collection.epoch;
@@ -304,12 +305,11 @@ fn main() -> anyhow::Result<()> {
             &*exiting_stake_authority_filter,
             target_pmpe,
             total_staker_penalties + total_staker_psr_settlements,
-            target_sol,
+            sol_mode,
         )?;
         info!("Generated {} bid settlements", bid.settlements.len());
         adj_max_fee_bps = Some(bid.adj_max_fee_bps);
         adj_min_fee_bps = Some(bid.adj_min_fee_bps);
-        collection_ssr_pmpe = ssr_pmpe_opt;
         all_settlements.extend(bid.settlements);
     } else {
         // No SAM configs — fail if SAM inputs were partially provided (likely a mistake)

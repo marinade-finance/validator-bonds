@@ -245,15 +245,16 @@ pub fn sum_fee_validator_totals(
 
 /// Bisects the fee bounds to hit a fee target. Two mutually exclusive modes:
 ///
-/// PMPE mode (`target_sol` is None): keeps global post-fee PMPE (bid +
+/// PMPE mode (`sol_mode` false): keeps global post-fee PMPE (bid +
 /// `total_staker_extras`, i.e. penalty + PSR payouts to stakers) at or above
 /// `target_pmpe`. Phase 1 raises max_fee to the feasible ceiling; if it pins at
 /// max_cap with leftover staker budget, Phase 2 raises min_fee to extract it.
 ///
-/// SOL revenue mode (`target_sol` is Some): keeps total Marinade fees at or
-/// above `target_sol` (lamports). The bisection inverts — Phase 1 raises
-/// min_fee to the feasible floor; if min_fee pins at min_cap with the target
-/// already met, Phase 2 lowers max_fee to the lowest feasible value.
+/// SOL revenue mode (`sol_mode` true): `target_pmpe` is derived from the SOL
+/// revenue target, so meeting it keeps total Marinade fees at or above that
+/// target. The bisection inverts — Phase 1 raises min_fee to the feasible
+/// floor; if min_fee pins at min_cap with the target already met, Phase 2
+/// lowers max_fee to the lowest feasible value.
 ///
 /// If the target can never be met, fallback settlements are returned.
 #[allow(clippy::too_many_arguments)]
@@ -267,11 +268,10 @@ pub fn generate_bid_settlements(
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     target_pmpe: Option<Decimal>,
     total_staker_extras: Decimal,
-    target_sol: Option<Decimal>,
+    sol_mode: bool,
 ) -> anyhow::Result<BidSettlementValues> {
     let max_cap = fee_config.max_fee_bps;
     let min_cap = fee_config.min_fee_bps;
-    let sol_mode = target_sol.is_some();
 
     // `current` is the active axis. `overshoot` tracks the best known-feasible
     // value, `undershoot` the best known-infeasible. PMPE mode probes climb (max
