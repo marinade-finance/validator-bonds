@@ -69,75 +69,66 @@ type EpochYaml = {
 }
 type ReportYaml = { epochs: EpochYaml[] }
 
-const INCOMPLETE_TEST = 'datum.incomplete'
 const S_AT_CAP = 'At cap'
 const S_AT_MIN = 'At min fee'
 const S_ADJUSTED = 'Adjusted'
 const S_MAXFEE = 'Max-fee cap'
 const S_SSR = 'SSR baseline'
 
-type Row = {
-  epoch: number
-  time: number
-  month: string
-  ssrApy: number
-  apyAdj: number
-  apyMax: number
-  feeAdj: number
-  feeMax: number
-  vcap: number
-  vmin: number
-  shortfall: number
-  adjMaxFee: number
-  adjMinFee: number
-}
-
-type ApyPoint = {
-  epoch: number
-  ssrApy: number
-  apyAdj: number
-  apyMax: number
-}
-type ValPoint = { epoch: number; series: string; pct: number }
-
 function pct(s: string | number): number {
   return parseFloat(String(s).replace('%', ''))
 }
 
-function ratio(s: string | undefined): number {
+function ratio(s: string | number | undefined): number {
   if (!s) return 0
   const [a, b] = String(s).split('/').map(Number)
   return b ? (a / b) * 100 : 0
 }
 
-function epochUnix(t: string | number): number {
-  return typeof t === 'string' ? Math.floor(new Date(t).getTime() / 1000) : t
+function isoWeek(ts: number): string {
+  const d = new Date(ts * 1000)
+  const jan4 = new Date(d.getFullYear(), 0, 4)
+  const start = new Date(jan4)
+  start.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7))
+  const week = Math.floor((d.getTime() - start.getTime()) / 86400000 / 7) + 1
+  return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`
 }
 
-function load(): { rows: Row[]; maxFeeBps: number } {
+function isoMonth(ts: number): string {
+  return new Date(ts * 1000).toISOString().slice(0, 7)
+}
+
+function range(lo: number, hi: number): number[] {
+  const out: number[] = []
+  for (let e = lo; e <= hi; e++) out.push(e)
+  return out
+}
+
+function load() {
   const data = parseYaml(
     fs.readFileSync(REPORT, 'utf8'),
   ) as unknown as ReportYaml
   let maxFeeBps = 800
-  const rows = data.epochs.flatMap<Row>(e => {
+  const rows = data.epochs.flatMap(e => {
     const sim = e.simulations?.[0]
     if (!sim) return []
     maxFeeBps = Number(sim.max_fee_bps ?? maxFeeBps)
     const feeAdj = Number(sim.fee_sol_adj)
     const feeMax = Number(sim.fee_sol_max)
-    const t = epochUnix(e.time)
     return [
       {
         epoch: e.epoch,
-        time: t,
-        month: new Date(t * 1000).toISOString().slice(0, 7),
+        time:
+          typeof e.time === 'string'
+            ? Math.floor(new Date(e.time).getTime() / 1000)
+            : e.time,
         ssrApy: pct(e.ssr_apy),
         apyAdj: pct(sim.apy_adj ?? 0),
         apyMax: pct(sim.apy_max ?? 0),
         feeAdj,
         feeMax,
-        vcap: ratio(String(sim.validators_capped)),
-        vmin: ratio(String(sim.validators_at_min_fee ?? '0/1')),
+        vcap: ratio(sim.validators_capped),
+        vmin: ratio(sim.validators_at_min_fee),
         shortfall: feeMax - feeAdj,
         adjMaxFee: Number(sim.adj_max_fee_bps ?? 0),
         adjMinFee: Number(sim.adj_min_fee_bps ?? 0),
@@ -155,33 +146,39 @@ async function main() {
 
   // Detect gaps in the otherwise-consecutive epoch sequence. The ordinal axis
   // silently connects across missing epochs, so we draw a marker at each gap.
-  type Gap = { after: number; before: number; missing: number }
+  type Gap = { after: number; before: number }
   const gaps: Gap[] = []
   for (let i = 1; i < epochs.length; i++) {
-    const missing = epochs[i] - epochs[i - 1] - 1
-    if (missing > 0) {
-      gaps.push({ after: epochs[i - 1], before: epochs[i], missing })
+    if (epochs[i] - epochs[i - 1] > 1) {
+      gaps.push({ after: epochs[i - 1], before: epochs[i] })
     }
   }
 
+  // Gap markers for the APY panel: a vertical band over the reserved-but-empty
+  // slots plus a label naming the skipped epochs.
+  const gapBands = gaps.flatMap(g => {
+    const lo = g.after + 1
+    const hi = g.before - 1
+    const mid = Math.round((lo + hi) / 2)
+    return range(lo, hi).map(e => ({
+      epoch: e,
+      label: e === mid ? `epochs ${lo}–${hi} skipped` : '',
+    }))
+  })
+  // Null rows inserted at the missing epochs break lines/areas so they don't
+  // connect across the gap.
+  const missingEpochs = gapBands.map(b => b.epoch)
+
   // Time-range-aware aggregation: monthly when span > 2 months, weekly otherwise
-  const isoWeek = (ts: number): string => {
-    const d = new Date(ts * 1000)
-    const jan4 = new Date(d.getFullYear(), 0, 4)
-    const start = new Date(jan4)
-    start.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7))
-    const week = Math.floor((d.getTime() - start.getTime()) / 86400000 / 7) + 1
-    return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`
-  }
   const spanDays =
     rows.length > 1 ? (rows[rows.length - 1].time - rows[0].time) / 86400 : 0
   const useMonth = spanDays > 60
-  const periodKey = (r: Row) => (useMonth ? r.month : isoWeek(r.time))
+  const periodOf = (ts: number) => (useMonth ? isoMonth(ts) : isoWeek(ts))
 
   type PeriodData = { feeAdj: number; feeMax: number; shortfall: number }
   const periodMap = new Map<string, PeriodData>()
   for (const r of rows) {
-    const k = periodKey(r)
+    const k = periodOf(r.time)
     const e = periodMap.get(k) ?? { feeAdj: 0, feeMax: 0, shortfall: 0 }
     e.feeAdj += r.feeAdj
     e.feeMax += r.feeMax
@@ -190,52 +187,32 @@ async function main() {
   }
   const periodDomain = [...periodMap.keys()].sort()
   // The current period is incomplete — compare against today's period key
-  const nowKey = useMonth
-    ? new Date().toISOString().slice(0, 7)
-    : isoWeek(Date.now() / 1000)
-  const incompletePeriods = new Set(periodDomain.filter(p => p === nowKey))
-  type PeriodRow = {
-    period: string
-    series: string
-    sol: number
-    incomplete: boolean
-  }
-  const feePeriodTidy: PeriodRow[] = periodDomain.flatMap(p => [
-    {
-      period: p,
-      series: S_ADJUSTED,
-      sol: periodMap.get(p)?.feeAdj ?? 0,
-      incomplete: incompletePeriods.has(p),
-    },
-    {
-      period: p,
-      series: S_MAXFEE,
-      sol: periodMap.get(p)?.feeMax ?? 0,
-      incomplete: incompletePeriods.has(p),
-    },
-  ])
-  type ShortRow = { period: string; sol: number; incomplete: boolean }
-  const shortfallPeriod: ShortRow[] = periodDomain.map(p => ({
+  const nowKey = periodOf(Date.now() / 1000)
+  const feePeriodTidy = periodDomain.flatMap(p => {
+    const d = periodMap.get(p) ?? { feeAdj: 0, feeMax: 0, shortfall: 0 }
+    return [
+      {
+        period: p,
+        series: S_ADJUSTED,
+        sol: d.feeAdj,
+        incomplete: p === nowKey,
+      },
+      { period: p, series: S_MAXFEE, sol: d.feeMax, incomplete: p === nowKey },
+    ]
+  })
+  const shortfallPeriod = periodDomain.map(p => ({
     period: p,
     sol: periodMap.get(p)?.shortfall ?? 0,
-    incomplete: incompletePeriods.has(p),
+    incomplete: p === nowKey,
   }))
 
-  // Missing epochs enumerated from the gaps — null rows inserted at these
-  // positions break lines/areas so they don't connect across the gap.
-  const missingEpochs: number[] = gaps.flatMap(g => {
-    const out: number[] = []
-    for (let e = g.after + 1; e < g.before; e++) out.push(e)
-    return out
-  })
-
-  const apyData: ApyPoint[] = rows.map(r => ({
+  const apyData = rows.map(r => ({
     epoch: r.epoch,
     ssrApy: r.ssrApy,
     apyAdj: r.apyAdj,
     apyMax: r.apyMax,
   }))
-  const valTidy: ValPoint[] = rows.flatMap(r => [
+  const valTidy = rows.flatMap(r => [
     { epoch: r.epoch, series: S_AT_CAP, pct: r.vcap },
     { epoch: r.epoch, series: S_AT_MIN, pct: r.vmin },
   ])
@@ -243,8 +220,7 @@ async function main() {
   // adj_max / adj_min fee bps from the optimizer
   const S_ADJ_MAX = 'adj_max_fee_bps'
   const S_ADJ_MIN = 'adj_min_fee_bps'
-  type FeeBps = { epoch: number; series: string; bps: number }
-  const feeBpsTidy: FeeBps[] = rows.flatMap(r => [
+  const feeBpsTidy = rows.flatMap(r => [
     { epoch: r.epoch, series: S_ADJ_MAX, bps: r.adjMaxFee },
     { epoch: r.epoch, series: S_ADJ_MIN, bps: r.adjMinFee },
   ])
@@ -265,7 +241,19 @@ async function main() {
       d.delta === maxDelta,
   )
 
+  // APY value labels at key epochs (first, last, min, max)
+  const minApy = Math.min(...rows.map(r => r.apyAdj))
+  const maxApy = Math.max(...rows.map(r => r.apyAdj))
+  const apyLabels = apyData.filter(
+    (d, i) =>
+      i === 0 ||
+      i === apyData.length - 1 ||
+      d.apyAdj === minApy ||
+      d.apyAdj === maxApy,
+  )
+
   // Shared encoding for hollow (dashed outline) bars on incomplete periods
+  const INCOMPLETE_TEST = 'datum.incomplete'
   const hollowBar = {
     fillOpacity: { condition: { test: INCOMPLETE_TEST, value: 0 }, value: 1 },
     strokeWidth: { condition: { test: INCOMPLETE_TEST, value: 1.5 }, value: 0 },
@@ -278,10 +266,7 @@ async function main() {
   // Full consecutive range so missing epochs reserve a slot on the ordinal
   // axis: lines break across the gap and bars are simply absent, rather than
   // the gap being silently collapsed.
-  const epochDomain: number[] = []
-  for (let e = epochs[0]; e <= epochs[epochs.length - 1]; e++) {
-    epochDomain.push(e)
-  }
+  const epochDomain = range(epochs[0], epochs[epochs.length - 1])
 
   // With many epochs, every-epoch tick labels overlap; show every Nth.
   const labelStride = Math.ceil(epochDomain.length / 40)
@@ -300,8 +285,7 @@ async function main() {
 
   // Tidy APY data for a legend-friendly encoding: one row per (epoch, series).
   // Null rows at missing epochs break the lines so they don't bridge the gap.
-  type ApyTidy = { epoch: number; series: string; apy: number | null }
-  const apyTidy: ApyTidy[] = [
+  const apyTidy = [
     ...rows.flatMap(r => [
       { epoch: r.epoch, series: S_SSR, apy: r.ssrApy },
       { epoch: r.epoch, series: S_ADJUSTED, apy: r.apyAdj },
@@ -320,23 +304,6 @@ async function main() {
   const apyLo = Math.floor((Math.min(...apyVals) - 0.1) * 10) / 10
   const apyHi = Math.ceil((Math.max(...apyVals) + 0.1) * 10) / 10
   const apyYScale = { domain: [apyLo, apyHi], nice: false } as const
-
-  // Gap markers for the APY panel: a vertical band over the reserved-but-empty
-  // slots plus a label naming the skipped epochs.
-  type GapMark = { epoch: number; label: string }
-  const gapBands: GapMark[] = gaps.flatMap(g => {
-    const out: GapMark[] = []
-    const lo = g.after + 1
-    const hi = g.before - 1
-    const mid = Math.round((lo + hi) / 2)
-    for (let e = lo; e <= hi; e++) {
-      out.push({
-        epoch: e,
-        label: e === mid ? `epochs ${lo}–${hi} skipped` : '',
-      })
-    }
-    return out
-  })
 
   const spec: TopLevelSpec = {
     $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
@@ -464,20 +431,7 @@ async function main() {
           },
           // APY value labels at key epochs
           {
-            data: {
-              values: (() => {
-                const adj = apyData
-                const minV = Math.min(...adj.map(d => d.apyAdj))
-                const maxV = Math.max(...adj.map(d => d.apyAdj))
-                return adj.filter(
-                  (d, i) =>
-                    i === 0 ||
-                    i === adj.length - 1 ||
-                    d.apyAdj === minV ||
-                    d.apyAdj === maxV,
-                )
-              })(),
-            },
+            data: { values: apyLabels },
             mark: {
               type: 'text',
               dy: -11,
