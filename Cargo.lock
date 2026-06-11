@@ -10880,6 +10880,7 @@ dependencies = [
  "bincode",
  "merkle-tree",
  "serde",
+ "solana-program",
  "solana-sdk-ids",
  "solana-security-txt",
 ]
