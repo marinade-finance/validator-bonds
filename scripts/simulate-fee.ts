@@ -404,7 +404,6 @@ async function processEpoch(epoch: number): Promise<string | null> {
   }
 
   const prodFile = values.c ? await fetchProductionSettlement(epoch) : null
-  if (!values.c) await fetchInputs(epoch)
 
   const prev = ssr.epochs.find(e => e.epoch === epoch - 1)
   const epy = prev ? 31557600 / (epochData.time - prev.time) : 182
@@ -590,8 +589,7 @@ async function processEpoch(epoch: number): Promise<string | null> {
   return out.join('\n') + '\n'
 }
 
-// Worker pool: epochs run concurrently; output collected and printed in order.
-const CONCURRENCY = values.n ? Number(values.n) : 20
+const CONCURRENCY = values.n ? Number(values.n) : 4
 const epochs: number[] = []
 for (let e = epochStart; e <= epochEnd; e++) epochs.push(e)
 
@@ -599,27 +597,47 @@ const results: (string | null)[] = Array.from(
   { length: epochs.length },
   () => null,
 )
-let nextIdx = 0
-let doneCount = 0
 const failed: number[] = []
-async function runWorker(): Promise<void> {
-  while (nextIdx < epochs.length) {
-    const i = nextIdx++
+
+// Phase 1: download all inputs sequentially, one epoch at a time
+if (!values.c) {
+  process.stderr.write(`fetching inputs for ${epochs.length} epochs...\n`)
+  for (const epoch of epochs) {
     try {
-      results[i] = await processEpoch(epochs[i])
+      await fetchInputs(epoch)
     } catch (err) {
       process.stderr.write(
-        `Failed: epoch ${epochs[i]} — ${err instanceof Error ? err.message : String(err)}\n`,
+        `Failed: epoch ${epoch} fetch — ${err instanceof Error ? err.message : String(err)}\n`,
       )
-      failed.push(epochs[i])
+      failed.push(epoch)
+    }
+  }
+}
+
+// Phase 2: parallel CLI compute over successfully fetched epochs
+const toCompute = epochs.filter(e => !failed.includes(e))
+let nextIdx = 0
+let doneCount = 0
+async function runWorker(): Promise<void> {
+  while (nextIdx < toCompute.length) {
+    const i = nextIdx++
+    const epoch = toCompute[i]
+    const origIdx = epochs.indexOf(epoch)
+    try {
+      results[origIdx] = await processEpoch(epoch)
+    } catch (err) {
+      process.stderr.write(
+        `Failed: epoch ${epoch} — ${err instanceof Error ? err.message : String(err)}\n`,
+      )
+      failed.push(epoch)
     }
     process.stderr.write(
-      `epoch ${epochs[i]} done [${++doneCount}/${epochs.length}]\n`,
+      `epoch ${epoch} done [${++doneCount}/${toCompute.length}]\n`,
     )
   }
 }
 await Promise.all(
-  Array.from({ length: Math.min(CONCURRENCY, epochs.length) }, runWorker),
+  Array.from({ length: Math.min(CONCURRENCY, toCompute.length) }, runWorker),
 )
 
 if (failed.length)
