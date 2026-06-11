@@ -281,14 +281,13 @@ pub fn generate_bid_settlements(
     // SOL mode inverts the bisection: Phase 1 raises min_fee (so tuning_max
     // starts false), Phase 2 lowers max_fee. Overshoot/undershoot start values
     // are also swapped.
-    let (mut current, mut overshoot, mut undershoot, mut tuning_max) = if sol_mode {
-        (min_cap, max_cap, min_cap, false)
-    } else {
-        (max_cap, min_cap, max_cap, true)
-    };
+    let mut overshoot = if sol_mode { max_cap } else { min_cap };
+    let mut undershoot = if sol_mode { min_cap } else { max_cap };
+    let mut current = undershoot;
+    let mut tuning_max = !sol_mode;
     // adj_phase1 stores the Phase 1 result when switching to Phase 2.
     // In PMPE mode this is the max_fee result; in SOL mode the min_fee result.
-    let mut adj_phase1 = if sol_mode { max_cap } else { min_cap };
+    let mut adj_phase1 = overshoot;
     let mut best: Option<Vec<Settlement>> = None;
     let mut fallback: Option<Vec<Settlement>> = None;
     let mut fc = fee_config.clone();
