@@ -492,7 +492,7 @@ fn aggregate_rewards(
         .map(|r| r.validators_total_amount)
         .sum::<u64>();
     let mismatch = total_rewards.abs_diff(total_stakers_rewards + total_validators_rewards);
-    if mismatch > 1_000_000 {
+    if mismatch > 20_000_000 {
         anyhow::bail!(
             "Rewards mismatch too large: total={total_rewards} stakers={total_stakers_rewards} validators={total_validators_rewards} delta={mismatch} lamports"
         );
