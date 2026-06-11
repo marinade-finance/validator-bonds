@@ -1,4 +1,5 @@
 [package]
+publish = false
 name = "settlement-pipelines"
 version = "0.0.1"
 description = "Off-chain pipelines to Validator Bonds Program"

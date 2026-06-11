@@ -1,4 +1,5 @@
 [package]
+publish = false
 name = "validator-bonds"
 version = "2.2.1"
 description = "Marinade validator bonds program protecting validators performance"
