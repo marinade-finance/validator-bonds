@@ -309,19 +309,19 @@ pub fn generate_bid_settlements(
             target_pmpe,
         )?;
         let totals = calculate_bid_settlement_totals(&settlements);
-        let (post_fee, feasible) = if totals.stake.is_zero() {
-            (Decimal::ZERO, false)
+        let post_fee = if totals.stake.is_zero() {
+            Decimal::ZERO
         } else {
-            let post_fee_pmpe = (totals.rewards + total_staker_extras - totals.fees) / totals.stake
-                * Decimal::ONE_THOUSAND;
-            let feasible = if sol_mode {
-                post_fee_pmpe <= target_pmpe
-            } else {
-                post_fee_pmpe >= target_pmpe
-            };
-            (post_fee_pmpe, feasible)
+            (totals.rewards + total_staker_extras - totals.fees) / totals.stake
+                * Decimal::ONE_THOUSAND
         };
-        if feasible {
+        if !totals.stake.is_zero()
+            && if sol_mode {
+                post_fee <= target_pmpe
+            } else {
+                post_fee >= target_pmpe
+            }
+        {
             overshoot = current;
             best = Some(settlements);
         } else {
@@ -349,7 +349,7 @@ pub fn generate_bid_settlements(
         // SOL  mode: min_fee pinned at feasible floor   → target already met
         //            → lower max_fee.
         let at_extreme = current == if sol_mode { min_cap } else { max_cap };
-        if feasible && at_extreme && (tuning_max != sol_mode) {
+        if overshoot == current && at_extreme && (tuning_max != sol_mode) {
             adj_phase1 = current;
             tuning_max = !tuning_max;
             // Phase 2 bisection state. SOL Phase 2 finds the LOWEST feasible
@@ -366,23 +366,21 @@ pub fn generate_bid_settlements(
         }
         break;
     }
-    // Reconstruct adj_max/adj_min from phase state.
-    // PMPE: Phase 1 tunes max_fee (tuning_max=true), Phase 2 tunes min_fee.
-    // SOL:  Phase 1 tunes min_fee (tuning_max=false), Phase 2 tunes max_fee.
-    let (adj_max_fee_bps, adj_min_fee_bps) = if sol_mode {
-        if tuning_max {
-            // Phase 2 (tuning max_fee): adj_min = adj_phase1, adj_max = overshoot
-            (overshoot, adj_phase1)
-        } else {
-            // Phase 1 only (tuning min_fee): adj_min = overshoot, adj_max unchanged
-            (fc.max_fee_bps, overshoot)
-        }
-    } else if tuning_max {
-        // Phase 1 only (tuning max_fee): adj_max = overshoot, adj_min unchanged
-        (overshoot, fc.min_fee_bps)
+    // overshoot → the active (just-tuned) side.
+    // inactive side: Phase 1 result (adj_phase1) if Phase 2 ran, else original bound.
+    let adj_max_fee_bps = if tuning_max {
+        overshoot
+    } else if sol_mode {
+        fc.max_fee_bps
     } else {
-        // Phase 2 (tuning min_fee): adj_max = adj_phase1, adj_min = overshoot
-        (adj_phase1, overshoot)
+        adj_phase1
+    };
+    let adj_min_fee_bps = if !tuning_max {
+        overshoot
+    } else if sol_mode {
+        adj_phase1
+    } else {
+        fc.min_fee_bps
     };
     info!("adj_max_fee_bps: {adj_max_fee_bps}, adj_min_fee_bps: {adj_min_fee_bps}");
     Ok(BidSettlementValues {
