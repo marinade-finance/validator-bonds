@@ -482,29 +482,24 @@ fn aggregate_rewards(
         ));
     }
 
-    let total_rewards = rewards_map
-        .values()
-        .map(|r| r.total_amount)
-        .sum::<u64>()
-        .div(LAMPORTS_PER_SOL);
+    let total_rewards = rewards_map.values().map(|r| r.total_amount).sum::<u64>();
     let total_stakers_rewards = rewards_map
         .values()
         .map(|r| r.stakers_total_amount)
-        .sum::<u64>()
-        .div(LAMPORTS_PER_SOL);
+        .sum::<u64>();
     let total_validators_rewards = rewards_map
         .values()
         .map(|r| r.validators_total_amount)
-        .sum::<u64>()
-        .div(LAMPORTS_PER_SOL);
+        .sum::<u64>();
     assert!(
-        // 1 lamport tolerance for rounding errors
         total_rewards.abs_diff(total_stakers_rewards + total_validators_rewards) <= 1,
         "Mismatch in total rewards calculation vs. stakers + validators"
     );
     info!(
         "Aggregated rewards (total: {} SOL, stakers: {} SOL, validators: {} SOL) for {} vote accounts",
-        total_rewards, total_stakers_rewards, total_validators_rewards,
+        total_rewards / LAMPORTS_PER_SOL,
+        total_stakers_rewards / LAMPORTS_PER_SOL,
+        total_validators_rewards / LAMPORTS_PER_SOL,
         rewards_map.len()
     );
 
@@ -635,7 +630,14 @@ mod tests {
             vec![stake_entry(known_stake, 100)],
             vec![stake_entry(known_stake, 10)],
             vec![stake_entry(known_stake, 20)],
-            vec![],
+            vec![ValidatorBlockRewardEntry {
+                epoch: 1,
+                identity_account: Pubkey::default(),
+                node_pubkey: Pubkey::default(),
+                authorized_voter: Pubkey::default(),
+                vote_account,
+                amount: 10,
+            }],
             vec![],
             vec![],
             &stake_meta_collection,
@@ -650,7 +652,9 @@ mod tests {
         assert_eq!(rewards.inflation_rewards, 100);
         assert_eq!(rewards.mev_rewards, 20);
         assert_eq!(rewards.jito_priority_fee_rewards, 10);
-        // jito is excluded from total_amount (it redistributes block rewards)
-        assert_eq!(rewards.total_amount, 120);
+        assert_eq!(rewards.block_rewards, 10);
+        // jito redistributes block rewards: stakers gain 10, validators lose 10, total unchanged
+        assert_eq!(rewards.validators_total_amount, 0);
+        assert_eq!(rewards.total_amount, 130);
     }
 }
