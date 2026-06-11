@@ -222,43 +222,45 @@ const gcsBonds = (epoch: number, file: string) =>
 const gcsEtl = (epoch: number, file: string) => `${GCS_ETL}/${epoch}/${file}`
 const scoringUrl = (epoch: number) => `${SCORING_API}/scores/sam?epoch=${epoch}`
 
-function runMkdir(dir: string): void {
-  Bun.spawnSync(['mkdir', '-p', dir], { stderr: 'pipe' })
+async function runMkdir(dir: string): Promise<void> {
+  await Bun.spawn(['mkdir', '-p', dir], { stderr: 'pipe' }).exited
 }
 
-function runGcsCp(src: string, dst: string): void {
-  const r = Bun.spawnSync(['gcloud', 'storage', 'cp', src, dst], {
+async function runGcsCp(src: string, dst: string): Promise<void> {
+  const code = await Bun.spawn(['gcloud', 'storage', 'cp', src, dst], {
     stderr: 'pipe',
-  })
-  if (r.exitCode !== 0) {
+  }).exited
+  if (code !== 0) {
     process.stderr.write(`Failed: gcloud cp ${src}\n`)
-    process.exit(r.exitCode ?? 1)
+    process.exit(code ?? 1)
   }
 }
 
-function runHttpGet(url: string, dst: string): void {
-  const r = Bun.spawnSync(['curl', '-sf', url, '-o', dst], { stderr: 'pipe' })
-  if (r.exitCode !== 0) {
+async function runHttpGet(url: string, dst: string): Promise<void> {
+  const code = await Bun.spawn(['curl', '-sf', url, '-o', dst], {
+    stderr: 'pipe',
+  }).exited
+  if (code !== 0) {
     process.stderr.write(`Failed: curl ${url}\n`)
-    process.exit(r.exitCode ?? 1)
+    process.exit(code ?? 1)
   }
 }
 
-function runGzip(f: string): void {
-  const r = Bun.spawnSync(['gzip', f], { stderr: 'pipe' })
-  if (r.exitCode !== 0) {
+async function runGzip(f: string): Promise<void> {
+  const code = await Bun.spawn(['gzip', f], { stderr: 'pipe' }).exited
+  if (code !== 0) {
     process.stderr.write(`Failed: gzip ${f}\n`)
-    process.exit(r.exitCode ?? 1)
+    process.exit(code ?? 1)
   }
 }
 
-function fetchProductionSettlement(epoch: number): string {
+async function fetchProductionSettlement(epoch: number): Promise<string> {
   const dir = join(dataDir, String(epoch))
   const path = join(dir, PROD_FILE)
   if (!existsSync(path)) {
     process.stderr.write(`  # downloading ${PROD_FILE} for epoch ${epoch}...\n`)
-    runMkdir(dir)
-    runGcsCp(gcsBonds(epoch, PROD_FILE), path)
+    await runMkdir(dir)
+    await runGcsCp(gcsBonds(epoch, PROD_FILE), path)
   }
   if (!existsSync(path)) {
     process.stderr.write(`Failed: ${PROD_FILE} not found for epoch ${epoch}\n`)
@@ -267,49 +269,52 @@ function fetchProductionSettlement(epoch: number): string {
   return path
 }
 
-function fetchInputs(epoch: number): void {
+async function fetchInputs(epoch: number): Promise<void> {
   const inp = join(dataDir, String(epoch), 'inputs')
   const rwd = join(inp, 'rewards')
   if (INPUTS.every(f => existsSync(join(inp, f) + '.gz'))) return
   process.stderr.write(`  # fetching inputs for epoch ${epoch}...\n`)
-  runMkdir(rwd)
+  await runMkdir(rwd)
 
   const gz = (f: string) => f + '.gz'
-  const fetchOne = (src: string, dst: string) => {
+  const fetchOne = async (src: string, dst: string) => {
     if (existsSync(gz(dst))) return
-    runGcsCp(src, dst)
-    runGzip(dst)
+    await runGcsCp(src, dst)
+    await runGzip(dst)
   }
 
-  fetchOne(gcsBonds(epoch, STAKES_FILE), join(inp, STAKES_FILE))
-  fetchOne(gcsBonds(epoch, VALIDATORS_FILE), join(inp, VALIDATORS_FILE))
-  fetchOne(
+  await fetchOne(gcsBonds(epoch, STAKES_FILE), join(inp, STAKES_FILE))
+  await fetchOne(gcsBonds(epoch, VALIDATORS_FILE), join(inp, VALIDATORS_FILE))
+  await fetchOne(
     gcsBonds(epoch, 'bid-psr-distribution-evaluation.json'),
     join(inp, 'evaluation.json'),
   )
-  fetchOne(gcsEtl(epoch, 'rewards_mev.json'), join(rwd, 'mev.json'))
-  fetchOne(
+  await fetchOne(gcsEtl(epoch, 'rewards_mev.json'), join(rwd, 'mev.json'))
+  await fetchOne(
     gcsEtl(epoch, 'rewards_validators_mev.json'),
     join(rwd, 'validators_mev.json'),
   )
-  fetchOne(gcsEtl(epoch, 'rewards_inflation.json'), join(rwd, 'inflation.json'))
-  fetchOne(
+  await fetchOne(
+    gcsEtl(epoch, 'rewards_inflation.json'),
+    join(rwd, 'inflation.json'),
+  )
+  await fetchOne(
     gcsEtl(epoch, 'rewards_validators_inflation.json'),
     join(rwd, 'validators_inflation.json'),
   )
-  fetchOne(
+  await fetchOne(
     gcsEtl(epoch, 'rewards_validators_blocks.json'),
     join(rwd, 'validators_blocks.json'),
   )
-  fetchOne(
+  await fetchOne(
     gcsEtl(epoch, 'rewards_priority_fee.json'),
     join(rwd, 'jito_priority_fee.json'),
   )
 
   const samPath = join(inp, SAM_FILE)
   if (!existsSync(gz(samPath))) {
-    runHttpGet(scoringUrl(epoch), samPath)
-    runGzip(samPath)
+    await runHttpGet(scoringUrl(epoch), samPath)
+    await runGzip(samPath)
   }
 
   if (!INPUTS.every(f => existsSync(join(inp, gz(f))))) {
@@ -328,12 +333,12 @@ async function runBidDistributionCli(
     for (const f of INPUTS) {
       const src = join(inp, f)
       const dst = join(tmp, f)
-      Bun.spawnSync(['mkdir', '-p', dirname(dst)], { stderr: 'pipe' })
+      await Bun.spawn(['mkdir', '-p', dirname(dst)], { stderr: 'pipe' }).exited
       if (existsSync(src + '.gz'))
-        Bun.spawnSync(['sh', '-c', `gzip -dc "${src}.gz" > "${dst}"`], {
+        await Bun.spawn(['sh', '-c', `gzip -dc "${src}.gz" > "${dst}"`], {
           stderr: 'pipe',
-        })
-      else Bun.spawnSync(['cp', src, dst], { stderr: 'pipe' })
+        }).exited
+      else await Bun.spawn(['cp', src, dst], { stderr: 'pipe' }).exited
     }
     const proc = Bun.spawn(
       [
@@ -402,8 +407,8 @@ async function processEpoch(epoch: number): Promise<string | null> {
     return null
   }
 
-  const prodFile = values.c ? fetchProductionSettlement(epoch) : null
-  if (!values.c) fetchInputs(epoch)
+  const prodFile = values.c ? await fetchProductionSettlement(epoch) : null
+  if (!values.c) await fetchInputs(epoch)
 
   const prev = ssr.epochs.find(e => e.epoch === epoch - 1)
   const epy = prev ? 31557600 / (epochData.time - prev.time) : 182
