@@ -401,7 +401,6 @@ async function runBidDistributionCli(
 }
 
 async function processEpoch(epoch: number): Promise<string | null> {
-  process.stderr.write(`epoch ${epoch}: starting\n`)
   const epochData = ssr.epochs.find(e => e.epoch === epoch)
   if (!epochData) {
     process.stderr.write(`epoch ${epoch}: not in SSR feed, skipping\n`)
