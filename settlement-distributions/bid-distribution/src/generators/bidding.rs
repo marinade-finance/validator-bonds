@@ -152,7 +152,7 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
 /// `TargetSolRevenue`: `target_pmpe` is derived from the SOL revenue target.
 ///   Bisection inverts — Phase 1 raises min_fee to the feasible floor; Phase 2
 ///   lowers max_fee to the lowest feasible value.
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum BisectMode {
     TargetStakerPmpe,
     TargetSolRevenue,

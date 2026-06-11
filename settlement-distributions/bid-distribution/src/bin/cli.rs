@@ -262,9 +262,10 @@ fn main() -> anyhow::Result<()> {
             let pmpe = if total_stake.is_zero() {
                 Decimal::ZERO
             } else {
-                (settlement_sol - target_sol_lamports) / total_stake * Decimal::ONE_THOUSAND
+                ((settlement_sol - target_sol_lamports) / total_stake * Decimal::ONE_THOUSAND)
+                    .clamp(Decimal::ZERO, Decimal::ONE)
             };
-            info!("SOL mode: settlement_sol={settlement_sol} target_sol={target_sol_lamports} target_pmpe={pmpe}");
+            info!("{bisect_mode:?}: settlement_sol={settlement_sol} target_sol={target_sol_lamports} target_pmpe={pmpe}");
             Some(pmpe)
         } else {
             let ssr = fetch_ssr_pmpe(&args.apy_api_url, stake_meta_epoch)?;
