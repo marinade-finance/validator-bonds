@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /* eslint-disable n/no-process-exit */
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdtempSync, rmSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, unlinkSync } from 'node:fs'
 import { writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -147,6 +147,7 @@ const INPUTS = [
   'rewards/jito_priority_fee.json',
 ]
 
+mkdirSync('./tmp', { recursive: true })
 const tmps: string[] = []
 process.on('exit', () => {
   for (const t of tmps)
