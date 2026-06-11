@@ -247,7 +247,7 @@ async function runGzip(f: string): Promise<void> {
   if (code !== 0) throw new Error(`gzip failed: ${f}`)
 }
 
-async function runDecompress(src: string, dst: string): Promise<void> {
+async function runGzipD(src: string, dst: string): Promise<void> {
   const code = await Bun.spawn(['sh', '-c', `gzip -dc "${src}" > "${dst}"`], {
     stderr: 'pipe',
   }).exited
@@ -333,7 +333,7 @@ async function runBidDistributionCli(
       const src = join(inp, f)
       const dst = join(tmp, f)
       await Bun.spawn(['mkdir', '-p', dirname(dst)], { stderr: 'pipe' }).exited
-      if (existsSync(src + '.gz')) await runDecompress(src + '.gz', dst)
+      if (existsSync(src + '.gz')) await runGzipD(src + '.gz', dst)
       else await Bun.spawn(['cp', src, dst], { stderr: 'pipe' }).exited
     }
     const proc = Bun.spawn(
