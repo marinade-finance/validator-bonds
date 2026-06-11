@@ -1,5 +1,7 @@
 use bid_distribution::apy_api::fetch_ssr_pmpe;
-use bid_distribution::generators::bidding::{generate_bid_settlements, sum_fee_validator_totals};
+use bid_distribution::generators::bidding::{
+    calculate_bid_settlement_totals, generate_bid_settlements,
+};
 use bid_distribution::generators::psr_events::{
     calculate_total_psr_staker_claims, generate_psr_settlements,
 };
@@ -235,7 +237,10 @@ fn main() -> anyhow::Result<()> {
             .is_some();
         let target_pmpe = if let Some(rev) = bid_distribution_config.fee_config.target_sol_revenue {
             let target_sol_lamports = rev * Decimal::from(LAMPORTS_PER_SOL);
-            let (settlement_sol, total_stake) = sum_fee_validator_totals(
+            // Probe at target_pmpe=0 (always feasible) to read fee-independent totals.
+            // Rewards and stake are unaffected by fee level — this gives us settlement_sol
+            // and total_stake needed to derive the equivalent target_pmpe for the real bisection.
+            let probe = generate_bid_settlements(
                 &stake_meta_index,
                 &sam_validator_metas,
                 &rewards_collection,
@@ -243,8 +248,12 @@ fn main() -> anyhow::Result<()> {
                 &bid_distribution_config.fee_config,
                 &*stake_authority_filter,
                 &*exiting_stake_authority_filter,
+                Some(Decimal::ZERO),
                 total_staker_psr_settlements,
+                false,
             )?;
+            let probe_totals = calculate_bid_settlement_totals(&probe.settlements);
+            let (settlement_sol, total_stake) = (probe_totals.rewards, probe_totals.stake);
             let pmpe = if total_stake.is_zero() {
                 Decimal::ZERO
             } else {

@@ -144,35 +144,6 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
     totals
 }
 
-/// Returns `(settlement_sol_lamports, total_stake_lamports)` for all fee-bearing validators.
-/// Rewards and stake are fee-independent — runs one probe at target_pmpe=0 (always feasible)
-/// so the generator converges immediately without bisection.
-pub fn sum_fee_validator_totals(
-    stake_meta_index: &StakeMetaIndex,
-    sam_validator_metas: &[ValidatorSamMeta],
-    rewards_collection: &RewardsCollection,
-    settlement_config: &SettlementConfig,
-    fee_config: &FeeConfig,
-    stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
-    exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
-    total_staker_extras: Decimal,
-) -> anyhow::Result<(Decimal, Decimal)> {
-    let result = generate_bid_settlements(
-        stake_meta_index,
-        sam_validator_metas,
-        rewards_collection,
-        settlement_config,
-        fee_config,
-        stake_authority_filter,
-        exiting_stake_authority_filter,
-        Some(Decimal::ZERO),
-        total_staker_extras,
-        false,
-    )?;
-    let totals = calculate_bid_settlement_totals(&result.settlements);
-    Ok((totals.rewards, totals.stake))
-}
-
 /// Bisects the fee bounds to hit a fee target. Two mutually exclusive modes:
 ///
 /// PMPE mode (`min_profit_mode` false): keeps global post-fee PMPE (bid +
