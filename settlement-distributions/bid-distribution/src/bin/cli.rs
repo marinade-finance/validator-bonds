@@ -231,52 +231,11 @@ fn main() -> anyhow::Result<()> {
             rewards_collection.total_rewards()
         );
 
-        let bisect_mode = if bid_distribution_config
-            .fee_config
-            .target_sol_revenue
-            .is_some()
-        {
+        let bisect_mode = if bid_distribution_config.fee_config.min_sol_revenue.is_some() {
             BisectMode::TargetSolRevenue
         } else {
             BisectMode::TargetStakerPmpe
         };
-        let target_pmpe = if let Some(rev) = bid_distribution_config.fee_config.target_sol_revenue {
-            let target_sol_lamports = rev * Decimal::from(LAMPORTS_PER_SOL);
-            // Probe at target_pmpe=0 (always feasible) to read fee-independent totals.
-            // Rewards and stake are unaffected by fee level — this gives us settlement_sol
-            // and total_stake needed to derive the equivalent target_pmpe for the real bisection.
-            let probe = generate_bid_settlements(
-                &stake_meta_index,
-                &sam_validator_metas,
-                &rewards_collection,
-                bidding_config,
-                &bid_distribution_config.fee_config,
-                &*stake_authority_filter,
-                &*exiting_stake_authority_filter,
-                Some(Decimal::ZERO),
-                total_staker_psr_settlements,
-                BisectMode::TargetStakerPmpe,
-            )?;
-            let probe_totals = calculate_bid_settlement_totals(&probe.settlements);
-            let (settlement_sol, total_stake) = (probe_totals.rewards, probe_totals.stake);
-            let pmpe = if total_stake.is_zero() {
-                Decimal::ZERO
-            } else {
-                ((settlement_sol - target_sol_lamports) / total_stake * Decimal::ONE_THOUSAND)
-                    .clamp(Decimal::ZERO, Decimal::ONE)
-            };
-            info!("{bisect_mode:?}: settlement_sol={settlement_sol} target_sol={target_sol_lamports} target_pmpe={pmpe}");
-            Some(pmpe)
-        } else {
-            let ssr = fetch_ssr_pmpe(&args.apy_api_url, stake_meta_epoch)?;
-            info!("SSI/SSR: {ssr} pmpe (epoch {stake_meta_epoch})");
-            collection_ssr_pmpe = Some(f64::try_from(ssr).unwrap_or(0.0));
-            bid_distribution_config
-                .fee_config
-                .min_yield_premium_over_ssr_pmpe
-                .map(|x| ssr + x)
-        };
-        info!("target_pmpe: {target_pmpe:?}");
 
         // Epoch consistency verification
         let rewards_epoch = rewards_collection.epoch;
@@ -293,7 +252,7 @@ fn main() -> anyhow::Result<()> {
             "Epoch mismatch between SAM metas ({metas_epochs:?}) and stake meta collection ({stake_meta_epoch})",
         );
 
-        // Generate penalty settlements
+        // Generate penalty settlements first — total_staker_penalties is needed for target_pmpe derivation.
         info!("Generating penalty settlements...");
         let penalty_settlements = generate_penalty_settlements(
             &stake_meta_index,
@@ -311,6 +270,46 @@ fn main() -> anyhow::Result<()> {
         let total_staker_penalties = calculate_total_penalties(&penalty_settlements);
         all_settlements.extend(penalty_settlements);
 
+        let total_staker_extras = total_staker_penalties + total_staker_psr_settlements;
+        let target_pmpe = if let Some(rev) = bid_distribution_config.fee_config.min_sol_revenue {
+            let target_sol_lamports = rev * Decimal::from(LAMPORTS_PER_SOL);
+            // Probe at target_pmpe=0 (always feasible) to read fee-independent totals.
+            // Rewards and stake are unaffected by fee level — this gives us settlement_sol
+            // and total_stake needed to derive the equivalent target_pmpe for the real bisection.
+            let probe = generate_bid_settlements(
+                &stake_meta_index,
+                &sam_validator_metas,
+                &rewards_collection,
+                bidding_config,
+                &bid_distribution_config.fee_config,
+                &*stake_authority_filter,
+                &*exiting_stake_authority_filter,
+                Some(Decimal::ZERO),
+                total_staker_extras,
+                BisectMode::TargetStakerPmpe,
+            )?;
+            let probe_totals = calculate_bid_settlement_totals(&probe.settlements);
+            let (settlement_sol, total_stake) = (probe_totals.rewards, probe_totals.stake);
+            let pmpe = if total_stake.is_zero() {
+                Decimal::ZERO
+            } else {
+                ((settlement_sol + total_staker_extras - target_sol_lamports) / total_stake)
+                    .clamp(Decimal::ZERO, Decimal::ONE)
+                    * Decimal::ONE_THOUSAND
+            };
+            info!("{bisect_mode:?}: settlement_sol={settlement_sol} target_sol={target_sol_lamports} target_pmpe={pmpe}");
+            Some(pmpe)
+        } else {
+            let ssr = fetch_ssr_pmpe(&args.apy_api_url, stake_meta_epoch)?;
+            info!("SSI/SSR: {ssr} pmpe (epoch {stake_meta_epoch})");
+            collection_ssr_pmpe = Some(f64::try_from(ssr).unwrap_or(0.0));
+            bid_distribution_config
+                .fee_config
+                .min_yield_premium_over_ssr_pmpe
+                .map(|x| ssr + x)
+        };
+        info!("target_pmpe: {target_pmpe:?}");
+
         // Generate bid settlements
         info!("Generating bid settlements...");
         let bid = generate_bid_settlements(
@@ -322,7 +321,7 @@ fn main() -> anyhow::Result<()> {
             &*stake_authority_filter,
             &*exiting_stake_authority_filter,
             target_pmpe,
-            total_staker_penalties + total_staker_psr_settlements,
+            total_staker_extras,
             bisect_mode,
         )?;
         info!("Generated {} bid settlements", bid.settlements.len());
