@@ -620,7 +620,7 @@ async function main() {
           {
             width: 460,
             height: 170,
-            title: { text: 'Validators at Cap / at Min Fee (%)', fontSize: 13 },
+            title: { text: 'Validators at Cap - Min/Max (%)', fontSize: 13 },
             data: { values: valTidy },
             layer: [
               {
@@ -670,7 +670,7 @@ async function main() {
             width: 460,
             height: 170,
             title: {
-              text: 'Optimized Fee Floor / Ceiling (%)',
+              text: 'Optimized Fee (%)',
               fontSize: 13,
             },
             data: { values: feeBpsTidy },
