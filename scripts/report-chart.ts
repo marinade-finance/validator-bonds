@@ -596,12 +596,12 @@ async function main() {
                     text: `${Math.round(periodTarget)} SOL ${useMonth ? 'monthly' : 'weekly'} target`,
                     color: C_COST,
                     fontSize: 9,
-                    align: 'right' as const,
-                    dx: -4,
+                    align: 'left' as const,
+                    dx: 4,
                     dy: -5,
                   },
                   encoding: {
-                    x: { value: 460 },
+                    x: { value: 0 },
                     y: {
                       datum: periodTarget,
                       type: 'quantitative' as const,
