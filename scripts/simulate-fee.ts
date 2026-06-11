@@ -113,7 +113,7 @@ const INF_LLAMA =
 type LlamaPoint = { timestamp: string; apy: number }
 const infRes = await fetch(INF_LLAMA)
 const infPoints: LlamaPoint[] = infRes.ok
-  ? ((await infRes.json()) as { data: LlamaPoint[] }).data
+  ? (((await infRes.json()) as { data?: LlamaPoint[] | undefined }).data ?? [])
   : []
 function infApyAt(epochTime: number): number | null {
   if (!infPoints.length) return null
@@ -316,10 +316,8 @@ async function fetchInputs(epoch: number): Promise<void> {
     await runGzip(samPath)
   }
 
-  if (!INPUTS.every(f => existsSync(join(inp, gz(f))))) {
-    process.stderr.write(`Failed: fetch failed for epoch ${epoch}\n`)
-    process.exit(1)
-  }
+  if (!INPUTS.every(f => existsSync(join(inp, gz(f)))))
+    throw new Error(`fetch incomplete for epoch ${epoch}`)
 }
 
 async function runBidDistributionCli(
@@ -334,7 +332,10 @@ async function runBidDistributionCli(
       const dst = join(tmp, f)
       await Bun.spawn(['mkdir', '-p', dirname(dst)], { stderr: 'pipe' }).exited
       if (existsSync(src + '.gz')) await runGzipD(src + '.gz', dst)
-      else await Bun.spawn(['cp', src, dst], { stderr: 'pipe' }).exited
+      else {
+        const cc = await Bun.spawn(['cp', src, dst], { stderr: 'pipe' }).exited
+        if (cc !== 0) throw new Error(`cp failed: ${src}`)
+      }
     }
     const proc = Bun.spawn(
       [
@@ -473,14 +474,7 @@ async function processEpoch(epoch: number): Promise<string | null> {
         )
         rmSync(inp, { recursive: true })
         await fetchInputs(epoch)
-        try {
-          settlementsJson = await runBidDistributionCli(cfgFile, inp)
-        } catch (err) {
-          process.stderr.write(
-            `Failed: epoch ${epoch} skipped after retry — ${err instanceof Error ? err.message : String(err)}\n`,
-          )
-          return null
-        }
+        settlementsJson = await runBidDistributionCli(cfgFile, inp)
       }
     }
 
