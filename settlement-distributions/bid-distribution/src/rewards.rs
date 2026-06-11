@@ -11,6 +11,9 @@ use std::collections::HashMap;
 
 use std::path::Path;
 
+// Jito redistributions can cause stakers+validators to exceed total by up to ~1 SOL.
+const MAX_REWARDS_MISMATCH_LAMPORTS: u64 = 1_000_000_000;
+
 // Reward file name constants
 const INFLATION_REWARDS_FILE: &str = "inflation.json";
 const JITO_PRIORITY_FEE_FILE: &str = "jito_priority_fee.json";
@@ -492,7 +495,7 @@ fn aggregate_rewards(
         .map(|r| r.validators_total_amount)
         .sum::<u64>();
     let mismatch = total_rewards.abs_diff(total_stakers_rewards + total_validators_rewards);
-    if mismatch > 1_000_000_000 {
+    if mismatch > MAX_REWARDS_MISMATCH_LAMPORTS {
         anyhow::bail!(
             "Rewards mismatch too large: total={total_rewards} stakers={total_stakers_rewards} validators={total_validators_rewards} delta={mismatch} lamports"
         );
