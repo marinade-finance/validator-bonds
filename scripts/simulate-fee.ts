@@ -390,9 +390,8 @@ async function runBidDistributionCli(
         process.stderr.write(line + '\n')
     }
     if (code !== 0) {
-      process.stderr.write(`Failed: bid-distribution-cli exited ${code}\n`)
       if (stderr) process.stderr.write(stderr)
-      process.exit(1)
+      throw new Error(`bid-distribution-cli exited ${code}`)
     }
   } finally {
     rmSync(tmp, { recursive: true })
@@ -470,7 +469,16 @@ async function processEpoch(epoch: number): Promise<string | null> {
       process.stderr.write(`epoch ${epoch}: running cli [${maxFee} bps]\n`)
       const cfgFile = tmpFile()
       writeFileSync(cfgFile, cfgText)
-      settlementsJson = await runBidDistributionCli(cfgFile, inp)
+      try {
+        settlementsJson = await runBidDistributionCli(cfgFile, inp)
+      } catch {
+        process.stderr.write(
+          `epoch ${epoch}: cli failed, wiping inputs and retrying\n`,
+        )
+        rmSync(inp, { recursive: true })
+        await fetchInputs(epoch)
+        settlementsJson = await runBidDistributionCli(cfgFile, inp)
+      }
     }
 
     const {
