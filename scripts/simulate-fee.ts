@@ -247,6 +247,13 @@ async function runGzip(f: string): Promise<void> {
   if (code !== 0) throw new Error(`gzip failed: ${f}`)
 }
 
+async function runDecompress(src: string, dst: string): Promise<void> {
+  const code = await Bun.spawn(['sh', '-c', `gzip -dc "${src}" > "${dst}"`], {
+    stderr: 'pipe',
+  }).exited
+  if (code !== 0) throw new Error(`decompression failed: ${src}`)
+}
+
 async function fetchProductionSettlement(epoch: number): Promise<string> {
   const dir = join(dataDir, String(epoch))
   const path = join(dir, PROD_FILE)
@@ -326,13 +333,8 @@ async function runBidDistributionCli(
       const src = join(inp, f)
       const dst = join(tmp, f)
       await Bun.spawn(['mkdir', '-p', dirname(dst)], { stderr: 'pipe' }).exited
-      if (existsSync(src + '.gz')) {
-        const dc = await Bun.spawn(
-          ['sh', '-c', `gzip -dc "${src}.gz" > "${dst}"`],
-          { stderr: 'pipe' },
-        ).exited
-        if (dc !== 0) throw new Error(`decompression failed: ${src}.gz`)
-      } else await Bun.spawn(['cp', src, dst], { stderr: 'pipe' }).exited
+      if (existsSync(src + '.gz')) await runDecompress(src + '.gz', dst)
+      else await Bun.spawn(['cp', src, dst], { stderr: 'pipe' }).exited
     }
     const proc = Bun.spawn(
       [
@@ -595,7 +597,7 @@ async function processEpoch(epoch: number): Promise<string | null> {
 }
 
 // Worker pool: epochs run concurrently; output collected and printed in order.
-const CONCURRENCY = values.n ? Number(values.n) : 4
+const CONCURRENCY = values.n ? Number(values.n) : 20
 const epochs: number[] = []
 for (let e = epochStart; e <= epochEnd; e++) epochs.push(e)
 
