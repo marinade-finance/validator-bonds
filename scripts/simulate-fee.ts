@@ -200,15 +200,16 @@ async function redelegationStakeFromFile(
   )
 }
 
-const cli = [
-  'cargo',
-  'run',
-  '-q',
-  ...(values.r ? ['--release'] : []),
-  '--bin',
-  'bid-distribution-cli',
-  '--',
-]
+const binaryPath = values.r
+  ? './target/release/bid-distribution-cli'
+  : './target/debug/bid-distribution-cli'
+if (!existsSync(binaryPath)) {
+  process.stderr.write(
+    `Failed: binary not found at ${binaryPath} — run: cargo build${values.r ? ' --release' : ''} --bin bid-distribution-cli\n`,
+  )
+  process.exit(1)
+}
+const cli = [binaryPath]
 const apy = (p: number, n: number) =>
   ((Math.pow(1 + p / 1000, n) - 1) * 100).toFixed(2) + '%'
 const sol = (v: number) => (Math.round((v / 1e9) * 1000) / 1000).toFixed(3)
@@ -231,28 +232,19 @@ async function runGcsCp(src: string, dst: string): Promise<void> {
   const code = await Bun.spawn(['gcloud', 'storage', 'cp', src, dst], {
     stderr: 'pipe',
   }).exited
-  if (code !== 0) {
-    process.stderr.write(`Failed: gcloud cp ${src}\n`)
-    process.exit(code ?? 1)
-  }
+  if (code !== 0) throw new Error(`gcloud cp failed: ${src}`)
 }
 
 async function runHttpGet(url: string, dst: string): Promise<void> {
   const code = await Bun.spawn(['curl', '-sf', url, '-o', dst], {
     stderr: 'pipe',
   }).exited
-  if (code !== 0) {
-    process.stderr.write(`Failed: curl ${url}\n`)
-    process.exit(code ?? 1)
-  }
+  if (code !== 0) throw new Error(`curl failed: ${url}`)
 }
 
 async function runGzip(f: string): Promise<void> {
   const code = await Bun.spawn(['gzip', f], { stderr: 'pipe' }).exited
-  if (code !== 0) {
-    process.stderr.write(`Failed: gzip ${f}\n`)
-    process.exit(code ?? 1)
-  }
+  if (code !== 0) throw new Error(`gzip failed: ${f}`)
 }
 
 async function fetchProductionSettlement(epoch: number): Promise<string> {
@@ -264,8 +256,7 @@ async function fetchProductionSettlement(epoch: number): Promise<string> {
     await runGcsCp(gcsBonds(epoch, PROD_FILE), path)
   }
   if (!existsSync(path)) {
-    process.stderr.write(`Failed: ${PROD_FILE} not found for epoch ${epoch}\n`)
-    process.exit(1)
+    throw new Error(`${PROD_FILE} not found for epoch ${epoch}`)
   }
   return path
 }
@@ -335,11 +326,13 @@ async function runBidDistributionCli(
       const src = join(inp, f)
       const dst = join(tmp, f)
       await Bun.spawn(['mkdir', '-p', dirname(dst)], { stderr: 'pipe' }).exited
-      if (existsSync(src + '.gz'))
-        await Bun.spawn(['sh', '-c', `gzip -dc "${src}.gz" > "${dst}"`], {
-          stderr: 'pipe',
-        }).exited
-      else await Bun.spawn(['cp', src, dst], { stderr: 'pipe' }).exited
+      if (existsSync(src + '.gz')) {
+        const dc = await Bun.spawn(
+          ['sh', '-c', `gzip -dc "${src}.gz" > "${dst}"`],
+          { stderr: 'pipe' },
+        ).exited
+        if (dc !== 0) throw new Error(`decompression failed: ${src}.gz`)
+      } else await Bun.spawn(['cp', src, dst], { stderr: 'pipe' }).exited
     }
     const proc = Bun.spawn(
       [
@@ -602,7 +595,7 @@ async function processEpoch(epoch: number): Promise<string | null> {
 }
 
 // Worker pool: epochs run concurrently; output collected and printed in order.
-const CONCURRENCY = values.n ? Number(values.n) : 20
+const CONCURRENCY = values.n ? Number(values.n) : 4
 const epochs: number[] = []
 for (let e = epochStart; e <= epochEnd; e++) epochs.push(e)
 
