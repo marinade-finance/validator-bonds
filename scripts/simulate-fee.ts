@@ -401,9 +401,10 @@ async function runBidDistributionCli(
 }
 
 async function processEpoch(epoch: number): Promise<string | null> {
+  process.stderr.write(`epoch ${epoch}: starting\n`)
   const epochData = ssr.epochs.find(e => e.epoch === epoch)
   if (!epochData) {
-    process.stderr.write(`  # epoch ${epoch} not in SSR feed, skipping\n`)
+    process.stderr.write(`epoch ${epoch}: not in SSR feed, skipping\n`)
     return null
   }
 
@@ -467,6 +468,7 @@ async function processEpoch(epoch: number): Promise<string | null> {
     if (prodFile) {
       settlementsJson = prodFile
     } else {
+      process.stderr.write(`epoch ${epoch}: running cli [${maxFee} bps]\n`)
       const cfgFile = tmpFile()
       writeFileSync(cfgFile, cfgText)
       settlementsJson = await runBidDistributionCli(cfgFile, inp)
@@ -486,7 +488,7 @@ async function processEpoch(epoch: number): Promise<string | null> {
     )
     const bidDetails = bidSettlements.map(s => s.details)
     if (!bidDetails.length) {
-      process.stderr.write(`  # no data for fee=${fee} epoch=${epoch}\n`)
+      process.stderr.write(`epoch ${epoch}: no data for fee=${fee}, skipping\n`)
       continue
     }
 
@@ -594,10 +596,14 @@ const results: (string | null)[] = Array.from(
   () => null,
 )
 let nextIdx = 0
+let doneCount = 0
 async function runWorker(): Promise<void> {
   while (nextIdx < epochs.length) {
     const i = nextIdx++
     results[i] = await processEpoch(epochs[i])
+    process.stderr.write(
+      `epoch ${epochs[i]} done [${++doneCount}/${epochs.length}]\n`,
+    )
   }
 }
 await Promise.all(
