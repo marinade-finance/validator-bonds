@@ -478,7 +478,14 @@ async function processEpoch(epoch: number): Promise<string | null> {
         )
         rmSync(inp, { recursive: true })
         await fetchInputs(epoch)
-        settlementsJson = await runBidDistributionCli(cfgFile, inp)
+        try {
+          settlementsJson = await runBidDistributionCli(cfgFile, inp)
+        } catch (err) {
+          process.stderr.write(
+            `Failed: epoch ${epoch} skipped after retry — ${err instanceof Error ? err.message : String(err)}\n`,
+          )
+          return null
+        }
       }
     }
 
@@ -605,10 +612,12 @@ const results: (string | null)[] = Array.from(
 )
 let nextIdx = 0
 let doneCount = 0
+const failed: number[] = []
 async function runWorker(): Promise<void> {
   while (nextIdx < epochs.length) {
     const i = nextIdx++
     results[i] = await processEpoch(epochs[i])
+    if (results[i] === null && epochs[i] !== undefined) failed.push(epochs[i])
     process.stderr.write(
       `epoch ${epochs[i]} done [${++doneCount}/${epochs.length}]\n`,
     )
@@ -617,6 +626,9 @@ async function runWorker(): Promise<void> {
 await Promise.all(
   Array.from({ length: Math.min(CONCURRENCY, epochs.length) }, runWorker),
 )
+
+if (failed.length)
+  process.stderr.write(`Failed: epochs skipped: ${failed.join(', ')}\n`)
 
 console.log('epochs:')
 for (const r of results) {
