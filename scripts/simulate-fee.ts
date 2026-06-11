@@ -1,9 +1,8 @@
 #!/usr/bin/env bun
 /* eslint-disable n/no-process-exit */
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdtempSync, rmSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, unlinkSync } from 'node:fs'
 import { writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { parseArgs } from 'node:util'
 
@@ -147,6 +146,8 @@ const INPUTS = [
   'rewards/jito_priority_fee.json',
 ]
 
+const scratchDir = join(dataDir, 'tmp')
+mkdirSync(scratchDir, { recursive: true })
 const tmps: string[] = []
 process.on('exit', () => {
   for (const t of tmps)
@@ -155,7 +156,7 @@ process.on('exit', () => {
     } catch {}
 })
 function tmpFile() {
-  const p = join(tmpdir(), `fee-${randomBytes(6).toString('hex')}.tmp`)
+  const p = join(scratchDir, `fee-${randomBytes(6).toString('hex')}.tmp`)
   tmps.push(p)
   return p
 }
@@ -328,7 +329,7 @@ async function runBidDistributionCli(
   inp: string,
 ): Promise<string> {
   const out = tmpFile()
-  const tmp = mkdtempSync(join(tmpdir(), 'bd-'))
+  const tmp = mkdtempSync(join(scratchDir, 'bd-'))
   try {
     for (const f of INPUTS) {
       const src = join(inp, f)
