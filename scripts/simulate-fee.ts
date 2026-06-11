@@ -33,6 +33,7 @@ const { values, positionals } = parseArgs({
     v: { type: 'boolean', default: false },
     s: { type: 'string' },
     'target-sol': { type: 'string' },
+    n: { type: 'string' },
   },
   allowPositionals: true,
 })
@@ -225,41 +226,39 @@ function runMkdir(dir: string): void {
   Bun.spawnSync(['mkdir', '-p', dir], { stderr: 'pipe' })
 }
 
-async function runGcsCp(src: string, dst: string): Promise<void> {
-  const code = await Bun.spawn(['gcloud', 'storage', 'cp', src, dst], {
+function runGcsCp(src: string, dst: string): void {
+  const r = Bun.spawnSync(['gcloud', 'storage', 'cp', src, dst], {
     stderr: 'pipe',
-  }).exited
-  if (code !== 0) {
+  })
+  if (r.exitCode !== 0) {
     process.stderr.write(`Failed: gcloud cp ${src}\n`)
-    process.exit(code ?? 1)
+    process.exit(r.exitCode ?? 1)
   }
 }
 
-async function runHttpGet(url: string, dst: string): Promise<void> {
-  const code = await Bun.spawn(['curl', '-sf', url, '-o', dst], {
-    stderr: 'pipe',
-  }).exited
-  if (code !== 0) {
+function runHttpGet(url: string, dst: string): void {
+  const r = Bun.spawnSync(['curl', '-sf', url, '-o', dst], { stderr: 'pipe' })
+  if (r.exitCode !== 0) {
     process.stderr.write(`Failed: curl ${url}\n`)
-    process.exit(code ?? 1)
+    process.exit(r.exitCode ?? 1)
   }
 }
 
-async function runGzip(f: string): Promise<void> {
-  const code = await Bun.spawn(['gzip', f], { stderr: 'pipe' }).exited
-  if (code !== 0) {
+function runGzip(f: string): void {
+  const r = Bun.spawnSync(['gzip', f], { stderr: 'pipe' })
+  if (r.exitCode !== 0) {
     process.stderr.write(`Failed: gzip ${f}\n`)
-    process.exit(code ?? 1)
+    process.exit(r.exitCode ?? 1)
   }
 }
 
-async function fetchProductionSettlement(epoch: number): Promise<string> {
+function fetchProductionSettlement(epoch: number): string {
   const dir = join(dataDir, String(epoch))
   const path = join(dir, PROD_FILE)
   if (!existsSync(path)) {
     process.stderr.write(`  # downloading ${PROD_FILE} for epoch ${epoch}...\n`)
     runMkdir(dir)
-    await runGcsCp(gcsBonds(epoch, PROD_FILE), path)
+    runGcsCp(gcsBonds(epoch, PROD_FILE), path)
   }
   if (!existsSync(path)) {
     process.stderr.write(`Failed: ${PROD_FILE} not found for epoch ${epoch}\n`)
@@ -268,7 +267,7 @@ async function fetchProductionSettlement(epoch: number): Promise<string> {
   return path
 }
 
-async function fetchInputs(epoch: number): Promise<void> {
+function fetchInputs(epoch: number): void {
   const inp = join(dataDir, String(epoch), 'inputs')
   const rwd = join(inp, 'rewards')
   if (INPUTS.every(f => existsSync(join(inp, f) + '.gz'))) return
@@ -276,46 +275,41 @@ async function fetchInputs(epoch: number): Promise<void> {
   runMkdir(rwd)
 
   const gz = (f: string) => f + '.gz'
-  const fetchOne = async (src: string, dst: string) => {
+  const fetchOne = (src: string, dst: string) => {
     if (existsSync(gz(dst))) return
-    await runGcsCp(src, dst)
-    await runGzip(dst)
+    runGcsCp(src, dst)
+    runGzip(dst)
   }
 
-  await Promise.all([
-    fetchOne(gcsBonds(epoch, STAKES_FILE), join(inp, STAKES_FILE)),
-    fetchOne(gcsBonds(epoch, VALIDATORS_FILE), join(inp, VALIDATORS_FILE)),
-    fetchOne(
-      gcsBonds(epoch, 'bid-psr-distribution-evaluation.json'),
-      join(inp, 'evaluation.json'),
-    ),
-    fetchOne(gcsEtl(epoch, 'rewards_mev.json'), join(rwd, 'mev.json')),
-    fetchOne(
-      gcsEtl(epoch, 'rewards_validators_mev.json'),
-      join(rwd, 'validators_mev.json'),
-    ),
-    fetchOne(
-      gcsEtl(epoch, 'rewards_inflation.json'),
-      join(rwd, 'inflation.json'),
-    ),
-    fetchOne(
-      gcsEtl(epoch, 'rewards_validators_inflation.json'),
-      join(rwd, 'validators_inflation.json'),
-    ),
-    fetchOne(
-      gcsEtl(epoch, 'rewards_validators_blocks.json'),
-      join(rwd, 'validators_blocks.json'),
-    ),
-    fetchOne(
-      gcsEtl(epoch, 'rewards_priority_fee.json'),
-      join(rwd, 'jito_priority_fee.json'),
-    ),
-  ])
+  fetchOne(gcsBonds(epoch, STAKES_FILE), join(inp, STAKES_FILE))
+  fetchOne(gcsBonds(epoch, VALIDATORS_FILE), join(inp, VALIDATORS_FILE))
+  fetchOne(
+    gcsBonds(epoch, 'bid-psr-distribution-evaluation.json'),
+    join(inp, 'evaluation.json'),
+  )
+  fetchOne(gcsEtl(epoch, 'rewards_mev.json'), join(rwd, 'mev.json'))
+  fetchOne(
+    gcsEtl(epoch, 'rewards_validators_mev.json'),
+    join(rwd, 'validators_mev.json'),
+  )
+  fetchOne(gcsEtl(epoch, 'rewards_inflation.json'), join(rwd, 'inflation.json'))
+  fetchOne(
+    gcsEtl(epoch, 'rewards_validators_inflation.json'),
+    join(rwd, 'validators_inflation.json'),
+  )
+  fetchOne(
+    gcsEtl(epoch, 'rewards_validators_blocks.json'),
+    join(rwd, 'validators_blocks.json'),
+  )
+  fetchOne(
+    gcsEtl(epoch, 'rewards_priority_fee.json'),
+    join(rwd, 'jito_priority_fee.json'),
+  )
 
   const samPath = join(inp, SAM_FILE)
   if (!existsSync(gz(samPath))) {
-    await runHttpGet(scoringUrl(epoch), samPath)
-    await runGzip(samPath)
+    runHttpGet(scoringUrl(epoch), samPath)
+    runGzip(samPath)
   }
 
   if (!INPUTS.every(f => existsSync(join(inp, gz(f))))) {
@@ -408,8 +402,8 @@ async function processEpoch(epoch: number): Promise<string | null> {
     return null
   }
 
-  const prodFile = values.c ? await fetchProductionSettlement(epoch) : null
-  if (!values.c) await fetchInputs(epoch)
+  const prodFile = values.c ? fetchProductionSettlement(epoch) : null
+  if (!values.c) fetchInputs(epoch)
 
   const prev = ssr.epochs.find(e => e.epoch === epoch - 1)
   const epy = prev ? 31557600 / (epochData.time - prev.time) : 182
@@ -585,8 +579,8 @@ async function processEpoch(epoch: number): Promise<string | null> {
   return out.join('\n') + '\n'
 }
 
-// Worker pool: up to 20 epochs run concurrently; output collected and printed in order.
-const CONCURRENCY = 20
+// Worker pool: epochs run concurrently; output collected and printed in order.
+const CONCURRENCY = values.n ? Number(values.n) : 20
 const epochs: number[] = []
 for (let e = epochStart; e <= epochEnd; e++) epochs.push(e)
 
