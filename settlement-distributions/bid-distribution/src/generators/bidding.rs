@@ -144,19 +144,21 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
     totals
 }
 
-/// Bisects the fee bounds to hit a fee target. Two mutually exclusive modes:
+/// Whether the bisection targets a minimum staker rate or a minimum SOL profit.
 ///
-/// PMPE mode (`min_profit_mode` false): keeps global post-fee PMPE (bid +
-/// `total_staker_extras`, i.e. penalty + PSR payouts to stakers) at or above
-/// `target_pmpe`. Phase 1 raises max_fee to the feasible ceiling; if it pins at
-/// max_cap with leftover staker budget, Phase 2 raises min_fee to extract it.
+/// `TargetStakerPmpe`: keeps global post-fee PMPE at or above `target_pmpe`.
+///   Phase 1 raises max_fee to the feasible ceiling; Phase 2 raises min_fee.
 ///
-/// SOL revenue mode (`min_profit_mode` true): `target_pmpe` is derived from the SOL
-/// revenue target, so meeting it keeps total Marinade fees at or above that
-/// target. The bisection inverts — Phase 1 raises min_fee to the feasible
-/// floor; if min_fee pins at min_cap with the target already met, Phase 2
-/// lowers max_fee to the lowest feasible value.
-///
+/// `TargetSolRevenue`: `target_pmpe` is derived from the SOL revenue target.
+///   Bisection inverts — Phase 1 raises min_fee to the feasible floor; Phase 2
+///   lowers max_fee to the lowest feasible value.
+#[derive(PartialEq)]
+pub enum BisectMode {
+    TargetStakerPmpe,
+    TargetSolRevenue,
+}
+
+/// Bisects the fee bounds to hit a fee target. See [`BisectMode`] for modes.
 /// If the target can never be met, fallback settlements are returned.
 #[allow(clippy::too_many_arguments)]
 pub fn generate_bid_settlements(
@@ -169,8 +171,9 @@ pub fn generate_bid_settlements(
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     target_pmpe: Option<Decimal>,
     total_staker_extras: Decimal,
-    min_profit_mode: bool,
+    mode: BisectMode,
 ) -> anyhow::Result<BidSettlementValues> {
+    let min_first = mode == BisectMode::TargetSolRevenue;
     let max_cap = fee_config.max_fee_bps;
     let min_cap = fee_config.min_fee_bps;
 
@@ -182,10 +185,10 @@ pub fn generate_bid_settlements(
     // SOL mode inverts the bisection: Phase 1 raises min_fee (so tuning_max
     // starts false), Phase 2 lowers max_fee. Overshoot/undershoot start values
     // are also swapped.
-    let mut overshoot = if min_profit_mode { max_cap } else { min_cap };
-    let mut undershoot = if min_profit_mode { min_cap } else { max_cap };
+    let mut overshoot = if min_first { max_cap } else { min_cap };
+    let mut undershoot = if min_first { min_cap } else { max_cap };
     let mut current = undershoot;
-    let mut tuning_max = !min_profit_mode;
+    let mut tuning_max = !min_first;
     // adj_phase1 stores the Phase 1 result when switching to Phase 2.
     // In PMPE mode this is the max_fee result; in SOL mode the min_fee result.
     let mut adj_phase1 = overshoot;
@@ -218,7 +221,7 @@ pub fn generate_bid_settlements(
         };
         let feasible = if totals.stake.is_zero() {
             false
-        } else if min_profit_mode {
+        } else if min_first {
             post_fee <= target_pmpe
         } else {
             post_fee >= target_pmpe
@@ -250,19 +253,19 @@ pub fn generate_bid_settlements(
         //            → raise min_fee.
         // SOL  mode: min_fee pinned at feasible floor   → target already met
         //            → lower max_fee.
-        let at_extreme = current == if min_profit_mode { min_cap } else { max_cap };
-        if feasible && at_extreme && (tuning_max != min_profit_mode) {
+        let at_extreme = current == if min_first { min_cap } else { max_cap };
+        if feasible && at_extreme && (tuning_max != min_first) {
             adj_phase1 = current;
             tuning_max = !tuning_max;
             // Phase 2 bisection state. SOL Phase 2 finds the LOWEST feasible
             // max_fee, so overshoot/undershoot are inverted vs PMPE Phase 2.
             current = max_cap;
-            overshoot = if min_profit_mode { max_cap } else { min_cap };
-            undershoot = if min_profit_mode { min_cap } else { max_cap };
+            overshoot = if min_first { max_cap } else { min_cap };
+            undershoot = if min_first { min_cap } else { max_cap };
             info!(
                 "{}_fee_bps converged at {adj_phase1}, switching to tuning {}_fee_bps",
-                if min_profit_mode { "min" } else { "max" },
-                if min_profit_mode { "max" } else { "min" },
+                if min_first { "min" } else { "max" },
+                if min_first { "max" } else { "min" },
             );
             continue;
         }
@@ -272,14 +275,14 @@ pub fn generate_bid_settlements(
     // inactive side: Phase 1 result (adj_phase1) if Phase 2 ran, else original bound.
     let adj_max_fee_bps = if tuning_max {
         overshoot
-    } else if min_profit_mode {
+    } else if min_first {
         fc.max_fee_bps
     } else {
         adj_phase1
     };
     let adj_min_fee_bps = if !tuning_max {
         overshoot
-    } else if min_profit_mode {
+    } else if min_first {
         adj_phase1
     } else {
         fc.min_fee_bps

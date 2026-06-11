@@ -1,6 +1,6 @@
 use bid_distribution::apy_api::fetch_ssr_pmpe;
 use bid_distribution::generators::bidding::{
-    calculate_bid_settlement_totals, generate_bid_settlements,
+    calculate_bid_settlement_totals, generate_bid_settlements, BisectMode,
 };
 use bid_distribution::generators::psr_events::{
     calculate_total_psr_staker_claims, generate_psr_settlements,
@@ -231,10 +231,15 @@ fn main() -> anyhow::Result<()> {
             rewards_collection.total_rewards()
         );
 
-        let min_profit_mode = bid_distribution_config
+        let bisect_mode = if bid_distribution_config
             .fee_config
             .target_sol_revenue
-            .is_some();
+            .is_some()
+        {
+            BisectMode::TargetSolRevenue
+        } else {
+            BisectMode::TargetStakerPmpe
+        };
         let target_pmpe = if let Some(rev) = bid_distribution_config.fee_config.target_sol_revenue {
             let target_sol_lamports = rev * Decimal::from(LAMPORTS_PER_SOL);
             // Probe at target_pmpe=0 (always feasible) to read fee-independent totals.
@@ -250,7 +255,7 @@ fn main() -> anyhow::Result<()> {
                 &*exiting_stake_authority_filter,
                 Some(Decimal::ZERO),
                 total_staker_psr_settlements,
-                false,
+                BisectMode::TargetStakerPmpe,
             )?;
             let probe_totals = calculate_bid_settlement_totals(&probe.settlements);
             let (settlement_sol, total_stake) = (probe_totals.rewards, probe_totals.stake);
@@ -317,7 +322,7 @@ fn main() -> anyhow::Result<()> {
             &*exiting_stake_authority_filter,
             target_pmpe,
             total_staker_penalties + total_staker_psr_settlements,
-            min_profit_mode,
+            bisect_mode,
         )?;
         info!("Generated {} bid settlements", bid.settlements.len());
         adj_max_fee_bps = Some(bid.adj_max_fee_bps);

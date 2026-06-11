@@ -1,5 +1,5 @@
 use crate::generators::bidding::{
-    calculate_bid_settlement_totals, generate_bid_settlements, BidSettlementDetails,
+    calculate_bid_settlement_totals, generate_bid_settlements, BidSettlementDetails, BisectMode,
 };
 use crate::generators::psr_events::generate_psr_settlements;
 use crate::generators::sam_penalties::{calculate_total_penalties, generate_penalty_settlements};
@@ -109,7 +109,7 @@ fn test_generate_bid_settlements_basic_single_validator() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -215,7 +215,7 @@ fn test_generate_bid_settlements_positive_commission() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -359,7 +359,7 @@ fn test_generate_bid_settlements_negative_commission() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -549,7 +549,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -564,7 +564,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -579,7 +579,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -845,7 +845,7 @@ fn test_zero_rewards() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -917,7 +917,7 @@ fn test_commission_raised_after_auction_charged_from_rewards() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -1010,7 +1010,7 @@ fn test_negative_block_commission_charged_against_negative_in_bond() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -1079,7 +1079,7 @@ fn test_activating_bid_charge_basic() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -1146,7 +1146,7 @@ fn test_activating_bid_charge_with_active_stake() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -1208,7 +1208,7 @@ fn test_activating_bid_charge_non_marinade_excluded() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -1259,7 +1259,7 @@ fn test_activating_bid_charge_absent_when_no_field() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -1314,7 +1314,7 @@ fn test_activating_bid_charge_skipped_for_multi_epoch_warmup() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -1383,7 +1383,7 @@ fn test_activating_bid_charge_distributed_to_activating_stakers() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -1940,7 +1940,7 @@ fn test_generate_settlements_from_json_values() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -2630,7 +2630,7 @@ fn run_ssr_test(ssr_pmpe: f64, fee_config: FeeConfig) -> Vec<Settlement> {
         &|_| false,
         Some(target_pmpe),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements
@@ -2702,7 +2702,7 @@ fn test_bid_both_active_and_activating_stakers() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -2795,7 +2795,7 @@ fn test_bid_only_activating_no_active_marinade_stake() {
         &|_| false,
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -2914,7 +2914,7 @@ fn run_ssr_test_with_pmpe(
         &|_| false,
         Some(target_pmpe),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements
@@ -3047,7 +3047,7 @@ fn test_ssr_mixed_active_and_activating_stake() {
         &|_| false,
         Some(Decimal::try_from(28.0).unwrap()),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -3124,7 +3124,7 @@ fn test_ssr_activating_only_uses_min_fee() {
         &|_| false,
         Some(Decimal::try_from(15.0).unwrap()),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -3335,7 +3335,7 @@ fn test_redelegation_stake_included_in_settlement_details() {
         &|_| false, // no exiting authorities
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -3395,7 +3395,7 @@ fn test_exiting_authority_excluded_from_redelegation_stake() {
         &|pk: &Pubkey| *pk == TEST_EXITING_SA, // exiting authority: deactivating excluded
         Some(Decimal::ZERO),
         Decimal::ZERO,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements;
@@ -3432,7 +3432,7 @@ fn run_ssr_test_with_penalties(
         &|_| false,
         Some(target_pmpe),
         total_staker_penalties,
-        false,
+        BisectMode::TargetStakerPmpe,
     )
     .unwrap()
     .settlements
