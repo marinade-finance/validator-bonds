@@ -616,8 +616,14 @@ const failed: number[] = []
 async function runWorker(): Promise<void> {
   while (nextIdx < epochs.length) {
     const i = nextIdx++
-    results[i] = await processEpoch(epochs[i])
-    if (results[i] === null && epochs[i] !== undefined) failed.push(epochs[i])
+    try {
+      results[i] = await processEpoch(epochs[i])
+    } catch (err) {
+      process.stderr.write(
+        `Failed: epoch ${epochs[i]} — ${err instanceof Error ? err.message : String(err)}\n`,
+      )
+      failed.push(epochs[i])
+    }
     process.stderr.write(
       `epoch ${epochs[i]} done [${++doneCount}/${epochs.length}]\n`,
     )
