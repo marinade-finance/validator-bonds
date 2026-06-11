@@ -492,9 +492,12 @@ fn aggregate_rewards(
         .map(|r| r.validators_total_amount)
         .sum::<u64>();
     let mismatch = total_rewards.abs_diff(total_stakers_rewards + total_validators_rewards);
-    if mismatch > 1 {
-        // Jito entries can exceed a validator's block-reward total — saturating_sub clamps to 0,
-        // leaving stakers credited more than validators lost. Log for investigation.
+    if mismatch > 1_000_000 {
+        anyhow::bail!(
+            "Rewards mismatch too large: total={total_rewards} stakers={total_stakers_rewards} validators={total_validators_rewards} delta={mismatch} lamports"
+        );
+    } else if mismatch > 1 {
+        // Small delta: jito entries can slightly exceed validator totals — saturating_sub clips to 0.
         log::warn!(
             "Rewards mismatch: total={total_rewards} stakers={total_stakers_rewards} validators={total_validators_rewards} delta={mismatch} lamports"
         );
