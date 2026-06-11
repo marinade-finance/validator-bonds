@@ -169,8 +169,11 @@ pub fn generate_bid_settlements(
     fee_config: &FeeConfig,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+    // Staker PMPE floor. None = no constraint; bisection converges to max_fee_bps.
     target_pmpe: Option<Decimal>,
+    // PSR + penalty payouts already committed this epoch — deducted from available fee budget.
     total_staker_extras: Decimal,
+    // Bisection direction: TargetStakerPmpe tunes max_fee first; TargetSolRevenue tunes min_fee first.
     mode: BisectMode,
 ) -> anyhow::Result<BidSettlementValues> {
     let min_first = mode == BisectMode::TargetSolRevenue;
