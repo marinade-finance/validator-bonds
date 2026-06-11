@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 /* eslint-disable n/no-process-exit */
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdtempSync, mkdirSync, rmSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, unlinkSync } from 'node:fs'
 import { writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { parseArgs } from 'node:util'
 
@@ -327,8 +328,7 @@ async function runBidDistributionCli(
   inp: string,
 ): Promise<string> {
   const out = tmpFile()
-  mkdirSync('./tmp', { recursive: true })
-  const tmp = mkdtempSync('./tmp/bd-')
+  const tmp = mkdtempSync(join(tmpdir(), 'bd-'))
   try {
     for (const f of INPUTS) {
       const src = join(inp, f)
