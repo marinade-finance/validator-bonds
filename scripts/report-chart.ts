@@ -104,6 +104,19 @@ function range(lo: number, hi: number): number[] {
   return out
 }
 
+function loadMinSolRevenue(): number | null {
+  try {
+    const cfg = parseYaml(
+      fs.readFileSync('settlement-config.yaml', 'utf8'),
+    ) as {
+      fee_config?: { min_sol_revenue?: number }
+    }
+    return cfg.fee_config?.min_sol_revenue ?? null
+  } catch {
+    return null
+  }
+}
+
 function load() {
   const data = parseYaml(
     fs.readFileSync(REPORT, 'utf8'),
@@ -129,19 +142,19 @@ function load() {
         feeMax,
         vcap: ratio(sim.validators_capped),
         vmin: ratio(sim.validators_at_min_fee),
-        shortfall: feeMax - feeAdj,
         adjMaxFee: Number(sim.adj_max_fee_bps ?? 0),
         adjMinFee: Number(sim.adj_min_fee_bps ?? 0),
       },
     ]
   })
-  return { rows, maxFeeBps }
+  const maxAdjFee = Math.max(...rows.map(r => r.adjMaxFee))
+  return { rows, maxFeeBps, maxAdjFee }
 }
 
 async function main() {
-  const { rows, maxFeeBps } = load()
+  const { rows, maxFeeBps, maxAdjFee } = load()
+  const minSolRevenue = loadMinSolRevenue()
   const epochs = rows.map(r => r.epoch)
-  const totalShortfall = rows.reduce((s, r) => s + r.shortfall, 0)
   const title = `Marinade Validator Bond Fee Simulation · Epochs ${epochs[0]}–${epochs[epochs.length - 1]}`
 
   // Detect gaps in the otherwise-consecutive epoch sequence. The ordinal axis
@@ -175,21 +188,24 @@ async function main() {
   const useMonth = spanDays > 60
   const periodOf = (ts: number) => (useMonth ? isoMonth(ts) : isoWeek(ts))
 
-  type PeriodData = { feeAdj: number; feeMax: number; shortfall: number }
+  type PeriodData = { feeAdj: number; feeMax: number }
   const periodMap = new Map<string, PeriodData>()
   for (const r of rows) {
     const k = periodOf(r.time)
-    const e = periodMap.get(k) ?? { feeAdj: 0, feeMax: 0, shortfall: 0 }
+    const e = periodMap.get(k) ?? { feeAdj: 0, feeMax: 0 }
     e.feeAdj += r.feeAdj
     e.feeMax += r.feeMax
-    e.shortfall += r.shortfall
     periodMap.set(k, e)
   }
   const periodDomain = [...periodMap.keys()].sort()
+  const periodTarget =
+    minSolRevenue != null && periodDomain.length > 0
+      ? minSolRevenue * (rows.length / periodDomain.length)
+      : null
   // The current period is incomplete — compare against today's period key
   const nowKey = periodOf(Date.now() / 1000)
   const feePeriodTidy = periodDomain.flatMap(p => {
-    const d = periodMap.get(p) ?? { feeAdj: 0, feeMax: 0, shortfall: 0 }
+    const d = periodMap.get(p) ?? { feeAdj: 0, feeMax: 0 }
     return [
       {
         period: p,
@@ -200,12 +216,6 @@ async function main() {
       { period: p, series: S_MAXFEE, sol: d.feeMax, incomplete: p === nowKey },
     ]
   })
-  const shortfallPeriod = periodDomain.map(p => ({
-    period: p,
-    sol: periodMap.get(p)?.shortfall ?? 0,
-    incomplete: p === nowKey,
-  }))
-
   const apyData = rows.map(r => ({
     epoch: r.epoch,
     ssrApy: r.ssrApy,
@@ -224,6 +234,25 @@ async function main() {
     { epoch: r.epoch, series: S_ADJ_MAX, bps: r.adjMaxFee },
     { epoch: r.epoch, series: S_ADJ_MIN, bps: r.adjMinFee },
   ])
+
+  const feeEpochTidy = [
+    ...rows.flatMap(r => [
+      { epoch: r.epoch, series: S_ADJUSTED, sol: r.feeAdj },
+      { epoch: r.epoch, series: S_MAXFEE, sol: r.feeMax },
+    ]),
+    ...missingEpochs.flatMap(e => [
+      { epoch: e, series: S_ADJUSTED, sol: null as number | null },
+      { epoch: e, series: S_MAXFEE, sol: null as number | null },
+    ]),
+  ].sort((a, b) => a.epoch - b.epoch)
+
+  const feeVals = rows.flatMap(r => [r.feeAdj, r.feeMax])
+  const feeSolHi = Math.ceil((Math.max(...feeVals) * 1.1) / 10) * 10
+  const feeSolScale = { domain: [0, feeSolHi], nice: true } as const
+
+  const bpsDomainMax =
+    Math.ceil((Math.max(maxFeeBps, maxAdjFee) * 1.1) / 100) * 100
+  const bpsYScale = { domain: [0, bpsDomainMax] } as const
 
   // APY delta (adj - ssr) in pp — for labelling key epochs on the top panel
   const deltas = rows.map(r => ({
@@ -510,112 +539,157 @@ async function main() {
           },
         },
       },
-      // ── Panel 2: Fee Extraction + Weekly Shortfall side by side ──────────
+      // ── Panel 2: Fee per Epoch ────────────────────────────────────────────────
       {
-        spacing: 24,
-        hconcat: [
+        width: 960,
+        height: 150,
+        title: { text: 'Fee per Epoch (SOL)', fontSize: 13 },
+        layer: [
           {
-            width: 460,
-            height: 210,
-            title: {
-              text: `Marinade Fee Extraction by ${useMonth ? 'Month' : 'Week'} (SOL)`,
-              fontSize: 13,
-            },
-            data: { values: feePeriodTidy },
-            layer: [
-              {
-                mark: { type: 'bar' },
-                encoding: {
-                  x: {
-                    field: 'period',
-                    type: 'ordinal',
-                    title: null,
-                    axis: { labelAngle: -35 },
-                    scale: { domain: periodDomain },
-                  },
-                  xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
-                  y: { field: 'sol', type: 'quantitative', title: 'SOL' },
-                  color: {
-                    field: 'series',
-                    scale: {
-                      domain: [S_ADJUSTED, S_MAXFEE],
-                      range: [C_ACTUAL, C_REF],
-                    },
-                    legend: {
-                      title: null,
-                      orient: 'bottom',
-                      direction: 'horizontal',
-                      offset: 48,
-                      symbolType: 'square',
-                      symbolSize: 220,
-                    },
-                  },
-                  ...hollowBar,
-                  stroke: {
-                    field: 'series',
-                    scale: {
-                      domain: [S_ADJUSTED, S_MAXFEE],
-                      range: [C_ACTUAL, C_REF],
-                    },
-                    legend: null,
-                  },
-                },
-              },
-              {
-                mark: {
-                  type: 'rule',
-                  color: C_COST,
-                  strokeWidth: 1.5,
-                  strokeDash: [4, 3],
-                },
-                encoding: { y: { datum: 3000 } },
-              },
-              {
-                data: { values: [{}] },
-                mark: {
-                  type: 'text',
-                  text: '3000 SOL target',
-                  color: C_COST,
-                  fontSize: 9,
-                  align: 'right',
-                  dx: -4,
-                  dy: -5,
-                },
-                encoding: {
-                  x: { value: 460 },
-                  y: { datum: 3000, type: 'quantitative' },
-                },
-              },
-            ],
+            data: { values: gapBands },
+            mark: { type: 'rule', color: '#d8a657', opacity: 0.5, size: 6 },
+            encoding: { x: xEnc },
           },
-          // Shortfall (right of fee extraction, same period)
           {
-            width: 460,
-            height: 210,
-            title: {
-              text: `Shortfall (SOL)  [Σ ${totalShortfall.toFixed(0)}]`,
-              fontSize: 13,
+            data: { values: feeEpochTidy.filter(d => d.series === S_MAXFEE) },
+            mark: {
+              type: 'line',
+              strokeDash: [4, 3] as [number, number],
+              strokeWidth: 1.5,
+              color: C_REF,
             },
-            data: { values: shortfallPeriod },
-            layer: [
-              {
-                mark: { type: 'bar' },
-                encoding: {
-                  x: {
-                    field: 'period',
-                    type: 'ordinal',
-                    title: null,
-                    axis: { labelAngle: -35 },
-                    scale: { domain: periodDomain },
+            encoding: {
+              x: xEnc,
+              y: {
+                field: 'sol',
+                type: 'quantitative' as const,
+                scale: feeSolScale,
+                title: 'SOL',
+              },
+            },
+          },
+          {
+            data: { values: feeEpochTidy.filter(d => d.series === S_ADJUSTED) },
+            mark: { type: 'area', opacity: 0.2, color: C_ACTUAL },
+            encoding: {
+              x: xEnc,
+              y: {
+                field: 'sol',
+                type: 'quantitative' as const,
+                scale: feeSolScale,
+              },
+              y2: { datum: 0 },
+            },
+          },
+          {
+            data: { values: feeEpochTidy.filter(d => d.series === S_ADJUSTED) },
+            mark: {
+              type: 'line',
+              strokeWidth: 2,
+              color: C_ACTUAL,
+              point: { filled: true, size: 25, color: C_ACTUAL },
+            },
+            encoding: {
+              x: xEnc,
+              y: {
+                field: 'sol',
+                type: 'quantitative' as const,
+                scale: feeSolScale,
+              },
+            },
+          },
+          ...(minSolRevenue != null
+            ? [
+                {
+                  mark: {
+                    type: 'rule' as const,
+                    color: C_COST,
+                    strokeWidth: 1,
+                    strokeDash: [4, 3] as [number, number],
                   },
-                  y: { field: 'sol', type: 'quantitative', title: 'SOL' },
-                  color: { value: C_COST },
-                  stroke: { value: C_COST },
-                  ...hollowBar,
+                  encoding: { y: { datum: minSolRevenue } },
+                },
+              ]
+            : []),
+        ],
+      },
+      // ── Panel 3: Fee Extraction by period ────────────────────────────────
+      {
+        width: 960,
+        height: 210,
+        title: {
+          text: `Marinade Fee Extraction by ${useMonth ? 'Month' : 'Week'} (SOL)`,
+          fontSize: 13,
+        },
+        data: { values: feePeriodTidy },
+        layer: [
+          {
+            mark: { type: 'bar' },
+            encoding: {
+              x: {
+                field: 'period',
+                type: 'ordinal',
+                title: null,
+                axis: { labelAngle: -35 },
+                scale: { domain: periodDomain },
+              },
+              xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
+              y: { field: 'sol', type: 'quantitative', title: 'SOL' },
+              color: {
+                field: 'series',
+                scale: {
+                  domain: [S_ADJUSTED, S_MAXFEE],
+                  range: [C_ACTUAL, C_REF],
+                },
+                legend: {
+                  title: null,
+                  orient: 'bottom',
+                  direction: 'horizontal',
+                  offset: 48,
+                  symbolType: 'square',
+                  symbolSize: 220,
                 },
               },
-            ],
+              ...hollowBar,
+              stroke: {
+                field: 'series',
+                scale: {
+                  domain: [S_ADJUSTED, S_MAXFEE],
+                  range: [C_ACTUAL, C_REF],
+                },
+                legend: null,
+              },
+            },
           },
+          ...(periodTarget != null
+            ? [
+                {
+                  mark: {
+                    type: 'rule' as const,
+                    color: C_COST,
+                    strokeWidth: 1.5,
+                    strokeDash: [4, 3] as [number, number],
+                  },
+                  encoding: { y: { datum: periodTarget } },
+                },
+                {
+                  data: { values: [{}] },
+                  mark: {
+                    type: 'text' as const,
+                    text: `${Math.round(periodTarget)} SOL ${useMonth ? 'monthly' : 'weekly'} target`,
+                    color: C_COST,
+                    fontSize: 9,
+                    align: 'right' as const,
+                    dx: -4,
+                    dy: -5,
+                  },
+                  encoding: {
+                    x: { value: 960 },
+                    y: { datum: periodTarget, type: 'quantitative' as const },
+                  },
+                },
+              ]
+            : []),
         ],
       },
       // ── Panel 3: Validators (left) + Optimized Fee bps (right) ──────────
@@ -693,7 +767,7 @@ async function main() {
                     field: 'bps',
                     type: 'quantitative',
                     title: 'fee (bps)',
-                    scale: { domain: [0, 850] },
+                    scale: bpsYScale,
                   },
                   color: {
                     field: 'series',
