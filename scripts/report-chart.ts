@@ -198,10 +198,13 @@ async function main() {
     periodMap.set(k, e)
   }
   const periodDomain = [...periodMap.keys()].sort()
+  const avgEpochSec =
+    rows.length > 1
+      ? (rows[rows.length - 1].time - rows[0].time) / (rows.length - 1)
+      : 2 * 86400
+  const epochsPerPeriod = ((useMonth ? 30 : 7) * 86400) / avgEpochSec
   const periodTarget =
-    minSolRevenue != null && periodDomain.length > 0
-      ? minSolRevenue * (rows.length / periodDomain.length)
-      : null
+    minSolRevenue != null ? minSolRevenue * epochsPerPeriod : null
   // The current period is incomplete — compare against today's period key
   const nowKey = periodOf(Date.now() / 1000)
   const feePeriodTidy = periodDomain.flatMap(p => {
