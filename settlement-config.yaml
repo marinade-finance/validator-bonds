@@ -1,6 +1,6 @@
 ---
 fee_config:
-  max_fee_bps: 800
+  max_fee_bps: 1600
   min_fee_bps: 200
   min_sol_revenue: 200
   marinade:
