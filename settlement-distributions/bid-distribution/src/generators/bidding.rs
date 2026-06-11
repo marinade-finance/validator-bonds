@@ -144,113 +144,43 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
     totals
 }
 
-/// Pre-computes (total_marinade_stakers_rewards, total_stake) across all
-/// fee-bearing validators without running the full settlement generator.
-/// Fee-independent — used to derive `target_pmpe` in SOL revenue mode before
-/// the bisection starts.
+/// Returns `(settlement_sol_lamports, total_stake_lamports)` for all fee-bearing validators.
+/// Rewards and stake are fee-independent — runs one probe at target_pmpe=0 (always feasible)
+/// so the generator converges immediately without bisection.
 pub fn sum_fee_validator_totals(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],
     rewards_collection: &RewardsCollection,
+    settlement_config: &SettlementConfig,
+    fee_config: &FeeConfig,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
-) -> (Decimal, Decimal) {
-    let mut total_rewards = Decimal::ZERO;
-    let mut total_stake = Decimal::ZERO;
-
-    for validator in sam_validator_metas {
-        let Some(grouped) = stake_meta_index.iter_grouped_stake_metas(&validator.vote_account)
-        else {
-            continue;
-        };
-        let grouped: Vec<_> = grouped.collect();
-
-        let mut total_active: u64 = 0;
-        let mut marinade_active: u64 = 0;
-        let mut marinade_redelegation: u64 = 0;
-        let mut marinade_activating: u64 = 0;
-        for ((_, stake_authority), metas) in &grouped {
-            for meta in metas.iter() {
-                total_active += meta.active_delegation_lamports;
-                if stake_authority_filter(stake_authority) {
-                    marinade_active += meta.active_delegation_lamports;
-                    if !exiting_stake_authority_filter(stake_authority) {
-                        marinade_redelegation += meta.deactivating_delegation_lamports;
-                    }
-                    if meta.activating_delegation_lamports > 0
-                        && meta.active_delegation_lamports == 0
-                    {
-                        marinade_activating += meta.activating_delegation_lamports;
-                    }
-                }
-            }
-        }
-        if marinade_active == 0 && marinade_activating == 0 {
-            continue;
-        }
-
-        let blank;
-        let rewards = match rewards_collection.get(&validator.vote_account) {
-            Some(r) => r,
-            None => {
-                blank = VoteAccountRewards {
-                    vote_account: validator.vote_account,
-                    ..VoteAccountRewards::default()
-                };
-                &blank
-            }
-        };
-
-        let stake_share = if total_active > 0 {
-            Decimal::from(marinade_active) / Decimal::from(total_active)
-        } else {
-            Decimal::ZERO
-        };
-        let m_inflation = Decimal::from(rewards.inflation_rewards) * stake_share;
-        let m_mev = Decimal::from(rewards.mev_rewards) * stake_share;
-        let m_block = Decimal::from(rewards.block_rewards) * stake_share;
-
-        let static_bid = {
-            let effective_static_bid = validator
-                .rev_share
-                .auction_effective_static_bid_pmpe
-                .unwrap_or(validator.effective_bid);
-            Decimal::from(marinade_active) * effective_static_bid / Decimal::ONE_THOUSAND
-        };
-        let activating_bid = validator
-            .rev_share
-            .activating_stake_pmpe
-            .map(|p| Decimal::from(marinade_activating) * p / Decimal::ONE_THOUSAND)
-            .unwrap_or(Decimal::ZERO);
-
-        let stakers_active = if let Some(crate::sam_meta::AuctionValidatorValues {
-            commissions: Some(c),
-            ..
-        }) = &validator.values
-        {
-            m_inflation * (Decimal::ONE - c.inflation_commission_dec)
-                + m_mev * (Decimal::ONE - c.mev_commission_dec)
-                + m_block * (Decimal::ONE - c.block_rewards_commission_dec)
-                + static_bid
-        } else {
-            Decimal::from(marinade_active) * validator.rev_share.total_pmpe / Decimal::ONE_THOUSAND
-        };
-
-        total_rewards += stakers_active + activating_bid;
-        total_stake += Decimal::from(marinade_active) + Decimal::from(marinade_redelegation);
-    }
-
-    (total_rewards, total_stake)
+    total_staker_extras: Decimal,
+) -> anyhow::Result<(Decimal, Decimal)> {
+    let result = generate_bid_settlements(
+        stake_meta_index,
+        sam_validator_metas,
+        rewards_collection,
+        settlement_config,
+        fee_config,
+        stake_authority_filter,
+        exiting_stake_authority_filter,
+        Some(Decimal::ZERO),
+        total_staker_extras,
+        false,
+    )?;
+    let totals = calculate_bid_settlement_totals(&result.settlements);
+    Ok((totals.rewards, totals.stake))
 }
 
 /// Bisects the fee bounds to hit a fee target. Two mutually exclusive modes:
 ///
-/// PMPE mode (`sol_mode` false): keeps global post-fee PMPE (bid +
+/// PMPE mode (`min_profit_mode` false): keeps global post-fee PMPE (bid +
 /// `total_staker_extras`, i.e. penalty + PSR payouts to stakers) at or above
 /// `target_pmpe`. Phase 1 raises max_fee to the feasible ceiling; if it pins at
 /// max_cap with leftover staker budget, Phase 2 raises min_fee to extract it.
 ///
-/// SOL revenue mode (`sol_mode` true): `target_pmpe` is derived from the SOL
+/// SOL revenue mode (`min_profit_mode` true): `target_pmpe` is derived from the SOL
 /// revenue target, so meeting it keeps total Marinade fees at or above that
 /// target. The bisection inverts — Phase 1 raises min_fee to the feasible
 /// floor; if min_fee pins at min_cap with the target already met, Phase 2
@@ -268,7 +198,7 @@ pub fn generate_bid_settlements(
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     target_pmpe: Option<Decimal>,
     total_staker_extras: Decimal,
-    sol_mode: bool,
+    min_profit_mode: bool,
 ) -> anyhow::Result<BidSettlementValues> {
     let max_cap = fee_config.max_fee_bps;
     let min_cap = fee_config.min_fee_bps;
@@ -281,10 +211,10 @@ pub fn generate_bid_settlements(
     // SOL mode inverts the bisection: Phase 1 raises min_fee (so tuning_max
     // starts false), Phase 2 lowers max_fee. Overshoot/undershoot start values
     // are also swapped.
-    let mut overshoot = if sol_mode { max_cap } else { min_cap };
-    let mut undershoot = if sol_mode { min_cap } else { max_cap };
+    let mut overshoot = if min_profit_mode { max_cap } else { min_cap };
+    let mut undershoot = if min_profit_mode { min_cap } else { max_cap };
     let mut current = undershoot;
-    let mut tuning_max = !sol_mode;
+    let mut tuning_max = !min_profit_mode;
     // adj_phase1 stores the Phase 1 result when switching to Phase 2.
     // In PMPE mode this is the max_fee result; in SOL mode the min_fee result.
     let mut adj_phase1 = overshoot;
@@ -315,13 +245,14 @@ pub fn generate_bid_settlements(
             (totals.rewards + total_staker_extras - totals.fees) / totals.stake
                 * Decimal::ONE_THOUSAND
         };
-        if !totals.stake.is_zero()
-            && if sol_mode {
-                post_fee <= target_pmpe
-            } else {
-                post_fee >= target_pmpe
-            }
-        {
+        let feasible = if totals.stake.is_zero() {
+            false
+        } else if min_profit_mode {
+            post_fee <= target_pmpe
+        } else {
+            post_fee >= target_pmpe
+        };
+        if feasible {
             overshoot = current;
             best = Some(settlements);
         } else {
@@ -348,19 +279,19 @@ pub fn generate_bid_settlements(
         //            → raise min_fee.
         // SOL  mode: min_fee pinned at feasible floor   → target already met
         //            → lower max_fee.
-        let at_extreme = current == if sol_mode { min_cap } else { max_cap };
-        if overshoot == current && at_extreme && (tuning_max != sol_mode) {
+        let at_extreme = current == if min_profit_mode { min_cap } else { max_cap };
+        if feasible && at_extreme && (tuning_max != min_profit_mode) {
             adj_phase1 = current;
             tuning_max = !tuning_max;
             // Phase 2 bisection state. SOL Phase 2 finds the LOWEST feasible
             // max_fee, so overshoot/undershoot are inverted vs PMPE Phase 2.
             current = max_cap;
-            overshoot = if sol_mode { max_cap } else { min_cap };
-            undershoot = if sol_mode { min_cap } else { max_cap };
+            overshoot = if min_profit_mode { max_cap } else { min_cap };
+            undershoot = if min_profit_mode { min_cap } else { max_cap };
             info!(
                 "{}_fee_bps converged at {adj_phase1}, switching to tuning {}_fee_bps",
-                if sol_mode { "min" } else { "max" },
-                if sol_mode { "max" } else { "min" },
+                if min_profit_mode { "min" } else { "max" },
+                if min_profit_mode { "max" } else { "min" },
             );
             continue;
         }
@@ -370,14 +301,14 @@ pub fn generate_bid_settlements(
     // inactive side: Phase 1 result (adj_phase1) if Phase 2 ran, else original bound.
     let adj_max_fee_bps = if tuning_max {
         overshoot
-    } else if sol_mode {
+    } else if min_profit_mode {
         fc.max_fee_bps
     } else {
         adj_phase1
     };
     let adj_min_fee_bps = if !tuning_max {
         overshoot
-    } else if sol_mode {
+    } else if min_profit_mode {
         adj_phase1
     } else {
         fc.min_fee_bps

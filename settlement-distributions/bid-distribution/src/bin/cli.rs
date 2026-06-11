@@ -229,7 +229,7 @@ fn main() -> anyhow::Result<()> {
             rewards_collection.total_rewards()
         );
 
-        let sol_mode = bid_distribution_config
+        let min_profit_mode = bid_distribution_config
             .fee_config
             .target_sol_revenue
             .is_some();
@@ -239,9 +239,12 @@ fn main() -> anyhow::Result<()> {
                 &stake_meta_index,
                 &sam_validator_metas,
                 &rewards_collection,
+                bidding_config,
+                &bid_distribution_config.fee_config,
                 &*stake_authority_filter,
                 &*exiting_stake_authority_filter,
-            );
+                total_staker_psr_settlements,
+            )?;
             let pmpe = if total_stake.is_zero() {
                 Decimal::ZERO
             } else {
@@ -305,7 +308,7 @@ fn main() -> anyhow::Result<()> {
             &*exiting_stake_authority_filter,
             target_pmpe,
             total_staker_penalties + total_staker_psr_settlements,
-            sol_mode,
+            min_profit_mode,
         )?;
         info!("Generated {} bid settlements", bid.settlements.len());
         adj_max_fee_bps = Some(bid.adj_max_fee_bps);
