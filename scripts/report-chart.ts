@@ -415,7 +415,7 @@ async function main() {
               y: {
                 field: 'apy',
                 type: 'quantitative',
-                title: 'APY %',
+                title: 'APY [%]',
                 scale: apyYScale,
                 axis: { format: '.1f', labelExpr: "datum.label + '%'" },
               },
@@ -535,7 +535,7 @@ async function main() {
         width: 960,
         height: 210,
         title: {
-          text: `Marinade Fee Extraction by ${useMonth ? 'Month' : 'Week'} (SOL)`,
+          text: `Marinade Fee Extraction by ${useMonth ? 'Month' : 'Week'} [SOL]`,
           fontSize: 13,
         },
         data: { values: feePeriodTidy },
@@ -551,7 +551,7 @@ async function main() {
                 scale: { domain: periodDomain },
               },
               xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
-              y: { field: 'sol', type: 'quantitative', title: 'SOL' },
+              y: { field: 'sol', type: 'quantitative', title: '[SOL]' },
               color: {
                 field: 'series',
                 scale: {
@@ -620,7 +620,7 @@ async function main() {
           {
             width: 460,
             height: 170,
-            title: { text: 'Validators at Cap - Min/Max (%)', fontSize: 13 },
+            title: { text: 'Validators at Cap - Min/Max [%]', fontSize: 13 },
             data: { values: valTidy },
             layer: [
               {
@@ -634,7 +634,7 @@ async function main() {
                   y: {
                     field: 'pct',
                     type: 'quantitative',
-                    title: '% of validators',
+                    title: '[%] of validators',
                     scale: { domain: [0, 115] },
                     axis: { format: 'd', labelExpr: "datum.label + '%'" },
                   },
@@ -670,7 +670,7 @@ async function main() {
             width: 460,
             height: 170,
             title: {
-              text: 'Optimized Fee (%)',
+              text: 'Optimized Fee [%]',
               fontSize: 13,
             },
             data: { values: feeBpsTidy },
@@ -686,7 +686,7 @@ async function main() {
                   y: {
                     field: 'bps',
                     type: 'quantitative',
-                    title: 'fee (%)',
+                    title: 'fee [%]',
                     scale: bpsYScale,
                   },
                   color: {
