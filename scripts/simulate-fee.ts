@@ -2,7 +2,7 @@
 /* eslint-disable n/no-process-exit */
 import { randomBytes } from 'node:crypto'
 import { existsSync, mkdtempSync, rmSync, unlinkSync } from 'node:fs'
-import { writeFile } from 'node:fs/promises'
+import { writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { parseArgs } from 'node:util'
@@ -463,7 +463,7 @@ async function processEpoch(epoch: number): Promise<string | null> {
       settlementsJson = prodFile
     } else {
       const cfgFile = tmpFile()
-      await writeFile(cfgFile, cfgText)
+      writeFileSync(cfgFile, cfgText)
       settlementsJson = await runBidDistributionCli(cfgFile, inp)
     }
 
