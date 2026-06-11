@@ -1693,7 +1693,7 @@ fn create_test_fee_config(max_fee_bps: u64, dao_fee_split_share_bps: u64) -> Fee
         },
         min_fee_bps: 0,
         min_yield_premium_over_ssr_pmpe: Some(Decimal::ZERO),
-        target_sol_revenue: None,
+        min_sol_revenue: None,
     }
 }
 
@@ -2582,7 +2582,7 @@ fn ssr_fee_config(max_fee_bps: u64, min_fee_bps: u64, min_yield_premium: f64) ->
         },
         min_fee_bps,
         min_yield_premium_over_ssr_pmpe: Some(Decimal::try_from(min_yield_premium).unwrap()),
-        target_sol_revenue: None,
+        min_sol_revenue: None,
     }
 }
 

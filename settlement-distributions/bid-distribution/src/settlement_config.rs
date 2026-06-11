@@ -57,7 +57,7 @@ pub struct FeeConfig {
     #[serde(default)]
     pub min_yield_premium_over_ssr_pmpe: Option<Decimal>,
     #[serde(default)]
-    pub target_sol_revenue: Option<Decimal>,
+    pub min_sol_revenue: Option<Decimal>,
 }
 
 impl FeeConfig {
@@ -92,11 +92,11 @@ impl FeeConfig {
             );
         }
         ensure!(
-            !(self.min_yield_premium_over_ssr_pmpe.is_some() && self.target_sol_revenue.is_some()),
-            "min_yield_premium_over_ssr_pmpe and target_sol_revenue are mutually exclusive"
+            !(self.min_yield_premium_over_ssr_pmpe.is_some() && self.min_sol_revenue.is_some()),
+            "min_yield_premium_over_ssr_pmpe and min_sol_revenue are mutually exclusive"
         );
-        if let Some(rev) = self.target_sol_revenue {
-            ensure!(rev > Decimal::ZERO, "target_sol_revenue must be positive");
+        if let Some(rev) = self.min_sol_revenue {
+            ensure!(rev > Decimal::ZERO, "min_sol_revenue must be positive");
         }
         Ok(())
     }
