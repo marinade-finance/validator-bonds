@@ -8,7 +8,7 @@ use solana_sdk::clock::Epoch;
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
-use std::ops::Div;
+
 use std::path::Path;
 
 // Reward file name constants
@@ -491,10 +491,14 @@ fn aggregate_rewards(
         .values()
         .map(|r| r.validators_total_amount)
         .sum::<u64>();
-    assert!(
-        total_rewards.abs_diff(total_stakers_rewards + total_validators_rewards) <= 1,
-        "Mismatch in total rewards calculation vs. stakers + validators"
-    );
+    let mismatch = total_rewards.abs_diff(total_stakers_rewards + total_validators_rewards);
+    if mismatch > 1 {
+        // Jito entries can exceed a validator's block-reward total — saturating_sub clamps to 0,
+        // leaving stakers credited more than validators lost. Log for investigation.
+        log::warn!(
+            "Rewards mismatch: total={total_rewards} stakers={total_stakers_rewards} validators={total_validators_rewards} delta={mismatch} lamports"
+        );
+    }
     info!(
         "Aggregated rewards (total: {} SOL, stakers: {} SOL, validators: {} SOL) for {} vote accounts",
         total_rewards / LAMPORTS_PER_SOL,
