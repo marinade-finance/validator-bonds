@@ -4,8 +4,7 @@ import { randomBytes } from 'node:crypto'
 import { existsSync, mkdtempSync, rmSync, unlinkSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname } from 'node:path'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { parseArgs } from 'node:util'
 
 // eslint-disable-next-line import/no-extraneous-dependencies
@@ -217,49 +216,50 @@ const GCS_ETL = 'gs://marinade-stakes-etl-mainnet'
 const SCORING_API = 'https://scoring.marinade.finance/api/v1'
 const PROD_FILE = 'bid-distribution-settlements.json'
 
-// GCS path helpers — one per data source
 const gcsBonds = (epoch: number, file: string) =>
   `${GCS_BONDS}/${epoch}/${file}`
 const gcsEtl = (epoch: number, file: string) => `${GCS_ETL}/${epoch}/${file}`
 const scoringUrl = (epoch: number) => `${SCORING_API}/scores/sam?epoch=${epoch}`
 
-function runMkdir(dir: string) {
+function runMkdir(dir: string): void {
   Bun.spawnSync(['mkdir', '-p', dir], { stderr: 'pipe' })
 }
 
-function runGcsCp(src: string, dst: string): void {
-  const r = Bun.spawnSync(['gcloud', 'storage', 'cp', src, dst], {
+async function runGcsCp(src: string, dst: string): Promise<void> {
+  const code = await Bun.spawn(['gcloud', 'storage', 'cp', src, dst], {
     stderr: 'pipe',
-  })
-  if (r.exitCode !== 0) {
+  }).exited
+  if (code !== 0) {
     process.stderr.write(`Failed: gcloud cp ${src}\n`)
-    process.exit(r.exitCode ?? 1)
+    process.exit(code ?? 1)
   }
 }
 
-function runHttpGet(url: string, dst: string): void {
-  const r = Bun.spawnSync(['curl', '-sf', url, '-o', dst], { stderr: 'pipe' })
-  if (r.exitCode !== 0) {
+async function runHttpGet(url: string, dst: string): Promise<void> {
+  const code = await Bun.spawn(['curl', '-sf', url, '-o', dst], {
+    stderr: 'pipe',
+  }).exited
+  if (code !== 0) {
     process.stderr.write(`Failed: curl ${url}\n`)
-    process.exit(r.exitCode ?? 1)
+    process.exit(code ?? 1)
   }
 }
 
-function runGzip(f: string): void {
-  const r = Bun.spawnSync(['gzip', f], { stderr: 'pipe' })
-  if (r.exitCode !== 0) {
+async function runGzip(f: string): Promise<void> {
+  const code = await Bun.spawn(['gzip', f], { stderr: 'pipe' }).exited
+  if (code !== 0) {
     process.stderr.write(`Failed: gzip ${f}\n`)
-    process.exit(r.exitCode ?? 1)
+    process.exit(code ?? 1)
   }
 }
 
-function fetchProductionSettlement(epoch: number): string {
+async function fetchProductionSettlement(epoch: number): Promise<string> {
   const dir = join(dataDir, String(epoch))
   const path = join(dir, PROD_FILE)
   if (!existsSync(path)) {
     process.stderr.write(`  # downloading ${PROD_FILE} for epoch ${epoch}...\n`)
     runMkdir(dir)
-    runGcsCp(gcsBonds(epoch, PROD_FILE), path)
+    await runGcsCp(gcsBonds(epoch, PROD_FILE), path)
   }
   if (!existsSync(path)) {
     process.stderr.write(`Failed: ${PROD_FILE} not found for epoch ${epoch}\n`)
@@ -268,7 +268,7 @@ function fetchProductionSettlement(epoch: number): string {
   return path
 }
 
-function fetchInputs(epoch: number): void {
+async function fetchInputs(epoch: number): Promise<void> {
   const inp = join(dataDir, String(epoch), 'inputs')
   const rwd = join(inp, 'rewards')
   if (INPUTS.every(f => existsSync(join(inp, f) + '.gz'))) return
@@ -276,41 +276,46 @@ function fetchInputs(epoch: number): void {
   runMkdir(rwd)
 
   const gz = (f: string) => f + '.gz'
-  const fetchOne = (src: string, dst: string) => {
+  const fetchOne = async (src: string, dst: string) => {
     if (existsSync(gz(dst))) return
-    runGcsCp(src, dst)
-    runGzip(dst)
+    await runGcsCp(src, dst)
+    await runGzip(dst)
   }
 
-  fetchOne(gcsBonds(epoch, STAKES_FILE), join(inp, STAKES_FILE))
-  fetchOne(gcsBonds(epoch, VALIDATORS_FILE), join(inp, VALIDATORS_FILE))
-  fetchOne(
-    gcsBonds(epoch, 'bid-psr-distribution-evaluation.json'),
-    join(inp, 'evaluation.json'),
-  )
-  fetchOne(gcsEtl(epoch, 'rewards_mev.json'), join(rwd, 'mev.json'))
-  fetchOne(
-    gcsEtl(epoch, 'rewards_validators_mev.json'),
-    join(rwd, 'validators_mev.json'),
-  )
-  fetchOne(gcsEtl(epoch, 'rewards_inflation.json'), join(rwd, 'inflation.json'))
-  fetchOne(
-    gcsEtl(epoch, 'rewards_validators_inflation.json'),
-    join(rwd, 'validators_inflation.json'),
-  )
-  fetchOne(
-    gcsEtl(epoch, 'rewards_validators_blocks.json'),
-    join(rwd, 'validators_blocks.json'),
-  )
-  fetchOne(
-    gcsEtl(epoch, 'rewards_priority_fee.json'),
-    join(rwd, 'jito_priority_fee.json'),
-  )
+  await Promise.all([
+    fetchOne(gcsBonds(epoch, STAKES_FILE), join(inp, STAKES_FILE)),
+    fetchOne(gcsBonds(epoch, VALIDATORS_FILE), join(inp, VALIDATORS_FILE)),
+    fetchOne(
+      gcsBonds(epoch, 'bid-psr-distribution-evaluation.json'),
+      join(inp, 'evaluation.json'),
+    ),
+    fetchOne(gcsEtl(epoch, 'rewards_mev.json'), join(rwd, 'mev.json')),
+    fetchOne(
+      gcsEtl(epoch, 'rewards_validators_mev.json'),
+      join(rwd, 'validators_mev.json'),
+    ),
+    fetchOne(
+      gcsEtl(epoch, 'rewards_inflation.json'),
+      join(rwd, 'inflation.json'),
+    ),
+    fetchOne(
+      gcsEtl(epoch, 'rewards_validators_inflation.json'),
+      join(rwd, 'validators_inflation.json'),
+    ),
+    fetchOne(
+      gcsEtl(epoch, 'rewards_validators_blocks.json'),
+      join(rwd, 'validators_blocks.json'),
+    ),
+    fetchOne(
+      gcsEtl(epoch, 'rewards_priority_fee.json'),
+      join(rwd, 'jito_priority_fee.json'),
+    ),
+  ])
 
   const samPath = join(inp, SAM_FILE)
   if (!existsSync(gz(samPath))) {
-    runHttpGet(scoringUrl(epoch), samPath)
-    runGzip(samPath)
+    await runHttpGet(scoringUrl(epoch), samPath)
+    await runGzip(samPath)
   }
 
   if (!INPUTS.every(f => existsSync(join(inp, gz(f))))) {
@@ -319,112 +324,121 @@ function fetchInputs(epoch: number): void {
   }
 }
 
-function runBidDistributionCli(cfgFile: string, inp: string): string {
+async function runBidDistributionCli(
+  cfgFile: string,
+  inp: string,
+): Promise<string> {
   const out = tmpFile()
-  // Decompress inputs to /tmp (tmpfs) — deleted after CLI exits
   const tmp = mkdtempSync(join(tmpdir(), 'bd-'))
-  for (const f of INPUTS) {
-    const src = join(inp, f)
-    const dst = join(tmp, f)
-    Bun.spawnSync(['mkdir', '-p', dirname(dst)], { stderr: 'pipe' })
-    if (existsSync(src + '.gz'))
-      Bun.spawnSync(['sh', '-c', `gzip -dc "${src}.gz" > "${dst}"`], {
+  try {
+    for (const f of INPUTS) {
+      const src = join(inp, f)
+      const dst = join(tmp, f)
+      Bun.spawnSync(['mkdir', '-p', dirname(dst)], { stderr: 'pipe' })
+      if (existsSync(src + '.gz'))
+        Bun.spawnSync(['sh', '-c', `gzip -dc "${src}.gz" > "${dst}"`], {
+          stderr: 'pipe',
+        })
+      else Bun.spawnSync(['cp', src, dst], { stderr: 'pipe' })
+    }
+    const proc = Bun.spawn(
+      [
+        ...cli,
+        '--settlement-config',
+        cfgFile,
+        '--stake-meta-collection',
+        `${tmp}/${STAKES_FILE}`,
+        '--sam-meta-collection',
+        `${tmp}/sam-scores.json`,
+        '--rewards-dir',
+        `${tmp}/rewards`,
+        '--validator-meta-collection',
+        `${tmp}/validators.json`,
+        '--revenue-expectation-collection',
+        `${tmp}/evaluation.json`,
+        '--output-settlement-collection',
+        out,
+        '--output-protected-event-collection',
+        '/dev/null',
+        '--apy-api-url',
+        apyUrl,
+      ],
+      {
+        env: {
+          ...process.env,
+          RUST_LOG: 'warn,bid_distribution::generators::bidding=info',
+        },
         stderr: 'pipe',
-      })
-    else Bun.spawnSync(['cp', src, dst], { stderr: 'pipe' })
-  }
-  const proc = Bun.spawnSync(
-    [
-      ...cli,
-      '--settlement-config',
-      cfgFile,
-      '--stake-meta-collection',
-      `${tmp}/${STAKES_FILE}`,
-      '--sam-meta-collection',
-      `${tmp}/sam-scores.json`,
-      '--rewards-dir',
-      `${tmp}/rewards`,
-      '--validator-meta-collection',
-      `${tmp}/validators.json`,
-      '--revenue-expectation-collection',
-      `${tmp}/evaluation.json`,
-      '--output-settlement-collection',
-      out,
-      '--output-protected-event-collection',
-      '/dev/null',
-      '--apy-api-url',
-      apyUrl,
-    ],
-    {
-      env: {
-        ...process.env,
-        RUST_LOG: 'warn,bid_distribution::generators::bidding=info',
       },
-      stderr: 'pipe',
-    },
-  )
-  const stderr = Buffer.from(proc.stderr).toString()
-  for (const line of stderr.split('\n')) {
-    if (
-      line.includes(' ERROR ') ||
-      line.includes('Adjusted ') ||
-      line.includes('converged at') ||
-      line.includes('adj_max_fee_bps')
     )
-      process.stderr.write(line + '\n')
-    else if (
-      values.v &&
-      (line.includes('SSR cap') || line.includes('fee: effective:'))
-    )
-      process.stderr.write(line + '\n')
-  }
-  rmSync(tmp, { recursive: true })
-  if (proc.exitCode !== 0) {
-    process.stderr.write(
-      `Failed: bid-distribution-cli exited ${proc.exitCode}\n`,
-    )
-    if (stderr) process.stderr.write(stderr)
-    process.exit(1)
+    const [code, stderrBuf] = await Promise.all([
+      proc.exited,
+      new Response(proc.stderr).arrayBuffer(),
+    ])
+    const stderr = Buffer.from(stderrBuf).toString()
+    for (const line of stderr.split('\n')) {
+      if (
+        line.includes(' ERROR ') ||
+        line.includes('Adjusted ') ||
+        line.includes('converged at') ||
+        line.includes('adj_max_fee_bps')
+      )
+        process.stderr.write(line + '\n')
+      else if (
+        values.v &&
+        (line.includes('SSR cap') || line.includes('fee: effective:'))
+      )
+        process.stderr.write(line + '\n')
+    }
+    if (code !== 0) {
+      process.stderr.write(`Failed: bid-distribution-cli exited ${code}\n`)
+      if (stderr) process.stderr.write(stderr)
+      process.exit(1)
+    }
+  } finally {
+    rmSync(tmp, { recursive: true })
   }
   return out
 }
 
-console.log('epochs:')
-for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
-  const prodFile = values.c ? fetchProductionSettlement(epoch) : null
-  if (!values.c) fetchInputs(epoch)
-
+async function processEpoch(epoch: number): Promise<string | null> {
   const epochData = ssr.epochs.find(e => e.epoch === epoch)
   if (!epochData) {
     process.stderr.write(`  # epoch ${epoch} not in SSR feed, skipping\n`)
-    continue
+    return null
   }
+
+  const prodFile = values.c ? await fetchProductionSettlement(epoch) : null
+  if (!values.c) await fetchInputs(epoch)
+
   const prev = ssr.epochs.find(e => e.epoch === epoch - 1)
   const epy = prev ? 31557600 / (epochData.time - prev.time) : 182
-
   const yieldPremium = baseCfg.fee_config.min_yield_premium_over_ssr_pmpe
 
-  console.log(`- epoch: ${epoch}`)
-  console.log(`  time: ${new Date(epochData.time * 1000).toISOString()}`)
-  console.log(`  ssr_pmpe: ${epochData.pmpe}`)
-  console.log(`  ssr_apy: ${apy(epochData.pmpe, epy)}`)
+  const out: string[] = []
+  const emit = (s: string) => out.push(s)
+
+  emit(`- epoch: ${epoch}`)
+  emit(`  time: ${new Date(epochData.time * 1000).toISOString()}`)
+  emit(`  ssr_pmpe: ${epochData.pmpe}`)
+  emit(`  ssr_apy: ${apy(epochData.pmpe, epy)}`)
   if (yieldPremium != null) {
     const floorPmpe = epochData.pmpe + yieldPremium
-    console.log(`  min_yield_premium_pmpe: ${yieldPremium}`)
-    console.log(`  min_yield_floor_pmpe: ${floorPmpe.toFixed(6)}`)
-    console.log(`  min_yield_floor_apy: ${apy(floorPmpe, epy)}`)
+    emit(`  min_yield_premium_pmpe: ${yieldPremium}`)
+    emit(`  min_yield_floor_pmpe: ${floorPmpe.toFixed(6)}`)
+    emit(`  min_yield_floor_apy: ${apy(floorPmpe, epy)}`)
   }
   const targetSolArg = values['target-sol'] ?? values.s
   if (targetSolArg !== undefined)
-    console.log(`  target_sol_revenue_sol: ${targetSolArg}`)
+    emit(`  target_sol_revenue_sol: ${targetSolArg}`)
   const infApy = infApyAt(epochData.time)
-  if (infApy !== null) console.log(`  inf_apy: ${infApy.toFixed(2)}%`)
-  console.log(`  epochs_per_year: ${Math.floor(epy)}`)
-  console.log('  simulations:')
+  if (infApy !== null) emit(`  inf_apy: ${infApy.toFixed(2)}%`)
+  emit(`  epochs_per_year: ${Math.floor(epy)}`)
+  emit('  simulations:')
 
   const inp = `${dataDir}/${epoch}/inputs`
-
   const feesToRun = prodFile ? [null] : fees
+
   for (const fee of feesToRun) {
     let cfgText = cfgTemplate
     if (fee != null)
@@ -444,7 +458,6 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
           `$1  target_sol_revenue: ${targetSol}\n`,
         )
       }
-      // Remove min_yield_premium to avoid the mutual-exclusion validation error
       cfgText = cfgText.replace(/^\s*min_yield_premium_over_ssr_pmpe:.*\n/m, '')
     }
     const cfg = loadConfig(cfgText)
@@ -457,7 +470,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     } else {
       const cfgFile = tmpFile()
       await writeFile(cfgFile, cfgText)
-      settlementsJson = runBidDistributionCli(cfgFile, inp)
+      settlementsJson = await runBidDistributionCli(cfgFile, inp)
     }
 
     const {
@@ -544,30 +557,55 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
           }).length
         : null
 
-    console.log(`  - max_fee_bps: ${maxFee}`)
-    console.log(`    min_fee_bps: ${minFee}`)
-    console.log(`    marinade_stake_sol: ${sol(stake)}`)
+    emit(`  - max_fee_bps: ${maxFee}`)
+    emit(`    min_fee_bps: ${minFee}`)
+    emit(`    marinade_stake_sol: ${sol(stake)}`)
     const pmpePreFee = ((totalRewards + stakerExtras) / stake) * 1000
-    console.log(`    pre_fee_pmpe: ${pmpePreFee.toFixed(6)}`)
-    console.log(`    post_fee_pmpe_adj: ${pmpeAdj.toFixed(6)}`)
-    console.log(`    post_fee_pmpe_max: ${pmpeMax.toFixed(6)}`)
-    console.log(`    apy_pre_fee: ${apy(pmpePreFee, epy)}`)
-    console.log(`    apy_adj: ${apy(pmpeAdj, epy)}`)
-    console.log(`    apy_max: ${apy(pmpeMax, epy)}`)
-    console.log(`    fee_sol_adj: ${sol(feeAdj)}`)
-    console.log(`    fee_sol_max: ${sol(feeMax)}`)
-    console.log(`    settlement_sol: ${sol(settlementSol)}`)
+    emit(`    pre_fee_pmpe: ${pmpePreFee.toFixed(6)}`)
+    emit(`    post_fee_pmpe_adj: ${pmpeAdj.toFixed(6)}`)
+    emit(`    post_fee_pmpe_max: ${pmpeMax.toFixed(6)}`)
+    emit(`    apy_pre_fee: ${apy(pmpePreFee, epy)}`)
+    emit(`    apy_adj: ${apy(pmpeAdj, epy)}`)
+    emit(`    apy_max: ${apy(pmpeMax, epy)}`)
+    emit(`    fee_sol_adj: ${sol(feeAdj)}`)
+    emit(`    fee_sol_max: ${sol(feeMax)}`)
+    emit(`    settlement_sol: ${sol(settlementSol)}`)
     if (protectedEventClaims > 0)
-      console.log(`    psr_sol_to_stakers: ${sol(protectedEventClaims)}`)
+      emit(`    psr_sol_to_stakers: ${sol(protectedEventClaims)}`)
     if (penaltyStakerClaims > 0)
-      console.log(`    penalty_sol_to_stakers: ${sol(penaltyStakerClaims)}`)
+      emit(`    penalty_sol_to_stakers: ${sol(penaltyStakerClaims)}`)
     if (nCapped !== null)
-      console.log(`    validators_capped: ${nCapped}/${bidSettlements.length}`)
+      emit(`    validators_capped: ${nCapped}/${bidSettlements.length}`)
     if (nAtMin !== null)
-      console.log(
-        `    validators_at_min_fee: ${nAtMin}/${bidSettlements.length}`,
-      )
-    if (adjMax !== undefined) console.log(`    adj_max_fee_bps: ${adjMax}`)
-    if (adjMin !== undefined) console.log(`    adj_min_fee_bps: ${adjMin}`)
+      emit(`    validators_at_min_fee: ${nAtMin}/${bidSettlements.length}`)
+    if (adjMax !== undefined) emit(`    adj_max_fee_bps: ${adjMax}`)
+    if (adjMin !== undefined) emit(`    adj_min_fee_bps: ${adjMin}`)
   }
+
+  return out.join('\n') + '\n'
+}
+
+// Worker pool: up to 20 epochs run concurrently; output collected and printed in order.
+const CONCURRENCY = 20
+const epochs: number[] = []
+for (let e = epochStart; e <= epochEnd; e++) epochs.push(e)
+
+const results: (string | null)[] = Array.from(
+  { length: epochs.length },
+  () => null,
+)
+let nextIdx = 0
+async function runWorker(): Promise<void> {
+  while (nextIdx < epochs.length) {
+    const i = nextIdx++
+    results[i] = await processEpoch(epochs[i])
+  }
+}
+await Promise.all(
+  Array.from({ length: Math.min(CONCURRENCY, epochs.length) }, runWorker),
+)
+
+console.log('epochs:')
+for (const r of results) {
+  if (r) process.stdout.write(r)
 }
