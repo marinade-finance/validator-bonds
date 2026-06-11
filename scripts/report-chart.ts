@@ -539,160 +539,173 @@ async function main() {
           },
         },
       },
-      // ── Panel 2: Fee per Epoch ────────────────────────────────────────────────
+      // ── Panel 2+3: Fee per Epoch (left) + Fee Extraction by period (right) ─
       {
-        width: 960,
-        height: 150,
-        title: { text: 'Fee per Epoch (SOL)', fontSize: 13 },
-        layer: [
+        spacing: 24,
+        hconcat: [
           {
-            data: { values: gapBands },
-            mark: { type: 'rule', color: '#d8a657', opacity: 0.5, size: 6 },
-            encoding: { x: xEnc },
-          },
-          {
-            data: { values: feeEpochTidy.filter(d => d.series === S_MAXFEE) },
-            mark: {
-              type: 'line',
-              strokeDash: [4, 3] as [number, number],
-              strokeWidth: 1.5,
-              color: C_REF,
-            },
-            encoding: {
-              x: xEnc,
-              y: {
-                field: 'sol',
-                type: 'quantitative' as const,
-                scale: feeSolScale,
-                title: 'SOL',
+            width: 460,
+            height: 210,
+            title: { text: 'Fee per Epoch (SOL)', fontSize: 13 },
+            layer: [
+              {
+                data: { values: gapBands },
+                mark: { type: 'rule', color: '#d8a657', opacity: 0.5, size: 6 },
+                encoding: { x: xEnc },
               },
-            },
-          },
-          {
-            data: { values: feeEpochTidy.filter(d => d.series === S_ADJUSTED) },
-            mark: { type: 'area', opacity: 0.2, color: C_ACTUAL },
-            encoding: {
-              x: xEnc,
-              y: {
-                field: 'sol',
-                type: 'quantitative' as const,
-                scale: feeSolScale,
-              },
-              y2: { datum: 0 },
-            },
-          },
-          {
-            data: { values: feeEpochTidy.filter(d => d.series === S_ADJUSTED) },
-            mark: {
-              type: 'line',
-              strokeWidth: 2,
-              color: C_ACTUAL,
-              point: { filled: true, size: 25, color: C_ACTUAL },
-            },
-            encoding: {
-              x: xEnc,
-              y: {
-                field: 'sol',
-                type: 'quantitative' as const,
-                scale: feeSolScale,
-              },
-            },
-          },
-          ...(minSolRevenue != null
-            ? [
-                {
-                  mark: {
-                    type: 'rule' as const,
-                    color: C_COST,
-                    strokeWidth: 1,
-                    strokeDash: [4, 3] as [number, number],
-                  },
-                  encoding: { y: { datum: minSolRevenue } },
+              {
+                data: {
+                  values: feeEpochTidy.filter(d => d.series === S_MAXFEE),
                 },
-              ]
-            : []),
+                mark: {
+                  type: 'line',
+                  strokeDash: [4, 3] as [number, number],
+                  strokeWidth: 1.5,
+                  color: C_REF,
+                },
+                encoding: {
+                  x: xEnc,
+                  y: {
+                    field: 'sol',
+                    type: 'quantitative' as const,
+                    scale: feeSolScale,
+                    title: 'SOL',
+                  },
+                },
+              },
+              {
+                data: {
+                  values: feeEpochTidy.filter(d => d.series === S_ADJUSTED),
+                },
+                mark: { type: 'area', opacity: 0.2, color: C_ACTUAL },
+                encoding: {
+                  x: xEnc,
+                  y: {
+                    field: 'sol',
+                    type: 'quantitative' as const,
+                    scale: feeSolScale,
+                  },
+                  y2: { datum: 0 },
+                },
+              },
+              {
+                data: {
+                  values: feeEpochTidy.filter(d => d.series === S_ADJUSTED),
+                },
+                mark: {
+                  type: 'line',
+                  strokeWidth: 2,
+                  color: C_ACTUAL,
+                  point: { filled: true, size: 25, color: C_ACTUAL },
+                },
+                encoding: {
+                  x: xEnc,
+                  y: {
+                    field: 'sol',
+                    type: 'quantitative' as const,
+                    scale: feeSolScale,
+                  },
+                },
+              },
+              ...(minSolRevenue != null
+                ? [
+                    {
+                      mark: {
+                        type: 'rule' as const,
+                        color: C_COST,
+                        strokeWidth: 1,
+                        strokeDash: [4, 3] as [number, number],
+                      },
+                      encoding: { y: { datum: minSolRevenue } },
+                    },
+                  ]
+                : []),
+            ],
+          },
+          {
+            width: 460,
+            height: 210,
+            title: {
+              text: `Marinade Fee Extraction by ${useMonth ? 'Month' : 'Week'} (SOL)`,
+              fontSize: 13,
+            },
+            data: { values: feePeriodTidy },
+            layer: [
+              {
+                mark: { type: 'bar' },
+                encoding: {
+                  x: {
+                    field: 'period',
+                    type: 'ordinal',
+                    title: null,
+                    axis: { labelAngle: -35 },
+                    scale: { domain: periodDomain },
+                  },
+                  xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
+                  y: { field: 'sol', type: 'quantitative', title: 'SOL' },
+                  color: {
+                    field: 'series',
+                    scale: {
+                      domain: [S_ADJUSTED, S_MAXFEE],
+                      range: [C_ACTUAL, C_REF],
+                    },
+                    legend: {
+                      title: null,
+                      orient: 'bottom',
+                      direction: 'horizontal',
+                      offset: 48,
+                      symbolType: 'square',
+                      symbolSize: 220,
+                    },
+                  },
+                  ...hollowBar,
+                  stroke: {
+                    field: 'series',
+                    scale: {
+                      domain: [S_ADJUSTED, S_MAXFEE],
+                      range: [C_ACTUAL, C_REF],
+                    },
+                    legend: null,
+                  },
+                },
+              },
+              ...(periodTarget != null
+                ? [
+                    {
+                      mark: {
+                        type: 'rule' as const,
+                        color: C_COST,
+                        strokeWidth: 1.5,
+                        strokeDash: [4, 3] as [number, number],
+                      },
+                      encoding: { y: { datum: periodTarget } },
+                    },
+                    {
+                      data: { values: [{}] },
+                      mark: {
+                        type: 'text' as const,
+                        text: `${Math.round(periodTarget)} SOL ${useMonth ? 'monthly' : 'weekly'} target`,
+                        color: C_COST,
+                        fontSize: 9,
+                        align: 'right' as const,
+                        dx: -4,
+                        dy: -5,
+                      },
+                      encoding: {
+                        x: { value: 460 },
+                        y: {
+                          datum: periodTarget,
+                          type: 'quantitative' as const,
+                        },
+                      },
+                    },
+                  ]
+                : []),
+            ],
+          },
         ],
       },
-      // ── Panel 3: Fee Extraction by period ────────────────────────────────
-      {
-        width: 960,
-        height: 210,
-        title: {
-          text: `Marinade Fee Extraction by ${useMonth ? 'Month' : 'Week'} (SOL)`,
-          fontSize: 13,
-        },
-        data: { values: feePeriodTidy },
-        layer: [
-          {
-            mark: { type: 'bar' },
-            encoding: {
-              x: {
-                field: 'period',
-                type: 'ordinal',
-                title: null,
-                axis: { labelAngle: -35 },
-                scale: { domain: periodDomain },
-              },
-              xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
-              y: { field: 'sol', type: 'quantitative', title: 'SOL' },
-              color: {
-                field: 'series',
-                scale: {
-                  domain: [S_ADJUSTED, S_MAXFEE],
-                  range: [C_ACTUAL, C_REF],
-                },
-                legend: {
-                  title: null,
-                  orient: 'bottom',
-                  direction: 'horizontal',
-                  offset: 48,
-                  symbolType: 'square',
-                  symbolSize: 220,
-                },
-              },
-              ...hollowBar,
-              stroke: {
-                field: 'series',
-                scale: {
-                  domain: [S_ADJUSTED, S_MAXFEE],
-                  range: [C_ACTUAL, C_REF],
-                },
-                legend: null,
-              },
-            },
-          },
-          ...(periodTarget != null
-            ? [
-                {
-                  mark: {
-                    type: 'rule' as const,
-                    color: C_COST,
-                    strokeWidth: 1.5,
-                    strokeDash: [4, 3] as [number, number],
-                  },
-                  encoding: { y: { datum: periodTarget } },
-                },
-                {
-                  data: { values: [{}] },
-                  mark: {
-                    type: 'text' as const,
-                    text: `${Math.round(periodTarget)} SOL ${useMonth ? 'monthly' : 'weekly'} target`,
-                    color: C_COST,
-                    fontSize: 9,
-                    align: 'right' as const,
-                    dx: -4,
-                    dy: -5,
-                  },
-                  encoding: {
-                    x: { value: 960 },
-                    y: { datum: periodTarget, type: 'quantitative' as const },
-                  },
-                },
-              ]
-            : []),
-        ],
-      },
-      // ── Panel 3: Validators (left) + Optimized Fee bps (right) ──────────
+      // ── Panel 4: Validators (left) + Optimized Fee bps (right) ──────────
       {
         spacing: 24,
         resolve: { scale: { color: 'independent' } },
