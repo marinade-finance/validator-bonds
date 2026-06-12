@@ -98,6 +98,7 @@ if (!epochArg) {
 }
 
 const dataDir = values.D ?? values['data-dir']
+const targetSol = values['target-sol'] ?? values.s
 const apyUrl = process.env.APY_API_URL ?? 'https://apy.marinade.finance'
 
 const STAKES_FILE = 'stakes.json'
@@ -130,10 +131,33 @@ const scoringUrl = (epoch: number) => `${SCORING_API}/scores/sam?epoch=${epoch}`
 const binaryPath = values.r
   ? './target/release/bid-distribution-cli'
   : './target/debug/bid-distribution-cli'
-const cli = [binaryPath]
 const apy = (p: number, n: number) =>
   ((Math.pow(1 + p / 1000, n) - 1) * 100).toFixed(2) + '%'
 const sol = (v: number) => (Math.round((v / 1e9) * 1000) / 1000).toFixed(3)
+
+const scratchDir = join(dataDir, 'tmp')
+mkdirSync(scratchDir, { recursive: true })
+const tmps: string[] = []
+function tmpFile() {
+  const p = join(scratchDir, `fee-${randomBytes(6).toString('hex')}.tmp`)
+  tmps.push(p)
+  return p
+}
+function cleanup() {
+  for (const t of tmps)
+    try {
+      rmSync(t, { force: true })
+    } catch {}
+}
+process.on('exit', cleanup)
+process.on('SIGINT', () => {
+  cleanup()
+  process.exit(130)
+})
+process.on('SIGTERM', () => {
+  cleanup()
+  process.exit(143)
+})
 
 const INF_LLAMA =
   'https://yields.llama.fi/chart/3075a746-bdd1-4aac-bcd5-b035abee2622'
@@ -152,6 +176,8 @@ function infApyAt(infPoints: LlamaPoint[], epochTime: number): number | null {
   return bestDiff < 30 * 86400 ? best.apy : null
 }
 
+type SsrEpoch = { epoch: number; pmpe: number; time: number }
+
 type BidConfig = {
   whitelist_stake_authorities?: string[]
   exiting_stake_authorities?: string[]
@@ -159,12 +185,7 @@ type BidConfig = {
     min_fee_bps: number
     max_fee_bps: number
     min_yield_premium_over_ssr_pmpe?: number
-    target_sol_revenue?: number
   }
-}
-
-function loadConfig(yaml: string): BidConfig {
-  return parseYaml(yaml) as BidConfig
 }
 
 async function redelegationStakeFromFile(
@@ -204,7 +225,7 @@ function makePool(cap: number) {
     add(fn: () => Promise<void>) {
       jobs.push(
         new Promise<void>(resolve => {
-          const run = () => {
+          queue.push(() => {
             void fn()
               .catch((e: unknown) =>
                 process.stderr.write(
@@ -216,11 +237,8 @@ function makePool(cap: number) {
                 resolve()
                 next()
               })
-          }
-          if (n < cap) {
-            n++
-            run()
-          } else queue.push(run)
+          })
+          next()
         }),
       )
     },
@@ -228,64 +246,40 @@ function makePool(cap: number) {
   }
 }
 
-async function runGcsCp(src: string, dst: string): Promise<void> {
-  if (values.d) process.stderr.write(`+ gcloud storage cp ${src} ${dst}\n`)
-  const proc = Bun.spawn(['gcloud', 'storage', 'cp', src, dst], {
-    stderr: 'pipe',
-  })
+async function runCmd(cmd: string[], errMsg: string): Promise<void> {
+  if (values.d) process.stderr.write(`+ ${cmd.join(' ')}\n`)
+  const proc = Bun.spawn(cmd, { stderr: 'pipe' })
   const [code, buf] = await Promise.all([
     proc.exited,
     new Response(proc.stderr).arrayBuffer(),
   ])
   if (code !== 0)
-    throw new Error(
-      `gcloud cp failed: ${src}\n${Buffer.from(buf).toString().trim()}`,
-    )
+    throw new Error(`${errMsg}\n${Buffer.from(buf).toString().trim()}`)
 }
 
-async function runHttpGet(url: string, dst: string): Promise<void> {
-  if (values.d) process.stderr.write(`+ curl -sf ${url} -o ${dst}\n`)
-  const proc = Bun.spawn(['curl', '-sf', url, '-o', dst], { stderr: 'pipe' })
-  const [code, buf] = await Promise.all([
-    proc.exited,
-    new Response(proc.stderr).arrayBuffer(),
-  ])
-  if (code !== 0)
-    throw new Error(
-      `curl failed: ${url}\n${Buffer.from(buf).toString().trim()}`,
-    )
+function runGcsCp(src: string, dst: string) {
+  return runCmd(
+    ['gcloud', 'storage', 'cp', src, dst],
+    `gcloud cp failed: ${src}`,
+  )
 }
 
-async function runGzip(f: string): Promise<void> {
-  if (values.d) process.stderr.write(`+ gzip ${f}\n`)
-  const proc = Bun.spawn(['gzip', f], { stderr: 'pipe' })
-  const [code, buf] = await Promise.all([
-    proc.exited,
-    new Response(proc.stderr).arrayBuffer(),
-  ])
-  if (code !== 0)
-    throw new Error(`gzip failed: ${f}\n${Buffer.from(buf).toString().trim()}`)
+function runHttpGet(url: string, dst: string) {
+  return runCmd(['curl', '-sf', url, '-o', dst], `curl failed: ${url}`)
 }
 
-async function runGzipD(src: string, dst: string): Promise<void> {
-  if (values.d) process.stderr.write(`+ gzip -dc ${src} > ${dst}\n`)
-  const proc = Bun.spawn(['sh', '-c', `gzip -dc "${src}" > "${dst}"`], {
-    stderr: 'pipe',
-  })
-  const [code, buf] = await Promise.all([
-    proc.exited,
-    new Response(proc.stderr).arrayBuffer(),
-  ])
-  if (code !== 0)
-    throw new Error(
-      `decompression failed: ${src}\n${Buffer.from(buf).toString().trim()}`,
-    )
+function runGzip(f: string) {
+  return runCmd(['gzip', f], `gzip failed: ${f}`)
 }
 
-async function fetchProductionSettlement(
-  epoch: number,
-  dataDir: string,
-): Promise<string> {
+function runGzipD(src: string, dst: string) {
+  return runCmd(
+    ['sh', '-c', `gzip -dc "${src}" > "${dst}"`],
+    `decompression failed: ${src}`,
+  )
+}
+
+async function fetchProductionSettlement(epoch: number): Promise<string> {
   const dir = join(dataDir, String(epoch))
   const path = join(dir, PROD_FILE)
   if (!existsSync(path)) {
@@ -298,8 +292,6 @@ async function fetchProductionSettlement(
 
 async function downloadEpochInputs(
   epoch: number,
-  dataDir: string,
-  force: boolean,
   gzip: ReturnType<typeof makePool>,
 ): Promise<void> {
   const inp = join(dataDir, String(epoch), 'inputs')
@@ -311,8 +303,8 @@ async function downloadEpochInputs(
     dst: string,
     via: 'gcs' | 'http' = 'gcs',
   ) => {
-    if (!force && existsSync(dst + '.gz')) return
-    if (force) rmSync(dst + '.gz', { force: true })
+    if (!values.f && existsSync(dst + '.gz')) return
+    if (values.f) rmSync(dst + '.gz', { force: true })
     if (!values.d) process.stderr.write(`  ${src}\n`)
     await (via === 'gcs' ? runGcsCp(src, dst) : runHttpGet(src, dst))
     gzip.add(() => runGzip(dst))
@@ -351,8 +343,6 @@ async function downloadEpochInputs(
 async function runBidDistributionCli(
   cfgFile: string,
   inp: string,
-  scratchDir: string,
-  tmpFile: () => string,
 ): Promise<string> {
   const out = tmpFile()
   const tmp = mkdtempSync(join(scratchDir, 'bd-'))
@@ -362,23 +352,20 @@ async function runBidDistributionCli(
       const dst = join(tmp, f)
       mkdirSync(dirname(dst), { recursive: true })
       if (existsSync(src + '.gz')) await runGzipD(src + '.gz', dst)
-      else {
-        const cc = await Bun.spawn(['cp', src, dst], { stderr: 'pipe' }).exited
-        if (cc !== 0) throw new Error(`cp failed: ${src}`)
-      }
+      else await runCmd(['cp', src, dst], `cp failed: ${src}`)
     }
     const cliArgs = [
-      ...cli,
+      binaryPath,
       '--settlement-config',
       cfgFile,
       '--stake-meta-collection',
       `${tmp}/${STAKES_FILE}`,
       '--sam-meta-collection',
-      `${tmp}/sam-scores.json`,
+      `${tmp}/${SAM_FILE}`,
       '--rewards-dir',
       `${tmp}/rewards`,
       '--validator-meta-collection',
-      `${tmp}/validators.json`,
+      `${tmp}/${VALIDATORS_FILE}`,
       '--revenue-expectation-collection',
       `${tmp}/evaluation.json`,
       '--output-settlement-collection',
@@ -432,27 +419,22 @@ async function runBidDistributionCli(
 
 async function processEpoch(
   epoch: number,
-  ssr: { epochs: { epoch: number; pmpe: number; time: number }[] },
+  ssrEpochs: SsrEpoch[],
   infPoints: LlamaPoint[],
   cfgTemplate: string,
-  baseCfg: BidConfig,
-  dataDir: string,
-  scratchDir: string,
-  tmpFile: () => string,
 ): Promise<string | null> {
-  const epochData = ssr.epochs.find(e => e.epoch === epoch)
+  const epochData = ssrEpochs.find(e => e.epoch === epoch)
   if (!epochData) {
     process.stderr.write(`epoch ${epoch}: not in SSR feed, skipping\n`)
     return null
   }
 
-  const prodFile = values.c
-    ? await fetchProductionSettlement(epoch, dataDir)
-    : null
+  const prodFile = values.c ? await fetchProductionSettlement(epoch) : null
 
-  const prev = ssr.epochs.find(e => e.epoch === epoch - 1)
+  const prev = ssrEpochs.find(e => e.epoch === epoch - 1)
   const epy = prev ? 31557600 / (epochData.time - prev.time) : 182
-  const yieldPremium = baseCfg.fee_config.min_yield_premium_over_ssr_pmpe
+  const yieldPremium = (parseYaml(cfgTemplate) as BidConfig).fee_config
+    .min_yield_premium_over_ssr_pmpe
 
   const out: string[] = []
 
@@ -466,7 +448,6 @@ async function processEpoch(
     out.push(`  min_yield_floor_pmpe: ${floorPmpe.toFixed(6)}`)
     out.push(`  min_yield_floor_apy: ${apy(floorPmpe, epy)}`)
   }
-  const targetSol = values['target-sol'] ?? values.s
   if (targetSol !== undefined)
     out.push(`  target_sol_revenue_sol: ${targetSol}`)
   const infApy = infApyAt(infPoints, epochData.time)
@@ -474,13 +455,13 @@ async function processEpoch(
   out.push(`  epochs_per_year: ${Math.floor(epy)}`)
   out.push('  simulations:')
 
-  const inp = `${dataDir}/${epoch}/inputs`
+  const inp = join(dataDir, String(epoch), 'inputs')
   const feesToRun = prodFile ? [null] : fees
 
   for (const fee of feesToRun) {
     let cfgText = cfgTemplate
     if (fee != null)
-      cfgText = cfgTemplate.replace(/(max_fee_bps:)\s*\d+/, `$1 ${fee}`)
+      cfgText = cfgText.replace(/(max_fee_bps:)\s*\d+/, `$1 ${fee}`)
     if (values.m !== undefined)
       cfgText = cfgText.replace(/(min_fee_bps:)\s*\d+/, `$1 ${values.m}`)
     if (targetSol !== undefined) {
@@ -497,7 +478,7 @@ async function processEpoch(
       }
       cfgText = cfgText.replace(/^\s*min_yield_premium_over_ssr_pmpe:.*\n/m, '')
     }
-    const cfg = loadConfig(cfgText)
+    const cfg = parseYaml(cfgText) as BidConfig
     const minFee = cfg.fee_config.min_fee_bps
     const maxFee = cfg.fee_config.max_fee_bps
 
@@ -508,12 +489,7 @@ async function processEpoch(
       process.stderr.write(`epoch ${epoch}: running cli [${maxFee} bps]\n`)
       const cfgFile = tmpFile()
       writeFileSync(cfgFile, cfgText)
-      settlementsJson = await runBidDistributionCli(
-        cfgFile,
-        inp,
-        scratchDir,
-        tmpFile,
-      )
+      settlementsJson = await runBidDistributionCli(cfgFile, inp)
     }
 
     const {
@@ -646,9 +622,7 @@ async function main() {
     process.stderr.write('Failed: fetch SSR\n')
     process.exit(1)
   }
-  const ssr = (await ssrRes.json()) as {
-    epochs: { epoch: number; pmpe: number; time: number }[]
-  }
+  const ssr = (await ssrRes.json()) as { epochs: SsrEpoch[] }
 
   const infRes = await fetch(INF_LLAMA)
   const infPoints: LlamaPoint[] = infRes.ok
@@ -657,7 +631,6 @@ async function main() {
     : []
 
   const cfgTemplate = await Bun.file('./settlement-config.yaml').text()
-  const baseCfg = loadConfig(cfgTemplate)
 
   if (!existsSync(binaryPath)) {
     process.stderr.write(
@@ -666,40 +639,13 @@ async function main() {
     process.exit(1)
   }
 
-  const scratchDir = join(dataDir, 'tmp')
-  mkdirSync(scratchDir, { recursive: true })
-  const tmps: string[] = []
-  const cleanup = () => {
-    for (const t of tmps)
-      try {
-        rmSync(t, { force: true })
-      } catch {}
-  }
-  process.on('exit', cleanup)
-  process.on('SIGINT', () => {
-    cleanup()
-    process.exit(130)
-  })
-  process.on('SIGTERM', () => {
-    cleanup()
-    process.exit(143)
-  })
-  function tmpFile() {
-    const p = join(scratchDir, `fee-${randomBytes(6).toString('hex')}.tmp`)
-    tmps.push(p)
-    return p
-  }
-
   const gzip = makePool(8)
 
   const CONCURRENCY = values.n ? Number(values.n) : 4
   const epochs: number[] = []
   for (let e = epochStart; e <= epochEnd; e++) epochs.push(e)
 
-  const results: (string | null)[] = Array.from(
-    { length: epochs.length },
-    () => null,
-  )
+  const results: (string | null)[] = epochs.map(() => null)
   const failed: number[] = []
 
   // Phase 1: download inputs sequentially (one file at a time), gzip in background
@@ -707,7 +653,7 @@ async function main() {
     process.stderr.write(`fetching inputs for ${epochs.length} epochs...\n`)
     for (const epoch of epochs) {
       try {
-        await downloadEpochInputs(epoch, dataDir, values.f ?? false, gzip)
+        await downloadEpochInputs(epoch, gzip)
       } catch (err) {
         process.stderr.write(
           `Failed: epoch ${epoch} fetch — ${err instanceof Error ? err.message : String(err)}\n`,
@@ -724,19 +670,13 @@ async function main() {
   let doneCount = 0
   async function runWorker(): Promise<void> {
     while (nextIdx < toCompute.length) {
-      const i = nextIdx++
-      const epoch = toCompute[i]
-      const origIdx = epochs.indexOf(epoch)
+      const epoch = toCompute[nextIdx++]
       try {
-        results[origIdx] = await processEpoch(
+        results[epoch - epochStart] = await processEpoch(
           epoch,
-          ssr,
+          ssr.epochs,
           infPoints,
           cfgTemplate,
-          baseCfg,
-          dataDir,
-          scratchDir,
-          tmpFile,
         )
         process.stderr.write(
           `epoch ${epoch} done [${++doneCount}/${toCompute.length}]\n`,
