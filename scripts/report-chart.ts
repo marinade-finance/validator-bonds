@@ -1,6 +1,5 @@
 #!/usr/bin/env bun
-/* eslint-disable import/no-extraneous-dependencies */
-/* eslint-disable n/no-process-exit */
+/* eslint-disable import/no-extraneous-dependencies, n/no-process-exit */
 import * as fs from 'node:fs'
 
 import sharp from 'sharp'
@@ -76,7 +75,7 @@ const S_MAXFEE = 'Max-fee cap'
 const S_SSR = 'SSR baseline'
 
 function pct(s: string | number): number {
-  return parseFloat(String(s).replace('%', ''))
+  return parseFloat(String(s))
 }
 
 function ratio(s: string | number | undefined): number {
@@ -118,10 +117,8 @@ function loadMinSolRevenue(): number | null {
 }
 
 function load() {
-  const data = parseYaml(
-    fs.readFileSync(REPORT, 'utf8'),
-  ) as unknown as ReportYaml
-  let maxFeeBps = 800
+  const data = parseYaml(fs.readFileSync(REPORT, 'utf8')) as ReportYaml
+  let maxFeeBps = 0
   const rows = data.epochs.flatMap(e => {
     const sim = e.simulations?.[0]
     if (!sim) return []
@@ -718,7 +715,7 @@ async function main() {
         data: { values: [{}] },
         mark: {
           type: 'text',
-          text: `max_fee_bps = ${String(maxFeeBps)} · source: ${REPORT}`,
+          text: `max_fee_bps = ${maxFeeBps} · source: ${REPORT}`,
           color: '#999',
           fontSize: 9,
           align: 'center',

@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 /* eslint-disable n/no-process-exit, import/no-extraneous-dependencies */
 
 import { readFileSync } from 'node:fs'
@@ -22,7 +23,7 @@ async function main() {
     process.argv.slice(2)
   if (!settlementsFile) {
     process.stderr.write(
-      'Usage: tsx scripts/fee-annotation.ts <settlements.json> [settlement-config.yaml]\n',
+      'Usage: bun scripts/fee-annotation.ts <settlements.json> [settlement-config.yaml]\n',
     )
     process.exit(2)
   }
@@ -135,7 +136,7 @@ async function main() {
   const feesSol = fees / 1e9
   const feesFull = (gross * maxFeeBps) / 10000 / 1e9
   const apyFor = (p: number) =>
-    (Math.exp(epochsPerYear * Math.log(1 + p / 1000)) - 1) * 100
+    (Math.pow(1 + p / 1000, epochsPerYear) - 1) * 100
   const apyGross = apyFor(pmpeGross)
   const apyAdj = apyFor(pmpeAdj)
   const apyMax = apyFor(pmpeMax)
