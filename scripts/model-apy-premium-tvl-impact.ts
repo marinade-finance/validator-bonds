@@ -9,9 +9,27 @@ import { compile } from 'vega-lite'
 
 import type { TopLevelSpec } from 'vega-lite'
 
+// Does Marinade Native's APY premium over SSR drive net inflow? Monthly model:
+//   net_flow(t) ~ premium[last month] + premium[last quarter] + premium[last year]
+//                 + Δprice(t)
+// net_flow = Δlog(TVL in SOL) minus mechanical reward drift (TVL compounds by the
+// staking yield every epoch regardless of flows). Premium enters at three trailing
+// horizons (non-overlapping age bands) so we can see whether recent or sustained
+// premium matters. Each is the AVERAGE premium over that band, in percentage points.
+// Effects are reported per +10bps because 100bps of premium is a huge, costly lever.
+
 const CACHE = './tmp/model-apy-cache.json'
 const OUT = './report/model-apy-premium-tvl-impact.png'
+const MONTH = 30 * 86400
 const useCache = process.argv.includes('--cache')
+
+// non-overlapping age bands of monthly premium, in months back
+const HORIZONS = [
+  { name: 'last month', lags: [1] },
+  { name: 'last quarter', lags: [2, 3] },
+  { name: 'last year', lags: [4, 5, 6, 7, 8, 9, 10, 11, 12] },
+]
+const PREM_COLS = HORIZONS.map((_, j) => 1 + j) // their columns in the design
 
 // ── API shapes ────────────────────────────────────────────────────────────────
 
@@ -75,17 +93,15 @@ async function loadData(): Promise<CacheData> {
   return data
 }
 
-// ── Data joining ──────────────────────────────────────────────────────────────
+// ── Monthly aggregation ─────────────────────────────────────────────────────
 
-type EpochRow = {
+type MonthRow = {
   epoch: number
   time: number
-  marinade: number
-  ssr: number
-  premium_bps: number
-  tvl_usd: number
-  sol_price: number
-  tvl_sol: number
+  premBps: number // mean native − SSR over the month, in bps
+  apy: number // mean native APY over the month
+  tvlSol: number // end-of-month TVL in SOL
+  price: number // end-of-month SOL price
 }
 
 function nearest<T>(
@@ -106,61 +122,86 @@ function nearest<T>(
   return bestDiff <= maxDeltaSec ? best : null
 }
 
-function joinData(data: CacheData): EpochRow[] {
+function buildMonths(data: CacheData): MonthRow[] {
   const ssrMap = new Map(data.ssr.map(e => [e.epoch, e.apy]))
-  const rows: EpochRow[] = []
   const maxDelta = 3 * 86400
+  type Joined = {
+    epoch: number
+    time: number
+    prem: number
+    apy: number
+    tvlSol: number
+    price: number
+  }
+  const groups = new Map<number, Joined[]>()
 
   for (const ep of data.native) {
     const ssr = ssrMap.get(ep.epoch)
-    if (ssr == null) continue
-    const tvlEntry = nearest(data.tvl, ep.time, v => v.date, maxDelta)
-    const priceEntry = nearest(data.prices, ep.time, v => v.timestamp, maxDelta)
-    if (!tvlEntry || !priceEntry) continue
-    const solPrice = priceEntry.price
-    const tvlUsd = tvlEntry.totalLiquidityUSD
-    rows.push({
+    const tvl = nearest(data.tvl, ep.time, v => v.date, maxDelta)
+    const price = nearest(data.prices, ep.time, v => v.timestamp, maxDelta)
+    if (ssr == null || !tvl || !price) continue
+    const key = Math.floor(ep.time / MONTH)
+    const list = groups.get(key) ?? []
+    list.push({
       epoch: ep.epoch,
       time: ep.time,
-      marinade: ep.apy,
-      ssr,
-      premium_bps: (ep.apy - ssr) * 10000,
-      tvl_usd: tvlUsd,
-      sol_price: solPrice,
-      tvl_sol: tvlUsd / solPrice,
+      prem: (ep.apy - ssr) * 10000,
+      apy: ep.apy,
+      tvlSol: tvl.totalLiquidityUSD / price.price,
+      price: price.price,
+    })
+    groups.set(key, list)
+  }
+
+  const months: MonthRow[] = []
+  for (const list of groups.values()) {
+    const last = list[list.length - 1]
+    months.push({
+      epoch: last.epoch,
+      time: last.time,
+      premBps: mean(list, j => j.prem),
+      apy: mean(list, j => j.apy),
+      tvlSol: last.tvlSol, // end-of-month level for the growth calc
+      price: last.price,
     })
   }
-
-  rows.sort((a, b) => a.epoch - b.epoch)
-  return rows
+  return months.sort((a, b) => a.time - b.time)
 }
 
-// ── Rolling average ───────────────────────────────────────────────────────────
+function mean<T>(arr: T[], f: (v: T) => number): number {
+  return arr.reduce((s, v) => s + f(v), 0) / arr.length
+}
 
-function rollingAvg(rows: EpochRow[], windowDays: number): (number | null)[] {
-  const out: (number | null)[] = new Array<number | null>(rows.length).fill(
-    null,
-  )
-  for (let i = 0; i < rows.length; i++) {
-    const tEnd = rows[i].time
-    const tStart = tEnd - windowDays * 86400
-    let sum = 0
-    let cnt = 0
-    for (let j = i; j >= 0 && rows[j].time >= tStart; j--) {
-      sum += rows[j].premium_bps
-      cnt++
-    }
-    if (cnt > 0) out[i] = sum / cnt
+// ── Design matrix ───────────────────────────────────────────────────────────
+
+type Design = { X: number[][]; y: number[]; names: string[] }
+
+function buildDesign(months: MonthRow[]): Design {
+  const ret = (i: number) => Math.log(months[i].price / months[i - 1].price)
+  // average premium over an age band, in percentage points
+  const band = (i: number, lags: number[]) =>
+    mean(lags, l => months[i - l].premBps) / 100
+  const X: number[][] = []
+  const y: number[] = []
+  const start = Math.max(...HORIZONS.flatMap(h => h.lags))
+  for (let i = start; i < months.length; i++) {
+    const days = (months[i].time - months[i - 1].time) / 86400
+    const growth = Math.log(months[i].tvlSol / months[i - 1].tvlSol)
+    const mechanical = months[i].apy * (days / 365) // rewards compound regardless
+    y.push(growth - mechanical)
+    X.push([1, ...HORIZONS.map(h => band(i, h.lags)), ret(i)])
   }
-  return out
+  const names = ['intercept', ...HORIZONS.map(h => h.name), 'Δprice(t)']
+  return { X, y, names }
 }
 
-// ── OLS regression ────────────────────────────────────────────────────────────
+// ── OLS with coefficient covariance ─────────────────────────────────────────
 
 type OlsResult = {
   beta: number[]
   se: number[]
   tstat: number[]
+  cov: number[][]
   rSquared: number
   n: number
 }
@@ -168,41 +209,42 @@ type OlsResult = {
 function ols(X: number[][], y: number[]): OlsResult {
   const n = y.length
   const k = X[0].length
-
-  // X'X
   const XtX: number[][] = Array.from({ length: k }, () =>
     new Array<number>(k).fill(0),
   )
-  for (let i = 0; i < n; i++)
-    for (let a = 0; a < k; a++)
-      for (let b = 0; b < k; b++) XtX[a][b] += X[i][a] * X[i][b]
-
-  // X'y
   const Xty: number[] = new Array<number>(k).fill(0)
   for (let i = 0; i < n; i++)
-    for (let a = 0; a < k; a++) Xty[a] += X[i][a] * y[i]
-
-  // Invert XtX via Gauss-Jordan
+    for (let a = 0; a < k; a++) {
+      Xty[a] += X[i][a] * y[i]
+      for (let b = 0; b < k; b++) XtX[a][b] += X[i][a] * X[i][b]
+    }
   const inv = invertMatrix(XtX)
-
-  // beta = inv(X'X) * X'y
   const beta: number[] = new Array<number>(k).fill(0)
   for (let a = 0; a < k; a++)
     for (let b = 0; b < k; b++) beta[a] += inv[a][b] * Xty[b]
 
-  // Residuals, RSS, R²
-  const yhat = X.map(row => row.reduce((s, v, j) => s + v * beta[j], 0))
   const ybar = y.reduce((s, v) => s + v, 0) / n
   let rss = 0
   let tss = 0
   for (let i = 0; i < n; i++) {
-    rss += (y[i] - yhat[i]) ** 2
+    const yhat = X[i].reduce((s, v, j) => s + v * beta[j], 0)
+    rss += (y[i] - yhat) ** 2
     tss += (y[i] - ybar) ** 2
   }
   const s2 = rss / (n - k)
-  const se = inv.map((row, a) => Math.sqrt(s2 * row[a]))
+  const cov = inv.map(row => row.map(v => v * s2))
+  const se = cov.map((row, a) => Math.sqrt(row[a]))
   const tstat = beta.map((b, a) => b / se[a])
-  return { beta, se, tstat, rSquared: 1 - rss / tss, n }
+  return { beta, se, tstat, cov, rSquared: 1 - rss / tss, n }
+}
+
+// estimate + t-stat of a linear combination wᵀβ, joint SE from the covariance
+function linComb(fit: OlsResult, w: number[]): { beta: number; t: number } {
+  const beta = w.reduce((s, wi, i) => s + wi * fit.beta[i], 0)
+  let varSum = 0
+  for (let i = 0; i < w.length; i++)
+    for (let j = 0; j < w.length; j++) varSum += w[i] * w[j] * fit.cov[i][j]
+  return { beta, t: beta / Math.sqrt(varSum) }
 }
 
 function invertMatrix(m: number[][]): number[][] {
@@ -213,7 +255,6 @@ function invertMatrix(m: number[][]): number[][] {
     return r
   })
   for (let col = 0; col < n; col++) {
-    // Pivot
     let maxRow = col
     for (let row = col + 1; row < n; row++)
       if (Math.abs(aug[row][col]) > Math.abs(aug[maxRow][col])) maxRow = row
@@ -230,170 +271,81 @@ function invertMatrix(m: number[][]): number[][] {
   return aug.map(row => row.slice(n))
 }
 
-// ── AR(1) fit ─────────────────────────────────────────────────────────────────
+// ── effect helpers ──────────────────────────────────────────────────────────
 
-function fitAr1(series: number[]): number {
-  const y = series.slice(1)
-  const x = series.slice(0, -1)
-  const n = y.length
-  const xbar = x.reduce((s, v) => s + v, 0) / n
-  const ybar = y.reduce((s, v) => s + v, 0) / n
-  let num = 0
-  let den = 0
-  for (let i = 0; i < n; i++) {
-    num += (x[i] - xbar) * (y[i] - ybar)
-    den += (x[i] - xbar) ** 2
-  }
-  return num / den
-}
-
-// ── Autocorrelation ───────────────────────────────────────────────────────────
-
-function autocorr(series: number[], maxLag: number): number[] {
-  const n = series.length
-  const mean = series.reduce((s, v) => s + v, 0) / n
-  const denom = series.reduce((s, v) => s + (v - mean) ** 2, 0)
-  return Array.from({ length: maxLag }, (_, lag) => {
-    let num = 0
-    for (let i = lag + 1; i < n; i++)
-      num += (series[i] - mean) * (series[i - lag - 1] - mean)
-    return num / denom
-  })
+// +10bps = +0.1pp; β is net-flow (log) per pp ⇒ %/month = β·0.1·100 = β.
+// per-horizon effect of +10bps:
+function effect10(beta: number): number {
+  return beta * 0.1 * 100
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
   const data = await loadData()
-  const rows = joinData(data)
-  if (rows.length < 10)
-    throw new Error(`too few joined rows: ${String(rows.length)}`)
-
-  // Rolling avg
-  const roll4w = rollingAvg(rows, 28)
-
-  // Build regression dataset from rows[t], rows[t-1], rows[t-2]
-  type RegRow = {
-    dLogTvl: number
-    premium0: number
-    premium1: number
-    premium2: number
-    dLogSol: number
-    solPrice: number
-  }
-  const regRows: RegRow[] = []
-  for (let i = 2; i < rows.length; i++) {
-    const r = rows[i]
-    const r1 = rows[i - 1]
-    const r2 = rows[i - 2]
-    if (r.tvl_sol <= 0 || r1.tvl_sol <= 0) continue
-    if (r.sol_price <= 0 || r1.sol_price <= 0) continue
-    regRows.push({
-      dLogTvl: Math.log(r.tvl_sol) - Math.log(r1.tvl_sol),
-      premium0: r.premium_bps,
-      premium1: r1.premium_bps,
-      premium2: r2.premium_bps,
-      dLogSol: Math.log(r.sol_price) - Math.log(r1.sol_price),
-      solPrice: r.sol_price,
-    })
-  }
-
-  // OLS
-  const X = regRows.map(r => [1, r.premium0, r.premium1, r.premium2, r.dLogSol])
-  const y = regRows.map(r => r.dLogTvl)
+  const months = buildMonths(data)
+  const { X, y, names } = buildDesign(months)
+  if (y.length < 12) throw new Error(`too few months: ${String(y.length)}`)
   const fit = ols(X, y)
-  const [b0, b1, b2, b3, b4] = fit.beta
-  const [se0, se1, se2, se3, se4] = fit.se
-  const [t0, t1, t2, t3, t4] = fit.tstat
 
-  // AR(1) on premium
-  const premiums = rows.map(r => r.premium_bps)
-  const phi = fitAr1(premiums)
+  // headline: a sustained +10bps premium across ALL horizons (long-run multiplier)
+  const wAll = fit.beta.map((_, i) => (PREM_COLS.includes(i) ? 1 : 0))
+  const sustained = linComb(fit, wAll)
+  const perMonth = effect10(sustained.beta)
+  const perYear = ((1 + perMonth / 100) ** 12 - 1) * 100
 
-  // Autocorrelation
-  const acf = autocorr(premiums, 12)
+  console.log(`MONTHLY  n=${String(fit.n)}  R²=${fit.rSquared.toFixed(3)}\n`)
+  console.log('  horizon         +10bps→%/mo      beta        t    sig')
+  fit.beta.forEach((b, i) => {
+    const eff = PREM_COLS.includes(i)
+      ? `${effect10(b).toFixed(2)}%`.padStart(8)
+      : '       —'
+    const sig = Math.abs(fit.tstat[i]) > 2 ? 'SIG' : '·'
+    console.log(
+      `  ${names[i].padEnd(13)} ${eff}   ${b.toExponential(2).padStart(10)}` +
+        ` ${fit.tstat[i].toFixed(2).padStart(6)}  ${sig}`,
+    )
+  })
+  console.log(
+    `\n  sustained +10bps (all horizons) → ${perMonth.toFixed(2)}%/month` +
+      ` (~${perYear.toFixed(1)}%/yr)   [t=${sustained.t.toFixed(2)}]`,
+  )
 
-  // Impulse response: +100bps shock at t=0, 30 epochs
-  const shock = 100
-  const irf: { epoch: number; cumLogTvl: number }[] = []
-  let cum = 0
-  let p0 = shock
-  let p1 = 0
-  let p2 = 0
-  for (let t = 0; t < 30; t++) {
-    const dLog = b1 * p0 + b2 * p1 + b3 * p2
-    cum += dLog
-    irf.push({ epoch: t, cumLogTvl: cum })
-    p2 = p1
-    p1 = p0
-    p0 = shock * phi ** (t + 1)
-  }
-  const irfFinal = irf[irf.length - 1].cumLogTvl
+  await renderChart(months, fit, perMonth)
+  writeSummary(fit, names, perMonth, perYear, sustained.t)
+}
 
-  // SOL price quartile coloring for scatter
-  const prices = regRows.map(r => r.solPrice).sort((a, b) => a - b)
-  const q25 = prices[Math.floor(prices.length * 0.25)]
-  const q50 = prices[Math.floor(prices.length * 0.5)]
-  const q75 = prices[Math.floor(prices.length * 0.75)]
-  const priceQuartile = (p: number) => {
-    if (p < q25) return 'Q1 (low)'
-    if (p < q50) return 'Q2'
-    if (p < q75) return 'Q3'
-    return 'Q4 (high)'
-  }
+// ── Chart ───────────────────────────────────────────────────────────────────
 
-  // OLS regression line for scatter (x range)
-  const pMin = Math.min(...regRows.map(r => r.premium0))
-  const pMax = Math.max(...regRows.map(r => r.premium0))
-  const olsLine = [
-    { premium: pMin, dLogTvl: b0 + b1 * pMin },
-    { premium: pMax, dLogTvl: b0 + b1 * pMax },
-  ]
-
-  // Build chart data arrays
-  const tvlData = rows.map(r => ({
-    epoch: r.epoch,
-    tvl_sol_m: r.tvl_sol / 1e6,
-  }))
-
-  type ScatterPt = { premium: number; dLogTvl: number; priceQ: string }
-  const scatterData: ScatterPt[] = regRows.map(r => ({
-    premium: r.premium0,
-    dLogTvl: r.dLogTvl,
-    priceQ: priceQuartile(r.solPrice),
-  }))
-
-  type AcfPt = { lag: number; acf: number; sig: boolean }
-  const sigBand = 2 / Math.sqrt(rows.length)
-  const acfData: AcfPt[] = acf.map((v, i) => ({
-    lag: i + 1,
-    acf: v,
-    sig: Math.abs(v) > sigBand,
-  }))
-  const acfBands = [
-    { y: sigBand, label: '+2/√n' },
-    { y: -sigBand, label: '-2/√n' },
-  ]
-
+async function renderChart(
+  months: MonthRow[],
+  fit: OlsResult,
+  perMonth: number,
+) {
   const C_PREMIUM = '#4682b4'
-  const C_ROLL = '#e07b39'
   const C_TVL = '#2e8b57'
-  const C_Q1 = '#7b68ee'
-  const C_Q2 = '#4682b4'
-  const C_Q3 = '#e09b20'
-  const C_Q4 = '#c94040'
-  const C_OLS = '#333'
-  const C_ACF_SIG = '#c94040'
-  const C_ACF_INSIG = '#999'
-  const C_IRF = '#2e8b57'
+  const C_BAR = '#e07b39'
 
-  const epochMin = rows[0].epoch
-  const epochMax = rows[rows.length - 1].epoch
-  const title = `Marinade Native APY Premium vs TVL · Epochs ${String(epochMin)}–${String(epochMax)}`
+  const series = months.map(m => ({
+    epoch: m.epoch,
+    premium: m.premBps,
+    tvl: m.tvlSol / 1e6,
+  }))
+  const effects = HORIZONS.map((h, j) => ({
+    horizon: h.name,
+    effect: effect10(fit.beta[1 + j] ?? 0),
+  }))
+
+  const epochMin = months[0].epoch
+  const epochMax = months[months.length - 1].epoch
+  const title =
+    'Marinade Native APY Premium → TVL · monthly · epochs ' +
+    `${String(epochMin)}–${String(epochMax)} · sustained +10bps ≈ ` +
+    `${perMonth.toFixed(2)}%/mo`
 
   const spec: TopLevelSpec = {
     $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
-    title: { text: title, fontSize: 15, fontWeight: 'bold', offset: 10 },
+    title: { text: title, fontSize: 14, fontWeight: 'bold', offset: 10 },
     background: 'white',
     config: {
       view: { stroke: null },
@@ -403,25 +355,20 @@ async function main() {
         labelFontSize: 11,
         titleFontSize: 12,
       },
-      legend: { labelFontSize: 11, symbolStrokeWidth: 2, symbolSize: 200 },
     },
     spacing: 36,
     vconcat: [
-      // ── Panel 1: APY premium + rolling avg + TVL ──────────────────────────
       {
-        width: 1300,
+        width: 1100,
         height: 260,
         title: {
-          text: 'Marinade Native APY Premium vs SSR and TVL',
+          text: 'Monthly APY premium (bps) and TVL (M SOL)',
           fontSize: 13,
         },
         resolve: { scale: { y: 'independent' } },
         layer: [
-          // Premium bars
           {
-            data: {
-              values: rows.map(r => ({ epoch: r.epoch, value: r.premium_bps })),
-            },
+            data: { values: series },
             mark: { type: 'bar', color: C_PREMIUM, opacity: 0.45 },
             encoding: {
               x: {
@@ -431,29 +378,15 @@ async function main() {
                 axis: { format: 'd' },
               },
               y: {
-                field: 'value',
+                field: 'premium',
                 type: 'quantitative',
-                title: 'APY Premium (bps)',
+                title: 'APY premium (bps)',
                 axis: { labelColor: C_PREMIUM, titleColor: C_PREMIUM },
               },
             },
           },
-          // Rolling avg line
           {
-            data: {
-              values: rows
-                .map((r, i) => ({ epoch: r.epoch, value: roll4w[i] }))
-                .filter(d => d.value != null),
-            },
-            mark: { type: 'line', color: C_ROLL, strokeWidth: 2.5 },
-            encoding: {
-              x: { field: 'epoch', type: 'quantitative' },
-              y: { field: 'value', type: 'quantitative' },
-            },
-          },
-          // TVL line (right axis)
-          {
-            data: { values: tvlData },
+            data: { values: series },
             mark: {
               type: 'line',
               color: C_TVL,
@@ -463,7 +396,7 @@ async function main() {
             encoding: {
               x: { field: 'epoch', type: 'quantitative' },
               y: {
-                field: 'tvl_sol_m',
+                field: 'tvl',
                 type: 'quantitative',
                 title: 'TVL (M SOL)',
                 axis: { labelColor: C_TVL, titleColor: C_TVL, orient: 'right' },
@@ -472,130 +405,26 @@ async function main() {
           },
         ],
       },
-      // ── Panels 2 + 3 side by side ─────────────────────────────────────────
       {
-        spacing: 40,
-        resolve: { color: { scale: 'independent', legend: 'independent' } },
-        hconcat: [
-          // ── Panel 2: Scatter premium vs ΔlogTVL ────────────────────────────
-          {
-            width: 600,
-            height: 300,
-            title: { text: 'APY Premium → TVL Change', fontSize: 13 },
-            layer: [
-              {
-                data: { values: scatterData },
-                mark: { type: 'point', size: 50, opacity: 0.7 },
-                encoding: {
-                  x: {
-                    field: 'premium',
-                    type: 'quantitative',
-                    title: 'APY Premium (bps)',
-                  },
-                  y: {
-                    field: 'dLogTvl',
-                    type: 'quantitative',
-                    title: 'ΔlogTVL (SOL)',
-                  },
-                  color: {
-                    field: 'priceQ',
-                    type: 'nominal',
-                    title: 'SOL price quartile',
-                    scale: {
-                      domain: ['Q1 (low)', 'Q2', 'Q3', 'Q4 (high)'],
-                      range: [C_Q1, C_Q2, C_Q3, C_Q4],
-                    },
-                    legend: {
-                      orient: 'bottom',
-                      direction: 'horizontal',
-                      title: 'SOL price quartile',
-                    },
-                  },
-                },
-              },
-              {
-                data: { values: olsLine },
-                mark: {
-                  type: 'line',
-                  color: C_OLS,
-                  strokeWidth: 2,
-                  strokeDash: [6, 3],
-                },
-                encoding: {
-                  x: { field: 'premium', type: 'quantitative' },
-                  y: { field: 'dLogTvl', type: 'quantitative' },
-                },
-              },
-            ],
-          },
-          // ── Panel 3: Autocorrelation ───────────────────────────────────────
-          {
-            width: 600,
-            height: 300,
-            title: {
-              text: 'APY Premium Persistence (autocorrelation)',
-              fontSize: 13,
-            },
-            layer: [
-              {
-                data: { values: acfData },
-                mark: { type: 'bar', size: 28 },
-                encoding: {
-                  x: { field: 'lag', type: 'ordinal', title: 'Lag (epochs)' },
-                  y: {
-                    field: 'acf',
-                    type: 'quantitative',
-                    title: 'ACF',
-                    scale: { domain: [-0.4, 1] },
-                  },
-                  color: {
-                    condition: { test: 'datum.sig', value: C_ACF_SIG },
-                    value: C_ACF_INSIG,
-                  },
-                },
-              },
-              ...acfBands.map(b => ({
-                data: { values: [b] },
-                mark: {
-                  type: 'rule' as const,
-                  strokeDash: [5, 3],
-                  strokeWidth: 1.2,
-                  color: '#555',
-                },
-                encoding: {
-                  y: { field: 'y', type: 'quantitative' as const },
-                },
-              })),
-            ],
-          },
-        ],
-      },
-      // ── Panel 4: Impulse response ─────────────────────────────────────────
-      {
-        width: 1300,
+        width: 1100,
         height: 220,
         title: {
-          text: 'Impulse Response: +100bps Premium Shock',
+          text: 'Net-flow effect of +10bps premium, by horizon (%/month)',
           fontSize: 13,
         },
-        data: { values: irf },
-        mark: {
-          type: 'area',
-          color: C_IRF,
-          opacity: 0.6,
-          line: { color: C_IRF, strokeWidth: 2 },
-        },
+        data: { values: effects },
+        mark: { type: 'bar', color: C_BAR },
         encoding: {
           x: {
-            field: 'epoch',
-            type: 'quantitative',
-            title: 'Epochs after shock',
-            axis: { format: 'd' },
+            field: 'horizon',
+            type: 'nominal',
+            title: null,
+            sort: HORIZONS.map(h => h.name),
           },
           y: {
-            field: 'cumLogTvl',
+            field: 'effect',
             type: 'quantitative',
-            title: 'Cumulative log TVL change',
+            title: '%/month per +10bps',
           },
         },
       },
@@ -610,23 +439,33 @@ async function main() {
   fs.mkdirSync(path.dirname(OUT), { recursive: true })
   await sharp(Buffer.from(svg)).png().toFile(OUT)
   console.log('saved →', OUT)
+}
 
-  // ── Model summary YAML ────────────────────────────────────────────────────
+// ── Summary YAML ────────────────────────────────────────────────────────────
 
+function writeSummary(
+  fit: OlsResult,
+  names: string[],
+  perMonth: number,
+  perYear: number,
+  sustainedT: number,
+) {
   const f4 = (v: number) => parseFloat(v.toFixed(4))
+  const coefs = fit.beta
+    .map(
+      (b, i) =>
+        `    ${(names[i] + ':').padEnd(14)} { beta: ${String(f4(b))}, t: ${String(f4(fit.tstat[i]))} }`,
+    )
+    .join('\n')
   const summary = `model:
   n_obs: ${String(fit.n)}
   r_squared: ${String(f4(fit.rSquared))}
   coefficients:
-    intercept:  { beta: ${String(f4(b0))}, se: ${String(f4(se0))}, t: ${String(f4(t0))} }
-    premium_t0: { beta: ${String(f4(b1))}, se: ${String(f4(se1))}, t: ${String(f4(t1))} }
-    premium_t1: { beta: ${String(f4(b2))}, se: ${String(f4(se2))}, t: ${String(f4(t2))} }
-    premium_t2: { beta: ${String(f4(b3))}, se: ${String(f4(se3))}, t: ${String(f4(t3))} }
-    d_log_sol:  { beta: ${String(f4(b4))}, se: ${String(f4(se4))}, t: ${String(f4(t4))} }
-  ar1_phi: ${String(f4(phi))}
-  impulse_response:
-    cumulative_log_tvl_30ep: ${String(f4(irfFinal))}`
-
+${coefs}
+  sustained_10bps_effect:
+    pct_per_month: ${String(f4(perMonth))}
+    pct_per_year: ${String(f4(perYear))}
+    t: ${String(f4(sustainedT))}`
   console.log('\n' + summary)
 }
 
