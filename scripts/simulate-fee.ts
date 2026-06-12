@@ -28,17 +28,16 @@ const { values, positionals } = parseArgs({
   options: {
     'data-dir': {
       type: 'string',
+      short: 'D',
       default: process.env.DATA_DIR ?? './regression-data',
     },
-    D: { type: 'string' },
+    'target-sol': { type: 'string', short: 's' },
     c: { type: 'boolean', default: false },
     d: { type: 'boolean', default: false },
     m: { type: 'string' },
     r: { type: 'boolean', default: false },
     f: { type: 'boolean', default: false },
     v: { type: 'boolean', default: false },
-    s: { type: 'string' },
-    'target-sol': { type: 'string' },
     n: { type: 'string' },
   },
   allowPositionals: true,
@@ -97,8 +96,8 @@ if (!epochArg) {
   process.exit(2)
 }
 
-const dataDir = values.D ?? values['data-dir']
-const targetSol = values['target-sol'] ?? values.s
+const dataDir = values['data-dir']
+const targetSol = values['target-sol']
 const apyUrl = process.env.APY_API_URL ?? 'https://apy.marinade.finance'
 
 const STAKES_FILE = 'stakes.json'
@@ -133,7 +132,7 @@ const binaryPath = values.r
   : './target/debug/bid-distribution-cli'
 const apy = (p: number, n: number) =>
   ((Math.pow(1 + p / 1000, n) - 1) * 100).toFixed(2) + '%'
-const sol = (v: number) => (Math.round((v / 1e9) * 1000) / 1000).toFixed(3)
+const sol = (v: number) => (v / 1e9).toFixed(3)
 
 const scratchDir = join(dataDir, 'tmp')
 mkdirSync(scratchDir, { recursive: true })
@@ -203,7 +202,7 @@ async function redelegationStakeFromFile(
   return metas.reduce(
     (sum, m) =>
       whitelist.has(m.stake_authority) && !exiting.has(m.stake_authority)
-        ? sum + parseFloat(String(m.deactivating_delegation_lamports))
+        ? sum + Number(m.deactivating_delegation_lamports)
         : sum,
     0,
   )
@@ -304,7 +303,7 @@ async function downloadEpochInputs(
     via: 'gcs' | 'http' = 'gcs',
   ) => {
     if (!values.f && existsSync(dst + '.gz')) return
-    if (values.f) rmSync(dst + '.gz', { force: true })
+    rmSync(dst + '.gz', { force: true })
     if (!values.d) process.stderr.write(`  ${src}\n`)
     await (via === 'gcs' ? runGcsCp(src, dst) : runHttpGet(src, dst))
     gzip.add(() => runGzip(dst))
@@ -456,9 +455,7 @@ async function processEpoch(
   out.push('  simulations:')
 
   const inp = join(dataDir, String(epoch), 'inputs')
-  const feesToRun = prodFile ? [null] : fees
-
-  for (const fee of feesToRun) {
+  for (const fee of fees) {
     let cfgText = cfgTemplate
     if (fee != null)
       cfgText = cfgText.replace(/(max_fee_bps:)\s*\d+/, `$1 ${fee}`)
@@ -617,31 +614,31 @@ async function main() {
     process.exit(2)
   }
 
-  const ssrRes = await fetch(`${apyUrl}/v1/epoch-pmpe/ssr`)
-  if (!ssrRes.ok) {
-    process.stderr.write('Failed: fetch SSR\n')
-    process.exit(1)
-  }
-  const ssr = (await ssrRes.json()) as { epochs: SsrEpoch[] }
-
-  const infRes = await fetch(INF_LLAMA)
-  const infPoints: LlamaPoint[] = infRes.ok
-    ? (((await infRes.json()) as { data?: LlamaPoint[] | undefined }).data ??
-      [])
-    : []
-
-  const cfgTemplate = await Bun.file('./settlement-config.yaml').text()
-
-  if (!existsSync(binaryPath)) {
+  if (!values.c && !existsSync(binaryPath)) {
     process.stderr.write(
       `Failed: binary not found at ${binaryPath} — run: cargo build${values.r ? ' --release' : ''} --bin bid-distribution-cli\n`,
     )
     process.exit(1)
   }
 
+  const [ssrRes, infRes, cfgTemplate] = await Promise.all([
+    fetch(`${apyUrl}/v1/epoch-pmpe/ssr`),
+    fetch(INF_LLAMA),
+    Bun.file('./settlement-config.yaml').text(),
+  ])
+  if (!ssrRes.ok) {
+    process.stderr.write('Failed: fetch SSR\n')
+    process.exit(1)
+  }
+  const ssr = (await ssrRes.json()) as { epochs: SsrEpoch[] }
+  const infPoints: LlamaPoint[] = infRes.ok
+    ? (((await infRes.json()) as { data?: LlamaPoint[] | undefined }).data ??
+      [])
+    : []
+
   const gzip = makePool(8)
 
-  const CONCURRENCY = values.n ? Number(values.n) : 4
+  const CONCURRENCY = values.n ? Number(values.n) : 20
   const epochs: number[] = []
   for (let e = epochStart; e <= epochEnd; e++) epochs.push(e)
 
