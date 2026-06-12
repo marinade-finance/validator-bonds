@@ -287,17 +287,21 @@ async function main() {
 
   // With many epochs, every-epoch tick labels overlap; show every Nth.
   const labelStride = Math.ceil(epochDomain.length / 40)
-  const labelExpr =
-    labelStride > 1
-      ? `(datum.value - ${epochs[0]}) % ${labelStride} === 0 ? datum.label : ''`
+  const mkLabel = (s: number) =>
+    s > 1
+      ? `(datum.value - ${epochs[0]}) % ${s} === 0 ? datum.label : ''`
       : 'datum.label'
 
   const xEnc = {
     field: 'epoch',
     type: 'ordinal' as const,
     title: null,
-    axis: { labelAngle: -45, labelExpr },
+    axis: { labelAngle: -45, labelExpr: mkLabel(labelStride) },
     scale: { domain: epochDomain },
+  }
+  const xEncSmall = {
+    ...xEnc,
+    axis: { ...xEnc.axis, labelExpr: mkLabel(labelStride * 2) },
   }
 
   // Tidy APY data for a legend-friendly encoding: one row per (epoch, series).
@@ -548,7 +552,11 @@ async function main() {
                 scale: { domain: periodDomain },
               },
               xOffset: { field: 'series', sort: [S_ADJUSTED, S_MAXFEE] },
-              y: { field: 'sol', type: 'quantitative', title: '[SOL]' },
+              y: {
+                field: 'sol',
+                type: 'quantitative',
+                title: 'Fee Payable [SOL]',
+              },
               color: {
                 field: 'series',
                 scale: {
@@ -627,7 +635,7 @@ async function main() {
                   point: { filled: true, size: 30 },
                 },
                 encoding: {
-                  x: xEnc,
+                  x: xEncSmall,
                   y: {
                     field: 'pct',
                     type: 'quantitative',
@@ -679,7 +687,7 @@ async function main() {
                   point: { filled: true, size: 30 },
                 },
                 encoding: {
-                  x: xEnc,
+                  x: xEncSmall,
                   y: {
                     field: 'bps',
                     type: 'quantitative',
