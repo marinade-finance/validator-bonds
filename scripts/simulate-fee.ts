@@ -64,7 +64,7 @@ if (!epochArg) {
       '  -c      read production settlement from GCS instead of re-running CLI; skips input downloading\n' +
       '  -d      debug: print all subprocess commands and full CLI output\n' +
       '  -f      force re-download inputs even if already cached\n' +
-      '  -n N    compute concurrency (default: 4)\n' +
+      '  -n N    compute concurrency (default: 20)\n' +
       '  -r      use release binary (./target/release/bid-distribution-cli)\n' +
       '  -v      verbose CLI output (print SSR cap and fee: effective lines)\n' +
       '\n' +
