@@ -51,6 +51,7 @@ const C_COST = '#b22222'
 
 type SimYaml = {
   max_fee_bps?: string | number
+  min_fee_bps?: string | number
   apy_adj?: string | number
   apy_max?: string | number
   fee_sol_adj?: string | number
@@ -68,7 +69,7 @@ type EpochYaml = {
 }
 type ReportYaml = { epochs: EpochYaml[] }
 
-const S_AT_CAP = 'at max fee'
+const S_AT_CAP = 'below max fee'
 const S_AT_MIN = 'at min fee'
 const S_ADJUSTED = 'adjusted'
 const S_MAXFEE = 'max-fee cap'
@@ -119,10 +120,12 @@ function loadMinSolRevenue(): number | null {
 function load() {
   const data = parseYaml(fs.readFileSync(REPORT, 'utf8')) as ReportYaml
   let maxFeeBps = 0
+  let minFeeBps = 0
   const rows = data.epochs.flatMap(e => {
     const sim = e.simulations?.[0]
     if (!sim) return []
     maxFeeBps = Number(sim.max_fee_bps ?? maxFeeBps)
+    minFeeBps = Number(sim.min_fee_bps ?? minFeeBps)
     const feeAdj = Number(sim.fee_sol_adj)
     const feeMax = Number(sim.fee_sol_max)
     const actualFeeBps = feeMax > 0 ? (feeAdj * maxFeeBps) / feeMax : 0
@@ -147,14 +150,16 @@ function load() {
     ]
   })
   const maxAdjFee = Math.max(...rows.map(r => r.adjMaxFee))
-  return { rows, maxFeeBps, maxAdjFee }
+  return { rows, maxFeeBps, minFeeBps, maxAdjFee }
 }
 
 async function main() {
-  const { rows, maxFeeBps, maxAdjFee } = load()
+  const { rows, maxFeeBps, minFeeBps, maxAdjFee } = load()
   const minSolRevenue = loadMinSolRevenue()
   const epochs = rows.map(r => r.epoch)
   const title = `Marinade Validator Bond Fee Simulation · Epochs ${epochs[0]}–${epochs[epochs.length - 1]}`
+  const tag = REPORT.match(/report-(.+)\.ya?ml$/)?.[1]
+  const subtitle = `${tag ? tag + ' · ' : ''}min fee ${minFeeBps} bps · max fee ${maxFeeBps} bps`
 
   // Detect gaps in the otherwise-consecutive epoch sequence. The ordinal axis
   // silently connects across missing epochs, so we draw a marker at each gap.
@@ -204,18 +209,27 @@ async function main() {
   const epochsPerPeriod = ((useMonth ? 30 : 7) * 86400) / avgEpochSec
   const periodTarget =
     minSolRevenue != null ? minSolRevenue * epochsPerPeriod : null
-  // The current period is incomplete — compare against today's period key
-  const nowKey = periodOf(Date.now() / 1000)
+  // First & last periods are dotted when partial: a boundary period holding
+  // fewer epochs than its neighbour hasn't been fully observed.
+  const periodCount = new Map<string, number>()
+  for (const r of rows) {
+    const k = periodOf(r.time)
+    periodCount.set(k, (periodCount.get(k) ?? 0) + 1)
+  }
+  const lastIdx = periodDomain.length - 1
+  const cnt = (i: number) => periodCount.get(periodDomain[i]) ?? 0
+  const incompletePeriods = new Set<string>()
+  if (periodDomain.length >= 2) {
+    if (cnt(0) < cnt(1)) incompletePeriods.add(periodDomain[0])
+    if (cnt(lastIdx) < cnt(lastIdx - 1))
+      incompletePeriods.add(periodDomain[lastIdx])
+  }
   const feePeriodTidy = periodDomain.flatMap(p => {
     const d = periodMap.get(p) ?? { feeAdj: 0, feeMax: 0 }
+    const incomplete = incompletePeriods.has(p)
     return [
-      {
-        period: p,
-        series: S_ADJUSTED,
-        sol: d.feeAdj,
-        incomplete: p === nowKey,
-      },
-      { period: p, series: S_MAXFEE, sol: d.feeMax, incomplete: p === nowKey },
+      { period: p, series: S_ADJUSTED, sol: d.feeAdj, incomplete },
+      { period: p, series: S_MAXFEE, sol: d.feeMax, incomplete },
     ]
   })
   const apyData = rows.map(r => ({
@@ -328,7 +342,15 @@ async function main() {
 
   const spec: TopLevelSpec = {
     $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
-    title: { text: title, fontSize: 15, fontWeight: 'bold', offset: 8 },
+    title: {
+      text: title,
+      subtitle,
+      fontSize: 15,
+      fontWeight: 'bold',
+      offset: 8,
+      subtitleFontSize: 11,
+      subtitleColor: '#666',
+    },
     background: 'white',
     config: {
       view: { stroke: null },
