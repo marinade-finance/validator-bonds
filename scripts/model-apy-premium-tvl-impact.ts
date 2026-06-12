@@ -9,14 +9,14 @@ import { compile } from 'vega-lite'
 
 import type { TopLevelSpec } from 'vega-lite'
 
-// Does Marinade Native's APY premium over SSR drive net inflow? Monthly model:
+// Does Marinade Native's APY premium over SSR drive net INFLOW? Monthly model:
 //   net_flow(t) ~ premium[last month] + premium[last quarter] + premium[last year]
-//                 + Δprice(t)
-// net_flow = Δlog(TVL in SOL) minus mechanical reward drift (TVL compounds by the
-// staking yield every epoch regardless of flows). Premium enters at three trailing
-// horizons (non-overlapping age bands) so we can see whether recent or sustained
-// premium matters. Each is the AVERAGE premium over that band, in percentage points.
-// Effects are reported per +10bps because 100bps of premium is a huge, costly lever.
+// net_flow = Δlog(native TVL in SOL) minus mechanical reward drift — TVL compounds
+// by the staking yield every epoch regardless of flows, so the residual is net
+// deposits. TVL is SOL-denominated straight from DeFiLlama tokens.SOL (no price
+// contamination). Premium enters at three trailing horizons (non-overlapping age
+// bands) as the AVERAGE premium over that band, in percentage points. Effects are
+// reported per +10bps because 100bps of premium is a huge, costly lever.
 
 const CACHE = './tmp/model-apy-cache.json'
 const OUT = './report/model-apy-premium-tvl-impact.png'
@@ -35,18 +35,14 @@ const PREM_COLS = HORIZONS.map((_, j) => 1 + j) // their columns in the design
 
 type EpochApyEntry = { epoch: number; time: number; apy: number }
 type EpochApyResponse = { epochs: EpochApyEntry[] }
-type TvlEntry = { date: number; totalLiquidityUSD: number }
-type TvlResponse = { tvl: TvlEntry[] }
-type PricePoint = { timestamp: number; price: number }
-type PriceResponse = {
-  coins: { 'coingecko:solana': { prices: PricePoint[] } }
-}
+type TokenPoint = { date: number; tokens: { SOL?: number; WSOL?: number } }
+type ProtocolResponse = { tokens?: TokenPoint[] }
+type TvlEntry = { date: number; sol: number } // native TVL in SOL
 
 type CacheData = {
   native: EpochApyEntry[]
   ssr: EpochApyEntry[]
   tvl: TvlEntry[]
-  prices: PricePoint[]
 }
 
 // ── Fetch helpers ─────────────────────────────────────────────────────────────
@@ -57,35 +53,40 @@ async function fetchJson<T>(url: string): Promise<T> {
   return r.json() as Promise<T>
 }
 
+// native TVL in SOL from DeFiLlama tokens.SOL (no USD/price contamination)
+async function fetchTvlSol(slug: string): Promise<TvlEntry[]> {
+  const resp = await fetchJson<ProtocolResponse>(
+    `https://api.llama.fi/protocol/${slug}`,
+  )
+  if (!resp.tokens || resp.tokens.length === 0)
+    throw new Error(`no tokens series for ${slug}`)
+  const out: TvlEntry[] = []
+  for (const p of resp.tokens) {
+    const sol = (p.tokens.SOL ?? 0) + (p.tokens.WSOL ?? 0)
+    if (sol > 0) out.push({ date: p.date, sol })
+  }
+  return out
+}
+
 async function loadData(): Promise<CacheData> {
   if (useCache && fs.existsSync(CACHE)) {
     console.log('using cache →', CACHE)
     return JSON.parse(fs.readFileSync(CACHE, 'utf8')) as CacheData
   }
   console.log('fetching data...')
-  // Price API caps at 500 points; epoch data spans ~930 days so fetch in two halves
-  const priceUrl = (start: number) =>
-    `https://coins.llama.fi/chart/coingecko:solana?start=${String(start)}&span=450&period=1d&searchWidth=600`
-  const [nativeResp, ssrResp, tvlResp, price1Resp, price2Resp] =
-    await Promise.all([
-      fetchJson<EpochApyResponse>(
-        'https://apy.marinade.finance/v1/epoch-apy/marinade-native',
-      ),
-      fetchJson<EpochApyResponse>(
-        'https://apy.marinade.finance/v1/epoch-apy/ssr',
-      ),
-      fetchJson<TvlResponse>('https://api.llama.fi/protocol/marinade-native'),
-      fetchJson<PriceResponse>(priceUrl(1699000000)),
-      fetchJson<PriceResponse>(priceUrl(1738000000)),
-    ])
+  const [nativeResp, ssrResp, tvl] = await Promise.all([
+    fetchJson<EpochApyResponse>(
+      'https://apy.marinade.finance/v1/epoch-apy/marinade-native',
+    ),
+    fetchJson<EpochApyResponse>(
+      'https://apy.marinade.finance/v1/epoch-apy/ssr',
+    ),
+    fetchTvlSol('marinade-native'),
+  ])
   const data: CacheData = {
     native: nativeResp.epochs,
     ssr: ssrResp.epochs,
-    tvl: tvlResp.tvl,
-    prices: [
-      ...price1Resp.coins['coingecko:solana'].prices,
-      ...price2Resp.coins['coingecko:solana'].prices,
-    ],
+    tvl,
   }
   fs.mkdirSync(path.dirname(CACHE), { recursive: true })
   fs.writeFileSync(CACHE, JSON.stringify(data))
@@ -100,8 +101,7 @@ type MonthRow = {
   time: number
   premBps: number // mean native − SSR over the month, in bps
   apy: number // mean native APY over the month
-  tvlSol: number // end-of-month TVL in SOL
-  price: number // end-of-month SOL price
+  tvlSol: number // end-of-month native TVL in SOL
 }
 
 function nearest<T>(
@@ -131,15 +131,13 @@ function buildMonths(data: CacheData): MonthRow[] {
     prem: number
     apy: number
     tvlSol: number
-    price: number
   }
   const groups = new Map<number, Joined[]>()
 
   for (const ep of data.native) {
     const ssr = ssrMap.get(ep.epoch)
     const tvl = nearest(data.tvl, ep.time, v => v.date, maxDelta)
-    const price = nearest(data.prices, ep.time, v => v.timestamp, maxDelta)
-    if (ssr == null || !tvl || !price) continue
+    if (ssr == null || !tvl) continue
     const key = Math.floor(ep.time / MONTH)
     const list = groups.get(key) ?? []
     list.push({
@@ -147,8 +145,7 @@ function buildMonths(data: CacheData): MonthRow[] {
       time: ep.time,
       prem: (ep.apy - ssr) * 10000,
       apy: ep.apy,
-      tvlSol: tvl.totalLiquidityUSD / price.price,
-      price: price.price,
+      tvlSol: tvl.sol,
     })
     groups.set(key, list)
   }
@@ -162,7 +159,6 @@ function buildMonths(data: CacheData): MonthRow[] {
       premBps: mean(list, j => j.prem),
       apy: mean(list, j => j.apy),
       tvlSol: last.tvlSol, // end-of-month level for the growth calc
-      price: last.price,
     })
   }
   return months.sort((a, b) => a.time - b.time)
@@ -177,7 +173,6 @@ function mean<T>(arr: T[], f: (v: T) => number): number {
 type Design = { X: number[][]; y: number[]; names: string[] }
 
 function buildDesign(months: MonthRow[]): Design {
-  const ret = (i: number) => Math.log(months[i].price / months[i - 1].price)
   // average premium over an age band, in percentage points
   const band = (i: number, lags: number[]) =>
     mean(lags, l => months[i - l].premBps) / 100
@@ -188,10 +183,10 @@ function buildDesign(months: MonthRow[]): Design {
     const days = (months[i].time - months[i - 1].time) / 86400
     const growth = Math.log(months[i].tvlSol / months[i - 1].tvlSol)
     const mechanical = months[i].apy * (days / 365) // rewards compound regardless
-    y.push(growth - mechanical)
-    X.push([1, ...HORIZONS.map(h => band(i, h.lags)), ret(i)])
+    y.push(growth - mechanical) // net SOL inflow: Δlog supply − reward drift
+    X.push([1, ...HORIZONS.map(h => band(i, h.lags))])
   }
-  const names = ['intercept', ...HORIZONS.map(h => h.name), 'Δprice(t)']
+  const names = ['intercept', ...HORIZONS.map(h => h.name)]
   return { X, y, names }
 }
 
