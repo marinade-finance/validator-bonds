@@ -271,17 +271,29 @@ async function runMkdir(dir: string): Promise<void> {
 }
 
 async function runGcsCp(src: string, dst: string): Promise<void> {
-  const code = await Bun.spawn(['gcloud', 'storage', 'cp', src, dst], {
+  const proc = Bun.spawn(['gcloud', 'storage', 'cp', src, dst], {
     stderr: 'pipe',
-  }).exited
-  if (code !== 0) throw new Error(`gcloud cp failed: ${src}`)
+  })
+  const [code, buf] = await Promise.all([
+    proc.exited,
+    new Response(proc.stderr).arrayBuffer(),
+  ])
+  if (code !== 0)
+    throw new Error(
+      `gcloud cp failed: ${src}\n${Buffer.from(buf).toString().trim()}`,
+    )
 }
 
 async function runHttpGet(url: string, dst: string): Promise<void> {
-  const code = await Bun.spawn(['curl', '-sf', url, '-o', dst], {
-    stderr: 'pipe',
-  }).exited
-  if (code !== 0) throw new Error(`curl failed: ${url}`)
+  const proc = Bun.spawn(['curl', '-f', url, '-o', dst], { stderr: 'pipe' })
+  const [code, buf] = await Promise.all([
+    proc.exited,
+    new Response(proc.stderr).arrayBuffer(),
+  ])
+  if (code !== 0)
+    throw new Error(
+      `curl failed: ${url}\n${Buffer.from(buf).toString().trim()}`,
+    )
 }
 
 async function runGzip(f: string): Promise<void> {
@@ -322,6 +334,7 @@ async function downloadEpochInputs(epoch: number): Promise<void> {
   ) => {
     if (!values.f && existsSync(dst + '.gz')) return
     if (values.f) rmSync(dst + '.gz', { force: true })
+    process.stderr.write(`  ${src}\n`)
     await (via === 'gcs' ? runGcsCp(src, dst) : runHttpGet(src, dst))
     gzip.add(() => runGzip(dst))
   }
